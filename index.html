@@ -647,89 +647,42 @@ function igIcon(){
   </svg>`;
 }
 
-// ── Supabase 연동 (빠른 직접 연결) ──
+// ── Supabase 연동 ──
 const SUPABASE_URL = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwdB3FX44BGNWW3CVqgmz-DP3Z9F0Kpv8huXvKOWHbvmER67IYBWDC3M8PwAv4jhPHd/exec';
 
 let DATA = [];
 
-function parseDate(str) {
-  if (!str) return '';
-  str = str.toString().trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  const m = str.match(/(\d{4})[.\-\/\s년]+(\d{1,2})[.\-\/\s월]+(\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
-  return '';
-}
-
 async function loadData() {
   try {
-    // Supabase에서 오늘 이후 데이터만 빠르게 읽기
-    const today = todayStr;
-    const url = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${today}&order=open_date.asc&limit=500`;
+    // 오늘 기준 3일 전부터(진행중 포함) 이후 데이터 가져오기
+    const fromDate = dOff(-4); // 마감일 없으면 오픈+3일이므로 여유있게 4일 전부터
+    const url = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&order=open_date.asc&limit=1000`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
       }
     });
-
-    if (!res.ok) throw new Error('Supabase 오류');
+    if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
     const rows = await res.json();
-
-    if (rows.length > 0) {
-      // Supabase 성공
-      DATA = rows.map((r, i) => ({
-        id: i + 1,
-        influencer: r.influencer || '',
-        insta: (r.insta || '').replace('@', '').trim(),
-        major: r.major || '',
-        minor: r.minor || '',
-        name: r.name || '',
-        openDate: r.open_date || '',
-        endDate: r.end_date || '',
-      })).filter(d => d.name && d.openDate);
-      console.log(`✅ Supabase ${DATA.length}건 로드`);
-    } else {
-      // Supabase 비어있으면 앱스 스크립트로 폴백 + Supabase 동기화
-      console.log('Supabase 비어있음 → 앱스 스크립트로 동기화 중...');
-      await syncFromAppsScript();
-    }
+    DATA = rows.map((r, i) => ({
+      id: i + 1,
+      influencer: r.influencer || '',
+      insta: (r.insta || '').replace('@', '').trim(),
+      major: r.major || '',
+      minor: r.minor || '',
+      name: r.name || '',
+      openDate: r.open_date || '',
+      endDate: r.end_date || '',
+    })).filter(d => d.name && d.openDate);
+    console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
-    console.warn('Supabase 실패, 앱스 스크립트로 폴백:', e);
-    await syncFromAppsScript();
+    console.error('데이터 로드 실패:', e);
+    DATA = [];
   }
   buildWeekTabs();
   renderList();
-}
-
-async function syncFromAppsScript() {
-  try {
-    const res = await fetch(APPS_SCRIPT_URL);
-    const rows = await res.json();
-    const minorColMap = {'육아':7,'리빙':8,'인테리어':9,'식품':10,'뷰티':11,'여행':12,'반려동물':13,'패션':14};
-    DATA = rows.slice(1).map((c, i) => {
-      const major = (c[3]||'').toString().trim();
-      const open = parseDate(c[5]);
-      if (!open || !major) return null;
-      const minorCol = minorColMap[major];
-      const minor = minorCol !== undefined ? (c[minorCol]||'').toString().trim() : '';
-      return {
-        id: i+1,
-        influencer: (c[1]||'').toString().trim(),
-        insta: (c[2]||'').toString().replace('@','').trim(),
-        major, minor,
-        name: (c[4]||'').toString().trim(),
-        openDate: open,
-        endDate: parseDate(c[6]),
-      };
-    }).filter(d => d && d.name);
-    console.log(`✅ 앱스 스크립트 ${DATA.length}건 로드`);
-  } catch(e) {
-    console.error('전체 로드 실패:', e);
-    DATA = [];
-  }
 }
 
 // ── 상태 판별 ──
