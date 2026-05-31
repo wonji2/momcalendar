@@ -135,8 +135,48 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div class="tab" onclick="switchTab('approved',this)">승인됨</div>
     <div class="tab" onclick="switchTab('dup',this)">중복의심</div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
+    <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
+  </div>
+
+  <!-- 크롤링 탭 -->
+  <div id="crawlView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
+      🕷️ <b>공구팡팡 + 공구모아 자동 크롤링</b><br>
+      버튼을 누르면 각 사이트를 새 탭에서 열고 자동으로 데이터를 수집해요.<br>
+      크롤링 중 해당 탭을 닫지 마세요!
+    </div>
+    <!-- 공구팡팡 -->
+    <div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#2A1D6E">공구팡팡</div>
+          <div style="font-size:11px;color:#999">09pangpang.com</div>
+        </div>
+        <button onclick="startCrawl('pangpang')" id="btnPangpang" style="padding:10px 18px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🕷️ 크롤링 시작</button>
+      </div>
+      <div id="pangpangStatus" style="font-size:12px;color:#999;min-height:20px"></div>
+      <div id="pangpangProgress" style="height:6px;background:#EBEBEB;border-radius:3px;margin-top:8px;display:none">
+        <div id="pangpangBar" style="height:100%;background:#4A35A0;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+    </div>
+    <!-- 공구모아 -->
+    <div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#2A1D6E">공구모아</div>
+          <div style="font-size:11px;color:#999">gonggumoa.com</div>
+        </div>
+        <button onclick="startCrawl('gonggumoa')" id="btnGonggumoa" style="padding:10px 18px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🕷️ 크롤링 시작</button>
+      </div>
+      <div id="gonggumoacStatus" style="font-size:12px;color:#999;min-height:20px"></div>
+      <div id="gonggumoacProgress" style="height:6px;background:#EBEBEB;border-radius:3px;margin-top:8px;display:none">
+        <div id="gonggumoacBar" style="height:100%;background:#4A35A0;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+    </div>
+    <!-- 결과 -->
+    <div id="crawlResult" style="display:none;background:#E8F5E9;border-radius:12px;padding:14px;font-size:13px;color:#2E7D32;font-weight:700"></div>
   </div>
 
   <!-- AI 등록 탭 -->
@@ -733,7 +773,346 @@ async function submitAiData(){
   }
 }
 
-// ── 배너 색상 피커 ──
+// ── 크롤링 ──
+const BAD_NAMES = new Set(['생활용품','스킨케어','헤어케어','메이크업','바디케어','주방가전','생활가전',
+  '청소가전','계절가전','영상가전','간편식/밀키트','건강식품','패키지/투어','의류','키즈패션',
+  '액세서리','교구/교육','육아용품','주방용품','침구/패브릭','유아식','장난감/놀이','신발',
+  '가방','스포츠웨어','테이블웨어','홈인테리어','가구','잡화','기타','건강','신선식품',
+  '인테리어','반려동물','육아','리빙','식품','뷰티','패션','가전','여행','더 보기','더보기',
+  '홈리빙','테크가전','키즈','성인','전체','공구','오픈','마감','예정','종료']);
+
+function crawlGuessCat(name, minor) {
+  const n = (name||'').toLowerCase();
+  const catMap = {
+    '가전':{major:'가전',minor:'생활가전'},'건강':{major:'식품',minor:'건강식품'},
+    '식품':{major:'식품',minor:'간편식/밀키트'},'뷰티':{major:'뷰티',minor:'스킨케어'},
+    '생활':{major:'리빙',minor:'생활용품'},'패션':{major:'패션',minor:'의류'},
+    '교육':{major:'육아',minor:'교구/교육'},'교구':{major:'육아',minor:'교구/교육'},
+    '장난감':{major:'육아',minor:'장난감/놀이'},'가구':{major:'인테리어',minor:'가구'},
+    '여행':{major:'여행',minor:'호텔/숙소'},'기타':{major:'리빙',minor:'생활용품'},
+    '책':{major:'육아',minor:'교구/교육'},
+  };
+  const base = catMap[minor] || {major:'리빙',minor:'생활용품'};
+  if (/선풍기|제습기|가습기|에어컨|공기청정기|냉풍기|에어서큘|손풍기/.test(n)) return {major:'가전',minor:'계절가전'};
+  if (/청소기|로봇청소|물걸레/.test(n)) return {major:'가전',minor:'청소가전'};
+  if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
+  if (/냉장고|세탁기|건조기|음식물처리기|음처기/.test(n)) return {major:'가전',minor:'생활가전'};
+  if (/드라이기|고데기|스트레이트너/.test(n)) return {major:'가전',minor:'생활가전'};
+  if (/비타민|영양제|유산균|오메가|콜라겐|홍삼|마그네슘|철분|칼슘|이뮨|면역|마이니|프로바이오|엘더베리|프로폴리스|빌베리|이노시톨|글루타치온/.test(n)) return {major:'식품',minor:'건강식품'};
+  if (/다이어트|식욕억제|지방분해/.test(n)) return {major:'식품',minor:'건강식품'};
+  if (/샴푸|헤어|두피|탈모|트리트먼트|컨디셔너/.test(n)) return {major:'뷰티',minor:'헤어케어'};
+  if (/선크림|크림|세럼|에센스|토너|앰플|마스크팩|클렌|미백|주름|스킨|썬|자외선|쿠션|팩트|bb|cc|프라이머|컨실러|파운데/.test(n)) return {major:'뷰티',minor:'스킨케어'};
+  if (/바디워시|바디로션|핸드크림|바디|보디/.test(n)) return {major:'뷰티',minor:'바디케어'};
+  if (/향수|퍼퓸/.test(n)) return {major:'뷰티',minor:'향수'};
+  if (/래시가드|수영복|비치|서핑|요가복|레깅스|운동복/.test(n)) return {major:'패션',minor:'스포츠웨어'};
+  if (/신발|운동화|슬리퍼|샌들|부츠|크록스/.test(n)) return {major:'패션',minor:'신발'};
+  if (/가방|백팩|숄더|크로스백|에코백|클러치/.test(n)) return {major:'패션',minor:'가방'};
+  if (/양산|선글라스|모자|주얼리|귀걸이|목걸이|반지|팔찌/.test(n)) return {major:'패션',minor:'액세서리'};
+  if (/만두|냉면|라면|즉석|밀키트|간편식|떡볶이|파스타|국수/.test(n)) return {major:'식품',minor:'간편식/밀키트'};
+  if (/과일|딸기|수박|참외|야채|채소|고구마|감자|옥수수/.test(n)) return {major:'식품',minor:'과일/야채'};
+  if (/우유|요거트|치즈|유제품|분유|두유/.test(n)) return {major:'식품',minor:'유제품'};
+  if (/고기|정육|계란|삼겹살|갈비|한우|흑돼지|닭/.test(n)) return {major:'식품',minor:'정육/계란'};
+  if (/빵|베이커리|쿠키|마카롱|케이크|과자|간식|떡|젤리|사탕|초콜릿/.test(n)) return {major:'식품',minor:'간식/구황작물'};
+  if (/수산|생선|새우|전복|김|미역|건어물|오징어|낙지/.test(n)) return {major:'식품',minor:'수산물/건해산'};
+  if (/음료|주스|차|즙|커피|에이드|이온/.test(n)) return {major:'식품',minor:'음료/차/즙'};
+  if (/간장|된장|고추장|소스|오일|올리브유/.test(n)) return {major:'식품',minor:'장류/오일/소스'};
+  if (/교구|학습|한글|영어|그림책|워크북|퍼즐|보드게임|블록|레고|스터디|검정시험/.test(n)) return {major:'육아',minor:'교구/교육'};
+  if (/장난감|피규어|인형|놀이|로봇|자동차장난감|워터매트|볼풀/.test(n)) return {major:'육아',minor:'장난감/놀이'};
+  if (/이유식|유아식|아기밥|아기과자|아기간식|이유/.test(n)) return {major:'육아',minor:'이유아식'};
+  if (/유모차|카시트|힙시트|아기띠|포대기/.test(n)) return {major:'육아',minor:'유모차카시트'};
+  if (/침구|이불|베개|매트리스|토퍼|냉감패드|여름이불/.test(n)) return {major:'리빙',minor:'침구/패브릭'};
+  if (/냄비|프라이팬|그릇|컵|텀블러|도마|칼|수저|밀폐용기/.test(n)) return {major:'리빙',minor:'주방용품'};
+  if (/청소|세제|물티슈|휴지|빨래|방향제|모기/.test(n)) return {major:'리빙',minor:'생활용품'};
+  if (/소파|침대|책상|의자|수납|선반|옷걸이/.test(n)) return {major:'인테리어',minor:'가구'};
+  if (/반려|강아지|고양이|펫|사료|간식/.test(n)) return {major:'반려동물',minor:'사료'};
+  if (/호텔|숙소|리조트|펜션|캠핑|글램핑/.test(n)) return {major:'여행',minor:'호텔/숙소'};
+  if (/항공|비행기|여행|패키지|투어/.test(n)) return {major:'여행',minor:'패키지/투어'};
+  return base;
+}
+
+function crawlNorm(s){ return (s||'').replace(/[\s\-_·\.]/g,'').toLowerCase(); }
+function crawlSim(a,b){
+  a=crawlNorm(a); b=crawlNorm(b);
+  if(!a||!b) return 0; if(a===b) return 1;
+  if(a.includes(b)||b.includes(a)) return Math.min(a.length,b.length)/Math.max(a.length,b.length);
+  let m=0; const ba=b.split('');
+  a.split('').forEach(c=>{const idx=ba.indexOf(c);if(idx>-1){m++;ba.splice(idx,1);}});
+  return (2*m)/(a.length+b.length);
+}
+
+function isValidName(name) {
+  if (!name) return false;
+  if (BAD_NAMES.has(name)) return false;
+  if (/^[가-힣]{1,5}\/[가-힣]{1,8}$/.test(name)) return false; // X/Y 소분류 패턴
+  if (name.length < 2 || name.length > 60) return false;
+  if (/^\[.+\]$/.test(name)) return false; // 광고 배너
+  if (/^(오늘|내일|어제)\s*(오픈|마감)/.test(name)) return false;
+  if (/\d+\s*(시간|분|일)\s*전/.test(name)) return false;
+  if (/^[a-z0-9_.]{3,}$/.test(name)) return false; // 영어 아이디만
+  if (/바로 구매/.test(name)) return false;
+  return /[가-힣A-Za-z0-9]/.test(name); // 최소 문자 포함
+}
+
+function fixEndDate(openDate, endDate) {
+  if (!endDate) return addDays(openDate, 3);
+  // 마감일이 오픈일보다 이전이면 오픈+3
+  if (endDate < openDate) return addDays(openDate, 3);
+  // 마감일이 오픈일+60일 초과면 오픈+3 (비정상)
+  const diff = (new Date(endDate) - new Date(openDate)) / 86400000;
+  if (diff > 60) return addDays(openDate, 3);
+  return endDate;
+}
+
+function parsePangpang(text, existingData) {
+  const MAJORS = new Set(['식품','뷰티','패션','홈리빙','리빙','테크가전','가전','여행','키즈','스포츠','홈']);
+  const SUBCATS = new Set(['간식/베이커리','스킨케어','헤어케어','메이크업','바디케어','주방가전','생활가전',
+    '청소가전','계절가전','영상가전','간편식/밀키트','건강식품','패키지/투어','의류','키즈패션',
+    '액세서리','교구/교육','육아용품','생활용품','주방용품','침구/패브릭','유아식','장난감/놀이',
+    '신발','가방','아우터','이너웨어','홈인테리어','가구','잡화','스포츠','기타']);
+  const SKIP = new Set(['더 보기','공구팡팡','오늘오픈','마이페이지','홈','인플루언서','팔로워',
+    '오픈 캘린더','인스타 최신 공구','지금 핫한 키워드','AI 자동 분석','모바일로 접속하기',
+    'QR코드','인스타그램','공동구매','검색','좋은 가격이 팡팡']);
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const results = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^[a-z0-9][a-z0-9_.]{1,28}[a-z0-9_]$/.test(line) &&
+        i+1 < lines.length && lines[i+1].startsWith('팔로워')) {
+      const insta = line;
+      i += 2;
+      if (i < lines.length && /^(약\s*)?\d+\s*(분|시간|일)\s*전$/.test(lines[i])) i++;
+      let major='', minor='', openDate='', endDate='';
+      const products = [];
+
+      while (i < lines.length) {
+        const l = lines[i];
+        if (/^[a-z0-9][a-z0-9_.]{1,28}[a-z0-9_]$/.test(l) &&
+            i+1 < lines.length && lines[i+1]?.startsWith('팔로워')) break;
+
+        // 카테고리
+        if (l.includes('>') && l.length < 40 && !l.includes('더')) {
+          const [maj, min] = l.split('>').map(s=>s.trim());
+          major = maj.replace('홈리빙','리빙').replace('테크가전','가전').replace('키즈','육아');
+          minor = min||''; i++; continue;
+        }
+
+        // 날짜 범위 M/D ~ M/D
+        const dr = l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)\s*~\s*(\d{1,2})\/(\d{1,2})/);
+        if (dr) {
+          openDate = `2026-${dr[1].padStart(2,'0')}-${dr[2].padStart(2,'0')}`;
+          endDate  = `2026-${dr[3].padStart(2,'0')}-${dr[4].padStart(2,'0')}`;
+          i++; continue;
+        }
+        // 단일 날짜
+        const ds = l.match(/^(\d{1,2})\/(\d{1,2})\s*\([^)]*\)/);
+        if (ds && !openDate) {
+          openDate = `2026-${ds[1].padStart(2,'0')}-${ds[2].padStart(2,'0')}`;
+          i++; continue;
+        }
+
+        // 스킵
+        const skip = SKIP.has(l) || SUBCATS.has(l) || MAJORS.has(l) || BAD_NAMES.has(l)
+          || l.includes('오픈') || l.includes('마감') || l.includes('예정')
+          || l.includes('팔로워') || /^(약\s*)?\d+\s*(분|시간|일)\s*전$/.test(l)
+          || /^[a-z0-9_.#@\s]+$/.test(l) || /^\d/.test(l) || l === '더 보기';
+
+        if (!skip && isValidName(l)) products.push(l);
+        i++;
+      }
+
+      // 날짜 없으면 오늘로 (단, 이미 오늘 데이터 많으면 skip)
+      if (!openDate) { i++; continue; }
+      // 과거 날짜면 skip
+      if (openDate < todayStr) { i++; continue; }
+
+      const ed = fixEndDate(openDate, endDate);
+      products.forEach(name => {
+        // 기존 DB 중복 체크
+        const isDup = existingData.some(e =>
+          e.open_date === openDate && crawlSim(e.name, name) >= 0.7
+        );
+        if (!isDup) {
+          const cat = crawlGuessCat(name, minor);
+          results.push({ insta, name, major: cat.major, minor: cat.minor, open_date: openDate, end_date: ed });
+        }
+      });
+    } else { i++; }
+  }
+  return results;
+}
+
+function parseGonggumoa(text, existingData) {
+  const MAJORS_GM = new Set(['성인','육아','전체']);
+  const SUBCATS_GM = new Set(['가전','건강','식품','뷰티','생활','패션','책','교육','교구','장난감','가구','여행','기타']);
+  const SKIP_GM = new Set(['공구모아','공구 일정','리스트','캘린더','오늘 찾은 공구&핫딜','AD',
+    '바로 구매 →','오늘','대분류','소분류','전체','최신 데이터','공동구매 일정','제휴·광고 문의',
+    '마감 일자 정보','오늘 오픈','오늘 마감','진행중','D-day','전체 공구']);
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const results = [];
+  let i = 0, curMinor = '';
+
+  while (i < lines.length) {
+    const l = lines[i];
+    if (MAJORS_GM.has(l)) { i++; continue; }
+    if (SUBCATS_GM.has(l)) { curMinor = l; i++; continue; }
+
+    const dateM = l.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (dateM) {
+      const openDate = `2026-${dateM[1].padStart(2,'0')}-${dateM[2].padStart(2,'0')}`;
+      // 과거 날짜 skip
+      if (openDate < todayStr) { i++; continue; }
+      i++;
+      if (i < lines.length && /^D/.test(lines[i])) i++;
+
+      if (i < lines.length) {
+        const name = lines[i].trim(); i++;
+        const influencer = (i < lines.length && lines[i].length <= 20 &&
+          !/^\d/.test(lines[i]) && !SKIP_GM.has(lines[i]) &&
+          !/^[🔥⏰✅📦💌]/.test(lines[i])) ? lines[i] : '';
+        if (influencer) i++;
+
+        if (isValidName(name) && !SUBCATS_GM.has(name) && !MAJORS_GM.has(name)) {
+          const isDup = existingData.some(e =>
+            e.open_date === openDate && crawlSim(e.name, name) >= 0.7
+          );
+          if (!isDup) {
+            const cat = crawlGuessCat(name, curMinor);
+            const ed = fixEndDate(openDate, '');
+            results.push({ influencer, insta:'', major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
+          }
+        }
+      }
+      continue;
+    }
+
+    if (SKIP_GM.has(l) || BAD_NAMES.has(l) || /^[🔥⏰✅📦💌]/.test(l) ||
+        /^\d+$/.test(l) || l.startsWith('*') || /^\[.+\]/.test(l)) { i++; continue; }
+    i++;
+  }
+  return results;
+}
+
+async function crawlInsert(data, statusId) {
+  if (!data.length) return 0;
+  const BATCH = 50;
+  let total = 0;
+  for (let i = 0; i < data.length; i += BATCH) {
+    const batch = data.slice(i, i+BATCH);
+    const res = await fetch(`${SB_URL}/rest/v1/gonggu`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'return=minimal'},
+      body: JSON.stringify(batch.map(d => ({...d, influencer: d.influencer||'', approved: true})))
+    });
+    if (res.status === 201 || res.status === 200) total += batch.length;
+    const pct = Math.round((i+batch.length)/data.length*100);
+    document.getElementById(statusId+'Bar').style.width = pct+'%';
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return total;
+}
+
+async function startCrawl(site) {
+  const isPP = site === 'pangpang';
+  const url = isPP ? 'https://09pangpang.com/' : 'https://gonggumoa.com/';
+  const statusId = isPP ? 'pangpang' : 'gonggumcac';
+  const btnId = isPP ? 'btnPangpang' : 'btnGonggumoa';
+  const statusEl = document.getElementById(isPP ? 'pangpangStatus' : 'gonggumoacStatus');
+  const progEl = document.getElementById(isPP ? 'pangpangProgress' : 'gonggumoacProgress');
+  const barEl = document.getElementById(isPP ? 'pangpangBar' : 'gonggumoacBar');
+  const btn = document.getElementById(btnId);
+
+  btn.disabled = true; btn.textContent = '크롤링 중...';
+  progEl.style.display = 'block'; barEl.style.width = '0%';
+  statusEl.textContent = '새 탭에서 사이트 로드 중...';
+
+  // 새 탭에서 열기
+  const win = window.open(url, '_blank');
+  if (!win) { statusEl.textContent = '❌ 팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.'; btn.disabled=false; btn.textContent='🕷️ 크롤링 시작'; return; }
+
+  // 로드 대기
+  await new Promise(r => setTimeout(r, 5000));
+  statusEl.textContent = '페이지 로드 완료. 더보기 클릭 중...';
+  barEl.style.width = '10%';
+
+  // 더보기 자동 클릭 (공구팡팡)
+  if (isPP) {
+    try {
+      await new Promise(r => {
+        let clicks = 0, noMore = 0;
+        const si = setInterval(() => {
+          try {
+            win.scrollTo(0, win.document.body.scrollHeight);
+            const btn2 = [...win.document.querySelectorAll('button')].find(b=>b.textContent.trim()==='더 보기');
+            if (btn2) { btn2.click(); clicks++; noMore=0; statusEl.textContent = `더보기 ${clicks}번 클릭 중...`; }
+            else { noMore++; if(noMore>=6){ clearInterval(si); r(); } }
+          } catch(e) { clearInterval(si); r(); }
+        }, 1000);
+        setTimeout(()=>{ clearInterval(si); r(); }, 90000);
+      });
+    } catch(e) {}
+  } else {
+    // 공구모아: 스크롤
+    await new Promise(r => {
+      let prev=0, same=0;
+      const si = setInterval(()=>{
+        try {
+          win.scrollTo(0, win.document.body.scrollHeight);
+          const h = win.document.body.scrollHeight;
+          if(h===prev){same++; if(same>=8){clearInterval(si);r();}}
+          else{same=0;prev=h;}
+        } catch(e){clearInterval(si);r();}
+      }, 600);
+      setTimeout(()=>{clearInterval(si);r();}, 90000);
+    });
+  }
+
+  barEl.style.width = '50%';
+  statusEl.textContent = '데이터 추출 중...';
+  await new Promise(r => setTimeout(r, 2000));
+
+  let text = '';
+  try { text = win.document.body.innerText; } catch(e) {}
+  win.close();
+
+  if (!text) { statusEl.textContent = '❌ 데이터 추출 실패'; btn.disabled=false; btn.textContent='🕷️ 크롤링 시작'; return; }
+
+  barEl.style.width = '60%';
+  statusEl.textContent = '기존 DB 데이터 로드 중...';
+
+  // 기존 DB 가져오기
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const dbRes = await fetch(`${SB_URL}/rest/v1/gonggu?select=name,open_date&approved=eq.true&open_date=gte.${todayStr}&limit=100000`, {
+    headers: {'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+  });
+  const existing = await dbRes.json();
+
+  barEl.style.width = '70%';
+  statusEl.textContent = '파싱 중...';
+
+  const parsed = isPP ? parsePangpang(text, existing) : parseGonggumoa(text, existing);
+  statusEl.textContent = `파싱 완료 ${parsed.length}건. DB에 저장 중...`;
+  barEl.style.width = '80%';
+
+  const inserted = await crawlInsert(parsed, isPP?'pangpang':'gonggumcac');
+  barEl.style.width = '100%';
+  statusEl.style.color = '#2E7D32';
+  statusEl.textContent = `✅ 완료! 신규 ${inserted}건 등록 (중복 제외)`;
+  btn.disabled = false; btn.textContent = '🕷️ 크롤링 시작';
+
+  document.getElementById('crawlResult').style.display = 'block';
+  document.getElementById('crawlResult').textContent = `${isPP?'공구팡팡':'공구모아'} 크롤링 완료 — 신규 ${inserted}건 등록!`;
+
+  await loadData();
+}
 function updateBgPreview(){
   const c1=document.getElementById('bColor1').value;
   const c2=document.getElementById('bColor2').value;
@@ -1070,10 +1449,8 @@ function isDup(item){
     const sameInsta = d.insta && item.insta && d.insta===item.insta;
     const sameDate = d.open_date===item.open_date;
     const nameSim = similarity(d.name, item.name);
-    if(sameInsta && sameDate) return true;
-    if(sameInsta && nameSim>=0.7) return true;
-    if(nameSim>=0.9) return true;
-    return false;
+    // 같은 계정 + 같은 날짜 + 상품명 70% 이상 유사 → 세 조건 모두 충족
+    return sameInsta && sameDate && nameSim>=0.7;
   });
 }
 
@@ -1083,9 +1460,8 @@ function getDupReason(item){
     const sameInsta = d.insta && item.insta && d.insta===item.insta;
     const sameDate = d.open_date===item.open_date;
     const nameSim = similarity(d.name, item.name);
-    if(sameInsta && sameDate) return `같은 계정·날짜 (ID:${d.id} "${d.name}")`;
-    if(sameInsta && nameSim>=0.7) return `같은 계정·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id})`;
-    if(nameSim>=0.9) return `상품명 유사 ${Math.round(nameSim*100)}% (ID:${d.id} @${d.insta})`;
+    if(sameInsta && sameDate && nameSim>=0.7)
+      return `같은 계정·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
   }
   return '';
 }
@@ -1144,22 +1520,32 @@ function switchTab(tab,el){
     document.getElementById('listView').style.display='none';
     document.getElementById('aiView').style.display='none';
     document.getElementById('bannerView').style.display='none';
+    document.getElementById('crawlView').style.display='none';
     loadVisitors();
   } else if(tab==='ai'){
     document.getElementById('aiView').style.display='block';
     document.getElementById('statsView').style.display='none';
     document.getElementById('listView').style.display='none';
     document.getElementById('bannerView').style.display='none';
+    document.getElementById('crawlView').style.display='none';
+  } else if(tab==='crawl'){
+    document.getElementById('crawlView').style.display='block';
+    document.getElementById('statsView').style.display='none';
+    document.getElementById('aiView').style.display='none';
+    document.getElementById('bannerView').style.display='none';
+    document.getElementById('listView').style.display='none';
   } else if(tab==='banner'){
     document.getElementById('bannerView').style.display='block';
     document.getElementById('statsView').style.display='none';
     document.getElementById('aiView').style.display='none';
     document.getElementById('listView').style.display='none';
+    document.getElementById('crawlView').style.display='none';
     loadBannerAdmin();
   } else {
     document.getElementById('statsView').style.display='none';
     document.getElementById('aiView').style.display='none';
     document.getElementById('bannerView').style.display='none';
+    document.getElementById('crawlView').style.display='none';
     document.getElementById('listView').style.display='block';
     renderCards();
   }
@@ -1171,11 +1557,17 @@ function renderCards(){
   const major=document.getElementById('majorFilter').value;
   const dateFrom=document.getElementById('dateFrom').value;
   const dateTo=document.getElementById('dateTo').value;
+  const el=document.getElementById('cardList');
+
+  // 중복 탭은 별도 렌더
+  if(curTab==='dup'){
+    renderDupPairs(q, major, dateFrom, dateTo);
+    return;
+  }
 
   let arr=allData.filter(d=>{
     if(curTab==='pending'&&d.approved)return false;
     if(curTab==='approved'&&!d.approved)return false;
-    if(curTab==='dup'&&!isDup(d))return false;
     if(major&&d.major!==major)return false;
     if(dateFrom&&(d.open_date||'')<dateFrom)return false;
     if(dateTo&&(d.open_date||'')>dateTo)return false;
@@ -1183,39 +1575,182 @@ function renderCards(){
     return true;
   });
 
-  const el=document.getElementById('cardList');
   if(!arr.length){el.innerHTML=`<div class="empty">해당하는 공구가 없어요 🙅</div>`;return;}
+  el.innerHTML=arr.map(d=>renderCard(d)).join('');
+  document.querySelectorAll('.card-cb').forEach(cb=>{
+    cb.checked=checkedIds.has(parseInt(cb.dataset.id));
+  });
+}
 
-  el.innerHTML=arr.map(d=>{
-    const dup=isDup(d);
-    const checked=checkedIds.has(d.id);
-    return`<div class="card" id="card-${d.id}">
-      <div class="card-hd">
-        <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
-        <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
-        ${dup?`<span class="card-status s-dup">⚠️ 중복의심</span>`:''}
-        <div style="flex:1">
-          <div class="card-infl">${(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-')}</div>
-          ${dup&&curTab==='dup'?`<div style="font-size:10px;color:#E65100;margin-top:2px">${getDupReason(d)}</div>`:''}
+function renderDupPairs(q, major, dateFrom, dateTo){
+  const el=document.getElementById('cardList');
+  const pairs=[];
+  const paired=new Set();
+
+  allData.forEach(item=>{
+    if(paired.has(item.id)) return;
+    const partner=allData.find(d=>{
+      if(d.id===item.id||paired.has(d.id)) return false;
+      const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
+      const sameDate=d.open_date===item.open_date;
+      return sameInsta&&sameDate&&similarity(d.name,item.name)>=0.7;
+    });
+    if(partner){
+      pairs.push([item,partner]);
+      paired.add(item.id);
+      paired.add(partner.id);
+    }
+  });
+
+  const filtered=pairs.filter(([a,b])=>{
+    const match=d=>{
+      if(major&&d.major!==major) return false;
+      if(dateFrom&&(d.open_date||'')<dateFrom) return false;
+      if(dateTo&&(d.open_date||'')>dateTo) return false;
+      if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q))) return false;
+      return true;
+    };
+    return match(a)||match(b);
+  });
+
+  if(!filtered.length){el.innerHTML=`<div class="empty">중복 의심 항목이 없어요 ✅</div>`;return;}
+
+  el.innerHTML=filtered.map(([a,b])=>{
+    const sim=Math.round(similarity(a.name,b.name)*100);
+    return`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px">
+      <div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 — 유사도 ${sim}%</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="deleteDup(${a.id})" style="padding:4px 10px;background:#4A35A0;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">위쪽 삭제</button>
+          <button onclick="deleteDup(${b.id})" style="padding:4px 10px;background:#C62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">아래쪽 삭제</button>
         </div>
       </div>
-      <div class="card-body">
-        <div class="card-name">${d.name||'-'}</div>
-        <div class="card-meta">
-          <span class="meta-tag">${d.major||''}</span>
-          ${d.minor?`<span class="meta-tag">${d.minor}</span>`:''}
+      <div style="padding:12px 14px;border-bottom:1px solid #FFCDD2">${renderDupCard(a)}</div>
+      <div style="padding:12px 14px">${renderDupCard(b)}</div>
+    </div>`;
+  }).join('');
+}(q, major, dateFrom, dateTo){
+  const el=document.getElementById('cardList');
+  // 중복 쌍 찾기
+  const pairs=[];
+  const paired=new Set();
+
+  allData.forEach(item=>{
+    if(paired.has(item.id)) return;
+    const partner=allData.find(d=>{
+      if(d.id===item.id||paired.has(d.id)) return false;
+      const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
+      const sameDate=d.open_date===item.open_date;
+      const nameSim=similarity(d.name,item.name);
+      return sameInsta&&sameDate&&nameSim>=0.7;
+    });
+    if(partner){
+      pairs.push([item,partner]);
+      paired.add(item.id);
+      paired.add(partner.id);
+    }
+  });
+
+  // 필터 적용
+  const filtered=pairs.filter(([a,b])=>{
+    const match=d=>{
+      if(major&&d.major!==major) return false;
+      if(dateFrom&&(d.open_date||'')<dateFrom) return false;
+      if(dateTo&&(d.open_date||'')>dateTo) return false;
+      if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q))) return false;
+      return true;
+    };
+    return match(a)||match(b);
+  });
+
+  if(!filtered.length){el.innerHTML=`<div class="empty">중복 의심 항목이 없어요 ✅</div>`;return;}
+
+  el.innerHTML=filtered.map(([a,b])=>{
+    const sim=Math.round(similarity(a.name,b.name)*100);
+    return`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px">
+      <!-- 중복 헤더 -->
+      <div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 — 상품명 유사도 ${sim}%</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="deleteDup(${a.id})" style="padding:4px 10px;background:#4A35A0;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">위쪽 삭제</button>
+          <button onclick="deleteDup(${b.id})" style="padding:4px 10px;background:#C62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">아래쪽 삭제</button>
         </div>
-        <div class="card-dates">📅 ${d.open_date||'-'} 오픈${d.end_date?' ~ '+d.end_date+' 마감':''}</div>
-        <div class="card-actions">
-          ${d.approved
-            ?`<button class="btn btn-pending" onclick="toggleApprove(${d.id},false)">승인취소</button>`
-            :`<button class="btn btn-approve" onclick="toggleApprove(${d.id},true)">✅ 승인</button>`}
-          <button class="btn btn-edit" onclick="openEdit(${d.id})">✏️ 수정</button>
-          <button class="btn btn-del" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">🗑️ 삭제</button>
-        </div>
+      </div>
+      <!-- A 카드 -->
+      <div style="padding:12px 14px;border-bottom:1px solid #FFCDD2">
+        ${renderDupCard(a)}
+      </div>
+      <!-- B 카드 -->
+      <div style="padding:12px 14px">
+        ${renderDupCard(b)}
       </div>
     </div>`;
   }).join('');
+}
+
+function renderDupCard(d){
+  const inflName=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
+  return`<div style="display:flex;align-items:flex-start;gap:10px">
+    <input type="checkbox" class="card-cb" data-id="${d.id}" ${checkedIds.has(d.id)?'checked':''} onchange="toggleCheck(${d.id},this.checked)" style="margin-top:3px;width:16px;height:16px;accent-color:#4A35A0;flex-shrink:0">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:${d.approved?'#E8F5E9':'#FFF9E6'};color:${d.approved?'#2E7D32':'#E6A817'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
+        <span style="font-size:12px;font-weight:700;color:#191919">${inflName}</span>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:#191919;margin-bottom:4px">${d.name}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px">${d.major}</span>
+        <span style="background:#f0f0f0;color:#555;font-size:11px;padding:2px 7px;border-radius:10px">${d.minor}</span>
+      </div>
+      <div style="font-size:11px;color:#999">📅 ${d.open_date}${d.end_date?' ~ '+d.end_date:''}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+      <button onclick="openEdit(${d.id})" style="padding:4px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+      <button onclick="openDel(${d.id},'${d.name.replace(/'/g,'')}')" style="padding:4px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
+    </div>
+  </div>`;
+}
+
+async function deleteDup(id){
+  const d=allData.find(a=>a.id===id);
+  if(!d||!confirm(`"${d.name}" 을 삭제할까요?`)) return;
+  await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
+    method:'DELETE',
+    headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+  });
+  allData=allData.filter(a=>a.id!==id);
+  updateStats();
+  renderCards();
+}
+
+function renderCard(d){
+  const dup=isDup(d);
+  const checked=checkedIds.has(d.id);
+  return`<div class="card" id="card-${d.id}">
+    <div class="card-hd">
+      <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
+      <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
+      ${dup?`<span class="card-status s-dup">⚠️ 중복의심</span>`:''}
+      <div style="flex:1">
+        <div class="card-infl">${(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-')}</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-name">${d.name||'-'}</div>
+      <div class="card-meta">
+        <span class="meta-tag">${d.major||''}</span>
+        ${d.minor?`<span class="meta-tag">${d.minor}</span>`:''}
+      </div>
+      <div class="card-dates">📅 ${d.open_date||'-'} 오픈${d.end_date?' ~ '+d.end_date+' 마감':''}</div>
+      <div class="card-actions">
+        ${d.approved
+          ?`<button class="btn btn-pending" onclick="toggleApprove(${d.id},false)">승인취소</button>`
+          :`<button class="btn btn-approve" onclick="toggleApprove(${d.id},true)">✅ 승인</button>`}
+        <button class="btn btn-edit" onclick="openEdit(${d.id})">✏️ 수정</button>
+        <button class="btn btn-del" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">🗑️ 삭제</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── 인플루언서 빠른 선택 버튼 렌더 ──
