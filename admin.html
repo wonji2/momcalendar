@@ -1622,64 +1622,8 @@ function renderDupPairs(q, major, dateFrom, dateTo){
       <div style="padding:12px 14px">${renderDupCard(b)}</div>
     </div>`;
   }).join('');
-}(q, major, dateFrom, dateTo){
-  const el=document.getElementById('cardList');
-  // 중복 쌍 찾기
-  const pairs=[];
-  const paired=new Set();
-
-  allData.forEach(item=>{
-    if(paired.has(item.id)) return;
-    const partner=allData.find(d=>{
-      if(d.id===item.id||paired.has(d.id)) return false;
-      const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
-      const sameDate=d.open_date===item.open_date;
-      const nameSim=similarity(d.name,item.name);
-      return sameInsta&&sameDate&&nameSim>=0.7;
-    });
-    if(partner){
-      pairs.push([item,partner]);
-      paired.add(item.id);
-      paired.add(partner.id);
-    }
-  });
-
-  // 필터 적용
-  const filtered=pairs.filter(([a,b])=>{
-    const match=d=>{
-      if(major&&d.major!==major) return false;
-      if(dateFrom&&(d.open_date||'')<dateFrom) return false;
-      if(dateTo&&(d.open_date||'')>dateTo) return false;
-      if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q))) return false;
-      return true;
-    };
-    return match(a)||match(b);
-  });
-
-  if(!filtered.length){el.innerHTML=`<div class="empty">중복 의심 항목이 없어요 ✅</div>`;return;}
-
-  el.innerHTML=filtered.map(([a,b])=>{
-    const sim=Math.round(similarity(a.name,b.name)*100);
-    return`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px">
-      <!-- 중복 헤더 -->
-      <div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 — 상품명 유사도 ${sim}%</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="deleteDup(${a.id})" style="padding:4px 10px;background:#4A35A0;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">위쪽 삭제</button>
-          <button onclick="deleteDup(${b.id})" style="padding:4px 10px;background:#C62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">아래쪽 삭제</button>
-        </div>
-      </div>
-      <!-- A 카드 -->
-      <div style="padding:12px 14px;border-bottom:1px solid #FFCDD2">
-        ${renderDupCard(a)}
-      </div>
-      <!-- B 카드 -->
-      <div style="padding:12px 14px">
-        ${renderDupCard(b)}
-      </div>
-    </div>`;
-  }).join('');
 }
+
 
 function renderDupCard(d){
   const inflName=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
