@@ -54,7 +54,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .side-menu.on{transform:translateX(0)}
 .side-hd{background:var(--main-d);padding:20px 16px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .side-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer}
-.side-body{flex:1;overflow-y:auto;padding:12px 0}
+.side-body{flex:1;overflow-y:auto;padding:12px 0;min-height:0}
 .side-sec-title{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.08em;padding:4px 16px 6px}
 .side-all-btn{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:700;color:var(--main);cursor:pointer;border:none;background:none;font-family:inherit;width:100%;transition:.15s}
 .side-all-btn:hover,.side-all-btn.on{background:var(--main-soft)}
@@ -171,11 +171,36 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-arr{color:var(--t3);font-size:16px;padding-left:2px}
 .card-period{font-size:11px;color:var(--t3);margin-top:5px}
 
-/* 날짜 섹션 */
+/* 카드 */
+.cards{padding:10px 12px 90px;background:#F7F5FF;display:flex;flex-direction:column;gap:10px}
+.card{display:flex;align-items:stretch;border-radius:14px;cursor:pointer;transition:box-shadow .15s;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden}
+.card:active{box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card-bar{width:4px;flex-shrink:0}
+.card-inner{flex:1;padding:14px 14px 14px 12px}
+.card-top{display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap}
+.cat-tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.st-open{background:#FFF4F0;color:var(--orange);font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.st-ongoing{background:#F0FAF0;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.card-name{font-size:15px;font-weight:700;color:var(--t1);line-height:1.4;margin-bottom:7px}
+.card-bottom{display:flex;align-items:center;justify-content:space-between}
+.card-infl{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px}
+.card-infl-name{font-weight:700;color:var(--t1);font-size:13px}
+.card-infl-id{color:var(--t3);font-size:11px}
+.card-right{display:flex;align-items:center;gap:6px}
+.card-dday{font-size:12px;font-weight:800}
+.dd-today{color:var(--orange)}
+.dd-soon{color:var(--red)}
+.dd-future{color:var(--main)}
+.dd-past{color:var(--t3)}
+.card-arr{color:var(--t3);font-size:16px;padding-left:2px}
+.card-period{font-size:11px;color:var(--t3);margin-top:5px}
+
+/* 날짜 섹션 구분선 */
 .date-section{}
-.date-section-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;background:#fff;border-bottom:1px solid var(--border)}
-.date-section-lbl{font-size:15px;font-weight:800;color:var(--t1)}
-.date-section-cnt{font-size:12px;font-weight:700;color:var(--main);background:var(--main-pale);padding:3px 10px;border-radius:20px}
+.date-section-hd{display:none}
+.date-sep{display:flex;align-items:center;gap:8px;padding:4px 2px 2px}
+.date-sep-lbl{font-size:12px;font-weight:800;color:var(--t2);white-space:nowrap}
+.date-sep-line{flex:1;height:1px;background:var(--border)}
 
 /* 빈 상태 */
 .empty{padding:48px 0;text-align:center;color:var(--t3);font-size:14px;line-height:2.2;background:#fff}
@@ -814,10 +839,7 @@ function renderList(){
   // 오늘 진행중 섹션
   if(ongoing.length){
     html+=`<div class="date-section" id="section-today">
-      <div class="date-section-hd">
-        <span class="date-section-lbl">🛍️ 오늘의 공구</span>
-        <span class="date-section-cnt">${ongoing.length}건</span>
-      </div>
+      <div class="date-sep"><span class="date-sep-lbl">🛍️ 오늘의 공구 ${ongoing.length}건</span><span class="date-sep-line"></span></div>
       ${ongoing.map(item=>renderCard(item)).join('')}
     </div>`;
   }
@@ -833,10 +855,7 @@ function renderList(){
     const d=strToDate(date);
     const label=`📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) 오픈`;
     html+=`<div class="date-section" id="section-${date}">
-      <div class="date-section-hd">
-        <span class="date-section-lbl">${label}</span>
-        <span class="date-section-cnt">${items.length}건</span>
-      </div>
+      <div class="date-sep"><span class="date-sep-lbl">${label}</span><span class="date-sep-line"></span></div>
       ${items.map(item=>renderCard(item)).join('')}
     </div>`;
   });
