@@ -576,14 +576,17 @@ async function saveBulkEdit(){
   const minor=document.getElementById('beMinor').value.trim();
 
   const payload={};
-  if(influencer) payload.influencer=influencer;
-  if(insta) payload.insta=insta;
-  if(major) payload.major=major;
-  if(minor) payload.minor=minor;
+  if(influencer!=='') payload.influencer=influencer;
+  if(insta!=='') payload.insta=insta;
+  if(major!=='') payload.major=major;
+  if(minor!=='') payload.minor=minor;
 
   if(!Object.keys(payload).length){alert('수정할 내용을 입력해주세요!');return;}
 
   const ids=[...checkedIds];
+  const confirmMsg=Object.entries(payload).map(([k,v])=>`${k}: ${v}`).join('\n');
+  if(!confirm(`아래 항목을 ${ids.length}건에 일괄 적용할까요?\n\n${confirmMsg}`))return;
+
   await Promise.all(ids.map(id=>
     fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
       method:'PATCH',
