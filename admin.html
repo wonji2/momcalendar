@@ -57,6 +57,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .bulk-lbl{font-size:13px;font-weight:700;color:#4A35A0}
 .bulk-del{padding:6px 14px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .bulk-edit{padding:6px 14px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bulk-approve{padding:6px 14px;background:#2E7D32;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.infl-chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#EEE9FF;color:#4A35A0;border:none;cursor:pointer;font-family:inherit;transition:.15s}
+.infl-chip:hover{background:#4A35A0;color:#fff}
 /* 카드 */
 .cards{padding:8px 12px 90px}
 .card{background:#fff;border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
@@ -185,15 +188,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
     </div>
+    <!-- 인플루언서별 전체선택 -->
+    <div style="padding:4px 12px 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:#999;flex-shrink:0">인플별 전체선택:</span>
+      <div id="inflQuickSelect" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+    </div>
     <!-- 일괄 액션 바 -->
     <div class="bulk-bar" id="bulkBar">
       <div style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="selectAllCb" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="toggleSelectAll(this.checked)">
-        <div class="bulk-lbl" id="bulkLbl">0개 선택</div>
+        <div class="bulk-lbl" id="bulkLbl">전체 선택</div>
       </div>
       <div style="display:flex;gap:6px">
         <button class="bulk-edit" onclick="bulkEdit()">✏️ 일괄 수정</button>
         <button class="bulk-del" onclick="bulkDelete()">🗑️ 일괄 삭제</button>
+        <button class="bulk-approve" onclick="bulkApprove()">✅ 일괄 승인</button>
       </div>
     </div>
     <div class="cards" id="cardList"></div>
@@ -331,6 +340,7 @@ async function loadData(){
     });
     allData=await res.json();
     updateStats();
+    renderInflQuickSelect();
     renderCards();
   }catch(e){
     document.getElementById('cardList').innerHTML=`<div class="empty">데이터 로드 실패 😢</div>`;
@@ -460,7 +470,62 @@ function renderCards(){
   }).join('');
 }
 
-// ── 전체 선택 ──
+// ── 인플루언서 빠른 선택 버튼 렌더 ──
+function renderInflQuickSelect(){
+  const today=new Date().toISOString().slice(0,10);
+  // 오늘 등록한 인플루언서 목록 (이름+건수)
+  const inflMap={};
+  allData.forEach(d=>{
+    if(!d.created_at&&!d.open_date) return;
+    const createdDate=(d.created_at||'').slice(0,10);
+    // created_at 없으면 전체 인플 목록
+    if(!inflMap[d.influencer]) inflMap[d.influencer]=[];
+    inflMap[d.influencer].push(d.id);
+  });
+  const el=document.getElementById('inflQuickSelect');
+  el.innerHTML=Object.entries(inflMap)
+    .sort((a,b)=>b[1].length-a[1].length)
+    .slice(0,15) // 최대 15명
+    .map(([name,ids])=>`
+      <button class="infl-chip" onclick="selectInfluencer('${name.replace(/'/g,'')}')" title="${name} ${ids.length}건 전체선택">
+        ${name} <span style="opacity:.7">${ids.length}</span>
+      </button>`)
+    .join('');
+}
+
+function selectInfluencer(name){
+  // 해당 인플루언서 검색 후 전체 선택
+  document.getElementById('searchInput').value=name;
+  renderCards();
+  // 잠깐 뒤에 전체선택
+  setTimeout(()=>{
+    const visible=getVisibleIds();
+    visible.forEach(id=>checkedIds.add(id));
+    document.querySelectorAll('.card-cb').forEach(cb=>{
+      cb.checked=checkedIds.has(parseInt(cb.dataset.id));
+    });
+    updateBulkBar();
+  },50);
+}
+
+// ── 일괄 승인 ──
+async function bulkApprove(){
+  if(!checkedIds.size){alert('승인할 항목을 선택해주세요!');return;}
+  const ids=[...checkedIds];
+  if(!confirm(`선택한 ${ids.length}건을 승인하시겠어요?`))return;
+  await Promise.all(ids.map(id=>
+    fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`},
+      body:JSON.stringify({approved:true})
+    })
+  ));
+  allData=allData.map(d=>ids.includes(d.id)?{...d,approved:true}:d);
+  checkedIds.clear();
+  updateStats();
+  renderCards();
+  alert(`✅ ${ids.length}건 승인 완료!`);
+}
 function toggleSelectAll(checked){
   const visible=getVisibleIds();
   if(checked){

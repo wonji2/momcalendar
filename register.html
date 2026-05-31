@@ -73,12 +73,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh;p
 <!-- 등록 폼 -->
 <div id="mainWrap" style="display:none">
   <div class="hd">
-    <div class="hd-sub">인플루언서 전용 · 등록 즉시 반영</div>
+    <div class="hd-sub">인플루언서 전용 · 방장 승인 후 반영</div>
     <div class="hd-logo">맘캘린더 공구 등록</div>
   </div>
 
   <div class="wrap">
-    <div class="notice">✅ 등록하면 맘캘린더 사이트에 즉시 반영돼요!<br>공구 1건당 1회씩 등록해주세요.<br><br>⚠️ <b>등록 후 수정은 방장에게 직접 문의</b>해야 해요.<br>날짜·제품명·카테고리를 꼭 확인 후 등록해주세요 🙏</div>
+    <div class="notice">✅ 등록 후 방장 확인을 거쳐 사이트에 반영돼요!<br>공구 1건당 1회씩 등록해주세요.<br><br>⚠️ <b>등록 후 수정은 방장에게 직접 문의</b>해야 해요.<br>날짜·제품명·카테고리를 꼭 확인 후 등록해주세요 🙏<br><br>🔐 <b>비밀번호 안내</b><br>등록 비밀번호는 부정 사용 방지를 위해 <b>주기적으로 변경</b>됩니다. 인증된 셀러에게만 개별 공유되며, <b>타인에게 비밀번호를 공유하는 행위는 엄격히 금지</b>됩니다. 누출 시 등록 권한이 즉시 차단되며 책임을 물을 수 있습니다.<br><br>비밀번호가 변경된 경우, <b>본인 소유 인스타그램 계정</b>으로 <b>@momcal_</b> 에 DM을 보내주시면 재인증 후 새 비밀번호를 안내해드려요.</div>
 
     <div id="formArea">
       <div class="card">
@@ -298,13 +298,13 @@ async function submitForm(){
         'Authorization':`Bearer ${SUPABASE_KEY}`,
         'Prefer':'return=minimal'
       },
-      body:JSON.stringify({influencer,insta,major:selMajor,minor:selMinor,name,open_date:openDate,end_date:endDate,approved:true})
+      body:JSON.stringify({influencer,insta,major:selMajor,minor:selMinor,name,open_date:openDate,end_date:endDate,approved:false})
     });
     if(res.ok||res.status===201){
       document.getElementById('formArea').style.display='none';
       document.getElementById('resultArea').classList.add('on');
       document.getElementById('resultDesc').innerHTML=
-        `<b>${name}</b><br>${openDate} 오픈<br><br>맘캘린더 사이트에 바로 반영됐어요 💜`;
+        `<b>${name}</b><br>${openDate} 오픈<br><br>등록이 완료됐어요!<br>방장 확인 후 사이트에 반영돼요 💜`;
     } else {
       const err=await res.text();
       alert('등록 실패: '+err);
