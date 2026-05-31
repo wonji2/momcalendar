@@ -1065,12 +1065,29 @@ function similarity(a,b){
   return (2*matches)/(a.length+b.length);
 }
 function isDup(item){
-  return allData.some(d=>
-    d.id!==item.id&&
-    d.insta===item.insta&&
-    d.open_date===item.open_date&&
-    similarity(d.name,item.name)>=0.7
-  );
+  return allData.some(d=>{
+    if(d.id===item.id) return false;
+    const sameInsta = d.insta && item.insta && d.insta===item.insta;
+    const sameDate = d.open_date===item.open_date;
+    const nameSim = similarity(d.name, item.name);
+    if(sameInsta && sameDate) return true;
+    if(sameInsta && nameSim>=0.7) return true;
+    if(nameSim>=0.9) return true;
+    return false;
+  });
+}
+
+function getDupReason(item){
+  for(const d of allData){
+    if(d.id===item.id) continue;
+    const sameInsta = d.insta && item.insta && d.insta===item.insta;
+    const sameDate = d.open_date===item.open_date;
+    const nameSim = similarity(d.name, item.name);
+    if(sameInsta && sameDate) return `같은 계정·날짜 (ID:${d.id} "${d.name}")`;
+    if(sameInsta && nameSim>=0.7) return `같은 계정·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id})`;
+    if(nameSim>=0.9) return `상품명 유사 ${Math.round(nameSim*100)}% (ID:${d.id} @${d.insta})`;
+  }
+  return '';
 }
 
 // ── 통계 ──
@@ -1176,9 +1193,10 @@ function renderCards(){
       <div class="card-hd">
         <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
         <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
-        ${dup?'<span class="card-status s-dup">⚠️ 중복</span>':''}
+        ${dup?`<span class="card-status s-dup">⚠️ 중복의심</span>`:''}
         <div style="flex:1">
           <div class="card-infl">${(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-')}</div>
+          ${dup&&curTab==='dup'?`<div style="font-size:10px;color:#E65100;margin-top:2px">${getDupReason(d)}</div>`:''}
         </div>
       </div>
       <div class="card-body">
