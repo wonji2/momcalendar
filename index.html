@@ -174,6 +174,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-arr{color:var(--t3);font-size:16px;padding-left:2px}
 .card-period{font-size:11px;color:var(--t3);margin-top:5px}
 
+/* 날짜 섹션 */
+.date-section{}
+.date-section-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;background:#fff;border-bottom:1px solid var(--border)}
+.date-section-lbl{font-size:15px;font-weight:800;color:var(--t1)}
+.date-section-cnt{font-size:12px;font-weight:700;color:var(--main);background:var(--main-pale);padding:3px 10px;border-radius:20px}
+
 /* 빈 상태 */
 .empty{padding:48px 0;text-align:center;color:var(--t3);font-size:14px;line-height:2.2;background:#fff}
 
@@ -751,11 +757,10 @@ function getFiltered(dateStr){
 }
 
 // ── 카드 렌더 ──
-function renderCard(item, baseDateStr){
+function renderCard(item){
   const c=cc(item.major);
-  const base=baseDateStr||todayStr;
-  const dd=ddayFromDate(item.openDate, base);
-  // 뱃지
+  // D-day는 항상 오늘 기준 고정
+  const dd=ddayFromDate(item.openDate, todayStr);
   let badgeHtml='';
   if(isOpenToday(item)){
     badgeHtml=`<span class="st-open">오늘 오픈</span>`;
@@ -788,18 +793,80 @@ function renderCard(item, baseDateStr){
 }
 
 function renderList(){
-  const arr=getFiltered(selWeekDate);
-  document.getElementById('sCnt').textContent=arr.length;
   const el=document.getElementById('cardList');
-  el.innerHTML=arr.length
-    ?arr.map(item=>renderCard(item,selWeekDate)).join('')
-    :`<div class="empty">해당하는 공구가 없어요 🙅<br><span style="font-size:12px">다른 날짜나 필터를 바꿔보세요</span></div>`;
   const mBtn=document.getElementById('majorSelBtn');
   const nBtn=document.getElementById('minorSelBtn');
   mBtn.textContent=fMajor!=='전체'?`${fMajor} ▾`:'대분류 ▾';
   mBtn.classList.toggle('on',fMajor!=='전체');
   nBtn.textContent=fMinor!=='전체'?`${fMinor} ▾`:'소분류 ▾';
   nBtn.classList.toggle('on',fMinor!=='전체');
+
+  // 상태 필터 (오늘오픈/마감/예정) 눌렸을 때
+  if(fSt!=='all'){
+    const arr=getFiltered(selWeekDate);
+    document.getElementById('sCnt').textContent=arr.length;
+    el.innerHTML=arr.length
+      ?arr.map(item=>renderCard(item)).join('')
+      :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
+    return;
+  }
+
+  // ALL 기본: 날짜별 그룹으로 무한 스크롤
+  // 오늘부터 60일치 날짜별로 그룹핑
+  let allArr=DATA.filter(item=>{
+    if(isExpired(item))return false;
+    if(item.openDate<todayStr)return false;
+    if(fMajor!=='전체'&&item.major!==fMajor)return false;
+    if(fMinor!=='전체'&&item.minor!==fMinor)return false;
+    if(fSearch){
+      const q=fSearch.toLowerCase();
+      return[item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
+    }
+    return true;
+  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+
+  document.getElementById('sCnt').textContent=allArr.length;
+
+  if(!allArr.length){
+    el.innerHTML=`<div class="empty">등록된 공구가 없어요 🙅</div>`;
+    return;
+  }
+
+  // 날짜별 그룹
+  const groups={};
+  allArr.forEach(item=>{
+    if(!groups[item.openDate]) groups[item.openDate]=[];
+    groups[item.openDate].push(item);
+  });
+
+  let html='';
+  Object.keys(groups).sort().forEach(date=>{
+    const items=groups[date];
+    const d=strToDate(date);
+    const isToday=date===todayStr;
+    const label=isToday?'🛍️ 오늘의 공구':`📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) 오픈`;
+    html+=`<div class="date-section" id="section-${date}">
+      <div class="date-section-hd">
+        <span class="date-section-lbl">${label}</span>
+        <span class="date-section-cnt">${items.length}건</span>
+      </div>
+      ${items.map(item=>renderCard(item)).join('')}
+    </div>`;
+  });
+  el.innerHTML=html;
+
+  // 날짜탭 클릭 시 해당 섹션으로 스크롤
+  if(selWeekDate&&selWeekDate!==todayStr){
+    setTimeout(()=>{
+      const sec=document.getElementById(`section-${selWeekDate}`);
+      if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
+    },100);
+  }
+}
+
+// 날짜탭 건수 - 오픈일 기준
+function getCntForDate(ds){
+  return DATA.filter(item=>!isExpired(item)&&item.openDate===ds).length;
 }
 
 // ── 이번주 날짜 탭 (무제한 확장) ──
@@ -825,21 +892,23 @@ function buildWeekTabs(){
     } else if(prevMonth===-1){
       prevMonth=mo;
     }
-    const cnt=DATA.filter(item=>{
-      if(isExpired(item))return false;
-      const e=realEnd(item);
-      return item.openDate<=ds&&e>=ds;
-    }).length;
+    const cnt=getCntForDate(ds);
     const isT=i===0,isSel=ds===selWeekDate;
     const el=document.createElement('div');
     el.className='wtab'+(isT?' tod':'')+(isSel?' on':'');
-    el.innerHTML=`<div class="wday">${DAYS[d.getDay()]}</div><div class="wnum">${d.getDate()}</div><div class="wcnt">${cnt>0?cnt+'개':''}</div>`;
+    el.innerHTML=`<div class="wday">${DAYS[d.getDay()]}</div><div class="wnum">${d.getDate()}</div><div class="wcnt">${cnt}건</div>`;
     el.onclick=()=>{
       document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on'));
       el.classList.add('on');
       selWeekDate=ds;
       updateWeekLabel();
-      renderList();
+      // 해당 날짜 섹션으로 스크롤
+      const sec=document.getElementById(`section-${ds}`);
+      if(sec){
+        setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),50);
+      } else {
+        renderList();
+      }
     };
     wrap.appendChild(el);
   }
