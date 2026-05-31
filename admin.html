@@ -363,6 +363,13 @@ const CATS_LIST={
   '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
 };
 
+function addDays(dateStr, n){
+  if(!dateStr) return null;
+  const[y,m,d]=dateStr.split('-').map(Number);
+  const dt=new Date(y,m-1,d+n);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
 let aiParsedData=[];
 
 async function runAiParse(){
@@ -459,12 +466,14 @@ async function runAiParse(){
 
     if(!openDate||!name) continue;
 
-    // 괄호 안 카테고리 힌트 제거
+    // 마감일 없으면 오픈일 + 3일 자동
+    if(!endDate) endDate=addDays(openDate,3);
+
     const catHint=name.match(/[(\[（](.+?)[)\]）]/);
     name=name.replace(/[(\[（].+?[)\]）]/g,'').trim();
 
     const cat=guessCat(catHint?catHint[1]+' '+name:name);
-    results.push({influencer,insta,name,major:cat.major,minor:cat.minor,open_date:openDate,end_date:endDate||null});
+    results.push({influencer,insta,name,major:cat.major,minor:cat.minor,open_date:openDate,end_date:endDate});
   }
 
   aiParsedData=results;
@@ -490,14 +499,14 @@ async function runAiParse(){
         <div id="aiView-${i}" style="padding:14px;cursor:pointer" onclick="toggleAiEdit(${i})">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <input type="checkbox" class="ai-cb" data-idx="${i}" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onclick="event.stopPropagation()">
-            <span style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name}</span>
+            <span class="item-name" style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name}</span>
             <span style="font-size:11px;color:#4A35A0">수정 ✏️</span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px">
-            <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
-            <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
+            <span class="item-major" style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
+            <span class="item-minor" style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
           </div>
-          <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+          <div class="item-date" style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
         </div>
         <!-- 수정 뷰 -->
         <div id="aiEdit-${i}" style="display:none;padding:14px;background:#F7F5FF;border-top:1px solid #EEE9FF">
@@ -552,19 +561,27 @@ function updateAiMinor(i, preset){
 }
 
 function saveAiEdit(i){
-  aiParsedData[i].name=document.getElementById(`aiName-${i}`).value.trim();
-  aiParsedData[i].major=document.getElementById(`aiMajor-${i}`).value;
-  aiParsedData[i].minor=document.getElementById(`aiMinor-${i}`).value;
-  aiParsedData[i].open_date=document.getElementById(`aiOpen-${i}`).value;
-  aiParsedData[i].end_date=document.getElementById(`aiEnd-${i}`).value||null;
-  toggleAiEdit(i);
-  // 요약 뷰 업데이트
+  const name=document.getElementById(`aiName-${i}`).value.trim();
+  const major=document.getElementById(`aiMajor-${i}`).value;
+  const minor=document.getElementById(`aiMinor-${i}`).value;
+  const openDate=document.getElementById(`aiOpen-${i}`).value;
+  const endDate=document.getElementById(`aiEnd-${i}`).value||null;
+
+  aiParsedData[i].name=name;
+  aiParsedData[i].major=major;
+  aiParsedData[i].minor=minor;
+  aiParsedData[i].open_date=openDate;
+  aiParsedData[i].end_date=endDate;
+
+  // 요약 뷰 전체 다시 그리기
   const item=aiParsedData[i];
   const v=document.getElementById(`aiView-${i}`);
-  v.querySelector('span:nth-child(2)').textContent=item.name;
-  v.querySelectorAll('span')[3].textContent=item.major;
-  v.querySelectorAll('span')[4].textContent=item.minor;
-  v.querySelector('div:last-child').textContent=`📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}`;
+  v.querySelector('span.item-name').textContent=name;
+  v.querySelector('span.item-major').textContent=major;
+  v.querySelector('span.item-minor').textContent=minor;
+  v.querySelector('div.item-date').textContent=`📅 ${openDate}${endDate?' ~ '+endDate:''}`;
+
+  toggleAiEdit(i);
 }
 
 function removeAiItem(i){
