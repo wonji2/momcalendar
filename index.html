@@ -90,11 +90,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .main-slide{min-width:100%;padding:0 16px 14px;cursor:pointer}
 .main-slide-inner{border-radius:16px;overflow:hidden;position:relative;height:160px;display:flex;align-items:flex-end}
 .main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
-.main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.05) 55%,transparent 100%)}
+.main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.3) 50%,transparent 100%)}
 .main-slide-cnt{position:relative;z-index:1;padding:14px 16px;width:100%}
 .adtag{display:none}
-.main-slide-ttl{color:#fff;font-size:17px;font-weight:800;line-height:1.3;margin-bottom:4px}
-.main-slide-sub{color:rgba(255,255,255,.85);font-size:12px}
+.main-slide-ttl{color:#fff;font-size:17px;font-weight:800;line-height:1.3;margin-bottom:4px;text-shadow:0 1px 10px rgba(0,0,0,1),0 0 30px rgba(0,0,0,.9)}
+.main-slide-sub{color:rgba(255,255,255,.95);font-size:12px;text-shadow:0 1px 6px rgba(0,0,0,1),0 0 20px rgba(0,0,0,.9)}
 .main-dots{display:flex;justify-content:center;gap:6px;padding:12px 0 18px}
 .main-dot{width:6px;height:6px;border-radius:50%;background:var(--border);cursor:pointer;transition:.3s}
 .main-dot.on{background:var(--main);width:18px;border-radius:3px}
@@ -614,8 +614,8 @@ let DATA = [];
 async function loadData() {
   try {
     // 오늘 기준 3일 전부터(진행중 포함) 이후 데이터 가져오기
-    const fromDate = dOff(-4);
-    const url = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&approved=eq.true&order=open_date.asc&limit=1000`;
+    const fromDate = '2026-06-01';
+    const url = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&approved=eq.true&order=open_date.asc&limit=100000`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -624,8 +624,8 @@ async function loadData() {
     });
     if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
     const rows = await res.json();
-    DATA = rows.map((r, i) => ({
-      id: i + 1,
+    DATA = rows.map(r => ({
+      id: r.id,
       influencer: r.influencer || '',
       insta: (r.insta || '').replace('@', '').trim(),
       major: r.major || '',
