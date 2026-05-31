@@ -187,8 +187,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <div style="font-size:14px;font-weight:800;color:#2A1D6E">🖼️ 메인 배너 관리</div>
       <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 배너 추가</button>
     </div>
-    <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.7">
-      💡 사진 URL 또는 배경색 지정 가능 · 비활성화하면 사이트에서 숨김 · 순서 번호로 정렬
+    <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.8">
+      💡 사진은 어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️<br>
+      📐 권장 사이즈: <b>960×320px</b> (3:1 비율) · 순서 번호로 정렬 · 비활성화하면 사이트에서 숨김
     </div>
     <div id="bannerList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
@@ -205,8 +206,37 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
         <input id="bLink" type="text" placeholder="https:// 또는 seller-popup / ad-popup">
         <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
       </div>
-      <div class="modal-field"><label>배경색 (CSS gradient)</label><input id="bBg" type="text" placeholder="예) linear-gradient(135deg,#1a6b4a,#1DB87A)"></div>
-      <div class="modal-field"><label>이미지 URL <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label><input id="bImg" type="text" placeholder="https://...jpg"></div>
+      <div class="modal-field">
+        <label>배경색</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="color" id="bColor1" value="#1a6b4a" style="width:40px;height:36px;border:1.5px solid #EBEBEB;border-radius:8px;cursor:pointer;padding:2px">
+          <span style="font-size:12px;color:#999">→</span>
+          <input type="color" id="bColor2" value="#1DB87A" style="width:40px;height:36px;border:1.5px solid #EBEBEB;border-radius:8px;cursor:pointer;padding:2px">
+          <select id="bGradDir" style="padding:8px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff">
+            <option value="135deg">↘ 대각선</option>
+            <option value="90deg">↓ 세로</option>
+            <option value="0deg">→ 가로</option>
+          </select>
+          <div id="bBgPreview" style="flex:1;min-width:60px;height:36px;border-radius:8px;border:1px solid #EBEBEB"></div>
+        </div>
+        <input id="bBg" type="hidden">
+        <div style="font-size:11px;color:#999">단색으로 하려면 두 색을 같게 설정하세요</div>
+      </div>
+      <div class="modal-field">
+        <label>배너 이미지 <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label>
+        <div style="border:2px dashed #EBEBEB;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa" onclick="document.getElementById('bImgFile').click()">
+          <div id="bImgPreview" style="display:none;margin-bottom:8px">
+            <img id="bImgPreviewImg" style="max-width:100%;height:80px;object-fit:cover;border-radius:8px">
+          </div>
+          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">권장: 960×320px (3:1 비율) · JPG/PNG/WebP</span></div>
+          <input type="file" id="bImgFile" accept="image/*" style="display:none" onchange="previewBannerImg(this)">
+        </div>
+        <input id="bImg" type="text" placeholder="또는 이미지 URL 직접 입력" style="margin-top:8px;width:100%;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.6">
+          어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️<br>
+          권장: <b>960×320px</b> (3:1) · JPG/PNG/WebP 모두 가능
+        </div>
+      </div>
       <div class="modal-field"><label>순서 번호</label><input id="bOrder" type="number" value="1" min="1"></div>
       <div class="modal-field" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="bActive" checked style="width:16px;height:16px;accent-color:#4A35A0">
@@ -676,7 +706,49 @@ async function submitAiData(){
   }
 }
 
-// ── 배너 관리 ──
+// ── 배너 색상 피커 ──
+function updateBgPreview(){
+  const c1=document.getElementById('bColor1').value;
+  const c2=document.getElementById('bColor2').value;
+  const dir=document.getElementById('bGradDir').value;
+  const bg=`linear-gradient(${dir},${c1} 0%,${c2} 100%)`;
+  document.getElementById('bBgPreview').style.background=bg;
+  document.getElementById('bBg').value=bg;
+}
+// 이벤트 등록은 openBannerAdd/Edit 에서
+
+function previewBannerImg(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('bImgPreviewImg').src=e.target.result;
+    document.getElementById('bImgPreview').style.display='block';
+    document.getElementById('bImgUploadTxt').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadBannerImg(){
+  const file=document.getElementById('bImgFile').files[0];
+  if(!file) return null;
+  const ext=file.name.split('.').pop();
+  const path=`banner_${Date.now()}.${ext}`;
+  const res=await fetch(`${SB_URL}/storage/v1/object/banners/${path}`,{
+    method:'POST',
+    headers:{
+      'apikey':SB_KEY,
+      'Authorization':`Bearer ${SB_KEY}`,
+      'Content-Type':file.type,
+      'x-upsert':'true'
+    },
+    body:file
+  });
+  if(res.ok){
+    return `${SB_URL}/storage/v1/object/public/banners/${path}`;
+  }
+  return null;
+}
 let bannerData=[];
 
 async function loadBannerAdmin(){
@@ -724,10 +796,17 @@ function openBannerAdd(){
   document.getElementById('bTitle').value='';
   document.getElementById('bSubtitle').value='';
   document.getElementById('bLink').value='';
-  document.getElementById('bBg').value='linear-gradient(135deg,#2A1D6E,#7B68EE)';
+  document.getElementById('bColor1').value='#2A1D6E';
+  document.getElementById('bColor2').value='#7B68EE';
+  document.getElementById('bGradDir').value='135deg';
   document.getElementById('bImg').value='';
+  document.getElementById('bImgFile').value='';
+  document.getElementById('bImgPreview').style.display='none';
+  document.getElementById('bImgUploadTxt').style.display='block';
   document.getElementById('bOrder').value=bannerData.length+1;
   document.getElementById('bActive').checked=true;
+  updateBgPreview();
+  ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
   document.getElementById('bannerModal').style.display='flex';
 }
 
@@ -738,10 +817,21 @@ function openBannerEdit(id){
   document.getElementById('bTitle').value=b.title||'';
   document.getElementById('bSubtitle').value=b.subtitle||'';
   document.getElementById('bLink').value=b.link||'';
-  document.getElementById('bBg').value=b.bg||'';
   document.getElementById('bImg').value=b.img_url||'';
+  document.getElementById('bImgFile').value='';
+  document.getElementById('bImgPreview').style.display='none';
+  document.getElementById('bImgUploadTxt').style.display='block';
   document.getElementById('bOrder').value=b.sort_order||1;
   document.getElementById('bActive').checked=b.active!==false;
+  // 배경색 파싱
+  const bgMatch=(b.bg||'').match(/linear-gradient\((\d+deg),(#[0-9a-fA-F]+)\s*0%,(#[0-9a-fA-F]+)\s*100%\)/);
+  if(bgMatch){
+    document.getElementById('bColor1').value=bgMatch[2];
+    document.getElementById('bColor2').value=bgMatch[3];
+    document.getElementById('bGradDir').value=bgMatch[1];
+  }
+  updateBgPreview();
+  ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
   document.getElementById('bannerModal').style.display='flex';
 }
 
@@ -749,17 +839,29 @@ function closeBannerModal(){document.getElementById('bannerModal').style.display
 
 async function saveBanner(){
   const id=document.getElementById('bId').value;
+  if(!document.getElementById('bTitle').value.trim()){alert('제목을 입력해주세요!');return;}
+
+  // 이미지 업로드 처리
+  let imgUrl=document.getElementById('bImg').value.trim()||null;
+  const fileInput=document.getElementById('bImgFile');
+  if(fileInput.files[0]){
+    const btn=document.querySelector('#bannerModal .modal-save');
+    btn.textContent='업로드 중...';btn.disabled=true;
+    imgUrl=await uploadBannerImg();
+    btn.textContent='저장하기';btn.disabled=false;
+    if(!imgUrl){alert('이미지 업로드 실패. URL로 직접 입력해주세요.');return;}
+  }
+
   const payload={
     type:'main',
     title:document.getElementById('bTitle').value.trim(),
     subtitle:document.getElementById('bSubtitle').value.trim(),
     link:document.getElementById('bLink').value.trim(),
-    bg:document.getElementById('bBg').value.trim(),
-    img_url:document.getElementById('bImg').value.trim()||null,
+    bg:document.getElementById('bBg').value||'linear-gradient(135deg,#2A1D6E,#7B68EE)',
+    img_url:imgUrl,
     sort_order:parseInt(document.getElementById('bOrder').value)||1,
     active:document.getElementById('bActive').checked,
   };
-  if(!payload.title){alert('제목을 입력해주세요!');return;}
 
   if(id){
     await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
