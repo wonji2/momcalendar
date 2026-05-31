@@ -136,6 +136,24 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 
   <!-- 통계 탭 -->
   <div id="statsView" style="display:none;padding-bottom:80px">
+    <!-- 방문자 통계 -->
+    <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
+      <div style="color:#C5B8FF;font-size:12px;font-weight:700;margin-bottom:10px">👀 방문자 통계</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#fff;font-size:20px;font-weight:800" id="vNow">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">🟢 현재 접속</div>
+        </div>
+        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#fff;font-size:20px;font-weight:800" id="vToday">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">오늘 방문</div>
+        </div>
+        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#fff;font-size:20px;font-weight:800" id="vTotal">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">누적 방문</div>
+        </div>
+      </div>
+    </div>
     <div class="stats">
       <div class="stat"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 등록</div></div>
       <div class="stat"><div class="stat-num" id="statToday">-</div><div class="stat-lbl">오늘 오픈</div></div>
@@ -245,6 +263,36 @@ if(sessionStorage.getItem('mc_admin')==='1'){
   loadData();
 }
 
+// ── 방문자 통계 ──
+async function loadVisitors(){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const mins5=new Date(Date.now()-5*60*1000).toISOString();
+
+    // 현재 접속 (최근 5분)
+    const r1=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${mins5}&select=id`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'count=exact'}
+    });
+    const now=r1.headers.get('content-range')?.split('/')[1]||'0';
+
+    // 오늘 방문
+    const r2=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${today}T00:00:00&select=id`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'count=exact'}
+    });
+    const todayCnt=r2.headers.get('content-range')?.split('/')[1]||'0';
+
+    // 누적 방문
+    const r3=await fetch(`${SB_URL}/rest/v1/visitors?select=id`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'count=exact'}
+    });
+    const total=r3.headers.get('content-range')?.split('/')[1]||'0';
+
+    document.getElementById('vNow').textContent=now;
+    document.getElementById('vToday').textContent=todayCnt;
+    document.getElementById('vTotal').textContent=total;
+  }catch(e){console.log('방문자 로드 실패',e);}
+}
+
 // ── 데이터 로드 ──
 async function loadData(){
   document.getElementById('cardList').innerHTML=`<div class="loading">불러오는 중... ⏳</div>`;
@@ -322,6 +370,7 @@ function switchTab(tab,el){
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     document.getElementById('listView').style.display='none';
+    loadVisitors();
   } else {
     document.getElementById('statsView').style.display='none';
     document.getElementById('listView').style.display='block';

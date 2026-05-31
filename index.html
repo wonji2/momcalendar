@@ -6,6 +6,14 @@
 <title>맘캘린더 — 공동구매 일정</title>
 <link rel="icon" type="image/png" href="momcal_logo.png">
 <link rel="apple-touch-icon" href="momcal_logo.png">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NRCP2FVRSB"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NRCP2FVRSB');
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1139,7 +1147,24 @@ sInput.addEventListener('keydown',e=>{
 
 // ── 초기화 ──
 buildSideCats();
-loadData(); // 구글 시트에서 데이터 불러온 후 buildWeekTabs + renderList 자동 실행
+loadData();
+
+// ── 방문자 기록 (Supabase) ──
+async function recordVisit(){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/visitors`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SUPABASE_KEY,
+        'Authorization':`Bearer ${SUPABASE_KEY}`,
+        'Prefer':'return=minimal'
+      },
+      body:JSON.stringify({visited_at: new Date().toISOString()})
+    });
+  }catch(e){}
+}
+recordVisit();
 </script>
 </body>
 </html>
