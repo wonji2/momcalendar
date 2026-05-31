@@ -846,7 +846,7 @@ function renderBannerList(){
     const bg=b.img_url?`url('${b.img_url}') center/cover`:b.bg||'#ccc';
     return`<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       <!-- 미리보기 -->
-      <div style="height:80px;background:${bg};position:relative;display:flex;align-items:flex-end">
+      <div style="height:160px;background:${bg};position:relative;display:flex;align-items:flex-end">
         <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6),transparent)"></div>
         <div style="position:relative;padding:10px 14px">
           <div style="color:#fff;font-size:14px;font-weight:700">${b.title||''}</div>
@@ -1157,8 +1157,7 @@ function renderCards(){
         <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
         ${dup?'<span class="card-status s-dup">⚠️ 중복</span>':''}
         <div style="flex:1">
-          <div class="card-infl">${d.influencer||'-'}</div>
-          <div class="card-insta">@${d.insta||'-'}</div>
+          <div class="card-infl">${(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-')}</div>
         </div>
       </div>
       <div class="card-body">
@@ -1182,20 +1181,19 @@ function renderCards(){
 
 // ── 인플루언서 빠른 선택 버튼 렌더 ──
 function renderInflQuickSelect(){
-  const today=new Date().toISOString().slice(0,10);
-  // 오늘 등록한 인플루언서 목록 (이름+건수)
   const inflMap={};
   allData.forEach(d=>{
-    if(!d.created_at&&!d.open_date) return;
-    const createdDate=(d.created_at||'').slice(0,10);
-    // created_at 없으면 전체 인플 목록
-    if(!inflMap[d.influencer]) inflMap[d.influencer]=[];
-    inflMap[d.influencer].push(d.id);
+    if(!d.open_date) return;
+    // 표시 키: 한글명 있으면 한글명, 없으면 insta
+    const key = (d.influencer && !d.influencer.startsWith('@')) ? d.influencer : (d.insta||'');
+    if(!key) return;
+    if(!inflMap[key]) inflMap[key]=[];
+    inflMap[key].push(d.id);
   });
   const el=document.getElementById('inflQuickSelect');
   el.innerHTML=Object.entries(inflMap)
     .sort((a,b)=>b[1].length-a[1].length)
-    .slice(0,15) // 최대 15명
+    .slice(0,15)
     .map(([name,ids])=>`
       <button class="infl-chip" onclick="selectInfluencer('${name.replace(/'/g,'')}')" title="${name} ${ids.length}건 전체선택">
         ${name} <span style="opacity:.7">${ids.length}</span>
@@ -1204,16 +1202,16 @@ function renderInflQuickSelect(){
 }
 
 function selectInfluencer(name){
-  // 이미 해당 인플만 선택된 상태면 전체 해제 (토글)
-  const visible=getVisibleIds();
-  const sameInflIds=allData.filter(d=>d.influencer===name).map(d=>d.id);
+  // 해당 이름 또는 insta 아이디로 매칭
+  const sameInflIds=allData.filter(d=>{
+    const displayName=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta||'');
+    return displayName===name;
+  }).map(d=>d.id);
   const alreadySelected=sameInflIds.length>0&&sameInflIds.every(id=>checkedIds.has(id));
 
-  // 기존 선택 전체 초기화
   checkedIds.clear();
 
   if(!alreadySelected){
-    // 해당 인플 검색 후 전체 선택
     document.getElementById('searchInput').value=name;
     renderCards();
     setTimeout(()=>{
@@ -1225,7 +1223,6 @@ function selectInfluencer(name){
       updateBulkBar();
     },50);
   } else {
-    // 토글 해제 - 검색도 초기화
     document.getElementById('searchInput').value='';
     renderCards();
     updateBulkBar();
