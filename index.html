@@ -287,8 +287,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <input id="sInput" type="text" placeholder="품목명, 인플루언서, 아이디 검색..." autocomplete="off">
     <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
   </div>
-  <div style="padding:6px 0 0;font-size:10px;color:rgba(255,255,255,.75);line-height:1.5">
-    <span style="font-weight:800;color:#fff">공구 일정 &amp; 핫딜 정보 커뮤니티</span>
+  <div style="padding:6px 0 0;font-size:10px;color:rgba(255,255,255,.75);line-height:1.7">
+    <span style="font-weight:800;color:#fff">공구 일정 &amp; 핫딜 정보 커뮤니티</span>&nbsp; 쏟아지는 이벤트와 체험단 정보까지 🔥
   </div>
 </div>
 
@@ -348,7 +348,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
           <div class="main-slide-bg" style="background:linear-gradient(135deg,#2A1D6E 0%,#7B68EE 100%)"></div>
           <div class="main-slide-ov"></div>
           <div class="main-slide-cnt">
-            <div class="adtag">입점 신청</div>
             <div class="main-slide-ttl">맘캘린더 이웃인플루언서 입점 신청</div>
             <div class="main-slide-sub">방장 오픈카톡으로 문의해주세요 🙏</div>
           </div>
@@ -382,7 +381,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
           <div class="main-slide-bg" style="background:linear-gradient(135deg,#FFB3BA 0%,#FF6B8A 100%)"></div>
           <div class="main-slide-ov"></div>
           <div class="main-slide-cnt">
-            <div class="adtag">AD</div>
             <div class="main-slide-ttl">라무르 선크림 모음전 🌞</div>
             <div class="main-slide-sub">아기 첫 썬로션/썬쿠션/클렌징워터 정착 🔥</div>
           </div>
@@ -394,7 +392,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
           <div class="main-slide-bg" style="background:linear-gradient(135deg,#74B9FF 0%,#0984E3 100%)"></div>
           <div class="main-slide-ov"></div>
           <div class="main-slide-cnt">
-            <div class="adtag">AD</div>
             <div class="main-slide-ttl">파스퇴르 우유 공구 🥛</div>
             <div class="main-slide-sub">유기농 / 무항생제 / 락토프리</div>
           </div>
@@ -421,7 +418,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 
 <!-- 리스트 뷰 -->
 <div id="listView">
-  <div class="week-wrap" id="weekWrap">
+  <div class="week-wrap" id="weekWrap" style="display:none">
     <div class="week-scroll" id="weekTabs"></div>
     <div class="week-date-label" id="weekDateLabel"></div>
     <div class="date-filter-bar">
@@ -600,27 +597,44 @@ let DATA = [];
 
 function parseDate(str) {
   if (!str) return '';
-  str = str.toString().trim();
-  const m = str.match(/(\d{4})[.\-\/\s년]+(\d{1,2})[.\-\/\s월]+(\d{1,2})/);
-  if (!m) return '';
-  return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // 이미 YYYY-MM-DD 형식이면 그대로
+  if (typeof str === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(str.trim())) return str.trim();
+  // Date 객체인 경우 (앱스 스크립트가 직렬화한 날짜 문자열 포함)
+  if (typeof str === 'string') {
+    str = str.trim();
+    // "2026. 6. 1" 또는 "2026/6/1" 형식
+    const m = str.match(/(\d{4})[.\-\/\s년]+(\d{1,2})[.\-\/\s월]+(\d{1,2})/);
+    if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    // ISO 형식 "2026-06-01T00:00:00.000Z" 등
+    const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+  // 숫자(엑셀 시리얼 날짜)인 경우
+  if (typeof str === 'number') {
+    const d = new Date(Math.round((str - 25569) * 86400 * 1000));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  }
+  return '';
 }
 
 async function loadData() {
-  document.getElementById('cardList').innerHTML =
-    `<div class="empty">공구 일정 불러오는 중... ⏳</div>`;
+  // 로딩 메시지 없이 바로 시작 (빈 상태로)
   try {
     const res = await fetch(API_URL);
     const rows = await res.json();
-    // rows[0] = 헤더, rows[1~] = 데이터
     console.log('헤더:', rows[0]);
+    console.log('첫번째 데이터행 날짜 원본:', rows[1] ? rows[1][5] : 'none', typeof (rows[1] ? rows[1][5] : ''));
     const minorColMap = {
       '육아':7,'리빙':8,'인테리어':9,'식품':10,
       '뷰티':11,'여행':12,'반려동물':13,'패션':14,
     };
     DATA = rows.slice(1).map((c, i) => {
       const major = (c[3]||'').toString().trim();
-      const open  = parseDate(c[5]);
+      const rawOpen = c[5];
+      const rawEnd = c[6];
+      console.log(`행${i+1} 오픈날짜 원본:`, rawOpen, typeof rawOpen);
+      const open = parseDate(rawOpen);
+      console.log(`행${i+1} 오픈날짜 파싱:`, open);
       if (!open || !major) return null;
       const minorCol = minorColMap[major];
       const minor = minorCol !== undefined ? (c[minorCol]||'').toString().trim() : '';
@@ -631,16 +645,12 @@ async function loadData() {
         major, minor,
         name: (c[4]||'').toString().trim(),
         openDate: open,
-        endDate: parseDate(c[6]),
+        endDate: parseDate(rawEnd),
       };
     }).filter(d => d && d.name);
-    console.log(`✅ ${DATA.length}건 로드 완료`);
+    console.log(`✅ ${DATA.length}건 로드 완료`, DATA);
   } catch(e) {
     console.error('로드 실패:', e);
-    document.getElementById('cardList').innerHTML =
-      `<div class="empty">데이터를 불러오지 못했어요 😢<br><span style="font-size:12px">잠시 후 새로고침 해주세요</span></div>`;
-    buildWeekTabs();
-    return;
   }
   buildWeekTabs();
   renderList();
@@ -666,22 +676,21 @@ function getFiltered(dateStr){
   let arr=DATA.filter(item=>{
     if(isExpired(item))return false;
 
-    // 검색어 있으면 날짜/상태 필터 무시하고 전체에서 검색
+    // 검색어 있으면 전체에서 검색
     if(fSearch){
       const q=fSearch.toLowerCase();
       return [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
     }
 
+    // 상태 필터 버튼
     if(fSt==='open'){if(!isOpenToday(item))return false;}
     else if(fSt==='end'){if(!isEndToday(item))return false;}
     else if(fSt==='upcoming'){if(!isUpcoming(item))return false;}
     else{
-      // ALL: 날짜 탭 기준
-      if(dateStr){
-        const e=realEnd(item);
-        if(!(item.openDate<=dateStr&&e>=dateStr))return false;
-      }
+      // ALL 기본: 오늘 이후 오픈일만 (오늘 포함)
+      if(item.openDate < todayStr) return false;
     }
+
     if(fMajor!=='전체'&&item.major!==fMajor)return false;
     if(fMinor!=='전체'&&item.minor!==fMinor)return false;
     return true;
@@ -729,8 +738,8 @@ function renderCard(item, baseDateStr){
 function renderList(){
   const arr=getFiltered(selWeekDate);
   document.getElementById('sCnt').textContent=arr.length;
-  // 날짜 탭: ALL 모드에서만 표시
-  document.getElementById('weekWrap').style.display=fSt==='all'?'block':'none';
+  // 날짜탭 항상 숨김 (기본 리스트는 전체 오픈일순)
+  document.getElementById('weekWrap').style.display='none';
   const el=document.getElementById('cardList');
   el.innerHTML=arr.length
     ?arr.map(item=>renderCard(item,selWeekDate)).join('')
