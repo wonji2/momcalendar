@@ -854,14 +854,6 @@ function renderList(){
     </div>`;
   });
   el.innerHTML=html;
-
-  // 날짜탭 클릭 시 해당 섹션으로 스크롤
-  if(selWeekDate&&selWeekDate!==todayStr){
-    setTimeout(()=>{
-      const sec=document.getElementById(`section-${selWeekDate}`);
-      if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
-    },100);
-  }
 }
 
 // 날짜탭 건수 - 오픈일 기준
@@ -900,14 +892,10 @@ function buildWeekTabs(){
     el.onclick=()=>{
       document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on'));
       el.classList.add('on');
-      selWeekDate=ds;
-      updateWeekLabel();
-      // 해당 날짜 섹션으로 스크롤
+      // ALL 모드: 해당 섹션으로 스크롤만 (selWeekDate 변경 없음)
       const sec=document.getElementById(`section-${ds}`);
       if(sec){
         setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),50);
-      } else {
-        renderList();
       }
     };
     wrap.appendChild(el);
