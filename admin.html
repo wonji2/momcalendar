@@ -134,10 +134,52 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div class="tab" onclick="switchTab('pending',this)">대기중</div>
     <div class="tab" onclick="switchTab('approved',this)">승인됨</div>
     <div class="tab" onclick="switchTab('dup',this)">중복의심</div>
+    <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
-  <!-- 통계 탭 -->
+  <!-- AI 등록 탭 -->
+  <div id="aiView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
+      <b>🤖 AI 자동 파싱</b><br>
+      인플루언서에게 받은 공구 일정 텍스트를 붙여넣으면<br>AI가 자동으로 분석해서 등록해드려요!<br><br>
+      <b>예시:</b><br>
+      인플루언서명: 별난맘 / 아이디: byulnanmam<br>
+      1/1~1/4 라무르 선크림 (뷰티)<br>
+      1/5 파스퇴르 우유 (식품)<br>
+      1/10~1/13 블루래빗 교구 (육아)
+    </div>
+
+    <!-- 인플루언서 정보 -->
+    <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">👤 인플루언서 정보</div>
+      <div style="display:flex;gap:8px">
+        <input id="aiInfluencer" type="text" placeholder="한글 활동명" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <input id="aiInsta" type="text" placeholder="인스타 아이디" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+      </div>
+    </div>
+
+    <!-- 텍스트 입력 -->
+    <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">📋 공구 일정 텍스트</div>
+      <textarea id="aiText" placeholder="인플루언서에게 받은 공구 일정을 그대로 붙여넣어 주세요" style="width:100%;height:160px;padding:12px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <select id="aiYear" style="padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#fff">
+          <option value="2026">2026년</option>
+          <option value="2027">2027년</option>
+        </select>        <button onclick="runAiParse()" style="flex:1;padding:12px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🤖 AI 분석하기</button>
+      </div>
+    </div>
+
+    <!-- AI 분석 결과 -->
+    <div id="aiResult" style="display:none">
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">✅ 분석 결과 <span id="aiResultCnt" style="font-size:12px;color:#999;font-weight:400"></span></div>
+      <div id="aiCards" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+      <button onclick="submitAiData()" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">전체 등록하기 🚀</button>
+    </div>
+
+    <div id="aiLoading" style="display:none;text-align:center;padding:30px;color:#999;font-size:14px">🤖 AI가 분석 중이에요...</div>
+  </div>
   <div id="statsView" style="display:none;padding-bottom:80px">
     <!-- 방문자 통계 -->
     <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
@@ -300,6 +342,154 @@ if(localStorage.getItem('mc_admin')==='1'){
   loadData();
 }
 
+// ── AI 파싱 ──
+// 연도 select 자동 세팅
+(function(){
+  const y=new Date().getFullYear();
+  const sel=document.getElementById('aiYear');
+  if(sel){
+    sel.innerHTML=`<option value="${y}">${y}년</option><option value="${y+1}">${y+1}년</option>`;
+  }
+})();
+const CATS_LIST={
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
+  '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
+  '여행':['호텔/숙소','항공권','패키지/투어'],
+  '반려동물':['강아지','고양이','사료','간식'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
+};
+
+let aiParsedData=[];
+
+async function runAiParse(){
+  const text=document.getElementById('aiText').value.trim();
+  const influencer=document.getElementById('aiInfluencer').value.trim();
+  const insta=document.getElementById('aiInsta').value.trim().replace('@','');
+  const year=document.getElementById('aiYear').value;
+
+  if(!text){alert('공구 일정 텍스트를 입력해주세요!');return;}
+  if(!influencer||!insta){alert('인플루언서 이름과 아이디를 입력해주세요!');return;}
+
+  document.getElementById('aiLoading').style.display='block';
+  document.getElementById('aiResult').style.display='none';
+
+  try{
+    const today=new Date();
+    const year=document.getElementById('aiYear').value;
+    const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    const prompt=`다음 공구 일정 텍스트를 분석해서 JSON 배열로 변환해줘.
+오늘 날짜: ${todayStr}
+기준 연도: ${year}년
+
+날짜 처리 규칙:
+- open_date, end_date는 YYYY-MM-DD 형식
+- end_date가 없으면 null
+- "1/1~1/4"는 ${year}-01-01 ~ ${year}-01-04
+- 변환된 open_date가 오늘(${todayStr})보다 과거이면 자동으로 ${parseInt(year)+1}년으로 변경
+- 예: 오늘이 2026-06-01이고 "1/5"이면 2026-01-05는 과거 → 2027-01-05로 변경
+- 월이 없으면 앞 항목 기준으로 판단
+
+대분류 목록: ${Object.keys(CATS_LIST).join(', ')}
+소분류 목록: ${JSON.stringify(CATS_LIST)}
+
+카테고리 규칙:
+- major는 위 대분류 중 하나 (가장 적합한 것으로)
+- minor는 위 소분류 중 하나 (가장 적합한 것으로)
+- name은 제품명만 (공구, 오픈, 진행 등 불필요한 단어 제거)
+
+텍스트:
+${text}
+
+JSON 배열만 반환 (설명 없이):
+[{"name":"","major":"","minor":"","open_date":"","end_date":null}]`;
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    const raw=data.content[0].text.trim();
+    const json=raw.replace(/```json|```/g,'').trim();
+    aiParsedData=JSON.parse(json).map(item=>({...item,influencer,insta}));
+
+    // 결과 카드 렌더
+    document.getElementById('aiResultCnt').textContent=`총 ${aiParsedData.length}건 파싱됨`;
+    document.getElementById('aiCards').innerHTML=aiParsedData.map((item,i)=>`
+      <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:14px;font-weight:700;color:#191919">${item.name}</span>
+          <button onclick="removeAiItem(${i})" style="background:none;border:none;color:#999;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
+          <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
+        </div>
+        <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+      </div>`).join('');
+
+    document.getElementById('aiResult').style.display='block';
+  }catch(e){
+    alert('AI 분석 실패: '+e.message);
+    console.error(e);
+  }
+  document.getElementById('aiLoading').style.display='none';
+}
+
+function removeAiItem(i){
+  aiParsedData.splice(i,1);
+  document.getElementById('aiResultCnt').textContent=`총 ${aiParsedData.length}건 파싱됨`;
+  document.getElementById('aiCards').children[i].remove();
+}
+
+async function submitAiData(){
+  if(!aiParsedData.length){alert('등록할 데이터가 없어요!');return;}
+  if(!confirm(`${aiParsedData.length}건을 등록할까요?`))return;
+
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SB_KEY,
+        'Authorization':`Bearer ${SB_KEY}`,
+        'Prefer':'return=minimal'
+      },
+      body:JSON.stringify(aiParsedData.map(d=>({
+        influencer:d.influencer,
+        insta:d.insta,
+        major:d.major,
+        minor:d.minor,
+        name:d.name,
+        open_date:d.open_date,
+        end_date:d.end_date||null,
+        approved:true
+      })))
+    });
+    if(res.ok||res.status===201){
+      alert(`✅ ${aiParsedData.length}건 등록 완료!`);
+      document.getElementById('aiText').value='';
+      document.getElementById('aiResult').style.display='none';
+      aiParsedData=[];
+      await loadData();
+    } else {
+      const err=await res.text();
+      alert('등록 실패: '+err);
+    }
+  }catch(e){
+    alert('오류: '+e.message);
+  }
+}
+
 // ── 방문자 통계 ──
 async function loadVisitors(){
   try{
@@ -427,9 +617,15 @@ function switchTab(tab,el){
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     document.getElementById('listView').style.display='none';
+    document.getElementById('aiView').style.display='none';
     loadVisitors();
+  } else if(tab==='ai'){
+    document.getElementById('aiView').style.display='block';
+    document.getElementById('statsView').style.display='none';
+    document.getElementById('listView').style.display='none';
   } else {
     document.getElementById('statsView').style.display='none';
+    document.getElementById('aiView').style.display='none';
     document.getElementById('listView').style.display='block';
     renderCards();
   }
