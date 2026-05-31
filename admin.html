@@ -369,7 +369,7 @@ async function runAiParse(){
   const text=document.getElementById('aiText').value.trim();
   const influencer=document.getElementById('aiInfluencer').value.trim();
   const insta=document.getElementById('aiInsta').value.trim().replace('@','');
-  const year=document.getElementById('aiYear').value;
+  const year=parseInt(document.getElementById('aiYear').value);
 
   if(!text){alert('공구 일정 텍스트를 입력해주세요!');return;}
   if(!influencer||!insta){alert('인플루언서 이름과 아이디를 입력해주세요!');return;}
@@ -377,72 +377,119 @@ async function runAiParse(){
   document.getElementById('aiLoading').style.display='block';
   document.getElementById('aiResult').style.display='none';
 
-  try{
-    const today=new Date();
-    const year=document.getElementById('aiYear').value;
-    const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const today=new Date();
+  today.setHours(0,0,0,0);
 
-    const prompt=`다음 공구 일정 텍스트를 분석해서 JSON 배열로 변환해줘.
-오늘 날짜: ${todayStr}
-기준 연도: ${year}년
-
-날짜 처리 규칙:
-- open_date, end_date는 YYYY-MM-DD 형식
-- end_date가 없으면 null
-- "1/1~1/4"는 ${year}-01-01 ~ ${year}-01-04
-- 변환된 open_date가 오늘(${todayStr})보다 과거이면 자동으로 ${parseInt(year)+1}년으로 변경
-- 예: 오늘이 2026-06-01이고 "1/5"이면 2026-01-05는 과거 → 2027-01-05로 변경
-- 월이 없으면 앞 항목 기준으로 판단
-
-대분류 목록: ${Object.keys(CATS_LIST).join(', ')}
-소분류 목록: ${JSON.stringify(CATS_LIST)}
-
-카테고리 규칙:
-- major는 위 대분류 중 하나 (가장 적합한 것으로)
-- minor는 위 소분류 중 하나 (가장 적합한 것으로)
-- name은 제품명만 (공구, 오픈, 진행 등 불필요한 단어 제거)
-
-텍스트:
-${text}
-
-JSON 배열만 반환 (설명 없이):
-[{"name":"","major":"","minor":"","open_date":"","end_date":null}]`;
-
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await res.json();
-    const raw=data.content[0].text.trim();
-    const json=raw.replace(/```json|```/g,'').trim();
-    aiParsedData=JSON.parse(json).map(item=>({...item,influencer,insta}));
-
-    // 결과 카드 렌더
-    document.getElementById('aiResultCnt').textContent=`총 ${aiParsedData.length}건 파싱됨`;
-    document.getElementById('aiCards').innerHTML=aiParsedData.map((item,i)=>`
-      <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:14px;font-weight:700;color:#191919">${item.name}</span>
-          <button onclick="removeAiItem(${i})" style="background:none;border:none;color:#999;font-size:16px;cursor:pointer">✕</button>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
-          <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
-        </div>
-        <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
-      </div>`).join('');
-
-    document.getElementById('aiResult').style.display='block';
-  }catch(e){
-    alert('AI 분석 실패: '+e.message);
-    console.error(e);
+  function parseDate(str, baseYear){
+    if(!str) return null;
+    str=str.trim();
+    // YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    // M/D 또는 MM/DD
+    const m1=str.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
+    if(m1){
+      let y=baseYear;
+      const d=new Date(y,parseInt(m1[1])-1,parseInt(m1[2]));
+      if(d<today) y=baseYear+1;
+      return `${y}-${String(m1[1]).padStart(2,'0')}-${String(m1[2]).padStart(2,'0')}`;
+    }
+    // M월D일
+    const m2=str.match(/^(\d{1,2})월\s*(\d{1,2})일?$/);
+    if(m2){
+      let y=baseYear;
+      const d=new Date(y,parseInt(m2[1])-1,parseInt(m2[2]));
+      if(d<today) y=baseYear+1;
+      return `${y}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}`;
+    }
+    return null;
   }
+
+  function guessCat(name){
+    const n=name.toLowerCase();
+    if(/선크림|크림|세럼|에센스|로션|토너|클렌|마스크|향수|파운데|립|아이|썬|미백|주름|화장|스킨케어|헤어|샴푸|컨디셔너|바디워시|바디로션/.test(n)) return{major:'뷰티',minor:'스킨케어'};
+    if(/우유|요거트|치즈|유제품/.test(n)) return{major:'식품',minor:'유제품'};
+    if(/만두|냉동|간편|밀키트|HMR/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
+    if(/과일|야채|채소|딸기|블루베리|토마토/.test(n)) return{major:'식품',minor:'과일/야채'};
+    if(/고기|정육|계란|돼지|소고기|닭/.test(n)) return{major:'식품',minor:'정육/계란'};
+    if(/간식|과자|쿠키|스낵|마카롱|케이크|빵|떡|베이커리/.test(n)) return{major:'식품',minor:'간식/구황작물'};
+    if(/수산|생선|새우|전복|김|미역/.test(n)) return{major:'식품',minor:'수산물/건해산'};
+    if(/음료|차|즙|주스|커피/.test(n)) return{major:'식품',minor:'음료/차/즙'};
+    if(/교구|학습|공부|책|도서|그림책|워크북/.test(n)) return{major:'육아',minor:'교구/교육'};
+    if(/장난감|블록|레고|피규어|인형|놀이/.test(n)) return{major:'육아',minor:'장난감/놀이'};
+    if(/이유식|유아식|분유|이유/.test(n)) return{major:'육아',minor:'이유아식'};
+    if(/아동|유아|베이비|키즈|어린이/.test(n)) return{major:'육아',minor:'의류잡화'};
+    if(/유모차|카시트|힙시트/.test(n)) return{major:'육아',minor:'유모차카시트'};
+    if(/선풍기|에어컨|냉장고|세탁기|건조기|청소기|공기청정기|가습기|제습기|전자레인지|밥솥|에어프라이어|커피머신/.test(n)) return{major:'가전',minor:'생활가전'};
+    if(/청소|로봇청소|물걸레/.test(n)) return{major:'가전',minor:'청소가전'};
+    if(/TV|모니터|프로젝터|스피커/.test(n)) return{major:'가전',minor:'영상가전'};
+    if(/쿠킹|주방|냄비|프라이팬|그릇|커피/.test(n)) return{major:'식품',minor:'장류/오일/소스'};
+    if(/침구|이불|베개|매트|커튼/.test(n)) return{major:'리빙',minor:'침구/패브릭'};
+    if(/생활용품|휴지|물티슈|세제|청소/.test(n)) return{major:'리빙',minor:'생활용품'};
+    if(/가구|소파|침대|책상|의자/.test(n)) return{major:'인테리어',minor:'가구'};
+    if(/옷|의류|티셔츠|패딩|코트|원피스|바지|셔츠/.test(n)) return{major:'패션',minor:'의류'};
+    if(/신발|운동화|슬리퍼/.test(n)) return{major:'패션',minor:'신발'};
+    if(/가방|백팩|숄더|크로스/.test(n)) return{major:'패션',minor:'가방'};
+    if(/강아지|고양이|반려|펫|사료|간식/.test(n)) return{major:'반려동물',minor:'사료'};
+    if(/호텔|숙소|여행|리조트/.test(n)) return{major:'여행',minor:'호텔/숙소'};
+    return{major:'리빙',minor:'생활용품'};
+  }
+
+  // 텍스트 파싱
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+  const results=[];
+
+  for(const line of lines){
+    if(!line) continue;
+    // 날짜 범위 패턴: 8/1~8/4 또는 8/1-8/4 또는 8월1일~8월4일
+    const rangeMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s*[~\-]\s*(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
+    const singleMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
+
+    let openDate=null, endDate=null, name='';
+
+    if(rangeMatch){
+      openDate=parseDate(rangeMatch[1].replace('월','/').replace('일',''),year);
+      endDate=parseDate(rangeMatch[2].replace('월','/').replace('일',''),year);
+      name=rangeMatch[3].trim();
+    } else if(singleMatch){
+      openDate=parseDate(singleMatch[1].replace('월','/').replace('일',''),year);
+      name=singleMatch[2].trim();
+    } else {
+      continue;
+    }
+
+    if(!openDate||!name) continue;
+
+    // 괄호 안 카테고리 힌트 제거
+    const catHint=name.match(/[(\[（](.+?)[)\]）]/);
+    name=name.replace(/[(\[（].+?[)\]）]/g,'').trim();
+
+    const cat=guessCat(catHint?catHint[1]+' '+name:name);
+    results.push({influencer,insta,name,major:cat.major,minor:cat.minor,open_date:openDate,end_date:endDate||null});
+  }
+
+  aiParsedData=results;
   document.getElementById('aiLoading').style.display='none';
+
+  if(!results.length){
+    alert('파싱된 일정이 없어요. 형식을 확인해주세요.\n예: 8/1~8/4 라무르 선크림');
+    return;
+  }
+
+  document.getElementById('aiResultCnt').textContent=`총 ${results.length}건 파싱됨`;
+  document.getElementById('aiCards').innerHTML=results.map((item,i)=>`
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:14px;font-weight:700;color:#191919">${item.name}</span>
+        <button onclick="removeAiItem(${i})" style="background:none;border:none;color:#999;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
+        <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
+      </div>
+      <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+    </div>`).join('');
+
+  document.getElementById('aiResult').style.display='block';
 }
 
 function removeAiItem(i){
