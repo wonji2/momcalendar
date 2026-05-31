@@ -589,15 +589,16 @@ function igIcon(){
 }
 
 // ── 구글 시트 연동 ──
-// 맘캘린더 구글폼 응답 시트 CSV URL
 const SHEET_ID = '2PACX-1vSpFFx81VJme6rAsBRiTa1fPNPAG73qYRXH0wkuA4tMwoEg23R_A4gxmZFH2IEMHX6WlQDK4ubatweP';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
-// CORS 우회용 프록시 (github.io에서 구글 시트 직접 접근 가능하게)
-const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(CSV_URL)}`;
+// 두 가지 프록시 순차 시도
+const PROXIES = [
+  `https://corsproxy.io/?${encodeURIComponent(CSV_URL)}`,
+  `https://api.allorigins.win/get?url=${encodeURIComponent(CSV_URL)}`,
+];
 
 let DATA = [];
 
-// 날짜 형식 변환: "2026. 6. 5" 또는 "2026/6/5" → "2026-06-05"
 function parseDate(str) {
   if (!str) return '';
   str = str.toString().trim();
@@ -606,7 +607,6 @@ function parseDate(str) {
   return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
 }
 
-// CSV 한 줄 파싱 (따옴표 안 쉼표 처리)
 function parseCSVRow(row) {
   const result = [];
   let cur = '', inQ = false;
@@ -620,63 +620,64 @@ function parseCSVRow(row) {
   return result;
 }
 
-// 구글 시트에서 데이터 불러오기
+function processCSV(text) {
+  const rows = text.trim().split('\n');
+  console.log('헤더:', parseCSVRow(rows[0]));
+  const minorColMap = {
+    '육아':7,'리빙':8,'인테리어':9,'식품':10,
+    '뷰티':11,'여행':12,'반려동물':13,'패션':14,
+  };
+  return rows.slice(1).map((row, i) => {
+    const c = parseCSVRow(row);
+    const major = (c[3]||'').trim();
+    const open  = parseDate(c[5]);
+    if (!open || !major) return null;
+    const minorCol = minorColMap[major];
+    const minor = minorCol !== undefined ? (c[minorCol]||'').trim() : '';
+    return {
+      id: i+1,
+      influencer: (c[1]||'').trim(),
+      insta: (c[2]||'').replace('@','').trim(),
+      major, minor,
+      name: (c[4]||'').trim(),
+      openDate: open,
+      endDate: parseDate(c[6]),
+    };
+  }).filter(d => d && d.name);
+}
+
 async function loadData() {
-  // 로딩 표시
   document.getElementById('cardList').innerHTML =
     `<div class="empty">공구 일정 불러오는 중... ⏳</div>`;
 
-  try {
-    const res = await fetch(PROXY_URL);
-    const json = await res.json();
-    const text = json.contents;
-
-    const rows = text.trim().split('\n');
-    // 헤더 확인용 (디버그)
-    console.log('헤더:', parseCSVRow(rows[0]));
-
-    // 대분류 → 소분류 컬럼 인덱스 매핑
-    // 타임스탬프(0) 인플루언서(1) 인스타(2) 대분류(3) 제품명(4) 오픈(5) 마감(6)
-    // 육아(7) 리빙(8) 인테리어(9) 식품(10) 뷰티(11) 여행(12) 반려동물(13) 패션(14)
-    const minorColMap = {
-      '육아': 7, '리빙': 8, '인테리어': 9, '식품': 10,
-      '뷰티': 11, '여행': 12, '반려동물': 13, '패션': 14,
-    };
-
-    DATA = rows.slice(1)
-      .map((row, i) => {
-        const c = parseCSVRow(row);
-        const major = (c[3] || '').trim();
-        const open  = parseDate(c[5]);
-        if (!open || !major) return null;
-
-        // 대분류에 해당하는 소분류 컬럼에서 값 읽기
-        const minorCol = minorColMap[major];
-        const minor = minorCol !== undefined ? (c[minorCol] || '').trim() : '';
-
-        return {
-          id: i + 1,
-          influencer: (c[1] || '').trim(),
-          insta:      (c[2] || '').replace('@','').trim(),
-          major,
-          minor,
-          name:       (c[4] || '').trim(),
-          openDate:   open,
-          endDate:    parseDate(c[6]),
-        };
-      })
-      .filter(d => d && d.name);
-
-    console.log(`✅ 공구 데이터 ${DATA.length}건 로드 완료`);
-
-  } catch(e) {
-    console.error('데이터 로드 실패:', e);
-    document.getElementById('cardList').innerHTML =
-      `<div class="empty">데이터를 불러오지 못했어요 😢<br><span style="font-size:12px">잠시 후 새로고침 해주세요</span></div>`;
-    return;
+  for (let i = 0; i < PROXIES.length; i++) {
+    try {
+      console.log(`프록시 ${i+1} 시도:`, PROXIES[i]);
+      const res = await fetch(PROXIES[i]);
+      if (!res.ok) throw new Error('응답 오류');
+      let text = '';
+      // allorigins는 JSON 래핑, corsproxy는 직접 텍스트
+      if (PROXIES[i].includes('allorigins')) {
+        const json = await res.json();
+        text = json.contents;
+      } else {
+        text = await res.text();
+      }
+      if (!text || text.length < 10) throw new Error('빈 응답');
+      DATA = processCSV(text);
+      console.log(`✅ ${DATA.length}건 로드 완료`);
+      break; // 성공하면 중단
+    } catch(e) {
+      console.warn(`프록시 ${i+1} 실패:`, e);
+      if (i === PROXIES.length - 1) {
+        // 모든 프록시 실패
+        document.getElementById('cardList').innerHTML =
+          `<div class="empty">데이터를 불러오지 못했어요 😢<br><span style="font-size:12px">잠시 후 새로고침 해주세요</span></div>`;
+        buildWeekTabs();
+        return;
+      }
+    }
   }
-
-  // 화면 갱신
   buildWeekTabs();
   renderList();
 }
