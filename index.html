@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>맘캘린더 — 공동구매 일정</title>
+<link rel="icon" type="image/png" href="momcal_logo.png">
+<link rel="apple-touch-icon" href="momcal_logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -93,7 +95,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
 .main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.05) 55%,transparent 100%)}
 .main-slide-cnt{position:relative;z-index:1;padding:12px 14px;width:100%}
-.adtag{display:inline-block;background:rgba(255,255,255,.25);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-bottom:4px;letter-spacing:.05em}
+.adtag{display:none}
 .main-slide-ttl{color:#fff;font-size:16px;font-weight:800;line-height:1.3;margin-bottom:2px}
 .main-slide-sub{color:rgba(255,255,255,.85);font-size:11px}
 .main-dots{display:flex;justify-content:center;gap:5px;padding:10px 0 16px}
@@ -140,11 +142,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 /* 소형 배너 */
 .sub-adwrap{padding:0;background:#fff;border-bottom:1px solid var(--border)}
 .sub-ad{border-radius:0;overflow:hidden;cursor:pointer;position:relative;height:72px;display:flex;align-items:center;padding:0 90px 0 14px}
-.sub-adtag{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.22);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px}
+.sub-adtag{display:none}
 .sub-adttl{color:#fff;font-size:12px;font-weight:700;line-height:1.4;margin-bottom:1px}
 .sub-adsub{color:rgba(255,255,255,.82);font-size:10px}
 .sub-adcta{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:10px;font-weight:700;padding:5px 9px;border-radius:20px;white-space:nowrap}
-.sub-dots{display:flex;justify-content:center;gap:4px;padding:10px 0 14px;background:#fff;border-bottom:1px solid var(--border)}
+.sub-dots{display:flex;justify-content:center;gap:4px;padding:14px 0 20px;background:#fff;border-bottom:1px solid var(--border)}
 .sub-dot{width:4px;height:4px;border-radius:50%;background:var(--border);cursor:pointer;transition:.3s}
 .sub-dot.on{background:var(--main);width:12px;border-radius:2px}
 
@@ -216,11 +218,10 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .modal-kakao-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:#FEE500;color:#191919;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;text-decoration:none}
 .modal-close{width:100%;padding:11px;border-radius:12px;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:var(--cream);color:var(--t2)}
 .comm-links{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
-.comm-link{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:11px;border:1.5px solid var(--border);cursor:pointer;text-decoration:none;transition:.15s}
+.comm-link{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;text-decoration:none;transition:.15s}
 .comm-link:hover{background:var(--main-soft)}
-.comm-link-ico{font-size:20px;flex-shrink:0}
-.comm-link-name{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:1px}
-.comm-link-url{font-size:10px;color:var(--t3)}
+.comm-link-ico{font-size:24px;flex-shrink:0}
+.comm-link-name{font-size:14px;font-weight:700;color:var(--t1)}
 
 /* 필터 팝업 */
 .fmodal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;display:none}
@@ -287,7 +288,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
   </div>
   <div style="padding:6px 0 0;font-size:10px;color:rgba(255,255,255,.75);line-height:1.5">
-    <span style="font-weight:800;color:#fff">공구 일정 &amp; 핫딜 정보 커뮤니티</span>&nbsp; 쏟아지는 이벤트와 체험단 정보까지 🔥
+    <span style="font-weight:800;color:#fff">공구 일정 &amp; 핫딜 정보 커뮤니티</span>
   </div>
 </div>
 
@@ -315,8 +316,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div class="side-footer">
     <div class="side-footer-title">맘캘린더</div>
     <a class="side-link" href="https://cafe.naver.com/momcal/" target="_blank"><span class="side-link-ico">☕</span>네이버 카페</a>
-    <a class="side-link" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="side-link-ico">💬</span>카카오 단톡방</a>
     <a class="side-link" href="https://www.instagram.com/momcal_" target="_blank"><span class="side-link-ico">📷</span>인스타그램</a>
+    <a class="side-link" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="side-link-ico">📢</span>단톡 공지방</a>
+    <a class="side-link" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="side-link-ico">💬</span>자유 수다방</a>
     <button class="side-link" onclick="closeSide();openAdModal()"><span class="side-link-ico">📩</span>제휴·광고 문의</button>
   </div>
 </div>
@@ -433,7 +435,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <!-- 소형 배너 -->
   <div class="sub-adwrap" style="border-bottom:none">
     <div class="sub-ad" id="subAdEl">
-      <div class="sub-adtag" id="subAdTag">AD</div>
       <div><div class="sub-adttl" id="subAdT"></div><div class="sub-adsub" id="subAdS"></div></div>
       <div class="sub-adcta" id="subAdC"></div>
     </div>
@@ -490,15 +491,19 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <div class="comm-links">
       <a class="comm-link" href="https://cafe.naver.com/momcal/" target="_blank">
         <div class="comm-link-ico">☕</div>
-        <div><div class="comm-link-name">네이버 카페</div><div class="comm-link-url">cafe.naver.com/momcal</div></div>
+        <div class="comm-link-name">네이버 카페</div>
       </a>
       <a class="comm-link" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank">
+        <div class="comm-link-ico">📢</div>
+        <div class="comm-link-name">단톡 공지방</div>
+      </a>
+      <a class="comm-link" href="https://open.kakao.com/o/gr2kJhCh" target="_blank">
         <div class="comm-link-ico">💬</div>
-        <div><div class="comm-link-name">카카오 단톡방</div><div class="comm-link-url">open.kakao.com/o/gJ3NIKCh</div></div>
+        <div class="comm-link-name">자유 수다방</div>
       </a>
       <a class="comm-link" href="https://www.instagram.com/momcal_" target="_blank">
         <div class="comm-link-ico">📷</div>
-        <div><div class="comm-link-name">인스타그램</div><div class="comm-link-url">@momcal_</div></div>
+        <div class="comm-link-name">인스타그램</div>
       </a>
     </div>
     <button class="modal-close" onclick="document.getElementById('commModal').classList.remove('on')">닫기</button>
@@ -660,6 +665,13 @@ let tmpMajor='전체',tmpMinor='전체',fmodalMode='major';
 function getFiltered(dateStr){
   let arr=DATA.filter(item=>{
     if(isExpired(item))return false;
+
+    // 검색어 있으면 날짜/상태 필터 무시하고 전체에서 검색
+    if(fSearch){
+      const q=fSearch.toLowerCase();
+      return [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
+    }
+
     if(fSt==='open'){if(!isOpenToday(item))return false;}
     else if(fSt==='end'){if(!isEndToday(item))return false;}
     else if(fSt==='upcoming'){if(!isUpcoming(item))return false;}
@@ -672,14 +684,9 @@ function getFiltered(dateStr){
     }
     if(fMajor!=='전체'&&item.major!==fMajor)return false;
     if(fMinor!=='전체'&&item.minor!==fMinor)return false;
-    if(fSearch){
-      const q=fSearch.toLowerCase();
-      if(![item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q)))return false;
-    }
     return true;
   });
-  if(fSt==='upcoming') arr.sort((a,b)=>a.openDate.localeCompare(b.openDate));
-  else arr.sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  arr.sort((a,b)=>a.openDate.localeCompare(b.openDate));
   return arr;
 }
 
@@ -917,6 +924,21 @@ function goMain(i){
 buildMainDots();
 setInterval(()=>goMain((mainIdx+1)%MAIN_SLIDES),4000);
 
+// 메인 배너 스와이프
+(function(){
+  const el=document.getElementById('mainSlider');
+  let sx=0,sy=0;
+  el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  el.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+      if(dx<0) goMain((mainIdx+1)%MAIN_SLIDES);
+      else goMain((mainIdx-1+MAIN_SLIDES)%MAIN_SLIDES);
+    }
+  },{passive:true});
+})();
+
 // ── 소형 배너 (5개) ──
 const SUBADS=[
   {t:'💜 맘캘린더 카페 17,000명+',s:'공구 정보 커뮤니티',bg:'linear-gradient(120deg,#1a6b4a,#1DB87A)',c:'카페 →',link:'https://cafe.naver.com/momcal/'},
@@ -930,6 +952,18 @@ let subIdx=0;
   document.getElementById('subDots').innerHTML=SUBADS.map((_,i)=>`<div class="sub-dot${i===0?' on':''}" onclick="goSub(${i})"></div>`).join('');
   goSub(0);
   setInterval(()=>goSub((subIdx+1)%SUBADS.length),4500);
+  // 소형 배너 스와이프
+  const el=document.getElementById('subAdEl');
+  let sx=0,sy=0;
+  el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  el.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+      if(dx<0) goSub((subIdx+1)%SUBADS.length);
+      else goSub((subIdx-1+SUBADS.length)%SUBADS.length);
+    }
+  },{passive:true});
 })();
 function goSub(i){
   subIdx=i;const a=SUBADS[i];
@@ -939,7 +973,6 @@ function goSub(i){
   document.getElementById('subAdT').textContent=a.t;
   document.getElementById('subAdS').textContent=a.s;
   document.getElementById('subAdC').textContent=a.c;
-  document.querySelector('.sub-adtag').style.display=i<3?'block':'none';
   document.querySelectorAll('.sub-dot').forEach((d,idx)=>d.classList.toggle('on',idx===i));
 }
 
