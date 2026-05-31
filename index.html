@@ -172,6 +172,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .dd-future{color:var(--main)}
 .dd-past{color:var(--t3)}
 .card-arr{color:var(--t3);font-size:15px;padding-left:2px}
+.card-period{font-size:11px;color:var(--t3);margin-top:4px}
 
 /* 빈 상태 */
 .empty{padding:36px 0;text-align:center;color:var(--t3);font-size:13px;line-height:2;background:#fff}
@@ -418,7 +419,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 
 <!-- 리스트 뷰 -->
 <div id="listView">
-  <div class="week-wrap" id="weekWrap" style="display:none">
+  <div class="week-wrap" id="weekWrap">
     <div class="week-scroll" id="weekTabs"></div>
     <div class="week-date-label" id="weekDateLabel"></div>
     <div class="date-filter-bar">
@@ -731,6 +732,7 @@ function renderCard(item, baseDateStr){
           <span class="card-arr">›</span>
         </div>
       </div>
+      <div class="card-period">${disp(item.openDate)} 오픈${item.endDate?' ~ '+disp(item.endDate)+' 마감':''}</div>
     </div>
   </div>`;
 }
@@ -738,8 +740,6 @@ function renderCard(item, baseDateStr){
 function renderList(){
   const arr=getFiltered(selWeekDate);
   document.getElementById('sCnt').textContent=arr.length;
-  // 날짜탭 항상 숨김 (기본 리스트는 전체 오픈일순)
-  document.getElementById('weekWrap').style.display='none';
   const el=document.getElementById('cardList');
   el.innerHTML=arr.length
     ?arr.map(item=>renderCard(item,selWeekDate)).join('')
