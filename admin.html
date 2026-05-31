@@ -53,10 +53,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .f-sel{padding:9px 8px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:12px;font-family:inherit;background:#fff;color:#555;outline:none}
 .f-date{padding:9px 8px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:11px;font-family:inherit;background:#fff;color:#555;outline:none}
 /* 일괄 선택 */
-.bulk-bar{display:none;align-items:center;justify-content:space-between;padding:8px 14px;background:#EEE9FF;margin:0 12px;border-radius:10px}
-.bulk-bar.on{display:flex}
+.bulk-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#EEE9FF;margin:0 12px;border-radius:10px;margin-bottom:4px}
 .bulk-lbl{font-size:13px;font-weight:700;color:#4A35A0}
 .bulk-del{padding:6px 14px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bulk-edit{padding:6px 14px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 /* 카드 */
 .cards{padding:8px 12px 90px}
 .card{background:#fff;border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
@@ -185,12 +185,41 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
     </div>
-    <!-- 일괄 삭제 바 -->
+    <!-- 일괄 액션 바 -->
     <div class="bulk-bar" id="bulkBar">
-      <div class="bulk-lbl" id="bulkLbl">0개 선택</div>
-      <button class="bulk-del" onclick="bulkDelete()">🗑️ 선택 삭제</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="selectAllCb" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="toggleSelectAll(this.checked)">
+        <div class="bulk-lbl" id="bulkLbl">0개 선택</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="bulk-edit" onclick="bulkEdit()">✏️ 일괄 수정</button>
+        <button class="bulk-del" onclick="bulkDelete()">🗑️ 일괄 삭제</button>
+      </div>
     </div>
     <div class="cards" id="cardList"></div>
+  </div>
+</div>
+
+<!-- 일괄 수정 모달 -->
+<div class="modal-bg" id="bulkEditModal" style="display:none" onclick="if(event.target===this)closeBulkEdit()">
+  <div class="modal">
+    <div class="modal-title">✏️ 일괄 수정 <span style="font-size:13px;color:#999;font-weight:400" id="bulkEditCnt"></span></div>
+    <div style="background:#FFF9E6;border-radius:10px;padding:10px 14px;font-size:12px;color:#E6A817;font-weight:600;margin-bottom:14px">빈 칸으로 두면 해당 항목은 수정하지 않아요</div>
+    <div class="modal-field"><label>인플루언서 한글명</label><input id="beInfluencer" type="text" placeholder="변경할 이름 (비우면 유지)"></div>
+    <div class="modal-field"><label>인스타그램 아이디</label><input id="beInsta" type="text" placeholder="변경할 아이디 (비우면 유지)"></div>
+    <div class="modal-field"><label>대분류</label>
+      <select id="beMajor">
+        <option value="">변경 안 함</option>
+        <option>육아</option><option>리빙</option><option>인테리어</option>
+        <option>식품</option><option>뷰티</option><option>패션</option>
+        <option>여행</option><option>반려동물</option><option>가전</option>
+      </select>
+    </div>
+    <div class="modal-field"><label>소분류</label><input id="beMinor" type="text" placeholder="변경할 소분류 (비우면 유지)"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeBulkEdit()">취소</button>
+      <button class="modal-save" onclick="saveBulkEdit()">일괄 저장</button>
+    </div>
   </div>
 </div>
 
@@ -404,7 +433,7 @@ function renderCards(){
     const checked=checkedIds.has(d.id);
     return`<div class="card" id="card-${d.id}">
       <div class="card-hd">
-        <input type="checkbox" class="card-cb" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
+        <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
         <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
         ${dup?'<span class="card-status s-dup">⚠️ 중복</span>':''}
         <div style="flex:1">
@@ -431,20 +460,91 @@ function renderCards(){
   }).join('');
 }
 
-// ── 체크박스 ──
+// ── 전체 선택 ──
+function toggleSelectAll(checked){
+  const visible=getVisibleIds();
+  if(checked){
+    visible.forEach(id=>checkedIds.add(id));
+  } else {
+    visible.forEach(id=>checkedIds.delete(id));
+  }
+  // 체크박스 UI 갱신
+  document.querySelectorAll('.card-cb').forEach(cb=>{
+    const id=parseInt(cb.dataset.id);
+    cb.checked=checkedIds.has(id);
+  });
+  updateBulkBar();
+}
+
+function getVisibleIds(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const major=document.getElementById('majorFilter').value;
+  const dateFrom=document.getElementById('dateFrom').value;
+  const dateTo=document.getElementById('dateTo').value;
+  return allData.filter(d=>{
+    if(curTab==='pending'&&d.approved)return false;
+    if(curTab==='approved'&&!d.approved)return false;
+    if(curTab==='dup'&&!isDup(d))return false;
+    if(major&&d.major!==major)return false;
+    if(dateFrom&&(d.open_date||'')<dateFrom)return false;
+    if(dateTo&&(d.open_date||'')>dateTo)return false;
+    if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q)))return false;
+    return true;
+  }).map(d=>d.id);
+}
+
+// ── 일괄 수정 ──
+function bulkEdit(){
+  if(!checkedIds.size){alert('수정할 항목을 선택해주세요!');return;}
+  document.getElementById('bulkEditCnt').textContent=`${checkedIds.size}건 선택됨`;
+  document.getElementById('beInfluencer').value='';
+  document.getElementById('beInsta').value='';
+  document.getElementById('beMajor').value='';
+  document.getElementById('beMinor').value='';
+  document.getElementById('bulkEditModal').style.display='flex';
+}
+function closeBulkEdit(){document.getElementById('bulkEditModal').style.display='none';}
+async function saveBulkEdit(){
+  const influencer=document.getElementById('beInfluencer').value.trim();
+  const insta=document.getElementById('beInsta').value.trim().replace('@','');
+  const major=document.getElementById('beMajor').value;
+  const minor=document.getElementById('beMinor').value.trim();
+
+  const payload={};
+  if(influencer) payload.influencer=influencer;
+  if(insta) payload.insta=insta;
+  if(major) payload.major=major;
+  if(minor) payload.minor=minor;
+
+  if(!Object.keys(payload).length){alert('수정할 내용을 입력해주세요!');return;}
+
+  const ids=[...checkedIds];
+  await Promise.all(ids.map(id=>
+    fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`},
+      body:JSON.stringify(payload)
+    })
+  ));
+  allData=allData.map(d=>ids.includes(d.id)?{...d,...payload}:d);
+  checkedIds.clear();
+  closeBulkEdit();
+  updateStats();
+  renderCards();
+  alert(`✅ ${ids.length}건 수정 완료!`);
+}
 function toggleCheck(id,checked){
   if(checked) checkedIds.add(id);
   else checkedIds.delete(id);
   updateBulkBar();
 }
 function updateBulkBar(){
-  const bar=document.getElementById('bulkBar');
-  if(checkedIds.size>0){
-    bar.classList.add('on');
-    document.getElementById('bulkLbl').textContent=`${checkedIds.size}개 선택`;
-  } else {
-    bar.classList.remove('on');
-  }
+  const cnt=checkedIds.size;
+  document.getElementById('bulkLbl').textContent=cnt>0?`${cnt}개 선택`:'전체 선택';
+  // 전체선택 체크박스 상태 갱신
+  const visible=getVisibleIds();
+  const cb=document.getElementById('selectAllCb');
+  if(cb) cb.checked=visible.length>0&&visible.every(id=>checkedIds.has(id));
 }
 
 // ── 일괄 삭제 ──
