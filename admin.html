@@ -228,10 +228,37 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
           <div id="bImgPreview" style="display:none;margin-bottom:8px">
             <img id="bImgPreviewImg" style="max-width:100%;height:80px;object-fit:cover;border-radius:8px">
           </div>
-          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">권장: 960×320px (3:1 비율) · JPG/PNG/WebP</span></div>
+          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">어떤 사이즈든 자동 크롭 · JPG/PNG/WebP</span></div>
           <input type="file" id="bImgFile" accept="image/*" style="display:none" onchange="previewBannerImg(this)">
         </div>
-        <input id="bImg" type="text" placeholder="또는 이미지 URL 직접 입력" style="margin-top:8px;width:100%;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+
+        <!-- 이미지 조절 슬라이더 -->
+        <div id="bImgAdjust" style="display:none;margin-top:10px;background:#F7F5FF;border-radius:10px;padding:12px">
+          <div style="font-size:12px;font-weight:700;color:#4A35A0;margin-bottom:8px">🖼️ 이미지 위치/크기 조절</div>
+          <div style="width:100%;height:100px;border-radius:8px;overflow:hidden;margin-bottom:10px;background:#ddd;position:relative">
+            <div id="bImgAdjBox" style="width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:#555;width:36px;flex-shrink:0">크기</span>
+              <input type="range" id="bImgScale" min="50" max="200" value="100" style="flex:1;accent-color:#4A35A0" oninput="adjustBannerImg()">
+              <span id="bImgScaleVal" style="font-size:11px;color:#555;width:34px;text-align:right">100%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:#555;width:36px;flex-shrink:0">좌우</span>
+              <input type="range" id="bImgX" min="-50" max="50" value="0" style="flex:1;accent-color:#4A35A0" oninput="adjustBannerImg()">
+              <span id="bImgXVal" style="font-size:11px;color:#555;width:34px;text-align:right">0%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:#555;width:36px;flex-shrink:0">상하</span>
+              <input type="range" id="bImgY" min="-50" max="50" value="0" style="flex:1;accent-color:#4A35A0" oninput="adjustBannerImg()">
+              <span id="bImgYVal" style="font-size:11px;color:#555;width:34px;text-align:right">0%</span>
+            </div>
+            <button onclick="resetImgAdj()" style="padding:6px;background:#fff;border:1.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#555">↺ 초기화</button>
+          </div>
+        </div>
+
+        <input id="bImg" type="text" placeholder="또는 이미지 URL 직접 입력" style="margin-top:8px;width:100%;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none" oninput="previewImgUrl(this.value)">
         <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.6">
           어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️<br>
           권장: <b>960×320px</b> (3:1) · JPG/PNG/WebP 모두 가능
@@ -722,11 +749,61 @@ function previewBannerImg(input){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    document.getElementById('bImgPreviewImg').src=e.target.result;
+    const url=e.target.result;
+    document.getElementById('bImgPreviewImg').src=url;
     document.getElementById('bImgPreview').style.display='block';
     document.getElementById('bImgUploadTxt').style.display='none';
+    // 조절 슬라이더 표시
+    resetImgAdj();
+    document.getElementById('bImgAdjBox').style.backgroundImage=`url('${url}')`;
+    document.getElementById('bImgAdjust').style.display='block';
   };
   reader.readAsDataURL(file);
+}
+
+function previewImgUrl(url){
+  if(!url) return;
+  resetImgAdj();
+  document.getElementById('bImgAdjBox').style.backgroundImage=`url('${url}')`;
+  document.getElementById('bImgAdjust').style.display='block';
+}
+
+function adjustBannerImg(){
+  const scale=document.getElementById('bImgScale').value;
+  const x=document.getElementById('bImgX').value;
+  const y=document.getElementById('bImgY').value;
+  document.getElementById('bImgScaleVal').textContent=scale+'%';
+  document.getElementById('bImgXVal').textContent=(x>0?'+':'')+x+'%';
+  document.getElementById('bImgYVal').textContent=(y>0?'+':'')+y+'%';
+  // 포지션 계산 (50% 기준으로 offset)
+  const posX=50+parseInt(x);
+  const posY=50+parseInt(y);
+  const sizeVal=scale>100?`${scale}%`:'cover';
+  const box=document.getElementById('bImgAdjBox');
+  box.style.backgroundSize=sizeVal;
+  box.style.backgroundPosition=`${posX}% ${posY}%`;
+}
+
+function resetImgAdj(){
+  document.getElementById('bImgScale').value=100;
+  document.getElementById('bImgX').value=0;
+  document.getElementById('bImgY').value=0;
+  document.getElementById('bImgScaleVal').textContent='100%';
+  document.getElementById('bImgXVal').textContent='0%';
+  document.getElementById('bImgYVal').textContent='0%';
+  const box=document.getElementById('bImgAdjBox');
+  if(box){box.style.backgroundSize='cover';box.style.backgroundPosition='center';}
+}
+
+// 저장 시 조절값을 img_url에 포지션 정보로 저장
+function getImgPosition(){
+  const x=parseInt(document.getElementById('bImgX').value)||0;
+  const y=parseInt(document.getElementById('bImgY').value)||0;
+  const scale=parseInt(document.getElementById('bImgScale').value)||100;
+  return {
+    pos:`${50+x}% ${50+y}%`,
+    size:scale>100?`${scale}%`:'cover'
+  };
 }
 
 async function uploadBannerImg(){
@@ -852,6 +929,7 @@ async function saveBanner(){
     if(!imgUrl){alert('이미지 업로드 실패. URL로 직접 입력해주세요.');return;}
   }
 
+  const imgPos=getImgPosition();
   const payload={
     type:'main',
     title:document.getElementById('bTitle').value.trim(),
@@ -859,6 +937,8 @@ async function saveBanner(){
     link:document.getElementById('bLink').value.trim(),
     bg:document.getElementById('bBg').value||'linear-gradient(135deg,#2A1D6E,#7B68EE)',
     img_url:imgUrl,
+    img_position:imgUrl?imgPos.pos:'center',
+    img_size:imgUrl?imgPos.size:'cover',
     sort_order:parseInt(document.getElementById('bOrder').value)||1,
     active:document.getElementById('bActive').checked,
   };
