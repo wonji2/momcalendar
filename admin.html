@@ -226,7 +226,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
         <label>배너 이미지 <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label>
         <div style="border:2px dashed #EBEBEB;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa" onclick="document.getElementById('bImgFile').click()">
           <div id="bImgPreview" style="display:none;margin-bottom:8px">
-            <img id="bImgPreviewImg" style="max-width:100%;height:80px;object-fit:cover;border-radius:8px">
+            <img id="bImgPreviewImg" style="max-width:100%;height:160px;object-fit:cover;border-radius:8px">
           </div>
           <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">어떤 사이즈든 자동 크롭 · JPG/PNG/WebP</span></div>
           <input type="file" id="bImgFile" accept="image/*" style="display:none" onchange="previewBannerImg(this)">
@@ -235,7 +235,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
         <!-- 이미지 조절 슬라이더 -->
         <div id="bImgAdjust" style="display:none;margin-top:10px;background:#F7F5FF;border-radius:10px;padding:12px">
           <div style="font-size:12px;font-weight:700;color:#4A35A0;margin-bottom:8px">🖼️ 이미지 위치/크기 조절</div>
-          <div style="width:100%;height:100px;border-radius:8px;overflow:hidden;margin-bottom:10px;background:#ddd;position:relative">
+          <div style="width:100%;height:160px;border-radius:8px;overflow:hidden;margin-bottom:10px;background:#ddd;position:relative">
             <div id="bImgAdjBox" style="width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:7px">
@@ -1008,13 +1008,34 @@ async function loadVisitors(){
 }
 
 // ── 데이터 로드 ──
+let inflMapping = {}; // insta → influencer 한글명 매핑
+
+async function loadInflMapping(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/influencers?select=insta,influencer`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+    });
+    const rows=await res.json();
+    inflMapping={};
+    rows.forEach(r=>{ if(r.insta&&r.influencer) inflMapping[r.insta]=r.influencer; });
+  }catch(e){ inflMapping={}; }
+}
+
 async function loadData(){
   document.getElementById('cardList').innerHTML=`<div class="loading">불러오는 중... ⏳</div>`;
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=open_date.asc&limit=2000`,{
+    await loadInflMapping();
+    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=open_date.asc&limit=5000`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
     });
     allData=await res.json();
+    // 인플 매핑 자동 적용
+    allData=allData.map(d=>{
+      if(d.insta && inflMapping[d.insta] && (!d.influencer || d.influencer.startsWith('@'))){
+        return {...d, influencer: inflMapping[d.insta]};
+      }
+      return d;
+    });
     updateStats();
     renderInflQuickSelect();
     renderCards();
@@ -1315,12 +1336,27 @@ async function saveBulkEdit(){
       body:JSON.stringify(payload)
     })
   ));
+
+  // influencer 한글명 저장 시 매핑 테이블에도 upsert
+  if(influencer){
+    const targetInstaIds=[...new Set(ids.map(id=>allData.find(d=>d.id===id)?.insta).filter(Boolean))];
+    await Promise.all(targetInstaIds.map(instaId=>
+      fetch(`${SB_URL}/rest/v1/influencers`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({insta:instaId, influencer})
+      })
+    ));
+    targetInstaIds.forEach(instaId=>{ inflMapping[instaId]=influencer; });
+  }
+
   allData=allData.map(d=>ids.includes(d.id)?{...d,...payload}:d);
   checkedIds.clear();
   closeBulkEdit();
   updateStats();
+  renderInflQuickSelect();
   renderCards();
-  alert(`✅ ${ids.length}건 수정 완료!`);
+  alert(`✅ ${ids.length}건 수정 완료! 한글명도 매핑 저장됐어요.`);
 }
 function toggleCheck(id,checked){
   if(checked) checkedIds.add(id);
@@ -1383,8 +1419,17 @@ async function saveEdit(){
     headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`},
     body:JSON.stringify(payload)
   });
+  // 한글명 있으면 매핑 저장
+  if(payload.influencer && payload.insta){
+    await fetch(`${SB_URL}/rest/v1/influencers`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({insta:payload.insta, influencer:payload.influencer})
+    });
+    inflMapping[payload.insta]=payload.influencer;
+  }
   allData=allData.map(d=>d.id===parseInt(id)?{...d,...payload}:d);
-  closeEdit();updateStats();renderCards();
+  closeEdit();updateStats();renderInflQuickSelect();renderCards();
   alert('수정 완료! ✅');
 }
 
