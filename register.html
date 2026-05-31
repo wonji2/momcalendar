@@ -9,8 +9,8 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh;padding-bottom:40px}
 /* 로그인 */
-.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-.login-box{background:#fff;border-radius:20px;padding:32px 24px;width:100%;max-width:360px;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center}
+.login-wrap{display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:20px;overflow-y:auto}
+.login-box{background:#fff;border-radius:20px;padding:28px 22px;width:100%;max-width:420px;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;margin:auto}
 .login-logo{font-size:22px;font-weight:800;color:#2A1D6E;margin-bottom:4px}
 .login-sub{font-size:13px;color:#999;margin-bottom:6px;line-height:1.6}
 .login-notice{font-size:11px;color:#4A35A0;background:#F7F5FF;padding:10px;border-radius:8px;margin-bottom:20px;line-height:1.6}
@@ -63,10 +63,30 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh;p
   <div class="login-box">
     <div class="login-logo">🛍️ 맘캘린더</div>
     <div class="login-sub">인플루언서 전용 공구 등록 페이지</div>
-    <div class="login-notice">맘캘린더 방장에게 받은<br>비밀번호를 입력해주세요</div>
+
+    <!-- 안내 내용 -->
+    <div style="background:#F7F5FF;border-radius:12px;padding:14px;margin-bottom:16px;text-align:left;font-size:12px;color:#444;line-height:1.8">
+      <div style="margin-bottom:8px">본인 소유 인스타그램 계정으로 <b>@momcal_</b> 에 DM을 보내주시면 인증 후 비밀번호를 공유드려요 📷</div>
+      <div style="border-top:1px solid #DDD6FF;padding-top:8px;margin-top:4px">
+        🔐 <b>비밀번호 안내</b><br>
+        등록 비밀번호는 부정 사용 방지를 위해 <b>주기적으로 변경</b>됩니다. 인증된 셀러에게만 개별 공유되며, <b>타인에게 비밀번호를 공유하는 행위는 엄격히 금지</b>됩니다. 누출 시 등록 권한이 즉시 차단되며 책임을 물을 수 있습니다.<br><br>
+        접근이 불가능하다면 본인 소유 계정으로 <b>@momcal_</b> 에 DM 주시면 재인증 후 변경된 비밀번호를 보내드려요.
+      </div>
+    </div>
+
+    <!-- 인스타 DM 버튼 -->
+    <a href="https://www.instagram.com/momcal_" target="_blank"
+      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#f09433,#dc2743,#bc1888);color:#fff;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:12px;font-family:inherit">
+      <span style="font-size:16px">📷</span> DM 보내고 본인 계정 인증하기
+    </a>
+
     <input class="login-input" id="pwInput" type="password" placeholder="비밀번호 입력"
       onkeydown="if(event.key==='Enter')tryLogin()">
-    <button class="login-btn" onclick="tryLogin()">입장하기</button>
+    <button class="login-btn" onclick="tryLogin()">무료 일정 등록하기 🚀</button>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0f0;font-size:11px;color:#999;line-height:1.7">
+      일정 등록은 무료예요 😊<br>
+      <a href="https://open.kakao.com/o/sKiDEkJh" target="_blank" style="color:#4A35A0;font-weight:700;text-decoration:underline">유료 협업·광고·제휴 문의</a>
+    </div>
   </div>
 </div>
 
@@ -74,7 +94,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh;p
 <div id="mainWrap" style="display:none">
   <div class="hd">
     <div class="hd-sub">인플루언서 전용 · 방장 승인 후 반영</div>
-    <div class="hd-logo">맘캘린더 공구 등록</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="hd-logo" onclick="window.location.href='https://momcalendar.com'" style="cursor:pointer">맘캘린더 공구 등록</div>
+      <button onclick="sessionStorage.removeItem('mc_reg_auth');location.reload()" style="background:rgba(255,255,255,.2);border:none;color:rgba(255,255,255,.7);font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;font-family:inherit">로그아웃</button>
+    </div>
   </div>
 
   <div class="wrap">
@@ -200,7 +223,6 @@ if(sessionStorage.getItem('mc_reg_auth')==='1'){
   document.getElementById('mainWrap').style.display='block';
   initForm();
 }
-
 function initForm(){
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
