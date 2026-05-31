@@ -749,30 +749,44 @@ let tmpMajor='전체',tmpMinor='전체',fmodalMode='major';
 
 // ── 필터링 ──
 function getFiltered(dateStr){
-  let arr=DATA.filter(item=>{
-    if(isExpired(item))return false;
-
-    // 검색어 있으면 전체에서 검색
-    if(fSearch){
+  // 검색어 있으면 전체에서 검색
+  if(fSearch){
+    return DATA.filter(item=>{
+      if(isExpired(item))return false;
+      if(fMajor!=='전체'&&item.major!==fMajor)return false;
+      if(fMinor!=='전체'&&item.minor!==fMinor)return false;
       const q=fSearch.toLowerCase();
-      return [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
-    }
+      return[item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
+    }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  }
 
-    // 상태 필터 버튼
-    if(fSt==='open'){if(!isOpenToday(item))return false;}
-    else if(fSt==='end'){if(!isEndToday(item))return false;}
-    else if(fSt==='upcoming'){if(!isUpcoming(item))return false;}
-    else{
-      // ALL 기본: 오늘 이후 오픈일만 (오늘 포함)
-      if(item.openDate < todayStr) return false;
-    }
+  // 상태 필터 버튼
+  if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item));
+  if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item));
+  if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort((a,b)=>a.openDate.localeCompare(b.openDate));
 
-    if(fMajor!=='전체'&&item.major!==fMajor)return false;
-    if(fMinor!=='전체'&&item.minor!==fMinor)return false;
-    return true;
-  });
-  arr.sort((a,b)=>a.openDate.localeCompare(b.openDate));
-  return arr;
+  // ALL 기본: 오늘 진행중 먼저 → 오픈 예정 순
+  const ongoing=DATA.filter(item=>{
+    if(isExpired(item))return false;
+    if(!filterCat(item))return false;
+    // 오늘 진행중: 오픈일 <= 오늘 <= 마감일
+    return item.openDate<=todayStr && realEnd(item)>=todayStr;
+  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+
+  const upcoming=DATA.filter(item=>{
+    if(isExpired(item))return false;
+    if(!filterCat(item))return false;
+    // 오픈 예정: 오픈일 > 오늘
+    return item.openDate>todayStr;
+  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+
+  return [...ongoing,...upcoming];
+}
+
+function filterCat(item){
+  if(fMajor!=='전체'&&item.major!==fMajor)return false;
+  if(fMinor!=='전체'&&item.minor!==fMinor)return false;
+  return true;
 }
 
 // ── 카드 렌더 ──
@@ -830,40 +844,41 @@ function renderList(){
     return;
   }
 
-  // ALL 기본: 날짜별 그룹으로 무한 스크롤
-  // 오늘부터 60일치 날짜별로 그룹핑
-  let allArr=DATA.filter(item=>{
-    if(isExpired(item))return false;
-    if(item.openDate<todayStr)return false;
-    if(fMajor!=='전체'&&item.major!==fMajor)return false;
-    if(fMinor!=='전체'&&item.minor!==fMinor)return false;
-    if(fSearch){
-      const q=fSearch.toLowerCase();
-      return[item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
-    }
-    return true;
-  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  // ALL 기본: 진행중 먼저, 그다음 오픈예정 날짜별
+  const arr=getFiltered(selWeekDate);
+  const ongoing=arr.filter(item=>item.openDate<=todayStr&&realEnd(item)>=todayStr);
+  const upcoming=arr.filter(item=>item.openDate>todayStr);
 
-  document.getElementById('sCnt').textContent=allArr.length;
+  document.getElementById('sCnt').textContent=arr.length;
 
-  if(!allArr.length){
+  if(!arr.length){
     el.innerHTML=`<div class="empty">등록된 공구가 없어요 🙅</div>`;
     return;
   }
 
-  // 날짜별 그룹
+  let html='';
+
+  // 오늘 진행중 섹션
+  if(ongoing.length){
+    html+=`<div class="date-section" id="section-today">
+      <div class="date-section-hd">
+        <span class="date-section-lbl">🛍️ 오늘의 공구</span>
+        <span class="date-section-cnt">${ongoing.length}건</span>
+      </div>
+      ${ongoing.map(item=>renderCard(item)).join('')}
+    </div>`;
+  }
+
+  // 오픈예정 날짜별 그룹
   const groups={};
-  allArr.forEach(item=>{
-    if(!groups[item.openDate]) groups[item.openDate]=[];
+  upcoming.forEach(item=>{
+    if(!groups[item.openDate])groups[item.openDate]=[];
     groups[item.openDate].push(item);
   });
-
-  let html='';
   Object.keys(groups).sort().forEach(date=>{
     const items=groups[date];
     const d=strToDate(date);
-    const isToday=date===todayStr;
-    const label=isToday?'🛍️ 오늘의 공구':`📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) 오픈`;
+    const label=`📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) 오픈`;
     html+=`<div class="date-section" id="section-${date}">
       <div class="date-section-hd">
         <span class="date-section-lbl">${label}</span>
@@ -872,7 +887,16 @@ function renderList(){
       ${items.map(item=>renderCard(item)).join('')}
     </div>`;
   });
+
   el.innerHTML=html;
+
+  // 날짜탭 클릭 시 해당 섹션으로 스크롤
+  if(selWeekDate&&selWeekDate!==todayStr){
+    setTimeout(()=>{
+      const sec=document.getElementById(`section-${selWeekDate}`);
+      if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
+    },100);
+  }
 }
 
 // 날짜탭 건수 - 오픈일 기준
