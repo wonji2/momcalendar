@@ -476,20 +476,95 @@ async function runAiParse(){
   }
 
   document.getElementById('aiResultCnt').textContent=`총 ${results.length}건 파싱됨`;
-  document.getElementById('aiCards').innerHTML=results.map((item,i)=>`
-    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:14px;font-weight:700;color:#191919">${item.name}</span>
-        <button onclick="removeAiItem(${i})" style="background:none;border:none;color:#999;font-size:16px;cursor:pointer">✕</button>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
-        <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
-      </div>
-      <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
-    </div>`).join('');
 
+  function renderAiCards(){
+    const majorOpts=Object.keys(CATS_LIST).map(m=>`<option value="${m}">${m}</option>`).join('');
+    document.getElementById('aiCards').innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+        <input type="checkbox" id="aiSelectAll" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.ai-cb').forEach(c=>c.checked=this.checked)">
+        <label for="aiSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
+      </div>
+      ${aiParsedData.map((item,i)=>`
+      <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
+        <!-- 요약 뷰 -->
+        <div id="aiView-${i}" style="padding:14px;cursor:pointer" onclick="toggleAiEdit(${i})">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <input type="checkbox" class="ai-cb" data-idx="${i}" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onclick="event.stopPropagation()">
+            <span style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name}</span>
+            <span style="font-size:11px;color:#4A35A0">수정 ✏️</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+            <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
+            <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
+          </div>
+          <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+        </div>
+        <!-- 수정 뷰 -->
+        <div id="aiEdit-${i}" style="display:none;padding:14px;background:#F7F5FF;border-top:1px solid #EEE9FF">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input id="aiName-${i}" value="${item.name}" placeholder="제품명" style="padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;outline:none;width:100%">
+            <div style="display:flex;gap:8px">
+              <select id="aiMajor-${i}" onchange="updateAiMinor(${i})" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff">
+                ${majorOpts}
+              </select>
+              <select id="aiMinor-${i}" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff"></select>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input id="aiOpen-${i}" type="date" value="${item.open_date}" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none">
+              <input id="aiEnd-${i}" type="date" value="${item.end_date||''}" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none">
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="saveAiEdit(${i})" style="flex:1;padding:9px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+              <button onclick="removeAiItem(${i})" style="padding:9px 16px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+            </div>
+          </div>
+        </div>
+      </div>`).join('')}`;
+
+    // 대분류 선택값 세팅 + 소분류 채우기
+    aiParsedData.forEach((item,i)=>{
+      const majSel=document.getElementById(`aiMajor-${i}`);
+      if(majSel){
+        majSel.value=item.major;
+        updateAiMinor(i, item.minor);
+      }
+    });
+  }
+
+  renderAiCards();
   document.getElementById('aiResult').style.display='block';
+}
+
+function toggleAiEdit(i){
+  const v=document.getElementById(`aiView-${i}`);
+  const e=document.getElementById(`aiEdit-${i}`);
+  const isOpen=e.style.display!=='none';
+  e.style.display=isOpen?'none':'block';
+  v.querySelector('span:last-child').textContent=isOpen?'수정 ✏️':'닫기 ✕';
+}
+
+function updateAiMinor(i, preset){
+  const major=document.getElementById(`aiMajor-${i}`).value;
+  const minors=CATS_LIST[major]||[];
+  const sel=document.getElementById(`aiMinor-${i}`);
+  sel.innerHTML=minors.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(preset) sel.value=preset;
+}
+
+function saveAiEdit(i){
+  aiParsedData[i].name=document.getElementById(`aiName-${i}`).value.trim();
+  aiParsedData[i].major=document.getElementById(`aiMajor-${i}`).value;
+  aiParsedData[i].minor=document.getElementById(`aiMinor-${i}`).value;
+  aiParsedData[i].open_date=document.getElementById(`aiOpen-${i}`).value;
+  aiParsedData[i].end_date=document.getElementById(`aiEnd-${i}`).value||null;
+  toggleAiEdit(i);
+  // 요약 뷰 업데이트
+  const item=aiParsedData[i];
+  const v=document.getElementById(`aiView-${i}`);
+  v.querySelector('span:nth-child(2)').textContent=item.name;
+  v.querySelectorAll('span')[3].textContent=item.major;
+  v.querySelectorAll('span')[4].textContent=item.minor;
+  v.querySelector('div:last-child').textContent=`📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}`;
 }
 
 function removeAiItem(i){
@@ -499,8 +574,16 @@ function removeAiItem(i){
 }
 
 async function submitAiData(){
-  if(!aiParsedData.length){alert('등록할 데이터가 없어요!');return;}
-  if(!confirm(`${aiParsedData.length}건을 등록할까요?`))return;
+  // 체크된 항목만 선택 (전체선택이면 전체)
+  const cbs=document.querySelectorAll('.ai-cb');
+  let selected=[];
+  cbs.forEach(cb=>{
+    if(cb.checked) selected.push(aiParsedData[parseInt(cb.dataset.idx)]);
+  });
+  if(!selected.length) selected=[...aiParsedData]; // 아무것도 안 체크하면 전체
+
+  if(!selected.length){alert('등록할 데이터가 없어요!');return;}
+  if(!confirm(`${selected.length}건을 등록할까요?`))return;
 
   try{
     const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
@@ -511,7 +594,7 @@ async function submitAiData(){
         'Authorization':`Bearer ${SB_KEY}`,
         'Prefer':'return=minimal'
       },
-      body:JSON.stringify(aiParsedData.map(d=>({
+      body:JSON.stringify(selected.map(d=>({
         influencer:d.influencer,
         insta:d.insta,
         major:d.major,
@@ -523,7 +606,7 @@ async function submitAiData(){
       })))
     });
     if(res.ok||res.status===201){
-      alert(`✅ ${aiParsedData.length}건 등록 완료!`);
+      alert(`✅ ${selected.length}건 등록 완료!`);
       document.getElementById('aiText').value='';
       document.getElementById('aiResult').style.display='none';
       aiParsedData=[];
