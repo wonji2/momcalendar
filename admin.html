@@ -189,16 +189,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
     </div>
     <!-- 인플루언서별 전체선택 -->
-    <div style="padding:4px 12px 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:11px;font-weight:700;color:#999;flex-shrink:0">인플별 전체선택:</span>
-      <div id="inflQuickSelect" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+    <div style="padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #EBEBEB">
+      <span style="font-size:11px;font-weight:700;color:#999;flex-shrink:0">인플별:</span>
+      <div id="inflQuickSelect" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+      <button onclick="toggleSelectAll(true)" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#2A1D6E;color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">전체선택</button>
+      <button onclick="toggleSelectAll(false)" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#f0f0f0;color:#555;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">선택해제</button>
     </div>
     <!-- 일괄 액션 바 -->
     <div class="bulk-bar" id="bulkBar">
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="selectAllCb" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="toggleSelectAll(this.checked)">
-        <div class="bulk-lbl" id="bulkLbl">전체 선택</div>
-      </div>
+      <div class="bulk-lbl" id="bulkLbl">0개 선택</div>
       <div style="display:flex;gap:6px">
         <button class="bulk-edit" onclick="bulkEdit()">✏️ 일괄 수정</button>
         <button class="bulk-del" onclick="bulkDelete()">🗑️ 일괄 삭제</button>
@@ -348,12 +347,31 @@ async function loadData(){
 }
 
 // ── 중복 감지 ──
+function normalize(str){
+  return (str||'').replace(/[\s\-_·\.]/g,'').toLowerCase();
+}
+function similarity(a,b){
+  a=normalize(a); b=normalize(b);
+  if(!a||!b) return 0;
+  if(a===b) return 1;
+  const longer=a.length>b.length?a:b;
+  const shorter=a.length>b.length?b:a;
+  if(longer.includes(shorter)) return shorter.length/longer.length;
+  // 공통 문자 비율
+  let matches=0;
+  const bArr=b.split('');
+  a.split('').forEach(c=>{
+    const idx=bArr.indexOf(c);
+    if(idx>-1){matches++;bArr.splice(idx,1);}
+  });
+  return (2*matches)/(a.length+b.length);
+}
 function isDup(item){
   return allData.some(d=>
     d.id!==item.id&&
     d.insta===item.insta&&
     d.open_date===item.open_date&&
-    d.name===item.name
+    similarity(d.name,item.name)>=0.7
   );
 }
 
@@ -494,18 +512,32 @@ function renderInflQuickSelect(){
 }
 
 function selectInfluencer(name){
-  // 해당 인플루언서 검색 후 전체 선택
-  document.getElementById('searchInput').value=name;
-  renderCards();
-  // 잠깐 뒤에 전체선택
-  setTimeout(()=>{
-    const visible=getVisibleIds();
-    visible.forEach(id=>checkedIds.add(id));
-    document.querySelectorAll('.card-cb').forEach(cb=>{
-      cb.checked=checkedIds.has(parseInt(cb.dataset.id));
-    });
+  // 이미 해당 인플만 선택된 상태면 전체 해제 (토글)
+  const visible=getVisibleIds();
+  const sameInflIds=allData.filter(d=>d.influencer===name).map(d=>d.id);
+  const alreadySelected=sameInflIds.length>0&&sameInflIds.every(id=>checkedIds.has(id));
+
+  // 기존 선택 전체 초기화
+  checkedIds.clear();
+
+  if(!alreadySelected){
+    // 해당 인플 검색 후 전체 선택
+    document.getElementById('searchInput').value=name;
+    renderCards();
+    setTimeout(()=>{
+      const newVisible=getVisibleIds();
+      newVisible.forEach(id=>checkedIds.add(id));
+      document.querySelectorAll('.card-cb').forEach(cb=>{
+        cb.checked=checkedIds.has(parseInt(cb.dataset.id));
+      });
+      updateBulkBar();
+    },50);
+  } else {
+    // 토글 해제 - 검색도 초기화
+    document.getElementById('searchInput').value='';
+    renderCards();
     updateBulkBar();
-  },50);
+  }
 }
 
 // ── 일괄 승인 ──
@@ -608,11 +640,7 @@ function toggleCheck(id,checked){
 }
 function updateBulkBar(){
   const cnt=checkedIds.size;
-  document.getElementById('bulkLbl').textContent=cnt>0?`${cnt}개 선택`:'전체 선택';
-  // 전체선택 체크박스 상태 갱신
-  const visible=getVisibleIds();
-  const cb=document.getElementById('selectAllCb');
-  if(cb) cb.checked=visible.length>0&&visible.every(id=>checkedIds.has(id));
+  document.getElementById('bulkLbl').textContent=cnt>0?`${cnt}개 선택`:'0개 선택';
 }
 
 // ── 일괄 삭제 ──
