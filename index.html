@@ -39,17 +39,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .srch .sc{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.5);font-size:16px;cursor:pointer;display:none}
 
 /* 검색 드롭다운 */
-.dd{position:fixed;top:112px;left:50%;transform:translateX(-50%);width:min(480px,100vw);background:#fff;border-radius:0 0 14px 14px;box-shadow:0 8px 28px rgba(0,0,0,.13);z-index:400;display:none;max-height:55vh;overflow-y:auto}
-.dd.on{display:block}
-.dd-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 8px}
-.dd-hd span{font-size:12px;font-weight:700;color:var(--t2)}
-.dd-hd button{font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:inherit}
-.dd-item{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;cursor:pointer}
-.dd-item:hover{background:var(--main-soft)}
-.dd-il{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--t1)}
-.dd-del{background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:2px 4px}
-.dd-empty{padding:20px;text-align:center;font-size:13px;color:var(--t3)}
-
 /* 사이드 메뉴 */
 .side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none}
 .side-overlay.on{display:block}
@@ -277,11 +266,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div class="hd-top">
     <div class="hd-left">
       <button class="menu-btn" onclick="openSide()"><span></span><span></span><span></span></button>
-      <div class="logo-img-wrap" id="logoImgWrap">
+      <div class="logo-img-wrap" id="logoImgWrap" onclick="goHome()" style="cursor:pointer">
         <img src="momcal_logo.png" alt="맘캘린더"
           onerror="this.parentElement.style.display='none';document.getElementById('logoSvgFallback').style.display='flex'">
       </div>
-      <div class="logo-svg-fallback" id="logoSvgFallback" style="display:none">
+      <div class="logo-svg-fallback" id="logoSvgFallback" style="display:none;cursor:pointer" onclick="goHome()">
         <svg height="28" viewBox="0 0 150 28" xmlns="http://www.w3.org/2000/svg">
           <defs><linearGradient id="logo-g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#C5B8FF"/><stop offset="100%" stop-color="#9B8FFF"/></linearGradient></defs>
           <text x="0" y="22" font-family="'Noto Sans KR',sans-serif" font-weight="800" font-size="20" fill="url(#logo-g)" letter-spacing="-0.5">맘캘린더</text>
@@ -292,18 +281,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   </div>
   <div class="srch">
     <span class="si">🔍</span>
-    <input id="sInput" type="text" placeholder="품목명, 인플루언서, 아이디 검색..." autocomplete="off">
+    <input id="sInput" type="text" placeholder="브랜드명, 품목명, 인플루언서명 검색" autocomplete="off">
     <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
   </div>
   <div style="padding:6px 0 0;font-size:10px;color:rgba(255,255,255,.75);line-height:1.7">
     <span style="font-weight:800;color:#fff">공구 일정 &amp; 핫딜 정보 커뮤니티</span>&nbsp; 쏟아지는 이벤트와 체험단 정보까지 🔥
   </div>
-</div>
-
-<!-- 검색 드롭다운 -->
-<div class="dd" id="dd">
-  <div class="dd-hd"><span>최근 검색어</span><button onclick="clearRecent()">전체삭제</button></div>
-  <div id="ddList"></div>
 </div>
 
 <!-- 사이드 메뉴 -->
@@ -335,7 +318,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <div class="main-banner-section">
   <div class="main-banner-header">
     <div class="main-banner-title">✨ 이번주 공구</div>
-    <div class="main-banner-more" onclick="window.open('https://open.kakao.com/o/sKiDEkJh','_blank')">입점 신청 →</div>
+    <div class="main-banner-more" onclick="document.getElementById('sellerModal').classList.add('on')">셀러 입점 →</div>
   </div>
   <div class="main-slider-wrap">
     <div class="main-slider" id="mainSlider">
@@ -350,14 +333,14 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
           </div>
         </div>
       </div>
-      <!-- 2. 이웃인플루언서 입점 -->
-      <div class="main-slide" onclick="window.open('https://open.kakao.com/o/sKiDEkJh','_blank')">
+      <!-- 2. 셀러 일정 무료 등록 -->
+      <div class="main-slide" onclick="document.getElementById('sellerModal').classList.add('on')">
         <div class="main-slide-inner">
           <div class="main-slide-bg" style="background:linear-gradient(135deg,#2A1D6E 0%,#7B68EE 100%)"></div>
           <div class="main-slide-ov"></div>
           <div class="main-slide-cnt">
-            <div class="main-slide-ttl">맘캘린더 이웃인플루언서 입점 신청</div>
-            <div class="main-slide-sub">방장 오픈카톡으로 문의해주세요 🙏</div>
+            <div class="main-slide-ttl">셀러 일정 무료 등록 🛍️</div>
+            <div class="main-slide-sub">본인 인스타로 @momcal_ DM 후 인증 → 무료 등록 가능</div>
           </div>
         </div>
       </div>
@@ -497,6 +480,30 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div class="sel-box" id="selBox" style="display:none">
     <div class="sel-title" id="selTitle"></div>
     <div id="selCards"></div>
+  </div>
+</div>
+
+<!-- 셀러 입점 팝업 -->
+<div class="modal-bg" id="sellerModal" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="modal">
+    <div class="modal-ico">🛍️</div>
+    <div class="modal-title">맘캘린더 셀러 입점</div>
+    <div class="modal-desc">
+      공구 일정 등록은 <b>완전 무료</b>예요!<br><br>
+      본인 소유 인스타그램 계정으로<br>
+      <b>@momcal_</b> 에 DM을 보내주시면<br>
+      계정 확인 후 등록 비밀번호를<br>개별로 전달해드려요 🔐<br><br>
+      <span style="font-size:11px;color:var(--t3)">비밀번호 수령 후 등록 페이지에서<br>직접 공구 일정을 등록할 수 있어요</span>
+    </div>
+    <a class="modal-kakao-btn" href="https://momcalendar.com/register.html" target="_blank"
+      style="background:#4A35A0;color:#fff;margin-bottom:8px;text-decoration:none">
+      🛍️ 셀러 등록 페이지 바로가기
+    </a>
+    <a class="modal-kakao-btn" href="https://www.instagram.com/momcal_" target="_blank"
+      style="background:linear-gradient(135deg,#f09433,#dc2743,#bc1888);color:#fff;text-decoration:none">
+      <span style="font-size:18px">📷</span> @momcal_ 인스타 DM 보내기
+    </a>
+    <button class="modal-close" onclick="document.getElementById('sellerModal').classList.remove('on')" style="margin-top:8px">닫기</button>
   </div>
 </div>
 
@@ -1062,9 +1069,7 @@ setInterval(()=>goMain((mainIdx+1)%MAIN_SLIDES),4000);
 
 // ── 소형 배너 (5개) ──
 const SUBADS=[
-  {t:'💜 맘캘린더 카페 17,000명+',s:'공구 정보 커뮤니티',bg:'linear-gradient(120deg,#1a6b4a,#1DB87A)',c:'카페 →',link:'https://cafe.naver.com/momcal/'},
-  {t:'📩 광고·제휴·입점 문의',s:'방장 오픈채팅으로 문의해주세요',bg:'linear-gradient(120deg,#2A1D6E,#7B68EE)',c:'문의 →',link:'https://open.kakao.com/o/sKiDEkJh'},
-  {t:'🆓 공구 일정 무료등록!',s:'구글폼으로 간편하게 등록',bg:'linear-gradient(120deg,#C84B31,#FF7043)',c:'등록 →',link:'https://forms.gle/qbwCjNEfkLrMfoXRA'},
+  {t:'🆓 공구 일정 무료등록!',s:'인플루언서 전용 등록 페이지',bg:'linear-gradient(120deg,#C84B31,#FF7043)',c:'등록 →',link:'popup'},
 ];
 let subIdx=0;
 (function(){
@@ -1088,7 +1093,10 @@ function goSub(i){
   subIdx=i;const a=SUBADS[i];
   const el=document.getElementById('subAdEl');
   el.style.background=a.bg;
-  el.onclick=()=>window.open(a.link,'_blank');
+  el.onclick=()=>{
+    if(a.link==='popup') document.getElementById('sellerModal').classList.add('on');
+    else window.open(a.link,'_blank');
+  };
   document.getElementById('subAdT').textContent=a.t;
   document.getElementById('subAdS').textContent=a.s;
   document.getElementById('subAdC').textContent=a.c;
@@ -1099,27 +1107,35 @@ function goSub(i){
 function openAdModal(){document.getElementById('adModal').classList.add('on');}
 function closeAdModal(){document.getElementById('adModal').classList.remove('on');}
 
-// ── 검색 ──
-let recent=JSON.parse(localStorage.getItem('mc_r')||'[]');
-function saveR(q){recent=[q,...recent.filter(s=>s!==q)].slice(0,15);localStorage.setItem('mc_r',JSON.stringify(recent));}
-function renderR(){
-  const el=document.getElementById('ddList');
-  if(!recent.length){el.innerHTML=`<div class="dd-empty">최근 검색어가 없어요</div>`;return;}
-  el.innerHTML=recent.map((s,i)=>`<div class="dd-item"><div class="dd-il" onclick="doSearch('${s}')"><span>🕐</span>${s}</div><button class="dd-del" onclick="delR(${i},event)">✕</button></div>`).join('');
+// ── 홈으로 ──
+function goHome(){
+  fSt='all'; fMajor='전체'; fMinor='전체'; fSearch='';
+  selWeekDate=todayStr;
+  document.getElementById('sInput').value='';
+  document.getElementById('sClear').style.display='none';
+  document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+  document.getElementById('stab-all').classList.add('on-all');
+  document.getElementById('sideAllBtn').classList.add('on');
+  switchTab('list');
+  renderList();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-function delR(i,e){e.stopPropagation();recent.splice(i,1);localStorage.setItem('mc_r',JSON.stringify(recent));renderR();}
-function clearRecent(){recent=[];localStorage.setItem('mc_r',JSON.stringify(recent));renderR();}
-function doSearch(q){
-  document.getElementById('sInput').value=q;document.getElementById('dd').classList.remove('on');
-  document.getElementById('sClear').style.display='block';
-  fSearch=q;saveR(q);renderR();renderList();switchTab('list');
+function clearSearch(){
+  document.getElementById('sInput').value='';
+  document.getElementById('sClear').style.display='none';
+  fSearch='';
+  renderList();
 }
-function clearSearch(){document.getElementById('sInput').value='';document.getElementById('sClear').style.display='none';fSearch='';renderList();}
 const sInput=document.getElementById('sInput');
-sInput.addEventListener('focus',()=>{renderR();document.getElementById('dd').classList.add('on');});
-sInput.addEventListener('input',e=>{const v=e.target.value;document.getElementById('sClear').style.display=v?'block':'none';fSearch=v;renderList();});
-sInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim())doSearch(e.target.value.trim());});
-document.addEventListener('click',e=>{if(!e.target.closest('.hd')&&!e.target.closest('.dd'))document.getElementById('dd').classList.remove('on');});
+sInput.addEventListener('input',e=>{
+  const v=e.target.value;
+  document.getElementById('sClear').style.display=v?'block':'none';
+  fSearch=v;
+  renderList();
+});
+sInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter') sInput.blur();
+});
 
 // ── 초기화 ──
 buildSideCats();
