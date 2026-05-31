@@ -135,6 +135,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div class="tab" onclick="switchTab('approved',this)">승인됨</div>
     <div class="tab" onclick="switchTab('dup',this)">중복의심</div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
+    <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -180,6 +181,44 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 
     <div id="aiLoading" style="display:none;text-align:center;padding:30px;color:#999;font-size:14px">🤖 AI가 분석 중이에요...</div>
   </div>
+  <!-- 배너 관리 탭 -->
+  <div id="bannerView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">🖼️ 메인 배너 관리</div>
+      <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 배너 추가</button>
+    </div>
+    <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.7">
+      💡 사진 URL 또는 배경색 지정 가능 · 비활성화하면 사이트에서 숨김 · 순서 번호로 정렬
+    </div>
+    <div id="bannerList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+
+  <!-- 배너 추가/수정 모달 -->
+  <div class="modal-bg" id="bannerModal" style="display:none" onclick="if(event.target===this)closeBannerModal()">
+    <div class="modal">
+      <div class="modal-title" id="bannerModalTitle">🖼️ 배너 추가</div>
+      <input type="hidden" id="bId">
+      <div class="modal-field"><label>제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
+      <div class="modal-field"><label>부제목</label><input id="bSubtitle" type="text" placeholder="예) 17,000명+ 맘들의 공구 커뮤니티"></div>
+      <div class="modal-field">
+        <label>링크 URL</label>
+        <input id="bLink" type="text" placeholder="https:// 또는 seller-popup / ad-popup">
+        <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
+      </div>
+      <div class="modal-field"><label>배경색 (CSS gradient)</label><input id="bBg" type="text" placeholder="예) linear-gradient(135deg,#1a6b4a,#1DB87A)"></div>
+      <div class="modal-field"><label>이미지 URL <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label><input id="bImg" type="text" placeholder="https://...jpg"></div>
+      <div class="modal-field"><label>순서 번호</label><input id="bOrder" type="number" value="1" min="1"></div>
+      <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="bActive" checked style="width:16px;height:16px;accent-color:#4A35A0">
+        <label for="bActive" style="font-size:13px;font-weight:600;cursor:pointer">활성화 (사이트에 표시)</label>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-cancel" onclick="closeBannerModal()">취소</button>
+        <button class="modal-save" onclick="saveBanner()">저장하기</button>
+      </div>
+    </div>
+  </div>
+
   <div id="statsView" style="display:none;padding-bottom:80px">
     <!-- 방문자 통계 -->
     <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
@@ -637,7 +676,126 @@ async function submitAiData(){
   }
 }
 
-// ── 방문자 통계 ──
+// ── 배너 관리 ──
+let bannerData=[];
+
+async function loadBannerAdmin(){
+  const res=await fetch(`${SB_URL}/rest/v1/banners?type=eq.main&order=sort_order.asc`,{
+    headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+  });
+  bannerData=await res.json();
+  renderBannerList();
+}
+
+function renderBannerList(){
+  const el=document.getElementById('bannerList');
+  if(!bannerData.length){
+    el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 배너가 없어요<br>+ 배너 추가 버튼으로 추가해주세요</div>`;
+    return;
+  }
+  el.innerHTML=bannerData.map(b=>{
+    const bg=b.img_url?`url('${b.img_url}') center/cover`:b.bg||'#ccc';
+    return`<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <!-- 미리보기 -->
+      <div style="height:80px;background:${bg};position:relative;display:flex;align-items:flex-end">
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6),transparent)"></div>
+        <div style="position:relative;padding:10px 14px">
+          <div style="color:#fff;font-size:14px;font-weight:700">${b.title||''}</div>
+          <div style="color:rgba(255,255,255,.8);font-size:11px">${b.subtitle||''}</div>
+        </div>
+        <div style="position:absolute;top:8px;right:8px;background:${b.active?'#2E7D32':'#999'};color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px">${b.active?'✅ 활성':'숨김'}</div>
+      </div>
+      <!-- 액션 -->
+      <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:11px;color:#999">순서 ${b.sort_order||0} · ${b.link||'링크없음'}</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:5px 12px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">${b.active?'숨기기':'표시'}</button>
+          <button onclick="openBannerEdit(${b.id})" style="padding:5px 12px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+          <button onclick="deleteBanner(${b.id})" style="padding:5px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openBannerAdd(){
+  document.getElementById('bannerModalTitle').textContent='🖼️ 배너 추가';
+  document.getElementById('bId').value='';
+  document.getElementById('bTitle').value='';
+  document.getElementById('bSubtitle').value='';
+  document.getElementById('bLink').value='';
+  document.getElementById('bBg').value='linear-gradient(135deg,#2A1D6E,#7B68EE)';
+  document.getElementById('bImg').value='';
+  document.getElementById('bOrder').value=bannerData.length+1;
+  document.getElementById('bActive').checked=true;
+  document.getElementById('bannerModal').style.display='flex';
+}
+
+function openBannerEdit(id){
+  const b=bannerData.find(d=>d.id===id);if(!b)return;
+  document.getElementById('bannerModalTitle').textContent='🖼️ 배너 수정';
+  document.getElementById('bId').value=id;
+  document.getElementById('bTitle').value=b.title||'';
+  document.getElementById('bSubtitle').value=b.subtitle||'';
+  document.getElementById('bLink').value=b.link||'';
+  document.getElementById('bBg').value=b.bg||'';
+  document.getElementById('bImg').value=b.img_url||'';
+  document.getElementById('bOrder').value=b.sort_order||1;
+  document.getElementById('bActive').checked=b.active!==false;
+  document.getElementById('bannerModal').style.display='flex';
+}
+
+function closeBannerModal(){document.getElementById('bannerModal').style.display='none';}
+
+async function saveBanner(){
+  const id=document.getElementById('bId').value;
+  const payload={
+    type:'main',
+    title:document.getElementById('bTitle').value.trim(),
+    subtitle:document.getElementById('bSubtitle').value.trim(),
+    link:document.getElementById('bLink').value.trim(),
+    bg:document.getElementById('bBg').value.trim(),
+    img_url:document.getElementById('bImg').value.trim()||null,
+    sort_order:parseInt(document.getElementById('bOrder').value)||1,
+    active:document.getElementById('bActive').checked,
+  };
+  if(!payload.title){alert('제목을 입력해주세요!');return;}
+
+  if(id){
+    await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`},
+      body:JSON.stringify(payload)
+    });
+  } else {
+    await fetch(`${SB_URL}/rest/v1/banners`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'return=minimal'},
+      body:JSON.stringify(payload)
+    });
+  }
+  closeBannerModal();
+  await loadBannerAdmin();
+  alert(`✅ 배너 ${id?'수정':'추가'} 완료! 사이트 새로고침하면 반영돼요.`);
+}
+
+async function toggleBannerActive(id,current){
+  await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`},
+    body:JSON.stringify({active:!current})
+  });
+  await loadBannerAdmin();
+}
+
+async function deleteBanner(id){
+  if(!confirm('이 배너를 삭제할까요?'))return;
+  await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
+    method:'DELETE',
+    headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+  });
+  await loadBannerAdmin();
+}
 async function loadVisitors(){
   try{
     const today=new Date().toISOString().slice(0,10);
@@ -765,14 +923,23 @@ function switchTab(tab,el){
     document.getElementById('statsView').style.display='block';
     document.getElementById('listView').style.display='none';
     document.getElementById('aiView').style.display='none';
+    document.getElementById('bannerView').style.display='none';
     loadVisitors();
   } else if(tab==='ai'){
     document.getElementById('aiView').style.display='block';
     document.getElementById('statsView').style.display='none';
     document.getElementById('listView').style.display='none';
+    document.getElementById('bannerView').style.display='none';
+  } else if(tab==='banner'){
+    document.getElementById('bannerView').style.display='block';
+    document.getElementById('statsView').style.display='none';
+    document.getElementById('aiView').style.display='none';
+    document.getElementById('listView').style.display='none';
+    loadBannerAdmin();
   } else {
     document.getElementById('statsView').style.display='none';
     document.getElementById('aiView').style.display='none';
+    document.getElementById('bannerView').style.display='none';
     document.getElementById('listView').style.display='block';
     renderCards();
   }
