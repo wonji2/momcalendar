@@ -142,6 +142,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
+    <div class="tab" onclick="switchTab('seller',this)">⭐ 셀러</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -323,6 +324,40 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <div class="modal-actions">
         <button class="modal-cancel" onclick="closeBannerModal()">취소</button>
         <button class="modal-save" onclick="saveBanner()">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⭐ 이웃셀러 관리 탭 -->
+  <div id="sellerView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">⭐ 이웃셀러 관리</div>
+      <button onclick="openSellerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 셀러 추가</button>
+    </div>
+    <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.8">
+      ⭐ 메인 상단 '맘캘린더 이웃셀러'에 노출돼요 · 광고 상품(예: 1개월 노출권)으로 판매<br>
+      🎲 노출 순서와 테두리 색은 <b>방문할 때마다 랜덤</b>이에요<br>
+      📅 노출 시작일·종료일을 비워두면 <b>제한 없이 계속 노출</b>돼요
+    </div>
+    <div id="sellerList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+
+  <!-- 셀러 추가/수정 모달 -->
+  <div class="modal-bg" id="sellerModal" style="display:none" onclick="if(event.target===this)closeSellerModal()">
+    <div class="modal">
+      <div class="modal-title" id="sellerModalTitle">⭐ 셀러 추가</div>
+      <input id="sId" type="hidden">
+      <div class="modal-field"><label>보여지는 이름 <span style="color:#C62828">*</span></label><input id="sName" type="text" placeholder="예: 또또맘"></div>
+      <div class="modal-field"><label>인스타 아이디 (@없이) <span style="color:#C62828">*</span></label><input id="sInsta" type="text" placeholder="예: ttobomom"></div>
+      <div class="modal-field"><label>노출 시작일 (선택)</label><input id="sStart" type="date"></div>
+      <div class="modal-field"><label>노출 종료일 (선택)</label><input id="sEnd" type="date"></div>
+      <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+        <label style="margin:0">노출 활성화</label>
+        <input id="sActive" type="checkbox" checked style="width:18px;height:18px;accent-color:#4A35A0">
+      </div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeSellerModal()">취소</button>
+        <button class="modal-save" onclick="saveSeller()">저장하기</button>
       </div>
     </div>
   </div>
@@ -999,7 +1034,15 @@ function parsePangpang(text, existingData, minDate) {
     return {major, minor};
   }
 
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const rawLines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+
+  // ── 앞뒤 고정 잡음 자동 제거 ──
+  // 1) 첫 'thumbnail' 이전(사이트 헤더·날짜 네비·대분류/소분류 라벨 등)은 통째로 버림
+  let startIdx = rawLines.findIndex(l=>/^(thumbnail|썸네일)$/i.test(l));
+  let body = startIdx>=0 ? rawLines.slice(startIdx+1) : rawLines;
+  // 2) 푸터/네비 잡음 라인 제거 (상품 카드엔 안 나오는 고정 문구)
+  const JUNK=/^(모두 확인했어요|홈|인플루언서|오늘오픈|마이페이지|공구팡팡|공구모아|인스타그램 공동구매|AI 검색 플랫폼|AI 자동 분석|상품 추출|카테고리 분류|일정 분석|QR코드|모바일로 접속하기|QR코드를 스캔하세요|대분류|소분류|공구 오픈일정 캘린더.*|©.*|cs@.*|.*\d{4}년 \d{1,2}월$|오늘)$/;
+  const lines = body.filter(l=>!JUNK.test(l));
 
   // 카드 단위로 분할: 각 카드는 'thumbnail'(썸네일)로 끝남
   const cards=[]; let cur=[];
@@ -1013,11 +1056,18 @@ function parsePangpang(text, existingData, minDate) {
   for(const card of cards){
     // '>소분류' 줄과 바로 윗줄(대분류)
     const minorIdx=card.findIndex(l=>l.startsWith('>'));
-    if(minorIdx<1) continue;               // 대분류가 앞에 없으면(윗부분 잘림) 건너뜀
-    const siteMinor=card[minorIdx].replace(/^>/,'').trim();
-    const siteMajor=card[minorIdx-1].trim();
-    // 상품명 = 대분류 앞에 있는 줄들
-    let name=card.slice(0, minorIdx-1).join(' ').trim();
+    let siteMinor='', siteMajor='', name='';
+    if(minorIdx>=1){
+      // 정상: 대분류/소분류 라벨 있음
+      siteMinor=card[minorIdx].replace(/^>/,'').trim();
+      siteMajor=card[minorIdx-1].trim();
+      name=card.slice(0, minorIdx-1).join(' ').trim();
+    } else {
+      // 카테고리 라벨 없는 카드: 첫 줄(들)을 상품명으로, 카테고리는 자동분류
+      // '#태그'·'내일 오픈 예정'·날짜·셀러 줄 전까지를 상품명으로
+      const stopIdx=card.findIndex(l=>l.startsWith('#')||/오픈 예정|^\d{1,2}\/\d{1,2}/.test(l));
+      name=card.slice(0, stopIdx>0?stopIdx:1).join(' ').trim();
+    }
     if(!name || name.startsWith('#')) continue; // 상품명 잘린 카드 skip
 
     // 날짜 (범위 우선)
@@ -1187,21 +1237,44 @@ function renderCrawlCards(){
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
       <input type="checkbox" id="crawlSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.crawl-cb').forEach(c=>c.checked=this.checked)">
       <label for="crawlSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
+      <span style="font-size:11px;color:#999;margin-left:auto">✏️ 각 항목을 눌러 바로 수정하세요</span>
     </div>
     ${crawlParsedData.map((item,i)=>`
-    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <input type="checkbox" class="crawl-cb" data-idx="${i}" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer">
-        <span style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name}</span>
+    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input type="checkbox" class="crawl-cb" data-idx="${i}" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer;flex-shrink:0">
+        <input class="cr-f" value="${escAttr(item.name)}" oninput="editCrawl(${i},'name',this.value)" placeholder="상품명"
+          style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid #e5e0f5;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px">
-        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
-        <span style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
-        ${item.influencer?`<span style="background:#FFF3E0;color:#E65100;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.influencer}</span>`:''}
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select class="cr-f" onchange="editCrawl(${i},'major',this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
+          ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
+        </select>
+        <input class="cr-f" value="${escAttr(item.minor||'')}" oninput="editCrawl(${i},'minor',this.value)" placeholder="소분류"
+          style="flex:1;font-size:12px;font-weight:600;color:#666;background:#f5f5f5;border:none;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
       </div>
-      <div style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="cr-f" value="${escAttr(item.influencer||'')}" oninput="editCrawl(${i},'influencer',this.value)" placeholder="셀러명(한글)"
+          style="flex:1;font-size:12px;color:#333;border:1px solid #eee;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
+        <input class="cr-f" value="${escAttr(item.insta||'')}" oninput="editCrawl(${i},'insta',this.value)" placeholder="인스타 아이디"
+          style="flex:1;font-size:12px;color:#333;border:1px solid #eee;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;color:#999">📅</span>
+        <input class="cr-f" type="date" value="${item.open_date||''}" onchange="editCrawl(${i},'open_date',this.value)"
+          style="font-size:11px;color:#555;border:1px solid #eee;border-radius:8px;padding:6px 8px;font-family:inherit;outline:none">
+        <span style="font-size:11px;color:#999">~</span>
+        <input class="cr-f" type="date" value="${item.end_date||''}" onchange="editCrawl(${i},'end_date',this.value)"
+          style="font-size:11px;color:#555;border:1px solid #eee;border-radius:8px;padding:6px 8px;font-family:inherit;outline:none">
+      </div>
     </div>`).join('')}`;
 }
+// 카드 항목 즉시 수정 → crawlParsedData에 반영
+function editCrawl(i,field,val){
+  if(crawlParsedData[i]) crawlParsedData[i][field]=val;
+}
+// HTML 속성 안전 처리
+function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 async function crawlInsertSelected(){
   const cbs=document.querySelectorAll('.crawl-cb');
@@ -1544,6 +1617,124 @@ async function deleteBanner(id){
   });
   await loadBannerAdmin();
 }
+
+// ── ⭐ 이웃셀러 관리 ──
+let sellerData=[];
+async function loadSellerAdmin(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/sellers?order=created_at.desc`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    sellerData=res.ok?await res.json():[];
+  }catch(e){ sellerData=[]; }
+  renderSellerList();
+}
+function renderSellerList(){
+  const el=document.getElementById('sellerList');
+  if(!sellerData.length){
+    el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 셀러가 없어요<br>+ 셀러 추가 버튼으로 추가해주세요</div>`;
+    return;
+  }
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=sellerData.map(s=>{
+    const handle=(s.insta||'').replace('@','');
+    let periodTxt='상시 노출';
+    if(s.start_date||s.end_date) periodTxt=`${s.start_date||'~'} ~ ${s.end_date||'계속'}`;
+    // 현재 노출 여부 판단
+    let live=s.active!==false;
+    if(s.start_date && today<s.start_date) live=false;
+    if(s.end_date && today>s.end_date) live=false;
+    const stBadge=live
+      ?`<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">노출중</span>`
+      :(s.active===false
+        ?`<span style="background:#f0f0f0;color:#999;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">비활성</span>`
+        :`<span style="background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">기간외</span>`);
+    return`<div style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="width:46px;height:46px;border-radius:50%;border:2px solid #7B68EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;color:#4A35A0;text-align:center;line-height:1.2;padding:0 2px">${s.name||handle}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:14px;font-weight:700;color:#191919">${s.name||'(이름없음)'}</span>${stBadge}</div>
+        <div style="font-size:11px;color:#888">@${handle||'(아이디없음)'}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">📅 ${periodTxt}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button onclick="toggleSellerActive(${s.id},${s.active!==false})" style="padding:5px 10px;background:${s.active!==false?'#FFF9E6':'#E8F5E9'};color:${s.active!==false?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${s.active!==false?'숨기기':'표시'}</button>
+        <button onclick="openSellerEdit(${s.id})" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+        <button onclick="deleteSeller(${s.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openSellerAdd(){
+  document.getElementById('sellerModalTitle').textContent='⭐ 셀러 추가';
+  document.getElementById('sId').value='';
+  document.getElementById('sName').value='';
+  document.getElementById('sInsta').value='';
+  document.getElementById('sStart').value='';
+  document.getElementById('sEnd').value='';
+  document.getElementById('sActive').checked=true;
+  document.getElementById('sellerModal').style.display='flex';
+}
+function openSellerEdit(id){
+  const s=sellerData.find(x=>x.id===id); if(!s)return;
+  document.getElementById('sellerModalTitle').textContent='⭐ 셀러 수정';
+  document.getElementById('sId').value=s.id;
+  document.getElementById('sName').value=s.name||'';
+  document.getElementById('sInsta').value=(s.insta||'').replace('@','');
+  document.getElementById('sStart').value=s.start_date||'';
+  document.getElementById('sEnd').value=s.end_date||'';
+  document.getElementById('sActive').checked=s.active!==false;
+  document.getElementById('sellerModal').style.display='flex';
+}
+function closeSellerModal(){ document.getElementById('sellerModal').style.display='none'; }
+async function saveSeller(){
+  const id=document.getElementById('sId').value;
+  const name=document.getElementById('sName').value.trim();
+  const insta=document.getElementById('sInsta').value.trim().replace('@','');
+  if(!name){alert('보여지는 이름을 입력해주세요!');return;}
+  if(!insta){alert('인스타 아이디를 입력해주세요!');return;}
+  const payload={
+    name, insta,
+    start_date:document.getElementById('sStart').value||null,
+    end_date:document.getElementById('sEnd').value||null,
+    active:document.getElementById('sActive').checked
+  };
+  try{
+    if(id){
+      await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+        body:JSON.stringify(payload)
+      });
+    } else {
+      const r=await fetch(`${SB_URL}/rest/v1/sellers`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+        body:JSON.stringify(payload)
+      });
+      if(!r.ok){ const t=await r.text(); alert('등록 실패: '+t); return; }
+    }
+    closeSellerModal();
+    await loadSellerAdmin();
+    alert(`✅ 셀러 ${id?'수정':'추가'} 완료!`);
+  }catch(e){ alert('오류: '+e.message); }
+}
+async function toggleSellerActive(id,cur){
+  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+    body:JSON.stringify({active:!cur})
+  });
+  await loadSellerAdmin();
+}
+async function deleteSeller(id){
+  if(!confirm('이 셀러를 삭제할까요?'))return;
+  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+    method:'DELETE',
+    headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+  });
+  await loadSellerAdmin();
+}
+
 async function loadVisitors(){
   try{
     const today=new Date().toISOString().slice(0,10);
@@ -1712,38 +1903,25 @@ function switchTab(tab,el){
   el.classList.add('on');
   checkedIds.clear();
   updateBulkBar();
+  // 모든 뷰 숨기기
+  ['statsView','aiView','bannerView','crawlView','sellerView','listView'].forEach(id=>{
+    const v=document.getElementById(id); if(v) v.style.display='none';
+  });
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
-    document.getElementById('listView').style.display='none';
-    document.getElementById('aiView').style.display='none';
-    document.getElementById('bannerView').style.display='none';
-    document.getElementById('crawlView').style.display='none';
     loadVisitors();
   } else if(tab==='ai'){
     document.getElementById('aiView').style.display='block';
-    document.getElementById('statsView').style.display='none';
-    document.getElementById('listView').style.display='none';
-    document.getElementById('bannerView').style.display='none';
-    document.getElementById('crawlView').style.display='none';
   } else if(tab==='crawl'){
     document.getElementById('crawlView').style.display='block';
     { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
-    document.getElementById('statsView').style.display='none';
-    document.getElementById('aiView').style.display='none';
-    document.getElementById('bannerView').style.display='none';
-    document.getElementById('listView').style.display='none';
   } else if(tab==='banner'){
     document.getElementById('bannerView').style.display='block';
-    document.getElementById('statsView').style.display='none';
-    document.getElementById('aiView').style.display='none';
-    document.getElementById('listView').style.display='none';
-    document.getElementById('crawlView').style.display='none';
     loadBannerAdmin();
+  } else if(tab==='seller'){
+    document.getElementById('sellerView').style.display='block';
+    loadSellerAdmin();
   } else {
-    document.getElementById('statsView').style.display='none';
-    document.getElementById('aiView').style.display='none';
-    document.getElementById('bannerView').style.display='none';
-    document.getElementById('crawlView').style.display='none';
     document.getElementById('listView').style.display='block';
     renderCards();
   }
