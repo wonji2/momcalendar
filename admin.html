@@ -185,44 +185,51 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
   <!-- AI 등록 탭 -->
   <div id="aiView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
-      <b>🤖 AI 자동 파싱</b><br>
-      인플루언서에게 받은 공구 일정 텍스트를 붙여넣으면<br>AI가 자동으로 분석해서 등록해드려요!<br><br>
-      <b>예시:</b><br>
-      인플루언서명: 별난맘 / 아이디: byulnanmam<br>
-      1/1~1/4 라무르 선크림 (뷰티)<br>
-      1/5 파스퇴르 우유 (식품)<br>
-      1/10~1/13 블루래빗 교구 (육아)
+      <b>🤖 여러 명 한 번에 등록</b><br>
+      인플루언서마다 <b>@아이디 한글명</b> 한 줄을 먼저 쓰고, 그 아래에 <b>날짜 상품명</b>을 적어요. 여러 명을 한꺼번에 붙여넣어도 돼요.<br><br>
+      <b>예시</b><br>
+      @ttobomom 또또맘<br>
+      9/1~9/5 과자<br>
+      9/3 유기농 닭가슴살<br>
+      @dorandoran 도란도란<br>
+      9/1~9/8 유기농닭<br><br>
+      · <b>@아이디</b>가 있어야 인스타 계정이 연결돼요.<br>
+      · 이미 등록된 적 있는 한글명은 <b>@ 없이 줄 맨 앞에 적어도</b> 자동 연결돼요. (예: <i>9/1 또또맘 과자</i>)
     </div>
 
-    <!-- 인플루언서 정보 -->
+    <!-- (선택) 공통 인플루언서 -->
     <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">👤 인플루언서 정보</div>
+      <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:8px">전부 한 명이면 여기만 채우고 본문엔 날짜·상품만 적어도 돼요 (선택)</div>
       <div style="display:flex;gap:8px">
-        <input id="aiInfluencer" type="text" placeholder="한글 활동명" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
-        <input id="aiInsta" type="text" placeholder="인스타 아이디" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <input id="aiInfluencer" type="text" placeholder="기본 한글 활동명 (선택)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <input id="aiInsta" type="text" placeholder="기본 인스타 아이디 (선택)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
       </div>
     </div>
 
     <!-- 텍스트 입력 -->
     <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">📋 공구 일정 텍스트</div>
-      <textarea id="aiText" placeholder="인플루언서에게 받은 공구 일정을 그대로 붙여넣어 주세요" style="width:100%;height:160px;padding:12px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7"></textarea>
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">📋 공구 일정 (여러 명 한 번에)</div>
+      <textarea id="aiText" placeholder="@ttobomom 또또맘&#10;9/1~9/5 과자&#10;9/3 유기농닭&#10;&#10;@dorandoran 도란도란&#10;9/1~9/8 유기농닭" style="width:100%;height:220px;padding:12px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
         <select id="aiYear" style="padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#fff">
           <option value="2026">2026년</option>
           <option value="2027">2027년</option>
-        </select>        <button onclick="runAiParse()" style="flex:1;padding:12px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🤖 AI 분석하기</button>
+        </select>
+        <button onclick="runAiParse()" style="flex:1;padding:12px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🤖 전체 분석하기</button>
       </div>
     </div>
 
     <!-- AI 분석 결과 -->
     <div id="aiResult" style="display:none">
-      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">✅ 분석 결과 <span id="aiResultCnt" style="font-size:12px;color:#999;font-weight:400"></span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:13px;font-weight:800;color:#2A1D6E">✅ 분석 결과 <span id="aiResultCnt" style="font-size:12px;color:#999;font-weight:400"></span></div>
+        <button onclick="deleteSelectedAi()" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 선택 삭제</button>
+      </div>
       <div id="aiCards" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-      <button onclick="submitAiData()" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">전체 등록하기 🚀</button>
+      <button onclick="submitAiData()" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">선택 항목 등록하기 🚀</button>
     </div>
 
-    <div id="aiLoading" style="display:none;text-align:center;padding:30px;color:#999;font-size:14px">🤖 AI가 분석 중이에요...</div>
+    <div id="aiLoading" style="display:none;text-align:center;padding:30px;color:#999;font-size:14px">🤖 분석 중이에요...</div>
   </div>
   <!-- 배너 관리 탭 -->
   <div id="bannerView" style="display:none;padding:14px;padding-bottom:80px">
@@ -231,8 +238,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 배너 추가</button>
     </div>
     <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.8">
-      💡 사진은 어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️<br>
-      📐 권장 사이즈: <b>960×320px</b> (3:1 비율) · 순서 번호로 정렬 · 비활성화하면 사이트에서 숨김
+      💡 사진은 어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️ · 권장 <b>960×320px</b>(3:1)<br>
+      ↕️ 순서는 <b>≡ 손잡이를 잡고 드래그</b>(또는 ▲▼)해서 바꾸면 자동 저장돼요<br>
+      🖼️ 사진이 안 보이면 Supabase Storage의 <b>banners 버킷이 공개(public)</b>인지 확인하세요(아래 가이드)
     </div>
     <div id="bannerList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
@@ -307,7 +315,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
           권장: <b>960×320px</b> (3:1) · JPG/PNG/WebP 모두 가능
         </div>
       </div>
-      <div class="modal-field"><label>순서 번호</label><input id="bOrder" type="number" value="1" min="1"></div>
+      <input id="bOrder" type="hidden" value="1">
       <div class="modal-field" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="bActive" checked style="width:16px;height:16px;accent-color:#4A35A0">
         <label for="bActive" style="font-size:13px;font-weight:600;cursor:pointer">활성화 (사이트에 표시)</label>
@@ -359,7 +367,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
   <!-- 리스트 탭 -->
   <div id="listView">
     <div class="filter-bar">
-      <input class="f-input" id="searchInput" placeholder="인플루언서, 제품명 검색..." oninput="renderCards()">
+      <span style="position:relative;flex:1;display:flex">
+        <input class="f-input" id="searchInput" placeholder="인플루언서, 제품명 검색..." style="flex:1" oninput="renderCards();document.getElementById('searchClearBtn').style.display=this.value?'block':'none'">
+        <button id="searchClearBtn" onclick="clearAdminSearch()" title="검색 지우기" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#eee;color:#666;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;font-family:inherit;line-height:1">✕</button>
+      </span>
       <select class="f-sel" id="majorFilter" onchange="renderCards()">
         <option value="">전체 대분류</option>
         <option>육아</option><option>리빙</option><option>인테리어</option>
@@ -369,6 +380,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
       <button id="noInstaBtn" onclick="toggleNoInsta()" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid #EBEBEB;background:#fff;color:#777;cursor:pointer;font-family:inherit;white-space:nowrap">🔗 인스타 미연결만</button>
+      <button onclick="resetFilters()" title="검색·필터·선택 모두 초기화" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid #EBEBEB;background:#fff;color:#777;cursor:pointer;font-family:inherit;white-space:nowrap">↺ 초기화</button>
     </div>
     <!-- 인플루언서별 전체선택 -->
     <div style="padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #EBEBEB">
@@ -461,6 +473,7 @@ const CAT_COLORS={'육아':'#4CAF50','리빙':'#2196F3','인테리어':'#FF9800'
 
 let allData=[], curTab='all', delTargetId=null, delBulkIds=null;
 let onlyNoInsta=false; // '인스타 미연결만' 필터
+let dupIdSet=new Set(); // 중복의심 id 캐시 (데이터 변경 시 1회 계산)
 let checkedIds=new Set();
 
 // ── 로그인 (Supabase Auth) ──
@@ -560,27 +573,28 @@ function addDays(dateStr, n){
 
 let aiParsedData=[];
 
+// ── AI 일괄 파싱 (여러 인플루언서 한 번에) ──
 async function runAiParse(){
   const text=document.getElementById('aiText').value.trim();
-  const influencer=document.getElementById('aiInfluencer').value.trim();
-  const insta=document.getElementById('aiInsta').value.trim().replace('@','');
   const year=parseInt(document.getElementById('aiYear').value);
-
-  if(!text){alert('공구 일정 텍스트를 입력해주세요!');return;}
-  if(!influencer||!insta){alert('인플루언서 이름과 아이디를 입력해주세요!');return;}
+  const defInfl=(document.getElementById('aiInfluencer').value||'').trim();
+  const defInsta=(document.getElementById('aiInsta').value||'').trim().replace('@','');
+  if(!text){alert('붙여넣은 텍스트가 없어요!');return;}
 
   document.getElementById('aiLoading').style.display='block';
   document.getElementById('aiResult').style.display='none';
 
-  const today=new Date();
-  today.setHours(0,0,0,0);
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  // 한글명 -> insta 역매핑 (이미 등록된 인플루언서는 이름만 적어도 자동 연결)
+  const nameToInstas={};
+  Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ if(nm&&ig){ (nameToInstas[nm]=nameToInstas[nm]||new Set()).add(ig); } });
+  const knownNames=Object.keys(nameToInstas).sort((a,b)=>b.length-a.length);
 
   function parseDate(str, baseYear){
     if(!str) return null;
     str=str.trim();
-    // YYYY-MM-DD
     if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-    // M/D 또는 MM/DD
     const m1=str.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
     if(m1){
       let y=baseYear;
@@ -588,7 +602,6 @@ async function runAiParse(){
       if(d<today) y=baseYear+1;
       return `${y}-${String(m1[1]).padStart(2,'0')}-${String(m1[2]).padStart(2,'0')}`;
     }
-    // M월D일
     const m2=str.match(/^(\d{1,2})월\s*(\d{1,2})일?$/);
     if(m2){
       let y=baseYear;
@@ -600,7 +613,7 @@ async function runAiParse(){
   }
 
   function guessCat(name){
-    const n=name.toLowerCase();
+    const n=(name||'').toLowerCase();
     if(/선크림|크림|세럼|에센스|로션|토너|클렌|마스크|향수|파운데|립|아이|썬|미백|주름|화장|스킨케어|헤어|샴푸|컨디셔너|바디워시|바디로션/.test(n)) return{major:'뷰티',minor:'스킨케어'};
     if(/우유|요거트|치즈|유제품/.test(n)) return{major:'식품',minor:'유제품'};
     if(/만두|냉동|간편|밀키트|HMR/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
@@ -629,18 +642,10 @@ async function runAiParse(){
     return{major:'리빙',minor:'생활용품'};
   }
 
-  // 텍스트 파싱
-  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
-  const results=[];
-
-  for(const line of lines){
-    if(!line) continue;
-    // 날짜 범위 패턴: 8/1~8/4 또는 8/1-8/4 또는 8월1일~8월4일
+  function parseLine(line, influencer, insta){
     const rangeMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s*[~\-]\s*(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
     const singleMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
-
-    let openDate=null, endDate=null, name='';
-
+    let openDate=null,endDate=null,name='';
     if(rangeMatch){
       openDate=parseDate(rangeMatch[1].replace('월','/').replace('일',''),year);
       endDate=parseDate(rangeMatch[2].replace('월','/').replace('일',''),year);
@@ -648,47 +653,94 @@ async function runAiParse(){
     } else if(singleMatch){
       openDate=parseDate(singleMatch[1].replace('월','/').replace('일',''),year);
       name=singleMatch[2].trim();
-    } else {
-      continue;
-    }
-
-    if(!openDate||!name) continue;
-
-    // 마감일 없으면 오픈일 + 3일 자동
+    } else { return null; }
+    if(!openDate||!name) return null;
     if(!endDate) endDate=addDays(openDate,3);
 
+    // 카테고리 힌트(괄호) 제거
     const catHint=name.match(/[(\[（](.+?)[)\]）]/);
     name=name.replace(/[(\[（].+?[)\]）]/g,'').trim();
 
-    const cat=guessCat(catHint?catHint[1]+' '+name:name);
-    results.push({influencer,insta,name,major:cat.major,minor:cat.minor,open_date:openDate,end_date:endDate});
+    // 인스타 미지정 라인인데 상품명이 '이미 등록된 한글명'으로 시작하면 분리 시도
+    // 단, 한글명은 동명이인이 있을 수 있으므로(아이디는 달라도) 아이디가 '유일할 때만' 추정 연결
+    let infl=influencer, ig=insta;
+    let conn=(insta&&insta.trim())?'id':'none'; // id=헤더로 명시 / guess=이름추정 / none=미연결
+    if(!ig){
+      for(const nm of knownNames){
+        if(nm && (name===nm || name.startsWith(nm+' '))){
+          infl=nm;
+          name=name.slice(nm.length).trim();
+          const set=nameToInstas[nm];
+          if(set && set.size===1){ ig=[...set][0]; conn='guess'; }   // 아이디 하나뿐 → 추정 연결(확인필요)
+          else { conn='none'; }                                      // 동명이인 → 미연결, 사용자가 @아이디 선택
+          break;
+        }
+      }
+    }
+    const cat=guessCat((catHint?catHint[1]+' ':'')+name);
+    return {influencer:(infl||''), insta:(ig||'').replace('@',''), name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:endDate, _conn:conn, _checked:true};
+  }
+
+  // 라인을 읽으며 '@아이디 한글명' 헤더로 인플루언서 블록 전환
+  const rawLines=text.split('\n').map(l=>l.trim());
+  const results=[];
+  let curInfl=defInfl, curInsta=defInsta;
+  for(const line of rawLines){
+    if(!line) continue;
+    if(line.startsWith('@')){
+      const m=line.replace(/^@/,'').trim().match(/^([A-Za-z0-9._]+)\s*(.*)$/);
+      if(m){ curInsta=m[1]; curInfl=(m[2]||'').trim(); }
+      continue;
+    }
+    const item=parseLine(line, curInfl, curInsta);
+    if(item) results.push(item);
   }
 
   aiParsedData=results;
   document.getElementById('aiLoading').style.display='none';
-
   if(!results.length){
-    alert('파싱된 일정이 없어요. 형식을 확인해주세요.\n예: 8/1~8/4 라무르 선크림');
+    alert('분석된 일정이 없어요. 형식을 확인해주세요.\n예)\n@ttobomom 또또맘\n9/1~9/5 과자');
     return;
   }
+  renderAiCards();
+  document.getElementById('aiResult').style.display='block';
+}
 
-  document.getElementById('aiResultCnt').textContent=`총 ${results.length}건 파싱됨`;
-
-  function renderAiCards(){
-    const majorOpts=Object.keys(CATS_LIST).map(m=>`<option value="${m}">${m}</option>`).join('');
-    document.getElementById('aiCards').innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
-        <input type="checkbox" id="aiSelectAll" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.ai-cb').forEach(c=>c.checked=this.checked)">
-        <label for="aiSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
-      </div>
-      ${aiParsedData.map((item,i)=>`
-      <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0">
-        <!-- 요약 뷰 -->
+function renderAiCards(){
+  const majorOpts=Object.keys(CATS_LIST).map(m=>`<option value="${m}">${m}</option>`).join('');
+  const total=aiParsedData.length;
+  const noInstaCnt=aiParsedData.filter(it=>(it._conn||'none')==='none').length;
+  const guessCnt=aiParsedData.filter(it=>it._conn==='guess').length;
+  document.getElementById('aiResultCnt').textContent=`총 ${total}건`+(noInstaCnt?` · 미연결 ${noInstaCnt}`:'')+(guessCnt?` · 추정 ${guessCnt}(확인)`:'');
+  document.getElementById('aiCards').innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+      <input type="checkbox" id="aiSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="aiSelectAllToggle(this.checked)">
+      <label for="aiSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택/해제</label>
+    </div>
+    ${aiParsedData.map((item,i)=>{
+      const conn=item._conn||((item.insta&&item.insta.trim())?'id':'none');
+      const inflLabel=item.influencer?item.influencer:(item.insta?'@'+item.insta:'(미지정)');
+      let connBadge, barColor;
+      if(conn==='id'){
+        connBadge=`<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px">✅ @${item.insta}</span>`;
+        barColor='#4A35A0';
+      } else if(conn==='guess'){
+        connBadge=`<span style="background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px">🟡 @${item.insta} 추정·확인</span>`;
+        barColor='#FF9800';
+      } else {
+        connBadge=`<span style="background:#FFEBEE;color:#C62828;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px">🔗 인스타 미연결</span>`;
+        barColor='#C62828';
+      }
+      return`<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${barColor}">
         <div id="aiView-${i}" style="padding:14px;cursor:pointer" onclick="toggleAiEdit(${i})">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <input type="checkbox" class="ai-cb" data-idx="${i}" style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onclick="event.stopPropagation()">
-            <span class="item-name" style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name}</span>
-            <span style="font-size:11px;color:#4A35A0">수정 ✏️</span>
+            <input type="checkbox" class="ai-cb" data-idx="${i}" ${item._checked?'checked':''} style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onclick="event.stopPropagation()" onchange="aiParsedData[${i}]._checked=this.checked">
+            <span class="item-name" style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name||'(상품명 없음)'}</span>
+            <span id="aiToggleLbl-${i}" style="font-size:11px;color:#4A35A0">수정 ✏️</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+            <span style="font-size:12px;font-weight:700;color:#191919">👤 ${inflLabel}</span>
+            ${connBadge}
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px">
             <span class="item-major" style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
@@ -696,14 +748,15 @@ async function runAiParse(){
           </div>
           <div class="item-date" style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
         </div>
-        <!-- 수정 뷰 -->
         <div id="aiEdit-${i}" style="display:none;padding:14px;background:#F7F5FF;border-top:1px solid #EEE9FF">
           <div style="display:flex;flex-direction:column;gap:8px">
-            <input id="aiName-${i}" value="${item.name}" placeholder="제품명" style="padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;outline:none;width:100%">
             <div style="display:flex;gap:8px">
-              <select id="aiMajor-${i}" onchange="updateAiMinor(${i})" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff">
-                ${majorOpts}
-              </select>
+              <input id="aiInfl-${i}" value="${item.influencer||''}" placeholder="한글 활동명" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
+              <input id="aiIg-${i}" value="${item.insta||''}" placeholder="인스타 아이디(@없이)" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
+            </div>
+            <input id="aiName-${i}" value="${item.name||''}" placeholder="제품명" style="padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;outline:none;width:100%">
+            <div style="display:flex;gap:8px">
+              <select id="aiMajor-${i}" onchange="updateAiMinor(${i})" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff">${majorOpts}</select>
               <select id="aiMinor-${i}" style="flex:1;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff"></select>
             </div>
             <div style="display:flex;gap:8px">
@@ -712,32 +765,39 @@ async function runAiParse(){
             </div>
             <div style="display:flex;gap:8px">
               <button onclick="saveAiEdit(${i})" style="flex:1;padding:9px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
-              <button onclick="removeAiItem(${i})" style="padding:9px 16px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+              <button onclick="removeAiItem(${i})" style="padding:9px 16px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">이 항목 삭제</button>
             </div>
           </div>
         </div>
-      </div>`).join('')}`;
+      </div>`;
+    }).join('')}`;
 
-    // 대분류 선택값 세팅 + 소분류 채우기
-    aiParsedData.forEach((item,i)=>{
-      const majSel=document.getElementById(`aiMajor-${i}`);
-      if(majSel){
-        majSel.value=item.major;
-        updateAiMinor(i, item.minor);
-      }
-    });
-  }
+  aiParsedData.forEach((item,i)=>{
+    const majSel=document.getElementById(`aiMajor-${i}`);
+    if(majSel){ majSel.value=item.major; updateAiMinor(i, item.minor); }
+  });
+}
 
+function aiSelectAllToggle(on){
+  aiParsedData.forEach(it=>it._checked=on);
+  document.querySelectorAll('.ai-cb').forEach(c=>c.checked=on);
+}
+
+function deleteSelectedAi(){
+  const sel=aiParsedData.filter(it=>it._checked);
+  if(!sel.length){alert('체크한 항목이 없어요!');return;}
+  if(!confirm(`체크한 ${sel.length}건을 목록에서 뺄까요?\n(아직 등록 전이라 DB가 아니라 분석 목록에서만 제거돼요)`))return;
+  aiParsedData=aiParsedData.filter(it=>!it._checked);
+  if(!aiParsedData.length){ document.getElementById('aiResult').style.display='none'; return; }
   renderAiCards();
-  document.getElementById('aiResult').style.display='block';
 }
 
 function toggleAiEdit(i){
-  const v=document.getElementById(`aiView-${i}`);
   const e=document.getElementById(`aiEdit-${i}`);
   const isOpen=e.style.display!=='none';
   e.style.display=isOpen?'none':'block';
-  v.querySelector('span:last-child').textContent=isOpen?'수정 ✏️':'닫기 ✕';
+  const lbl=document.getElementById(`aiToggleLbl-${i}`);
+  if(lbl) lbl.textContent=isOpen?'수정 ✏️':'닫기 ✕';
 }
 
 function updateAiMinor(i, preset){
@@ -749,46 +809,29 @@ function updateAiMinor(i, preset){
 }
 
 function saveAiEdit(i){
+  const infl=document.getElementById(`aiInfl-${i}`).value.trim();
+  const ig=document.getElementById(`aiIg-${i}`).value.trim().replace('@','');
   const name=document.getElementById(`aiName-${i}`).value.trim();
   const major=document.getElementById(`aiMajor-${i}`).value;
   const minor=document.getElementById(`aiMinor-${i}`).value;
   const openDate=document.getElementById(`aiOpen-${i}`).value;
   const endDate=document.getElementById(`aiEnd-${i}`).value||null;
-
-  aiParsedData[i].name=name;
-  aiParsedData[i].major=major;
-  aiParsedData[i].minor=minor;
-  aiParsedData[i].open_date=openDate;
-  aiParsedData[i].end_date=endDate;
-
-  // 요약 뷰 전체 다시 그리기
-  const item=aiParsedData[i];
-  const v=document.getElementById(`aiView-${i}`);
-  v.querySelector('span.item-name').textContent=name;
-  v.querySelector('span.item-major').textContent=major;
-  v.querySelector('span.item-minor').textContent=minor;
-  v.querySelector('div.item-date').textContent=`📅 ${openDate}${endDate?' ~ '+endDate:''}`;
-
-  toggleAiEdit(i);
+  aiParsedData[i]={...aiParsedData[i],influencer:infl,insta:ig,name,major,minor,open_date:openDate,end_date:endDate,_conn:(ig?'id':'none')};
+  renderAiCards();
 }
 
 function removeAiItem(i){
   aiParsedData.splice(i,1);
-  document.getElementById('aiResultCnt').textContent=`총 ${aiParsedData.length}건 파싱됨`;
-  document.getElementById('aiCards').children[i].remove();
+  if(!aiParsedData.length){ document.getElementById('aiResult').style.display='none'; return; }
+  renderAiCards();
 }
 
 async function submitAiData(){
-  // 체크된 항목만 선택 (전체선택이면 전체)
-  const cbs=document.querySelectorAll('.ai-cb');
-  let selected=[];
-  cbs.forEach(cb=>{
-    if(cb.checked) selected.push(aiParsedData[parseInt(cb.dataset.idx)]);
-  });
-  if(!selected.length) selected=[...aiParsedData]; // 아무것도 안 체크하면 전체
-
-  if(!selected.length){alert('등록할 데이터가 없어요!');return;}
-  if(!confirm(`${selected.length}건을 등록할까요?`))return;
+  const selected=aiParsedData.filter(it=>it._checked);
+  if(!selected.length){alert('등록할(체크한) 항목이 없어요!');return;}
+  const noInsta=selected.filter(d=>!d.insta||!d.insta.trim()).length;
+  const warn=noInsta?`\n\n⚠️ 그중 ${noInsta}건은 인스타 미연결 상태예요. 그래도 등록할까요?`:'';
+  if(!confirm(`${selected.length}건을 등록할까요?${warn}`))return;
 
   try{
     const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
@@ -800,8 +843,8 @@ async function submitAiData(){
         'Prefer':'return=minimal'
       },
       body:JSON.stringify(selected.map(d=>({
-        influencer:d.influencer,
-        insta:d.insta,
+        influencer:d.influencer||'',
+        insta:(d.insta||'').replace('@',''),
         major:d.major,
         minor:d.minor,
         name:d.name,
@@ -811,6 +854,21 @@ async function submitAiData(){
       })))
     });
     if(res.ok||res.status===201){
+      // 한글명↔인스타 매핑 저장(다음부터 이름만 적어도 자동 연결)
+      const maps=[...new Map(
+        selected.filter(d=>d.influencer&&d.insta&&d.insta.trim())
+          .map(d=>{const ig=d.insta.replace('@','');return [ig,{insta:ig,influencer:d.influencer}];})
+      ).values()];
+      if(maps.length){
+        try{
+          await fetch(`${SB_URL}/rest/v1/influencers`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'resolution=merge-duplicates'},
+            body:JSON.stringify(maps)
+          });
+          maps.forEach(m=>{ inflMapping[m.insta]=m.influencer; });
+        }catch(e){}
+      }
       alert(`✅ ${selected.length}건 등록 완료!`);
       document.getElementById('aiText').value='';
       document.getElementById('aiResult').style.display='none';
@@ -1232,23 +1290,31 @@ function getImgPosition(){
 
 async function uploadBannerImg(){
   const file=document.getElementById('bImgFile').files[0];
-  if(!file) return null;
-  const ext=file.name.split('.').pop();
+  if(!file) return {url:null};
+  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
   const path=`banner_${Date.now()}.${ext}`;
-  const res=await fetch(`${SB_URL}/storage/v1/object/banners/${path}`,{
-    method:'POST',
-    headers:{
-      'apikey':SB_KEY,
-      'Authorization':`Bearer ${ACCESS_TOKEN}`,
-      'Content-Type':file.type,
-      'x-upsert':'true'
-    },
-    body:file
-  });
-  if(res.ok){
-    return `${SB_URL}/storage/v1/object/public/banners/${path}`;
+  try{
+    const res=await fetch(`${SB_URL}/storage/v1/object/banners/${path}`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':`Bearer ${ACCESS_TOKEN}`,
+        'Content-Type':file.type||'image/jpeg',
+        'x-upsert':'true'
+      },
+      body:file
+    });
+    if(res.ok){
+      return {url:`${SB_URL}/storage/v1/object/public/banners/${path}`};
+    }
+    const body=await res.text();
+    let reason=`(${res.status}) ${body}`;
+    if(res.status===404||/bucket not found/i.test(body)) reason='banners 버킷이 없어요. Supabase Storage에서 public 버킷 "banners"를 먼저 만들어주세요.';
+    else if(res.status===403||/policy|denied|unauthorized/i.test(body)) reason='업로드 권한이 막혀 있어요. banners 버킷에 업로드(insert) 정책을 추가해주세요.';
+    return {url:null,error:reason};
+  }catch(e){
+    return {url:null,error:e.message};
   }
-  return null;
 }
 let bannerData=[];
 
@@ -1260,35 +1326,83 @@ async function loadBannerAdmin(){
   renderBannerList();
 }
 
+let bannerDragIdx=null;
+
 function renderBannerList(){
   const el=document.getElementById('bannerList');
   if(!bannerData.length){
     el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 배너가 없어요<br>+ 배너 추가 버튼으로 추가해주세요</div>`;
     return;
   }
-  el.innerHTML=bannerData.map(b=>{
-    const bg=b.img_url?`url('${b.img_url}') center/cover`:b.bg||'#ccc';
-    return`<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <!-- 미리보기 -->
-      <div style="height:160px;background:${bg};position:relative;display:flex;align-items:flex-end">
-        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6),transparent)"></div>
-        <div style="position:relative;padding:10px 14px">
-          <div style="color:#fff;font-size:14px;font-weight:700">${b.title||''}</div>
-          <div style="color:rgba(255,255,255,.8);font-size:11px">${b.subtitle||''}</div>
-        </div>
-        <div style="position:absolute;top:8px;right:8px;background:${b.active?'#2E7D32':'#999'};color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px">${b.active?'✅ 활성':'숨김'}</div>
+  el.innerHTML=bannerData.map((b,i)=>{
+    const hasImg=b.img_url&&b.img_url.trim();
+    const gradBg=b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)';
+    const thumbInner=hasImg
+      ? `<img src="${b.img_url}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none';this.parentElement.querySelector('.thumb-err').style.display='flex'">
+         <div class="thumb-err" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#FFEBEE;color:#C62828;font-size:9px;font-weight:700;text-align:center;padding:4px;line-height:1.3">⚠️ 이미지<br>로드 실패<br><span style="font-weight:400">버킷 공개 확인</span></div>`
+      : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-size:10px;font-weight:600">색상 배경</div>`;
+    return`<div class="banner-row" draggable="true" data-i="${i}"
+        ondragstart="bannerDragStart(event,${i})" ondragover="bannerDragOver(event,${i})" ondragleave="bannerDragLeave(event)" ondrop="bannerDrop(event,${i})" ondragend="bannerDragEnd()"
+        style="display:flex;align-items:stretch;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border:2px solid transparent;transition:border-color .12s">
+      <div title="드래그해서 순서 변경" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 9px;background:#FAF9FF;cursor:grab;color:#B0A8D8;user-select:none">
+        <span style="font-size:17px;line-height:1">≡</span>
+        <button onclick="moveBanner(${i},-1)" ${i===0?'disabled':''} title="위로" style="background:none;border:none;cursor:pointer;color:${i===0?'#ddd':'#7B68EE'};font-size:12px;padding:0;line-height:1;font-family:inherit">▲</button>
+        <button onclick="moveBanner(${i},1)" ${i===bannerData.length-1?'disabled':''} title="아래로" style="background:none;border:none;cursor:pointer;color:${i===bannerData.length-1?'#ddd':'#7B68EE'};font-size:12px;padding:0;line-height:1;font-family:inherit">▼</button>
       </div>
-      <!-- 액션 -->
-      <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div style="font-size:11px;color:#999">순서 ${b.sort_order||0} · ${b.link||'링크없음'}</div>
-        <div style="display:flex;gap:6px">
-          <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:5px 12px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">${b.active?'숨기기':'표시'}</button>
-          <button onclick="openBannerEdit(${b.id})" style="padding:5px 12px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
-          <button onclick="deleteBanner(${b.id})" style="padding:5px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑️</button>
+      <div style="position:relative;width:118px;flex-shrink:0;background:${gradBg};overflow:hidden">${thumbInner}</div>
+      <div style="flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;gap:3px;justify-content:center">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:${b.active?'#E8F5E9':'#f0f0f0'};color:${b.active?'#2E7D32':'#999'}">${b.active?'✅ 노출':'⏸ 숨김'}</span>
+          <span style="font-size:10px;color:#bbb">#${i+1}</span>
         </div>
+        <div style="font-size:14px;font-weight:700;color:#191919;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.title||'(제목 없음)'}</div>
+        <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.subtitle||''}</div>
+        <div style="font-size:10px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔗 ${b.link||'링크 없음'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;padding:10px;justify-content:center;flex-shrink:0">
+        <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:5px 10px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${b.active?'숨기기':'표시'}</button>
+        <button onclick="openBannerEdit(${b.id})" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+        <button onclick="deleteBanner(${b.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
       </div>
     </div>`;
   }).join('');
+}
+
+// ── 드래그앤드롭 / ▲▼ 순서 변경 ──
+function bannerDragStart(e,i){ bannerDragIdx=i; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',String(i));}catch(_){ } }
+function bannerDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; e.currentTarget.style.borderColor='#7B68EE'; }
+function bannerDragLeave(e){ e.currentTarget.style.borderColor='transparent'; }
+function bannerDragEnd(){ document.querySelectorAll('.banner-row').forEach(r=>r.style.borderColor='transparent'); bannerDragIdx=null; }
+function bannerDrop(e,to){
+  e.preventDefault();
+  e.currentTarget.style.borderColor='transparent';
+  const from=bannerDragIdx;
+  bannerDragIdx=null;
+  if(from===null||from===to) return;
+  const moved=bannerData.splice(from,1)[0];
+  bannerData.splice(to,0,moved);
+  renderBannerList();
+  persistBannerOrder();
+}
+function moveBanner(i,dir){
+  const j=i+dir;
+  if(j<0||j>=bannerData.length) return;
+  const t=bannerData[i]; bannerData[i]=bannerData[j]; bannerData[j]=t;
+  renderBannerList();
+  persistBannerOrder();
+}
+async function persistBannerOrder(){
+  const updates=[];
+  bannerData.forEach((b,idx)=>{ const ord=idx+1; if(b.sort_order!==ord){ b.sort_order=ord; updates.push(b); } });
+  for(const b of updates){
+    try{
+      await fetch(`${SB_URL}/rest/v1/banners?id=eq.${b.id}`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+        body:JSON.stringify({sort_order:b.sort_order})
+      });
+    }catch(e){}
+  }
 }
 
 function openBannerAdd(){
@@ -1348,9 +1462,13 @@ async function saveBanner(){
   if(fileInput.files[0]){
     const btn=document.querySelector('#bannerModal .modal-save');
     btn.textContent='업로드 중...';btn.disabled=true;
-    imgUrl=await uploadBannerImg();
+    const up=await uploadBannerImg();
     btn.textContent='저장하기';btn.disabled=false;
-    if(!imgUrl){alert('이미지 업로드 실패. URL로 직접 입력해주세요.');return;}
+    if(!up.url){
+      alert('이미지 업로드 실패\n\n'+(up.error||'알 수 없는 오류')+'\n\n(임시로) 이미지 URL을 직접 넣어 저장할 수도 있어요.');
+      return;
+    }
+    imgUrl=up.url;
   }
 
   const imgPos=getImgPosition();
@@ -1363,17 +1481,19 @@ async function saveBanner(){
     img_url:imgUrl,
     img_position:imgUrl?imgPos.pos:'center',
     img_size:imgUrl?imgPos.size:'cover',
-    sort_order:parseInt(document.getElementById('bOrder').value)||1,
     active:document.getElementById('bActive').checked,
   };
 
   if(id){
+    // 수정: 순서는 그대로 유지(payload에서 제외)
     await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
       method:'PATCH',
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
       body:JSON.stringify(payload)
     });
   } else {
+    // 신규: 맨 끝 순서로
+    payload.sort_order=(bannerData.reduce((m,b)=>Math.max(m,b.sort_order||0),0))+1;
     await fetch(`${SB_URL}/rest/v1/banners`,{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
@@ -1488,16 +1608,25 @@ function similarity(a,b){
   });
   return (2*matches)/(a.length+b.length);
 }
-function isDup(item){
-  return allData.some(d=>{
-    if(d.id===item.id) return false;
-    const sameInsta = d.insta && item.insta && d.insta===item.insta;
-    const sameDate = d.open_date===item.open_date;
-    const nameSim = similarity(d.name, item.name);
-    // 같은 계정 + 같은 날짜 + 상품명 70% 이상 유사 → 세 조건 모두 충족
-    return sameInsta && sameDate && nameSim>=0.7;
+// 같은 계정+같은 날짜 그룹 안에서만 유사도 비교 → 한 번만 계산해 캐시
+function computeDupSet(){
+  dupIdSet=new Set();
+  const groups={};
+  allData.forEach(d=>{
+    if(!d.insta||!d.open_date) return;
+    const k=d.insta+'|'+d.open_date;
+    (groups[k]=groups[k]||[]).push(d);
+  });
+  Object.values(groups).forEach(arr=>{
+    if(arr.length<2) return;
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        if(similarity(arr[i].name,arr[j].name)>=0.7){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
+      }
+    }
   });
 }
+function isDup(item){ return dupIdSet.has(item.id); }
 
 function getDupReason(item){
   for(const d of allData){
@@ -1513,6 +1642,7 @@ function getDupReason(item){
 
 // ── 통계 ──
 function updateStats(){
+  computeDupSet(); // 데이터 변경 반영 (이후 isDup은 O(1) 조회)
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const monthStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
@@ -1598,22 +1728,16 @@ function switchTab(tab,el){
 }
 
 // ── 카드 렌더 ──
-function renderCards(){
+// 현재 탭/검색/필터 조건에 맞는 데이터 (renderCards·선택 공용 — 둘이 항상 일치)
+function getFilteredData(){
   const q=document.getElementById('searchInput').value.toLowerCase();
   const major=document.getElementById('majorFilter').value;
   const dateFrom=document.getElementById('dateFrom').value;
   const dateTo=document.getElementById('dateTo').value;
-  const el=document.getElementById('cardList');
-
-  // 중복 탭은 별도 렌더
-  if(curTab==='dup'){
-    renderDupPairs(q, major, dateFrom, dateTo);
-    return;
-  }
-
-  let arr=allData.filter(d=>{
+  return allData.filter(d=>{
     if(curTab==='pending'&&d.approved)return false;
     if(curTab==='approved'&&!d.approved)return false;
+    if(curTab==='dup'&&!isDup(d))return false;
     if(onlyNoInsta && d.insta && d.insta.trim())return false;
     if(major&&d.major!==major)return false;
     if(dateFrom&&(d.open_date||'')<dateFrom)return false;
@@ -1621,9 +1745,31 @@ function renderCards(){
     if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q)))return false;
     return true;
   });
+}
 
-  if(!arr.length){el.innerHTML=`<div class="empty">해당하는 공구가 없어요 🙅</div>`;return;}
-  el.innerHTML=arr.map(d=>renderCard(d)).join('');
+function renderCards(){
+  const el=document.getElementById('cardList');
+  const visible=getFilteredData();
+
+  // ★ 화면(현재 필터)에 없는 항목은 선택에서 자동 해제 — 숨은 항목이 일괄처리되는 사고 방지
+  const visSet=new Set(visible.map(d=>d.id));
+  let pruned=false;
+  [...checkedIds].forEach(id=>{ if(!visSet.has(id)){ checkedIds.delete(id); pruned=true; } });
+  if(pruned) updateBulkBar();
+
+  // 중복 탭은 별도 렌더
+  if(curTab==='dup'){
+    renderDupPairs(
+      document.getElementById('searchInput').value.toLowerCase(),
+      document.getElementById('majorFilter').value,
+      document.getElementById('dateFrom').value,
+      document.getElementById('dateTo').value
+    );
+    return;
+  }
+
+  if(!visible.length){el.innerHTML=`<div class="empty">해당하는 공구가 없어요 🙅</div>`;return;}
+  el.innerHTML=visible.map(d=>renderCard(d)).join('');
   document.querySelectorAll('.card-cb').forEach(cb=>{
     cb.checked=checkedIds.has(parseInt(cb.dataset.id));
   });
@@ -1634,9 +1780,10 @@ function renderDupPairs(q, major, dateFrom, dateTo){
   const pairs=[];
   const paired=new Set();
 
-  allData.forEach(item=>{
+  const dupItems=allData.filter(d=>dupIdSet.has(d.id)); // 후보만(대부분 소수)
+  dupItems.forEach(item=>{
     if(paired.has(item.id)) return;
-    const partner=allData.find(d=>{
+    const partner=dupItems.find(d=>{
       if(d.id===item.id||paired.has(d.id)) return false;
       const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
       const sameDate=d.open_date===item.open_date;
@@ -1752,44 +1899,48 @@ function igSearch(name){
   window.open('https://www.google.com/search?q='+encodeURIComponent(name+' 인스타그램 공구'),'_blank');
 }
 
-// ── 인플루언서 빠른 선택 버튼 렌더 ──
+// 인플루언서 고유 식별키: 아이디가 있으면 @아이디, 없으면 한글명
+function inflKey(d){ return d.insta && d.insta.trim() ? '@'+d.insta.trim() : (d.influencer||'').trim(); }
+function inflLabelOf(d){
+  const nm=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:'';
+  if(d.insta&&d.insta.trim()) return (nm?nm+' ':'')+'@'+d.insta.trim();
+  return nm||'(미상)';
+}
+
+// ── 인플루언서 빠른 선택 버튼 렌더 (아이디 기준) ──
 function renderInflQuickSelect(){
-  const inflMap={};
+  const map={}; // key(@아이디 또는 이름) -> {label, ids:[]}
   allData.forEach(d=>{
     if(!d.open_date) return;
-    // 표시 키: 한글명 있으면 한글명, 없으면 insta
-    const key = (d.influencer && !d.influencer.startsWith('@')) ? d.influencer : (d.insta||'');
-    if(!key) return;
-    if(!inflMap[key]) inflMap[key]=[];
-    inflMap[key].push(d.id);
+    const k=inflKey(d);
+    if(!k) return;
+    if(!map[k]) map[k]={label:inflLabelOf(d), ids:[]};
+    map[k].ids.push(d.id);
   });
   const el=document.getElementById('inflQuickSelect');
-  el.innerHTML=Object.entries(inflMap)
-    .sort((a,b)=>b[1].length-a[1].length)
+  el.innerHTML=Object.entries(map)
+    .sort((a,b)=>b[1].ids.length-a[1].ids.length)
     .slice(0,15)
-    .map(([name,ids])=>`
-      <button class="infl-chip" onclick="selectInfluencer('${name.replace(/'/g,'')}')" title="${name} ${ids.length}건 전체선택">
-        ${name} <span style="opacity:.7">${ids.length}</span>
+    .map(([k,v])=>`
+      <button class="infl-chip" onclick="selectInfluencer('${k.replace(/'/g,"\\'")}')" title="${v.label} ${v.ids.length}건 전체선택">
+        ${v.label} <span style="opacity:.7">${v.ids.length}</span>
       </button>`)
     .join('');
 }
 
-function selectInfluencer(name){
-  // 해당 이름 또는 insta 아이디로 매칭
-  const sameInflIds=allData.filter(d=>{
-    const displayName=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta||'');
-    return displayName===name;
-  }).map(d=>d.id);
-  const alreadySelected=sameInflIds.length>0&&sameInflIds.every(id=>checkedIds.has(id));
+function selectInfluencer(key){
+  // 한글명이 같아도 아이디가 다르면 다른 사람 → 아이디(키) 기준으로만 선택
+  const sameIds=allData.filter(d=>inflKey(d)===key).map(d=>d.id);
+  const alreadySelected=sameIds.length>0&&sameIds.every(id=>checkedIds.has(id));
 
   checkedIds.clear();
 
   if(!alreadySelected){
-    document.getElementById('searchInput').value=name;
+    // 검색창엔 핸들(또는 이름)을 넣어 해당 항목만 화면에 노출
+    document.getElementById('searchInput').value=key.startsWith('@')?key.slice(1):key;
     renderCards();
     setTimeout(()=>{
-      const newVisible=getVisibleIds();
-      newVisible.forEach(id=>checkedIds.add(id));
+      sameIds.forEach(id=>checkedIds.add(id));
       document.querySelectorAll('.card-cb').forEach(cb=>{
         cb.checked=checkedIds.has(parseInt(cb.dataset.id));
       });
@@ -1841,22 +1992,25 @@ function toggleNoInsta(){
   else { b.style.background='#fff'; b.style.borderColor='#EBEBEB'; b.style.color='#777'; }
   renderCards();
 }
+function clearAdminSearch(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('searchClearBtn').style.display='none';
+  renderCards(); // 화면 밖이 된 선택은 renderCards가 자동 해제
+}
+function resetFilters(){
+  document.getElementById('searchInput').value='';
+  document.getElementById('searchClearBtn').style.display='none';
+  document.getElementById('majorFilter').value='';
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  if(onlyNoInsta){ onlyNoInsta=false; const b=document.getElementById('noInstaBtn'); b.style.background='#fff'; b.style.borderColor='#EBEBEB'; b.style.color='#777'; }
+  checkedIds.clear();
+  updateBulkBar();
+  renderCards();
+}
 
 function getVisibleIds(){
-  const q=document.getElementById('searchInput').value.toLowerCase();
-  const major=document.getElementById('majorFilter').value;
-  const dateFrom=document.getElementById('dateFrom').value;
-  const dateTo=document.getElementById('dateTo').value;
-  return allData.filter(d=>{
-    if(curTab==='pending'&&d.approved)return false;
-    if(curTab==='approved'&&!d.approved)return false;
-    if(curTab==='dup'&&!isDup(d))return false;
-    if(major&&d.major!==major)return false;
-    if(dateFrom&&(d.open_date||'')<dateFrom)return false;
-    if(dateTo&&(d.open_date||'')>dateTo)return false;
-    if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q)))return false;
-    return true;
-  }).map(d=>d.id);
+  return getFilteredData().map(d=>d.id);
 }
 
 // ── 일괄 수정 ──
