@@ -397,6 +397,28 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <div class="chart-title">🏆 TOP 5 인플루언서</div>
       <div id="topInfl"></div>
     </div>
+
+    <!-- 끝난 공구 정리 (30만건 대비) -->
+    <div class="chart-section" style="border:1px solid #F0D5D5;background:#FCF7F7">
+      <div class="chart-title">🧹 지난 공구 정리</div>
+      <div style="font-size:12px;color:#777;line-height:1.6;margin-bottom:12px">
+        오픈일이 오래 지난 공구를 삭제해 DB를 가볍게 유지해요. 인플루언서명↔인스타 아이디 매핑은
+        <b>influencers 테이블에 안전하게 보관</b>되니, 공구를 지워도 다음 매칭에는 문제없어요.<br>
+        <span style="color:#A86100">⚙️ 관리자 페이지를 열 때마다, 오픈일이 60일 지난 공구는 자동으로 정리돼요.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:12px;color:#555">오픈일이</span>
+        <select id="purgeDays" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-family:inherit;font-size:12px">
+          <option value="30">30일</option>
+          <option value="60" selected>60일</option>
+          <option value="90">90일</option>
+          <option value="180">180일</option>
+        </select>
+        <span style="font-size:12px;color:#555">이상 지난 공구</span>
+        <button onclick="previewPurge()" style="padding:6px 14px;border-radius:8px;border:none;background:#4A35A0;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔍 정리 대상 확인</button>
+      </div>
+      <div id="purgeResult" style="font-size:13px"></div>
+    </div>
   </div>
 
   <!-- 리스트 탭 -->
@@ -1350,58 +1372,61 @@ async function crawlInsertSelected(){
 
   const btn=document.getElementById('crawlInsertBtn');
   const reset=()=>{ btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀'; };
-  btn.disabled=true; btn.textContent=`등록 중... (${selected.length}건)`;
+  btn.disabled=true;
 
-  // 1차: 한 번에 일괄 등록 (빠름)
-  try{
-    const res=await fetchT(`${SB_URL}/rest/v1/gonggu`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-      body:JSON.stringify(selected.map(gongguRow))
-    }, 25000);
-    if(res.ok||res.status===201){
-      alert(`✅ ${selected.length}건 등록 완료!`);
-      document.getElementById('crawlText').value='';
-      document.getElementById('crawlResultArea').style.display='none';
-      document.getElementById('crawlStatus').textContent='';
-      crawlParsedData=[];
-      await loadData();
-      return;
-    }
-    // 일괄 실패 → 2차로 진단
-  }catch(e){
-    // 타임아웃/네트워크 → 사용자에게 알리고 중단(중복등록 방지)
-    reset();
-    alert('등록 중 문제가 생겼어요: '+e.message+'\n\n이미 일부가 등록됐을 수 있으니, 목록을 새로고침해 확인 후 다시 시도해주세요.');
-    return;
-  }
+  const CHUNK=20;                  // 한 번에 보내는 묶음 크기
+  let okCount=0; const failed=[];  // 실패 항목 모음
+  const chunks=[];
+  for(let i=0;i<selected.length;i+=CHUNK) chunks.push(selected.slice(i,i+CHUNK));
 
-  // 2차: 일괄이 거부됐으니 어느 게 문제인지 건별로 찾기
-  if(!confirm(`일괄 등록이 거부됐어요. 어느 항목이 문제인지 하나씩 확인할까요?\n(${selected.length}건, 잠시 걸릴 수 있어요)`)){ reset(); return; }
-  let okCount=0; const failed=[];
-  for(let n=0;n<selected.length;n++){
-    const d=selected[n];
-    btn.textContent=`확인 중... (${n+1}/${selected.length})`;
+  for(let ci=0; ci<chunks.length; ci++){
+    const chunk=chunks[ci];
+    btn.textContent=`등록 중... (${okCount+failed.length}/${selected.length})`;
+    // 1차: 이 묶음을 한 번에 등록
+    let batchOk=false;
     try{
       const res=await fetchT(`${SB_URL}/rest/v1/gonggu`,{
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-        body:JSON.stringify(gongguRow(d))
-      }, 15000);
-      if(res.ok||res.status===201){ okCount++; }
-      else{
-        let msg='';
-        try{ const j=await res.json(); msg=j.message||j.hint||JSON.stringify(j); }catch(_){ msg=await res.text(); }
-        failed.push({item:d, reason:msg||('HTTP '+res.status)});
-      }
-    }catch(e){ failed.push({item:d, reason:e.message}); }
+        body:JSON.stringify(chunk.map(gongguRow))
+      }, 20000);
+      if(res.ok||res.status===201){ okCount+=chunk.length; batchOk=true; }
+    }catch(e){
+      // 타임아웃/네트워크 → 중단하고 안내(중복등록 방지)
+      reset();
+      alert(`등록 중 통신 문제가 생겼어요: ${e.message}\n\n지금까지 ${okCount}건 등록됨. 목록을 새로고침해 확인 후, 남은 항목만 다시 등록해주세요.`);
+      if(failed.length){ crawlParsedData=failed.map(f=>{f.item.__failReason=f.reason;return f.item;}); renderCrawlCards(); }
+      return;
+    }
+    if(batchOk) continue;
+    // 2차: 이 묶음이 거부됨 → 묶음 안에서 건별로 범인 찾기
+    for(let n=0;n<chunk.length;n++){
+      const d=chunk[n];
+      btn.textContent=`확인 중... (${okCount+failed.length+1}/${selected.length})`;
+      try{
+        const r=await fetchT(`${SB_URL}/rest/v1/gonggu`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+          body:JSON.stringify(gongguRow(d))
+        }, 12000);
+        if(r.ok||r.status===201){ okCount++; }
+        else{
+          let msg='';
+          try{ const j=await r.json(); msg=j.message||j.hint||JSON.stringify(j); }catch(_){ msg=await r.text(); }
+          failed.push({item:d, reason:msg||('HTTP '+r.status)});
+        }
+      }catch(e){ failed.push({item:d, reason:e.message}); }
+    }
   }
 
+  // 결과
   if(failed.length===0){
     alert(`✅ ${okCount}건 등록 완료!`);
     document.getElementById('crawlText').value='';
     document.getElementById('crawlResultArea').style.display='none';
-    crawlParsedData=[]; await loadData();
+    document.getElementById('crawlStatus').textContent='';
+    crawlParsedData=[];
+    await loadData();
   }else{
     crawlParsedData=failed.map(f=>{ f.item.__failReason=f.reason; return f.item; });
     renderCrawlCards();
@@ -1881,8 +1906,8 @@ async function loadData(){
   try{
     await loadInflMapping();
     const sortParam = (window.adminSort==='open') ? 'open_date.asc' : 'id.desc';
-    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=${sortParam}&limit=5000`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=${sortParam}`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Range-Unit':'items','Range':'0-9999'}
     });
     allData=await res.json();
     // 인플 매핑 자동 적용
@@ -1895,6 +1920,12 @@ async function loadData(){
     updateStats();
     renderInflQuickSelect();
     renderCards();
+    // 세션당 1회: 오픈일 60일 지난 공구 자동 정리
+    if(!window.__autoPurged){
+      window.__autoPurged=true;
+      const n=await autoPurge(60);
+      if(n>0){ await loadData(); }   // 삭제됐으면 최신 상태로 다시 로드(플래그 덕에 재귀 1회로 종료)
+    }
   }catch(e){
     document.getElementById('cardList').innerHTML=`<div class="empty">데이터 로드 실패 😢</div>`;
   }
@@ -2000,6 +2031,117 @@ function updateStats(){
       <div class="top-name">${name}</div>
       <div class="top-cnt">${cnt}건</div>
     </div>`).join('');
+}
+
+// ── 지난 공구 정리 (30만건 대비) ──
+function purgeRealEnd(d){ return d.end_date || addDays(d.open_date,3); }
+function purgeCutoff(){
+  const days=parseInt(document.getElementById('purgeDays').value)||60;
+  const t=new Date(); t.setDate(t.getDate()-days);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+function purgeTargets(){
+  const cutoff=purgeCutoff();
+  // 오픈일이 cutoff 이전 = 충분히 지난 공구
+  return allData.filter(d=>d.open_date && d.open_date < cutoff);
+}
+function previewPurge(){
+  const targets=purgeTargets();
+  const el=document.getElementById('purgeResult');
+  if(!targets.length){
+    el.innerHTML=`<div style="color:#2E7D32;font-weight:700">✅ 정리할 지난 공구가 없어요.</div>`;
+    return;
+  }
+  // 매핑 보존 가능 여부 체크: insta가 있는데 influencers에 없는 것
+  const missingMap=targets.filter(d=>d.insta && d.influencer && !inflMapping[d.insta]);
+  const sample=targets.slice(0,5).map(d=>`· ${d.name} (${d.influencer||d.insta||'?'}, ~${purgeRealEnd(d)})`).join('<br>');
+  el.innerHTML=`
+    <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid #eee">
+      <div style="font-weight:800;color:#C62828;margin-bottom:8px">🗑️ 삭제 대상: ${targets.length}건</div>
+      <div style="font-size:12px;color:#777;margin-bottom:8px;line-height:1.6">${sample}${targets.length>5?`<br>… 외 ${targets.length-5}건`:''}</div>
+      ${missingMap.length?`<div style="font-size:12px;color:#A86100;background:#FFF7E6;border-radius:6px;padding:7px 10px;margin-bottom:8px">⚠️ 이 중 ${missingMap.length}건은 인플루언서 매핑이 아직 저장 안 됐어요. 삭제 전에 자동으로 influencers에 저장할게요.</div>`:`<div style="font-size:12px;color:#2E7D32;margin-bottom:8px">✅ 인플루언서 매핑은 모두 보관돼 있어요.</div>`}
+      <button onclick="doPurge()" style="padding:8px 16px;border-radius:8px;border:none;background:#C62828;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${targets.length}건 영구 삭제</button>
+    </div>`;
+}
+async function doPurge(){
+  const targets=purgeTargets();
+  if(!targets.length){ alert('삭제할 항목이 없어요.'); return; }
+  if(!confirm(`지난 공구 ${targets.length}건을 영구 삭제할까요?\n(인플루언서 매핑은 보존됩니다. 이 작업은 되돌릴 수 없어요)`)) return;
+
+  const el=document.getElementById('purgeResult');
+  // 1) 삭제 전 매핑 보존 — influencers에 없는 것만 upsert
+  const toSave={};
+  targets.forEach(d=>{ if(d.insta && d.influencer && !d.influencer.startsWith('@') && !inflMapping[d.insta]) toSave[d.insta]=d.influencer; });
+  const saveList=Object.entries(toSave).map(([insta,influencer])=>({insta,influencer}));
+  if(saveList.length){
+    el.innerHTML=`<div style="color:#555">인플루언서 매핑 ${saveList.length}건 보관 중...</div>`;
+    try{
+      await fetchT(`${SB_URL}/rest/v1/influencers`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'resolution=merge-duplicates','x-upsert':'true'},
+        body:JSON.stringify(saveList)
+      }, 20000);
+      saveList.forEach(m=>{ inflMapping[m.insta]=m.influencer; });
+    }catch(e){
+      if(!confirm('매핑 저장 중 문제가 생겼어요: '+e.message+'\n\n그래도 삭제를 진행할까요?')) { previewPurge(); return; }
+    }
+  }
+
+  // 2) 삭제 — id 묶음으로 끊어서 (URL 길이 제한 대비, 100개씩)
+  const ids=targets.map(d=>d.id);
+  let deleted=0;
+  for(let i=0;i<ids.length;i+=100){
+    const batch=ids.slice(i,i+100);
+    el.innerHTML=`<div style="color:#555">삭제 중... (${deleted}/${ids.length})</div>`;
+    try{
+      const res=await fetchT(`${SB_URL}/rest/v1/gonggu?id=in.(${batch.join(',')})`,{
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'}
+      }, 20000);
+      if(res.ok||res.status===204){ deleted+=batch.length; }
+      else{ const t=await res.text(); el.innerHTML=`<div style="color:#C62828">삭제 실패(HTTP ${res.status}): ${t}</div>`; return; }
+    }catch(e){ el.innerHTML=`<div style="color:#C62828">삭제 중 통신 문제: ${e.message}<br>지금까지 ${deleted}건 삭제됨. 새로고침 후 다시 시도하세요.</div>`; await loadData(); return; }
+  }
+  el.innerHTML=`<div style="color:#2E7D32;font-weight:700">✅ ${deleted}건 정리 완료! 매핑 ${saveList.length}건 보관됨.</div>`;
+  await loadData();
+}
+
+// 자동 정리: 오픈일이 N일(기본 60) 지난 공구를 매핑 보존 후 조용히 삭제
+async function autoPurge(days){
+  days=days||60;
+  try{
+    const t=new Date(); t.setDate(t.getDate()-days);
+    const cutoff=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    const targets=allData.filter(d=>d.open_date && d.open_date < cutoff);
+    if(!targets.length) return 0;
+    // 1) 매핑 보존
+    const toSave={};
+    targets.forEach(d=>{ if(d.insta && d.influencer && !d.influencer.startsWith('@') && !inflMapping[d.insta]) toSave[d.insta]=d.influencer; });
+    const saveList=Object.entries(toSave).map(([insta,influencer])=>({insta,influencer}));
+    if(saveList.length){
+      try{
+        await fetchT(`${SB_URL}/rest/v1/influencers`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'resolution=merge-duplicates','x-upsert':'true'},
+          body:JSON.stringify(saveList)
+        }, 20000);
+        saveList.forEach(m=>{ inflMapping[m.insta]=m.influencer; });
+      }catch(e){ console.warn('자동정리 매핑 저장 실패, 삭제 보류', e); return 0; } // 매핑 못 지키면 삭제 안 함(안전)
+    }
+    // 2) 삭제 (100개씩)
+    const ids=targets.map(d=>d.id);
+    let deleted=0;
+    for(let i=0;i<ids.length;i+=100){
+      const batch=ids.slice(i,i+100);
+      const res=await fetchT(`${SB_URL}/rest/v1/gonggu?id=in.(${batch.join(',')})`,{
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'}
+      }, 20000);
+      if(res.ok||res.status===204){ deleted+=batch.length; } else break;
+    }
+    if(deleted>0) console.log(`🧹 자동 정리: 오픈일 ${days}일 지난 공구 ${deleted}건 삭제(매핑 ${saveList.length}건 보관)`);
+    return deleted;
+  }catch(e){ console.warn('자동정리 오류', e); return 0; }
 }
 
 // ── 탭 ──
