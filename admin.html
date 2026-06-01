@@ -135,10 +135,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
   </div>
 
   <div class="tabs">
-    <div class="tab on" onclick="switchTab('all',this)">전체</div>
-    <div class="tab" onclick="switchTab('pending',this)">대기중</div>
-    <div class="tab" onclick="switchTab('approved',this)">승인됨</div>
-    <div class="tab" onclick="switchTab('dup',this)">중복의심</div>
+    <div class="tab on" onclick="switchTab('all',this)">전체 <span id="tabcnt-all" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('pending',this)">대기중 <span id="tabcnt-pending" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('approved',this)">승인됨 <span id="tabcnt-approved" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('dup',this)">중복의심 <span id="tabcnt-dup" style="opacity:.7"></span></div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
@@ -414,12 +414,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       </select>
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
+      <select class="f-sel" id="sortSel" onchange="changeSort(this.value)" title="정렬">
+        <option value="recent">최신 등록순</option>
+        <option value="open">오픈일순</option>
+      </select>
       <button id="noInstaBtn" onclick="toggleNoInsta()" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid #EBEBEB;background:#fff;color:#777;cursor:pointer;font-family:inherit;white-space:nowrap">🔗 인스타 미연결만</button>
       <button onclick="resetFilters()" title="검색·필터·선택 모두 초기화" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid #EBEBEB;background:#fff;color:#777;cursor:pointer;font-family:inherit;white-space:nowrap">↺ 초기화</button>
     </div>
-    <!-- 인플루언서별 전체선택 -->
+    <!-- 인플루언서 필터 + 전체선택 -->
     <div style="padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #EBEBEB">
-      <span style="font-size:11px;font-weight:700;color:#999;flex-shrink:0">인플별:</span>
+      <span style="font-size:11px;font-weight:700;color:#999;flex-shrink:0">인플 필터:</span>
+      <select class="f-sel" id="inflFilter" onchange="renderCards()" style="flex-shrink:0;max-width:200px">
+        <option value="">전체 인플루언서</option>
+      </select>
       <div id="inflQuickSelect" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
       <button onclick="toggleSelectAll(true)" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#2A1D6E;color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">전체선택</button>
       <button onclick="toggleSelectAll(false)" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#f0f0f0;color:#555;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">선택해제</button>
@@ -1873,7 +1880,8 @@ async function loadData(){
   document.getElementById('cardList').innerHTML=`<div class="loading">불러오는 중... ⏳</div>`;
   try{
     await loadInflMapping();
-    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=open_date.asc&limit=5000`,{
+    const sortParam = (window.adminSort==='open') ? 'open_date.asc' : 'id.desc';
+    const res=await fetch(`${SB_URL}/rest/v1/gonggu?order=${sortParam}&limit=5000`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
     });
     allData=await res.json();
@@ -1960,6 +1968,13 @@ function updateStats(){
   document.getElementById('statInfl').textContent=inflSet.size;
   document.getElementById('statDup').textContent=dups.length;
 
+  // 탭 개수 표시 (DB와 작업 개수 맞추기 편하게)
+  const setTab=(id,n)=>{const e=document.getElementById(id);if(e)e.textContent='('+n+')';};
+  setTab('tabcnt-all', allData.length);
+  setTab('tabcnt-pending', allData.filter(d=>!d.approved).length);
+  setTab('tabcnt-approved', allData.filter(d=>d.approved).length);
+  setTab('tabcnt-dup', dups.length);
+
   // 대분류 차트
   const majorCount={};
   allData.forEach(d=>{if(d.major)majorCount[d.major]=(majorCount[d.major]||0)+1;});
@@ -2025,18 +2040,22 @@ function getFilteredData(){
   const major=document.getElementById('majorFilter').value;
   const dateFrom=document.getElementById('dateFrom').value;
   const dateTo=document.getElementById('dateTo').value;
+  const inflF=(document.getElementById('inflFilter')||{}).value||'';
   return allData.filter(d=>{
     if(curTab==='pending'&&d.approved)return false;
     if(curTab==='approved'&&!d.approved)return false;
     if(curTab==='dup'&&!isDup(d))return false;
     if(onlyNoInsta && d.insta && d.insta.trim())return false;
     if(major&&d.major!==major)return false;
+    if(inflF && inflKey(d)!==inflF)return false;
     if(dateFrom&&(d.open_date||'')<dateFrom)return false;
     if(dateTo&&(d.open_date||'')>dateTo)return false;
     if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q)))return false;
     return true;
   });
 }
+// 정렬 변경 (최신 등록순 ↔ 오픈일순) → 서버에서 다시 정렬해 받기
+function changeSort(v){ window.adminSort = (v==='open')?'open':'recent'; loadData(); }
 
 function renderCards(){
   const el=document.getElementById('cardList');
@@ -2209,14 +2228,22 @@ function renderInflQuickSelect(){
     map[k].ids.push(d.id);
   });
   const el=document.getElementById('inflQuickSelect');
-  el.innerHTML=Object.entries(map)
-    .sort((a,b)=>b[1].ids.length-a[1].ids.length)
+  const entries=Object.entries(map).sort((a,b)=>b[1].ids.length-a[1].ids.length);
+  el.innerHTML=entries
     .slice(0,15)
     .map(([k,v])=>`
       <button class="infl-chip" onclick="selectInfluencer('${k.replace(/'/g,"\\'")}')" title="${v.label} ${v.ids.length}건 전체선택">
         ${v.label} <span style="opacity:.7">${v.ids.length}</span>
       </button>`)
     .join('');
+  // 드롭다운 필터 옵션 채우기 (전체 인플루언서, 건수 많은 순)
+  const sel=document.getElementById('inflFilter');
+  if(sel){
+    const cur=sel.value;
+    sel.innerHTML='<option value="">전체 인플루언서</option>'+
+      entries.map(([k,v])=>`<option value="${k.replace(/"/g,'&quot;')}">${v.label} (${v.ids.length})</option>`).join('');
+    sel.value=cur; // 기존 선택 유지
+  }
 }
 
 function selectInfluencer(key){
@@ -2294,6 +2321,7 @@ function resetFilters(){
   document.getElementById('majorFilter').value='';
   document.getElementById('dateFrom').value='';
   document.getElementById('dateTo').value='';
+  const inflF=document.getElementById('inflFilter'); if(inflF) inflF.value='';
   if(onlyNoInsta){ onlyNoInsta=false; const b=document.getElementById('noInstaBtn'); b.style.background='#fff'; b.style.borderColor='#EBEBEB'; b.style.color='#777'; }
   checkedIds.clear();
   updateBulkBar();
