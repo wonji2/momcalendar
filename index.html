@@ -194,7 +194,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-top{display:flex;align-items:center;gap:6px;margin-bottom:5px}
 .cat-tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;white-space:nowrap}
 .cat-sub{font-size:11px;color:#9a9aa5}
-.partner-chip{background:#F0E6FA;color:#602090;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.partner-chip{background:#602090;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .card-partner .card-seller-strong{color:#4A1A78}
 .card-right{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1}
@@ -771,8 +771,8 @@ function renderCard(item){
     ? `${sb}<span class="card-seller-strong">${seller}</span> · ${period}`
     : (partner ? `${sb}${period}` : period);
   const partnerChip = partner ? `<span class="partner-chip">맘캘 파트너</span>` : '';
-  const cardBg = partner ? '#FBF8FE' : '#fff';
-  const cardBorder = partner ? '#E5D5F5' : '#ECECEC';
+  const cardBg = partner ? '#F0E6FA' : '#fff';
+  const cardBorder = partner ? '#C9A8E8' : '#ECECEC';
   const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');window.open('${instaUrl}','_blank')`;
   return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
@@ -995,7 +995,7 @@ function buildSideCats(){
         <span class="major-arr">›</span>
       </button>
       <div class="minor-wrap">
-        <div class="minor-list">${minors.map(m=>`<button class="minor-chip" onclick="pickSideMinor('${major}','${m}')">${m}</button>`).join('')}</div>
+        <div class="minor-list"><button class="minor-chip" onclick="pickSideMinor('${major}','전체')" style="background:${c.tagBg};color:${c.tagTxt};border-color:${c.line};font-weight:800">전체</button>${minors.map(m=>`<button class="minor-chip" onclick="pickSideMinor('${major}','${m}')">${m}</button>`).join('')}</div>
       </div>
     </div>`;
   }).join('');
