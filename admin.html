@@ -150,7 +150,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
       🕷️ <b>공구팡팡 · 공구모아 가져오기 (반자동)</b><br>
       브라우저 보안 정책상 다른 사이트 내용을 자동으로 읽어올 수 없어요.<br>
-      <b>① 사이트 열기 → ② 화면 전체 선택·복사(Ctrl/⌘+A, Ctrl/⌘+C) → ③ 붙여넣기 → ④ 파싱 &amp; 등록</b> 순서로 진행하면 돼요.
+      <b>① 사이트 열기 → ② 날짜 지정 → ③ 화면 전체 선택·복사(Ctrl/⌘+A, Ctrl/⌘+C) → ④ 붙여넣기·파싱 → ⑤ 선택 등록</b> 순서로 진행하면 돼요.
     </div>
 
     <div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
@@ -165,9 +165,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       </div>
       <button onclick="openCrawlSite()" style="width:100%;padding:11px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:16px">🔗 선택한 사이트 새 탭으로 열기</button>
 
-      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:8px">② 사이트 화면 텍스트 붙여넣기</div>
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:8px">② 이 날짜 이후 오픈만 가져오기</div>
+      <input type="date" id="crawlMinDate" style="width:100%;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:16px">
+
+      <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:8px">③ 사이트 화면 텍스트 붙여넣기</div>
       <textarea id="crawlText" placeholder="사이트에서 Ctrl/⌘+A → Ctrl/⌘+C 로 복사한 화면 내용을 그대로 붙여넣어 주세요" style="width:100%;height:140px;padding:12px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7"></textarea>
-      <button onclick="crawlParse()" id="crawlParseBtn" style="width:100%;padding:13px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px">③ 파싱 &amp; 미리보기</button>
+      <button onclick="crawlParse()" id="crawlParseBtn" style="width:100%;padding:13px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px">④ 파싱 &amp; 미리보기</button>
       <div id="crawlStatus" style="font-size:12px;color:#999;min-height:18px;margin-top:8px"></div>
     </div>
 
@@ -175,7 +178,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div id="crawlResultArea" style="display:none">
       <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin:4px 0 10px">✅ 파싱 결과 <span id="crawlResultCnt" style="font-size:12px;color:#999;font-weight:400"></span></div>
       <div id="crawlCards" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-      <button onclick="crawlInsertSelected()" id="crawlInsertBtn" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">④ 선택 항목 등록하기 🚀</button>
+      <button onclick="crawlInsertSelected()" id="crawlInsertBtn" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">⑤ 선택 항목 등록하기 🚀</button>
     </div>
   </div>
 
@@ -365,6 +368,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       </select>
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
       <input class="f-date" id="dateTo" type="date" onchange="renderCards()" title="종료일">
+      <button id="noInstaBtn" onclick="toggleNoInsta()" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid #EBEBEB;background:#fff;color:#777;cursor:pointer;font-family:inherit;white-space:nowrap">🔗 인스타 미연결만</button>
     </div>
     <!-- 인플루언서별 전체선택 -->
     <div style="padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #EBEBEB">
@@ -456,6 +460,7 @@ const CAT_COLORS={'육아':'#4CAF50','리빙':'#2196F3','인테리어':'#FF9800'
   '뷰티':'#9C27B0','패션':'#00BCD4','여행':'#FF5722','반려동물':'#795548','가전':'#607D8B'};
 
 let allData=[], curTab='all', delTargetId=null, delBulkIds=null;
+let onlyNoInsta=false; // '인스타 미연결만' 필터
 let checkedIds=new Set();
 
 // ── 로그인 (Supabase Auth) ──
@@ -910,7 +915,7 @@ function fixEndDate(openDate, endDate) {
   return endDate;
 }
 
-function parsePangpang(text, existingData) {
+function parsePangpang(text, existingData, minDate) {
   const MAJORS = new Set(['식품','뷰티','패션','홈리빙','리빙','테크가전','가전','여행','키즈','스포츠','홈']);
   const SUBCATS = new Set(['간식/베이커리','스킨케어','헤어케어','메이크업','바디케어','주방가전','생활가전',
     '청소가전','계절가전','영상가전','간편식/밀키트','건강식품','패키지/투어','의류','키즈패션',
@@ -975,7 +980,7 @@ function parsePangpang(text, existingData) {
       // 날짜 없으면 오늘로 (단, 이미 오늘 데이터 많으면 skip)
       if (!openDate) { i++; continue; }
       // 과거 날짜면 skip
-      if (openDate < todayStr) { i++; continue; }
+      if (openDate < (minDate||todayStr)) { i++; continue; }
 
       const ed = fixEndDate(openDate, endDate);
       products.forEach(name => {
@@ -993,7 +998,7 @@ function parsePangpang(text, existingData) {
   return results;
 }
 
-function parseGonggumoa(text, existingData) {
+function parseGonggumoa(text, existingData, minDate) {
   const MAJORS_GM = new Set(['성인','육아','전체']);
   const SUBCATS_GM = new Set(['가전','건강','식품','뷰티','생활','패션','책','교육','교구','장난감','가구','여행','기타']);
   const SKIP_GM = new Set(['공구모아','공구 일정','리스트','캘린더','오늘 찾은 공구&핫딜','AD',
@@ -1015,7 +1020,7 @@ function parseGonggumoa(text, existingData) {
     if (dateM) {
       const openDate = `2026-${dateM[1].padStart(2,'0')}-${dateM[2].padStart(2,'0')}`;
       // 과거 날짜 skip
-      if (openDate < todayStr) { i++; continue; }
+      if (openDate < (minDate||todayStr)) { i++; continue; }
       i++;
       if (i < lines.length && /^D/.test(lines[i])) i++;
 
@@ -1081,7 +1086,8 @@ async function crawlParse(){
     if(!Array.isArray(existing)) existing=[];
   }catch(e){ existing=[]; }
 
-  const parsed=site==='pangpang'?parsePangpang(text,existing):parseGonggumoa(text,existing);
+  const minDate=(document.getElementById('crawlMinDate').value||'').trim();
+  const parsed=site==='pangpang'?parsePangpang(text,existing,minDate):parseGonggumoa(text,existing,minDate);
   crawlParsedData=parsed;
   btn.disabled=false; btn.textContent='③ 파싱 & 미리보기';
   status.textContent=`파싱 완료 — 신규 ${parsed.length}건 (기존 중복 제외)`;
@@ -1145,11 +1151,11 @@ async function crawlInsertSelected(){
     }else{
       const err=await res.text();
       alert('등록 실패: '+err);
-      btn.disabled=false; btn.textContent='④ 선택 항목 등록하기 🚀';
+      btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀';
     }
   }catch(e){
     alert('오류: '+e.message);
-    btn.disabled=false; btn.textContent='④ 선택 항목 등록하기 🚀';
+    btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀';
   }
 }
 function updateBgPreview(){
@@ -1569,6 +1575,7 @@ function switchTab(tab,el){
     document.getElementById('crawlView').style.display='none';
   } else if(tab==='crawl'){
     document.getElementById('crawlView').style.display='block';
+    { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
     document.getElementById('statsView').style.display='none';
     document.getElementById('aiView').style.display='none';
     document.getElementById('bannerView').style.display='none';
@@ -1607,6 +1614,7 @@ function renderCards(){
   let arr=allData.filter(d=>{
     if(curTab==='pending'&&d.approved)return false;
     if(curTab==='approved'&&!d.approved)return false;
+    if(onlyNoInsta && d.insta && d.insta.trim())return false;
     if(major&&d.major!==major)return false;
     if(dateFrom&&(d.open_date||'')<dateFrom)return false;
     if(dateTo&&(d.open_date||'')>dateTo)return false;
@@ -1696,7 +1704,7 @@ function renderDupCard(d){
 
 async function deleteDup(id){
   const d=allData.find(a=>a.id===id);
-  if(!d||!confirm(`"${d.name}" 을 삭제할까요?`)) return;
+  if(!d||!confirm(`"${d.name}" 이 1건만 삭제돼요. 진행할까요?`)) return;
   await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
     method:'DELETE',
     headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
@@ -1709,11 +1717,14 @@ async function deleteDup(id){
 function renderCard(d){
   const dup=isDup(d);
   const checked=checkedIds.has(d.id);
+  const noInsta=!d.insta||!d.insta.trim();
+  const searchName=((d.influencer&&!d.influencer.startsWith('@'))?d.influencer:d.name||'').replace(/'/g,'');
   return`<div class="card" id="card-${d.id}">
     <div class="card-hd">
       <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
       <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
       ${dup?`<span class="card-status s-dup">⚠️ 중복의심</span>`:''}
+      ${noInsta?`<span class="card-status" style="background:#FFEBEE;color:#C62828">🔗 인스타 미연결</span>`:''}
       <div style="flex:1">
         <div class="card-infl">${(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-')}</div>
       </div>
@@ -1726,14 +1737,19 @@ function renderCard(d){
       </div>
       <div class="card-dates">📅 ${d.open_date||'-'} 오픈${d.end_date?' ~ '+d.end_date+' 마감':''}</div>
       <div class="card-actions">
+        ${noInsta?`<button class="btn" style="background:#FFF3E0;color:#E65100" onclick="igSearch('${searchName}')">🔎 인스타 찾기</button>`:''}
         ${d.approved
           ?`<button class="btn btn-pending" onclick="toggleApprove(${d.id},false)">승인취소</button>`
           :`<button class="btn btn-approve" onclick="toggleApprove(${d.id},true)">✅ 승인</button>`}
-        <button class="btn btn-edit" onclick="openEdit(${d.id})">✏️ 수정</button>
+        <button class="btn btn-edit" onclick="openEdit(${d.id})">${noInsta?'🔗 연결/수정':'✏️ 수정'}</button>
         <button class="btn btn-del" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">🗑️ 삭제</button>
       </div>
     </div>
   </div>`;
+}
+function igSearch(name){
+  if(!name){alert('검색할 이름이 없어요');return;}
+  window.open('https://www.google.com/search?q='+encodeURIComponent(name+' 인스타그램 공구'),'_blank');
 }
 
 // ── 인플루언서 빠른 선택 버튼 렌더 ──
@@ -1817,6 +1833,13 @@ function toggleSelectAll(checked){
     cb.checked=checkedIds.has(id);
   });
   updateBulkBar();
+}
+function toggleNoInsta(){
+  onlyNoInsta=!onlyNoInsta;
+  const b=document.getElementById('noInstaBtn');
+  if(onlyNoInsta){ b.style.background='#FFEBEE'; b.style.borderColor='#C62828'; b.style.color='#C62828'; }
+  else { b.style.background='#fff'; b.style.borderColor='#EBEBEB'; b.style.color='#777'; }
+  renderCards();
 }
 
 function getVisibleIds(){
@@ -1909,8 +1932,11 @@ function bulkDelete(){
   if(!checkedIds.size)return;
   delBulkIds=[...checkedIds];
   delTargetId=null;
+  const names=delBulkIds.slice(0,8).map(id=>{const d=allData.find(a=>a.id===id);return d?'· '+(d.name||'(이름없음)'):'';}).filter(Boolean).join('\n');
+  const more=delBulkIds.length>8?`\n…외 ${delBulkIds.length-8}건`:'';
   document.getElementById('delTitle').textContent='선택 항목 삭제';
-  document.getElementById('delDesc').textContent=`선택한 ${delBulkIds.length}건을 삭제하면 복구할 수 없어요.`;
+  document.getElementById('delDesc').style.whiteSpace='pre-line';
+  document.getElementById('delDesc').textContent=`체크한 ${delBulkIds.length}건만 삭제돼요 (복구 불가):\n${names}${more}`;
   document.getElementById('delModal').style.display='flex';
 }
 
@@ -1978,6 +2004,8 @@ function openDel(id,name){
 }
 function closeDel(){document.getElementById('delModal').style.display='none';delTargetId=null;delBulkIds=null;}
 async function confirmDel(){
+  const wasDup=(curTab==='dup');
+  const delCount=delBulkIds?delBulkIds.length:(delTargetId?1:0);
   if(delBulkIds){
     await Promise.all(delBulkIds.map(id=>
       fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
@@ -1995,6 +2023,9 @@ async function confirmDel(){
     allData=allData.filter(d=>d.id!==delTargetId);
   }
   closeDel();updateStats();renderCards();
+  if(wasDup){
+    alert(`✅ 체크한 ${delCount}건만 삭제됐어요.\n함께 묶여 보이던 나머지는 삭제되지 않았어요. 한쪽이 사라지면서 '중복의심' 목록에서만 빠진 거예요 — '전체' 탭에서 그대로 확인할 수 있어요.`);
+  }
 }
 
 // ── CSV 내보내기 ──
