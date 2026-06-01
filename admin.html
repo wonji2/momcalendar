@@ -365,37 +365,126 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
   <div id="statsView" style="display:none;padding-bottom:80px">
     <!-- 방문자 통계 -->
     <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
-      <div style="color:#C5B8FF;font-size:12px;font-weight:700;margin-bottom:10px">👀 방문자 통계</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
-          <div style="color:#fff;font-size:20px;font-weight:800" id="vNow">-</div>
-          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">🟢 현재 접속</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="color:#C5B8FF;font-size:12px;font-weight:700">👀 방문자 통계</div>
+        <button onclick="loadVisitors(true)" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.8);font-size:10px;padding:4px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🔄 새로고침</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#7DFFB3;font-size:22px;font-weight:800;line-height:1" id="vNow">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:4px">🟢 실시간</div>
+          <div style="color:rgba(255,255,255,.4);font-size:9px;margin-top:1px">5분 기준</div>
         </div>
-        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
-          <div style="color:#fff;font-size:20px;font-weight:800" id="vToday">-</div>
-          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">오늘 방문</div>
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#fff;font-size:22px;font-weight:800;line-height:1" id="vToday">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:4px">오늘</div>
+          <div style="color:rgba(255,255,255,.4);font-size:9px;margin-top:1px" id="vTodayDiff">-</div>
         </div>
-        <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 8px;text-align:center">
-          <div style="color:#fff;font-size:20px;font-weight:800" id="vTotal">-</div>
-          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:2px">누적 방문</div>
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#C5B8FF;font-size:22px;font-weight:800;line-height:1" id="vTotal">-</div>
+          <div style="color:rgba(255,255,255,.7);font-size:10px;margin-top:4px">누적</div>
+          <div style="color:rgba(255,255,255,.4);font-size:9px;margin-top:1px">전체</div>
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="color:#fff;font-size:16px;font-weight:700" id="vYest">-</div>
+          <div style="color:rgba(255,255,255,.55);font-size:10px;margin-top:3px">어제</div>
+        </div>
+        <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="color:#fff;font-size:16px;font-weight:700" id="vWeek">-</div>
+          <div style="color:rgba(255,255,255,.55);font-size:10px;margin-top:3px">이번주</div>
+        </div>
+        <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="color:#fff;font-size:16px;font-weight:700" id="vMonth">-</div>
+          <div style="color:rgba(255,255,255,.55);font-size:10px;margin-top:3px">이번달</div>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:600;margin-bottom:6px">📊 최근 7일 방문 추이</div>
+        <div id="v7dayChart"><div style="color:rgba(255,255,255,.3);font-size:10px">로딩 중...</div></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="color:rgba(255,255,255,.6);font-size:10px;font-weight:600;margin-bottom:6px">🕐 오늘 시간대별 접속</div>
+        <div id="vHourChart"><div style="color:rgba(255,255,255,.3);font-size:10px">로딩 중...</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div id="vLastUpdate" style="color:rgba(255,255,255,.35);font-size:9px">-</div>
+        <div style="color:rgba(255,255,255,.35);font-size:9px">30초 자동갱신</div>
+      </div>
     </div>
-    <div class="stats">
-      <div class="stat"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 등록</div></div>
-      <div class="stat"><div class="stat-num" id="statToday">-</div><div class="stat-lbl">오늘 오픈</div></div>
-      <div class="stat"><div class="stat-num" id="statMonth">-</div><div class="stat-lbl">이번달</div></div>
-      <div class="stat"><div class="stat-num" id="statPending">-</div><div class="stat-lbl">승인대기</div></div>
-      <div class="stat"><div class="stat-num" id="statInfl">-</div><div class="stat-lbl">인플루언서</div></div>
-      <div class="stat"><div class="stat-num" id="statDup">-</div><div class="stat-lbl">중복의심</div></div>
+    <!-- ── 홍보용 핵심 수치 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px">📣 홍보용 핵심 수치</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:10px">탭하면 클립보드에 복사돼요</div>
+      <div id="promoBox" style="display:flex;flex-direction:column;gap:8px">
+        <div style="color:#aaa;font-size:12px">로딩 중...</div>
+      </div>
     </div>
-    <div class="chart-section">
-      <div class="chart-title">📊 대분류별 공구 현황</div>
-      <div class="chart-bar-wrap" id="majorChart"></div>
+
+    <!-- ── 서비스 현황 (인플루언서 수 · 월별 공구) ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:12px">📦 서비스 현황</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
+          <div style="color:#602090;font-size:20px;font-weight:800" id="svcInfl">-</div>
+          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">등록 인플루언서</div>
+        </div>
+        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
+          <div style="color:#602090;font-size:20px;font-weight:800" id="svcMonthGG">-</div>
+          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">이번달 공구</div>
+        </div>
+        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
+          <div style="color:#602090;font-size:20px;font-weight:800" id="svcTotalGG">-</div>
+          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">누적 공구</div>
+        </div>
+      </div>
+      <div style="color:#888;font-size:10px;font-weight:600;margin-bottom:6px">📅 월별 공구 등록 (오픈일 기준, 최근 6개월)</div>
+      <div id="ggMonthChart"><div style="color:#ccc;font-size:11px">로딩 중...</div></div>
     </div>
-    <div class="top-section">
-      <div class="chart-title">🏆 TOP 5 인플루언서</div>
-      <div id="topInfl"></div>
+
+    <!-- ── 30일 일별 방문 추이 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#222">📈 최근 30일 방문 추이</div>
+        <div id="d30avg" style="font-size:11px;color:#888">일평균 -</div>
+      </div>
+      <div id="chart30day"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
+    </div>
+
+    <!-- ── 12개월 월별 추이 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#222">📅 12개월 월별 방문 추이</div>
+        <div id="momGrowth" style="font-size:11px;color:#888">전월 대비 -</div>
+      </div>
+      <div id="chart12mo"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
+    </div>
+
+    <!-- ── 요일별 평균 방문 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:12px">📊 요일별 평균 방문 패턴</div>
+      <div id="chartWeekday"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
+    </div>
+
+    <!-- ── 사용자 행동 분석 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1.5px dashed #D4B5F0">
+      <div style="font-size:13px;font-weight:700;color:#602090;margin-bottom:6px">🖱️ 사용자 행동 분석</div>
+      <div style="font-size:11px;color:#888;line-height:1.8;margin-bottom:10px">
+        카테고리 클릭·탭 전환·검색어·공구 클릭 추적을 시작하려면<br>
+        Supabase에 <b>events</b> 테이블을 만들어주세요.
+      </div>
+      <div style="background:#F9F4FD;border-radius:8px;padding:10px;font-size:10px;font-family:monospace;color:#4A1A78;line-height:1.8;margin-bottom:10px;white-space:pre">CREATE TABLE events (
+  id bigserial primary key,
+  event_type text,
+  event_data text,
+  visited_at timestamptz default now()
+);
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_insert" ON events
+  FOR INSERT TO anon WITH CHECK (true);</div>
+      <div style="font-size:11px;color:#888">테이블 생성 후 index.html도 같이 배포해야 추적 시작돼요.</div>
+      <div id="eventStats" style="margin-top:8px"></div>
     </div>
 
     <!-- 끝난 공구 정리 (30만건 대비) -->
@@ -1903,33 +1992,319 @@ async function deleteSeller(id){
   await loadSellerAdmin();
 }
 
-async function loadVisitors(){
+let _vTimer=null;
+
+async function loadVisitors(manual=false){
   try{
-    const today=new Date().toISOString().slice(0,10);
+    const now=new Date();
+    const todayStr=now.toISOString().slice(0,10);
     const mins5=new Date(Date.now()-5*60*1000).toISOString();
+    const yest=new Date(now); yest.setDate(yest.getDate()-1);
+    const yestStr=yest.toISOString().slice(0,10);
+    const wk=new Date(now); const dw=wk.getDay(); wk.setDate(wk.getDate()-(dw===0?6:dw-1));
+    const wkStr=wk.toISOString().slice(0,10);
+    const monthStr=todayStr.slice(0,7)+'-01';
+    const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'};
+    const cnt=r=>parseInt(r.headers.get('content-range')?.split('/')[1]||'0');
+    const q=path=>fetch(`${SB_URL}/rest/v1/visitors?${path}&select=id`,{headers:hdrs});
 
-    // 현재 접속 (최근 5분)
-    const r1=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${mins5}&select=id`,{
+    const [rNow,rToday,rYest,rWeek,rMonth,rTotal]=await Promise.all([
+      q(`visited_at=gte.${mins5}`),
+      q(`visited_at=gte.${todayStr}T00:00:00`),
+      q(`visited_at=gte.${yestStr}T00:00:00&visited_at=lt.${todayStr}T00:00:00`),
+      q(`visited_at=gte.${wkStr}T00:00:00`),
+      q(`visited_at=gte.${monthStr}T00:00:00`),
+      q('')
+    ]);
+    const todayCnt=cnt(rToday), yestCnt=cnt(rYest), totalCnt=cnt(rTotal), monthCnt=cnt(rMonth);
+
+    document.getElementById('vNow').textContent=cnt(rNow).toLocaleString();
+    document.getElementById('vToday').textContent=todayCnt.toLocaleString();
+    document.getElementById('vYest').textContent=yestCnt.toLocaleString();
+    document.getElementById('vWeek').textContent=cnt(rWeek).toLocaleString();
+    document.getElementById('vMonth').textContent=monthCnt.toLocaleString();
+    document.getElementById('vTotal').textContent=totalCnt.toLocaleString();
+
+    const diff=yestCnt>0?Math.round((todayCnt-yestCnt)/yestCnt*100):0;
+    const diffEl=document.getElementById('vTodayDiff');
+    if(diffEl) diffEl.textContent=yestCnt>0?(diff>=0?`▲${diff}%`:`▼${Math.abs(diff)}%`):'';
+
+    const day7p=[];const day7d=[];
+    for(let i=6;i>=0;i--){
+      const d=new Date(now);d.setDate(d.getDate()-i);
+      const ds=d.toISOString().slice(0,10);
+      const ne=new Date(d);ne.setDate(ne.getDate()+1);
+      const ns=ne.toISOString().slice(0,10);
+      day7d.push(ds);
+      day7p.push(q(`visited_at=gte.${ds}T00:00:00&visited_at=lt.${ns}T00:00:00`).then(cnt));
+    }
+    const day7c=await Promise.all(day7p);
+    render7Day(day7d,day7c,todayStr);
+
+    const hrRes=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${todayStr}T00:00:00&select=visited_at`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    const hrData=await hrRes.json();
+    const hc=Array(24).fill(0);
+    (hrData||[]).forEach(v=>{try{hc[new Date(v.visited_at).getHours()]++;}catch(e){}});
+    renderHour(hc,now.getHours());
+
+    document.getElementById('vLastUpdate').textContent=
+      '마지막 갱신 '+now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    // 홍보용 수치 (누적공구 포함)
+    const rGG=await fetch(`${SB_URL}/rest/v1/gonggu?select=id&approved=eq.true`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'}
     });
-    const now=r1.headers.get('content-range')?.split('/')[1]||'0';
+    const ggTotal=parseInt(rGG.headers.get('content-range')?.split('/')[1]||'0');
+    updatePromoBox(totalCnt, monthCnt, ggTotal);
 
-    // 오늘 방문
-    const r2=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${today}T00:00:00&select=id`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'}
-    });
-    const todayCnt=r2.headers.get('content-range')?.split('/')[1]||'0';
+    loadVisitorTrends();
+    loadServiceStats();
 
-    // 누적 방문
-    const r3=await fetch(`${SB_URL}/rest/v1/visitors?select=id`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'}
-    });
-    const total=r3.headers.get('content-range')?.split('/')[1]||'0';
-
-    document.getElementById('vNow').textContent=now;
-    document.getElementById('vToday').textContent=todayCnt;
-    document.getElementById('vTotal').textContent=total;
   }catch(e){console.log('방문자 로드 실패',e);}
+
+  clearTimeout(_vTimer);
+  if(curTab==='stats') _vTimer=setTimeout(()=>loadVisitors(),30000);
+}
+
+function render7Day(days,counts,todayStr){
+  const max=Math.max(...counts,1);
+  const DAYS=['일','월','화','수','목','금','토'];
+  document.getElementById('v7dayChart').innerHTML=
+    '<div style="display:flex;align-items:flex-end;gap:3px;height:54px">'+
+    days.map((d,i)=>{
+      const h=Math.max(Math.round(counts[i]/max*40),2);
+      const isT=d===todayStr;
+      const dn=DAYS[new Date(d).getDay()];
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:8px;color:rgba(255,255,255,.55)">${counts[i]}</div>
+        <div style="width:100%;height:${h}px;background:${isT?'#FFD37A':'rgba(255,255,255,.35)'};border-radius:2px 2px 0 0"></div>
+        <div style="font-size:8px;color:${isT?'#FFD37A':'rgba(255,255,255,.5)'};font-weight:${isT?700:400}">${dn}</div>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+function renderHour(hc,curH){
+  const max=Math.max(...hc,1);
+  document.getElementById('vHourChart').innerHTML=
+    '<div style="display:flex;align-items:flex-end;gap:1px;height:36px">'+
+    hc.map((c,h)=>{
+      const ht=Math.max(Math.round(c/max*30),1);
+      const isC=h===curH;
+      return `<div style="flex:1;height:${ht}px;background:${isC?'#FF8A65':'rgba(255,255,255,.3)'};border-radius:1px 1px 0 0"></div>`;
+    }).join('')+
+    '</div><div style="display:flex;justify-content:space-between;margin-top:3px">'+
+    '<span style="font-size:8px;color:rgba(255,255,255,.4)">0시</span>'+
+    '<span style="font-size:8px;color:rgba(255,255,255,.4)">6시</span>'+
+    '<span style="font-size:8px;color:rgba(255,255,255,.4)">12시</span>'+
+    '<span style="font-size:8px;color:rgba(255,255,255,.4)">18시</span>'+
+    '<span style="font-size:8px;color:rgba(255,255,255,.4)">23시</span></div>';
+}
+
+async function loadVisitorTrends(){
+  try{
+    const now=new Date();
+    const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`};
+    const todayStr=now.toISOString().slice(0,10);
+
+    const d30=new Date(now);d30.setDate(d30.getDate()-29);
+    const r30=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d30.toISOString().slice(0,10)}T00:00:00&select=visited_at`,{headers:hdrs});
+    const v30=await r30.json();
+    const dm={};
+    for(let i=29;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);dm[d.toISOString().slice(0,10)]=0;}
+    (v30||[]).forEach(v=>{const d=v.visited_at.slice(0,10);if(dm[d]!==undefined)dm[d]++;});
+    render30Day(Object.entries(dm),todayStr);
+
+    const d12=new Date(now);d12.setFullYear(d12.getFullYear()-1);d12.setDate(1);
+    const r12=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d12.toISOString().slice(0,7)}-01T00:00:00&select=visited_at`,{headers:hdrs});
+    const v12=await r12.json();
+    const mm={};
+    for(let i=11;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);mm[d.toISOString().slice(0,7)]=0;}
+    (v12||[]).forEach(v=>{const m=v.visited_at.slice(0,7);if(mm[m]!==undefined)mm[m]++;});
+    render12Month(Object.entries(mm));
+
+    const d90=new Date(now);d90.setDate(d90.getDate()-89);
+    const r90=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d90.toISOString().slice(0,10)}T00:00:00&select=visited_at`,{headers:hdrs});
+    const v90=await r90.json();
+    const dc=Array(7).fill(0),dd=Array(7).fill(0);
+    for(let i=0;i<90;i++){const d=new Date(now);d.setDate(d.getDate()-(89-i));dd[d.getDay()]++;}
+    (v90||[]).forEach(v=>{try{dc[new Date(v.visited_at).getDay()]++;}catch(e){}});
+    renderWeekday(dc.map((c,i)=>dd[i]?Math.round(c/dd[i]):0));
+
+    loadEventStats();
+  }catch(e){console.log('추이 로드 실패',e);}
+}
+
+function render30Day(entries,todayStr){
+  const vals=entries.map(e=>e[1]);
+  const max=Math.max(...vals,1);
+  const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  document.getElementById('d30avg').textContent=`일평균 ${avg.toLocaleString()}명`;
+  document.getElementById('chart30day').innerHTML=
+    '<div style="display:flex;align-items:flex-end;gap:2px;height:70px">'+
+    entries.map(([d,c])=>{
+      const h=Math.max(Math.round(c/max*58),2);
+      const isT=d===todayStr;
+      const isSun=new Date(d).getDay()===0;
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center" title="${d}: ${c}명">
+        <div style="width:100%;height:${h}px;background:${isT?'#602090':isSun?'#FFB0C0':'#C5A8E8'};border-radius:2px 2px 0 0;opacity:${isT?1:.85}"></div>
+      </div>`;
+    }).join('')+
+    '</div><div style="display:flex;justify-content:space-between;margin-top:4px">'+
+    `<span style="font-size:9px;color:#aaa">${entries[0]?entries[0][0].slice(5):''}</span>`+
+    `<span style="font-size:9px;color:#aaa">${entries[14]?entries[14][0].slice(5):''}</span>`+
+    `<span style="font-size:9px;color:#602090;font-weight:700">오늘</span></div>`;
+}
+
+function render12Month(entries){
+  const vals=entries.map(e=>e[1]);
+  const max=Math.max(...vals,1);
+  const now=new Date().toISOString().slice(0,7);
+  const prev=entries[entries.length-2], cur=entries[entries.length-1];
+  if(prev&&cur&&prev[1]>0){
+    const g=Math.round((cur[1]-prev[1])/prev[1]*100);
+    const el=document.getElementById('momGrowth');
+    el.textContent=`전월 대비 ${g>=0?'▲':'▼'}${Math.abs(g)}%`;
+    el.style.color=g>=0?'#1DB87A':'#E8445A';
+  }
+  document.getElementById('chart12mo').innerHTML=
+    '<div style="display:flex;align-items:flex-end;gap:4px;height:80px">'+
+    entries.map(([m,c])=>{
+      const h=Math.max(Math.round(c/max*68),2);
+      const isC=m===now;
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${m}: ${c.toLocaleString()}명">
+        <div style="font-size:8px;color:${isC?'#602090':'#aaa'}">${c>0?c.toLocaleString():''}</div>
+        <div style="width:100%;height:${h}px;background:${isC?'#602090':'#D4B5F0'};border-radius:2px 2px 0 0"></div>
+        <div style="font-size:8px;color:${isC?'#602090':'#aaa'};font-weight:${isC?700:400}">${parseInt(m.slice(5))}월</div>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+function renderWeekday(avg){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const max=Math.max(...avg,1);
+  const maxIdx=avg.indexOf(Math.max(...avg));
+  document.getElementById('chartWeekday').innerHTML=
+    '<div style="display:flex;align-items:flex-end;gap:6px;height:70px">'+
+    avg.map((v,i)=>{
+      const h=Math.max(Math.round(v/max*58),2);
+      const isMax=i===maxIdx, isSun=i===0;
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="font-size:9px;color:${isMax?'#602090':'#aaa'}">${v}</div>
+        <div style="width:100%;height:${h}px;background:${isMax?'#602090':isSun?'#FFB0C0':'#D4B5F0'};border-radius:3px 3px 0 0"></div>
+        <div style="font-size:10px;color:${isMax?'#602090':isSun?'#E8445A':'#888'};font-weight:${isMax?700:400}">${DAYS[i]}</div>
+      </div>`;
+    }).join('')+'</div>'+
+    `<div style="font-size:11px;color:#888;margin-top:8px">📌 최다 방문 요일: <b style="color:#602090">${DAYS[maxIdx]}요일</b> (일평균 ${avg[maxIdx]}명)</div>`;
+}
+
+// ── 서비스 현황 (인플루언서 수 · 월별 공구) ──
+async function loadServiceStats(){
+  try{
+    const now=new Date();
+    const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'};
+    const monthStr=now.toISOString().slice(0,7);
+
+    const rInfl=await fetch(`${SB_URL}/rest/v1/influencers?select=id`,{headers:hdrs});
+    const inflCnt=parseInt(rInfl.headers.get('content-range')?.split('/')[1]||'0');
+    const rTot=await fetch(`${SB_URL}/rest/v1/gonggu?select=id&approved=eq.true`,{headers:hdrs});
+    const ggTot=parseInt(rTot.headers.get('content-range')?.split('/')[1]||'0');
+    const rMo=await fetch(`${SB_URL}/rest/v1/gonggu?select=id&approved=eq.true&open_date=gte.${monthStr}-01&open_date=lt.${monthStr}-32`,{headers:hdrs});
+    const ggMo=parseInt(rMo.headers.get('content-range')?.split('/')[1]||'0');
+
+    const e1=document.getElementById('svcInfl'); if(e1) e1.textContent=inflCnt.toLocaleString();
+    const e2=document.getElementById('svcMonthGG'); if(e2) e2.textContent=ggMo.toLocaleString();
+    const e3=document.getElementById('svcTotalGG'); if(e3) e3.textContent=ggTot.toLocaleString();
+
+    // 월별 공구(오픈일 기준) 최근 6개월
+    const d6=new Date(now);d6.setMonth(d6.getMonth()-5);d6.setDate(1);
+    const rGG=await fetch(`${SB_URL}/rest/v1/gonggu?select=open_date&approved=eq.true&open_date=gte.${d6.toISOString().slice(0,10)}&limit=100000`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    const ggData=await rGG.json();
+    const mm={};
+    for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);mm[d.toISOString().slice(0,7)]=0;}
+    (ggData||[]).forEach(g=>{const m=(g.open_date||'').slice(0,7);if(mm[m]!==undefined)mm[m]++;});
+    const ent=Object.entries(mm);
+    const max=Math.max(...ent.map(e=>e[1]),1);
+    const curM=now.toISOString().slice(0,7);
+    document.getElementById('ggMonthChart').innerHTML=
+      '<div style="display:flex;align-items:flex-end;gap:8px;height:64px">'+
+      ent.map(([m,c])=>{
+        const h=Math.max(Math.round(c/max*50),2);
+        const isC=m===curM;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:10px;color:${isC?'#602090':'#999'};font-weight:${isC?700:400}">${c}</div>
+          <div style="width:100%;height:${h}px;background:${isC?'#602090':'#D4B5F0'};border-radius:3px 3px 0 0"></div>
+          <div style="font-size:9px;color:${isC?'#602090':'#999'}">${parseInt(m.slice(5))}월</div>
+        </div>`;
+      }).join('')+'</div>';
+  }catch(e){console.log('서비스 통계 실패',e);}
+}
+
+function updatePromoBox(totalCnt, monthCnt, gongguTotal){
+  const el=document.getElementById('promoBox');
+  if(!el)return;
+  const man=Math.floor(totalCnt/10000), rest=totalCnt%10000;
+  const totalDisp=man>0?`${man}만${rest>0?(' '+rest.toLocaleString()):''}명`:`${totalCnt.toLocaleString()}명`;
+  const items=[
+    {label:'누적 방문자', value:totalDisp, copy:`맘캘린더 누적 방문자 ${totalCnt.toLocaleString()}명`},
+    {label:'이번달 방문자', value:`${monthCnt.toLocaleString()}명`, copy:`맘캘린더 이번달 방문자 ${monthCnt.toLocaleString()}명`},
+    {label:'누적 공구 등록', value:`${gongguTotal.toLocaleString()}건`, copy:`맘캘린더 누적 공구 등록 ${gongguTotal.toLocaleString()}건`},
+  ];
+  el.innerHTML=items.map(it=>`
+    <div onclick="copyPromo('${it.copy}')" style="display:flex;justify-content:space-between;align-items:center;background:#F9F4FD;border-radius:10px;padding:10px 12px;cursor:pointer;border:1px solid #E8D5F8">
+      <div>
+        <div style="font-size:10px;color:#9B6FD4">${it.label}</div>
+        <div style="font-size:18px;font-weight:800;color:#602090;line-height:1.2">${it.value}</div>
+      </div>
+      <div style="font-size:18px">📋</div>
+    </div>`).join('');
+}
+function copyPromo(text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const t=document.createElement('div');
+    t.textContent='✅ 복사됐어요!';
+    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#602090;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999';
+    document.body.appendChild(t);setTimeout(()=>t.remove(),1800);
+  }).catch(()=>{});
+}
+
+async function loadEventStats(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/events?select=event_type&order=visited_at.desc&limit=1`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    if(!r.ok){document.getElementById('eventStats').innerHTML='';return;}
+    const data=await r.json();
+    if(!data||data.length===0){document.getElementById('eventStats').innerHTML='<div style="font-size:11px;color:#aaa">아직 행동 데이터가 없어요.</div>';return;}
+    const r2=await fetch(`${SB_URL}/rest/v1/events?select=event_type,event_data&limit=100000`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    const all=await r2.json()||[];
+    const typeCnt={}, catCnt={}, searchCnt={};
+    const TYPE_LABEL={category_click:'카테고리 클릭',status_tab:'상태탭 클릭',search:'검색',card_click:'공구 클릭'};
+    all.forEach(e=>{
+      typeCnt[e.event_type]=(typeCnt[e.event_type]||0)+1;
+      if(e.event_type==='category_click'&&e.event_data) catCnt[e.event_data]=(catCnt[e.event_data]||0)+1;
+      if(e.event_type==='search'&&e.event_data) searchCnt[e.event_data]=(searchCnt[e.event_data]||0)+1;
+    });
+    const topType=Object.entries(typeCnt).sort((a,b)=>b[1]-a[1]);
+    const topCat=Object.entries(catCnt).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const topSearch=Object.entries(searchCnt).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    let h='<div style="font-size:11px;font-weight:700;color:#602090;margin:4px 0 6px">액션별 횟수</div>';
+    h+=topType.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${TYPE_LABEL[t]||t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
+    if(topCat.length){
+      h+='<div style="font-size:11px;font-weight:700;color:#602090;margin:10px 0 6px">인기 카테고리 TOP 5</div>';
+      h+=topCat.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
+    }
+    if(topSearch.length){
+      h+='<div style="font-size:11px;font-weight:700;color:#602090;margin:10px 0 6px">인기 검색어 TOP 5</div>';
+      h+=topSearch.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
+    }
+    document.getElementById('eventStats').innerHTML=h;
+  }catch(e){}
 }
 
 // ── 데이터 로드 ──
@@ -2042,51 +2417,13 @@ function getDupReason(item){
 // ── 통계 ──
 function updateStats(){
   computeDupSet(); // 데이터 변경 반영 (이후 isDup은 O(1) 조회)
-  const today=new Date();
-  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const monthStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-  const inflSet=new Set(allData.map(d=>d.insta));
   const dups=allData.filter(d=>isDup(d));
-
-  document.getElementById('statTotal').textContent=allData.length;
-  document.getElementById('statToday').textContent=allData.filter(d=>d.open_date===todayStr).length;
-  document.getElementById('statMonth').textContent=allData.filter(d=>(d.open_date||'').startsWith(monthStr)).length;
-  document.getElementById('statPending').textContent=allData.filter(d=>!d.approved).length;
-  document.getElementById('statInfl').textContent=inflSet.size;
-  document.getElementById('statDup').textContent=dups.length;
-
   // 탭 개수 표시 (DB와 작업 개수 맞추기 편하게)
   const setTab=(id,n)=>{const e=document.getElementById(id);if(e)e.textContent='('+n+')';};
   setTab('tabcnt-all', allData.length);
   setTab('tabcnt-pending', allData.filter(d=>!d.approved).length);
   setTab('tabcnt-approved', allData.filter(d=>d.approved).length);
   setTab('tabcnt-dup', dups.length);
-
-  // 대분류 차트
-  const majorCount={};
-  allData.forEach(d=>{if(d.major)majorCount[d.major]=(majorCount[d.major]||0)+1;});
-  const maxCnt=Math.max(...Object.values(majorCount),1);
-  document.getElementById('majorChart').innerHTML=
-    Object.entries(majorCount).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`
-      <div class="chart-row">
-        <div class="chart-lbl">${m}</div>
-        <div class="chart-bar-bg">
-          <div class="chart-bar" style="width:${Math.round(c/maxCnt*100)}%;background:${CAT_COLORS[m]||'#999'}">
-            <span>${c}</span>
-          </div>
-        </div>
-      </div>`).join('');
-
-  // TOP 5 인플루언서
-  const inflCount={};
-  allData.forEach(d=>{if(d.influencer)inflCount[d.influencer]=(inflCount[d.influencer]||0)+1;});
-  const top5=Object.entries(inflCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  document.getElementById('topInfl').innerHTML=top5.map(([name,cnt],i)=>`
-    <div class="top-item">
-      <div class="top-rank">${i+1}</div>
-      <div class="top-name">${name}</div>
-      <div class="top-cnt">${cnt}건</div>
-    </div>`).join('');
 }
 
 // ── 지난 공구 정리 (30만건 대비) ──
@@ -2214,20 +2551,23 @@ function switchTab(tab,el){
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     loadVisitors();
-  } else if(tab==='ai'){
-    document.getElementById('aiView').style.display='block';
-  } else if(tab==='crawl'){
-    document.getElementById('crawlView').style.display='block';
-    { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
-  } else if(tab==='banner'){
-    document.getElementById('bannerView').style.display='block';
-    loadBannerAdmin();
-  } else if(tab==='seller'){
-    document.getElementById('sellerView').style.display='block';
-    loadSellerAdmin();
   } else {
-    document.getElementById('listView').style.display='block';
-    renderCards();
+    clearTimeout(_vTimer);
+    if(tab==='ai'){
+      document.getElementById('aiView').style.display='block';
+    } else if(tab==='crawl'){
+      document.getElementById('crawlView').style.display='block';
+      { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
+    } else if(tab==='banner'){
+      document.getElementById('bannerView').style.display='block';
+      loadBannerAdmin();
+    } else if(tab==='seller'){
+      document.getElementById('sellerView').style.display='block';
+      loadSellerAdmin();
+    } else {
+      document.getElementById('listView').style.display='block';
+      renderCards();
+    }
   }
 }
 

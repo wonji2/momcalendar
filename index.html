@@ -194,6 +194,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-top{display:flex;align-items:center;gap:6px;margin-bottom:5px}
 .cat-tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px;white-space:nowrap}
 .cat-sub{font-size:11px;color:#9a9aa5}
+.partner-chip{background:#F0E6FA;color:#602090;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.card-partner .card-seller-strong{color:#4A1A78}
 .card-right{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1}
 .card-go{color:#c4c0d4;font-size:18px;font-weight:400;line-height:1;position:relative;top:1px}
@@ -645,6 +647,15 @@ const SUPABASE_URL = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 
 let DATA = [];
+// ── 맘캘 파트너(이웃셀러) 집합 — loadSellers에서 채움 ──
+let PARTNER_SET = new Set();
+function isPartner(item){ return !!(item.insta && PARTNER_SET.has(item.insta.toLowerCase())); }
+// 같은 날짜 안에서 파트너 우선
+function cmpDatePartner(a,b){
+  const d=a.openDate.localeCompare(b.openDate);
+  if(d!==0) return d;
+  return (isPartner(b)?1:0)-(isPartner(a)?1:0);
+}
 
 async function loadData() {
   try {
@@ -703,14 +714,14 @@ function getFiltered(dateStr){
       if(fMinor!=='전체'&&item.minor!==fMinor)return false;
       const q=fSearch.toLowerCase();
       return[item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
-    }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+    }).sort(cmpDatePartner);
   }
 
   // 상태 필터 버튼
-  if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item));
-  if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item));
-  if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort((a,b)=>a.openDate.localeCompare(b.openDate));
-  if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item)).sort(cmpDatePartner);
+  if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item)).sort(cmpDatePartner);
+  if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpDatePartner);
+  if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpDatePartner);
 
   // ALL 기본: 오늘 진행중 먼저 → 오픈 예정 순
   const ongoing=DATA.filter(item=>{
@@ -718,14 +729,14 @@ function getFiltered(dateStr){
     if(!filterCat(item))return false;
     // 오늘 진행중: 오픈일 <= 오늘 <= 마감일
     return item.openDate<=todayStr && realEnd(item)>=todayStr;
-  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  }).sort(cmpDatePartner);
 
   const upcoming=DATA.filter(item=>{
     if(isExpired(item))return false;
     if(!filterCat(item))return false;
     // 오픈 예정: 오픈일 > 오늘
     return item.openDate>todayStr;
-  }).sort((a,b)=>a.openDate.localeCompare(b.openDate));
+  }).sort(cmpDatePartner);
 
   return [...ongoing,...upcoming];
 }
@@ -753,11 +764,21 @@ function renderCard(item){
   // 셀러명: 한글명 있으면 한글명, 없으면 @아이디
   const seller = (item.influencer && !item.influencer.startsWith('@')) ? item.influencer : (item.insta?('@'+item.insta):'');
   const period = `${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
-  const sellerLine = seller ? `<span class="card-seller-strong">${seller}</span> · ${period}` : period;
-  return`<div class="card" onclick="window.open('${instaUrl}','_blank')" style="background:${c.bg};border-color:${c.line}">
+  const partner = isPartner(item);
+  const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#602090"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const sb = partner ? badgeSvg : '';
+  const sellerLine = seller
+    ? `${sb}<span class="card-seller-strong">${seller}</span> · ${period}`
+    : (partner ? `${sb}${period}` : period);
+  const partnerChip = partner ? `<span class="partner-chip">맘캘 파트너</span>` : '';
+  const cardBg = partner ? '#FBF8FE' : '#fff';
+  const cardBorder = partner ? '#E5D5F5' : '#ECECEC';
+  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');window.open('${instaUrl}','_blank')`;
+  return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
       <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${item.major}</span>
       <span class="cat-sub">${item.minor}</span>
+      ${partnerChip}
     </div>
     <div class="card-name">${item.name}</div>
     <div class="card-sellerline">${sellerLine}</div>
@@ -914,6 +935,7 @@ function pickCat(cat, el){
   // 사이드 메뉴 '전체 ALL' 상태 동기화
   const sideAll=document.getElementById('sideAllBtn');
   if(sideAll) sideAll.classList.toggle('on', cat==='전체');
+  if(cat!=='전체') trackEvent('category_click', cat);
   renderList();
 }
 
@@ -926,6 +948,7 @@ function toggleStab(v,el){
   if(v==='open') el.classList.add('on-o');
   if(v==='live') el.classList.add('on-g');
   if(v==='upcoming') el.classList.add('on-u');
+  if(v!=='all') trackEvent('status_tab', v);
   renderList();
 }
 
@@ -1113,7 +1136,10 @@ sInput.addEventListener('input',e=>{
   renderList();
 });
 sInput.addEventListener('keydown',e=>{
-  if(e.key==='Enter') sInput.blur();
+  if(e.key==='Enter'){
+    if(sInput.value.trim()) trackEvent('search', sInput.value.trim());
+    sInput.blur();
+  }
 });
 
 // ── 초기화 ──
@@ -1169,7 +1195,11 @@ async function loadSellers(){
   // 맘캘린더는 항상 고정 노출 (이미 등록돼 있으면 중복 추가 안 함)
   const hasFixed=rows.some(s=>(s.insta||'').replace('@','')===FIXED_SELLER.insta);
   if(!hasFixed) rows.unshift(FIXED_SELLER);
+  // 파트너(이웃셀러) 집합 채우기 — 카드 우선노출/뱃지 판별용
+  PARTNER_SET = new Set(rows.map(s=>(s.insta||'').replace('@','').trim().toLowerCase()).filter(Boolean));
   renderSellers(rows);
+  // 셀러가 데이터보다 늦게 와도 카드에 파트너 표시 반영
+  if(DATA && DATA.length) renderList();
 }
 function renderSellers(rows){
   const zone=document.getElementById('sellerZone');
@@ -1251,6 +1281,15 @@ async function recordVisit(){
   }catch(e){}
 }
 recordVisit();
+
+// ── 행동 이벤트 추적 (events 테이블, fire-and-forget) ──
+function trackEvent(type,data=''){
+  fetch(`${SUPABASE_URL}/rest/v1/events`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Prefer':'return=minimal'},
+    body:JSON.stringify({event_type:type,event_data:String(data)})
+  }).catch(()=>{});
+}
 
 // ── 떠다니는 카톡 버튼 ──
 function toggleChatMenu(){
