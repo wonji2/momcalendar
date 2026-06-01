@@ -974,84 +974,82 @@ function fixEndDate(openDate, endDate) {
 }
 
 function parsePangpang(text, existingData, minDate) {
-  const MAJORS = new Set(['식품','뷰티','패션','홈리빙','리빙','테크가전','가전','여행','키즈','스포츠','홈']);
-  const SUBCATS = new Set(['간식/베이커리','스킨케어','헤어케어','메이크업','바디케어','주방가전','생활가전',
-    '청소가전','계절가전','영상가전','간편식/밀키트','건강식품','패키지/투어','의류','키즈패션',
-    '액세서리','교구/교육','육아용품','생활용품','주방용품','침구/패브릭','유아식','장난감/놀이',
-    '신발','가방','아우터','이너웨어','홈인테리어','가구','잡화','스포츠','기타']);
-  const SKIP = new Set(['더 보기','공구팡팡','오늘오픈','마이페이지','홈','인플루언서','팔로워',
-    '오픈 캘린더','인스타 최신 공구','지금 핫한 키워드','AI 자동 분석','모바일로 접속하기',
-    'QR코드','인스타그램','공동구매','검색','좋은 가격이 팡팡']);
-
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const minD = minDate || todayStr;
+
+  const MAJOR_MAP={'홈리빙':'리빙','리빙':'리빙','인테리어':'인테리어','식품':'식품','뷰티':'뷰티',
+    '패션':'패션','육아':'육아','키즈':'육아','가전':'가전','테크가전':'가전','디지털/가전':'가전',
+    '여행':'여행','여행/레저':'여행','반려동물':'반려동물','반려':'반려동물','펫':'반려동물'};
+
+  function ymd(m,d){
+    const mm=String(m).padStart(2,'0'), dd=String(d).padStart(2,'0');
+    let y=today.getFullYear();
+    const gap=(today-new Date(`${y}-${mm}-${dd}`))/86400000; if(gap>180) y+=1; // 6개월+ 과거면 연말→연초 롤오버 // 과거면 내년 것으로
+    return `${y}-${mm}-${dd}`;
+  }
+  function mapCat(siteMajor, siteMinor, name){
+    let major=MAJOR_MAP[siteMajor]||'';
+    if(!major || !CATS_LIST[major]) return crawlGuessCat(name, siteMinor);
+    let minor=siteMinor;
+    if(!CATS_LIST[major].includes(minor)){
+      const g=crawlGuessCat(name, siteMinor);
+      minor=(g.major===major && g.minor)?g.minor:(CATS_LIST[major][0]||'기타');
+    }
+    return {major, minor};
+  }
+
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  const results = [];
-  let i = 0;
 
-  while (i < lines.length) {
-    const line = lines[i];
-    if (/^[a-z0-9][a-z0-9_.]{1,28}[a-z0-9_]$/.test(line) &&
-        i+1 < lines.length && lines[i+1].startsWith('팔로워')) {
-      const insta = line;
-      i += 2;
-      if (i < lines.length && /^(약\s*)?\d+\s*(분|시간|일)\s*전$/.test(lines[i])) i++;
-      let major='', minor='', openDate='', endDate='';
-      const products = [];
+  // 카드 단위로 분할: 각 카드는 'thumbnail'(썸네일)로 끝남
+  const cards=[]; let cur=[];
+  for(const l of lines){
+    if(/^(thumbnail|썸네일)$/i.test(l)){ if(cur.length) cards.push(cur); cur=[]; }
+    else cur.push(l);
+  }
+  if(cur.length) cards.push(cur);
 
-      while (i < lines.length) {
-        const l = lines[i];
-        if (/^[a-z0-9][a-z0-9_.]{1,28}[a-z0-9_]$/.test(l) &&
-            i+1 < lines.length && lines[i+1]?.startsWith('팔로워')) break;
+  const results=[];
+  for(const card of cards){
+    // '>소분류' 줄과 바로 윗줄(대분류)
+    const minorIdx=card.findIndex(l=>l.startsWith('>'));
+    if(minorIdx<1) continue;               // 대분류가 앞에 없으면(윗부분 잘림) 건너뜀
+    const siteMinor=card[minorIdx].replace(/^>/,'').trim();
+    const siteMajor=card[minorIdx-1].trim();
+    // 상품명 = 대분류 앞에 있는 줄들
+    let name=card.slice(0, minorIdx-1).join(' ').trim();
+    if(!name || name.startsWith('#')) continue; // 상품명 잘린 카드 skip
 
-        // 카테고리
-        if (l.includes('>') && l.length < 40 && !l.includes('더')) {
-          const [maj, min] = l.split('>').map(s=>s.trim());
-          major = maj.replace('홈리빙','리빙').replace('테크가전','가전').replace('키즈','육아');
-          minor = min||''; i++; continue;
-        }
+    // 날짜 (범위 우선)
+    let openDate='', endDate='';
+    for(const l of card){
+      const dr=l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)\s*~\s*(\d{1,2})\/(\d{1,2})/);
+      if(dr){ openDate=ymd(dr[1],dr[2]); endDate=ymd(dr[3],dr[4]); break; }
+      const ds=l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)/);
+      if(ds){ openDate=ymd(ds[1],ds[2]); break; }
+    }
+    if(!openDate) continue;                // 날짜 없으면(아랫부분 잘림) skip
+    if(openDate < minD) continue;
 
-        // 날짜 범위 M/D ~ M/D
-        const dr = l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)\s*~\s*(\d{1,2})\/(\d{1,2})/);
-        if (dr) {
-          openDate = `2026-${dr[1].padStart(2,'0')}-${dr[2].padStart(2,'0')}`;
-          endDate  = `2026-${dr[3].padStart(2,'0')}-${dr[4].padStart(2,'0')}`;
-          i++; continue;
-        }
-        // 단일 날짜
-        const ds = l.match(/^(\d{1,2})\/(\d{1,2})\s*\([^)]*\)/);
-        if (ds && !openDate) {
-          openDate = `2026-${ds[1].padStart(2,'0')}-${ds[2].padStart(2,'0')}`;
-          i++; continue;
-        }
+    // 인스타 아이디: 연속으로 같은 소문자 토큰이 반복되는 줄
+    let insta='';
+    for(let k=0;k<card.length-1;k++){
+      if(/^[a-z0-9._]{2,30}$/.test(card[k]) && card[k]===card[k+1]){ insta=card[k]; break; }
+    }
+    if(!insta){ // 폴백: 팔로워수(9.2만 등) 바로 윗줄
+      const fIdx=card.findIndex(l=>/^\d+(\.\d+)?\s*(만|천|k|K)$/.test(l));
+      if(fIdx>0 && /^[a-z0-9._]{2,30}$/.test(card[fIdx-1])) insta=card[fIdx-1];
+    }
 
-        // 스킵
-        const skip = SKIP.has(l) || SUBCATS.has(l) || MAJORS.has(l) || BAD_NAMES.has(l)
-          || l.includes('오픈') || l.includes('마감') || l.includes('예정')
-          || l.includes('팔로워') || /^(약\s*)?\d+\s*(분|시간|일)\s*전$/.test(l)
-          || /^[a-z0-9_.#@\s]+$/.test(l) || /^\d/.test(l) || l === '더 보기';
-
-        if (!skip && isValidName(l)) products.push(l);
-        i++;
-      }
-
-      // 날짜 없으면 오늘로 (단, 이미 오늘 데이터 많으면 skip)
-      if (!openDate) { i++; continue; }
-      // 과거 날짜면 skip
-      if (openDate < (minDate||todayStr)) { i++; continue; }
-
-      const ed = fixEndDate(openDate, endDate);
-      products.forEach(name => {
-        // 기존 DB 중복 체크
-        const isDup = existingData.some(e =>
-          e.open_date === openDate && crawlSim(e.name, name) >= 0.7
-        );
-        if (!isDup) {
-          const cat = crawlGuessCat(name, minor);
-          results.push({ insta, name, major: cat.major, minor: cat.minor, open_date: openDate, end_date: ed });
-        }
+    const cat=mapCat(siteMajor, siteMinor, name);
+    const ed=fixEndDate(openDate, endDate);
+    const dup=existingData.some(e=> e.open_date===openDate && crawlSim(e.name,name)>=0.7);
+    if(!dup){
+      results.push({
+        influencer: (insta && inflMapping[insta]) ? inflMapping[insta] : '',
+        insta, name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:ed
       });
-    } else { i++; }
+    }
   }
   return results;
 }
@@ -1069,6 +1067,29 @@ function parseGonggumoa(text, existingData, minDate) {
   const results = [];
   let i = 0, curMinor = '';
 
+  const CATMAP_GM={'가전':{major:'가전',minor:'생활가전'},'건강':{major:'식품',minor:'건강식품'},
+    '식품':{major:'식품',minor:'간편식/밀키트'},'뷰티':{major:'뷰티',minor:'스킨케어'},
+    '생활':{major:'리빙',minor:'생활용품'},'패션':{major:'패션',minor:'의류'},
+    '교육':{major:'육아',minor:'교구/교육'},'교구':{major:'육아',minor:'교구/교육'},'책':{major:'육아',minor:'교구/교육'},
+    '장난감':{major:'육아',minor:'장난감/놀이'},'가구':{major:'인테리어',minor:'가구'},
+    '여행':{major:'여행',minor:'호텔/숙소'},'기타':{major:'리빙',minor:'생활용품'}};
+  function resolveCat(siteCat, name){
+    const base=CATMAP_GM[siteCat];
+    const g=crawlGuessCat(name, siteCat);
+    if(!base) return g;                                    // 모르는 카테고리 → 이름 추정
+    if(g.major===base.major) return {major:base.major, minor:g.minor}; // 같은 대분류면 소분류만 정교화
+    return base;                                           // 대분류는 사이트 값 신뢰(이름 오인식 방지)
+  }
+  function ymd(m,d){
+    const mm=String(m).padStart(2,'0'), dd=String(d).padStart(2,'0');
+    let y=today.getFullYear();
+    const gap=(today-new Date(`${y}-${mm}-${dd}`))/86400000; if(gap>180) y+=1; // 6개월+ 과거면 연말→연초 롤오버
+    return `${y}-${mm}-${dd}`;
+  }
+  // 한글명 -> insta (이미 등록된 인플루언서가 '유일'할 때만 자동 연결, 동명이인은 미연결로 둠)
+  const nameToInstas={};
+  Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ if(nm&&ig){ (nameToInstas[nm]=nameToInstas[nm]||new Set()).add(ig); } });
+
   while (i < lines.length) {
     const l = lines[i];
     if (MAJORS_GM.has(l)) { i++; continue; }
@@ -1076,7 +1097,7 @@ function parseGonggumoa(text, existingData, minDate) {
 
     const dateM = l.match(/^(\d{1,2})\/(\d{1,2})$/);
     if (dateM) {
-      const openDate = `2026-${dateM[1].padStart(2,'0')}-${dateM[2].padStart(2,'0')}`;
+      const openDate = ymd(dateM[1], dateM[2]);
       // 과거 날짜 skip
       if (openDate < (minDate||todayStr)) { i++; continue; }
       i++;
@@ -1094,9 +1115,10 @@ function parseGonggumoa(text, existingData, minDate) {
             e.open_date === openDate && crawlSim(e.name, name) >= 0.7
           );
           if (!isDup) {
-            const cat = crawlGuessCat(name, curMinor);
+            const cat = resolveCat(curMinor, name);
             const ed = fixEndDate(openDate, '');
-            results.push({ influencer, insta:'', major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
+            const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
+            results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
           }
         }
       }
