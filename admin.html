@@ -1316,66 +1316,90 @@ function deleteCrawl(i){
 // HTML 속성 안전 처리
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+// 타임아웃 있는 fetch (무한 로딩 방지)
+function fetchT(url,opt,ms){
+  return Promise.race([
+    fetch(url,opt),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('서버 응답이 너무 늦어요(타임아웃). 네트워크를 확인하고 다시 시도해주세요.')),ms||20000))
+  ]);
+}
+function gongguRow(d){
+  return {influencer:d.influencer||'', insta:d.insta||'', major:d.major, minor:d.minor,
+    name:d.name, open_date:d.open_date, end_date:d.end_date||null, approved:true};
+}
 async function crawlInsertSelected(){
   const cbs=document.querySelectorAll('.crawl-cb');
-  let selectedIdx=[];
-  cbs.forEach(cb=>{ if(cb.checked) selectedIdx.push(parseInt(cb.dataset.idx)); });
-  if(!selectedIdx.length){alert('선택된 항목이 없어요!');return;}
+  let selected=[];
+  cbs.forEach(cb=>{ if(cb.checked){ const d=crawlParsedData[parseInt(cb.dataset.idx)]; if(d) selected.push(d); } });
+  if(!selected.length){alert('선택된 항목이 없어요!');return;}
 
-  // 사전 검증: 의심 항목이 선택돼 있으면 먼저 경고
-  const warnSel=selectedIdx.filter(i=>crawlWarn(crawlParsedData[i]));
+  // 사전 검증
+  const warnSel=selected.filter(d=>crawlWarn(d));
   if(warnSel.length){
-    if(!confirm(`⚠️ 확인이 필요한 항목 ${warnSel.length}건이 선택돼 있어요.\n그대로 등록을 시도하면 일부는 서버에서 거부될 수 있어요.\n\n그래도 등록을 진행할까요?\n(취소하면 노란 항목을 수정/삭제할 수 있어요)`)) return;
+    if(!confirm(`⚠️ 확인이 필요한 항목 ${warnSel.length}건이 선택돼 있어요.\n그대로 등록하면 일부는 서버에서 거부될 수 있어요.\n\n그래도 진행할까요?\n(취소하면 노란 항목을 수정/삭제할 수 있어요)`)) return;
   }else{
-    if(!confirm(`${selectedIdx.length}건을 등록할까요?`))return;
+    if(!confirm(`${selected.length}건을 등록할까요?`))return;
   }
 
   const btn=document.getElementById('crawlInsertBtn');
-  btn.disabled=true;
-  let okCount=0;
-  const failed=[]; // {item, reason}
-  // 건별 등록 — 하나 실패해도 나머지는 진행
-  for(let n=0;n<selectedIdx.length;n++){
-    const i=selectedIdx[n];
-    const d=crawlParsedData[i];
-    if(!d) continue;
-    btn.textContent=`등록 중... (${n+1}/${selectedIdx.length})`;
+  const reset=()=>{ btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀'; };
+  btn.disabled=true; btn.textContent=`등록 중... (${selected.length}건)`;
+
+  // 1차: 한 번에 일괄 등록 (빠름)
+  try{
+    const res=await fetchT(`${SB_URL}/rest/v1/gonggu`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+      body:JSON.stringify(selected.map(gongguRow))
+    }, 25000);
+    if(res.ok||res.status===201){
+      alert(`✅ ${selected.length}건 등록 완료!`);
+      document.getElementById('crawlText').value='';
+      document.getElementById('crawlResultArea').style.display='none';
+      document.getElementById('crawlStatus').textContent='';
+      crawlParsedData=[];
+      await loadData();
+      return;
+    }
+    // 일괄 실패 → 2차로 진단
+  }catch(e){
+    // 타임아웃/네트워크 → 사용자에게 알리고 중단(중복등록 방지)
+    reset();
+    alert('등록 중 문제가 생겼어요: '+e.message+'\n\n이미 일부가 등록됐을 수 있으니, 목록을 새로고침해 확인 후 다시 시도해주세요.');
+    return;
+  }
+
+  // 2차: 일괄이 거부됐으니 어느 게 문제인지 건별로 찾기
+  if(!confirm(`일괄 등록이 거부됐어요. 어느 항목이 문제인지 하나씩 확인할까요?\n(${selected.length}건, 잠시 걸릴 수 있어요)`)){ reset(); return; }
+  let okCount=0; const failed=[];
+  for(let n=0;n<selected.length;n++){
+    const d=selected[n];
+    btn.textContent=`확인 중... (${n+1}/${selected.length})`;
     try{
-      const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
+      const res=await fetchT(`${SB_URL}/rest/v1/gonggu`,{
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-        body:JSON.stringify({
-          influencer:d.influencer||'', insta:d.insta||'',
-          major:d.major, minor:d.minor, name:d.name,
-          open_date:d.open_date, end_date:d.end_date||null, approved:true
-        })
-      });
+        body:JSON.stringify(gongguRow(d))
+      }, 15000);
       if(res.ok||res.status===201){ okCount++; }
       else{
         let msg='';
-        try{ const j=await res.json(); msg=j.message||j.hint||JSON.stringify(j); }
-        catch(e){ msg=await res.text(); }
+        try{ const j=await res.json(); msg=j.message||j.hint||JSON.stringify(j); }catch(_){ msg=await res.text(); }
         failed.push({item:d, reason:msg||('HTTP '+res.status)});
       }
-    }catch(e){
-      failed.push({item:d, reason:e.message});
-    }
+    }catch(e){ failed.push({item:d, reason:e.message}); }
   }
 
-  // 결과 처리
   if(failed.length===0){
-    alert(`✅ ${okCount}건 모두 등록 완료!`);
+    alert(`✅ ${okCount}건 등록 완료!`);
     document.getElementById('crawlText').value='';
     document.getElementById('crawlResultArea').style.display='none';
-    document.getElementById('crawlStatus').textContent='';
-    crawlParsedData=[];
-    await loadData();
+    crawlParsedData=[]; await loadData();
   }else{
-    // 실패한 항목만 남기고, 각 항목에 실패 사유 부착
     crawlParsedData=failed.map(f=>{ f.item.__failReason=f.reason; return f.item; });
     renderCrawlCards();
-    btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀';
-    alert(`✅ ${okCount}건 등록 완료\n❌ ${failed.length}건 실패\n\n실패한 항목만 아래에 빨갛게 남겨뒀어요. 사유를 확인해 수정 후 다시 등록하거나 🗑️로 삭제하세요.`);
+    reset();
+    alert(`✅ ${okCount}건 등록 완료\n❌ ${failed.length}건 실패\n\n실패한 항목만 아래에 빨갛게 남겨뒀어요. 사유 확인 후 수정해 다시 등록하거나 🗑️로 삭제하세요.`);
   }
 }
 function updateBgPreview(){
