@@ -713,16 +713,31 @@ async function runAiParse(){
     return{major:'리빙',minor:'생활용품'};
   }
 
+  // 날짜 문자열 정규화: "6월 1일", "6/1", "3일"(단축) 모두 처리
+  function normDate(s, prevMonth){
+    s=s.trim().replace(/\s+/g,'');
+    // "6월1일" or "6월1" → "6/1"
+    s=s.replace(/(\d{1,2})월(\d{1,2})일?/,'$1/$2');
+    // 남은 일 제거
+    s=s.replace(/일$/,'').trim();
+    // 숫자만(단축 끝날짜 "3") → 이전 달 붙이기
+    if(/^\d{1,2}$/.test(s)&&prevMonth) s=prevMonth+'/'+s;
+    return s;
+  }
+
   function parseLine(line, influencer, insta){
-    const rangeMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s*[~\-]\s*(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
-    const singleMatch=line.match(/^(\d{1,2}[\/월]\d{1,2}일?)\s+(.+)$/);
+    // 유연한 날짜 패턴: 공백·월·/ 허용, 끝날짜는 일(day)만 있어도 됨
+    const DP='\\d{1,2}(?:[/월]\\s*\\d{1,2})?일?'; // 날짜 토큰
+    const rangeMatch=line.match(new RegExp('^('+DP+')\\s*[~\\-]\\s*('+DP+')\\s+(.+)$'));
+    const singleMatch=line.match(/^(\d{1,2}[\/월]\s*\d{1,2}일?)\s+(.+)$/);
     let openDate=null,endDate=null,name='';
     if(rangeMatch){
-      openDate=parseDate(rangeMatch[1].replace('월','/').replace('일',''),year);
-      endDate=parseDate(rangeMatch[2].replace('월','/').replace('일',''),year);
+      openDate=parseDate(normDate(rangeMatch[1],''),year);
+      const startMonth=openDate?openDate.split('-')[1].replace(/^0/,''):'';
+      endDate=parseDate(normDate(rangeMatch[2],startMonth),year);
       name=rangeMatch[3].trim();
     } else if(singleMatch){
-      openDate=parseDate(singleMatch[1].replace('월','/').replace('일',''),year);
+      openDate=parseDate(normDate(singleMatch[1],''),year);
       name=singleMatch[2].trim();
     } else { return null; }
     if(!openDate||!name) return null;
@@ -752,11 +767,29 @@ async function runAiParse(){
     return {influencer:(infl||''), insta:(ig||'').replace('@',''), name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:endDate, _conn:conn, _checked:true};
   }
 
-  // 라인을 읽으며 '@아이디 한글명' 헤더로 인플루언서 블록 전환
+  // ── 줄바꿈 형식 전처리: "날짜\n상품명" → "날짜 상품명" 한 줄로 합치기 ──
+  function isDateOnlyLine(s){
+    // 날짜(범위)만 있는 줄: 숫자·월·일·~·-·/·공백만으로 구성, 월 포함
+    return /^\d{1,2}월/.test(s) && /^[\d월일~\-\/\s\.]+$/.test(s);
+  }
   const rawLines=text.split('\n').map(l=>l.trim());
+  // 날짜-only 줄 다음에 상품명이 오면 한 줄로 합침
+  const mergedLines=[];
+  for(let i=0;i<rawLines.length;i++){
+    const line=rawLines[i];
+    if(!line){mergedLines.push(line);continue;}
+    if(isDateOnlyLine(line)&&i+1<rawLines.length){
+      const nxt=rawLines[i+1].trim();
+      if(nxt&&!nxt.startsWith('@')&&!isDateOnlyLine(nxt)){
+        mergedLines.push(line+' '+nxt);
+        i++; continue;
+      }
+    }
+    mergedLines.push(line);
+  }
   const results=[];
   let curInfl=defInfl, curInsta=defInsta;
-  for(const line of rawLines){
+  for(const line of mergedLines){
     if(!line) continue;
     if(line.startsWith('@')){
       const m=line.replace(/^@/,'').trim().match(/^([A-Za-z0-9._]+)\s*(.*)$/);
