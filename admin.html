@@ -796,6 +796,9 @@ async function runAiParse(){
       if(m){ curInsta=m[1]; curInfl=(m[2]||'').trim(); }
       continue;
     }
+    // "한글명 @아이디" 역순 패턴도 인식
+    const revMatch=line.match(/^([^\@]+?)\s+@([A-Za-z0-9._]+)\s*$/);
+    if(revMatch){ curInfl=revMatch[1].trim(); curInsta=revMatch[2]; continue; }
     const item=parseLine(line, curInfl, curInsta);
     if(item) results.push(item);
   }
