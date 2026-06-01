@@ -1233,19 +1233,34 @@ async function crawlParse(){
 
 function renderCrawlCards(){
   document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`;
+  // 사전 검증: 의심 항목 개수
+  const warnCount=crawlParsedData.filter(it=>crawlWarn(it)).length;
+  const warnBar = warnCount>0
+    ? `<div style="background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;padding:8px 11px;margin-bottom:8px;font-size:12px;color:#A86100;line-height:1.5">⚠️ <b>${warnCount}건</b>이 확인이 필요해요. 노란 테두리 항목의 상품명을 확인·수정하거나 🗑️로 빼고 등록하세요.</div>`
+    : '';
   document.getElementById('crawlCards').innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
       <input type="checkbox" id="crawlSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.crawl-cb').forEach(c=>c.checked=this.checked)">
       <label for="crawlSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
-      <span style="font-size:11px;color:#999;margin-left:auto">✏️ 각 항목을 눌러 바로 수정하세요</span>
+      <span style="font-size:11px;color:#999;margin-left:auto">✏️ 각 항목을 눌러 바로 수정</span>
     </div>
-    ${crawlParsedData.map((item,i)=>`
-    <div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #4A35A0;margin-bottom:8px">
+    ${warnBar}
+    ${crawlParsedData.map((item,i)=>{
+      const fail=item.__failReason;
+      const w=fail?('등록 거부됨: '+fail):crawlWarn(item);
+      const isFail=!!fail;
+      const border=isFail?'#E24B4A':(w?'#FFA940':'#4A35A0');
+      const warnMsg=w?`<div style="font-size:11px;color:${isFail?'#A32D2D':'#A86100'};background:${isFail?'#FCEBEB':'#FFF7E6'};border-radius:6px;padding:5px 8px;margin-bottom:7px">${isFail?'❌':'⚠️'} ${escAttr(w)}</div>`:'';
+      const nameBorder=isFail?'#E24B4A':(w?'#FFA940':'#e5e0f5');
+      return`
+    <div id="crawlCard-${i}" style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${border};margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <input type="checkbox" class="crawl-cb" data-idx="${i}" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer;flex-shrink:0">
         <input class="cr-f" value="${escAttr(item.name)}" oninput="editCrawl(${i},'name',this.value)" placeholder="상품명"
-          style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid #e5e0f5;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
+          style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid ${nameBorder};border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
+        <button onclick="deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:30px;height:30px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🗑️</button>
       </div>
+      ${warnMsg}
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select class="cr-f" onchange="editCrawl(${i},'major',this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
           ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
@@ -1267,48 +1282,100 @@ function renderCrawlCards(){
         <input class="cr-f" type="date" value="${item.end_date||''}" onchange="editCrawl(${i},'end_date',this.value)"
           style="font-size:11px;color:#555;border:1px solid #eee;border-radius:8px;padding:6px 8px;font-family:inherit;outline:none">
       </div>
-    </div>`).join('')}`;
+    </div>`;}).join('')}`;
 }
-// 카드 항목 즉시 수정 → crawlParsedData에 반영
+// 의심 항목 검사 → 경고 메시지(없으면 '')
+function crawlWarn(item){
+  const name=(item.name||'').trim();
+  if(!name) return '상품명이 비어 있어요';
+  if(name.length<2) return '상품명이 너무 짧아요';
+  // 상품명이 대분류/소분류 이름과 똑같은 경우
+  const cats=['가전','건강','식품','뷰티','생활','패션','책','교육','교구','장난감','가구','여행','기타','육아','성인','리빙','인테리어','반려동물','의류','신발','잡화'];
+  if(cats.includes(name)) return `상품명이 카테고리명 같아요("${name}") — 실제 상품명으로 고쳐주세요`;
+  if(!item.major) return '대분류가 없어요';
+  if(!item.open_date) return '오픈일이 없어요';
+  return '';
+}
+// 카드 항목 즉시 수정 → crawlParsedData에 반영 (검증 경고 갱신 위해 재렌더)
 function editCrawl(i,field,val){
-  if(crawlParsedData[i]) crawlParsedData[i][field]=val;
+  if(crawlParsedData[i]){
+    crawlParsedData[i][field]=val;
+    // 상품명/대분류/날짜를 고치면 이전 실패 표시 해제
+    if(field==='name'||field==='major'||field==='open_date'){
+      delete crawlParsedData[i].__failReason;
+      const card=document.getElementById('crawlCard-'+i);
+      if(card){ const w=crawlWarn(crawlParsedData[i]); card.style.borderLeftColor=w?'#FFA940':'#4A35A0'; }
+    }
+  }
+}
+// 개별 삭제
+function deleteCrawl(i){
+  crawlParsedData.splice(i,1);
+  renderCrawlCards();
 }
 // HTML 속성 안전 처리
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 async function crawlInsertSelected(){
   const cbs=document.querySelectorAll('.crawl-cb');
-  let selected=[];
-  cbs.forEach(cb=>{ if(cb.checked) selected.push(crawlParsedData[parseInt(cb.dataset.idx)]); });
-  if(!selected.length){alert('선택된 항목이 없어요!');return;}
-  if(!confirm(`${selected.length}건을 등록할까요?`))return;
+  let selectedIdx=[];
+  cbs.forEach(cb=>{ if(cb.checked) selectedIdx.push(parseInt(cb.dataset.idx)); });
+  if(!selectedIdx.length){alert('선택된 항목이 없어요!');return;}
+
+  // 사전 검증: 의심 항목이 선택돼 있으면 먼저 경고
+  const warnSel=selectedIdx.filter(i=>crawlWarn(crawlParsedData[i]));
+  if(warnSel.length){
+    if(!confirm(`⚠️ 확인이 필요한 항목 ${warnSel.length}건이 선택돼 있어요.\n그대로 등록을 시도하면 일부는 서버에서 거부될 수 있어요.\n\n그래도 등록을 진행할까요?\n(취소하면 노란 항목을 수정/삭제할 수 있어요)`)) return;
+  }else{
+    if(!confirm(`${selectedIdx.length}건을 등록할까요?`))return;
+  }
+
   const btn=document.getElementById('crawlInsertBtn');
-  btn.disabled=true; btn.textContent='등록 중...';
-  try{
-    const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-      body:JSON.stringify(selected.map(d=>({
-        influencer:d.influencer||'', insta:d.insta||'',
-        major:d.major, minor:d.minor, name:d.name,
-        open_date:d.open_date, end_date:d.end_date||null, approved:true
-      })))
-    });
-    if(res.ok||res.status===201){
-      alert(`✅ ${selected.length}건 등록 완료!`);
-      document.getElementById('crawlText').value='';
-      document.getElementById('crawlResultArea').style.display='none';
-      document.getElementById('crawlStatus').textContent='';
-      crawlParsedData=[];
-      await loadData();
-    }else{
-      const err=await res.text();
-      alert('등록 실패: '+err);
-      btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀';
+  btn.disabled=true;
+  let okCount=0;
+  const failed=[]; // {item, reason}
+  // 건별 등록 — 하나 실패해도 나머지는 진행
+  for(let n=0;n<selectedIdx.length;n++){
+    const i=selectedIdx[n];
+    const d=crawlParsedData[i];
+    if(!d) continue;
+    btn.textContent=`등록 중... (${n+1}/${selectedIdx.length})`;
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/gonggu`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+        body:JSON.stringify({
+          influencer:d.influencer||'', insta:d.insta||'',
+          major:d.major, minor:d.minor, name:d.name,
+          open_date:d.open_date, end_date:d.end_date||null, approved:true
+        })
+      });
+      if(res.ok||res.status===201){ okCount++; }
+      else{
+        let msg='';
+        try{ const j=await res.json(); msg=j.message||j.hint||JSON.stringify(j); }
+        catch(e){ msg=await res.text(); }
+        failed.push({item:d, reason:msg||('HTTP '+res.status)});
+      }
+    }catch(e){
+      failed.push({item:d, reason:e.message});
     }
-  }catch(e){
-    alert('오류: '+e.message);
+  }
+
+  // 결과 처리
+  if(failed.length===0){
+    alert(`✅ ${okCount}건 모두 등록 완료!`);
+    document.getElementById('crawlText').value='';
+    document.getElementById('crawlResultArea').style.display='none';
+    document.getElementById('crawlStatus').textContent='';
+    crawlParsedData=[];
+    await loadData();
+  }else{
+    // 실패한 항목만 남기고, 각 항목에 실패 사유 부착
+    crawlParsedData=failed.map(f=>{ f.item.__failReason=f.reason; return f.item; });
+    renderCrawlCards();
     btn.disabled=false; btn.textContent='⑤ 선택 항목 등록하기 🚀';
+    alert(`✅ ${okCount}건 등록 완료\n❌ ${failed.length}건 실패\n\n실패한 항목만 아래에 빨갛게 남겨뒀어요. 사유를 확인해 수정 후 다시 등록하거나 🗑️로 삭제하세요.`);
   }
 }
 function updateBgPreview(){
