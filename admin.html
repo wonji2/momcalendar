@@ -439,17 +439,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <!-- ── 서비스 현황 (인플루언서 수 · 월별 공구) ── -->
     <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:12px">📦 서비스 현황</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
-          <div style="color:#602090;font-size:20px;font-weight:800" id="svcInfl">-</div>
-          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">등록 인플루언서</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
+        <div style="background:#F9F4FD;border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#602090;font-size:22px;font-weight:800" id="svcInfl">-</div>
+          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">총 등록 인플루언서</div>
         </div>
-        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
-          <div style="color:#602090;font-size:20px;font-weight:800" id="svcMonthGG">-</div>
+        <div style="background:#F0E6FA;border-radius:10px;padding:12px 8px;text-align:center">
+          <div style="color:#602090;font-size:22px;font-weight:800" id="svcInflWeek">-</div>
+          <div style="color:#9B6FD4;font-size:10px;margin-top:3px">이번주 신규</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:#F9F4FD;border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="color:#602090;font-size:18px;font-weight:800" id="svcMonthGG">-</div>
           <div style="color:#9B6FD4;font-size:10px;margin-top:3px">이번달 공구</div>
         </div>
-        <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center">
-          <div style="color:#602090;font-size:20px;font-weight:800" id="svcTotalGG">-</div>
+        <div style="background:#F9F4FD;border-radius:10px;padding:10px 8px;text-align:center">
+          <div style="color:#602090;font-size:18px;font-weight:800" id="svcTotalGG">-</div>
           <div style="color:#9B6FD4;font-size:10px;margin-top:3px">누적 공구</div>
         </div>
       </div>
@@ -2312,14 +2318,22 @@ async function loadServiceStats(){
     const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'count=exact'};
     const monthStr=now.toISOString().slice(0,7);
 
-    const rInfl=await fetch(`${SB_URL}/rest/v1/influencers?select=id`,{headers:hdrs});
-    const inflCnt=parseInt(rInfl.headers.get('content-range')?.split('/')[1]||'0');
+    // 인플루언서: count=exact가 anon에서 안 와서 실제 데이터로 카운트
+    const inflRows=await fetchAllRows('influencers?select=insta,created_at');
+    const inflCnt=inflRows.length;
+    // 이번주 신규 (월요일 기준)
+    const wk=new Date(now);
+    wk.setDate(wk.getDate()-(wk.getDay()===0?6:wk.getDay()-1));
+    wk.setHours(0,0,0,0);
+    const inflWeek=inflRows.filter(r=>r.created_at&&new Date(r.created_at)>=wk).length;
+
     const rTot=await fetch(`${SB_URL}/rest/v1/gonggu?select=id&approved=eq.true`,{headers:hdrs});
     const ggTot=parseInt(rTot.headers.get('content-range')?.split('/')[1]||'0');
     const rMo=await fetch(`${SB_URL}/rest/v1/gonggu?select=id&approved=eq.true&open_date=gte.${monthStr}-01&open_date=lt.${monthStr}-32`,{headers:hdrs});
     const ggMo=parseInt(rMo.headers.get('content-range')?.split('/')[1]||'0');
 
     const e1=document.getElementById('svcInfl'); if(e1) e1.textContent=inflCnt.toLocaleString();
+    const e1w=document.getElementById('svcInflWeek'); if(e1w) e1w.textContent=inflWeek.toLocaleString();
     const e2=document.getElementById('svcMonthGG'); if(e2) e2.textContent=ggMo.toLocaleString();
     const e3=document.getElementById('svcTotalGG'); if(e3) e3.textContent=ggTot.toLocaleString();
 
