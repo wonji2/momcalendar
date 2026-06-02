@@ -893,6 +893,7 @@ async function runAiParse(){
   }
 
   aiParsedData=results;
+  markAiDuplicates(); // 이미 DB에 등록된 것과 대조해 중복 표시
   document.getElementById('aiLoading').style.display='none';
   if(!results.length){
     alert('분석된 일정이 없어요. 형식을 확인해주세요.\n예)\n@ttobomom 또또맘\n9/1~9/5 과자');
@@ -902,13 +903,48 @@ async function runAiParse(){
   document.getElementById('aiResult').style.display='block';
 }
 
+// AI 파싱 결과를 이미 등록된 DB(allData)와 대조해 중복 표시
+function markAiDuplicates(){
+  aiParsedData.forEach(item=>{
+    item._dup=false; item._dupReason='';
+    if(!item.insta || !item.open_date) return; // 인스타·날짜 둘 다 있어야 비교
+    const ins=(item.insta||'').replace('@','').trim().toLowerCase();
+    for(const d of allData){
+      const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
+      if(!dIns || dIns!==ins) continue;
+      if(d.open_date!==item.open_date) continue;
+      const sim=similarity(d.name, item.name);
+      if(sim>=0.7){
+        item._dup=true;
+        item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${d.name}"`;
+        break;
+      }
+    }
+  });
+}
+
+// 중복(이미 등록됨)으로 표시된 항목만 일괄 삭제
+function deleteDupAi(){
+  const dups=aiParsedData.filter(it=>it._dup);
+  if(!dups.length){ alert('이미 등록된(중복) 항목이 없어요!'); return; }
+  if(!confirm(`이미 등록된 것으로 보이는 ${dups.length}건을 분석 목록에서 뺄까요?`)) return;
+  aiParsedData=aiParsedData.filter(it=>!it._dup);
+  if(!aiParsedData.length){ document.getElementById('aiResult').style.display='none'; return; }
+  renderAiCards();
+}
+
 function renderAiCards(){
   const majorOpts=Object.keys(CATS_LIST).map(m=>`<option value="${m}">${m}</option>`).join('');
   const total=aiParsedData.length;
   const noInstaCnt=aiParsedData.filter(it=>(it._conn||'none')==='none').length;
   const guessCnt=aiParsedData.filter(it=>it._conn==='guess').length;
-  document.getElementById('aiResultCnt').textContent=`총 ${total}건`+(noInstaCnt?` · 미연결 ${noInstaCnt}`:'')+(guessCnt?` · 추정 ${guessCnt}(확인)`:'');
+  const dupCnt=aiParsedData.filter(it=>it._dup).length;
+  document.getElementById('aiResultCnt').textContent=`총 ${total}건`+(dupCnt?` · 🔴 이미등록 ${dupCnt}`:'')+(noInstaCnt?` · 미연결 ${noInstaCnt}`:'')+(guessCnt?` · 추정 ${guessCnt}(확인)`:'');
   document.getElementById('aiCards').innerHTML=`
+    ${dupCnt?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:8px;background:#FFEBEE;border:1px solid #F5C6C6;border-radius:10px">
+      <span style="font-size:12px;font-weight:700;color:#C62828">🔴 이미 등록된 것으로 보이는 ${dupCnt}건이 있어요</span>
+      <button onclick="deleteDupAi()" style="background:#C62828;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap">중복 ${dupCnt}건 빼기</button>
+    </div>`:''}
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
       <input type="checkbox" id="aiSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="aiSelectAllToggle(this.checked)">
       <label for="aiSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택/해제</label>
@@ -927,8 +963,9 @@ function renderAiCards(){
         connBadge=`<span style="background:#FFEBEE;color:#C62828;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px">🔗 인스타 미연결</span>`;
         barColor='#C62828';
       }
-      return`<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${barColor}">
+      return`<div style="background:${item._dup?'#FFF5F5':'#fff'};border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${item._dup?'#C62828':barColor}">
         <div id="aiView-${i}" style="padding:14px;cursor:pointer" onclick="toggleAiEdit(${i})">
+          ${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:4px 8px;border-radius:6px;margin-bottom:8px">🔴 ${item._dupReason}</div>`:''}
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <input type="checkbox" class="ai-cb" data-idx="${i}" ${item._checked?'checked':''} style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onclick="event.stopPropagation()" onchange="aiParsedData[${i}]._checked=this.checked">
             <span class="item-name" style="font-size:14px;font-weight:700;color:#191919;flex:1">${item.name||'(상품명 없음)'}</span>
