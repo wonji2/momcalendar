@@ -831,6 +831,10 @@ async function runAiParse(){
     } else { return null; }
     if(!openDate||!name) return null;
     if(!endDate) endDate=addDays(openDate,3);
+    // 종료일 최대 14일 제한 (상시공구가 한 달치로 상위 독점하는 것 방지)
+    let capped=false;
+    const maxEnd=addDays(openDate,13); // 오픈일 포함 14일 → +13일
+    if(endDate>maxEnd){ endDate=maxEnd; capped=true; }
 
     // 카테고리 힌트(괄호) 제거
     const catHint=name.match(/[(\[（](.+?)[)\]）]/);
@@ -853,7 +857,7 @@ async function runAiParse(){
       }
     }
     const cat=guessCat((catHint?catHint[1]+' ':'')+name);
-    return {influencer:(infl||''), insta:(ig||'').replace('@',''), name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:endDate, _conn:conn, _checked:true};
+    return {influencer:(infl||''), insta:(ig||'').replace('@',''), name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:endDate, _conn:conn, _checked:true, _capped:capped};
   }
 
   // ── 줄바꿈 형식 전처리: "날짜\n상품명" → "날짜 상품명" 한 줄로 합치기 ──
@@ -924,13 +928,21 @@ function markAiDuplicates(){
 }
 
 // 중복(이미 등록됨)으로 표시된 항목만 일괄 삭제
-function deleteDupAi(){
-  const dups=aiParsedData.filter(it=>it._dup);
-  if(!dups.length){ alert('이미 등록된(중복) 항목이 없어요!'); return; }
-  if(!confirm(`이미 등록된 것으로 보이는 ${dups.length}건을 분석 목록에서 뺄까요?`)) return;
-  aiParsedData=aiParsedData.filter(it=>!it._dup);
-  if(!aiParsedData.length){ document.getElementById('aiResult').style.display='none'; return; }
+// 중복만 보기 토글
+let aiDupOnly=false;
+function toggleDupOnly(){
+  aiDupOnly=!aiDupOnly;
+  // 전체 보기로 돌아갈 때 전체선택 체크박스 상태 초기화 안 함(개별 유지)
   renderAiCards();
+  document.getElementById('aiCards').scrollIntoView({behavior:'smooth',block:'start'});
+}
+// 중복 항목만 일괄 체크/해제
+function dupSelectAll(on){
+  aiParsedData.forEach(it=>{ if(it._dup) it._checked=on; });
+  document.querySelectorAll('.ai-cb').forEach(c=>{
+    const idx=+c.getAttribute('data-idx');
+    if(aiParsedData[idx]&&aiParsedData[idx]._dup) c.checked=on;
+  });
 }
 
 function renderAiCards(){
@@ -941,9 +953,16 @@ function renderAiCards(){
   const dupCnt=aiParsedData.filter(it=>it._dup).length;
   document.getElementById('aiResultCnt').textContent=`총 ${total}건`+(dupCnt?` · 🔴 이미등록 ${dupCnt}`:'')+(noInstaCnt?` · 미연결 ${noInstaCnt}`:'')+(guessCnt?` · 추정 ${guessCnt}(확인)`:'');
   document.getElementById('aiCards').innerHTML=`
-    ${dupCnt?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:8px;background:#FFEBEE;border:1px solid #F5C6C6;border-radius:10px">
-      <span style="font-size:12px;font-weight:700;color:#C62828">🔴 이미 등록된 것으로 보이는 ${dupCnt}건이 있어요</span>
-      <button onclick="deleteDupAi()" style="background:#C62828;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap">중복 ${dupCnt}건 빼기</button>
+    ${dupCnt?`<div style="padding:10px 12px;margin-bottom:8px;background:#FFEBEE;border:1px solid #F5C6C6;border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${aiDupOnly?'8px':'0'}">
+        <span style="font-size:12px;font-weight:700;color:#C62828">🔴 이미 등록된 것으로 보이는 ${dupCnt}건</span>
+        <button onclick="toggleDupOnly()" style="background:${aiDupOnly?'#fff':'#C62828'};border:1px solid #C62828;color:${aiDupOnly?'#C62828':'#fff'};font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap">${aiDupOnly?'← 전체 보기':'중복만 골라보기'}</button>
+      </div>
+      ${aiDupOnly?`<div style="display:flex;gap:6px">
+        <button onclick="dupSelectAll(true)" style="flex:1;background:#fff;border:1px solid #C62828;color:#C62828;font-size:11px;font-weight:700;padding:7px;border-radius:8px;cursor:pointer;font-family:inherit">중복 전체 체크</button>
+        <button onclick="deleteSelectedAi()" style="flex:1;background:#C62828;border:none;color:#fff;font-size:11px;font-weight:700;padding:7px;border-radius:8px;cursor:pointer;font-family:inherit">체크한 항목 빼기</button>
+      </div>
+      <div style="font-size:10.5px;color:#999;margin-top:6px">체크 안 한 건 그대로 등록돼요</div>`:''}
     </div>`:''}
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
       <input type="checkbox" id="aiSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="aiSelectAllToggle(this.checked)">
@@ -963,7 +982,7 @@ function renderAiCards(){
         connBadge=`<span style="background:#FFEBEE;color:#C62828;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px">🔗 인스타 미연결</span>`;
         barColor='#C62828';
       }
-      return`<div style="background:${item._dup?'#FFF5F5':'#fff'};border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${item._dup?'#C62828':barColor}">
+      return`<div style="${aiDupOnly&&!item._dup?'display:none;':''}background:${item._dup?'#FFF5F5':'#fff'};border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${item._dup?'#C62828':barColor}">
         <div id="aiView-${i}" style="padding:14px;cursor:pointer" onclick="toggleAiEdit(${i})">
           ${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:4px 8px;border-radius:6px;margin-bottom:8px">🔴 ${item._dupReason}</div>`:''}
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -979,7 +998,7 @@ function renderAiCards(){
             <span class="item-major" style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.major}</span>
             <span class="item-minor" style="background:#f0f0f0;color:#666;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${item.minor}</span>
           </div>
-          <div class="item-date" style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}</div>
+          <div class="item-date" style="font-size:11px;color:#777">📅 ${item.open_date}${item.end_date?' ~ '+item.end_date:''}${item._capped?' <span style="color:#E65100;font-weight:700">(14일로 조정됨)</span>':''}</div>
         </div>
         <div id="aiEdit-${i}" style="display:none;padding:14px;background:#F7F5FF;border-top:1px solid #EEE9FF">
           <div style="display:flex;flex-direction:column;gap:8px">
@@ -1022,6 +1041,7 @@ function deleteSelectedAi(){
   if(!confirm(`체크한 ${sel.length}건을 목록에서 뺄까요?\n(아직 등록 전이라 DB가 아니라 분석 목록에서만 제거돼요)`))return;
   aiParsedData=aiParsedData.filter(it=>!it._checked);
   if(!aiParsedData.length){ document.getElementById('aiResult').style.display='none'; return; }
+  if(aiDupOnly && !aiParsedData.some(it=>it._dup)) aiDupOnly=false; // 중복 다 빠지면 전체보기로
   renderAiCards();
 }
 
