@@ -1451,7 +1451,13 @@ async function loadBanners(){
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
     });
     const rows=await res.json();
-    MAIN_BANNERS=rows.length>0?rows:DEFAULT_BANNERS;
+    const now=new Date();
+    const visible=(rows||[]).filter(b=>{
+      if(b.show_from && new Date(b.show_from) > now) return false;   // 노출 시작 전
+      if(b.show_until && new Date(b.show_until) < now) return false; // 노출 종료 후
+      return true;
+    });
+    MAIN_BANNERS=visible.length>0?visible:DEFAULT_BANNERS;
   }catch(e){
     MAIN_BANNERS=DEFAULT_BANNERS;
   }
@@ -1529,7 +1535,10 @@ function buildMainSlider(){
   }).join('');
   slider.querySelectorAll('.main-slide').forEach((el,i)=>{
     el.onclick=()=>{
-      const link=(MAIN_BANNERS[i].link||'');
+      const b=MAIN_BANNERS[i];
+      // 링크 공개 예정 시각이 미래면 아직 작동 안 함
+      if(b.link_open_at && new Date(b.link_open_at) > new Date()) return;
+      const link=(b.link||'');
       if(link==='seller-popup') document.getElementById('sellerModal').classList.add('on');
       else if(link==='ad-popup') openAdModal();
       else if(link) window.open(link,'_blank');

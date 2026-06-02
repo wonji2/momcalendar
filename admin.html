@@ -314,6 +314,19 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
       </div>
       <div class="modal-field">
+        <label>링크 공개 일시 <span style="font-weight:400;color:#999">(비우면 즉시 작동)</span></label>
+        <input id="bLinkOpenAt" type="datetime-local">
+        <div style="font-size:11px;color:#999;margin-top:4px">배너 사진·제목은 지금부터 노출되고, 이 시각이 지나야 링크가 눌려요. 예: 공구 오픈일 자정</div>
+      </div>
+      <div class="modal-field">
+        <label>광고 노출 기간 <span style="font-weight:400;color:#999">(비우면 항상 노출)</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div style="font-size:11px;color:#888;margin-bottom:3px">노출 시작</div><input id="bShowFrom" type="datetime-local" style="width:100%;box-sizing:border-box"></div>
+          <div><div style="font-size:11px;color:#888;margin-bottom:3px">노출 종료</div><input id="bShowUntil" type="datetime-local" style="width:100%;box-sizing:border-box"></div>
+        </div>
+        <div style="font-size:11px;color:#999;margin-top:4px">광고 상품용. 설정한 기간에만 배너가 노출되고, 종료 시각이 지나면 자동으로 사라져요.</div>
+      </div>
+      <div class="modal-field">
         <label>배경색</label>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <input type="color" id="bColor1" value="#1a6b4a" style="width:40px;height:36px;border:1.5px solid #EBEBEB;border-radius:8px;cursor:pointer;padding:2px">
@@ -1983,7 +1996,9 @@ function openBannerAdd(){
   document.getElementById('bTitle').value='';
   document.getElementById('bSubtitle').value='';
   document.getElementById('bLink').value='';
-  document.getElementById('bColor1').value='#2A1D6E';
+  document.getElementById('bLinkOpenAt').value='';
+  document.getElementById('bShowFrom').value='';
+  document.getElementById('bShowUntil').value='';
   document.getElementById('bColor2').value='#7B68EE';
   document.getElementById('bGradDir').value='135deg';
   document.getElementById('bImg').value='';
@@ -2004,7 +2019,9 @@ function openBannerEdit(id){
   document.getElementById('bTitle').value=b.title||'';
   document.getElementById('bSubtitle').value=b.subtitle||'';
   document.getElementById('bLink').value=b.link||'';
-  document.getElementById('bImg').value=b.img_url||'';
+  document.getElementById('bLinkOpenAt').value=b.link_open_at?(()=>{const d=new Date(b.link_open_at);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);})():'';
+  document.getElementById('bShowFrom').value=b.show_from?(()=>{const d=new Date(b.show_from);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);})():'';
+  document.getElementById('bShowUntil').value=b.show_until?(()=>{const d=new Date(b.show_until);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);})():'';
   document.getElementById('bImgFile').value='';
   document.getElementById('bImgPreview').style.display='none';
   document.getElementById('bImgUploadTxt').style.display='block';
@@ -2049,6 +2066,9 @@ async function saveBanner(){
     title:document.getElementById('bTitle').value.trim(),
     subtitle:document.getElementById('bSubtitle').value.trim(),
     link:document.getElementById('bLink').value.trim(),
+    link_open_at:document.getElementById('bLinkOpenAt').value?new Date(document.getElementById('bLinkOpenAt').value).toISOString():null,
+    show_from:document.getElementById('bShowFrom').value?new Date(document.getElementById('bShowFrom').value).toISOString():null,
+    show_until:document.getElementById('bShowUntil').value?new Date(document.getElementById('bShowUntil').value).toISOString():null,
     bg:document.getElementById('bBg').value||'linear-gradient(135deg,#2A1D6E,#7B68EE)',
     img_url:imgUrl,
     img_position:imgUrl?imgPos.pos:'center',
@@ -3029,14 +3049,19 @@ function addExRow(){
       <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
       <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#E1F5EE;color:#0A5D52;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
     </div>
-    <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <input class="ct-link" type="url" placeholder="카페 글 링크 (예정이면 비워두세요)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
       <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
       <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:6px">
+    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:6px;margin-bottom:7px">
       <input class="ct-count" type="number" inputmode="numeric" placeholder="모집인원" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
-      <input class="ct-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 마감일">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:#888;flex-shrink:0">모집 시작</span>
+      <input class="ct-open" type="date" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 시작일 (미래면 예정으로 표시 · 비우면 즉시 모집중)">
+      <span style="font-size:10px;color:#aaa;flex-shrink:0">미래=예정</span>
     </div>`;
   document.getElementById('exRows').appendChild(div);
 }
@@ -3062,7 +3087,8 @@ async function saveExperienceRows(){
     major:r.querySelector('.ct-major').value,
     minor:r.querySelector('.ct-minor').value,
     recruit_count: r.querySelector('.ct-count').value?parseInt(r.querySelector('.ct-count').value):null,
-    end_date: r.querySelector('.ct-end').value||null
+    end_date: r.querySelector('.ct-end').value||null,
+    open_date: r.querySelector('.ct-open').value||null
   })).filter(x=>x.title);
   if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
   try{
