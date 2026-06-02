@@ -302,10 +302,20 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 @media(min-width:480px){.chat-fab-wrap{right:calc(50% - 240px + 16px)}}
 .chat-fab{width:56px;height:56px;border-radius:50%;background:#FEE500;border:none;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:transform .2s}
 .chat-fab.open{transform:rotate(360deg) scale(.92)}
+.totop-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:299;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.97);border:1px solid #E2E2E6;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0}
+.totop-fab svg{width:20px;height:20px;stroke:#888;stroke-width:2.5;fill:none}
 .chat-menu{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
 .chat-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
 .chat-menu-item{display:flex;align-items:center;gap:8px;background:#fff;border-radius:24px;padding:11px 18px;box-shadow:0 3px 12px rgba(0,0,0,.18);font-size:13px;font-weight:700;color:#333;text-decoration:none;white-space:nowrap}
 .chat-menu-ico{font-size:16px}
+.content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
+.content-seg .cseg{flex:1;text-align:center;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;color:#999;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit}
+.content-seg .cseg.on{color:#fff;font-weight:700}
+.hd-card,.ex-card{background:#fff;border:1px solid #ECECEC;border-radius:14px;padding:13px 14px;margin-bottom:9px;position:relative;cursor:pointer;display:block;text-decoration:none}
+.hd-card:active,.ex-card:active{transform:scale(.99)}
+.ex-card.ended{opacity:.55;background:#F7F7F7;border-color:#E8E8E8;cursor:default}
+.hd-tag,.ex-tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:7px}
+.ct-arrow{position:absolute;top:50%;right:13px;transform:translateY(-50%);display:flex;align-items:center;gap:3px}
 </style>
 </head>
 <body>
@@ -394,6 +404,15 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div class="seller-scroll" id="sellerScroll"></div>
 </div>
 
+<!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 -->
+<div class="content-seg" id="contentSeg">
+  <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
+  <button class="cseg" data-ct="hotdeal" onclick="switchContent('hotdeal')">🔥 핫딜</button>
+  <button class="cseg" data-ct="exp" onclick="switchContent('exp')">🎁 체험단</button>
+</div>
+
+<!-- ===== 공구 영역 ===== -->
+<div id="gongguWrap">
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
@@ -417,12 +436,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <div class="cat-chip-row" id="catChipRow">
       <button class="cchip on" data-cat="전체" onclick="pickCat('전체',this)">전체</button>
       <button class="cchip" data-cat="육아" onclick="pickCat('육아',this)">육아</button>
-      <button class="cchip" data-cat="식품" onclick="pickCat('식품',this)">식품</button>
-      <button class="cchip" data-cat="뷰티" onclick="pickCat('뷰티',this)">뷰티</button>
       <button class="cchip" data-cat="리빙" onclick="pickCat('리빙',this)">리빙</button>
-      <button class="cchip" data-cat="패션" onclick="pickCat('패션',this)">패션</button>
-      <button class="cchip" data-cat="가전" onclick="pickCat('가전',this)">가전</button>
+      <button class="cchip" data-cat="식품" onclick="pickCat('식품',this)">식품</button>
+      <button class="cchip" data-cat="건강" onclick="pickCat('건강',this)">건강</button>
       <button class="cchip" data-cat="인테리어" onclick="pickCat('인테리어',this)">인테리어</button>
+      <button class="cchip" data-cat="가전" onclick="pickCat('가전',this)">가전</button>
+      <button class="cchip" data-cat="뷰티" onclick="pickCat('뷰티',this)">뷰티</button>
+      <button class="cchip" data-cat="패션" onclick="pickCat('패션',this)">패션</button>
       <button class="cchip" data-cat="여행" onclick="pickCat('여행',this)">여행</button>
       <button class="cchip" data-cat="반려동물" onclick="pickCat('반려동물',this)">반려동물</button>
     </div>
@@ -450,13 +470,14 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <button class="chip on" data-cat="전체" onclick="setCalCat('전체',this)">전체</button>
     <button class="chip" data-cat="육아" onclick="setCalCat('육아',this)">육아</button>
     <button class="chip" data-cat="리빙" onclick="setCalCat('리빙',this)">리빙</button>
-    <button class="chip" data-cat="인테리어" onclick="setCalCat('인테리어',this)">인테리어</button>
     <button class="chip" data-cat="식품" onclick="setCalCat('식품',this)">식품</button>
+    <button class="chip" data-cat="건강" onclick="setCalCat('건강',this)">건강</button>
+    <button class="chip" data-cat="인테리어" onclick="setCalCat('인테리어',this)">인테리어</button>
+    <button class="chip" data-cat="가전" onclick="setCalCat('가전',this)">가전</button>
     <button class="chip" data-cat="뷰티" onclick="setCalCat('뷰티',this)">뷰티</button>
     <button class="chip" data-cat="패션" onclick="setCalCat('패션',this)">패션</button>
     <button class="chip" data-cat="여행" onclick="setCalCat('여행',this)">여행</button>
     <button class="chip" data-cat="반려동물" onclick="setCalCat('반려동물',this)">반려동물</button>
-    <button class="chip" data-cat="가전" onclick="setCalCat('가전',this)">가전</button>
   </div>
   <div class="cal-box">
     <div class="cal-head">
@@ -480,6 +501,32 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <div id="selCards"></div>
   </div>
 </div>
+<!-- ===== /공구 영역 ===== -->
+
+<!-- ===== 핫딜 영역 ===== -->
+<div id="hotdealView" style="display:none;padding:12px">
+  <div class="channel-row" style="margin-bottom:12px">
+    <a class="ch-btn ch-naver" href="https://cafe.naver.com/momcal/" target="_blank"><span class="ch-naver-ico">N</span>네이버 카페</a>
+    <a class="ch-btn ch-insta" href="https://www.instagram.com/momcal_" target="_blank">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>인스타그램
+    </a>
+  </div>
+  <div id="hotdealList"></div>
+</div>
+<!-- ===== /핫딜 영역 ===== -->
+
+<!-- ===== 체험단 영역 ===== -->
+<div id="expView" style="display:none;padding:12px">
+  <div class="channel-row" style="margin-bottom:12px">
+    <a class="ch-btn ch-naver" href="https://cafe.naver.com/momcal/" target="_blank"><span class="ch-naver-ico">N</span>네이버 카페</a>
+    <a class="ch-btn ch-insta" href="https://www.instagram.com/momcal_" target="_blank">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>인스타그램
+    </a>
+  </div>
+  <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:10px">마감 임박순으로 기본 정렬됩니다</div>
+  <div id="expList"></div>
+</div>
+<!-- ===== /체험단 영역 ===== -->
 
 <!-- 셀러 입점 팝업 -->
 <div class="modal-bg" id="sellerModal" onclick="if(event.target===this)this.classList.remove('on')">
@@ -591,15 +638,16 @@ function ddayObj(openDate){return ddayFromDate(openDate,todayStr);}
 const CATS={
   '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
   '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
-  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
   '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
   '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
   '여행':['호텔/숙소','항공권','패키지/투어'],
   '반려동물':['강아지','고양이','사료','간식'],
-  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
 };
-const CAT_ICO={'육아':'🍼','리빙':'🏠','인테리어':'🪴','식품':'🥗','뷰티':'💄','패션':'👗','여행':'✈️','반려동물':'🐾','가전':'📺'};
+const CAT_ICO={'육아':'🍼','리빙':'🏠','식품':'🥗','건강':'💊','인테리어':'🛋️','가전':'📺','뷰티':'💄','패션':'👗','여행':'✈️','반려동물':'🐾'};
 const CAT_COLOR={
   '육아':{bar:'#4CAF50',bg:'#EAF6E6',line:'#BFE0B3',tagBg:'#CDE9BE',tagTxt:'#256B2A'},
   '리빙':{bar:'#2196F3',bg:'#E6F1FB',line:'#AECDEF',tagBg:'#C3DDF6',tagTxt:'#15528F'},
@@ -609,6 +657,7 @@ const CAT_COLOR={
   '패션':{bar:'#00BCD4',bg:'#E2F4F7',line:'#A8DEE6',tagBg:'#BEE9EF',tagTxt:'#0A6B75'},
   '여행':{bar:'#FF5722',bg:'#FCE9E2',line:'#F2C0AC',tagBg:'#F8D0BF',tagTxt:'#B53B1C'},
   '반려동물':{bar:'#795548',bg:'#F0E8E3',line:'#D6C2B5',tagBg:'#E0CEC0',tagTxt:'#5E4030'},
+  '건강':{bar:'#009688',bg:'#E0F2F0',line:'#A6DAD3',tagBg:'#B8E3DD',tagTxt:'#0A5D52'},
   '가전':{bar:'#607D8B',bg:'#E6EDF1',line:'#B5C6CF',tagBg:'#C7D5DD',tagTxt:'#334B57'},
 };
 function cc(major){return CAT_COLOR[major]||{bar:'#999',bg:'#f7f7f7',line:'#eee',tagBg:'#eee',tagTxt:'#555'};}
@@ -837,17 +886,9 @@ function renderList(){
   paintCatChips();
   buildSubCats();
 
-  // 날짜 필터 배지 갱신
+  // 날짜 필터 배지 — 표시 안 함 (날짜탭 자체로 충분)
   const bar=document.getElementById('dayFilterBar');
-  if(dayFilter){
-    const d=strToDate(dayFilter);
-    const isT=dayFilter===todayStr;
-    document.getElementById('dayFilterLabel').textContent=
-      `📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})${isT?' 오늘':''} 일정만`;
-    bar.style.display='flex';
-  } else if(bar){
-    bar.style.display='none';
-  }
+  if(bar) bar.style.display='none';
 
   // 날짜 필터가 켜져 있으면: 그 날짜에 오픈하는 공구만
   if(dayFilter){
@@ -1036,6 +1077,141 @@ function toggleStab(v,el){
 }
 
 // ── 탭 전환 ──
+// ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
+let _hotdealData=null, _expData=null;
+const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56']};
+
+function switchContent(ct){
+  const seg=document.getElementById('contentSeg');
+  seg.style.background=CT_COLOR[ct][0];
+  seg.querySelectorAll('.cseg').forEach(b=>{
+    const on=b.dataset.ct===ct;
+    b.classList.toggle('on',on);
+    b.style.background=on?CT_COLOR[ct][1]:'transparent';
+    b.style.color=on?'#fff':(ct==='gonggu'?'#999':CT_COLOR[ct][1]);
+  });
+  document.getElementById('gongguWrap').style.display = ct==='gonggu'?'block':'none';
+  document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
+  document.getElementById('expView').style.display = ct==='exp'?'block':'none';
+  if(ct==='hotdeal') loadHotdeals();
+  if(ct==='exp') loadExperiences();
+  trackEvent('content_tab', ct);
+}
+
+// 카테고리 칩(소분류) 텍스트
+function catChips(major, minor){
+  const c=cc(major);
+  let h='';
+  if(major) h+=`<span class="hd-tag" style="background:${c.tagBg};color:${c.tagTxt}">${major}</span>`;
+  if(minor) h+=`<span style="color:#888;font-size:11px;margin-left:5px">${minor}</span>`;
+  return h;
+}
+
+// ── 핫딜 (최신순) ──
+async function loadHotdeals(){
+  const el=document.getElementById('hotdealList');
+  if(_hotdealData){ renderHotdeals(); return; }
+  el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">불러오는 중...</div>';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/hotdeals?select=*&order=created_at.desc&limit=200`,{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw 0;
+    _hotdealData=await r.json();
+    renderHotdeals();
+  }catch(e){
+    el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">아직 등록된 핫딜이 없어요 🔥</div>';
+  }
+}
+function renderHotdeals(){
+  const el=document.getElementById('hotdealList');
+  if(!_hotdealData||!_hotdealData.length){
+    el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">아직 등록된 핫딜이 없어요 🔥</div>';
+    return;
+  }
+  el.innerHTML=_hotdealData.map(h=>{
+    const dt=new Date(h.created_at);
+    const tstr=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    return `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener">
+      <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+        <span class="hd-tag" style="background:#FAECE7;color:#993C1D">🔥 핫딜</span>
+        ${catChips(h.major,h.minor)}
+      </div>
+      <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:3px;padding-right:24px">${h.title}</div>
+      <div style="font-size:11px;color:#999">🕐 ${tstr}</div>
+      <span class="ct-arrow" style="color:#ccc;font-size:18px">›</span>
+    </a>`;
+  }).join('');
+}
+
+// ── 체험단 (모집중 → 예정 → 마감) ──
+async function loadExperiences(){
+  const el=document.getElementById('expList');
+  if(_expData){ renderExperiences(); return; }
+  el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">불러오는 중...</div>';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/experiences?select=*&limit=200`,{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw 0;
+    _expData=await r.json();
+    renderExperiences();
+  }catch(e){
+    el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">아직 등록된 체험단이 없어요 🎁</div>';
+  }
+}
+function renderExperiences(){
+  const el=document.getElementById('expList');
+  if(!_expData||!_expData.length){
+    el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">아직 등록된 체험단이 없어요 🎁</div>';
+    return;
+  }
+  const today=todayStr;
+  // 상태 분류: 0=모집중, 1=예정, 2=마감
+  function stat(e){
+    if(e.end_date && e.end_date<today) return 2;      // 마감 지남
+    if(e.open_date && e.open_date>today) return 1;     // 모집 시작 전
+    return 0;                                          // 모집중
+  }
+  const sorted=[..._expData].sort((a,b)=>{
+    const sa=stat(a), sb=stat(b);
+    if(sa!==sb) return sa-sb;                          // 모집중 → 예정 → 마감
+    if(sa===0) return (a.end_date||'9999').localeCompare(b.end_date||'9999'); // 모집중: 마감임박순
+    if(sa===1) return (a.open_date||'').localeCompare(b.open_date||'');       // 예정: 시작빠른순
+    return (b.end_date||'').localeCompare(a.end_date||'');                    // 마감: 최근마감순
+  });
+  el.innerHTML=sorted.map(e=>{
+    const s=stat(e);
+    const ended=s===2, upcoming=s===1;
+    const c=ended?{tagBg:'#E0E0E0',tagTxt:'#888'}:cc(e.major);
+    // 우측 라벨
+    let right='';
+    if(ended) right='<span style="font-size:11px;font-weight:700;color:#999">마감</span>';
+    else if(upcoming) right='<span style="font-size:11px;font-weight:700;color:#888">예정</span>';
+    else if(e.end_date){
+      const dd=Math.ceil((new Date(e.end_date)-new Date(today))/86400000);
+      const col=dd<=3?'#C0392B':'#0F6E56';
+      right=`<span style="font-size:11px;font-weight:700;color:${col}">D-${dd<0?0:dd}</span>`;
+    }
+    const tag=ended?'<span class="ex-tag" style="background:#E0E0E0;color:#888">🎁 체험단</span>'
+                   :'<span class="ex-tag" style="background:#E1F2EB;color:#085041">🎁 체험단</span>';
+    const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${e.major}</span>`:'';
+    const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${e.minor}</span>`:'';
+    const endTxt=e.end_date?`마감 ${e.end_date.slice(5).replace('-','/')}`:'';
+    const recruit=e.recruit_count?`<span style="background:${ended?'#EEE':'#F0FBF6'};color:${ended?'#999':'#0F6E56'};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px">👥 모집인원 ${e.recruit_count}명</span>`:'';
+    // 예정/마감이면 클릭 비활성 (링크 제거)
+    const clickable=(!upcoming);
+    const tag2=clickable?'a':'div';
+    const hrefAttr=clickable?`href="${e.link||'#'}" target="_blank" rel="noopener"`:'';
+    return `<${tag2} class="ex-card${ended?' ended':''}" ${hrefAttr}>
+      <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">${tag}${catTag}${minorTxt}</div>
+      <div style="font-size:14px;font-weight:700;color:${ended?'#999':'#222'};margin-bottom:6px;padding-right:44px">${e.title}</div>
+      <div style="display:flex;align-items:center;gap:8px">${recruit}<span style="font-size:11px;color:${ended?'#aaa':'#999'}">${endTxt}</span></div>
+      <span class="ct-arrow">${right}${clickable?'<span style="color:#ccc;font-size:16px">›</span>':''}</span>
+    </${tag2}>`;
+  }).join('');
+}
+
 function switchTab(t){
   ['list','cal'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('on',id===t));
   document.getElementById('listView').style.display=t==='list'?'block':'none';
@@ -1201,6 +1377,24 @@ function goSub(i){
 // ── 광고 팝업 ──
 function openAdModal(){document.getElementById('adModal').classList.add('on');}
 function closeAdModal(){document.getElementById('adModal').classList.remove('on');}
+
+// ── 위로가기 버튼 (카톡/PC 인앱브라우저 호환) ──
+function _scrollY(){
+  return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+}
+function scrollToTop(){
+  try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+}
+function _toggleToTop(){
+  const b=document.getElementById('toTopFab');
+  if(!b) return;
+  b.style.display = _scrollY()>400 ? 'flex' : 'none';
+}
+window.addEventListener('scroll', _toggleToTop, {passive:true});
+document.addEventListener('scroll', _toggleToTop, {passive:true});
+setInterval(_toggleToTop, 500);
 
 // ── 홈으로 ──
 function goHome(){
@@ -1392,6 +1586,9 @@ function toggleChatMenu(){
 </script>
 
 <!-- 떠다니는 카톡 채팅방 버튼 -->
+<button class="totop-fab" id="toTopFab" onclick="scrollToTop()" aria-label="맨 위로">
+  <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
 <div class="chat-fab-wrap">
   <div class="chat-menu" id="chatMenu">
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank">

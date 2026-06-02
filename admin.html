@@ -23,7 +23,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .hd-csv{color:#fff;font-size:12px;background:rgba(255,255,255,.15);border:none;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600}
 .tabs{background:#fff;display:flex;border-bottom:2px solid #EBEBEB;position:sticky;top:52px;z-index:99;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{flex:1;min-width:60px;padding:12px 8px;text-align:center;font-size:12px;font-weight:700;color:#999;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab{flex-shrink:0;padding:12px 14px;text-align:center;font-size:12px;font-weight:700;color:#999;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap}
 .tab.on{color:#4A35A0;border-bottom-color:#4A35A0}
 /* 통계 */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 12px 0}
@@ -104,6 +104,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .del-cancel{flex:1;padding:13px;background:#f5f5f5;color:#555;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
 .empty{text-align:center;padding:40px 20px;color:#999;font-size:14px;line-height:2}
 .loading{text-align:center;padding:40px;color:#999;font-size:14px}
+@media (max-width:480px){
+  .stats{grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 10px 0}
+  .stat-num{font-size:18px}
+  .stat-label{font-size:9px}
+  .filter-bar{padding:8px 10px;gap:6px}
+  .filter-bar .f-sel,.filter-bar input{flex:1 1 100%;min-width:0;box-sizing:border-box}
+  .filter-bar .f-sel{width:100%}
+  .f-sel{font-size:13px;padding:10px 8px}
+  .tab{padding:11px 13px;font-size:12px}
+  input,select,textarea,button{font-size:14px}
+  .modal{padding:16px;border-radius:18px 18px 0 0}
+  .card-actions button{flex:1 1 auto;min-width:64px}
+}
+@media (max-width:380px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
@@ -141,9 +157,48 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div class="tab" onclick="switchTab('dup',this)">중복의심 <span id="tabcnt-dup" style="opacity:.7"></span></div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
+    <div class="tab" onclick="switchTab('hotdeal',this)">🔥 핫딜</div>
+    <div class="tab" onclick="switchTab('exp',this)">🎁 체험단</div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 셀러</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
+  </div>
+
+  <!-- 🔥 핫딜 등록 탭 -->
+  <div id="hotdealView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="background:#FBEAE7;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:#993C1D;line-height:1.7">
+      카페에 핫딜 글 작성 후 <b>제목·링크</b>만 등록하면 돼요. 최신순으로 노출됩니다.
+    </div>
+    <div class="modal-field"><label>제목</label><input id="hdTitle" type="text" placeholder="예) 프로쉬 주방세제 1+1 특가" style="width:100%;box-sizing:border-box"></div>
+    <div class="modal-field" style="margin-top:10px"><label>카페 글 링크</label><input id="hdLink" type="url" placeholder="https://cafe.naver.com/..." style="width:100%;box-sizing:border-box"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <div class="modal-field"><label>대분류</label><select id="hdMajor" onchange="syncMinor('hd')" style="width:100%"></select></div>
+      <div class="modal-field"><label>소분류</label><select id="hdMinor" style="width:100%"></select></div>
+    </div>
+    <button onclick="saveHotdeal()" style="width:100%;margin-top:14px;padding:13px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 핫딜 등록</button>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:20px 0 10px">등록된 핫딜</div>
+    <div id="hdAdminList"></div>
+  </div>
+
+  <!-- 🎁 체험단 등록 탭 -->
+  <div id="expView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="background:#E1F5EE;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:#0A5D52;line-height:1.7">
+      카페에 체험단 글 작성 후 등록하세요. 마감일 지나면 자동으로 회색 처리됩니다.
+    </div>
+    <div class="modal-field"><label>제목</label><input id="exTitle" type="text" placeholder="예) 수분크림 신상 체험단" style="width:100%;box-sizing:border-box"></div>
+    <div class="modal-field" style="margin-top:10px"><label>카페 글 링크</label><input id="exLink" type="url" placeholder="https://cafe.naver.com/..." style="width:100%;box-sizing:border-box"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <div class="modal-field"><label>대분류</label><select id="exMajor" onchange="syncMinor('ex')" style="width:100%"></select></div>
+      <div class="modal-field"><label>소분류</label><select id="exMinor" style="width:100%"></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <div class="modal-field"><label>모집 인원</label><input id="exCount" type="number" placeholder="30" style="width:100%;box-sizing:border-box"></div>
+      <div class="modal-field"><label>모집 마감일</label><input id="exEnd" type="date" style="width:100%;box-sizing:border-box"></div>
+    </div>
+    <div class="modal-field" style="margin-top:10px"><label>모집 시작일 <span style="font-weight:400;color:#999">(비우면 즉시 모집중 · 미래면 예정)</span></label><input id="exOpen" type="date" style="width:100%;box-sizing:border-box"></div>
+    <button onclick="saveExperience()" style="width:100%;margin-top:14px;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 체험단 등록</button>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:20px 0 10px">등록된 체험단</div>
+    <div id="exAdminList"></div>
   </div>
 
   <!-- 크롤링 탭 (반자동) -->
@@ -758,13 +813,14 @@ restoreSession();
 var CATS_LIST={
   '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
   '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
-  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
   '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
   '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
   '여행':['호텔/숙소','항공권','패키지/투어'],
   '반려동물':['강아지','고양이','사료','간식'],
-  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
 };
 
 function addDays(dateStr, n){
@@ -815,8 +871,65 @@ async function runAiParse(){
     return null;
   }
 
+  // 기존 등록 데이터(allData)로 만든 학습 인덱스: 토큰 → {major,minor} 빈도
+  let _catLearnIndex=null;
+  function buildCatLearnIndex(){
+    _catLearnIndex={};
+    if(typeof allData==='undefined'||!allData.length) return;
+    allData.forEach(d=>{
+      if(!d.name||!d.major) return;
+      const toks=catTokens(d.name);
+      toks.forEach(t=>{
+        if(!_catLearnIndex[t]) _catLearnIndex[t]={};
+        const key=d.major+'|'+(d.minor||'');
+        _catLearnIndex[t][key]=(_catLearnIndex[t][key]||0)+1;
+      });
+    });
+  }
+  // 상품명에서 의미있는 토큰 추출 (2글자 이상, 숫자/단위 제외)
+  function catTokens(name){
+    const n=(name||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,' ');
+    return n.split(/\s+/).filter(w=>
+      w.length>=2 &&
+      !/^\d+$/.test(w) &&
+      !/^(차|기|개|세트|모음전|모음|특가|할인|공구|마켓|런칭|신상|기획전|차수|예약|오픈|마감|총|전|종)$/.test(w)
+    );
+  }
+  // 학습 기반 분류 (DB에서 같은 토큰 가진 기존 공구의 최빈 분류)
+  function guessCatLearned(name){
+    if(_catLearnIndex===null) buildCatLearnIndex();
+    if(!_catLearnIndex) return null;
+    const toks=catTokens(name);
+    const score={};
+    toks.forEach(t=>{
+      if(_catLearnIndex[t]){
+        for(const key in _catLearnIndex[t]){
+          score[key]=(score[key]||0)+_catLearnIndex[t][key];
+        }
+      }
+    });
+    const best=Object.entries(score).sort((a,b)=>b[1]-a[1])[0];
+    if(best && best[1]>=1){
+      const [major,minor]=best[0].split('|');
+      return {major, minor:minor||'', _learned:true};
+    }
+    return null;
+  }
+
   function guessCat(name){
+    // 1단계: 기존 등록 데이터로 학습된 분류 우선
+    const learned=guessCatLearned(name);
+    if(learned) return learned;
+    // 2단계: 키워드 규칙 (fallback)
     const n=(name||'').toLowerCase();
+    if(/유산균|프로바이오|락토|프리바이오/.test(n)) return{major:'건강',minor:'유산균'};
+    if(/오메가|epa|dha|알티지/.test(n)) return{major:'건강',minor:'오메가'};
+    if(/철분/.test(n)) return{major:'건강',minor:'철분제'};
+    if(/비타민|비타|종합비타|멀티비타/.test(n)) return{major:'건강',minor:'비타민'};
+    if(/홍삼|면역|아연|프로폴리스|초유|엘더베리|빌베리|루테인/.test(n)) return{major:'건강',minor:'홍삼/면역'};
+    if(/키즈.*영양|어린이.*영양|유아.*영양|키즈.*젤리|영양젤리/.test(n)) return{major:'건강',minor:'키즈영양제'};
+    if(/다이어트|체지방|슬리밍|가르시니아/.test(n)) return{major:'건강',minor:'다이어트'};
+    if(/영양제|건강기능|건기식/.test(n)) return{major:'건강',minor:'건강기능성'};
     if(/선크림|크림|세럼|에센스|로션|토너|클렌|마스크|향수|파운데|립|아이|썬|미백|주름|화장|스킨케어|헤어|샴푸|컨디셔너|바디워시|바디로션/.test(n)) return{major:'뷰티',minor:'스킨케어'};
     if(/우유|요거트|치즈|유제품/.test(n)) return{major:'식품',minor:'유제품'};
     if(/만두|냉동|간편|밀키트|HMR/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
@@ -2860,6 +2973,106 @@ async function autoPurge(days){
 }
 
 // ── 탭 ──
+// ───── 핫딜 / 체험단 관리 ─────
+function fillCatSelect(pfx){
+  const maj=document.getElementById(pfx+'Major');
+  if(maj && !maj.dataset.filled){
+    maj.innerHTML=Object.keys(CATS_LIST).map(c=>`<option value="${c}">${c}</option>`).join('');
+    maj.dataset.filled='1';
+    syncMinor(pfx);
+  }
+}
+function syncMinor(pfx){
+  const maj=document.getElementById(pfx+'Major').value;
+  const min=document.getElementById(pfx+'Minor');
+  const list=CATS_LIST[maj]||[];
+  min.innerHTML=list.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+const HD_URL=SB_URL+'/rest/v1/hotdeals';
+const EX_URL=SB_URL+'/rest/v1/experiences';
+function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Content-Type':'application/json'},extra||{});}
+
+async function saveHotdeal(){
+  const title=document.getElementById('hdTitle').value.trim();
+  const link=document.getElementById('hdLink').value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const body={title, link, major:document.getElementById('hdMajor').value, minor:document.getElementById('hdMinor').value};
+  try{
+    const r=await fetch(HD_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+    document.getElementById('hdTitle').value=''; document.getElementById('hdLink').value='';
+    alert('핫딜 등록 완료! 🔥'); loadHotdealAdmin();
+  }catch(e){ alert('등록 실패. hotdeals 테이블이 생성됐는지 확인해주세요.'); }
+}
+async function loadHotdealAdmin(){
+  const el=document.getElementById('hdAdminList');
+  el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{
+    const r=await fetch(`${HD_URL}?select=*&order=created_at.desc&limit=200`,{headers:sbHeaders()});
+    if(!r.ok) throw 0;
+    const rows=await r.json();
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 핫딜이 없어요.</div>';return;}
+    el.innerHTML=rows.map(h=>{
+      const dt=new Date(h.created_at);
+      const t=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      return `<div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.title}</div>
+        <div style="font-size:10px;color:#999">${h.major||''} ${h.minor||''} · 🕐 ${t}</div></div>
+        <button onclick="delHotdeal(${h.id})" style="flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">hotdeals 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delHotdeal(id){
+  if(!confirm('이 핫딜을 삭제할까요?'))return;
+  try{ await fetch(`${HD_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadHotdealAdmin(); }catch(e){alert('삭제 실패');}
+}
+
+async function saveExperience(){
+  const title=document.getElementById('exTitle').value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const cnt=document.getElementById('exCount').value;
+  const body={
+    title, link:document.getElementById('exLink').value.trim(),
+    major:document.getElementById('exMajor').value, minor:document.getElementById('exMinor').value,
+    recruit_count: cnt?parseInt(cnt):null,
+    end_date: document.getElementById('exEnd').value||null,
+    open_date: document.getElementById('exOpen').value||null
+  };
+  try{
+    const r=await fetch(EX_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+    ['exTitle','exLink','exCount','exEnd','exOpen'].forEach(i=>document.getElementById(i).value='');
+    alert('체험단 등록 완료! 🎁'); loadExpAdmin();
+  }catch(e){ alert('등록 실패. experiences 테이블이 생성됐는지 확인해주세요.'); }
+}
+async function loadExpAdmin(){
+  const el=document.getElementById('exAdminList');
+  el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{
+    const r=await fetch(`${EX_URL}?select=*&order=end_date.asc&limit=200`,{headers:sbHeaders()});
+    if(!r.ok) throw 0;
+    const rows=await r.json();
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 체험단이 없어요.</div>';return;}
+    const today=new Date().toISOString().slice(0,10);
+    el.innerHTML=rows.map(e=>{
+      const ended=e.end_date&&e.end_date<today;
+      const upcoming=e.open_date&&e.open_date>today;
+      const stat=ended?'마감':(upcoming?'예정':'모집중');
+      const statC=ended?'#999':(upcoming?'#888':'#0F6E56');
+      return `<div style="background:${ended?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:${ended?'#999':'#222'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.title} <span style="font-size:10px;color:${statC}">[${stat}]</span></div>
+        <div style="font-size:10px;color:#999">${e.major||''} ${e.minor||''} · 👥${e.recruit_count||'-'}명 · 마감 ${e.end_date||'-'}</div></div>
+        <button onclick="delExp(${e.id})" style="flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">experiences 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delExp(id){
+  if(!confirm('이 체험단을 삭제할까요?'))return;
+  try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');}
+}
+
 function switchTab(tab,el){
   curTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -2867,7 +3080,7 @@ function switchTab(tab,el){
   checkedIds.clear();
   updateBulkBar();
   // 모든 뷰 숨기기
-  ['statsView','aiView','bannerView','crawlView','sellerView','listView'].forEach(id=>{
+  ['statsView','aiView','bannerView','crawlView','sellerView','listView','hotdealView','expView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
   if(tab==='stats'){
@@ -2877,6 +3090,12 @@ function switchTab(tab,el){
     clearTimeout(_vTimer);
     if(tab==='ai'){
       document.getElementById('aiView').style.display='block';
+    } else if(tab==='hotdeal'){
+      document.getElementById('hotdealView').style.display='block';
+      fillCatSelect('hd'); loadHotdealAdmin();
+    } else if(tab==='exp'){
+      document.getElementById('expView').style.display='block';
+      fillCatSelect('ex'); loadExpAdmin();
     } else if(tab==='crawl'){
       document.getElementById('crawlView').style.display='block';
       { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
