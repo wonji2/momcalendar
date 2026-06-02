@@ -101,7 +101,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F9F4FD;min-height:100vh;p
   </div>
 
   <div class="wrap">
-    <div class="notice">✅ 등록 후 방장 확인을 거쳐 사이트에 반영돼요!<br>공구 1건당 1회씩 등록해주세요.<br><br>⚠️ <b>등록 후 수정은 방장에게 직접 문의</b>해야 해요.<br>날짜·제품명·카테고리를 꼭 확인 후 등록해주세요 🙏<br><br>🔐 <b>비밀번호 안내</b><br>등록 비밀번호는 부정 사용 방지를 위해 <b>주기적으로 변경</b>됩니다. 인증된 셀러에게만 개별 공유되며, <b>타인에게 비밀번호를 공유하는 행위는 엄격히 금지</b>됩니다. 누출 시 등록 권한이 즉시 차단되며 책임을 물을 수 있습니다.<br><br>비밀번호가 변경된 경우, <b>본인 소유 인스타그램 계정</b>으로 <b>@momcal_</b> 에 DM을 보내주시면 재인증 후 새 비밀번호를 안내해드려요.</div>
+    <div class="notice">✅ 등록 후 방장 확인을 거쳐 사이트에 반영돼요!<br><br>⚠️ <b>등록 후 수정은 방장에게 직접 문의</b>해야 해요.<br>날짜·제품명·카테고리를 꼭 확인 후 등록해주세요 🙏<br><br>🔐 <b>비밀번호 안내</b><br>등록 비밀번호는 부정 사용 방지를 위해 <b>주기적으로 변경</b>됩니다. 인증된 셀러에게만 개별 공유되며, <b>타인에게 비밀번호를 공유하는 행위는 엄격히 금지</b>됩니다. 누출 시 등록 권한이 즉시 차단되며 책임을 물을 수 있습니다.<br><br>비밀번호가 변경된 경우, <b>본인 소유 인스타그램 계정</b>으로 <b>@momcal_</b> 에 DM을 보내주시면 재인증 후 새 비밀번호를 안내해드려요.</div>
 
     <div id="formArea">
       <div class="card">
@@ -131,34 +131,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F9F4FD;min-height:100vh;p
       </div>
 
       <div class="card">
-        <div class="card-title">🏷️ 카테고리</div>
-        <div class="field">
-          <label>대분류 *</label>
-          <div class="major-grid" id="majorGrid"></div>
-        </div>
-        <div id="minorField" style="display:none">
-          <label style="font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:6px">소분류 *</label>
-          <div class="minor-wrap" id="minorWrap"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">🛍️ 공구 정보</div>
-        <div class="field">
-          <label>공구 제품명 * <span style="font-weight:400;color:#999">브랜드명+상품명</span></label>
-          <input id="name" type="text" placeholder="예) 라무르 선크림 모음전">
-        </div>
-        <div class="date-row">
-          <div class="field">
-            <label>오픈 날짜 *</label>
-            <input id="openDate" type="date">
-          </div>
-          <div class="field">
-            <label>마감 날짜 <span style="font-weight:400;color:#999">선택</span></label>
-            <input id="endDate" type="date">
-            <div class="hint">비우면 오픈+3일 · 최대 14일까지 등록 가능</div>
-          </div>
-        </div>
+        <div class="card-title">🛍️ 공구 정보 <span style="font-weight:400;color:#999;font-size:12px">여러 개 한 번에 등록 가능</span></div>
+        <div id="gongguRows"></div>
+        <button type="button" onclick="addGongguRow()" style="width:100%;margin-top:4px;padding:12px;background:#F0E6FA;color:#602090;border:1.5px dashed #C9A8E8;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 공구 추가</button>
       </div>
 
       <button class="submit-btn" id="submitBtn" onclick="submitForm()">등록하기 🚀</button>
@@ -224,28 +199,8 @@ if(sessionStorage.getItem('mc_reg_auth')==='1'){
   document.getElementById('mainWrap').style.display='block';
   initForm();
 }
-// 마감일 선택 범위를 오픈일~오픈일+13일(최대 14일)로 제한
-function syncEndDateRange(){
-  const open=document.getElementById('openDate').value;
-  const endEl=document.getElementById('endDate');
-  if(!open){ endEl.removeAttribute('min'); endEl.removeAttribute('max'); return; }
-  endEl.min=open;
-  const od=new Date(open);
-  const max=new Date(od.getTime()+13*86400000);
-  endEl.max=`${max.getFullYear()}-${String(max.getMonth()+1).padStart(2,'0')}-${String(max.getDate()).padStart(2,'0')}`;
-  // 이미 범위 밖이면 비움
-  if(endEl.value && (endEl.value<endEl.min || endEl.value>endEl.max)) endEl.value='';
-}
 
 function initForm(){
-  const today=new Date();
-  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  document.getElementById('openDate').value=todayStr;
-  document.getElementById('openDate').min=todayStr;
-  // 마감일 범위(오픈일~오픈일+13일) 자동 설정 + 오픈일 변경 시 갱신
-  syncEndDateRange();
-  document.getElementById('openDate').addEventListener('change', syncEndDateRange);
-
   // 저장된 인플루언서 정보
   const savedInfluencer=localStorage.getItem('mc_influencer')||'';
   const savedInsta=localStorage.getItem('mc_insta')||'';
@@ -259,15 +214,8 @@ function initForm(){
     localStorage.setItem('mc_insta',e.target.value.trim().replace('@',''));
   });
 
-  // 대분류 버튼
-  document.getElementById('majorGrid').innerHTML=Object.keys(CATS).map(m=>
-    `<button class="major-btn" onclick="pickMajor('${m}')">${m}</button>`
-  ).join('');
-
-  // 마지막 선택 복원
-  const savedMajor=localStorage.getItem('mc_major')||'';
-  const savedMinor=localStorage.getItem('mc_minor')||'';
-  if(savedMajor) setTimeout(()=>pickMajor(savedMajor,true,savedMinor),0);
+  // 공구 줄 1개 자동 생성
+  if(!document.querySelector('#gongguRows .gg-row')) addGongguRow();
 }
 
 function showSavedInfl(name,insta){
@@ -285,59 +233,110 @@ function showInflEdit(){
   document.getElementById('influencer').focus();
 }
 
-let selMajor='',selMinor='';
-function pickMajor(m,restore=false,savedMinor=''){
-  selMajor=m;
-  if(!restore) selMinor='';
-  localStorage.setItem('mc_major',m);
-  document.querySelectorAll('.major-btn').forEach(b=>b.classList.toggle('on',b.textContent===m));
-  document.getElementById('minorField').style.display='block';
-  document.getElementById('minorWrap').innerHTML=(CATS[m]||[]).map(s=>
-    `<button class="minor-btn" onclick="pickMinor('${s}',this)">${s}</button>`
-  ).join('');
-  if(restore&&savedMinor){
-    const mb=Array.from(document.querySelectorAll('.minor-btn')).find(b=>b.textContent===savedMinor);
-    if(mb){selMinor=savedMinor;mb.classList.add('on');}
-  }
+// ── 줄 추가형 공구 입력 ──
+function ggCatOptions(sel){
+  return Object.keys(CATS).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join('');
 }
-function pickMinor(s,el){
-  selMinor=s;
-  localStorage.setItem('mc_minor',s);
-  document.querySelectorAll('.minor-btn').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
+function ggMinorOptions(major,sel){
+  return (CATS[major]||[]).map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');
+}
+function ggSyncMinor(selEl){
+  const row=selEl.closest('.gg-row');
+  row.querySelector('.gg-minor').innerHTML=ggMinorOptions(selEl.value,'');
+}
+function addGongguRow(){
+  // 직전 줄의 분류를 기본값으로 이어받음 (같은 셀러는 같은 카테고리일 확률이 높음)
+  const existing=[...document.querySelectorAll('#gongguRows .gg-row')];
+  let defMajor=Object.keys(CATS)[0], defMinor='';
+  if(existing.length){
+    const last=existing[existing.length-1];
+    defMajor=last.querySelector('.gg-major').value || defMajor;
+    defMinor=last.querySelector('.gg-minor').value || '';
+  }
+  const today=new Date();
+  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const div=document.createElement('div');
+  div.className='gg-row';
+  div.style.cssText='border:1.5px solid #EDE7F5;border-radius:12px;padding:12px;margin-bottom:10px;background:#FCFAFF;position:relative';
+  div.innerHTML=`
+    <button type="button" onclick="this.closest('.gg-row').remove()" style="position:absolute;top:8px;right:8px;width:26px;height:26px;background:#F0E6FA;color:#602090;border:none;border-radius:7px;font-size:14px;cursor:pointer">✕</button>
+    <div class="field">
+      <label>공구 제품명 * <span style="font-weight:400;color:#999">브랜드명+상품명</span></label>
+      <input class="gg-name" type="text" placeholder="예) 라무르 선크림 모음전" style="width:100%;box-sizing:border-box">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="field"><label>대분류 *</label><select class="gg-major" onchange="ggSyncMinor(this)" style="width:100%">${ggCatOptions(defMajor)}</select></div>
+      <div class="field"><label>소분류 *</label><select class="gg-minor" style="width:100%">${ggMinorOptions(defMajor,defMinor)}</select></div>
+    </div>
+    <div class="date-row" style="margin-top:8px">
+      <div class="field">
+        <label>오픈 날짜 *</label>
+        <input class="gg-open" type="date" value="${todayStr}" style="width:100%;box-sizing:border-box">
+      </div>
+      <div class="field">
+        <label>마감 날짜 <span style="font-weight:400;color:#999">선택</span></label>
+        <input class="gg-end" type="date" style="width:100%;box-sizing:border-box">
+        <div class="hint">비우면 오픈+3일 · 최대 14일</div>
+      </div>
+    </div>`;
+  document.getElementById('gongguRows').appendChild(div);
 }
 
 async function submitForm(){
   const influencer=document.getElementById('influencer').value.trim();
   const insta=document.getElementById('insta').value.trim().replace('@','');
-  const name=document.getElementById('name').value.trim();
-  const openDate=document.getElementById('openDate').value;
-  const endDate=document.getElementById('endDate').value||null;
-
   if(!influencer){alert('한글 활동명을 입력해주세요!');return;}
   if(!insta){alert('인스타그램 아이디를 입력해주세요!');return;}
-  if(!selMajor){alert('대분류를 선택해주세요!');return;}
-  if(!selMinor){alert('소분류를 선택해주세요!');return;}
-  if(!name){alert('공구 제품명을 입력해주세요!');return;}
-  if(!openDate){alert('오픈 날짜를 선택해주세요!');return;}
-  if(endDate){
-    if(endDate<openDate){alert('마감 날짜가 오픈 날짜보다 빠를 수 없어요!');return;}
-    // 최대 14일 제한 (오픈일 포함)
-    const od=new Date(openDate), ed=new Date(endDate);
-    const days=Math.round((ed-od)/86400000)+1;
-    if(days>14){
-      alert(`공구 기간은 최대 14일까지만 등록할 수 있어요.\n(현재 ${days}일 선택됨)\n\n마감 날짜를 오픈일로부터 14일 이내로 조정해주세요.`);
-      return;
+
+  const rowEls=[...document.querySelectorAll('#gongguRows .gg-row')];
+  const rows=[];
+  for(let i=0;i<rowEls.length;i++){
+    const r=rowEls[i];
+    const name=r.querySelector('.gg-name').value.trim();
+    const major=r.querySelector('.gg-major').value;
+    const minor=r.querySelector('.gg-minor').value;
+    const openDate=r.querySelector('.gg-open').value;
+    const endDate=r.querySelector('.gg-end').value||null;
+    if(!name) continue; // 제품명 없는 줄은 건너뜀
+    if(!openDate){alert(`${i+1}번째 공구의 오픈 날짜를 선택해주세요!`);return;}
+    if(endDate){
+      if(endDate<openDate){alert(`${i+1}번째 공구: 마감 날짜가 오픈 날짜보다 빠를 수 없어요!`);return;}
+      const od=new Date(openDate), ed=new Date(endDate);
+      const days=Math.round((ed-od)/86400000)+1;
+      if(days>14){alert(`${i+1}번째 공구: 기간은 최대 14일까지예요.\n(현재 ${days}일 선택됨)`);return;}
     }
+    rows.push({influencer,insta,major,minor,name,open_date:openDate,end_date:endDate,approved:false});
   }
+  if(!rows.length){alert('제품명을 입력한 공구가 없어요!');return;}
 
   localStorage.setItem('mc_influencer',influencer);
   localStorage.setItem('mc_insta',insta);
+  showRegConfirm(rows);
+}
 
+// 등록 확인 팝업
+function showRegConfirm(rows){
+  document.getElementById('regConfirmCount').textContent=`아래 ${rows.length}건을 등록합니다`;
+  document.getElementById('regConfirmList').innerHTML=rows.map((x,i)=>
+    `<div style="padding:10px 0;border-bottom:1px solid #F0F0F0">
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span style="font-size:12px;font-weight:800;color:#602090;flex-shrink:0">${i+1}</span>
+        <span style="font-size:14px;font-weight:700;color:#222">${x.name}</span>
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:2px;padding-left:18px">${x.major} · ${x.minor} · ${x.open_date} 오픈${x.end_date?' ~ '+x.end_date:''}</div>
+    </div>`
+  ).join('');
+  document.getElementById('regConfirmOk').onclick=()=>{
+    document.getElementById('regConfirmModal').style.display='none';
+    doRegister(rows);
+  };
+  document.getElementById('regConfirmModal').style.display='flex';
+}
+
+async function doRegister(rows){
   const btn=document.getElementById('submitBtn');
   btn.disabled=true;
   btn.textContent='등록 중...';
-
   try{
     const res=await fetch(`${SUPABASE_URL}/rest/v1/gonggu`,{
       method:'POST',
@@ -347,13 +346,13 @@ async function submitForm(){
         'Authorization':`Bearer ${SUPABASE_KEY}`,
         'Prefer':'return=minimal'
       },
-      body:JSON.stringify({influencer,insta,major:selMajor,minor:selMinor,name,open_date:openDate,end_date:endDate,approved:false})
+      body:JSON.stringify(rows)
     });
     if(res.ok||res.status===201){
       document.getElementById('formArea').style.display='none';
       document.getElementById('resultArea').classList.add('on');
       document.getElementById('resultDesc').innerHTML=
-        `<b>${name}</b><br>${openDate} 오픈<br><br>등록이 완료됐어요!<br>방장 확인 후 사이트에 반영돼요 💜`;
+        `<b>공구 ${rows.length}건</b> 등록이 완료됐어요!<br>방장 확인 후 사이트에 반영돼요 💜`;
     } else {
       const err=await res.text();
       alert('등록 실패: '+err);
@@ -368,11 +367,8 @@ async function submitForm(){
 }
 
 function resetForm(){
-  document.getElementById('name').value='';
-  const today=new Date();
-  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  document.getElementById('openDate').value=todayStr;
-  document.getElementById('endDate').value='';
+  document.getElementById('gongguRows').innerHTML='';
+  addGongguRow();
   document.getElementById('formArea').style.display='block';
   document.getElementById('resultArea').classList.remove('on');
   const btn=document.getElementById('submitBtn');
@@ -384,5 +380,19 @@ function resetForm(){
   window.scrollTo(0,0);
 }
 </script>
+<!-- 등록 확인 모달 -->
+<div id="regConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:700;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:18px 18px 10px;flex-shrink:0">
+      <div style="font-size:16px;font-weight:800;color:#222">이 정보가 맞나요?</div>
+      <div style="font-size:12px;color:#888;margin-top:3px" id="regConfirmCount"></div>
+    </div>
+    <div id="regConfirmList" style="overflow-y:auto;padding:0 18px;flex:1"></div>
+    <div style="display:flex;gap:8px;padding:14px 18px;flex-shrink:0;border-top:1px solid #EEE">
+      <button onclick="document.getElementById('regConfirmModal').style.display='none'" style="flex:1;padding:12px;background:#F0F0F0;color:#555;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다시 볼게요</button>
+      <button id="regConfirmOk" style="flex:1.5;padding:12px;background:#602090;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">네, 등록할게요</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
