@@ -412,7 +412,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 </div>
 
 <!-- ===== 공구 영역 ===== -->
-<div id="gongguWrap">
+<div id="gongguWrap" style="min-height:75vh">
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
@@ -505,7 +505,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- ===== /공구 영역 ===== -->
 
 <!-- ===== 핫딜 영역 ===== -->
-<div id="hotdealView" style="display:none;padding:12px">
+<div id="hotdealView" style="display:none;padding:12px;min-height:75vh">
   <div class="channel-row" style="margin-bottom:12px">
     <a class="ch-btn ch-naver" href="https://cafe.naver.com/momcal/" target="_blank"><span class="ch-naver-ico">N</span>네이버 카페</a>
     <a class="ch-btn ch-insta" href="https://www.instagram.com/momcal_" target="_blank">
@@ -517,7 +517,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- ===== /핫딜 영역 ===== -->
 
 <!-- ===== 체험단 영역 ===== -->
-<div id="expView" style="display:none;padding:12px">
+<div id="expView" style="display:none;padding:12px;min-height:75vh">
   <div class="channel-row" style="margin-bottom:12px">
     <a class="ch-btn ch-naver" href="https://cafe.naver.com/momcal/" target="_blank"><span class="ch-naver-ico">N</span>네이버 카페</a>
     <a class="ch-btn ch-insta" href="https://www.instagram.com/momcal_" target="_blank">
@@ -1188,7 +1188,10 @@ function renderExperiences(){
     // 우측 라벨
     let right='';
     if(ended) right='<span style="font-size:11px;font-weight:700;color:#999">마감</span>';
-    else if(upcoming) right='<span style="font-size:11px;font-weight:700;color:#888">예정</span>';
+    else if(upcoming){
+      const od=e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))}`:'';
+      right=`<span style="font-size:11px;font-weight:700;color:#E65100">${od?od+' 예정':'예정'}</span>`;
+    }
     else if(e.end_date){
       const dd=Math.ceil((new Date(e.end_date)-new Date(today))/86400000);
       const col=dd<=3?'#C0392B':'#0F6E56';
@@ -1198,7 +1201,9 @@ function renderExperiences(){
                    :'<span class="ex-tag" style="background:#E1F2EB;color:#085041">🎁 체험단</span>';
     const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${e.major}</span>`:'';
     const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${e.minor}</span>`:'';
-    const endTxt=e.end_date?`마감 ${e.end_date.slice(5).replace('-','/')}`:'';
+    const endTxt=upcoming
+      ? (e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))} 모집 예정`:'모집 예정')
+      : (e.end_date?`마감 ${e.end_date.slice(5).replace('-','/')}`:'');
     const recruit=e.recruit_count?`<span style="background:${ended?'#EEE':'#F0FBF6'};color:${ended?'#999':'#0F6E56'};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px">👥 모집인원 ${e.recruit_count}명</span>`:'';
     // 예정/마감이면 클릭 비활성 (링크 제거)
     const clickable=(!upcoming);
