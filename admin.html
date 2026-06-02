@@ -224,7 +224,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
     <div id="aiResult" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div style="font-size:13px;font-weight:800;color:#2A1D6E">✅ 분석 결과 <span id="aiResultCnt" style="font-size:12px;color:#999;font-weight:400"></span></div>
-        <button onclick="deleteSelectedAi()" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 선택 삭제</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button id="deleteDupBtn" onclick="deleteDupAllAi()" style="display:none;padding:6px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔴 중복 전부 빼기</button>
+          <button onclick="deleteSelectedAi()" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 선택 삭제</button>
+        </div>
       </div>
       <div id="aiCards" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
       <button onclick="submitAiData()" style="width:100%;padding:14px;background:#2A1D6E;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">선택 항목 등록하기 🚀</button>
@@ -363,6 +366,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
   </div>
 
   <div id="statsView" style="display:none;padding-bottom:80px">
+    <!-- GA4 분석 바로가기 -->
+    <div style="margin:12px 12px 0;display:flex;gap:8px">
+      <a href="https://analytics.google.com/analytics/web/#/p$(GA_PROP)/reports/reportinghub" target="_blank" onclick="this.href='https://analytics.google.com'" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#fff;border:1.5px solid #E0E0E0;border-radius:12px;text-decoration:none;color:#333;font-size:12px;font-weight:700">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="12" width="4" height="10" rx="1" fill="#F4B400"/><rect x="10" y="7" width="4" height="15" rx="1" fill="#4285F4"/><rect x="18" y="2" width="4" height="20" rx="1" fill="#0F9D58"/></svg>
+        Google Analytics 열기
+      </a>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;background:#F9F4FD;border:1.5px solid #E5D5F5;border-radius:12px;min-width:80px;cursor:default">
+        <div style="font-size:9px;color:#9B6FD4;font-weight:700;margin-bottom:2px">측정 ID</div>
+        <div style="font-size:11px;color:#602090;font-weight:800;letter-spacing:-.3px">G-NRCP2FVRSB</div>
+      </div>
+    </div>
     <!-- 방문자 통계 -->
     <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -467,14 +481,38 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
       <div id="chartWeekday"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
     </div>
 
-    <!-- ── 사용자 행동 분석 ── -->
-    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1.5px dashed #D4B5F0">
-      <div style="font-size:13px;font-weight:700;color:#602090;margin-bottom:6px">🖱️ 사용자 행동 분석</div>
-      <div style="font-size:11px;color:#888;line-height:1.8;margin-bottom:10px">
-        카테고리 클릭·탭 전환·검색어·공구 클릭 추적을 시작하려면<br>
-        Supabase에 <b>events</b> 테이블을 만들어주세요.
+    <!-- ── 방문자 월별 상세 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#222">📆 방문자 월별 상세</div>
+        <select id="monthPicker" onchange="loadMonthDetail()" style="padding:5px 8px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:11px;font-family:inherit;color:#333;background:#fff;outline:none"></select>
       </div>
-      <div style="background:#F9F4FD;border-radius:8px;padding:10px;font-size:10px;font-family:monospace;color:#4A1A78;line-height:1.8;margin-bottom:10px;white-space:pre">CREATE TABLE events (
+      <div id="monthDetailBar" style="margin-bottom:8px"><div style="color:#aaa;font-size:12px">선택하면 불러와요</div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <div id="monthDetailTotal" style="font-size:11px;color:#888"></div>
+        <div id="monthDetailAvg" style="font-size:11px;color:#888"></div>
+      </div>
+    </div>
+
+    <!-- ── 사용자 행동 분석 ── -->
+    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">🖱️ 사용자 행동 분석</div>
+      <!-- 탭 -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="switchEvtTab('card')" id="eTab-card" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#602090;color:#fff">🔥 인기 공구</button>
+        <button onclick="switchEvtTab('search')" id="eTab-search" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🔍 인기 검색어</button>
+        <button onclick="switchEvtTab('type')" id="eTab-type" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">📊 액션 분석</button>
+      </div>
+      <!-- 기간 필터 -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button onclick="switchEvtPeriod('month')" id="ePeriod-month" style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #602090;cursor:pointer;font-family:inherit;background:#602090;color:#fff">이번달</button>
+        <button onclick="switchEvtPeriod('all')" id="ePeriod-all" style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #E0E0E0;cursor:pointer;font-family:inherit;background:#fff;color:#888">누적 전체</button>
+      </div>
+      <div id="eventStats"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
+      <!-- events 테이블 안내 (데이터 없을 때만 표시) -->
+      <div id="evtSetupGuide" style="display:none;margin-top:10px">
+        <div style="font-size:11px;color:#888;line-height:1.8;margin-bottom:8px">추적을 시작하려면 Supabase에 <b>events</b> 테이블을 만들어주세요.</div>
+        <div style="background:#F9F4FD;border-radius:8px;padding:10px;font-size:10px;font-family:monospace;color:#4A1A78;line-height:1.8;white-space:pre">CREATE TABLE events (
   id bigserial primary key,
   event_type text,
   event_data text,
@@ -483,8 +521,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_insert" ON events
   FOR INSERT TO anon WITH CHECK (true);</div>
-      <div style="font-size:11px;color:#888">테이블 생성 후 index.html도 같이 배포해야 추적 시작돼요.</div>
-      <div id="eventStats" style="margin-top:8px"></div>
+      </div>
     </div>
 
     <!-- 끝난 공구 정리 (30만건 대비) -->
@@ -951,6 +988,9 @@ function renderAiCards(){
   const noInstaCnt=aiParsedData.filter(it=>(it._conn||'none')==='none').length;
   const guessCnt=aiParsedData.filter(it=>it._conn==='guess').length;
   const dupCnt=aiParsedData.filter(it=>it._dup).length;
+  const dupBtn=document.getElementById('deleteDupBtn');
+  if(dupBtn) dupBtn.style.display=dupCnt?'block':'none';
+  if(dupBtn) dupBtn.textContent=`🔴 중복 ${dupCnt}건 전부 빼기`;
   document.getElementById('aiResultCnt').textContent=`총 ${total}건`+(dupCnt?` · 🔴 이미등록 ${dupCnt}`:'')+(noInstaCnt?` · 미연결 ${noInstaCnt}`:'')+(guessCnt?` · 추정 ${guessCnt}(확인)`:'');
   document.getElementById('aiCards').innerHTML=`
     ${dupCnt?`<div style="padding:10px 12px;margin-bottom:8px;background:#FFEBEE;border:1px solid #F5C6C6;border-radius:10px">
@@ -1033,6 +1073,16 @@ function renderAiCards(){
 function aiSelectAllToggle(on){
   aiParsedData.forEach(it=>it._checked=on);
   document.querySelectorAll('.ai-cb').forEach(c=>c.checked=on);
+}
+
+function deleteDupAllAi(){
+  const dups=aiParsedData.filter(it=>it._dup);
+  if(!dups.length){alert('이미 등록된(중복) 항목이 없어요!');return;}
+  if(!confirm(`이미 등록된 것으로 보이는 ${dups.length}건을 전부 빼겠습니다.\n(확인 안 된 건 수동으로 빼주세요)`))return;
+  aiParsedData=aiParsedData.filter(it=>!it._dup);
+  if(!aiParsedData.length){document.getElementById('aiResult').style.display='none';return;}
+  if(aiDupOnly)aiDupOnly=false;
+  renderAiCards();
 }
 
 function deleteSelectedAi(){
@@ -2115,6 +2165,8 @@ async function loadVisitors(manual=false){
 
     loadVisitorTrends();
     loadServiceStats();
+    loadEventStats();
+    initMonthPicker();
 
   }catch(e){console.log('방문자 로드 실패',e);}
 
@@ -2339,37 +2391,231 @@ async function fetchAllRows(path){
   return rows;
 }
 
+// ── 행동 분석 전역 상태 ──
+let _evtTab='card', _evtPeriod='month', _evtCache={};
+
+function switchEvtTab(tab){
+  _evtTab=tab;
+  ['card','search','type'].forEach(t=>{
+    const b=document.getElementById('eTab-'+t);
+    if(!b)return;
+    b.style.background=t===tab?'#602090':'#F0E6FA';
+    b.style.color=t===tab?'#fff':'#602090';
+  });
+  renderEvtStats();
+}
+function switchEvtPeriod(p){
+  _evtPeriod=p;
+  ['month','all'].forEach(t=>{
+    const b=document.getElementById('ePeriod-'+t);
+    if(!b)return;
+    b.style.background=t===p?'#602090':'#fff';
+    b.style.color=t===p?'#fff':'#888';
+    b.style.borderColor=t===p?'#602090':'#E0E0E0';
+  });
+  _evtCache={}; // 기간 바꾸면 캐시 무효화
+  loadEventStats();
+}
+
 async function loadEventStats(){
+  const el=document.getElementById('eventStats');
+  const guide=document.getElementById('evtSetupGuide');
+  if(el) el.innerHTML='<div style="color:#aaa;font-size:12px">로딩 중...</div>';
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/events?select=event_type&order=visited_at.desc&limit=1`,{
+    // events 테이블 존재 확인
+    const r=await fetch(`${SB_URL}/rest/v1/events?select=event_type&limit=1`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
     });
-    if(!r.ok){document.getElementById('eventStats').innerHTML='';return;}
+    if(!r.ok){ if(guide)guide.style.display='block'; if(el)el.innerHTML=''; return; }
     const data=await r.json();
-    if(!data||data.length===0){document.getElementById('eventStats').innerHTML='<div style="font-size:11px;color:#aaa">아직 행동 데이터가 없어요.</div>';return;}
-    const all=await fetchAllRows('events?select=event_type,event_data')||[];
-    const typeCnt={}, catCnt={}, searchCnt={};
-    const TYPE_LABEL={category_click:'카테고리 클릭',status_tab:'상태탭 클릭',search:'검색',card_click:'공구 클릭'};
+    if(guide)guide.style.display='none';
+    if(!data||data.length===0){
+      if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">아직 행동 데이터가 없어요. index.html 배포 후 수집 시작.</div>';
+      return;
+    }
+
+    // 기간 필터
+    const now=new Date();
+    const monthStart=now.toISOString().slice(0,7)+'-01T00:00:00';
+    const periodQ=_evtPeriod==='month'?`&visited_at=gte.${monthStart}`:'';
+
+    const cacheKey=_evtPeriod;
+    if(!_evtCache[cacheKey]){
+      _evtCache[cacheKey]=await fetchAllRows(`events?select=event_type,event_data,visited_at${periodQ}`)||[];
+    }
+    const all=_evtCache[cacheKey];
+
+    const typeCnt={}, searchCnt={}, cardCnt={};
     all.forEach(e=>{
       typeCnt[e.event_type]=(typeCnt[e.event_type]||0)+1;
-      if(e.event_type==='category_click'&&e.event_data) catCnt[e.event_data]=(catCnt[e.event_data]||0)+1;
-      if(e.event_type==='search'&&e.event_data) searchCnt[e.event_data]=(searchCnt[e.event_data]||0)+1;
+      if(e.event_type==='search'&&e.event_data){
+        const q=(e.event_data||'').trim().toLowerCase();
+        if(q) searchCnt[q]=(searchCnt[q]||0)+1;
+      }
+      if(e.event_type==='card_click'&&e.event_data){
+        cardCnt[e.event_data]=(cardCnt[e.event_data]||0)+1;
+      }
     });
-    const topType=Object.entries(typeCnt).sort((a,b)=>b[1]-a[1]);
-    const topCat=Object.entries(catCnt).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    const topSearch=Object.entries(searchCnt).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    let h='<div style="font-size:11px;font-weight:700;color:#602090;margin:4px 0 6px">액션별 횟수</div>';
-    h+=topType.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${TYPE_LABEL[t]||t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
-    if(topCat.length){
-      h+='<div style="font-size:11px;font-weight:700;color:#602090;margin:10px 0 6px">인기 카테고리 TOP 5</div>';
-      h+=topCat.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
+
+    // 인기 공구: insta 아이디 → gonggu 테이블에서 상품명 조인
+    if(_evtTab==='card'){
+      const topCards=Object.entries(cardCnt).sort((a,b)=>b[1]-a[1]).slice(0,20);
+      if(!topCards.length){
+        if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">공구 클릭 데이터가 없어요.</div>';
+        return;
+      }
+      // 상위 인스타 아이디로 공구 조회 (최근 오픈순)
+      const topInstas=topCards.map(([k])=>k).slice(0,10);
+      const inflFilter=topInstas.map(i=>`insta.eq.${i}`).join(',');
+      const ggRes=await fetch(`${SB_URL}/rest/v1/gonggu?select=insta,name,influencer,open_date&or=(${inflFilter})&order=open_date.desc&limit=200`,{
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+      });
+      const ggRows=await ggRes.json()||[];
+      // insta별 최근 공구 목록 매핑
+      const ggMap={};
+      ggRows.forEach(g=>{
+        if(!ggMap[g.insta])ggMap[g.insta]=[];
+        ggMap[g.insta].push(g);
+      });
+      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔥 인기 공구 TOP 20 (${_evtPeriod==='month'?'이번달':'누적'})</div>`;
+      let rank=0;
+      for(const [insta,cnt] of topCards){
+        rank++;
+        const items=ggMap[insta]||[];
+        const infl=items[0]?.influencer||('@'+insta);
+        // 클릭수 높은 순으로 해당 셀러의 공구들 표시
+        const nameList=items.slice(0,2).map(g=>`<span style="color:#555">${g.name}</span>`).join(', ')
+          +(items.length>2?` 외 ${items.length-2}건`:'');
+        h+=`<div style="padding:7px 0;border-bottom:1px solid #F0E6FA">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;font-weight:800;color:${rank<=3?'#602090':'#aaa'};min-width:18px">${rank}</span>
+              <span style="font-size:12px;font-weight:700;color:#333">@${insta}</span>
+              <span style="font-size:10px;color:#9B6FD4">${infl}</span>
+            </div>
+            <span style="font-size:12px;font-weight:800;color:#602090">${cnt.toLocaleString()}클릭</span>
+          </div>
+          ${nameList?`<div style="font-size:10px;color:#aaa;margin-top:2px;padding-left:24px">${nameList}</div>`:''}
+        </div>`;
+      }
+      if(el)el.innerHTML=h;
+      return;
     }
-    if(topSearch.length){
-      h+='<div style="font-size:11px;font-weight:700;color:#602090;margin:10px 0 6px">인기 검색어 TOP 5</div>';
-      h+=topSearch.map(([t,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F0E6FA"><span style="color:#555">${t}</span><span style="font-weight:700;color:#602090">${c.toLocaleString()}회</span></div>`).join('');
+
+    // 인기 검색어 전체 목록
+    if(_evtTab==='search'){
+      const topSearch=Object.entries(searchCnt).sort((a,b)=>b[1]-a[1]);
+      if(!topSearch.length){
+        if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">검색 데이터가 없어요.</div>';
+        return;
+      }
+      const max=topSearch[0][1];
+      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔍 인기 검색어 전체 (${_evtPeriod==='month'?'이번달':'누적'}) ${topSearch.length}개</div>`;
+      h+=topSearch.map(([q,c],i)=>{
+        const w=Math.round(c/max*100);
+        return `<div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:12px;color:#333;font-weight:${i<3?700:400}">${i<3?['🥇','🥈','🥉'][i]+' ':''}"${q}"</span>
+            <span style="font-size:11px;font-weight:700;color:#602090">${c}회</span>
+          </div>
+          <div style="height:4px;background:#F0E6FA;border-radius:2px">
+            <div style="height:4px;background:#602090;border-radius:2px;width:${w}%"></div>
+          </div>
+        </div>`;
+      }).join('');
+      if(el)el.innerHTML=h;
+      return;
     }
-    document.getElementById('eventStats').innerHTML=h;
-  }catch(e){}
+
+    // 액션 분석
+    if(_evtTab==='type'){
+      const TYPE_LABEL={category_click:'카테고리 클릭',status_tab:'상태탭 클릭',search:'검색',card_click:'공구 카드 클릭'};
+      const topType=Object.entries(typeCnt).sort((a,b)=>b[1]-a[1]);
+      const total=topType.reduce((s,[,c])=>s+c,0);
+      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">📊 액션 분석 (${_evtPeriod==='month'?'이번달':'누적'} 총 ${total.toLocaleString()}회)</div>`;
+      h+=topType.map(([t,c])=>{
+        const pct=Math.round(c/total*100);
+        return`<div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:12px;color:#555">${TYPE_LABEL[t]||t}</span>
+            <span style="font-size:11px;font-weight:700;color:#602090">${c.toLocaleString()}회 (${pct}%)</span>
+          </div>
+          <div style="height:6px;background:#F0E6FA;border-radius:3px">
+            <div style="height:6px;background:#602090;border-radius:3px;width:${pct}%"></div>
+          </div>
+        </div>`;
+      }).join('');
+      if(el)el.innerHTML=h;
+    }
+  }catch(e){
+    if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">데이터를 불러오지 못했어요.</div>';
+  }
+}
+
+function renderEvtStats(){ loadEventStats(); }
+
+// ── 방문자 월별 상세 ──
+async function initMonthPicker(){
+  const sel=document.getElementById('monthPicker');
+  if(!sel)return;
+  const now=new Date();
+  const opts=[];
+  for(let i=0;i<12;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const v=d.toISOString().slice(0,7);
+    const lbl=`${d.getFullYear()}년 ${d.getMonth()+1}월`;
+    opts.push(`<option value="${v}"${i===0?' selected':''}>${lbl}</option>`);
+  }
+  sel.innerHTML=opts.join('');
+  await loadMonthDetail();
+}
+
+async function loadMonthDetail(){
+  const sel=document.getElementById('monthPicker');
+  if(!sel)return;
+  const ym=sel.value; // "2026-06"
+  const [year,month]=ym.split('-').map(Number);
+  const daysInMonth=new Date(year,month,0).getDate();
+  const from=`${ym}-01T00:00:00`;
+  const to=`${ym}-${String(daysInMonth).padStart(2,'0')}T23:59:59`;
+  document.getElementById('monthDetailBar').innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{
+    const rows=await fetchAllRows(`visitors?visited_at=gte.${from}&visited_at=lte.${to}&select=visited_at`)||[];
+    // 일별 집계
+    const dc={};
+    for(let d=1;d<=daysInMonth;d++) dc[d]=0;
+    rows.forEach(v=>{
+      try{const d=new Date(v.visited_at).getDate(); if(dc[d]!==undefined)dc[d]++;}catch(e){}
+    });
+    const vals=Object.values(dc);
+    const max=Math.max(...vals,1);
+    const total=vals.reduce((a,b)=>a+b,0);
+    const avg=Math.round(total/daysInMonth);
+    const today=new Date();
+    const isThisMonth=today.getFullYear()===year&&today.getMonth()+1===month;
+    const todayD=isThisMonth?today.getDate():0;
+
+    // 막대 차트 (가로 스크롤)
+    const DAYS=['일','월','화','수','목','금','토'];
+    let bars='<div style="display:flex;align-items:flex-end;gap:3px;height:80px;overflow-x:auto;padding-bottom:2px">';
+    for(let d=1;d<=daysInMonth;d++){
+      const h=Math.max(Math.round(dc[d]/max*68),2);
+      const dow=new Date(year,month-1,d).getDay();
+      const isT=d===todayD;
+      const isSun=dow===0;
+      bars+=`<div style="flex-shrink:0;width:${Math.max(100/daysInMonth,2.5)}%;display:flex;flex-direction:column;align-items:center;gap:1px" title="${d}일: ${dc[d]}명">
+        <div style="font-size:7px;color:${isT?'#602090':dc[d]>0?'#9B6FD4':'#ccc'}">${dc[d]>0?dc[d]:''}</div>
+        <div style="width:100%;height:${h}px;background:${isT?'#602090':isSun?'#FFB0C0':'#D4B5F0'};border-radius:2px 2px 0 0"></div>
+        <div style="font-size:7px;color:${isT?'#602090':isSun?'#E8445A':'#aaa'}">${d}</div>
+      </div>`;
+    }
+    bars+='</div>';
+    document.getElementById('monthDetailBar').innerHTML=bars;
+    document.getElementById('monthDetailTotal').textContent=`총 ${total.toLocaleString()}명`;
+    document.getElementById('monthDetailAvg').textContent=`일평균 ${avg.toLocaleString()}명`;
+  }catch(e){
+    document.getElementById('monthDetailBar').innerHTML='<div style="color:#aaa;font-size:12px">불러오지 못했어요.</div>';
+  }
 }
 
 // ── 데이터 로드 ──
