@@ -424,6 +424,10 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>인스타그램
     </a>
   </div>
+  <div id="dayFilterBar" style="display:none;align-items:center;justify-content:space-between;margin:0 0 10px;padding:9px 14px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:12px">
+    <span id="dayFilterLabel" style="font-size:13px;font-weight:700;color:#602090"></span>
+    <button onclick="clearDayFilter()" style="background:#602090;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
+  </div>
   <div class="cards" id="cardList"></div>
 </div>
 
@@ -701,6 +705,7 @@ function ongoingDiff(item){return Math.round((_t-new Date(item.openDate))/864000
 // ── 필터 상태 ──
 let fSt='all',fMajor='전체',fMinor='전체',fCalCat='전체',fSearch='';
 let selWeekDate=todayStr;
+let dayFilter=null; // 날짜탭으로 특정 날짜만 보기 (null=전체)
 let selCalDate=null;
 let calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);
 let tmpMajor='전체',tmpMinor='전체',fmodalMode='major';
@@ -805,6 +810,31 @@ function renderList(){
   // 대분류 칩 상태 동기화
   document.querySelectorAll('.cchip').forEach(b=>b.classList.toggle('on', b.dataset.cat===fMajor));
 
+  // 날짜 필터 배지 갱신
+  const bar=document.getElementById('dayFilterBar');
+  if(dayFilter){
+    const d=strToDate(dayFilter);
+    const isT=dayFilter===todayStr;
+    document.getElementById('dayFilterLabel').textContent=
+      `📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})${isT?' 오늘':''} 일정만`;
+    bar.style.display='flex';
+  } else if(bar){
+    bar.style.display='none';
+  }
+
+  // 날짜 필터가 켜져 있으면: 그 날짜에 오픈하는 공구만
+  if(dayFilter){
+    const arr=DATA.filter(item=>{
+      if(isExpired(item))return false;
+      if(!filterCat(item))return false;
+      return item.openDate===dayFilter; // 그날 오픈만
+    }).sort(cmpDatePartner);
+    el.innerHTML=arr.length
+      ?arr.map(item=>renderCard(item,dayFilter)).join('')
+      :`<div class="empty">이 날 오픈하는 공구가 없어요 🙅</div>`;
+    return;
+  }
+
   // 상태 필터 (오늘오픈/진행중/예정) 눌렸을 때
   if(fSt!=='all'){
     const arr=getFiltered(selWeekDate);
@@ -866,6 +896,16 @@ function getCntForDate(ds){
   return DATA.filter(item=>!isExpired(item)&&item.openDate===ds).length;
 }
 
+// 날짜 필터 해제 → 전체 보기
+function clearDayFilter(){
+  dayFilter=null;
+  document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.toggle('on', false));
+  // 오늘 탭만 다시 활성 표시
+  renderList();
+  const lst=document.getElementById('cardList');
+  if(lst) lst.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 // ── 이번주 날짜 탭 (무제한 확장) ──
 const DAYS=['일','월','화','수','목','금','토'];
 const MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -897,11 +937,13 @@ function buildWeekTabs(){
     el.onclick=()=>{
       document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on'));
       el.classList.add('on');
-      // ALL 모드: 해당 섹션으로 스크롤만 (selWeekDate 변경 없음)
-      const sec=document.getElementById(`section-${ds}`);
-      if(sec){
-        setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),50);
-      }
+      // 같은 날짜 다시 누르면 필터 해제
+      if(dayFilter===ds){ dayFilter=null; }
+      else { dayFilter=ds; }
+      renderList();
+      // 리스트 맨 위로 (날짜탭 영역은 유지)
+      const lst=document.getElementById('cardList');
+      if(lst) setTimeout(()=>lst.scrollIntoView({behavior:'smooth',block:'start'}),50);
     };
     wrap.appendChild(el);
   }
