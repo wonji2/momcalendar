@@ -512,6 +512,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>인스타그램
     </a>
   </div>
+  <div style="font-size:11px;color:#D85A30;text-align:center;margin-bottom:10px">매일은 아니어도, 올라오면 믿고 보는 핫딜 🔥</div>
   <div id="hotdealList"></div>
 </div>
 <!-- ===== /핫딜 영역 ===== -->
@@ -524,7 +525,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>인스타그램
     </a>
   </div>
-  <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:10px">마감 임박순으로 기본 정렬됩니다</div>
+  <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:10px">🎁 '예정' 체험단은 오픈일에 신청 링크가 열려요</div>
   <div id="expList"></div>
 </div>
 <!-- ===== /체험단 영역 ===== -->
@@ -1189,8 +1190,7 @@ function renderExperiences(){
     let right='';
     if(ended) right='<span style="font-size:11px;font-weight:700;color:#999">마감</span>';
     else if(upcoming){
-      const od=e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))}`:'';
-      right=`<span style="font-size:11px;font-weight:700;color:#E65100">${od?od+' 예정':'예정'}</span>`;
+      right=`<span style="font-size:11px;font-weight:700;color:#E65100">예정</span>`;
     }
     else if(e.end_date){
       const dd=Math.ceil((new Date(e.end_date)-new Date(today))/86400000);
@@ -1202,9 +1202,9 @@ function renderExperiences(){
     const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${e.major}</span>`:'';
     const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${e.minor}</span>`:'';
     const endTxt=upcoming
-      ? (e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))} 모집 예정`:'모집 예정')
+      ? (e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))}모집`:'모집 예정')
       : (e.end_date?`마감 ${e.end_date.slice(5).replace('-','/')}`:'');
-    const recruit=e.recruit_count?`<span style="background:${ended?'#EEE':'#F0FBF6'};color:${ended?'#999':'#0F6E56'};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px">👥 모집인원 ${e.recruit_count}명</span>`:'';
+    const recruit=e.recruit_count?`<span style="background:${ended?'#EEE':'#F0FBF6'};color:${ended?'#999':'#0F6E56'};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px">👥 선정인원 ${e.recruit_count}명</span>`:'';
     // 예정/마감이면 클릭 비활성 (링크 제거)
     const clickable=(!upcoming);
     const tag2=clickable?'a':'div';
