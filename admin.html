@@ -172,71 +172,30 @@ details summary::-webkit-details-marker{display:none}
 
   <!-- 🔥 핫딜 등록 탭 -->
   <div id="hotdealView" style="display:none;padding:14px;padding-bottom:80px">
-    <div class="ct-admin-grid">
-      <div class="ct-admin-col">
-        <!-- 일괄 등록 -->
-        <div style="background:#FBEAE7;border-radius:12px;padding:13px;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:800;color:#993C1D;margin-bottom:7px">📋 여러 개 한 번에 등록</div>
-          <div style="font-size:11px;color:#993C1D;line-height:1.7;margin-bottom:8px">한 줄에 하나씩, <b>제목 | 링크 | 대분류 | 소분류</b> 순서로 붙여넣으세요. (대분류·소분류는 생략 가능)</div>
-          <textarea id="hdBulk" placeholder="프로쉬 주방세제 1+1 | https://cafe.naver.com/... | 리빙 | 생활용품&#10;유아 과일칩 최저가 | https://cafe.naver.com/... | 식품 | 간식/구황작물" style="width:100%;box-sizing:border-box;height:120px;border:1.5px solid #EBEBEB;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.6"></textarea>
-          <button onclick="saveHotdealBulk()" style="width:100%;margin-top:8px;padding:12px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 일괄 등록</button>
-        </div>
-        <!-- 단건 등록 (접기) -->
-        <details style="background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:0;margin-bottom:8px">
-          <summary style="padding:12px 13px;font-size:13px;font-weight:700;color:#993C1D;cursor:pointer;list-style:none">＋ 하나씩 입력하기</summary>
-          <div style="padding:0 13px 14px">
-            <div class="modal-field"><label>제목</label><input id="hdTitle" type="text" placeholder="예) 프로쉬 주방세제 1+1 특가" style="width:100%;box-sizing:border-box"></div>
-            <div class="modal-field" style="margin-top:10px"><label>카페 글 링크</label><input id="hdLink" type="url" placeholder="https://cafe.naver.com/..." style="width:100%;box-sizing:border-box"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-              <div class="modal-field"><label>대분류</label><select id="hdMajor" onchange="syncMinor('hd')" style="width:100%"></select></div>
-              <div class="modal-field"><label>소분류</label><select id="hdMinor" style="width:100%"></select></div>
-            </div>
-            <button onclick="saveHotdeal()" style="width:100%;margin-top:14px;padding:12px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 핫딜 등록</button>
-          </div>
-        </details>
-      </div>
-      <div class="ct-admin-col">
-        <div style="font-size:13px;font-weight:800;color:#222;margin:0 0 10px">등록된 핫딜</div>
-        <div id="hdAdminList"></div>
-      </div>
+    <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
+      제목·링크를 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 최신순으로 노출됩니다.
     </div>
+    <div id="hdRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addHdRow()" style="flex:1;padding:11px;background:#fff;color:#D85A30;border:1.5px solid #D85A30;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveHotdealRows()" style="flex:2;padding:11px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 핫딜</div>
+    <div id="hdAdminList"></div>
   </div>
 
   <!-- 🎁 체험단 등록 탭 -->
   <div id="expView" style="display:none;padding:14px;padding-bottom:80px">
-    <div class="ct-admin-grid">
-      <div class="ct-admin-col">
-        <!-- 일괄 등록 -->
-        <div style="background:#E1F5EE;border-radius:12px;padding:13px;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:800;color:#0A5D52;margin-bottom:7px">📋 여러 개 한 번에 등록</div>
-          <div style="font-size:11px;color:#0A5D52;line-height:1.7;margin-bottom:8px">한 줄에 하나씩, <b>제목 | 링크 | 대분류 | 소분류 | 모집인원 | 마감일</b> 순서로 붙여넣으세요. 마감일은 <b>2026-06-15</b> 형식. (모집인원·마감일 외엔 생략 가능)</div>
-          <textarea id="exBulk" placeholder="수분크림 신상 체험단 | https://cafe.naver.com/... | 뷰티 | 스킨케어 | 30 | 2026-06-15&#10;유아 식기세트 체험단 | https://cafe.naver.com/... | 육아 | 육아용품 | 20 | 2026-06-20" style="width:100%;box-sizing:border-box;height:120px;border:1.5px solid #EBEBEB;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.6"></textarea>
-          <button onclick="saveExperienceBulk()" style="width:100%;margin-top:8px;padding:12px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 일괄 등록</button>
-        </div>
-        <!-- 단건 등록 (접기) -->
-        <details style="background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:0;margin-bottom:8px">
-          <summary style="padding:12px 13px;font-size:13px;font-weight:700;color:#0A5D52;cursor:pointer;list-style:none">＋ 하나씩 입력하기</summary>
-          <div style="padding:0 13px 14px">
-            <div class="modal-field"><label>제목</label><input id="exTitle" type="text" placeholder="예) 수분크림 신상 체험단" style="width:100%;box-sizing:border-box"></div>
-            <div class="modal-field" style="margin-top:10px"><label>카페 글 링크</label><input id="exLink" type="url" placeholder="https://cafe.naver.com/..." style="width:100%;box-sizing:border-box"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-              <div class="modal-field"><label>대분류</label><select id="exMajor" onchange="syncMinor('ex')" style="width:100%"></select></div>
-              <div class="modal-field"><label>소분류</label><select id="exMinor" style="width:100%"></select></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-              <div class="modal-field"><label>모집 인원</label><input id="exCount" type="number" placeholder="30" style="width:100%;box-sizing:border-box"></div>
-              <div class="modal-field"><label>모집 마감일</label><input id="exEnd" type="date" style="width:100%;box-sizing:border-box"></div>
-            </div>
-            <div class="modal-field" style="margin-top:10px"><label>모집 시작일 <span style="font-weight:400;color:#999">(비우면 즉시 모집중)</span></label><input id="exOpen" type="date" style="width:100%;box-sizing:border-box"></div>
-            <button onclick="saveExperience()" style="width:100%;margin-top:14px;padding:12px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 체험단 등록</button>
-          </div>
-        </details>
-      </div>
-      <div class="ct-admin-col">
-        <div style="font-size:13px;font-weight:800;color:#222;margin:0 0 10px">등록된 체험단</div>
-        <div id="exAdminList"></div>
-      </div>
+    <div style="background:#E1F5EE;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#0A5D52;line-height:1.7">
+      제목·링크·모집인원·마감일을 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 마감일이 지나면 자동 회색 처리됩니다.
     </div>
+    <div id="exRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addExRow()" style="flex:1;padding:11px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveExperienceRows()" style="flex:2;padding:11px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 체험단</div>
+    <div id="exAdminList"></div>
   </div>
 
   <!-- 크롤링 탭 (반자동) -->
@@ -3030,43 +2989,86 @@ const HD_URL=SB_URL+'/rest/v1/hotdeals';
 const EX_URL=SB_URL+'/rest/v1/experiences';
 function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Content-Type':'application/json'},extra||{});}
 
-async function saveHotdealBulk(){
-  const raw=document.getElementById('hdBulk').value.trim();
-  if(!raw){alert('붙여넣은 내용이 없어요!');return;}
-  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
-  const rows=[];
-  for(const line of lines){
-    const p=line.split('|').map(x=>x.trim());
-    if(!p[0]) continue;
-    rows.push({title:p[0], link:p[1]||'', major:p[2]||'', minor:p[3]||''});
-  }
-  if(!rows.length){alert('등록할 항목이 없어요.');return;}
+// ── 줄 추가형 입력 (대분류 드롭다운 → 소분류 자동) ──
+function catOptions(sel){
+  return Object.keys(CATS_LIST).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join('');
+}
+function minorOptions(major,sel){
+  return (CATS_LIST[major]||[]).map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');
+}
+function rowSyncMinor(selEl){
+  const row=selEl.closest('.ct-row');
+  const minSel=row.querySelector('.ct-minor');
+  minSel.innerHTML=minorOptions(selEl.value,'');
+}
+let _hdRowSeq=0, _exRowSeq=0;
+function addHdRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div');
+  div.className='ct-row';
+  div.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#FBEAE7;color:#993C1D;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>`;
+  document.getElementById('hdRows').appendChild(div);
+}
+function addExRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div');
+  div.className='ct-row';
+  div.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#E1F5EE;color:#0A5D52;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:6px">
+      <input class="ct-count" type="number" inputmode="numeric" placeholder="모집인원" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+    </div>`;
+  document.getElementById('exRows').appendChild(div);
+}
+async function saveHotdealRows(){
+  const rows=[...document.querySelectorAll('#hdRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(),
+    link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value,
+    minor:r.querySelector('.ct-minor').value
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
   try{
     const r=await fetch(HD_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)});
     if(!r.ok) throw 0;
-    document.getElementById('hdBulk').value='';
+    document.getElementById('hdRows').innerHTML=''; addHdRow();
     alert(`핫딜 ${rows.length}건 등록 완료! 🔥`); loadHotdealAdmin();
   }catch(e){ alert('등록 실패. hotdeals 테이블이 생성됐는지 확인해주세요.'); }
 }
-async function saveExperienceBulk(){
-  const raw=document.getElementById('exBulk').value.trim();
-  if(!raw){alert('붙여넣은 내용이 없어요!');return;}
-  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
-  const rows=[];
-  for(const line of lines){
-    const p=line.split('|').map(x=>x.trim());
-    if(!p[0]) continue;
-    rows.push({
-      title:p[0], link:p[1]||'', major:p[2]||'', minor:p[3]||'',
-      recruit_count: p[4]?parseInt(p[4].replace(/[^0-9]/g,'')):null,
-      end_date: p[5]||null
-    });
-  }
-  if(!rows.length){alert('등록할 항목이 없어요.');return;}
+async function saveExperienceRows(){
+  const rows=[...document.querySelectorAll('#exRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(),
+    link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value,
+    minor:r.querySelector('.ct-minor').value,
+    recruit_count: r.querySelector('.ct-count').value?parseInt(r.querySelector('.ct-count').value):null,
+    end_date: r.querySelector('.ct-end').value||null
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
   try{
     const r=await fetch(EX_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)});
     if(!r.ok) throw 0;
-    document.getElementById('exBulk').value='';
+    document.getElementById('exRows').innerHTML=''; addExRow();
     alert(`체험단 ${rows.length}건 등록 완료! 🎁`); loadExpAdmin();
   }catch(e){ alert('등록 실패. experiences 테이블이 생성됐는지 확인해주세요.'); }
 }
@@ -3171,10 +3173,12 @@ function switchTab(tab,el){
       document.getElementById('aiView').style.display='block';
     } else if(tab==='hotdeal'){
       document.getElementById('hotdealView').style.display='block';
-      fillCatSelect('hd'); loadHotdealAdmin();
+      if(!document.querySelector('#hdRows .ct-row')) addHdRow();
+      loadHotdealAdmin();
     } else if(tab==='exp'){
       document.getElementById('expView').style.display='block';
-      fillCatSelect('ex'); loadExpAdmin();
+      if(!document.querySelector('#exRows .ct-row')) addExRow();
+      loadExpAdmin();
     } else if(tab==='crawl'){
       document.getElementById('crawlView').style.display='block';
       { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
