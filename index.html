@@ -126,7 +126,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .cat-chip-row{display:flex;gap:7px;padding:12px 16px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .cat-chip-row::-webkit-scrollbar{display:none}
 .cchip{flex-shrink:0;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid transparent;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s}
-.cchip.on{font-weight:700}
+.cchip.on{font-weight:700;box-shadow:0 0 0 2px #fff,0 0 0 4px currentColor}
+.subcat-chip-row{display:flex;gap:6px;padding:0 16px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}
+.subcat-chip-row::-webkit-scrollbar{display:none}
+.subchip{flex-shrink:0;padding:6px 13px;border-radius:18px;font-size:11.5px;font-weight:600;border:1.5px solid #E0E0E0;background:#fff;color:#666;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s}
+.subchip.on{background:#602090;color:#fff;border-color:#602090;font-weight:700}
 .cat-count-bar{padding:0 16px 10px;background:#fff;font-size:12px;color:var(--t2)}
 .cat-count-bar b{color:var(--t1);font-weight:700}
 
@@ -384,7 +388,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 </div>
 
 <!-- 상태 탭 -->
-<div class="status-tabs">
+<div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-live" data-st="live" onclick="toggleStab('live',this)">진행중</button>
@@ -402,6 +406,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <div id="listView">
   <div class="week-wrap" id="weekWrap">
     <div class="week-scroll" id="weekTabs"></div>
+    <div style="font-size:10.5px;color:#9a9aa5;padding:2px 14px 0;text-align:center">날짜를 누르면 그날 오픈 공구만 보여요 · 한 번 더 누르면 전체</div>
     <div class="cat-chip-row" id="catChipRow">
       <button class="cchip on" data-cat="전체" onclick="pickCat('전체',this)">전체</button>
       <button class="cchip" data-cat="육아" onclick="pickCat('육아',this)">육아</button>
@@ -414,6 +419,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       <button class="cchip" data-cat="여행" onclick="pickCat('여행',this)">여행</button>
       <button class="cchip" data-cat="반려동물" onclick="pickCat('반려동물',this)">반려동물</button>
     </div>
+    <div class="subcat-chip-row" id="subCatRow" style="display:none"></div>
   </div>
   <!-- 채널 바로가기 (슬림배너 자리) -->
   <div class="channel-row">
@@ -703,7 +709,8 @@ function isOngoing(item){return item.openDate<todayStr&&!isExpired(item)&&!isEnd
 function ongoingDiff(item){return Math.round((_t-new Date(item.openDate))/86400000);}
 
 // ── 필터 상태 ──
-let fSt='all',fMajor='전체',fMinor='전체',fCalCat='전체',fSearch='';
+let fSt='all',fMajor='전체',fMinors=[],fCalCat='전체',fSearch='';
+let tmpMinors=[];
 let selWeekDate=todayStr;
 let dayFilter=null; // 날짜탭으로 특정 날짜만 보기 (null=전체)
 let selCalDate=null;
@@ -717,7 +724,7 @@ function getFiltered(dateStr){
     return DATA.filter(item=>{
       if(isExpired(item))return false;
       if(fMajor!=='전체'&&item.major!==fMajor)return false;
-      if(fMinor!=='전체'&&item.minor!==fMinor)return false;
+      if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
       const q=fSearch.toLowerCase();
       return[item.name,item.influencer,item.insta,item.major,item.minor].some(v=>v.toLowerCase().includes(q));
     }).sort(cmpDatePartner);
@@ -749,7 +756,7 @@ function getFiltered(dateStr){
 
 function filterCat(item){
   if(fMajor!=='전체'&&item.major!==fMajor)return false;
-  if(fMinor!=='전체'&&item.minor!==fMinor)return false;
+  if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
   return true;
 }
 
@@ -807,8 +814,10 @@ function updateStatCounts(){
 function renderList(){
   const el=document.getElementById('cardList');
   updateStatCounts();
-  // 대분류 칩 상태 동기화
+  // 대분류 칩 상태 동기화 (클래스 + 색칠)
   document.querySelectorAll('.cchip').forEach(b=>b.classList.toggle('on', b.dataset.cat===fMajor));
+  paintCatChips();
+  buildSubCats();
 
   // 날짜 필터 배지 갱신
   const bar=document.getElementById('dayFilterBar');
@@ -881,14 +890,6 @@ function renderList(){
   });
 
   el.innerHTML=html;
-
-  // 날짜탭 클릭 시 해당 섹션으로 스크롤
-  if(selWeekDate&&selWeekDate!==todayStr){
-    setTimeout(()=>{
-      const sec=document.getElementById(`section-${selWeekDate}`);
-      if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
-    },100);
-  }
 }
 
 // 날짜탭 건수 - 오픈일 기준
@@ -900,10 +901,7 @@ function getCntForDate(ds){
 function clearDayFilter(){
   dayFilter=null;
   document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.toggle('on', false));
-  // 오늘 탭만 다시 활성 표시
   renderList();
-  const lst=document.getElementById('cardList');
-  if(lst) lst.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 // ── 이번주 날짜 탭 (무제한 확장) ──
@@ -936,14 +934,10 @@ function buildWeekTabs(){
     el.innerHTML=`<div class="wday">${DAYS[d.getDay()]}</div><div class="wnum">${d.getDate()}</div><div class="wcnt">${cnt}건</div>`;
     el.onclick=()=>{
       document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on'));
-      el.classList.add('on');
-      // 같은 날짜 다시 누르면 필터 해제
+      // 같은 날짜 다시 누르면 필터 해제 (탭 표시도 끔)
       if(dayFilter===ds){ dayFilter=null; }
-      else { dayFilter=ds; }
+      else { dayFilter=ds; el.classList.add('on'); resetStatusTabs(); } // 날짜 누르면 상태필터는 전체로
       renderList();
-      // 리스트 맨 위로 (날짜탭 영역은 유지)
-      const lst=document.getElementById('cardList');
-      if(lst) setTimeout(()=>lst.scrollIntoView({behavior:'smooth',block:'start'}),50);
     };
     wrap.appendChild(el);
   }
@@ -970,7 +964,7 @@ function updateWeekLabel(){
 function pickCat(cat, el){
   // 같은 칩 다시 누르면 전체로
   if(cat===fMajor && cat!=='전체'){ cat='전체'; }
-  fMajor=cat; fMinor='전체';
+  fMajor=cat; fMinors=[];
   document.querySelectorAll('.cchip').forEach(b=>b.classList.remove('on'));
   const target=document.querySelector('.cchip[data-cat="'+cat+'"]');
   if(target) target.classList.add('on');
@@ -979,13 +973,41 @@ function pickCat(cat, el){
   const sideAll=document.getElementById('sideAllBtn');
   if(sideAll) sideAll.classList.toggle('on', cat==='전체');
   if(cat!=='전체') trackEvent('category_click', cat);
+  buildSubCats();
   renderList();
+}
+
+// 메인 소분류 행 빌드 (대분류 선택 시 표시, 중복선택 가능)
+function buildSubCats(){
+  const row=document.getElementById('subCatRow');
+  if(!row) return;
+  if(fMajor==='전체'||!CATS[fMajor]){ row.style.display='none'; row.innerHTML=''; return; }
+  row.style.display='flex';
+  row.innerHTML=CATS[fMajor].map(m=>{
+    const on=fMinors.includes(m);
+    return `<button class="subchip${on?' on':''}" onclick="toggleSubCat('${m}')">${m}</button>`;
+  }).join('');
+}
+
+function toggleSubCat(m){
+  // 단일선택: 같은 거 다시 누르면 해제, 아니면 그것만 선택
+  fMinors = fMinors.includes(m) ? [] : [m];
+  buildSubCats();
+  renderList();
+}
+
+function resetStatusTabs(){
+  fSt='all';
+  document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+  const a=document.getElementById('stab-all'); if(a) a.classList.add('on-all');
 }
 
 function toggleStab(v,el){
   // 이미 선택된 버튼(전체 제외)을 다시 누르면 전체로 해제
   if(v===fSt && v!=='all'){ v='all'; el=document.getElementById('stab-all'); }
   fSt=v;
+  // 상태필터 누르면 날짜필터 해제 (둘은 같이 못 켬)
+  if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   document.querySelectorAll('.stab').forEach(b=>b.className='stab');
   if(v==='all') el.classList.add('on-all');
   if(v==='open') el.classList.add('on-o');
@@ -1000,12 +1022,15 @@ function switchTab(t){
   ['list','cal'].forEach(id=>document.getElementById('tab-'+id).classList.toggle('on',id===t));
   document.getElementById('listView').style.display=t==='list'?'block':'none';
   document.getElementById('calView').classList.toggle('on',t==='cal');
+  // 캘린더에선 상태필터(전체/오늘오픈/진행중/예정) 버튼 숨김 — 캘린더엔 동작 안 함
+  const st=document.getElementById('statusTabs');
+  if(st) st.style.display = t==='cal' ? 'none' : 'flex';
   if(t==='cal')buildCalendar();
 }
 
 // ── 필터 팝업 ──
 function openFModal(mode){
-  fmodalMode=mode;tmpMajor=fMajor;tmpMinor=fMinor;
+  fmodalMode=mode;tmpMajor=fMajor;tmpMinors=[...fMinors];
   document.getElementById('fmodalTtl').textContent=mode==='major'?'대분류 선택':'소분류 선택';
   buildFMajors();buildFMinors();
   document.getElementById('fmodalBg').classList.add('on');
@@ -1016,17 +1041,24 @@ function buildFMajors(){
   document.getElementById('fmodalMajors').innerHTML=
     ['전체',...Object.keys(CATS)].map(m=>`<button class="fm-btn${tmpMajor===m?' on':''}" onclick="pickFMajor('${m}')">${CAT_ICO[m]||'🏠'} ${m}</button>`).join('');
 }
-function pickFMajor(v){tmpMajor=v;tmpMinor='전체';buildFMajors();buildFMinors();}
+function pickFMajor(v){tmpMajor=v;tmpMinors=[];buildFMajors();buildFMinors();}
 function buildFMinors(){
   const area=document.getElementById('fmodalMinorArea');
   const ms=tmpMajor==='전체'?[]:CATS[tmpMajor]||[];
   if(!ms.length){area.style.display='none';return;}
   area.style.display='block';
   document.getElementById('fmodalMinors').innerHTML=
-    ['전체',...ms].map(m=>`<button class="fm-minor${tmpMinor===m?' on':''}" onclick="pickFMinor('${m}')">${m}</button>`).join('');
+    ['전체',...ms].map(m=>{
+      const on = m==='전체' ? tmpMinors.length===0 : tmpMinors.includes(m);
+      return `<button class="fm-minor${on?' on':''}" onclick="pickFMinor('${m}')">${m}</button>`;
+    }).join('');
 }
-function pickFMinor(v){tmpMinor=v;document.querySelectorAll('.fm-minor').forEach(b=>b.classList.toggle('on',b.textContent.trim()===v));}
-function applyFModal(){fMajor=tmpMajor;fMinor=tmpMinor;closeFModal();renderList();}
+function pickFMinor(v){
+  if(v==='전체'){ tmpMinors=[]; }
+  else { tmpMinors = tmpMinors.includes(v) ? [] : [v]; }
+  buildFMinors();
+}
+function applyFModal(){fMajor=tmpMajor;fMinors=[...tmpMinors];closeFModal();renderList();}
 
 // ── 사이드 메뉴 ──
 function buildSideCats(){
@@ -1044,8 +1076,8 @@ function buildSideCats(){
   }).join('');
 }
 function toggleSideMajor(btn){const wrap=btn.nextElementSibling;wrap.classList.toggle('on');btn.classList.toggle('on',wrap.classList.contains('on'));}
-function pickSideAll(){fMajor='전체';fMinor='전체';document.getElementById('sideAllBtn').classList.add('on');closeSide();fSt='all';document.querySelectorAll('.stab').forEach(b=>b.className='stab');document.getElementById('stab-all').classList.add('on-all');renderList();switchTab('list');}
-function pickSideMinor(major,minor){fMajor=major;fMinor=minor;document.getElementById('sideAllBtn').classList.remove('on');closeSide();renderList();switchTab('list');}
+function pickSideAll(){fMajor='전체';fMinors=[];document.getElementById('sideAllBtn').classList.add('on');closeSide();fSt='all';document.querySelectorAll('.stab').forEach(b=>b.className='stab');document.getElementById('stab-all').classList.add('on-all');renderList();switchTab('list');}
+function pickSideMinor(major,minor){fMajor=major;fMinors=(minor==='전체')?[]:[minor];document.getElementById('sideAllBtn').classList.remove('on');closeSide();renderList();switchTab('list');}
 function openSide(){document.getElementById('sideOverlay').classList.add('on');document.getElementById('sideMenu').classList.add('on');}
 function closeSide(){document.getElementById('sideOverlay').classList.remove('on');document.getElementById('sideMenu').classList.remove('on');}
 
@@ -1154,7 +1186,7 @@ function closeAdModal(){document.getElementById('adModal').classList.remove('on'
 
 // ── 홈으로 ──
 function goHome(){
-  fSt='all'; fMajor='전체'; fMinor='전체'; fSearch='';
+  fSt='all'; fMajor='전체'; fMinors=[]; fSearch='';
   selWeekDate=todayStr;
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
