@@ -672,15 +672,26 @@ async function loadData() {
   try {
     // 오늘 기준 3일 전부터(진행중 포함) 이후 데이터 가져오기
     const fromDate = dOff(-3);
-    const url = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&approved=eq.true&order=open_date.asc&limit=100000`;
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    });
-    if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
-    const rows = await res.json();
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&approved=eq.true&order=open_date.asc`;
+    // Supabase는 한 번에 최대 1000건만 반환 → Range 헤더로 끝까지 페이지네이션
+    let rows = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const to = from + PAGE - 1;
+      const res = await fetch(baseUrl, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Range-Unit': 'items',
+          'Range': `${from}-${to}`
+        }
+      });
+      if (!res.ok && res.status !== 206) throw new Error('Supabase 오류 ' + res.status);
+      const page = await res.json();
+      rows = rows.concat(page);
+      if (page.length < PAGE) break; // 마지막 페이지
+      if (from > 50000) break; // 안전장치
+    }
     DATA = rows.map(r => ({
       id: r.id,
       influencer: r.influencer || '',

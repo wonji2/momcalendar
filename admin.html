@@ -1427,10 +1427,7 @@ async function crawlParse(){
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let existing=[];
   try{
-    const dbRes=await fetch(`${SB_URL}/rest/v1/gonggu?select=name,open_date&approved=eq.true&open_date=gte.${todayStr}&limit=100000`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
-    });
-    existing=await dbRes.json();
+    existing=await fetchAllRows(`gonggu?select=name,open_date&approved=eq.true&open_date=gte.${todayStr}`);
     if(!Array.isArray(existing)) existing=[];
   }catch(e){ existing=[]; }
 
@@ -2276,10 +2273,7 @@ async function loadServiceStats(){
 
     // 월별 공구(오픈일 기준) 최근 6개월
     const d6=new Date(now);d6.setMonth(d6.getMonth()-5);d6.setDate(1);
-    const rGG=await fetch(`${SB_URL}/rest/v1/gonggu?select=open_date&approved=eq.true&open_date=gte.${d6.toISOString().slice(0,10)}&limit=100000`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
-    });
-    const ggData=await rGG.json();
+    const ggData=await fetchAllRows(`gonggu?select=open_date&approved=eq.true&open_date=gte.${d6.toISOString().slice(0,10)}`);
     const mm={};
     for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);mm[d.toISOString().slice(0,7)]=0;}
     (ggData||[]).forEach(g=>{const m=(g.open_date||'').slice(0,7);if(mm[m]!==undefined)mm[m]++;});
@@ -2328,6 +2322,23 @@ function copyPromo(text){
   }).catch(()=>{});
 }
 
+// Supabase 1000건 제한 우회: Range로 끝까지 받는 헬퍼
+async function fetchAllRows(path){
+  let rows=[]; const PAGE=1000;
+  for(let start=0; start<200000; start+=PAGE){
+    const end=start+PAGE-1;
+    const res=await fetch(`${SB_URL}/rest/v1/${path}`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Range-Unit':'items','Range':`${start}-${end}`}
+    });
+    if(!res.ok && res.status!==206 && res.status!==200) break;
+    const page=await res.json();
+    if(!Array.isArray(page)||page.length===0) break;
+    rows=rows.concat(page);
+    if(page.length<PAGE) break;
+  }
+  return rows;
+}
+
 async function loadEventStats(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/events?select=event_type&order=visited_at.desc&limit=1`,{
@@ -2336,10 +2347,7 @@ async function loadEventStats(){
     if(!r.ok){document.getElementById('eventStats').innerHTML='';return;}
     const data=await r.json();
     if(!data||data.length===0){document.getElementById('eventStats').innerHTML='<div style="font-size:11px;color:#aaa">아직 행동 데이터가 없어요.</div>';return;}
-    const r2=await fetch(`${SB_URL}/rest/v1/events?select=event_type,event_data&limit=100000`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
-    });
-    const all=await r2.json()||[];
+    const all=await fetchAllRows('events?select=event_type,event_data')||[];
     const typeCnt={}, catCnt={}, searchCnt={};
     const TYPE_LABEL={category_click:'카테고리 클릭',status_tab:'상태탭 클릭',search:'검색',card_click:'공구 클릭'};
     all.forEach(e=>{
@@ -2369,10 +2377,7 @@ let inflMapping = {}; // insta → influencer 한글명 매핑
 
 async function loadInflMapping(){
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/influencers?select=insta,influencer`,{
-      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
-    });
-    const rows=await res.json();
+    const rows=await fetchAllRows('influencers?select=insta,influencer');
     inflMapping={};
     rows.forEach(r=>{ if(r.insta&&r.influencer) inflMapping[r.insta]=r.influencer; });
   }catch(e){ inflMapping={}; }
