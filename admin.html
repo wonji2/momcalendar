@@ -300,7 +300,7 @@ details summary::-webkit-details-marker{display:none}
       ↕️ 순서는 <b>≡ 손잡이를 잡고 드래그</b>(또는 ▲▼)해서 바꾸면 자동 저장돼요<br>
       🖼️ 사진이 안 보이면 Supabase Storage의 <b>banners 버킷이 공개(public)</b>인지 확인하세요(아래 가이드)
     </div>
-    <div id="bannerList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="bannerList"></div>
   </div>
 
   <!-- 배너 추가/수정 모달 -->
@@ -1939,44 +1939,145 @@ async function loadBannerAdmin(){
 
 let bannerDragIdx=null;
 
+// ── 배너 스케줄/상태 헬퍼 ──
+function fmtBdt(iso){
+  if(!iso) return null;
+  const d=new Date(iso);
+  if(isNaN(d.getTime())) return null;
+  const M=d.getMonth()+1, D=d.getDate();
+  const h=String(d.getHours()).padStart(2,'0'), m=String(d.getMinutes()).padStart(2,'0');
+  return `${M}/${D} ${h}:${m}`;
+}
+function bannerStatus(b){
+  if(b.active===false) return {key:'off',label:'⏸ 숨김',c:'#8A8A8A',bg:'#F0F0F0'};
+  const now=Date.now();
+  const f=b.show_from?new Date(b.show_from).getTime():null;
+  const u=b.show_until?new Date(b.show_until).getTime():null;
+  if(u!==null&&!isNaN(u)&&now>u) return {key:'ended',label:'⌛ 종료됨',c:'#B0392E',bg:'#FDECEA'};
+  if(f!==null&&!isNaN(f)&&now<f) return {key:'soon',label:'⏳ 노출예정',c:'#9A6A00',bg:'#FFF6E0'};
+  return {key:'live',label:'🟢 노출중',c:'#1E7D32',bg:'#E8F5E9'};
+}
+function bannerPeriodText(b){
+  const f=fmtBdt(b.show_from), u=fmtBdt(b.show_until);
+  if(!f&&!u) return '상시 노출 (기간 제한 없음)';
+  if(f&&u) return `${f} → ${u}`;
+  if(f) return `${f}부터`;
+  return `${u}까지`;
+}
+
+// ── 배너 스케줄 타임라인 (오늘부터 N일 · 가로 스크롤) ──
+function renderBannerTimeline(){
+  const KO=['일','월','화','수','목','금','토'];
+  const COLW=56;                 // 하루 칸 너비(px)
+  const day=86400000;
+  const start=new Date(); start.setHours(0,0,0,0);
+  const startMs=start.getTime();
+  // 표시 일수: 기본 14일, 일정이 더 멀면 그 끝까지, 14~60일 범위
+  let lastDay=14;
+  bannerData.forEach(b=>{
+    if(b.show_until){ const d=Math.ceil((new Date(b.show_until).getTime()-startMs)/day)+1; if(d>lastDay) lastDay=d; }
+    if(b.show_from){ const d=Math.ceil((new Date(b.show_from).getTime()-startMs)/day)+2; if(d>lastDay) lastDay=d; }
+  });
+  const N=Math.max(14,Math.min(lastDay,60));
+  const total=N*day, endMs=startMs+total, trackW=N*COLW;
+  // 헤더(날짜·요일)
+  let head='';
+  for(let d=0; d<N; d++){
+    const dt=new Date(startMs+d*day);
+    const today=d===0, we=dt.getDay()===0||dt.getDay()===6;
+    head+=`<div style="flex:0 0 ${COLW}px;width:${COLW}px;box-sizing:border-box;text-align:center;padding:3px 0;font-size:10px;font-weight:${today?'800':'600'};color:${today?'#4A35A0':(we?'#C58A8A':'#9b9b9b')};line-height:1.3">${dt.getMonth()+1}/${dt.getDate()}<br><span style="font-size:9px;color:${today?'#7B68EE':'#c4c4c4'}">${KO[dt.getDay()]}</span></div>`;
+  }
+  const sched=bannerData.filter(b=>b.show_from||b.show_until);
+  const always=bannerData.filter(b=>!b.show_from&&!b.show_until);
+  let rows='';
+  if(!sched.length){
+    rows=`<div style="padding:14px;text-align:center;font-size:11px;color:#bbb">시간 지정된 배너가 없어요 (모두 상시 노출)</div>`;
+  }else{
+    sched.forEach(b=>{
+      const f=b.show_from?new Date(b.show_from).getTime():startMs;
+      const u=b.show_until?new Date(b.show_until).getTime():endMs;
+      const cf=Math.max(f,startMs), cu=Math.min(u,endMs);
+      const st=bannerStatus(b);
+      const inWin=(cu>cf)&&(f<endMs)&&(u>startMs);
+      const left=((cf-startMs)/total)*trackW;
+      const width=Math.max(((cu-cf)/total)*trackW,20);
+      const safeTitle=(b.title||'(제목없음)').replace(/"/g,'&quot;');
+      rows+=`<div style="position:relative;height:26px;margin:5px 0;width:${trackW}px;background-image:linear-gradient(90deg,#ECECF4 0 1px,transparent 1px);background-size:${COLW}px 100%;border-radius:5px">`;
+      if(inWin){
+        rows+=`<div title="${safeTitle}" onclick="openBannerEdit(${b.id})" style="position:absolute;top:2px;bottom:2px;left:${left}px;width:${width}px;background:${st.bg};border:1px solid ${st.c};border-radius:6px;display:flex;align-items:center;padding:0 6px;overflow:hidden;cursor:pointer"><span style="font-size:10px;font-weight:700;color:${st.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.title||'(제목없음)'}</span></div>`;
+      }else{
+        rows+=`<div style="position:absolute;left:6px;top:0;line-height:26px;font-size:10px;color:#c4c4c4">${b.title||'(제목없음)'} · 표시 기간(${N}일) 밖</div>`;
+      }
+      rows+=`</div>`;
+    });
+  }
+  const nowLeft=Math.min(Math.max(((Date.now()-startMs)/total)*trackW,0),trackW);
+  const nowLine=sched.length?`<div style="position:absolute;top:0;bottom:0;left:${nowLeft}px;width:2px;background:#FF4D6D;z-index:2" title="지금"></div>`:'';
+  const alwaysChips=always.length?`<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:10px;color:#999">상시 노출:</span>${always.map(b=>`<span onclick="openBannerEdit(${b.id})" style="cursor:pointer;font-size:10px;font-weight:700;color:#4A35A0;background:#EEE9FF;border-radius:20px;padding:3px 9px">${b.title||'(제목없음)'}</span>`).join('')}</div>`:'';
+  return `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:14px">
+    <div style="font-size:12px;font-weight:800;color:#2A1D6E;margin-bottom:8px">📅 배너 스케줄 <span style="font-weight:500;color:#bbb;font-size:10px">· 오늘부터 ${N}일 · ◀▶ 옆으로 넘겨 보기 · 막대 누르면 수정</span></div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px">
+      <div style="width:${trackW}px">
+        <div style="display:flex;border-bottom:1px solid #EEE;margin-bottom:4px">${head}</div>
+        <div style="position:relative">${nowLine}${rows}</div>
+      </div>
+    </div>
+    ${alwaysChips}
+  </div>`;
+}
+
+// ── 배너 카드 그리드 (PC: 자동 다단) ──
+function renderBannerCards(){
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">`+
+  bannerData.map((b,i)=>{
+    const hasImg=b.img_url&&b.img_url.trim();
+    const gradBg=b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)';
+    const st=bannerStatus(b);
+    const period=bannerPeriodText(b);
+    const lo=fmtBdt(b.link_open_at);
+    const linkOpenTxt=lo?`${lo} 활성`:(b.link?'즉시 활성':'—');
+    const imgLayer=hasImg
+      ? `<img src="${b.img_url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"><div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.5),rgba(0,0,0,.05))"></div>`
+      : '';
+    return `<div class="banner-row" draggable="true" data-i="${i}"
+        ondragstart="bannerDragStart(event,${i})" ondragover="bannerDragOver(event,${i})" ondragleave="bannerDragLeave(event)" ondrop="bannerDrop(event,${i})" ondragend="bannerDragEnd()"
+        style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border:2px solid transparent;transition:border-color .12s;display:flex;flex-direction:column">
+      <div style="position:relative;aspect-ratio:16/7;background:${gradBg};overflow:hidden;cursor:grab">
+        ${imgLayer}
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 12px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none">
+          <div style="font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.title||'(제목 없음)'}</div>
+          <div style="font-size:10px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.subtitle||''}</div>
+        </div>
+        <span style="position:absolute;top:7px;left:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:${st.bg};color:${st.c}">${st.label}</span>
+        <span style="position:absolute;top:7px;right:7px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.38);border-radius:20px;padding:2px 7px">#${i+1}</span>
+      </div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#FAF9FF;border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:11px;color:#555"><span style="color:#9b8ed0;font-weight:700">🗓️ 노출</span>&nbsp; ${period}</div>
+          <div style="font-size:11px;color:#555"><span style="color:#9b8ed0;font-weight:700">🔗 링크</span>&nbsp; ${linkOpenTxt}</div>
+          <div style="font-size:10px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">↗️ ${b.link||'링크 없음'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;gap:3px;margin-right:auto">
+            <button onclick="moveBanner(${i},-1)" ${i===0?'disabled':''} title="앞으로" style="width:28px;height:28px;border:1px solid #EBE7FA;background:#fff;border-radius:7px;cursor:pointer;color:${i===0?'#ddd':'#7B68EE'};font-family:inherit;font-size:12px">▲</button>
+            <button onclick="moveBanner(${i},1)" ${i===bannerData.length-1?'disabled':''} title="뒤로" style="width:28px;height:28px;border:1px solid #EBE7FA;background:#fff;border-radius:7px;cursor:pointer;color:${i===bannerData.length-1?'#ddd':'#7B68EE'};font-family:inherit;font-size:12px">▼</button>
+          </div>
+          <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:6px 11px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${b.active?'숨기기':'표시'}</button>
+          <button onclick="openBannerEdit(${b.id})" style="padding:6px 11px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+          <button onclick="deleteBanner(${b.id})" title="삭제" style="padding:6px 11px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')+`</div>`;
+}
+
 function renderBannerList(){
   const el=document.getElementById('bannerList');
   if(!bannerData.length){
     el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 배너가 없어요<br>+ 배너 추가 버튼으로 추가해주세요</div>`;
     return;
   }
-  el.innerHTML=bannerData.map((b,i)=>{
-    const hasImg=b.img_url&&b.img_url.trim();
-    const gradBg=b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)';
-    const thumbInner=hasImg
-      ? `<img src="${b.img_url}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none';this.parentElement.querySelector('.thumb-err').style.display='flex'">
-         <div class="thumb-err" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#FFEBEE;color:#C62828;font-size:9px;font-weight:700;text-align:center;padding:4px;line-height:1.3">⚠️ 이미지<br>로드 실패<br><span style="font-weight:400">버킷 공개 확인</span></div>`
-      : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-size:10px;font-weight:600">색상 배경</div>`;
-    return`<div class="banner-row" draggable="true" data-i="${i}"
-        ondragstart="bannerDragStart(event,${i})" ondragover="bannerDragOver(event,${i})" ondragleave="bannerDragLeave(event)" ondrop="bannerDrop(event,${i})" ondragend="bannerDragEnd()"
-        style="display:flex;align-items:stretch;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);border:2px solid transparent;transition:border-color .12s">
-      <div title="드래그해서 순서 변경" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 9px;background:#FAF9FF;cursor:grab;color:#B0A8D8;user-select:none">
-        <span style="font-size:17px;line-height:1">≡</span>
-        <button onclick="moveBanner(${i},-1)" ${i===0?'disabled':''} title="위로" style="background:none;border:none;cursor:pointer;color:${i===0?'#ddd':'#7B68EE'};font-size:12px;padding:0;line-height:1;font-family:inherit">▲</button>
-        <button onclick="moveBanner(${i},1)" ${i===bannerData.length-1?'disabled':''} title="아래로" style="background:none;border:none;cursor:pointer;color:${i===bannerData.length-1?'#ddd':'#7B68EE'};font-size:12px;padding:0;line-height:1;font-family:inherit">▼</button>
-      </div>
-      <div style="position:relative;width:118px;flex-shrink:0;background:${gradBg};overflow:hidden">${thumbInner}</div>
-      <div style="flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;gap:3px;justify-content:center">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:${b.active?'#E8F5E9':'#f0f0f0'};color:${b.active?'#2E7D32':'#999'}">${b.active?'✅ 노출':'⏸ 숨김'}</span>
-          <span style="font-size:10px;color:#bbb">#${i+1}</span>
-        </div>
-        <div style="font-size:14px;font-weight:700;color:#191919;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.title||'(제목 없음)'}</div>
-        <div style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.subtitle||''}</div>
-        <div style="font-size:10px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔗 ${b.link||'링크 없음'}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:5px;padding:10px;justify-content:center;flex-shrink:0">
-        <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:5px 10px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${b.active?'숨기기':'표시'}</button>
-        <button onclick="openBannerEdit(${b.id})" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
-        <button onclick="deleteBanner(${b.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
-      </div>
-    </div>`;
-  }).join('');
+  el.innerHTML=renderBannerTimeline()+renderBannerCards();
 }
 
 // ── 드래그앤드롭 / ▲▼ 순서 변경 ──
@@ -2049,8 +2150,16 @@ function openBannerEdit(id){
   document.getElementById('bShowFrom').value=b.show_from?(()=>{const d=new Date(b.show_from);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);})():'';
   document.getElementById('bShowUntil').value=b.show_until?(()=>{const d=new Date(b.show_until);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);})():'';
   document.getElementById('bImgFile').value='';
-  document.getElementById('bImgPreview').style.display='none';
-  document.getElementById('bImgUploadTxt').style.display='block';
+  document.getElementById('bImg').value=b.img_url||'';
+  if(b.img_url){
+    document.getElementById('bImgPreviewImg').src=b.img_url;
+    document.getElementById('bImgPreview').style.display='block';
+    document.getElementById('bImgUploadTxt').style.display='none';
+    previewImgUrl(b.img_url);
+  }else{
+    document.getElementById('bImgPreview').style.display='none';
+    document.getElementById('bImgUploadTxt').style.display='block';
+  }
   document.getElementById('bOrder').value=b.sort_order||1;
   document.getElementById('bActive').checked=b.active!==false;
   // 배경색 파싱
@@ -2102,21 +2211,29 @@ async function saveBanner(){
     active:document.getElementById('bActive').checked,
   };
 
+  let res;
   if(id){
     // 수정: 순서는 그대로 유지(payload에서 제외)
-    await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
+    res=await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
       method:'PATCH',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
       body:JSON.stringify(payload)
     });
   } else {
     // 신규: 맨 끝 순서로
     payload.sort_order=(bannerData.reduce((m,b)=>Math.max(m,b.sort_order||0),0))+1;
-    await fetch(`${SB_URL}/rest/v1/banners`,{
+    res=await fetch(`${SB_URL}/rest/v1/banners`,{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
       body:JSON.stringify(payload)
     });
+  }
+  if(!res.ok){
+    let msg='';
+    try{ const j=await res.json(); msg=j.message||j.hint||j.details||JSON.stringify(j); }
+    catch(_){ try{ msg=await res.text(); }catch(__){ msg=''; } }
+    alert(`❌ 배너 저장 실패 (${res.status})\n${msg||''}\n\n로그인이 만료됐거나 권한 문제일 수 있어요.\n페이지를 새로고침해 다시 로그인한 뒤 시도해보세요.`);
+    return; // 모달 유지 · 거짓 '완료' 표시 안 함
   }
   closeBannerModal();
   await loadBannerAdmin();
