@@ -1772,6 +1772,7 @@ async function crawlInsertSelected(){
   const chunks=[];
   for(let i=0;i<selected.length;i+=CHUNK) chunks.push(selected.slice(i,i+CHUNK));
 
+  try{
   for(let ci=0; ci<chunks.length; ci++){
     const chunk=chunks[ci];
     btn.textContent=`등록 중... (${okCount+failed.length}/${selected.length})`;
@@ -1808,19 +1809,21 @@ async function crawlInsertSelected(){
       }catch(e){ failed.push({item:d, reason:'통신 실패/타임아웃: '+e.message}); }
     }
   }
+  }finally{
+    reset(); // ★ 어떤 경우에도(성공/실패/예외) 버튼 항상 복구 → '등록 중…'에서 멈추는 문제 방지
+  }
 
-  // 결과
+  // 결과 (버튼은 이미 복구된 상태에서 처리)
   if(failed.length===0){
-    alert(`✅ ${okCount}건 등록 완료!`);
     document.getElementById('crawlText').value='';
     document.getElementById('crawlResultArea').style.display='none';
     document.getElementById('crawlStatus').textContent='';
     crawlParsedData=[];
-    await loadData();
+    alert(`✅ ${okCount}건 등록 완료!`);
+    try{ await loadData(); }catch(_){}   // 목록 새로고침이 늦어도 버튼은 안 멈추게 가드
   }else{
     crawlParsedData=failed.map(f=>{ f.item.__failReason=f.reason; return f.item; });
     renderCrawlCards();
-    reset();
     alert(`✅ ${okCount}건 등록 완료\n❌ ${failed.length}건 실패\n\n실패한 항목만 아래에 빨갛게 남겨뒀어요. 사유 확인 후 수정해 다시 등록하거나 🗑️로 삭제하세요.`);
   }
 }
