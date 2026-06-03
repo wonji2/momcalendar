@@ -2211,33 +2211,47 @@ async function saveBanner(){
     active:document.getElementById('bActive').checked,
   };
 
-  let res;
-  if(id){
-    // 수정: 순서는 그대로 유지(payload에서 제외)
-    res=await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
-      method:'PATCH',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-      body:JSON.stringify(payload)
-    });
-  } else {
+  if(!id){
     // 신규: 맨 끝 순서로
     payload.sort_order=(bannerData.reduce((m,b)=>Math.max(m,b.sort_order||0),0))+1;
-    res=await fetch(`${SB_URL}/rest/v1/banners`,{
-      method:'POST',
+  }
+  const url=id?`${SB_URL}/rest/v1/banners?id=eq.${id}`:`${SB_URL}/rest/v1/banners`;
+  const method=id?'PATCH':'POST';
+  const SCHED_COLS=['link_open_at','show_from','show_until','img_position','img_size'];
+  const dropped=[];
+  let res, lastMsg='';
+  for(let attempt=0; attempt<8; attempt++){
+    res=await fetch(url,{
+      method,
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
       body:JSON.stringify(payload)
     });
-  }
-  if(!res.ok){
+    if(res.ok) break;
     let msg='';
     try{ const j=await res.json(); msg=j.message||j.hint||j.details||JSON.stringify(j); }
     catch(_){ try{ msg=await res.text(); }catch(__){ msg=''; } }
-    alert(`❌ 배너 저장 실패 (${res.status})\n${msg||''}\n\n로그인이 만료됐거나 권한 문제일 수 있어요.\n페이지를 새로고침해 다시 로그인한 뒤 시도해보세요.`);
+    lastMsg=msg;
+    // banners 테이블에 없는 컬럼이면 → 그 키를 빼고 재시도(최소한 저장은 되게)
+    const m=msg.match(/Could not find the '([^']+)' column|column "?([A-Za-z_]+)"?\s+.*does not exist/i);
+    const col=m&&(m[1]||m[2]);
+    if(res.status===400 && col && Object.prototype.hasOwnProperty.call(payload,col)){
+      delete payload[col];
+      if(!dropped.includes(col)) dropped.push(col);
+      continue;
+    }
+    break; // 그 외 오류는 중단
+  }
+  if(!res.ok){
+    alert(`❌ 배너 저장 실패 (${res.status})\n${lastMsg||''}\n\n로그인이 만료됐거나 권한 문제일 수 있어요.\n페이지를 새로고침해 다시 로그인한 뒤 시도해보세요.`);
     return; // 모달 유지 · 거짓 '완료' 표시 안 함
   }
   closeBannerModal();
   await loadBannerAdmin();
-  alert(`✅ 배너 ${id?'수정':'추가'} 완료! 사이트 새로고침하면 반영돼요.`);
+  if(dropped.length){
+    alert(`✅ 배너 ${id?'수정':'추가'}는 저장됐어요.\n\n⚠️ 다만 [${dropped.join(', ')}] 항목은 banners 테이블에 컬럼이 없어 저장되지 않았어요.\n시간 지정(노출기간·링크오픈) 기능을 쓰려면 Supabase → SQL Editor에서 아래를 한 번만 실행해주세요:\n\nALTER TABLE banners\n  ADD COLUMN IF NOT EXISTS link_open_at timestamptz,\n  ADD COLUMN IF NOT EXISTS show_from   timestamptz,\n  ADD COLUMN IF NOT EXISTS show_until  timestamptz,\n  ADD COLUMN IF NOT EXISTS img_position text,\n  ADD COLUMN IF NOT EXISTS img_size    text;\n\n실행 후 다시 저장하면 시간 설정도 정상 저장돼요.`);
+  }else{
+    alert(`✅ 배너 ${id?'수정':'추가'} 완료! 사이트 새로고침하면 반영돼요.`);
+  }
 }
 
 async function toggleBannerActive(id,current){
