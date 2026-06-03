@@ -75,15 +75,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 .cal-head{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;margin-bottom:4px}
 .cal-head span{font-size:14px;font-weight:800}
 .cal-head button{background:none;border:1px solid var(--bd);border-radius:7px;padding:3px 10px;cursor:pointer;font-size:14px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.cal-grid{display:flex;flex-direction:column}
+.cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dh-row{margin-bottom:2px}
 .cal-dh{text-align:center;font-size:10px;color:var(--t3);padding:4px 0;font-weight:700}
-.cal-cell{min-height:68px;background:#fff;border-radius:7px;padding:3px 3px;font-size:9px;overflow:hidden}
-.cal-cell .cn{font-size:12px;font-weight:700;text-align:center;margin-bottom:2px}
-.cal-cell.today .cn{background:var(--p);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin:0 auto}
-.cal-cell.other-month{opacity:.35}
-.cal-bar{border-radius:3px;padding:1px 3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;color:#fff;font-weight:600}
-.cm-btn{padding:5px 11px;border:1.5px solid var(--bd);background:#fff;color:var(--t3);border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
-.cm-btn.cm-on{background:var(--p);color:#fff;border-color:var(--p)}
+.cal-week{border-top:1px solid #F0F0F0;padding:2px 0 4px}
+.cal-num-row{}
+.cal-cell-num{text-align:center;padding-top:3px;min-height:20px}
+.cal-cell-num .cn{font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px}
+.cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
+.cal-holi{font-size:8px;color:#E25555;font-weight:700;line-height:1.1;margin-top:-1px}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:2px;min-height:15px}
+.cal-bar-gap{}
+.cal-bar{border-radius:3px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;font-weight:700;line-height:1.5;margin:0 1px}
+.cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-more{font-size:8px;color:var(--t3);text-align:center;font-weight:700}
 /* 빈 */
 .empty{text-align:center;padding:36px 16px;color:var(--t3);font-size:13px}
 /* 모달 */
@@ -119,7 +125,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 </div>
 
 <!-- 가입 -->
-<div id="signupView">
+<div id="signupView" style="display:none">
   <div class="card">
     <div class="logo-txt">맘캘린더</div>
     <div class="logo-sub">셀러 전용 마이페이지</div>
@@ -151,7 +157,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 </div>
 
 <!-- 로그인 -->
-<div id="loginView" style="display:none">
+<div id="loginView">
   <div class="card">
     <div class="logo-txt">맘캘린더</div>
     <div class="logo-sub">셀러 전용 마이페이지</div>
@@ -162,8 +168,29 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
     <div class="fl"><label>비밀번호</label><input id="liPw" type="password" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn btn-p" onclick="doLogin()" style="margin-top:4px">로그인</button>
     <div class="err" id="liErr"></div>
-    <div class="divider">아직 계정이 없으신가요?</div>
-    <button class="btn btn-o" onclick="showSignup()">가입 신청하기</button>
+    <div class="divider">아직 가입을 안 하셨나요?</div>
+    <button class="btn btn-o" onclick="showSignup()">가입하기</button>
+  </div>
+  <div style="padding:18px 16px 8px">
+    <div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:10px">맘캘린더 둘러보기</div>
+    <div style="display:flex;gap:8px">
+      <a href="https://momcalendar.com" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">📅</span>
+        <span style="font-size:11px;font-weight:700;color:var(--p)">웹사이트</span>
+      </a>
+      <a href="https://cafe.naver.com/momcal" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">☕</span>
+        <span style="font-size:11px;font-weight:700;color:#03C75A">네이버카페</span>
+      </a>
+      <a href="https://www.instagram.com/momcal_" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">📷</span>
+        <span style="font-size:11px;font-weight:700;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);-webkit-background-clip:text;-webkit-text-fill-color:transparent">인스타그램</span>
+      </a>
+    </div>
+  </div>
+  <div style="text-align:center;padding:8px 16px 24px">
+    <div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px">일정 등록은 무료예요 😊</div>
+    <a href="https://ig.me/m/momcal_" target="_blank" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">유료 협업·광고·제휴 문의</a>
   </div>
 </div>
 
@@ -221,12 +248,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
       <div id="calCapture">
         <div class="cal-grid" id="calGrid"></div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--t3);font-weight:600">색상 모드</span>
-        <button id="cmCat" class="cm-btn cm-on" onclick="setColorMode('cat')">분류별</button>
-        <button id="cmRandom" class="cm-btn" onclick="setColorMode('random')">알록달록</button>
-        <span style="font-size:10px;color:var(--t3)">개별 색은 각 공구 수정에서</span>
-      </div>
+      <div style="font-size:11px;color:var(--t3);margin-top:10px;text-align:center">🎨 색상은 자동으로 알록달록하게 배정돼요 · 개별 색 변경은 각 공구 수정에서</div>
       <button onclick="saveCalImage()" style="width:100%;margin-top:10px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📷 캘린더 이미지로 저장</button>
     </div>
   </div>
@@ -245,7 +267,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
     <!-- 텍스트 파싱 -->
     <div style="background:#F0E6FA;border-radius:10px;padding:11px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:800;color:var(--pd);margin-bottom:6px">📋 텍스트로 한 번에 등록</div>
-      <div style="font-size:11px;color:var(--pd);margin-bottom:6px;line-height:1.7">날짜+상품명 형식으로 붙여넣으세요.<br>예) <b>6/5 라무르 선크림</b> 또는 <b>6/5~6/10 선크림</b></div>
+      <div style="font-size:11px;color:var(--pd);margin-bottom:6px;line-height:1.7">날짜+상품명 형식으로 붙여넣으세요. (한 줄에 하나씩)<br>예) <b>6/5 라무르 선크림</b> · <b>6/5~6/10 선크림</b> · <b>6/5-6/10 선크림</b><br>📌 마감일을 안 적으면 <b>자동으로 4일간 진행</b>으로 설정돼요</div>
       <textarea class="parse-box" id="parseText" placeholder="6/5 라무르 선크림 모음전&#10;6/8~6/12 허그봉봉 아기욕조&#10;6/15 에어메이드 제습기"></textarea>
       <button class="btn btn-p" onclick="parseText()" style="margin-top:7px;padding:10px">자동 분석하기 ✨</button>
     </div>
@@ -304,14 +326,14 @@ const CATS={
 const CAT_COLORS={'육아':'#9B6FD4','리빙':'#26A69A','식품':'#66BB6A','건강':'#26C6DA','인테리어':'#8D6E63','가전':'#5C6BC0','뷰티':'#EC407A','패션':'#FFA726','여행':'#42A5F5','반려동물':'#AB47BC'};
 // 셀러가 고를 수 있는 색상 팔레트 (파스텔)
 const PALETTE=[
-  {name:'노랑',bar:'#FFE08A',txt:'#7A5C00'},
-  {name:'보라',bar:'#D6C3F0',txt:'#4A2880'},
-  {name:'블루',bar:'#BBD5F5',txt:'#1B4D80'},
-  {name:'핑크',bar:'#F5C2D5',txt:'#8A2050'},
-  {name:'그린',bar:'#C2E5C2',txt:'#1F5C1F'},
-  {name:'코랄',bar:'#F5C8B8',txt:'#8A3A1A'},
-  {name:'민트',bar:'#B8E5DC',txt:'#155A4D'},
-  {name:'라벤더',bar:'#E0D0F0',txt:'#5A3880'},
+  {name:'보라',bar:'#C9A9F0',txt:'#3A1A6B'},
+  {name:'연보라',bar:'#E2D4F5',txt:'#4A2880'},
+  {name:'노랑',bar:'#FCE7A0',txt:'#6B4E00'},
+  {name:'핑크',bar:'#F7CEDC',txt:'#8A2050'},
+  {name:'블루',bar:'#C5DBF5',txt:'#1B4D80'},
+  {name:'그린',bar:'#CDE8C7',txt:'#1F5C1F'},
+  {name:'코랄',bar:'#F7D2C2',txt:'#8A3A1A'},
+  {name:'민트',bar:'#C2E8DF',txt:'#155A4D'},
 ];
 // 2026년 한국 공휴일
 const HOLIDAYS={
@@ -381,6 +403,7 @@ async function doLogin(){
       return;
     }
     _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta};
+    try{localStorage.setItem('mc_seller_id',insta);}catch(e){}
     onLogin();
   }catch(e){err.textContent='오류: '+e.message;}
 }
@@ -396,7 +419,10 @@ function doLogout(){
   _seller=null;_data=[];
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
-  ['liInsta','liPw'].forEach(id=>document.getElementById(id).value='');
+  // 아이디는 저장된 값으로 유지, 비밀번호만 비움
+  let saved='';try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  document.getElementById('liInsta').value=saved;
+  document.getElementById('liPw').value='';
   showLogin();
 }
 
@@ -431,7 +457,9 @@ function renderList(){
   const today=new Date().toISOString().slice(0,10);
   const el=document.getElementById('gList');
   if(!_data.length){el.innerHTML='<div class="empty">📭 등록된 공구가 없어요<br>공구 추가 버튼을 눌러보세요!</div>';return;}
-  el.innerHTML=_data.map(g=>{
+  // 오픈일 가까운 순(오름차순) 정렬
+  const sorted=[..._data].sort((a,b)=>(a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id);
+  el.innerHTML=sorted.map(g=>{
     const exp=g.end_date&&g.end_date<today;
     const pen=!g.approved;
     const label=pen?'승인대기':exp?'마감':'진행중';
@@ -453,35 +481,27 @@ function renderList(){
 }
 
 // ── 캘린더 ──
-// 색상 모드: 'cat'(분류별, 기본) | 'random'(알록달록)
-let _colorMode='cat';
+// 색상 모드: 'random'(알록달록, 기본). 개별 지정 색이 있으면 그게 우선
+let _colorMode='random';
 let _autoColorMap={};
 function buildAutoColors(){
-  // 알록달록 모드용: open_date 순으로 정렬해 인접 공구끼리 다른 색 순환 배정
+  // 알록달록: open_date 순으로 정렬해 인접 공구끼리 다른 색 순환 배정
   _autoColorMap={};
   const sorted=[..._data].sort((a,b)=>(a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id);
   let i=0;
   sorted.forEach(g=>{ _autoColorMap[g.id]=PALETTE[i%PALETTE.length].name; i++; });
 }
 function barStyle(g){
-  // 1순위: 개별 지정 색상 (셀러가 직접 고른 것)
-  if(g.color){
-    const p=PALETTE.find(x=>x.name===g.color);
-    if(p) return `background:${p.bar};color:${p.txt}`;
-  }
-  // 2순위: 색상 모드
-  if(_colorMode==='random'){
-    const p=PALETTE.find(x=>x.name===_autoColorMap[g.id]);
-    if(p) return `background:${p.bar};color:${p.txt}`;
-  }
-  // 기본(분류별): 카테고리 색
-  return `background:${CAT_COLORS[g.major]||'#999'};color:#fff`;
+  // 개별 지정 색상이 있으면 그것, 없으면 자동 배정 색
+  const colorName=g.color||_autoColorMap[g.id];
+  const p=PALETTE.find(x=>x.name===colorName);
+  if(p) return `background:${p.bar};color:${p.txt}`;
+  return `background:${PALETTE[0].bar};color:${PALETTE[0].txt}`;
 }
-function setColorMode(mode){
-  _colorMode=mode;
-  document.getElementById('cmCat').classList.toggle('cm-on',mode==='cat');
-  document.getElementById('cmRandom').classList.toggle('cm-on',mode==='random');
-  buildCal();
+// end_date 없을 때 안전하게 open+3일로 간주 (null이 모든 날짜에 뜨는 버그 방지)
+function effEnd(g){
+  if(g.end_date) return g.end_date;
+  return addDays(g.open_date,3);
 }
 function buildCal(){
   buildAutoColors();
@@ -490,43 +510,103 @@ function buildCal(){
   const grid=document.getElementById('calGrid');
   const days=['일','월','화','수','목','금','토'];
   const today=new Date().toISOString().slice(0,10);
-  let html=days.map((d,i)=>`<div class="cal-dh"${i===0?' style="color:#E25555"':i===6?' style="color:#4A77C9"':''}>${d}</div>`).join('');
+
   const first=new Date(y,m,1).getDay();
   const last=new Date(y,m+1,0).getDate();
   let cells=[];
-  // 이전달 채우기 (실제 날짜로)
-  for(let i=first-1;i>=0;i--){
-    const dt=new Date(y,m,-i);
-    cells.push({date:dt,cur:false});
-  }
-  // 이번달
-  for(let d=1;d<=last;d++){
-    cells.push({date:new Date(y,m,d),cur:true});
-  }
-  // 다음달 채우기 (실제 날짜로) — 6주(42칸) 보장해서 다음달 미리보기 더 넉넉히
+  for(let i=first-1;i>=0;i--){ cells.push({date:new Date(y,m,-i),cur:false}); }
+  for(let d=1;d<=last;d++){ cells.push({date:new Date(y,m,d),cur:true}); }
   let nextd=1;
   while(cells.length%7!==0 || cells.length<42){
     cells.push({date:new Date(y,m+1,nextd++),cur:false});
     if(cells.length>=42 && cells.length%7===0) break;
   }
-  cells.forEach((c,idx)=>{
-    const dow=idx%7;
-    const dt=c.date;
-    const dateStr=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-    const isToday=dateStr===today;
-    const holiday=HOLIDAYS[dateStr];
-    const items=_data.filter(g=>g.open_date<=dateStr&&(!g.end_date||g.end_date>=dateStr));
-    const bars=items.slice(0,4).map(g=>`<div class="cal-bar" style="${barStyle(g)}">${g.name}</div>`).join('');
-    const more=items.length>4?`<div style="font-size:9px;color:var(--t3)">+${items.length-4}</div>`:'';
-    let numColor='';
-    if(holiday||dow===0) numColor='color:#E25555';
-    else if(dow===6) numColor='color:#4A77C9';
-    html+=`<div class="cal-cell${c.cur?'':' other-month'}${isToday?' today':''}">
-      <div class="cn" style="${numColor}">${dt.getDate()}</div>
-      ${holiday?`<div style="font-size:8px;color:#E25555;font-weight:700;text-align:center;margin-bottom:1px">${holiday}</div>`:''}
-      ${bars}${more}
-    </div>`;
-  });
+  const ds=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+
+  // 요일 헤더
+  let html=`<div class="cal-row cal-dh-row">`+days.map((d,i)=>`<div class="cal-dh"${i===0?' style="color:#E25555"':i===6?' style="color:#4A77C9"':''}>${d}</div>`).join('')+`</div>`;
+
+  // 주 단위로 끊기
+  const MAX_BARS=4; // 한 셀에 표시할 최대 바 수
+  for(let w=0; w<cells.length/7; w++){
+    const week=cells.slice(w*7,w*7+7);
+    const weekStart=ds(week[0].date), weekEnd=ds(week[6].date);
+
+    // 1) 날짜 숫자 줄
+    let numRow=`<div class="cal-row cal-num-row">`;
+    week.forEach((c,i)=>{
+      const dateStr=ds(c.date);
+      const isToday=dateStr===today;
+      const holiday=HOLIDAYS[dateStr];
+      let nc='';
+      if(holiday||i===0) nc='color:#E25555'; else if(i===6) nc='color:#4A77C9';
+      if(!c.cur) nc+=';opacity:.35';
+      numRow+=`<div class="cal-cell-num">
+        <div class="cn${isToday?' today':''}" style="${nc}">${c.date.getDate()}</div>
+        ${holiday?`<div class="cal-holi">${holiday}</div>`:''}
+      </div>`;
+    });
+    numRow+=`</div>`;
+
+    // 2) 이 주에 걸치는 공구를 레인(겹침 방지)에 배치
+    const segs=[]; // {start:0~6, end:0~6, g}
+    _data.forEach(g=>{
+      if(!g.open_date) return;
+      const o=g.open_date, e=effEnd(g);
+      if(e<weekStart || o>weekEnd) return; // 이 주와 안 겹침
+      // 주 내 시작/끝 칸 인덱스
+      let si=week.findIndex(c=>ds(c.date)>=o);
+      if(si<0) si=0;
+      // o가 주 시작보다 이전이면 0부터
+      if(o<weekStart) si=0;
+      let ei=6;
+      for(let i=6;i>=0;i--){ if(ds(week[i].date)<=e){ ei=i; break; } }
+      if(e>weekEnd) ei=6;
+      segs.push({si,ei,g});
+    });
+    // 레인 배정 (같은 행에 안 겹치게)
+    const lanes=[]; // 각 레인은 [{si,ei}] 점유 구간
+    segs.sort((a,b)=>a.si-b.si||a.ei-b.ei);
+    segs.forEach(seg=>{
+      let placed=false;
+      for(let L=0;L<lanes.length;L++){
+        if(lanes[L].every(o=>seg.si>o.ei||seg.ei<o.si)){
+          lanes[L].push(seg); seg.lane=L; placed=true; break;
+        }
+      }
+      if(!placed){ seg.lane=lanes.length; lanes.push([seg]); }
+    });
+    const laneCount=Math.min(lanes.length,MAX_BARS);
+
+    // 3) 바 줄 (그리드 위에 절대 배치)
+    let barRows='';
+    for(let L=0;L<laneCount;L++){
+      let row=`<div class="cal-bar-row">`;
+      const inLane=segs.filter(s=>s.lane===L).sort((a,b)=>a.si-b.si);
+      let cursor=0;
+      inLane.forEach(s=>{
+        if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
+        const span=s.ei-s.si+1;
+        const showName=(s.g.open_date>=weekStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
+        row+=`<div class="cal-bar" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}">${showName?s.g.name:'&nbsp;'}</div>`;
+        cursor=s.ei+1;
+      });
+      row+=`</div>`;
+      barRows+=row;
+    }
+    // 초과 표시
+    let overflow='';
+    if(lanes.length>MAX_BARS){
+      overflow=`<div class="cal-more-row">`;
+      for(let i=0;i<7;i++){
+        const cnt=segs.filter(s=>s.lane>=MAX_BARS&&s.si<=i&&s.ei>=i).length;
+        overflow+=`<div class="cal-more">${cnt?'+'+cnt:''}</div>`;
+      }
+      overflow+=`</div>`;
+    }
+
+    html+=`<div class="cal-week">${numRow}${barRows}${overflow}</div>`;
+  }
   grid.innerHTML=html;
 }
 
@@ -565,8 +645,9 @@ function syncEM(){syncMinor('eMajor','eMinor');}
 // ── 텍스트 파싱 ──
 function parseDate(str,year){
   if(!str)return null;
-  str=str.trim();
-  const m=str.match(/^(\d{1,2})[\/월](\d{1,2})일?$/);
+  str=str.trim().replace(/[日]/g,'');
+  // 6/1, 6.1, 6-1, 6월1일, 6 1 등 다양한 구분자 허용
+  const m=str.match(/^(\d{1,2})\s*[\/\.\-월]\s*(\d{1,2})\s*일?$/);
   if(!m)return null;
   return `${year}-${String(parseInt(m[1])).padStart(2,'0')}-${String(parseInt(m[2])).padStart(2,'0')}`;
 }
@@ -578,11 +659,11 @@ function guessCat(name){
   const n=name.toLowerCase();
   if(/아기|유아|아이|키즈|유모차|이유|젖|분유|기저귀|빨대|젖병|교구|장난감|블록/.test(n)) return{major:'육아',minor:'육아용품'};
   if(/크림|세럼|앰플|토너|선크림|스킨|로션|에센스|마스크팩|클렌|폼/.test(n)) return{major:'뷰티',minor:'스킨케어'};
-  if(/선풍기|에어컨|청소기|제습기|공기청정|세탁기|건조기|냉장|가전/.test(n)) return{major:'가전',minor:'생활가전'};
-  if(/식빵|닭|소고기|돼지|곰탕|국밥|김치|나물|반찬|쌀|채소|과일|사과|딸기/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
-  if(/비타민|유산균|오메가|철분|홍삼|건강/.test(n)) return{major:'건강',minor:'건강기능성'};
-  if(/팬츠|티셔츠|원피스|자켓|코트|가디건|레깅스|신발|가방/.test(n)) return{major:'패션',minor:'의류'};
-  if(/소파|책상|의자|침대|커튼|조명|수납/.test(n)) return{major:'인테리어',minor:'가구'};
+  if(/선풍기|에어컨|청소기|제습기|공기청정|세탁기|건조기|냉장|가전|에어건|드라이기/.test(n)) return{major:'가전',minor:'생활가전'};
+  if(/식빵|닭|소고기|돼지|곰탕|국밥|김치|나물|반찬|쌀|채소|과일|사과|딸기|우유|치즈|곡물|간식/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
+  if(/비타민|유산균|오메가|철분|홍삼|건강|영양제/.test(n)) return{major:'건강',minor:'건강기능성'};
+  if(/팬츠|티셔츠|원피스|자켓|코트|가디건|레깅스|신발|가방|실내복|외출복|샌들|반바지/.test(n)) return{major:'패션',minor:'의류'};
+  if(/소파|책상|의자|침대|커튼|조명|수납|책장|매트/.test(n)) return{major:'인테리어',minor:'가구'};
   return{major:'리빙',minor:'생활용품'};
 }
 function parseText(){
@@ -591,19 +672,24 @@ function parseText(){
   const year=new Date().getFullYear();
   const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
   const rows=[];
+  // 날짜 토큰: 6/1, 6.1, 6-1, 6월1일, 6월1 등 허용
+  const DT='\\d{1,2}\\s*[\\/\\.월]\\s*\\d{1,2}\\s*일?';
+  const DT_END='\\d{1,2}(?:\\s*[\\/\\.월]\\s*\\d{1,2})?\\s*일?'; // 끝날짜는 일(day)만도 허용
   for(const line of lines){
-    const range=line.match(/^(\d{1,2}[\/월]\d{1,2}日?)\s*[~\-]\s*(\d{1,2}(?:[\/월]\d{1,2})?日?)\s+(.+)$/);
-    const single=line.match(/^(\d{1,2}[\/월]\d{1,2}日?)\s+(.+)$/);
+    // 범위: 구분자로 ~, -, –, ~ 등 허용 (시작날짜 뒤 공백+구분자+공백)
+    const range=line.match(new RegExp('^('+DT+')\\s*[~\\-–]\\s*('+DT_END+')\\s+(.+)$'));
+    const single=line.match(new RegExp('^('+DT+')\\s+(.+)$'));
     if(range){
-      const open=parseDate(range[1].replace('日','일').replace('日',''),year);
-      let endStr=range[2].replace('日','일');
-      if(!/[\/월]/.test(endStr)&&open) endStr=(open.slice(5,7).replace(/^0/,''))+'/'+endStr.replace(/[일日]/g,'');
+      const open=parseDate(range[1],year);
+      let endStr=range[2].trim().replace(/[日]/g,'');
+      // 끝날짜가 일(day)만 있으면 시작월 붙이기
+      if(!/[\/\.월]/.test(endStr)&&open) endStr=(parseInt(open.slice(5,7)))+'/'+endStr.replace(/일/g,'');
       const end=parseDate(endStr,year);
       const name=range[3].trim();
       const cat=guessCat(name);
       if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:end||addDays(open,3)});
     } else if(single){
-      const open=parseDate(single[1].replace('日','일'),year);
+      const open=parseDate(single[1],year);
       const name=single[2].trim();
       const cat=guessCat(name);
       if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:addDays(open,3)});
@@ -636,8 +722,8 @@ function addRow(preset={}){
       <select class="rmin">${minOpts}</select>
     </div>
     <div class="rd">
-      <input type="date" class="rop" value="${preset.open_date||today}">
-      <input type="date" class="ren" value="${preset.end_date||''}">
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">오픈일</div><input type="date" class="rop" value="${preset.open_date||today}"></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">마감일 (비우면 4일)</div><input type="date" class="ren" value="${preset.end_date||''}"></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
       <span style="font-size:11px;color:var(--t3);font-weight:600">색상</span>
@@ -661,15 +747,20 @@ function rowSyncMin(sel){
 async function saveAll(){
   const insta=(_seller.seller_insta||_seller.login_insta).replace('@','');
   const influencer=_seller.seller_influencer||_seller.login_insta;
-  const rows=[...document.querySelectorAll('#regRows .rrow')].map(r=>({
-    name:r.querySelector('.rn').value.trim(),
-    major:r.querySelector('.rmaj').value,
-    minor:r.querySelector('.rmin').value,
-    open_date:r.querySelector('.rop').value,
-    end_date:r.querySelector('.ren').value||null,
-    color:r.dataset.color||null,
-    insta,influencer,approved:false
-  })).filter(x=>x.name&&x.open_date);
+  const rows=[...document.querySelectorAll('#regRows .rrow')].map(r=>{
+    const op=r.querySelector('.rop').value;
+    let en=r.querySelector('.ren').value||null;
+    if(op&&!en) en=addDays(op,3); // 마감일 미입력 → 4일간 진행
+    return {
+      name:r.querySelector('.rn').value.trim(),
+      major:r.querySelector('.rmaj').value,
+      minor:r.querySelector('.rmin').value,
+      open_date:op,
+      end_date:en,
+      color:r.dataset.color||null,
+      insta,influencer,approved:false
+    };
+  }).filter(x=>x.name&&x.open_date);
   if(!rows.length){showToast('제품명을 입력한 항목이 없어요!');return;}
   try{
     const r=await fetch(`${SB}/rest/v1/gonggu`,{
@@ -754,6 +845,20 @@ function showToast(msg){
   t.textContent=msg;t.classList.add('on');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2800);
 }
+
+// ── 페이지 로드 시: 저장된 아이디 복원 ──
+(function initSavedId(){
+  let saved='';
+  try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  if(saved){
+    // 가입 화면 대신 로그인 화면을 먼저 보여주고 아이디 자동 입력
+    showLogin();
+    const li=document.getElementById('liInsta');
+    if(li) li.value=saved;
+    const lp=document.getElementById('liPw');
+    if(lp) setTimeout(()=>lp.focus(),100);
+  }
+})();
 </script>
 </body>
 </html>
