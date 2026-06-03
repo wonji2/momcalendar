@@ -77,19 +77,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 .cal-head button{background:none;border:1px solid var(--bd);border-radius:7px;padding:3px 10px;cursor:pointer;font-size:14px}
 .cal-grid{display:flex;flex-direction:column}
 .cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-dh-row{margin-bottom:0;border-bottom:1px solid #E8E8E8}
+.cal-dh-row{margin-bottom:2px}
 .cal-dh{text-align:center;font-size:10px;color:var(--t3);padding:4px 0;font-weight:700}
-.cal-week{border-top:1px solid #E8E8E8;padding:5px 0 7px}
-.cal-week-first{border-top:none;padding-top:3px}
+.cal-week{padding:6px 0 11px}
+.cal-week-first{padding-top:4px}
 .cal-num-row{}
 .cal-cell-num{text-align:center;padding-top:3px;min-height:20px}
 .cal-cell-num .cn{font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px}
 .cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
 .cal-holi{font-size:8px;color:#E25555;font-weight:700;line-height:1.1;margin-top:-1px}
-.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:2px;min-height:15px}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px;min-height:16px}
 .cal-bar-gap{}
-.cal-bar{border-radius:4px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;font-weight:600;line-height:1.6;margin:0 1px}
-.cal-bar-start{border-radius:4px 4px 4px 4px;margin-left:0}
+.cal-bar{border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:700;line-height:1.6;margin:0 1px}
+.cal-bar-start{border-radius:5px;margin-left:0}
 .cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-more{font-size:8px;color:var(--t3);text-align:center;font-weight:700}
 /* 빈 */
@@ -357,6 +357,10 @@ const PALETTE=[
   {name:'코랄',bar:'#F9E2D5',txt:'#9A5535',lead:'#EBA585'},
   {name:'민트',bar:'#D5EDE6',txt:'#2A6B5A',lead:'#85C7B5'},
 ];
+// 자동 배정 순서: 인접 공구끼리 색이 안 겹치도록 색상(hue)이 멀리 떨어지게 배치
+// (보라/연보라, 그린/민트, 핑크/코랄 같은 비슷한 색이 이웃하지 않도록)
+const AUTO_ORDER=['보라','노랑','블루','코랄','연보라','민트','핑크','그린'];
+function paletteByName(name){return PALETTE.find(x=>x.name===name)||null;}
 // 2026년 한국 공휴일
 const HOLIDAYS={
   '2026-01-01':'신정','2026-02-16':'설날','2026-02-17':'설날','2026-02-18':'설날',
@@ -507,22 +511,38 @@ function renderList(){
 let _colorMode='random';
 let _autoColorMap={};
 function buildAutoColors(){
-  // 알록달록: open_date 순으로 정렬해 인접 공구끼리 다른 색 순환 배정
+  // 알록달록: open_date 순으로 정렬해 인접 공구끼리 hue가 멀리 떨어진 색 순환 배정
   _autoColorMap={};
   const sorted=[..._data].sort((a,b)=>(a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id);
   let i=0;
-  sorted.forEach(g=>{ _autoColorMap[g.id]=PALETTE[i%PALETTE.length].name; i++; });
+  sorted.forEach(g=>{ _autoColorMap[g.id]=AUTO_ORDER[i%AUTO_ORDER.length]; i++; });
+}
+// 색을 어둡게 (글씨/lead용). f=0이면 그대로, f=1이면 검정
+function darken(hex,f){
+  hex=String(hex).replace('#','');
+  if(hex.length!==6) return '#555555';
+  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  const d=v=>Math.max(0,Math.min(255,Math.round(v*(1-f))));
+  return '#'+[d(r),d(g),d(b)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+// 공구 → {bar,txt,lead} 항상 같은 계열로 짝지어 반환
+function resolveColor(g){
+  const cn=g.color||_autoColorMap[g.id];
+  const p=paletteByName(cn);
+  if(p) return p; // 팔레트 이름이면 미리 맞춰둔 글씨색 사용
+  // 이름이 아니라 hex(구버전 데이터 등)면 배경에서 글씨/lead를 계산
+  if(typeof cn==='string'&&/^#?[0-9a-fA-F]{6}$/.test(cn)){
+    const bar=cn[0]==='#'?cn:'#'+cn;
+    return {bar, txt:darken(bar,0.5), lead:darken(bar,0.22)};
+  }
+  return paletteByName(AUTO_ORDER[0])||PALETTE[0];
 }
 function barStyle(g){
-  // 개별 지정 색상이 있으면 그것, 없으면 자동 배정 색
-  const colorName=g.color||_autoColorMap[g.id];
-  const p=PALETTE.find(x=>x.name===colorName)||PALETTE[0];
+  const p=resolveColor(g);
   return `background:${p.bar};color:${p.txt}`;
 }
 function barLead(g){
-  const colorName=g.color||_autoColorMap[g.id];
-  const p=PALETTE.find(x=>x.name===colorName)||PALETTE[0];
-  return p.lead;
+  return resolveColor(g).lead;
 }
 // end_date 없을 때 안전하게 open+3일로 간주 (null이 모든 날짜에 뜨는 버그 방지)
 function effEnd(g){
@@ -702,22 +722,27 @@ function parseText(){
   // 날짜 토큰: 6/1, 6.1, 6-1, 6월1일, 6월1 등 허용
   const DT='\\d{1,2}\\s*[\\/\\.월]\\s*\\d{1,2}\\s*일?';
   const DT_END='\\d{1,2}(?:\\s*[\\/\\.월]\\s*\\d{1,2})?\\s*일?'; // 끝날짜는 일(day)만도 허용
+  const SEP='[~～\\-–—]'; // 범위 구분자: ~ ～ - – —
+  // 날짜와 상품명 사이 공백이 없어도(6/1-6/2a) 인식되도록 \\s* 사용
+  const reRange=new RegExp('^('+DT+')\\s*'+SEP+'\\s*('+DT_END+')\\s*(.+)$');
+  const reSingle=new RegExp('^('+DT+')\\s*(.+)$');
   for(const line of lines){
-    // 범위: 구분자로 ~, -, –, ~ 등 허용 (시작날짜 뒤 공백+구분자+공백)
-    const range=line.match(new RegExp('^('+DT+')\\s*[~\\-–]\\s*('+DT_END+')\\s+(.+)$'));
-    const single=line.match(new RegExp('^('+DT+')\\s+(.+)$'));
+    const range=line.match(reRange);
     if(range){
       const open=parseDate(range[1],year);
       let endStr=range[2].trim().replace(/[日]/g,'');
-      // 끝날짜가 일(day)만 있으면 시작월 붙이기
+      // 끝날짜가 일(day)만 있으면 시작월 붙이기 (6/5~10 → 6/10)
       if(!/[\/\.월]/.test(endStr)&&open) endStr=(parseInt(open.slice(5,7)))+'/'+endStr.replace(/일/g,'');
       const end=parseDate(endStr,year);
-      const name=range[3].trim();
+      const name=range[3].trim().replace(/^[~～\-–—\s]+/,'').trim();
       const cat=guessCat(name);
       if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:end||addDays(open,3)});
-    } else if(single){
+      continue;
+    }
+    const single=line.match(reSingle);
+    if(single){
       const open=parseDate(single[1],year);
-      const name=single[2].trim();
+      const name=single[2].trim().replace(/^[~～\-–—\s]+/,'').trim();
       const cat=guessCat(name);
       if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:addDays(open,3)});
     }
@@ -735,12 +760,15 @@ function addRow(preset={}){
   const id='row_'+(++_rowSeq);
   const today=new Date().toISOString().slice(0,10);
   const defMaj=Object.keys(CATS)[0];
+  // 색 미지정 시 추가 순서대로 hue가 떨어진 색을 기본 배정 (여러 줄이 다 같은 색 되는 문제 방지)
+  const idx=document.querySelectorAll('#regRows .rrow').length;
+  const defColor=preset.color||AUTO_ORDER[idx%AUTO_ORDER.length];
   const majOpts=Object.keys(CATS).map(c=>`<option value="${c}"${c===(preset.major||defMaj)?' selected':''}>${c}</option>`).join('');
   const minOpts=(CATS[preset.major||defMaj]||[]).map(m=>`<option value="${m}"${m===(preset.minor||'')?' selected':''}>${m}</option>`).join('');
-  const colorDots=PALETTE.map((p,i)=>`<button type="button" class="rcolor-dot" data-color="${p.name}" onclick="pickRowColor(this)" style="width:24px;height:24px;border-radius:50%;background:${p.bar};border:2px solid ${(preset.color||PALETTE[0].name)===p.name?'#602090':'transparent'};cursor:pointer"></button>`).join('');
+  const colorDots=PALETTE.map((p,i)=>`<button type="button" class="rcolor-dot" data-color="${p.name}" onclick="pickRowColor(this)" style="width:24px;height:24px;border-radius:50%;background:${p.bar};border:2px solid ${defColor===p.name?'#602090':'transparent'};cursor:pointer"></button>`).join('');
   const div=document.createElement('div');
   div.className='rrow';div.id=id;
-  div.dataset.color=preset.color||PALETTE[0].name;
+  div.dataset.color=defColor;
   div.innerHTML=`
     <button class="rdel" onclick="document.getElementById('${id}').remove()">✕</button>
     <input class="ri rn" type="text" placeholder="제품명 *" value="${preset.name||''}">
