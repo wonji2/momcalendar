@@ -398,6 +398,17 @@ details summary::-webkit-details-marker{display:none}
 
   <!-- ⭐ 이웃셀러 관리 탭 -->
   <div id="sellerView" style="display:none;padding:14px;padding-bottom:80px">
+    <!-- 셀러 계정 생성 -->
+    <div style="background:#F0E6FA;border-radius:12px;padding:13px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;color:#4A1A78;margin-bottom:10px">🔑 셀러 계정 발급</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="modal-field"><label>인스타 아이디 (로그인 ID)</label><input id="newSellerInsta" type="text" placeholder="예) momcal_" style="width:100%;box-sizing:border-box"></div>
+        <div class="modal-field"><label>비밀번호</label><input id="newSellerPw" type="text" placeholder="예) momcal1234" style="width:100%;box-sizing:border-box"></div>
+      </div>
+      <div class="modal-field" style="margin-bottom:8px"><label>활동명 (선택)</label><input id="newSellerName" type="text" placeholder="예) 크롱맘" style="width:100%;box-sizing:border-box"></div>
+      <button onclick="createSellerAccount()" style="width:100%;padding:11px;background:#602090;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">셀러 계정 발급</button>
+      <div id="sellerCreateMsg" style="font-size:12px;margin-top:6px;text-align:center"></div>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="font-size:14px;font-weight:800;color:#2A1D6E">⭐ 이웃셀러 관리</div>
       <button onclick="openSellerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 셀러 추가</button>
@@ -2129,37 +2140,120 @@ async function loadSellerAdmin(){
 function renderSellerList(){
   const el=document.getElementById('sellerList');
   if(!sellerData.length){
-    el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 셀러가 없어요<br>+ 셀러 추가 버튼으로 추가해주세요</div>`;
+    el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 셀러가 없어요</div>`;
     return;
   }
   const today=new Date().toISOString().slice(0,10);
-  el.innerHTML=sellerData.map(s=>{
-    const handle=(s.insta||'').replace('@','');
-    let periodTxt='상시 노출';
-    if(s.start_date||s.end_date) periodTxt=`${s.start_date||'~'} ~ ${s.end_date||'계속'}`;
-    // 현재 노출 여부 판단
-    let live=s.active!==false;
-    if(s.start_date && today<s.start_date) live=false;
-    if(s.end_date && today>s.end_date) live=false;
-    const stBadge=live
+  // 승인 대기(login_insta 있고 login_active=false) 먼저, 그 다음 나머지
+  const pending=sellerData.filter(s=>s.login_insta&&!s.login_active);
+  const active=sellerData.filter(s=>!(s.login_insta&&!s.login_active));
+
+  let html='';
+  // 일괄 작업 바
+  html+=`<div style="display:flex;align-items:center;gap:8px;background:#F5F0FF;border-radius:10px;padding:9px 12px;margin-bottom:6px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">
+      <input type="checkbox" id="sellerCheckAll" onchange="toggleAllSellers(this)" style="width:16px;height:16px"> 전체선택
+    </label>
+    <button onclick="deleteSelectedSellers()" style="margin-left:auto;padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">선택 삭제</button>
+  </div>`;
+
+  // 승인 대기 섹션
+  if(pending.length){
+    html+=`<div style="font-size:12px;font-weight:800;color:#E65100;margin:8px 0 4px">⏳ 승인 대기 ${pending.length}명</div>`;
+    html+=pending.map(s=>sellerCard(s,today,true)).join('');
+  }
+  // 일반 셀러 섹션
+  if(active.length){
+    html+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:12px 0 4px">✅ 셀러 ${active.length}명</div>`;
+    html+=active.map(s=>sellerCard(s,today,false)).join('');
+  }
+  el.innerHTML=html;
+}
+
+function sellerCard(s,today,isPending){
+  const handle=(s.login_insta||s.insta||'').replace('@','');
+  const name=s.seller_influencer||s.name||handle;
+  let periodTxt='상시 노출';
+  if(s.start_date||s.end_date) periodTxt=`${s.start_date||'~'} ~ ${s.end_date||'계속'}`;
+  let live=s.active!==false;
+  if(s.start_date && today<s.start_date) live=false;
+  if(s.end_date && today>s.end_date) live=false;
+
+  let stBadge;
+  if(isPending){
+    stBadge=`<span style="background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">가입대기</span>`;
+  } else if(s.login_insta){
+    stBadge=s.login_active
+      ?`<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">로그인 가능</span>`
+      :`<span style="background:#f0f0f0;color:#999;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">비활성</span>`;
+  } else {
+    stBadge=live
       ?`<span style="background:#E8F5E9;color:#2E7D32;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">노출중</span>`
-      :(s.active===false
-        ?`<span style="background:#f0f0f0;color:#999;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">비활성</span>`
-        :`<span style="background:#FFF3E0;color:#E65100;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">기간외</span>`);
-    return`<div style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="width:46px;height:46px;border-radius:50%;border:2px solid #7B68EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;color:#4A35A0;text-align:center;line-height:1.2;padding:0 2px">${s.name||handle}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:14px;font-weight:700;color:#191919">${s.name||'(이름없음)'}</span>${stBadge}</div>
-        <div style="font-size:11px;color:#888">@${handle||'(아이디없음)'}</div>
-        <div style="font-size:10px;color:#aaa;margin-top:2px">📅 ${periodTxt}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-        <button onclick="toggleSellerActive(${s.id},${s.active!==false})" style="padding:5px 10px;background:${s.active!==false?'#FFF9E6':'#E8F5E9'};color:${s.active!==false?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${s.active!==false?'숨기기':'표시'}</button>
-        <button onclick="openSellerEdit(${s.id})" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
-        <button onclick="deleteSeller(${s.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
-      </div>
-    </div>`;
-  }).join('');
+      :`<span style="background:#f0f0f0;color:#999;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">비활성</span>`;
+  }
+
+  let actions;
+  if(isPending){
+    actions=`
+      <button onclick="approveSeller(${s.id})" style="padding:6px 12px;background:#2E7D32;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✓ 승인</button>
+      <button onclick="rejectSeller(${s.id})" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 거부</button>`;
+  } else {
+    const loginToggle=s.login_insta
+      ?`<button onclick="toggleSellerLogin(${s.id},${!!s.login_active})" style="padding:5px 10px;background:${s.login_active?'#FFF9E6':'#E8F5E9'};color:${s.login_active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${s.login_active?'로그인 차단':'로그인 허용'}</button>`
+      :`<button onclick="toggleSellerActive(${s.id},${s.active!==false})" style="padding:5px 10px;background:${s.active!==false?'#FFF9E6':'#E8F5E9'};color:${s.active!==false?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${s.active!==false?'숨기기':'표시'}</button>`;
+    actions=`${loginToggle}
+      <button onclick="openSellerEdit(${s.id})" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
+      <button onclick="deleteSeller(${s.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>`;
+  }
+
+  return`<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:12px;padding:11px 13px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:6px">
+    <input type="checkbox" class="seller-chk" value="${s.id}" style="width:16px;height:16px;flex-shrink:0">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap"><span style="font-size:14px;font-weight:700;color:#191919">${name}</span>${stBadge}</div>
+      <div style="font-size:11px;color:#888">@${handle||'(아이디없음)'}</div>
+      ${!s.login_insta?`<div style="font-size:10px;color:#aaa;margin-top:2px">📅 ${periodTxt}</div>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">${actions}</div>
+  </div>`;
+}
+
+// 승인 / 거부
+async function approveSeller(id){
+  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+    body:JSON.stringify({login_active:true,active:true})
+  });
+  await loadSellerAdmin();
+}
+async function rejectSeller(id){
+  if(!confirm('이 가입 신청을 거부(삭제)할까요?'))return;
+  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+    method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+  });
+  await loadSellerAdmin();
+}
+async function toggleSellerLogin(id,cur){
+  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+    body:JSON.stringify({login_active:!cur})
+  });
+  await loadSellerAdmin();
+}
+
+// 전체선택 / 일괄삭제
+function toggleAllSellers(chk){
+  document.querySelectorAll('.seller-chk').forEach(c=>c.checked=chk.checked);
+}
+async function deleteSelectedSellers(){
+  const ids=[...document.querySelectorAll('.seller-chk:checked')].map(c=>c.value);
+  if(!ids.length){alert('선택된 셀러가 없어요.');return;}
+  if(!confirm(`선택한 ${ids.length}명의 셀러를 삭제할까요?`))return;
+  await fetch(`${SB_URL}/rest/v1/sellers?id=in.(${ids.join(',')})`,{
+    method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+  });
+  await loadSellerAdmin();
 }
 function openSellerAdd(){
   document.getElementById('sellerModalTitle').textContent='⭐ 셀러 추가';
@@ -3178,6 +3272,35 @@ async function loadExpAdmin(){
 async function delExp(id){
   if(!confirm('이 체험단을 삭제할까요?'))return;
   try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');}
+}
+
+// ── 셀러 계정 생성 ──
+async function createSellerAccount(){
+  const insta=document.getElementById('newSellerInsta').value.trim().replace('@','');
+  const pw=document.getElementById('newSellerPw').value.trim();
+  const name=document.getElementById('newSellerName').value.trim();
+  const msg=document.getElementById('sellerCreateMsg');
+  if(!insta||!pw){msg.style.color='#C62828';msg.textContent='인스타 아이디와 비밀번호를 입력해주세요.';return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/sellers`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+      body:JSON.stringify({
+        login_insta:insta,
+        login_pw:pw,
+        login_active:true,
+        seller_influencer:name||insta,
+        seller_insta:insta,
+        name:name||insta,
+        insta:insta,
+        active:true
+      })
+    });
+    if(!r.ok){const t=await r.text();msg.style.color='#C62828';msg.textContent='발급 실패: '+t;return;}
+    msg.style.color='#0F6E56';
+    msg.textContent=`✅ @${insta} 계정 발급 완료! 셀러에게 아이디와 비밀번호를 알려주세요.`;
+    ['newSellerInsta','newSellerPw','newSellerName'].forEach(id=>document.getElementById(id).value='');
+  }catch(e){msg.style.color='#C62828';msg.textContent='오류: '+e.message;}
 }
 
 function switchTab(tab,el){
