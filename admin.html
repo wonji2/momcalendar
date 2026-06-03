@@ -2149,10 +2149,10 @@ async function loadSellerAdmin(){
   }catch(e){ sellerData=[]; }
   renderSellerList();
 }
-// 이웃셀러(파트너)만 — login_insta 없는 것
+// 이웃셀러(파트너)만 — is_partner=true 로 직접 등록한 파트너만 (login_insta 가입 셀러는 제외)
 function renderSellerList(){
   const el=document.getElementById('sellerList');
-  const neighbors=sellerData.filter(s=>!s.login_insta);
+  const neighbors=sellerData.filter(s=>s.is_partner===true && !s.login_insta);
   if(!neighbors.length){
     el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 이웃셀러가 없어요<br>+ 셀러 추가 버튼으로 추가해주세요</div>`;
     return;
@@ -2336,7 +2336,8 @@ async function saveSeller(){
     name, insta,
     start_date:document.getElementById('sStart').value||null,
     end_date:document.getElementById('sEnd').value||null,
-    active:document.getElementById('sActive').checked
+    active:document.getElementById('sActive').checked,
+    is_partner:true
   };
   try{
     if(id){
