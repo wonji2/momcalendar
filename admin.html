@@ -25,6 +25,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex-shrink:0;padding:12px 14px;text-align:center;font-size:12px;font-weight:700;color:#999;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap}
 .tab.on{color:#4A35A0;border-bottom-color:#4A35A0}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;background:#E53935;color:#fff;border-radius:9px;font-size:10px;font-weight:800;margin-left:3px;vertical-align:middle}
 /* 통계 */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 12px 0}
 .stat{background:#fff;border-radius:12px;padding:12px 8px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
@@ -158,16 +159,16 @@ details summary::-webkit-details-marker{display:none}
 
   <div class="tabs">
     <div class="tab on" onclick="switchTab('all',this)">전체 <span id="tabcnt-all" style="opacity:.7"></span></div>
-    <div class="tab" onclick="switchTab('pending',this)">대기중 <span id="tabcnt-pending" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('pending',this)">대기중 <span id="tabcnt-pending" style="opacity:.7"></span><span id="badge-pending" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('approved',this)">승인됨 <span id="tabcnt-approved" style="opacity:.7"></span></div>
-    <div class="tab" onclick="switchTab('dup',this)">중복의심 <span id="tabcnt-dup" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('dup',this)">중복의심 <span id="tabcnt-dup" style="opacity:.7"></span><span id="badge-dup" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
-    <div class="tab" onclick="switchTab('hotdeal',this)">🔥 핫딜</div>
-    <div class="tab" onclick="switchTab('exp',this)">🎁 체험단</div>
-    <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너</div>
+    <div class="tab" onclick="switchTab('hotdeal',this)">🔥 핫딜 <span id="badge-hotdeal" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('exp',this)">🎁 체험단 <span id="badge-exp" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너 <span id="badge-banner" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 이웃셀러</div>
-    <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="tabcnt-sellerauth" style="opacity:.7"></span></div>
+    <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -2200,9 +2201,8 @@ function renderSellerAuth(){
   const el=document.getElementById('sellerAuthList');
   const pending=sellerAuthData.filter(s=>!s.login_active);
   const active=sellerAuthData.filter(s=>s.login_active);
-  // 탭 카운트 (대기 인원)
-  const cnt=document.getElementById('tabcnt-sellerauth');
-  if(cnt) cnt.textContent=pending.length?`(${pending.length})`:'';
+  // 탭 알림 배지 (가입 대기 인원)
+  if(typeof setBadge==='function') setBadge('badge-sellerauth', pending.length);
 
   if(!sellerAuthData.length){
     el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">가입한 셀러가 없어요</div>`;
@@ -2928,6 +2928,7 @@ async function loadData(){
     updateStats();
     renderInflQuickSelect();
     renderCards();
+    if(typeof refreshAllBadges==='function') refreshAllBadges();
     // 세션당 1회: 오픈일 60일 지난 공구 자동 정리
     if(!window.__autoPurged){
       window.__autoPurged=true;
@@ -3001,6 +3002,27 @@ function updateStats(){
   setTab('tabcnt-pending', allData.filter(d=>!d.approved).length);
   setTab('tabcnt-approved', allData.filter(d=>d.approved).length);
   setTab('tabcnt-dup', dups.length);
+  // 빨간 알림 배지 (처리 필요한 항목)
+  setBadge('badge-pending', allData.filter(d=>!d.approved).length);
+  setBadge('badge-dup', dups.length);
+}
+// 빨간 배지 표시/숨김 (0이면 숨김)
+function setBadge(id,n){
+  const e=document.getElementById(id);
+  if(!e)return;
+  if(n>0){ e.textContent=n>99?'99+':n; e.style.display='inline-flex'; }
+  else { e.style.display='none'; }
+}
+// 페이지 로드 시 모든 탭 알림 배지 미리 계산 (탭 안 눌러도 보이게)
+async function refreshAllBadges(){
+  // 셀러 가입 신청 대기 수
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/sellers?login_insta=not.is.null&login_active=eq.false&select=id`,{
+      headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+    });
+    const rows=r.ok?await r.json():[];
+    setBadge('badge-sellerauth', rows.length);
+  }catch(e){}
 }
 
 // ── 지난 공구 정리 (30만건 대비) ──
@@ -3313,23 +3335,20 @@ async function createSellerAccount(){
   const msg=document.getElementById('sellerCreateMsg');
   if(!insta||!pw){msg.style.color='#C62828';msg.textContent='인스타 아이디와 비밀번호를 입력해주세요.';return;}
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/sellers`,{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/admin_create_seller`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-      body:JSON.stringify({
-        login_insta:insta,
-        login_pw:pw,
-        login_active:true,
-        seller_influencer:name||insta,
-        seller_insta:insta,
-        name:name||insta,
-        insta:insta,
-        active:true
-      })
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+      body:JSON.stringify({p_insta:insta,p_pw:pw,p_name:name||insta})
     });
-    if(!r.ok){const t=await r.text();msg.style.color='#C62828';msg.textContent='발급 실패: '+t;return;}
+    const d=await r.json();
+    if(!r.ok){msg.style.color='#C62828';msg.textContent='발급 실패: '+(d.message||JSON.stringify(d));return;}
+    if(d&&d.ok===false){
+      msg.style.color='#C62828';
+      msg.textContent=d.msg==='exists'?'이미 가입된 아이디예요. (비번 변경은 아래 목록에서)':'발급 실패. 다시 시도해주세요.';
+      return;
+    }
     msg.style.color='#0F6E56';
-    msg.textContent=`✅ @${insta} 계정 발급 완료! 셀러에게 아이디와 비밀번호를 알려주세요.`;
+    msg.textContent=`✅ @${insta} 계정 발급 완료! 비밀번호는 암호화 저장됐어요. 셀러에게 아이디와 비밀번호를 알려주세요.`;
     ['newSellerInsta','newSellerPw','newSellerName'].forEach(id=>document.getElementById(id).value='');
     if(typeof loadSellerAuth==='function') await loadSellerAuth();
   }catch(e){msg.style.color='#C62828';msg.textContent='오류: '+e.message;}

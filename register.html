@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{--p:#602090;--pd:#4A1A78;--pl:#9B6FD4;--pp:#F0E6FA;--bd:#ECECEC;--t1:#111;--t2:#444;--t3:#888;--bg:#F8F5FC;--green:#0F6E56;--red:#C62828;--amber:#F57F17}
+:root{--p:#602090;--pd:#4A1A78;--pl:#9B6FD4;--pp:#F0E6FA;--bd:#ECECEC;--t1:#111;--t2:#444;--t3:#888;--bg:#FFFFFF;--green:#0F6E56;--red:#C62828;--amber:#F57F17}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;max-width:480px;margin:0 auto}
 /* 헤더 */
 .hd{background:var(--pd);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -77,9 +77,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 .cal-head button{background:none;border:1px solid var(--bd);border-radius:7px;padding:3px 10px;cursor:pointer;font-size:14px}
 .cal-grid{display:flex;flex-direction:column}
 .cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-dh-row{margin-bottom:2px}
+.cal-dh-row{margin-bottom:0;border-bottom:1px solid #E8E8E8}
 .cal-dh{text-align:center;font-size:10px;color:var(--t3);padding:4px 0;font-weight:700}
-.cal-week{border-top:1px solid #F0F0F0;padding:2px 0 4px}
+.cal-week{border-top:1px solid #E8E8E8;padding:5px 0 7px}
+.cal-week-first{border-top:none;padding-top:3px}
 .cal-num-row{}
 .cal-cell-num{text-align:center;padding-top:3px;min-height:20px}
 .cal-cell-num .cn{font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px}
@@ -87,7 +88,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 .cal-holi{font-size:8px;color:#E25555;font-weight:700;line-height:1.1;margin-top:-1px}
 .cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:2px;min-height:15px}
 .cal-bar-gap{}
-.cal-bar{border-radius:3px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;font-weight:700;line-height:1.5;margin:0 1px}
+.cal-bar{border-radius:4px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;font-weight:600;line-height:1.6;margin:0 1px}
+.cal-bar-start{border-radius:4px 4px 4px 4px;margin-left:0}
 .cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-more{font-size:8px;color:var(--t3);text-align:center;font-weight:700}
 /* 빈 */
@@ -326,14 +328,14 @@ const CATS={
 const CAT_COLORS={'육아':'#9B6FD4','리빙':'#26A69A','식품':'#66BB6A','건강':'#26C6DA','인테리어':'#8D6E63','가전':'#5C6BC0','뷰티':'#EC407A','패션':'#FFA726','여행':'#42A5F5','반려동물':'#AB47BC'};
 // 셀러가 고를 수 있는 색상 팔레트 (파스텔)
 const PALETTE=[
-  {name:'보라',bar:'#C9A9F0',txt:'#3A1A6B'},
-  {name:'연보라',bar:'#E2D4F5',txt:'#4A2880'},
-  {name:'노랑',bar:'#FCE7A0',txt:'#6B4E00'},
-  {name:'핑크',bar:'#F7CEDC',txt:'#8A2050'},
-  {name:'블루',bar:'#C5DBF5',txt:'#1B4D80'},
-  {name:'그린',bar:'#CDE8C7',txt:'#1F5C1F'},
-  {name:'코랄',bar:'#F7D2C2',txt:'#8A3A1A'},
-  {name:'민트',bar:'#C2E8DF',txt:'#155A4D'},
+  {name:'보라',bar:'#E5D9F5',txt:'#5A3A8A',lead:'#9B6FD4'},
+  {name:'연보라',bar:'#EDE4F7',txt:'#6A4A9A',lead:'#B89BE0'},
+  {name:'노랑',bar:'#FCEFC2',txt:'#8A6D1A',lead:'#F0C84A'},
+  {name:'핑크',bar:'#F9DDE6',txt:'#9A4565',lead:'#E89BB5'},
+  {name:'블루',bar:'#D8E6F7',txt:'#3A5C85',lead:'#8FB5E5'},
+  {name:'그린',bar:'#DDEED7',txt:'#3A6B30',lead:'#92C585'},
+  {name:'코랄',bar:'#F9E2D5',txt:'#9A5535',lead:'#EBA585'},
+  {name:'민트',bar:'#D5EDE6',txt:'#2A6B5A',lead:'#85C7B5'},
 ];
 // 2026년 한국 공휴일
 const HOLIDAYS={
@@ -494,9 +496,13 @@ function buildAutoColors(){
 function barStyle(g){
   // 개별 지정 색상이 있으면 그것, 없으면 자동 배정 색
   const colorName=g.color||_autoColorMap[g.id];
-  const p=PALETTE.find(x=>x.name===colorName);
-  if(p) return `background:${p.bar};color:${p.txt}`;
-  return `background:${PALETTE[0].bar};color:${PALETTE[0].txt}`;
+  const p=PALETTE.find(x=>x.name===colorName)||PALETTE[0];
+  return `background:${p.bar};color:${p.txt}`;
+}
+function barLead(g){
+  const colorName=g.color||_autoColorMap[g.id];
+  const p=PALETTE.find(x=>x.name===colorName)||PALETTE[0];
+  return p.lead;
 }
 // end_date 없을 때 안전하게 open+3일로 간주 (null이 모든 날짜에 뜨는 버그 방지)
 function effEnd(g){
@@ -562,7 +568,8 @@ function buildCal(){
       let ei=6;
       for(let i=6;i>=0;i--){ if(ds(week[i].date)<=e){ ei=i; break; } }
       if(e>weekEnd) ei=6;
-      segs.push({si,ei,g});
+      const isStart=(o>=weekStart&&o<=weekEnd); // 이 주에서 실제로 시작
+      segs.push({si,ei,g,isStart});
     });
     // 레인 배정 (같은 행에 안 겹치게)
     const lanes=[]; // 각 레인은 [{si,ei}] 점유 구간
@@ -586,9 +593,9 @@ function buildCal(){
       let cursor=0;
       inLane.forEach(s=>{
         if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
-        const span=s.ei-s.si+1;
-        const showName=(s.g.open_date>=weekStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
-        row+=`<div class="cal-bar" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}">${showName?s.g.name:'&nbsp;'}</div>`;
+        const showName=(s.isStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
+        const lead=s.isStart?`border-left:4px solid ${barLead(s.g)};`:'';
+        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?s.g.name:'&nbsp;'}</div>`;
         cursor=s.ei+1;
       });
       row+=`</div>`;
@@ -605,7 +612,7 @@ function buildCal(){
       overflow+=`</div>`;
     }
 
-    html+=`<div class="cal-week">${numRow}${barRows}${overflow}</div>`;
+    html+=`<div class="cal-week${w===0?' cal-week-first':''}">${numRow}${barRows}${overflow}</div>`;
   }
   grid.innerHTML=html;
 }
