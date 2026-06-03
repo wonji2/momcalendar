@@ -2239,6 +2239,7 @@ function sellerAuthCard(s,isPending){
       <button onclick="rejectSeller(${s.id})" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 거부</button>`;
   } else {
     actions=`
+      <button onclick="resetSellerPw('${(s.login_insta||'').replace(/'/g,'')}','${(s.seller_influencer||s.name||'').replace(/'/g,'')}')" style="padding:5px 10px;background:#EEF2FF;color:#3A52A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔑 비번재설정</button>
       <button onclick="toggleSellerLogin(${s.id},true)" style="padding:5px 10px;background:#FFF9E6;color:#E6A817;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">로그인 차단</button>
       <button onclick="rejectSeller(${s.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>`;
   }
@@ -2273,6 +2274,23 @@ async function toggleSellerLogin(id,cur){
     body:JSON.stringify({login_active:!cur})
   });
   await loadSellerAuth();
+}
+// 방장이 셀러 비밀번호 재설정 (기존 비번 없이 새로 지정)
+async function resetSellerPw(loginInsta,name){
+  if(!loginInsta){alert('로그인 아이디가 없는 셀러예요.');return;}
+  const newPw=prompt(`[${name||loginInsta}] 새 비밀번호를 입력하세요.\n(셀러에게 이 비밀번호를 알려주세요)`,'momcal260531');
+  if(newPw===null)return;
+  if(newPw.length<6){alert('비밀번호는 6자 이상이어야 해요.');return;}
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/admin_reset_pw`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+      body:JSON.stringify({p_insta:loginInsta,p_new:newPw})
+    });
+    const d=await r.json();
+    if(!r.ok || (d&&d.ok===false)){alert('재설정 실패: '+(d.msg||JSON.stringify(d)));return;}
+    alert(`✅ @${loginInsta} 비밀번호가 "${newPw}" 로 변경됐어요.\n셀러에게 알려주세요!`);
+  }catch(e){alert('오류: '+e.message);}
 }
 function toggleAllSellers(chk){
   document.querySelectorAll('.seller-chk').forEach(c=>c.checked=chk.checked);
