@@ -343,17 +343,17 @@ async function doSignup(){
   if(!pw||pw.length<6){err.textContent='비밀번호는 6자 이상이어야 해요.';return;}
   if(pw!==pw2){err.textContent='비밀번호가 일치하지 않아요.';return;}
   try{
-    // 중복 확인
-    const chk=await fetch(`${SB}/rest/v1/sellers?login_insta=eq.${encodeURIComponent(insta)}&select=id`,{headers:H});
-    const rows=await chk.json();
-    if(rows&&rows.length){err.textContent='이미 가입된 아이디예요. 로그인 해주세요.';return;}
-    // 가입 (login_active=false → 승인 대기)
-    const r=await fetch(`${SB}/rest/v1/sellers`,{
+    const r=await fetch(`${SB}/rest/v1/rpc/seller_signup`,{
       method:'POST',
-      headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({login_insta:insta,login_pw:pw,login_active:false,seller_influencer:name||insta,seller_insta:insta,name:name||insta,insta:insta,active:false})
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify({p_insta:insta,p_pw:pw,p_name:name})
     });
-    if(!r.ok){const t=await r.text();err.textContent='가입 실패: '+t;return;}
+    const d=await r.json();
+    if(!r.ok){err.textContent='가입 실패: '+(d.message||JSON.stringify(d));return;}
+    if(!d.ok){
+      err.textContent=d.msg==='exists'?'이미 가입된 아이디예요. 로그인 해주세요.':'가입 실패. 다시 시도해주세요.';
+      return;
+    }
     showPending();
   }catch(e){err.textContent='오류: '+e.message;}
 }
@@ -366,13 +366,21 @@ async function doLogin(){
   err.textContent='';
   if(!insta||!pw){err.textContent='아이디와 비밀번호를 입력해주세요.';return;}
   try{
-    const r=await fetch(`${SB}/rest/v1/sellers?login_insta=eq.${encodeURIComponent(insta)}&select=*`,{headers:H});
-    const rows=await r.json();
-    if(!rows||!rows.length){err.textContent='등록되지 않은 아이디예요.';return;}
-    const s=rows[0];
-    if(s.login_pw!==pw){err.textContent='비밀번호가 틀렸어요.';return;}
-    if(!s.login_active){err.textContent='아직 승인 대기 중이에요. 잠시만 기다려주세요.';return;}
-    _seller=s;
+    const r=await fetch(`${SB}/rest/v1/rpc/seller_login`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify({p_insta:insta,p_pw:pw})
+    });
+    const d=await r.json();
+    if(!r.ok){err.textContent='로그인 오류. 다시 시도해주세요.';return;}
+    if(!d.ok){
+      if(d.msg==='notfound') err.textContent='등록되지 않은 아이디예요.';
+      else if(d.msg==='wrongpw') err.textContent='비밀번호가 틀렸어요.';
+      else if(d.msg==='pending') err.textContent='아직 승인 대기 중이에요. 잠시만 기다려주세요.';
+      else err.textContent='로그인 실패.';
+      return;
+    }
+    _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta};
     onLogin();
   }catch(e){err.textContent='오류: '+e.message;}
 }
