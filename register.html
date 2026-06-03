@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--p:#602090;--pd:#4A1A78;--pl:#9B6FD4;--pp:#F0E6FA;--bd:#ECECEC;--t1:#111;--t2:#444;--t3:#888;--bg:#FFFFFF;--green:#0F6E56;--red:#C62828;--amber:#F57F17}
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;max-width:480px;margin:0 auto}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;max-width:480px;margin:0 auto}
 /* 헤더 */
 .hd{background:var(--pd);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hd-title{color:#fff;font-size:15px;font-weight:800}
@@ -71,27 +71,27 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);
 .btn-ed{flex:1;padding:7px;background:var(--pp);color:var(--p);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .btn-dl{padding:7px 12px;background:#FEEBEE;color:var(--red);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 /* 캘린더 */
-.cal-wrap{padding:0 10px}
-.cal-head{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;margin-bottom:4px}
-.cal-head span{font-size:14px;font-weight:800}
-.cal-head button{background:none;border:1px solid var(--bd);border-radius:7px;padding:3px 10px;cursor:pointer;font-size:14px}
+.cal-wrap{padding:0 14px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:10px 4px;margin-bottom:6px}
+.cal-head span{font-size:15px;font-weight:700}
+.cal-head button{background:none;border:1px solid var(--bd);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:15px}
 .cal-grid{display:flex;flex-direction:column}
 .cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-dh-row{margin-bottom:2px}
-.cal-dh{text-align:center;font-size:10px;color:var(--t3);padding:4px 0;font-weight:700}
-.cal-week{padding:6px 0 11px}
-.cal-week-first{padding-top:4px}
+.cal-dh-row{margin-bottom:6px}
+.cal-dh{text-align:center;font-size:14px;color:#B2B2BC;padding:9px 0 5px;font-weight:500;letter-spacing:.5px}
+.cal-week{padding:8px 0 15px}
+.cal-week-first{padding-top:5px}
 .cal-num-row{}
-.cal-cell-num{text-align:center;padding-top:3px;min-height:20px}
-.cal-cell-num .cn{font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px}
+.cal-cell-num{text-align:center;padding-top:3px;min-height:26px}
+.cal-cell-num .cn{font-size:15px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px}
 .cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
-.cal-holi{font-size:8px;color:#E25555;font-weight:700;line-height:1.1;margin-top:-1px}
-.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px;min-height:16px}
+.cal-holi{font-size:9px;color:#E25555;font-weight:700;line-height:1.15;margin-top:0}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px;min-height:20px}
 .cal-bar-gap{}
-.cal-bar{border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:700;line-height:1.6;margin:0 1px}
-.cal-bar-start{border-radius:5px;margin-left:0}
+.cal-bar{border-radius:7px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;font-weight:600;line-height:1.55;margin:0 1px;text-align:center}
+.cal-bar-start{border-radius:7px;margin-left:0}
 .cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-more{font-size:8px;color:var(--t3);text-align:center;font-weight:700}
+.cal-more{font-size:9px;color:var(--t3);text-align:center;font-weight:700}
 /* 빈 */
 .empty{text-align:center;padding:36px 16px;color:var(--t3);font-size:13px}
 /* 모달 */
@@ -517,23 +517,36 @@ function buildAutoColors(){
   let i=0;
   sorted.forEach(g=>{ _autoColorMap[g.id]=AUTO_ORDER[i%AUTO_ORDER.length]; i++; });
 }
-// 색을 어둡게 (글씨/lead용). f=0이면 그대로, f=1이면 검정
-function darken(hex,f){
-  hex=String(hex).replace('#','');
-  if(hex.length!==6) return '#555555';
-  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
-  const d=v=>Math.max(0,Math.min(255,Math.round(v*(1-f))));
-  return '#'+[d(r),d(g),d(b)].map(v=>v.toString(16).padStart(2,'0')).join('');
+// hex → 가장 가까운 팔레트 색으로 스냅 (글씨색이 검정/회색으로 죽지 않고 항상 또렷한 색이 되도록)
+function hexToRgb(h){
+  h=String(h).replace('#','');
+  if(h.length===3) h=h.split('').map(c=>c+c).join('');
+  if(h.length!==6) return null;
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
 }
-// 공구 → {bar,txt,lead} 항상 같은 계열로 짝지어 반환
+function rgbToHue([r,g,b]){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  if(d===0) return -1; // 무채색
+  let h; if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4;
+  h*=60; if(h<0)h+=360; return h;
+}
+const _palHue=PALETTE.map(p=>({p,hue:rgbToHue(hexToRgb(p.bar))}));
+function nearestPalette(hex){
+  const rgb=hexToRgb(hex); if(!rgb) return null;
+  const hue=rgbToHue(rgb); if(hue<0) return PALETTE[0];
+  let best=_palHue[0].p, bd=999;
+  for(const x of _palHue){ let dd=Math.abs(x.hue-hue); if(dd>180)dd=360-dd; if(dd<bd){bd=dd;best=x.p;} }
+  return best;
+}
+// 공구 → {bar,txt,lead} 항상 같은 계열(또렷한 글씨색)로 짝지어 반환
 function resolveColor(g){
   const cn=g.color||_autoColorMap[g.id];
   const p=paletteByName(cn);
   if(p) return p; // 팔레트 이름이면 미리 맞춰둔 글씨색 사용
-  // 이름이 아니라 hex(구버전 데이터 등)면 배경에서 글씨/lead를 계산
-  if(typeof cn==='string'&&/^#?[0-9a-fA-F]{6}$/.test(cn)){
-    const bar=cn[0]==='#'?cn:'#'+cn;
-    return {bar, txt:darken(bar,0.5), lead:darken(bar,0.22)};
+  // 구버전 hex 데이터 등은 가장 가까운 팔레트 파스텔로 스냅 → 글씨색도 자동으로 또렷하게
+  if(typeof cn==='string'&&/^#?[0-9a-fA-F]{3,6}$/.test(cn)){
+    const snap=nearestPalette(cn); if(snap) return snap;
   }
   return paletteByName(AUTO_ORDER[0])||PALETTE[0];
 }
@@ -634,7 +647,7 @@ function buildCal(){
       inLane.forEach(s=>{
         if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
         const showName=(s.isStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
-        const lead=s.isStart?`border-left:4px solid ${barLead(s.g)};`:'';
+        const lead=s.isStart?`border-left:5px solid ${barLead(s.g)};`:'';
         row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?s.g.name:'&nbsp;'}</div>`;
         cursor=s.ei+1;
       });
