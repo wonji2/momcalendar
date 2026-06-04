@@ -301,6 +301,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
       <div class="fl"><label>오픈일</label><input id="eOpen" type="date"></div>
       <div class="fl"><label>마감일</label><input id="eEnd" type="date"></div>
     </div>
+    <div class="fl"><label>결제링크 (선택)</label><input id="ePay" type="url" placeholder="입력 시 카드 클릭이 인스타 대신 이 링크로 연결"></div>
     <div class="fl">
       <label>캘린더 색상</label>
       <div id="eColors" style="display:flex;gap:7px;flex-wrap:wrap"></div>
@@ -793,6 +794,7 @@ function addRow(preset={}){
       <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">오픈일</div><input type="date" class="rop" value="${preset.open_date||today}"></div>
       <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">마감일 (비우면 4일)</div><input type="date" class="ren" value="${preset.end_date||''}"></div>
     </div>
+    <input class="ri rpay" type="url" placeholder="결제링크 (선택 · 입력 시 카드 클릭이 인스타 대신 이 링크로 연결)" value="${preset.pay_link||''}">
     <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
       <span style="font-size:11px;color:var(--t3);font-weight:600">색상</span>
       ${colorDots}
@@ -819,7 +821,7 @@ async function saveAll(){
     const op=r.querySelector('.rop').value;
     let en=r.querySelector('.ren').value||null;
     if(op&&!en) en=addDays(op,3); // 마감일 미입력 → 4일간 진행
-    return {
+    const obj={
       name:r.querySelector('.rn').value.trim(),
       major:r.querySelector('.rmaj').value,
       minor:r.querySelector('.rmin').value,
@@ -828,6 +830,9 @@ async function saveAll(){
       color:r.dataset.color||null,
       insta,influencer,approved:false
     };
+    const pl=r.querySelector('.rpay')?r.querySelector('.rpay').value.trim():'';
+    if(pl) obj.pay_link=pl;
+    return obj;
   }).filter(x=>x.name&&x.open_date);
   if(!rows.length){showToast('제품명을 입력한 항목이 없어요!');return;}
   try{
@@ -851,6 +856,7 @@ function openEdit(id){
   document.getElementById('eName').value=g.name||'';
   document.getElementById('eOpen').value=g.open_date||'';
   document.getElementById('eEnd').value=g.end_date||'';
+  document.getElementById('ePay').value=g.pay_link||'';
   fillMajor('eMajor');
   if(g.major)document.getElementById('eMajor').value=g.major;
   syncEM();
@@ -872,10 +878,13 @@ async function doEdit(){
   const minor=document.getElementById('eMinor').value;
   if(!name||!open_date){showToast('필수 항목을 입력해주세요!');return;}
   try{
+    const body={name,major,minor,open_date,end_date,color:_editColor,approved:false};
+    const pl=document.getElementById('ePay').value.trim();
+    if(pl) body.pay_link=pl;
     const r=await fetch(`${SB}/rest/v1/gonggu?id=eq.${_editId}`,{
       method:'PATCH',
       headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({name,major,minor,open_date,end_date,color:_editColor,approved:false})
+      body:JSON.stringify(body)
     });
     if(!r.ok)throw 0;
     closeEditModal();

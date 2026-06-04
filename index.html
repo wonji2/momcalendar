@@ -767,6 +767,7 @@ async function loadData() {
       name: r.name || '',
       openDate: r.open_date || '',
       endDate: r.end_date || '',
+      payLink: (r.pay_link || '').trim(),
     })).filter(d => d.name && d.openDate);
     console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
@@ -863,7 +864,10 @@ function renderCard(item){
   const partnerChip = partner ? `<span class="partner-chip">맘캘 이웃셀러</span>` : '';
   const cardBg = partner ? '#F0E6FA' : '#fff';
   const cardBorder = partner ? '#C9A8E8' : '#ECECEC';
-  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');location.href='${instaUrl}'`;
+  // 결제링크가 있으면 인스타 대신 그 링크로 바로 연결
+  const _pay=(item.payLink||'').trim();
+  const goUrl=/^https?:\/\//i.test(_pay)?_pay:instaUrl;
+  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');location.href='${goUrl.replace(/'/g,"\\'")}'`;
   return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
       <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${item.major}</span>
