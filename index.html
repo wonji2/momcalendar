@@ -1430,16 +1430,38 @@ function clearSearch(){
   renderList();
 }
 const sInput=document.getElementById('sInput');
+function scrollToResults(){
+  const target=document.getElementById('cardList');
+  if(!target) return;
+  // 캘린더 탭이면 리스트로 전환해 결과가 보이도록
+  const lv=document.getElementById('listView');
+  if(lv && lv.style.display==='none') switchTab('list');
+  const hd=document.querySelector('.hd');
+  const off=(hd?hd.offsetHeight:60)+8; // sticky 검색바 높이만큼 빼서 그 아래에 결과가 보이게
+  const y=target.getBoundingClientRect().top + window.pageYOffset - off;
+  window.scrollTo({top:Math.max(y,0),behavior:'smooth'});
+}
+let _searchScrollTimer=null;
 sInput.addEventListener('input',e=>{
   const v=e.target.value;
   document.getElementById('sClear').style.display=v?'block':'none';
   fSearch=v;
   renderList();
+  // 타이핑이 멈추면(0.5초) 결과로 부드럽게 이동 — 매 글자마다 튀지 않게 디바운스
+  clearTimeout(_searchScrollTimer);
+  if(v.trim()){
+    _searchScrollTimer=setTimeout(()=>{
+      const cl=document.getElementById('cardList');
+      if(cl && cl.children.length) scrollToResults();
+    },500);
+  }
 });
 sInput.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
+    clearTimeout(_searchScrollTimer);
     if(sInput.value.trim()) trackEvent('search', sInput.value.trim());
-    sInput.blur();
+    sInput.blur(); // 모바일 키보드 내려서 결과가 잘 보이게
+    setTimeout(scrollToResults,150); // 키보드 접힌 뒤 결과로 이동
   }
 });
 
