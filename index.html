@@ -1139,13 +1139,24 @@ function renderHotdeals(){
     el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">아직 등록된 핫딜이 없어요 🔥</div>';
     return;
   }
+  const _now=new Date();
+  const _d0=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate()).getTime();
   el.innerHTML=_hotdealData.map(h=>{
     const dt=new Date(h.created_at);
     const tstr=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    return `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener">
+    const cd=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime();
+    const diff=Math.round((_d0-cd)/86400000);
+    const isToday=diff<=0;
+    const ageLabel=isToday?'오늘':(diff===1?'어제':diff+'일전');
+    const ageBadge=isToday
+      ? `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:800;color:#fff;background:#F0502E;padding:3px 10px;border-radius:20px">오늘</span>`
+      : `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;color:#AEAEAE;background:#F2F2F2;padding:3px 10px;border-radius:20px">${ageLabel}</span>`;
+    const cardStyle=isToday?' style="border-color:#F6B49E;background:#FFF8F5"':'';
+    return `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener"${cardStyle}>
       <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
         <span class="hd-tag" style="background:#FAECE7;color:#993C1D">🔥 핫딜</span>
         ${catChips(h.major,h.minor)}
+        ${ageBadge}
       </div>
       <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:3px;padding-right:24px">${h.title}</div>
       <div style="font-size:11px;color:#999">🕐 ${tstr}</div>

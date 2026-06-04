@@ -3327,6 +3327,7 @@ function syncMinor(pfx){
 }
 const HD_URL=SB_URL+'/rest/v1/hotdeals';
 const EX_URL=SB_URL+'/rest/v1/experiences';
+let _hdAdminCache=[];
 function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Content-Type':'application/json'},extra||{});}
 
 // ── 줄 추가형 입력 (대분류 드롭다운 → 소분류 자동) ──
@@ -3438,14 +3439,18 @@ async function loadHotdealAdmin(){
     const r=await fetch(`${HD_URL}?select=*&order=created_at.desc&limit=200`,{headers:sbHeaders()});
     if(!r.ok) throw 0;
     const rows=await r.json();
+    _hdAdminCache=rows;
     if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 핫딜이 없어요.</div>';return;}
     el.innerHTML=rows.map(h=>{
       const dt=new Date(h.created_at);
       const t=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-      return `<div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      return `<div id="hdrow-${h.id}" style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.title}</div>
         <div style="font-size:10px;color:#999">${h.major||''} ${h.minor||''} · 🕐 ${t}</div></div>
-        <button onclick="delHotdeal(${h.id})" style="flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editHotdeal(${h.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delHotdeal(${h.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div>
       </div>`;
     }).join('');
   }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">hotdeals 테이블을 먼저 생성해주세요.</div>'; }
@@ -3453,6 +3458,48 @@ async function loadHotdealAdmin(){
 async function delHotdeal(id){
   if(!confirm('이 핫딜을 삭제할까요?'))return;
   try{ await fetch(`${HD_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadHotdealAdmin(); }catch(e){alert('삭제 실패');}
+}
+function editHotdeal(id){
+  const h=(_hdAdminCache||[]).find(x=>x.id===id); if(!h) return;
+  const row=document.getElementById('hdrow-'+id); if(!row) return;
+  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const maj=h.major||firstMajor;
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#D85A30;margin-bottom:7px">🔥 핫딜 수정</div>
+    <input id="hdE-title-${id}" type="text" value="${esc(h.title)}" placeholder="제목" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <input id="hdE-link-${id}" type="url" value="${esc(h.link)}" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <select id="hdE-major-${id}" onchange="syncEditMinor(${id})" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(maj)}</select>
+      <select id="hdE-minor-${id}" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(maj,h.minor)}</select>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="saveHotdealEdit(${id})" style="flex:1;background:#D85A30;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadHotdealAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinor(id){
+  const maj=document.getElementById('hdE-major-'+id).value;
+  document.getElementById('hdE-minor-'+id).innerHTML=minorOptions(maj,'');
+}
+async function saveHotdealEdit(id){
+  const title=document.getElementById('hdE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const body={
+    title,
+    link:document.getElementById('hdE-link-'+id).value.trim(),
+    major:document.getElementById('hdE-major-'+id).value,
+    minor:document.getElementById('hdE-minor-'+id).value
+  };
+  try{
+    const r=await fetch(`${HD_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    if(!r.ok){
+      let m=''; try{const j=await r.json(); m=j.message||j.hint||JSON.stringify(j);}catch(_){ try{m=await r.text();}catch(__){} }
+      alert(`수정 실패 (${r.status})\n${m||''}\n\n로그인이 만료됐을 수 있어요. 새로고침 후 다시 시도해보세요.`); return;
+    }
+    loadHotdealAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
 }
 
 async function saveExperience(){
