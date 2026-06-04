@@ -863,7 +863,7 @@ function renderCard(item){
   const partnerChip = partner ? `<span class="partner-chip">맘캘 이웃셀러</span>` : '';
   const cardBg = partner ? '#F0E6FA' : '#fff';
   const cardBorder = partner ? '#C9A8E8' : '#ECECEC';
-  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');window.open('${instaUrl}','_blank')`;
+  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');location.href='${instaUrl}'`;
   return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
       <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${item.major}</span>
@@ -1544,7 +1544,7 @@ function renderSellers(rows){
     const handle=(s.insta||'').replace('@','');
     const url=handle?`https://www.instagram.com/${handle}`:(s.link||'#');
     const name=s.name||handle||'셀러';
-    return`<div class="seller-item" onclick="window.open('${url}','_blank')">
+    return`<div class="seller-item" onclick="location.href='${url}'">
       <div class="seller-ring" style="border-color:${color}"><span style="color:${color}">${name}</span></div>
     </div>`;
   }).join('');
