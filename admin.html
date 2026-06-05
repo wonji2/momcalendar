@@ -1585,13 +1585,25 @@ function parseGonggumoa(text, existingData, minDate) {
     if (MAJORS_GM.has(l)) { i++; continue; }
     if (SUBCATS_GM.has(l)) { curMinor = l; i++; continue; }
 
-    const dateM = l.match(/^(\d{1,2})\/(\d{1,2})$/);
-    if (dateM) {
-      const openDate = ymd(dateM[1], dateM[2]);
-      // 과거 날짜 skip
-      if (openDate < (minDate||todayStr)) { i++; continue; }
+    const rangeM = l.match(/^(\d{1,2})\/(\d{1,2})\s*~\s*(\d{1,2})\/(\d{1,2})$/);
+    const singleM = !rangeM && l.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (rangeM || singleM) {
+      let openDate, endExplicit='';
+      if (rangeM) {
+        openDate    = ymd(rangeM[1], rangeM[2]);
+        endExplicit = ymd(rangeM[3], rangeM[4]);
+        if (endExplicit < openDate) {            // 연말→연초로 넘어가는 기간 보정
+          endExplicit = (parseInt(endExplicit.slice(0,4))+1) + endExplicit.slice(4);
+        }
+      } else {
+        openDate = ymd(singleM[1], singleM[2]);
+      }
+      // 이미 끝난 건(마감일이 기준일보다 과거) 제외 — 마감일 없으면 오픈일 기준
+      const endRef = endExplicit || fixEndDate(openDate, '');
+      if (endRef < (minDate||todayStr)) { i++; continue; }
       i++;
-      if (i < lines.length && /^D/.test(lines[i])) i++;
+      // 날짜 다음에 오는 상태줄(D-day, D-3, 종료, 오늘 등) 건너뛰기
+      while (i < lines.length && (/^D-?\d*$/.test(lines[i]) || lines[i]==='D-day' || lines[i]==='종료' || lines[i]==='오늘')) i++;
 
       if (i < lines.length) {
         const name = lines[i].trim(); i++;
@@ -1606,7 +1618,7 @@ function parseGonggumoa(text, existingData, minDate) {
           );
           if (!isDup) {
             const cat = resolveCat(curMinor, name);
-            const ed = fixEndDate(openDate, '');
+            const ed = endExplicit || fixEndDate(openDate, '');
             const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
             results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
           }
