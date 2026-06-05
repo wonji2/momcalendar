@@ -3328,6 +3328,7 @@ function syncMinor(pfx){
 const HD_URL=SB_URL+'/rest/v1/hotdeals';
 const EX_URL=SB_URL+'/rest/v1/experiences';
 let _hdAdminCache=[];
+let _expAdminCache=[];
 function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Content-Type':'application/json'},extra||{});}
 
 // ── 줄 추가형 입력 (대분류 드롭다운 → 소분류 자동) ──
@@ -3528,16 +3529,20 @@ async function loadExpAdmin(){
     if(!r.ok) throw 0;
     const rows=await r.json();
     if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 체험단이 없어요.</div>';return;}
+    _expAdminCache=rows;
     const today=new Date().toISOString().slice(0,10);
     el.innerHTML=rows.map(e=>{
       const ended=e.end_date&&e.end_date<today;
       const upcoming=e.open_date&&e.open_date>today;
       const stat=ended?'마감':(upcoming?'예정':'모집중');
       const statC=ended?'#999':(upcoming?'#888':'#0F6E56');
-      return `<div style="background:${ended?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      return `<div id="exrow-${e.id}" style="background:${ended?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:${ended?'#999':'#222'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.title} <span style="font-size:10px;color:${statC}">[${stat}]</span></div>
-        <div style="font-size:10px;color:#999">${e.major||''} ${e.minor||''} · 👥${e.recruit_count||'-'}명 · 마감 ${e.end_date||'-'}</div></div>
-        <button onclick="delExp(${e.id})" style="flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        <div style="font-size:10px;color:#999">${e.major||''} ${e.minor||''} · 👥${e.recruit_count||'-'}명 · ${e.open_date?('모집 '+e.open_date+' ~ '):''}마감 ${e.end_date||'-'}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editExp(${e.id})" style="background:#E1F2EC;color:#0F6E56;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delExp(${e.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div>
       </div>`;
     }).join('');
   }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">experiences 테이블을 먼저 생성해주세요.</div>'; }
@@ -3545,6 +3550,57 @@ async function loadExpAdmin(){
 async function delExp(id){
   if(!confirm('이 체험단을 삭제할까요?'))return;
   try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');}
+}
+function editExp(id){
+  const e=(_expAdminCache||[]).find(x=>x.id===id); if(!e) return;
+  const row=document.getElementById('exrow-'+id); if(!row) return;
+  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+  const maj=e.major||Object.keys(CATS_LIST)[0];
+  const inp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:7px">🎁 체험단 수정</div>
+    <input id="exE-title-${id}" type="text" value="${esc(e.title)}" placeholder="제목" style="${inp};margin-bottom:7px">
+    <input id="exE-link-${id}" type="url" value="${esc(e.link)}" placeholder="신청 링크" style="${inp};margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select id="exE-major-${id}" onchange="syncEditMinorEx(${id})" style="${inp}">${catOptions(maj)}</select>
+      <select id="exE-minor-${id}" style="${inp}">${minorOptions(maj,e.minor)}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">모집 시작일</div><input id="exE-open-${id}" type="date" value="${esc(e.open_date)}" style="${inp}"></div>
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">마감일</div><input id="exE-end-${id}" type="date" value="${esc(e.end_date)}" style="${inp}"></div>
+    </div>
+    <input id="exE-count-${id}" type="number" min="0" value="${e.recruit_count!=null?e.recruit_count:''}" placeholder="모집 인원(명)" style="${inp};margin-bottom:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="saveExpEdit(${id})" style="flex:1;background:#0F6E56;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadExpAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinorEx(id){
+  const maj=document.getElementById('exE-major-'+id).value;
+  document.getElementById('exE-minor-'+id).innerHTML=minorOptions(maj,'');
+}
+async function saveExpEdit(id){
+  const title=document.getElementById('exE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const cnt=document.getElementById('exE-count-'+id).value;
+  const body={
+    title,
+    link:document.getElementById('exE-link-'+id).value.trim(),
+    major:document.getElementById('exE-major-'+id).value,
+    minor:document.getElementById('exE-minor-'+id).value,
+    open_date:document.getElementById('exE-open-'+id).value||null,
+    end_date:document.getElementById('exE-end-'+id).value||null,
+    recruit_count:cnt?parseInt(cnt):null
+  };
+  try{
+    const r=await fetch(`${EX_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    if(!r.ok){
+      let m=''; try{const j=await r.json(); m=j.message||j.hint||JSON.stringify(j);}catch(_){ try{m=await r.text();}catch(__){} }
+      alert(`수정 실패 (${r.status})\n${m||''}\n\n로그인이 만료됐을 수 있어요. 새로고침 후 다시 시도해보세요.`); return;
+    }
+    loadExpAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
 }
 
 // ── 셀러 계정 생성 ──
