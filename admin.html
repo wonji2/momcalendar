@@ -3494,11 +3494,17 @@ async function saveHotdealEdit(id){
     minor:document.getElementById('hdE-minor-'+id).value
   };
   try{
-    const r=await fetch(`${HD_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    const r=await fetch(`${HD_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
     if(!r.ok){
       let m=''; try{const j=await r.json(); m=j.message||j.hint||JSON.stringify(j);}catch(_){ try{m=await r.text();}catch(__){} }
-      alert(`수정 실패 (${r.status})\n${m||''}\n\n로그인이 만료됐을 수 있어요. 새로고침 후 다시 시도해보세요.`); return;
+      alert(`수정 실패 (${r.status})\n${m||''}`); return;
     }
+    let updated=[]; try{ updated=await r.json(); }catch(_){}
+    if(!Array.isArray(updated)||updated.length===0){
+      alert('⚠️ 저장은 성공했지만 실제로 반영되지 않았어요.\n\nhotdeals 테이블의 수정(UPDATE) 권한(RLS) 문제일 수 있어요.\nSupabase SQL Editor에서 실행:\n\nALTER TABLE hotdeals ENABLE ROW LEVEL SECURITY;\nDROP POLICY IF EXISTS hd_read ON hotdeals;\nCREATE POLICY hd_read ON hotdeals FOR SELECT USING (true);\nDROP POLICY IF EXISTS hd_write ON hotdeals;\nCREATE POLICY hd_write ON hotdeals FOR ALL TO authenticated USING (true) WITH CHECK (true);');
+      return;
+    }
+    alert('✅ 핫딜 수정 완료!');
     loadHotdealAdmin();
   }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
 }
@@ -3594,11 +3600,17 @@ async function saveExpEdit(id){
     recruit_count:cnt?parseInt(cnt):null
   };
   try{
-    const r=await fetch(`${EX_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(body)});
+    const r=await fetch(`${EX_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
     if(!r.ok){
       let m=''; try{const j=await r.json(); m=j.message||j.hint||JSON.stringify(j);}catch(_){ try{m=await r.text();}catch(__){} }
-      alert(`수정 실패 (${r.status})\n${m||''}\n\n로그인이 만료됐을 수 있어요. 새로고침 후 다시 시도해보세요.`); return;
+      alert(`수정 실패 (${r.status})\n${m||''}`); return;
     }
+    let updated=[]; try{ updated=await r.json(); }catch(_){}
+    if(!Array.isArray(updated)||updated.length===0){
+      alert('⚠️ 저장 요청은 성공했지만 실제로 반영되지 않았어요.\n\nexperiences 테이블의 수정(UPDATE) 권한이 막혀 있을 가능성이 커요(RLS).\nSupabase SQL Editor에서 아래를 한 번 실행해주세요:\n\nALTER TABLE experiences ENABLE ROW LEVEL SECURITY;\nDROP POLICY IF EXISTS exp_read ON experiences;\nCREATE POLICY exp_read ON experiences FOR SELECT USING (true);\nDROP POLICY IF EXISTS exp_write ON experiences;\nCREATE POLICY exp_write ON experiences FOR ALL TO authenticated USING (true) WITH CHECK (true);');
+      return;
+    }
+    alert('✅ 체험단 수정 완료!');
     loadExpAdmin();
   }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
 }
