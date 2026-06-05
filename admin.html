@@ -577,6 +577,7 @@ details summary::-webkit-details-marker{display:none}
       <!-- 탭 -->
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
         <button onclick="switchEvtTab('card')" id="eTab-card" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#602090;color:#fff">🔥 인기 공구</button>
+        <button onclick="switchEvtTab('infl')" id="eTab-infl" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">👤 인기 인플루언서</button>
         <button onclick="switchEvtTab('search')" id="eTab-search" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🔍 인기 검색어</button>
         <button onclick="switchEvtTab('type')" id="eTab-type" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">📊 액션 분석</button>
       </div>
@@ -1555,6 +1556,7 @@ function parseGonggumoa(text, existingData, minDate) {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const results = [];
+  let dupCnt = 0;
   let i = 0, curMinor = '';
 
   const CATMAP_GM={'가전':{major:'가전',minor:'생활가전'},'건강':{major:'식품',minor:'건강식품'},
@@ -1621,7 +1623,7 @@ function parseGonggumoa(text, existingData, minDate) {
             const ed = endExplicit || fixEndDate(openDate, '');
             const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
             results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
-          }
+          } else { dupCnt++; }
         }
       }
       continue;
@@ -1631,6 +1633,7 @@ function parseGonggumoa(text, existingData, minDate) {
         /^\d+$/.test(l) || l.startsWith('*') || /^\[.+\]/.test(l)) { i++; continue; }
     i++;
   }
+  results.dupCount = dupCnt;
   return results;
 }
 
@@ -1669,11 +1672,12 @@ async function crawlParse(){
   const parsed=site==='pangpang'?parsePangpang(text,existing,minDate):parseGonggumoa(text,existing,minDate);
   crawlParsedData=parsed;
   btn.disabled=false; btn.textContent='③ 파싱 & 미리보기';
-  status.textContent=`파싱 완료 — 신규 ${parsed.length}건 (기존 중복 제외)`;
+  const dupN=parsed.dupCount||0;
+  status.textContent=`파싱 완료 — 신규 ${parsed.length}건`+(dupN?` · 이미 등록된 ${dupN}건 제외 (총 ${parsed.length+dupN}건 인식)`:'');
 
   if(!parsed.length){
     document.getElementById('crawlResultArea').style.display='none';
-    alert('새로 추가할 일정이 없어요.\n(형식이 안 맞거나 이미 등록된 항목일 수 있어요)');
+    alert(dupN ? `새로 추가할 일정이 없어요.\n인식된 ${dupN}건이 모두 이미 등록된 항목이라 제외됐어요.` : '새로 추가할 일정이 없어요.\n(형식이 안 맞을 수 있어요)');
     return;
   }
   renderCrawlCards();
@@ -2850,7 +2854,7 @@ let _evtTab='card', _evtPeriod='month', _evtCache={};
 
 function switchEvtTab(tab){
   _evtTab=tab;
-  ['card','search','type'].forEach(t=>{
+  ['card','infl','search','type'].forEach(t=>{
     const b=document.getElementById('eTab-'+t);
     if(!b)return;
     b.style.background=t===tab?'#602090':'#F0E6FA';
@@ -2911,45 +2915,94 @@ async function loadEventStats(){
       }
     });
 
-    // 인기 공구: insta 아이디 → gonggu 테이블에서 상품명 조인
-    if(_evtTab==='card'){
-      const topCards=Object.entries(cardCnt).sort((a,b)=>b[1]-a[1]).slice(0,20);
-      if(!topCards.length){
-        if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">공구 클릭 데이터가 없어요.</div>';
+    // card_click 집계: 자체완결형 JSON({id,n,i,f}) 우선, 레거시(상품id / 인스타핸들) 폴백
+    if(_evtTab==='card' || _evtTab==='infl'){
+      const entries=Object.entries(cardCnt); // [event_data, cnt]
+      if(!entries.length){
+        if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">아직 공구 카드 클릭 데이터가 없어요.</div>';
         return;
       }
-      // 상위 인스타 아이디로 공구 조회 (최근 오픈순)
-      const topInstas=topCards.map(([k])=>k).slice(0,10);
-      const inflFilter=topInstas.map(i=>`insta.eq.${i}`).join(',');
-      const ggRes=await fetch(`${SB_URL}/rest/v1/gonggu?select=insta,name,influencer,open_date&or=(${inflFilter})&order=open_date.desc&limit=200`,{
-        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+      // 각 기록을 표준형으로 변환
+      const recs=entries.map(([k,cnt])=>{
+        let o=null;
+        if(k && k.charAt(0)==='{'){ try{o=JSON.parse(k);}catch(_){}}
+        if(o) return {cnt, id:(o.id!=null?String(o.id):null), name:o.n||'', insta:(o.i||'').replace('@',''), infl:o.f||''};
+        if(/^\d+$/.test(k)) return {cnt, id:k, name:'', insta:'', infl:'', legacy:true}; // 옛 id-only
+        return {cnt, id:null, name:'', insta:k.replace('@',''), infl:'', legacyInsta:true}; // 옛 insta-only
       });
-      const ggRows=await ggRes.json()||[];
-      // insta별 최근 공구 목록 매핑
-      const ggMap={};
-      ggRows.forEach(g=>{
-        if(!ggMap[g.insta])ggMap[g.insta]=[];
-        ggMap[g.insta].push(g);
+      // 레거시 id-only는 gonggu에서 이름/인스타 보충 (삭제됐으면 못 찾을 수 있음)
+      const needIds=recs.filter(r=>r.legacy).map(r=>r.id);
+      if(needIds.length){
+        try{
+          const gg=await fetch(`${SB_URL}/rest/v1/gonggu?select=id,name,insta,influencer&id=in.(${[...new Set(needIds)].slice(0,300).join(',')})`,{
+            headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
+          });
+          const m={}; (await gg.json()||[]).forEach(g=>{ m[g.id]={name:g.name,insta:(g.insta||'').replace('@',''),influencer:g.influencer||''}; });
+          recs.forEach(r=>{ if(r.legacy && m[r.id]){ r.name=m[r.id].name; r.insta=m[r.id].insta; r.infl=m[r.id].influencer; }});
+        }catch(_){}
+      }
+
+      if(_evtTab==='card'){
+        // 개별 공구(카드)별 합산 — 상품 단위 (id 우선, 없으면 이름)
+        const prod={};
+        recs.forEach(r=>{
+          if(r.legacyInsta) return;               // 상품 정보 없는 옛 기록은 제외
+          if(!r.name && !r.id) return;
+          const key = r.id ? ('id'+r.id) : ('nm'+r.name);
+          if(!prod[key]) prod[key]={name:r.name||'(이름없음)', insta:r.insta||'', infl:r.infl||'', cnt:0};
+          prod[key].cnt+=r.cnt;
+          if(r.name) prod[key].name=r.name;
+          if(r.insta) prod[key].insta=r.insta;
+          if(r.infl)  prod[key].infl=r.infl;
+        });
+        const list=Object.values(prod).sort((a,b)=>b.cnt-a.cnt).slice(0,20);
+        if(!list.length){
+          if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">개별 카드 클릭 데이터가 아직 없어요.<br><span style="font-size:11px">index.html 배포 후 새로 눌린 카드부터 상품별로 집계돼요.</span></div>';
+          return;
+        }
+        let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔥 인기 공구 · 개별 카드 TOP ${list.length} (${_evtPeriod==='month'?'이번달':'누적'})</div>`;
+        list.forEach((p,i)=>{
+          const rank=i+1;
+          h+=`<div style="padding:7px 0;border-bottom:1px solid #F0E6FA">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <span style="font-size:12px;font-weight:800;color:${rank<=3?'#602090':'#aaa'};min-width:18px">${rank}</span>
+                <span style="font-size:12px;font-weight:700;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</span>
+              </div>
+              <span style="font-size:12px;font-weight:800;color:#602090;flex-shrink:0">${p.cnt.toLocaleString()}클릭</span>
+            </div>
+            <div style="font-size:10px;color:#9B6FD4;margin-top:2px;padding-left:24px">${p.infl||''}${p.insta?' @'+p.insta:''}</div>
+          </div>`;
+        });
+        if(el)el.innerHTML=h;
+        return;
+      }
+
+      // _evtTab==='infl' : 인플루언서(인스타)별 합산
+      const byInsta={}, inflName={};
+      recs.forEach(r=>{
+        if(!r.insta) return;
+        byInsta[r.insta]=(byInsta[r.insta]||0)+r.cnt;
+        if(r.infl) inflName[r.insta]=r.infl;
       });
-      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔥 인기 공구 TOP 20 (${_evtPeriod==='month'?'이번달':'누적'})</div>`;
+      const top=Object.entries(byInsta).sort((a,b)=>b[1]-a[1]).slice(0,20);
+      if(!top.length){
+        if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">인플루언서 클릭 데이터가 없어요.</div>';
+        return;
+      }
+      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">👤 인기 인플루언서 TOP ${top.length} (${_evtPeriod==='month'?'이번달':'누적'})<br><span style="font-size:10px;color:#aaa;font-weight:400">그 인플루언서의 모든 공구 카드 클릭 합계</span></div>`;
       let rank=0;
-      for(const [insta,cnt] of topCards){
+      for(const [insta,cnt] of top){
         rank++;
-        const items=ggMap[insta]||[];
-        const infl=items[0]?.influencer||('@'+insta);
-        // 클릭수 높은 순으로 해당 셀러의 공구들 표시
-        const nameList=items.slice(0,2).map(g=>`<span style="color:#555">${g.name}</span>`).join(', ')
-          +(items.length>2?` 외 ${items.length-2}건`:'');
         h+=`<div style="padding:7px 0;border-bottom:1px solid #F0E6FA">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:12px;font-weight:800;color:${rank<=3?'#602090':'#aaa'};min-width:18px">${rank}</span>
               <span style="font-size:12px;font-weight:700;color:#333">@${insta}</span>
-              <span style="font-size:10px;color:#9B6FD4">${infl}</span>
+              <span style="font-size:10px;color:#9B6FD4">${inflName[insta]||''}</span>
             </div>
             <span style="font-size:12px;font-weight:800;color:#602090">${cnt.toLocaleString()}클릭</span>
           </div>
-          ${nameList?`<div style="font-size:10px;color:#aaa;margin-top:2px;padding-left:24px">${nameList}</div>`:''}
         </div>`;
       }
       if(el)el.innerHTML=h;

@@ -867,7 +867,7 @@ function renderCard(item){
   // 결제링크가 있으면 인스타 대신 그 링크로 바로 연결
   const _pay=(item.payLink||'').trim();
   const goUrl=/^https?:\/\//i.test(_pay)?_pay:instaUrl;
-  const oc = `trackEvent('card_click','${(item.insta||'').replace(/'/g,'')}');location.href='${goUrl.replace(/'/g,"\\'")}'`;
+  const oc = `trackCard(${item.id});location.href='${goUrl.replace(/'/g,"\\'")}'`;
   return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
       <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${item.major}</span>
@@ -1231,9 +1231,10 @@ function renderExperiences(){
                    :'<span class="ex-tag" style="background:#E1F2EB;color:#085041">🎁 체험단</span>';
     const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${e.major}</span>`:'';
     const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${e.minor}</span>`:'';
+    const fmtMD=d=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length>=3?`${+p[1]}/${+p[2]}`:''; };
     const endTxt=upcoming
-      ? (e.open_date?`${parseInt(e.open_date.slice(5,7))}/${parseInt(e.open_date.slice(8,10))}모집`:'모집 예정')
-      : (e.end_date?`마감 ${e.end_date.slice(5).replace('-','/')}`:'');
+      ? (e.open_date?`오픈 ${fmtMD(e.open_date)}`:'오픈 예정')
+      : (e.end_date?`마감 ${fmtMD(e.end_date)}`:'');
     const recruit=e.recruit_count?`<span style="background:${ended?'#EEE':'#F0FBF6'};color:${ended?'#999':'#0F6E56'};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px">👥 선정인원 ${e.recruit_count}명</span>`:'';
     // 예정/마감이면 클릭 비활성 (링크 제거)
     const clickable=(!upcoming);
@@ -1638,9 +1639,17 @@ recordVisit();
 function trackEvent(type,data=''){
   fetch(`${SUPABASE_URL}/rest/v1/events`,{
     method:'POST',
+    keepalive:true,
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Prefer':'return=minimal'},
     body:JSON.stringify({event_type:type,event_data:String(data)})
   }).catch(()=>{});
+}
+// 카드 클릭: 삭제 후에도 통계가 남도록 상품명·인스타·인플루언서를 함께 저장
+function trackCard(id){
+  try{
+    const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
+    trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||''}));
+  }catch(e){ try{ trackEvent('card_click', JSON.stringify({id:id})); }catch(_){} }
 }
 
 // ── 떠다니는 카톡 버튼 ──
