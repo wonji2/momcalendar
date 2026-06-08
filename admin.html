@@ -1586,6 +1586,18 @@ function fixEndDate(openDate, endDate) {
   return endDate;
 }
 
+// 크롤 제목 정리: 별(⭐★☆🌟✨)과 (괄호)·（괄호）·【】·[] 안 내용 제거
+function cleanCrawlName(n){
+  if(!n) return n;
+  return n
+    .replace(/[⭐★☆🌟✨]/g,'')
+    .replace(/[（(][^（()）]*[)）]/g,'')
+    .replace(/【[^】]*】/g,'')
+    .replace(/\[[^\]]*\]/g,'')
+    .replace(/\s{2,}/g,' ')
+    .trim();
+}
+
 function parsePangpang(text, existingData, minDate) {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -1647,6 +1659,7 @@ function parsePangpang(text, existingData, minDate) {
       const stopIdx=card.findIndex(l=>l.startsWith('#')||/오픈 예정|^\d{1,2}\/\d{1,2}/.test(l));
       name=card.slice(0, stopIdx>0?stopIdx:1).join(' ').trim();
     }
+    name = cleanCrawlName(name);                // 제목에서 별·괄호 제거 (항목은 유지)
     if(!name || name.startsWith('#')) continue; // 상품명 잘린 카드 skip
 
     // 날짜 (범위 우선)
@@ -1747,7 +1760,7 @@ function parseGonggumoa(text, existingData, minDate) {
       while (i < lines.length && (/^D-?\d*$/.test(lines[i]) || lines[i]==='D-day' || lines[i]==='종료' || lines[i]==='오늘')) i++;
 
       if (i < lines.length) {
-        const name = lines[i].trim(); i++;
+        const name = cleanCrawlName(lines[i].trim()); i++;
         const influencer = (i < lines.length && lines[i].length <= 20 &&
           !/^\d/.test(lines[i]) && !SKIP_GM.has(lines[i]) &&
           !/^[🔥⏰✅📦💌]/.test(lines[i])) ? lines[i] : '';
