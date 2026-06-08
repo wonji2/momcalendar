@@ -819,6 +819,7 @@ let allData=[], curTab='all', delTargetId=null, delBulkIds=null;
 let onlyNoInsta=false; // '인스타 미연결만' 필터
 let dupIdSet=new Set(); // 중복의심 id 캐시 (데이터 변경 시 1회 계산)
 let _dupPairs=[];       // 현재 화면의 중복 쌍 [위,아래] 목록 (일괄 선택용)
+let knownNameInsta={};  // 등록된 셀러/인플루언서 한글명 → insta (미연결 자동연결용)
 let checkedIds=new Set();
 
 // ── 로그인 (Supabase Auth) ──
@@ -3318,6 +3319,29 @@ async function loadData(){
       }
       return d;
     });
+
+    // 등록된 셀러/인플루언서 한글명 → insta 매핑 구축
+    knownNameInsta={};
+    Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ nm=(nm||'').trim(); ig=(ig||'').replace('@','').trim(); if(nm&&ig&&!knownNameInsta[nm]) knownNameInsta[nm]=ig; });
+    try{
+      const sres=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
+      (await sres.json()||[]).forEach(s=>{ const nm=(s.name||'').trim(); const ig=(s.insta||s.login_insta||'').replace('@','').trim(); if(nm&&ig&&!knownNameInsta[nm]) knownNameInsta[nm]=ig; });
+    }catch(_){}
+
+    // 등록된 셀러인데 insta가 비어있는 공구 → 자동 연결 (화면 즉시 반영 + DB 백그라운드 저장)
+    const autoFill={};
+    allData.forEach(d=>{
+      const nm=(d.influencer||'').trim();
+      if(!(d.insta||'').trim() && nm && knownNameInsta[nm]){ d.insta=knownNameInsta[nm]; autoFill[nm]=knownNameInsta[nm]; }
+    });
+    Object.entries(autoFill).forEach(([nm,ig])=>{
+      fetch(`${SB_URL}/rest/v1/gonggu?influencer=eq.${encodeURIComponent(nm)}&or=(insta.is.null,insta.eq.)`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+        body:JSON.stringify({insta:ig})
+      }).catch(()=>{});
+    });
+
     updateStats();
     renderInflQuickSelect();
     renderCards();
