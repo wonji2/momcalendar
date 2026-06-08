@@ -239,6 +239,38 @@ details summary::-webkit-details-marker{display:none}
 
   <!-- AI 등록 탭 -->
   <div id="aiView" style="display:none;padding:14px;padding-bottom:80px">
+
+    <!-- ⚡ 단건 빠른 등록 -->
+    <div style="background:#fff;border:2px solid #DCD2FB;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:14px;font-weight:800;color:#4A35A0">⚡ 단건 빠른 등록</div>
+      <div style="font-size:11px;color:#999;margin:3px 0 10px">셀러를 검색·선택하면 인스타가 자동 연결돼요. 상품명·기간만 넣고 등록!</div>
+
+      <label style="font-size:11px;font-weight:700;color:#666">셀러 (한글명/＠아이디 검색·선택)</label>
+      <input id="qReg-seller" list="qRegSellers" autocomplete="off" oninput="qRegSellerHint()" placeholder="예) 현브로맘"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin:4px 0 2px">
+      <datalist id="qRegSellers"></datalist>
+      <div id="qReg-sellerHint" style="font-size:11px;min-height:15px;margin-bottom:8px"></div>
+
+      <label style="font-size:11px;font-weight:700;color:#666">상품명</label>
+      <input id="qReg-name" type="text" oninput="qRegGuessCat()" placeholder="예) 이키 메쉬수면조끼"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin:4px 0 8px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:11px;font-weight:700;color:#666">오픈일</label>
+          <input id="qReg-open" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#666">마감일 (비우면 +3일)</label>
+          <input id="qReg-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <select id="qReg-major" onchange="qRegSyncMinor()" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit"></select>
+        <select id="qReg-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit"></select>
+      </div>
+
+      <button onclick="qRegSubmit()" style="width:100%;padding:12px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">⚡ 이 공구 등록</button>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:#bbb;margin-bottom:8px">— 또는 여러 건을 한 번에 —</div>
     <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
       <b>🤖 여러 명 한 번에 등록</b><br>
       인플루언서마다 <b>@아이디 한글명</b> 한 줄을 먼저 쓰고, 그 아래에 <b>날짜 상품명</b>을 적어요. 여러 명을 한꺼번에 붙여넣어도 돼요.<br><br>
@@ -672,7 +704,7 @@ CREATE POLICY "read_events" ON events
       <select class="f-sel" id="majorFilter" onchange="renderCards()">
         <option value="">전체 대분류</option>
         <option>육아</option><option>리빙</option><option>인테리어</option>
-        <option>식품</option><option>뷰티</option><option>패션</option>
+        <option>식품</option><option>건강</option><option>뷰티</option><option>패션</option>
         <option>여행</option><option>반려동물</option><option>가전</option>
       </select>
       <input class="f-date" id="dateFrom" type="date" onchange="renderCards()" title="시작일">
@@ -725,7 +757,7 @@ CREATE POLICY "read_events" ON events
       <select id="beMajor">
         <option value="">변경 안 함</option>
         <option>육아</option><option>리빙</option><option>인테리어</option>
-        <option>식품</option><option>뷰티</option><option>패션</option>
+        <option>식품</option><option>건강</option><option>뷰티</option><option>패션</option>
         <option>여행</option><option>반려동물</option><option>가전</option>
       </select>
     </div>
@@ -747,7 +779,7 @@ CREATE POLICY "read_events" ON events
     <div class="modal-field"><label>대분류</label>
       <select id="editMajor">
         <option>육아</option><option>리빙</option><option>인테리어</option>
-        <option>식품</option><option>뷰티</option><option>패션</option>
+        <option>식품</option><option>건강</option><option>뷰티</option><option>패션</option>
         <option>여행</option><option>반려동물</option><option>가전</option>
       </select>
     </div>
@@ -899,9 +931,15 @@ async function runAiParse(){
 
   const today=new Date(); today.setHours(0,0,0,0);
 
-  // 한글명 -> insta 역매핑 (이미 등록된 인플루언서는 이름만 적어도 자동 연결)
+  // 한글명 -> insta 역매핑 (이미 등록된 인플루언서/셀러는 이름만 적어도 자동 연결)
   const nameToInstas={};
-  Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ if(nm&&ig){ (nameToInstas[nm]=nameToInstas[nm]||new Set()).add(ig); } });
+  const addNI=(nm,ig)=>{ nm=(nm||'').trim(); ig=(ig||'').replace('@','').trim(); if(nm&&ig){ (nameToInstas[nm]=nameToInstas[nm]||new Set()).add(ig); } };
+  Object.entries(inflMapping||{}).forEach(([ig,nm])=>addNI(nm,ig));
+  // 등록 셀러도 포함 (sellers.name → insta/login_insta)
+  try{
+    const sres=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
+    (await sres.json()||[]).forEach(s=>addNI(s.name, s.insta||s.login_insta));
+  }catch(_){}
   const knownNames=Object.keys(nameToInstas).sort((a,b)=>b.length-a.length);
 
   function parseDate(str, baseYear){
@@ -1092,6 +1130,7 @@ async function runAiParse(){
   }
   const results=[];
   let curInfl=defInfl, curInsta=defInsta;
+  if(curInfl && !curInsta){ const s0=nameToInstas[curInfl.trim()]; if(s0 && s0.size===1) curInsta=[...s0][0]; }
   for(const line of mergedLines){
     if(!line) continue;
     if(line.startsWith('@')){
@@ -1102,6 +1141,14 @@ async function runAiParse(){
     // "한글명 @아이디" 역순 패턴도 인식
     const revMatch=line.match(/^([^\@]+?)\s+@([A-Za-z0-9._]+)\s*$/);
     if(revMatch){ curInfl=revMatch[1].trim(); curInsta=revMatch[2]; continue; }
+    // 날짜가 없는 줄 = 인플루언서 헤더(한글명만). 등록된 이름이면 인스타 자동연결
+    if(!/^\s*\d{1,2}\s*[\/.월]\s*\d{1,2}/.test(line)){
+      curInfl=line.trim();
+      curInsta='';
+      const s=nameToInstas[curInfl];
+      if(s && s.size===1) curInsta=[...s][0];
+      continue;
+    }
     const item=parseLine(line, curInfl, curInsta);
     if(item) results.push(item);
   }
@@ -1357,6 +1404,95 @@ async function submitAiData(){
   }catch(e){
     alert('오류: '+e.message);
   }
+}
+
+// ── ⚡ 단건 빠른 등록 ──
+let _qRegName2Insta={}, _qRegInsta2Name={};
+async function loadQReg(){
+  qRegFillCats();
+  _qRegName2Insta={}; _qRegInsta2Name={};
+  Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ ig=(ig||'').replace('@','').trim(); nm=(nm||'').trim(); if(nm&&ig){ if(!_qRegName2Insta[nm])_qRegName2Insta[nm]=ig; _qRegInsta2Name[ig]=nm; }});
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:sbHeaders()});
+    (await r.json()||[]).forEach(s=>{
+      const ig=(s.insta||s.login_insta||'').replace('@','').trim();
+      const nm=(s.name||'').trim();
+      if(nm&&ig){ if(!_qRegName2Insta[nm])_qRegName2Insta[nm]=ig; _qRegInsta2Name[ig]=nm; }
+    });
+  }catch(_){}
+  const dl=document.getElementById('qRegSellers');
+  if(dl){
+    dl.innerHTML=Object.keys(_qRegName2Insta).sort().map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">@${_qRegName2Insta[nm]}</option>`).join('');
+  }
+}
+function qRegFillCats(){
+  const maj=document.getElementById('qReg-major'); if(!maj||maj.options.length) return;
+  maj.innerHTML=Object.keys(CATS_LIST).map((c,i)=>`<option value="${c}"${i===0?' selected':''}>${c}</option>`).join('');
+  qRegSyncMinor();
+}
+function qRegSyncMinor(){
+  const maj=document.getElementById('qReg-major').value;
+  document.getElementById('qReg-minor').innerHTML=(CATS_LIST[maj]||[]).map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+function qRegResolveSeller(){
+  const raw=(document.getElementById('qReg-seller').value||'').trim();
+  if(!raw) return {insta:'', infl:''};
+  const noAt=raw.replace(/^@/,'');
+  if(_qRegName2Insta[raw]) return {insta:_qRegName2Insta[raw], infl:raw};       // 등록된 한글명
+  if(_qRegInsta2Name[noAt]) return {insta:noAt, infl:_qRegInsta2Name[noAt]};    // 등록된 @아이디
+  if(raw.startsWith('@')||/^[A-Za-z0-9._]+$/.test(raw)) return {insta:noAt, infl:''}; // 미등록 @아이디
+  return {insta:'', infl:raw};                                                  // 미등록 한글명(미연결)
+}
+function qRegSellerHint(){
+  const h=document.getElementById('qReg-sellerHint');
+  const raw=(document.getElementById('qReg-seller').value||'').trim();
+  if(!raw){ h.textContent=''; return; }
+  const {insta,infl}=qRegResolveSeller();
+  if(insta) h.innerHTML=`<span style="color:#0F6E56;font-weight:700">🔗 연결: @${insta}${infl?(' · '+infl):''}</span>`;
+  else h.innerHTML=`<span style="color:#C62828">⚠️ 등록 안 된 이름이에요 — @아이디로 입력하면 연결돼요</span>`;
+}
+function qGuessCat(n){
+  n=n||'';
+  if(/유산균|비타민|오메가|철분|콜라겐|영양제|마그네슘|프로폴리스|엘더베리|커큐민/.test(n))return{major:'건강',minor:'비타민'};
+  if(/책|동화|사운드북|워크북|전집|그림책|북$|DVD|영어|한글|학습|문제집|독서/.test(n))return{major:'육아',minor:'책'};
+  if(/블럭|블록|퍼즐|교구|보드게임|자석|몬테소리|장난감|피규어|놀이/.test(n))return{major:'육아',minor:'장난감/놀이'};
+  if(/실내복|외출복|양말|샌들|신발|모자|거즈햇|빕|내복|가디건|수영복|래쉬가드|옷|티셔츠|고쟁이|선글라스/.test(n))return{major:'육아',minor:'의류잡화'};
+  if(/선크림|선쿠션|로션|크림|샴푸|틴트|마스크팩|화장품|미백|앰플|선스틱/.test(n))return{major:'뷰티',minor:'스킨케어'};
+  if(/선풍기|제습기|드라이기|청소기|에어건|냉장고|가전|제조기|써큘레이터|실링팬|에어프라이어|인덕션/.test(n))return{major:'가전',minor:'생활가전'};
+  if(/유모차|카시트|기저귀|분유|젖병|아기띠|하이체어|범퍼|쿨매트|냉감|방수매트|아기캐리어/.test(n))return{major:'육아',minor:'육아용품'};
+  if(/텀블러|수저|숟가락|젓가락|컵|그릇|도마|냄비|주방|식기|커트러리|밧드|믹싱볼|조리|빨대컵|스푼/.test(n))return{major:'리빙',minor:'주방용품'};
+  if(/우유|김$|버터|요거트|곰탕|국밥|두부|계란|달걀|과일|복숭아|옥수수|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈|올리브|어묵|돈까스/.test(n))return{major:'식품',minor:'간편식/밀키트'};
+  return{major:'리빙',minor:'생활용품'};
+}
+function qRegGuessCat(){
+  const name=(document.getElementById('qReg-name').value||'').trim();
+  if(!name) return;
+  const g=qGuessCat(name);
+  const maj=document.getElementById('qReg-major'), min=document.getElementById('qReg-minor');
+  if(maj && [...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; qRegSyncMinor(); if(g.minor && [...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+}
+async function qRegSubmit(){
+  const name=(document.getElementById('qReg-name').value||'').trim();
+  const open=document.getElementById('qReg-open').value;
+  let end=document.getElementById('qReg-end').value;
+  if(!name){alert('상품명을 입력해주세요!');return;}
+  if(!open){alert('오픈일을 선택해주세요!');return;}
+  if(end && end<open){alert('마감일이 오픈일보다 빨라요.');return;}
+  if(!end) end=addDays(open,3);
+  const {insta,infl}=qRegResolveSeller();
+  if(!insta && !confirm('인스타 연결 없이 등록할까요?\n(셀러를 정확히 선택하거나 @아이디를 입력하면 연결돼요)'))return;
+  const body={influencer:infl||(insta?('@'+insta):''), insta:insta||'',
+    major:document.getElementById('qReg-major').value, minor:document.getElementById('qReg-minor').value,
+    name, open_date:open, end_date:end, approved:true};
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||JSON.stringify(j);}catch(_){} alert(`등록 실패 (${r.status})\n${m||''}`); return; }
+    const ins=await r.json();
+    if(!Array.isArray(ins)||!ins.length){ alert('⚠️ 등록 요청은 성공했지만 반영되지 않았어요.\ngonggu 테이블 권한(RLS)을 확인해주세요.'); return; }
+    document.getElementById('qReg-name').value='';
+    document.getElementById('qReg-end').value='';
+    document.getElementById('qReg-sellerHint').innerHTML=`<span style="color:#0F6E56;font-weight:700">✅ "${name}" 등록 완료! 같은 셀러로 계속 추가할 수 있어요.</span>`;
+  }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
 }
 
 // ── 크롤링 ──
@@ -3724,6 +3860,7 @@ function switchTab(tab,el){
     clearTimeout(_vTimer);
     if(tab==='ai'){
       document.getElementById('aiView').style.display='block';
+      loadQReg();
     } else if(tab==='hotdeal'){
       document.getElementById('hotdealView').style.display='block';
       if(!document.querySelector('#hdRows .ct-row')) addHdRow();
@@ -3934,9 +4071,10 @@ function renderCard(d){
     </div>
     <div class="card-body">
       <div class="card-name">${d.name||'-'}</div>
-      <div class="card-meta">
-        <span class="meta-tag">${d.major||''}</span>
-        ${d.minor?`<span class="meta-tag">${d.minor}</span>`:''}
+      <div class="card-meta" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+        <select id="gcMaj-${d.id}" onchange="gcMajor(${d.id},this.value)" title="대분류" style="font-size:11px;padding:3px 6px;border:1px solid #DCD2FB;border-radius:6px;font-family:inherit;color:#4A35A0;font-weight:700;background:#fff">${catOptions(d.major)}</select>
+        <select id="gcMin-${d.id}" onchange="gcMinor(${d.id},this.value)" title="소분류" style="font-size:11px;padding:3px 6px;border:1px solid #EBEBEB;border-radius:6px;font-family:inherit;color:#666;background:#fff"><option value="">(소분류)</option>${minorOptions(d.major,d.minor)}</select>
+        <span id="gcOk-${d.id}" style="font-size:10px;font-weight:700"></span>
       </div>
       <div class="card-dates">📅 ${d.open_date||'-'} 오픈${d.end_date?' ~ '+d.end_date+' 마감':''}</div>
       <div class="card-actions">
@@ -3953,6 +4091,28 @@ function renderCard(d){
 function igSearch(name){
   if(!name){alert('검색할 이름이 없어요');return;}
   window.open('https://www.google.com/search?q='+encodeURIComponent(name+' 인스타그램 공구'),'_blank');
+}
+// ── 카드에서 대분류·소분류 바로 수정 (선택 즉시 저장) ──
+function gcMajor(id, major){
+  const min=document.getElementById('gcMin-'+id);
+  if(min) min.innerHTML='<option value="">(소분류)</option>'+minorOptions(major,'');
+  saveCat(id, major, '');   // 대분류 바꾸면 소분류는 초기화 → 다시 선택
+}
+function gcMinor(id, minor){
+  const maj=document.getElementById('gcMaj-'+id);
+  saveCat(id, maj?maj.value:'', minor);
+}
+async function saveCat(id, major, minor){
+  const ok=document.getElementById('gcOk-'+id);
+  if(ok){ ok.style.color='#999'; ok.textContent='저장중…'; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify({major:major, minor:minor||null})});
+    if(!r.ok){ if(ok){ok.style.color='#C62828';ok.textContent='실패';} return; }
+    const j=await r.json();
+    if(!Array.isArray(j)||!j.length){ if(ok){ok.style.color='#C62828';ok.textContent='권한오류';} return; }
+    const it=allData.find(x=>x.id===id); if(it){ it.major=major; it.minor=minor||''; }
+    if(ok){ ok.style.color='#0F6E56'; ok.textContent='✓'; setTimeout(()=>{ if(ok && ok.textContent==='✓') ok.textContent=''; },1500); }
+  }catch(e){ if(ok){ok.style.color='#C62828';ok.textContent='오류';} }
 }
 
 // 인플루언서 고유 식별키: 아이디가 있으면 @아이디, 없으면 한글명
