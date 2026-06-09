@@ -736,9 +736,10 @@ function cmpPartnerFirst(a,b){
 
 async function loadData() {
   try {
-    // 오늘 기준 3일 전부터(진행중 포함) 이후 데이터 가져오기
+    // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
+    // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
     const fromDate = dOff(-3);
-    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?open_date=gte.${fromDate}&approved=eq.true&order=open_date.asc`;
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc`;
     // Supabase는 한 번에 최대 1000건만 반환 → Range 헤더로 끝까지 페이지네이션
     let rows = [];
     const PAGE = 1000;
@@ -779,7 +780,21 @@ async function loadData() {
 }
 
 // ── 상태 판별 ──
-function isExpired(item){return new Date(realEnd(item))<_t;}
+// 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
+function isMomcal(item){
+  const ig=(item.insta||'').toLowerCase().replace('@','');
+  const nm=(item.influencer||'');
+  return nm.includes('맘캘린더') || ['momcal_','momcalendar','momcal','momcalendar_'].includes(ig);
+}
+function isExpired(item){
+  if(new Date(realEnd(item))<_t) return true;            // 실제 마감 지남
+  // 맘캘린더 외 셀러는 오픈 후 7일까지만 노출 (장기 공구 제한)
+  if(!isMomcal(item) && item.openDate){
+    const daysSinceOpen=Math.round((_t-strToDate(item.openDate))/86400000);
+    if(daysSinceOpen>7) return true;
+  }
+  return false;
+}
 function isOpenToday(item){return item.openDate===todayStr;}
 function isEndToday(item){return realEnd(item)===todayStr;}
 function isUpcoming(item){return item.openDate>todayStr;}

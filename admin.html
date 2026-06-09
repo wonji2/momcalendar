@@ -255,6 +255,10 @@ details summary::-webkit-details-marker{display:none}
       <input id="qReg-name" type="text" oninput="qRegGuessCat()" placeholder="예) 이키 메쉬수면조끼"
         style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin:4px 0 8px">
 
+      <label style="font-size:11px;font-weight:700;color:#666">구매링크 (선택 · 카페글·카드 버튼에 사용)</label>
+      <input id="qReg-link" type="url" placeholder="https://... (없으면 인스타로 연결)"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin:4px 0 8px">
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div><label style="font-size:11px;font-weight:700;color:#666">오픈일</label>
           <input id="qReg-open" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit"></div>
@@ -1483,9 +1487,11 @@ async function qRegSubmit(){
   if(!end) end=addDays(open,3);
   const {insta,infl}=qRegResolveSeller();
   if(!insta && !confirm('인스타 연결 없이 등록할까요?\n(셀러를 정확히 선택하거나 @아이디를 입력하면 연결돼요)'))return;
+  const link=(document.getElementById('qReg-link').value||'').trim();
   const body={influencer:infl||(insta?('@'+insta):''), insta:insta||'',
     major:document.getElementById('qReg-major').value, minor:document.getElementById('qReg-minor').value,
     name, open_date:open, end_date:end, approved:true};
+  if(link) body.pay_link=link;
   try{
     const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
     if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||JSON.stringify(j);}catch(_){} alert(`등록 실패 (${r.status})\n${m||''}`); return; }
@@ -1493,7 +1499,9 @@ async function qRegSubmit(){
     if(!Array.isArray(ins)||!ins.length){ alert('⚠️ 등록 요청은 성공했지만 반영되지 않았어요.\ngonggu 테이블 권한(RLS)을 확인해주세요.'); return; }
     document.getElementById('qReg-name').value='';
     document.getElementById('qReg-end').value='';
+    document.getElementById('qReg-link').value='';
     document.getElementById('qReg-sellerHint').innerHTML=`<span style="color:#0F6E56;font-weight:700">✅ "${name}" 등록 완료! 같은 셀러로 계속 추가할 수 있어요.</span>`;
+    showCafePost(ins[0]);   // 등록 직후 카페 글(제목+본문) 바로 만들기
   }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
 }
 
@@ -4156,6 +4164,7 @@ function renderCard(d){
           ?`<button class="btn btn-pending" onclick="toggleApprove(${d.id},false)">승인취소</button>`
           :`<button class="btn btn-approve" onclick="toggleApprove(${d.id},true)">✅ 승인</button>`}
         <button class="btn btn-edit" onclick="openEdit(${d.id})">${noInsta?'🔗 연결/수정':'✏️ 수정'}</button>
+        <button class="btn" style="background:#EEEAFB;color:#4A35A0" onclick="cafePostCard(${d.id})">📋 카페글</button>
         <button class="btn btn-del" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">🗑️ 삭제</button>
       </div>
     </div>
@@ -4164,6 +4173,61 @@ function renderCard(d){
 function igSearch(name){
   if(!name){alert('검색할 이름이 없어요');return;}
   window.open('https://www.google.com/search?q='+encodeURIComponent(name+' 인스타그램 공구'),'_blank');
+}
+// ── 카페 글 만들기 (사이트 등록 → 카페 붙여넣기) ──
+function cafePostText(d){
+  const md=s=>{ if(!s)return''; const p=s.split('-'); return `${+p[1]}/${+p[2]}`; };
+  const cat=(d.minor||d.major||'').replace(/\//g,' ').trim();
+  const open=md(d.open_date), end=md(d.end_date||'');
+  const period = end ? `${open}~${end}` : open;
+  const nm=(d.name||'').trim().replace(/\s*공구\s*$/,'');
+  const title = `${cat?`[${cat}] `:''}${period} ${nm} 공구`.trim();
+  let link='';
+  if(d.pay_link && /^https?:\/\//.test(d.pay_link)) link=d.pay_link;
+  else if(d.insta) link=`https://instagram.com/${(d.insta||'').replace('@','')}`;
+  const seller = (d.influencer && !d.influencer.startsWith('@')) ? d.influencer : (d.insta?'@'+(d.insta||'').replace('@',''):'');
+  const body =
+`${nm} 공구 안내 🛍
+
+🗓 공구기간 : ${period}`+(seller?`\n👤 셀러 : ${seller}`:'')+`
+🔗 바로가기 : ${link||'(링크를 넣어주세요)'}
+
+📅 진행중·예정 공구 일정 한눈에 → 맘캘린더
+https://momcalendar.com`;
+  return {title, body};
+}
+function cafePostCard(id){ const d=allData.find(x=>x.id===id); if(d) showCafePost(d); }
+function showCafePost(d){
+  if(!d) return;
+  const {title,body}=cafePostText(d);
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let m=document.getElementById('cafeModal');
+  if(!m){ m=document.createElement('div'); m.id='cafeModal'; document.body.appendChild(m); }
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:18px;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:15px;font-weight:800;color:#4A35A0">📋 카페 글 만들기</div>
+      <button onclick="document.getElementById('cafeModal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1">×</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:12px">네이버 카페 글쓰기에서 제목·본문에 각각 붙여넣으세요. 링크가 비어 있으면 결제링크나 인스타를 등록하면 채워져요.</div>
+    <label style="font-size:12px;font-weight:700;color:#666">제목</label>
+    <textarea id="cafeTitle" readonly style="width:100%;box-sizing:border-box;margin:4px 0 6px;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;resize:none;height:54px">${esc(title)}</textarea>
+    <button onclick="copyCafe('cafeTitle',this)" style="padding:8px 14px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px">제목 복사</button>
+    <label style="font-size:12px;font-weight:700;color:#666">본문</label>
+    <textarea id="cafeBody" readonly style="width:100%;box-sizing:border-box;margin:4px 0 6px;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;resize:none;height:175px">${esc(body)}</textarea>
+    <button onclick="copyCafe('cafeBody',this)" style="padding:8px 14px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">본문 복사</button>
+  </div>`;
+  m.style.display='flex';
+}
+function copyCafe(elId, btn){
+  const ta=document.getElementById(elId); if(!ta) return;
+  ta.focus(); ta.select();
+  const done=()=>{ const t=btn.textContent; btn.textContent='✓ 복사됨'; setTimeout(()=>{btn.textContent=t;},1200); };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(done, ()=>{ try{document.execCommand('copy');}catch(_){}done(); });
+    }else{ document.execCommand('copy'); done(); }
+  }catch(_){ try{document.execCommand('copy');done();}catch(e){} }
 }
 // ── 카드에서 대분류·소분류 바로 수정 (선택 즉시 저장) ──
 function gcMajor(id, major){
