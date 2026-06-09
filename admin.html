@@ -519,6 +519,14 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:11px;color:#602090;font-weight:800;letter-spacing:-.3px">G-NRCP2FVRSB</div>
       </div>
     </div>
+    <!-- 🔁 재방문·리텐션 (자체 데이터) -->
+    <div style="background:#fff;border:1.5px solid #E5D5F5;border-radius:12px;margin:12px 12px 0;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:800;color:#4A35A0">🔁 재방문·리텐션 <span style="font-size:10px;color:#aaa;font-weight:600">자체 데이터 · 최근 90일</span></div>
+        <button onclick="loadRetention()" style="background:#F0E6FA;border:none;color:#602090;font-size:10px;padding:4px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🔄 불러오기</button>
+      </div>
+      <div id="retentionBody" style="font-size:12px;color:#888">불러오기를 누르면 계산해요.</div>
+    </div>
     <!-- 방문자 통계 -->
     <div style="background:linear-gradient(135deg,#2A1D6E,#7B68EE);border-radius:12px;margin:12px 12px 0;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -3017,6 +3025,61 @@ function copyPromo(text){
 }
 
 // Supabase 1000건 제한 우회: Range로 끝까지 받는 헬퍼
+// ── 재방문·코호트 리텐션 (자체 visits 데이터) ──
+let _retLoaded=false;
+function _retStatBox(label,val){
+  return `<div style="flex:1;min-width:88px;background:#F9F4FD;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#602090">${val}</div><div style="font-size:10px;color:#9B6FD4;margin-top:2px">${label}</div></div>`;
+}
+async function loadRetention(){
+  const el=document.getElementById('retentionBody'); if(!el) return;
+  el.innerHTML='계산 중… ⏳';
+  try{
+    const since=new Date(Date.now()-90*86400000).toISOString();
+    const rows=await fetchAllRows(`visits?select=anonymous_id,visited_at,first_seen_at&visited_at=gte.${since}&order=visited_at.asc`);
+    if(!rows.length){ el.innerHTML='<span style="color:#aaa">아직 식별 방문 데이터가 없어요.<br>visits 테이블 생성 + index.html 배포 후 며칠 쌓이면 나와요.</span>'; return; }
+    const kstDay=ts=>new Date(new Date(ts).getTime()+9*3600000).toISOString().slice(0,10);
+    const kstWeek=ts=>{ const d=new Date(new Date(ts).getTime()+9*3600000); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day); return d.toISOString().slice(0,10); };
+    const byId={};
+    rows.forEach(r=>{ const id=r.anonymous_id; if(!id) return; const fs=r.first_seen_at||r.visited_at;
+      if(!byId[id]) byId[id]={days:new Set(), first:fs};
+      byId[id].days.add(kstDay(r.visited_at));
+      if(fs<byId[id].first) byId[id].first=fs;
+    });
+    const ids=Object.keys(byId);
+    const since30=new Date(Date.now()-30*86400000);
+    let active30=0,new30=0,ret30=0,multi=0;
+    ids.forEach(id=>{
+      const o=byId[id];
+      const act=[...o.days].filter(d=> new Date(d+'T00:00:00+09:00')>=since30);
+      if(act.length){ active30++; (new Date(o.first)>=since30)?new30++:ret30++; if(act.length>=2) multi++; }
+    });
+    const reRate=active30?Math.round(100*multi/active30):0;
+    const cohort={};
+    ids.forEach(id=>{
+      const o=byId[id]; const cw=kstWeek(o.first); const cwDate=new Date(cw+'T00:00:00+09:00');
+      const c=cohort[cw]=cohort[cw]||{size:0,ret:{}}; c.size++;
+      o.days.forEach(d=>{ const w=kstWeek(d+'T00:00:00+09:00'); const n=Math.round((new Date(w+'T00:00:00+09:00')-cwDate)/(7*86400000)); if(n>=0&&n<=8) c.ret[n]=(c.ret[n]||0)+1; });
+    });
+    const weeks=Object.keys(cohort).sort().slice(-8).reverse();
+    let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${_retStatBox('활성 방문자(30일)',active30.toLocaleString())}
+      ${_retStatBox('재방문율(30일)',reRate+'%')}
+      ${_retStatBox('신규',new30.toLocaleString())}
+      ${_retStatBox('재방문',ret30.toLocaleString())}
+    </div>`;
+    if(weeks.length){
+      h+=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;min-width:430px">
+        <tr style="color:#999"><th style="text-align:left;padding:4px 8px">코호트 주차</th><th style="padding:4px 6px">인원</th>${[0,1,2,3,4,5,6,7,8].map(n=>`<th style="padding:4px 5px">W${n}</th>`).join('')}</tr>`;
+      weeks.forEach(w=>{ const c=cohort[w];
+        h+=`<tr style="border-top:1px solid #F0E6FA"><td style="padding:4px 8px;font-weight:700;color:#4A35A0">${w}</td><td style="padding:4px 6px;text-align:center">${c.size}</td>`+
+          [0,1,2,3,4,5,6,7,8].map(n=>{ const v=c.ret[n]||0; const pct=c.size?Math.round(100*v/c.size):0; const bg=n===0?'#EDE7FB':`rgba(96,32,144,${(pct/160).toFixed(2)})`; const col=pct>55?'#fff':'#333'; return `<td style="padding:4px 5px;text-align:center;background:${bg};color:${col}">${v?pct+'%':'·'}</td>`; }).join('')+`</tr>`;
+      });
+      h+=`</table></div><div style="font-size:10px;color:#aaa;margin-top:6px">W0=첫 주 방문 · WN=첫 방문 N주 뒤에도 다시 온 비율(코호트 리텐션)</div>`;
+    }
+    el.innerHTML=h;
+  }catch(e){ el.innerHTML='<span style="color:#C62828">불러오기 실패: '+(e&&e.message||e)+'</span>'; }
+}
+
 async function fetchAllRows(path){
   let rows=[]; const PAGE=1000;
   for(let start=0; start<200000; start+=PAGE){
@@ -3935,6 +3998,7 @@ function switchTab(tab,el){
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     loadVisitors();
+    if(!_retLoaded){ _retLoaded=true; loadRetention(); }
   } else {
     clearTimeout(_vTimer);
     if(tab==='ai'){
