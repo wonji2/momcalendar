@@ -63,6 +63,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .infl-chip:hover{background:#4A35A0;color:#fff}
 /* 카드 */
 .cards{padding:8px 12px 90px}
+.cards.lay-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+.cards.lay-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.cards.lay-grid2 .card,.cards.lay-grid3 .card{margin-bottom:0}
+@media(max-width:760px){.cards.lay-grid2,.cards.lay-grid3{grid-template-columns:1fr}}
+.cards.lay-compact{padding:0 12px 90px}
+.crow{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-bottom:1px solid #F0EFF5}
+.crow:hover{background:#FAF8FF}
+.crow .nm{font-weight:700;font-size:13px;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .sub{font-size:11px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.crow .ca{display:flex;gap:4px;flex-shrink:0}
+.crow .ico{border:none;border-radius:6px;font-size:11px;font-weight:700;padding:6px 9px;cursor:pointer;font-family:inherit}
+.layBtn{padding:5px 11px;border:1.5px solid #E0D8F5;background:#fff;color:#6B4A9A;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.layBtn.on{background:#4A35A0;color:#fff;border-color:#4A35A0}
 .card{background:#fff;border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .card-hd{display:flex;align-items:center;padding:11px 13px;gap:10px;border-bottom:1px solid #f5f5f5}
 .card-cb{width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:#4A35A0}
@@ -745,6 +758,13 @@ CREATE POLICY "read_events" ON events
         <button class="bulk-del" onclick="bulkDelete()">🗑️ 일괄 삭제</button>
         <button class="bulk-approve" onclick="bulkApprove()">✅ 일괄 승인</button>
       </div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;padding:0 12px 6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#999;font-weight:700">보기</span>
+      <button id="lay-card" onclick="setLayout('card')" class="layBtn">📄 1열</button>
+      <button id="lay-grid2" onclick="setLayout('grid2')" class="layBtn">▦ 2열</button>
+      <button id="lay-grid3" onclick="setLayout('grid3')" class="layBtn">▦ 3열</button>
+      <button id="lay-compact" onclick="setLayout('compact')" class="layBtn">☰ 간단목록</button>
     </div>
     <div class="cards" id="cardList"></div>
   </div>
@@ -3977,6 +3997,7 @@ function renderCards(){
 
   // 중복 탭은 별도 렌더
   if(curTab==='dup'){
+    el.className='cards';
     // 중복 탭에선 필터 전체 기준으로 선택 정리
     const vSet=new Set(visible.map(d=>d.id));
     let pr=false; [...checkedIds].forEach(id=>{ if(!vSet.has(id)){ checkedIds.delete(id); pr=true; } });
@@ -4002,7 +4023,9 @@ function renderCards(){
   [...checkedIds].forEach(id=>{ if(!shownSet.has(id)){ checkedIds.delete(id); pruned=true; } });
   if(pruned) updateBulkBar();
 
-  let html=shown.map(d=>renderCard(d)).join('');
+  el.className='cards'+(listLayout==='card'?'':' lay-'+listLayout);
+  const renderFn = listLayout==='compact' ? renderCompact : renderCard;
+  let html=shown.map(renderFn).join('');
   if(visible.length>limit){
     html+=`<div style="text-align:center;padding:16px;color:#888;font-size:13px">
       전체 ${visible.length}건 중 ${limit}건 표시 중 ·
@@ -4010,6 +4033,7 @@ function renderCards(){
     </div>`;
   }
   el.innerHTML=html;
+  updateLayoutBtns();
   document.querySelectorAll('.card-cb').forEach(cb=>{
     cb.checked=checkedIds.has(parseInt(cb.dataset.id));
   });
@@ -4069,8 +4093,9 @@ function renderDupPairs(q, major, dateFrom, dateTo){
       <div style="font-size:11px;color:#888;margin-top:2px">그룹마다 1건만 남기고 나머지를 한 번에 선택 → 위의 <b>일괄 삭제</b>로 정리</div>
     </div>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
-      ${exactN?`<button onclick="selectDupExtras(true)" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🎯 완전 동일만 선택 (${exactN})</button>`:''}
-      <button onclick="selectDupExtras(false)" style="padding:7px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔴 그룹마다 아래쪽 모두 선택 (${filtered.length})</button>
+      ${exactN?`<button onclick="selectDupExtras('bottom',true)" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🎯 완전 동일만 선택 (${exactN})</button>`:''}
+      <button onclick="selectDupExtras('bottom',false)" style="padding:7px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔴 아래쪽 모두 선택 (${filtered.length})</button>
+      <button onclick="selectDupExtras('top',false)" style="padding:7px 12px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔵 위쪽 모두 선택 (${filtered.length})</button>
       <button onclick="clearDupSelection()" style="padding:7px 12px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">선택 해제</button>
     </div>
   </div>`;
@@ -4093,11 +4118,13 @@ function renderDupPairs(q, major, dateFrom, dateTo){
 
 
 // 그룹마다 아래쪽(중복) 1건씩 선택. onlyExact=true면 유사도 100%만
-function selectDupExtras(onlyExact){
+function selectDupExtras(side, onlyExact){
+  // 위/아래가 토글되도록 먼저 쌍 선택 해제
+  _dupPairs.forEach(([a,b])=>{ checkedIds.delete(a.id); checkedIds.delete(b.id); });
   let n=0;
   _dupPairs.forEach(([a,b])=>{
     if(onlyExact && Math.round(similarity(a.name,b.name)*100)<100) return;
-    checkedIds.add(b.id); n++;
+    checkedIds.add(side==='top'?a.id:b.id); n++;
   });
   updateBulkBar();
   renderCards();
@@ -4143,6 +4170,33 @@ async function deleteDup(id){
   renderCards();
 }
 
+// ── 리스트 보기 전환 (1열/2열/3열/간단목록) ──
+let listLayout=(function(){ try{return localStorage.getItem('momcalLayout')||'card';}catch(_){return 'card';} })();
+function setLayout(v){ listLayout=v; try{localStorage.setItem('momcalLayout',v);}catch(_){} renderCards(); }
+function updateLayoutBtns(){
+  ['card','grid2','grid3','compact'].forEach(v=>{ const b=document.getElementById('lay-'+v); if(b) b.classList.toggle('on', listLayout===v); });
+}
+function renderCompact(d){
+  const checked=checkedIds.has(d.id);
+  const dup=isDup(d);
+  const noInsta=!d.insta||!d.insta.trim();
+  const seller=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
+  const md=s=>s?s.slice(5).replace('-','/'):'';
+  const dates=`${md(d.open_date)}${d.end_date?'~'+md(d.end_date):''}`;
+  return `<div class="crow">
+    <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)" style="width:17px;height:17px;flex-shrink:0;accent-color:#4A35A0;cursor:pointer">
+    <span title="${d.approved?'승인됨':'대기중'}" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${d.approved?'#2E9E6B':'#E6A817'}"></span>
+    <div style="flex:1;min-width:0">
+      <div class="nm">${d.name||'-'}${dup?' <span style="color:#C62828;font-size:10px">⚠️중복</span>':''}${noInsta?' <span style="color:#C62828;font-size:10px">🔗미연결</span>':''}</div>
+      <div class="sub">${seller} · ${d.major||''}${d.minor?' › '+d.minor:''} · ${dates}</div>
+    </div>
+    <div class="ca">
+      <button class="ico" style="background:#EEEAFB;color:#4A35A0" onclick="cafePostCard(${d.id})">📋</button>
+      <button class="ico" style="background:#EEEAFB;color:#4A35A0" onclick="openEdit(${d.id})">수정</button>
+      <button class="ico" style="background:#FDECEA;color:#C62828" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">삭제</button>
+    </div>
+  </div>`;
+}
 function renderCard(d){
   const dup=isDup(d);
   const checked=checkedIds.has(d.id);
