@@ -1181,7 +1181,7 @@ function markAiDuplicates(){
       if(!dIns || dIns!==ins) continue;
       if(d.open_date!==item.open_date) continue;
       const sim=similarity(d.name, item.name);
-      if(sim>=0.7){
+      if(dupNameMatch(d.name, item.name)){
         item._dup=true;
         item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${d.name}"`;
         break;
@@ -3385,7 +3385,15 @@ function similarity(a,b){
   });
   return (2*matches)/(a.length+b.length);
 }
-// 같은 계정+같은 날짜 그룹 안에서만 유사도 비교 → 한 번만 계산해 캐시
+// 중복 판정용 이름 매칭: 유사도 0.7 이상 OR 한쪽이 다른쪽을 포함(예: "주니컵" ⊂ "주니컵전제품")
+function dupNameMatch(a,b){
+  const x=normalize(a), y=normalize(b);
+  if(!x||!y) return false;
+  if(x===y) return true;
+  const longer=x.length>=y.length?x:y, shorter=x.length>=y.length?y:x;
+  if(shorter.length>=3 && longer.includes(shorter)) return true;
+  return similarity(a,b)>=0.7;
+}
 function computeDupSet(){
   dupIdSet=new Set();
   const groups={};
@@ -3398,7 +3406,7 @@ function computeDupSet(){
     if(arr.length<2) return;
     for(let i=0;i<arr.length;i++){
       for(let j=i+1;j<arr.length;j++){
-        if(similarity(arr[i].name,arr[j].name)>=0.7){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
+        if(dupNameMatch(arr[i].name,arr[j].name)){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
       }
     }
   });
@@ -3411,7 +3419,7 @@ function getDupReason(item){
     const sameInsta = d.insta && item.insta && d.insta===item.insta;
     const sameDate = d.open_date===item.open_date;
     const nameSim = similarity(d.name, item.name);
-    if(sameInsta && sameDate && nameSim>=0.7)
+    if(sameInsta && sameDate && dupNameMatch(d.name, item.name))
       return `같은 계정·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
   }
   return '';
@@ -4031,7 +4039,7 @@ function renderDupPairs(q, major, dateFrom, dateTo){
       if(d.id===item.id||paired.has(d.id)) return false;
       const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
       const sameDate=d.open_date===item.open_date;
-      return sameInsta&&sameDate&&similarity(d.name,item.name)>=0.7;
+      return sameInsta&&sameDate&&dupNameMatch(d.name,item.name);
     });
     if(partner){
       pairs.push([item,partner]);
