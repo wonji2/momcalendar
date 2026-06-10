@@ -26,6 +26,7 @@
   .gg-row{border:1.5px solid #E4DBF7;border-radius:12px;padding:11px;margin-bottom:10px;background:#FCFAFF}
   .gg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
   .gg-del{width:30px;height:30px;flex-shrink:0;background:#F3EEFC;color:var(--p);border:none;border-radius:8px;font-size:14px;cursor:pointer;padding:0}
+  .gg-clone{flex-shrink:0;background:#EDE7FB;color:var(--p);border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;padding:0 9px;height:30px;font-family:inherit}
   .gg-lab{font-size:11px;color:#666;margin-bottom:3px;font-weight:600}
   .gg-row input,.gg-row select{padding:9px;font-size:13px}
   .btn{width:100%;padding:13px;background:var(--p2);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:14px}
@@ -78,8 +79,15 @@
   <!-- 공구 -->
   <div class="view" id="v-gonggu">
     <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:6px">🤖 AI 텍스트로 한 번에</div>
+      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:8px">셀러와 일정을 붙여넣으면 자동으로 행을 만들어줘요. 셀러 한 명의 한 달 일정을 통째로 넣기 좋아요.<br>형식 예) <b>@ttobomom 또또맘</b> (또는 등록된 셀러는 <b>한글명만</b>) 줄 아래에 <b>9/1~9/5 과자</b> / <b>9/3 사과</b> 처럼 한 줄에 하나씩.</div>
+      <textarea id="ggAiText" placeholder="@ttobomom 또또맘&#10;9/1~9/5 과자&#10;9/3 유기농닭&#10;&#10;도란도란&#10;9/2~9/6 우유" style="width:100%;height:150px;padding:11px;border:1.5px solid var(--bd);border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7;box-sizing:border-box"></textarea>
+      <button onclick="ggAiParse()" style="width:100%;margin-top:8px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">🤖 분석해서 행 만들기</button>
+    </div>
+
+    <div class="card">
       <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:6px">⚡ 공구 등록 <span style="font-size:11px;color:#aaa;font-weight:600">(여러 건 한 번에)</span></div>
-      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:10px"><span class="req">*</span> 는 필수예요. 셀러는 등록된 곳이면 한글명/＠아이디 입력 시 자동 연결돼요. 처음 셀러면 한글명·＠아이디를 둘 다 넣어주세요(다음부턴 자동완성). <b>＋ 줄 추가</b>로 여러 건을 쭉 등록!</div>
+      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:10px"><span class="req">*</span> 는 필수예요. 셀러는 등록된 곳이면 한글명/＠아이디 입력 시 자동 연결돼요. 처음 셀러면 한글명·＠아이디를 둘 다 넣어주세요(다음부턴 자동완성). 같은 셀러의 다른 상품은 <b>➕ 셀러 복사</b>로 셀러를 그대로 둔 새 줄을 만들 수 있어요. <b>＋ 줄 추가</b>로 여러 건을 쭉 등록!</div>
       <datalist id="sellerList"></datalist>
       <div id="ggRows"></div>
       <div style="display:flex;gap:8px;margin-top:6px">
@@ -325,32 +333,137 @@ function guessCat(){
 function addDays(dateStr,n){const d=new Date(dateStr);d.setDate(d.getDate()+n);const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 
 // ───────── 공구: 여러 건 동시 등록 ─────────
+// 중복 판정(관리자와 동일): 정규화 일치 / 한쪽이 다른쪽 포함(3자 이상) / 유사도 0.7+
+function normalize(s){ return (s||'').replace(/[\s\-_·.]/g,'').toLowerCase(); }
+function similarity(a,b){
+  a=normalize(a); b=normalize(b); if(!a||!b) return 0; if(a===b) return 1;
+  const lo=a.length>b.length?a:b, sh=a.length>b.length?b:a;
+  if(lo.includes(sh)) return sh.length/lo.length;
+  let m=0; const ba=b.split(''); a.split('').forEach(c=>{const i=ba.indexOf(c); if(i>-1){m++;ba.splice(i,1);}});
+  return (2*m)/(a.length+b.length);
+}
+function dupNameMatch(a,b){
+  const x=normalize(a), y=normalize(b); if(!x||!y) return false; if(x===y) return true;
+  const lo=x.length>=y.length?x:y, sh=x.length>=y.length?y:x;
+  if(sh.length>=3 && lo.includes(sh)) return true;
+  return similarity(a,b)>=0.7;
+}
+// 이미 등록된 공구(_gongguCache)와 대조 — 이름 포함/유사 + 셀러 + (날짜 둘 다 있으면)동일
+function ggFindDup(nm, ig, pname, open){
+  if(!pname) return null;
+  nm=(nm||'').trim(); ig=(ig||'').replace('@','').trim().toLowerCase();
+  for(const d of _gongguCache){
+    if(!dupNameMatch(d.name, pname)) continue;
+    const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
+    let sameSeller;
+    if(ig && dIns) sameSeller=(ig===dIns);
+    else if(nm && (d.influencer||'').trim()) sameSeller=(nm===(d.influencer||'').trim());
+    else sameSeller=true;
+    if(!sameSeller) continue;
+    if(open && d.open_date && d.open_date!==open) continue;
+    return d;
+  }
+  return null;
+}
+function ggMarkRowDup(row){
+  if(!row) return;
+  const el=row.querySelector('.gg-dup'); if(!el) return;
+  const nm=row.querySelector('.gg-sname').value.trim();
+  const ig=row.querySelector('.gg-sid').value.trim();
+  const pname=row.querySelector('.gg-pname').value.trim();
+  const open=row.querySelector('.gg-open').value;
+  if(!pname){ el.textContent=''; if(!row.dataset.invalid) row.style.borderColor='#E4DBF7'; return; }
+  const hit=ggFindDup(nm, ig, pname, open);
+  if(hit){ el.innerHTML=`<span style="color:#C62828;font-weight:700">🔴 이미 등록된 듯: "${esc(hit.name)}"${hit.open_date?(' ('+esc(hit.open_date)+')'):''}</span>`; row.style.borderColor='#C62828'; }
+  else { el.textContent=''; row.style.borderColor='#E4DBF7'; }
+}
 function addGgRow(){
   const fm=Object.keys(CATS_LIST)[0];
   const div=document.createElement('div'); div.className='gg-row';
   div.innerHTML=`
     <div class="gg-head"><span style="font-size:11px;font-weight:800;color:var(--p)">📦 공구</span>
-      <button class="gg-del" onclick="this.closest('.gg-row').remove()">✕</button></div>
+      <span style="display:flex;gap:6px">
+        <button class="gg-clone" onclick="cloneGgRow(this)" title="같은 셀러로 새 줄 추가">➕ 셀러 복사</button>
+        <button class="gg-del" onclick="this.closest('.gg-row').remove()">✕</button>
+      </span></div>
     <div class="row">
       <div><div class="gg-lab">셀러 한글명 <span class="req">*</span></div><input class="gg-sname" list="sellerList" autocomplete="off" placeholder="예) 현브로맘" oninput="ggByName(this)"></div>
       <div><div class="gg-lab">＠아이디 <span class="req">*</span></div><input class="gg-sid" autocomplete="off" placeholder="예) hyunbro_mom" oninput="ggById(this)"></div>
     </div>
     <div class="gg-hint hint"></div>
+    <div class="gg-dup hint" style="margin-top:0"></div>
     <div class="mt"><div class="gg-lab">상품명 <span class="req">*</span></div><input class="gg-pname" type="text" placeholder="예) 이키 메쉬수면조끼" oninput="ggGuess(this)"></div>
     <div class="row mt">
-      <div><div class="gg-lab">오픈일 <span class="req">*</span></div><input class="gg-open" type="date"></div>
+      <div><div class="gg-lab">오픈일 <span class="req">*</span></div><input class="gg-open" type="date" onchange="ggMarkRowDup(this.closest('.gg-row'))"></div>
       <div><div class="gg-lab">마감일 <span style="color:#aaa;font-weight:400">(선택·비우면+3일)</span></div><input class="gg-end" type="date"></div>
     </div>
     <div class="row mt">
       <div><div class="gg-lab">대분류 <span class="req">*</span></div><select class="gg-major" onchange="ggSyncMinor(this)">${catOptions(fm)}</select></div>
       <div><div class="gg-lab">소분류 <span class="req">*</span></div><select class="gg-minor">${minorOptions(fm,'')}</select></div>
-    </div>
-    <div class="mt"><div class="gg-lab">구매링크 <span style="color:#aaa;font-weight:400">(선택·없으면 인스타로 연결)</span></div><input class="gg-link" type="url" placeholder="https://..."></div>`;
+    </div>`;
   document.getElementById('ggRows').appendChild(div);
 }
 function ggSyncMinor(sel){ const row=sel.closest('.gg-row'); row.querySelector('.gg-minor').innerHTML=minorOptions(sel.value,''); }
-function ggByName(inp){ const row=inp.closest('.gg-row'); const nm=inp.value.trim(); const idEl=row.querySelector('.gg-sid'); if(name2insta[nm]&&!idEl.value.trim()) idEl.value='@'+name2insta[nm]; ggHint(row); }
-function ggById(inp){ const row=inp.closest('.gg-row'); const ig=inp.value.trim().replace(/^@/,''); const nmEl=row.querySelector('.gg-sname'); if(insta2name[ig]&&!nmEl.value.trim()) nmEl.value=insta2name[ig]; ggHint(row); }
+function cloneGgRow(btn){
+  const row=btn.closest('.gg-row');
+  const nm=row.querySelector('.gg-sname').value, id=row.querySelector('.gg-sid').value;
+  addGgRow();
+  const nr=document.querySelector('#ggRows .gg-row:last-child');
+  nr.querySelector('.gg-sname').value=nm; nr.querySelector('.gg-sid').value=id;
+  ggHint(nr); nr.querySelector('.gg-pname').focus();
+}
+// ── AI 텍스트로 한 번에 (헤더+날짜+상품명 자동 인식) ──
+function ggAiParse(){
+  const ta=document.getElementById('ggAiText'); const text=(ta.value||'');
+  if(!text.trim()){ alert('붙여넣은 텍스트가 없어요.'); return; }
+  const today=new Date(); const Y=today.getFullYear(); const t0=new Date(Y,today.getMonth(),today.getDate());
+  const pad=x=>String(x).padStart(2,'0');
+  const mkDate=(mm,dd)=>{ let y=Y; if(new Date(y,mm-1,dd)<t0) y=Y+1; return `${y}-${pad(mm)}-${pad(dd)}`; };
+  const addD=(ds,n)=>{ const d=new Date(ds); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  const DP=/^(\d{1,2})\s*[\/.월]\s*(\d{1,2})/;
+  const isDateOnly=s=> DP.test(s) && /^[\d월일~\-\/\s.]+$/.test(s);
+  // 날짜만 있는 줄 + 다음 상품명 줄 병합
+  const raw=text.split('\n').map(l=>l.trim());
+  const lines=[];
+  for(let i=0;i<raw.length;i++){ const l=raw[i]; if(!l) continue;
+    if(isDateOnly(l)&&i+1<raw.length){ const nx=raw[i+1].trim(); if(nx&&!nx.startsWith('@')&&!isDateOnly(nx)){ lines.push(l+' '+nx); i++; continue; } }
+    lines.push(l);
+  }
+  let curName='', curInsta='', made=0;
+  lines.forEach(line=>{
+    if(line.startsWith('@')){ const m=line.replace(/^@/,'').trim().match(/^([A-Za-z0-9._]+)\s*(.*)$/); if(m){ curInsta=m[1]; curName=(m[2]||'').trim(); if(!curName&&insta2name[curInsta]) curName=insta2name[curInsta]; } return; }
+    const rev=line.match(/^([^@]+?)\s+@([A-Za-z0-9._]+)\s*$/); if(rev){ curName=rev[1].trim(); curInsta=rev[2]; return; }
+    if(!DP.test(line)){ curName=line.trim(); curInsta=name2insta[curName]||''; return; }
+    let s=line.replace(/(\d{1,2})월\s*(\d{1,2})일?/g,'$1/$2');
+    const range=s.match(/^(\d{1,2})\/(\d{1,2})\s*[~\-]\s*(\d{1,2})(?:\/(\d{1,2}))?\s+(.+)$/);
+    const single=s.match(/^(\d{1,2})\/(\d{1,2})\s+(.+)$/);
+    let open,end,pname;
+    if(range){ open=mkDate(+range[1],+range[2]); const em=range[4]?+range[3]:+range[1], ed=range[4]?+range[4]:+range[3]; end=mkDate(em,ed); pname=range[5].trim(); }
+    else if(single){ open=mkDate(+single[1],+single[2]); pname=single[3].trim(); }
+    else return;
+    if(!pname) return;
+    pname=pname.replace(/[(\[（].+?[)\]）]/g,'').trim();
+    if(!end||end<open) end=addD(open,3);
+    const maxEnd=addD(open,13); if(end>maxEnd) end=maxEnd;
+    addGgRow();
+    const row=document.querySelector('#ggRows .gg-row:last-child');
+    row.querySelector('.gg-sname').value=curName||'';
+    row.querySelector('.gg-sid').value=curInsta?('@'+curInsta):'';
+    row.querySelector('.gg-pname').value=pname;
+    row.querySelector('.gg-open').value=open;
+    row.querySelector('.gg-end').value=end;
+    try{ const g=catGuess(pname); const maj=row.querySelector('.gg-major'); if(g&&[...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; const min=row.querySelector('.gg-minor'); min.innerHTML=minorOptions(g.major,''); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; } }catch(_){}
+    ggHint(row); ggMarkRowDup(row); made++;
+  });
+  // 빈 기본행 제거
+  [...document.querySelectorAll('#ggRows .gg-row')].forEach(r=>{ const sn=r.querySelector('.gg-sname').value.trim(), pn=r.querySelector('.gg-pname').value.trim(), op=r.querySelector('.gg-open').value; if(!sn&&!pn&&!op) r.remove(); });
+  ta.value='';
+  if(!made){ alert('인식된 일정이 없어요. 형식을 확인해주세요.\n예)\n@ttobomom 또또맘\n9/1~9/5 과자'); if(!document.querySelector('#ggRows .gg-row')) addGgRow(); return; }
+  alert(`${made}건을 행으로 만들었어요. 셀러·분류 확인 후 ⚡ 전체 등록을 눌러주세요.`);
+  document.getElementById('ggRows').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function ggByName(inp){ const row=inp.closest('.gg-row'); const nm=inp.value.trim(); const idEl=row.querySelector('.gg-sid'); if(name2insta[nm]&&!idEl.value.trim()) idEl.value='@'+name2insta[nm]; ggHint(row); ggMarkRowDup(row); }
+function ggById(inp){ const row=inp.closest('.gg-row'); const ig=inp.value.trim().replace(/^@/,''); const nmEl=row.querySelector('.gg-sname'); if(insta2name[ig]&&!nmEl.value.trim()) nmEl.value=insta2name[ig]; ggHint(row); ggMarkRowDup(row); }
 function ggHint(row){
   const nm=row.querySelector('.gg-sname').value.trim();
   const ig=row.querySelector('.gg-sid').value.trim().replace(/^@/,'');
@@ -377,6 +490,7 @@ function ggGuess(inp){
   const row=inp.closest('.gg-row'); const n=inp.value||''; if(!n) return;
   const g=catGuess(n); const maj=row.querySelector('.gg-major');
   if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; const min=row.querySelector('.gg-minor'); min.innerHTML=minorOptions(g.major,''); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+  ggMarkRowDup(row);
 }
 function ggRowResolve(row){
   let nm=row.querySelector('.gg-sname').value.trim();
@@ -388,14 +502,13 @@ function ggRowResolve(row){
 async function saveGongguRows(){
   const rows=[...document.querySelectorAll('#ggRows .gg-row')];
   if(!rows.length){ alert('등록할 줄이 없어요. ＋ 줄 추가를 눌러주세요.'); return; }
-  const bodies=[], newSellers={}, probs=[];
+  const bodies=[], newSellers={}, probs=[], dupInfo=[];
   rows.forEach((row,i)=>{
     const {nm,ig}=ggRowResolve(row);
     const pname=row.querySelector('.gg-pname').value.trim();
     const open=row.querySelector('.gg-open').value;
     let end=row.querySelector('.gg-end').value;
     const major=row.querySelector('.gg-major').value, minor=row.querySelector('.gg-minor').value;
-    const link=row.querySelector('.gg-link').value.trim();
     if(!nm&&!ig&&!pname&&!open){ row.style.borderColor='#E4DBF7'; return; } // 빈 줄 건너뜀
     const miss=[];
     if(!nm||!ig) miss.push('셀러(한글명＋＠아이디)');
@@ -404,13 +517,21 @@ async function saveGongguRows(){
     if(!major) miss.push('대분류');
     if(!minor) miss.push('소분류');
     if(end&&open&&end<open) miss.push('마감일(오픈일보다 빠름)');
-    if(miss.length){ probs.push(`${i+1}번째 줄: ${miss.join(', ')}`); row.style.borderColor='#C62828'; return; }
-    row.style.borderColor='#E4DBF7';
+    if(miss.length){ probs.push(`${i+1}번째 줄: ${miss.join(', ')}`); row.dataset.invalid='1'; row.style.borderColor='#C62828'; return; }
+    row.dataset.invalid='';
     if(!end) end=addDays(open,3);
-    bodies.push({influencer:nm, insta:ig, major, minor, name:pname, open_date:open, end_date:end, approved:true, ...(link?{pay_link:link}:{})});
+    // 기존 DB와 중복이면 제외
+    const hit=ggFindDup(nm, ig, pname, open);
+    if(hit){ dupInfo.push(`${i+1}번째: "${pname}" → 이미 등록 "${hit.name}"`); row.style.borderColor='#C62828'; return; }
+    row.style.borderColor='#E4DBF7';
+    bodies.push({influencer:nm, insta:ig, major, minor, name:pname, open_date:open, end_date:end, approved:true});
     if(!name2insta[nm]) newSellers[ig]=nm;
   });
   if(probs.length){ alert('아래 줄을 확인해주세요 (빨간 테두리):\n\n'+probs.join('\n')); return; }
+  if(dupInfo.length){
+    if(!bodies.length){ alert(`입력한 공구가 모두 이미 등록돼 있어요 (중복 ${dupInfo.length}건):\n\n${dupInfo.join('\n')}`); return; }
+    if(!confirm(`🔴 이미 등록된 것으로 보이는 ${dupInfo.length}건은 빼고, 새 ${bodies.length}건만 등록할까요?\n\n[중복 제외]\n${dupInfo.join('\n')}`)) return;
+  }
   if(!bodies.length){ alert('등록할 내용을 입력해주세요.'); return; }
   try{
     const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(bodies)});
