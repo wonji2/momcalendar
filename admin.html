@@ -192,6 +192,11 @@ details summary::-webkit-details-marker{display:none}
     <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
       제목·링크를 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 최신순으로 노출됩니다.
     </div>
+    <div style="background:#fff;border:1.5px solid #EBD9D2;border-radius:12px;padding:11px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:#993C1D;margin-bottom:6px">📋 여러 줄 붙여넣기 <span style="font-size:11px;color:#aaa;font-weight:400">(한 줄에 하나씩 · 제목+링크 같이 또는 링크만)</span></div>
+      <textarea id="hdBulk" rows="7" placeholder="타임 속옷 https://cafe.naver.com/...&#10;A상품 https://cafe.naver.com/...&#10;(링크만 붙여넣어도 됩니다 · 제목은 비워두고 나중에 채우기 가능)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+      <button onclick="hdBulkParse()" style="width:100%;margin-top:7px;padding:10px;background:#993C1D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">⬇️ 붙여넣은 만큼 행 만들기</button>
+    </div>
     <div id="hdRows"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button onclick="addHdRow()" style="flex:1;padding:11px;background:#fff;color:#D85A30;border:1.5px solid #D85A30;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
@@ -3786,6 +3791,27 @@ function addHdRow(){
       <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
     </div>`;
   document.getElementById('hdRows').appendChild(div);
+}
+function hdBulkParse(){
+  const ta=document.getElementById('hdBulk');
+  const lines=(ta.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){ alert('붙여넣은 내용이 없어요. 한 줄에 하나씩 붙여넣어 주세요.'); return; }
+  [...document.querySelectorAll('#hdRows .ct-row')].forEach(r=>{ const t=r.querySelector('.ct-title').value.trim(), l=r.querySelector('.ct-link').value.trim(); if(!t&&!l) r.remove(); });
+  const gf=(typeof guessCat==='function')?guessCat:((typeof catGuess==='function')?catGuess:null);
+  let n=0;
+  lines.forEach(line=>{
+    const m=line.match(/https?:\/\/\S+/);
+    const link=m?m[0]:'';
+    const title=(link?line.replace(link,''):line).replace(/[|\t,]+/g,' ').trim();
+    addHdRow();
+    const row=document.querySelector('#hdRows .ct-row:last-child');
+    if(title) row.querySelector('.ct-title').value=title;
+    if(link) row.querySelector('.ct-link').value=link;
+    if(title && gf){ try{ const g=gf(title); const maj=row.querySelector('.ct-major'); if(g&&g.major&&[...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; rowSyncMinor(maj); const min=row.querySelector('.ct-minor'); if(g.minor&&[...min.options].some(o=>o.value===g.minor)) min.value=g.minor; } }catch(_){} }
+    n++;
+  });
+  ta.value='';
+  alert(`${n}개 행을 만들었어요. 제목/분류 확인 후 🔥 전체 등록을 눌러주세요.`);
 }
 function addExRow(){
   const firstMajor=Object.keys(CATS_LIST)[0];
