@@ -826,13 +826,13 @@ CREATE POLICY "read_events" ON events
     <div class="modal-field"><label>인플루언서 한글명</label><input id="editInfluencer" type="text"></div>
     <div class="modal-field"><label>인스타그램 아이디</label><input id="editInsta" type="text"></div>
     <div class="modal-field"><label>대분류</label>
-      <select id="editMajor">
+      <select id="editMajor" onchange="editSyncMinor()">
         <option>육아</option><option>리빙</option><option>인테리어</option>
         <option>식품</option><option>건강</option><option>뷰티</option><option>패션</option>
         <option>여행</option><option>반려동물</option><option>가전</option>
       </select>
     </div>
-    <div class="modal-field"><label>소분류</label><input id="editMinor" type="text"></div>
+    <div class="modal-field"><label>소분류</label><select id="editMinor"></select></div>
     <div class="modal-field"><label>공구 제품명</label><input id="editName" type="text"></div>
     <div class="modal-field"><label>오픈 날짜</label><input id="editOpenDate" type="date"></div>
     <div class="modal-field"><label>마감 날짜</label><input id="editEndDate" type="date"></div>
@@ -1220,18 +1220,24 @@ async function runAiParse(){
 function markAiDuplicates(){
   aiParsedData.forEach(item=>{
     item._dup=false; item._dupReason='';
-    if(!item.insta || !item.open_date) return; // 인스타·날짜 둘 다 있어야 비교
+    if(!item.name) return;
     const ins=(item.insta||'').replace('@','').trim().toLowerCase();
+    const infl=(item.influencer||'').trim();
     for(const d of allData){
+      if(!dupNameMatch(d.name, item.name)) continue;            // 이름 포함/유사 우선
       const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
-      if(!dIns || dIns!==ins) continue;
-      if(d.open_date!==item.open_date) continue;
+      // 셀러 일치: 둘 다 인스타 있으면 인스타로, 아니면 한글명으로, 둘 다 없으면 이름+날짜로만
+      let sameSeller;
+      if(ins && dIns) sameSeller=(ins===dIns);
+      else if(infl && (d.influencer||'').trim()) sameSeller=(infl===(d.influencer||'').trim());
+      else sameSeller=true;
+      if(!sameSeller) continue;
+      // 둘 다 오픈일이 있으면 같은 날만 중복으로 본다
+      if(item.open_date && d.open_date && d.open_date!==item.open_date) continue;
       const sim=similarity(d.name, item.name);
-      if(dupNameMatch(d.name, item.name)){
-        item._dup=true;
-        item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${d.name}"`;
-        break;
-      }
+      item._dup=true;
+      item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${d.name}"`;
+      break;
     }
   });
 }
@@ -1740,7 +1746,7 @@ function parsePangpang(text, existingData, minDate) {
 
     const cat=mapCat(siteMajor, siteMinor, name);
     const ed=fixEndDate(openDate, endDate);
-    const dupDb=existingData.some(e=> e.open_date===openDate && crawlSim(e.name,name)>=0.7);
+    const dupDb=existingData.some(e=> e.open_date===openDate && dupNameMatch(e.name,name));
     const dupBatch=results.some(r=> r.open_date===openDate && (r.insta||'')===(insta||'') && crawlSim(r.name,name)>=0.85);
     if(dupDb || dupBatch){ dupCnt++; continue; }
     results.push({
@@ -1823,7 +1829,7 @@ function parseGonggumoa(text, existingData, minDate) {
 
         if (isValidName(name) && !SUBCATS_GM.has(name) && !MAJORS_GM.has(name)) {
           const isDup = existingData.some(e =>
-            e.open_date === openDate && crawlSim(e.name, name) >= 0.7
+            e.open_date === openDate && dupNameMatch(e.name, name)
           );
           const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
           const isDupBatch = results.some(r =>
@@ -4704,13 +4710,19 @@ async function toggleApprove(id,approved){
 }
 
 // ── 수정 ──
+function editSyncMinor(){ const m=document.getElementById('editMajor').value; document.getElementById('editMinor').innerHTML=minorOptions(m,''); }
 function openEdit(id){
   const d=allData.find(d=>d.id===id);if(!d)return;
   document.getElementById('editId').value=id;
   document.getElementById('editInfluencer').value=d.influencer||'';
   document.getElementById('editInsta').value=d.insta||'';
   document.getElementById('editMajor').value=d.major||'육아';
-  document.getElementById('editMinor').value=d.minor||'';
+  (function(){
+    const mj=d.major||'육아';
+    let opts=minorOptions(mj, d.minor||'');
+    if(d.minor && !(CATS_LIST[mj]||[]).includes(d.minor)) opts=`<option value="${d.minor}" selected>${d.minor} (기존값)</option>`+opts;
+    document.getElementById('editMinor').innerHTML=opts;
+  })();
   document.getElementById('editName').value=d.name||'';
   document.getElementById('editOpenDate').value=d.open_date||'';
   document.getElementById('editEndDate').value=d.end_date||'';
