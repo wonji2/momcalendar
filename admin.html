@@ -76,6 +76,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .crow .ico{border:none;border-radius:6px;font-size:11px;font-weight:700;padding:6px 9px;cursor:pointer;font-family:inherit}
 .layBtn{padding:5px 11px;border:1.5px solid #E0D8F5;background:#fff;color:#6B4A9A;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .layBtn.on{background:#4A35A0;color:#fff;border-color:#4A35A0}
+.epBtn{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #E0E0E0;cursor:pointer;font-family:inherit;background:#fff;color:#888}
+.epBtn.epOn{background:#602090;color:#fff;border-color:#602090}
 .card{background:#fff;border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .card-hd{display:flex;align-items:center;padding:11px 13px;gap:10px;border-bottom:1px solid #f5f5f5}
 .card-cb{width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:#4A35A0}
@@ -636,12 +638,22 @@ details summary::-webkit-details-marker{display:none}
         <button onclick="switchEvtTab('card')" id="eTab-card" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#602090;color:#fff">🔥 인기 공구</button>
         <button onclick="switchEvtTab('infl')" id="eTab-infl" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">👤 인기 인플루언서</button>
         <button onclick="switchEvtTab('search')" id="eTab-search" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🔍 인기 검색어</button>
-        <button onclick="switchEvtTab('type')" id="eTab-type" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">📊 액션 분석</button>
+        <button onclick="switchEvtTab('type')" id="eTab-type" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">📈 인사이트</button>
       </div>
       <!-- 기간 필터 -->
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button onclick="switchEvtPeriod('month')" id="ePeriod-month" style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #602090;cursor:pointer;font-family:inherit;background:#602090;color:#fff">이번달</button>
-        <button onclick="switchEvtPeriod('all')" id="ePeriod-all" style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #E0E0E0;cursor:pointer;font-family:inherit;background:#fff;color:#888">누적 전체</button>
+      <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+        <button onclick="switchEvtPeriod('today')" id="ePeriod-today" class="epBtn">오늘</button>
+        <button onclick="switchEvtPeriod('week')" id="ePeriod-week" class="epBtn">이번주</button>
+        <button onclick="switchEvtPeriod('2week')" id="ePeriod-2week" class="epBtn">최근 2주</button>
+        <button onclick="switchEvtPeriod('month')" id="ePeriod-month" class="epBtn epOn">이번달</button>
+        <button onclick="switchEvtPeriod('all')" id="ePeriod-all" class="epBtn">전체</button>
+        <button onclick="switchEvtPeriod('custom')" id="ePeriod-custom" class="epBtn">📅 기간 설정</button>
+      </div>
+      <div id="ePeriodCustom" style="display:none;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <input type="date" id="ePeriodFrom" style="padding:5px 8px;border:1px solid #D9CCF0;border-radius:8px;font-size:11px;font-family:inherit">
+        <span style="color:#aaa;font-size:11px">~</span>
+        <input type="date" id="ePeriodTo" style="padding:5px 8px;border:1px solid #D9CCF0;border-radius:8px;font-size:11px;font-family:inherit">
+        <button onclick="applyCustomPeriod()" style="padding:5px 12px;border:none;border-radius:8px;background:#4A35A0;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">조회</button>
       </div>
       <div id="eventStats"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
       <!-- events 테이블 안내 (데이터 없을 때만 표시) -->
@@ -3080,6 +3092,13 @@ async function loadRetention(){
   }catch(e){ el.innerHTML='<span style="color:#C62828">불러오기 실패: '+(e&&e.message||e)+'</span>'; }
 }
 
+// 전체 개수만 빠르게 카운트(Content-Range 헤더)
+async function countRows(path){
+  const res=await fetch(`${SB_URL}/rest/v1/${path}`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Range-Unit':'items','Range':'0-0','Prefer':'count=exact'}});
+  const cr=res.headers.get('content-range')||'';
+  const m=cr.match(/\/(\d+)$/);
+  return m?parseInt(m[1],10):0;
+}
 async function fetchAllRows(path){
   let rows=[]; const PAGE=1000;
   for(let start=0; start<200000; start+=PAGE){
@@ -3097,7 +3116,7 @@ async function fetchAllRows(path){
 }
 
 // ── 행동 분석 전역 상태 ──
-let _evtTab='card', _evtPeriod='month', _evtCache={};
+let _evtTab='card', _evtPeriod='month', _evtCache={}, _evtCustomFrom='', _evtCustomTo='';
 
 function switchEvtTab(tab){
   _evtTab=tab;
@@ -3109,17 +3128,49 @@ function switchEvtTab(tab){
   });
   renderEvtStats();
 }
-function switchEvtPeriod(p){
-  _evtPeriod=p;
-  ['month','all'].forEach(t=>{
-    const b=document.getElementById('ePeriod-'+t);
-    if(!b)return;
-    b.style.background=t===p?'#602090':'#fff';
-    b.style.color=t===p?'#fff':'#888';
-    b.style.borderColor=t===p?'#602090':'#E0E0E0';
+function updateEvtPeriodBtns(){
+  ['today','week','2week','month','all','custom'].forEach(t=>{
+    const b=document.getElementById('ePeriod-'+t); if(b) b.classList.toggle('epOn', _evtPeriod===t);
   });
-  _evtCache={}; // 기간 바꾸면 캐시 무효화
+}
+function switchEvtPeriod(p){
+  if(p==='custom'){
+    const box=document.getElementById('ePeriodCustom');
+    if(box) box.style.display = (box.style.display==='flex'?'none':'flex');
+    return; // 조회 버튼으로 확정
+  }
+  _evtPeriod=p;
+  const box=document.getElementById('ePeriodCustom'); if(box) box.style.display='none';
+  updateEvtPeriodBtns();
+  _evtCache={};
   loadEventStats();
+}
+function applyCustomPeriod(){
+  const f=document.getElementById('ePeriodFrom').value, t=document.getElementById('ePeriodTo').value;
+  if(!f||!t){ alert('시작일과 종료일을 선택해주세요.'); return; }
+  if(f>t){ alert('시작일이 종료일보다 늦어요.'); return; }
+  _evtPeriod='custom'; _evtCustomFrom=f; _evtCustomTo=t;
+  updateEvtPeriodBtns();
+  _evtCache={};
+  loadEventStats();
+}
+// KST 기준 기간 → PostgREST 필터(q)·라벨·캐시키
+function evtPeriodRange(){
+  const pad=n=>String(n).padStart(2,'0');
+  const kn=new Date(Date.now()+9*3600000);
+  const Y=kn.getUTCFullYear(), M=kn.getUTCMonth()+1, D=kn.getUTCDate();
+  const dayISO=(y,m,d)=>`${y}-${pad(m)}-${pad(d)}T00:00:00+09:00`;
+  const addDaysISO=(n)=>{ const d=new Date(Date.UTC(Y,M-1,D)+n*86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T00:00:00+09:00`; };
+  let from=null, to=null, label='누적 전체';
+  if(_evtPeriod==='today'){ from=dayISO(Y,M,D); label='오늘'; }
+  else if(_evtPeriod==='week'){ const wd=(new Date(Date.UTC(Y,M-1,D)).getUTCDay()+6)%7; from=addDaysISO(-wd); label='이번주'; }
+  else if(_evtPeriod==='2week'){ from=addDaysISO(-13); label='최근 2주'; }
+  else if(_evtPeriod==='month'){ from=dayISO(Y,M,1); label='이번달'; }
+  else if(_evtPeriod==='custom'){ from=`${_evtCustomFrom}T00:00:00+09:00`; to=new Date(new Date(_evtCustomTo+'T00:00:00+09:00').getTime()+86400000).toISOString(); label=`${_evtCustomFrom} ~ ${_evtCustomTo}`; }
+  let q='';
+  if(from) q+=`&visited_at=gte.${from}`;
+  if(to)   q+=`&visited_at=lt.${to}`;
+  return {q, label, cacheKey:`${_evtPeriod}|${_evtCustomFrom}|${_evtCustomTo}`};
 }
 
 async function loadEventStats(){
@@ -3139,27 +3190,32 @@ async function loadEventStats(){
       return;
     }
 
-    // 기간 필터
-    const now=new Date();
-    const monthStart=now.toISOString().slice(0,7)+'-01T00:00:00';
-    const periodQ=_evtPeriod==='month'?`&visited_at=gte.${monthStart}`:'';
+    // 기간 필터 (KST)
+    const {q:periodQ, label:periodLabel, cacheKey} = evtPeriodRange();
 
-    const cacheKey=_evtPeriod;
     if(!_evtCache[cacheKey]){
       _evtCache[cacheKey]=await fetchAllRows(`events?select=event_type,event_data,visited_at${periodQ}`)||[];
     }
     const all=_evtCache[cacheKey];
 
-    const typeCnt={}, searchCnt={}, cardCnt={};
+    const typeCnt={}, searchCnt={}, searchZero={}, cardCnt={}, catCnt={};
+    const hourCnt=new Array(24).fill(0), dowCnt=new Array(7).fill(0);
     all.forEach(e=>{
       typeCnt[e.event_type]=(typeCnt[e.event_type]||0)+1;
+      if(e.visited_at){ const d=new Date(new Date(e.visited_at).getTime()+9*3600000); hourCnt[d.getUTCHours()]++; dowCnt[d.getUTCDay()]++; }
       if(e.event_type==='search'&&e.event_data){
-        const q=(e.event_data||'').trim().toLowerCase();
-        if(q) searchCnt[q]=(searchCnt[q]||0)+1;
+        let q='', n=null; const raw=String(e.event_data).trim();
+        if(raw.charAt(0)==='{'){ try{const o=JSON.parse(raw); q=(o.q||'').trim(); n=(typeof o.n==='number'?o.n:null);}catch(_){ q=raw; } }
+        else q=raw;
+        q=q.toLowerCase();
+        if(q){ searchCnt[q]=(searchCnt[q]||0)+1; if(n===0) searchZero[q]=(searchZero[q]||0)+1; }
       }
       if(e.event_type==='card_click'&&e.event_data){
         cardCnt[e.event_data]=(cardCnt[e.event_data]||0)+1;
+        const raw=String(e.event_data).trim();
+        if(raw.charAt(0)==='{'){ try{ const o=JSON.parse(raw); if(o.c){ const c=String(o.c).trim(); if(c) catCnt[c]=(catCnt[c]||0)+1; } }catch(_){} }
       }
+      if(e.event_type==='category_click'&&e.event_data){ const c=String(e.event_data).trim(); if(c) catCnt[c]=(catCnt[c]||0)+1; }
     });
 
     // card_click 집계: 자체완결형 JSON({id,n,i,f}) 우선, 레거시(상품id / 인스타핸들) 폴백
@@ -3207,7 +3263,7 @@ async function loadEventStats(){
           if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">개별 카드 클릭 데이터가 아직 없어요.<br><span style="font-size:11px">index.html 배포 후 새로 눌린 카드부터 상품별로 집계돼요.</span></div>';
           return;
         }
-        let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔥 인기 공구 · 개별 카드 TOP ${list.length} (${_evtPeriod==='month'?'이번달':'누적'})</div>`;
+        let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔥 인기 공구 · 개별 카드 TOP ${list.length} (${periodLabel})</div>`;
         list.forEach((p,i)=>{
           const rank=i+1;
           h+=`<div style="padding:7px 0;border-bottom:1px solid #F0E6FA">
@@ -3237,7 +3293,7 @@ async function loadEventStats(){
         if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">인플루언서 클릭 데이터가 없어요.</div>';
         return;
       }
-      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">👤 인기 인플루언서 TOP ${top.length} (${_evtPeriod==='month'?'이번달':'누적'})<br><span style="font-size:10px;color:#aaa;font-weight:400">그 인플루언서의 모든 공구 카드 클릭 합계</span></div>`;
+      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">👤 인기 인플루언서 TOP ${top.length} (${periodLabel})<br><span style="font-size:10px;color:#aaa;font-weight:400">그 인플루언서의 모든 공구 카드 클릭 합계</span></div>`;
       let rank=0;
       for(const [insta,cnt] of top){
         rank++;
@@ -3256,50 +3312,76 @@ async function loadEventStats(){
       return;
     }
 
-    // 인기 검색어 전체 목록
+    // 인기 검색어 + 수요 공백(결과 없는 검색)
     if(_evtTab==='search'){
       const topSearch=Object.entries(searchCnt).sort((a,b)=>b[1]-a[1]);
+      const zero=Object.entries(searchZero).sort((a,b)=>b[1]-a[1]);
       if(!topSearch.length){
         if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">검색 데이터가 없어요.</div>';
         return;
       }
+      let h='';
+      if(zero.length){
+        h+=`<div style="background:#FFF4F4;border:1px solid #FFD7D7;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:800;color:#C62828;margin-bottom:6px">🕳 수요 공백 · 결과 없는 검색 <span style="font-size:10px;font-weight:600;color:#B66">— 등록하면 좋을 공구</span></div>`;
+        h+=zero.slice(0,15).map(([q,c])=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#333">"${q}"</span><span style="color:#C62828;font-weight:700">${c}회 결과없음</span></div>`).join('');
+        h+=`</div>`;
+      } else {
+        h+=`<div style="font-size:11px;color:#aaa;margin-bottom:10px">결과 없는 검색 데이터는 index.html 배포 후 새 검색부터 쌓여요.</div>`;
+      }
       const max=topSearch[0][1];
-      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔍 인기 검색어 전체 (${_evtPeriod==='month'?'이번달':'누적'}) ${topSearch.length}개</div>`;
-      h+=topSearch.map(([q,c],i)=>{
-        const w=Math.round(c/max*100);
+      h+=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">🔍 인기 검색어 (${periodLabel}) ${topSearch.length}개</div>`;
+      h+=topSearch.slice(0,30).map(([q,c],i)=>{
+        const w=Math.round(c/max*100); const z=searchZero[q]||0;
         return `<div style="margin-bottom:6px">
           <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-            <span style="font-size:12px;color:#333;font-weight:${i<3?700:400}">${i<3?['🥇','🥈','🥉'][i]+' ':''}"${q}"</span>
+            <span style="font-size:12px;color:#333;font-weight:${i<3?700:400}">${i<3?['🥇','🥈','🥉'][i]+' ':''}"${q}"${z?` <span style="font-size:10px;color:#C62828">·결과없음 ${z}</span>`:''}</span>
             <span style="font-size:11px;font-weight:700;color:#602090">${c}회</span>
           </div>
-          <div style="height:4px;background:#F0E6FA;border-radius:2px">
-            <div style="height:4px;background:#602090;border-radius:2px;width:${w}%"></div>
-          </div>
+          <div style="height:4px;background:#F0E6FA;border-radius:2px"><div style="height:4px;background:#602090;border-radius:2px;width:${w}%"></div></div>
         </div>`;
       }).join('');
       if(el)el.innerHTML=h;
       return;
     }
 
-    // 액션 분석
+    // 📈 인사이트 대시보드 (전환율 · 카테고리 · 시간대 · 요일)
     if(_evtTab==='type'){
-      const TYPE_LABEL={category_click:'카테고리 클릭',status_tab:'상태탭 클릭',search:'검색',card_click:'공구 카드 클릭'};
-      const topType=Object.entries(typeCnt).sort((a,b)=>b[1]-a[1]);
-      const total=topType.reduce((s,[,c])=>s+c,0);
-      let h=`<div style="font-size:11px;font-weight:700;color:#602090;margin-bottom:8px">📊 액션 분석 (${_evtPeriod==='month'?'이번달':'누적'} 총 ${total.toLocaleString()}회)</div>`;
-      h+=topType.map(([t,c])=>{
-        const pct=Math.round(c/total*100);
-        return`<div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-            <span style="font-size:12px;color:#555">${TYPE_LABEL[t]||t}</span>
-            <span style="font-size:11px;font-weight:700;color:#602090">${c.toLocaleString()}회 (${pct}%)</span>
-          </div>
-          <div style="height:6px;background:#F0E6FA;border-radius:3px">
-            <div style="height:6px;background:#602090;border-radius:3px;width:${pct}%"></div>
-          </div>
-        </div>`;
-      }).join('');
+      const cardClicks=typeCnt['card_click']||0;
+      const searches=typeCnt['search']||0;
+      let visits=0;
+      try{ visits=await countRows(`visitors?select=visited_at${periodQ}`); }catch(_){}
+      const ctr = visits ? Math.round(1000*cardClicks/visits)/10 : 0;
+      let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        ${_retStatBox('방문수', visits?visits.toLocaleString():'-')}
+        ${_retStatBox('공구 클릭률', visits?ctr+'%':'-')}
+        ${_retStatBox('공구 클릭수', cardClicks.toLocaleString())}
+        ${_retStatBox('검색수', searches.toLocaleString())}
+      </div>
+      <div style="font-size:10px;color:#aaa;margin:-8px 0 12px">공구 클릭률 = 방문 중 실제 공구 카드를 누른 비율 (사이트가 공구로 잘 보내는지)</div>`;
+      // ④ 카테고리 관심도
+      const cats=Object.entries(catCnt).sort((a,b)=>b[1]-a[1]);
+      if(cats.length){
+        const cmax=cats[0][1];
+        h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:4px 0 7px">📂 카테고리 관심도 <span style="font-size:10px;font-weight:600;color:#aaa">(카테고리 탭 + 공구 클릭)</span></div>`;
+        h+=cats.map(([c,n])=>`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#333">${c}</span><span style="font-size:11px;color:#602090;font-weight:700">${n}</span></div><div style="height:5px;background:#F0E6FA;border-radius:3px"><div style="height:5px;background:#7B68EE;border-radius:3px;width:${Math.round(n/cmax*100)}%"></div></div></div>`).join('');
+      }
+      // ② 시간대별
+      const hmax=Math.max(1,...hourCnt);
+      h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:16px 0 7px">⏰ 시간대별 활동 <span style="font-size:10px;font-weight:600;color:#aaa">(KST)</span></div>`;
+      h+=`<div style="display:flex;align-items:flex-end;gap:1px;height:64px">`+hourCnt.map((v,hh)=>{
+        const ht=Math.max(v?2:0,Math.round(v/hmax*60)); const peak=(v===hmax&&v>0);
+        return `<div title="${hh}시 · ${v}회" style="flex:1;height:${ht}px;background:${peak?'#602090':'#C9BCF0'};border-radius:2px 2px 0 0"></div>`;
+      }).join('')+`</div><div style="font-size:9px;color:#bbb;margin-top:2px">0시 → 23시 · 가장 진한 막대가 피크 시간</div>`;
+      // ② 요일별
+      const DOW=['일','월','화','수','목','금','토']; const dmax=Math.max(1,...dowCnt);
+      h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:16px 0 7px">📅 요일별 활동</div>`;
+      h+=`<div style="display:flex;gap:6px;align-items:flex-end;height:66px">`+dowCnt.map((v,i)=>{
+        const ht=Math.max(v?2:0,Math.round(v/dmax*52)); const peak=(v===dmax&&v>0);
+        return `<div style="flex:1;text-align:center"><div title="${v}회" style="height:${ht}px;background:${peak?'#602090':'#C9BCF0'};border-radius:3px 3px 0 0"></div><div style="font-size:10px;color:${i===0?'#E0506E':(i===6?'#4A77E0':'#999')};margin-top:3px">${DOW[i]}</div></div>`;
+      }).join('')+`</div>`;
       if(el)el.innerHTML=h;
+      return;
     }
   }catch(e){
     if(el)el.innerHTML='<div style="color:#aaa;font-size:12px">데이터를 불러오지 못했어요.</div>';

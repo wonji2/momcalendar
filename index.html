@@ -1495,7 +1495,12 @@ sInput.addEventListener('input',e=>{
 sInput.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     clearTimeout(_searchScrollTimer);
-    if(sInput.value.trim()) trackEvent('search', sInput.value.trim());
+    const _q=sInput.value.trim();
+    if(_q){
+      const _ql=_q.toLowerCase();
+      const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+      trackEvent('search', JSON.stringify({q:_q, n:_n}));
+    }
     sInput.blur(); // 모바일 키보드 내려서 결과가 잘 보이게
     setTimeout(scrollToResults,150); // 키보드 접힌 뒤 결과로 이동
   }
@@ -1695,7 +1700,7 @@ function trackEvent(type,data=''){
 function trackCard(id){
   try{
     const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
-    trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||''}));
+    trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''}));
   }catch(e){ try{ trackEvent('card_click', JSON.stringify({id:id})); }catch(_){} }
 }
 
