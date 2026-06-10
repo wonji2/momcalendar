@@ -831,6 +831,7 @@ CREATE POLICY "read_events" ON events
     <div class="modal-field"><label>공구 제품명</label><input id="editName" type="text"></div>
     <div class="modal-field"><label>오픈 날짜</label><input id="editOpenDate" type="date"></div>
     <div class="modal-field"><label>마감 날짜</label><input id="editEndDate" type="date"></div>
+    <div class="modal-field"><label>구매링크 <span style="font-size:10px;color:#aaa;font-weight:400">(입력하면 카드 클릭 시 이 링크로 바로 이동)</span></label><input id="editPayLink" type="url" placeholder="https://... (비우면 인스타로 이동)"></div>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="closeEdit()">취소</button>
       <button class="modal-save" onclick="saveEdit()">저장하기</button>
@@ -4687,6 +4688,7 @@ function openEdit(id){
   document.getElementById('editName').value=d.name||'';
   document.getElementById('editOpenDate').value=d.open_date||'';
   document.getElementById('editEndDate').value=d.end_date||'';
+  document.getElementById('editPayLink').value=d.pay_link||'';
   document.getElementById('editModal').style.display='flex';
 }
 function closeEdit(){document.getElementById('editModal').style.display='none';}
@@ -4700,6 +4702,7 @@ async function saveEdit(){
     name:document.getElementById('editName').value.trim(),
     open_date:document.getElementById('editOpenDate').value,
     end_date:document.getElementById('editEndDate').value||null,
+    pay_link:document.getElementById('editPayLink').value.trim()||null,
   };
   await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
     method:'PATCH',
