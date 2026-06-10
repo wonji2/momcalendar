@@ -22,6 +22,12 @@
   .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .mt{margin-top:10px}
   .hint{font-size:11px;min-height:15px;margin-top:4px}
+  .req{color:#C62828;font-weight:800}
+  .gg-row{border:1.5px solid #E4DBF7;border-radius:12px;padding:11px;margin-bottom:10px;background:#FCFAFF}
+  .gg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .gg-del{width:30px;height:30px;flex-shrink:0;background:#F3EEFC;color:var(--p);border:none;border-radius:8px;font-size:14px;cursor:pointer;padding:0}
+  .gg-lab{font-size:11px;color:#666;margin-bottom:3px;font-weight:600}
+  .gg-row input,.gg-row select{padding:9px;font-size:13px}
   .btn{width:100%;padding:13px;background:var(--p2);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:14px}
   .btn:active{opacity:.85}
   .gate{max-width:360px;margin:70px auto 0;text-align:center;padding:0 16px}
@@ -72,19 +78,14 @@
   <!-- 공구 -->
   <div class="view" id="v-gonggu">
     <div class="card">
-      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:10px">⚡ 공구 등록</div>
-      <label>셀러 (한글명/＠아이디 검색·선택)</label>
-      <input id="seller" list="sellerList" autocomplete="off" placeholder="예) 현브로맘" oninput="sellerHint()">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:6px">⚡ 공구 등록 <span style="font-size:11px;color:#aaa;font-weight:600">(여러 건 한 번에)</span></div>
+      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:10px"><span class="req">*</span> 는 필수예요. 셀러는 등록된 곳이면 한글명/＠아이디 입력 시 자동 연결돼요. 처음 셀러면 한글명·＠아이디를 둘 다 넣어주세요(다음부턴 자동완성). <b>＋ 줄 추가</b>로 여러 건을 쭉 등록!</div>
       <datalist id="sellerList"></datalist>
-      <div id="sellerMsg" class="hint"></div>
-      <div class="mt"><label>상품명</label><input id="gName" type="text" placeholder="예) 이키 메쉬수면조끼" oninput="guessCat()"></div>
-      <div class="mt"><label>구매링크 (선택 · 없으면 인스타로 연결)</label><input id="gLink" type="url" placeholder="https://..."></div>
-      <div class="row mt">
-        <div><label>오픈일</label><input id="gOpen" type="date"></div>
-        <div><label>마감일 (비우면 +3일)</label><input id="gEnd" type="date"></div>
+      <div id="ggRows"></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button onclick="addGgRow()" style="flex:1;padding:12px;background:#fff;color:var(--p);border:1.5px solid var(--p);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+        <button onclick="saveGongguRows()" style="flex:2;padding:12px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">⚡ 전체 등록</button>
       </div>
-      <div class="row mt"><select id="gMajor" onchange="syncMinor('g')"></select><select id="gMinor"></select></div>
-      <button class="btn" onclick="submitGonggu()">⚡ 이 공구 등록</button>
     </div>
 
     <div class="card">
@@ -232,7 +233,7 @@ function doLogout(){ clearSession(); location.reload(); }
 function enterApp(){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
-  fillCats('g'); loadSellers(); loadGonggu();
+  loadSellers(); addGgRow(); loadGonggu();
   addHdRow(); addExRow();
 }
 
@@ -317,6 +318,105 @@ function guessCat(){
   if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; syncMinor('g'); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
 }
 function addDays(dateStr,n){const d=new Date(dateStr);d.setDate(d.getDate()+n);const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+
+// ───────── 공구: 여러 건 동시 등록 ─────────
+function addGgRow(){
+  const fm=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='gg-row';
+  div.innerHTML=`
+    <div class="gg-head"><span style="font-size:11px;font-weight:800;color:var(--p)">📦 공구</span>
+      <button class="gg-del" onclick="this.closest('.gg-row').remove()">✕</button></div>
+    <div class="row">
+      <div><div class="gg-lab">셀러 한글명 <span class="req">*</span></div><input class="gg-sname" list="sellerList" autocomplete="off" placeholder="예) 현브로맘" oninput="ggByName(this)"></div>
+      <div><div class="gg-lab">＠아이디 <span class="req">*</span></div><input class="gg-sid" autocomplete="off" placeholder="예) hyunbro_mom" oninput="ggById(this)"></div>
+    </div>
+    <div class="gg-hint hint"></div>
+    <div class="mt"><div class="gg-lab">상품명 <span class="req">*</span></div><input class="gg-pname" type="text" placeholder="예) 이키 메쉬수면조끼" oninput="ggGuess(this)"></div>
+    <div class="row mt">
+      <div><div class="gg-lab">오픈일 <span class="req">*</span></div><input class="gg-open" type="date"></div>
+      <div><div class="gg-lab">마감일 <span style="color:#aaa;font-weight:400">(선택·비우면+3일)</span></div><input class="gg-end" type="date"></div>
+    </div>
+    <div class="row mt">
+      <div><div class="gg-lab">대분류 <span class="req">*</span></div><select class="gg-major" onchange="ggSyncMinor(this)">${catOptions(fm)}</select></div>
+      <div><div class="gg-lab">소분류 <span class="req">*</span></div><select class="gg-minor">${minorOptions(fm,'')}</select></div>
+    </div>
+    <div class="mt"><div class="gg-lab">구매링크 <span style="color:#aaa;font-weight:400">(선택·없으면 인스타로 연결)</span></div><input class="gg-link" type="url" placeholder="https://..."></div>`;
+  document.getElementById('ggRows').appendChild(div);
+}
+function ggSyncMinor(sel){ const row=sel.closest('.gg-row'); row.querySelector('.gg-minor').innerHTML=minorOptions(sel.value,''); }
+function ggByName(inp){ const row=inp.closest('.gg-row'); const nm=inp.value.trim(); const idEl=row.querySelector('.gg-sid'); if(name2insta[nm]&&!idEl.value.trim()) idEl.value='@'+name2insta[nm]; ggHint(row); }
+function ggById(inp){ const row=inp.closest('.gg-row'); const ig=inp.value.trim().replace(/^@/,''); const nmEl=row.querySelector('.gg-sname'); if(insta2name[ig]&&!nmEl.value.trim()) nmEl.value=insta2name[ig]; ggHint(row); }
+function ggHint(row){
+  const nm=row.querySelector('.gg-sname').value.trim();
+  const ig=row.querySelector('.gg-sid').value.trim().replace(/^@/,'');
+  const el=row.querySelector('.gg-hint');
+  if(!nm&&!ig){ el.textContent=''; return; }
+  if((nm&&name2insta[nm])||(ig&&insta2name[ig])) el.innerHTML='<span style="color:#0F6E56;font-weight:700">🔗 등록된 셀러 · 자동 연결됨</span>';
+  else if(nm&&ig) el.innerHTML='<span style="color:#0F6E56;font-weight:700">🆕 새 셀러 — 등록하면 다음부턴 자동완성돼요</span>';
+  else el.innerHTML='<span style="color:#C62828">⚠️ 새 셀러는 한글명과 ＠아이디 둘 다 필요해요</span>';
+}
+function catGuess(n){
+  let g={major:'리빙',minor:'생활용품'};
+  if(/유산균|비타민|오메가|철분|콜라겐|영양제|마그네슘|프로폴리스|엘더베리|커큐민/.test(n))g={major:'건강',minor:'비타민'};
+  else if(/책|동화|사운드북|전집|그림책|학습|문제집/.test(n))g={major:'육아',minor:'책'};
+  else if(/블럭|블록|퍼즐|교구|보드게임|자석|몬테소리|장난감|놀이/.test(n))g={major:'육아',minor:'장난감/놀이'};
+  else if(/실내복|양말|샌들|신발|모자|내복|수영복|래쉬가드|옷|티셔츠|선글라스/.test(n))g={major:'육아',minor:'의류잡화'};
+  else if(/선크림|로션|크림|샴푸|틴트|마스크팩|화장품|앰플/.test(n))g={major:'뷰티',minor:'스킨케어'};
+  else if(/선풍기|제습기|드라이기|청소기|에어건|가전|써큘레이터|에어프라이어/.test(n))g={major:'가전',minor:'생활가전'};
+  else if(/유모차|카시트|기저귀|분유|젖병|아기띠|쿨매트|냉감|매트/.test(n))g={major:'육아',minor:'육아용품'};
+  else if(/텀블러|수저|컵|그릇|도마|냄비|주방|식기|빨대컵/.test(n))g={major:'리빙',minor:'주방용품'};
+  else if(/우유|김|버터|요거트|곰탕|두부|계란|과일|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈/.test(n))g={major:'식품',minor:'간편식/밀키트'};
+  return g;
+}
+function ggGuess(inp){
+  const row=inp.closest('.gg-row'); const n=inp.value||''; if(!n) return;
+  const g=catGuess(n); const maj=row.querySelector('.gg-major');
+  if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; const min=row.querySelector('.gg-minor'); min.innerHTML=minorOptions(g.major,''); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+}
+function ggRowResolve(row){
+  let nm=row.querySelector('.gg-sname').value.trim();
+  let ig=row.querySelector('.gg-sid').value.trim().replace(/^@/,'');
+  if(nm&&!ig&&name2insta[nm]) ig=name2insta[nm];
+  if(ig&&!nm&&insta2name[ig]) nm=insta2name[ig];
+  return {nm, ig};
+}
+async function saveGongguRows(){
+  const rows=[...document.querySelectorAll('#ggRows .gg-row')];
+  if(!rows.length){ alert('등록할 줄이 없어요. ＋ 줄 추가를 눌러주세요.'); return; }
+  const bodies=[], newSellers={}, probs=[];
+  rows.forEach((row,i)=>{
+    const {nm,ig}=ggRowResolve(row);
+    const pname=row.querySelector('.gg-pname').value.trim();
+    const open=row.querySelector('.gg-open').value;
+    let end=row.querySelector('.gg-end').value;
+    const major=row.querySelector('.gg-major').value, minor=row.querySelector('.gg-minor').value;
+    const link=row.querySelector('.gg-link').value.trim();
+    if(!nm&&!ig&&!pname&&!open){ row.style.borderColor='#E4DBF7'; return; } // 빈 줄 건너뜀
+    const miss=[];
+    if(!nm||!ig) miss.push('셀러(한글명＋＠아이디)');
+    if(!pname) miss.push('상품명');
+    if(!open) miss.push('오픈일');
+    if(!major) miss.push('대분류');
+    if(!minor) miss.push('소분류');
+    if(end&&open&&end<open) miss.push('마감일(오픈일보다 빠름)');
+    if(miss.length){ probs.push(`${i+1}번째 줄: ${miss.join(', ')}`); row.style.borderColor='#C62828'; return; }
+    row.style.borderColor='#E4DBF7';
+    if(!end) end=addDays(open,3);
+    bodies.push({influencer:nm, insta:ig, major, minor, name:pname, open_date:open, end_date:end, approved:true, ...(link?{pay_link:link}:{})});
+    if(!name2insta[nm]) newSellers[ig]=nm;
+  });
+  if(probs.length){ alert('아래 줄을 확인해주세요 (빨간 테두리):\n\n'+probs.join('\n')); return; }
+  if(!bodies.length){ alert('등록할 내용을 입력해주세요.'); return; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(bodies)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`등록 실패 (${r.status})\n${m}`); return; }
+    const ns=Object.entries(newSellers).map(([insta,influencer])=>({insta,influencer}));
+    if(ns.length){ try{ await fetch(`${SB_URL}/rest/v1/influencers`,{method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(ns)}); }catch(_){} }
+    document.getElementById('ggRows').innerHTML=''; addGgRow();
+    await loadSellers(); loadGonggu();
+    alert(`공구 ${bodies.length}건 등록 완료! 🎉\n아래 목록의 📋 버튼으로 카페 글을 만들 수 있어요.`);
+  }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
+}
 
 // ───────── 공구 등록 ─────────
 async function submitGonggu(){
