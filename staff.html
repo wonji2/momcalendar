@@ -130,14 +130,15 @@
       <div style="font-size:15px;font-weight:800;color:var(--p2)">📋 카페 글 만들기</div>
       <button class="x" onclick="document.getElementById('cafeModal').style.display='none'">×</button>
     </div>
-    <div style="font-size:11px;color:#888;margin:4px 0 12px">네이버 카페 글쓰기에서 제목·본문에 각각 붙여넣으세요.</div>
-    <label>제목</label>
-    <textarea id="cafeTitle" readonly style="height:54px"></textarea>
+    <div style="font-size:11px;color:#888;margin:4px 0 12px">①게시판 글쓰기를 열면 기본 템플릿이 자동으로 떠요. ②제목을 제목칸에, ③결제링크를 본문 가운데(──── 아래 빈칸)에 붙여넣고 말머리만 고르면 끝!</div>
+    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">📝 카페 게시판 글쓰기 열기</button>
+    <label>① 제목</label>
+    <textarea id="cafeTitle" readonly style="height:48px"></textarea>
     <button class="copy" onclick="copyTa('cafeTitle',this)">제목 복사</button>
     <div style="margin-top:14px"></div>
-    <label>본문</label>
-    <textarea id="cafeBody" readonly style="height:180px"></textarea>
-    <button class="copy" onclick="copyTa('cafeBody',this)">본문 복사</button>
+    <label>② 결제링크 <span style="font-size:10px;color:#aaa;font-weight:400">(본문 가운데에 붙여넣기)</span></label>
+    <textarea id="cafeLink" readonly style="height:70px"></textarea>
+    <button class="copy" onclick="copyTa('cafeLink',this)">링크 복사</button>
   </div>
 </div>
 
@@ -428,24 +429,33 @@ async function saveGongguEdit(id){
 }
 
 // ───────── 카페 글 ─────────
+const CAFE_CLUB='31499187';
+const CAFE_MENU={ '육아':22, '식품':24, '인테리어':39, '리빙':26, '건강':37, '가전':38, '패션':23, '뷰티':76, '여행':29, '반려동물':30 };
+let _cafeWriteUrl='';
+function cafeWriteUrl(major){
+  const m=CAFE_MENU[(major||'').trim()];
+  return m ? `https://cafe.naver.com/f-e/cafes/${CAFE_CLUB}/menus/${m}/articles/write`
+           : `https://cafe.naver.com/f-e/cafes/${CAFE_CLUB}`;
+}
+function openCafeWrite(){ if(_cafeWriteUrl) window.open(_cafeWriteUrl,'_blank','noopener'); }
 function cafePostText(d){
   const md=s=>{ if(!s)return''; const p=String(s).split('-'); return `${+p[1]}/${+p[2]}`; };
-  const cat=(d.minor||d.major||'').replace(/\//g,' ').trim();
-  const open=md(d.open_date), end=md(d.end_date||'');
-  const period = end ? `${open}~${end}` : open;
   const nm=(d.name||'').trim().replace(/\s*공구\s*$/,'');
-  const title = `${cat?`[${cat}] `:''}${period} ${nm} 공구`.trim();
+  const o=md(d.open_date||''), e=md(d.end_date||'');
+  const period = (o&&e)?`${o}~${e}`:(o||e||'');
+  const title = `${period?period+' ':''}${nm} 공구`.trim();
   let link='';
   if(d.pay_link && /^https?:\/\//.test(d.pay_link)) link=d.pay_link;
   else if(d.insta) link=`https://instagram.com/${(d.insta||'').replace('@','')}`;
-  const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+(d.insta||'').replace('@',''):'');
-  const body=`${nm} 공구 안내 🛍\n\n🗓 공구기간 : ${period}`+(seller?`\n👤 셀러 : ${seller}`:'')+`\n🔗 바로가기 : ${link||'(링크를 넣어주세요)'}\n\n📅 진행중·예정 공구 일정 한눈에 → 맘캘린더\nhttps://momcalendar.com`;
-  return {title, body};
+  return {title, link};
 }
 function showCafePost(d){
-  const {title,body}=cafePostText(d);
+  const {title,link}=cafePostText(d);
   document.getElementById('cafeTitle').value=title;
-  document.getElementById('cafeBody').value=body;
+  document.getElementById('cafeLink').value=link||'(저장된 결제링크/인스타가 없어요. 공구 수정에서 구매링크를 넣어주세요.)';
+  _cafeWriteUrl=cafeWriteUrl(d.major);
+  const wb=document.getElementById('cafeWriteBtn');
+  if(wb) wb.textContent=`📝 ${(d.major||'').trim()||'카페'} 게시판 글쓰기 열기`;
   document.getElementById('cafeModal').style.display='flex';
 }
 function copyTa(id,btn){
