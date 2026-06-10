@@ -150,8 +150,8 @@
       <div style="font-size:15px;font-weight:800;color:var(--p2)">📋 카페 글 만들기</div>
       <button class="x" onclick="document.getElementById('cafeModal').style.display='none'">×</button>
     </div>
-    <div style="font-size:11px;color:#888;margin:4px 0 12px">①게시판 글쓰기를 열면 기본 템플릿이 자동으로 떠요. ②제목을 제목칸에, ③결제링크를 본문 가운데(──── 아래 빈칸)에 붙여넣고 말머리만 고르면 끝!</div>
-    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">📝 카페 게시판 글쓰기 열기</button>
+    <div style="font-size:11px;color:#888;margin:4px 0 12px;line-height:1.6">버튼을 누르면 <b>제목이 복사된 채로</b> 글쓰기 화면이 열려요. ① 제목칸에 붙여넣기(Ctrl+V) → ② 아래 <b>링크 복사</b> 눌러 본문 가운데에 붙여넣기 → 말머리만 고르면 끝!</div>
+    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">📝 카페 게시판 글쓰기 열기 (제목 복사됨)</button>
     <label>① 제목</label>
     <textarea id="cafeTitle" readonly style="height:48px"></textarea>
     <button class="copy" onclick="copyTa('cafeTitle',this)">제목 복사</button>
@@ -666,10 +666,14 @@ const CAFE_MENU={ '육아':22, '식품':24, '인테리어':39, '리빙':26, '건
 let _cafeWriteUrl='';
 function cafeWriteUrl(major){
   const m=CAFE_MENU[(major||'').trim()];
-  return m ? `https://cafe.naver.com/f-e/cafes/${CAFE_CLUB}/menus/${m}/articles/write`
-           : `https://cafe.naver.com/f-e/cafes/${CAFE_CLUB}`;
+  return m ? `https://cafe.naver.com/ca-fe/cafes/${CAFE_CLUB}/menus/${m}/articles/write?boardType=L`
+           : `https://cafe.naver.com/ca-fe/cafes/${CAFE_CLUB}`;
 }
-function openCafeWrite(){ if(_cafeWriteUrl) window.open(_cafeWriteUrl,'_blank','noopener'); }
+function openCafeWrite(){
+  // 제목을 클립보드에 자동 복사 → 글쓰기 화면 제목칸에 바로 붙여넣기(Ctrl+V)
+  try{ const t=document.getElementById('cafeTitle').value||''; if(t&&navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(_){}
+  if(_cafeWriteUrl) window.open(_cafeWriteUrl,'_blank','noopener');
+}
 function cafePostText(d){
   const md=s=>{ if(!s)return''; const p=String(s).split('-'); return `${+p[1]}/${+p[2]}`; };
   const nm=(d.name||'').trim().replace(/\s*공구\s*$/,'');
