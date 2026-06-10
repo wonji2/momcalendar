@@ -150,15 +150,17 @@
       <div style="font-size:15px;font-weight:800;color:var(--p2)">📋 카페 글 만들기</div>
       <button class="x" onclick="document.getElementById('cafeModal').style.display='none'">×</button>
     </div>
-    <div style="font-size:11px;color:#888;margin:4px 0 12px;line-height:1.6">버튼을 누르면 <b>제목이 복사된 채로</b> 글쓰기 화면이 열려요. ① 제목칸에 붙여넣기(Ctrl+V) → ② 아래 <b>링크 복사</b> 눌러 본문 가운데에 붙여넣기 → 말머리만 고르면 끝!</div>
-    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:16px">📝 카페 게시판 글쓰기 열기 (제목 복사됨)</button>
-    <label>① 제목</label>
-    <textarea id="cafeTitle" readonly style="height:48px"></textarea>
-    <button class="copy" onclick="copyTa('cafeTitle',this)">제목 복사</button>
-    <div style="margin-top:14px"></div>
-    <label>② 결제링크 <span style="font-size:10px;color:#aaa;font-weight:400">(본문 가운데에 붙여넣기)</span></label>
-    <textarea id="cafeLink" readonly style="height:70px"></textarea>
-    <button class="copy" onclick="copyTa('cafeLink',this)">링크 복사</button>
+    <div style="font-size:11px;color:#888;margin:4px 0 12px;line-height:1.6">버튼을 누르면 <b>제목+결제링크가 한 번에 복사</b>돼요. 글쓰기 화면이 뜨면 <b>본문에 그대로 붙여넣기(Ctrl+V)</b> → 맨 윗줄 <b>제목만 잘라내기(Ctrl+X)</b> 해서 위 제목칸에 붙여넣기 → 말머리 선택하면 끝!</div>
+    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px">📝 글쓰기 열기 (제목+링크 복사됨)</button>
+    <label>제목 + 결제링크 <span style="font-size:10px;color:#aaa;font-weight:400">(윗줄=제목 / 아랫줄=링크)</span></label>
+    <textarea id="cafeCombo" readonly style="height:84px"></textarea>
+    <button class="copy" onclick="copyTa('cafeCombo',this)">📋 제목+링크 한 번에 복사</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="copy" style="flex:1;background:#F0F0F0;color:#555" onclick="copyTa('cafeTitle',this)">제목만 복사</button>
+      <button class="copy" style="flex:1;background:#F0F0F0;color:#555" onclick="copyTa('cafeLink',this)">링크만 복사</button>
+    </div>
+    <textarea id="cafeTitle" readonly style="display:none"></textarea>
+    <textarea id="cafeLink" readonly style="display:none"></textarea>
   </div>
 </div>
 
@@ -670,8 +672,8 @@ function cafeWriteUrl(major){
            : `https://cafe.naver.com/ca-fe/cafes/${CAFE_CLUB}`;
 }
 function openCafeWrite(){
-  // 제목을 클립보드에 자동 복사 → 글쓰기 화면 제목칸에 바로 붙여넣기(Ctrl+V)
-  try{ const t=document.getElementById('cafeTitle').value||''; if(t&&navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(_){}
+  // 제목+결제링크(두 줄)를 한 번에 클립보드로 → 본문에 붙여넣고 제목만 잘라 올리기
+  try{ const t=document.getElementById('cafeCombo').value||''; if(t&&navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(_){}
   if(_cafeWriteUrl) window.open(_cafeWriteUrl,'_blank','noopener');
 }
 function cafePostText(d){
@@ -689,9 +691,10 @@ function showCafePost(d){
   const {title,link}=cafePostText(d);
   document.getElementById('cafeTitle').value=title;
   document.getElementById('cafeLink').value=link||'(저장된 결제링크/인스타가 없어요. 공구 수정에서 구매링크를 넣어주세요.)';
+  document.getElementById('cafeCombo').value = link ? (title+'\n'+link) : title;
   _cafeWriteUrl=cafeWriteUrl(d.major);
   const wb=document.getElementById('cafeWriteBtn');
-  if(wb) wb.textContent=`📝 ${(d.major||'').trim()||'카페'} 게시판 글쓰기 열기`;
+  if(wb) wb.textContent=`📝 ${(d.major||'').trim()||'카페'} 글쓰기 열기 (제목+링크 복사됨)`;
   document.getElementById('cafeModal').style.display='flex';
 }
 function copyTa(id,btn){
