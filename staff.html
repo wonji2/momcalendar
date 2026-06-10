@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 · 스탭</title>
+<style>
+  :root{--p:#602090;--p2:#4A35A0;--bd:#EBEBEB;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F2FB;color:#222}
+  .topbar{background:var(--p);color:#fff;padding:13px 16px;font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+  .logout{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit}
+  .tabs{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:10}
+  .tab{flex:1;padding:13px 4px;text-align:center;font-size:14px;font-weight:700;color:#999;cursor:pointer;border-bottom:3px solid transparent}
+  .tab.on{color:var(--p);border-bottom-color:var(--p)}
+  .view{padding:14px;padding-bottom:90px;max-width:640px;margin:0 auto}
+  .card{background:#fff;border:1.5px solid #E4DBF7;border-radius:14px;padding:16px;margin-bottom:12px}
+  label{font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px}
+  input,select,textarea{width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:#fff}
+  input:focus,select:focus{border-color:var(--p)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mt{margin-top:10px}
+  .hint{font-size:11px;min-height:15px;margin-top:4px}
+  .btn{width:100%;padding:13px;background:var(--p2);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:14px}
+  .btn:active{opacity:.85}
+  .gate{max-width:360px;margin:70px auto 0;text-align:center;padding:0 16px}
+  .gate h1{font-size:22px;color:var(--p)}
+  .ct-row{background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px}
+  .copy{padding:9px 14px;background:var(--p2);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
+  .modal .inner{background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:18px}
+  .x{background:none;border:none;font-size:22px;cursor:pointer;color:#999}
+  .glist-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:11px 12px;margin-bottom:7px}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="gate" class="gate">
+  <h1>맘캘린더 스탭</h1>
+  <p id="gateSub" style="color:#888;font-size:13px">스탭 계정으로 로그인하세요</p>
+
+  <div id="loginForm">
+    <input id="loginEmail" type="text" placeholder="아이디" style="margin-bottom:8px" autocomplete="username">
+    <input id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn" onclick="doLogin()">로그인</button>
+    <div style="margin-top:13px;font-size:12px;color:#888">계정이 없나요? <a href="#" onclick="showSignup();return false" style="color:var(--p);font-weight:700;text-decoration:none">회원가입</a></div>
+  </div>
+
+  <div id="signupForm" style="display:none">
+    <input id="suId" type="text" placeholder="아이디 (영문·숫자 3자 이상)" style="margin-bottom:8px" autocomplete="username">
+    <input id="suPw" type="password" placeholder="비밀번호 (6자 이상)" style="margin-bottom:8px" autocomplete="new-password">
+    <input id="suPw2" type="password" placeholder="비밀번호 확인" style="margin-bottom:8px" autocomplete="new-password">
+    <input id="suCode" type="text" placeholder="가입코드" onkeydown="if(event.key==='Enter')doSignup()">
+    <button class="btn" onclick="doSignup()">가입하기</button>
+    <div style="margin-top:13px;font-size:12px;color:#888">이미 계정이 있나요? <a href="#" onclick="showLogin();return false" style="color:var(--p);font-weight:700;text-decoration:none">로그인</a></div>
+  </div>
+
+  <div id="gateMsg" style="color:#C62828;font-size:12px;margin-top:8px"></div>
+</div>
+
+<!-- 앱 -->
+<div id="app" style="display:none">
+  <div class="topbar"><span>📅 맘캘린더 스탭</span><button class="logout" onclick="doLogout()">로그아웃</button></div>
+  <div class="tabs">
+    <div class="tab on" id="t-gonggu" onclick="showTab('gonggu')">📦 공구</div>
+    <div class="tab" id="t-hotdeal" onclick="showTab('hotdeal')">🔥 핫딜</div>
+    <div class="tab" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
+  </div>
+
+  <!-- 공구 -->
+  <div class="view" id="v-gonggu">
+    <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:10px">⚡ 공구 등록</div>
+      <label>셀러 (한글명/＠아이디 검색·선택)</label>
+      <input id="seller" list="sellerList" autocomplete="off" placeholder="예) 현브로맘" oninput="sellerHint()">
+      <datalist id="sellerList"></datalist>
+      <div id="sellerMsg" class="hint"></div>
+      <div class="mt"><label>상품명</label><input id="gName" type="text" placeholder="예) 이키 메쉬수면조끼" oninput="guessCat()"></div>
+      <div class="mt"><label>구매링크 (선택 · 없으면 인스타로 연결)</label><input id="gLink" type="url" placeholder="https://..."></div>
+      <div class="row mt">
+        <div><label>오픈일</label><input id="gOpen" type="date"></div>
+        <div><label>마감일 (비우면 +3일)</label><input id="gEnd" type="date"></div>
+      </div>
+      <div class="row mt"><select id="gMajor" onchange="syncMinor('g')"></select><select id="gMinor"></select></div>
+      <button class="btn" onclick="submitGonggu()">⚡ 이 공구 등록</button>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(최근 등록순 · 삭제는 불가)</span></div>
+      <input id="gSearch" type="text" placeholder="🔍 상품명/셀러로 찾기" oninput="renderGongguList()">
+      <div id="gongguList" style="margin-top:10px"><div style="color:#aaa;font-size:12px">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 핫딜 (관리자 동일) -->
+  <div class="view" id="v-hotdeal" style="display:none">
+    <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
+      제목·링크를 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 최신순으로 노출됩니다.
+    </div>
+    <div id="hdRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addHdRow()" style="flex:1;padding:11px;background:#fff;color:#D85A30;border:1.5px solid #D85A30;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveHotdealRows()" style="flex:2;padding:11px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 핫딜</div>
+    <div id="hdAdminList"></div>
+  </div>
+
+  <!-- 체험단 (관리자 동일) -->
+  <div class="view" id="v-exp" style="display:none">
+    <div style="background:#E1F5EE;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#0A5D52;line-height:1.7">
+      제목·링크·모집인원·마감일을 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 마감일이 지나면 자동 회색 처리됩니다.
+    </div>
+    <div id="exRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addExRow()" style="flex:1;padding:11px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveExperienceRows()" style="flex:2;padding:11px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 체험단</div>
+    <div id="exAdminList"></div>
+  </div>
+</div>
+
+<!-- 카페 글 모달 -->
+<div id="cafeModal" class="modal">
+  <div class="inner">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:800;color:var(--p2)">📋 카페 글 만들기</div>
+      <button class="x" onclick="document.getElementById('cafeModal').style.display='none'">×</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin:4px 0 12px">네이버 카페 글쓰기에서 제목·본문에 각각 붙여넣으세요.</div>
+    <label>제목</label>
+    <textarea id="cafeTitle" readonly style="height:54px"></textarea>
+    <button class="copy" onclick="copyTa('cafeTitle',this)">제목 복사</button>
+    <div style="margin-top:14px"></div>
+    <label>본문</label>
+    <textarea id="cafeBody" readonly style="height:180px"></textarea>
+    <button class="copy" onclick="copyTa('cafeBody',this)">본문 복사</button>
+  </div>
+</div>
+
+<script>
+const SB_URL='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const SB_KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+let ACCESS_TOKEN=SB_KEY;
+function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},extra||{});}
+const HD_URL=SB_URL+'/rest/v1/hotdeals';
+const EX_URL=SB_URL+'/rest/v1/experiences';
+
+const CATS_LIST={
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
+  '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
+  '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
+  '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
+  '여행':['호텔/숙소','항공권','패키지/투어'],
+  '반려동물':['강아지','고양이','사료','간식'],
+};
+function catOptions(sel){ return Object.keys(CATS_LIST).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
+function minorOptions(major,sel){ return (CATS_LIST[major]||[]).map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join(''); }
+function rowSyncMinor(selEl){ const row=selEl.closest('.ct-row'); row.querySelector('.ct-minor').innerHTML=minorOptions(selEl.value,''); }
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ───────── 로그인 / 회원가입 ─────────
+const STAFF_DOMAIN='@staff.momcal';
+const SIGNUP_CODE='momcal260610';   // ← 사장님이 원하는 가입코드로 바꾸세요. 이 코드를 아는 스탭만 가입할 수 있어요.
+function idToEmail(v){ v=(v||'').trim().toLowerCase(); return v.includes('@')?v:v+STAFF_DOMAIN; }
+
+function showSignup(){ document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block'; document.getElementById('gateSub').textContent='새 스탭 계정 만들기'; document.getElementById('gateMsg').textContent=''; }
+function showLogin(){ document.getElementById('signupForm').style.display='none'; document.getElementById('loginForm').style.display='block'; document.getElementById('gateSub').textContent='스탭 계정으로 로그인하세요'; document.getElementById('gateMsg').textContent=''; }
+
+function saveSession(d){ try{ localStorage.setItem('staffSess', JSON.stringify({rt:d.refresh_token||'', at:d.access_token||''})); }catch(_){} }
+function clearSession(){ try{ localStorage.removeItem('staffSess'); sessionStorage.removeItem('staffTok'); }catch(_){} }
+
+async function doLogin(){
+  const email=idToEmail(document.getElementById('loginEmail').value);
+  const pw=document.getElementById('loginPw').value;
+  const msg=document.getElementById('gateMsg');
+  if(!document.getElementById('loginEmail').value.trim()||!pw){ msg.textContent='아이디와 비밀번호를 입력하세요.'; return; }
+  msg.textContent='로그인 중…';
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,password:pw})
+    });
+    const data=await res.json();
+    if(!res.ok||!data.access_token){ msg.textContent='로그인 실패: 아이디/비밀번호를 확인하세요.'; return; }
+    ACCESS_TOKEN=data.access_token; saveSession(data); enterApp();
+  }catch(e){ msg.textContent='로그인 오류: '+(e&&e.message||e); }
+}
+
+async function doSignup(){
+  const idRaw=document.getElementById('suId').value.trim();
+  const pw=document.getElementById('suPw').value;
+  const pw2=document.getElementById('suPw2').value;
+  const code=document.getElementById('suCode').value.trim();
+  const msg=document.getElementById('gateMsg');
+  if(code!==SIGNUP_CODE){ msg.textContent='가입코드가 올바르지 않아요. 사장님에게 코드를 받아주세요.'; return; }
+  if(!/^[a-zA-Z0-9._-]{3,}$/.test(idRaw)){ msg.textContent='아이디는 영문·숫자 3자 이상으로 입력하세요.'; return; }
+  if(pw.length<6){ msg.textContent='비밀번호는 6자 이상으로 입력하세요.'; return; }
+  if(pw!==pw2){ msg.textContent='비밀번호가 일치하지 않아요.'; return; }
+  msg.textContent='가입 중…';
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/signup`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email:idToEmail(idRaw),password:pw})
+    });
+    const data=await res.json();
+    if(!res.ok){
+      const m=(data&&(data.msg||data.message||data.error_description||data.error||''))||'';
+      if(/registered|exists|already/i.test(m)) msg.textContent='이미 가입된 아이디예요. 로그인해 주세요.';
+      else msg.textContent='가입 실패: '+(m||('오류 '+res.status));
+      return;
+    }
+    if(data.access_token){
+      ACCESS_TOKEN=data.access_token; saveSession(data);
+      alert('가입 완료! 바로 로그인됩니다 🎉'); enterApp();
+    }else{
+      msg.style.color='#0F6E56';
+      msg.textContent='가입은 됐어요. 다만 자동 로그인이 안 되면 Supabase에서 이메일 인증(Confirm email)을 꺼야 해요. 로그인 화면에서 같은 아이디로 로그인해 보세요.';
+    }
+  }catch(e){ msg.textContent='가입 오류: '+(e&&e.message||e); }
+}
+
+function doLogout(){ clearSession(); location.reload(); }
+function enterApp(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  fillCats('g'); loadSellers(); loadGonggu();
+  addHdRow(); addExRow();
+}
+
+// 자동 로그인: 저장된 refresh_token으로 세션 복구
+async function restoreSession(){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem('staffSess')||'null'); }catch(_){}
+  // 구버전 세션(sessionStorage)도 한 번 받아줌
+  if(!s||!s.rt){ try{ const t=sessionStorage.getItem('staffTok'); if(t){ ACCESS_TOKEN=t; enterApp(); } }catch(_){} return; }
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:s.rt})
+    });
+    const data=await res.json();
+    if(res.ok&&data.access_token){ ACCESS_TOKEN=data.access_token; saveSession(data); enterApp(); }
+    else { clearSession(); }
+  }catch(_){ clearSession(); }
+}
+window.addEventListener('DOMContentLoaded',restoreSession);
+
+// ───────── 탭 ─────────
+function showTab(t){
+  ['gonggu','hotdeal','exp'].forEach(x=>{
+    document.getElementById('t-'+x).classList.toggle('on',x===t);
+    document.getElementById('v-'+x).style.display=(x===t)?'block':'none';
+  });
+  if(t==='hotdeal') loadHotdealAdmin();
+  if(t==='exp') loadExpAdmin();
+}
+
+// ───────── 공구: 카테고리/셀러 ─────────
+function fillCats(pfx){
+  const maj=document.getElementById(pfx+'Major');
+  maj.innerHTML=catOptions(Object.keys(CATS_LIST)[0]); syncMinor(pfx);
+}
+function syncMinor(pfx){
+  const maj=document.getElementById(pfx+'Major').value;
+  document.getElementById(pfx+'Minor').innerHTML=minorOptions(maj,'');
+}
+let name2insta={}, insta2name={};
+async function loadSellers(){
+  name2insta={}; insta2name={};
+  try{ const inf=await fetch(`${SB_URL}/rest/v1/influencers?select=insta,influencer`,{headers:sbHeaders()});
+    (await inf.json()||[]).forEach(r=>{ const nm=(r.influencer||'').trim(), ig=(r.insta||'').replace('@','').trim(); if(nm&&ig){ if(!name2insta[nm])name2insta[nm]=ig; insta2name[ig]=nm; }});
+  }catch(_){}
+  try{ const s=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:sbHeaders()});
+    (await s.json()||[]).forEach(r=>{ const nm=(r.name||'').trim(), ig=(r.insta||r.login_insta||'').replace('@','').trim(); if(nm&&ig){ if(!name2insta[nm])name2insta[nm]=ig; insta2name[ig]=nm; }});
+  }catch(_){}
+  document.getElementById('sellerList').innerHTML=Object.keys(name2insta).sort().map(nm=>`<option value="${esc(nm)}">@${name2insta[nm]}</option>`).join('');
+}
+function resolveSeller(){
+  const raw=(document.getElementById('seller').value||'').trim();
+  if(!raw) return {insta:'',infl:''};
+  const noAt=raw.replace(/^@/,'');
+  if(name2insta[raw]) return {insta:name2insta[raw], infl:raw};
+  if(insta2name[noAt]) return {insta:noAt, infl:insta2name[noAt]};
+  if(raw.startsWith('@')||/^[A-Za-z0-9._]+$/.test(raw)) return {insta:noAt, infl:''};
+  return {insta:'', infl:raw};
+}
+function sellerHint(){
+  const el=document.getElementById('sellerMsg');
+  const raw=(document.getElementById('seller').value||'').trim();
+  if(!raw){ el.textContent=''; return; }
+  const {insta,infl}=resolveSeller();
+  el.innerHTML = insta ? `<span style="color:#0F6E56;font-weight:700">🔗 연결: @${esc(insta)}${infl?(' · '+esc(infl)):''}</span>`
+    : `<span style="color:#C62828">⚠️ 등록 안 된 이름 — @아이디로 입력하면 연결돼요</span>`;
+}
+function guessCat(){
+  const n=document.getElementById('gName').value||''; if(!n)return;
+  let g={major:'리빙',minor:'생활용품'};
+  if(/유산균|비타민|오메가|철분|콜라겐|영양제|마그네슘|프로폴리스|엘더베리|커큐민/.test(n))g={major:'건강',minor:'비타민'};
+  else if(/책|동화|사운드북|전집|그림책|학습|문제집/.test(n))g={major:'육아',minor:'책'};
+  else if(/블럭|블록|퍼즐|교구|보드게임|자석|몬테소리|장난감|놀이/.test(n))g={major:'육아',minor:'장난감/놀이'};
+  else if(/실내복|양말|샌들|신발|모자|내복|수영복|래쉬가드|옷|티셔츠|선글라스/.test(n))g={major:'육아',minor:'의류잡화'};
+  else if(/선크림|로션|크림|샴푸|틴트|마스크팩|화장품|앰플/.test(n))g={major:'뷰티',minor:'스킨케어'};
+  else if(/선풍기|제습기|드라이기|청소기|에어건|가전|써큘레이터|에어프라이어/.test(n))g={major:'가전',minor:'생활가전'};
+  else if(/유모차|카시트|기저귀|분유|젖병|아기띠|쿨매트|냉감|매트/.test(n))g={major:'육아',minor:'육아용품'};
+  else if(/텀블러|수저|컵|그릇|도마|냄비|주방|식기|빨대컵/.test(n))g={major:'리빙',minor:'주방용품'};
+  else if(/우유|김|버터|요거트|곰탕|두부|계란|과일|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈/.test(n))g={major:'식품',minor:'간편식/밀키트'};
+  const maj=document.getElementById('gMajor'), min=document.getElementById('gMinor');
+  if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; syncMinor('g'); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+}
+function addDays(dateStr,n){const d=new Date(dateStr);d.setDate(d.getDate()+n);const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+
+// ───────── 공구 등록 ─────────
+async function submitGonggu(){
+  const name=(document.getElementById('gName').value||'').trim();
+  const open=document.getElementById('gOpen').value;
+  let end=document.getElementById('gEnd').value;
+  if(!name){alert('상품명을 입력해주세요!');return;}
+  if(!open){alert('오픈일을 선택해주세요!');return;}
+  if(end && end<open){alert('마감일이 오픈일보다 빨라요.');return;}
+  if(!end) end=addDays(open,3);
+  const {insta,infl}=resolveSeller();
+  if(!insta && !confirm('인스타 연결 없이 등록할까요?')) return;
+  const link=(document.getElementById('gLink').value||'').trim();
+  const body={influencer:infl||(insta?('@'+insta):''), insta:insta||'',
+    major:document.getElementById('gMajor').value, minor:document.getElementById('gMinor').value,
+    name, open_date:open, end_date:end, approved:true};
+  if(link) body.pay_link=link;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`등록 실패 (${r.status})\n${m}`); return; }
+    const ins=await r.json();
+    if(!Array.isArray(ins)||!ins.length){ alert('⚠️ 등록은 됐지만 반영 확인 실패. 새로고침 후 확인해주세요.'); return; }
+    document.getElementById('gName').value=''; document.getElementById('gEnd').value=''; document.getElementById('gLink').value='';
+    showCafePost(ins[0]); loadGonggu();
+  }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 공구 목록 + 수정 (삭제 없음) ─────────
+let _gongguCache=[];
+async function loadGonggu(){
+  const el=document.getElementById('gongguList');
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?select=*&order=open_date.desc&limit=300`,{headers:sbHeaders()});
+    _gongguCache=await r.json()||[];
+    renderGongguList();
+  }catch(e){ el.innerHTML='<div style="color:#C62828;font-size:12px">불러오기 실패</div>'; }
+}
+function renderGongguList(){
+  const el=document.getElementById('gongguList');
+  const q=(document.getElementById('gSearch').value||'').trim().toLowerCase();
+  let rows=_gongguCache;
+  if(q) rows=rows.filter(d=> (d.name||'').toLowerCase().includes(q) || (d.influencer||'').toLowerCase().includes(q) || (d.insta||'').toLowerCase().includes(q));
+  rows=rows.slice(0,100);
+  if(!rows.length){ el.innerHTML='<div style="color:#aaa;font-size:12px">결과가 없어요.</div>'; return; }
+  el.innerHTML=rows.map(d=>{
+    const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
+    return `<div class="glist-card" id="grow-${d.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}</div>
+          <div style="font-size:10px;color:#999">${esc(seller)} · ${esc(d.major||'')} ${esc(d.minor||'')} · ${esc(d.open_date||'')}~${esc(d.end_date||'')}</div>
+        </div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="cafeFromList(${d.id})" style="background:#EEEAFB;color:#4A35A0;border:none;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋</button>
+          <button onclick="editGonggu(${d.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function cafeFromList(id){ const d=_gongguCache.find(x=>x.id===id); if(d) showCafePost(d); }
+function editGonggu(id){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  const row=document.getElementById('grow-'+id); if(!row) return;
+  const maj=d.major||Object.keys(CATS_LIST)[0];
+  const inp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#4A35A0;margin-bottom:7px">✏️ 공구 수정</div>
+    <div class="row" style="margin-bottom:7px">
+      <input id="gE-infl-${id}" type="text" value="${esc(d.influencer)}" placeholder="한글명" style="${inp}">
+      <input id="gE-insta-${id}" type="text" value="${esc(d.insta)}" placeholder="인스타" style="${inp}">
+    </div>
+    <input id="gE-name-${id}" type="text" value="${esc(d.name)}" placeholder="상품명" style="${inp};margin-bottom:7px">
+    <div class="row" style="margin-bottom:7px">
+      <select id="gE-major-${id}" onchange="gEditSyncMinor(${id})" style="${inp}">${catOptions(maj)}</select>
+      <select id="gE-minor-${id}" style="${inp}">${minorOptions(maj,d.minor)}</select>
+    </div>
+    <div class="row" style="margin-bottom:7px">
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">오픈일</div><input id="gE-open-${id}" type="date" value="${esc(d.open_date)}" style="${inp}"></div>
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">마감일</div><input id="gE-end-${id}" type="date" value="${esc(d.end_date)}" style="${inp}"></div>
+    </div>
+    <input id="gE-link-${id}" type="url" value="${esc(d.pay_link)}" placeholder="구매링크 (비우면 인스타로 이동)" style="${inp};margin-bottom:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="saveGongguEdit(${id})" style="flex:1;background:#4A35A0;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="renderGongguList()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function gEditSyncMinor(id){ document.getElementById('gE-minor-'+id).innerHTML=minorOptions(document.getElementById('gE-major-'+id).value,''); }
+async function saveGongguEdit(id){
+  const name=document.getElementById('gE-name-'+id).value.trim();
+  if(!name){alert('상품명을 입력해주세요!');return;}
+  const body={
+    influencer:document.getElementById('gE-infl-'+id).value.trim(),
+    insta:document.getElementById('gE-insta-'+id).value.trim().replace('@',''),
+    major:document.getElementById('gE-major-'+id).value,
+    minor:document.getElementById('gE-minor-'+id).value,
+    name,
+    open_date:document.getElementById('gE-open-'+id).value||null,
+    end_date:document.getElementById('gE-end-'+id).value||null,
+    pay_link:document.getElementById('gE-link-'+id).value.trim()||null
+  };
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 확인 실패 (gonggu UPDATE 권한 확인 필요).'); return; }
+    _gongguCache=_gongguCache.map(d=>d.id===id?{...d,...body}:d);
+    renderGongguList();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 카페 글 ─────────
+function cafePostText(d){
+  const md=s=>{ if(!s)return''; const p=String(s).split('-'); return `${+p[1]}/${+p[2]}`; };
+  const cat=(d.minor||d.major||'').replace(/\//g,' ').trim();
+  const open=md(d.open_date), end=md(d.end_date||'');
+  const period = end ? `${open}~${end}` : open;
+  const nm=(d.name||'').trim().replace(/\s*공구\s*$/,'');
+  const title = `${cat?`[${cat}] `:''}${period} ${nm} 공구`.trim();
+  let link='';
+  if(d.pay_link && /^https?:\/\//.test(d.pay_link)) link=d.pay_link;
+  else if(d.insta) link=`https://instagram.com/${(d.insta||'').replace('@','')}`;
+  const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+(d.insta||'').replace('@',''):'');
+  const body=`${nm} 공구 안내 🛍\n\n🗓 공구기간 : ${period}`+(seller?`\n👤 셀러 : ${seller}`:'')+`\n🔗 바로가기 : ${link||'(링크를 넣어주세요)'}\n\n📅 진행중·예정 공구 일정 한눈에 → 맘캘린더\nhttps://momcalendar.com`;
+  return {title, body};
+}
+function showCafePost(d){
+  const {title,body}=cafePostText(d);
+  document.getElementById('cafeTitle').value=title;
+  document.getElementById('cafeBody').value=body;
+  document.getElementById('cafeModal').style.display='flex';
+}
+function copyTa(id,btn){
+  const ta=document.getElementById(id); ta.focus(); ta.select();
+  const done=()=>{ const t=btn.textContent; btn.textContent='✓ 복사됨'; setTimeout(()=>{btn.textContent=t;},1200); };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value).then(done,()=>{try{document.execCommand('copy');}catch(_){}done();}); } else { document.execCommand('copy'); done(); } }
+  catch(_){ try{document.execCommand('copy');done();}catch(e){} }
+}
+
+// ───────── 핫딜 (관리자 동일) ─────────
+let _hdAdminCache=[];
+function addHdRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='ct-row';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#FBEAE7;color:#993C1D;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>`;
+  document.getElementById('hdRows').appendChild(div);
+}
+async function saveHotdealRows(){
+  const rows=[...document.querySelectorAll('#hdRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(), link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value, minor:r.querySelector('.ct-minor').value
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
+  try{ const r=await fetch(HD_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)}); if(!r.ok) throw 0;
+    document.getElementById('hdRows').innerHTML=''; addHdRow(); alert(`핫딜 ${rows.length}건 등록 완료! 🔥`); loadHotdealAdmin();
+  }catch(e){ alert('등록 실패. hotdeals 테이블/권한을 확인해주세요.'); }
+}
+async function loadHotdealAdmin(){
+  const el=document.getElementById('hdAdminList'); el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{ const r=await fetch(`${HD_URL}?select=*&order=created_at.desc&limit=200`,{headers:sbHeaders()}); if(!r.ok) throw 0;
+    const rows=await r.json(); _hdAdminCache=rows;
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 핫딜이 없어요.</div>';return;}
+    el.innerHTML=rows.map(h=>{ const dt=new Date(h.created_at); const t=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      return `<div id="hdrow-${h.id}" style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.title)}</div>
+        <div style="font-size:10px;color:#999">${esc(h.major||'')} ${esc(h.minor||'')} · 🕐 ${t}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editHotdeal(${h.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delHotdeal(${h.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">hotdeals 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delHotdeal(id){ if(!confirm('이 핫딜을 삭제할까요?'))return; try{ await fetch(`${HD_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadHotdealAdmin(); }catch(e){alert('삭제 실패');} }
+function editHotdeal(id){
+  const h=(_hdAdminCache||[]).find(x=>x.id===id); if(!h) return;
+  const row=document.getElementById('hdrow-'+id); if(!row) return;
+  const maj=h.major||Object.keys(CATS_LIST)[0];
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#D85A30;margin-bottom:7px">🔥 핫딜 수정</div>
+    <input id="hdE-title-${id}" type="text" value="${esc(h.title)}" placeholder="제목" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <input id="hdE-link-${id}" type="url" value="${esc(h.link)}" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <select id="hdE-major-${id}" onchange="syncEditMinor(${id})" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(maj)}</select>
+      <select id="hdE-minor-${id}" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(maj,h.minor)}</select>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="saveHotdealEdit(${id})" style="flex:1;background:#D85A30;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadHotdealAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinor(id){ document.getElementById('hdE-minor-'+id).innerHTML=minorOptions(document.getElementById('hdE-major-'+id).value,''); }
+async function saveHotdealEdit(id){
+  const title=document.getElementById('hdE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const body={title, link:document.getElementById('hdE-link-'+id).value.trim(), major:document.getElementById('hdE-major-'+id).value, minor:document.getElementById('hdE-minor-'+id).value};
+  try{ const r=await fetch(`${HD_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 안 됨 (hotdeals UPDATE 권한 확인).'); return; }
+    alert('✅ 핫딜 수정 완료!'); loadHotdealAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 체험단 (관리자 동일) ─────────
+let _expAdminCache=[];
+function addExRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='ct-row';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#E1F5EE;color:#0A5D52;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크 (예정이면 비워두세요)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:6px;margin-bottom:7px">
+      <input class="ct-count" type="number" inputmode="numeric" placeholder="모집인원" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 마감일">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:#888;flex-shrink:0">모집 시작</span>
+      <input class="ct-open" type="date" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 시작일 (미래면 예정)">
+      <span style="font-size:10px;color:#aaa;flex-shrink:0">미래=예정</span>
+    </div>`;
+  document.getElementById('exRows').appendChild(div);
+}
+async function saveExperienceRows(){
+  const rows=[...document.querySelectorAll('#exRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(), link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value, minor:r.querySelector('.ct-minor').value,
+    recruit_count: r.querySelector('.ct-count').value?parseInt(r.querySelector('.ct-count').value):null,
+    end_date: r.querySelector('.ct-end').value||null, open_date: r.querySelector('.ct-open').value||null
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
+  try{ const r=await fetch(EX_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)}); if(!r.ok) throw 0;
+    document.getElementById('exRows').innerHTML=''; addExRow(); alert(`체험단 ${rows.length}건 등록 완료! 🎁`); loadExpAdmin();
+  }catch(e){ alert('등록 실패. experiences 테이블/권한을 확인해주세요.'); }
+}
+async function loadExpAdmin(){
+  const el=document.getElementById('exAdminList'); el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{ const r=await fetch(`${EX_URL}?select=*&order=end_date.asc&limit=200`,{headers:sbHeaders()}); if(!r.ok) throw 0;
+    const rows=await r.json();
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 체험단이 없어요.</div>';return;}
+    _expAdminCache=rows; const today=new Date().toISOString().slice(0,10);
+    el.innerHTML=rows.map(e=>{ const ended=e.end_date&&e.end_date<today; const upcoming=e.open_date&&e.open_date>today;
+      const stat=ended?'마감':(upcoming?'예정':'모집중'); const statC=ended?'#999':(upcoming?'#888':'#0F6E56');
+      return `<div id="exrow-${e.id}" style="background:${ended?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:${ended?'#999':'#222'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)} <span style="font-size:10px;color:${statC}">[${stat}]</span></div>
+        <div style="font-size:10px;color:#999">${esc(e.major||'')} ${esc(e.minor||'')} · 👥${e.recruit_count||'-'}명 · ${e.open_date?('모집 '+e.open_date+' ~ '):''}마감 ${e.end_date||'-'}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editExp(${e.id})" style="background:#E1F2EC;color:#0F6E56;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delExp(${e.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">experiences 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delExp(id){ if(!confirm('이 체험단을 삭제할까요?'))return; try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');} }
+function editExp(id){
+  const e=(_expAdminCache||[]).find(x=>x.id===id); if(!e) return;
+  const row=document.getElementById('exrow-'+id); if(!row) return;
+  const maj=e.major||Object.keys(CATS_LIST)[0];
+  const inp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:7px">🎁 체험단 수정</div>
+    <input id="exE-title-${id}" type="text" value="${esc(e.title)}" placeholder="제목" style="${inp};margin-bottom:7px">
+    <input id="exE-link-${id}" type="url" value="${esc(e.link)}" placeholder="신청 링크" style="${inp};margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select id="exE-major-${id}" onchange="syncEditMinorEx(${id})" style="${inp}">${catOptions(maj)}</select>
+      <select id="exE-minor-${id}" style="${inp}">${minorOptions(maj,e.minor)}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">모집 시작일</div><input id="exE-open-${id}" type="date" value="${esc(e.open_date)}" style="${inp}"></div>
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">마감일</div><input id="exE-end-${id}" type="date" value="${esc(e.end_date)}" style="${inp}"></div>
+    </div>
+    <input id="exE-count-${id}" type="number" min="0" value="${e.recruit_count!=null?e.recruit_count:''}" placeholder="모집 인원(명)" style="${inp};margin-bottom:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="saveExpEdit(${id})" style="flex:1;background:#0F6E56;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadExpAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinorEx(id){ document.getElementById('exE-minor-'+id).innerHTML=minorOptions(document.getElementById('exE-major-'+id).value,''); }
+async function saveExpEdit(id){
+  const title=document.getElementById('exE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const cnt=document.getElementById('exE-count-'+id).value;
+  const body={ title, link:document.getElementById('exE-link-'+id).value.trim(),
+    major:document.getElementById('exE-major-'+id).value, minor:document.getElementById('exE-minor-'+id).value,
+    open_date:document.getElementById('exE-open-'+id).value||null, end_date:document.getElementById('exE-end-'+id).value||null,
+    recruit_count:cnt?parseInt(cnt):null };
+  try{ const r=await fetch(`${EX_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 안 됨 (experiences UPDATE 권한 확인).'); return; }
+    alert('✅ 체험단 수정 완료!'); loadExpAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+</script>
+</body>
+</html>
