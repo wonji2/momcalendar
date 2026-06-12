@@ -3568,19 +3568,22 @@ async function loadData(){
       return d;
     });
 
-    // 등록된 셀러/인플루언서 한글명 → insta 매핑 구축
+    // 등록된 셀러/인플루언서 한글명 → insta 매핑 구축 (공백 정규화)
+    const nkey=s=>(s||'').trim().replace(/\s+/g,' ');
     knownNameInsta={};
-    Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ nm=(nm||'').trim(); ig=(ig||'').replace('@','').trim(); if(nm&&ig&&!knownNameInsta[nm]) knownNameInsta[nm]=ig; });
+    Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ const k=nkey(nm); ig=(ig||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
     try{
       const sres=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
-      (await sres.json()||[]).forEach(s=>{ const nm=(s.name||'').trim(); const ig=(s.insta||s.login_insta||'').replace('@','').trim(); if(nm&&ig&&!knownNameInsta[nm]) knownNameInsta[nm]=ig; });
+      (await sres.json()||[]).forEach(s=>{ const k=nkey(s.name); const ig=(s.insta||s.login_insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
     }catch(_){}
+    // 이미 insta가 연결된 공구에서도 한글명→insta 수집 (레거시·influencers 누락분 자가치유)
+    allData.forEach(d=>{ const k=nkey(d.influencer); const ig=(d.insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
 
     // 등록된 셀러인데 insta가 비어있는 공구 → 자동 연결 (화면 즉시 반영 + DB 백그라운드 저장)
     const autoFill={};
     allData.forEach(d=>{
-      const nm=(d.influencer||'').trim();
-      if(!(d.insta||'').trim() && nm && knownNameInsta[nm]){ d.insta=knownNameInsta[nm]; autoFill[nm]=knownNameInsta[nm]; }
+      const raw=(d.influencer||'').trim(); const k=nkey(raw);
+      if(!(d.insta||'').trim() && k && knownNameInsta[k]){ d.insta=knownNameInsta[k]; autoFill[raw]=knownNameInsta[k]; }
     });
     Object.entries(autoFill).forEach(([nm,ig])=>{
       fetch(`${SB_URL}/rest/v1/gonggu?influencer=eq.${encodeURIComponent(nm)}&or=(insta.is.null,insta.eq.)`,{
@@ -3642,6 +3645,16 @@ function sellerKey(d){
   if(infl) return 'n:'+infl;
   return '';
 }
+// 중복의심: (그룹이 이미 같은 셀러+같은 날짜) + 이름 앞 3글자 이상 공통 또는 포함관계(3글자+)
+function relName(a,b){
+  const x=normalize(a), y=normalize(b);
+  if(!x||!y) return false;
+  const longer=x.length>=y.length?x:y, shorter=x.length>=y.length?y:x;
+  if(shorter.length>=3 && longer.includes(shorter)) return true;   // 포함관계
+  let i=0; const m=shorter.length;
+  while(i<m && x[i]===y[i]) i++;
+  return i>=3;                                                      // 앞 3글자 이상 공통
+}
 function computeDupSet(){
   dupIdSet=new Set();
   const groups={};
@@ -3655,7 +3668,7 @@ function computeDupSet(){
     if(arr.length<2) return;
     for(let i=0;i<arr.length;i++){
       for(let j=i+1;j<arr.length;j++){
-        if(dupNameMatch(arr[i].name,arr[j].name)){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
+        if(relName(arr[i].name,arr[j].name)){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
       }
     }
   });
@@ -3668,7 +3681,7 @@ function getDupReason(item){
     if(d.id===item.id) continue;
     if(sellerKey(d)!==sk) continue;
     if(d.open_date!==item.open_date) continue;
-    if(dupNameMatch(d.name, item.name)){
+    if(relName(d.name, item.name)){
       const nameSim=similarity(d.name, item.name);
       return `같은 셀러·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
     }
