@@ -1658,10 +1658,28 @@ function cleanCrawlName(n){
     .replace(/[（(][^（()）]*[)）]/g,'')
     .replace(/【[^】]*】/g,'')
     .replace(/\[[^\]]*\]/g,'')
+    .replace(/(오늘|내일)\s*오픈/g,'')
+    .replace(/오픈\s*예정/g,'')
     .replace(/\s{2,}/g,' ')
     .trim();
 }
 
+// 크롤 DB중복 판정(이름 포함/유사 + 셀러 일치, 날짜 무관) — 등록 중복란과 동일 기준
+function crawlDbDup(existingData, name, insta, influencer){
+  if(!name||!Array.isArray(existingData)) return false;
+  const ins=(insta||'').replace('@','').trim().toLowerCase();
+  const infl=(influencer||'').trim();
+  for(const d of existingData){
+    if(!d.name || !dupNameMatch(d.name, name)) continue;
+    const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
+    let sameSeller;
+    if(ins && dIns) sameSeller=(ins===dIns);
+    else if(infl && (d.influencer||'').trim()) sameSeller=(infl===(d.influencer||'').trim());
+    else sameSeller=true;            // 한쪽이라도 셀러정보 없으면 이름만으로 중복
+    if(sameSeller) return true;
+  }
+  return false;
+}
 function parseNaverCafe(text, existingData, minDate){
   const today=new Date(); const Y=today.getFullYear(); const pad=x=>String(x).padStart(2,'0');
   const todayStr=`${Y}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
@@ -1682,6 +1700,8 @@ function parseNaverCafe(text, existingData, minDate){
       end=`${ey}-${pad(+m[3])}-${pad(+m[4])}`; name=m[5];
     } else if(m=rest.match(/^\((\d{1,2})\/(\d{1,2})\s*오픈\)\s*(.*)$/)){
       open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; name=m[3];
+    } else if(m=rest.match(/^\((\d{1,2})\/(\d{1,2})\s*마감\)\s*(.*)$/)){
+      end=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; open=todayStr; name=m[3];  // 마감일만 → 오픈은 오늘
     } else if(m=rest.match(/^(\d{1,2})\/(\d{1,2})\s+(.*)$/)){
       open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; name=m[3];
     } else { lastId=null; continue; }
@@ -1693,7 +1713,8 @@ function parseNaverCafe(text, existingData, minDate){
     let minor=head.replace(/\s+/g,'/');
     let major=minor2major[minor];
     if(!major){ const g=crawlGuessCat(name, minor); major=g.major; if(g.minor) minor=g.minor; }
-    if(existingData.some(e=> e.open_date===open && dupNameMatch(e.name,name))){ dupCnt++; continue; }
+    if(crawlDbDup(existingData, name, '', '')){ dupCnt++; continue; }
+    if(results.some(r=> dupNameMatch(r.name,name))){ dupCnt++; continue; }
     const url=id?`https://cafe.naver.com/momcal/${id}`:'';
     results.push({influencer:'', insta:'', major, minor, name, open_date:open, end_date:end, pay_link:url, _conn:'none', _checked:true});
   }
@@ -1787,8 +1808,8 @@ function parsePangpang(text, existingData, minDate) {
 
     const cat=mapCat(siteMajor, siteMinor, name);
     const ed=fixEndDate(openDate, endDate);
-    const dupDb=existingData.some(e=> e.open_date===openDate && dupNameMatch(e.name,name));
-    const dupBatch=results.some(r=> r.open_date===openDate && (r.insta||'')===(insta||'') && crawlSim(r.name,name)>=0.85);
+    const dupDb=crawlDbDup(existingData, name, insta, (insta&&inflMapping[insta])?inflMapping[insta]:'');
+    const dupBatch=results.some(r=> dupNameMatch(r.name,name));
     if(dupDb || dupBatch){ dupCnt++; continue; }
     results.push({
       influencer: (insta && inflMapping[insta]) ? inflMapping[insta] : '',
@@ -1869,13 +1890,9 @@ function parseGonggumoa(text, existingData, minDate) {
         if (influencer) i++;
 
         if (isValidName(name) && !SUBCATS_GM.has(name) && !MAJORS_GM.has(name)) {
-          const isDup = existingData.some(e =>
-            e.open_date === openDate && dupNameMatch(e.name, name)
-          );
           const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
-          const isDupBatch = results.some(r =>
-            r.open_date === openDate && (r.insta||'')===(ig||'') && crawlSim(r.name, name) >= 0.85
-          );
+          const isDup = crawlDbDup(existingData, name, ig, influencer);
+          const isDupBatch = results.some(r => dupNameMatch(r.name, name));
           if (!isDup && !isDupBatch) {
             const cat = resolveCat(curMinor, name);
             const ed = endExplicit || fixEndDate(openDate, '');
@@ -1920,10 +1937,14 @@ async function crawlParse(){
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let existing=[];
-  try{
-    existing=await fetchAllRows(`gonggu?select=name,open_date&approved=eq.true&open_date=gte.${todayStr}`);
-    if(!Array.isArray(existing)) existing=[];
-  }catch(e){ existing=[]; }
+  if(Array.isArray(allData) && allData.length){
+    existing=allData;   // 메모리의 전체 DB로 중복 비교(등록 중복란과 동일 기준·날짜 무관)
+  } else {
+    try{
+      existing=await fetchAllRows(`gonggu?select=name,insta,influencer,open_date&approved=eq.true`);
+      if(!Array.isArray(existing)) existing=[];
+    }catch(e){ existing=[]; }
+  }
 
   const minDate=(document.getElementById('crawlMinDate').value||'').trim();
   const parsed=site==='pangpang'?parsePangpang(text,existing,minDate):site==='navercafe'?parseNaverCafe(text,existing,minDate):parseGonggumoa(text,existing,minDate);
