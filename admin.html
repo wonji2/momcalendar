@@ -3634,12 +3634,21 @@ function dupNameMatch(a,b){
   if(shorter.length>=3 && longer.includes(shorter)) return true;
   return similarity(a,b)>=0.7;
 }
+// 셀러 식별키: 인스타(@·대소문자 정규화) 우선, 없으면 한글 셀러명
+function sellerKey(d){
+  const ins=(d.insta||'').replace('@','').trim().toLowerCase();
+  if(ins) return 'i:'+ins;
+  const infl=(d.influencer||'').trim();
+  if(infl) return 'n:'+infl;
+  return '';
+}
 function computeDupSet(){
   dupIdSet=new Set();
   const groups={};
   allData.forEach(d=>{
-    if(!d.insta||!d.open_date) return;
-    const k=d.insta+'|'+d.open_date;
+    const sk=sellerKey(d);
+    if(!sk||!d.open_date) return;          // 셀러·날짜 둘 다 있어야 비교
+    const k=sk+'|'+d.open_date;
     (groups[k]=groups[k]||[]).push(d);
   });
   Object.values(groups).forEach(arr=>{
@@ -3654,13 +3663,15 @@ function computeDupSet(){
 function isDup(item){ return dupIdSet.has(item.id); }
 
 function getDupReason(item){
+  const sk=sellerKey(item); if(!sk) return '';
   for(const d of allData){
     if(d.id===item.id) continue;
-    const sameInsta = d.insta && item.insta && d.insta===item.insta;
-    const sameDate = d.open_date===item.open_date;
-    const nameSim = similarity(d.name, item.name);
-    if(sameInsta && sameDate && dupNameMatch(d.name, item.name))
-      return `같은 계정·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
+    if(sellerKey(d)!==sk) continue;
+    if(d.open_date!==item.open_date) continue;
+    if(dupNameMatch(d.name, item.name)){
+      const nameSim=similarity(d.name, item.name);
+      return `같은 셀러·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
+    }
   }
   return '';
 }
