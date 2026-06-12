@@ -871,7 +871,7 @@ const CAT_COLORS={'육아':'#4CAF50','리빙':'#2196F3','인테리어':'#FF9800'
 let allData=[], curTab='all', delTargetId=null, delBulkIds=null;
 let onlyNoInsta=false; // '인스타 미연결만' 필터
 let dupIdSet=new Set(); // 중복의심 id 캐시 (데이터 변경 시 1회 계산)
-let _dupPairs=[];       // 현재 화면의 중복 쌍 [위,아래] 목록 (일괄 선택용)
+let _dupGroups=[];      // 현재 화면의 중복 그룹 목록 (각 그룹=[남길것, 중복...])
 let knownNameInsta={};  // 등록된 셀러/인플루언서 한글명 → insta (미연결 자동연결용)
 let checkedIds=new Set();
 
@@ -4320,88 +4320,94 @@ function showMore(){
 
 function renderDupPairs(q, major, dateFrom, dateTo){
   const el=document.getElementById('cardList');
-  const pairs=[];
-  const paired=new Set();
+  const dupItems=allData.filter(d=>dupIdSet.has(d.id));
 
-  const dupItems=allData.filter(d=>dupIdSet.has(d.id)); // 후보만(대부분 소수)
-  dupItems.forEach(item=>{
-    if(paired.has(item.id)) return;
-    const partner=dupItems.find(d=>{
-      if(d.id===item.id||paired.has(d.id)) return false;
-      const sameInsta=d.insta&&item.insta&&d.insta===item.insta;
-      const sameDate=d.open_date===item.open_date;
-      return sameInsta&&sameDate&&dupNameMatch(d.name,item.name);
+  // 같은 셀러키+같은 날짜 버킷 → relName으로 연결되는 묶음(그룹)
+  const buckets={};
+  dupItems.forEach(d=>{ const sk=sellerKey(d); if(!sk||!d.open_date) return; const k=sk+'|'+d.open_date; (buckets[k]=buckets[k]||[]).push(d); });
+  let groups=[];
+  Object.values(buckets).forEach(arr=>{
+    const used=new Set();
+    arr.forEach(start=>{
+      if(used.has(start.id)) return;
+      const comp=[start]; used.add(start.id); const queue=[start];
+      while(queue.length){
+        const cur=queue.shift();
+        arr.forEach(o=>{ if(!used.has(o.id) && relName(cur.name,o.name)){ used.add(o.id); comp.push(o); queue.push(o); } });
+      }
+      if(comp.length>=2) groups.push(comp);
     });
-    if(partner){
-      pairs.push([item,partner]);
-      paired.add(item.id);
-      paired.add(partner.id);
-    }
   });
 
-  const filtered=pairs.filter(([a,b])=>{
-    const match=d=>{
-      if(major&&d.major!==major) return false;
-      if(dateFrom&&(d.open_date||'')<dateFrom) return false;
-      if(dateTo&&(d.open_date||'')>dateTo) return false;
-      if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q))) return false;
-      return true;
-    };
-    return match(a)||match(b);
-  });
+  const match=d=>{
+    if(major&&d.major!==major) return false;
+    if(dateFrom&&(d.open_date||'')<dateFrom) return false;
+    if(dateTo&&(d.open_date||'')>dateTo) return false;
+    if(q&&![d.influencer,d.insta,d.name,d.major,d.minor].some(v=>(v||'').toLowerCase().includes(q))) return false;
+    return true;
+  };
+  groups=groups.filter(g=>g.some(match));
+  if(!groups.length){el.innerHTML=`<div class="empty">중복 의심 항목이 없어요 ✅</div>`;return;}
 
-  if(!filtered.length){el.innerHTML=`<div class="empty">중복 의심 항목이 없어요 ✅</div>`;return;}
+  // 각 그룹: 남길 후보(이름 가장 짧은 것)를 맨 위로
+  groups.forEach(g=>g.sort((a,b)=>normalize(a.name).length-normalize(b.name).length || a.id-b.id));
+  _dupGroups=groups;
+  const totalExtra=groups.reduce((s,g)=>s+(g.length-1),0);
+  const exactN=groups.reduce((s,g)=>s+g.slice(1).filter(d=>Math.round(similarity(g[0].name,d.name)*100)>=100).length,0);
 
-  _dupPairs=filtered;
-  const exactN=filtered.filter(([a,b])=>Math.round(similarity(a.name,b.name)*100)>=100).length;
   const bar=`<div style="background:#fff;border:1.5px solid #FFCDD2;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
     <div style="min-width:0">
-      <div style="font-size:12px;font-weight:800;color:#C62828">중복 그룹 ${filtered.length}쌍${exactN?` · 완전 동일 ${exactN}쌍`:''}</div>
-      <div style="font-size:11px;color:#888;margin-top:2px">그룹마다 1건만 남기고 나머지를 한 번에 선택 → 위의 <b>일괄 삭제</b>로 정리</div>
+      <div style="font-size:12px;font-weight:800;color:#C62828">중복 그룹 ${groups.length}개 · 중복 ${totalExtra}건</div>
+      <div style="font-size:11px;color:#888;margin-top:2px">각 그룹에서 🟢 1건만 남기고 나머지를 한 번에 선택 → 위의 <b>일괄 삭제</b>로 정리</div>
     </div>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
-      ${exactN?`<button onclick="selectDupExtras('bottom',true)" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🎯 완전 동일만 선택 (${exactN})</button>`:''}
-      <button onclick="selectDupExtras('bottom',false)" style="padding:7px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔴 아래쪽 모두 선택 (${filtered.length})</button>
-      <button onclick="selectDupExtras('top',false)" style="padding:7px 12px;background:#1565C0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔵 위쪽 모두 선택 (${filtered.length})</button>
+      ${exactN?`<button onclick="selectDupExtras(true)" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🎯 완전 동일만 선택 (${exactN})</button>`:''}
+      <button onclick="selectDupExtras(false)" style="padding:7px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔴 각 그룹 1건 빼고 모두 선택 (${totalExtra})</button>
       <button onclick="clearDupSelection()" style="padding:7px 12px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">선택 해제</button>
     </div>
   </div>`;
 
-  el.innerHTML=bar+filtered.map(([a,b])=>{
-    const sim=Math.round(similarity(a.name,b.name)*100);
-    return`<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px">
-      <div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-        <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 — 유사도 ${sim}%</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="deleteDup(${a.id})" style="padding:4px 10px;background:#4A35A0;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">위쪽 삭제</button>
-          <button onclick="deleteDup(${b.id})" style="padding:4px 10px;background:#C62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">아래쪽 삭제</button>
-        </div>
-      </div>
-      <div style="padding:12px 14px;border-bottom:1px solid #FFCDD2">${renderDupCard(a)}</div>
-      <div style="padding:12px 14px">${renderDupCard(b)}</div>
-    </div>`;
+  el.innerHTML=bar+groups.map((g,gi)=>{
+    const seller=g[0].insta?('@'+g[0].insta):(g[0].influencer||'셀러미상');
+    const head=`<div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 그룹 ${gi+1} · ${g.length}건</span>
+        <span style="font-size:11px;color:#999">${seller} · ${g[0].open_date||''}</span>
+      </div>`;
+    const rows=g.map((d,idx)=>{
+      const tag=idx===0
+        ?`<span style="font-size:11px;font-weight:700;color:#1B7F3B">🟢 남기기 추천</span>`
+        :`<span style="font-size:11px;font-weight:700;color:#C62828">🔴 중복 (유사 ${Math.round(similarity(g[0].name,d.name)*100)}%)</span>`;
+      return `<div style="padding:12px 14px;${idx<g.length-1?'border-bottom:1px solid #FFCDD2':''}">
+        <div style="margin-bottom:6px">${tag}</div>
+        ${renderDupCard(d)}
+      </div>`;
+    }).join('');
+    return `<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px">${head}${rows}</div>`;
   }).join('');
 }
 
-
-// 그룹마다 아래쪽(중복) 1건씩 선택. onlyExact=true면 유사도 100%만
-function selectDupExtras(side, onlyExact){
-  // 위/아래가 토글되도록 먼저 쌍 선택 해제
-  _dupPairs.forEach(([a,b])=>{ checkedIds.delete(a.id); checkedIds.delete(b.id); });
+// 각 그룹에서 첫 1건(남기기 추천)만 빼고 나머지 중복을 선택. onlyExact=true면 유사도 100%만
+function selectDupExtras(onlyExact){
+  _dupGroups.forEach(g=>g.forEach(d=>checkedIds.delete(d.id)));
   let n=0;
-  _dupPairs.forEach(([a,b])=>{
-    if(onlyExact && Math.round(similarity(a.name,b.name)*100)<100) return;
-    checkedIds.add(side==='top'?a.id:b.id); n++;
+  _dupGroups.forEach(g=>{
+    g.forEach((d,idx)=>{
+      if(idx===0) return;
+      if(onlyExact && Math.round(similarity(g[0].name,d.name)*100)<100) return;
+      checkedIds.add(d.id); n++;
+    });
   });
   updateBulkBar();
   renderCards();
-  if(!n) alert(onlyExact?'완전 동일(100%)인 그룹이 없어요.':'선택할 중복이 없어요.');
+  if(!n) alert(onlyExact?'완전 동일(100%)인 중복이 없어요.':'선택할 중복이 없어요.');
 }
+
 function clearDupSelection(){
-  _dupPairs.forEach(([a,b])=>{ checkedIds.delete(a.id); checkedIds.delete(b.id); });
+  _dupGroups.forEach(g=>g.forEach(d=>checkedIds.delete(d.id)));
   updateBulkBar();
   renderCards();
 }
+
 function renderDupCard(d){
   const inflName=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
   return`<div style="display:flex;align-items:flex-start;gap:10px">
