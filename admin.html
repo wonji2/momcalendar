@@ -1413,7 +1413,7 @@ function removeAiItem(i){
 async function submitAiData(){
   const selected=aiParsedData.filter(it=>it._checked);
   if(!selected.length){alert('등록할(체크한) 항목이 없어요!');return;}
-  const noInsta=selected.filter(d=>!d.insta||!d.insta.trim()).length;
+  const noInsta=selected.filter(d=>!hasLink(d)).length;
   const warn=noInsta?`\n\n⚠️ 그중 ${noInsta}건은 인스타 미연결 상태예요. 그래도 등록할까요?`:'';
   if(!confirm(`${selected.length}건을 등록할까요?${warn}`))return;
 
@@ -1665,19 +1665,25 @@ function cleanCrawlName(n){
 }
 
 // 크롤 DB중복 판정(이름 포함/유사 + 셀러 일치, 날짜 무관) — 등록 중복란과 동일 기준
-function crawlDbDup(existingData, name, insta, influencer){
+// 크롤 중복 판정 — 중복의심 탭과 동일 기준
+//  1) 같은 셀러 + 이름 포함/유사70%(동일 포함)            (날짜 무관, 기존 동작 유지)
+//  2) 같은 셀러(확인됨) + 같은 날짜 + relName(앞3글자/포함/유사70%)  (추가)
+function crawlPairDup(a, b){
+  if(!a||!b||!a.name||!b.name) return false;
+  const aIns=(a.insta||'').replace('@','').trim().toLowerCase(), bIns=(b.insta||'').replace('@','').trim().toLowerCase();
+  const aInfl=(a.influencer||'').trim(), bInfl=(b.influencer||'').trim();
+  let sameSeller, sellerKnown=false;
+  if(aIns&&bIns){ sameSeller=(aIns===bIns); sellerKnown=true; }
+  else if(aInfl&&bInfl){ sameSeller=(aInfl===bInfl); sellerKnown=true; }
+  else sameSeller=true;                       // 셀러정보 없으면 이름만으로 (기존 동작)
+  if(sameSeller && dupNameMatch(a.name,b.name)) return true;
+  if(sellerKnown && sameSeller && (a.open_date||'')===(b.open_date||'') && relName(a.name,b.name)) return true;
+  return false;
+}
+function crawlDbDup(existingData, name, insta, influencer, openDate){
   if(!name||!Array.isArray(existingData)) return false;
-  const ins=(insta||'').replace('@','').trim().toLowerCase();
-  const infl=(influencer||'').trim();
-  for(const d of existingData){
-    if(!d.name || !dupNameMatch(d.name, name)) continue;
-    const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
-    let sameSeller;
-    if(ins && dIns) sameSeller=(ins===dIns);
-    else if(infl && (d.influencer||'').trim()) sameSeller=(infl===(d.influencer||'').trim());
-    else sameSeller=true;            // 한쪽이라도 셀러정보 없으면 이름만으로 중복
-    if(sameSeller) return true;
-  }
+  const cand={name, insta, influencer, open_date:openDate};
+  for(const d of existingData){ if(crawlPairDup(cand, d)) return true; }
   return false;
 }
 function parseNaverCafe(text, existingData, minDate){
@@ -1713,10 +1719,12 @@ function parseNaverCafe(text, existingData, minDate){
     let minor=head.replace(/\s+/g,'/');
     let major=minor2major[minor];
     if(!major){ const g=crawlGuessCat(name, minor); major=g.major; if(g.minor) minor=g.minor; }
-    if(crawlDbDup(existingData, name, '', '')){ dupCnt++; continue; }
-    if(results.some(r=> dupNameMatch(r.name,name))){ dupCnt++; continue; }
+    const _cand={name, insta:'', influencer:'', open_date:open};
+    const _dDb=crawlDbDup(existingData, name, '', '', open);
+    const _dBatch=results.some(r=> crawlPairDup(_cand, r));
+    const _isDup=_dDb||_dBatch; if(_isDup) dupCnt++;
     const url=id?`https://cafe.naver.com/momcal/${id}`:'';
-    results.push({influencer:'', insta:'', major, minor, name, open_date:open, end_date:end, pay_link:url, _conn:'none', _checked:true});
+    results.push({influencer:'', insta:'', major, minor, name, open_date:open, end_date:end, pay_link:url, _conn:'none', _dup:_isDup, _dupReason:_isDup?(_dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!_isDup});
   }
   results.dupCount=dupCnt;
   return results;
@@ -1808,12 +1816,14 @@ function parsePangpang(text, existingData, minDate) {
 
     const cat=mapCat(siteMajor, siteMinor, name);
     const ed=fixEndDate(openDate, endDate);
-    const dupDb=crawlDbDup(existingData, name, insta, (insta&&inflMapping[insta])?inflMapping[insta]:'');
-    const dupBatch=results.some(r=> dupNameMatch(r.name,name));
-    if(dupDb || dupBatch){ dupCnt++; continue; }
+    const inflNm=(insta&&inflMapping[insta])?inflMapping[insta]:'';
+    const dupDb=crawlDbDup(existingData, name, insta, inflNm, openDate);
+    const dupBatch=results.some(r=> crawlPairDup({name, insta, influencer:inflNm, open_date:openDate}, r));
+    const isDup=dupDb||dupBatch; if(isDup) dupCnt++;
     results.push({
-      influencer: (insta && inflMapping[insta]) ? inflMapping[insta] : '',
-      insta, name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:ed
+      influencer: inflNm,
+      insta, name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:ed,
+      _dup:isDup, _dupReason:isDup?(dupDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!isDup
     });
   }
   results.dupCount=dupCnt;
@@ -1891,13 +1901,14 @@ function parseGonggumoa(text, existingData, minDate) {
 
         if (isValidName(name) && !SUBCATS_GM.has(name) && !MAJORS_GM.has(name)) {
           const ig = (influencer && nameToInstas[influencer] && nameToInstas[influencer].size===1) ? [...nameToInstas[influencer]][0] : '';
-          const isDup = crawlDbDup(existingData, name, ig, influencer);
-          const isDupBatch = results.some(r => dupNameMatch(r.name, name));
-          if (!isDup && !isDupBatch) {
+          const dDb = crawlDbDup(existingData, name, ig, influencer, openDate);
+          const dBatch = results.some(r => crawlPairDup({name, insta:ig, influencer, open_date:openDate}, r));
+          const dup = dDb || dBatch; if(dup) dupCnt++;
+          {
             const cat = resolveCat(curMinor, name);
             const ed = endExplicit || fixEndDate(openDate, '');
-            results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed });
-          } else { dupCnt++; }
+            results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed, _dup:dup, _dupReason:dup?(dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!dup });
+          }
         }
       }
       continue;
@@ -1951,11 +1962,12 @@ async function crawlParse(){
   crawlParsedData=parsed;
   btn.disabled=false; btn.textContent='③ 파싱 & 미리보기';
   const dupN=parsed.dupCount||0;
-  status.textContent=`파싱 완료 — 신규 ${parsed.length}건`+(dupN?` · 이미 등록된 ${dupN}건 제외 (총 ${parsed.length+dupN}건 인식)`:'');
+  const newCnt=parsed.length-dupN;
+  status.textContent=`파싱 완료 — 신규 ${newCnt}건`+(dupN?` · 🔴 중복의심 ${dupN}건 표시(체크 해제됨)`:'');
 
   if(!parsed.length){
     document.getElementById('crawlResultArea').style.display='none';
-    alert(dupN ? `새로 추가할 일정이 없어요.\n인식된 ${dupN}건이 모두 이미 등록된 항목이라 제외됐어요.` : '새로 추가할 일정이 없어요.\n(형식이 안 맞을 수 있어요)');
+    alert('새로 추가할 일정이 없어요.\n(형식이 안 맞을 수 있어요)');
     return;
   }
   renderCrawlCards();
@@ -1963,7 +1975,8 @@ async function crawlParse(){
 }
 
 function renderCrawlCards(){
-  document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`;
+  const _dupCnt=crawlParsedData.filter(it=>it._dup).length;
+  document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`+(_dupCnt?` · 🔴 중복의심 ${_dupCnt}`:'');
   // 사전 검증: 의심 항목 개수
   const warnCount=crawlParsedData.filter(it=>crawlWarn(it)).length;
   const warnBar = warnCount>0
@@ -1971,27 +1984,38 @@ function renderCrawlCards(){
     : '';
   document.getElementById('crawlCards').innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
-      <input type="checkbox" id="crawlSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.crawl-cb').forEach(c=>c.checked=this.checked)">
+      <input type="checkbox" id="crawlSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.crawl-cb').forEach(c=>{c.checked=this.checked; const d=crawlParsedData[+c.dataset.idx]; if(d)d._checked=this.checked;})">
       <label for="crawlSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
       <span style="font-size:11px;color:#999;margin-left:auto">✏️ 각 항목을 눌러 바로 수정</span>
     </div>
+    ${_dupCnt?`<div style="padding:10px 12px;margin-bottom:8px;background:#FFEBEE;border:1px solid #F5C6C6;border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:700;color:#C62828">🔴 중복의심 ${_dupCnt}건 (그룹마다 맨 위 1건은 남김 · 기본 체크 해제)</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="toggleCrawlDupOnly()" style="background:${crawlDupOnly?'#fff':'#C62828'};border:1px solid #C62828;color:${crawlDupOnly?'#C62828':'#fff'};font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">${crawlDupOnly?'← 전체 보기':'중복만 보기'}</button>
+          <button onclick="crawlDeleteDups()" style="background:#C62828;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🗑️ 중복 일괄 삭제 (${_dupCnt})</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#A33;margin-top:6px;line-height:1.4">다른 걸 남기고 싶으면 각 항목의 🗑️로 개별 삭제하세요. 중복은 체크 해제돼 있어 그냥 등록해도 안 들어가요.</div>
+    </div>`:''}
     ${warnBar}
     ${crawlParsedData.map((item,i)=>{
+      if(crawlDupOnly && !item._dup) return '';
       const fail=item.__failReason;
       const w=fail?('등록 거부됨: '+fail):crawlWarn(item);
       const isFail=!!fail;
-      const border=isFail?'#E24B4A':(w?'#FFA940':'#4A35A0');
+      const border=item._dup?'#C62828':(isFail?'#E24B4A':(w?'#FFA940':'#4A35A0'));
       const warnMsg=w?`<div style="font-size:11px;color:${isFail?'#A32D2D':'#A86100'};background:${isFail?'#FCEBEB':'#FFF7E6'};border-radius:6px;padding:5px 8px;margin-bottom:7px">${isFail?'❌':'⚠️'} ${escAttr(w)}</div>`:'';
       const nameBorder=isFail?'#E24B4A':(w?'#FFA940':'#e5e0f5');
       return`
     <div id="crawlCard-${i}" style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${border};margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input type="checkbox" class="crawl-cb" data-idx="${i}" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer;flex-shrink:0">
+        <input type="checkbox" class="crawl-cb" data-idx="${i}" ${item._checked?'checked':''} onchange="crawlParsedData[${i}]._checked=this.checked" style="width:16px;height:16px;accent-color:${item._dup?'#C62828':'#4A35A0'};cursor:pointer;flex-shrink:0">
         <input class="cr-f" value="${escAttr(item.name)}" oninput="editCrawl(${i},'name',this.value)" placeholder="상품명"
           style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid ${nameBorder};border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
         <button onclick="deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:30px;height:30px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🗑️</button>
       </div>
-      ${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
+      ${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select class="cr-f" onchange="editCrawl(${i},'major',this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
           ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
@@ -2040,6 +2064,16 @@ function editCrawl(i,field,val){
   }
 }
 // 개별 삭제
+let crawlDupOnly=false;
+function toggleCrawlDupOnly(){ crawlDupOnly=!crawlDupOnly; renderCrawlCards(); }
+function crawlDeleteDups(){
+  const n=crawlParsedData.filter(it=>it._dup).length;
+  if(!n){ alert('중복의심 항목이 없어요.'); return; }
+  if(!confirm(`중복의심 ${n}건을 목록에서 뺄까요?\n(같은 그룹에서 맨 위 1건은 남겨요)`)) return;
+  crawlParsedData=crawlParsedData.filter(it=>!it._dup);
+  crawlDupOnly=false;
+  renderCrawlCards();
+}
 function deleteCrawl(i){
   crawlParsedData.splice(i,1);
   renderCrawlCards();
@@ -3579,17 +3613,34 @@ async function loadData(){
     // 이미 insta가 연결된 공구에서도 한글명→insta 수집 (레거시·influencers 누락분 자가치유)
     allData.forEach(d=>{ const k=nkey(d.influencer); const ig=(d.insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
 
+    // 인스타 핸들 → 한글명 (influencer 칸에 영문 아이디만 들어가 이름매칭이 안 되는 카드 연결용)
+    const handleToName={};
+    Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ const h=(ig||'').replace('@','').trim(); const n=nkey(nm); if(h&&n&&!handleToName[h.toLowerCase()]) handleToName[h.toLowerCase()]={insta:h,name:nm}; });
+    allData.forEach(d=>{ const ig=(d.insta||'').replace('@','').trim(); const n=nkey(d.influencer); if(ig&&n&&!handleToName[ig.toLowerCase()]) handleToName[ig.toLowerCase()]={insta:ig,name:n}; });
+
     // 등록된 셀러인데 insta가 비어있는 공구 → 자동 연결 (화면 즉시 반영 + DB 백그라운드 저장)
-    const autoFill={};
+    const autoFill={}, autoFillHandle={};
     allData.forEach(d=>{
+      if((d.insta||'').trim()) return;
       const raw=(d.influencer||'').trim(); const k=nkey(raw);
-      if(!(d.insta||'').trim() && k && knownNameInsta[k]){ d.insta=knownNameInsta[k]; autoFill[raw]=knownNameInsta[k]; }
+      if(k && knownNameInsta[k]){ d.insta=knownNameInsta[k]; autoFill[raw]=knownNameInsta[k]; return; }
+      // influencer 칸이 '알려진 인스타 핸들'이면: insta로 옮기고 한글명으로 교정
+      const hk=raw.replace('@','').toLowerCase();
+      if(hk && handleToName[hk]){ const hit=handleToName[hk]; d.insta=hit.insta; d.influencer=hit.name; autoFillHandle[raw]={insta:hit.insta,name:hit.name}; }
     });
     Object.entries(autoFill).forEach(([nm,ig])=>{
       fetch(`${SB_URL}/rest/v1/gonggu?influencer=eq.${encodeURIComponent(nm)}&or=(insta.is.null,insta.eq.)`,{
         method:'PATCH',
         headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
         body:JSON.stringify({insta:ig})
+      }).catch(()=>{});
+    });
+    // 핸들→한글명 케이스: insta와 influencer(한글명) 둘 다 갱신
+    Object.entries(autoFillHandle).forEach(([oldInfl,v])=>{
+      fetch(`${SB_URL}/rest/v1/gonggu?influencer=eq.${encodeURIComponent(oldInfl)}&or=(insta.is.null,insta.eq.)`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+        body:JSON.stringify({insta:v.insta, influencer:v.name})
       }).catch(()=>{});
     });
 
@@ -4235,6 +4286,8 @@ function switchTab(tab,el){
 }
 
 // ── 카드 렌더 ──
+// 인스타가 있거나 pay_link(카페글/구매링크)가 있으면 '연결됨'으로 본다
+function hasLink(d){ return !!((d.insta&&d.insta.trim()) || (d.pay_link&&String(d.pay_link).trim())); }
 // 현재 탭/검색/필터 조건에 맞는 데이터 (renderCards·선택 공용 — 둘이 항상 일치)
 function getFilteredData(){
   const q=document.getElementById('searchInput').value.toLowerCase();
@@ -4246,7 +4299,7 @@ function getFilteredData(){
     if(curTab==='pending'&&d.approved)return false;
     if(curTab==='approved'&&!d.approved)return false;
     if(curTab==='dup'&&!isDup(d))return false;
-    if(onlyNoInsta && d.insta && d.insta.trim())return false;
+    if(onlyNoInsta && hasLink(d))return false;
     if(major&&d.major!==major)return false;
     if(inflF && inflKey(d)!==inflF)return false;
     if(dateFrom&&(d.open_date||'')<dateFrom)return false;
@@ -4452,7 +4505,7 @@ function updateLayoutBtns(){
 function renderCompact(d){
   const checked=checkedIds.has(d.id);
   const dup=isDup(d);
-  const noInsta=!d.insta||!d.insta.trim();
+  const noInsta=!hasLink(d);
   const seller=(d.influencer&&!d.influencer.startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
   const md=s=>s?s.slice(5).replace('-','/'):'';
   const dates=`${md(d.open_date)}${d.end_date?'~'+md(d.end_date):''}`;
@@ -4473,7 +4526,7 @@ function renderCompact(d){
 function renderCard(d){
   const dup=isDup(d);
   const checked=checkedIds.has(d.id);
-  const noInsta=!d.insta||!d.insta.trim();
+  const noInsta=!hasLink(d);
   const searchName=((d.influencer&&!d.influencer.startsWith('@'))?d.influencer:d.name||'').replace(/'/g,'');
   return`<div class="card" id="card-${d.id}">
     <div class="card-hd">
