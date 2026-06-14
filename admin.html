@@ -167,6 +167,7 @@ details summary::-webkit-details-marker{display:none}
   <div class="hd">
     <div class="hd-logo" onclick="window.location.href='https://momcalendar.com'" style="cursor:pointer">맘캘린더 <span>관리자</span></div>
     <div class="hd-right">
+      <button class="hd-csv" onclick="openCatFix()">🧹 분류정리</button>
       <button class="hd-csv" onclick="exportCSV()">📥 CSV</button>
       <button class="hd-logout" onclick="logout()">로그아웃</button>
     </div>
@@ -363,6 +364,21 @@ details summary::-webkit-details-marker{display:none}
   </div>
 
   <!-- 배너 추가/수정 모달 -->
+  <!-- 🧹 분류 일괄 정리 미리보기 -->
+  <div id="catFixModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px;border-bottom:1px solid #eee">
+        <div style="font-size:16px;font-weight:800;color:#191919">🧹 분류 일괄 정리 <span id="catFixCount" style="font-size:12px;color:#C62828;font-weight:700"></span></div>
+        <div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5">기존 등록 데이터를 학습 기준(같은 이름·같은 브랜드의 <b>다수 분류</b>)으로 훑어, 분류가 어긋난 것을 모았어요. 체크/수정 후 <b>선택 적용</b>을 누르면 DB에 반영돼요. (다수가 틀린 경우도 있으니 검토 후 적용하세요)</div>
+      </div>
+      <div id="catFixBody" style="flex:1;overflow-y:auto;padding:8px 14px"><div style="padding:24px;text-align:center;color:#999">스캔 중... ⏳</div></div>
+      <div style="padding:12px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeCatFix()" style="padding:9px 16px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">닫기</button>
+        <button id="catFixApplyBtn" onclick="applyCatFix()" style="padding:9px 18px;background:#4A35A0;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">선택 적용</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-bg" id="bannerModal" style="display:none" onclick="if(event.target===this)closeBannerModal()">
     <div class="modal">
       <div class="modal-title" id="bannerModalTitle">🖼️ 배너 추가</div>
@@ -1992,6 +2008,104 @@ function applyCatMemory(items){
     }
     if(hit && hit.major){ it.major=hit.major; if(hit.minor) it.minor=hit.minor; it._catMemo=via; }
   });
+}
+// ── 🧹 분류 일괄 정리 (미리보기 → 선택/수정 → 적용) ──
+let catFixProposals=[];
+function openCatFix(){
+  const m=document.getElementById('catFixModal');
+  m.style.display='flex';
+  document.getElementById('catFixBody').innerHTML='<div style="padding:24px;text-align:center;color:#999">스캔 중... ⏳</div>';
+  setTimeout(()=>{ computeCatFixProposals(); renderCatFix(); }, 30);
+}
+function closeCatFix(){ document.getElementById('catFixModal').style.display='none'; }
+function computeCatFixProposals(){
+  catFixProposals=[];
+  if(!Array.isArray(allData)||!allData.length) return;
+  const GENERIC=new Set(['유기농','프리미엄','국내산','수입산','무료','무료배송','정품','신상','신상품','한정','한정수량','균일가','오늘','오늘오픈','오픈','마감','임박','공구','공동구매','특가','할인','세일','초특가','역대급','대박','인기','강추','재입고','단독','최저가','best','new']);
+  const firstTok=(name)=>normalize((name||'').trim().split(/\s+/)[0]||'');
+  const nameGrp={}, brandRaw={};
+  for(const d of allData){
+    if(!d.name||!d.major) continue;
+    const nm=normalize(d.name); if(!nm) continue;
+    const g=nameGrp[nm]||(nameGrp[nm]={majors:{},minorByMajor:{},total:0});
+    g.total++; g.majors[d.major]=(g.majors[d.major]||0)+1;
+    const gm=g.minorByMajor[d.major]||(g.minorByMajor[d.major]={}); if(d.minor) gm[d.minor]=(gm[d.minor]||0)+1;
+    const tk=firstTok(d.name);
+    if(tk&&tk.length>=2&&!GENERIC.has(tk)){
+      const b=brandRaw[tk]||(brandRaw[tk]={majors:{},minorByMajor:{},total:0});
+      b.total++; b.majors[d.major]=(b.majors[d.major]||0)+1;
+      const bm=b.minorByMajor[d.major]||(b.minorByMajor[d.major]={}); if(d.minor) bm[d.minor]=(bm[d.minor]||0)+1;
+    }
+  }
+  const dom=(stat)=>{ const me=Object.entries(stat.majors).sort((a,c)=>c[1]-a[1])[0]; const minors=stat.minorByMajor[me[0]]||{}; const mi=Object.entries(minors).sort((a,c)=>c[1]-a[1])[0]; return {major:me[0], minor:mi?mi[0]:'', share:me[1]/stat.total}; };
+  for(const d of allData){
+    if(!d.name||!d.major) continue;
+    const nm=normalize(d.name);
+    let target=null, via='';
+    const ng=nameGrp[nm];
+    if(ng && ng.total>=2){ const t=dom(ng); if(t.share>=0.6){ target=t; via='이름'; } }
+    if(!target){ const b=brandRaw[firstTok(d.name)]; if(b && b.total>=2){ const t=dom(b); if(t.share>=0.6){ target=t; via='브랜드'; } } }
+    if(!target) continue;
+    const tMinor=target.minor||d.minor||'';
+    if(target.major!==d.major || (target.minor && target.minor!==(d.minor||''))){
+      catFixProposals.push({id:d.id, name:d.name, curMajor:d.major, curMinor:d.minor||'', major:target.major, minor:tMinor, via, conf:Math.round(target.share*100), _checked:true});
+    }
+  }
+  catFixProposals.sort((a,b)=>b.conf-a.conf);
+}
+function catFixSelectAll(on){ catFixProposals.forEach(p=>p._checked=on); renderCatFix(); }
+function catFixEditMajor(i,v){ if(!catFixProposals[i])return; catFixProposals[i].major=v; const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[v])?CATS_LIST[v]:[]; if(catFixProposals[i].minor&&!subs.includes(catFixProposals[i].minor)) catFixProposals[i].minor=''; renderCatFix(); }
+function renderCatFix(){
+  const el=document.getElementById('catFixBody');
+  const n=catFixProposals.length;
+  const cntEl=document.getElementById('catFixCount'); if(cntEl) cntEl.textContent = n?`· ${n}건 제안`:'· 변경할 항목 없음';
+  if(!n){ el.innerHTML='<div style="padding:24px;text-align:center;color:#999">현재 DB가 학습 기준과 거의 일치해요.<br>바꿀 항목이 없어요 ✅</div>'; return; }
+  const majorOpts=(sel)=>Object.keys(CATS_LIST).map(m=>`<option value="${m}"${sel===m?' selected':''}>${m}</option>`).join('');
+  el.innerHTML=`<div style="display:flex;gap:6px;margin-bottom:8px;position:sticky;top:0;background:#fff;padding:4px 0">
+      <button onclick="catFixSelectAll(true)" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체 선택</button>
+      <button onclick="catFixSelectAll(false)" style="padding:5px 10px;background:#fff;color:#888;border:1px solid #eee;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체 해제</button>
+    </div>`+catFixProposals.map((p,i)=>{
+    const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[p.major])?CATS_LIST[p.major]:[];
+    const minorOpts=`<option value="">(소분류)</option>`+subs.map(s=>`<option value="${escAttr(s)}"${p.minor===s?' selected':''}>${escAttr(s)}</option>`).join('')+((p.minor&&!subs.includes(p.minor))?`<option value="${escAttr(p.minor)}" selected>${escAttr(p.minor)}</option>`:'');
+    return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 2px;border-bottom:1px solid #f2f2f2">
+      <input type="checkbox" ${p._checked?'checked':''} onchange="catFixProposals[${i}]._checked=this.checked" style="margin-top:3px;width:15px;height:15px;accent-color:#4A35A0;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:#191919;word-break:break-all">${escAttr(p.name)} <span style="font-size:10px;color:#A38BFF;font-weight:600">· ${p.via} ${p.conf}%</span></div>
+        <div style="font-size:11px;color:#C0392B;margin:3px 0">현재 ${escAttr(p.curMajor)}/${escAttr(p.curMinor||'-')} →</div>
+        <div style="display:flex;gap:6px">
+          <select onchange="catFixEditMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:7px;padding:6px 7px;font-family:inherit;cursor:pointer">${majorOpts(p.major)}</select>
+          <select onchange="catFixProposals[${i}].minor=this.value" style="flex:1;font-size:12px;font-weight:600;color:#666;background:#f5f5f5;border:none;border-radius:7px;padding:6px 7px;font-family:inherit;cursor:pointer">${minorOpts}</select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function applyCatFix(){
+  const sel=catFixProposals.filter(p=>p._checked);
+  if(!sel.length){ alert('선택된 항목이 없어요.'); return; }
+  if(!confirm(`선택한 ${sel.length}건의 분류를 DB에 반영할까요?`)) return;
+  const btn=document.getElementById('catFixApplyBtn'); btn.disabled=true; const orig=btn.textContent; btn.textContent='저장 중...';
+  const groups={};
+  sel.forEach(p=>{ const k=p.major+'\u0001'+(p.minor||''); (groups[k]=groups[k]||[]).push(p.id); });
+  let ok=0, fail=0;
+  for(const [k,ids] of Object.entries(groups)){
+    const [mj,mi]=k.split('\u0001');
+    for(let s=0;s<ids.length;s+=80){
+      const chunk=ids.slice(s,s+80);
+      try{
+        const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=in.(${chunk.join(',')})`,{
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+          body:JSON.stringify({major:mj, minor:mi||null})
+        });
+        if(r.ok) ok+=chunk.length; else fail+=chunk.length;
+      }catch(_){ fail+=chunk.length; }
+    }
+  }
+  btn.disabled=false; btn.textContent=orig;
+  alert(`완료 — 반영 ${ok}건${fail?`, 실패 ${fail}건 (권한/네트워크 확인)`:''}`);
+  closeCatFix();
+  await loadData();
 }
 async function crawlParse(){
   const site=selectedCrawlSite();
