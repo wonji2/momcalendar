@@ -1657,12 +1657,10 @@ function isValidName(name) {
 }
 
 function fixEndDate(openDate, endDate) {
-  if (!endDate) return addDays(openDate, 3);
-  // 마감일이 오픈일보다 이전이면 오픈+3
-  if (endDate < openDate) return addDays(openDate, 3);
-  // 마감일이 오픈일+60일 초과면 오픈+3 (비정상)
+  if (!endDate) return addDays(openDate, 3);            // 미입력 → 4일간
+  if (endDate < openDate) return addDays(openDate, 3);  // 마감<오픈(역전) → 4일간
   const diff = (new Date(endDate) - new Date(openDate)) / 86400000;
-  if (diff > 60) return addDays(openDate, 3);
+  if (diff > 6) return addDays(openDate, 6);            // 최대 7일간(오픈일 포함) → 초과분은 오픈+6로 캡
   return endDate;
 }
 

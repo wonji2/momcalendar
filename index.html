@@ -729,13 +729,13 @@ function cmpDatePartner(a,b){
   if(d!==0) return d;
   return (isPartner(b)?1:0)-(isPartner(a)?1:0);
 }
-// 진행중 전용: 이웃셀러(파트너)를 날짜와 무관하게 전부 최상단으로 → 그다음 오픈일 빠른 순 → 마감 임박 순
+// 진행중 전용: 이웃셀러(파트너) 최상단 → 그다음 마감 임박 순(오늘 마감 먼저) → 동률이면 오픈일 빠른 순
 function cmpPartnerFirst(a,b){
   const pa=isPartner(a)?0:1, pb=isPartner(b)?0:1;
-  if(pa!==pb) return pa-pb;                 // 파트너 먼저
-  const d=a.openDate.localeCompare(b.openDate);
-  if(d!==0) return d;                        // 오픈일 빠른 순
-  return realEnd(a).localeCompare(realEnd(b)); // 마감 임박 순
+  if(pa!==pb) return pa-pb;                      // 파트너 먼저
+  const e=realEnd(a).localeCompare(realEnd(b));
+  if(e!==0) return e;                            // 마감 임박 순(오늘 마감이 맨 위)
+  return a.openDate.localeCompare(b.openDate);   // 동률이면 오픈일 빠른 순
 }
 
 async function loadData() {
