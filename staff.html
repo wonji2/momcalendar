@@ -622,7 +622,7 @@ function renderGongguFilters(){
   const st=[['all','전체'],['live','진행중'],['opentoday','오늘오픈'],['endtoday','오늘마감'],['upcoming','예정'],['past','지남']].map(([v,l])=>gChip(l,f.status===v,`gSet('status','${v}')`)).join('');
   const cat=[['all','전체']].concat(Object.keys(CATS_LIST).map(m=>[m,m])).map(([v,l])=>gChip(l,f.cat===v,`gSet('cat','${v}')`)).join('');
   const an=[['all','전체'],['any','⚠️ 이상 전체'],['날짜','📅 날짜'],['미연결','🔗 미연결'],['상품명','✏️ 상품명'],['미분류','🏷️ 미분류']].map(([v,l])=>gChip(l,f.anomaly===v,`gSet('anomaly','${v}')`)).join('');
-  const sort=[['open','오픈일순'],['reg','등록순'],['endsoon','마감임박순']].map(([v,l])=>gChip(l,f.sort===v,`gSet('sort','${v}')`)).join('');
+  const sort=[['open','오픈 가까운순'],['reg','등록순'],['endsoon','마감임박순']].map(([v,l])=>gChip(l,f.sort===v,`gSet('sort','${v}')`)).join('');
   document.getElementById('gFilters').innerHTML=
     `<div style="${row}">${st}</div><div style="${row}">${cat}</div>`+
     `<div style="${row};flex-wrap:wrap">${an}</div>`+
@@ -646,7 +646,13 @@ function renderGongguList(){
     if(f.anomaly!=='all'){ const a=gAnomalies(d); if(f.anomaly==='any'){ if(!a.length) return false; } else if(!a.includes(f.anomaly)) return false; }
     return true;
   });
-  if(f.sort==='open') rows.sort((a,b)=>(b.open_date||'').localeCompare(a.open_date||''));
+  if(f.sort==='open') rows.sort((a,b)=>{
+    const ao=a.open_date||'', bo=b.open_date||'';
+    const af=(ao&&ao>=today)?0:1, bf=(bo&&bo>=today)?0:1;   // 오늘·미래=0, 지난=1
+    if(af!==bf) return af-bf;                                // 오늘·미래 먼저, 지난 건 뒤로
+    return af===0 ? ao.localeCompare(bo)                     // 미래: 곧 오픈하는 것 먼저
+                  : bo.localeCompare(ao);                    // 과거: 최근 것 먼저
+  });
   else if(f.sort==='reg') rows.sort((a,b)=>(b.id||0)-(a.id||0));
   else if(f.sort==='endsoon') rows.sort((a,b)=>gRealEnd(a).localeCompare(gRealEnd(b)));
   const total=rows.length, shown=rows.slice(0,f.shown);
