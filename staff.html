@@ -103,9 +103,11 @@
     </div>
 
     <div class="card">
-      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(최근 등록순 · 삭제는 불가)</span></div>
-      <input id="gSearch" type="text" placeholder="🔍 상품명/셀러로 찾기" oninput="renderGongguList()">
-      <div id="gongguList" style="margin-top:10px"><div style="color:#aaa;font-size:12px">불러오는 중...</div></div>
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(필터·검색 가능 · 삭제는 불가)</span></div>
+      <input id="gSearch" type="text" placeholder="🔍 상품명/셀러로 찾기" oninput="gFilter.shown=120;renderGongguList()">
+      <div id="gFilters" style="margin-top:8px"></div>
+      <div id="gCount" style="margin-top:8px;font-size:11px;color:#888;font-weight:700"></div>
+      <div id="gongguList" style="margin-top:8px"><div style="color:#aaa;font-size:12px">불러오는 중...</div></div>
     </div>
   </div>
 
@@ -580,27 +582,84 @@ async function submitGonggu(){
 
 // ───────── 공구 목록 + 수정 (삭제 없음) ─────────
 let _gongguCache=[];
+let gFilter={status:'all', cat:'all', sort:'open', anomaly:'all', shown:120};
 async function loadGonggu(){
   const el=document.getElementById('gongguList');
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/gonggu?select=*&order=open_date.desc&limit=300`,{headers:sbHeaders()});
-    _gongguCache=await r.json()||[];
+    let all=[];
+    for(let from=0;;from+=1000){
+      const r=await fetch(`${SB_URL}/rest/v1/gonggu?select=*&order=open_date.desc`,{headers:sbHeaders({'Range-Unit':'items','Range':`${from}-${from+999}`})});
+      if(!r.ok&&r.status!==206) throw new Error(r.status);
+      const p=await r.json(); if(!Array.isArray(p)||!p.length) break; all=all.concat(p); if(p.length<1000) break;
+    }
+    _gongguCache=all;
+    renderGongguFilters();
     renderGongguList();
   }catch(e){ el.innerHTML='<div style="color:#C62828;font-size:12px">불러오기 실패</div>'; }
 }
+function gTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function gRealEnd(d){ if(d.end_date) return d.end_date; if(d.open_date){ const t=new Date(d.open_date); t.setDate(t.getDate()+3); return t.toISOString().slice(0,10); } return ''; }
+// 이상 항목 감지 (스텝이 고칠 것 빠르게 찾기)
+function gAnomalies(d){
+  const a=new Set();
+  const op=d.open_date||'', en=d.end_date||'';
+  const ymd=s=>/^\d{4}-\d{2}-\d{2}$/.test(s);
+  if(ymd(op) && +op.slice(0,4)>=2027) a.add('날짜');                 // 미래 연도(2027+)
+  if(ymd(op)&&ymd(en)){ if(en<op) a.add('날짜'); else if((d.insta||'')!=='momcal_' && (new Date(en)-new Date(op))/86400000>6) a.add('날짜'); } // 역전 / 7일 초과(본인 일정 제외)
+  if(op&&!en) a.add('날짜');                                          // 마감 없음
+  if(!(d.insta&&String(d.insta).trim()) && !(d.pay_link&&String(d.pay_link).trim())) a.add('미연결');
+  const nm=d.name||'';
+  if(!nm.trim() || /[\[\]【】()（）★⭐☆]/.test(nm) || nm.length>40) a.add('상품명');
+  if(!d.major||!d.minor) a.add('미분류');
+  return [...a];
+}
+function gChip(label, active, onclick){
+  return `<button onclick="${onclick}" style="padding:5px 10px;border-radius:14px;border:1px solid ${active?'#4A35A0':'#E3DEF5'};background:${active?'#4A35A0':'#fff'};color:${active?'#fff':'#6B5BA8'};font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">${label}</button>`;
+}
+function gSet(k,v){ gFilter[k]=v; gFilter.shown=120; renderGongguFilters(); renderGongguList(); }
+function renderGongguFilters(){
+  const f=gFilter, row='display:flex;gap:5px;overflow-x:auto;padding-bottom:6px';
+  const st=[['all','전체'],['live','진행중'],['opentoday','오늘오픈'],['endtoday','오늘마감'],['upcoming','예정'],['past','지남']].map(([v,l])=>gChip(l,f.status===v,`gSet('status','${v}')`)).join('');
+  const cat=[['all','전체']].concat(Object.keys(CATS_LIST).map(m=>[m,m])).map(([v,l])=>gChip(l,f.cat===v,`gSet('cat','${v}')`)).join('');
+  const an=[['all','전체'],['any','⚠️ 이상 전체'],['날짜','📅 날짜'],['미연결','🔗 미연결'],['상품명','✏️ 상품명'],['미분류','🏷️ 미분류']].map(([v,l])=>gChip(l,f.anomaly===v,`gSet('anomaly','${v}')`)).join('');
+  const sort=[['open','오픈일순'],['reg','등록순'],['endsoon','마감임박순']].map(([v,l])=>gChip(l,f.sort===v,`gSet('sort','${v}')`)).join('');
+  document.getElementById('gFilters').innerHTML=
+    `<div style="${row}">${st}</div><div style="${row}">${cat}</div>`+
+    `<div style="${row};flex-wrap:wrap">${an}</div>`+
+    `<div style="${row}"><span style="font-size:10px;color:#bbb;align-self:center;flex-shrink:0">정렬</span>${sort}</div>`;
+}
 function renderGongguList(){
   const el=document.getElementById('gongguList');
+  if(!Array.isArray(_gongguCache)) return;
+  const today=gTodayStr(), f=gFilter;
   const q=(document.getElementById('gSearch').value||'').trim().toLowerCase();
-  let rows=_gongguCache;
-  if(q) rows=rows.filter(d=> (d.name||'').toLowerCase().includes(q) || (d.influencer||'').toLowerCase().includes(q) || (d.insta||'').toLowerCase().includes(q));
-  rows=rows.slice(0,100);
-  if(!rows.length){ el.innerHTML='<div style="color:#aaa;font-size:12px">결과가 없어요.</div>'; return; }
-  el.innerHTML=rows.map(d=>{
+  let rows=_gongguCache.filter(d=>{
+    if(q && !((d.name||'').toLowerCase().includes(q)||(d.influencer||'').toLowerCase().includes(q)||(d.insta||'').toLowerCase().includes(q))) return false;
+    if(f.cat!=='all' && d.major!==f.cat) return false;
+    if(f.status!=='all'){ const op=d.open_date||'', re=gRealEnd(d);
+      if(f.status==='opentoday'&&op!==today) return false;
+      if(f.status==='endtoday'&&re!==today) return false;
+      if(f.status==='upcoming'&&!(op>today)) return false;
+      if(f.status==='past'&&!(re&&re<today)) return false;
+      if(f.status==='live'&&!(op&&op<=today&&re>=today)) return false;
+    }
+    if(f.anomaly!=='all'){ const a=gAnomalies(d); if(f.anomaly==='any'){ if(!a.length) return false; } else if(!a.includes(f.anomaly)) return false; }
+    return true;
+  });
+  if(f.sort==='open') rows.sort((a,b)=>(b.open_date||'').localeCompare(a.open_date||''));
+  else if(f.sort==='reg') rows.sort((a,b)=>(b.id||0)-(a.id||0));
+  else if(f.sort==='endsoon') rows.sort((a,b)=>gRealEnd(a).localeCompare(gRealEnd(b)));
+  const total=rows.length, shown=rows.slice(0,f.shown);
+  const cEl=document.getElementById('gCount'); if(cEl) cEl.textContent=total?`${total}건${total>shown.length?` (${shown.length}건 표시)`:''}`:'';
+  if(!total){ el.innerHTML='<div style="color:#aaa;font-size:12px">조건에 맞는 공구가 없어요.</div>'; return; }
+  el.innerHTML=shown.map(d=>{
     const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
+    const a=gAnomalies(d);
+    const badge=a.length?`<span style="font-size:9px;font-weight:700;color:#C62828;background:#FFEBEE;border-radius:5px;padding:1px 5px;margin-left:4px;white-space:nowrap">⚠️${a.join('·')}</span>`:'';
     return `<div class="glist-card" id="grow-${d.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}</div>
+          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}${badge}</div>
           <div style="font-size:10px;color:#999">${esc(seller)} · ${esc(d.major||'')} ${esc(d.minor||'')} · ${esc(d.open_date||'')}~${esc(d.end_date||'')}</div>
         </div>
         <div style="flex-shrink:0;display:flex;gap:5px">
@@ -609,7 +668,7 @@ function renderGongguList(){
         </div>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+(total>shown.length?`<button onclick="gFilter.shown+=120;renderGongguList()" style="width:100%;margin-top:8px;padding:10px;background:#F0EDFB;color:#4A35A0;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">더 보기 (${total-shown.length}건 남음)</button>`:'');
 }
 function cafeFromList(id){ const d=_gongguCache.find(x=>x.id===id); if(d) showCafePost(d); }
 function editGonggu(id){
@@ -620,7 +679,7 @@ function editGonggu(id){
   row.innerHTML=`
     <div style="font-size:11px;font-weight:700;color:#4A35A0;margin-bottom:7px">✏️ 공구 수정</div>
     <div class="row" style="margin-bottom:7px">
-      <input id="gE-infl-${id}" type="text" value="${esc(d.influencer)}" placeholder="한글명" style="${inp}">
+      <input id="gE-infl-${id}" type="text" value="${esc(d.influencer)}" placeholder="한글명" list="sellerList" style="${inp}">
       <input id="gE-insta-${id}" type="text" value="${esc(d.insta)}" placeholder="인스타" style="${inp}">
     </div>
     <input id="gE-name-${id}" type="text" value="${esc(d.name)}" placeholder="상품명" style="${inp};margin-bottom:7px">
