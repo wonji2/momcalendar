@@ -2131,10 +2131,11 @@ async function crawlParse(){
   crawlParsedData=parsed;
   applyCatMemory(crawlParsedData);   // 이전 등록 분류 우선 적용
   const npN=applyNonProductFilter(crawlParsedData);   // 단톡방·강의·프로그램 등 비상품 표시(체크 해제)
+  const smN=applySellerMultiFilter(crawlParsedData);  // 한 셀러 여러 항목 묶음 표시(체크는 그대로)
   btn.disabled=false; btn.textContent='③ 파싱 & 미리보기';
   const dupN=parsed.dupCount||0;
   const newCnt=crawlParsedData.filter(it=>!it._dup&&!it._nonProduct).length;
-  status.textContent=`파싱 완료 — 신규 ${newCnt}건`+(dupN?` · 🔴 중복의심 ${dupN}`:'')+(npN?` · 🚫 상품아님 ${npN}`:'')+((dupN||npN)?` (체크 해제됨)`:'');
+  status.textContent=`파싱 완료 — 신규 ${newCnt}건`+(dupN?` · 🔴 중복의심 ${dupN}`:'')+(npN?` · 🚫 상품아님 ${npN}`:'')+((dupN||npN)?` (체크 해제됨)`:'')+(smN?` · 👤 한셀러 여러항목 ${smN}`:'');
 
   if(!parsed.length){
     document.getElementById('crawlResultArea').style.display='none';
@@ -2148,7 +2149,9 @@ async function crawlParse(){
 function renderCrawlCards(){
   const _dupCnt=crawlParsedData.filter(it=>it._dup).length;
   const _npCnt=crawlParsedData.filter(it=>it._nonProduct).length;
-  document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`+(_dupCnt?` · 🔴 중복의심 ${_dupCnt}`:'')+(_npCnt?` · 🚫 상품아님 ${_npCnt}`:'');
+  const _smCnt=crawlParsedData.filter(it=>it._sellerMulti).length;
+  const _smSellers=new Set(crawlParsedData.filter(it=>it._sellerMulti).map(sellerKeyOf)).size;
+  document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`+(_dupCnt?` · 🔴 중복의심 ${_dupCnt}`:'')+(_npCnt?` · 🚫 상품아님 ${_npCnt}`:'')+(_smCnt?` · 👤 여러항목 ${_smCnt}`:'');
   // 사전 검증: 의심 항목 개수
   const warnCount=crawlParsedData.filter(it=>crawlWarn(it)).length;
   const warnBar = warnCount>0
@@ -2180,14 +2183,25 @@ function renderCrawlCards(){
       </div>
       <div style="font-size:10px;color:#777;margin-top:6px;line-height:1.4">체크 해제돼 있어 그냥 등록해도 안 들어가요. 진짜 상품이면 체크하면 등록돼요.</div>
     </div>`:''}
+    ${_smCnt?`<div style="padding:10px 12px;margin-bottom:8px;background:#EAF2FB;border:1px solid #B9D4F0;border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:700;color:#2C5E8A">👤 한 셀러 여러 항목 — 셀러 ${_smSellers}명 · ${_smCnt}건 (보통 셀러당 1건이 정상)</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="toggleCrawlMultiOnly()" style="background:${crawlMultiOnly?'#fff':'#3F7CC0'};border:1px solid #3F7CC0;color:${crawlMultiOnly?'#3F7CC0':'#fff'};font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">${crawlMultiOnly?'← 전체 보기':'여러항목만 보기'}</button>
+          <button onclick="keepOnePerSeller()" style="background:#3F7CC0;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">👤 각 셀러 1건만 남기기</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#5A7C9E;margin-top:6px;line-height:1.4">'각 셀러 1건만 남기기'는 셀러마다 맨 위 1건만 체크를 두고 나머지는 체크만 풀어요(삭제 아님). 남길 1건을 골라 이름을 모음전으로 고치면 돼요.</div>
+    </div>`:''}
     ${warnBar}
     ${crawlParsedData.map((item,i)=>{
       if(crawlDupOnly && !item._dup) return '';
       if(crawlNpOnly && !item._nonProduct) return '';
+      if(crawlMultiOnly && !item._sellerMulti) return '';
       const fail=item.__failReason;
       const w=fail?('등록 거부됨: '+fail):crawlWarn(item);
       const isFail=!!fail;
-      const border=item._nonProduct?'#9E9E9E':(item._dup?'#C62828':(isFail?'#E24B4A':(w?'#FFA940':'#4A35A0')));
+      const border=item._nonProduct?'#9E9E9E':(item._dup?'#C62828':(item._sellerMulti?'#3F7CC0':(isFail?'#E24B4A':(w?'#FFA940':'#4A35A0'))));
       const warnMsg=w?`<div style="font-size:11px;color:${isFail?'#A32D2D':'#A86100'};background:${isFail?'#FCEBEB':'#FFF7E6'};border-radius:6px;padding:5px 8px;margin-bottom:7px">${isFail?'❌':'⚠️'} ${escAttr(w)}</div>`:'';
       const nameBorder=isFail?'#E24B4A':(w?'#FFA940':'#e5e0f5');
       const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[item.major])?CATS_LIST[item.major]:[];
@@ -2200,7 +2214,7 @@ function renderCrawlCards(){
           style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid ${nameBorder};border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
         <button onclick="deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:30px;height:30px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🗑️</button>
       </div>
-      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
+      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._sellerMulti?`<div style="font-size:11px;font-weight:700;color:#2C5E8A;background:#E8F1FB;padding:5px 8px;border-radius:6px;margin-bottom:7px">👤 같은 셀러 ${item._smCount}개 중 (보통 1개만 정상)</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select class="cr-f" onchange="editCrawlMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
           ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
@@ -2258,8 +2272,8 @@ function editCrawl(i,field,val){
   }
 }
 // 개별 삭제
-let crawlDupOnly=false, crawlNpOnly=false;
-function toggleCrawlDupOnly(){ crawlDupOnly=!crawlDupOnly; if(crawlDupOnly) crawlNpOnly=false; renderCrawlCards(); }
+let crawlDupOnly=false, crawlNpOnly=false, crawlMultiOnly=false;
+function toggleCrawlDupOnly(){ crawlDupOnly=!crawlDupOnly; if(crawlDupOnly){ crawlNpOnly=false; crawlMultiOnly=false; } renderCrawlCards(); }
 function crawlDeleteDups(){
   const n=crawlParsedData.filter(it=>it._dup).length;
   if(!n){ alert('중복의심 항목이 없어요.'); return; }
@@ -2270,7 +2284,7 @@ function crawlDeleteDups(){
 }
 // ── 비상품(단톡방·강의·프로그램 등) 자동 표시 ──
 // ↓ 빼고 싶은 단어를 자유롭게 추가/삭제하세요. 상품명에 이 단어가 들어가면 '상품아님'으로 표시되고 체크가 풀립니다.
-const NONPRODUCT_WORDS=['단톡방','오픈톡','오픈채팅','카톡방','강의','특강','클래스','세미나','웨비나','워크숍','워크샵','프로그램','챌린지','스터디'];
+const NONPRODUCT_WORDS=['단톡방','오픈톡','오픈채팅','카톡방','강의','특강','클래스','세미나','웨비나','워크숍','워크샵','프로그램','챌린지','스터디','종료','이벤트','공지','모집','무료나눔','설문'];
 function isNonProduct(name){ const n=(name||''); return NONPRODUCT_WORDS.find(w=>w && n.includes(w))||null; }
 function applyNonProductFilter(items){
   let cnt=0;
@@ -2281,7 +2295,22 @@ function applyNonProductFilter(items){
   });
   return cnt;
 }
-function toggleCrawlNpOnly(){ crawlNpOnly=!crawlNpOnly; if(crawlNpOnly) crawlDupOnly=false; renderCrawlCards(); }
+function toggleCrawlNpOnly(){ crawlNpOnly=!crawlNpOnly; if(crawlNpOnly){ crawlDupOnly=false; crawlMultiOnly=false; } renderCrawlCards(); }
+// ── 한 셀러 여러 항목 묶음 표시 (보통 셀러당 1건이 정상) ──
+function sellerKeyOf(it){ const ig=(it.insta||'').replace('@','').trim().toLowerCase(); if(ig) return 'i:'+ig; const nm=(it.influencer||'').trim(); return nm?('n:'+nm):''; }  // 셀러 정보 없으면(카페 등) 그룹 안 함
+function applySellerMultiFilter(items){
+  const g={}; (items||[]).forEach(it=>{ it._sellerMulti=false; it._smCount=0; const k=sellerKeyOf(it); if(k)(g[k]=g[k]||[]).push(it); });
+  let cnt=0; Object.values(g).forEach(arr=>{ if(arr.length>=2){ arr.forEach(it=>{ it._sellerMulti=true; it._smCount=arr.length; }); cnt+=arr.length; } });
+  return cnt;
+}
+function toggleCrawlMultiOnly(){ crawlMultiOnly=!crawlMultiOnly; if(crawlMultiOnly){ crawlDupOnly=false; crawlNpOnly=false; } renderCrawlCards(); }
+function keepOnePerSeller(){
+  const g={}; crawlParsedData.forEach(it=>{ const k=sellerKeyOf(it); if(k)(g[k]=g[k]||[]).push(it); });
+  let changed=0;
+  Object.values(g).forEach(arr=>{ if(arr.length<2) return; let kept=false; arr.forEach(it=>{ if(!it._checked) return; if(!kept){ kept=true; return; } it._checked=false; changed++; }); });
+  if(!changed){ alert('정리할 항목이 없어요. (각 셀러가 이미 1건이거나 체크가 풀려 있어요)'); return; }
+  renderCrawlCards();
+}
 function crawlDeleteNonProduct(){
   const n=crawlParsedData.filter(it=>it._nonProduct).length;
   if(!n){ alert('상품아님으로 표시된 항목이 없어요.'); return; }
