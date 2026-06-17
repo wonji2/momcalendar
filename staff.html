@@ -44,7 +44,7 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
   .modal .inner{background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:18px}
   .x{background:none;border:none;font-size:22px;cursor:pointer;color:#999}
-  .glist-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:11px 12px;margin-bottom:7px}
+  .glist-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:9px 10px;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -103,7 +103,7 @@
     </div>
 
     <div class="card">
-      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(필터·검색 가능 · 삭제는 불가)</span></div>
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(어느 칸이든 바꾸면 바로 자동저장 · 삭제는 불가)</span></div>
       <input id="gSearch" type="text" placeholder="🔍 상품명/셀러로 찾기" oninput="gFilter.shown=120;renderGongguList()">
       <div id="gFilters" style="margin-top:8px"></div>
       <div id="gCount" style="margin-top:8px;font-size:11px;color:#888;font-weight:700"></div>
@@ -659,24 +659,31 @@ function renderGongguList(){
   const cEl=document.getElementById('gCount'); if(cEl) cEl.textContent=total?`${total}건${total>shown.length?` (${shown.length}건 표시)`:''}`:'';
   if(!total){ el.innerHTML='<div style="color:#aaa;font-size:12px">조건에 맞는 공구가 없어요.</div>'; return; }
   el.innerHTML=shown.map(d=>{
-    const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
     const a=gAnomalies(d);
-    const qsel='flex:1;min-width:0;padding:7px 6px;border:1.5px solid #E3DEF5;border-radius:8px;font-size:12px;font-family:inherit;background:#fff;color:#333';
+    const qsel='flex:1;min-width:0;padding:6px;border:1px solid #E3DEF5;border-radius:7px;font-size:12px;font-family:inherit;background:#fff;color:#333';
+    const fcss='box-sizing:border-box;font-family:inherit;outline:none;border:1px solid #E3DEF5;border-radius:7px;padding:6px 8px;font-size:12px;color:#333;background:#fff';
     return `<div class="glist-card" id="grow-${d.id}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div style="min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}<span id="qbadge-${d.id}">${gBadgeHtml(a)}</span></div>
-          <div style="font-size:10px;color:#999">${esc(seller)} · ${esc(d.open_date||'')}~${esc(d.end_date||'')}</div>
-        </div>
-        <div style="flex-shrink:0;display:flex;gap:5px">
-          <button onclick="cafeFromList(${d.id})" style="background:#EEEAFB;color:#4A35A0;border:none;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋</button>
-          <button onclick="editGonggu(${d.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
-        </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <input value="${esc(d.name)}" onchange="quickField(${d.id},'name',this.value)" placeholder="상품명" style="flex:1;min-width:0;${fcss};font-size:13px;font-weight:700;color:#191919;border-color:#D9D2F0">
+        <span id="qbadge-${d.id}" style="flex-shrink:0">${gBadgeHtml(a)}</span>
+        <button onclick="cafeFromList(${d.id})" title="카페글 보기" style="flex-shrink:0;width:30px;height:30px;border:none;background:#EEEAFB;color:#4A35A0;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">📋</button>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+      <div style="display:flex;gap:5px;margin-bottom:5px">
         <select onchange="quickMajor(${d.id},this.value)" style="${qsel}"><option value=""${!d.major?' selected':''}>대분류</option>${catOptions(d.major||'')}</select>
         <select id="qmin-${d.id}" onchange="quickMinor(${d.id},this.value)" style="${qsel}"><option value=""${!d.minor?' selected':''}>소분류</option>${minorOptions(d.major||'',d.minor||'')}</select>
-        <span id="qsave-${d.id}" style="font-size:10px;font-weight:700;opacity:0;transition:opacity .2s;white-space:nowrap;min-width:38px"></span>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:5px">
+        <input value="${esc(d.influencer||'')}" onchange="quickField(${d.id},'influencer',this.value)" list="sellerList" placeholder="셀러명" style="flex:1;min-width:0;${fcss}">
+        <input value="${esc(d.insta||'')}" onchange="quickField(${d.id},'insta',this.value)" placeholder="인스타" style="flex:1;min-width:0;${fcss}">
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+        <input type="date" value="${esc(d.open_date||'')}" onchange="quickField(${d.id},'open_date',this.value)" style="flex:1;min-width:0;${fcss};color:#555">
+        <span style="font-size:11px;color:#bbb;flex-shrink:0">~</span>
+        <input type="date" value="${esc(d.end_date||'')}" onchange="quickField(${d.id},'end_date',this.value)" style="flex:1;min-width:0;${fcss};color:#555">
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input value="${esc(d.pay_link||'')}" onchange="quickField(${d.id},'pay_link',this.value)" placeholder="구매링크 (비우면 인스타로)" style="flex:1;min-width:0;${fcss};font-size:11px;color:#666">
+        <span id="qsave-${d.id}" style="font-size:10px;font-weight:700;color:#9CA3AF;white-space:nowrap;flex-shrink:0;text-align:right">자동저장</span>
       </div>
     </div>`;
   }).join('')+(total>shown.length?`<button onclick="gFilter.shown+=120;renderGongguList()" style="width:100%;margin-top:8px;padding:10px;background:#F0EDFB;color:#4A35A0;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">더 보기 (${total-shown.length}건 남음)</button>`:'');
@@ -686,8 +693,8 @@ function cafeFromList(id){ const d=_gongguCache.find(x=>x.id===id); if(d) showCa
 function gBadgeHtml(an){ return an&&an.length?`<span style="font-size:9px;font-weight:700;color:#C62828;background:#FFEBEE;border-radius:5px;padding:1px 5px;margin-left:4px;white-space:nowrap">⚠️${an.join('·')}</span>`:''; }
 function flashSave(id,ok){
   const el=document.getElementById('qsave-'+id); if(!el) return;
-  el.textContent=ok?'✓ 저장':'⚠ 실패'; el.style.color=ok?'#2E7D32':'#C62828'; el.style.opacity='1';
-  clearTimeout(el._t); el._t=setTimeout(()=>{ const e=document.getElementById('qsave-'+id); if(e) e.style.opacity='0'; },1400);
+  el.textContent=ok?'✓ 저장됨':'⚠ 실패'; el.style.color=ok?'#2E7D32':'#C62828';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ const e=document.getElementById('qsave-'+id); if(e){ e.textContent='자동저장'; e.style.color='#9CA3AF'; } },1400);
 }
 async function quickSave(id, body){
   const d=_gongguCache.find(x=>x.id===id); if(!d) return false;
@@ -710,6 +717,18 @@ async function quickMajor(id,val){
   await quickSave(id,{major:val, minor:keep});
 }
 async function quickMinor(id,val){ await quickSave(id,{minor:val}); }
+// 이름·셀러·인스타·날짜·링크 인라인 자동저장 (변경 시에만)
+function quickField(id, field, raw){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  let v=raw;
+  if(field==='insta') v=(raw||'').trim().replace(/^@+/,'');
+  else if(field==='name'){ v=(raw||'').trim(); if(!v){ flashSave(id,false); return; } }
+  else if(field==='influencer') v=(raw||'').trim();
+  else if(field==='pay_link') v=(raw||'').trim()||null;
+  else if(field==='open_date'||field==='end_date') v=raw||null;
+  if((d[field]||'')===(v||'')) return;   // 변경 없으면 저장 안 함
+  quickSave(id,{[field]:v});
+}
 function editGonggu(id){
   const d=_gongguCache.find(x=>x.id===id); if(!d) return;
   const row=document.getElementById('grow-'+id); if(!row) return;
