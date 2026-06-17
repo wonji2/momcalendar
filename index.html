@@ -127,7 +127,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .status-tabs{background:#fff;display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none}
 .status-tabs::-webkit-scrollbar{display:none}
 .stab{padding:7px 16px;border-radius:10px;font-size:12px;font-weight:600;border:none;background:#EFECFB;color:#5B4BA8;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;flex-shrink:0}
-.stab.on-all,.stab.on-o,.stab.on-g,.stab.on-u,.stab.on-e{background:var(--main-d);color:#fff;font-weight:700}
+.stab.on-all,.stab.on-o,.stab.on-g,.stab.on-u,.stab.on-e,.stab.on-h{background:var(--main-d);color:#fff;font-weight:700}
 
 /* 대분류 칩 가로 나열 */
 .cat-chip-row{display:flex;gap:7px;padding:12px 16px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -417,9 +417,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
-  <button class="stab" id="stab-live" data-st="live" onclick="toggleStab('live',this)">진행중</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
+  <button class="stab" id="stab-hot" data-st="hot" onclick="toggleStab('hot',this)">🔥 HOT</button>
 </div>
 
 <!-- 탭 -->
@@ -733,6 +733,19 @@ function demotedByOwn(item){ if(isMomcal(item)) return false; if(!isPartner(item
 // 실효 파트너: 본인(맘캘린더)이거나, 본인과 안 겹치는 이웃셀러 (겹치면 일반으로 강등 — 색·정렬 모두)
 function effPartner(item){ return isMomcal(item) || (isPartner(item) && !demotedByOwn(item)); }
 // 같은 날짜 안에서 파트너 우선
+// 예정: 맘캘린더·이웃셀러를 맨 위로(그 안은 날짜순) → 그 아래 일반은 날짜순
+function cmpUpcoming(a,b){
+  const pa=effPartner(a)?0:1, pb=effPartner(b)?0:1;
+  if(pa!==pb) return pa-pb;
+  return a.openDate.localeCompare(b.openDate);
+}
+// HOT: 본인·이웃셀러만 — 진행중 먼저(마감 임박순) → 예정(오픈 빠른순)
+function cmpHot(a,b){
+  const ao=(a.openDate<=todayStr)?0:1, bo=(b.openDate<=todayStr)?0:1;
+  if(ao!==bo) return ao-bo;
+  if(ao===0) return realEnd(a).localeCompare(realEnd(b));
+  return a.openDate.localeCompare(b.openDate);
+}
 function cmpDatePartner(a,b){
   const d=a.openDate.localeCompare(b.openDate);
   if(d!==0) return d;
@@ -841,7 +854,8 @@ function getFiltered(dateStr){
   if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item)).sort(cmpDatePartner);
   if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item)).sort(cmpDatePartner);
   if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
-  if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpDatePartner);
+  if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpUpcoming);
+  if(fSt==='hot') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&effPartner(item)).sort(cmpHot);
 
   // ALL 기본: 오늘 진행중 먼저 → 오픈 예정 순
   const ongoing=DATA.filter(item=>{
@@ -912,13 +926,13 @@ function renderCard(item){
 // ── 상태 칩 숫자 업데이트 ──
 function updateStatCounts(){
   const open=DATA.filter(it=>!isExpired(it)&&isOpenToday(it)).length;
-  const live=DATA.filter(it=>!isExpired(it)&&it.openDate<=todayStr&&realEnd(it)>=todayStr).length;
   const end=DATA.filter(it=>!isExpired(it)&&isEndToday(it)).length;
   const soon=DATA.filter(it=>!isExpired(it)&&isUpcoming(it)).length;
+  const hot=DATA.filter(it=>!isExpired(it)&&effPartner(it)).length;
   const eo=document.getElementById('stab-open'); if(eo) eo.textContent='오늘 오픈 '+open;
-  const el=document.getElementById('stab-live'); if(el) el.textContent='진행중 '+live;
   const ee=document.getElementById('stab-end'); if(ee) ee.textContent='오늘 마감 '+end;
   const eu=document.getElementById('stab-upcoming'); if(eu) eu.textContent='예정 '+soon;
+  const eh=document.getElementById('stab-hot'); if(eh) eh.textContent='🔥 HOT '+hot;
 }
 
 function renderList(){
@@ -1119,8 +1133,18 @@ function toggleStab(v,el){
   if(v==='live') el.classList.add('on-g');
   if(v==='upcoming') el.classList.add('on-u');
   if(v==='end') el.classList.add('on-e');
+  if(v==='hot') el.classList.add('on-h');
   if(v!=='all') trackEvent('status_tab', v);
   renderList();
+  scrollToResults();
+}
+function scrollToResults(){
+  const target=document.getElementById('statusTabs');
+  if(!target) return;
+  const hd=document.querySelector('.hd');
+  const off=(hd?hd.offsetHeight:60)+8;
+  const y=target.getBoundingClientRect().top + window.pageYOffset - off;
+  window.scrollTo({top:Math.max(y,0),behavior:'smooth'});
 }
 
 // ── 탭 전환 ──
