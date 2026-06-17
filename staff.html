@@ -661,22 +661,55 @@ function renderGongguList(){
   el.innerHTML=shown.map(d=>{
     const seller=(d.influencer&&!String(d.influencer).startsWith('@'))?d.influencer:(d.insta?'@'+d.insta:'-');
     const a=gAnomalies(d);
-    const badge=a.length?`<span style="font-size:9px;font-weight:700;color:#C62828;background:#FFEBEE;border-radius:5px;padding:1px 5px;margin-left:4px;white-space:nowrap">⚠️${a.join('·')}</span>`:'';
+    const qsel='flex:1;min-width:0;padding:7px 6px;border:1.5px solid #E3DEF5;border-radius:8px;font-size:12px;font-family:inherit;background:#fff;color:#333';
     return `<div class="glist-card" id="grow-${d.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}${badge}</div>
-          <div style="font-size:10px;color:#999">${esc(seller)} · ${esc(d.major||'')} ${esc(d.minor||'')} · ${esc(d.open_date||'')}~${esc(d.end_date||'')}</div>
+          <div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}<span id="qbadge-${d.id}">${gBadgeHtml(a)}</span></div>
+          <div style="font-size:10px;color:#999">${esc(seller)} · ${esc(d.open_date||'')}~${esc(d.end_date||'')}</div>
         </div>
         <div style="flex-shrink:0;display:flex;gap:5px">
           <button onclick="cafeFromList(${d.id})" style="background:#EEEAFB;color:#4A35A0;border:none;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋</button>
           <button onclick="editGonggu(${d.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
         </div>
       </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+        <select onchange="quickMajor(${d.id},this.value)" style="${qsel}"><option value=""${!d.major?' selected':''}>대분류</option>${catOptions(d.major||'')}</select>
+        <select id="qmin-${d.id}" onchange="quickMinor(${d.id},this.value)" style="${qsel}"><option value=""${!d.minor?' selected':''}>소분류</option>${minorOptions(d.major||'',d.minor||'')}</select>
+        <span id="qsave-${d.id}" style="font-size:10px;font-weight:700;opacity:0;transition:opacity .2s;white-space:nowrap;min-width:38px"></span>
+      </div>
     </div>`;
   }).join('')+(total>shown.length?`<button onclick="gFilter.shown+=120;renderGongguList()" style="width:100%;margin-top:8px;padding:10px;background:#F0EDFB;color:#4A35A0;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">더 보기 (${total-shown.length}건 남음)</button>`:'');
 }
 function cafeFromList(id){ const d=_gongguCache.find(x=>x.id===id); if(d) showCafePost(d); }
+// ── 목록에서 대/소분류 즉시 저장 ──
+function gBadgeHtml(an){ return an&&an.length?`<span style="font-size:9px;font-weight:700;color:#C62828;background:#FFEBEE;border-radius:5px;padding:1px 5px;margin-left:4px;white-space:nowrap">⚠️${an.join('·')}</span>`:''; }
+function flashSave(id,ok){
+  const el=document.getElementById('qsave-'+id); if(!el) return;
+  el.textContent=ok?'✓ 저장':'⚠ 실패'; el.style.color=ok?'#2E7D32':'#C62828'; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ const e=document.getElementById('qsave-'+id); if(e) e.style.opacity='0'; },1400);
+}
+async function quickSave(id, body){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ flashSave(id,false); return false; }
+    let up=[]; try{up=await r.json();}catch(_){}
+    if(!Array.isArray(up)||!up.length){ flashSave(id,false); return false; }
+    Object.assign(d, body);
+    flashSave(id,true);
+    const bEl=document.getElementById('qbadge-'+id); if(bEl) bEl.innerHTML=gBadgeHtml(gAnomalies(d));
+    return true;
+  }catch(e){ flashSave(id,false); return false; }
+}
+async function quickMajor(id,val){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  const keep=(CATS_LIST[val]||[]).includes(d.minor)?d.minor:'';  // 대분류 바뀌면 안 맞는 소분류는 비움
+  const minorSel=document.getElementById('qmin-'+id);
+  if(minorSel) minorSel.innerHTML=`<option value=""${!keep?' selected':''}>소분류</option>`+minorOptions(val,keep);
+  await quickSave(id,{major:val, minor:keep});
+}
+async function quickMinor(id,val){ await quickSave(id,{minor:val}); }
 function editGonggu(id){
   const d=_gongguCache.find(x=>x.id===id); if(!d) return;
   const row=document.getElementById('grow-'+id); if(!row) return;
