@@ -723,15 +723,24 @@ let DATA = [];
 let PARTNER_SET = new Set();
 function normHandle(s){ return (s||'').replace('@','').trim().toLowerCase(); }
 function isPartner(item){ return !!(item.insta && PARTNER_SET.has(normHandle(item.insta))); }
+// ── 본인(맘캘린더) vs 이웃셀러 겹침: 같은 품목·겹치는 기간이면 본인=보라(우선), 이웃셀러 겹침=흰색 ──
+let _ownItems=[];
+function rebuildOwnItems(){ _ownItems = DATA.filter(isMomcal); }
+function _normName(s){ return (s||'').toLowerCase().replace(/[\s.·_\-]/g,''); }
+function _sameProduct(a,b){ const x=_normName(a), y=_normName(b); if(!x||!y) return false; if(x===y) return true; const sh=x.length<=y.length?x:y, lo=x.length<=y.length?y:x; return sh.length>=3 && lo.includes(sh); }
+function _periodOverlap(a,b){ const ao=a.openDate||'', ae=realEnd(a), bo=b.openDate||'', be=realEnd(b); if(!ao||!bo) return false; return ao<=be && bo<=ae; }
+function demotedByOwn(item){ if(isMomcal(item)) return false; if(!isPartner(item)) return false; return _ownItems.some(o=> o!==item && _sameProduct(item.name,o.name) && _periodOverlap(item,o)); }
+// 실효 파트너: 본인(맘캘린더)이거나, 본인과 안 겹치는 이웃셀러 (겹치면 일반으로 강등 — 색·정렬 모두)
+function effPartner(item){ return isMomcal(item) || (isPartner(item) && !demotedByOwn(item)); }
 // 같은 날짜 안에서 파트너 우선
 function cmpDatePartner(a,b){
   const d=a.openDate.localeCompare(b.openDate);
   if(d!==0) return d;
-  return (isPartner(b)?1:0)-(isPartner(a)?1:0);
+  return (effPartner(b)?1:0)-(effPartner(a)?1:0);
 }
 // 진행중 전용: 이웃셀러(파트너) 최상단 → 그다음 마감 임박 순(오늘 마감 먼저) → 동률이면 오픈일 빠른 순
 function cmpPartnerFirst(a,b){
-  const pa=isPartner(a)?0:1, pb=isPartner(b)?0:1;
+  const pa=effPartner(a)?0:1, pb=effPartner(b)?0:1;
   if(pa!==pb) return pa-pb;                      // 파트너 먼저
   const e=realEnd(a).localeCompare(realEnd(b));
   if(e!==0) return e;                            // 마감 임박 순(오늘 마감이 맨 위)
@@ -816,6 +825,7 @@ let tmpMajor='전체',tmpMinor='전체',fmodalMode='major';
 
 // ── 필터링 ──
 function getFiltered(dateStr){
+  rebuildOwnItems();
   // 검색어 있으면 전체에서 검색
   if(fSearch){
     return DATA.filter(item=>{
@@ -874,7 +884,7 @@ function renderCard(item){
   // 셀러명: 한글명 있으면 한글명, 없으면 아이디(@ 제거)
   const seller = (item.influencer && !item.influencer.startsWith('@')) ? item.influencer : normHandle(item.insta);
   const period = `${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
-  const partner = isPartner(item);
+  const partner = effPartner(item);
   const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#602090"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const sb = partner ? badgeSvg : '';
   const sellerLine = seller
