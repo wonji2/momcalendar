@@ -2194,7 +2194,7 @@ function renderCrawlCards(){
       <div style="font-size:10px;color:#5A7C9E;margin-top:6px;line-height:1.4">'각 셀러 1건만 남기기'는 셀러마다 맨 위 1건만 체크를 두고 나머지는 체크만 풀어요(삭제 아님). 남길 1건을 골라 이름을 모음전으로 고치면 돼요.</div>
     </div>`:''}
     ${warnBar}
-    ${crawlParsedData.map((item,i)=>{
+    ${crawlMultiOnly?renderMultiGrouped():crawlParsedData.map((item,i)=>{
       if(crawlDupOnly && !item._dup) return '';
       if(crawlNpOnly && !item._nonProduct) return '';
       if(crawlMultiOnly && !item._sellerMulti) return '';
@@ -2207,7 +2207,7 @@ function renderCrawlCards(){
       const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[item.major])?CATS_LIST[item.major]:[];
       const minorOpts=`<option value="">(소분류 선택)</option>`+subs.map(s=>`<option value="${escAttr(s)}"${item.minor===s?' selected':''}>${escAttr(s)}</option>`).join('')+((item.minor&&!subs.includes(item.minor))?`<option value="${escAttr(item.minor)}" selected>${escAttr(item.minor)} (직접입력)</option>`:'');
       return`
-    <div id="crawlCard-${i}" style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${border};margin-bottom:8px">
+    <div id="crawlCard-${i}" onclick="crawlCardClick(${i},event)" style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${border};margin-bottom:8px;cursor:pointer">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <input type="checkbox" class="crawl-cb" data-idx="${i}" ${item._checked?'checked':''} onchange="crawlParsedData[${i}]._checked=this.checked" style="width:16px;height:16px;accent-color:${item._dup?'#C62828':'#4A35A0'};cursor:pointer;flex-shrink:0">
         <input class="cr-f" value="${escAttr(item.name)}" oninput="editCrawl(${i},'name',this.value)" placeholder="상품명"
@@ -2272,6 +2272,49 @@ function editCrawl(i,field,val){
   }
 }
 // 개별 삭제
+// 카드 아무데나 클릭하면 선택 토글 (입력칸·버튼 제외) — PC 편의
+function crawlCardClick(i,ev){
+  if(ev.target.closest('input,button,a,select,textarea,label')) return;
+  const d=crawlParsedData[i]; if(!d) return;
+  d._checked=!d._checked;
+  const cb=document.querySelector('.crawl-cb[data-idx="'+i+'"]'); if(cb) cb.checked=d._checked;
+  const card=document.getElementById('crawlCard-'+i); if(card) card.style.boxShadow=d._checked?'0 0 0 2px #4A35A0':'0 1px 4px rgba(0,0,0,.06)';
+}
+// ── 여러항목만 보기: 셀러별 묶음 · 접기 · 컴팩트 한 줄 ──
+let crawlFold=new Set();
+function crawlSellerLabel(it){ const ig=(it.insta||'').replace('@','').trim(); if(ig) return '@'+ig; return (it.influencer||'').trim()||'(셀러 미상)'; }
+function toggleFoldByIdx(i){ const k=sellerKeyOf(crawlParsedData[i]); if(crawlFold.has(k)) crawlFold.delete(k); else crawlFold.add(k); renderCrawlCards(); }
+function crawlRowClick(i,ev){ if(ev.target.closest('input,button,a,select,textarea')) return; const d=crawlParsedData[i]; if(!d) return; d._checked=!d._checked; const cb=document.querySelector('.crawl-cb[data-idx="'+i+'"]'); if(cb) cb.checked=d._checked; if(ev.currentTarget) ev.currentTarget.style.background=d._checked?'#F3F7FC':'#fff'; }
+function keepOneInSellerByIdx(i){
+  const key=sellerKeyOf(crawlParsedData[i]); const idxs=[];
+  crawlParsedData.forEach((it,j)=>{ if(it._sellerMulti && sellerKeyOf(it)===key) idxs.push(j); });
+  let kept=false; idxs.forEach(j=>{ if(!crawlParsedData[j]._checked) return; if(!kept){ kept=true; return; } crawlParsedData[j]._checked=false; });
+  if(!idxs.some(j=>crawlParsedData[j]._checked) && idxs.length) crawlParsedData[idxs[0]]._checked=true;
+  renderCrawlCards();
+}
+function renderMultiGrouped(){
+  const order=[], g={};
+  crawlParsedData.forEach((it,i)=>{ if(!it._sellerMulti) return; const k=sellerKeyOf(it); if(!g[k]){ g[k]=[]; order.push(k); } g[k].push(i); });
+  if(!order.length) return '<div style="color:#999;font-size:12px;padding:10px">여러 항목 셀러가 없어요.</div>';
+  return order.map(k=>{
+    const idxs=g[k], first=crawlParsedData[idxs[0]], label=crawlSellerLabel(first), folded=crawlFold.has(k);
+    const checkedN=idxs.filter(i=>crawlParsedData[i]._checked).length;
+    const rows=folded?'':idxs.map(i=>{ const d=crawlParsedData[i];
+      return `<div onclick="crawlRowClick(${i},event)" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #EEF1F6;cursor:pointer;background:${d._checked?'#F3F7FC':'#fff'}">
+        <input type="checkbox" class="crawl-cb" data-idx="${i}" ${d._checked?'checked':''} onclick="event.stopPropagation();crawlParsedData[${i}]._checked=this.checked;this.closest('div').style.background=this.checked?'#F3F7FC':'#fff'" style="width:16px;height:16px;accent-color:#3F7CC0;cursor:pointer;flex-shrink:0">
+        <input value="${escAttr(d.name)}" oninput="editCrawl(${i},'name',this.value)" onclick="event.stopPropagation()" placeholder="상품명" style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#222;border:1px solid #E3E8F0;border-radius:7px;padding:6px 8px;font-family:inherit;outline:none">
+        <span style="font-size:10px;color:#888;white-space:nowrap;flex-shrink:0">${escAttr(d.major||'미분류')}${d.minor?'·'+escAttr(d.minor):''}</span>
+        <button onclick="event.stopPropagation();deleteCrawl(${i})" title="삭제" style="flex-shrink:0;width:28px;height:28px;border:none;background:#FBEAEA;color:#C0392B;border-radius:7px;font-size:13px;cursor:pointer">🗑️</button>
+      </div>`; }).join('');
+    return `<div style="border:1px solid #C9DBF0;border-radius:10px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:#EAF2FB">
+        <button onclick="toggleFoldByIdx(${idxs[0]})" style="border:none;background:transparent;font-size:12px;cursor:pointer;color:#2C5E8A;width:16px;flex-shrink:0">${folded?'▶':'▼'}</button>
+        <span style="font-size:12px;font-weight:800;color:#2C5E8A;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${escAttr(label)} · ${idxs.length}건 <span style="font-weight:600;color:#5A7C9E">(체크 ${checkedN})</span></span>
+        <button onclick="keepOneInSellerByIdx(${idxs[0]})" style="background:#3F7CC0;border:none;color:#fff;font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">이 셀러 1건만</button>
+      </div>${rows}
+    </div>`;
+  }).join('');
+}
 let crawlDupOnly=false, crawlNpOnly=false, crawlMultiOnly=false;
 function toggleCrawlDupOnly(){ crawlDupOnly=!crawlDupOnly; if(crawlDupOnly){ crawlNpOnly=false; crawlMultiOnly=false; } renderCrawlCards(); }
 function crawlDeleteDups(){
