@@ -1959,24 +1959,36 @@ function applyCatMemory(items){
   if(!Array.isArray(items)||!Array.isArray(allData)||!allData.length) return;
   const GENERIC=new Set(['유기농','프리미엄','국내산','수입산','무료','무료배송','정품','신상','신상품','한정','한정수량','균일가','오늘','오늘오픈','오픈','마감','임박','공구','공동구매','특가','할인','세일','초특가','역대급','대박','인기','강추','재입고','단독','최저가','best','new']);
   const firstTok=(name)=>normalize((name||'').trim().split(/\s+/)[0]||'');
-  const exact={};   // normalize(name) → {id,major,minor}
+  const exact={};   // normalize(name) → {id,major,minor,manual}
   const list=[];
   const brandRaw={}; // tok → {majors, minorByMajor, total}
+  const brandManRaw={}; // 수동 분류만 모은 브랜드 통계
   for(const d of allData){
     if(!d.name||!d.major) continue;
     const nm=normalize(d.name); if(!nm) continue;
-    if(!exact[nm] || (d.id||0)>exact[nm].id) exact[nm]={id:(d.id||0),major:d.major,minor:d.minor||''};
-    list.push({name:d.name, id:(d.id||0), major:d.major, minor:d.minor||''});
+    const man=!!d.cat_manual;
+    const cur=exact[nm];
+    if(!cur || (man&&!cur.manual) || (man===cur.manual && (d.id||0)>cur.id)) exact[nm]={id:(d.id||0),major:d.major,minor:d.minor||'',manual:man};
+    list.push({name:d.name, id:(d.id||0), major:d.major, minor:d.minor||'', manual:man});
     const tk=firstTok(d.name);
     if(tk && tk.length>=2 && !GENERIC.has(tk)){
       const b=brandRaw[tk]||(brandRaw[tk]={majors:{}, minorByMajor:{}, total:0});
       b.total++; b.majors[d.major]=(b.majors[d.major]||0)+1;
       const mm=b.minorByMajor[d.major]||(b.minorByMajor[d.major]={}); if(d.minor) mm[d.minor]=(mm[d.minor]||0)+1;
+      if(man){
+        const bm=brandManRaw[tk]||(brandManRaw[tk]={majors:{}, minorByMajor:{}, total:0});
+        bm.total++; bm.majors[d.major]=(bm.majors[d.major]||0)+1;
+        const mmm=bm.minorByMajor[d.major]||(bm.minorByMajor[d.major]={}); if(d.minor) mmm[d.minor]=(mmm[d.minor]||0)+1;
+      }
     }
   }
-  // 신뢰 브랜드만: 1건이거나, 한 대분류가 70%+ 일관
   const brandMemo={};
+  const _domOf=(b)=>{ const [dM]=Object.entries(b.majors).sort((a,c)=>c[1]-a[1])[0]; const mns=b.minorByMajor[dM]||{}; const dm=Object.entries(mns).sort((a,c)=>c[1]-a[1])[0]; return {major:dM, minor:dm?dm[0]:'', total:b.total}; };
+  // 1) 수동 분류가 있는 브랜드는 수동을 권위로
+  Object.entries(brandManRaw).forEach(([tk,b])=>{ brandMemo[tk]=_domOf(b); });
+  // 2) 나머지는 신뢰 브랜드만(1건이거나 한 대분류 70%+ 일관)
   Object.entries(brandRaw).forEach(([tk,b])=>{
+    if(brandMemo[tk]) return;
     const [domMajor,domCnt]=Object.entries(b.majors).sort((a,c)=>c[1]-a[1])[0];
     if(b.total>=2 && domCnt/b.total<0.7) return;
     const minors=b.minorByMajor[domMajor]||{};
@@ -1987,12 +1999,14 @@ function applyCatMemory(items){
   items.forEach(it=>{
     const k=normalize(it.name); if(!k) return;
     let hit=exact[k], via='exact';
-    if(!hit){                                   // 2) 느슨한 이름 매칭
-      let best=-1;
+    if(!hit){                                   // 2) 느슨한 이름 매칭 (수동 우선)
+      let bestSim=-1, bestManual=false, bestId=-1;
       for(const d of list){
         if(!dupNameMatch(d.name, it.name)) continue;
-        const sc=similarity(d.name, it.name)*1e6 + (d.id||0);
-        if(sc>best){ best=sc; hit=d; }
+        const sim=similarity(d.name, it.name), man=!!d.manual, id=d.id||0;
+        if((man&&!bestManual) || (man===bestManual && (sim>bestSim || (sim===bestSim && id>bestId)))){
+          bestSim=sim; bestManual=man; bestId=id; hit=d;
+        }
       }
       if(hit) via='fuzzy';
     }
@@ -2036,17 +2050,25 @@ function computeCatFixProposals(){
     }
   }
   const dom=(stat)=>{ const me=Object.entries(stat.majors).sort((a,c)=>c[1]-a[1])[0]; const minors=stat.minorByMajor[me[0]]||{}; const mi=Object.entries(minors).sort((a,c)=>c[1]-a[1])[0]; return {major:me[0], minor:mi?mi[0]:'', share:me[1]/stat.total}; };
+  // 수동 분류 권위: 같은 이름에 수동이 있으면 그게 정답(자동 항목은 거기에 맞춤)
+  const nameManual={};
+  for(const d of allData){
+    if(!d.name||!d.major||!d.cat_manual) continue;
+    const nm=normalize(d.name); if(!nm) continue;
+    if(!nameManual[nm] || (d.id||0)>nameManual[nm].id) nameManual[nm]={major:d.major, minor:d.minor||'', id:(d.id||0)};
+  }
   for(const d of allData){
     if(!d.name||!d.major) continue;
+    if(d.cat_manual) continue;                 // 수동 분류는 절대 안 건드림
     const nm=normalize(d.name);
     let target=null, via='';
-    const ng=nameGrp[nm];
-    if(ng && ng.total>=2){ const t=dom(ng); if(t.share>=0.6){ target=t; via='이름'; } }
+    if(nameManual[nm]){ target={major:nameManual[nm].major, minor:nameManual[nm].minor, share:1}; via='수동(같은 이름)'; }
+    if(!target){ const ng=nameGrp[nm]; if(ng && ng.total>=2){ const t=dom(ng); if(t.share>=0.6){ target=t; via='이름'; } } }
     if(!target){ const b=brandRaw[firstTok(d.name)]; if(b && b.total>=2){ const t=dom(b); if(t.share>=0.6){ target=t; via='브랜드'; } } }
     if(!target) continue;
     const tMinor=target.minor||d.minor||'';
     if(target.major!==d.major || (target.minor && target.minor!==(d.minor||''))){
-      catFixProposals.push({id:d.id, name:d.name, curMajor:d.major, curMinor:d.minor||'', major:target.major, minor:tMinor, via, conf:Math.round(target.share*100), _checked:true});
+      catFixProposals.push({id:d.id, name:d.name, curMajor:d.major, curMinor:d.minor||'', major:target.major, minor:tMinor, via, conf:Math.round((target.share||1)*100), _checked:true});
     }
   }
   catFixProposals.sort((a,b)=>b.conf-a.conf);
@@ -2255,6 +2277,7 @@ function crawlWarn(item){
 function editCrawlMajor(i,val){
   if(!crawlParsedData[i])return;
   crawlParsedData[i].major=val;
+  crawlParsedData[i]._catManual=true;   // 사람이 직접 분류 → 수동
   const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[val])?CATS_LIST[val]:[];
   if(crawlParsedData[i].minor && !subs.includes(crawlParsedData[i].minor)) crawlParsedData[i].minor='';  // 새 대분류에 없는 소분류는 비움
   delete crawlParsedData[i].__failReason;
@@ -2263,6 +2286,7 @@ function editCrawlMajor(i,val){
 function editCrawl(i,field,val){
   if(crawlParsedData[i]){
     crawlParsedData[i][field]=val;
+    if(field==='minor') crawlParsedData[i]._catManual=true;   // 사람이 직접 분류 → 수동
     // 상품명/대분류/날짜를 고치면 이전 실패 표시 해제
     if(field==='name'||field==='major'||field==='open_date'){
       delete crawlParsedData[i].__failReason;
@@ -2383,7 +2407,7 @@ function fetchT(url,opt,ms){
 }
 function gongguRow(d){
   return {influencer:d.influencer||'', insta:d.insta||'', major:d.major, minor:d.minor,
-    name:d.name, open_date:d.open_date, end_date:d.end_date||null, approved:true,
+    name:d.name, open_date:d.open_date, end_date:d.end_date||null, approved:true, cat_manual:!!d._catManual,
     ...(d.pay_link?{pay_link:d.pay_link}:{})};
 }
 async function crawlInsertSelected(){
@@ -5176,6 +5200,7 @@ async function saveEdit(){
     open_date:document.getElementById('editOpenDate').value,
     end_date:document.getElementById('editEndDate').value||null,
     pay_link:document.getElementById('editPayLink').value.trim()||null,
+    cat_manual:true,
   };
   await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
     method:'PATCH',

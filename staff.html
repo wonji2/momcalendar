@@ -714,9 +714,9 @@ async function quickMajor(id,val){
   const keep=(CATS_LIST[val]||[]).includes(d.minor)?d.minor:'';  // 대분류 바뀌면 안 맞는 소분류는 비움
   const minorSel=document.getElementById('qmin-'+id);
   if(minorSel) minorSel.innerHTML=`<option value=""${!keep?' selected':''}>소분류</option>`+minorOptions(val,keep);
-  await quickSave(id,{major:val, minor:keep});
+  await quickSave(id,{major:val, minor:keep, cat_manual:true});
 }
-async function quickMinor(id,val){ await quickSave(id,{minor:val}); }
+async function quickMinor(id,val){ await quickSave(id,{minor:val, cat_manual:true}); }
 // 이름·셀러·인스타·날짜·링크 인라인 자동저장 (변경 시에만)
 function quickField(id, field, raw){
   const d=_gongguCache.find(x=>x.id===id); if(!d) return;
