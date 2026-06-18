@@ -1718,15 +1718,25 @@ function parseNaverCafe(text, existingData, minDate){
   const minor2major={};
   Object.entries(CATS_LIST).forEach(([maj,subs])=>subs.forEach(s=>{ if(!minor2major[s]) minor2major[s]=maj; }));
   const lines=text.split('\n').map(l=>l.trim());
-  const results=[]; let lastId=null, dupCnt=0;
+  const results=[]; let lastId=null, dupCnt=0, lastMajor='';
+  const CAFE_MAJOR={'육아':'육아','식품':'식품','건강':'건강','뷰티':'뷰티','패션':'패션','가전':'가전','리빙':'리빙','인테리어':'인테리어','가구':'가구','가구&인테리어':'가구','여행':'여행','반려동물':'반려동물','생활':'리빙','디지털/가전':'가전'};
   for(const line of lines){
     if(/^\d{4,7}$/.test(line)){ lastId=line; continue; }
-    const tm=line.match(/^\[([^\]]+)\]\s*(.+)$/);
+    if(CAFE_MAJOR[line] && CATS_LIST[CAFE_MAJOR[line]]){ lastMajor=CAFE_MAJOR[line]; continue; } // 카테고리 줄(전체글보기)
+    const tm=line.match(/^\[([^\]]+)\]\s*(.+)$/) || (/^\(\s*\d{1,2}\/\d{1,2}/.test(line)?[null,'',line]:null);
     if(!tm) continue;
-    const head=tm[1].trim();
+    const head=(tm[1]||'').trim();
     let rest=tm[2].replace(/새\s*게시글\s*있음/g,'').replace(/댓글수\[\d+\]/g,'').trim();
     let open=null,end=null,name='',m;
-    if(m=rest.match(/^(\d{1,2})\/(\d{1,2})\s*~\s*(\d{1,2})\/(\d{1,2})\s*(.*)$/)){
+    if(m=rest.match(/^\(\s*(\d{1,2})\/(\d{1,2})\s*~\s*(\d{1,2})\/(\d{1,2})\s*\)\s*(.*)$/)){
+      open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; let ey=Y; if(+m[3]<+m[1]) ey=Y+1; end=`${ey}-${pad(+m[3])}-${pad(+m[4])}`; name=m[5];
+    } else if(m=rest.match(/^\(\s*(\d{1,2})\/(\d{1,2})\s*일?\s*오픈\s*\)\s*(.*)$/)){
+      open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; name=m[3];
+    } else if(m=rest.match(/^\(\s*(\d{1,2})\/(\d{1,2})\s*일?\s*마감\s*\)\s*(.*)$/)){
+      end=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; open=todayStr; name=m[3];
+    } else if(m=rest.match(/^\(\s*(\d{1,2})\/(\d{1,2})\s*일?\s*\)\s*(.*)$/)){
+      open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; name=m[3];
+    } else if(m=rest.match(/^(\d{1,2})\/(\d{1,2})\s*~\s*(\d{1,2})\/(\d{1,2})\s*(.*)$/)){
       open=`${Y}-${pad(+m[1])}-${pad(+m[2])}`; let ey=Y; if(+m[3]<+m[1]) ey=Y+1;
       end=`${ey}-${pad(+m[3])}-${pad(+m[4])}`; name=m[5];
     } else if(m=rest.match(/^\((\d{1,2})\/(\d{1,2})\s*오픈\)\s*(.*)$/)){
@@ -1742,7 +1752,7 @@ function parseNaverCafe(text, existingData, minDate){
     const id=lastId; lastId=null;
     if(end<minD) continue; // 이미 끝난 일정 제외
     let minor=head.replace(/\s+/g,'/');
-    let major=minor2major[minor];
+    let major=(lastMajor && CATS_LIST[lastMajor])?lastMajor:minor2major[minor];
     if(!major){ const g=crawlGuessCat(name, minor); major=g.major; if(g.minor) minor=g.minor; }
     const _cand={name, insta:'', influencer:'', open_date:open};
     const _dDb=crawlDbDup(existingData, name, '', '', open);
