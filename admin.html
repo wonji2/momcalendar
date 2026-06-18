@@ -3646,9 +3646,23 @@ function evtPeriodRange(){
   else if(_evtPeriod==='month'){ from=dayISO(Y,M,1); label='이번달'; }
   else if(_evtPeriod==='custom'){ from=`${_evtCustomFrom}T00:00:00+09:00`; to=new Date(new Date(_evtCustomTo+'T00:00:00+09:00').getTime()+86400000).toISOString(); label=`${_evtCustomFrom} ~ ${_evtCustomTo}`; }
   let q='';
-  if(from) q+=`&visited_at=gte.${from}`;
-  if(to)   q+=`&visited_at=lt.${to}`;
+  if(from) q+=`&visited_at=gte.${encodeURIComponent(from)}`;
+  if(to)   q+=`&visited_at=lt.${encodeURIComponent(to)}`;
   return {q, label, cacheKey:`${_evtPeriod}|${_evtCustomFrom}|${_evtCustomTo}`};
+}
+
+// 검색어가 "지금" DB(allData)에 몇 건 등록돼 있는지 — 과거 결과없음 검색의 현재 상태 대조용
+// 반환: -1=DB 미로딩(판단보류), 0=지금도 없음, N=지금 N건 있음
+function curMatchCount(q){
+  if(!q || !Array.isArray(allData) || !allData.length) return -1;
+  const qq=String(q).toLowerCase().replace(/\s+/g,'');
+  if(!qq) return -1;
+  let c=0;
+  for(const d of allData){
+    const hay=((d.name||'')+' '+(d.influencer||'')+' '+(d.insta||'')).toLowerCase().replace(/\s+/g,'');
+    if(hay.includes(qq)) c++;
+  }
+  return c;
 }
 
 async function loadEventStats(){
@@ -3699,11 +3713,12 @@ async function loadEventStats(){
 
     // 🕳️ 수요 갭 — 검색했지만 결과 0건
     if(_evtTab==='gap'){
-      const z=Object.entries(searchZero).sort((a,b)=>b[1]-a[1]).slice(0,40);
+      const z=Object.entries(searchZero).map(([q,n])=>({q,n,cur:curMatchCount(q)})).sort((a,b)=>((a.cur>0?1:0)-(b.cur>0?1:0))||b.n-a.n).slice(0,40);
+      const _resolved=z.filter(x=>x.cur>0).length;
       let h=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:2px 0 4px">🕳️ 수요 갭 — 검색했지만 결과 0건 <span style="font-size:10px;font-weight:600;color:#aaa">(${periodLabel})</span></div>
-      <div style="font-size:10.5px;color:#999;margin-bottom:9px">사람들이 찾는데 우리에 없는 공구예요. 이걸 채우거나 해당 브랜드에 입점 영업하세요.</div>`;
+      <div style="font-size:10.5px;color:#999;margin-bottom:9px">사람들이 찾는데 (검색 당시) 없던 공구예요. <b style="color:#E0506E">빨강=아직 없음</b>(채우거나 입점영업) · <b style="color:#2E9E5B">초록=지금은 등록됨</b>(검색했던 사람에게 알릴 기회)${_resolved?` · ✅ ${_resolved}건 이미 채워짐`:''}</div>`;
       if(!z.length){ h+='<div style="color:#3FA66F;font-size:12px">0건 결과 검색이 거의 없어요 — 인벤토리가 수요를 잘 덮고 있어요 👍</div>'; }
-      else{ const mx=z[0][1]; h+=z.map(([q,n],i)=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:12px;color:#333">${i+1}. ${q} <span style="font-size:10px;color:#bbb">(총 ${searchCnt[q]||n}회)</span></span><span style="font-size:11px;color:#E0506E;font-weight:700;flex-shrink:0">0건 ${n}회</span></div><div style="height:5px;background:#FBE8EC;border-radius:3px"><div style="height:5px;background:#E0506E;border-radius:3px;width:${Math.round(n/mx*100)}%"></div></div></div>`).join(''); }
+      else{ const mx=Math.max(...z.map(x=>x.n)); h+=z.map((x,i)=>{ const has=x.cur>0; const bar=has?'#2E9E5B':'#E0506E'; const barbg=has?'#E7F6EC':'#FBE8EC'; const badge=has?`<span style="font-size:11px;color:#2E9E5B;font-weight:700;flex-shrink:0">✅ 지금 ${x.cur}건 있음</span>`:`<span style="font-size:11px;color:#E0506E;font-weight:700;flex-shrink:0">아직 0건 · ${x.n}회</span>`; return `<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:12px;color:#333">${i+1}. ${x.q} <span style="font-size:10px;color:#bbb">(총 ${searchCnt[x.q]||x.n}회)</span></span>${badge}</div><div style="height:5px;background:${barbg};border-radius:3px"><div style="height:5px;background:${bar};border-radius:3px;width:${Math.round(x.n/mx*100)}%"></div></div></div>`; }).join(''); }
       if(el)el.innerHTML=h; return;
     }
     // 💜 찜 많은 공구
@@ -3823,7 +3838,7 @@ async function loadEventStats(){
       if(zero.length){
         h+=`<div style="background:#FFF4F4;border:1px solid #FFD7D7;border-radius:10px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:800;color:#C62828;margin-bottom:6px">🕳 수요 공백 · 결과 없는 검색 <span style="font-size:10px;font-weight:600;color:#B66">— 등록하면 좋을 공구</span></div>`;
-        h+=zero.slice(0,15).map(([q,c])=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#333">"${q}"</span><span style="color:#C62828;font-weight:700">${c}회 결과없음</span></div>`).join('');
+        h+=zero.slice(0,15).map(([q,c])=>{ const cur=curMatchCount(q); return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#333">"${q}"</span>${cur>0?`<span style="color:#2E9E5B;font-weight:700">✅ 지금 ${cur}건 있음</span>`:`<span style="color:#C62828;font-weight:700">${c}회 결과없음</span>`}</div>`; }).join('');
         h+=`</div>`;
       } else {
         h+=`<div style="font-size:11px;color:#aaa;margin-bottom:10px">결과 없는 검색 데이터는 index.html 배포 후 새 검색부터 쌓여요.</div>`;
