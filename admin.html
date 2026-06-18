@@ -2225,10 +2225,10 @@ function renderCrawlCards(){
           <button onclick="keepOnePerSeller()" style="background:#3F7CC0;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">👤 각 셀러 1건만 남기기</button>
         </div>
       </div>
-      <div style="font-size:10px;color:#5A7C9E;margin-top:6px;line-height:1.4">'각 셀러 1건만 남기기'는 셀러마다 맨 위 1건만 체크를 두고 나머지는 체크만 풀어요(삭제 아님). 남길 1건을 골라 이름을 모음전으로 고치면 돼요.</div>
+      <div style="font-size:10px;color:#5A7C9E;margin-top:6px;line-height:1.4">'각 셀러 1건만 남기기'는 셀러마다 맨 위 1건만 체크를 두고 나머지는 체크만 풀어요(삭제 아님). · 특정 1건을 고르고 싶으면 그 항목의 <b>'이것만'</b> 버튼을 누르세요(그것만 체크, 나머지는 체크 해제 — 삭제 아님). 🗑️는 목록에서 완전 삭제예요.</div>
     </div>`:''}
     ${warnBar}
-    ${crawlMultiOnly?renderMultiGrouped():crawlParsedData.map((item,i)=>{
+    ${(()=>{ const __h=crawlMultiOnly?renderMultiGrouped():crawlParsedData.map((item,i)=>{
       if(crawlDupOnly && !item._dup) return '';
       if(crawlNpOnly && !item._nonProduct) return '';
       if(crawlMultiOnly && !item._sellerMulti) return '';
@@ -2271,7 +2271,7 @@ function renderCrawlCards(){
         <input class="cr-f" type="date" value="${item.end_date||''}" onchange="editCrawl(${i},'end_date',this.value)"
           style="font-size:11px;color:#555;border:1px solid #eee;border-radius:8px;padding:6px 8px;font-family:inherit;outline:none">
       </div>
-    </div>`;}).join('')}`;
+    </div>`;}).join(''); if(!String(__h).trim()){ return `<div style="text-align:center;color:#888;font-size:13px;padding:26px 12px;line-height:1.7">이 필터에 해당하는 항목이 없어요.<br>나머지 항목은 그대로 있고, 등록도 됩니다.<br><button onclick="clearCrawlFilters()" style="margin-top:12px;background:#4A35A0;border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 18px;border-radius:9px;cursor:pointer;font-family:inherit">← 전체 보기로</button></div>`; } return __h; })()}`;
 }
 // 의심 항목 검사 → 경고 메시지(없으면 '')
 function crawlWarn(item){
@@ -2328,6 +2328,13 @@ function keepOneInSellerByIdx(i){
   if(!idxs.some(j=>crawlParsedData[j]._checked) && idxs.length) crawlParsedData[idxs[0]]._checked=true;
   renderCrawlCards();
 }
+// 이 항목만 체크 남기고, 같은 셀러의 나머지는 체크만 해제(삭제 아님)
+function keepOnlyThisInSeller(i){
+  const d=crawlParsedData[i]; if(!d) return;
+  const key=sellerKeyOf(d);
+  crawlParsedData.forEach((it,j)=>{ if(it._sellerMulti && sellerKeyOf(it)===key) it._checked=(j===i); });
+  renderCrawlCards();
+}
 function renderMultiGrouped(){
   const order=[], g={};
   crawlParsedData.forEach((it,i)=>{ if(!it._sellerMulti) return; const k=sellerKeyOf(it); if(!g[k]){ g[k]=[]; order.push(k); } g[k].push(i); });
@@ -2340,7 +2347,8 @@ function renderMultiGrouped(){
         <input type="checkbox" class="crawl-cb" data-idx="${i}" ${d._checked?'checked':''} onclick="event.stopPropagation();crawlParsedData[${i}]._checked=this.checked;this.closest('div').style.background=this.checked?'#F3F7FC':'#fff'" style="width:16px;height:16px;accent-color:#3F7CC0;cursor:pointer;flex-shrink:0">
         <input value="${escAttr(d.name)}" oninput="editCrawl(${i},'name',this.value)" onclick="event.stopPropagation()" placeholder="상품명" style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#222;border:1px solid #E3E8F0;border-radius:7px;padding:6px 8px;font-family:inherit;outline:none">
         <span style="font-size:10px;color:#888;white-space:nowrap;flex-shrink:0">${escAttr(d.major||'미분류')}${d.minor?'·'+escAttr(d.minor):''}</span>
-        <button onclick="event.stopPropagation();deleteCrawl(${i})" title="삭제" style="flex-shrink:0;width:28px;height:28px;border:none;background:#FBEAEA;color:#C0392B;border-radius:7px;font-size:13px;cursor:pointer">🗑️</button>
+        <button onclick="event.stopPropagation();keepOnlyThisInSeller(${i})" title="이 항목만 남기고 나머지는 체크 해제(삭제 아님)" style="flex-shrink:0;border:none;background:#E8F1FB;color:#2C5E8A;border-radius:7px;font-size:11px;font-weight:700;padding:0 9px;height:28px;cursor:pointer;white-space:nowrap;font-family:inherit">이것만</button>
+        <button onclick="event.stopPropagation();deleteCrawl(${i})" title="목록에서 완전 삭제" style="flex-shrink:0;width:28px;height:28px;border:none;background:#FBEAEA;color:#C0392B;border-radius:7px;font-size:13px;cursor:pointer">🗑️</button>
       </div>`; }).join('');
     return `<div style="border:1px solid #C9DBF0;border-radius:10px;margin-bottom:8px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:9px 11px;background:#EAF2FB">
@@ -2352,6 +2360,7 @@ function renderMultiGrouped(){
   }).join('');
 }
 let crawlDupOnly=false, crawlNpOnly=false, crawlMultiOnly=false;
+function clearCrawlFilters(){ crawlDupOnly=false; crawlNpOnly=false; crawlMultiOnly=false; renderCrawlCards(); }
 function toggleCrawlDupOnly(){ crawlDupOnly=!crawlDupOnly; if(crawlDupOnly){ crawlNpOnly=false; crawlMultiOnly=false; } renderCrawlCards(); }
 function crawlDeleteDups(){
   const n=crawlParsedData.filter(it=>it._dup).length;
@@ -2370,8 +2379,10 @@ function isNonProduct(name){ const n=(name||''); return NONPRODUCT_WORDS.find(w=
 // '2차전지','1차원'처럼 차 뒤에 글자가 붙은 진짜 상품명은 건드리지 않음.
 function cleanName(name){
   let s=String(name||'');
-  // 1) 시간표현 + 오픈/마감 : 오늘 오픈 / 내일 마감 / (어제오픈) / 모레 오픈예정 ...
-  s=s.replace(/[\(\[【]?\s*(오늘|내일|어제|모레|금일|명일)\s*(오픈예정|오픈\s*예정|오픈임박|오픈|마감임박|마감)\s*[\)\]】]?/g,' ');
+  // 1) 시간표현(+ 선택 오전/오후·N시M분) + 오픈/마감 : 오늘 13시 오픈 / 내일 오전 10시 마감 / 오늘 오픈 ...
+  s=s.replace(/[\(\[【]?\s*(오늘|내일|어제|모레|금일|명일)\s*(오전|오후|아침|점심|저녁|새벽|밤|낮)?\s*(\d{1,2}\s*시(\s*\d{1,2}\s*분)?)?\s*(오픈예정|오픈\s*예정|오픈임박|오픈|마감임박|마감)\s*[\)\]】]?/g,' ');
+  // 1-2) 날짜어 없이 시각만 : 13시 오픈 / 오후 2시 마감
+  s=s.replace(/[\(\[【]?\s*((오전|오후|아침|점심|저녁|새벽|밤|낮)\s*)?\d{1,2}\s*시(\s*\d{1,2}\s*분)?\s*(오픈예정|오픈|마감임박|마감)\s*[\)\]】]?/g,' ');
   // 2) n차 공구 / n차 공동구매 (숫자+차 뒤에 공구류) — 통째로 제거
   s=s.replace(/(^|[\s\(\[【])\d+\s*차\s*(공구|공동구매|오픈|마감)/g,'$1');
   // 3) 회차 단독 토큰 'n차' (뒤가 공백/끝/괄호일 때만 — 2차전지·1차원 보호)
@@ -2447,9 +2458,8 @@ function gongguRow(d){
     ...(d.pay_link?{pay_link:d.pay_link}:{})};
 }
 async function crawlInsertSelected(){
-  const cbs=document.querySelectorAll('.crawl-cb');
-  let selected=[];
-  cbs.forEach(cb=>{ if(cb.checked){ const d=crawlParsedData[parseInt(cb.dataset.idx)]; if(d) selected.push(d); } });
+  // 화면 체크박스가 아니라 데이터(_checked) 기준 → 필터(중복/상품아님/여러항목)로 안 보이는 체크 항목도 빠짐없이 등록됨
+  const selected=crawlParsedData.filter(d=>d._checked);
   if(!selected.length){alert('선택된 항목이 없어요!');return;}
 
   // 사전 검증
