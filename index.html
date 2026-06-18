@@ -127,7 +127,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .status-tabs{background:#fff;display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none}
 .status-tabs::-webkit-scrollbar{display:none}
 .stab{padding:7px 16px;border-radius:10px;font-size:12px;font-weight:600;border:none;background:#EFECFB;color:#5B4BA8;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;flex-shrink:0}
-.stab.on-all,.stab.on-o,.stab.on-g,.stab.on-u,.stab.on-e,.stab.on-h{background:var(--main-d);color:#fff;font-weight:700}
+.stab.on-all,.stab.on-o,.stab.on-g,.stab.on-u,.stab.on-e,.stab.on-h,.stab.on-t{background:var(--main-d);color:#fff;font-weight:700}
 
 /* 대분류 칩 가로 나열 */
 .cat-chip-row{display:flex;gap:7px;padding:12px 16px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -210,8 +210,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-right{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1;display:flex;align-items:center}
 .card-go{color:#c4c0d4;font-size:16px;font-weight:400;line-height:1;display:flex;align-items:center}
-.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:108px}
-.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:108px}
+.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
+.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
 .card-seller-strong{color:#5b4ba8;font-weight:700}
 
 /* 날짜 섹션 구분선 */
@@ -416,6 +416,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
+  <button class="stab" id="stab-top50" data-st="top50" onclick="toggleStab('top50',this)">🏆 TOP50</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
@@ -829,7 +830,7 @@ async function loadViewCounts(){
     });
     window.__viewCounts=vc;
     // 전체(TOP50) 보고 있으면 다시 그려서 반영
-    if(fSt==='all' && !dayFilter && !fSearch) renderList();
+    if(fSt==='top50' && !dayFilter && !fSearch) renderList();
   }catch(e){ /* 조회수 못 불러와도 전체는 맘캘 우선 기본 정렬로 노출됨 */ }
 }
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
@@ -882,23 +883,30 @@ function getFiltered(dateStr){
   if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpUpcoming);
 
-  // 전체 = 조회수(클릭) 순 TOP50. 그 안에 못 든 맘캘린더(본인) 공구는 랜덤 위치에 끼워넣음(맨 앞 고정 X)
-  const vc=window.__viewCounts||{};
-  const views=it=>vc[it.id]||0;
-  const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item));
-  const byViews=[...inScope].sort((a,b)=>views(b)-views(a));
-  const top=byViews.slice(0,50);
-  const topIds=new Set(top.map(it=>it.id));
-  const missing=inScope.filter(it=>isMomcal(it)&&!topIds.has(it.id));
-  if(missing.length){
-    const R=window.__rand||(window.__rand={});
-    const rnd=id=>{ if(R[id]==null) R[id]=Math.random(); return R[id]; }; // id별 1회 고정 → 재렌더에도 위치 안정
-    missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
-      const pos=Math.floor(rnd(it.id)*(top.length+1));
-      top.splice(pos,0,it);
-    });
+  if(fSt==='top50'){
+    // TOP50 = 조회수(클릭) 순 50개. 그 안에 못 든 맘캘린더(본인) 공구는 랜덤 위치에 끼워넣음(맨 앞 고정 X)
+    const vc=window.__viewCounts||{};
+    const views=it=>vc[it.id]||0;
+    const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item));
+    const byViews=[...inScope].sort((a,b)=>views(b)-views(a));
+    const top=byViews.slice(0,50);
+    const topIds=new Set(top.map(it=>it.id));
+    const missing=inScope.filter(it=>isMomcal(it)&&!topIds.has(it.id));
+    if(missing.length){
+      const R=window.__rand||(window.__rand={});
+      const rnd=id=>{ if(R[id]==null) R[id]=Math.random(); return R[id]; }; // id별 1회 고정 → 재렌더에도 위치 안정
+      missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
+        const pos=Math.floor(rnd(it.id)*(top.length+1));
+        top.splice(pos,0,it);
+      });
+    }
+    return top;
   }
-  return top;
+
+  // 전체 = 진행중 먼저(파트너 우선) → 오픈 예정(날짜순)
+  const ongoing=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
+  const upcoming=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate>todayStr).sort(cmpDatePartner);
+  return [...ongoing,...upcoming];
 }
 
 function filterCat(item){
@@ -945,7 +953,7 @@ function renderCard(item){
     </div>
     <div class="card-name">${item.name}</div>
     <div class="card-sellerline">${sellerLine}</div>
-    <span class="card-right"><span onclick="event.stopPropagation();toggleSave(${item.id},this);return false;" style="font-size:15px;line-height:1;cursor:pointer;user-select:none">${isSaved(item.id)?'❤️':'🤍'}</span>${stHtml}<span class="card-go">›</span></span>
+    <span class="card-right">${stHtml}<span class="card-go">›</span></span>
   </div>`;
 }
 
@@ -1112,6 +1120,7 @@ function toggleStab(v,el){
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   document.querySelectorAll('.stab').forEach(b=>b.className='stab');
   if(v==='all') el.classList.add('on-all');
+  if(v==='top50') el.classList.add('on-t');
   if(v==='open') el.classList.add('on-o');
   if(v==='live') el.classList.add('on-g');
   if(v==='upcoming') el.classList.add('on-u');
@@ -1723,18 +1732,6 @@ function trackCard(id){
     const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
     trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''}));
   }catch(e){ try{ trackEvent('card_click', JSON.stringify({id:id})); }catch(_){} }
-}
-
-// ── 찜(저장): 강한 관심 신호 수집 ──
-const SAVED_KEY='mc_saved';
-let savedSet=(function(){ try{ return new Set(JSON.parse(localStorage.getItem(SAVED_KEY)||'[]')); }catch(e){ return new Set(); } })();
-function isSaved(id){ return savedSet.has(id); }
-function toggleSave(id,elm){
-  const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
-  if(savedSet.has(id)){ savedSet.delete(id); trackEvent('unsave', JSON.stringify({id})); }
-  else{ savedSet.add(id); trackEvent('save', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''})); }
-  try{ localStorage.setItem(SAVED_KEY, JSON.stringify([...savedSet])); }catch(e){}
-  if(elm){ elm.textContent=savedSet.has(id)?'❤️':'🤍'; }
 }
 
 // ── 떠다니는 카톡 버튼 ──
