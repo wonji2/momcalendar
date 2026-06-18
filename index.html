@@ -210,8 +210,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-right{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1;display:flex;align-items:center}
 .card-go{color:#c4c0d4;font-size:16px;font-weight:400;line-height:1;display:flex;align-items:center}
-.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
-.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
+.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:108px}
+.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:108px}
 .card-seller-strong{color:#5b4ba8;font-weight:700}
 
 /* 날짜 섹션 구분선 */
@@ -419,7 +419,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
-  <button class="stab" id="stab-hot" data-st="hot" onclick="toggleStab('hot',this)">🔥 HOT</button>
 </div>
 
 <!-- 탭 -->
@@ -803,9 +802,36 @@ async function loadData() {
   }
   buildWeekTabs();
   renderList();
+  loadViewCounts();
 }
 
-// ── 상태 판별 ──
+// ── 조회수(카드 클릭) 집계: 전체 TOP50 정렬용 (최근 클릭 기준) ──
+window.__viewCounts={};
+async function loadViewCounts(){
+  try{
+    let rows=[];
+    for(let from=0; from<5000; from+=1000){
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/events?select=event_data&event_type=eq.card_click&order=visited_at.desc`,{
+        headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Range-Unit':'items','Range':`${from}-${from+999}`}
+      });
+      if(!res.ok && res.status!==206) break;
+      const page=await res.json();
+      rows=rows.concat(page);
+      if(page.length<1000) break;
+    }
+    const vc={};
+    rows.forEach(e=>{
+      const raw=e.event_data; if(!raw) return;
+      let id=null;
+      if(typeof raw==='string' && raw.charAt(0)==='{'){ try{ const o=JSON.parse(raw); if(o&&o.id!=null) id=parseInt(o.id,10); }catch(_){} }
+      else if(/^\d+$/.test(String(raw))) id=parseInt(raw,10);
+      if(id!=null && !isNaN(id)) vc[id]=(vc[id]||0)+1;
+    });
+    window.__viewCounts=vc;
+    // 전체(TOP50) 보고 있으면 다시 그려서 반영
+    if(fSt==='all' && !dayFilter && !fSearch) renderList();
+  }catch(e){ /* 조회수 못 불러와도 전체는 맘캘 우선 기본 정렬로 노출됨 */ }
+}
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
 function isMomcal(item){
   const ig=(item.insta||'').toLowerCase().replace('@','');
@@ -855,24 +881,24 @@ function getFiltered(dateStr){
   if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item)).sort(cmpDatePartner);
   if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpUpcoming);
-  if(fSt==='hot') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&effPartner(item)).sort(cmpHot);
 
-  // ALL 기본: 오늘 진행중 먼저 → 오픈 예정 순
-  const ongoing=DATA.filter(item=>{
-    if(isExpired(item))return false;
-    if(!filterCat(item))return false;
-    // 오늘 진행중: 오픈일 <= 오늘 <= 마감일
-    return item.openDate<=todayStr && realEnd(item)>=todayStr;
-  }).sort(cmpPartnerFirst);
-
-  const upcoming=DATA.filter(item=>{
-    if(isExpired(item))return false;
-    if(!filterCat(item))return false;
-    // 오픈 예정: 오픈일 > 오늘
-    return item.openDate>todayStr;
-  }).sort(cmpDatePartner);
-
-  return [...ongoing,...upcoming];
+  // 전체 = 조회수(클릭) 순 TOP50. 그 안에 못 든 맘캘린더(본인) 공구는 랜덤 위치에 끼워넣음(맨 앞 고정 X)
+  const vc=window.__viewCounts||{};
+  const views=it=>vc[it.id]||0;
+  const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item));
+  const byViews=[...inScope].sort((a,b)=>views(b)-views(a));
+  const top=byViews.slice(0,50);
+  const topIds=new Set(top.map(it=>it.id));
+  const missing=inScope.filter(it=>isMomcal(it)&&!topIds.has(it.id));
+  if(missing.length){
+    const R=window.__rand||(window.__rand={});
+    const rnd=id=>{ if(R[id]==null) R[id]=Math.random(); return R[id]; }; // id별 1회 고정 → 재렌더에도 위치 안정
+    missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
+      const pos=Math.floor(rnd(it.id)*(top.length+1));
+      top.splice(pos,0,it);
+    });
+  }
+  return top;
 }
 
 function filterCat(item){
@@ -919,7 +945,7 @@ function renderCard(item){
     </div>
     <div class="card-name">${item.name}</div>
     <div class="card-sellerline">${sellerLine}</div>
-    <span class="card-right">${stHtml}<span class="card-go">›</span></span>
+    <span class="card-right"><span onclick="event.stopPropagation();toggleSave(${item.id},this);return false;" style="font-size:15px;line-height:1;cursor:pointer;user-select:none">${isSaved(item.id)?'❤️':'🤍'}</span>${stHtml}<span class="card-go">›</span></span>
   </div>`;
 }
 
@@ -928,11 +954,9 @@ function updateStatCounts(){
   const open=DATA.filter(it=>!isExpired(it)&&isOpenToday(it)).length;
   const end=DATA.filter(it=>!isExpired(it)&&isEndToday(it)).length;
   const soon=DATA.filter(it=>!isExpired(it)&&isUpcoming(it)).length;
-  const hot=DATA.filter(it=>!isExpired(it)&&effPartner(it)).length;
   const eo=document.getElementById('stab-open'); if(eo) eo.textContent='오늘 오픈 '+open;
   const ee=document.getElementById('stab-end'); if(ee) ee.textContent='오늘 마감 '+end;
   const eu=document.getElementById('stab-upcoming'); if(eu) eu.textContent='예정 '+soon;
-  const eh=document.getElementById('stab-hot'); if(eh) eh.textContent='🔥 HOT '+hot;
 }
 
 function renderList(){
@@ -960,52 +984,11 @@ function renderList(){
     return;
   }
 
-  // 상태 필터 (오늘오픈/진행중/예정) 눌렸을 때
-  if(fSt!=='all'){
-    const arr=getFiltered(selWeekDate);
-    el.innerHTML=arr.length
-      ?arr.map(item=>renderCard(item)).join('')
-      :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
-    return;
-  }
-
-  // ALL 기본: 진행중 먼저, 그다음 오픈예정 날짜별
+  // 모든 탭(전체 TOP50 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
   const arr=getFiltered(selWeekDate);
-  const ongoing=arr.filter(item=>item.openDate<=todayStr&&realEnd(item)>=todayStr);
-  const upcoming=arr.filter(item=>item.openDate>todayStr);
-
-  if(!arr.length){
-    el.innerHTML=`<div class="empty">등록된 공구가 없어요 🙅</div>`;
-    return;
-  }
-
-  let html='';
-
-  // 진행중 섹션
-  if(ongoing.length){
-    html+=`<div class="date-section" id="section-today">
-      <div class="date-sep"><span class="date-sep-lbl">진행중 ${ongoing.length}건</span><span class="date-sep-line"></span></div>
-      ${ongoing.map(item=>renderCard(item)).join('')}
-    </div>`;
-  }
-
-  // 오픈예정 날짜별 그룹
-  const groups={};
-  upcoming.forEach(item=>{
-    if(!groups[item.openDate])groups[item.openDate]=[];
-    groups[item.openDate].push(item);
-  });
-  Object.keys(groups).sort().forEach(date=>{
-    const items=groups[date];
-    const d=strToDate(date);
-    const label=`📅 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) 오픈`;
-    html+=`<div class="date-section" id="section-${date}">
-      <div class="date-sep"><span class="date-sep-lbl">${label}</span><span class="date-sep-line"></span></div>
-      ${items.map(item=>renderCard(item)).join('')}
-    </div>`;
-  });
-
-  el.innerHTML=html;
+  el.innerHTML=arr.length
+    ?arr.map(item=>renderCard(item)).join('')
+    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
 }
 
 // 날짜탭 건수 - 오픈일 기준
@@ -1133,7 +1116,6 @@ function toggleStab(v,el){
   if(v==='live') el.classList.add('on-g');
   if(v==='upcoming') el.classList.add('on-u');
   if(v==='end') el.classList.add('on-e');
-  if(v==='hot') el.classList.add('on-h');
   if(v!=='all') trackEvent('status_tab', v);
   renderList();
   scrollToResults();
@@ -1741,6 +1723,18 @@ function trackCard(id){
     const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
     trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''}));
   }catch(e){ try{ trackEvent('card_click', JSON.stringify({id:id})); }catch(_){} }
+}
+
+// ── 찜(저장): 강한 관심 신호 수집 ──
+const SAVED_KEY='mc_saved';
+let savedSet=(function(){ try{ return new Set(JSON.parse(localStorage.getItem(SAVED_KEY)||'[]')); }catch(e){ return new Set(); } })();
+function isSaved(id){ return savedSet.has(id); }
+function toggleSave(id,elm){
+  const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
+  if(savedSet.has(id)){ savedSet.delete(id); trackEvent('unsave', JSON.stringify({id})); }
+  else{ savedSet.add(id); trackEvent('save', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''})); }
+  try{ localStorage.setItem(SAVED_KEY, JSON.stringify([...savedSet])); }catch(e){}
+  if(elm){ elm.textContent=savedSet.has(id)?'❤️':'🤍'; }
 }
 
 // ── 떠다니는 카톡 버튼 ──
