@@ -887,7 +887,7 @@ function getFiltered(dateStr){
     // TOP50 = 조회수(클릭) 순 50개. 그 안에 못 든 맘캘린더(본인) 공구는 랜덤 위치에 끼워넣음(맨 앞 고정 X)
     const vc=window.__viewCounts||{};
     const views=it=>vc[it.id]||0;
-    const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item));
+    const inScope=DATA.filter(item=>!isExpired(item)&&!isUpcoming(item)&&filterCat(item));
     const byViews=[...inScope].sort((a,b)=>views(b)-views(a));
     const top=byViews.slice(0,50);
     const topIds=new Set(top.map(it=>it.id));
