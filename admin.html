@@ -2051,10 +2051,11 @@ function applyCatMemory(items){
   });
 }
 // ── 🧹 분류 일괄 정리 (미리보기 → 선택/수정 → 적용) ──
-let catFixProposals=[];
+let catFixProposals=[], _cfVia='', _cfMajor='', _cfSearch='', _cfBulkMajor='', _cfBulkMinor='';
 function openCatFix(){
   const m=document.getElementById('catFixModal');
   m.style.display='flex';
+  _cfVia='';_cfMajor='';_cfSearch='';_cfBulkMajor='';_cfBulkMinor='';
   document.getElementById('catFixBody').innerHTML='<div style="padding:24px;text-align:center;color:#999">스캔 중... ⏳</div>';
   setTimeout(()=>{ computeCatFixProposals(); renderCatFix(); }, 30);
 }
@@ -2105,27 +2106,85 @@ function computeCatFixProposals(){
   }
   catFixProposals.sort((a,b)=>b.conf-a.conf);
 }
-function catFixSelectAll(on){ catFixProposals.forEach(p=>p._checked=on); renderCatFix(); }
-function catFixEditMajor(i,v){ if(!catFixProposals[i])return; catFixProposals[i].major=v; const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[v])?CATS_LIST[v]:[]; if(catFixProposals[i].minor&&!subs.includes(catFixProposals[i].minor)) catFixProposals[i].minor=''; renderCatFix(); }
+function cfMatch(p){
+  if(_cfVia && p.via!==_cfVia) return false;
+  if(_cfMajor && p.major!==_cfMajor) return false;
+  if(_cfSearch){ const q=_cfSearch.toLowerCase(); if(!((p.name||'').toLowerCase().includes(q))) return false; }
+  return true;
+}
+function cfUpdateStat(){ const st=document.getElementById('cfStat'); if(!st)return; const shown=catFixProposals.filter(cfMatch).length; const ck=catFixProposals.filter(p=>p._checked).length; st.textContent=`보임 ${shown} · 체크 ${ck} / 총 ${catFixProposals.length}`; }
+function catFixSelectAll(on){ catFixProposals.forEach(p=>{ if(cfMatch(p)) p._checked=on; }); cfRenderList(); }
+function cfSetVia(v){ _cfVia=(_cfVia===v?'':v); renderCatFix(); }
+function cfSetMajorFilter(v){ _cfMajor=v; renderCatFix(); }
+function cfSetBulkMajor(v){ _cfBulkMajor=v; _cfBulkMinor=''; renderCatFix(); }
+function cfBulkApply(){
+  if(!_cfBulkMajor){ alert('일괄 적용할 대분류를 먼저 고르세요.'); return; }
+  const targets=catFixProposals.filter(p=>p._checked && cfMatch(p));
+  if(!targets.length){ alert('체크된(그리고 현재 보이는) 항목이 없어요. 먼저 항목을 체크하세요.'); return; }
+  targets.forEach(p=>{ p.major=_cfBulkMajor; p.minor=_cfBulkMinor||''; });
+  alert(`${targets.length}건을 [${_cfBulkMajor}${_cfBulkMinor?(' / '+_cfBulkMinor):''}](으)로 바꿨어요. 검토 후 아래 '선택 적용'을 누르면 DB에 반영돼요.`);
+  renderCatFix();
+}
+function catFixEditMajor(i,v){ if(!catFixProposals[i])return; catFixProposals[i].major=v; const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[v])?CATS_LIST[v]:[]; if(catFixProposals[i].minor&&!subs.includes(catFixProposals[i].minor)) catFixProposals[i].minor=''; cfRenderList(); }
 function renderCatFix(){
   const el=document.getElementById('catFixBody');
   const n=catFixProposals.length;
   const cntEl=document.getElementById('catFixCount'); if(cntEl) cntEl.textContent = n?`· ${n}건 제안`:'· 변경할 항목 없음';
   if(!n){ el.innerHTML='<div style="padding:24px;text-align:center;color:#999">현재 DB가 학습 기준과 거의 일치해요.<br>바꿀 항목이 없어요 ✅</div>'; return; }
-  const majorOpts=(sel)=>Object.keys(CATS_LIST).map(m=>`<option value="${m}"${sel===m?' selected':''}>${m}</option>`).join('');
-  el.innerHTML=`<div style="display:flex;gap:6px;margin-bottom:8px;position:sticky;top:0;background:#fff;padding:4px 0">
-      <button onclick="catFixSelectAll(true)" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체 선택</button>
-      <button onclick="catFixSelectAll(false)" style="padding:5px 10px;background:#fff;color:#888;border:1px solid #eee;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체 해제</button>
-    </div>`+catFixProposals.map((p,i)=>{
+  const majorList=Object.keys(CATS_LIST);
+  const vias=[...new Set(catFixProposals.map(p=>p.via))];
+  const viaChip=(v,label)=>`<button onclick="cfSetVia('${v}')" style="padding:4px 9px;border-radius:14px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:${_cfVia===v?'#4A35A0':'#EEE9FF'};color:${_cfVia===v?'#fff':'#4A35A0'}">${label}</button>`;
+  const majorOptsF=`<option value="">전체 대분류</option>`+majorList.map(m=>`<option value="${m}"${_cfMajor===m?' selected':''}>→ ${m}</option>`).join('');
+  const bulkMajorOpts=`<option value="">대분류…</option>`+majorList.map(m=>`<option value="${m}"${_cfBulkMajor===m?' selected':''}>${m}</option>`).join('');
+  const bulkSubs=(_cfBulkMajor&&CATS_LIST[_cfBulkMajor])?CATS_LIST[_cfBulkMajor]:[];
+  const bulkMinorOpts=`<option value="">소분류…(비움)</option>`+bulkSubs.map(s=>`<option value="${escAttr(s)}"${_cfBulkMinor===s?' selected':''}>${escAttr(s)}</option>`).join('');
+  el.innerHTML=`
+    <div style="position:sticky;top:0;background:#fff;z-index:2;padding:6px 0 8px;border-bottom:1px solid #eee">
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+        ${viaChip('','전체')}
+        ${vias.includes('상품명')?viaChip('상품명','상품명'):''}
+        ${vias.includes('브랜드')?viaChip('브랜드','브랜드'):''}
+        ${vias.includes('이름')?viaChip('이름','같은 이름'):''}
+        ${vias.includes('수동(같은 이름)')?viaChip('수동(같은 이름)','수동'):''}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:7px">
+        <select onchange="cfSetMajorFilter(this.value)" style="flex:1;font-size:11px;border:1px solid #E5E0F5;border-radius:8px;padding:6px;font-family:inherit;background:#FAF8FF">${majorOptsF}</select>
+        <input value="${escAttr(_cfSearch)}" oninput="_cfSearch=this.value;cfRenderList()" placeholder="상품명 검색" style="flex:1;font-size:11px;border:1px solid #E5E0F5;border-radius:8px;padding:6px;font-family:inherit">
+      </div>
+      <div style="background:#F4F1FE;border-radius:9px;padding:7px 8px;margin-bottom:7px">
+        <div style="font-size:10px;color:#7A5FC0;font-weight:700;margin-bottom:4px">✅ 체크한 것 한꺼번에 바꾸기</div>
+        <div style="display:flex;gap:5px">
+          <select onchange="cfSetBulkMajor(this.value)" style="flex:1;min-width:0;font-size:11px;border:none;border-radius:7px;padding:6px;font-family:inherit;background:#fff;color:#4A35A0;font-weight:600">${bulkMajorOpts}</select>
+          <select onchange="_cfBulkMinor=this.value" style="flex:1;min-width:0;font-size:11px;border:none;border-radius:7px;padding:6px;font-family:inherit;background:#fff;color:#666;font-weight:600">${bulkMinorOpts}</select>
+          <button onclick="cfBulkApply()" style="background:#4A35A0;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;padding:6px 11px;cursor:pointer;font-family:inherit;white-space:nowrap">적용</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="catFixSelectAll(true)" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">보이는 것 전체선택</button>
+        <button onclick="catFixSelectAll(false)" style="padding:5px 10px;background:#fff;color:#888;border:1px solid #eee;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">해제</button>
+        <span id="cfStat" style="font-size:10px;color:#999;margin-left:auto"></span>
+      </div>
+    </div>
+    <div id="catFixList"></div>`;
+  cfRenderList();
+}
+function cfRenderList(){
+  const wrap=document.getElementById('catFixList'); if(!wrap) return;
+  const shown=[]; catFixProposals.forEach((p,i)=>{ if(cfMatch(p)) shown.push(i); });
+  cfUpdateStat();
+  if(!shown.length){ wrap.innerHTML='<div style="padding:20px;text-align:center;color:#bbb;font-size:12px">이 필터에 해당하는 제안이 없어요.</div>'; return; }
+  wrap.innerHTML=shown.map(i=>{
+    const p=catFixProposals[i];
     const subs=(typeof CATS_LIST!=='undefined'&&CATS_LIST[p.major])?CATS_LIST[p.major]:[];
+    const majorOpts=Object.keys(CATS_LIST).map(m=>`<option value="${m}"${p.major===m?' selected':''}>${m}</option>`).join('');
     const minorOpts=`<option value="">(소분류)</option>`+subs.map(s=>`<option value="${escAttr(s)}"${p.minor===s?' selected':''}>${escAttr(s)}</option>`).join('')+((p.minor&&!subs.includes(p.minor))?`<option value="${escAttr(p.minor)}" selected>${escAttr(p.minor)}</option>`:'');
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 2px;border-bottom:1px solid #f2f2f2">
-      <input type="checkbox" ${p._checked?'checked':''} onchange="catFixProposals[${i}]._checked=this.checked" style="margin-top:3px;width:15px;height:15px;accent-color:#4A35A0;flex-shrink:0">
+      <input type="checkbox" ${p._checked?'checked':''} onchange="catFixProposals[${i}]._checked=this.checked;cfUpdateStat()" style="margin-top:3px;width:15px;height:15px;accent-color:#4A35A0;flex-shrink:0">
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:#191919;word-break:break-all">${escAttr(p.name)} <span style="font-size:10px;color:#A38BFF;font-weight:600">· ${p.via} ${p.conf}%</span></div>
+        <div style="font-size:12px;font-weight:700;color:#191919;word-break:break-all">${escAttr(p.name)} <span style="font-size:10px;color:#A38BFF;font-weight:600">· ${escAttr(p.via)} ${p.conf}%</span></div>
         <div style="font-size:11px;color:#C0392B;margin:3px 0">현재 ${escAttr(p.curMajor)}/${escAttr(p.curMinor||'-')} →</div>
         <div style="display:flex;gap:6px">
-          <select onchange="catFixEditMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:7px;padding:6px 7px;font-family:inherit;cursor:pointer">${majorOpts(p.major)}</select>
+          <select onchange="catFixEditMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:7px;padding:6px 7px;font-family:inherit;cursor:pointer">${majorOpts}</select>
           <select onchange="catFixProposals[${i}].minor=this.value" style="flex:1;font-size:12px;font-weight:600;color:#666;background:#f5f5f5;border:none;border-radius:7px;padding:6px 7px;font-family:inherit;cursor:pointer">${minorOpts}</select>
         </div>
       </div>
