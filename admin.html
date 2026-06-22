@@ -2064,6 +2064,8 @@ function computeCatFixProposals(){
   if(!Array.isArray(allData)||!allData.length) return;
   const GENERIC=new Set(['유기농','프리미엄','국내산','수입산','무료','무료배송','정품','신상','신상품','한정','한정수량','균일가','오늘','오늘오픈','오픈','마감','임박','공구','공동구매','특가','할인','세일','초특가','역대급','대박','인기','강추','재입고','단독','최저가','best','new']);
   const firstTok=(name)=>normalize((name||'').trim().split(/\s+/)[0]||'');
+  const MAJOR_SET=new Set(Object.keys((typeof CATS_LIST!=='undefined'&&CATS_LIST)||{}));
+  const nameMajorToken=(name)=>{ const ts=(name||'').trim().split(/\s+/); for(const t of ts){ const tt=t.trim(); if(tt&&MAJOR_SET.has(tt)) return tt; } return null; };
   const nameGrp={}, brandRaw={};
   for(const d of allData){
     if(!d.name||!d.major) continue;
@@ -2092,10 +2094,11 @@ function computeCatFixProposals(){
     const nm=normalize(d.name);
     let target=null, via='';
     if(nameManual[nm]){ target={major:nameManual[nm].major, minor:nameManual[nm].minor, share:1}; via='수동(같은 이름)'; }
+    if(!target){ const nameSig=nameMajorToken(d.name); if(nameSig && nameSig!==d.major){ target={major:nameSig, minor:'', share:1, clearMinor:true}; via='상품명'; } }
     if(!target){ const ng=nameGrp[nm]; if(ng && ng.total>=2){ const t=dom(ng); if(t.share>=0.6){ target=t; via='이름'; } } }
     if(!target){ const b=brandRaw[firstTok(d.name)]; if(b && b.total>=2){ const t=dom(b); if(t.share>=0.6){ target=t; via='브랜드'; } } }
     if(!target) continue;
-    const tMinor=target.minor||d.minor||'';
+    const tMinor=target.clearMinor?'':(target.minor||d.minor||'');
     if(target.major!==d.major || (target.minor && target.minor!==(d.minor||''))){
       catFixProposals.push({id:d.id, name:d.name, curMajor:d.major, curMinor:d.minor||'', major:target.major, minor:tMinor, via, conf:Math.round((target.share||1)*100), _checked:true});
     }
