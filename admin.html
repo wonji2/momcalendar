@@ -1981,6 +1981,9 @@ function applyCatMemory(items){
   if(!Array.isArray(items)||!Array.isArray(allData)||!allData.length) return;
   const GENERIC=new Set(['유기농','프리미엄','국내산','수입산','무료','무료배송','정품','신상','신상품','한정','한정수량','균일가','오늘','오늘오픈','오픈','마감','임박','공구','공동구매','특가','할인','세일','초특가','역대급','대박','인기','강추','재입고','단독','최저가','best','new']);
   const firstTok=(name)=>normalize((name||'').trim().split(/\s+/)[0]||'');
+  const MAJOR_SET=new Set(Object.keys((typeof CATS_LIST!=='undefined'&&CATS_LIST)||{}));
+  // 상품명에 대분류 이름이 "독립 단어"로 들어있으면 그 대분류 반환 (예: "제이디홈드레싱 가구"→가구). "여행용","식품건조기"처럼 붙은 건 제외.
+  const nameMajorToken=(name)=>{ const ts=(name||'').trim().split(/\s+/); for(const t of ts){ const tt=t.trim(); if(tt && MAJOR_SET.has(tt)) return tt; } return null; };
   const exact={};   // normalize(name) → {id,major,minor,manual}
   const list=[];
   const brandRaw={}; // tok → {majors, minorByMajor, total}
@@ -2040,7 +2043,11 @@ function applyCatMemory(items){
         if(b){ hit=brandMemo[b]; via='brand'; }
       }
     }
-    if(hit && hit.major){ it.major=hit.major; if(hit.minor) it.minor=hit.minor; it._catMemo=via; }
+    if(hit && hit.major){
+      const nameSig=nameMajorToken(it.name), hitManual=!!hit.manual;
+      if(nameSig && nameSig!==hit.major && !hitManual){ it.major=nameSig; it.minor=''; it._catMemo='name'; }
+      else { it.major=hit.major; if(hit.minor) it.minor=hit.minor; it._catMemo=via; }
+    }
   });
 }
 // ── 🧹 분류 일괄 정리 (미리보기 → 선택/수정 → 적용) ──
@@ -2259,7 +2266,7 @@ function renderCrawlCards(){
           style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid ${nameBorder};border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
         <button onclick="deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:30px;height:30px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🗑️</button>
       </div>
-      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._sellerMulti?`<div style="font-size:11px;font-weight:700;color:#2C5E8A;background:#E8F1FB;padding:5px 8px;border-radius:6px;margin-bottom:7px">👤 같은 셀러 ${item._smCount}개 중 (보통 1개만 정상)</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${item._nameCleaned?`<div style="font-size:10px;color:#8A6D00;background:#FFF7E0;border-radius:6px;padding:4px 8px;margin-bottom:7px">✂️ 군더더기 정리됨 · 원래: ${escAttr(item._origName||'')}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
+      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._sellerMulti?`<div style="font-size:11px;font-weight:700;color:#2C5E8A;background:#E8F1FB;padding:5px 8px;border-radius:6px;margin-bottom:7px">👤 같은 셀러 ${item._smCount}개 중 (보통 1개만 정상)</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':item._catMemo==='name'?'상품명에 있는 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${item._nameCleaned?`<div style="font-size:10px;color:#8A6D00;background:#FFF7E0;border-radius:6px;padding:4px 8px;margin-bottom:7px">✂️ 군더더기 정리됨 · 원래: ${escAttr(item._origName||'')}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select class="cr-f" onchange="editCrawlMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
           ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
