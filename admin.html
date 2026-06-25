@@ -2495,8 +2495,8 @@ function renderMultiGrouped(){
     const idxs=g[k], first=crawlParsedData[idxs[0]], label=crawlSellerLabel(first), folded=crawlFold.has(k);
     const checkedN=idxs.filter(i=>crawlParsedData[i]._checked).length;
     const rows=folded?'':idxs.map(i=>{ const d=crawlParsedData[i];
-      return `<div onclick="crawlRowClick(${i},event)" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #EEF1F6;cursor:pointer;background:${d._checked?'#F3F7FC':'#fff'}">
-        <input type="checkbox" class="crawl-cb" data-idx="${i}" ${d._checked?'checked':''} onclick="event.stopPropagation();crawlParsedData[${i}]._checked=this.checked;this.closest('div').style.background=this.checked?'#F3F7FC':'#fff'" style="width:16px;height:16px;accent-color:#3F7CC0;cursor:pointer;flex-shrink:0">
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #EEF1F6;background:${d._checked?'#F3F7FC':'#fff'}">
+        <input type="checkbox" class="crawl-cb" data-idx="${i}" ${d._checked?'checked':''} onclick="crawlParsedData[${i}]._checked=this.checked;this.closest('div').style.background=this.checked?'#F3F7FC':'#fff'" style="width:16px;height:16px;accent-color:#3F7CC0;cursor:pointer;flex-shrink:0">
         <input value="${escAttr(d.name)}" oninput="editCrawl(${i},'name',this.value)" onclick="event.stopPropagation()" placeholder="상품명" style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#222;border:1px solid #E3E8F0;border-radius:7px;padding:6px 8px;font-family:inherit;outline:none">
         ${d._brandDup?`<span title="같은 브랜드 변형이라 자동으로 체크 해제됨 (필요하면 체크하세요)" style="font-size:9px;color:#B26B00;background:#FFF3E0;border-radius:5px;padding:2px 5px;white-space:nowrap;flex-shrink:0">🏷️중복</span>`:''}
         <span style="font-size:10px;color:#888;white-space:nowrap;flex-shrink:0">${escAttr(d.major||'미분류')}${d.minor?'·'+escAttr(d.minor):''}</span>
@@ -2817,7 +2817,7 @@ function resetImgAdj(){
   document.getElementById('bImgXVal').textContent='0%';
   document.getElementById('bImgYVal').textContent='0%';
   const box=document.getElementById('bImgAdjBox');
-  if(box){box.style.backgroundSize='cover';box.style.backgroundPosition='center';}
+  if(box){box.style.backgroundImage='';box.style.backgroundSize='cover';box.style.backgroundPosition='center';}
 }
 
 // 저장 시 조절값을 img_url에 포지션 정보로 저장
@@ -3064,6 +3064,8 @@ function openBannerAdd(){
   document.getElementById('bImgFile').value='';
   document.getElementById('bImgPreview').style.display='none';
   document.getElementById('bImgUploadTxt').style.display='block';
+  document.getElementById('bImgAdjust').style.display='none';
+  resetImgAdj();
   document.getElementById('bOrder').value=bannerData.length+1;
   document.getElementById('bActive').checked=true;
   updateBgPreview();
@@ -3091,6 +3093,8 @@ function openBannerEdit(id){
   }else{
     document.getElementById('bImgPreview').style.display='none';
     document.getElementById('bImgUploadTxt').style.display='block';
+    document.getElementById('bImgAdjust').style.display='none';
+    resetImgAdj();
   }
   document.getElementById('bOrder').value=b.sort_order||1;
   document.getElementById('bActive').checked=b.active!==false;
