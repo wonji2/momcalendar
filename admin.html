@@ -5755,6 +5755,7 @@ async function saveBulkEdit(){
   const insta=document.getElementById('beInsta').value.trim().replace('@','');
   const major=document.getElementById('beMajor').value;
   const minor=document.getElementById('beMinor').value.trim();
+  let _bfBulk=0;
 
   const payload={};
   if(influencer!=='') payload.influencer=influencer;
@@ -5787,6 +5788,7 @@ async function saveBulkEdit(){
       })
     ));
     targetInstaIds.forEach(instaId=>{ inflMapping[instaId]=influencer; });
+    for(const instaId of targetInstaIds){ _bfBulk+=await backfillInstaName(instaId, influencer); }
   }
 
   allData=allData.map(d=>ids.includes(d.id)?{...d,...payload}:d);
@@ -5795,7 +5797,7 @@ async function saveBulkEdit(){
   updateStats();
   renderInflQuickSelect();
   renderCards();
-  alert(`✅ ${ids.length}건 수정 완료! 한글명도 매핑 저장됐어요.`);
+  alert(`✅ ${ids.length}건 수정 완료! 한글명도 매핑 저장됐어요.`+(_bfBulk?`\n같은 아이디 이름 빈 공구 ${_bfBulk}건도 자동으로 채웠어요.`:''));
 }
 function toggleCheck(id,checked){
   if(checked) checkedIds.add(id);
@@ -5852,8 +5854,24 @@ function openEdit(id){
   document.getElementById('editModal').style.display='flex';
 }
 function closeEdit(){document.getElementById('editModal').style.display='none';}
+// 같은 인스타 아이디인데 이름이 빈 공구들을 한글명으로 자동 채움 (매칭 자가확산)
+async function backfillInstaName(insta, name){
+  if(!insta||!name) return 0;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?insta=eq.${encodeURIComponent(insta)}&or=(influencer.is.null,influencer.eq.)`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=representation'},
+      body:JSON.stringify({influencer:name})
+    });
+    if(!r.ok) return 0;
+    const j=await r.json(); const n=Array.isArray(j)?j.length:0;
+    if(n){ const filled=new Set(j.map(x=>x.id)); allData=allData.map(d=> filled.has(d.id)?{...d, influencer:name}:d); }
+    return n;
+  }catch(_){ return 0; }
+}
 async function saveEdit(){
   const id=document.getElementById('editId').value;
+  let _bfCount=0;
   const payload={
     influencer:document.getElementById('editInfluencer').value.trim(),
     insta:document.getElementById('editInsta').value.trim().replace('@',''),
@@ -5878,6 +5896,7 @@ async function saveEdit(){
       body:JSON.stringify({insta:payload.insta, influencer:payload.influencer})
     });
     inflMapping[payload.insta]=payload.influencer;
+    _bfCount=await backfillInstaName(payload.insta, payload.influencer);
 
     // 같은 한글명인데 인스타가 비어있는 다른 공구들
     const sameName=allData.filter(d=> d.id!==parseInt(id)
@@ -5905,7 +5924,7 @@ async function saveEdit(){
   }
   allData=allData.map(d=>d.id===parseInt(id)?{...d,...payload}:d);
   closeEdit();updateStats();renderInflQuickSelect();renderCards();
-  alert('수정 완료! ✅');
+  alert('수정 완료! ✅'+(_bfCount?`\n같은 아이디(@${payload.insta}) 이름 빈 공구 ${_bfCount}건도 자동으로 채웠어요.`:''));
 }
 
 // ── 삭제 ──
