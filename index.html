@@ -416,7 +416,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
-  <button class="stab" id="stab-top50" data-st="top50" onclick="toggleStab('top50',this)">🏆 TOP50</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
@@ -761,6 +760,8 @@ function cmpPartnerFirst(a,b){
 }
 
 async function loadData() {
+  const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); renderList(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
@@ -796,6 +797,7 @@ async function loadData() {
       endDate: r.end_date || '',
       payLink: (r.pay_link || '').trim(),
     })).filter(d => d.name && d.openDate);
+    try{ localStorage.setItem(_GGKEY, JSON.stringify({date:todayStr, ts:Date.now(), data:DATA})); }catch(_){}
     console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
     console.error('데이터 로드 실패:', e);
@@ -810,6 +812,7 @@ window.__viewCounts={};
 let _vcLoaded=false;
 function ensureViewCounts(){ if(_vcLoaded) return; _vcLoaded=true; loadViewCounts(); }  // TOP50 열 때만 1번
 async function loadViewCounts(){
+  return;   // TOP50(실시간 클릭순) 비활성화 — events 다운로드 제거(egress 절감)
   try{
     let rows=[];
     const _vcSince=new Date(Date.now()-21*86400000).toISOString();   // 최근 21일만(전송량 절약)
