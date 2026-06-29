@@ -4280,7 +4280,7 @@ function renderNeighborReportUI(){
     <div style="font-size:12px;font-weight:800;color:#4A35A0;margin-bottom:6px">🤝 이웃 인플루언서 성과 리포트</div>
     <div style="font-size:10.5px;color:#999;margin-bottom:10px;line-height:1.5">계약기간을 넣으면 그 기간의 클릭·찜·공구별 성과와 인플루언서 순위를 뽑아 보고용으로 복사할 수 있어요. 계약 정보는 이 브라우저에 저장돼요.</div>
     <div style="background:#FBF8FF;border:1px solid #ECE3F8;border-radius:10px;padding:11px 12px;margin-bottom:12px">
-      <input list="ngInstaList" id="ngInsta" placeholder="인스타 핸들 (@ 없이)" oninput="ngPrefill()" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:12px;font-family:inherit;margin-bottom:7px">
+      <input list="ngInstaList" id="ngInsta" placeholder="인스타 핸들 또는 이름 (@ 없이)" oninput="ngPrefill()" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:12px;font-family:inherit;margin-bottom:7px">
       <datalist id="ngInstaList">${dl}</datalist>
       <input id="ngName" placeholder="표시 이름 (선택)" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:12px;font-family:inherit;margin-bottom:7px">
       <div style="display:flex;gap:6px;margin-bottom:7px;align-items:center">
@@ -4326,8 +4326,33 @@ function ngQuick(ins){
   document.getElementById('ngFee').value=c.fee||'';
   generateNeighborReport();
 }
+async function ngResolveHandle(input){
+  const raw=(input||'').replace('@','').trim();
+  if(!raw) return '';
+  const low=raw.toLowerCase();
+  const handles=new Set(); const nameToHandle={};
+  (_evtInflList||[]).forEach(p=>{ if(p&&p.insta){ const h=String(p.insta).replace('@','').trim().toLowerCase(); handles.add(h); if(p.name) nameToHandle[String(p.name).trim().toLowerCase()]=h; } });
+  Object.entries(ngGetContracts()).forEach(([h,c])=>{ const hl=String(h).toLowerCase(); handles.add(hl); if(c&&c.name) nameToHandle[String(c.name).trim().toLowerCase()]=hl; });
+  if(handles.has(low)) return low;                 // 이미 핸들이면 그대로
+  if(nameToHandle[low]) return nameToHandle[low];  // 로컬에서 이름→핸들
+  try{                                             // sellers 테이블에서 이름/핸들로 조회
+    const q=encodeURIComponent(raw);
+    const r=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta&or=(name.eq.${q},insta.eq.${q})&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
+    if(r.ok){ const rows=await r.json(); if(rows&&rows[0]&&rows[0].insta) return String(rows[0].insta).replace('@','').trim().toLowerCase(); }
+  }catch(_){}
+  return low;                                      // 못 찾으면 입력값 그대로(기존 동작)
+}
 async function generateNeighborReport(){
-  const ins=(document.getElementById('ngInsta').value||'').replace('@','').trim().toLowerCase();
+  const ins=await ngResolveHandle(document.getElementById('ngInsta').value);
+  if(ins){                                         // 이름→핸들로 바뀌었으면 칸 갱신 + 이름 자동 채우기
+    const ie=document.getElementById('ngInsta'); if(ie && ie.value.replace('@','').trim().toLowerCase()!==ins) ie.value=ins;
+    const nE=document.getElementById('ngName');
+    if(nE && !nE.value.trim()){
+      let nm=''; (_evtInflList||[]).forEach(p=>{ if(p&&p.insta && String(p.insta).replace('@','').trim().toLowerCase()===ins && p.name) nm=p.name; });
+      const c0=ngGetContracts()[ins]; if(!nm && c0 && c0.name) nm=c0.name;
+      if(nm) nE.value=nm;
+    }
+  }
   const start=document.getElementById('ngStart').value, end=document.getElementById('ngEnd').value;
   const name=(document.getElementById('ngName').value||'').trim();
   const fee=document.getElementById('ngFee').value||'';
