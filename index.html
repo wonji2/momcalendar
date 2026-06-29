@@ -765,7 +765,7 @@ async function loadData() {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
     const fromDate = dOff(-3);
-    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc`;
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link`;
     // Supabase는 한 번에 최대 1000건만 반환 → Range 헤더로 끝까지 페이지네이션
     let rows = [];
     const PAGE = 1000;
@@ -803,16 +803,18 @@ async function loadData() {
   }
   buildWeekTabs();
   renderList();
-  loadViewCounts();
 }
 
 // ── 조회수(카드 클릭) 집계: 전체 TOP50 정렬용 (최근 클릭 기준) ──
 window.__viewCounts={};
+let _vcLoaded=false;
+function ensureViewCounts(){ if(_vcLoaded) return; _vcLoaded=true; loadViewCounts(); }  // TOP50 열 때만 1번
 async function loadViewCounts(){
   try{
     let rows=[];
-    for(let from=0; from<5000; from+=1000){
-      const res=await fetch(`${SUPABASE_URL}/rest/v1/events?select=event_data&event_type=eq.card_click&order=visited_at.desc`,{
+    const _vcSince=new Date(Date.now()-21*86400000).toISOString();   // 최근 21일만(전송량 절약)
+    for(let from=0; from<2000; from+=1000){
+      const res=await fetch(`${SUPABASE_URL}/rest/v1/events?select=event_data&event_type=eq.card_click&visited_at=gte.${_vcSince}&order=visited_at.desc`,{
         headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Range-Unit':'items','Range':`${from}-${from+999}`}
       });
       if(!res.ok && res.status!==206) break;
@@ -1116,6 +1118,7 @@ function toggleStab(v,el){
   // 이미 선택된 버튼(전체 제외)을 다시 누르면 전체로 해제
   if(v===fSt && v!=='all'){ v='all'; el=document.getElementById('stab-all'); }
   fSt=v;
+  if(v==='top50') ensureViewCounts();   // 클릭수는 TOP50 볼 때만 불러옴
   // 상태필터 누르면 날짜필터 해제 (둘은 같이 못 켬)
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   document.querySelectorAll('.stab').forEach(b=>b.className='stab');
@@ -1626,12 +1629,16 @@ paintCatChips();
 function buildMainSlider(){
   const slider=document.getElementById('mainSlider');
   slider.innerHTML=MAIN_BANNERS.map(b=>{
-    const bg=b.img_url
+    const isImg=!!b.img_url;
+    const bg=isImg
       ?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
       :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
+    // 이미지 배너는 화면에 보일 때만 로드(전송량 절약). data-bg에 넣어두고 표시 시 적용
+    const bgAttr=isImg?` data-bg="${bg.replace(/"/g,'&quot;')}"`:'';
+    const bgStyle=isImg?'#ECE8FA':bg;
     return`<div class="main-slide">
       <div class="main-slide-inner">
-        <div class="main-slide-bg" style="background:${bg}"></div>
+        <div class="main-slide-bg"${bgAttr} style="background:${bgStyle}"></div>
         <div class="main-slide-ov"></div>
         <div class="main-slide-cnt">
           <div class="main-slide-ttl">${b.title||''}</div>
@@ -1654,13 +1661,23 @@ function buildMainSlider(){
   document.getElementById('mainDots').innerHTML=
     MAIN_BANNERS.map((_,i)=>`<div class="main-dot${i===0?' on':''}" onclick="goMainBanner(${i})"></div>`).join('');
   mainIdx=0;
+  loadSlideBg(0); loadSlideBg(1%MAIN_BANNERS.length);   // 첫 배너(+다음) 이미지만 우선 로드
   clearInterval(window._mainTimer);
   window._mainTimer=setInterval(()=>goMainBanner((mainIdx+1)%MAIN_BANNERS.length),4000);
+}
+
+// 슬라이드가 실제로 보일 때만 배경 이미지 로드 (전송량 절약)
+function loadSlideBg(i){
+  const els=document.querySelectorAll('#mainSlider .main-slide-bg');
+  const el=els[i]; if(!el) return;
+  const d=el.getAttribute('data-bg');
+  if(d){ el.style.background=d; el.removeAttribute('data-bg'); }
 }
 
 function goMainBanner(i){
   if(!MAIN_BANNERS.length)return;
   mainIdx=i;
+  loadSlideBg(i); loadSlideBg((i+1)%MAIN_BANNERS.length);   // 현재+다음 슬라이드 이미지 로드
   const slider=document.getElementById('mainSlider');
   const slide=slider.querySelector('.main-slide');
   const step=slide?slide.getBoundingClientRect().width+10:0; // 슬라이드 너비 + gap
