@@ -233,7 +233,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
       <div class="stat"><div class="stat-n" id="stDone">0</div><div class="stat-l">마감</div></div>
     </div>
   </div>
-  <div class="seg">
+  <div class="seg" id="viewSeg">
     <button class="on" onclick="switchView('list',this)">📋 목록</button>
     <button onclick="switchView('cal',this)">📅 캘린더</button>
   </div>
@@ -241,6 +241,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
   <div id="listSec">
     <div class="sec">
       <div class="sec-title">내 공구 목록 <button class="btn-add" onclick="openAddModal()">＋ 공구 추가</button></div>
+      <div class="seg" id="listSeg" style="margin:0 0 10px">
+        <button class="on" onclick="setListFilter('active',this)">예정·진행중</button>
+        <button onclick="setListFilter('done',this)">마감</button>
+      </div>
       <div id="gList"><div class="empty">불러오는 중...</div></div>
     </div>
   </div>
@@ -473,19 +477,35 @@ function updateStats(){
 
 // ── 뷰 전환 ──
 function switchView(v,btn){
-  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   document.getElementById('listSec').style.display=v==='list'?'block':'none';
   document.getElementById('calSec').style.display=v==='cal'?'block':'none';
 }
 
 // ── 목록 렌더 ──
+let _listFilter='active'; // 'active'=예정·진행중 / 'done'=마감
+function setListFilter(f,btn){
+  _listFilter=f;
+  document.querySelectorAll('#listSeg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderList();
+}
 function renderList(){
   const today=new Date().toISOString().slice(0,10);
   const el=document.getElementById('gList');
-  if(!_data.length){el.innerHTML='<div class="empty">📭 등록된 공구가 없어요<br>공구 추가 버튼을 눌러보세요!</div>';return;}
-  // 오픈일 가까운 순(오름차순) 정렬
-  const sorted=[..._data].sort((a,b)=>(a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id);
+  const isDone=g=> !!(g.end_date && g.end_date<today);
+  const rows=_data.filter(g=> _listFilter==='done' ? isDone(g) : !isDone(g));
+  if(!rows.length){
+    el.innerHTML=_listFilter==='done'
+      ? '<div class="empty">📭 마감된 공구가 없어요</div>'
+      : '<div class="empty">📭 예정된 공구가 없어요<br>공구 추가 버튼을 눌러보세요!</div>';
+    return;
+  }
+  // 예정: 임박순(오름차순) / 마감: 최근순(내림차순)
+  const sorted=[...rows].sort((a,b)=> _listFilter==='done'
+    ? ((b.open_date||'').localeCompare(a.open_date||'')||b.id-a.id)
+    : ((a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id));
   el.innerHTML=sorted.map(g=>{
     const exp=g.end_date&&g.end_date<today;
     const pen=!g.approved;
@@ -577,9 +597,8 @@ function buildCal(){
   for(let i=first-1;i>=0;i--){ cells.push({date:new Date(y,m,-i),cur:false}); }
   for(let d=1;d<=last;d++){ cells.push({date:new Date(y,m,d),cur:true}); }
   let nextd=1;
-  while(cells.length%7!==0 || cells.length<42){
+  while(cells.length%7!==0){   // 마지막 날이 포함된 주까지만 (6주 강제 안 함)
     cells.push({date:new Date(y,m+1,nextd++),cur:false});
-    if(cells.length>=42 && cells.length%7===0) break;
   }
   const ds=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
 
