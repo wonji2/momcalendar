@@ -428,7 +428,7 @@ details summary::-webkit-details-marker{display:none}
           <div id="bImgPreview" style="display:none;margin-bottom:8px">
             <img id="bImgPreviewImg" style="max-width:100%;height:160px;object-fit:cover;border-radius:8px">
           </div>
-          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">어떤 사이즈든 자동 크롭 · JPG/PNG/WebP</span></div>
+          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">폰 원본도 자동 축소·크롭 (가로~1000px) · JPG/PNG/WebP</span></div>
           <input type="file" id="bImgFile" accept="image/*" style="display:none" onchange="previewBannerImg(this)">
         </div>
 
@@ -462,6 +462,11 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.6">
           어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️<br>
           권장: <b>960×320px</b> (3:1) · JPG/PNG/WebP 모두 가능
+        </div>
+        <div id="imgbbRow" style="font-size:11px;margin-top:7px;padding:8px 10px;background:#F0FBF4;border:1px solid #CDEBD8;border-radius:8px;line-height:1.6">
+          <span id="imgbbStatus">🖼️ 무료 이미지 호스팅(imgbb): 확인중…</span>
+          <button type="button" onclick="setImgbbKey()" style="margin-left:6px;padding:3px 9px;background:#fff;border:1px solid #B7E0C5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#1E7E45">🔑 키 설정/변경</button>
+          <br><span style="color:#5B8C6E">키를 한 번 넣어두면, 파일 업로드 시 imgbb(무료)로 올라가 Supabase 용량을 안 써요. (무료 가입 → api.imgbb.com)</span>
         </div>
       </div>
       <input id="bOrder" type="hidden" value="1">
@@ -2831,10 +2836,64 @@ function getImgPosition(){
   };
 }
 
+function imgbbKeyGet(){ return (localStorage.getItem('mc_imgbb_key')||'').trim(); }
+// 업로드 전 자동 축소: 가로 최대 maxW, 용량 목표 이하 JPG로 변환 (폰 원본도 안전)
+async function shrinkImage(file, maxW=1000, targetKB=300){
+  if(!file || !file.type || !file.type.startsWith('image/')) return file;
+  if(file.type==='image/gif') return file; // GIF는 애니메이션 보존 위해 그대로
+  try{
+    const dataUrl=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
+    const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=dataUrl; });
+    let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    const scale=Math.min(1, maxW/w);
+    const cw=Math.round(w*scale), ch=Math.round(h*scale);
+    const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+    cv.getContext('2d').drawImage(img,0,0,cw,ch);
+    let q=0.85, blob=null;
+    for(let i=0;i<6;i++){
+      blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',q));
+      if(!blob) break;
+      if(blob.size<=targetKB*1024 || q<=0.4) break;
+      q-=0.1;
+    }
+    if(!blob) return file;
+    // 원본보다 커졌으면(작은 PNG 등) 원본 사용
+    if(blob.size>=file.size && file.size<=targetKB*1024) return file;
+    return new File([blob], (file.name.replace(/\.[^.]+$/,'')||'banner')+'.jpg', {type:'image/jpeg'});
+  }catch(_){ return file; }
+}
+function updateImgbbStatus(){
+  const el=document.getElementById('imgbbStatus'); if(!el) return;
+  el.innerHTML = imgbbKeyGet()
+    ? '🖼️ 무료 이미지 호스팅(imgbb): <b style="color:#1E7E45">연결됨 ✅</b>'
+    : '🖼️ 무료 이미지 호스팅(imgbb): <b style="color:#C0392B">미설정</b> — 설정하면 무료 한도 절약';
+}
+function setImgbbKey(){
+  const v=prompt('imgbb API 키를 붙여넣으세요.\n(무료 가입: api.imgbb.com → Add API key)\n\n빈칸으로 저장하면 해제됩니다.', imgbbKeyGet());
+  if(v===null) return;
+  const k=v.trim();
+  if(k) localStorage.setItem('mc_imgbb_key',k); else localStorage.removeItem('mc_imgbb_key');
+  updateImgbbStatus();
+  alert(k?'imgbb 키 저장됐어요 ✅ 이제 배너 이미지가 imgbb로 올라가요.':'imgbb 키 해제됨 — Supabase로 업로드돼요.');
+}
 async function uploadBannerImg(){
-  const file=document.getElementById('bImgFile').files[0];
+  let file=document.getElementById('bImgFile').files[0];
   if(!file) return {url:null};
-  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+  // 폰 원본 등 큰 이미지는 업로드 전 자동 축소 (가로~1000px, ~300KB JPG)
+  file=await shrinkImage(file, 1000, 300);
+  // imgbb 키가 있으면 imgbb로 업로드 (무료 CDN, Supabase egress 안 씀)
+  const _imgbbKey=imgbbKeyGet();
+  if(_imgbbKey){
+    try{
+      const fd=new FormData(); fd.append('image', file);
+      const r=await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(_imgbbKey)}`,{method:'POST',body:fd});
+      const j=await r.json();
+      if(j&&j.success&&j.data&&(j.data.url||j.data.display_url)) return {url:j.data.url||j.data.display_url};
+      return {url:null,error:`imgbb 업로드 실패: ${(j&&j.error&&j.error.message)||r.status}. 키를 확인해주세요.`};
+    }catch(e){ return {url:null,error:'imgbb 오류: '+e.message}; }
+  }
+  // 키 없으면 기존 Supabase Storage 방식
+  const ext='jpg';
   const path=`banner_${Date.now()}.${ext}`;
   try{
     const res=await fetch(`${SB_URL}/storage/v1/object/banners/${path}`,{
@@ -2867,6 +2926,7 @@ async function loadBannerAdmin(){
   });
   bannerData=await res.json();
   renderBannerList();
+  updateImgbbStatus();
 }
 
 let bannerDragIdx=null;
