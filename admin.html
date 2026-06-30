@@ -5958,25 +5958,28 @@ async function saveEdit(){
     inflMapping[payload.insta]=payload.influencer;
     _bfCount=await backfillInstaName(payload.insta, payload.influencer);
 
-    // 같은 한글명인데 인스타가 비어있는 다른 공구들
+    // 같은 셀러(현재 이름 + 편집 전 원래 이름)인데 인스타가 비어있는 다른 공구들도 함께 연결
+    const _orig=allData.find(x=>x.id===parseInt(id));
+    const origName=((_orig&&_orig.influencer)||'').trim();
+    const targetNames=[...new Set([payload.influencer, origName].filter(Boolean))];
     const sameName=allData.filter(d=> d.id!==parseInt(id)
-      && (d.influencer||'').trim()===payload.influencer
+      && targetNames.includes((d.influencer||'').trim())
       && !(d.insta||'').trim());
-    if(sameName.length && confirm(`'${payload.influencer}' 이름의 인스타 미연결 공구가 ${sameName.length}개 더 있어요.\n모두 @${payload.insta} 로 함께 연결할까요?`)){
-      const enc=encodeURIComponent(payload.influencer);
+    if(sameName.length && confirm(`'${payload.influencer}' 셀러의 인스타 미연결 공구가 ${sameName.length}개 더 있어요.\n모두 @${payload.insta} (${payload.influencer}) 로 함께 연결할까요?`)){
+      const inList=targetNames.map(n=>`"${n.replace(/"/g,'')}"`).join(',');
       let okAll=true;
       try{
-        const r=await fetch(`${SB_URL}/rest/v1/gonggu?influencer=eq.${enc}&or=(insta.is.null,insta.eq.)`,{
+        const r=await fetch(`${SB_URL}/rest/v1/gonggu?influencer=in.(${encodeURIComponent(inList)})&or=(insta.is.null,insta.eq.)`,{
           method:'PATCH',
           headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=representation'},
-          body:JSON.stringify({insta:payload.insta})
+          body:JSON.stringify({insta:payload.insta, influencer:payload.influencer})
         });
         if(!r.ok) okAll=false;
         else { const j=await r.json(); if(!Array.isArray(j)) okAll=false; }
       }catch(_){ okAll=false; }
       if(okAll){
         const sameIds=new Set(sameName.map(s=>s.id));
-        allData=allData.map(d=> sameIds.has(d.id)?{...d, insta:payload.insta}:d);
+        allData=allData.map(d=> sameIds.has(d.id)?{...d, insta:payload.insta, influencer:payload.influencer}:d);
       }else{
         alert('⚠️ 일괄 연결 중 일부가 반영되지 않았어요. gonggu 테이블 권한(RLS)을 확인해주세요.');
       }
