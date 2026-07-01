@@ -244,6 +244,9 @@ details summary::-webkit-details-marker{display:none}
         <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#555">
           <input type="radio" name="crawlSite" value="kakao" style="accent-color:#4A35A0"> 💬 카카오톡
         </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#555">
+          <input type="radio" name="crawlSite" value="paste" style="accent-color:#4A35A0"> 📋 붙여넣기 파서
+        </label>
       </div>
       <button onclick="openCrawlSite()" style="width:100%;padding:11px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:16px">🔗 선택한 사이트 새 탭으로 열기</button>
 
@@ -2031,12 +2034,129 @@ function parseKakao(text, existingData, minD){
   results.dupCount=dupCnt;
   return results;
 }
+// ── 붙여넣기 파서 — 마감일 기준 텍스트 정리 (오픈일 = 마감일 − 3) ──
+//   블록 구조: 상품명(첫 줄) + @핸들 + 마감일.  '오늘마감!'/'마감!'/날짜헤더로 섹션 구분.
+//   @핸들을 앵커로 각 핸들당 상품 1개 추출(가장 견고). 핸들이 곧 insta → inflMapping으로 한글명 자동연결.
+//   변환: 오픈일 = 마감일 − 3,  end_date = 원문 마감일(= 오픈+3, 등록 규칙과 역산 일치).
+//   원문에 'X월X일 오픈'이 명시되면 그 오픈일을 우선.
+function parsePaste(text, existingData, minDate){
+  const KST=new Date(Date.now()+9*3600000);
+  const pad=n=>String(n).padStart(2,'0');
+  const todayStr=`${KST.getUTCFullYear()}-${pad(KST.getUTCMonth()+1)}-${pad(KST.getUTCDate())}`;
+  function ymd(m,d){
+    m=+m; d=+d; let y=KST.getUTCFullYear();
+    const gap=(KST - new Date(Date.UTC(y,m-1,d)))/86400000;
+    if(gap>180) y+=1;                              // 6개월+ 과거면 연초 롤오버
+    return `${y}-${pad(m)}-${pad(d)}`;
+  }
+  const DATE=/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/;
+  const HANDLE=/@([A-Za-z0-9_][A-Za-z0-9_.]*)/;
+  const OPENKW=/오\s*픈/;
+  const CLOSEKW=/마\s*감/;
+  const MARKER=/^(?:🔥|⏰|✅|📦|💌|‼️|❗|❕|•|·|▶|▷)?\s*(?:오늘\s*)?(?:마감|오픈|오픈예정|진행\s*중|종료|임박)\s*!*\s*$/;
+  const NOISE=/^(?:리스트|캘린더|전체|광고|AD|D-?\d*|D-day|더보기|공유|구매|바로\s*구매|링크|바로가기|상세보기)$/i;
+
+  // 한 줄에서 오픈/마감 날짜를 키워드 근접도로 분리 추출 (날짜 안의 '/'에 안 깨지게 위치 기반)
+  function extractDates(line){
+    let openD='', closeD='', anyD='';
+    const re=/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/g; let x;
+    while((x=re.exec(line))){
+      const dd=ymd(x[1],x[2]);
+      const ctx=line.slice(Math.max(0,x.index-7),x.index)+line.slice(re.lastIndex,re.lastIndex+7);
+      if(/오\s*픈/.test(ctx)){ if(!openD)openD=dd; }
+      else if(/마\s*감/.test(ctx)){ if(!closeD)closeD=dd; }
+      else if(!anyD) anyD=dd;
+    }
+    return {openD, closeD, anyD};
+  }
+
+  const lines=String(text||'').split('\n').map(l=>l.replace(/\r$/,'').trim()).filter(Boolean);
+  const meta=lines.map(t=>{
+    const h=t.match(HANDLE), ed=extractDates(t);
+    return {t, handle:h?h[1].replace(/\.+$/,''):'',
+            openD:ed.openD, closeD:ed.closeD, anyD:ed.anyD, hasDate:!!(ed.openD||ed.closeD||ed.anyD),
+            hasClose:CLOSEKW.test(t), hasOpen:OPENKW.test(t), isMarker:MARKER.test(t), isNoise:NOISE.test(t)};
+  });
+
+  // 레이아웃 자동감지: 핸들 '다음 줄'에 날짜가 오는 비율 → 'block'(블록마다 마감) vs 'section'(섹션 헤더에만)
+  let nH=0, nNextDate=0;
+  for(let i=0;i<meta.length;i++){ if(!meta[i].handle) continue; nH++; const nx=meta[i+1]; if(nx && nx.hasDate && !nx.handle) nNextDate++; }
+  const mode=(nH>0 && nNextDate*2>=nH)?'block':'section';
+
+  // 섹션 마감일 컨텍스트: 섹션 헤더(핸들 직후가 아닌 날짜/마감 줄)에서 아래로 흘려보냄
+  let curClose='';
+  for(let i=0;i<meta.length;i++){
+    const m=meta[i], prev=meta[i-1];
+    const isHeader=m.hasDate && !m.handle && !(mode==='block' && prev && prev.handle); // block모드: 핸들 직후 날짜는 블록 마감(헤더 아님)
+    if(isHeader) curClose=m.closeD||m.anyD||m.openD||curClose;
+    else if(m.isMarker && !m.hasDate && /오늘/.test(m.t) && /마감/.test(m.t)) curClose=todayStr; // '오늘마감!'(날짜없음)
+    m.curClose=curClose;
+  }
+
+  const results=[]; let dupCnt=0;
+  for(let i=0;i<meta.length;i++){
+    const m=meta[i];
+    if(!m.handle) continue;                          // @핸들 줄만 앵커
+    const insta=m.handle;
+
+    // 상품명: 핸들 줄의 @ 앞 텍스트 → 없으면 직전 유효 줄(다른 핸들 만나기 전까지)
+    let raw=m.t.replace(/[\(\[][^)\]]*[\)\]]/g,' ');
+    if(!raw.replace(/@[A-Za-z0-9_.]+/g,'').replace(/\s+/g,'').trim()){
+      for(let j=i-1;j>=0;j--){
+        const p=meta[j];
+        if(p.handle) break;                          // 앞 상품 영역 진입 → 중단
+        if(p.isMarker||p.isNoise) continue;
+        if(p.hasDate && !/[가-힣A-Za-z]/.test(p.t.replace(/[\d\/.월일\s!]|마감|오픈/g,''))) continue; // 순수 날짜줄
+        raw=p.t; break;
+      }
+    }
+    let name=String(raw||'')
+      .replace(/@[A-Za-z0-9_.]+/g,' ')                                   // 핸들 제거
+      .replace(/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/g,' ')        // 날짜 제거
+      .replace(/(?:오늘\s*)?(?:마감|오픈예정|오픈)\s*!*/g,' ')           // 마감/오픈 토큰 제거
+      .replace(/\s+/g,' ').trim();
+    name=cleanCrawlName(name);
+    if(!isValidName(name)) continue;
+
+    // 오픈/마감일: ① 핸들·상품명 줄의 명시 날짜 → ② (block모드) 다음 1~2줄 → ③ 섹션 마감일
+    let explicitOpen=(m.openD||''), closeDate=(m.closeD||'');
+    if(!closeDate && m.anyD && !m.hasOpen) closeDate=m.anyD;             // 핸들 줄의 무키워드 날짜 = 마감
+    if(meta[i-1]){ if(!explicitOpen && meta[i-1].openD) explicitOpen=meta[i-1].openD; if(!closeDate && meta[i-1].closeD) closeDate=meta[i-1].closeD; }
+    if(mode==='block' && !closeDate && !explicitOpen){
+      for(const s of [meta[i+1], meta[i+2]]){
+        if(!s||s.handle) break;
+        if(s.openD && !explicitOpen) explicitOpen=s.openD;
+        if(s.closeD||s.anyD){ closeDate=s.closeD||s.anyD; break; }
+        if(s.hasDate) break;
+      }
+    }
+    if(!closeDate) closeDate=m.curClose;
+
+    let openDate, endDate;
+    if(explicitOpen){ openDate=explicitOpen; endDate=(closeDate && closeDate>=openDate)?closeDate:fixEndDate(openDate,''); }
+    else if(closeDate){ openDate=addDays(closeDate,-3); endDate=closeDate; }  // 오픈 = 마감 − 3
+    else continue;                                   // 날짜 전혀 못 찾음 → 건너뜀
+
+    if(endDate < (minDate||todayStr)) continue;      // 마감 지난 건 제외
+
+    const influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:'';
+    const g=crawlGuessCat(name,'');
+    const dDb=crawlDbDup(existingData, name, insta, influencer, openDate);
+    const dBatch=results.some(r=>crawlPairDup({name, insta, influencer, open_date:openDate}, r));
+    const dup=dDb||dBatch; if(dup)dupCnt++;
+    results.push({influencer, insta, major:g.major, minor:g.minor||'', name, open_date:openDate, end_date:endDate,
+                  _conn:influencer?'auto':'none', _dup:dup, _dupReason:dup?(dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!dup});
+  }
+  results.dupCount=dupCnt;
+  return results;
+}
 function selectedCrawlSite(){
   const r=document.querySelector('input[name="crawlSite"]:checked');
   return r?r.value:'pangpang';
 }
 function openCrawlSite(){
   const site=selectedCrawlSite();
+  if(site==='paste'){ alert('붙여넣기 파서는 정리할 텍스트를 그대로 ③칸에 붙여넣으면 돼요. (열 사이트 없음)\n· 상품명 / @핸들 / 마감일 단위로 인식 → 오픈일 = 마감−3 자동 변환'); return; }
   if(site==='kakao'){ alert('카카오톡은 단톡방 대화를 .txt로 내보내서 그 내용을 아래 칸에 붙여넣으면 돼요. (열 사이트 없음)'); return; }
   window.open(site==='pangpang'?'https://09pangpang.com/':site==='navercafe'?'https://cafe.naver.com/momcal':'https://gonggumoa.com/','_blank');
 }
@@ -2315,7 +2435,7 @@ async function crawlParse(){
   }
 
   const minDate=(document.getElementById('crawlMinDate').value||'').trim();
-  const parsed=site==='pangpang'?parsePangpang(text,existing,minDate):site==='navercafe'?parseNaverCafe(text,existing,minDate):site==='kakao'?parseKakao(text,existing,minDate):parseGonggumoa(text,existing,minDate);
+  const parsed=site==='pangpang'?parsePangpang(text,existing,minDate):site==='navercafe'?parseNaverCafe(text,existing,minDate):site==='kakao'?parseKakao(text,existing,minDate):site==='paste'?parsePaste(text,existing,minDate):parseGonggumoa(text,existing,minDate);
   crawlParsedData=parsed;
   const cleanN=applyNameClean(crawlParsedData);   // 상품명 군더더기(n차·오늘오픈 등) 자동 정리
   applyCatMemory(crawlParsedData);   // 이전 등록 분류 우선 적용
