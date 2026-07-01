@@ -521,7 +521,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="modal">
       <div class="modal-title" id="sellerModalTitle">⭐ 셀러 추가</div>
       <input id="sId" type="hidden">
-      <div class="modal-field"><label>보여지는 이름 <span style="color:#C62828">*</span></label><input id="sName" type="text" placeholder="예: 또또맘"></div>
+      <div class="modal-field"><label>보여지는 이름 <span style="color:#C62828">*</span></label><input id="sName" type="text" list="sellerNameDL" autocomplete="off" oninput="sSellerHint()" placeholder="예: 또또맘"><datalist id="sellerNameDL"></datalist><div id="sSellerHint" style="font-size:11px;min-height:15px;margin-top:4px"></div></div>
       <div class="modal-field"><label>인스타 아이디 (@없이) <span style="color:#C62828">*</span></label><input id="sInsta" type="text" placeholder="예: ttobomom"></div>
       <div class="modal-field"><label>노출 시작일 (선택)</label><input id="sStart" type="date"></div>
       <div class="modal-field"><label>노출 종료일 (선택)</label><input id="sEnd" type="date"></div>
@@ -3442,7 +3442,29 @@ function openSellerAdd(){
   document.getElementById('sStart').value='';
   document.getElementById('sEnd').value='';
   document.getElementById('sActive').checked=true;
+  const _h=document.getElementById('sSellerHint'); if(_h)_h.textContent='';
   document.getElementById('sellerModal').style.display='flex';
+  ensureSellerNameDL();
+}
+// 이웃셀러 이름 자동완성용 목록 채우기 (공구 등록 폼의 _qRegName2Insta 재사용)
+async function ensureSellerNameDL(){
+  if(!Object.keys(_qRegName2Insta).length){ try{ await loadQReg(); }catch(_){}}
+  const dl=document.getElementById('sellerNameDL');
+  if(dl) dl.innerHTML=Object.keys(_qRegName2Insta).sort().map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">@${_qRegName2Insta[nm]}</option>`).join('');
+}
+// 한글명 입력 시 등록된 인스타 아이디 자동 매칭
+function sSellerHint(){
+  const raw=(document.getElementById('sName').value||'').trim();
+  const h=document.getElementById('sSellerHint');
+  const instaEl=document.getElementById('sInsta');
+  if(!raw){ if(h)h.textContent=''; return; }
+  const ig=_qRegName2Insta[raw];
+  if(ig){
+    if(instaEl) instaEl.value=ig;
+    if(h)h.innerHTML='<span style="color:#0F6E56;font-weight:700">🔗 연결: @'+ig+'</span>';
+  }else{
+    if(h)h.innerHTML='<span style="color:#C62828">⚠️ 등록 안 된 이름 — 아이디를 직접 입력하세요</span>';
+  }
 }
 function openSellerEdit(id){
   const s=sellerData.find(x=>x.id===id); if(!s)return;
@@ -3453,7 +3475,9 @@ function openSellerEdit(id){
   document.getElementById('sStart').value=s.start_date||'';
   document.getElementById('sEnd').value=s.end_date||'';
   document.getElementById('sActive').checked=s.active!==false;
+  const _h=document.getElementById('sSellerHint'); if(_h)_h.textContent='';
   document.getElementById('sellerModal').style.display='flex';
+  ensureSellerNameDL();
 }
 function closeSellerModal(){ document.getElementById('sellerModal').style.display='none'; }
 async function saveSeller(){
