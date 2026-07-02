@@ -865,8 +865,8 @@ CREATE POLICY "read_events" ON events
   <div class="modal">
     <div class="modal-title">✏️ 공구 수정</div>
     <input type="hidden" id="editId">
-    <div class="modal-field"><label>인플루언서 한글명</label><input id="editInfluencer" type="text"></div>
-    <div class="modal-field"><label>인스타그램 아이디</label><input id="editInsta" type="text"></div>
+    <div class="modal-field"><label>인플루언서 한글명</label><input id="editInfluencer" type="text" list="inflNameDL" autocomplete="off"><datalist id="inflNameDL"></datalist></div>
+    <div class="modal-field"><label>인스타그램 아이디</label><input id="editInsta" type="text" list="instaHandleDL" autocomplete="off"><datalist id="instaHandleDL"></datalist></div>
     <div class="modal-field"><label>대분류</label>
       <select id="editMajor" onchange="editSyncMinor()">
         <option>육아</option><option>리빙</option><option>인테리어</option>
@@ -6039,8 +6039,39 @@ async function toggleApprove(id,approved){
 
 // ── 수정 ──
 function editSyncMinor(){ const m=document.getElementById('editMajor').value; document.getElementById('editMinor').innerHTML=minorOptions(m,''); }
+function buildInflMap(){
+  // 기존 등록 데이터에서 인플루언서명 <-> 인스타 핸들 매핑 생성
+  const nameToInsta={}, handles={};
+  (allData||[]).forEach(r=>{
+    const nm=(r.influencer||'').trim(), ig=(r.insta||'').trim();
+    if(ig) handles[ig]=true;
+    if(nm && ig){ (nameToInsta[nm]=nameToInsta[nm]||{})[ig]=(nameToInsta[nm][ig]||0)+1; }
+  });
+  const map={};
+  Object.keys(nameToInsta).forEach(nm=>{ const c=nameToInsta[nm]; map[nm]=Object.keys(c).sort((a,b)=>c[b]-c[a])[0]; });
+  return {map, names:Object.keys(map).sort((a,b)=>a.localeCompare(b,'ko')), handles:Object.keys(handles).sort()};
+}
+function refreshInflAutocomplete(){
+  const {map, names, handles}=buildInflMap();
+  window.__inflMap=map;
+  const dlN=document.getElementById('inflNameDL');
+  if(dlN) dlN.innerHTML=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${(map[n]||'')}</option>`).join('');
+  const dlH=document.getElementById('instaHandleDL');
+  if(dlH) dlH.innerHTML=handles.map(h=>`<option value="${h.replace(/"/g,'&quot;')}"></option>`).join('');
+  // 인플루언서명 입력 시, 정확히 일치하는 이름이면 핸들칸 자동 채움(핸들칸이 비어있을 때만)
+  const inp=document.getElementById('editInfluencer');
+  if(inp && !inp.__acBound){
+    inp.__acBound=true;
+    inp.addEventListener('input',function(){
+      const v=this.value.trim(); const ig=window.__inflMap&&window.__inflMap[v];
+      const instaEl=document.getElementById('editInsta');
+      if(ig && instaEl && !instaEl.value.trim()) instaEl.value=ig;
+    });
+  }
+}
 function openEdit(id){
   const d=allData.find(d=>d.id===id);if(!d)return;
+  refreshInflAutocomplete();
   document.getElementById('editId').value=id;
   document.getElementById('editInfluencer').value=d.influencer||'';
   document.getElementById('editInsta').value=d.insta||'';
