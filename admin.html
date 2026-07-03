@@ -1796,7 +1796,7 @@ function parsePangpang(text, existingData, minDate) {
   function ymd(m,d){
     const mm=String(m).padStart(2,'0'), dd=String(d).padStart(2,'0');
     let y=today.getFullYear();
-    const gap=(today-new Date(`${y}-${mm}-${dd}`))/86400000; if(gap>180) y+=1; // 6개월+ 과거면 연말→연초 롤오버 // 과거면 내년 것으로
+    const gap=(today-new Date(`${y}-${mm}-${dd}`))/86400000; if(gap>180) y+=1;
     return `${y}-${mm}-${dd}`;
   }
   function mapCat(siteMajor, siteMinor, name){
@@ -1813,58 +1813,110 @@ function parsePangpang(text, existingData, minDate) {
   const rawLines = text.split('\n').map(l=>l.trim()).filter(Boolean);
 
   // ── 앞뒤 고정 잡음 자동 제거 ──
-  // 1) 첫 'thumbnail' 이전(사이트 헤더·날짜 네비·대분류/소분류 라벨 등)은 통째로 버림
   let startIdx = rawLines.findIndex(l=>/^(thumbnail|썸네일)$/i.test(l));
   let body = startIdx>=0 ? rawLines.slice(startIdx+1) : rawLines;
-  // 2) 푸터/네비 잡음 라인 제거 (상품 카드엔 안 나오는 고정 문구)
-  const JUNK=/^(모두 확인했어요|홈|인플루언서|오늘오픈|마이페이지|공구팡팡|공구모아|인스타그램 공동구매|AI 검색 플랫폼|AI 자동 분석|상품 추출|카테고리 분류|일정 분석|QR코드|모바일로 접속하기|QR코드를 스캔하세요|대분류|소분류|공구 오픈일정 캘린더.*|©.*|cs@.*|.*\d{4}년 \d{1,2}월$|오늘)$/;
+  const JUNK=/^(모두 확인했어요|홈|인플루언서|오늘오픈|마이페이지|공구팡팡|공구모아|인스타그램 공동구매|AI 검색 플랫폼|AI 자동 분석|상품 추출|카테고리 분류|일정 분석|QR코드|모바일로 접속하기|QR코드를 스캔하세요|대분류|소분류|공구 오픈일정 캘린더.*|©.*|cs@.*|.*\d{4}년 \d{1,2}월$|오늘|날마다 좋은 가격이 팡팡|서비스 소개|서비스 이용약관|개인정보 처리방침|공동구매 인플루언서 추가요청|All rights reserved|대표자.*|고객센터.*)$/;
   const lines = body.filter(l=>!JUNK.test(l));
 
-  // 카드 단위로 분할: 각 카드는 'thumbnail'(썸네일)로 끝남
-  const cards=[]; let cur=[];
-  for(const l of lines){
-    if(/^(thumbnail|썸네일)$/i.test(l)){ if(cur.length) cards.push(cur); cur=[]; }
-    else cur.push(l);
+  // ── 카드 분할: thumbnail 방식 OR 인스타 아이디 반복 방식 자동 감지 ──
+  const hasThumbnail = lines.some(l=>/^(thumbnail|썸네일)$/i.test(l));
+  const cards=[];
+
+  if(hasThumbnail){
+    // 기존 방식: thumbnail 구분자
+    let cur=[];
+    for(const l of lines){
+      if(/^(thumbnail|썸네일)$/i.test(l)){ if(cur.length) cards.push(cur); cur=[]; }
+      else cur.push(l);
+    }
+    if(cur.length) cards.push(cur);
+  } else {
+    // 새 방식: 인스타 아이디가 연속 두 번 나오는 줄을 카드 시작점으로 감지
+    // 형식: instaId\ninstaId\n팔로워 X만\n|\n약 N시간 전\n상품명\n상품명\n대분류\n>소분류\n상태\n날짜
+    let cur=[];
+    let i=0;
+    while(i<lines.length){
+      // 인스타 아이디 반복 패턴 감지 (현재 줄 = 다음 줄)
+      if(i+1<lines.length &&
+         /^[a-z0-9._]{2,30}$/.test(lines[i]) &&
+         lines[i]===lines[i+1]){
+        // 새 카드 시작 → 이전 카드 저장
+        if(cur.length) cards.push(cur);
+        cur=[lines[i]]; // 첫 번째 아이디만 유지 (두 번째 중복 제거)
+        i+=2; // 두 번째 아이디 건너뜀
+      } else {
+        // 상품명도 두 번 반복되는 경우 제거
+        if(i+1<lines.length && lines[i]===lines[i+1] && /[가-힣]/.test(lines[i])){
+          cur.push(lines[i]);
+          i+=2;
+        } else {
+          cur.push(lines[i]);
+          i++;
+        }
+      }
+    }
+    if(cur.length) cards.push(cur);
   }
-  if(cur.length) cards.push(cur);
+
+  // ── 잡음 라인 필터 (하단 카테고리 목록, "더 보기", "공구" 접미사 등) ──
+  const BOTTOM_JUNK=/공구$|^인기 공동구매|^공동구매 카테고리|^더 보기$/;
+  const cleanCards = cards.map(card => card.filter(l=>!BOTTOM_JUNK.test(l)));
 
   const results=[];
   let dupCnt=0;
-  for(const card of cards){
+  for(const card of cleanCards){
     // '>소분류' 줄과 바로 윗줄(대분류)
     const minorIdx=card.findIndex(l=>l.startsWith('>'));
     let siteMinor='', siteMajor='', name='';
     if(minorIdx>=1){
-      // 정상: 대분류/소분류 라벨 있음
       siteMinor=card[minorIdx].replace(/^>/,'').trim();
       siteMajor=card[minorIdx-1].trim();
-      name=card.slice(0, minorIdx-1).join(' ').trim();
+      // 상품명: 대분류 앞까지 (인스타 아이디, 팔로워, 시간, | 제외)
+      const nameParts=card.slice(0, minorIdx-1).filter(l=>
+        !/^[a-z0-9._]{2,30}$/.test(l) &&
+        !/^\d+(\.\d+)?\s*(만|천|k|K)$/.test(l) &&
+        !/^(약\s*)?\d+\s*(시간|분|일|주)\s*전$/.test(l) &&
+        l !== '|' && l !== '팔로워'
+      );
+      name=nameParts.join(' ').trim();
     } else {
-      // 카테고리 라벨 없는 카드: 첫 줄(들)을 상품명으로, 카테고리는 자동분류
-      // '#태그'·'내일 오픈 예정'·날짜·셀러 줄 전까지를 상품명으로
-      const stopIdx=card.findIndex(l=>l.startsWith('#')||/오픈 예정|^\d{1,2}\/\d{1,2}/.test(l));
-      name=card.slice(0, stopIdx>0?stopIdx:1).join(' ').trim();
+      const stopIdx=card.findIndex(l=>l.startsWith('#')||/오픈 예정|^\d{1,2}\/\d{1,2}/.test(l)||/^(오늘|어제|내일)\s*(오픈|마감)/.test(l));
+      const nameParts=card.slice(0, stopIdx>0?stopIdx:1).filter(l=>
+        !/^[a-z0-9._]{2,30}$/.test(l) &&
+        !/^\d+(\.\d+)?\s*(만|천|k|K)$/.test(l) &&
+        !/^(약\s*)?\d+\s*(시간|분|일|주)\s*전$/.test(l) &&
+        l !== '|' && l !== '팔로워'
+      );
+      name=nameParts.join(' ').trim();
     }
-    name = cleanCrawlName(name);                // 제목에서 별·괄호 제거 (항목은 유지)
-    if(!name || name.startsWith('#')) continue; // 상품명 잘린 카드 skip
+    name = cleanCrawlName(name);
+    if(!isValidName(name)) continue;
 
-    // 날짜 (범위 우선)
+    // 날짜 파싱 (범위 우선)
     let openDate='', endDate='';
     for(const l of card){
+      // "오늘 오픈", "어제 오픈", "N일 전 오픈" → 오늘/어제 기준 계산
+      if(/^오늘\s*(오픈|마감)/.test(l) && !openDate){ openDate=todayStr; continue; }
+      if(/^어제\s*오픈/.test(l) && !openDate){ openDate=ymd(today.getMonth()+1, today.getDate()-1); continue; }
+      const daysAgo=l.match(/^(\d+)일\s*전\s*오픈/);
+      if(daysAgo && !openDate){ const d=new Date(today); d.setDate(d.getDate()-parseInt(daysAgo[1])); openDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; continue; }
+      const daysLater=l.match(/^(\d+)일\s*후\s*오픈/);
+      if(daysLater && !openDate){ const d=new Date(today); d.setDate(d.getDate()+parseInt(daysLater[1])); openDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; continue; }
       const dr=l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)\s*~\s*(\d{1,2})\/(\d{1,2})/);
       if(dr){ openDate=ymd(dr[1],dr[2]); endDate=ymd(dr[3],dr[4]); break; }
       const ds=l.match(/(\d{1,2})\/(\d{1,2})\s*\([^)]*\)/);
       if(ds){ openDate=ymd(ds[1],ds[2]); break; }
     }
-    if(!openDate) continue;                // 날짜 없으면(아랫부분 잘림) skip
+    if(!openDate) continue;
     if(openDate < minD) continue;
 
-    // 인스타 아이디: 연속으로 같은 소문자 토큰이 반복되는 줄
+    // 인스타 아이디: 카드 첫 번째 소문자 영문 토큰
     let insta='';
-    for(let k=0;k<card.length-1;k++){
-      if(/^[a-z0-9._]{2,30}$/.test(card[k]) && card[k]===card[k+1]){ insta=card[k]; break; }
+    for(const l of card){
+      if(/^[a-z0-9._]{2,30}$/.test(l)){ insta=l; break; }
     }
-    if(!insta){ // 폴백: 팔로워수(9.2만 등) 바로 윗줄
+    // 폴백: 팔로워 바로 앞 줄
+    if(!insta){
       const fIdx=card.findIndex(l=>/^\d+(\.\d+)?\s*(만|천|k|K)$/.test(l));
       if(fIdx>0 && /^[a-z0-9._]{2,30}$/.test(card[fIdx-1])) insta=card[fIdx-1];
     }
@@ -2054,82 +2106,106 @@ function parsePaste(text, existingData, minDate){
   function ymd(m,d){
     m=+m; d=+d; let y=KST.getUTCFullYear();
     const gap=(KST - new Date(Date.UTC(y,m-1,d)))/86400000;
-    if(gap>180) y+=1;                              // 6개월+ 과거면 연초 롤오버
+    if(gap>180) y+=1;
     return `${y}-${pad(m)}-${pad(d)}`;
   }
   const DATE=/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/;
-  const HANDLE=/@([A-Za-z0-9_][A-Za-z0-9_.]*)/;
+  // 영문 핸들 + 한글 핸들 모두 감지 (@지후맘 l 공구... / @_s.anni_ 등)
+  const HANDLE=/@([A-Za-z0-9_가-힣][A-Za-z0-9_.가-힣\s]*?)(?:\s+(?:l|ㅣ|DM|댓글|프로필|링크|공구)|$)/;
+  const HANDLE_SIMPLE=/@([A-Za-z0-9_][A-Za-z0-9_.]*)/; // 영문 전용 폴백
   const OPENKW=/오\s*픈/;
   const CLOSEKW=/마\s*감/;
   const MARKER=/^(?:🔥|⏰|✅|📦|💌|‼️|❗|❕|•|·|▶|▷)?\s*(?:오늘\s*)?(?:마감|오픈|오픈예정|진행\s*중|종료|임박)\s*!*\s*$/;
-  const NOISE=/^(?:리스트|캘린더|전체|광고|AD|D-?\d*|D-day|더보기|공유|구매|바로\s*구매|링크|바로가기|상세보기)$/i;
+  const NOISE=/^(?:리스트|캘린더|전체|광고|AD|D-?\d*|D-day|더보기|공유|구매|바로\s*구매|링크|바로가기|상세보기|마감 공구.*더보기|마감일이 있는.*|홈|지역|일정|찜|알림|마감 달력.*)$/i;
+  // 🏷️브랜드명, 📍장소 줄은 상품명 아님 (브랜드/장소 정보로 사용)
+  const BRAND_LINE=/^[🏷️📍]\s*/;
 
-  // 한 줄에서 오픈/마감 날짜를 키워드 근접도로 분리 추출 (날짜 안의 '/'에 안 깨지게 위치 기반)
   function extractDates(line){
     let openD='', closeD='', anyD='';
     const re=/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/g; let x;
     while((x=re.exec(line))){
       const dd=ymd(x[1],x[2]);
-      const ctx=line.slice(Math.max(0,x.index-7),x.index)+line.slice(re.lastIndex,re.lastIndex+7);
+      const ctx=line.slice(Math.max(0,x.index-10),x.index)+line.slice(re.lastIndex,re.lastIndex+10);
       if(/오\s*픈/.test(ctx)){ if(!openD)openD=dd; }
-      else if(/마\s*감/.test(ctx)){ if(!closeD)closeD=dd; }
+      else if(/마\s*감|까지|자정/.test(ctx)){ if(!closeD)closeD=dd; }
       else if(!anyD) anyD=dd;
     }
+    // "7/3까지", "7/3 자정 마감" 같은 패턴도 마감으로
+    const closeMatch=line.match(/(\d{1,2})[\/월](\d{1,2})일?\s*(?:까지|자정|마감)/);
+    if(closeMatch && !closeD) closeD=ymd(closeMatch[1],closeMatch[2]);
     return {openD, closeD, anyD};
   }
 
   const lines=String(text||'').split('\n').map(l=>l.replace(/\r$/,'').trim()).filter(Boolean);
   const meta=lines.map(t=>{
-    const h=t.match(HANDLE), ed=extractDates(t);
-    return {t, handle:h?h[1].replace(/\.+$/,''):'',
+    // 핸들 감지: 한글 포함 + 영문 전용 순으로 시도
+    let handle='';
+    const hm=t.match(HANDLE);
+    if(hm) handle=hm[1].trim();
+    else { const hs=t.match(HANDLE_SIMPLE); if(hs) handle=hs[1].replace(/\.+$/,''); }
+
+    const ed=extractDates(t);
+    const isBrand=BRAND_LINE.test(t);
+    return {t, handle,
             openD:ed.openD, closeD:ed.closeD, anyD:ed.anyD, hasDate:!!(ed.openD||ed.closeD||ed.anyD),
-            hasClose:CLOSEKW.test(t), hasOpen:OPENKW.test(t), isMarker:MARKER.test(t), isNoise:NOISE.test(t)};
+            hasClose:CLOSEKW.test(t), hasOpen:OPENKW.test(t),
+            isMarker:MARKER.test(t), isNoise:NOISE.test(t), isBrand};
   });
 
-  // 레이아웃 자동감지: 핸들 '다음 줄'에 날짜가 오는 비율 → 'block'(블록마다 마감) vs 'section'(섹션 헤더에만)
+  // 레이아웃 자동감지
   let nH=0, nNextDate=0;
   for(let i=0;i<meta.length;i++){ if(!meta[i].handle) continue; nH++; const nx=meta[i+1]; if(nx && nx.hasDate && !nx.handle) nNextDate++; }
   const mode=(nH>0 && nNextDate*2>=nH)?'block':'section';
 
-  // 섹션 마감일 컨텍스트: 섹션 헤더(핸들 직후가 아닌 날짜/마감 줄)에서 아래로 흘려보냄
+  // 섹션 마감일 컨텍스트
   let curClose='';
   for(let i=0;i<meta.length;i++){
     const m=meta[i], prev=meta[i-1];
-    const isHeader=m.hasDate && !m.handle && !(mode==='block' && prev && prev.handle); // block모드: 핸들 직후 날짜는 블록 마감(헤더 아님)
+    const isHeader=m.hasDate && !m.handle && !(mode==='block' && prev && prev.handle);
     if(isHeader) curClose=m.closeD||m.anyD||m.openD||curClose;
-    else if(m.isMarker && !m.hasDate && /오늘/.test(m.t) && /마감/.test(m.t)) curClose=todayStr; // '오늘마감!'(날짜없음)
+    else if(m.isMarker && !m.hasDate && /오늘/.test(m.t) && /마감/.test(m.t)) curClose=todayStr;
     m.curClose=curClose;
   }
 
   const results=[]; let dupCnt=0;
   for(let i=0;i<meta.length;i++){
     const m=meta[i];
-    if(!m.handle) continue;                          // @핸들 줄만 앵커
+    if(!m.handle) continue;
     const insta=m.handle;
 
-    // 상품명: 핸들 줄의 @ 앞 텍스트 → 없으면 직전 유효 줄(다른 핸들 만나기 전까지)
+    // 상품명: 핸들 줄의 @ 앞 텍스트 → 없으면 직전 유효 줄 (브랜드줄·마커줄 건너뜀)
     let raw=m.t.replace(/[\(\[][^)\]]*[\)\]]/g,' ');
-    if(!raw.replace(/@[A-Za-z0-9_.]+/g,'').replace(/\s+/g,'').trim()){
+    if(!raw.replace(/@[A-Za-z0-9_.가-힣\s]+/g,'').replace(/\s+/g,'').trim()){
       for(let j=i-1;j>=0;j--){
         const p=meta[j];
-        if(p.handle) break;                          // 앞 상품 영역 진입 → 중단
-        if(p.isMarker||p.isNoise) continue;
-        if(p.hasDate && !/[가-힣A-Za-z]/.test(p.t.replace(/[\d\/.월일\s!]|마감|오픈/g,''))) continue; // 순수 날짜줄
+        if(p.handle) break;
+        if(p.isMarker||p.isNoise||p.isBrand) continue; // 🏷️/📍 브랜드줄 건너뜀
+        if(p.hasDate && !/[가-힣A-Za-z]/.test(p.t.replace(/[\d\/.월일\s!]|마감|오픈/g,''))) continue;
         raw=p.t; break;
       }
     }
     let name=String(raw||'')
-      .replace(/@[A-Za-z0-9_.]+/g,' ')                                   // 핸들 제거
-      .replace(/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/g,' ')        // 날짜 제거
-      .replace(/(?:오늘\s*)?(?:마감|오픈예정|오픈)\s*!*/g,' ')           // 마감/오픈 토큰 제거
+      .replace(/@[A-Za-z0-9_.가-힣\s]+/g,' ')
+      .replace(/(\d{1,2})\s*(?:\/|\.|월)\s*(\d{1,2})\s*일?/g,' ')
+      .replace(/(?:오늘\s*)?(?:마감|오픈예정|오픈)\s*!*/g,' ')
+      .replace(/[🏷️📍]/g,'')  // 브랜드/장소 이모지 제거
       .replace(/\s+/g,' ').trim();
     name=cleanCrawlName(name);
     if(!isValidName(name)) continue;
 
-    // 오픈/마감일: ① 핸들·상품명 줄의 명시 날짜 → ② (block모드) 다음 1~2줄 → ③ 섹션 마감일
+    // 오픈/마감일
     let explicitOpen=(m.openD||''), closeDate=(m.closeD||'');
-    if(!closeDate && m.anyD && !m.hasOpen) closeDate=m.anyD;             // 핸들 줄의 무키워드 날짜 = 마감
+    if(!closeDate && m.anyD && !m.hasOpen) closeDate=m.anyD;
     if(meta[i-1]){ if(!explicitOpen && meta[i-1].openD) explicitOpen=meta[i-1].openD; if(!closeDate && meta[i-1].closeD) closeDate=meta[i-1].closeD; }
+
+    // 직전 비핸들 줄들에서 날짜 보완 (설명 줄 "7/3까지" 등)
+    for(let j=i-1;j>=0 && j>=i-4;j--){
+      const p=meta[j]; if(p.handle) break;
+      if(!explicitOpen && p.openD) explicitOpen=p.openD;
+      if(!closeDate && (p.closeD||p.anyD)) closeDate=p.closeD||p.anyD;
+      if(explicitOpen||closeDate) break;
+    }
+
     if(mode==='block' && !closeDate && !explicitOpen){
       for(const s of [meta[i+1], meta[i+2]]){
         if(!s||s.handle) break;
@@ -2142,17 +2218,21 @@ function parsePaste(text, existingData, minDate){
 
     let openDate, endDate;
     if(explicitOpen){ openDate=explicitOpen; endDate=(closeDate && closeDate>=openDate)?closeDate:fixEndDate(openDate,''); }
-    else if(closeDate){ openDate=addDays(closeDate,-3); endDate=closeDate; }  // 오픈 = 마감 − 3
-    else continue;                                   // 날짜 전혀 못 찾음 → 건너뜀
+    else if(closeDate){ openDate=addDays(closeDate,-3); endDate=closeDate; }
+    else continue;
 
-    if(endDate < (minDate||todayStr)) continue;      // 마감 지난 건 제외
+    if(endDate < (minDate||todayStr)) continue;
 
-    const influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:'';
+    // 한글 핸들인 경우 insta를 빈값으로 (인스타 아이디 아님)
+    const isKorHandle=/[가-힣]/.test(insta);
+    const instaId=isKorHandle?'':insta;
+    const influencer=isKorHandle?insta:((inflMapping&&inflMapping[insta])?inflMapping[insta]:'');
+
     const g=crawlGuessCat(name,'');
-    const dDb=crawlDbDup(existingData, name, insta, influencer, openDate);
-    const dBatch=results.some(r=>crawlPairDup({name, insta, influencer, open_date:openDate}, r));
+    const dDb=crawlDbDup(existingData, name, instaId, influencer, openDate);
+    const dBatch=results.some(r=>crawlPairDup({name, insta:instaId, influencer, open_date:openDate}, r));
     const dup=dDb||dBatch; if(dup)dupCnt++;
-    results.push({influencer, insta, major:g.major, minor:g.minor||'', name, open_date:openDate, end_date:endDate,
+    results.push({influencer, insta:instaId, major:g.major, minor:g.minor||'', name, open_date:openDate, end_date:endDate,
                   _conn:influencer?'auto':'none', _dup:dup, _dupReason:dup?(dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!dup});
   }
   results.dupCount=dupCnt;
