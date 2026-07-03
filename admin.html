@@ -471,6 +471,11 @@ details summary::-webkit-details-marker{display:none}
           <button type="button" onclick="setImgbbKey()" style="margin-left:6px;padding:3px 9px;background:#fff;border:1px solid #B7E0C5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#1E7E45">🔑 키 설정/변경</button>
           <br><span style="color:#5B8C6E">키를 한 번 넣어두면, 파일 업로드 시 imgbb(무료)로 올라가 Supabase 용량을 안 써요. (무료 가입 → api.imgbb.com)</span>
         </div>
+        <div id="ghRow" style="font-size:11px;margin-top:7px;padding:8px 10px;background:#F5F1FC;border:1px solid #DDD0F0;border-radius:8px;line-height:1.6">
+          <span id="ghStatus">🚀 GitHub Pages 호스팅: 확인중…</span>
+          <button type="button" onclick="setGhToken()" style="margin-left:6px;padding:3px 9px;background:#fff;border:1px solid #C9B8EC;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#5B3F9E">🔑 토큰 설정/변경</button>
+          <br><span style="color:#7059A0">추천 ✨ 토큰을 넣으면 배너가 GitHub(가장 빠름·egress 무료)로 올라가요. GitHub 토큰이 있으면 imgbb보다 우선 사용돼요.</span>
+        </div>
       </div>
       <input id="bOrder" type="hidden" value="1">
       <div class="modal-field" style="display:flex;align-items:center;gap:10px">
@@ -992,7 +997,7 @@ restoreSession();
 // 연도 select 자동 세팅은 window.onload에서 처리
 var CATS_LIST={
   '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
-  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','욕실용품','테이블웨어','헬스케어'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
   '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
   '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
@@ -1126,6 +1131,7 @@ async function runAiParse(){
     if(/음료|차|즙|주스|커피/.test(n)) return{major:'식품',minor:'음료/차/즙'};
     if(/교구|학습|공부|책|도서|그림책|워크북/.test(n)) return{major:'육아',minor:'교구/교육'};
     if(/장난감|블록|레고|피규어|인형|놀이/.test(n)) return{major:'육아',minor:'장난감/놀이'};
+    if(/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|샤워기/.test(n)) return{major:'리빙',minor:'욕실용품'};
     if(/이유식|유아식|분유|이유/.test(n)) return{major:'육아',minor:'이유아식'};
     if(/아동|유아|베이비|키즈|어린이/.test(n)) return{major:'육아',minor:'의류잡화'};
     if(/유모차|카시트|힙시트/.test(n)) return{major:'육아',minor:'유모차카시트'};
@@ -1560,6 +1566,7 @@ function qGuessCat(n){
   if(/선크림|선쿠션|로션|크림|샴푸|틴트|마스크팩|화장품|미백|앰플|선스틱/.test(n))return{major:'뷰티',minor:'스킨케어'};
   if(/선풍기|제습기|드라이기|청소기|에어건|냉장고|가전|제조기|써큘레이터|실링팬|에어프라이어|인덕션/.test(n))return{major:'가전',minor:'생활가전'};
   if(/유모차|카시트|기저귀|분유|젖병|아기띠|하이체어|범퍼|쿨매트|냉감|방수매트|아기캐리어/.test(n))return{major:'육아',minor:'육아용품'};
+  if(/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|발매트|샤워기/.test(n))return{major:'리빙',minor:'욕실용품'};
   if(/텀블러|수저|숟가락|젓가락|컵|그릇|도마|냄비|주방|식기|커트러리|밧드|믹싱볼|조리|빨대컵|스푼/.test(n))return{major:'리빙',minor:'주방용품'};
   if(/우유|김$|버터|요거트|곰탕|국밥|두부|계란|달걀|과일|복숭아|옥수수|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈|올리브|어묵|돈까스/.test(n))return{major:'식품',minor:'간편식/밀키트'};
   return{major:'리빙',minor:'생활용품'};
@@ -1648,6 +1655,7 @@ function crawlGuessCat(name, minor) {
   if (/유모차|카시트|힙시트|아기띠|포대기/.test(n)) return {major:'육아',minor:'유모차카시트'};
   if (/침구|이불|베개|매트리스|토퍼|냉감패드|여름이불/.test(n)) return {major:'리빙',minor:'침구/패브릭'};
   if (/냄비|프라이팬|그릇|컵|텀블러|도마|칼|수저|밀폐용기/.test(n)) return {major:'리빙',minor:'주방용품'};
+  if (/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|샤워기/.test(n)) return {major:'리빙',minor:'욕실용품'};
   if (/청소|세제|물티슈|휴지|빨래|방향제|모기/.test(n)) return {major:'리빙',minor:'생활용품'};
   if (/소파|침대|책상|의자|수납|선반|옷걸이/.test(n)) return {major:'인테리어',minor:'가구'};
   if (/반려|강아지|고양이|펫|사료|간식/.test(n)) return {major:'반려동물',minor:'사료'};
@@ -2957,6 +2965,58 @@ function getImgPosition(){
 }
 
 function imgbbKeyGet(){ return (localStorage.getItem('mc_imgbb_key')||'').trim(); }
+// ── GitHub Pages 배너 업로드 (빠름 + egress 무료) ──
+function ghTokenGet(){ return (localStorage.getItem('mc_gh_token')||'').trim(); }
+function ghRepoGet(){ return (localStorage.getItem('mc_gh_repo')||'wonji2/momcalendar').trim(); }
+function ghBranchGet(){ return (localStorage.getItem('mc_gh_branch')||'main').trim(); }
+function setGhToken(){
+  const cur=ghTokenGet();
+  const t=prompt('GitHub 토큰(PAT)을 붙여넣으세요.\n(github.com → Settings → Developer settings → Fine-grained tokens\n → 이 저장소만, Contents: Read and write 권한)\n\n빈칸 저장 시 해제 → imgbb/Supabase로 업로드됩니다.', cur);
+  if(t===null) return;
+  const k=t.trim();
+  if(k) localStorage.setItem('mc_gh_token',k); else localStorage.removeItem('mc_gh_token');
+  if(k){
+    const repo=prompt('저장소 (형식: 사용자명/저장소명)', ghRepoGet())||ghRepoGet();
+    localStorage.setItem('mc_gh_repo',repo.trim());
+    const br=prompt('브랜치', ghBranchGet())||ghBranchGet();
+    localStorage.setItem('mc_gh_branch',br.trim());
+  }
+  updateImgbbStatus&&updateImgbbStatus();
+  alert(k?'GitHub 토큰 저장됨 ✅ 이제 배너가 GitHub(빠름·무료)로 올라가요.':'GitHub 토큰 해제됨.');
+}
+// base64 인코딩 (한글/바이너리 안전)
+function _fileToB64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{ const s=r.result; res(s.slice(s.indexOf(',')+1)); };
+    r.onerror=()=>rej(new Error('파일 읽기 실패'));
+    r.readAsDataURL(file);
+  });
+}
+async function uploadBannerGithub(file){
+  const token=ghTokenGet(); if(!token) return {url:null,skip:true};
+  const repo=ghRepoGet(), branch=ghBranchGet();
+  const ext=(file.type&&file.type.includes('png'))?'png':'jpg';
+  const path=`banners/banner_${Date.now()}.${ext}`;
+  try{
+    const b64=await _fileToB64(file);
+    const api=`https://api.github.com/repos/${repo}/contents/${path}`;
+    const r=await fetch(api,{
+      method:'PUT',
+      headers:{'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify({message:`banner upload ${path}`, content:b64, branch})
+    });
+    if(r.ok){
+      // GitHub Pages 커스텀 도메인 기준 URL (즉시 캐시버스트)
+      return {url:`https://momcalendar.com/${path}?v=${Date.now()}`};
+    }
+    const j=await r.json().catch(()=>({}));
+    let reason=`GitHub 업로드 실패 (${r.status}): ${(j&&j.message)||''}`;
+    if(r.status===401||r.status===403) reason='GitHub 토큰이 잘못됐거나 권한이 없어요. Contents: Read and write 권한을 확인하세요.';
+    if(r.status===404) reason='저장소/브랜치를 못 찾아요. 저장소명(사용자명/저장소명)과 브랜치를 확인하세요.';
+    return {url:null,error:reason};
+  }catch(e){ return {url:null,error:'GitHub 오류: '+e.message}; }
+}
 // 업로드 전 자동 축소: 가로 최대 maxW, 용량 목표 이하 JPG로 변환 (폰 원본도 안전)
 async function shrinkImage(file, maxW=1000, targetKB=300){
   if(!file || !file.type || !file.type.startsWith('image/')) return file;
@@ -2983,10 +3043,14 @@ async function shrinkImage(file, maxW=1000, targetKB=300){
   }catch(_){ return file; }
 }
 function updateImgbbStatus(){
-  const el=document.getElementById('imgbbStatus'); if(!el) return;
-  el.innerHTML = imgbbKeyGet()
+  const el=document.getElementById('imgbbStatus');
+  if(el) el.innerHTML = imgbbKeyGet()
     ? '🖼️ 무료 이미지 호스팅(imgbb): <b style="color:#1E7E45">연결됨 ✅</b>'
     : '🖼️ 무료 이미지 호스팅(imgbb): <b style="color:#C0392B">미설정</b> — 설정하면 무료 한도 절약';
+  const g=document.getElementById('ghStatus');
+  if(g) g.innerHTML = ghTokenGet()
+    ? '🚀 GitHub Pages 호스팅: <b style="color:#5B3F9E">연결됨 ✅</b> ('+ghRepoGet()+') — 배너가 여기로 올라가요'
+    : '🚀 GitHub Pages 호스팅: <b style="color:#C0392B">미설정</b> — 설정하면 가장 빠르고 egress 무료';
 }
 function setImgbbKey(){
   const v=prompt('imgbb API 키를 붙여넣으세요.\n(무료 가입: api.imgbb.com → Add API key)\n\n빈칸으로 저장하면 해제됩니다.', imgbbKeyGet());
@@ -3001,6 +3065,13 @@ async function uploadBannerImg(){
   if(!file) return {url:null};
   // 폰 원본 등 큰 이미지는 업로드 전 자동 축소 (가로~1000px, ~300KB JPG)
   file=await shrinkImage(file, 1000, 300);
+  // GitHub 토큰이 있으면 GitHub Pages로 업로드 (빠름 + egress 무료) — 최우선
+  if(ghTokenGet()){
+    const g=await uploadBannerGithub(file);
+    if(g.url) return {url:g.url};
+    if(g.error) return {url:null,error:g.error};
+    // skip이면 아래로 폴백
+  }
   // imgbb 키가 있으면 imgbb로 업로드 (무료 CDN, Supabase egress 안 씀)
   const _imgbbKey=imgbbKeyGet();
   if(_imgbbKey){
@@ -4886,8 +4957,13 @@ function relName(a,b){
   if(i>=3) return true;                                             // 앞 3글자 이상 공통
   return similarity(a,b)>=0.7;                                      // 글자 70% 이상 유사(어순만 다른 경우 등)
 }
+// 중복 아님으로 확정한 쌍(둘 다 유지) — localStorage에 영구 저장
+function dupOkPairsGet(){ try{ return JSON.parse(localStorage.getItem('mc_dup_ok')||'[]'); }catch(e){ return []; } }
+function dupOkKey(a,b){ return [a,b].sort((x,y)=>x-y).join('_'); }
+function isDupOk(a,b){ return dupOkPairsGet().includes(dupOkKey(a,b)); }
 function computeDupSet(){
   dupIdSet=new Set();
+  const okPairs=new Set(dupOkPairsGet());
   const groups={};
   allData.forEach(d=>{
     const sk=sellerKey(d);
@@ -4899,6 +4975,7 @@ function computeDupSet(){
     if(arr.length<2) return;
     for(let i=0;i<arr.length;i++){
       for(let j=i+1;j<arr.length;j++){
+        if(okPairs.has(dupOkKey(arr[i].id,arr[j].id))) continue;   // 사장님이 '중복 아님'으로 확정한 쌍은 제외
         if(relName(arr[i].name,arr[j].name)){ dupIdSet.add(arr[i].id); dupIdSet.add(arr[j].id); }
       }
     }
@@ -5596,6 +5673,7 @@ function renderDupPairs(q, major, dateFrom, dateTo){
       ${exactN?`<button onclick="selectDupExtras(true)" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🎯 완전 동일만 선택 (${exactN})</button>`:''}
       <button onclick="selectDupExtras(false)" style="padding:7px 12px;background:#C62828;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔴 각 그룹 1건 빼고 모두 선택 (${totalExtra})</button>
       <button onclick="clearDupSelection()" style="padding:7px 12px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">선택 해제</button>
+      <button onclick="resetDupOk()" style="padding:7px 12px;background:#fff;color:#999;border:1.5px solid #EBEBEB;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">↺ 확정이력 초기화</button>
     </div>
   </div>`;
 
@@ -5604,6 +5682,7 @@ function renderDupPairs(q, major, dateFrom, dateTo){
     const head=`<div style="background:#FFEBEE;padding:8px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700;color:#C62828">⚠️ 중복의심 그룹 ${gi+1} · ${g.length}건</span>
         <span style="font-size:11px;color:#999">${seller} · ${g[0].open_date||''}</span>
+        <button onclick="keepBothGroup(${gi})" style="margin-left:auto;padding:5px 11px;background:#1B7F3B;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✅ 둘 다 유지 (중복 아님)</button>
       </div>`;
     const rows=g.map((d,idx)=>{
       const tag=idx===0
@@ -5637,6 +5716,26 @@ function selectDupExtras(onlyExact){
 function clearDupSelection(){
   _dupGroups.forEach(g=>g.forEach(d=>checkedIds.delete(d.id)));
   updateBulkBar();
+  renderCards();
+}
+
+// 그룹 내 모든 쌍을 '중복 아님'으로 확정 → 이 항목들은 다시 중복의심에 안 뜸
+function keepBothGroup(gi){
+  const g=_dupGroups[gi]; if(!g) return;
+  if(!confirm(`이 ${g.length}건을 모두 "중복 아님"으로 확정할까요?\n(다시 중복의심에 뜨지 않게 됩니다)`)) return;
+  const pairs=new Set(dupOkPairsGet());
+  for(let i=0;i<g.length;i++) for(let j=i+1;j<g.length;j++) pairs.add(dupOkKey(g[i].id,g[j].id));
+  localStorage.setItem('mc_dup_ok', JSON.stringify([...pairs]));
+  g.forEach(d=>checkedIds.delete(d.id));
+  computeDupSet();
+  updateBulkBar&&updateBulkBar();
+  renderCards();
+}
+// 중복 아님 확정 이력 초기화(잘못 눌렀을 때)
+function resetDupOk(){
+  if(!confirm('"중복 아님"으로 확정한 이력을 모두 초기화할까요?\n(숨겼던 중복의심 항목들이 다시 나타납니다)')) return;
+  localStorage.removeItem('mc_dup_ok');
+  computeDupSet();
   renderCards();
 }
 
