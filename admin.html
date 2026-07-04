@@ -1634,8 +1634,14 @@ function crawlGuessCat(name, minor) {
   if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
   if (/냉장고|세탁기|건조기|음식물처리기|음처기/.test(n)) return {major:'가전',minor:'생활가전'};
   if (/드라이기|고데기|스트레이트너/.test(n)) return {major:'가전',minor:'생활가전'};
-  if (/비타민|영양제|유산균|오메가|콜라겐|홍삼|마그네슘|철분|칼슘|이뮨|면역|마이니|프로바이오|엘더베리|프로폴리스|빌베리|이노시톨|글루타치온/.test(n)) return {major:'식품',minor:'건강식품'};
-  if (/다이어트|식욕억제|지방분해/.test(n)) return {major:'식품',minor:'건강식품'};
+  if (/엘레나퀸|유산균|프로바이오|락토|프리바이오/.test(n) && !/헤모|철분/.test(n)) return {major:'건강',minor:'유산균'};
+  if (/오메가|epa|dha|알티지/.test(n)) return {major:'건강',minor:'오메가'};
+  if (/헤모|철분/.test(n)) return {major:'건강',minor:'철분제'};
+  if (/비타민|종합비타|멀티비타/.test(n)) return {major:'건강',minor:'비타민'};
+  if (/홍삼|면역|아연|프로폴리스|초유|엘더베리|빌베리|루테인|이뮨/.test(n)) return {major:'건강',minor:'홍삼/면역'};
+  if (/키즈.*영양|어린이.*영양|유아.*영양|키즈.*젤리|영양젤리/.test(n)) return {major:'건강',minor:'키즈영양제'};
+  if (/영양제|건강기능|건기식|콜라겐|마그네슘|칼슘|마이니|이노시톨|글루타치온|커큐민/.test(n)) return {major:'건강',minor:'건강기능성'};
+  if (/다이어트|식욕억제|지방분해/.test(n)) return {major:'건강',minor:'다이어트'};
   if (/샴푸|헤어|두피|탈모|트리트먼트|컨디셔너/.test(n)) return {major:'뷰티',minor:'헤어케어'};
   if (/선크림|크림|세럼|에센스|토너|앰플|마스크팩|클렌|미백|주름|스킨|썬|자외선|쿠션|팩트|bb|cc|프라이머|컨실러|파운데/.test(n)) return {major:'뷰티',minor:'스킨케어'};
   if (/바디워시|바디로션|핸드크림|바디|보디/.test(n)) return {major:'뷰티',minor:'바디케어'};
@@ -1710,6 +1716,10 @@ function cleanCrawlName(n){
     .replace(/\[[^\]]*\]/g,'')
     .replace(/(오늘|내일)\s*오픈/g,'')
     .replace(/오픈\s*예정/g,'')
+    .replace(/선물세트/g,'\u0000SET\u0000')  // '선물세트'(카테고리명)는 보존
+    .replace(/세트/g,'')                      // 나머지 '세트' 단어 제거
+    .replace(/\u0000SET\u0000/g,'선물세트')    // 보존한 것 복원
+    .replace(/·/g,' ')                        // 가운뎃점 → 공백
     .replace(/\s{2,}/g,' ')
     .trim();
 }
@@ -2687,7 +2697,16 @@ function renderCrawlCards(){
   const warnBar = warnCount>0
     ? `<div style="background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;padding:8px 11px;margin-bottom:8px;font-size:12px;color:#A86100;line-height:1.5">⚠️ <b>${warnCount}건</b>이 확인이 필요해요. 노란 테두리 항목의 상품명을 확인·수정하거나 🗑️로 빼고 등록하세요.</div>`
     : '';
+  // DB 셀러 목록 datalist (검색·선택용) — buildInflMap 재활용
+  const _im=(typeof buildInflMap==='function')?buildInflMap():{names:[],handles:[],map:{}};
+  window.__crawlInflMap=_im.map||{};
+  // 핸들→이름 역매핑 (핸들 선택 시 이름 자동완성용)
+  const _h2n={}; Object.keys(_im.map||{}).forEach(nm=>{ const h=_im.map[nm]; if(h&&!_h2n[h]) _h2n[h]=nm; });
+  window.__crawlHandleMap=_h2n;
+  const _crawlNameDL=`<datalist id="crawlSellerNameDL">${(_im.names||[]).map(nm=>`<option value="${escAttr(nm)}">${escAttr(_im.map[nm]||'')}</option>`).join('')}</datalist>`;
+  const _crawlHandleDL=`<datalist id="crawlSellerHandleDL">${(_im.handles||[]).map(h=>`<option value="${escAttr(h)}"></option>`).join('')}</datalist>`;
   document.getElementById('crawlCards').innerHTML=`
+    ${_crawlNameDL}${_crawlHandleDL}
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
       <input type="checkbox" id="crawlSelectAll" checked style="width:16px;height:16px;accent-color:#4A35A0;cursor:pointer" onchange="document.querySelectorAll('.crawl-cb').forEach(c=>{c.checked=this.checked; const d=crawlParsedData[+c.dataset.idx]; if(d)d._checked=this.checked;})">
       <label for="crawlSelectAll" style="font-size:12px;font-weight:700;color:#4A35A0;cursor:pointer">전체 선택</label>
@@ -2754,9 +2773,9 @@ function renderCrawlCards(){
         </select>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input class="cr-f" value="${escAttr(item.influencer||'')}" oninput="editCrawl(${i},'influencer',this.value)" placeholder="셀러명(한글)"
+        <input class="cr-f" value="${escAttr(item.influencer||'')}" list="crawlSellerNameDL" autocomplete="off" oninput="editCrawlSeller(${i},'influencer',this.value)" placeholder="셀러명(한글) 검색"
           style="flex:1;font-size:12px;color:#333;border:1px solid #eee;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
-        <input class="cr-f" value="${escAttr(item.insta||'')}" oninput="editCrawl(${i},'insta',this.value)" placeholder="인스타 아이디"
+        <input class="cr-f" value="${escAttr(item.insta||'')}" list="crawlSellerHandleDL" autocomplete="off" oninput="editCrawlSeller(${i},'insta',this.value)" placeholder="인스타 아이디 검색"
           style="flex:1;font-size:12px;color:#333;border:1px solid #eee;border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
       </div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -2801,6 +2820,33 @@ function editCrawl(i,field,val){
       const card=document.getElementById('crawlCard-'+i);
       if(card){ const w=crawlWarn(crawlParsedData[i]); card.style.borderLeftColor=w?'#FFA940':'#4A35A0'; }
     }
+  }
+}
+// 셀러명/아이디 입력 — DB 셀러 검색·선택 시 짝꿍 자동완성
+function editCrawlSeller(i,field,val){
+  if(!crawlParsedData[i]) return;
+  crawlParsedData[i][field]=val;
+  const v=(val||'').trim();
+  const nameMap=window.__crawlInflMap||{};    // 이름→핸들
+  const handleMap=window.__crawlHandleMap||{}; // 핸들→이름
+  if(field==='influencer' && nameMap[v]){
+    // DB에 있는 셀러명 선택 → 핸들칸이 비어있으면 자동 채움
+    if(!(crawlParsedData[i].insta||'').trim()){
+      crawlParsedData[i].insta=nameMap[v];
+      const inp=document.querySelector(`#crawlCard-${i} input[list="crawlSellerHandleDL"]`);
+      if(inp) inp.value=nameMap[v];
+    }
+    crawlParsedData[i]._conn='id';
+  } else if(field==='insta' && handleMap[v]){
+    // DB에 있는 핸들 선택 → 이름칸이 비어있으면 자동 채움
+    if(!(crawlParsedData[i].influencer||'').trim()){
+      crawlParsedData[i].influencer=handleMap[v];
+      const inp=document.querySelector(`#crawlCard-${i} input[list="crawlSellerNameDL"]`);
+      if(inp) inp.value=handleMap[v];
+    }
+    crawlParsedData[i]._conn='id';
+  } else if(field==='insta'){
+    crawlParsedData[i]._conn=v?'id':'none';
   }
 }
 // 개별 삭제
