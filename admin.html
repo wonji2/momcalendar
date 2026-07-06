@@ -1113,6 +1113,7 @@ async function runAiParse(){
     if(learned) return learned;
     // 2단계: 키워드 규칙 (fallback)
     const n=(name||'').toLowerCase();
+    if(/추피/.test(n)) return{major:'육아',minor:'책'};  // '추피'=육아 전집(특이단어, 최우선)
     if(/유산균|프로바이오|락토|프리바이오/.test(n)) return{major:'건강',minor:'유산균'};
     if(/오메가|epa|dha|알티지/.test(n)) return{major:'건강',minor:'오메가'};
     if(/철분/.test(n)) return{major:'건강',minor:'철분제'};
@@ -1629,6 +1630,7 @@ function crawlGuessCat(name, minor) {
     '책':{major:'육아',minor:'교구/교육'},
   };
   const base = catMap[minor] || {major:'리빙',minor:'생활용품'};
+  if (/추피/.test(n)) return {major:'육아',minor:'책'};  // '추피'=육아 전집(특이단어, 최우선)
   if (/선풍기|제습기|가습기|에어컨|공기청정기|냉풍기|에어서큘|손풍기/.test(n)) return {major:'가전',minor:'계절가전'};
   if (/청소기|로봇청소|물걸레/.test(n)) return {major:'가전',minor:'청소가전'};
   if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
