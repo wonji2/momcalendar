@@ -40,6 +40,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#F7F5FF;min-height:100vh}
 .chart-bar-bg{flex:1;background:#f0f0f0;border-radius:4px;height:18px;overflow:hidden}
 .chart-bar{height:100%;border-radius:4px;transition:.3s;display:flex;align-items:center;padding-left:6px}
 .chart-bar span{font-size:10px;font-weight:700;color:#fff}
+.ptab{flex-shrink:0;font-size:11.5px;font-weight:700;padding:6px 13px;border-radius:16px;background:#F2EEF9;border:1px solid transparent;color:#888;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s}
+.ptab.on{background:#602090;color:#fff}
+#periodTabs::-webkit-scrollbar{display:none}
 /* TOP 인플 */
 .top-section{background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .top-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5}
@@ -628,41 +631,30 @@ details summary::-webkit-details-marker{display:none}
       </div>
     </div>
 
-    <!-- ── 30일 일별 방문 추이 ── -->
+    <!-- ── 방문 추이 (기간 선택 통합) ── -->
     <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#222">📈 최근 30일 방문 추이</div>
-        <div id="d30avg" style="font-size:11px;color:#888">일평균 -</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:#222">📈 방문 추이</div>
+        <div id="periodGrowth" style="font-size:11px;color:#888"></div>
       </div>
-      <div id="chart30day"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
-    </div>
-
-    <!-- ── 12개월 월별 추이 ── -->
-    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#222">📅 12개월 월별 방문 추이</div>
-        <div id="momGrowth" style="font-size:11px;color:#888">전월 대비 -</div>
+      <!-- 기간 선택 버튼 -->
+      <div id="periodTabs" style="display:flex;gap:5px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none">
+        <button class="ptab" data-p="thisweek" onclick="selectPeriod('thisweek',this)">이번주</button>
+        <button class="ptab" data-p="lastweek" onclick="selectPeriod('lastweek',this)">저번주</button>
+        <button class="ptab" data-p="15d" onclick="selectPeriod('15d',this)">15일</button>
+        <button class="ptab on" data-p="1mo" onclick="selectPeriod('1mo',this)">한달</button>
+        <button class="ptab" data-p="lastmo" onclick="selectPeriod('lastmo',this)">저번달</button>
+        <button class="ptab" data-p="3mo" onclick="selectPeriod('3mo',this)">3개월</button>
+        <button class="ptab" data-p="6mo" onclick="selectPeriod('6mo',this)">6개월</button>
       </div>
-      <div id="chart12mo"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
-    </div>
-
-    <!-- ── 요일별 평균 방문 ── -->
-    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:12px">📊 요일별 평균 방문 패턴</div>
-      <div id="chartWeekday"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
-    </div>
-
-    <!-- ── 방문자 월별 상세 ── -->
-    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#222">📆 방문자 월별 상세</div>
-        <select id="monthPicker" onchange="loadMonthDetail()" style="padding:5px 8px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:11px;font-family:inherit;color:#333;background:#fff;outline:none"></select>
+      <!-- 요약 -->
+      <div style="display:flex;gap:14px;margin:6px 0 12px">
+        <div><div style="font-size:10px;color:#999">총 방문</div><div id="periodTotal" style="font-size:17px;font-weight:800;color:#602090">-</div></div>
+        <div><div style="font-size:10px;color:#999">일평균</div><div id="periodAvg" style="font-size:17px;font-weight:800;color:#333">-</div></div>
+        <div><div style="font-size:10px;color:#999">최고</div><div id="periodPeak" style="font-size:17px;font-weight:800;color:#333">-</div></div>
       </div>
-      <div id="monthDetailBar" style="margin-bottom:8px"><div style="color:#aaa;font-size:12px">선택하면 불러와요</div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px">
-        <div id="monthDetailTotal" style="font-size:11px;color:#888"></div>
-        <div id="monthDetailAvg" style="font-size:11px;color:#888"></div>
-      </div>
+      <!-- 차트 -->
+      <div id="periodChart"><div style="color:#aaa;font-size:12px">로딩 중...</div></div>
     </div>
 
     <!-- 🔔 알림 구독자 (소유 청중) -->
@@ -4094,37 +4086,95 @@ function renderHour(hc,curH){
 }
 
 async function loadVisitorTrends(){
+  // 기본: 한달
+  selectPeriod('1mo');
+  loadEventStats();
+}
+
+// 기간 정의: 시작일·종료일·묶음단위(day/week) 반환
+function _periodRange(p){
+  const now=new Date(); const end=new Date(now); let start=new Date(now); let unit='day'; let label='';
+  const dow=now.getDay(); // 0=일
+  if(p==='thisweek'){ start=new Date(now); start.setDate(now.getDate()-dow); label='이번주'; }
+  else if(p==='lastweek'){ start=new Date(now); start.setDate(now.getDate()-dow-7); end.setTime(new Date(now).setDate(now.getDate()-dow-1)); label='저번주'; }
+  else if(p==='15d'){ start.setDate(now.getDate()-14); label='최근 15일'; }
+  else if(p==='1mo'){ start.setDate(now.getDate()-29); label='최근 한달'; }
+  else if(p==='lastmo'){ start=new Date(now.getFullYear(),now.getMonth()-1,1); end.setTime(new Date(now.getFullYear(),now.getMonth(),0).getTime()); label='저번달'; }
+  else if(p==='3mo'){ start.setDate(now.getDate()-89); unit='week'; label='최근 3개월'; }
+  else if(p==='6mo'){ start.setDate(now.getDate()-179); unit='week'; label='최근 6개월'; }
+  return {start,end,unit,label};
+}
+
+async function selectPeriod(p, btn){
+  // 버튼 활성화
+  document.querySelectorAll('.ptab').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
+  const {start,end,unit,label}=_periodRange(p);
+  const sStr=start.toISOString().slice(0,10), eStr=end.toISOString().slice(0,10);
+  const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`};
+  document.getElementById('periodChart').innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
   try{
-    const now=new Date();
-    const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`};
-    const todayStr=now.toISOString().slice(0,10);
+    // 페이지네이션 전체 조회 (1000행 한도 대응)
+    let rows=[]; let from=0;
+    while(true){
+      const r=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${sStr}T00:00:00&visited_at=lte.${eStr}T23:59:59&select=visited_at&order=visited_at.asc`,
+        {headers:{...hdrs,'Range-Unit':'items','Range':`${from}-${from+999}`}});
+      const chunk=await r.json();
+      if(!Array.isArray(chunk)||!chunk.length) break;
+      rows=rows.concat(chunk);
+      if(chunk.length<1000) break;
+      from+=1000;
+    }
+    // 날짜별 카운트
+    const dayCount={};
+    let d=new Date(start);
+    while(d<=end){ dayCount[d.toISOString().slice(0,10)]=0; d.setDate(d.getDate()+1); }
+    rows.forEach(v=>{ const k=(v.visited_at||'').slice(0,10); if(dayCount[k]!==undefined) dayCount[k]++; });
+    // 요약
+    const dayVals=Object.values(dayCount);
+    const total=dayVals.reduce((a,b)=>a+b,0);
+    const avg=dayVals.length?Math.round(total/dayVals.length):0;
+    const peak=Math.max(...dayVals,0);
+    document.getElementById('periodTotal').textContent=total.toLocaleString();
+    document.getElementById('periodAvg').textContent=avg.toLocaleString();
+    document.getElementById('periodPeak').textContent=peak.toLocaleString();
+    // 묶음: week면 주단위 합산
+    let entries;
+    if(unit==='week'){
+      const wk={};
+      Object.entries(dayCount).forEach(([k,c])=>{
+        const dt=new Date(k); const ws=new Date(dt); ws.setDate(dt.getDate()-dt.getDay());
+        const key=ws.toISOString().slice(5,10); wk[key]=(wk[key]||0)+c;
+      });
+      entries=Object.entries(wk);
+    } else {
+      entries=Object.entries(dayCount).map(([k,c])=>[k.slice(5),c]);
+    }
+    renderPeriodChart(entries, unit, label);
+  }catch(e){
+    document.getElementById('periodChart').innerHTML='<div style="color:#E8445A;font-size:12px">불러오기 실패</div>';
+  }
+}
 
-    const d30=new Date(now);d30.setDate(d30.getDate()-29);
-    const r30=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d30.toISOString().slice(0,10)}T00:00:00&select=visited_at`,{headers:hdrs});
-    const v30=await r30.json();
-    const dm={};
-    for(let i=29;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);dm[d.toISOString().slice(0,10)]=0;}
-    (v30||[]).forEach(v=>{const d=v.visited_at.slice(0,10);if(dm[d]!==undefined)dm[d]++;});
-    render30Day(Object.entries(dm),todayStr);
-
-    const d12=new Date(now);d12.setFullYear(d12.getFullYear()-1);d12.setDate(1);
-    const r12=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d12.toISOString().slice(0,7)}-01T00:00:00&select=visited_at`,{headers:hdrs});
-    const v12=await r12.json();
-    const mm={};
-    for(let i=11;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);mm[d.toISOString().slice(0,7)]=0;}
-    (v12||[]).forEach(v=>{const m=v.visited_at.slice(0,7);if(mm[m]!==undefined)mm[m]++;});
-    render12Month(Object.entries(mm));
-
-    const d90=new Date(now);d90.setDate(d90.getDate()-89);
-    const r90=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${d90.toISOString().slice(0,10)}T00:00:00&select=visited_at`,{headers:hdrs});
-    const v90=await r90.json();
-    const dc=Array(7).fill(0),dd=Array(7).fill(0);
-    for(let i=0;i<90;i++){const d=new Date(now);d.setDate(d.getDate()-(89-i));dd[d.getDay()]++;}
-    (v90||[]).forEach(v=>{try{dc[new Date(v.visited_at).getDay()]++;}catch(e){}});
-    renderWeekday(dc.map((c,i)=>dd[i]?Math.round(c/dd[i]):0));
-
-    loadEventStats();
-  }catch(e){console.log('추이 로드 실패',e);}
+function renderPeriodChart(entries, unit, label){
+  const vals=entries.map(e=>e[1]); const max=Math.max(...vals,1);
+  const todayMD=new Date().toISOString().slice(5,10);
+  const bars=entries.map(([k,c])=>{
+    const h=Math.max(Math.round(c/max*62),2);
+    const isToday=(unit==='day'&&k===todayMD);
+    const isSun=unit==='day'&&(new Date('2026-'+k).getDay()===0);
+    return `<div style="flex:1;min-width:3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end" title="${k}: ${c.toLocaleString()}명">
+      <div style="width:100%;height:${h}px;background:${isToday?'#602090':isSun?'#FFB0C0':'#C5A8E8'};border-radius:2px 2px 0 0"></div>
+    </div>`;
+  }).join('');
+  const first=entries[0]?entries[0][0]:'', mid=entries[Math.floor(entries.length/2)]?entries[Math.floor(entries.length/2)][0]:'', last=entries[entries.length-1]?entries[entries.length-1][0]:'';
+  document.getElementById('periodChart').innerHTML=
+    `<div style="display:flex;align-items:flex-end;gap:2px;height:66px">${bars}</div>`+
+    `<div style="display:flex;justify-content:space-between;margin-top:5px">
+       <span style="font-size:9px;color:#aaa">${first}</span>
+       <span style="font-size:9px;color:#aaa">${mid}</span>
+       <span style="font-size:9px;color:#aaa">${last}</span>
+     </div>`+
+    (unit==='week'?'<div style="font-size:9px;color:#bbb;text-align:center;margin-top:3px">주 단위 합계</div>':'');
 }
 
 function render30Day(entries,todayStr){
