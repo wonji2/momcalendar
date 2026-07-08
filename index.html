@@ -147,8 +147,15 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .seller-scroll{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:0 14px;-webkit-overflow-scrolling:touch}
 .seller-scroll::-webkit-scrollbar{display:none}
 .seller-item{flex-shrink:0;cursor:pointer}
-.seller-ring{width:50px;height:50px;border-radius:50%;border:2px solid var(--main-l);display:flex;align-items:center;justify-content:center;box-sizing:border-box}
-.seller-ring span{font-size:10.5px;font-weight:700;text-align:center;line-height:1.2;padding:0 2px}
+.seller-ring{width:60px;height:60px;border-radius:50%;border:2px solid var(--main-l);background:var(--main-pale);display:flex;align-items:center;justify-content:center;box-sizing:border-box;position:relative}
+.seller-ring span{font-size:11px;font-weight:800;text-align:center;line-height:1;white-space:nowrap;letter-spacing:-.4px;color:var(--main)}
+/* 등급별: host(맘캘린더)=보라 꽉참, premium=골드 꽉참, normal=연보라 */
+.seller-ring.host{background:linear-gradient(135deg,var(--main-l),#4A1A78);border:none;box-shadow:0 4px 12px rgba(96,32,144,.35)}
+.seller-ring.host span{color:#fff}
+.seller-ring.premium{background:linear-gradient(135deg,#E8B93C,#C9962E);border:none;box-shadow:0 4px 12px rgba(201,150,46,.4)}
+.seller-ring.premium span{color:#fff}
+.seller-ring.premium .pbadge{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:800;background:#3a2a00;color:#E8B93C;padding:1px 7px;border-radius:10px;white-space:nowrap}
+.seller-divider{width:1px;align-self:center;height:44px;background:#E4DAF2;margin:0 3px;flex-shrink:0}
 
 /* 채널 바로가기 */
 .channel-row{display:flex;gap:8px;padding:12px;background:#fff}
@@ -1582,7 +1589,7 @@ loadBanners();
 const SELLER_COLORS=['#7B68EE','#D4537E','#1D9E75','#E6852A','#378ADD','#C2410C','#9333EA','#0EA5A4','#DB2777','#2563EB'];
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 // 항상 고정 노출되는 셀러 (맘캘린더)
-const FIXED_SELLER={name:'맘캘린더', insta:'momcal_'};
+const FIXED_SELLER={name:'맘캘린더', insta:'momcal_', grade:'host'};
 async function loadSellers(){
   let rows=[];
   try{
@@ -1613,16 +1620,28 @@ function renderSellers(rows){
   if(!zone||!scroll) return;
   if(!rows.length){ zone.style.display='none'; return; }
   zone.style.display='block';
-  shuffle(rows); // 항상 랜덤 순서
-  // 색 배열을 섞어 순서대로 배정 → 서로 겹치지 않음
-  const palette=shuffle([...SELLER_COLORS]);
-  scroll.innerHTML=rows.map((s,i)=>{
-    const color=palette[i % palette.length];
-    const handle=(s.insta||'').replace('@','');
+  // 맘캘린더(host)와 프리미엄은 앞으로 고정, 일반 이웃셀러만 랜덤 셔플
+  const norm=h=>(h||'').replace('@','').toLowerCase();
+  const host=rows.filter(s=>s.grade==='host'||norm(s.insta)===FIXED_SELLER.insta);
+  const prem=rows.filter(s=>s.grade==='premium'&&!(s.grade==='host'||norm(s.insta)===FIXED_SELLER.insta));
+  const normal=rows.filter(s=>s.grade!=='host'&&s.grade!=='premium'&&norm(s.insta)!==FIXED_SELLER.insta);
+  shuffle(normal); shuffle(prem);
+  const ordered=[...host,...prem,...normal];
+  const hasUpper=host.length||prem.length;
+  scroll.innerHTML=ordered.map((s,i)=>{
+    const handle=norm(s.insta);
     const url=handle?`https://www.instagram.com/${handle}`:(s.link||'#');
     const name=s.name||handle||'셀러';
-    return`<div class="seller-item" onclick="location.href='${url}'">
-      <div class="seller-ring" style="border-color:${color}"><span style="color:${color}">${name}</span></div>
+    const isHost=s.grade==='host'||handle===FIXED_SELLER.insta;
+    const isPrem=s.grade==='premium'&&!isHost;
+    const cls=isHost?'host':isPrem?'premium':'';
+    const badge=isPrem?'<span class="pbadge">PREMIUM</span>':'';
+    // 상위등급(host/premium) 다음에 일반이 처음 나오면 구분선
+    const prevUpper=i>0&&(ordered[i-1].grade==='host'||ordered[i-1].grade==='premium'||norm(ordered[i-1].insta)===FIXED_SELLER.insta);
+    const curUpper=isHost||isPrem;
+    const divider=(hasUpper&&prevUpper&&!curUpper)?'<div class="seller-divider"></div>':'';
+    return`${divider}<div class="seller-item" onclick="location.href='${url}'">
+      <div class="seller-ring ${cls}"><span>${name}</span>${badge}</div>
     </div>`;
   }).join('');
 }
