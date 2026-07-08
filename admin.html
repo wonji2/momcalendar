@@ -996,7 +996,7 @@ var CATS_LIST={
   '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
   '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
   '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
-  '여행':['호텔/숙소','항공권','패키지/투어','체험/티켓'],
+  '여행':['호텔/숙소','항공권','패키지/투어','체험/티켓','여행용품'],
   '반려동물':['강아지','고양이','사료','간식'],
 };
 
@@ -1135,6 +1135,8 @@ async function runAiParse(){
     // 숙소(여행): 리빙보다 먼저. 수건/파우치/캐리어 등 여행용품·수건류는 제외
     if(/잠옷|파자마/.test(n) && !/베개|이불/.test(n)) return{major:'패션',minor:'의류'};
     if(/워터파크|아쿠아리움|입장권|종일권|이용권|체험권|테마파크|놀이공원|물놀이장/.test(n) && !/장난감|블록|볼풀|샌드/.test(n)) return{major:'여행',minor:'체험/티켓'};
+    // 여행용품: 캐리어/기내용/여권 등. 아기띠·힙시트(육아), 펫캐리어(반려)는 제외 → 타고가는(라이드온) 캐리어는 여행용품
+    if(/캐리어|여행용품|기내용|여권케이스|여권지갑|러기지|캐리어벨트|여행가방|트래블/.test(n) && !/아기띠|힙시트|포대기|아기캐리어|신생아|펫|애견|강아지|고양이|반려/.test(n)) return{major:'여행',minor:'여행용품'};
     if(/풀빌라|펜션|리조트|글램핑|독채|빌리지|스테이케이션|리솜|소노벨|켄싱턴/.test(n)) return{major:'여행',minor:'호텔/숙소'};
     if(/(호텔|숙소|객실|1박|숙박)/.test(n) && !/(수건|타월|타올|파우치|캐리어|가운|슬리퍼|어메니티|비누|샴푸|칫솔|치약|팥빙수|이불|베개|매트)/.test(n)) return{major:'여행',minor:'호텔/숙소'};
     if(/침구|이불|베개|매트|커튼/.test(n)) return{major:'리빙',minor:'침구/패브릭'};
@@ -1661,6 +1663,8 @@ function crawlGuessCat(name, minor) {
   // 숙소(여행): 리빙 규칙보다 먼저 판정. 단 '수건/타월/파우치/캐리어' 등 여행용품·수건류는 숙소가 아니므로 제외
   if (/잠옷|파자마/.test(n) && !/베개|이불/.test(n)) return {major:'패션',minor:'의류'};
   if (/워터파크|아쿠아리움|입장권|종일권|이용권|체험권|테마파크|놀이공원|물놀이장/.test(n) && !/장난감|블록|볼풀|샌드/.test(n)) return {major:'여행',minor:'체험/티켓'};
+  // 여행용품: 캐리어/기내용/여권 등. 아기띠·힙시트(육아), 펫캐리어(반려)는 제외 → 타고가는(라이드온) 캐리어는 여행용품
+  if (/캐리어|여행용품|기내용|여권케이스|여권지갑|러기지|캐리어벨트|여행가방|트래블/.test(n) && !/아기띠|힙시트|포대기|아기캐리어|신생아|펫|애견|강아지|고양이|반려/.test(n)) return {major:'여행',minor:'여행용품'};
   if (/풀빌라|펜션|리조트|글램핑|독채|빌리지|스테이케이션|리솜|소노벨|한화리조트|켄싱턴/.test(n)) return {major:'여행',minor:'호텔/숙소'};
   if (/(호텔|숙소|객실|1박|숙박)/.test(n) && !/(수건|타월|타올|파우치|캐리어|가운|슬리퍼|어메니티|비누|샴푸|칫솔|치약|팥빙수|이불|베개|매트)/.test(n)) return {major:'여행',minor:'호텔/숙소'};
   if (/침구|이불|베개|매트리스|토퍼|냉감패드|여름이불/.test(n)) return {major:'리빙',minor:'침구/패브릭'};
@@ -2187,26 +2191,10 @@ function parsePaste(text, existingData, minDate){
       // 핸들 추출
       const handleLine=clean[handleIdx];
       let insta='', influencer='';
-      // 영문 소문자 아이디: @mymin0112, @_jenny_journey 등
-      const engMatch=handleLine.match(/@([a-z0-9_][a-z0-9_.]*)/);
-      // 한글 핸들: @하봄, @숨킴 | 김수연... 등
-      const korMatch=handleLine.match(/@([가-힣][가-힣A-Za-z0-9_\s·ㅣl|]*?)(?:\s*$|\s+(?:댓글|프로필|링크|DM|알림|구매|흔적|신청|예약|현장))/);
-      // 영문 대소문자 이름: @Kim Jaeil (리얼커플...) → 괄호/소문자 아이디 아닌 대문자로 시작하는 이름
-      const engNameMatch=handleLine.match(/@([A-Z][A-Za-z\s]+?)(?:\s*[\(（]|\s*$)/);
-      if(engMatch){
-        insta=engMatch[1];
-        influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:'';
-      } else if(korMatch){
-        influencer=korMatch[1].trim();
-        // 역방향 조회: 한글명으로 insta 찾기
-        const revKey=influencer.toLowerCase();
-        if(inflMappingReverse&&inflMappingReverse[revKey]) insta=inflMappingReverse[revKey];
-      } else if(engNameMatch){
-        influencer=engNameMatch[1].trim();
-        // 역방향 조회: 영문 이름으로 insta 찾기 (예: Kim Jaeil → real_couple0815)
-        const revKey=influencer.toLowerCase();
-        if(inflMappingReverse&&inflMappingReverse[revKey]) insta=inflMappingReverse[revKey];
-      }
+      const engMatch=handleLine.match(/@([A-Za-z0-9_][A-Za-z0-9_.]*)/);
+      const korMatch=handleLine.match(/@([가-힣A-Za-z0-9_][가-힣A-Za-z0-9_\s·ㅣl|]*?)(?:\s*$|\s+(?:댓글|프로필|링크|DM|알림|구매|흔적))/);
+      if(engMatch){ insta=engMatch[1]; influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:''; }
+      else if(korMatch){ influencer=korMatch[1].trim(); }
 
       // 상품명: 핸들 앞의 줄들 중 첫 번째 유효한 줄 (브랜드명·설명 제외)
       // 브랜드줄은 🏷️/📍 다음 줄 (단독 브랜드명)
@@ -2232,25 +2220,9 @@ function parsePaste(text, existingData, minDate){
       name=cleanCrawlName(name);
       if(!isValidName(name)) continue;
 
-      // 날짜: 브랜드 이모지 이전 줄 + @핸들 줄에서만 탐색
-      // 설명 줄(브랜드명 아래)은 제외 → "7/8~7/11 공구 진행" 같은 설명의 날짜 오파싱 방지
+      // 날짜: 전체 블록에서 탐색
       let openDate='', endDate='';
-      const dateSearchLines = lines.filter((l, idx) => {
-        // 브랜드/장소 이모지 줄은 제외
-        if(BRAND_EMOJI.test(l)) return false;
-        // 브랜드 이모지 다음 줄(브랜드명/장소명)은 제외
-        const prevL = lines[idx-1];
-        if(prevL && BRAND_EMOJI.test(prevL)) return false;
-        // 설명 줄 제외: 브랜드 이모지가 있고 핸들 줄 이전인 설명 줄들
-        // → 핸들 줄(@로 시작) 이후 줄도 제외
-        if(HANDLE_LINE.test(l)) return true; // 핸들 줄은 포함
-        // 순수 날짜 표현이 들어간 줄만 허용 (설명문 중 날짜는 제외)
-        // 설명 줄 판단: 한글 문장이 길고 날짜가 부가적으로 들어간 경우
-        const hasKorSentence = /[가-힣]{3,}.*\d{1,2}\/\d{1,2}/.test(l) || /\d{1,2}\/\d{1,2}.*[가-힣]{3,}/.test(l);
-        if(hasKorSentence) return false; // 한글 문장 + 날짜 조합 = 설명 줄 → 제외
-        return true;
-      });
-      for(const l of dateSearchLines){
+      for(const l of lines){
         const ed=extractDates(l);
         if(!openDate && ed.openD) openDate=ed.openD;
         if(!endDate && ed.closeD) endDate=ed.closeD;
@@ -5160,20 +5132,13 @@ async function loadMonthDetail(){
 
 // ── 데이터 로드 ──
 let inflMapping = {}; // insta → influencer 한글명 매핑
-let inflMappingReverse = {}; // influencer명(소문자) → insta 역방향
 
 async function loadInflMapping(){
   try{
     const rows=await fetchAllRows('influencers?select=insta,influencer');
     inflMapping={};
-    inflMappingReverse={};
-    rows.forEach(r=>{
-      if(r.insta&&r.influencer){
-        inflMapping[r.insta]=r.influencer;
-        inflMappingReverse[r.influencer.trim().toLowerCase()]=r.insta;
-      }
-    });
-  }catch(e){ inflMapping={}; inflMappingReverse={}; }
+    rows.forEach(r=>{ if(r.insta&&r.influencer) inflMapping[r.insta]=r.influencer; });
+  }catch(e){ inflMapping={}; }
 }
 
 async function loadData(){
