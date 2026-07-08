@@ -1142,7 +1142,8 @@ async function runAiParse(){
     if(/침구|이불|베개|매트|커튼/.test(n)) return{major:'리빙',minor:'침구/패브릭'};
     if(/생활용품|휴지|물티슈|세제|청소/.test(n)) return{major:'리빙',minor:'생활용품'};
     if(/가구|소파|침대|책상|의자/.test(n)) return{major:'인테리어',minor:'가구'};
-    if(/옷|의류|티셔츠|패딩|코트|원피스|바지|셔츠/.test(n)) return{major:'패션',minor:'의류'};
+    if(/속옷|언더웨어|이너웨어|보정속옷/.test(n)) return{major:'패션',minor:'이너웨어'};
+    if(/옷|의류|티셔츠|패딩|코트|원피스|바지|셔츠|니트|가디건|카디건|후드|맨투맨|스웨터|블라우스|자켓|재킷|점퍼|청바지|데님|슬랙스|치마|스커트|조끼/.test(n)) return{major:'패션',minor:'의류'};
     if(/신발|운동화|슬리퍼/.test(n)) return{major:'패션',minor:'신발'};
     if(/가방|백팩|숄더|크로스/.test(n)) return{major:'패션',minor:'가방'};
     if(/강아지|고양이|반려|펫|사료|간식/.test(n)) return{major:'반려동물',minor:'사료'};
@@ -1661,6 +1662,10 @@ function crawlGuessCat(name, minor) {
   if (/이유식|유아식|아기밥|아기과자|아기간식|이유/.test(n)) return {major:'육아',minor:'이유아식'};
   if (/유모차|카시트|힙시트|아기띠|포대기/.test(n)) return {major:'육아',minor:'유모차카시트'};
   // 숙소(여행): 리빙 규칙보다 먼저 판정. 단 '수건/타월/파우치/캐리어' 등 여행용품·수건류는 숙소가 아니므로 제외
+  // 의류/속옷 (아동·유아 의류는 육아로 · 피규어/장난감은 위에서 이미 분류됨)
+  if (/니트|가디건|카디건|후드|맨투맨|스웨터|블라우스|자켓|재킷|점퍼|코트|패딩|원피스|청바지|데님|슬랙스|치마|스커트|조끼|셔츠|티셔츠/.test(n) && /아기|유아|키즈|베이비|아동|주니어|신생아|어린이/.test(n)) return {major:'육아',minor:'의류잡화'};
+  if (/속옷|언더웨어|이너웨어|보정속옷/.test(n)) return {major:'패션',minor:'이너웨어'};
+  if (/니트|가디건|카디건|후드|맨투맨|스웨터|블라우스|자켓|재킷|점퍼|코트|패딩|원피스|청바지|데님|슬랙스|치마|스커트|조끼|셔츠|티셔츠/.test(n)) return {major:'패션',minor:'의류'};
   if (/잠옷|파자마/.test(n) && !/베개|이불/.test(n)) return {major:'패션',minor:'의류'};
   if (/워터파크|아쿠아리움|입장권|종일권|이용권|체험권|테마파크|놀이공원|물놀이장/.test(n) && !/장난감|블록|볼풀|샌드/.test(n)) return {major:'여행',minor:'체험/티켓'};
   // 여행용품: 캐리어/기내용/여권 등. 아기띠·힙시트(육아), 펫캐리어(반려)는 제외 → 타고가는(라이드온) 캐리어는 여행용품
@@ -5492,6 +5497,21 @@ function rowSyncMinor(selEl){
   const minSel=row.querySelector('.ct-minor');
   minSel.innerHTML=minorOptions(selEl.value,'');
 }
+// 제목 입력 시 자동 분류 (공구와 동일한 crawlGuessCat). 사용자가 이미 대분류를 바꿨으면 덮어쓰지 않음.
+function rowAutoCat(inp){
+  const row=inp.closest('.ct-row'); if(!row) return;
+  const title=(inp.value||'').trim(); if(!title) return;
+  if(typeof crawlGuessCat!=='function') return;
+  const maj=row.querySelector('.ct-major'); if(!maj) return;
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  if(maj.value!==firstMajor) return;                 // 수동 선택 존중
+  const g=crawlGuessCat(title,''); if(!g||!g.major) return;
+  if([...maj.options].some(o=>o.value===g.major)){
+    maj.value=g.major; rowSyncMinor(maj);
+    const min=row.querySelector('.ct-minor');
+    if(g.minor && min && [...min.options].some(o=>o.value===g.minor)) min.value=g.minor;
+  }
+}
 let _hdRowSeq=0, _exRowSeq=0;
 function addHdRow(){
   const firstMajor=Object.keys(CATS_LIST)[0];
@@ -5500,7 +5520,7 @@ function addHdRow(){
   div.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px';
   div.innerHTML=`
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
-      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-title" type="text" onchange="rowAutoCat(this)" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
       <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#FBEAE7;color:#993C1D;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
     </div>
     <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
@@ -5515,7 +5535,7 @@ function hdBulkParse(){
   const lines=(ta.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if(!lines.length){ alert('붙여넣은 내용이 없어요. 한 줄에 하나씩 붙여넣어 주세요.'); return; }
   [...document.querySelectorAll('#hdRows .ct-row')].forEach(r=>{ const t=r.querySelector('.ct-title').value.trim(), l=r.querySelector('.ct-link').value.trim(); if(!t&&!l) r.remove(); });
-  const gf=(typeof guessCat==='function')?guessCat:((typeof catGuess==='function')?catGuess:null);
+  const gf=(typeof crawlGuessCat==='function')?(t=>crawlGuessCat(t,'')):null;
   let n=0;
   lines.forEach(line=>{
     const m=line.match(/https?:\/\/\S+/);
@@ -5538,7 +5558,7 @@ function addExRow(){
   div.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px';
   div.innerHTML=`
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
-      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-title" type="text" onchange="rowAutoCat(this)" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
       <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#E1F5EE;color:#0A5D52;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
     </div>
     <input class="ct-link" type="url" placeholder="카페 글 링크 (예정이면 비워두세요)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
