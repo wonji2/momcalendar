@@ -1125,8 +1125,9 @@ async function runAiParse(){
     if(/수산|생선|새우|전복|김|미역/.test(n)) return{major:'식품',minor:'수산물/건해산'};
     if(/음료|차|즙|주스|커피/.test(n)) return{major:'식품',minor:'음료/차/즙'};
     if(/교구|학습|공부|책|도서|그림책|워크북/.test(n)) return{major:'육아',minor:'교구/교육'};
+    if(/블랭킷|블랭키|거즈블랭킷|밤부거즈|속싸개|스와들|겉싸개|사각싸개/.test(n)) return{major:'육아',minor:'육아용품'};
     if(/장난감|블록|레고|피규어|인형|놀이/.test(n)) return{major:'육아',minor:'장난감/놀이'};
-    if(/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|샤워기/.test(n)) return{major:'리빙',minor:'욕실용품'};
+    if(/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|발매트|욕실매트|규조토발|샤워기/.test(n)) return{major:'리빙',minor:'욕실용품'};
     if(/이유식|유아식|분유|이유/.test(n)) return{major:'육아',minor:'이유아식'};
     if(/아동|유아|베이비|키즈|어린이/.test(n)) return{major:'육아',minor:'의류잡화'};
     if(/유모차|카시트|힙시트/.test(n)) return{major:'육아',minor:'유모차카시트'};
@@ -1652,6 +1653,7 @@ function crawlGuessCat(name, minor) {
   if (/신발|운동화|슬리퍼|샌들|부츠|크록스/.test(n)) return {major:'패션',minor:'신발'};
   if (/가방|백팩|숄더|크로스백|에코백|클러치/.test(n)) return {major:'패션',minor:'가방'};
   if (/양산|선글라스|모자|주얼리|귀걸이|목걸이|반지|팔찌/.test(n)) return {major:'패션',minor:'액세서리'};
+  if (/발매트|욕실매트|규조토매트|규조토발/.test(n)) return {major:'리빙',minor:'욕실용품'};
   if (/버터/.test(n) && !/땅콩버터|피넛|버터쿠키|버터링|버터와플|버터바|버터맥주|버터맛|버터구이|버터갈릭|버터팝/.test(n)) return {major:'식품',minor:'유제품'};
   if (/만두|냉면|라면|즉석|밀키트|간편식|떡볶이|파스타|국수/.test(n)) return {major:'식품',minor:'간편식/밀키트'};
   if (/과일|딸기|수박|참외|야채|채소|고구마|감자|옥수수/.test(n)) return {major:'식품',minor:'과일/야채'};
@@ -1662,6 +1664,7 @@ function crawlGuessCat(name, minor) {
   if (/음료|주스|차|즙|커피|에이드|이온/.test(n)) return {major:'식품',minor:'음료/차/즙'};
   if (/간장|된장|고추장|소스|오일|올리브유/.test(n)) return {major:'식품',minor:'장류/오일/소스'};
   if (/교구|학습|한글|영어|그림책|워크북|퍼즐|보드게임|블록|레고|스터디|검정시험/.test(n)) return {major:'육아',minor:'교구/교육'};
+  if (/블랭킷|블랭키|거즈블랭킷|밤부거즈|속싸개|스와들|겉싸개|사각싸개/.test(n)) return {major:'육아',minor:'육아용품'};
   if (/장난감|피규어|인형|놀이|로봇|자동차장난감|워터매트|볼풀/.test(n)) return {major:'육아',minor:'장난감/놀이'};
   if (/이유식|유아식|아기밥|아기과자|아기간식|이유/.test(n)) return {major:'육아',minor:'이유아식'};
   if (/유모차|카시트|힙시트|아기띠|포대기/.test(n)) return {major:'육아',minor:'유모차카시트'};
@@ -2040,7 +2043,7 @@ function parseGonggumoa(text, existingData, minDate) {
           {
             const cat = resolveCat(curMinor, name);
             const ed = endExplicit || fixEndDate(openDate, '');
-            results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed, _dup:dup, _dupReason:dup?(dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!dup });
+            if(!isBlockedInsta(ig)) results.push({ influencer, insta: ig, major: cat.major, minor: cat.minor, name, open_date: openDate, end_date: ed, _dup:dup, _dupReason:dup?(dDb?'이미 DB에 등록됨':'같은 묶음 내 중복'):'', _checked:!dup });
           }
         }
       }
@@ -2059,6 +2062,10 @@ function parseGonggumoa(text, existingData, minDate) {
 // 브라우저 동일 출처 정책상 다른 도메인의 화면 내용을 자동으로 읽어올 수 없어,
 // 사이트 화면 텍스트를 복사해 붙여넣으면 기존 파서로 분석/등록하는 방식입니다.
 let crawlParsedData=[];
+
+// 등록 제외 셀러 핸들 블록리스트 (인스타 아이디에 아래 문자열이 포함되면 파싱 결과에서 제외)
+const BLOCKED_INSTA=['babyhaus'];
+function isBlockedInsta(ins){ ins=String(ins||'').toLowerCase().replace('@',''); return BLOCKED_INSTA.some(b=>ins.includes(b)); }
 
 // 카카오톡 단톡방 내보내기(.txt) 파서 — 공구모아 운영 단톡방 형식
 //  [작성자] [오전 12:01] 상품명 \n M/D 오픈 \n 링크   구조의 "공구모아 운영진" 글만 추출(정밀도 우선)
@@ -2330,6 +2337,7 @@ function parsePaste(text, existingData, minDate){
     const m=meta[i];
     if(!m.handle) continue;
     const insta=m.handle;
+    if(isBlockedInsta(insta)) continue;
     let raw=m.t.replace(/[\(\[][^)\]]*[\)\]]/g,' ');
     if(!raw.replace(/@[A-Za-z0-9_.가-힣\s]+/g,'').replace(/\s+/g,'').trim()){
       for(let j=i-1;j>=0;j--){
