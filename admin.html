@@ -1633,7 +1633,10 @@ function crawlGuessCat(name, minor) {
   if (/추피/.test(n)) return {major:'육아',minor:'책'};  // '추피'=육아 전집(특이단어, 최우선)
   if (/선풍기|제습기|가습기|에어컨|공기청정기|냉풍기|에어서큘|손풍기/.test(n)) return {major:'가전',minor:'계절가전'};
   if (/청소기|로봇청소|물걸레/.test(n)) return {major:'가전',minor:'청소가전'};
+  if (/바이타믹스|vitamix/i.test(n)) return {major:'가전',minor:'주방가전'};
   if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
+  if (/아이스크림/.test(n) && /메이커|기계|제조|머신|기기/.test(n)) return {major:'가전',minor:'주방가전'};
+  if (/제빙기|빙수기|얼음정수/.test(n)) return {major:'가전',minor:'주방가전'};
   if (/냉장고|세탁기|건조기|음식물처리기|음처기/.test(n)) return {major:'가전',minor:'생활가전'};
   if (/드라이기|고데기|스트레이트너/.test(n)) return {major:'가전',minor:'생활가전'};
   if (/차일드라이프|child\s?life/i.test(n)) return {major:'건강',minor:'키즈영양제'};
@@ -1646,7 +1649,7 @@ function crawlGuessCat(name, minor) {
   if (/영양제|건강기능|건기식|콜라겐|마그네슘|칼슘|마이니|이노시톨|글루타치온|커큐민/.test(n)) return {major:'건강',minor:'건강기능성'};
   if (/다이어트|식욕억제|지방분해/.test(n)) return {major:'건강',minor:'다이어트'};
   if (/샴푸|헤어|두피|탈모|트리트먼트|컨디셔너/.test(n)) return {major:'뷰티',minor:'헤어케어'};
-  if (/선크림|크림|세럼|에센스|토너|앰플|마스크팩|클렌|미백|주름|스킨|썬|자외선|쿠션|팩트|bb|cc|프라이머|컨실러|파운데/.test(n)) return {major:'뷰티',minor:'스킨케어'};
+  if (/선크림|크림|세럼|에센스|토너|앰플|마스크팩|클렌|미백|주름|스킨|썬|자외선|쿠션|팩트|bb|cc|프라이머|컨실러|파운데/.test(n) && !/아이스크림|크림치즈|생크림|크림파스타|크림빵|버터크림|크림소스|크림떡|크림라떼|크림치킨/.test(n)) return {major:'뷰티',minor:'스킨케어'};
   if (/바디워시|바디로션|핸드크림|바디|보디/.test(n)) return {major:'뷰티',minor:'바디케어'};
   if (/향수|퍼퓸/.test(n)) return {major:'뷰티',minor:'향수'};
   if (/래시가드|수영복|비치|서핑|요가복|레깅스|운동복/.test(n)) return {major:'패션',minor:'스포츠웨어'};
@@ -5280,8 +5283,16 @@ function sellerKey(d){
   if(infl) return 'n:'+infl;
   return '';
 }
+// 브랜드 중복 목록: 같은 셀러+같은 기간에 아래 브랜드가 양쪽 이름에 다 들어가면 '중복의심'으로 처리
+// (같은 브랜드 공구를 상품명만 바꿔 여러 개 올린 경우 잡기. 추가할 브랜드는 여기에 넣으면 됨)
+const BRAND_DUP=['주니'];
+function brandDupShared(a,b){
+  const na=String(a||'').toLowerCase(), nb=String(b||'').toLowerCase();
+  return BRAND_DUP.some(br=>{ const t=br.toLowerCase(); return na.includes(t)&&nb.includes(t); });
+}
 // 중복의심: (그룹이 이미 같은 셀러+같은 날짜) + 이름 앞 3글자 이상 공통 또는 포함관계(3글자+)
 function relName(a,b){
+  if(brandDupShared(a,b)) return true;                             // 같은 브랜드(주니 등) → 관련(중복의심)
   const x=normalize(a), y=normalize(b);
   if(!x||!y) return false;
   const longer=x.length>=y.length?x:y, shorter=x.length>=y.length?y:x;
