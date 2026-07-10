@@ -1106,6 +1106,7 @@ async function runAiParse(){
     // 2단계: 키워드 규칙 (fallback)
     const n=(name||'').toLowerCase();
     if(/추피/.test(n)) return{major:'육아',minor:'책'};  // '추피'=육아 전집(특이단어, 최우선)
+    if(/차일드라이프|child\s?life/i.test(n)) return{major:'건강',minor:'키즈영양제'};
     if(/유산균|프로바이오|락토|프리바이오/.test(n)) return{major:'건강',minor:'유산균'};
     if(/오메가|epa|dha|알티지/.test(n)) return{major:'건강',minor:'오메가'};
     if(/철분/.test(n)) return{major:'건강',minor:'철분제'};
@@ -1115,6 +1116,7 @@ async function runAiParse(){
     if(/다이어트|체지방|슬리밍|가르시니아/.test(n)) return{major:'건강',minor:'다이어트'};
     if(/영양제|건강기능|건기식/.test(n)) return{major:'건강',minor:'건강기능성'};
     if(/선크림|크림|세럼|에센스|로션|토너|클렌|마스크|향수|파운데|립|아이|썬|미백|주름|화장|스킨케어|헤어|샴푸|컨디셔너|바디워시|바디로션/.test(n)) return{major:'뷰티',minor:'스킨케어'};
+    if(/버터/.test(n) && !/땅콩버터|피넛|버터쿠키|버터링|버터와플|버터바|버터맥주|버터맛|버터구이|버터갈릭|버터팝/.test(n)) return{major:'식품',minor:'유제품'};
     if(/우유|요거트|치즈|유제품/.test(n)) return{major:'식품',minor:'유제품'};
     if(/만두|냉동|간편|밀키트|HMR/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
     if(/과일|야채|채소|딸기|블루베리|토마토/.test(n)) return{major:'식품',minor:'과일/야채'};
@@ -1633,6 +1635,7 @@ function crawlGuessCat(name, minor) {
   if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
   if (/냉장고|세탁기|건조기|음식물처리기|음처기/.test(n)) return {major:'가전',minor:'생활가전'};
   if (/드라이기|고데기|스트레이트너/.test(n)) return {major:'가전',minor:'생활가전'};
+  if (/차일드라이프|child\s?life/i.test(n)) return {major:'건강',minor:'키즈영양제'};
   if (/엘레나퀸|유산균|프로바이오|락토|프리바이오/.test(n) && !/헤모|철분/.test(n)) return {major:'건강',minor:'유산균'};
   if (/오메가|epa|dha|알티지/.test(n)) return {major:'건강',minor:'오메가'};
   if (/헤모|철분/.test(n)) return {major:'건강',minor:'철분제'};
@@ -1649,6 +1652,7 @@ function crawlGuessCat(name, minor) {
   if (/신발|운동화|슬리퍼|샌들|부츠|크록스/.test(n)) return {major:'패션',minor:'신발'};
   if (/가방|백팩|숄더|크로스백|에코백|클러치/.test(n)) return {major:'패션',minor:'가방'};
   if (/양산|선글라스|모자|주얼리|귀걸이|목걸이|반지|팔찌/.test(n)) return {major:'패션',minor:'액세서리'};
+  if (/버터/.test(n) && !/땅콩버터|피넛|버터쿠키|버터링|버터와플|버터바|버터맥주|버터맛|버터구이|버터갈릭|버터팝/.test(n)) return {major:'식품',minor:'유제품'};
   if (/만두|냉면|라면|즉석|밀키트|간편식|떡볶이|파스타|국수/.test(n)) return {major:'식품',minor:'간편식/밀키트'};
   if (/과일|딸기|수박|참외|야채|채소|고구마|감자|옥수수/.test(n)) return {major:'식품',minor:'과일/야채'};
   if (/우유|요거트|치즈|유제품|분유|두유/.test(n)) return {major:'식품',minor:'유제품'};
