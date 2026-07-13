@@ -424,6 +424,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
+  <button class="stab" id="stab-top50" data-st="top50" onclick="toggleStab('top50',this)">🔥 TOP50</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
@@ -819,32 +820,22 @@ async function loadData() {
 window.__viewCounts={};
 let _vcLoaded=false;
 function ensureViewCounts(){ if(_vcLoaded) return; _vcLoaded=true; loadViewCounts(); }  // TOP50 열 때만 1번
+// 클릭수: DB가 미리 집계한 결과(id, clicks)만 받아옴 (예전처럼 events 로그를 통째로 내려받지 않음 → egress 최소)
 async function loadViewCounts(){
-  return;   // TOP50(실시간 클릭순) 비활성화 — events 다운로드 제거(egress 절감)
   try{
-    let rows=[];
-    const _vcSince=new Date(Date.now()-21*86400000).toISOString();   // 최근 21일만(전송량 절약)
-    for(let from=0; from<2000; from+=1000){
-      const res=await fetch(`${SUPABASE_URL}/rest/v1/events?select=event_data&event_type=eq.card_click&visited_at=gte.${_vcSince}&order=visited_at.desc`,{
-        headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Range-Unit':'items','Range':`${from}-${from+999}`}
-      });
-      if(!res.ok && res.status!==206) break;
-      const page=await res.json();
-      rows=rows.concat(page);
-      if(page.length<1000) break;
-    }
-    const vc={};
-    rows.forEach(e=>{
-      const raw=e.event_data; if(!raw) return;
-      let id=null;
-      if(typeof raw==='string' && raw.charAt(0)==='{'){ try{ const o=JSON.parse(raw); if(o&&o.id!=null) id=parseInt(o.id,10); }catch(_){} }
-      else if(/^\d+$/.test(String(raw))) id=parseInt(raw,10);
-      if(id!=null && !isNaN(id)) vc[id]=(vc[id]||0)+1;
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/rpc/gonggu_click_counts`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({p_days:21,p_limit:400})
     });
+    if(!res.ok) return;                       // 함수 없으면 조용히 패스(파트너 우선 정렬로 노출)
+    const rows=await res.json();
+    if(!Array.isArray(rows)) return;
+    const vc={};
+    rows.forEach(r=>{ const id=parseInt(r.id,10); if(!isNaN(id)) vc[id]=Number(r.clicks)||0; });
     window.__viewCounts=vc;
-    // 전체(TOP50) 보고 있으면 다시 그려서 반영
     if(fSt==='top50' && !dayFilter && !fSearch) renderList();
-  }catch(e){ /* 조회수 못 불러와도 전체는 맘캘 우선 기본 정렬로 노출됨 */ }
+  }catch(e){ /* 조회수 못 불러와도 TOP50은 파트너 우선 + 기본 정렬로 노출됨 */ }
 }
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
 function isMomcal(item){
@@ -891,20 +882,27 @@ function getFiltered(dateStr){
   }
 
   // 상태 필터 버튼
-  if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item)).sort(cmpDatePartner);
-  if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item)).sort(cmpDatePartner);
+  if(fSt==='open') return DATA.filter(item=>!isExpired(item)&&isOpenToday(item)&&filterCat(item)).sort(cmpPartnerFirst);
+  if(fSt==='end') return DATA.filter(item=>!isExpired(item)&&isEndToday(item)&&filterCat(item)).sort(cmpPartnerFirst);
   if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpUpcoming);
 
   if(fSt==='top50'){
-    // TOP50 = 조회수(클릭) 순 50개. 그 안에 못 든 맘캘린더(본인) 공구는 랜덤 위치에 끼워넣음(맨 앞 고정 X)
+    // TOP50 = 오늘 기준 '진행중'(오픈했고 아직 안 끝난) 공구 중 실제 조회수(클릭) 순 50개.
+    // 단, 맘캘린더 + 이웃셀러(파트너)의 진행중 카드는 순위와 무관하게 전부 포함하고, 못 든 건 적당한 위치에 끼워넣음.
     const vc=window.__viewCounts||{};
     const views=it=>vc[it.id]||0;
-    const inScope=DATA.filter(item=>!isExpired(item)&&!isUpcoming(item)&&filterCat(item));
-    const byViews=[...inScope].sort((a,b)=>views(b)-views(a));
+    const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item)
+      && item.openDate<=todayStr && realEnd(item)>=todayStr);      // 오늘 진행중만
+    const byViews=[...inScope].sort((a,b)=>{
+      const d=views(b)-views(a);
+      if(d!==0) return d;
+      return realEnd(a).localeCompare(realEnd(b));                 // 동률이면 마감 임박순
+    });
     const top=byViews.slice(0,50);
     const topIds=new Set(top.map(it=>it.id));
-    const missing=inScope.filter(it=>isMomcal(it)&&!topIds.has(it.id));
+    // 맘캘린더 + 이웃셀러 중 TOP50에 못 든 진행중 카드 → 전부 포함
+    const missing=inScope.filter(it=>effPartner(it)&&!topIds.has(it.id));
     if(missing.length){
       const R=window.__rand||(window.__rand={});
       const rnd=id=>{ if(R[id]==null) R[id]=Math.random(); return R[id]; }; // id별 1회 고정 → 재렌더에도 위치 안정
