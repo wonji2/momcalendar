@@ -430,13 +430,14 @@ details summary::-webkit-details-marker{display:none}
       </div>
       <div class="modal-field">
         <label>배너 이미지 <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label>
-        <div style="border:2px dashed #EBEBEB;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa" onclick="document.getElementById('bImgFile').click()">
+        <div id="bImgDrop" tabindex="0" style="border:2px dashed #EBEBEB;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;outline:none" onclick="document.getElementById('bImgFile').click()">
           <div id="bImgPreview" style="display:none;margin-bottom:8px">
             <img id="bImgPreviewImg" style="max-width:100%;height:160px;object-fit:cover;border-radius:8px">
           </div>
-          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 이미지 선택<br><span style="font-size:11px">폰 원본도 자동 축소·크롭 (가로~1000px) · JPG/PNG/WebP</span></div>
+          <div id="bImgUploadTxt" style="font-size:12px;color:#999">📷 클릭해서 선택 · <b style="color:#602090">붙여넣기(Ctrl+V)</b> · 끌어다 놓기<br><span style="font-size:11px">복사한 이미지를 바로 붙여넣어도 돼요 · 폰 원본도 자동 축소·크롭(가로~1000px)</span></div>
           <input type="file" id="bImgFile" accept="image/*" style="display:none" onchange="previewBannerImg(this)">
         </div>
+        <button type="button" onclick="pasteBannerFromClipboard()" style="width:100%;margin-top:7px;padding:9px;background:#F0E6FA;color:#602090;border:1px solid #DCC7F1;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📋 클립보드에서 이미지 붙여넣기</button>
 
         <!-- 이미지 조절 슬라이더 -->
         <div id="bImgAdjust" style="display:none;margin-top:10px;background:#F7F5FF;border-radius:10px;padding:12px">
@@ -1149,7 +1150,9 @@ async function runAiParse(){
     if(/옷|의류|티셔츠|패딩|코트|원피스|바지|셔츠|니트|가디건|카디건|후드|맨투맨|스웨터|블라우스|자켓|재킷|점퍼|청바지|데님|슬랙스|치마|스커트|조끼/.test(n)) return{major:'패션',minor:'의류'};
     if(/신발|운동화|슬리퍼/.test(n)) return{major:'패션',minor:'신발'};
     if(/가방|백팩|숄더|크로스/.test(n)) return{major:'패션',minor:'가방'};
-    if(/강아지|고양이|반려|펫|사료|간식/.test(n)) return{major:'반려동물',minor:'사료'};
+    if(/룰루맘|롤루맘/.test(n)) return{major:'육아',minor:'이유아식'};
+    if(/우디푸디/.test(n)) return{major:'육아',minor:'장난감/놀이'};
+    if(/강아지|고양이|반려|펫|애견|애묘|댕댕|냥이|사료|수제간식|덴탈껌|하네스|스크래처/.test(n)) return{major:'반려동물',minor:'사료'};
     if(/항공|비행기|패키지여행|투어|당일치기/.test(n)) return{major:'여행',minor:'패키지/투어'};
     return{major:'리빙',minor:'생활용품'};
   }
@@ -1633,6 +1636,11 @@ function crawlGuessCat(name, minor) {
   if (/추피/.test(n)) return {major:'육아',minor:'책'};  // '추피'=육아 전집(특이단어, 최우선)
   if (/선풍기|제습기|가습기|에어컨|공기청정기|냉풍기|에어서큘|손풍기/.test(n)) return {major:'가전',minor:'계절가전'};
   if (/청소기|로봇청소|물걸레/.test(n)) return {major:'가전',minor:'청소가전'};
+  // 브랜드 우선 규칙 (일반 키워드보다 먼저 판정)
+  if (/룰루맘|롤루맘/.test(n)) return {major:'육아',minor:'이유아식'};      // 아기 간식 브랜드
+  if (/우디푸디/.test(n)) return {major:'육아',minor:'장난감/놀이'};        // 원목 놀이 브랜드
+  // 반려동물: 반려 키워드가 명확할 때만 (아기 '간식'과 섞이지 않도록 식품 규칙보다 먼저 판정)
+  if (/반려|강아지|고양이|펫|애견|애묘|댕댕|냥이|사료|수제간식|덴탈껌|하네스|스크래처|견수성찬/.test(n)) return {major:'반려동물',minor:'사료'};
   if (/바이타믹스|vitamix/i.test(n)) return {major:'가전',minor:'주방가전'};
   if (/에어프라이어|밥솥|전자레인지|커피머신|오븐|토스터|블렌더|믹서|쿡플레이트/.test(n)) return {major:'가전',minor:'주방가전'};
   if (/아이스크림/.test(n) && /메이커|기계|제조|머신|기기/.test(n)) return {major:'가전',minor:'주방가전'};
@@ -1687,7 +1695,7 @@ function crawlGuessCat(name, minor) {
   if (/칫솔|치약|가글|구강청결|수건|타월|타올|비누|바디워시|샤워|욕실|목욕|때수건|샤워기/.test(n)) return {major:'리빙',minor:'욕실용품'};
   if (/청소|세제|물티슈|휴지|빨래|방향제|모기/.test(n)) return {major:'리빙',minor:'생활용품'};
   if (/소파|침대|책상|의자|수납|선반|옷걸이/.test(n)) return {major:'인테리어',minor:'가구'};
-  if (/반려|강아지|고양이|펫|사료|간식/.test(n)) return {major:'반려동물',minor:'사료'};
+  if (/반려|강아지|고양이|펫|애견|애묘|댕댕|냥이|사료|수제간식|덴탈껌|하네스|스크래처/.test(n)) return {major:'반려동물',minor:'사료'};   // (위 브랜드 블록에서 이미 판정됨 — 보조)
   if (/항공|비행기|패키지여행|투어|당일치기/.test(n)) return {major:'여행',minor:'패키지/투어'};
   return base;
 }
@@ -1724,8 +1732,19 @@ function fixEndDate(openDate, endDate) {
 }
 
 // 크롤 제목 정리: 별(⭐★☆🌟✨)과 (괄호)·（괄호）·【】·[] 안 내용 제거
+// 자주 나는 브랜드 오타 교정표 (파싱 등록 시 자동 적용). 새 오타는 여기에 한 줄씩 추가하면 됨.
+const NAME_TYPO=[
+  [/롤루맘/g, '룰루맘'],   // 아기 간식 브랜드
+];
+function fixNameTypos(n){
+  if(!n) return n;
+  let s=String(n);
+  NAME_TYPO.forEach(([re,to])=>{ s=s.replace(re,to); });
+  return s;
+}
 function cleanCrawlName(n){
   if(!n) return n;
+  n=fixNameTypos(n);
   return n
     .replace(/[⭐★☆🌟✨]/g,'')
     .replace(/[（(][^（()）]*[)）]/g,'')
@@ -3181,6 +3200,58 @@ function updateBgPreview(){
 }
 // 이벤트 등록은 openBannerAdd/Edit 에서
 
+// ── 배너 이미지: 붙여넣기(Ctrl+V) · 드래그&드롭 · 클립보드 버튼 ──
+function setBannerFile(file){
+  if(!file || !file.type || !file.type.startsWith('image/')){ alert('이미지가 아니에요'); return false; }
+  const inp=document.getElementById('bImgFile');
+  const dt=new DataTransfer();
+  // 붙여넣기 이미지는 이름이 없을 수 있어 확장자 붙여줌
+  const ext=(file.type.split('/')[1]||'png').replace('jpeg','jpg');
+  const named=new File([file], (file.name&&file.name!=='image.png'?file.name:`paste_${Date.now()}.${ext}`), {type:file.type});
+  dt.items.add(named);
+  inp.files=dt.files;
+  previewBannerImg(inp);          // 기존 미리보기/리사이즈 흐름 그대로 사용
+  const t=document.getElementById('bImgUploadTxt');
+  if(t) t.innerHTML='✅ 이미지 준비됨 — 저장하면 업로드돼요<br><span style="font-size:11px">다시 붙여넣거나 클릭해서 바꿀 수 있어요</span>';
+  return true;
+}
+async function pasteBannerFromClipboard(){
+  try{
+    if(!navigator.clipboard || !navigator.clipboard.read){ alert('이 브라우저는 클립보드 읽기를 지원하지 않아요.\n드롭존을 클릭 후 Ctrl+V로 붙여넣어 보세요.'); return; }
+    const items=await navigator.clipboard.read();
+    for(const it of items){
+      const type=it.types.find(t=>t.startsWith('image/'));
+      if(type){ const blob=await it.getType(type); setBannerFile(new File([blob],`paste_${Date.now()}.png`,{type})); return; }
+    }
+    alert('클립보드에 이미지가 없어요. 이미지를 복사한 뒤 다시 눌러주세요.');
+  }catch(e){
+    alert('클립보드를 읽지 못했어요('+e.message+').\n드롭존을 클릭한 뒤 Ctrl+V로 붙여넣어 보세요.');
+  }
+}
+// 전역 붙여넣기: 배너 모달이 열려 있으면 어디서 Ctrl+V 해도 받음
+document.addEventListener('paste', e=>{
+  const modal=document.getElementById('bannerModal');
+  const open = modal && (modal.classList.contains('on') || getComputedStyle(modal).display!=='none');
+  if(!open) return;
+  const items=(e.clipboardData||{}).items||[];
+  for(const it of items){
+    if(it.type && it.type.startsWith('image/')){
+      const f=it.getAsFile();
+      if(f && setBannerFile(f)) e.preventDefault();
+      return;
+    }
+  }
+});
+// 드래그 & 드롭
+function _bindBannerDrop(){
+  const dz=document.getElementById('bImgDrop'); if(!dz || dz._bound) return; dz._bound=true;
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.style.borderColor='#602090';dz.style.background='#F7F1FD';}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.style.borderColor='#EBEBEB';dz.style.background='#fafafa';}));
+  dz.addEventListener('drop',e=>{ const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) setBannerFile(f); });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_bindBannerDrop);
+else _bindBannerDrop();
+
 function previewBannerImg(input){
   const file=input.files[0];
   if(!file)return;
@@ -4185,17 +4256,21 @@ async function selectPeriod(p, btn){
 
 function renderPeriodChart(entries, unit, label){
   const vals=entries.map(e=>e[1]); const max=Math.max(...vals,1);
+  const total=vals.reduce((a,b)=>a+b,0);
   const todayMD=new Date().toISOString().slice(5,10);
   const bars=entries.map(([k,c])=>{
     const h=Math.max(Math.round(c/max*62),2);
     const isToday=(unit==='day'&&k===todayMD);
     const isSun=unit==='day'&&(new Date('2026-'+k).getDay()===0);
-    return `<div style="flex:1;min-width:3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end" title="${k}: ${c.toLocaleString()}명">
-      <div style="width:100%;height:${h}px;background:${isToday?'#602090':isSun?'#FFB0C0':'#C5A8E8'};border-radius:2px 2px 0 0"></div>
+    const kEsc=String(k).replace(/'/g,'');
+    const unitLbl=unit==='week'?'주':(unit==='month'?'월':'');
+    return `<div onclick="showPeriodTip('${kEsc}',${c},'${unitLbl}',this)" onmouseenter="showPeriodTip('${kEsc}',${c},'${unitLbl}',this)" style="flex:1;min-width:3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;cursor:pointer;padding-top:6px" title="${k}: ${c.toLocaleString()}명">
+      <div class="pbar" style="width:100%;height:${h}px;background:${isToday?'#602090':isSun?'#FFB0C0':'#C5A8E8'};border-radius:2px 2px 0 0;transition:background .1s"></div>
     </div>`;
   }).join('');
   const first=entries[0]?entries[0][0]:'', mid=entries[Math.floor(entries.length/2)]?entries[Math.floor(entries.length/2)][0]:'', last=entries[entries.length-1]?entries[entries.length-1][0]:'';
   document.getElementById('periodChart').innerHTML=
+    `<div id="periodTip" style="text-align:center;font-size:12.5px;font-weight:700;color:#602090;height:19px;margin-bottom:5px">👆 막대를 누르면 날짜별 방문자 · 합계 ${total.toLocaleString()}명</div>`+
     `<div style="display:flex;align-items:flex-end;gap:2px;height:66px">${bars}</div>`+
     `<div style="display:flex;justify-content:space-between;margin-top:5px">
        <span style="font-size:9px;color:#aaa">${first}</span>
@@ -4203,6 +4278,12 @@ function renderPeriodChart(entries, unit, label){
        <span style="font-size:9px;color:#aaa">${last}</span>
      </div>`+
     (unit==='week'?'<div style="font-size:9px;color:#bbb;text-align:center;margin-top:3px">주 단위 합계</div>':'');
+}
+function showPeriodTip(k,c,unitLbl,el){
+  const tip=document.getElementById('periodTip');
+  if(tip) tip.textContent=`${k}${unitLbl?('('+unitLbl+')'):''} · ${Number(c).toLocaleString()}명`;
+  // 선택 막대 강조
+  const wrap=el&&el.parentNode; if(wrap){ wrap.querySelectorAll('.pbar').forEach(b=>b.style.outline=''); const bar=el.querySelector('.pbar'); if(bar){ bar.style.outline='2px solid #602090'; bar.style.outlineOffset='1px'; } }
 }
 
 function render30Day(entries,todayStr){
