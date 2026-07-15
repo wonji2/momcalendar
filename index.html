@@ -767,7 +767,7 @@ function cmpPartnerFirst(a,b){
 
 async function loadData() {
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
-  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); renderList(); return; } }catch(_){}
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); if(!restoreViewState()) renderList(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
@@ -810,7 +810,7 @@ async function loadData() {
     DATA = [];
   }
   buildWeekTabs();
-  renderList();
+  if(!restoreViewState()) renderList();
 }
 
 // ── 조회수(카드 클릭) 집계: 전체 TOP50 정렬용 (최근 클릭 기준) ──
@@ -901,8 +901,8 @@ function getFiltered(dateStr){
     // 맘캘린더 + 이웃셀러 중 TOP50에 못 든 진행중 카드 → 전부 포함
     const missing=inScope.filter(it=>effPartner(it)&&!topIds.has(it.id));
     if(missing.length){
-      const R=window.__rand||(window.__rand={});
-      const rnd=id=>{ if(R[id]==null) R[id]=Math.random(); return R[id]; }; // id별 1회 고정 → 재렌더에도 위치 안정
+      const R=window.__rand||(window.__rand=JSON.parse(sessionStorage.getItem('mc_rand')||'{}'));
+      const rnd=id=>{ if(R[id]==null){ R[id]=Math.random(); try{sessionStorage.setItem('mc_rand',JSON.stringify(R));}catch(_){} } return R[id]; }; // id별 1회 고정(세션 저장) → 재방문·재렌더에도 위치 동일
       missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
         const pos=Math.floor(rnd(it.id)*(top.length+1));
         top.splice(pos,0,it);
@@ -1118,6 +1118,36 @@ function resetStatusTabs(){
   fSt='all';
   document.querySelectorAll('.stab').forEach(b=>b.className='stab');
   const a=document.getElementById('stab-all'); if(a) a.classList.add('on-all');
+}
+
+// ── 보던 화면 상태 저장/복원 (카드 눌러 나갔다 뒤로와도 그대로) ──
+function saveViewState(){
+  try{
+    sessionStorage.setItem('mc_view', JSON.stringify({
+      fSt, fMajor, fMinors, fCalCat, fSearch,
+      dayFilter: dayFilter||null,
+      scroll: window.scrollY||document.documentElement.scrollTop||0,
+      ts: Date.now()
+    }));
+  }catch(_){}
+}
+function restoreViewState(){
+  try{
+    const s=JSON.parse(sessionStorage.getItem('mc_view')||'null');
+    if(!s || (Date.now()-s.ts)>1000*60*30) return false;   // 30분 지나면 무시
+    fSt=s.fSt||'all'; fMajor=s.fMajor||'전체'; fMinors=s.fMinors||[]; fCalCat=s.fCalCat||'전체'; fSearch=s.fSearch||'';
+    dayFilter=s.dayFilter||null;
+    // 상태탭 버튼 하이라이트 복원
+    const map={all:'on-all',top50:'on-t',open:'on-o',live:'on-g',upcoming:'on-u',end:'on-e'};
+    document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+    const btn=document.querySelector('.stab[data-st="'+fSt+'"]'); if(btn) btn.classList.add(map[fSt]||'on-all');
+    if(fSt==='top50') ensureViewCounts();
+    // 검색어 입력창 복원
+    const si=document.getElementById('sInput'); if(si && fSearch) si.value=fSearch;
+    renderList();
+    if(s.scroll) setTimeout(()=>window.scrollTo(0,s.scroll),60);   // 렌더 후 스크롤 복원
+    return true;
+  }catch(_){ return false; }
 }
 
 function toggleStab(v,el){
@@ -1774,6 +1804,7 @@ function trackEvent(type,data=''){
 }
 // 카드 클릭: 삭제 후에도 통계가 남도록 상품명·인스타·인플루언서를 함께 저장
 function trackCard(id){
+  saveViewState();   // 카드 눌러 나가기 전에 보던 화면(탭·순서·스크롤) 저장
   try{
     const it=(typeof DATA!=='undefined'?DATA:[]).find(d=>d.id===id)||{};
     trackEvent('card_click', JSON.stringify({id:id, n:it.name||'', i:it.insta||'', f:it.influencer||'', c:it.major||''}));
