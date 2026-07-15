@@ -109,10 +109,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .main-banner-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px}
 .main-banner-title{font-size:15px;font-weight:800;color:var(--t1)}
 .main-banner-more{font-size:12px;color:var(--main-l);font-weight:700;cursor:pointer}
+.ptab{display:flex;background:#F1ECF8;border-radius:11px;padding:4px;margin:6px 0 14px}.ptab button{flex:1;border:none;background:transparent;font-size:12.5px;font-weight:700;color:#9a8ab5;padding:9px 0;border-radius:8px;cursor:pointer;font-family:inherit}.ptab button.on{background:var(--main);color:#fff}.ppane{display:none}.ppane.on{display:block}
+
 .main-slider-wrap{position:relative;overflow:hidden}
 .main-slider{display:flex;gap:10px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1)}
 .main-slide{min-width:86%;cursor:pointer}
-.main-slide-inner{border-radius:16px;overflow:hidden;position:relative;aspect-ratio:16/7;display:flex;align-items:flex-end}
+.main-slide-inner{border-radius:16px;overflow:hidden;position:relative;aspect-ratio:16/10;display:flex;align-items:flex-end}
 .main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
 .main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 32%,transparent 55%)}
 .main-slide-cnt{position:relative;z-index:1;padding:13px 15px;width:100%}
@@ -357,7 +359,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
         </svg>
       </div>
     </div>
-    <button class="ad-btn" onclick="openAdModal()">📩 제휴·광고</button>
+    <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
   </div>
   <div class="srch">
     <span class="si">🔍</span>
@@ -390,7 +392,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <a class="side-link" href="https://www.instagram.com/momcal_" target="_blank"><span class="side-link-ico">📷</span>인스타그램</a>
     <a class="side-link" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="side-link-ico">📢</span>단톡 공지방</a>
     <a class="side-link" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="side-link-ico">💬</span>자유 수다방</a>
-    <button class="side-link" onclick="closeSide();openAdModal()"><span class="side-link-ico">📩</span>제휴·광고 문의</button>
+    <button class="side-link" onclick="closeSide();openPartnerModal()"><span class="side-link-ico">📩</span>제휴·입점 문의</button>
   </div>
 </div>
 
@@ -398,7 +400,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <div class="main-banner-section">
   <div class="main-banner-header">
     <div class="main-banner-title">🔥 지금 HOT한 공구 🔥</div>
-    <div class="main-banner-more" onclick="document.getElementById('sellerModal').classList.add('on')">셀러 입점 →</div>
+
   </div>
   <div class="main-slider-wrap">
     <div class="main-slider" id="mainSlider"></div>
@@ -538,44 +540,39 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 </div>
 <!-- ===== /체험단 영역 ===== -->
 
-<!-- 셀러 입점 팝업 -->
-<div class="modal-bg" id="sellerModal" onclick="if(event.target===this)this.classList.remove('on')">
+<!-- 제휴·입점 통합 팝업 -->
+<div class="modal-bg" id="partnerModal" onclick="if(event.target===this)this.classList.remove('on')">
   <div class="modal">
-    <div class="modal-ico">🛍️</div>
-    <div class="modal-title">맘캘린더 셀러 입점</div>
-    <div class="modal-desc">
-      공구 일정 등록은 <b>완전 무료</b>예요!<br><br>
-      <b>① 먼저 셀러 가입</b>을 해주세요<br>
-      <b>②</b> 본인 인스타그램으로 <b>@momcal_</b> 에 인증 DM<br>
-      <b>③</b> 확인 후 승인해드려요 🔐<br><br>
-      <span style="font-size:11px;color:var(--t3)">승인되면 마이페이지에서<br>직접 공구 일정을 등록·수정·삭제할 수 있어요</span>
+    <div class="modal-ico">🤝</div>
+    <div class="modal-title">제휴 · 입점</div>
+    <div class="ptab">
+      <button id="ptab1" class="on" onclick="switchPTab(1)">🛍️ 셀러 등록</button>
+      <button id="ptab2" onclick="switchPTab(2)">📣 광고·제휴</button>
     </div>
-    <a class="modal-kakao-btn" href="/register.html#signup" target="_blank"
-      style="background:#4A35A0;color:#fff;margin-bottom:8px;text-decoration:none">
-      🛍️ ① 셀러 가입하기
-    </a>
-    <a class="modal-kakao-btn" href="https://ig.me/m/momcal_" target="_blank"
-      style="background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;margin-bottom:8px;text-decoration:none">
-      📷 ② @momcal_ 로 인증 DM 보내기
-    </a>
-    <a class="modal-kakao-btn" href="/register.html" target="_blank"
-      style="background:#EEE9FF;color:#4A35A0;margin-bottom:8px;text-decoration:none">
-      🔑 이미 가입했다면 · 로그인
-    </a>
-    <button class="modal-close" onclick="document.getElementById('sellerModal').classList.remove('on')" style="margin-top:8px">닫기</button>
-  </div>
-</div>
-
-<!-- 제휴·광고 팝업 -->
-<div class="modal-bg" id="adModal" onclick="if(event.target===this)closeAdModal()">
-  <div class="modal">
-    <div class="modal-ico">📩</div>
-    <div class="modal-title">제휴 · 광고 · 입점 문의</div>
-    <div class="modal-desc">배너 광고, 제휴, 입점 문의는<br>아래 카톡으로 한번에 내용 남겨주시면<br>순차대로 답변드리겠습니다 🙏</div>
-    <a class="modal-kakao-btn" href="https://open.kakao.com/o/sKiDEkJh" target="_blank">
-      <span style="font-size:18px">💬</span> 카카오 1:1 오픈채팅 바로가기
-    </a>
-    <button class="modal-close" onclick="closeAdModal()">닫기</button>
+    <!-- 셀러 등록 (기존 멘트 그대로) -->
+    <div class="ppane on" id="ppane1">
+      <div class="modal-desc">
+        공구 일정 등록은 <b>완전 무료</b>예요!<br><br>
+        <b>① 먼저 셀러 가입</b>을 해주세요<br>
+        <b>②</b> 본인 인스타그램으로 <b>@momcal_</b> 에 인증 DM<br>
+        <b>③</b> 확인 후 승인해드려요 🔐<br><br>
+        <span style="font-size:11px;color:var(--t3)">승인되면 마이페이지에서<br>직접 공구 일정을 등록·수정·삭제할 수 있어요</span>
+      </div>
+      <a class="modal-kakao-btn" href="/register.html#signup" target="_blank" style="background:#4A35A0;color:#fff;margin-bottom:8px;text-decoration:none">🛍️ ① 셀러 가입하기</a>
+      <a class="modal-kakao-btn" href="https://ig.me/m/momcal_" target="_blank" style="background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;margin-bottom:8px;text-decoration:none">📷 ② @momcal_ 로 인증 DM 보내기</a>
+      <a class="modal-kakao-btn" href="/register.html" target="_blank" style="background:#EEE9FF;color:#4A35A0;margin-bottom:8px;text-decoration:none">🔑 이미 가입했다면 · 로그인</a>
+    </div>
+    <!-- 광고·제휴 (메일) -->
+    <div class="ppane" id="ppane2">
+      <div class="modal-desc">배너 광고 · 이웃셀러 입점 · 브랜드 제휴는<br><b>아래 메일로 문의 남겨주세요.</b></div>
+      <a class="modal-kakao-btn" href="mailto:momcal@kakao.com?subject=[맘캘린더] 광고·제휴 문의" style="background:var(--main);color:#fff;margin-bottom:8px;text-decoration:none">✉️ 메일로 문의하기</a>
+      <div style="font-size:11px;color:var(--t3);text-align:center;line-height:1.5;margin:2px 0 8px">메일 창이 안 열리면<br>아래 주소를 복사해서 보내주세요 👇</div>
+      <div style="display:flex;align-items:center;gap:8px;background:#F5F1FB;border:1px solid #E0D3F0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <span id="pmailAddr" style="flex:1;font-size:12.5px;color:#4A35A0;font-weight:700;text-align:left;word-break:break-all">momcal@kakao.com</span>
+        <button onclick="copyPMail(this)" style="background:var(--main);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;padding:7px 11px;cursor:pointer;white-space:nowrap">복사</button>
+      </div>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('partnerModal').classList.remove('on')" style="margin-top:8px">닫기</button>
   </div>
 </div>
 
@@ -1459,7 +1456,7 @@ function goSub(i){
   subIdx=i;const a=SUBADS[i];
   el.style.background=a.bg;
   el.onclick=()=>{
-    if(a.link==='popup') document.getElementById('sellerModal').classList.add('on');
+    if(a.link==='popup') openPartnerModal(1);
     else window.open(a.link,'_blank');
   };
   document.getElementById('subAdT').textContent=a.t;
@@ -1469,8 +1466,23 @@ function goSub(i){
 }
 
 // ── 광고 팝업 ──
-function openAdModal(){document.getElementById('adModal').classList.add('on');}
-function closeAdModal(){document.getElementById('adModal').classList.remove('on');}
+function openPartnerModal(tab){ switchPTab(tab||1); document.getElementById('partnerModal').classList.add('on'); }
+function switchPTab(n){
+  document.getElementById('ptab1').classList.toggle('on',n===1);
+  document.getElementById('ptab2').classList.toggle('on',n===2);
+  document.getElementById('ppane1').classList.toggle('on',n===1);
+  document.getElementById('ppane2').classList.toggle('on',n===2);
+}
+function copyPMail(btn){
+  const t='momcal@kakao.com';
+  const done=()=>{btn.textContent='복사됨!';setTimeout(()=>btn.textContent='복사',1500);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done)); }
+  else fallbackCopy(t,done);
+}
+function fallbackCopy(t,done){ try{ const el=document.getElementById('pmailAddr'); const r=document.createRange(); r.selectNode(el); getSelection().removeAllRanges(); getSelection().addRange(r); document.execCommand('copy'); getSelection().removeAllRanges(); done(); }catch(e){ alert('메일 주소: '+t); } }
+// 이전 함수명 호환(다른 곳에서 호출해도 통합모달 열림)
+function openAdModal(){ openPartnerModal(2); }
+function closeAdModal(){ document.getElementById('partnerModal').classList.remove('on'); }
 
 // ── 위로가기 버튼 (카톡/PC 인앱브라우저 호환) ──
 function _scrollY(){
@@ -1670,8 +1682,8 @@ function buildMainSlider(){
       // 링크 공개 예정 시각이 미래면 아직 작동 안 함
       if(b.link_open_at && new Date(b.link_open_at) > new Date()) return;
       const link=(b.link||'');
-      if(link==='seller-popup') document.getElementById('sellerModal').classList.add('on');
-      else if(link==='ad-popup') openAdModal();
+      if(link==='seller-popup') openPartnerModal(1);
+      else if(link==='ad-popup') openPartnerModal(2);
       else if(link) window.open(link,'_blank');
     };
   });
