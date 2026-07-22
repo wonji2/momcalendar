@@ -346,6 +346,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <div id="pwaGal" style="display:none">
       <button onclick="pwaInstall()" style="width:100%;background:#602090;color:#fff;border:none;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px">📲 홈 화면에 추가하기</button>
     </div>
+    <!-- 삼성 인터넷: 크롬으로 유도 (삼성 브라우저 WebAPK가 Play 프로텍트에 막히는 이슈 우회) -->
+    <div id="pwaSamsung" style="display:none">
+      <div style="font-size:11.5px;color:#8A6FB0;line-height:1.55;margin-bottom:10px;background:#F7F3FC;border-radius:10px;padding:10px 12px;text-align:left">삼성 인터넷에서는 설치가 막힐 수 있어요.<br><b style="color:#602090">크롬으로 열면</b> 경고 없이 한 번에 추가돼요.</div>
+      <button onclick="openInChrome()" style="width:100%;background:#602090;color:#fff;border:none;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px">🌐 크롬으로 열어서 추가하기</button>
+    </div>
     <!-- 아이폰: 안내 -->
     <div id="pwaIos" style="display:none;text-align:left">
       <div style="display:flex;align-items:center;gap:10px;background:#F7F3FC;border-radius:11px;padding:11px 13px;margin-bottom:8px"><span style="width:22px;height:22px;border-radius:50%;background:#602090;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><span style="font-size:12px;color:#444;line-height:1.4;display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px">사파리 하단 <span style="display:inline-flex;width:20px;height:20px;background:#007AFF;color:#fff;border-radius:5px;align-items:center;justify-content:center;font-size:12px">⬆</span> <b style="color:#602090">공유</b> 버튼 누르기</span></div>
@@ -1649,6 +1654,14 @@ function _isStandalone(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
 }
 function _isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+function _isSamsung(){ return /SamsungBrowser/i.test(navigator.userAgent); }  // 삼성 인터넷 브라우저
+function openInChrome(){
+  // 삼성 인터넷 → 현재 페이지를 크롬으로 다시 연다. 크롬 WebAPK는 구글 서명이라 Play 프로텍트 경고 없음.
+  try{
+    var u='intent://'+location.host+location.pathname+location.search+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(location.href)+';end';
+    location.href=u;
+  }catch(_){}
+}
 function maybeShowPwa(){
   try{
     if(_isStandalone()) return;                       // 이미 앱으로 열림 → 아무것도 안 띄움
@@ -1658,13 +1671,15 @@ function maybeShowPwa(){
     const until=parseInt(localStorage.getItem('mc_pwa_snooze')||'0',10);
     if(until && Date.now()<until){ showPwaStrip(); return; }   // 팝업 스누즈 중 → 얇은 띠만
     const iosSafari=_isIOS() && /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent);
-    if(!_isIOS() && !_pwaDeferred){
-      setTimeout(function(){ maybeShowPwa(); }, 1500);  // 안드로이드 설치프롬프트 대기
+    const _samsung=_isSamsung() && !_isIOS();          // 삼성 인터넷(안드로이드) → 크롬 유도 대상
+    if(!_isIOS() && !_samsung && !_pwaDeferred){
+      setTimeout(function(){ maybeShowPwa(); }, 1500);  // 안드로이드 설치프롬프트 대기 (삼성은 대기 안 함)
       return;
     }
     if(_isIOS() && !iosSafari){ return; }              // 아이폰 비사파리는 홈추가 불가 → 아무것도 안 함
     // ── 팝업 표시 ──
-    document.getElementById('pwaGal').style.display = _isIOS()? 'none':'block';
+    document.getElementById('pwaGal').style.display = (_isIOS()||_samsung)? 'none':'block';
+    document.getElementById('pwaSamsung').style.display = _samsung? 'block':'none';
     document.getElementById('pwaIos').style.display = _isIOS()? 'block':'none';
     // 갤럭시: 기존 '7일 동안 안 보기'(→'다시 보지 않기') 텍스트 버튼 / 아이폰: 추가했어요·7일뒤 두 버튼
     document.getElementById('pwaDismiss').style.display = _isIOS()? 'none':'block';
@@ -1694,6 +1709,7 @@ function showPwaStrip(){
   }catch(_){}
 }
 function pwaStripAdd(){
+  if(_isSamsung() && !_isIOS()){ openInChrome(); return; } // 삼성 인터넷 → 크롬으로 열어 설치
   if(_pwaDeferred){ pwaInstall(); }                    // 갤럭시: 설치 프롬프트
   else if(_isIOS()){                                    // 아이폰: 안내 팝업 띄움
     document.getElementById('pwaGal').style.display='none';
