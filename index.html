@@ -67,6 +67,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .logo-img-wrap img{height:40px;width:auto;display:block;object-fit:contain}
 .logo-svg-fallback{height:32px;display:flex;align-items:center}
 .ad-btn{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;cursor:pointer;font-family:inherit;flex-shrink:0}
+.hd-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.share-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0}
+.share-btn:active{background:rgba(255,255,255,.28)}
 .srch{position:relative}
 .srch input{width:100%;padding:10px 36px 10px 36px;background:#fff;border:1.5px solid #fff;border-radius:10px;color:#333;font-size:13px;font-family:inherit;outline:none}
 .srch input::placeholder{color:#aaa}
@@ -394,7 +397,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
         </svg>
       </div>
     </div>
-    <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
+    <div class="hd-right">
+      <button class="share-btn" onclick="mcShare()" aria-label="친구에게 공유">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><line x1="8.2" y1="10.9" x2="15.8" y2="6.1"/><line x1="8.2" y1="13.1" x2="15.8" y2="17.9"/></svg>
+      </button>
+      <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
+    </div>
   </div>
   <div class="srch">
     <span class="si">🔍</span>
@@ -403,17 +411,17 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   </div>
 </div>
 
-<!-- PWA 홈화면 추가 얇은 띠 (추가 안 한 사람에게만 노출) -->
-<div id="pwaStrip" style="display:none;margin:8px 12px 0;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
+<!-- 한 줄 소개 띠 -->
+<div class="intro-strip">
+  <span class="intro-emph">공구 일정 &amp; 핫딜 정보 커뮤니티</span> 쏟아지는 이벤트와 체험단 정보까지 🔥
+</div>
+
+<!-- PWA 홈화면 추가 얇은 띠 (문구 아래·공구 카드 위) -->
+<div id="pwaStrip" style="display:none;margin:10px 12px 0;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
   <img src="momcal-appicon.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
   <span style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
   <button onclick="pwaStripAdd()" style="color:#fff;background:#602090;border:none;border-radius:13px;padding:5px 11px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit">추가</button>
   <button onclick="pwaStripClose()" style="color:#B0A0C8;font-size:14px;background:none;border:none;cursor:pointer;padding:2px 4px">✕</button>
-</div>
-
-<!-- 한 줄 소개 띠 -->
-<div class="intro-strip">
-  <span class="intro-emph">공구 일정 &amp; 핫딜 정보 커뮤니티</span> 쏟아지는 이벤트와 체험단 정보까지 🔥
 </div>
 
 <!-- 사이드 메뉴 -->
@@ -1328,13 +1336,17 @@ function renderExperiences(){
     if(e.open_date && e.open_date>today) return 1;     // 모집 시작 전
     return 0;                                          // 모집중
   }
-  const sorted=[..._expData].sort((a,b)=>{
+  const sorted=[..._expData].filter(e=>stat(e)!==2).sort((a,b)=>{   // 마감된 체험단은 아예 제외
     const sa=stat(a), sb=stat(b);
-    if(sa!==sb) return sa-sb;                          // 모집중 → 예정 → 마감
+    if(sa!==sb) return sa-sb;                          // 모집중 → 예정
     if(sa===0) return (a.end_date||'9999').localeCompare(b.end_date||'9999'); // 모집중: 마감임박순
     if(sa===1) return (a.open_date||'').localeCompare(b.open_date||'');       // 예정: 시작빠른순
-    return (b.end_date||'').localeCompare(a.end_date||'');                    // 마감: 최근마감순
+    return (b.end_date||'').localeCompare(a.end_date||'');
   });
+  if(!sorted.length){
+    el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">지금 모집중인 체험단이 없어요 🎁</div>';
+    return;
+  }
   el.innerHTML=sorted.map(e=>{
     const s=stat(e);
     const ended=s===2, upcoming=s===1;
@@ -1556,6 +1568,31 @@ function fallbackCopy(t,done){ try{ const el=document.getElementById('pmailAddr'
 // 이전 함수명 호환(다른 곳에서 호출해도 통합모달 열림)
 function openAdModal(){ openPartnerModal(2); }
 function closeAdModal(){ document.getElementById('partnerModal').classList.remove('on'); }
+
+// ── 친구에게 공유 (앱 모드엔 주소창이 없어 링크 공유가 어려움 → 네이티브 공유 시트) ──
+function mcShare(){
+  var url='https://momcalendar.com/';
+  var data={ title:'맘캘린더', text:'공구·핫딜·체험단 일정을 한눈에! 맘캘린더 📅', url:url };
+  try{ trackEvent('share_click',''); }catch(_){}
+  if(navigator.share){
+    navigator.share(data).catch(function(){});          // 카톡·문자 등 네이티브 공유 시트
+  } else if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ mcToast('링크가 복사됐어요! 친구에게 붙여넣기 하세요 📋'); })
+      .catch(function(){ shareFallback(url); });
+  } else {
+    shareFallback(url);
+  }
+}
+function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
+function mcToast(msg){
+  try{
+    var t=document.createElement('div');
+    t.textContent=msg;
+    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, 2200);
+  }catch(_){}
+}
 
 // ── 위로가기 버튼 (카톡/PC 인앱브라우저 호환) ──
 function _scrollY(){
