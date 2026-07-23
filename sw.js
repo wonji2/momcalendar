@@ -3,8 +3,9 @@
 // 주의: 이 사이트는 공구 일정이 실시간으로 바뀌므로 HTML/데이터는 캐시하지 않고
 //       항상 네트워크에서 최신을 가져온다. (아이콘 등 정적 파일만 가볍게 캐시)
 
-const CACHE = 'momcal-v3';
+const CACHE = 'momcal-v4';
 const ASSETS = [
+  '/momcal-badge.png',
   '/momcal-appicon.png',
   '/manifest.json'
 ];
@@ -37,7 +38,13 @@ self.addEventListener('fetch', function(e){
 
 
 // ══════════════════════════════════════════════════════════
-//  푸시 알림 (찜한 공구 오픈·마감 알림)
+//  푸시 알림 (찜한 공구 오픈 알림)
+//  ※ 발송 문구는 Edge Function에서 만들어 보냄. 확정된 문구:
+//    · 1건  → 제목 "내가 찜한 공구 오늘 오픈 예정"
+//             본문 "{상품명}"                      (예: 또또맘 아이간식 모음전)
+//    · 여러건 → 제목 "내가 찜한 공구 3건 오늘 오픈 예정"
+//             본문 "{첫상품명} 외 2건 눌러서 확인하세요"
+//  ※ 오픈 시각을 모르므로 "열렸어요"가 아니라 반드시 "오픈 예정"으로 표기할 것.
 // ══════════════════════════════════════════════════════════
 
 self.addEventListener('push', function(e){
@@ -50,7 +57,7 @@ self.addEventListener('push', function(e){
   var opts = {
     body:  d.body  || '찜한 공구 소식이 있어요',
     icon:  d.icon  || '/momcal-appicon.png',
-    badge: '/momcal-appicon.png',
+    badge: '/momcal-badge.png',   // 안드로이드 상태표시줄용 흰 실루엣 (컬러 아이콘 쓰면 뭉개짐)
     tag:   d.tag   || 'momcal',       // 같은 tag면 알림이 쌓이지 않고 교체됨
     renotify: true,
     data:  { url: d.url || '/' },

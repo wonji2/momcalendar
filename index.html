@@ -220,17 +220,38 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 /* 카드 (C안 컴팩트) */
 .cards{padding:8px 14px 20px;background:#F4F4F7;display:flex;flex-direction:column;gap:0}
 .card{position:relative;display:block;border-radius:12px;cursor:pointer;transition:.12s;border:none;padding:7px 12px 7px 12px;margin-bottom:6px}
+/* ── 찜(위시리스트) ── */
+.card{padding-right:52px}                     /* 하트 전용칸 확보 */
+.wbtn{position:absolute;top:0;bottom:0;right:0;width:46px;border:none;border-left:1px solid #F0EDF5;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3;border-radius:0 12px 12px 0}
+.wbtn svg{width:21px;height:21px;display:block;transition:transform .18s}
+.wbtn:active svg{transform:scale(.82)}
+.wbtn.pop svg{animation:wpop .34s}
+@keyframes wpop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.stab.wish-tab{background:#F3E8FC;color:#7B3FB5}
+.stab.on-w{background:#7B3FB5;color:#fff;font-weight:700}
+.wish-badge{display:inline-block;background:#fff;color:#7B3FB5;font-size:10px;font-weight:800;border-radius:9px;padding:0 5px;margin-left:4px;min-width:16px;text-align:center}
+.noti-banner{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#F3E8FC,#EADCF8);border:1px solid #D9C2F0;border-radius:12px;padding:11px 13px;margin-bottom:10px}
+.noti-banner .nb-txt{flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.4}
+.noti-banner button{background:#7B3FB5;color:#fff;border:none;border-radius:18px;padding:7px 13px;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap}
+.noti-banner.on{background:#EAF7F0;border-color:#BDE5D2}
+.noti-banner.on .nb-txt{color:#166B45}
+.noti-banner.on button{background:#CFE8DA;color:#166B45}
+.wish-sec{font-size:11px;font-weight:800;color:#8878a8;padding:10px 4px 6px}
+.card.wended{background:#F5F4F7!important;border:1px solid #E8E8EC!important;opacity:.78;padding-right:64px}
+.card.wended .card-name{color:#8b8b95;text-decoration:line-through}
+.wdel{position:absolute;top:50%;right:12px;transform:translateY(-50%);background:#EFEDF2;border:none;color:#999;font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;font-family:inherit;cursor:pointer;z-index:4}
 .card:active{transform:scale(.995);opacity:.92}
 .card-top{display:flex;align-items:center;gap:6px;margin-bottom:3px}
 .cat-tag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .cat-sub{font-size:10px;color:#9a9aa5}
 .partner-chip{background:#602090;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .card-partner .card-seller-strong{color:#4A1A78}
-.card-right{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
+.card-right{position:absolute;top:50%;right:58px;transform:translateY(-50%);display:flex;align-items:center;gap:4px}
+.card-go{display:none}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1;display:flex;align-items:center}
 .card-go{color:#c4c0d4;font-size:16px;font-weight:400;line-height:1;display:flex;align-items:center}
-.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
-.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:84px}
+.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
+.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
 .card-seller-strong{color:#5b4ba8;font-weight:700}
 
 /* 날짜 섹션 구분선 */
@@ -368,6 +389,17 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 </div>
 
 
+<!-- 찜 알림 권한 요청 바텀시트 -->
+<div id="wnSheetBg" onclick="wnLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9990"></div>
+<div id="wnSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));z-index:9991;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
+  <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#9B6FD4,#602090);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:29px;box-shadow:0 5px 16px rgba(96,32,144,.3)">🔔</div>
+  <div style="font-size:16px;font-weight:800;text-align:center;margin-bottom:6px;color:#232326">찜한 공구, 놓치지 않게 알려드릴까요?</div>
+  <div id="wnDesc" style="font-size:12.5px;color:#888;text-align:center;line-height:1.65;margin-bottom:16px"><span style="color:#602090;font-weight:700">오픈하는 날 아침 9시</span>에<br>오픈 예정 공구를 미리 알려드려요</div>
+  <button id="wnOk" onclick="wnAllow()" style="width:100%;background:#602090;color:#fff;border:none;border-radius:13px;padding:14px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px">알림 받기</button>
+  <button onclick="wnLater()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;font-family:inherit;cursor:pointer;padding:5px">나중에</button>
+  <div style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">찜은 알림 없이도 저장돼요<br>알림은 <b style="color:#8878a8">💜 내 찜</b> 탭에서 언제든 끌 수 있어요</div>
+</div>
+
 <!-- 인스타 SVG 아이콘 정의 -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -478,7 +510,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
-  <button class="stab" id="stab-top50" data-st="top50" onclick="toggleStab('top50',this)">🔥 TOP50</button>
+  <button class="stab wish-tab" id="stab-wish" data-st="wish" onclick="toggleStab('wish',this)">💜 내 찜<span class="wish-badge" id="wishBadge">0</span></button>
+  <button class="stab" id="stab-top100" data-st="top100" onclick="toggleStab('top100',this)">TOP100</button>
   <button class="stab" id="stab-open" data-st="open" onclick="toggleStab('open',this)">오늘 오픈</button>
   <button class="stab" id="stab-end" data-st="end" onclick="toggleStab('end',this)">오늘 마감</button>
   <button class="stab" id="stab-upcoming" data-st="upcoming" onclick="toggleStab('upcoming',this)">예정</button>
@@ -865,10 +898,10 @@ async function loadData() {
   if(!restoreViewState()) renderList();
 }
 
-// ── 조회수(카드 클릭) 집계: 전체 TOP50 정렬용 (최근 클릭 기준) ──
+// ── 조회수(카드 클릭) 집계: 전체 TOP100 정렬용 (최근 클릭 기준) ──
 window.__viewCounts={};
 let _vcLoaded=false;
-function ensureViewCounts(){ if(_vcLoaded) return; _vcLoaded=true; loadViewCounts(); }  // TOP50 열 때만 1번
+function ensureViewCounts(){ if(_vcLoaded) return; _vcLoaded=true; loadViewCounts(); }  // TOP100 열 때만 1번
 // 클릭수: DB가 미리 집계한 결과(id, clicks)만 받아옴 (예전처럼 events 로그를 통째로 내려받지 않음 → egress 최소)
 async function loadViewCounts(){
   try{
@@ -883,8 +916,8 @@ async function loadViewCounts(){
     const vc={};
     rows.forEach(r=>{ const id=parseInt(r.id,10); if(!isNaN(id)) vc[id]=Number(r.clicks)||0; });
     window.__viewCounts=vc;
-    if(fSt==='top50' && !dayFilter && !fSearch) renderList();
-  }catch(e){ /* 조회수 못 불러와도 TOP50은 파트너 우선 + 기본 정렬로 노출됨 */ }
+    if(fSt==='top100' && !dayFilter && !fSearch) renderList();
+  }catch(e){ /* 조회수 못 불러와도 TOP100은 파트너 우선 + 기본 정렬로 노출됨 */ }
 }
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
 function isMomcal(item){
@@ -936,11 +969,11 @@ function getFiltered(dateStr){
   if(fSt==='live') return DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   if(fSt==='upcoming') return DATA.filter(item=>!isExpired(item)&&isUpcoming(item)&&filterCat(item)).sort(cmpUpcoming);
 
-  if(fSt==='top50'){
-    // TOP50 = 오늘 기준 '진행중'(오픈했고 아직 안 끝난) 공구 중 실제 조회수(클릭) 순 50개.
+  if(fSt==='top100'){
+    // TOP100 = 오늘 기준 '진행중'(오픈했고 아직 안 끝난) 공구 중 실제 조회수(클릭) 순 100개.
     // 단, 맘캘린더 + 이웃셀러(파트너)의 진행중 카드는 순위와 무관하게 전부 포함하고, 못 든 건 적당한 위치에 끼워넣음.
     const vc=window.__viewCounts||{};
-    const views=it=>vc[it.id]||0;
+    const views=it=>(vc[it.id]||0) + (_wishCounts[it.id]||0);     // 조회수 + 찜수 합산
     const inScope=DATA.filter(item=>!isExpired(item)&&filterCat(item)
       && item.openDate<=todayStr && realEnd(item)>=todayStr);      // 오늘 진행중만
     const byViews=[...inScope].sort((a,b)=>{
@@ -948,9 +981,9 @@ function getFiltered(dateStr){
       if(d!==0) return d;
       return realEnd(a).localeCompare(realEnd(b));                 // 동률이면 마감 임박순
     });
-    const top=byViews.slice(0,50);
+    const top=byViews.slice(0,100);
     const topIds=new Set(top.map(it=>it.id));
-    // 맘캘린더 + 이웃셀러 중 TOP50에 못 든 진행중 카드 → 전부 포함
+    // 맘캘린더 + 이웃셀러 중 TOP100에 못 든 진행중 카드 → 전부 포함
     const missing=inScope.filter(it=>effPartner(it)&&!topIds.has(it.id));
     if(missing.length){
       const R=window.__rand||(window.__rand=JSON.parse(sessionStorage.getItem('mc_rand')||'{}'));
@@ -1014,6 +1047,7 @@ function renderCard(item){
     <div class="card-name">${item.name}</div>
     <div class="card-sellerline">${sellerLine}</div>
     <span class="card-right">${stHtml}<span class="card-go">›</span></span>
+    <button class="wbtn" data-wid="${item.id}" onclick="toggleWish(${item.id},this,event)" aria-label="찜하기">${heartSvg(isWished(item.id))}</button>
   </div>`;
 }
 
@@ -1052,7 +1086,35 @@ function renderList(){
     return;
   }
 
-  // 모든 탭(전체 TOP50 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
+  // ── 내 찜 탭 ──
+  if(fSt==='wish'){
+    const banner = notiGranted()
+      ? `<div class="noti-banner on"><span style="font-size:19px">✅</span><span class="nb-txt">알림 켜짐 · 오픈 예정일 아침에 알려드려요</span><button onclick="disablePush()">끄기</button></div>`
+      : (iosNeedsInstall()
+        ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">홈 화면에 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
+        : `<div class="noti-banner"><span style="font-size:19px">🔔</span><span class="nb-txt">알림을 켜면 오픈 예정일 아침에 알려드려요</span><button onclick="openWnSheet()">켜기</button></div>`);
+    if(!WISH.size){
+      el.innerHTML=banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
+      return;
+    }
+    const pool=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+    const mine=pool.filter(item=>isWished(item.id));
+    // 정렬: ①오픈했거나 진행중 → ②예정 → ③마감(맨 아래). 각 그룹 안은 날짜순.
+    //       내 찜은 본인이 고른 목록이므로 이웃셀러 우선 규칙은 적용하지 않음(순수 날짜순).
+    const live=mine.filter(item=>!isExpired(item))
+      .sort((a,b)=>(a.openDate||'').localeCompare(b.openDate||'')
+                 || (realEnd(a)||'').localeCompare(realEnd(b)||''));   // 같은 오픈일이면 마감 임박순
+    const gone=mine.filter(item=>isExpired(item))
+      .sort((a,b)=>(realEnd(b)||'').localeCompare(realEnd(a)||''));    // 최근 마감 먼저
+    let h=banner;
+    if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+live.map(item=>renderCard(item)).join('');
+    if(gone.length) h+=`<div class="wish-sec">마감됨</div>`+gone.map(item=>renderEndedWish(item)).join('');
+    if(!live.length && !gone.length) h+=`<div class="empty">찜한 공구를 불러오는 중이에요…</div>`;
+    el.innerHTML=h;
+    return;
+  }
+
+  // 모든 탭(전체 TOP100 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
   const arr=getFiltered(selWeekDate);
   el.innerHTML=arr.length
     ?arr.map(item=>renderCard(item)).join('')
@@ -1168,7 +1230,7 @@ function toggleSubCat(m){
 
 function resetStatusTabs(){
   fSt='all';
-  document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+  document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   const a=document.getElementById('stab-all'); if(a) a.classList.add('on-all');
 }
 
@@ -1190,10 +1252,11 @@ function restoreViewState(){
     fSt=s.fSt||'all'; fMajor=s.fMajor||'전체'; fMinors=s.fMinors||[]; fCalCat=s.fCalCat||'전체'; fSearch=s.fSearch||'';
     dayFilter=s.dayFilter||null;
     // 상태탭 버튼 하이라이트 복원
-    const map={all:'on-all',top50:'on-t',open:'on-o',live:'on-g',upcoming:'on-u',end:'on-e'};
-    document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+    const map={all:'on-all',wish:'on-w',top100:'on-t',open:'on-o',live:'on-g',upcoming:'on-u',end:'on-e'};
+    document.querySelectorAll('.stab').forEach(b=>b.className=b.id==='stab-wish'?'stab wish-tab':'stab');
     const btn=document.querySelector('.stab[data-st="'+fSt+'"]'); if(btn) btn.classList.add(map[fSt]||'on-all');
-    if(fSt==='top50') ensureViewCounts();
+    if(fSt==='top100') ensureViewCounts();
+    if(fSt==='wish') fetchWishExtra();
     // 검색어 입력창 복원
     const si=document.getElementById('sInput'); if(si && fSearch) si.value=fSearch;
     renderList();
@@ -1215,12 +1278,14 @@ function toggleStab(v,el){
   // 이미 선택된 버튼(전체 제외)을 다시 누르면 전체로 해제
   if(v===fSt && v!=='all'){ v='all'; el=document.getElementById('stab-all'); }
   fSt=v;
-  if(v==='top50') ensureViewCounts();   // 클릭수는 TOP50 볼 때만 불러옴
+  if(v==='top100') ensureViewCounts();   // 클릭수는 TOP100 볼 때만 불러옴
+  if(v==='wish'){ fetchWishExtra(); }    // 내 찜: DATA에 없는 옛 공구 보충
   // 상태필터 누르면 날짜필터 해제 (둘은 같이 못 켬)
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
-  document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+  document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   if(v==='all') el.classList.add('on-all');
-  if(v==='top50') el.classList.add('on-t');
+  if(v==='wish') el.classList.add('on-w');
+  if(v==='top100') el.classList.add('on-t');
   if(v==='open') el.classList.add('on-o');
   if(v==='live') el.classList.add('on-g');
   if(v==='upcoming') el.classList.add('on-u');
@@ -1456,7 +1521,7 @@ function buildSideCats(){
   }).join('');
 }
 function toggleSideMajor(btn){const wrap=btn.nextElementSibling;wrap.classList.toggle('on');btn.classList.toggle('on',wrap.classList.contains('on'));}
-function pickSideAll(){fMajor='전체';fMinors=[];document.getElementById('sideAllBtn').classList.add('on');closeSide();fSt='all';document.querySelectorAll('.stab').forEach(b=>b.className='stab');document.getElementById('stab-all').classList.add('on-all');renderList();switchTab('list');}
+function pickSideAll(){fMajor='전체';fMinors=[];document.getElementById('sideAllBtn').classList.add('on');closeSide();fSt='all';document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));document.getElementById('stab-all').classList.add('on-all');renderList();switchTab('list');}
 function pickSideMinor(major,minor){fMajor=major;fMinors=(minor==='전체')?[]:[minor];document.getElementById('sideAllBtn').classList.remove('on');closeSide();renderList();switchTab('list');}
 function openSide(){document.getElementById('sideOverlay').classList.add('on');document.getElementById('sideMenu').classList.add('on');}
 function closeSide(){document.getElementById('sideOverlay').classList.remove('on');document.getElementById('sideMenu').classList.remove('on');}
@@ -1604,7 +1669,244 @@ function mcToast(msg){
   }catch(_){}
 }
 
-// ── 위로가기 버튼 (카톡/PC 인앱브라우저 호환) ──
+// ══════════════════════════════════════════════════════════
+//  찜(위시리스트) + 웹푸시 알림
+// ══════════════════════════════════════════════════════════
+const VAPID_PUB='BKCAlmHioBfl2K70UhGHfFo5X9CPaoVVeoX8DcD8pKVJxQ06c_HILhpIzzXgtVLk_7qpGvpN5HGrEhhjeM5oE1c';
+let WISH=new Set();            // 찜한 공구 id
+let _wishCounts={};            // 공구별 찜 수(TOP100 정렬 보조)
+
+// 기기 식별자 (로그인 없이 찜 유지. 카카오 로그인 붙으면 계정과 연결)
+function deviceId(){
+  let d=localStorage.getItem('mc_did');
+  if(!d){
+    d = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+    localStorage.setItem('mc_did', d);
+  }
+  return d;
+}
+function wishHeaders(){
+  return {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
+}
+
+// ── 로컬 캐시 → 즉시 반영, 서버 → 최신으로 동기화 ──
+function loadWishLocal(){
+  try{ const a=JSON.parse(localStorage.getItem('mc_wish')||'[]'); if(Array.isArray(a)) WISH=new Set(a); }catch(_){}
+}
+function saveWishLocal(){
+  try{ localStorage.setItem('mc_wish', JSON.stringify([...WISH])); }catch(_){}
+}
+async function syncWishFromServer(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/wishes?device_id=eq.${encodeURIComponent(deviceId())}&select=gonggu_id`,{headers:wishHeaders()});
+    if(!r.ok) return;
+    const rows=await r.json();
+    WISH=new Set(rows.map(x=>Number(x.gonggu_id)));
+    saveWishLocal(); paintHearts(); updateWishBadge();
+    if(fSt==='wish') renderList();
+  }catch(_){}
+}
+// 찜 수 집계 (TOP100 정렬에 합산)
+async function loadWishCounts(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'});
+    if(!r.ok) return;
+    const rows=await r.json(); const m={};
+    rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
+    _wishCounts=m;
+    if(fSt==='top100') renderList();
+  }catch(_){}
+}
+
+function isWished(id){ return WISH.has(Number(id)); }
+function heartSvg(on){
+  return on
+   ? '<svg viewBox="0 0 24 24" fill="#7B3FB5"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'
+   : '<svg viewBox="0 0 24 24" fill="none" stroke="#C9A8E8" stroke-width="2"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>';
+}
+function paintHearts(){
+  document.querySelectorAll('.wbtn[data-wid]').forEach(b=>{
+    b.innerHTML=heartSvg(isWished(b.getAttribute('data-wid')));
+  });
+}
+function updateWishBadge(){
+  const el=document.getElementById('wishBadge'); if(el) el.textContent=WISH.size;
+}
+
+// ── 하트 토글 ──
+function toggleWish(id, btn, ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  id=Number(id);
+  const on=!isWished(id);
+  if(on) WISH.add(id); else WISH.delete(id);
+  saveWishLocal(); updateWishBadge();
+  if(btn){
+    btn.innerHTML=heartSvg(on);
+    btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop');
+  } else paintHearts();
+
+  // 서버 반영 (실패해도 로컬은 유지)
+  const did=deviceId();
+  if(on){
+    fetch(`${SUPABASE_URL}/rest/v1/wishes`,{method:'POST',
+      headers:Object.assign(wishHeaders(),{'Prefer':'resolution=ignore-duplicates,return=minimal'}),
+      body:JSON.stringify({device_id:did, gonggu_id:id})}).catch(()=>{});
+    try{ trackEvent('wish_add', String(id)); }catch(_){}
+  } else {
+    fetch(`${SUPABASE_URL}/rest/v1/wishes?device_id=eq.${encodeURIComponent(did)}&gonggu_id=eq.${id}`,
+      {method:'DELETE',headers:Object.assign(wishHeaders(),{'Prefer':'return=minimal'})}).catch(()=>{});
+    try{ trackEvent('wish_del', String(id)); }catch(_){}
+  }
+
+  if(on) maybeAskNoti();                    // 첫 찜 → 알림 권한 안내(하루 1회)
+  else if(fSt==='wish') renderList();       // 내 찜 화면에서 해제하면 목록 갱신
+}
+function removeWish(id, ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  toggleWish(id,null); renderList();
+}
+
+// ══ 알림 권한 ══
+function notiGranted(){ try{ return Notification.permission==='granted' && localStorage.getItem('mc_push_on')==='1'; }catch(_){ return false; } }
+function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+
+// 아이폰은 홈 화면에 추가(PWA)해야만 알림 가능
+function iosNeedsInstall(){ return _isIOS() && !_isStandalone(); }
+
+// 알림 안내 재노출 간격: "나중에" 누를수록 뜸해짐(1→3→5→10일), 그 뒤 10일마다
+// ※ 시각(24시간)이 아니라 '날짜' 기준. 밤 11시에 눌러도 다음날 아무 때나 접속하면 뜸.
+const WN_INT=[1,3,5,10];
+function _dstr(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _dstrPlus(n){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+n); return _dstr(d); }
+function maybeAskNoti(){
+  try{
+    if(notiGranted()) return;
+    if(Notification.permission==='denied') return;          // 브라우저에서 이미 차단 → 물어봐야 소용없음
+    const next=localStorage.getItem('mc_wn_next')||'';
+    if(next.indexOf('-')>0 && _dstr() < next) return;        // 아직 쉬는 기간(날짜 기준)
+    setTimeout(openWnSheet, 420);
+  }catch(_){}
+}
+function openWnSheet(){
+  const desc=document.getElementById('wnDesc'), ok=document.getElementById('wnOk');
+  if(iosNeedsInstall()){
+    desc.innerHTML='아이폰은 <span style="color:#602090;font-weight:700">홈 화면에 추가</span>해야<br>알림을 받을 수 있어요';
+    ok.textContent='📲 홈 화면에 추가하기';
+    ok.setAttribute('data-mode','install');
+  } else {
+    desc.innerHTML='<span style="color:#602090;font-weight:700">오픈하는 날 아침 9시</span>에<br>오픈 예정 공구를 미리 알려드려요';
+    ok.textContent='알림 받기';
+    ok.removeAttribute('data-mode');
+  }
+  document.getElementById('wnSheetBg').style.display='block';
+  document.getElementById('wnSheet').style.bottom='0';
+}
+function closeWnSheet(){
+  document.getElementById('wnSheetBg').style.display='none';
+  document.getElementById('wnSheet').style.bottom='-110%';
+}
+function wnLater(){
+  let lvl=parseInt(localStorage.getItem('mc_wn_lvl')||'0',10);
+  if(isNaN(lvl)||lvl<0) lvl=0;
+  const days=WN_INT[Math.min(lvl,WN_INT.length-1)];
+  try{
+    localStorage.setItem('mc_wn_lvl', String(Math.min(lvl+1, WN_INT.length-1)));
+    localStorage.setItem('mc_wn_next', _dstrPlus(days));    // 날짜 기준(YYYY-MM-DD)
+  }catch(_){}
+  closeWnSheet();
+  mcToast('찜했어요 💜 (알림 안내는 '+days+'일 뒤에 다시 여쭤볼게요)');
+}
+async function wnAllow(){
+  const ok=document.getElementById('wnOk');
+  if(ok && ok.getAttribute('data-mode')==='install'){    // 아이폰: 설치 안내로 연결
+    closeWnSheet(); pwaStripAdd(); return;
+  }
+  closeWnSheet();
+  const done=await enablePush();
+  if(done) mcToast('알림 켜졌어요 🔔 끄려면 💜 내 찜 탭에서');
+  else mcToast('알림을 켜지 못했어요. 브라우저 설정을 확인해 주세요');
+  if(fSt==='wish') renderList();
+}
+
+// 실제 푸시 구독 → 서버 저장
+async function enablePush(){
+  try{
+    if(!pushSupported()) return false;
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted') return false;
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUB)});
+    }
+    const j=sub.toJSON();
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/push_subs`,{method:'POST',
+      headers:Object.assign(wishHeaders(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({device_id:deviceId(), endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, ua:navigator.userAgent.slice(0,300)})});
+    if(!r.ok && r.status!==409) return false;
+    localStorage.setItem('mc_push_on','1');
+    try{ trackEvent('push_on', _isIOS()?'ios':'android'); }catch(_){}
+    return true;
+  }catch(e){ return false; }
+}
+async function disablePush(){
+  try{
+    localStorage.setItem('mc_push_on','0');
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){
+      await fetch(`${SUPABASE_URL}/rest/v1/push_subs?device_id=eq.${encodeURIComponent(deviceId())}`,
+        {method:'PATCH',headers:Object.assign(wishHeaders(),{'Prefer':'return=minimal'}),
+         body:JSON.stringify({fail_count:99})}).catch(()=>{});   // 발송 대상에서 제외
+    }
+    try{ trackEvent('push_off',''); }catch(_){}
+  }catch(_){}
+  mcToast('알림을 껐어요'); renderList();
+}
+function urlB64ToUint8(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(s); const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+
+// 마감된 찜 카드 (회색 + 수동 삭제)
+function renderEndedWish(item){
+  const seller=(item.influencer && !item.influencer.startsWith('@')) ? item.influencer : normHandle(item.insta);
+  const period=`${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
+  return `<div class="card wended">
+    <div class="card-top"><span class="cat-tag" style="background:#ECECEC;color:#999">${item.major||''}</span><span class="cat-sub">${item.minor||''}</span></div>
+    <div class="card-name">${item.name}</div>
+    <div class="card-sellerline">${seller?seller+' · ':''}${period}</div>
+    <button class="wdel" onclick="removeWish(${item.id},event)">삭제</button>
+  </div>`;
+}
+// 찜했지만 DATA에 없는 공구(오래 전 마감)를 따로 가져와 목록에서 사라지지 않게 함
+let _wishExtra=[];
+async function fetchWishExtra(){
+  try{
+    const have=new Set(DATA.map(d=>d.id));
+    const miss=[...WISH].filter(id=>!have.has(id) && !_wishExtra.some(x=>x.id===id));
+    if(!miss.length) return;
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link`,{headers:wishHeaders()});
+    if(!r.ok) return;
+    const rows=await r.json();
+    _wishExtra=_wishExtra.concat(rows.map(x=>({
+      id:x.id, influencer:x.influencer||'', insta:(x.insta||'').replace('@','').trim(),
+      major:x.major||'', minor:x.minor||'', name:x.name||'',
+      openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim()
+    })));
+    if(fSt==='wish') renderList();
+  }catch(_){}
+}
+
+// 초기화
+loadWishLocal(); updateWishBadge();
+setTimeout(function(){ syncWishFromServer(); loadWishCounts(); }, 800);
+
+
 function _scrollY(){
   return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
 }
@@ -1628,7 +1930,7 @@ function goHome(){
   selWeekDate=todayStr;
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
-  document.querySelectorAll('.stab').forEach(b=>b.className='stab');
+  document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   document.getElementById('stab-all').classList.add('on-all');
   document.getElementById('sideAllBtn').classList.add('on');
   switchTab('list');
@@ -1847,7 +2149,7 @@ window.addEventListener('pageshow', function(e){
   if(e.persisted){                       // bfcache에서 복원된 경우만
     try{
       if(typeof DATA!=='undefined' && DATA && DATA.length){
-        if(!restoreViewState()) renderList();   // 보던 화면 복원(TOP50·순서·스크롤 포함)
+        if(!restoreViewState()) renderList();   // 보던 화면 복원(TOP100·순서·스크롤 포함)
       } else {
         loadData();
       }
