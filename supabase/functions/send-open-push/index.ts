@@ -7,7 +7,8 @@
 //  3) web-push 발송
 //  4) 성공 → push_log insert / 404·410 → push_subs.fail_count +1
 //
-//  ⚠ 오픈 "시각"은 모른다 → 문구는 반드시 "오픈 예정" (열렸어요 금지)
+//  ⚠ 오픈 "시각"은 모른다 → "열렸어요" 같은 완료형 금지.
+//    "오늘 오픈" 까지만 쓴다 (2026-07-23 사장님 결정: '예정' 을 빼서 제목을 한 줄에 맞춤)
 // ══════════════════════════════════════════════════════════
 
 import webpush from "npm:web-push@3.6.7";
@@ -72,14 +73,14 @@ function buildPayload(g: Group, linkOf: Map<number, string>, today: string) {
   const n = g.items.length;
   if (n === 1) {
     return {
-      title: "내가 찜한 공구 오늘 오픈 예정",
+      title: "내가 찜한 공구 오늘 오픈",
       body: g.items[0].name,
       url: linkOf.get(g.items[0].id) || SITE,
       tag: `mc-open-${today}`,
     };
   }
   return {
-    title: `내가 찜한 공구 ${n}건 오늘 오픈 예정`,
+    title: `내가 찜한 공구 ${n}건 오늘 오픈`,
     body: `${g.items[0].name} 외 ${n - 1}건 눌러서 확인하세요`,
     url: SITE,
     tag: `mc-open-${today}`,
