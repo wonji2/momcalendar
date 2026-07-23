@@ -69,13 +69,15 @@ type Group = {
 };
 
 // ── 발송 문구 (확정 — 함부로 바꾸지 말 것) ──
-function buildPayload(g: Group, linkOf: Map<number, string>, today: string) {
+//  ⚠ 링크는 반드시 맘캘린더를 거치게 한다. 셀러 인스타·결제링크로 직행시키지 말 것.
+//    (2026-07-23 사장님 지시: 알림에서 바로 인스타로 빠지면 사이트 방문이 사라짐)
+function buildPayload(g: Group, today: string) {
   const n = g.items.length;
   if (n === 1) {
     return {
       title: "내가 찜한 공구 오늘 오픈",
       body: g.items[0].name,
-      url: linkOf.get(g.items[0].id) || SITE,
+      url: `${SITE}?g=${g.items[0].id}`,   // 사이트로 보내되 어떤 공구인지 표시
       tag: `mc-open-${today}`,
     };
   }
@@ -143,27 +145,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1건짜리 알림은 해당 공구 링크로 바로 보낸다 (결제링크 우선, 없으면 인스타)
-    const singleIds = [...groups.values()].filter((g) => g.items.length === 1).map((g) => g.items[0].id);
-    const linkOf = new Map<number, string>();
-    if (singleIds.length) {
-      const ids = [...new Set(singleIds)].join(",");
-      const gr = await sbFetch(`gonggu?id=in.(${ids})&select=id,pay_link,insta`);
-      if (gr.ok) {
-        for (const row of await gr.json()) {
-          const pay = String(row.pay_link || "").trim();
-          const insta = String(row.insta || "").replace("@", "").trim();
-          if (/^https?:\/\//i.test(pay)) linkOf.set(row.id, pay);
-          else if (insta) linkOf.set(row.id, `https://instagram.com/${insta}`);
-        }
-      }
-    }
-
     const list = [...groups.values()];
     if (dry) {
       return json({
         ok: true, dry: true, today, targets: targets.length, devices: list.length,
-        preview: list.slice(0, 20).map((g) => ({ device_id: g.device_id, ...buildPayload(g, linkOf, today) })),
+        preview: list.slice(0, 20).map((g) => ({ device_id: g.device_id, ...buildPayload(g, today) })),
       });
     }
 
@@ -174,7 +160,7 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < list.length; i += BATCH) {
       await Promise.all(list.slice(i, i + BATCH).map(async (g) => {
-        const payload = buildPayload(g, linkOf, today);
+        const payload = buildPayload(g, today);
         try {
           // web-push의 node http 대신 fetch로 직접 쏜다 (Deno에서 가장 안전)
           const d = webpush.generateRequestDetails(
