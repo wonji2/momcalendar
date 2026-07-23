@@ -376,7 +376,26 @@ const HOLIDAYS={
   '2027-01-01':'신정',
 };
 
-let _seller=null, _data=[], _editId=null, _calYear=new Date().getFullYear(), _calMonth=new Date().getMonth();
+let _seller=null, _tok=null, _data=[], _editId=null, _calYear=new Date().getFullYear(), _calMonth=new Date().getMonth();
+
+// 셀러 작업은 전부 서버 함수를 거친다. 공구 테이블에 직접 쓰지 않는다.
+// 서버가 토큰으로 본인 확인 후 "본인 공구인지"까지 검사한다.
+async function sellerRpc(fn, payload){
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({p_token:_tok}, payload||{}))
+    });
+    if(r.status===401||r.status===403){          // 토큰 만료·폐기
+      showToast('로그인이 만료됐어요. 다시 로그인해주세요.');
+      doLogout();
+      return null;
+    }
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
 
 // ── 화면 전환 ──
 function showLogin(){document.getElementById('signupView').style.display='none';document.getElementById('loginView').style.display='block';document.getElementById('pendingView').style.display='none';}
@@ -434,6 +453,7 @@ async function doLogin(){
       return;
     }
     _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta};
+    _tok=d.token||null;
     try{localStorage.setItem('mc_seller_id',insta);}catch(e){}
     onLogin();
   }catch(e){err.textContent='오류: '+e.message;}
@@ -447,7 +467,8 @@ async function onLogin(){
 }
 
 function doLogout(){
-  _seller=null;_data=[];
+  if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
+  _seller=null;_tok=null;_data=[];
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
   // 아이디는 저장된 값으로 유지, 비밀번호만 비움
@@ -459,9 +480,8 @@ function doLogout(){
 
 // ── 데이터 로드 ──
 async function loadData(){
-  const insta=(_seller.seller_insta||_seller.login_insta).replace('@','');
-  const r=await fetch(`${SB}/rest/v1/gonggu?insta=eq.${encodeURIComponent(insta)}&order=open_date.desc&limit=2000`,{headers:H});
-  _data=await r.json()||[];
+  const rows=await sellerRpc('seller_list_gonggu');
+  _data=Array.isArray(rows)?rows:[];
   updateStats();
   renderList();
   buildCal();
@@ -843,8 +863,7 @@ function rowSyncMin(sel){
 
 // ── 저장 ──
 async function saveAll(){
-  const insta=(_seller.seller_insta||_seller.login_insta).replace('@','');
-  const influencer=_seller.seller_influencer||_seller.login_insta;
+  // 셀러명(insta/influencer)과 승인여부는 서버가 토큰 기준으로 강제한다 — 여기서 보내지 않는다
   const rows=[...document.querySelectorAll('#regRows .rrow')].map(r=>{
     const op=r.querySelector('.rop').value;
     let en=r.querySelector('.ren').value||null;
@@ -855,8 +874,7 @@ async function saveAll(){
       minor:r.querySelector('.rmin').value,
       open_date:op,
       end_date:en,
-      color:r.dataset.color||null,
-      insta,influencer,approved:false
+      color:r.dataset.color||null
     };
     const pl=r.querySelector('.rpay')?r.querySelector('.rpay').value.trim():'';
     if(pl) obj.pay_link=pl;
@@ -864,14 +882,10 @@ async function saveAll(){
   }).filter(x=>x.name&&x.open_date);
   if(!rows.length){showToast('제품명을 입력한 항목이 없어요!');return;}
   try{
-    const r=await fetch(`${SB}/rest/v1/gonggu`,{
-      method:'POST',
-      headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify(rows)
-    });
-    if(!r.ok)throw 0;
+    const d=await sellerRpc('seller_add_gonggu',{p_rows:rows});
+    if(!d||!d.ok)throw 0;
     closeAddModal();
-    showToast(`✅ ${rows.length}건 등록! 방장 승인 후 노출돼요`);
+    showToast(`✅ ${d.count}건 등록! 방장 승인 후 노출돼요`);
     await loadData();
   }catch(e){showToast('등록 실패. 다시 시도해주세요.');}
 }
@@ -906,15 +920,10 @@ async function doEdit(){
   const minor=document.getElementById('eMinor').value;
   if(!name||!open_date){showToast('필수 항목을 입력해주세요!');return;}
   try{
-    const body={name,major,minor,open_date,end_date,color:_editColor,approved:false};
-    const pl=document.getElementById('ePay').value.trim();
-    if(pl) body.pay_link=pl;
-    const r=await fetch(`${SB}/rest/v1/gonggu?id=eq.${_editId}`,{
-      method:'PATCH',
-      headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify(body)
-    });
-    if(!r.ok)throw 0;
+    const body={name,major,minor,open_date,end_date,color:_editColor};
+    body.pay_link=document.getElementById('ePay').value.trim();
+    const d=await sellerRpc('seller_update_gonggu',{p_id:_editId,p_body:body});
+    if(!d||!d.ok)throw 0;
     closeEditModal();
     showToast('✅ 수정됐어요! 방장 승인 후 반영돼요');
     await loadData();
@@ -925,8 +934,8 @@ async function doEdit(){
 async function delG(id){
   if(!confirm('이 공구를 삭제할까요?'))return;
   try{
-    const r=await fetch(`${SB}/rest/v1/gonggu?id=eq.${id}`,{method:'DELETE',headers:H});
-    if(!r.ok)throw 0;
+    const d=await sellerRpc('seller_delete_gonggu',{p_id:id});
+    if(!d||!d.ok)throw 0;
     showToast('삭제됐어요 🗑️');
     await loadData();
   }catch(e){showToast('삭제 실패.');}
