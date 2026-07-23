@@ -1841,10 +1841,11 @@ async function enablePush(){
       sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUB)});
     }
     const j=sub.toJSON();
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/push_subs`,{method:'POST',
-      headers:Object.assign(wishHeaders(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
-      body:JSON.stringify({device_id:deviceId(), endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, ua:navigator.userAgent.slice(0,300)})});
-    if(!r.ok && r.status!==409) return false;
+    // push_subs 직접 쓰기는 차단돼 있음 → 서버 함수가 대신 저장한다
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/save-push-sub`,{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'on', device_id:deviceId(), endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, ua:navigator.userAgent.slice(0,300)})});
+    if(!r.ok) return false;
     localStorage.setItem('mc_push_on','1');
     try{ trackEvent('push_on', _isIOS()?'ios':'android'); }catch(_){}
     return true;
@@ -1856,9 +1857,9 @@ async function disablePush(){
     const reg=await navigator.serviceWorker.ready;
     const sub=await reg.pushManager.getSubscription();
     if(sub){
-      await fetch(`${SUPABASE_URL}/rest/v1/push_subs?device_id=eq.${encodeURIComponent(deviceId())}`,
-        {method:'PATCH',headers:Object.assign(wishHeaders(),{'Prefer':'return=minimal'}),
-         body:JSON.stringify({fail_count:99})}).catch(()=>{});   // 발송 대상에서 제외
+      await fetch(`${SUPABASE_URL}/functions/v1/save-push-sub`,
+        {method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({action:'off', device_id:deviceId()})}).catch(()=>{});   // 발송 대상에서 제외
     }
     try{ trackEvent('push_off',''); }catch(_){}
   }catch(_){}
