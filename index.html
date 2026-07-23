@@ -1699,7 +1699,9 @@ function saveWishLocal(){
 }
 async function syncWishFromServer(){
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/wishes?device_id=eq.${encodeURIComponent(deviceId())}&select=gonggu_id`,{headers:wishHeaders()});
+    // wishes 테이블 직접 접근은 차단돼 있음 → 항상 내 기기 것만 주는 함수로 조회
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_list`,{method:'POST',headers:wishHeaders(),
+      body:JSON.stringify({p_device:deviceId()})});
     if(!r.ok) return;
     const rows=await r.json();
     WISH=new Set(rows.map(x=>Number(x.gonggu_id)));
@@ -1748,16 +1750,9 @@ function toggleWish(id, btn, ev){
 
   // 서버 반영 (실패해도 로컬은 유지)
   const did=deviceId();
-  if(on){
-    fetch(`${SUPABASE_URL}/rest/v1/wishes`,{method:'POST',
-      headers:Object.assign(wishHeaders(),{'Prefer':'resolution=ignore-duplicates,return=minimal'}),
-      body:JSON.stringify({device_id:did, gonggu_id:id})}).catch(()=>{});
-    try{ trackEvent('wish_add', String(id)); }catch(_){}
-  } else {
-    fetch(`${SUPABASE_URL}/rest/v1/wishes?device_id=eq.${encodeURIComponent(did)}&gonggu_id=eq.${id}`,
-      {method:'DELETE',headers:Object.assign(wishHeaders(),{'Prefer':'return=minimal'})}).catch(()=>{});
-    try{ trackEvent('wish_del', String(id)); }catch(_){}
-  }
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),
+    body:JSON.stringify({p_device:did, p_gonggu:id, p_on:on})}).catch(()=>{});
+  try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on) maybeAskNoti();                    // 첫 찜 → 알림 권한 안내(하루 1회)
   else if(fSt==='wish') renderList();       // 내 찜 화면에서 해제하면 목록 갱신
