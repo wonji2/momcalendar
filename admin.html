@@ -5575,13 +5575,23 @@ function renderDashKpi(o){
 function renderDashVisit(rows){
   const el=document.getElementById('dashVisitChart'); if(!el) return;
   rows=Array.isArray(rows)?rows:[];
-  document.getElementById('dashVisitSub').textContent=`최근 ${DASH_DAYS}일`;
-  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:11px">데이터 없음</div>'; return; }
-  const max=Math.max(...rows.map(r=>Number(r.visits)||0),1);
+  const subEl=document.getElementById('dashVisitSub');
+  if(!rows.length){ if(subEl)subEl.textContent=`최근 ${DASH_DAYS}일`; el.innerHTML='<div style="color:#bbb;font-size:11px">데이터 없음</div>'; return; }
+  const vals=rows.map(r=>Number(r.visits)||0);
+  const max=Math.max(...vals,1);
+  const sum=vals.reduce((a,b)=>a+b,0);
+  const avg=Math.round(sum/rows.length);
+  const peakVal=max, peakRow=rows[vals.indexOf(max)];
+  // 그래프 위 요약 — 막대가 많아도 수치를 알 수 있게
+  if(subEl) subEl.innerHTML=`최근 ${DASH_DAYS}일 · 합계 <b style="color:#602090">${dashNum(sum)}</b> · 일평균 <b style="color:#602090">${dashNum(avg)}</b> · 최고 ${dashNum(peakVal)}(${String(peakRow.d).slice(5)})`;
+  const showNum = rows.length <= 16;   // 막대가 많으면 숫자 생략(겹침 방지) → 위 요약으로 대체
   el.innerHTML=rows.map(r=>{
-    const h=Math.round((Number(r.visits)||0)/max*100);
+    const v=Number(r.visits)||0;
+    const h=Math.round(v/max*100);
     const md=String(r.d).slice(5);
-    return `<div title="${r.d}: ${dashNum(r.visits)}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px;min-width:0">
+    const numTop = showNum ? `<div style="font-size:8.5px;font-weight:700;color:#7B3FB5;white-space:nowrap;transform:scale(.9)">${dashNum(v)}</div>` : '';
+    return `<div title="${r.d}: ${dashNum(v)}명" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:1px;min-width:0">
+      ${numTop}
       <div style="width:100%;background:#B89BE0;border-radius:3px 3px 0 0;height:${Math.max(h,2)}%"></div>
       <div style="font-size:8px;color:#B4B0BE;white-space:nowrap;transform:scale(.85)">${md}</div></div>`;
   }).join('');
