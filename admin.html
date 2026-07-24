@@ -392,7 +392,15 @@ details summary::-webkit-details-marker{display:none}
     <div class="modal">
       <div class="modal-title" id="bannerModalTitle">🖼️ 배너 추가</div>
       <input type="hidden" id="bId">
+      <div class="modal-field"><label>배너 위치 *</label>
+        <select id="bType" style="width:100%;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="main">메인 배너 (상단 큰 슬라이드)</option>
+          <option value="promo">🎁 기획전·제휴 존 (이웃셀러 아래 띠)</option>
+        </select>
+        <div style="font-size:11px;color:#999;margin-top:4px">기획전은 브랜드 제휴·쿠팡 파트너스 등 광고용. 색은 아래에서 민트 계열을 고르면 예뻐요.</div>
+      </div>
       <div class="modal-field"><label>제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
+      <div class="modal-field"><label>브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
       <div class="modal-field"><label>부제목</label><input id="bSubtitle" type="text" placeholder="예) 17,000명+ 맘들의 공구 커뮤니티"></div>
       <div class="modal-field">
         <label>링크 URL</label>
@@ -3535,7 +3543,8 @@ async function uploadBannerImg(){
 let bannerData=[];
 
 async function loadBannerAdmin(){
-  const res=await fetch(`${SB_URL}/rest/v1/banners?type=eq.main&order=sort_order.asc`,{
+  // 메인 배너 + 기획전(promo) 배너 모두 로드
+  const res=await fetch(`${SB_URL}/rest/v1/banners?type=in.(main,promo)&order=type.asc,sort_order.asc`,{
     headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
   });
   bannerData=await res.json();
@@ -3726,6 +3735,8 @@ async function persistBannerOrder(){
 function openBannerAdd(){
   document.getElementById('bannerModalTitle').textContent='🖼️ 배너 추가';
   document.getElementById('bId').value='';
+  document.getElementById('bType').value='main';
+  document.getElementById('bCta').value='';
   document.getElementById('bTitle').value='';
   document.getElementById('bSubtitle').value='';
   document.getElementById('bLink').value='';
@@ -3751,6 +3762,8 @@ function openBannerEdit(id){
   const b=bannerData.find(d=>d.id===id);if(!b)return;
   document.getElementById('bannerModalTitle').textContent='🖼️ 배너 수정';
   document.getElementById('bId').value=id;
+  document.getElementById('bType').value=b.type||'main';
+  document.getElementById('bCta').value=b.cta||'';
   document.getElementById('bTitle').value=b.title||'';
   document.getElementById('bSubtitle').value=b.subtitle||'';
   document.getElementById('bLink').value=b.link||'';
@@ -3807,9 +3820,10 @@ async function saveBanner(){
 
   const imgPos=getImgPosition();
   const payload={
-    type:'main',
+    type:(document.getElementById('bType')?document.getElementById('bType').value:'main'),
     title:document.getElementById('bTitle').value.trim(),
     subtitle:document.getElementById('bSubtitle').value.trim(),
+    cta:(document.getElementById('bCta')?document.getElementById('bCta').value.trim():'')||null,
     link:document.getElementById('bLink').value.trim(),
     link_open_at:document.getElementById('bLinkOpenAt').value?new Date(document.getElementById('bLinkOpenAt').value).toISOString():null,
     show_from:document.getElementById('bShowFrom').value?new Date(document.getElementById('bShowFrom').value).toISOString():null,
