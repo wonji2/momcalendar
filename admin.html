@@ -5561,11 +5561,14 @@ async function loadAdminDash(force){
 }
 function renderDashKpi(o){
   const v=o.visit||{}, w=o.wish||{}, p=o.push||{}, g=o.gonggu||{}, pd=o.pending||{};
-  const diff=(v.today||0)-(v.yesterday||0);
-  const diffTxt=diff>0?`<span style="color:#1F9E52">▲ ${dashNum(diff)}</span>`:(diff<0?`<span style="color:#C62828">▼ ${dashNum(-diff)}</span>`:'—');
+  // 오늘 누적을 '어제 같은 시각까지'와 비교해야 공정하다 (안 그러면 오전엔 늘 -80% 처럼 보임)
+  const base=(v.yesterday_sofar!=null)?v.yesterday_sofar:v.yesterday;
+  const diff=(v.today||0)-(base||0);
+  const pctTxt = base>0 ? ` ${Math.round(Math.abs(diff)/base*100)}%` : '';
+  const diffTxt=diff>0?`<span style="color:#1F9E52">▲${pctTxt}</span>`:(diff<0?`<span style="color:#C62828">▼${pctTxt}</span>`:'≈');
   const pend=(pd.gonggu||0)+(pd.seller||0);
   document.getElementById('dashKpi').innerHTML=`
-    <div class="dashKcard"><div class="dashKnum" style="color:#2A1D6E">${dashNum(v.today)}</div><div class="dashKlbl">오늘 방문</div><div class="dashKsub">어제 대비 ${diffTxt}</div></div>
+    <div class="dashKcard"><div class="dashKnum" style="color:#2A1D6E">${dashNum(v.today)}</div><div class="dashKlbl">오늘 방문</div><div class="dashKsub" title="어제 같은 시각까지 ${dashNum(base)}명">어제 이맘때 대비 ${diffTxt}</div></div>
     <div class="dashKcard"><div class="dashKnum" style="color:#2A1D6E">${o.retention_30d||0}%</div><div class="dashKlbl">재방문율</div><div class="dashKsub">최근 30일</div></div>
     <div class="dashKcard"><div class="dashKnum" style="color:#7B3FB5">${dashNum(w.total)}</div><div class="dashKlbl">누적 찜</div><div class="dashKsub">${dashNum(w.users)}명 · 공구 ${dashNum(w.gonggu)}</div></div>
     <div class="dashKcard"><div class="dashKnum" style="color:#7B3FB5">${dashNum(p.active)}</div><div class="dashKlbl">알림 구독</div><div class="dashKsub">찜한사람 중 ${p.optin_rate||0}%</div></div>

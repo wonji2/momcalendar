@@ -38,7 +38,8 @@ set search_path = public
 as $$
 declare
   d date := (now() at time zone 'Asia/Seoul')::date;
-  vt bigint; vy bigint; v7 bigint; v30 bigint; vtot bigint;
+  now_t time := (now() at time zone 'Asia/Seoul')::time;   -- 지금 시각(KST)
+  vt bigint; vy bigint; vy_sofar bigint; v7 bigint; v30 bigint; vtot bigint;
   ret numeric;
   w_tot bigint; w_users bigint; w_gg bigint;
   p_active bigint; p_users bigint; optin numeric;
@@ -50,10 +51,13 @@ begin
 
   select count(*) filter (where (visited_at at time zone 'Asia/Seoul')::date = d),
          count(*) filter (where (visited_at at time zone 'Asia/Seoul')::date = d - 1),
+         -- 어제 '같은 시각'까지 (오늘과 공정 비교): 어제 00:00 ~ 어제 지금시각
+         count(*) filter (where (visited_at at time zone 'Asia/Seoul')::date = d - 1
+                            and (visited_at at time zone 'Asia/Seoul')::time <= now_t),
          count(*) filter (where visited_at >= now() - interval '7 days'),
          count(*) filter (where visited_at >= now() - interval '30 days'),
          count(*)
-    into vt, vy, v7, v30, vtot
+    into vt, vy, vy_sofar, v7, v30, vtot
   from visitors;
 
   select round(100.0 * count(*) filter (where days >= 2) / nullif(count(*), 0), 1)
@@ -84,7 +88,7 @@ begin
   return json_build_object(
     'ok', true,
     'today', d,
-    'visit', json_build_object('today', vt, 'yesterday', vy, 'week', v7, 'month', v30, 'total', vtot),
+    'visit', json_build_object('today', vt, 'yesterday', vy, 'yesterday_sofar', vy_sofar, 'week', v7, 'month', v30, 'total', vtot),
     'retention_30d', coalesce(ret, 0),
     'wish', json_build_object('total', w_tot, 'users', w_users, 'gonggu', w_gg),
     'push', json_build_object('active', p_active, 'optin_rate', coalesce(optin, 0)),
