@@ -2331,6 +2331,8 @@ function buildMainSlider(){
       // 링크 공개 예정 시각이 미래면 아직 작동 안 함
       if(b.link_open_at && new Date(b.link_open_at) > new Date()) return;
       const link=(b.link||'');
+      // 메인 배너 클릭 추적 (광고 성과 집계용). event_data = 배너 id(없으면 제목)
+      try{ trackEvent('banner_click', String(b.id!=null?b.id:(b.title||''))); }catch(_){}
       if(link==='seller-popup') openPartnerModal(1);
       else if(link==='ad-popup') openPartnerModal(2);
       else if(link) window.open(link,'_blank');
