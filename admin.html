@@ -564,8 +564,8 @@ details summary::-webkit-details-marker{display:none}
     <div style="font-size:15px;font-weight:800;color:#2A1D6E">📊 한눈에 보기</div>
     <div style="display:flex;gap:4px">
       <button onclick="setDashPeriod(7,this)" class="dashPBtn">7일</button>
-      <button onclick="setDashPeriod(30,this)" class="dashPBtn dashPOn">30일</button>
-      <button onclick="setDashPeriod(90,this)" class="dashPBtn">90일</button>
+      <button onclick="setDashPeriod(14,this)" class="dashPBtn dashPOn">14일</button>
+      <button onclick="setDashPeriod(30,this)" class="dashPBtn">30일</button>
       <button onclick="loadAdminDash(true)" style="background:#2A1D6E;border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🔄</button>
     </div>
   </div>
@@ -613,6 +613,55 @@ details summary::-webkit-details-marker{display:none}
       <button onclick="copyDashSellerPerf()" style="background:#F0E6FA;border:none;color:#602090;font-size:10px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit">📋 복사</button>
     </div>
     <div id="dashSellerPerf" style="font-size:12px;color:#888">…</div>
+  </div>
+
+  <!-- 🔥 많이 본 공구 -->
+  <div style="background:#fff;border-radius:12px;margin-top:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">🔥 많이 본 공구 <span style="font-size:11px;color:#9B9B9B;font-weight:500">카드 클릭 순</span></div>
+    <div id="dashCard" style="font-size:12px;color:#888">…</div>
+  </div>
+
+  <!-- 🔍 검색·수요 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">🔍 인기 검색어</div>
+      <div id="dashSearch" style="font-size:12px;color:#888">…</div>
+    </div>
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#C0392B;margin-bottom:2px">🕳️ 수요 갭</div>
+      <div style="font-size:10px;color:#aaa;margin-bottom:8px">찾는데 없는 것 = 입점 유치 기회</div>
+      <div id="dashGap" style="font-size:12px;color:#888">…</div>
+    </div>
+  </div>
+
+  <!-- 📂 카테고리·탭 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">📂 카테고리 클릭</div>
+      <div id="dashCategory" style="font-size:12px;color:#888">…</div>
+    </div>
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">📑 탭 사용</div>
+      <div id="dashTab" style="font-size:12px;color:#888">…</div>
+    </div>
+  </div>
+
+  <!-- 💰 광고 성과 -->
+  <div style="background:#fff;border-radius:12px;margin-top:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">💰 광고 성과 <span style="font-size:11px;color:#9B9B9B;font-weight:500">배너·기획전 클릭</span></div>
+    <div id="dashAd" style="font-size:12px;color:#888">…</div>
+  </div>
+
+  <!-- 📅 요일별 방문 -->
+  <div style="background:#fff;border-radius:12px;margin-top:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">📅 요일별 방문 <span style="font-size:11px;color:#9B9B9B;font-weight:500">주말 진함</span></div>
+    <div id="dashWeekday" style="display:flex;align-items:flex-end;gap:6px;height:90px"></div>
+  </div>
+
+  <!-- ⏰ 시간대별 방문 -->
+  <div style="background:#fff;border-radius:12px;margin-top:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="font-size:13px;font-weight:700;color:#222;margin-bottom:10px">⏰ 시간대별 방문 <span style="font-size:11px;color:#9B9B9B;font-weight:500">밤 시간이 진함</span></div>
+    <div id="dashHourly" style="display:flex;align-items:flex-end;gap:2px;height:74px"></div>
   </div>
 </div>
 <style>
@@ -1852,10 +1901,15 @@ function crawlPairDup(a, b){
   let sameSeller, sellerKnown=false;
   if(aIns&&bIns){ sameSeller=(aIns===bIns); sellerKnown=true; }
   else if(aInfl&&bInfl){ sameSeller=(aInfl===bInfl); sellerKnown=true; }
-  else sameSeller=true;                       // 셀러정보 없으면 이름만으로 (기존 동작)
-  if(sameSeller && dupNameMatch(a.name,b.name)) return true;
-  if(sellerKnown && sameSeller && (a.open_date||'')===(b.open_date||'') && relName(a.name,b.name)) return true;
-  return false;
+  else sameSeller=true;
+  if(!sameSeller) return false;
+  if(sellerKnown){                             // 셀러 확인됨: 같은 셀러 + 비슷한 이름이면 중복
+    if(dupNameMatch(a.name,b.name)) return true;
+    if((a.open_date||'')===(b.open_date||'') && relName(a.name,b.name)) return true;
+    return false;
+  }
+  // 셀러 정보 없음(카페 등): 이름 + 같은 오픈일이 둘 다 맞아야 중복 (날짜 다르면 별개 공구)
+  return !!(a.open_date && b.open_date && a.open_date===b.open_date && dupNameMatch(a.name,b.name));
 }
 function crawlDbDup(existingData, name, insta, influencer, openDate){
   if(!name||!Array.isArray(existingData)) return false;
@@ -5224,29 +5278,17 @@ function ngCopyFallback(){ const ta=document.createElement('textarea'); ta.value
 
 // ── 🔔 알림 구독자(소유 청중) ──
 async function loadSubscribers(){
+  // 죽은 subscribers 테이블 대신 실제 푸시 구독(push_subs) 집계 (admin_push_subs RPC)
   const el=document.getElementById('subStatsBody'); if(!el)return;
   el.innerHTML='<div style="color:#aaa;font-size:12px">로딩 중...</div>';
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/subscribers?select=cats,created_at,anon_id`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
-    if(!r.ok){
-      el.innerHTML='<div style="font-size:11px;color:#888;line-height:1.7">subscribers 테이블이 아직 없어요. 아래 SQL을 Supabase에 실행하세요.</div><div style="background:#F9F4FD;border-radius:8px;padding:10px;margin-top:6px;font-size:10px;font-family:monospace;color:#4A1A78;line-height:1.6;white-space:pre-wrap">create table if not exists subscribers(\n  id bigint generated always as identity primary key,\n  anon_id text, cats jsonb default \'[]\',\n  source text default \'web\', created_at timestamptz default now());\nalter table subscribers enable row level security;\ncreate policy sub_ins on subscribers for insert to anon with check(true);\ncreate policy sub_sel on subscribers for select using(true);</div>';
-      return;
-    }
-    const rows=await r.json();
-    if(!rows.length){ el.innerHTML='<div style="color:#aaa;font-size:12px">아직 구독자가 없어요. index.html 배포 후 수집 시작.</div>'; return; }
-    const uniq=new Set(), catCnt={}; const total=rows.length; const now=Date.now(); let wk=0;
-    rows.forEach(s=>{ if(s.anon_id) uniq.add(s.anon_id); (Array.isArray(s.cats)?s.cats:[]).forEach(c=>catCnt[c]=(catCnt[c]||0)+1); if(s.created_at && now-new Date(s.created_at).getTime()<7*864e5) wk++; });
-    const cats=Object.entries(catCnt).sort((a,b)=>b[1]-a[1]); const cmax=cats.length?cats[0][1]:1;
-    let h=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-      <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#602090;font-size:20px;font-weight:800">${uniq.size||total}</div><div style="color:#9B6FD4;font-size:10px;margin-top:3px">고유 구독자</div></div>
-      <div style="background:#F0E6FA;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#602090;font-size:20px;font-weight:800">${total}</div><div style="color:#9B6FD4;font-size:10px;margin-top:3px">신청 누적</div></div>
-      <div style="background:#EAFBF1;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#1E7E4F;font-size:20px;font-weight:800">+${wk}</div><div style="color:#3FA66F;font-size:10px;margin-top:3px">최근 7일</div></div>
+    const p=await adminRpc('admin_push_subs');
+    if(!p||!p.ok){ el.innerHTML='<div style="color:#aaa;font-size:12px">불러오지 못했어요.</div>'; return; }
+    el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div style="background:#F9F4FD;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#602090;font-size:20px;font-weight:800">${dashNum(p.active)}</div><div style="color:#9B6FD4;font-size:10px;margin-top:3px">알림 받는 기기</div></div>
+      <div style="background:#F0E6FA;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#602090;font-size:20px;font-weight:800">${dashNum(p.total)}</div><div style="color:#9B6FD4;font-size:10px;margin-top:3px">누적 구독</div></div>
+      <div style="background:#EAFBF1;border-radius:10px;padding:12px 6px;text-align:center"><div style="color:#1E7E4F;font-size:20px;font-weight:800">+${dashNum(p.recent7)}</div><div style="color:#3FA66F;font-size:10px;margin-top:3px">최근 7일</div></div>
     </div>`;
-    if(cats.length){
-      h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:4px 0 7px">📂 관심 카테고리 분포 <span style="font-size:10px;font-weight:600;color:#aaa">(누가 뭘 살지 = 영업·기획 근거)</span></div>`;
-      h+=cats.map(([c,n])=>`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#333">${c}</span><span style="font-size:11px;color:#602090;font-weight:700">${n}</span></div><div style="height:5px;background:#F0E6FA;border-radius:3px"><div style="height:5px;background:#7B68EE;border-radius:3px;width:${Math.round(n/cmax*100)}%"></div></div></div>`).join('');
-    }
-    el.innerHTML=h;
   }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">불러오지 못했어요.</div>'; }
 }
 
@@ -5528,7 +5570,7 @@ function getDupReason(item){
 }
 
 // ══ 통계 대시보드 (2026-07-23) ══
-let DASH_DAYS=30, _dashSellerPerfRows=[];
+let DASH_DAYS=14, _dashSellerPerfRows=[];
 function dashEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function dashNum(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
 async function adminRpc(name, body){
@@ -5557,13 +5599,21 @@ async function loadAdminDash(force){
       if(o&&o.ok) renderDashKpi(o);
     }catch(e){ document.getElementById('dashKpi').innerHTML='<div style="color:#C62828;font-size:12px;grid-column:1/-1;padding:10px">요약을 불러오지 못했어요. 관리자 로그인이 풀렸을 수 있어요. ('+e.message+')</div>'; }
     // 2) 나머지는 병렬
-    const [series,wtop,wsel,push,refs,perf]=await Promise.all([
+    const [series,wtop,wsel,push,refs,perf,spop,sgap,cat,tab,ad,hourly,ctop,wday]=await Promise.all([
       adminRpc('admin_visit_series',{p_days:DASH_DAYS}).catch(()=>[]),
       adminRpc('admin_wish_top',{p_limit:10}).catch(()=>[]),
       adminRpc('admin_wish_by_seller',{p_limit:10}).catch(()=>[]),
       adminRpc('admin_push_overview').catch(()=>null),
       adminRpc('admin_referrers',{p_days:DASH_DAYS,p_limit:8}).catch(()=>[]),
-      adminRpc('admin_seller_perf',{p_days:DASH_DAYS,p_limit:15}).catch(()=>[])
+      adminRpc('admin_seller_perf',{p_days:DASH_DAYS,p_limit:15}).catch(()=>[]),
+      adminRpc('admin_search_popular',{p_days:DASH_DAYS,p_limit:15}).catch(()=>[]),
+      adminRpc('admin_search_gap',{p_days:DASH_DAYS,p_limit:15}).catch(()=>[]),
+      adminRpc('admin_category_clicks',{p_days:DASH_DAYS}).catch(()=>[]),
+      adminRpc('admin_tab_usage',{p_days:DASH_DAYS}).catch(()=>[]),
+      adminRpc('admin_ad_perf',{p_days:DASH_DAYS}).catch(()=>[]),
+      adminRpc('admin_visit_hourly',{p_days:DASH_DAYS}).catch(()=>[]),
+      adminRpc('admin_card_top',{p_days:DASH_DAYS,p_limit:10}).catch(()=>[]),
+      adminRpc('admin_visit_weekday',{p_days:DASH_DAYS}).catch(()=>[])
     ]);
     renderDashVisit(series);
     renderDashWishTop(wtop);
@@ -5571,6 +5621,14 @@ async function loadAdminDash(force){
     renderDashPush(push);
     renderDashReferrer(refs);
     renderDashSellerPerf(perf);
+    renderDashSearch(spop);
+    renderDashGap(sgap);
+    renderDashCategory(cat);
+    renderDashTab(tab);
+    renderDashAd(ad);
+    renderDashHourly(hourly);
+    renderDashCard(ctop);
+    renderDashWeekday(wday);
   } finally { loadAdminDash._busy=false; }
 }
 function renderDashKpi(o){
@@ -5648,6 +5706,66 @@ function renderDashSellerPerf(rows){
     <thead><tr style="color:#9B9B9B;text-align:right"><th style="text-align:left;padding:4px 6px;font-weight:700">셀러</th><th style="padding:4px 6px;font-weight:700">공구</th><th style="padding:4px 6px;font-weight:700">클릭</th><th style="padding:4px 6px;font-weight:700">찜</th></tr></thead>
     <tbody>${rows.map(r=>`<tr style="border-top:1px solid #F3EEF9;text-align:right"><td style="text-align:left;padding:5px 6px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.is_partner?'<span style="color:#602090">✦</span> ':''}${dashEsc(r.seller)}</td><td style="padding:5px 6px;color:#888">${dashNum(r.gonggu_cnt)}</td><td style="padding:5px 6px;font-weight:700;color:#333">${dashNum(r.click_cnt)}</td><td style="padding:5px 6px;font-weight:700;color:#7B3FB5">${dashNum(r.wish_cnt)}</td></tr>`).join('')}</tbody></table></div>
     <div style="font-size:10px;color:#B4B0BE;margin-top:6px">✦ = 맘캘 이웃셀러 · 최근 ${DASH_DAYS}일 클릭 기준</div>`;
+}
+// ── 🔍 인기 검색어 ──
+function renderDashSearch(rows){
+  const el=document.getElementById('dashSearch'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">아직 검색 데이터가 적어요</div>'; return; }
+  el.innerHTML=rows.map((r,i)=>`<div class="dashRow"><span class="dashRank">${i+1}</span><span class="dashName">${dashEsc(r.q)}</span><span class="dashVal">${dashNum(r.cnt)}</span></div>`).join('');
+}
+// ── 🕳️ 수요 갭 (결과 0건 = 입점 유치 기회) ──
+function renderDashGap(rows){
+  const el=document.getElementById('dashGap'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">결과 없는 검색이 아직 없어요</div>'; return; }
+  el.innerHTML=rows.map((r,i)=>`<div class="dashRow"><span class="dashRank">${i+1}</span><span class="dashName" style="color:#C0392B">${dashEsc(r.q)}</span><span class="dashVal" style="color:#C0392B">${dashNum(r.zero_cnt)}회</span></div>`).join('');
+}
+// ── 📂 카테고리 클릭 ──
+function renderDashCategory(rows){
+  const el=document.getElementById('dashCategory'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">데이터 없음</div>'; return; }
+  const max=Math.max(...rows.map(r=>Number(r.cnt)||0),1);
+  el.innerHTML=rows.map(r=>{const pct=Math.round((Number(r.cnt)||0)/max*100);return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:2px"><span style="color:#444">${dashEsc(r.cat)}</span><span style="color:#888">${dashNum(r.cnt)}</span></div><div style="background:#F0EBF7;border-radius:4px;height:6px"><div style="background:#9B6FD4;height:100%;border-radius:4px;width:${pct}%"></div></div></div>`;}).join('');
+}
+// ── 📑 탭 사용 ──
+function renderDashTab(rows){
+  const el=document.getElementById('dashTab'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">데이터 없음</div>'; return; }
+  const label={hotdeal:'핫딜',gonggu:'공구',exp:'체험단',all:'전체',open:'오늘오픈',close:'오늘마감',top100:'TOP100',wish:'내찜',soon:'예정'};
+  el.innerHTML=rows.map(r=>`<div class="dashRow"><span class="dashName" style="font-size:11.5px"><span style="color:#B9A5DC">[${dashEsc(r.tab_group)}]</span> ${dashEsc(label[r.tab]||r.tab)}</span><span class="dashVal" style="font-size:11.5px">${dashNum(r.cnt)}</span></div>`).join('');
+}
+// ── 💰 광고 성과 (배너·기획전 클릭) ──
+function renderDashAd(rows){
+  const el=document.getElementById('dashAd'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">아직 배너·기획전 클릭이 없어요<br><span style="font-size:11px">배너를 걸면 여기에 클릭 수가 집계돼요</span></div>'; return; }
+  el.innerHTML=rows.map(r=>`<div class="dashRow"><span class="dashName" style="font-size:11.5px"><span style="color:#B9A5DC">[${dashEsc(r.ad_type)}]</span> ${dashEsc(r.title||r.banner_key)}</span><span class="dashVal" style="font-size:11.5px">${dashNum(r.clicks)}클릭</span></div>`).join('');
+}
+// ── 🔥 많이 본 공구 (인기 카드) ──
+function renderDashCard(rows){
+  const el=document.getElementById('dashCard'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:12px">아직 클릭 데이터가 적어요</div>'; return; }
+  el.innerHTML=rows.map((r,i)=>`<div class="dashRow"><span class="dashRank">${i+1}</span><span class="dashName" title="${dashEsc(r.name)}">${dashEsc(r.name)}<br><span style="font-size:10px;color:#A99BC4">${dashEsc(r.seller||'')}</span></span><span class="dashVal">${dashNum(r.click_cnt)}클릭</span></div>`).join('');
+}
+// ── 📅 요일별 방문 ──
+function renderDashWeekday(rows){
+  const el=document.getElementById('dashWeekday'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  const names=['일','월','화','수','목','금','토'];
+  const map={}; rows.forEach(r=>map[r.dow]=Number(r.visits)||0);
+  const max=Math.max(...Object.values(map),1);
+  let bars='';
+  for(let d=0;d<7;d++){ const v=map[d]||0; const ht=Math.round(v/max*100);
+    bars+=`<div title="${names[d]}: ${dashNum(v)}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px"><div style="font-size:8.5px;font-weight:700;color:#7B3FB5">${dashNum(v)}</div><div style="width:70%;background:${d===0||d===6?'#7B3FB5':'#C9B6E8'};border-radius:3px 3px 0 0;height:${Math.max(ht,2)}%"></div><div style="font-size:9px;color:${d===0?'#C0392B':(d===6?'#2E7DB5':'#B4B0BE')}">${names[d]}</div></div>`; }
+  el.innerHTML=bars;
+}
+// ── ⏰ 시간대별 방문 ──
+function renderDashHourly(rows){
+  const el=document.getElementById('dashHourly'); if(!el) return; rows=Array.isArray(rows)?rows:[];
+  if(!rows.length){ el.innerHTML='<div style="color:#bbb;font-size:11px">데이터 없음</div>'; return; }
+  const map={}; rows.forEach(r=>map[r.hour]=Number(r.visits)||0);
+  const max=Math.max(...Object.values(map),1);
+  let bars='';
+  for(let h=0;h<24;h++){ const v=map[h]||0; const ht=Math.round(v/max*100);
+    bars+=`<div title="${h}시: ${dashNum(v)}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:1px"><div style="width:100%;background:${h>=21||h<=1?'#7B3FB5':'#C9B6E8'};border-radius:2px 2px 0 0;height:${Math.max(ht,2)}%"></div>${h%3===0?`<div style="font-size:7px;color:#B4B0BE">${h}</div>`:'<div style="font-size:7px">&nbsp;</div>'}</div>`; }
+  el.innerHTML=bars;
 }
 function copyDashSellerPerf(){
   if(!_dashSellerPerfRows.length){ alert('데이터가 없어요'); return; }
