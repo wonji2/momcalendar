@@ -1142,7 +1142,7 @@ let aiParsedData=[];
 
 // ── AI 일괄 파싱 (여러 인플루언서 한 번에) ──
 async function runAiParse(){
-  const text=document.getElementById('aiText').value.trim();
+  const text=document.getElementById('aiText').value.replace(/[\u200B-\u200D\u2060\uFEFF\u00AD\u200E\u200F]/g,'').trim();
   const year=parseInt(document.getElementById('aiYear').value);
   const defInfl=(document.getElementById('aiInfluencer').value||'').trim();
   const defInsta=(document.getElementById('aiInsta').value||'').trim().replace('@','');
@@ -3244,8 +3244,9 @@ function fetchT(url,opt,ms){
     });
 }
 function gongguRow(d){
-  return {influencer:d.influencer||'', insta:d.insta||'', major:d.major, minor:d.minor,
-    name:d.name, open_date:d.open_date, end_date:d.end_date||null, approved:true, cat_manual:!!d._catManual,
+  const _ng=s=>(s||'').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD\u200E\u200F]/g,'');
+  return {influencer:_ng(d.influencer), insta:d.insta||'', major:d.major, minor:d.minor,
+    name:_ng(d.name), open_date:d.open_date, end_date:d.end_date||null, approved:true, cat_manual:!!d._catManual,
     ...(d.pay_link?{pay_link:d.pay_link}:{})};
 }
 async function crawlInsertSelected(){
