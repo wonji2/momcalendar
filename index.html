@@ -1066,7 +1066,8 @@ function renderList(){
   if(bar) bar.style.display='none';
 
   // 날짜 필터가 켜져 있으면: 그 날짜에 오픈하는 공구만
-  if(dayFilter){
+  // (단, 검색어가 있으면 날짜 무시하고 전체 DB에서 검색 — getFiltered가 처리)
+  if(dayFilter && !fSearch){
     const arr=DATA.filter(item=>{
       if(isExpired(item))return false;
       if(!filterCat(item))return false;
@@ -1951,6 +1952,8 @@ sInput.addEventListener('input',e=>{
   const v=e.target.value;
   document.getElementById('sClear').style.display=v?'block':'none';
   fSearch=v;
+  // 검색 시작하면 날짜 필터 해제 → 전체 DB에서 검색되도록 (탭 하이라이트도 끔)
+  if(v.trim() && dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   // 핫딜/체험단 탭에서 검색하면 공구 탭으로 자동 전환 (한 번만)
   if(v.trim()){ const gw=document.getElementById('gongguWrap'); if(gw && gw.style.display==='none') switchContent('gonggu'); }
   renderList();
