@@ -5511,24 +5511,26 @@ function sellerKey(d){
   if(infl) return 'n:'+infl;
   return '';
 }
-// 브랜드 중복 목록: 같은 셀러+같은 기간에 아래 브랜드가 양쪽 이름에 다 들어가면 '중복의심'으로 처리
-// (같은 브랜드 공구를 상품명만 바꿔 여러 개 올린 경우 잡기. 추가할 브랜드는 여기에 넣으면 됨)
-const BRAND_DUP=['주니'];
-function brandDupShared(a,b){
-  const na=String(a||'').toLowerCase(), nb=String(b||'').toLowerCase();
-  return BRAND_DUP.some(br=>{ const t=br.toLowerCase(); return na.includes(t)&&nb.includes(t); });
+// 중복의심 판정 — 단어(토큰) 기반 (2026-07-31 개편)
+//  기존: 브랜드'주니'/앞3글자공통/포함3자/유사70% → 같은 브랜드의 다른 상품을 대량 오탐
+//        (헤라스 올리브유↔곱창김, 카니비비안 라드유↔비프칩, 시코 미니↔일반 등)
+//  개편: 상품명에서 꾸밈말·N차를 걷어낸 '핵심 단어집합'을 비교. 같은 셀러·같은 오픈일 그룹 안에서만 호출.
+const DUP_MODIFIERS=['국산','신상','신상품','최신상','신제품','모음','모음전','골라담기','기획','기획전','특가','세트','전제품','전상품','증정','한정','예약','앵콜','런칭','오픈','최저가','핫딜','외','및'];
+function coreTokens(name){
+  const s=String(name||'').replace(/\d+\s*차/g,' ').replace(/[()]/g,' ').toLowerCase();
+  return s.split(/[\s·.&/+,~\-_]+/).filter(Boolean).filter(t=>DUP_MODIFIERS.indexOf(t)===-1);
 }
-// 중복의심: (그룹이 이미 같은 셀러+같은 날짜) + 이름 앞 3글자 이상 공통 또는 포함관계(3글자+)
 function relName(a,b){
-  if(brandDupShared(a,b)) return true;                             // 같은 브랜드(주니 등) → 관련(중복의심)
-  const x=normalize(a), y=normalize(b);
-  if(!x||!y) return false;
-  const longer=x.length>=y.length?x:y, shorter=x.length>=y.length?y:x;
-  if(shorter.length>=3 && longer.includes(shorter)) return true;   // 포함관계
-  let i=0; const m=shorter.length;
-  while(i<m && x[i]===y[i]) i++;
-  if(i>=3) return true;                                             // 앞 3글자 이상 공통
-  return similarity(a,b)>=0.7;                                      // 글자 70% 이상 유사(어순만 다른 경우 등)
+  const ta=coreTokens(a), tb=coreTokens(b);
+  if(ta.length&&tb.length){
+    const sa=new Set(ta), sb=new Set(tb), ua=new Set([...ta,...tb]);
+    const small=sa.size<=sb.size?sa:sb, big=small===sa?sb:sa;
+    let allIn=true; small.forEach(t=>{ if(!big.has(t)) allIn=false; });
+    if(allIn) return true;                                     // 한쪽이 다른쪽에 포함(차이가 꾸밈말뿐) → 같은 상품
+    let inter=0; sa.forEach(t=>{ if(sb.has(t)) inter++; });
+    if(inter/ua.size>=0.7) return true;                        // 핵심 단어 70%+ 겹침(어순만 다른 경우 등)
+  }
+  return similarity(a,b)>=0.80;                                // 토큰이 달라도 글자 80%+ 유사 → 오타/띄어쓰기 변형
 }
 // 중복 아님으로 확정한 쌍(둘 다 유지) — localStorage에 영구 저장
 function dupOkPairsGet(){ try{ return JSON.parse(localStorage.getItem('mc_dup_ok')||'[]'); }catch(e){ return []; } }
