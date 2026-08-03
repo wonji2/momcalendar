@@ -379,12 +379,16 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .hc-row{display:flex;gap:10px;align-items:center}
 .hc-body{flex:1;min-width:0}
 .hc-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#F0EDF5;display:block}
+/* 썸네일 없을 때 자리 채우기 — 공구 카드엔 왼쪽 네모가 없어서, 이 실루엣이 '핫딜' 식별 신호가 된다 */
+.hc-ph{width:72px;height:72px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#FFF1EC,#FDE4DC);border:1px solid #F7D9CF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.hc-ph-i{font-size:21px;line-height:1}
+.hc-ph-t{font-size:8px;font-weight:800;color:#C0512F;letter-spacing:.02em}
 .hc-top{display:flex;gap:5px;align-items:center;margin-bottom:4px}
-.hc-chip{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:#FCE9E4;color:#C0391F;white-space:nowrap;flex-shrink:0}
+.hc-mall{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0;background:#F0EDF6;color:#6B5B8A;border:1px solid #E4DEEE}
 .hc-cat{font-size:9.5px;color:#9a9aa5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hc-today{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;background:#F0502E;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .hc-ago{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;color:#A99CC0;white-space:nowrap}
-.hc-tit{font-size:13px;font-weight:700;color:#222;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.hc-tit{font-size:12.5px;font-weight:700;color:#222;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
 .hc-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .hc-rate{font-size:15px;font-weight:900;color:#E8402A;letter-spacing:-.3px}
 .hc-now{font-size:15px;font-weight:900;color:#222;letter-spacing:-.3px}
@@ -1577,12 +1581,11 @@ function hdCardHtml(h){
     ? `<span class="hc-today">오늘</span>`
     : `<span class="hc-ago">${diff===1?'어제':diff+'일 전'}</span>`;
 
-  // '핫딜' 칩은 뺐다(모든 카드에 같아서 정보량 0). 대신 🔥 하나만 남겨
-  // 통합검색에서 공구·체험단 카드와 섞였을 때 구분은 유지한다.
   const cat='🔥 '+[h.major,h.minor].filter(Boolean).join(' · ');
-  // 판매처는 제목 앞에 (베이비핫딜식 "오늘의집)상품명" — 카테고리 줄보다 훨씬 잘 보임)
-  const mallTag=h.mall?`<span style="color:#7B3FB5;font-weight:800">${hcEsc(h.mall)})</span> `:'';
+  // 판매처는 뱃지로 (제목에 섞으면 상품명 시작점이 흐려짐). 쿠팡 수집분은 mall 이 없어 source 로 보완
+  const mall=h.mall || ((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
   const top=`<div class="hc-top">
+      ${mall?`<span class="hc-mall">${hcEsc(mall)}</span>`:''}
       <span class="hc-cat">${hcEsc(cat)}</span>
       ${ago}
     </div>`;
@@ -1596,37 +1599,32 @@ function hdCardHtml(h){
       ${h.is_lowest?`<span class="hc-low">최저</span>`:''}
     </div>`:'';
 
+  // 썸네일이 없어도 자리를 비우지 않는다 — 공구 카드엔 왼쪽 네모가 없어서,
+  // 이 실루엣이 통합검색에서 '핫딜'을 알아보는 가장 강한 신호다.
+  const PH=`<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>`;
+  const thumb=(tracked && h.img_url)
+    ? `<img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.outerHTML=window.__hcPh">`
+    : PH;
+
   const cls=`hc${isToday?' today':''}`;
   const open=tracked
-    ? `<div class="${cls}" onclick="openHdSheet(${h.id})"`
-    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener"`;
+    ? `<div class="${cls}" onclick="openHdSheet(${h.id})">`
+    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener">`;
   const close=tracked?'</div>':'</a>';
 
-  // 썸네일이 없으면 빈 네모를 두지 말고 통째로 빼서 텍스트가 가로를 다 쓰게 함
-  if(!(tracked && h.img_url)){
-    return `${open} style="padding:10px 12px">
-      ${top}
-      <div class="hc-row">
-        <div class="hc-body">
-          <div class="hc-tit" style="margin-bottom:4px">${mallTag}${hcEsc(h.title)}</div>
-          ${price}
-        </div>
-        <span class="hc-arrow">›</span>
-      </div>
-    ${close}`;
-  }
-
-  return `${open}>
+  return `${open}
     <div class="hc-row">
-      <img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      ${thumb}
       <div class="hc-body">
         ${top}
-        <div class="hc-tit">${mallTag}${hcEsc(h.title)}</div>
+        <div class="hc-tit">${hcEsc(h.title)}</div>
         ${price}
       </div>
     </div>
   ${close}`;
 }
+// 이미지가 깨졌을 때 갈아끼울 플레이스홀더 (onerror 안에 따옴표를 중첩하지 않으려고 전역으로 둠)
+window.__hcPh='<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>';
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 
 // ── 핫딜 근거 시트 (폴센트식 가격 추이) ──────────────────────
