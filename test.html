@@ -2046,6 +2046,21 @@ const ATTEND_TIERS=[
   {i:3, ico:'🍗', img:'', cond:'개근',      how:'추첨 2명', prize:'치킨 or 피자',   bg:'linear-gradient(160deg,#FFE9D9,#FFF4EC)'}
 ];
 
+// 다음 등급까지 남은 일수로 응원 문구를 고른다 (출석 직후 · 등급이 코앞일 때만 노출)
+function attendCheer(d){
+  const n=d.month_days||0;
+  const today=new Date(d.today);
+  const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const leftMonth=last-today.getDate();               // 이 달 남은 날
+  if(n>=last) return {t:`개근 성공! 정말 대단해요 🎉`, hot:true};
+  if(n>=25)   return {t:`개근까지 ${last-n}일! 으쌰으쌰 🍗`, hot:true};
+  if(n>=20)   return {t:`25일까지 ${25-n}일! 조금만 더 🔥`, hot:true};
+  const need=20-n;
+  if(need>leftMonth) return null;                     // 이 달엔 이미 20일 달성이 불가능
+  if(need<=3) return {t:`20일까지 ${need}일! 거의 다 왔어요 💪`, hot:true};
+  return {t:`20일까지 ${need}일 남았어요, 영차영차!`, hot:false};
+}
+
 // 출석일수 등급 (매달 1일 추첨). 20일 미만은 응모 자격 없음.
 function attendTier(d){
   const n=d.month_days||0;
@@ -2060,6 +2075,9 @@ function attendTier(d){
 function renderAttend(d, justChecked){
   const hot = (d.streak||0) >= 5;                    // 연속 5일부터 특별 대우
   const tier = attendTier(d);
+  // 응원 문구는 매번 띄우면 잔소리가 되니, 출석한 직후나 등급이 코앞일 때만
+  const _c = attendCheer(d);
+  const cheer = (justChecked || (_c && _c.hot)) ? _c : null;
   const cta = d.checked_today
     ? `<div style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F2EFF6;color:#8A8395;border-radius:14px;padding:15px;font-size:14px;font-weight:800">✅ 오늘 출석 완료</div>`
     : `<button id="atBtn" onclick="doCheckIn()" style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 5px 16px rgba(123,63,181,.3)">💜 출석 도장 찍기</button>`;
@@ -2081,6 +2099,9 @@ function renderAttend(d, justChecked){
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:15px">${attendGrid(d, justChecked)}</div>
+      ${cheer?`<div style="text-align:center;font-size:12.5px;font-weight:800;line-height:1.6;margin-bottom:12px;padding:10px 12px;border-radius:11px;
+        background:${cheer.hot?'linear-gradient(135deg,#FFF3E6,#FFEDF4)':'#F7F6F9'};color:${cheer.hot?'#C2560F':'#8A8395'};
+        border:1px solid ${cheer.hot?'#F8DCC4':'#EFEDF2'}">${cheer.t}</div>`:''}
       ${cta}
 
       <div style="background:#FAF8FC;border-radius:12px;padding:14px 15px;margin-top:12px">
