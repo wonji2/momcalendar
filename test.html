@@ -2029,13 +2029,20 @@ function attendGrid(d, pop){
   }
   return g;
 }
-// 응모권 = 이번 달 출석일수 + 연속 5일마다 보너스 3장
-// ('연속 출석할수록 확률 UP'을 문구로만 쓰면 거짓이 되므로 실제 계산에 반영)
-function attendTickets(d){ return (d.month_days||0) + Math.floor((d.streak||0)/5)*3; }
+// 출석일수 등급 (매달 1일 추첨). 20일 미만은 응모 자격 없음.
+function attendTier(d){
+  const n=d.month_days||0;
+  const today=new Date(d.today);
+  const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  if(n>=last)  return {i:3, ico:'🎁', name:'개근',    desc:'한 달 내내 출석'};
+  if(n>=25)    return {i:2, ico:'🎀', name:'25일',    desc:'25일 이상 출석'};
+  if(n>=20)    return {i:1, ico:'☕', name:'20일',    desc:'20일 이상 출석'};
+  return {i:0, ico:'💜', name:'',     desc:'20일부터 응모돼요', need:20-n};
+}
 
 function renderAttend(d, justChecked){
   const hot = (d.streak||0) >= 5;                    // 연속 5일부터 특별 대우
-  const tickets = attendTickets(d);
+  const tier = attendTier(d);
   const cta = d.checked_today
     ? `<div style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F2EFF6;color:#8A8395;border-radius:14px;padding:15px;font-size:14px;font-weight:800">✅ 오늘 출석 완료</div>`
     : `<button id="atBtn" onclick="doCheckIn()" style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 5px 16px rgba(123,63,181,.3)">💜 출석 도장 찍기</button>`;
@@ -2053,16 +2060,30 @@ function renderAttend(d, justChecked){
         border-radius:12px;padding:11px 14px">
         <span style="font-size:${hot?'19px':'15px'}">${hot?'🔥':'💜'}</span>
         <span style="font-size:13px;font-weight:800;color:${hot?'#C2417A':'#8A8395'}">연속 ${d.streak}일</span>
-        ${hot?`<span style="font-size:11px;font-weight:800;color:#fff;background:#E05C97;padding:2px 8px;border-radius:20px">확률 UP</span>`:''}
+        ${hot?`<span style="font-size:11px;font-weight:800;color:#fff;background:#E05C97;padding:2px 8px;border-radius:20px">등급 UP 빨라요</span>`:''}
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:15px">${attendGrid(d, justChecked)}</div>
       ${cta}
 
-      <div style="background:#FAF8FC;border-radius:12px;padding:13px 15px;font-size:12.5px;color:#6D6579;line-height:1.9;margin-top:12px">
-        <b style="color:#602090">매달 1일 추첨</b> · 이번 달 15일 이상 출석하면 자동 응모돼요 🎁<br>
-        응모권은 <b>출석한 날수만큼</b>, <b style="color:#C2417A">연속 5일마다 +3장</b> 더 드려요.<br>
-        <span style="color:#9A93A6">지금 내 응모권 <b style="color:#602090">${tickets}장</b></span>
+      <div style="background:#FAF8FC;border-radius:12px;padding:14px 15px;margin-top:12px">
+        <div style="font-size:12.5px;font-weight:800;color:#602090;margin-bottom:3px">매달 1일 추첨 🎁</div>
+        <div style="font-size:11.5px;color:#9A93A6;margin-bottom:11px">${tier.i>0?`지금 <b style="color:#602090">${tier.ico} ${tier.name} 등급</b>이에요`:`<b style="color:#602090">${tier.need}일</b> 더 오시면 응모돼요`}</div>
+        ${[[3,'🎁','개근','한 달 내내','특별 경품'],
+           [2,'🎀','25일 이상','25일','중간 경품'],
+           [1,'☕','20일 이상','20일','커피 기프티콘']]
+          .map(t=>{
+            const on=tier.i>=t[0];
+            return `<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;margin-bottom:5px;
+              background:${on?'#EFE6FA':'transparent'};border:1px solid ${on?'#DDCCF2':'#EFEDF2'}">
+              <span style="font-size:15px;${on?'':'filter:grayscale(1);opacity:.45'}">${t[1]}</span>
+              <span style="font-size:12px;font-weight:${on?800:600};color:${on?'#602090':'#B0AABD'}">${t[2]}</span>
+              <span style="margin-left:auto;font-size:11.5px;font-weight:${on?800:600};color:${on?'#4C4459':'#C6C0CE'}">${t[4]}</span>
+            </div>`;
+          }).join('')}
+        <div style="font-size:11px;color:#B0AABD;line-height:1.7;margin-top:8px">
+          등급별로 추첨해 드려요 · 최소 20일 출석해야 응모돼요
+        </div>
       </div>
     </div>`);
   if(justChecked) attendSparkle(d.streak||0);
@@ -2122,25 +2143,28 @@ function _openInfo(html){
 }
 function openAboutSheet(){
   _openInfo(`
-    <div style="font-size:17px;font-weight:900;color:#232326;line-height:1.45;margin-bottom:4px">
+    <div style="font-size:17px;font-weight:900;color:#232326;line-height:1.45;margin-bottom:20px">
       안녕하세요,<br>맘캘린더 방장입니다 💜
     </div>
-    <div style="font-size:12px;color:#A99CC0;margin-bottom:20px">줄여서 <b style="color:#7B3FB5">맘캘방장</b>이라고 불러주세요</div>
 
     <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
-      임신하면서 회사를 그만뒀어요.<br>
+      임신하면서 회사를 그만두고<br>
       육아도 살림도 잘 해내고 싶었는데<br>
       마음처럼 되지 않더라고요.
     </div>
 
     <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
       기저귀 천 원, 이천 원 싸게 사보겠다고<br>
-      핫딜 게시판을 하루에 백 번씩 새로고침했어요.<br>
+      맘카페라는 곳에 처음 가입해서<br>
+      핫딜 게시판을 하루에 백 번씩 새로고침했어요.
+    </div>
+
+    <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
       인스타 공구를 알고 나서는 오픈 시간마다 알람을 맞추고,<br>
       일정을 하나하나 캘린더에 옮겨 적었고요.
     </div>
 
-    <div style="font-size:14.5px;font-weight:800;color:#7B3FB5;line-height:1.7;margin-bottom:18px">
+    <div style="font-size:15px;font-weight:800;color:#7B3FB5;line-height:1.7;margin-bottom:18px">
       그렇게 쓴 시간이<br>수천 시간이에요.
     </div>
 
@@ -2152,10 +2176,11 @@ function openAboutSheet(){
     <div style="height:1px;background:#EFECF4;margin-bottom:20px"></div>
 
     <div style="font-size:13px;color:#6D6579;line-height:2.0;margin-bottom:14px">
-      처음엔 공구를 알려주는 오픈 톡방이었어요.<br>
-      천 명이 넘으면서 네이버 카페를 열었고,<br>
-      카페에 글로 올리다 보니 일정 보기가 불편해서<br>
-      <b style="color:#4C4459">소통은 카페에, 일정은 여기에</b> 두기로 했어요.
+      맘캘린더는 처음엔 공구 정보를<br>
+      서로 알려주는 오픈 톡방이었어요.<br>
+      천 명이 넘으면서 네이버 카페를 만들었고,<br>
+      회원수가 2만명이 다 되어 가면서<br>
+      일정만 알려드리는 웹사이트 개발까지 오게 되었어요.
     </div>
     <a href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener"
        style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F1FAF3;border:1px solid #CDE9D5;color:#1B7F3B;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;text-decoration:none;margin-bottom:22px">
@@ -2164,8 +2189,8 @@ function openAboutSheet(){
 
     <div style="font-size:13px;color:#6D6579;line-height:2.0;margin-bottom:14px">
       맘캘린더는 무료예요.<br>
-      저도 인스타에서 공구를 하고 있어요.<br>
-      도움이 되셨다면 팔로우 한 번 부탁드려요.
+      저도 인스타에서 공구를 하고 있어서,<br>
+      도움이 되셨다면 팔로우 부탁드려요 💜
     </div>
     <a href="https://www.instagram.com/momcal_" target="_blank" rel="noopener"
        style="display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,#FDF2F8,#F7F1FD);border:1px solid #F0DCEB;color:#8A3F7A;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;text-decoration:none;margin-bottom:20px">
