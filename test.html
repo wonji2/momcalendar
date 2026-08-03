@@ -1291,6 +1291,7 @@ function searchAllOn(){ return !!(fSearch && fSearch.trim()); }
 // 자동수집 건은 expires_at 이 있고, 수동 등록 건은 종료일이 없으므로 등록 14일이 지나면 끝난 걸로 본다.
 const HD_STALE_DAYS=14;
 function hdExpired(h){
+  if(h.pin_random) return false;                 // 상시 노출 핫딜은 만료로 보지 않음
   if(h.expires_at) return new Date(h.expires_at) < new Date();
   const t=new Date(h.created_at).getTime();
   return isFinite(t) && (Date.now()-t) > HD_STALE_DAYS*86400000;
@@ -1632,7 +1633,22 @@ function renderHotdeals(){
     el.innerHTML=emptyBox('hotdeal');
     return;
   }
-  el.innerHTML=_hotdealData.map(h=>hdCardHtml(h)).join('');
+  el.innerHTML=hdOrder(_hotdealData).map(h=>hdCardHtml(h)).join('');
+}
+// 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
+// 같은 날 안에서는 자리가 바뀌지 않게 '날짜'를 씨앗으로 쓴다(새로고침할 때마다 튀면 어지러움).
+function hdOrder(list){
+  const rest=(list||[]).filter(x=>!x.pin_random);
+  const pins=(list||[]).filter(x=>x.pin_random);
+  if(!pins.length) return rest;
+  const seedBase=todayStr.replace(/-/g,'');
+  pins.forEach((p,i)=>{
+    let s=0, key=seedBase+'|'+p.id;
+    for(let k=0;k<key.length;k++) s=(s*31+key.charCodeAt(k))>>>0;
+    const pos=rest.length?(s%Math.min(rest.length+1,12)):0;   // 너무 아래로 가면 안 보이니 상위 12칸 안에서
+    rest.splice(pos,0,p);
+  });
+  return rest;
 }
 function hcEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -1656,9 +1672,11 @@ function hdCardHtml(h){
       ${ago}
     </div>`;
 
-  // 가격 추적된 건(자동수집)만 가격 줄 + 근거 시트. 수동 등록은 기존처럼 링크 직행.
+  // 가격이 있으면 가격 줄은 항상 보여주고, '근거 시트'는 가격 이력이 있는 자동수집 건만.
+  // (네이버 등 직접 고른 핫딜은 이력이 없으므로 바로 링크로 보낸다)
   const tracked=!!h.product_id && !!h.price;
-  const price=tracked?`<div class="hc-price">
+  const hasPrice=!!h.price;
+  const price=hasPrice?`<div class="hc-price">
       ${h.discount_rate?`<span class="hc-rate">${h.discount_rate}%</span>`:''}
       <span class="hc-now">${wonFmt(h.price)}</span>
       ${h.price_before?`<span class="hc-was">${wonFmt(h.price_before)}</span>`:''}
@@ -1668,7 +1686,7 @@ function hdCardHtml(h){
   // 썸네일이 없어도 자리를 비우지 않는다 — 공구 카드엔 왼쪽 네모가 없어서,
   // 이 실루엣이 통합검색에서 '핫딜'을 알아보는 가장 강한 신호다.
   const PH=`<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>`;
-  const thumb=(tracked && h.img_url)
+  const thumb=(h.img_url)
     ? `<img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.outerHTML=window.__hcPh">`
     : PH;
 
