@@ -671,6 +671,11 @@ window.slimAdClick=function(id){
 
 <!-- 캘린더 뷰 -->
 <div class="calwrap" id="calView">
+  <!-- 전체 / 내 찜만 (캘린더 모양은 그대로, 무엇을 담을지만 고르는 토글) -->
+  <div id="calMineTg" style="display:flex;background:#EFEAF5;border-radius:10px;padding:3px;margin:0 12px 8px">
+    <button id="calTgAll" onclick="setCalMine(false)" style="flex:1;border:none;background:#602090;color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">전체</button>
+    <button id="calTgMine" onclick="setCalMine(true)" style="flex:1;border:none;background:none;color:#8A8395;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">💜 내 찜만</button>
+  </div>
   <div class="cal-catrow" id="calCatRow">
     <button class="chip on" data-cat="전체" onclick="setCalCat('전체',this)">전체</button>
     <button class="chip" data-cat="육아" onclick="setCalCat('육아',this)">육아</button>
@@ -691,6 +696,11 @@ window.slimAdClick=function(id){
       <div class="cal-navs"><button class="cal-tod" onclick="jumpToday()">오늘</button><button class="cal-nav" onclick="moveMonth(1)">▶</button></div>
     </div>
     <div class="cgrid" id="calGrid"></div>
+  </div>
+  <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
+  <div id="icsBar" style="display:none;margin:10px 12px 0">
+    <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#602090;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
+    <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
   </div>
   <div class="sel-box" id="selBox" style="display:none">
     <div class="sel-title" id="selTitle"></div>
@@ -1903,14 +1913,13 @@ function buildCalendar(){
   for(let d=1;d<=last;d++){
     const ds=`${y}-${pad(m+1)}-${pad(d)}`;
     const dow=new Date(y,m,d).getDay();
-    const evs=DATA.filter(item=>{
-      if(isExpired(item))return false;
-      if(fCalCat!=='전체'&&item.major!==fCalCat)return false;
-      return item.openDate===ds;
-    }).sort(cmpDatePartner);
+    const evs=calPool().filter(item=>item.openDate===ds).sort(cmpDatePartner);
+    // 마감 표시는 '내 찜만' 모드에서만. 전체 모드에선 매일 마감이 있어서 표시가 무의미해짐
+    const ends=calMine?calPool().filter(item=>realEnd(item)===ds):[];
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
     let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
+    if(ends.length) evHtml+=`<div class="cev" style="background:#FDECE8;color:#C0361F;font-weight:800">마감 ${ends.length}</div>`;
     grid.innerHTML+=`<div class="ccell ${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d}</div><div class="cevs">${evHtml}</div></div>`;
   }
   const rem=(7-(first+last)%7)%7;
@@ -1919,21 +1928,77 @@ function buildCalendar(){
 
 function pickCalDay(ds){
   selCalDate=ds;buildCalendar();
-  const evs=DATA.filter(item=>{
-    if(isExpired(item))return false;
-    if(fCalCat!=='전체'&&item.major!==fCalCat)return false;
-    return item.openDate===ds;
-  }).sort(cmpDatePartner);
+  const evs=calPool().filter(item=>item.openDate===ds).sort(cmpDatePartner);
+  const ends=calMine?calPool().filter(item=>realEnd(item)===ds&&item.openDate!==ds):[];
   const[,mo,dy]=ds.split('-');
   document.getElementById('selTitle').textContent=`${+mo}월 ${+dy}일 공구 목록`;
   // 캘린더 날짜 기준으로 D-day 계산
-  document.getElementById('selCards').innerHTML=evs.length
-    ?evs.map(item=>renderCard(item,ds)).join('')
-    :`<div class="empty" style="padding:16px 0">이 날은 공구 일정이 없어요</div>`;
+  let h = evs.length
+    ? evs.map(item=>renderCard(item,ds)).join('')
+    : `<div class="empty" style="padding:16px 0">이 날은 ${calMine?'찜한 공구 오픈이':'공구 일정이'} 없어요</div>`;
+  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + ends.map(item=>renderCard(item,ds)).join('');
+  document.getElementById('selCards').innerHTML=h;
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 }
 function setCalCat(v,el){fCalCat=v;document.querySelectorAll('#calCatRow .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');paintCatChips();buildCalendar();}
+
+// ── 캘린더: 전체 / 내 찜만 ──────────────────────────────
+let calMine=false;
+function calPool(){
+  const pool = calMine ? DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id))) : DATA;
+  return pool.filter(item=>{
+    if(isExpired(item))return false;
+    if(calMine && !isWished(item.id))return false;
+    if(!calMine && fCalCat!=='전체' && item.major!==fCalCat)return false;  // 내 찜엔 카테고리 필터 안 걸음
+    return true;
+  });
+}
+function setCalMine(v){
+  calMine=v;
+  document.getElementById('calTgAll').style.cssText  = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:none;color:#8A8395':'background:#602090;color:#fff');
+  document.getElementById('calTgMine').style.cssText = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:#602090;color:#fff':'background:none;color:#8A8395');
+  document.getElementById('calCatRow').style.display = v?'none':'';      // 내 찜만 볼 땐 카테고리 줄은 군더더기
+  document.getElementById('icsBar').style.display    = v?'block':'none';
+  if(v) fetchWishExtra();                                                 // 찜했는데 지금 목록에 없는 것까지 끌어옴
+  selCalDate=null; document.getElementById('selBox').style.display='none';
+  buildCalendar();
+}
+
+// ── 찜한 공구 → 폰 캘린더(.ics) ────────────────────────
+// RFC 5545 표준이라 구글·네이버·애플·삼성·아웃룩이 모두 읽는다. 서버 없이 브라우저에서 바로 생성.
+function exportWishIcs(){
+  const items=calPool();
+  if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
+  const esc=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\r?\n/g,'\\n');
+  const ymd=s=>String(s||'').replace(/-/g,'');
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//momcalendar//KR','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:맘캘린더 내 공구'];
+  items.forEach(it=>{
+    const end=realEnd(it)||it.openDate;
+    // DTEND 는 '그날 자정'이라 하루 더해야 마감일이 캘린더에 포함된다
+    const e=new Date(end+'T00:00:00'); e.setDate(e.getDate()+1);
+    const eStr=`${e.getFullYear()}${pad(e.getMonth()+1)}${pad(e.getDate())}`;
+    L.push('BEGIN:VEVENT',
+      `UID:momcal-${it.id}@momcalendar.com`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd(it.openDate)}`,
+      `DTEND;VALUE=DATE:${eStr}`,
+      `SUMMARY:${esc((it.influencer?it.influencer+' · ':'')+it.name)}`,
+      `DESCRIPTION:${esc('맘캘린더에서 보기')}`,
+      'URL:https://momcalendar.com/',
+      'END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='맘캘린더_내공구.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  try{ trackEvent('ics_export', String(items.length)); }catch(_){}
+  mcToast(`${items.length}개 일정을 캘린더 파일로 만들었어요 📅`);
+}
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
 
