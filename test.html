@@ -372,6 +372,25 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .hd-card:active,.ex-card:active{transform:scale(.99)}
 .ex-card.ended{opacity:.55;background:#F7F7F7;border-color:#E8E8E8;cursor:default}
 .hd-tag,.ex-tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:7px}
+/* ══ 핫딜 카드 (E-1) ══ */
+.hc{background:#fff;border:1px solid #ECECEC;border-radius:12px;padding:8px 12px;margin-bottom:6px;position:relative;cursor:pointer;display:block;text-decoration:none;transition:transform .12s}
+.hc:active{transform:scale(.99)}
+.hc.today{border-color:#F6B49E;background:#FFF8F5}
+.hc-row{display:flex;gap:10px;align-items:center}
+.hc-body{flex:1;min-width:0}
+.hc-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#F0EDF5;display:block}
+.hc-top{display:flex;gap:5px;align-items:center;margin-bottom:4px}
+.hc-chip{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:#FCE9E4;color:#C0391F;white-space:nowrap;flex-shrink:0}
+.hc-cat{font-size:9.5px;color:#9a9aa5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hc-today{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;background:#F0502E;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.hc-ago{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;color:#A99CC0;white-space:nowrap}
+.hc-tit{font-size:13px;font-weight:700;color:#222;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.hc-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.hc-rate{font-size:15px;font-weight:900;color:#E8402A;letter-spacing:-.3px}
+.hc-now{font-size:15px;font-weight:900;color:#222;letter-spacing:-.3px}
+.hc-was{font-size:10.5px;color:#B0AAB8;text-decoration:line-through}
+.hc-low{font-size:9px;font-weight:800;color:#E8402A;border:1px solid #F5C4BC;background:#FEF1EF;padding:1px 5px;border-radius:5px;white-space:nowrap}
+.hc-arrow{color:#D6D0DE;font-size:16px;flex-shrink:0;line-height:1}
 .ct-arrow{position:absolute;top:50%;right:13px;transform:translateY(-50%);display:flex;align-items:center;gap:3px}
 </style>
 </head>
@@ -1547,54 +1566,65 @@ function renderHotdeals(){
   }
   el.innerHTML=_hotdealData.map(h=>hdCardHtml(h)).join('');
 }
+function hcEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
 // 핫딜 카드 1장 (핫딜 탭 · 통합검색 양쪽에서 씀)
 function hdCardHtml(h){
-  {
-    const _now=new Date();
-    const _d0=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate()).getTime();
-    const dt=new Date(h.created_at);
-    const tstr=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    const cd=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime();
-    const diff=Math.round((_d0-cd)/86400000);
-    const isToday=diff<=0;
-    const ageLabel=isToday?'오늘':(diff===1?'어제':diff+'일전');
-    const ageBadge=isToday
-      ? `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:800;color:#fff;background:#F0502E;padding:3px 10px;border-radius:20px">오늘</span>`
-      : `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;color:#AEAEAE;background:#F2F2F2;padding:3px 10px;border-radius:20px">${ageLabel}</span>`;
-    const cardStyle=isToday?' style="border-color:#F6B49E;background:#FFF8F5"':'';
+  // 며칠 전인지 — 한국시간 기준(서버는 UTC)
+  const KST=9*3600000;
+  const dayKst=t=>Math.floor((new Date(t).getTime()+KST)/86400000);
+  const diff=Math.max(0, dayKst(Date.now())-dayKst(h.created_at));
+  const isToday=diff===0;
+  const ago=isToday
+    ? `<span class="hc-today">오늘</span>`
+    : `<span class="hc-ago">${diff===1?'어제':diff+'일 전'}</span>`;
 
-    // 가격 추적된 건(쿠팡 자동수집)은 카드를 눌러 '왜 핫딜인지' 근거부터 보여준다
-    const tracked = !!h.product_id && h.price;
-    const priceRow = tracked ? `
-      <div style="display:flex;align-items:baseline;gap:7px;margin:6px 0 2px;flex-wrap:wrap">
-        ${h.discount_rate?`<span style="font-size:15px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:''}
-        <span style="font-size:16px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
-        ${h.price_before?`<span style="font-size:11.5px;color:#B0AAB8;text-decoration:line-through">평소 ${wonFmt(h.price_before)}</span>`:''}
-        ${h.is_lowest?`<span style="font-size:10px;font-weight:800;color:#fff;background:#E8402A;padding:2px 7px;border-radius:20px">역대 최저</span>`:''}
-      </div>` : '';
-    const thumb = tracked && h.img_url
-      ? `<img src="${h.img_url}" alt="" loading="lazy" style="width:62px;height:62px;border-radius:11px;object-fit:cover;flex-shrink:0;background:#F5F3F7">` : '';
+  const cat=[h.major,h.minor].filter(Boolean).join(' · ');
+  const top=`<div class="hc-top">
+      <span class="hc-chip">핫딜</span>
+      <span class="hc-cat">${hcEsc(cat)}</span>
+      ${ago}
+    </div>`;
 
-    const inner = `
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-        <span class="hd-tag" style="background:#FAECE7;color:#993C1D">🔥 핫딜</span>
-        ${catChips(h.major,h.minor)}
-        ${ageBadge}
-      </div>
-      <div style="display:flex;gap:11px;align-items:flex-start">
-        ${thumb}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:3px;padding-right:24px">${h.title}</div>
-          ${priceRow}
-          <div style="font-size:11px;color:#999">🕐 ${tstr}</div>
+  // 가격 추적된 건(자동수집)만 가격 줄 + 근거 시트. 수동 등록은 기존처럼 링크 직행.
+  const tracked=!!h.product_id && !!h.price;
+  const price=tracked?`<div class="hc-price">
+      ${h.discount_rate?`<span class="hc-rate">${h.discount_rate}%</span>`:''}
+      <span class="hc-now">${wonFmt(h.price)}</span>
+      ${h.price_before?`<span class="hc-was">${wonFmt(h.price_before)}</span>`:''}
+      ${h.is_lowest?`<span class="hc-low">최저</span>`:''}
+    </div>`:'';
+
+  const cls=`hc${isToday?' today':''}`;
+  const open=tracked
+    ? `<div class="${cls}" onclick="openHdSheet(${h.id})"`
+    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener"`;
+  const close=tracked?'</div>':'</a>';
+
+  // 썸네일이 없으면 빈 네모를 두지 말고 통째로 빼서 텍스트가 가로를 다 쓰게 함
+  if(!(tracked && h.img_url)){
+    return `${open} style="padding:10px 12px">
+      ${top}
+      <div class="hc-row">
+        <div class="hc-body">
+          <div class="hc-tit" style="margin-bottom:4px">${hcEsc(h.title)}</div>
+          ${price}
         </div>
+        <span class="hc-arrow">›</span>
       </div>
-      <span class="ct-arrow" style="color:#ccc;font-size:18px">›</span>`;
-
-    return tracked
-      ? `<div class="hd-card" onclick="openHdSheet(${h.id})"${cardStyle}>${inner}</div>`
-      : `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener"${cardStyle}>${inner}</a>`;
+    ${close}`;
   }
+
+  return `${open}>
+    <div class="hc-row">
+      <img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="hc-body">
+        ${top}
+        <div class="hc-tit">${hcEsc(h.title)}</div>
+        ${price}
+      </div>
+    </div>
+  ${close}`;
 }
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 
