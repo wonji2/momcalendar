@@ -2505,7 +2505,7 @@ function toggleChatMenu(){
     <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="chat-menu-ico">💬</span>자유 수다방</a>
-    <button class="chat-menu-item" onclick="openInq()" style="border:none;cursor:pointer;font-family:inherit;background:#FEE500"><span class="chat-menu-ico">💌</span>문의·오류제보</button>
+    <a class="chat-menu-item" href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" style="background:#FEE500"><span class="chat-menu-ico">💬</span>문의·오류제보</a>
     <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>공유하기</button>
   </div>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="채널·공유·제보 메뉴">
@@ -2513,89 +2513,6 @@ function toggleChatMenu(){
   </button>
 </div>
 
-<!-- 💌 문의·오류제보 시트 -->
-<div id="inqBg" onclick="closeInq()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000"></div>
-<div id="inqSheet" style="position:fixed;left:0;right:0;bottom:-110%;max-width:480px;margin:0 auto;background:#fff;border-radius:20px 20px 0 0;z-index:1001;transition:bottom .28s;max-height:88vh;overflow-y:auto;padding:18px 16px calc(20px + env(safe-area-inset-bottom))">
-  <div style="width:38px;height:4px;background:#E0DAEC;border-radius:4px;margin:0 auto 14px"></div>
-  <div style="font-size:16px;font-weight:800;color:#2b2340;margin-bottom:3px">💌 문의·오류제보</div>
-  <div style="font-size:12px;color:#9a92ad;margin-bottom:14px">보내주시면 확인하고 빠르게 반영할게요</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-    <button class="inq-k on" data-k="question" onclick="pickInqKind(this)">❓ 문의·질문</button>
-    <button class="inq-k" data-k="bug" onclick="pickInqKind(this)">🐛 오류 제보</button>
-  </div>
-  <textarea id="inqText" rows="5" placeholder="예) 찜한 공구 알림은 언제 오나요?" style="width:100%;box-sizing:border-box;padding:12px;border:1.5px solid #E7E1F0;border-radius:12px;font-size:14px;font-family:inherit;outline:none;resize:vertical;line-height:1.6"></textarea>
-  <div id="inqCnt" style="text-align:right;font-size:11px;color:#bbb;margin:4px 2px 10px">0 / 2000</div>
-  <input id="inqContact" type="text" placeholder="답변받을 연락처 (선택 · 카톡ID·이메일)" style="width:100%;box-sizing:border-box;padding:11px 12px;border:1.5px solid #E7E1F0;border-radius:12px;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px">
-  <div id="inqWho" style="font-size:11.5px;color:#0F6E56;background:#EAF7F0;border-radius:9px;padding:8px 11px;margin-bottom:12px;display:none"></div>
-  <button onclick="submitInq()" id="inqSubmit" style="width:100%;padding:14px;background:var(--main);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">보내기</button>
-  <button onclick="closeInq()" style="width:100%;padding:12px;background:none;border:none;color:#9a92ad;font-size:13px;cursor:pointer;font-family:inherit;margin-top:4px">닫기</button>
-  <div style="border-top:1px solid #F0ECF7;margin-top:14px;padding-top:12px;text-align:center">
-    <div style="font-size:11.5px;color:#9a92ad;line-height:1.6">답변이 필요하면 연락처를 남겨주세요<br>공지·소식은 <a href="https://pf.kakao.com/_zGfxnX" target="_blank" style="color:#7B3FB5;font-weight:700;text-decoration:none">맘캘린더 카카오 채널</a>에서 받아보실 수 있어요</div>
-  </div>
-</div>
-<style>
-.inq-k{padding:11px 6px;border:1.5px solid #E7E1F0;background:#fff;color:#6b6280;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-.inq-k.on{border-color:var(--main);background:#F3ECFB;color:var(--main)}
-</style>
-<script>
-var _inqKind='question';
-function openInq(kind){
-  if(kind) _inqKind=kind;
-  document.querySelectorAll('.inq-k').forEach(function(b){ b.classList.toggle('on', b.dataset.k===_inqKind); });
-  document.getElementById('inqBg').style.display='block';
-  document.getElementById('inqSheet').style.bottom='0';
-  var f=document.getElementById('chatFab'), m=document.getElementById('chatMenu');
-  if(m && m.classList.contains('open')){ f.classList.remove('open'); m.classList.remove('open'); }
-  var who=document.getElementById('inqWho');
-  var mem=null; try{ mem=JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){}
-  if(who){ if(mem && mem.nickname){ who.textContent='💜 '+mem.nickname+'님으로 보내요'; who.style.display='block'; } else { who.style.display='none'; } }
-}
-function closeInq(){
-  document.getElementById('inqBg').style.display='none';
-  document.getElementById('inqSheet').style.bottom='-110%';
-}
-function pickInqKind(btn){
-  _inqKind=btn.dataset.k;
-  document.querySelectorAll('.inq-k').forEach(function(b){ b.classList.toggle('on', b===btn); });
-  var t=document.getElementById('inqText');
-  var PH={question:'예) 찜한 공구 알림은 언제 오나요?', bug:'예) 검색이 안 돼요 / 카드가 안 보여요\n어떤 화면에서 그랬는지 적어주시면 빨리 고칠 수 있어요'};
-  if(t) t.placeholder=PH[_inqKind]||'';
-}
-document.addEventListener('input',function(e){
-  if(e.target && e.target.id==='inqText'){
-    var n=(e.target.value||'').length, c=document.getElementById('inqCnt');
-    if(c){ c.textContent=n+' / 2000'; c.style.color=(n>2000)?'#C62828':'#bbb'; }
-  }
-});
-async function submitInq(){
-  var t=document.getElementById('inqText'), btn=document.getElementById('inqSubmit');
-  var txt=(t.value||'').trim();
-  if(txt.length<2){ alert('내용을 조금만 더 적어주세요 🙏'); t.focus(); return; }
-  if(txt.length>2000){ alert('2000자 이내로 적어주세요'); return; }
-  var mem=null; try{ mem=JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){}
-  var _SU2='https://hycaqsqeogjtbscmzrtm.supabase.co', _SK2='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-  btn.disabled=true; btn.textContent='보내는 중...';
-  try{
-    var r=await fetch(_SU2+'/rest/v1/inquiries',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':_SK2,'Authorization':'Bearer '+_SK2,'Prefer':'return=minimal'},
-      body:JSON.stringify({ kind:_inqKind, content:txt,
-        contact:(document.getElementById('inqContact').value||'').trim()||null,
-        kakao_id:mem?mem.kakao_id:null, nickname:mem?mem.nickname:null,
-        device_id:(typeof deviceId==='function'?deviceId():null),
-        page_url:location.pathname, user_agent:(navigator.userAgent||'').slice(0,300) })
-    });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    try{ if(typeof trackEvent==='function') trackEvent('inquiry', JSON.stringify({kind:_inqKind})); }catch(_){}
-    t.value=''; document.getElementById('inqContact').value='';
-    var c=document.getElementById('inqCnt'); if(c) c.textContent='0 / 2000';
-    closeInq();
-    alert('✅ 잘 보냈어요! 확인하고 반영할게요 💜');
-  }catch(e){
-    alert('앗, 전송에 실패했어요 😢\n잠시 후 다시 시도하거나 카카오톡으로 문의해주세요.\n('+e.message+')');
-  }finally{ btn.disabled=false; btn.textContent='보내기'; }
-}
-</script>
 
 <!-- 사업자 정보 푸터 (접힘) -->
 <div style="max-width:480px;margin:0 auto;padding:18px 16px 90px;text-align:center">
