@@ -461,7 +461,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <span style="font-size:17px">💬</span> 카카오로 3초 만에 시작
   </button>
   <button onclick="kkoLater()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;font-family:inherit;cursor:pointer;padding:6px">나중에 할게요</button>
-  <div style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
+  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
 </div>
 
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
@@ -1997,7 +1997,8 @@ async function memberRpc(fn, body){
 function openAttendSheet(){
   if(!isLoggedIn()){
     openLoginSheet('출석 도장은 로그인해야 찍혀요',
-      '로그인하면 <b style="color:#7B3FB5">폰을 바꿔도</b> 출석 기록이 그대로예요');
+      '로그인하면 <b style="color:#7B3FB5">폰을 바꿔도</b> 출석 기록이 그대로예요',
+      '닉네임만 받아요', 'attend');
     return;
   }
   _openInfo(`<div style="padding:34px 0;text-align:center;color:#bbb;font-size:13px">불러오는 중...</div>`);
@@ -2382,7 +2383,8 @@ async function exportWishIcs(){
   // '내 것이 쌓이는 기능'은 로그인 필요 (보는 건 로그인 없이 — 트래픽 방어)
   if(typeof isLoggedIn==='function' && !isLoggedIn()){
     openLoginSheet('내 폰 캘린더에 넣으려면 로그인이 필요해요',
-      '로그인하면 <b style="color:#7B3FB5">이미 내보낸 공구</b>를 기억해서<br>폰 캘린더에 중복으로 쌓이지 않아요');
+      '로그인하면 <b style="color:#7B3FB5">이미 내보낸 공구</b>를 기억해서<br>폰 캘린더에 중복으로 쌓이지 않아요',
+      '닉네임만 받아요', 'ics');
     return;
   }
   // ⚠ calPool()을 쓰면 안 된다. + 메뉴에서 부르면 캘린더가 '전체' 모드라 공구 전체가 딸려나간다.
@@ -2640,7 +2642,14 @@ function removeWish(id, ev){
 // ══ 💛 카카오 로그인 (소프트 게이트 — 찜은 로그인 없이도 되고, 로그인하면 기기 바뀌어도 유지) ══
 var KKO_JS_KEY='04a73b2b11a54e8c11be73309e1b217c';
 var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
-function kkoRedirect(){ return location.origin + location.pathname; }
+// ⚠ PWA(홈 화면 앱)는 manifest start_url 이 /index.html 이라 pathname 이 '/'가 아니다.
+//    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
+//    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
+function kkoRedirect(){
+  var p = location.pathname;
+  if (p === '' || p === '/' || /\/index\.html$/i.test(p)) return location.origin + '/';
+  return location.origin + p;
+}
 function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){ return null; } }
 function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id); }
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
@@ -2648,12 +2657,16 @@ function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(K
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
 var KKO_DEFAULT_T='찜한 공구, 안전하게 보관할까요?';
 var KKO_DEFAULT_S='지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>카카오로 시작하면 폰을 바꿔도 찜이 그대로예요';
-function openLoginSheet(title, sub){
+var KKO_DEFAULT_F='닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요';
+function openLoginSheet(title, sub, fine, intent){
+  window.__loginIntent = intent || '';        // 로그인 끝나고 돌아왔을 때 이어서 할 일
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
   if(!m||!bg) return;
-  var t=document.getElementById('kkoTitle'), s=document.getElementById('kkoSub');
+  var t=document.getElementById('kkoTitle'), s=document.getElementById('kkoSub'), f=document.getElementById('kkoFine');
   if(t) t.textContent = title || KKO_DEFAULT_T;
   if(s) s.innerHTML   = sub   || KKO_DEFAULT_S;
+  // 찜 권유가 아닐 땐 '찜은 계속 쓸 수 있어요' 안내가 맥락에 안 맞음
+  if(f) f.textContent = (fine===undefined) ? KKO_DEFAULT_F : fine;
   bg.style.display='block'; m.style.bottom='0';
 }
 function closeLoginSheet(){
@@ -2670,6 +2683,7 @@ function kkoLater(){
 function startKakaoLogin(){
   if(!kkoInit()){ alert('카카오 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
+  try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   try{ trackEvent('kakao_login_start',''); }catch(_){}
   Kakao.Auth.authorize({ redirectUri: kkoRedirect(), scope: 'profile_nickname' });
 }
@@ -2730,6 +2744,10 @@ function hideLoginStrip(){
         t.textContent='💜 '+(d.nickname||'회원')+'님, 반가워요!';
         document.body.appendChild(t);
         setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ t.remove(); },420); }, 2600);
+        // 로그인하러 가기 전에 보던 화면으로 돌려놓는다 (안 그러면 메인으로 떨어져서 다시 눌러야 함)
+        var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
+        if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
+        else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
       }
     }).catch(function(){});
   }catch(_){}
@@ -2748,6 +2766,34 @@ function kkoLogout(){
   paintMemberUI();
 }
 document.addEventListener('DOMContentLoaded', function(){ kkoInit(); paintMemberUI(); });
+
+// ── 바텀시트를 아래로 끌어서 닫기 ──────────────────────
+// 손잡이(회색 바)를 내리면 닫히는 게 자연스러운데 지금은 '닫기' 버튼밖에 없어서 추가.
+function _sheetDrag(sheetId, closeFn){
+  var el=document.getElementById(sheetId); if(!el) return;
+  var y0=null, dy=0;
+  el.addEventListener('touchstart', function(e){
+    if(el.scrollTop>0) return;                 // 내용을 스크롤 중이면 끌기로 보지 않음
+    y0=e.touches[0].clientY; dy=0;
+    el.style.transition='none';
+  }, {passive:true});
+  el.addEventListener('touchmove', function(e){
+    if(y0===null) return;
+    dy=e.touches[0].clientY-y0;
+    if(dy>0) el.style.transform='translateX(-50%) translateY('+dy+'px)';
+  }, {passive:true});
+  el.addEventListener('touchend', function(){
+    if(y0===null) return;
+    el.style.transition=''; el.style.transform='translateX(-50%)';
+    if(dy>90) closeFn();
+    y0=null; dy=0;
+  });
+}
+document.addEventListener('DOMContentLoaded', function(){
+  _sheetDrag('infoSheet', closeInfoSheet);
+  _sheetDrag('hdSheet',   closeHdSheet);
+  _sheetDrag('kkoSheet',  closeLoginSheet);
+});
 
 // ══ 알림 권한 ══
 function notiGranted(){ try{ return Notification.permission==='granted' && localStorage.getItem('mc_push_on')==='1'; }catch(_){ return false; } }
@@ -3016,17 +3062,43 @@ function openInChrome(){
   // 크롬이 없으면 browser_fallback_url(플레이스토어 크롬 설치)로 자동 이동 → 설명 텍스트 불필요.
   try{ trackEvent('pwa_chrome_open', _isSamsung()?'samsung':(_isInApp()?'inapp':'android')); }catch(_){}
   try{
+    // 크롬으로 넘어간 뒤 '거기서 또 뭘 눌러야 하는지' 모르는 문제 → ?pwa=1 을 달아 보내고
+    // 크롬에 도착하면 설치창을 바로 띄운다(아래 _autoPromptFromChrome).
     var fb='https://play.google.com/store/apps/details?id=com.android.chrome';
-    var u='intent://'+location.host+location.pathname+location.search+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(fb)+';end';
+    var q=location.search ? location.search+'&pwa=1' : '?pwa=1';
+    var u='intent://'+location.host+location.pathname+q+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(fb)+';end';
     location.href=u;
   }catch(_){}
 }
+// 삼성 인터넷에서 크롬으로 넘어온 경우(?pwa=1) → 설치창을 자동으로 띄운다.
+// 크롬은 이미 설치돼 있으면 beforeinstallprompt 를 아예 안 주므로, 안 오면 조용히 넘어간다.
+function _autoPromptFromChrome(tries){
+  tries=tries||0;
+  try{
+    if(location.search.indexOf('pwa=1')<0) return;
+    if(_isStandalone()) return;
+    if(_pwaDeferred){
+      _pwaDeferred.prompt();
+      _pwaDeferred.userChoice.then(function(c){
+        if(c && c.outcome==='accepted') localStorage.setItem('mc_pwa_installed','1');
+      }).catch(function(){});
+      _pwaDeferred=null;
+      return;
+    }
+    if(tries<8) setTimeout(function(){ _autoPromptFromChrome(tries+1); }, 700);
+  }catch(_){}
+}
+setTimeout(function(){ _autoPromptFromChrome(0); }, 900);
+
 function maybeShowPwa(retry){
   retry=retry||0;
   try{
     if(_isStandalone()) return;                       // 이미 앱으로 열림 → 아무것도 안 띄움
     if(!_isMobile()) return;                           // PC(데스크톱)에선 PWA 유도 안 함
-    if(localStorage.getItem('mc_pwa_installed')==='1'){ showPwaStrip(); return; } // 설치 기록 있어도 얇은 띠로 재설치 유도(앱 지운 사람 대비). 실제 앱 실행 중이면 위 standalone에서 걸러짐
+    if(location.search.indexOf('pwa=1')>=0) return;    // 크롬으로 막 넘어온 참 → 자동 설치창에 맡김
+    // 설치한 적 있는 사람에겐 팝업을 다시 띄우지 않는다(앱 있는데 또 뜨면 성가심).
+    // 앱을 지운 사람은 아래 얇은 띠로만 아주 가끔 안내.
+    if(localStorage.getItem('mc_pwa_installed')==='1'){ showPwaStrip(); return; }
     if(localStorage.getItem('mc_pwa_ios_added_left')!==null){ showPwaStrip(); return; } // 아이폰 '추가했어요' → 팝업X, 띠만(카운터 소진까지)
     if(localStorage.getItem('mc_pwa_never')==='1'){ showPwaStrip(); return; } // 영영 팝업 거절 → 그래도 얇은 띠는
     const until=parseInt(localStorage.getItem('mc_pwa_snooze')||'0',10);
