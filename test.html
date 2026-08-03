@@ -1674,7 +1674,7 @@ async function openHdSheet(id){
 
     ${h.is_lowest?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🏆 추적 기간 중 <b>가장 싼 가격</b>이에요</div>`
       :(h.source==='goldbox'?`<div style="background:#FFF8E8;border:1px solid #F5E0AE;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#8A6100;margin-bottom:12px">⭐ 쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>`
-      :(h.source==='adpick'&&h.discount_rate?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🔻 정가보다 <b>${h.discount_rate}% 싼</b> 가격이에요</div>`:''))}
+      :'')}
 
     ${
       // 애드픽은 '오늘의 핫딜 목록'만 주고 개별 상품 조회 API가 없다 → 그 상품이 내일 목록에 없으면 이력이 안 쌓인다.
@@ -1692,7 +1692,7 @@ async function openHdSheet(id){
     ${h.source==='adpick'
       // 애드픽은 정가가 곧 근거라 한 줄이면 충분하다 (설명을 붙이면 오히려 장황해짐)
       ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
-           정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중
+           정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>으로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중
          </div>`
       : `<div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
            <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
