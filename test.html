@@ -1528,7 +1528,9 @@ async function openHdSheet(id){
   const prices=pts.map(p=>p.price);
   const lo=prices.length?Math.min(...prices):h.price;
   const hi=prices.length?Math.max(...prices):h.price;
-  const avg=h.price_before||(prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):h.price);
+  // 그래프에 그린 이력과 같은 값으로 평균을 내야 라벨과 선이 어긋나지 않는다
+  const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):(h.price_before||h.price);
+  const dropPct=avg>h.price?Math.round((avg-h.price)/avg*100):(h.discount_rate||0);
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
@@ -1555,8 +1557,8 @@ async function openHdSheet(id){
     <div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
       <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
       맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
-      ${pts.length?`지금까지 ${pts.length}일치 중 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>예요.`:'아직 이력이 쌓이는 중이에요.'}
-      ${h.discount_rate?` 평소보다 <b style="color:#E8402A">${h.discount_rate}% 저렴</b>합니다.`:''}
+      ${pts.length?`지금까지 ${pts.length}일치 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
+      ${dropPct?` 평소보다 <b style="color:#E8402A">${dropPct}% 저렴</b>합니다.`:''}
     </div>
 
     <a href="${h.link}" target="_blank" rel="noopener" onclick="closeHdSheet()"
