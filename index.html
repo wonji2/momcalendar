@@ -362,7 +362,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .totop-fab svg{width:20px;height:20px;stroke:#888;stroke-width:2.5;fill:none}
 .chat-menu{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
 .chat-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
-.chat-menu-item{display:flex;align-items:center;gap:8px;background:#fff;border-radius:24px;padding:11px 18px;box-shadow:0 3px 12px rgba(0,0,0,.18);font-size:13px;font-weight:700;color:#333;text-decoration:none;white-space:nowrap}
+/* 항목마다 글자 수가 달라 폭이 들쭉날쭉하던 것 → 폭 고정.
+   흰 배경 위 흰 버튼이라 잘 안 보이던 것 → 테두리 + 그림자 강화 */
+.chat-menu-item{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #EBE4F3;border-radius:24px;padding:11px 16px;width:196px;box-shadow:0 5px 18px rgba(60,35,95,.22);font-size:13px;font-weight:700;color:#333;text-decoration:none;white-space:nowrap}
 /* 네이버 'N'은 글자라 이모지보다 좁다 → 아이콘 칸을 고정해 글자 시작점을 맞춤 */
 .chat-menu-ico{font-size:16px;width:19px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1}
 /* 출석 도장 효과 */
@@ -3537,10 +3539,10 @@ function closeChatMenu(){
   <div class="chat-menu" id="chatMenu">
     <!-- + 버튼에는 '홍보하고 싶은 것'만. 문의·오류제보는 사이드메뉴로 옮김 -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
-    <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
+    <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
     <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
-    <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();exportWishIcs()" style="border:none;cursor:pointer;font-family:inherit;background:#F3ECFF;color:#602090"><span class="chat-menu-ico">📅</span>내 폰 캘린더에 넣기</button>
+    <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();exportWishIcs()" style="border:none;cursor:pointer;font-family:inherit;background:#F3ECFF;color:#602090"><span class="chat-menu-ico">📅</span>내 폰 캘린더 저장</button>
     <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>친구에게 공유</button>
   </div>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="채널·공유·제보 메뉴">
