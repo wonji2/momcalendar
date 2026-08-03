@@ -703,6 +703,9 @@ window.slimAdClick=function(id){
     이 페이지의 일부 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
   </div>
 </div>
+
+<!-- ===== 통합검색 결과 (검색어 입력 시 공구·핫딜·체험단 한 화면) ===== -->
+<div id="searchAllView" style="display:none;padding:12px;min-height:60vh"></div>
 <!-- ===== /체험단 영역 ===== -->
 
 <!-- 제휴·입점 통합 팝업 -->
@@ -1191,6 +1194,84 @@ function renderList(){
     :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
 }
 
+// ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
+let _saOpen={gonggu:false,hotdeal:false,exp:false};   // 섹션별 '더 보기' 펼침 상태
+const SA_FIRST=3;                                      // 섹션마다 처음 보여줄 개수
+
+function searchAllOn(){ return !!(fSearch && fSearch.trim()); }
+
+function saToggle(kind){ _saOpen[kind]=!_saOpen[kind]; renderSearchAll(); }
+
+async function renderSearchAll(){
+  const el=document.getElementById('searchAllView');
+  if(!el) return;
+  const q=(fSearch||'').trim().toLowerCase();
+  if(!q) return;
+
+  // 핫딜·체험단은 탭을 눌러야 로드되므로, 검색할 땐 없으면 먼저 가져온다
+  if(!_hotdealData||!_expData){
+    el.innerHTML=`<div class="empty" style="padding:34px 0;text-align:center;color:#bbb">검색 중...</div>`;
+    await Promise.all([
+      _hotdealData?null:fetch(`${SUPABASE_URL}/rest/v1/hotdeals?select=*&order=created_at.desc&limit=200`,
+        {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}})
+        .then(r=>r.ok?r.json():[]).then(j=>{_hotdealData=j;}).catch(()=>{_hotdealData=[];}),
+      _expData?null:fetch(`${SUPABASE_URL}/rest/v1/experiences?select=*&limit=200`,
+        {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}})
+        .then(r=>r.ok?r.json():[]).then(j=>{_expData=j;}).catch(()=>{_expData=[];})
+    ]);
+    if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
+  }
+
+  const hit=(...vals)=>vals.some(v=>(v||'').toString().toLowerCase().includes(q));
+  const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
+  const hd = (_hotdealData||[]).filter(h=>hit(h.title,h.major,h.minor));
+  const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
+
+  const sec=(kind,ico,label,arr,cardFn)=>{
+    if(!arr.length) return '';
+    const open=_saOpen[kind];
+    const shown=open?arr:arr.slice(0,SA_FIRST);
+    const rest=arr.length-shown.length;
+    return `<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px">
+        <span>${ico} ${label}</span>
+        <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${arr.length}건</span>
+      </div>
+      ${shown.map(cardFn).join('')}
+      ${rest>0?`<button onclick="saToggle('${kind}')" style="width:100%;background:#F7F5FA;border:1px solid #EDE9F3;color:#7B3FB5;border-radius:11px;padding:11px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;margin:2px 0 16px">⌄ ${label} ${rest}건 더 보기</button>`
+        :(open?`<button onclick="saToggle('${kind}')" style="width:100%;background:none;border:none;color:#B5AFBD;font-size:12px;font-family:inherit;cursor:pointer;margin:2px 0 16px">⌃ 접기</button>`:`<div style="height:16px"></div>`)}`;
+  };
+
+  const html =
+    sec('gonggu','🛒','공구',gg,it=>renderCard(it)) +
+    sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h)) +
+    sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
+
+  el.innerHTML = html || `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
+      '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
+      <span style="font-size:12px;color:#bbb">셀러 이름·상품명·인스타 아이디로 찾아보세요</span>
+    </div>`;
+  paintHearts();
+}
+
+// 검색 중이면 통합검색 화면만, 아니면 원래 탭 화면으로
+function applySearchMode(){
+  const on=searchAllOn();
+  const sa=document.getElementById('searchAllView');
+  const seg=document.getElementById('contentSeg');
+  if(!sa) return;
+  sa.style.display = on?'block':'none';
+  if(seg) seg.style.display = on?'none':'';
+  if(on){
+    document.getElementById('gongguWrap').style.display='none';
+    document.getElementById('hotdealView').style.display='none';
+    document.getElementById('expView').style.display='none';
+    renderSearchAll();
+  }else{
+    _saOpen={gonggu:false,hotdeal:false,exp:false};
+    switchContent(_ctPrev||'gonggu');
+  }
+}
+
 // 날짜탭 건수 - 오픈일 기준
 function getCntForDate(ds){
   return DATA.filter(item=>!isExpired(item)&&item.openDate===ds).length;
@@ -1328,8 +1409,9 @@ function restoreViewState(){
     if(fSt==='top100') ensureViewCounts();
     if(fSt==='wish') fetchWishExtra();
     // 검색어 입력창 복원
-    const si=document.getElementById('sInput'); if(si && fSearch) si.value=fSearch;
+    const si=document.getElementById('sInput'); if(si && fSearch){ si.value=fSearch; const sc=document.getElementById('sClear'); if(sc) sc.style.display='block'; }
     renderList();
+    applySearchMode();   // 검색 중이던 상태면 통합검색 화면으로 복원
     if(s.scroll) _restoreScroll(s.scroll);                 // 렌더 후 스크롤 복원(인앱 느린 렌더 대비 재시도)
     localStorage.removeItem('mc_view');                    // 한 번 복원하면 소비 → 새로 열 땐 복원 안 함(통일)
     return true;
@@ -1378,7 +1460,9 @@ function scrollToResults(){
 let _hotdealData=null, _expData=null;
 const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56']};
 
+let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
+  _ctPrev=ct;
   const seg=document.getElementById('contentSeg');
   seg.style.background=CT_COLOR[ct][0];
   seg.querySelectorAll('.cseg').forEach(b=>{
@@ -1450,9 +1534,13 @@ function renderHotdeals(){
     el.innerHTML=emptyBox('hotdeal');
     return;
   }
-  const _now=new Date();
-  const _d0=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate()).getTime();
-  el.innerHTML=_hotdealData.map(h=>{
+  el.innerHTML=_hotdealData.map(h=>hdCardHtml(h)).join('');
+}
+// 핫딜 카드 1장 (핫딜 탭 · 통합검색 양쪽에서 씀)
+function hdCardHtml(h){
+  {
+    const _now=new Date();
+    const _d0=new Date(_now.getFullYear(),_now.getMonth(),_now.getDate()).getTime();
     const dt=new Date(h.created_at);
     const tstr=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
     const cd=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime();
@@ -1495,7 +1583,7 @@ function renderHotdeals(){
     return tracked
       ? `<div class="hd-card" onclick="openHdSheet(${h.id})"${cardStyle}>${inner}</div>`
       : `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener"${cardStyle}>${inner}</a>`;
-  }).join('');
+  }
 }
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 
@@ -1625,12 +1713,7 @@ function renderExperiences(){
     return;
   }
   const today=todayStr;
-  // 상태 분류: 0=모집중, 1=예정, 2=마감
-  function stat(e){
-    if(e.end_date && e.end_date<today) return 2;      // 마감 지남
-    if(e.open_date && e.open_date>today) return 1;     // 모집 시작 전
-    return 0;                                          // 모집중
-  }
+  const stat=expStat;
   const sorted=[..._expData].filter(e=>stat(e)!==2).sort((a,b)=>{   // 마감된 체험단은 아예 제외
     const sa=stat(a), sb=stat(b);
     if(sa!==sb) return sa-sb;                          // 모집중 → 예정
@@ -1642,8 +1725,20 @@ function renderExperiences(){
     el.innerHTML=emptyBox('exp');
     return;
   }
-  el.innerHTML=sorted.map(e=>{
-    const s=stat(e);
+  el.innerHTML=sorted.map(e=>expCardHtml(e)).join('');
+}
+// 체험단 상태: 0=모집중, 1=예정, 2=마감
+function expStat(e){
+  const today=todayStr;
+  if(e.end_date && e.end_date<today) return 2;
+  if(e.open_date && e.open_date>today) return 1;
+  return 0;
+}
+// 체험단 카드 1장 (체험단 탭 · 통합검색 양쪽에서 씀)
+function expCardHtml(e){
+  {
+    const today=todayStr;
+    const s=expStat(e);
     const ended=s===2, upcoming=s===1;
     const c=ended?{tagBg:'#E0E0E0',tagTxt:'#888'}:cc(e.major);
     // 우측 라벨
@@ -1680,7 +1775,7 @@ function renderExperiences(){
       <div style="display:flex;align-items:center;gap:8px">${recruit}<span style="font-size:11px;color:${ended?'#aaa':'#999'}">${endTxt}</span></div>
       <span class="ct-arrow">${right}${clickable?'<span style="color:#ccc;font-size:16px">›</span>':''}</span>
     </${tag2}>`;
-  }).join('');
+  }
 }
 
 function switchTab(t){
@@ -2233,6 +2328,7 @@ function goHome(){
   selWeekDate=todayStr;
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
+  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기
   document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   document.getElementById('stab-all').classList.add('on-all');
   document.getElementById('sideAllBtn').classList.add('on');
@@ -2244,11 +2340,14 @@ function clearSearch(){
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
   fSearch='';
+  applySearchMode();   // 통합검색 화면 닫고 원래 탭으로
   renderList();
 }
 const sInput=document.getElementById('sInput');
 function scrollToResults(){
-  const target=document.getElementById('cardList');
+  const target=searchAllOn()
+    ? document.getElementById('searchAllView')
+    : document.getElementById('cardList');
   if(!target) return;
   // 핫딜/체험단 탭이면 공구 탭으로 전환(검색은 공구에서 동작)
   const gw=document.getElementById('gongguWrap');
@@ -2268,9 +2367,9 @@ sInput.addEventListener('input',e=>{
   fSearch=v;
   // 검색 시작하면 날짜 필터 해제 → 전체 DB에서 검색되도록 (탭 하이라이트도 끔)
   if(v.trim() && dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
-  // 핫딜/체험단 탭에서 검색하면 공구 탭으로 자동 전환 (한 번만)
-  if(v.trim()){ const gw=document.getElementById('gongguWrap'); if(gw && gw.style.display==='none') switchContent('gonggu'); }
-  renderList();
+  _saOpen={gonggu:false,hotdeal:false,exp:false};   // 검색어 바뀌면 '더 보기' 초기화
+  applySearchMode();          // 검색 중이면 공구+핫딜+체험단 통합 결과로
+  if(!searchAllOn()) renderList();
   // 스크롤 이동은 엔터를 눌렀을 때만 (타이핑 중엔 화면이 움직이지 않게)
 });
 sInput.addEventListener('keydown',e=>{
