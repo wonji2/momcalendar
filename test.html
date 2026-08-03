@@ -371,6 +371,11 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 @keyframes atSpark{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
   25%{opacity:1}
   100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15)}}
+@keyframes atBadge{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+  30%{transform:translate(-50%,-50%) scale(1)}
+  75%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-90%) scale(.95)}}
 .content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
 .content-seg .cseg{flex:1;text-align:center;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;color:#999;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit}
 .content-seg .cseg.on{color:#fff;font-weight:700}
@@ -2024,25 +2029,43 @@ function attendGrid(d, pop){
   }
   return g;
 }
+// 응모권 = 이번 달 출석일수 + 연속 5일마다 보너스 3장
+// ('연속 출석할수록 확률 UP'을 문구로만 쓰면 거짓이 되므로 실제 계산에 반영)
+function attendTickets(d){ return (d.month_days||0) + Math.floor((d.streak||0)/5)*3; }
+
 function renderAttend(d, justChecked){
+  const hot = (d.streak||0) >= 5;                    // 연속 5일부터 특별 대우
+  const tickets = attendTickets(d);
   const cta = d.checked_today
     ? `<div style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F2EFF6;color:#8A8395;border-radius:14px;padding:15px;font-size:14px;font-weight:800">✅ 오늘 출석 완료</div>`
     : `<button id="atBtn" onclick="doCheckIn()" style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 5px 16px rgba(123,63,181,.3)">💜 출석 도장 찍기</button>`;
   _openInfo(`
     <div id="atWrap" style="position:relative">
-      <div style="text-align:center;margin-bottom:15px">
+      <div style="text-align:center;margin-bottom:14px">
         <div style="font-size:17px;font-weight:900;color:#232326">${justChecked?'출석 완료! 💜':(d.checked_today?'오늘도 오셨네요':'오늘 출석하셨나요?')}</div>
         <div style="font-size:12.5px;color:#8A8395;margin-top:6px">
-          이번 달 <b style="color:#602090">${d.month_days}일</b> 출석 · 연속 <b style="color:#602090">${d.streak}일</b>
+          이번 달 <b style="color:#602090">${d.month_days}일</b> 출석
         </div>
       </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:14px;
+        background:${hot?'linear-gradient(135deg,#FFF1F6,#F6EEFF)':'#F7F6F9'};border:1px solid ${hot?'#F3D9EA':'#EFEDF2'};
+        border-radius:12px;padding:11px 14px">
+        <span style="font-size:${hot?'19px':'15px'}">${hot?'🔥':'💜'}</span>
+        <span style="font-size:13px;font-weight:800;color:${hot?'#C2417A':'#8A8395'}">연속 ${d.streak}일</span>
+        ${hot?`<span style="font-size:11px;font-weight:800;color:#fff;background:#E05C97;padding:2px 8px;border-radius:20px">확률 UP</span>`:''}
+      </div>
+
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:15px">${attendGrid(d, justChecked)}</div>
       ${cta}
-      <div style="background:#FAF8FC;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#6D6579;line-height:1.8;margin-top:12px">
-        이번 달 <b style="color:#602090">15일 이상</b> 출석하면<br>매달 1일 추첨에 자동 응모돼요 🎁
+
+      <div style="background:#FAF8FC;border-radius:12px;padding:13px 15px;font-size:12.5px;color:#6D6579;line-height:1.9;margin-top:12px">
+        <b style="color:#602090">매달 1일 추첨</b> · 이번 달 15일 이상 출석하면 자동 응모돼요 🎁<br>
+        응모권은 <b>출석한 날수만큼</b>, <b style="color:#C2417A">연속 5일마다 +3장</b> 더 드려요.<br>
+        <span style="color:#9A93A6">지금 내 응모권 <b style="color:#602090">${tickets}장</b></span>
       </div>
     </div>`);
-  if(justChecked) attendSparkle();
+  if(justChecked) attendSparkle(d.streak||0);
 }
 function doCheckIn(){
   const b=document.getElementById('atBtn');
@@ -2053,24 +2076,38 @@ function doCheckIn(){
     try{ trackEvent('check_in', String(d.month_days)); }catch(_){}
   });
 }
-// 도장 찍히는 순간 반짝이 효과
-function attendSparkle(){
+// 도장 찍히는 순간 반짝이 효과. 연속 5일 이상이면 팡팡 터지게.
+function attendSparkle(streak){
   const w=document.getElementById('atWrap'), t=document.getElementById('atToday');
   if(!w||!t) return;
+  const hot=(streak||0)>=5;
   const wr=w.getBoundingClientRect(), tr=t.getBoundingClientRect();
   const cx=tr.left-wr.left+tr.width/2, cy=tr.top-wr.top+tr.height/2;
-  const chars=['✨','💜','⭐','✨','💜','✨','⭐','✨'];
+  const chars = hot
+    ? ['🎉','✨','💜','⭐','🎊','✨','💗','⭐','🎉','✨','💜','⭐','🎊','✨','💗','⭐','✨','💜']
+    : ['✨','💜','⭐','✨','💜','✨','⭐','✨'];
   chars.forEach((ch,i)=>{
     const s=document.createElement('span');
-    const ang=(Math.PI*2/chars.length)*i, dist=46+(i%3)*14;
+    const ang=(Math.PI*2/chars.length)*i + (hot?(i%2?0.2:-0.2):0);
+    const dist=(hot?70:46)+(i%4)*(hot?22:14);
     s.textContent=ch;
-    s.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;font-size:${13+(i%3)*4}px;pointer-events:none;z-index:5;
-      transform:translate(-50%,-50%);animation:atSpark .85s ease-out forwards`;
+    s.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;font-size:${(hot?15:13)+(i%3)*4}px;pointer-events:none;z-index:5;
+      transform:translate(-50%,-50%);animation:atSpark ${hot?1.15:.85}s ease-out ${(i%4)*40}ms forwards`;
     s.style.setProperty('--dx', Math.cos(ang)*dist+'px');
     s.style.setProperty('--dy', Math.sin(ang)*dist+'px');
     w.appendChild(s);
-    setTimeout(()=>s.remove(), 900);
+    setTimeout(()=>s.remove(), hot?1400:900);
   });
+  if(hot){
+    // 연속 기록 축하 배지가 한 번 크게 떴다 사라짐
+    const b=document.createElement('div');
+    b.textContent=`🔥 연속 ${streak}일!`;
+    b.style.cssText=`position:absolute;left:50%;top:${cy}px;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
+      font-size:19px;font-weight:900;color:#fff;background:linear-gradient(135deg,#FF7EB3,#7B3FB5);
+      padding:9px 18px;border-radius:24px;box-shadow:0 6px 20px rgba(123,63,181,.4);animation:atBadge 1.5s ease-out forwards`;
+    w.appendChild(b);
+    setTimeout(()=>b.remove(), 1600);
+  }
 }
 
 // ── 사이드메뉴: 소개 / 이용방법 시트 ───────────────────
