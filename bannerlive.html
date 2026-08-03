@@ -589,7 +589,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       var el=document.getElementById('slimAdSlot'); if(!el) return;
       if(!b){ el.style.display='none'; return; }
       var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
-      var bg=(b.bg&&b.bg.indexOf('#')===0)?b.bg:'#7B3FB5';
+      var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7B3FB5';
       var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
       el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
         +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
