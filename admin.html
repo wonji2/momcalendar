@@ -364,7 +364,10 @@ details summary::-webkit-details-marker{display:none}
   <div id="bannerView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-size:14px;font-weight:800;color:#2A1D6E">🖼️ 배너 관리</div>
-      <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 배너 추가</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="openBannerTestPage()" style="padding:8px 13px;background:#FFF3D6;color:#8A6100;border:1.5px solid #FFD79A;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🧪 테스트 페이지 보기</button>
+        <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ 배너 추가</button>
+      </div>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:12px">
       <button id="bfil-main" onclick="setBannerFilter('main')" style="flex:1;padding:9px 6px;border:1.5px solid #4A35A0;background:#4A35A0;color:#fff;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🖼️ 메인 <span id="bcnt-main" style="opacity:.75"></span></button>
@@ -439,6 +442,15 @@ details summary::-webkit-details-marker{display:none}
           <div id="bBgPreview" style="flex:1;min-width:60px;height:36px;border-radius:8px;border:1px solid #EBEBEB"></div>
         </div>
         <input id="bBg" type="hidden">
+        <div id="bBgPresets" style="display:none;gap:6px;flex-wrap:wrap;margin:2px 0 6px">
+          <span style="font-size:11px;color:#888;align-self:center">추천 색</span>
+          <button type="button" onclick="pickBannerColor('#7B3FB5')" title="맘캘린더 보라" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#7B3FB5;cursor:pointer"></button>
+          <button type="button" onclick="pickBannerColor('#602090')" title="진보라" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#602090;cursor:pointer"></button>
+          <button type="button" onclick="pickBannerColor('#E94D8A')" title="맘캘린더 핑크(+버튼)" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#E94D8A;cursor:pointer"></button>
+          <button type="button" onclick="pickBannerColor('#D6336C')" title="진핑크" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#D6336C;cursor:pointer"></button>
+          <button type="button" onclick="pickBannerColor('#C0392B')" title="레드(오늘오픈 톤)" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#C0392B;cursor:pointer"></button>
+          <button type="button" onclick="pickBannerColor('#2b2340')" title="차콜" style="width:26px;height:26px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #ddd;background:#2b2340;cursor:pointer"></button>
+        </div>
         <div id="bBgHint" style="font-size:11px;color:#999">단색으로 하려면 두 색을 같게 설정하세요</div>
       </div>
       <div class="modal-field" id="bImgField">
@@ -3652,6 +3664,18 @@ const BFIL_HELP={
   promo:'🎁 이웃셀러 아래 띠 배너(브랜드 제휴·파트너스용)예요.'
 };
 function setBannerFilter(t){ bannerFilter=t; applyBannerFilter(); }
+// 슬림 배너 추천색 클릭 → 두 색 모두 같게(단색) 세팅
+function pickBannerColor(hex){
+  const c1=document.getElementById('bColor1'), c2=document.getElementById('bColor2');
+  if(c1) c1.value=hex;
+  if(c2) c2.value=hex;
+  if(typeof updateBgPreview==='function') updateBgPreview();
+}
+// 테스트 페이지(bannerlive.html) 새 탭으로 열기 — 캐시 안 타게 타임스탬프 붙임
+function openBannerTestPage(){
+  const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
+  window.open(base+'/bannerlive.html?t='+Date.now(),'_blank');
+}
 function setBStageRadio(v){
   document.querySelectorAll('input[name="bStage"]').forEach(r=>{ r.checked=(r.value===v); });
 }
@@ -3680,6 +3704,12 @@ function syncBannerTypeUI(){
   show('bImgField',!slim);        // 슬림은 이미지 불필요
   show('bSubField',!slim);        // 부제목도 안 씀
   show('bLinkOpenField',!slim);   // 링크 공개일시도 안 씀
+  const pre=document.getElementById('bBgPresets'); if(pre) pre.style.display=slim?'flex':'none';
+  // 슬림인데 색이 기본 초록(예전 기본값)이면 사이트 톤(보라)로 자동 교체
+  if(slim){
+    const c1=document.getElementById('bColor1');
+    if(c1 && /^#1a6b4a$/i.test(c1.value)) pickBannerColor('#7B3FB5');
+  }
   const tl=document.getElementById('bTitleLbl'); if(tl) tl.innerHTML=slim?'문구 * <span style="font-weight:400;color:#999">(배너에 크게 보이는 글)</span>':'제목 *';
   const cl=document.getElementById('bCtaLbl');   if(cl) cl.innerHTML=slim?'왼쪽 태그 <span style="font-weight:400;color:#999">(예: 오늘만 특가 · 비우면 "오늘만 특가")</span>':'브랜드명 (기획전용, 작은 글씨)';
   const t1=document.getElementById('bTitle');    if(t1) t1.placeholder=slim?'예) 보텔라핏 · 온가족 장건강 케어':'예) 맘캘린더 공구 함께해요 💚';
@@ -3893,7 +3923,8 @@ function openBannerAdd(){
   document.getElementById('bLinkOpenAt').value='';
   document.getElementById('bShowFrom').value='';
   document.getElementById('bShowUntil').value='';
-  document.getElementById('bColor2').value='#7B68EE';
+  document.getElementById('bColor1').value=(bannerFilter==='slim')?'#7B3FB5':'#1a6b4a';
+  document.getElementById('bColor2').value=(bannerFilter==='slim')?'#7B3FB5':'#7B68EE';
   document.getElementById('bGradDir').value='135deg';
   document.getElementById('bImg').value='';
   document.getElementById('bImgFile').value='';
@@ -4028,8 +4059,10 @@ async function saveBanner(){
   await loadBannerAdmin();
   if(dropped.length){
     alert(`✅ 배너 ${id?'수정':'추가'}는 저장됐어요.\n\n⚠️ 다만 [${dropped.join(', ')}] 항목은 banners 테이블에 컬럼이 없어 저장되지 않았어요.\n시간 지정(노출기간·링크오픈) 기능을 쓰려면 Supabase → SQL Editor에서 아래를 한 번만 실행해주세요:\n\nALTER TABLE banners\n  ADD COLUMN IF NOT EXISTS link_open_at timestamptz,\n  ADD COLUMN IF NOT EXISTS show_from   timestamptz,\n  ADD COLUMN IF NOT EXISTS show_until  timestamptz,\n  ADD COLUMN IF NOT EXISTS img_position text,\n  ADD COLUMN IF NOT EXISTS img_size    text;\n\n실행 후 다시 저장하면 시간 설정도 정상 저장돼요.`);
+  }else if(payload.stage==='test'){
+    if(confirm(`✅ 배너 ${id?'수정':'추가'} 완료!\n\n🧪 이 배너는 "테스트 페이지 전용"이에요. (실제 방문자에겐 안 보여요)\n지금 테스트 페이지에서 확인해볼까요?`)) openBannerTestPage();
   }else{
-    alert(`✅ 배너 ${id?'수정':'추가'} 완료! 사이트 새로고침하면 반영돼요.`);
+    alert(`✅ 배너 ${id?'수정':'추가'} 완료! 🌐 정식 사이트에 노출돼요. 사이트 새로고침하면 반영돼요.`);
   }
 }
 
