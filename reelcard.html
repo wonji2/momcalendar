@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>맘캘린더 · 릴스 1장 요약 (8/4)</title>
+<title>맘캘린더 · 오늘 공구 캘린더 카드</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
@@ -12,52 +13,60 @@
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
   --ink:#231C2E; --mute:#8A8194; --line:#EDE9F2;
+  /* 글씨체는 이 두 줄만 바꾸면 전체 적용 */
   --f-t:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
   --f-b:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#3A3145;font-family:var(--f-b);padding:56px 0 60px;color:#fff}
-.bar{position:fixed;top:0;left:0;right:0;background:#231C2E;color:#fff;padding:11px 18px 11px 46px;z-index:99;font-size:13px;line-height:1.5}
-.bar b{color:#E8C77E}
-#zoom{position:fixed;top:15px;left:18px;z-index:100}
-.cap{max-width:1080px;margin:0 auto 12px;padding:0 10px;color:#E8C77E;font-size:15px;font-weight:800}
-.cap span{color:#9E93AE;font-weight:400;font-size:13px}
+body{background:#3A3145;font-family:var(--f-b);padding:96px 0 60px;color:#fff}
+
+/* ── 조작 바 ── */
+.bar{position:fixed;top:0;left:0;right:0;background:#1B1622;z-index:99;padding:12px 18px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 2px 14px rgba(0,0,0,.4)}
+.bar label{font-size:13px;color:#C9BFD8;font-weight:700}
+.bar input[type=date]{background:#2C2436;border:1px solid #493C5A;color:#fff;border-radius:8px;
+  padding:7px 10px;font-size:14px;font-family:inherit}
+.bar button{background:var(--p);color:#fff;border:0;border-radius:8px;padding:8px 15px;
+  font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.bar button:hover{background:#7d59b5}
+.bar button.ghost{background:#3A2F49}
+.bar .st{font-size:12.5px;color:#9E93AE;margin-left:auto}
+.bar .st b{color:#E8C77E}
+.tip{width:100%;font-size:12px;color:#8E82A0;line-height:1.6}
+.tip b{color:#E8C77E}
+
 .slot{width:1080px;height:1920px;margin:0 auto 40px;position:relative}
-#zoom:checked ~ .stage .card{transform:scale(.30);transform-origin:top left}
-#zoom:checked ~ .stage .slot{width:324px;height:576px;margin-bottom:20px}
+.mini .card{transform:scale(.30);transform-origin:top left}
+.mini .slot{width:324px;height:576px;margin-bottom:20px}
 
 /* ═══ 릴스 캔버스 1080×1920 ═══ */
 .card{width:1080px;height:1920px;background:#fff;position:relative;overflow:hidden;
   display:flex;flex-direction:column}
 
-/* 안전영역 가이드 (캡처 전 .card 안에 있으므로 같이 축소됨) */
+/* 가이드선 (캡처 전 끄기) */
 .safe{position:absolute;left:0;right:0;pointer-events:none;z-index:8}
 .safe.top{top:0;height:200px;background:rgba(255,90,90,.10);border-bottom:3px dashed rgba(255,90,90,.6)}
 .safe.bot{bottom:0;height:330px;background:rgba(255,90,90,.10);border-top:3px dashed rgba(255,90,90,.6)}
 .safe b{position:absolute;left:24px;font-size:22px;color:#C9483F;background:rgba(255,255,255,.85);
   padding:5px 14px;border-radius:6px;font-weight:800}
 .safe.top b{bottom:12px} .safe.bot b{top:12px}
-/* 그리드 커버 크롭선 (3:4 = 1080×1440, 세로 중앙) */
 .gcrop{position:absolute;left:0;right:0;top:240px;height:1440px;border:3px dashed rgba(90,160,255,.7);
   pointer-events:none;z-index:7;box-sizing:border-box}
 .gcrop b{position:absolute;top:10px;right:14px;font-size:22px;color:#2C6FD1;background:rgba(255,255,255,.88);
   padding:5px 14px;border-radius:6px;font-weight:800}
 body.clean .safe,body.clean .gcrop{display:none}
 
-/* 셀러명과 마감일 사이 — 점 없이 간격만 */
 .gap{display:inline-block;width:11px}
 
-/* ── 헤더 ──
-   상단 250px 비움: 인스타 UI(200px) + 그리드 커버 크롭선(240px) 둘 다 피함 */
+/* ── 헤더 ── 상단 256px 비움: 인스타 UI(200) + 그리드커버(240) 둘 다 회피 */
 .hd{padding:256px 58px 0;flex-shrink:0}
 .brand{display:inline-flex;align-items:center;gap:9px;margin-bottom:16px}
 .brand-ic{width:30px;height:30px;border-radius:9px;background:var(--p);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:16px}
 .brand-t{font-family:var(--f-t);font-size:24px;color:var(--p-d);letter-spacing:-.4px;font-weight:800}
-.hd-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
-/* 제목 — 한 줄로 쭉, 전체 폭 써서 최대한 크게. 썸네일에서 이게 먼저 읽혀야 눌러봄 */
 .title{font-family:var(--f-t);font-size:92px;color:var(--ink);letter-spacing:-4.5px;
   line-height:1.05;font-weight:800;margin:2px 0 14px;white-space:nowrap}
+.hd-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
 .date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
 .date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
 .date span{font-size:26px;color:var(--mute);letter-spacing:-.5px;font-weight:700}
@@ -73,195 +82,206 @@ body.clean .safe,body.clean .gcrop{display:none}
 .col.open{padding-right:26px}
 .col.close{padding-left:26px;border-left:2px solid var(--line)}
 .col-hd{display:flex;align-items:center;gap:9px;margin-bottom:13px;flex-shrink:0}
-.col-t{font-family:var(--f-t);letter-spacing:-.4px;font-weight:800}
+.col-t{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800}
 .col.open .col-t{color:var(--p)} .col.close .col-t{color:var(--r)}
-.col-n{font-family:var(--f-t);color:var(--mute);font-weight:700}
+.col-n{font-family:var(--f-t);font-size:19px;color:var(--mute);font-weight:700}
 
-/* 한 줄 구조: [상품명 ─────── 셀러 · 마감] — 오른쪽 여백을 메타로 채움 */
-.it{border-bottom:1px solid var(--line);flex-shrink:0;
-  display:flex;align-items:baseline;gap:12px}
-.it-nm{flex:1;min-width:0;font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.25;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.it-sub{flex-shrink:0;color:var(--mute);font-weight:700;display:flex;align-items:baseline;
-  line-height:1.25;white-space:nowrap}
+/* 한 줄 구조: [상품명 ─── 셀러 마감] */
+.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:12px;
+  padding:8.1px 12px}
+.it-nm{flex:1;min-width:0;font-size:21px;font-weight:800;color:var(--ink);letter-spacing:-.5px;
+  line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it-sub{flex-shrink:0;font-size:16px;color:var(--mute);font-weight:700;display:flex;
+  align-items:baseline;line-height:1.25;white-space:nowrap}
 .it-sl{color:#6E6579}
-/* ⚠️ 음수 마진 금지 — .col 이 overflow:hidden 이라 왼쪽 글자가 잘림(2026-08-04 실수)
-   배경은 항목 영역 안에서만 깔고, 글자 시작점은 다른 항목과 동일하게 둔다 */
+/* ⚠️ 음수 마진 금지 — .col 이 overflow:hidden 이라 왼쪽 글자가 잘림 */
 .itNB{background:linear-gradient(90deg,#F1E7FC 0%,#F6F0FE 55%,rgba(246,240,254,.5) 100%);
   border-radius:9px;border-bottom:none}
 .itNB .it-nm{color:var(--p-d)}
-.nl{flex-shrink:0;font-weight:800;color:var(--gold);letter-spacing:-.2px}
-.more{font-family:var(--f-t);flex-shrink:0;font-weight:700}
+.more{font-family:var(--f-t);font-size:19px;flex-shrink:0;font-weight:700;margin-top:11px;padding-left:12px}
 .col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
 
-/* A안(전량) 치수 — 좌우 padding 을 모든 항목에 동일하게 줘야 이웃셀러 배경과 정렬이 맞음 */
-.A .it{padding:8.1px 12px} .A .it-nm{font-size:21px} .A .it-sub{font-size:16px}
-.A .col-t{font-size:23px} .A .col-n{font-size:19px} .A .nl{font-size:13px} .A .more{font-size:19px;margin-top:11px}
-/* B안(요약) 치수 */
-.B .it{padding:13px 12px} .B .it-nm{font-size:27px} .B .it-sub{font-size:20px}
-.B .col-t{font-size:27px} .B .col-n{font-size:22px} .B .nl{font-size:16px} .B .more{font-size:22px;margin-top:14px}
-
-/* ── 하단 CTA (안전영역 위) ── */
 .cta{flex-shrink:0;margin:0 58px 0;padding:20px 26px;border-radius:18px;
   background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
 .cta .t{font-family:var(--f-t);font-size:28px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
-/* 폰에서 읽혀야 하니 너무 작게 두지 말 것 — 21px ≈ 7.6pt */
 .cta .s{font-size:21px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
 .cta .s b{font-weight:800;color:#7A5C24}
 .cta .u{font-family:var(--f-t);font-size:26px;color:var(--p-d);font-weight:800;white-space:nowrap}
 .pad{height:342px;flex-shrink:0}
+
+/* 캡션 패널 */
+.cap{max-width:1080px;margin:0 auto 30px;background:#241E2E;border-radius:14px;padding:18px 20px}
+.cap h3{font-size:14px;color:#E8C77E;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.cap h3 span{font-size:12px;color:#9E93AE;font-weight:400}
+.cap textarea{width:100%;height:320px;background:#161219;color:#D8D0E2;border:1px solid #3A3145;
+  border-radius:10px;padding:14px;font-size:12.5px;line-height:1.65;font-family:inherit;resize:vertical}
 </style>
 </head>
-<body>
+<body class="mini">
 
-<input type="checkbox" id="zoom" checked>
-<div class="bar">축소 미리보기 · 캡처할 땐 <b>체크 해제</b> &nbsp;|&nbsp;
-<b style="color:#FF8A8A">빨강</b> = 릴스에서 인스타 UI에 가려지는 영역 &nbsp;
-<b style="color:#8FC0FF">파랑</b> = 프로필 그리드 커버로 잘리는 3:4 영역</div>
-
-<div class="stage">
-
-<!-- ═══════ A안 · 오늘 오픈 전량 ═══════ -->
-<div class="cap">A안 · 오늘 오픈 40건 전량 <span>1080×1920 · 공구줍줍과 같은 정보량, 글자는 더 큼</span></div>
-<div class="slot"><div class="card A">
-  <div class="safe top"><b>상단 200px · UI 가림</b></div>
-  <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
-  <div class="gcrop"><b>그리드 커버 영역</b></div>
-
-  <div class="hd">
-    <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
-    <div class="title">오늘 공구 캘린더</div>
-    <div class="hd-main">
-      <div class="date"><b>8월 4일</b><span>화요일</span></div>
-      <div class="stats">
-        <div class="stat open"><div class="n">40</div><div class="l">오늘 오픈</div></div>
-        <div class="stat close"><div class="n">34</div><div class="l">오늘 마감</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="cols">
-    <div class="col open">
-      <div class="col-hd"><span class="col-t">오늘 오픈</span><span class="col-n">40</span></div>
-      <div class="it itNB"><div class="it-nm">리틀스푼 떡뻥 모음전</div>
-        <div class="it-sub"><span class="it-sl">이현맘</span><span class="gap"></span><span>~8/8</span></div></div>
-      <div class="it"><div class="it-nm">꼬비 꽃 블럭</div><div class="it-sub"><span class="it-sl">또마맘</span><span class="gap"></span><span>~8/6</span></div></div>
-      <div class="it"><div class="it-nm">DK 마이퍼스트북</div><div class="it-sub"><span class="it-sl">나누맘</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">끌리젠 유모차선풍기</div><div class="it-sub"><span class="it-sl">유니맘</span><span class="gap"></span><span>~8/10</span></div></div>
-      <div class="it"><div class="it-nm">노부영 마더구스&amp;위씽</div><div class="it-sub"><span class="it-sl">워니럽마켓</span><span class="gap"></span><span>~8/9</span></div></div>
-      <div class="it"><div class="it-nm">라포레 플레이팅팬</div><div class="it-sub"><span class="it-sl">쭌디</span><span class="gap"></span><span>~8/10</span></div></div>
-      <div class="it"><div class="it-nm">브레빌 탄산수 메이커</div><div class="it-sub"><span class="it-sl">드엘리사</span><span class="gap"></span><span>~8/6</span></div></div>
-      <div class="it"><div class="it-nm">아하 한글 모음전</div><div class="it-sub"><span class="it-sl">우니동동</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">주니컵 벨리곰+아기상어</div><div class="it-sub"><span class="it-sl">도담맘</span><span class="gap"></span><span>~8/6</span></div></div>
-      <div class="it"><div class="it-nm">100층짜리집</div><div class="it-sub"><span class="it-sl">명희홈쿡</span><span class="gap"></span><span>~8/8</span></div></div>
-      <div class="it"><div class="it-nm">UV헌터스 양우산</div><div class="it-sub"><span class="it-sl">지니홈</span><span class="gap"></span><span>~8/11</span></div></div>
-      <div class="it"><div class="it-nm">경주 라한</div><div class="it-sub"><span class="it-sl">비글리맘</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">곰보배추 시럽</div><div class="it-sub"><span class="it-sl">지윤맘</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">그릭요거트 메이커</div><div class="it-sub"><span class="it-sl">뚜비두밥</span><span class="gap"></span><span>~8/9</span></div></div>
-      <div class="it"><div class="it-nm">남해안 자연산 자숙 돌문어</div><div class="it-sub"><span class="it-sl">몰리짱</span><span class="gap"></span><span>~8/11</span></div></div>
-      <div class="it"><div class="it-nm">냉각 허리선풍기</div><div class="it-sub"><span class="it-sl">지니홈</span><span class="gap"></span><span>~8/11</span></div></div>
-      <div class="it"><div class="it-nm">뉴이 클라우드 부스터</div><div class="it-sub"><span class="it-sl">도아로운</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">도무스 트래블팟</div><div class="it-sub"><span class="it-sl">워니럽마켓</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">라보에이치</div><div class="it-sub"><span class="it-sl">희아패밀리</span><span class="gap"></span><span>~8/10</span></div></div>
-      <div class="more">+ 21건 더</div>
-    </div>
-    <div class="col close">
-      <div class="col-hd"><span class="col-t">오늘 마감</span><span class="col-n">34</span></div>
-      <div class="it"><div class="it-nm">퍼기 이유식템전</div><div class="it-sub"><span class="it-sl">승빈맘</span></div></div>
-      <div class="it"><div class="it-nm">국내산 글라스락 이유식 용기</div><div class="it-sub"><span class="it-sl">라뷰베어</span></div></div>
-      <div class="it"><div class="it-nm">아띠빠스 걸음마신발</div><div class="it-sub"><span class="it-sl">말랑맘</span></div></div>
-      <div class="it"><div class="it-nm">아기상어 빛테이블</div><div class="it-sub"><span class="it-sl">축복맘</span></div></div>
-      <div class="it"><div class="it-nm">주니 컵 모음전</div><div class="it-sub"><span class="it-sl">선유맘</span></div></div>
-      <div class="it"><div class="it-nm">터블 발포세정제</div><div class="it-sub"><span class="it-sl">뽀테이블</span></div></div>
-      <div class="it"><div class="it-nm">그라운드플랜 미스트+나이트팩</div><div class="it-sub"><span class="it-sl">러브율홈</span></div></div>
-      <div class="it"><div class="it-nm">농담꾼 감자빵</div><div class="it-sub"><span class="it-sl">째째홈</span></div></div>
-      <div class="it"><div class="it-nm">다누앤 힐링맥스</div><div class="it-sub"><span class="it-sl">르미뇽살림</span></div></div>
-      <div class="it"><div class="it-nm">더비랩 몰입의방 3종</div><div class="it-sub"><span class="it-sl">예맘네</span></div></div>
-      <div class="it"><div class="it-nm">딱딱이 백도 경봉 복숭아</div><div class="it-sub"><span class="it-sl">베라킴</span></div></div>
-      <div class="it"><div class="it-nm">리앤더 하이체어</div><div class="it-sub"><span class="it-sl">페이보릿</span></div></div>
-      <div class="it"><div class="it-nm">마이키즈</div><div class="it-sub"><span class="it-sl">뮤즈마켓</span></div></div>
-      <div class="it"><div class="it-nm">말자루 글자루 전집 초특가</div><div class="it-sub"><span class="it-sl">모찌맘</span></div></div>
-      <div class="it"><div class="it-nm">물디홈</div><div class="it-sub"><span class="it-sl">솔맘</span></div></div>
-      <div class="it"><div class="it-nm">베베핑퐁 과일채소 낱말카드</div><div class="it-sub"><span class="it-sl">축복맘</span></div></div>
-      <div class="it"><div class="it-nm">베비몽 드라이빙백</div><div class="it-sub"><span class="it-sl">태리하루</span></div></div>
-      <div class="it"><div class="it-nm">베이비 BIG 전집</div><div class="it-sub"><span class="it-sl">모찌맘</span></div></div>
-      <div class="it"><div class="it-nm">브이텍 걸음 보조기 2종</div><div class="it-sub"><span class="it-sl">모찌맘</span></div></div>
-      <div class="more">+ 15건 더</div>
-    </div>
-  </div>
-
-  <div class="cta">
-    <div><div class="t">오늘 진행 중인 공구 213건 중 일부예요</div>
-      <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
-    <div class="u">momcalendar.com</div>
-  </div>
-  <div class="pad"></div>
-</div></div>
-
-
-<!-- ═══════ B안 · 요약 ═══════ -->
-<div class="cap">B안 · 요약형 <span>글자 크게 · 오픈 12 + 마감 12 · 나머지는 사이트로</span></div>
-<div class="slot"><div class="card B">
-  <div class="safe top"><b>상단 200px · UI 가림</b></div>
-  <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
-  <div class="gcrop"><b>그리드 커버 영역</b></div>
-
-  <div class="hd">
-    <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
-    <div class="title">오늘 공구 캘린더</div>
-    <div class="hd-main">
-      <div class="date"><b>8월 4일</b><span>화요일</span></div>
-      <div class="stats">
-        <div class="stat open"><div class="n">40</div><div class="l">오늘 오픈</div></div>
-        <div class="stat close"><div class="n">34</div><div class="l">오늘 마감</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="cols">
-    <div class="col open">
-      <div class="col-hd"><span class="col-t">오늘 오픈</span><span class="col-n">40</span></div>
-      <div class="it itNB"><span class="nl">♥ 맘캘린더 이웃셀러</span><div class="it-nm">리틀스푼 떡뻥 모음전</div>
-        <div class="it-sub"><span class="it-sl">이현맘</span><span class="gap"></span><span>~8/8</span></div></div>
-      <div class="it"><div class="it-nm">베베루트&amp;니가드 카시트 발판</div><div class="it-sub"><span class="it-sl">콩알맘</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">호들 낮잠이불</div><div class="it-sub"><span class="it-sl">도현맘</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">100층짜리집</div><div class="it-sub"><span class="it-sl">명희홈쿡</span><span class="gap"></span><span>~8/8</span></div></div>
-      <div class="it"><div class="it-nm">타일즈 자석블럭</div><div class="it-sub"><span class="it-sl">태브로맘</span><span class="gap"></span><span>~8/6</span></div></div>
-      <div class="it"><div class="it-nm">미르 회전책장</div><div class="it-sub"><span class="it-sl">지지마마</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">그릭요거트 메이커</div><div class="it-sub"><span class="it-sl">뚜비두밥</span><span class="gap"></span><span>~8/9</span></div></div>
-      <div class="it"><div class="it-nm">뉴이 클라우드 부스터</div><div class="it-sub"><span class="it-sl">도아로운</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">트랜짓 유산균</div><div class="it-sub"><span class="it-sl">약스타그램</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">휴비딕 네블라이저</div><div class="it-sub"><span class="it-sl">온그리</span><span class="gap"></span><span>~8/7</span></div></div>
-      <div class="it"><div class="it-nm">노부영 마더구스&amp;위씽</div><div class="it-sub"><span class="it-sl">워니럽마켓</span><span class="gap"></span><span>~8/9</span></div></div>
-      <div class="it"><div class="it-nm">라포레 플레이팅팬</div><div class="it-sub"><span class="it-sl">쭌디</span><span class="gap"></span><span>~8/10</span></div></div>
-      <div class="more">+ 28건 더</div>
-    </div>
-    <div class="col close">
-      <div class="col-hd"><span class="col-t">오늘 마감</span><span class="col-n">34</span></div>
-      <div class="it"><div class="it-nm">쉐프윈 드림핸즈&amp;파티웍</div><div class="it-sub"><span class="it-sl">요오리</span></div></div>
-      <div class="it"><div class="it-nm">리앤더 하이체어</div><div class="it-sub"><span class="it-sl">페이보릿</span></div></div>
-      <div class="it"><div class="it-nm">말자루 글자루 전집</div><div class="it-sub"><span class="it-sl">모찌맘</span></div></div>
-      <div class="it"><div class="it-nm">에어메이드 제습기</div><div class="it-sub"><span class="it-sl">로로맘</span></div></div>
-      <div class="it"><div class="it-nm">딱딱이 백도 경봉 복숭아</div><div class="it-sub"><span class="it-sl">베라킴</span></div></div>
-      <div class="it"><div class="it-nm">자동회전 롤팬</div><div class="it-sub"><span class="it-sl">지윤맘</span></div></div>
-      <div class="it"><div class="it-nm">우잇 저염소세지</div><div class="it-sub"><span class="it-sl">유안맘마</span></div></div>
-      <div class="it"><div class="it-nm">터블 발포세정제</div><div class="it-sub"><span class="it-sl">뽀테이블</span></div></div>
-      <div class="it"><div class="it-nm">아기상어 빛테이블</div><div class="it-sub"><span class="it-sl">축복맘</span></div></div>
-      <div class="it"><div class="it-nm">더비랩 몰입의방 3종</div><div class="it-sub"><span class="it-sl">예맘네</span></div></div>
-      <div class="it"><div class="it-nm">브이텍 걸음 보조기 2종</div><div class="it-sub"><span class="it-sl">모찌맘</span></div></div>
-      <div class="it"><div class="it-nm">마이키즈</div><div class="it-sub"><span class="it-sl">뮤즈마켓</span></div></div>
-      <div class="more">+ 22건 더</div>
-    </div>
-  </div>
-
-  <div class="cta">
-    <div><div class="t">오늘 진행 중인 공구 213건 중 일부예요</div>
-      <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
-    <div class="u">momcalendar.com</div>
-  </div>
-  <div class="pad"></div>
-</div></div>
-
+<div class="bar">
+  <label>날짜</label>
+  <input type="date" id="day">
+  <button onclick="load()">카드 만들기</button>
+  <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
+  <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선 켜기 / 끄기</button>
+  <button class="ghost" onclick="copyCap()">캡션 복사</button>
+  <div class="st" id="st">불러오는 중…</div>
+  <div class="tip">캡처할 땐 <b>확대</b> + <b>가이드선 끄기</b> 후 카드 영역만 잘라내세요 &nbsp;|&nbsp;
+    <b style="color:#FF8A8A">빨강</b> 인스타 UI에 가려지는 곳 · <b style="color:#8FC0FF">파랑</b> 프로필 그리드에 보이는 곳</div>
 </div>
+
+<div class="slot"><div class="card" id="card"></div></div>
+
+<div class="cap">
+  <h3>인스타 캡션 <span id="caplen"></span></h3>
+  <textarea id="captxt"></textarea>
+</div>
+
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const md=d=>d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'';
+const DOW=['일','월','화','수','목','금','토'];
+
+function todayKST(){
+  const n=new Date(Date.now()+9*3600*1000);
+  return n.toISOString().slice(0,10);
+}
+
+async function load(){
+  const day=document.getElementById('day').value||todayKST();
+  document.getElementById('st').textContent='불러오는 중…';
+  try{
+    const [gg,pt,cc,wc]=await Promise.all([
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date&limit=500`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json())
+    ]);
+    const P=new Set((pt||[]).map(x=>x.insta).filter(Boolean));
+    const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
+    const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
+    const rows=(gg||[]).map(g=>({...g,
+      partner:P.has(g.insta),
+      score:(C[g.id]||0)+(W[g.id]||0),
+      seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
+    }));
+    const sortFn=(a,b)=>(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
+    const opens=rows.filter(r=>r.open_date===day).sort(sortFn);
+    const ends =rows.filter(r=>r.end_date===day).sort(sortFn);
+    render(day,opens,ends);
+    makeCaption(day,opens,ends);
+    document.getElementById('st').innerHTML=`오픈 <b>${opens.length}</b>건 · 마감 <b>${ends.length}</b>건`;
+  }catch(e){
+    document.getElementById('st').textContent='불러오기 실패: '+e.message;
+  }
+}
+
+// 진행 중(오늘 포함 기간) 건수 — 미끼 문구용
+async function ongoingCount(day){
+  try{
+    const r=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lt.${day}&end_date=gte.${day}&select=id`,
+      {headers:{...H,Prefer:'count=exact',Range:'0-0'}});
+    const cr=r.headers.get('content-range')||'';
+    return parseInt(cr.split('/')[1]||'0',10);
+  }catch(_){ return 0; }
+}
+
+function itemHTML(x,showEnd){
+  const sub=showEnd
+    ? `<span class="it-sl">${esc(x.seller)}</span><span class="gap"></span><span>~${md(x.end_date)}</span>`
+    : `<span class="it-sl">${esc(x.seller)}</span>`;
+  return `<div class="it${x.partner?' itNB':''}"><div class="it-nm">${esc(x.name)}</div>
+    <div class="it-sub">${sub}</div></div>`;
+}
+
+async function render(day,opens,ends){
+  const d=new Date(day+'T00:00:00');
+  const dstr=`${d.getMonth()+1}월 ${d.getDate()}일`, dow=DOW[d.getDay()]+'요일';
+  const on=await ongoingCount(day);
+  const card=document.getElementById('card');
+  card.innerHTML=`
+    <div class="safe top"><b>상단 200px · UI 가림</b></div>
+    <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
+    <div class="gcrop"><b>그리드 커버 영역</b></div>
+    <div class="hd">
+      <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
+      <div class="title">오늘 공구 캘린더</div>
+      <div class="hd-main">
+        <div class="date"><b>${dstr}</b><span>${dow}</span></div>
+        <div class="stats">
+          <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
+          <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="col open"><div class="col-hd"><span class="col-t">오늘 오픈</span><span class="col-n">${opens.length}</span></div>
+        <div class="list" id="L1"></div><div class="more" id="M1"></div></div>
+      <div class="col close"><div class="col-hd"><span class="col-t">오늘 마감</span><span class="col-n">${ends.length}</span></div>
+        <div class="list" id="L2"></div><div class="more" id="M2"></div></div>
+    </div>
+    <div class="cta">
+      <div><div class="t">오늘 진행 중인 공구 ${on}건 중 일부예요</div>
+        <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
+      <div class="u">momcalendar.com</div>
+    </div>
+    <div class="pad"></div>`;
+
+  // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),opens,true);
+  fitColumn(document.getElementById('L2'),document.getElementById('M2'),ends,false);
+}
+
+function fitColumn(listEl,moreEl,arr,showEnd){
+  const col=listEl.closest('.col');
+  listEl.innerHTML=arr.map(x=>itemHTML(x,showEnd)).join('');
+  let n=arr.length;
+  moreEl.textContent='';
+  while(n>0 && col.scrollHeight>col.clientHeight){
+    n--;
+    listEl.innerHTML=arr.slice(0,n).map(x=>itemHTML(x,showEnd)).join('');
+    moreEl.textContent=`+ ${arr.length-n}건 더`;
+  }
+}
+
+async function makeCaption(day,opens,ends){
+  const d=new Date(day+'T00:00:00');
+  const head=`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]})`;
+  const on=await ongoingCount(day);
+  const line=x=>`· ${x.name} — ${x.seller}${x.insta?' @'+x.insta:''}`;
+  const nb=opens.filter(x=>x.partner), rest=opens.filter(x=>!x.partner);
+  const build=(endCut)=>{
+    let s=`📌 저장해두고 오늘 하루 꺼내 보세요\n\n${head} 오늘 공구 캘린더\n오늘 오픈 ${opens.length}건 · 오늘 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
+    if(nb.length) s+=`\n🩷 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
+    s+=`\n🔓 오늘 오픈하는 공구\n`+rest.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
+    const e=ends.slice(0,endCut);
+    s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
+    if(ends.length>endCut) s+=`\n…외 ${ends.length-endCut}건`;
+    s+=`\n\n━━━━━━━━━━━━━━\n\n여기 담은 건 오늘 공구의 일부예요.\n오늘 진행 중인 공구는 ${on}건이고, 전체 일정 검색·조회는\n프로필 링크 맘캘린더 웹사이트에서 가능합니다\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요. 내일 카드에 꼭 넣어드릴게요!\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요.\n구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n#${d.getMonth()+1}월공구일정 #공구일정 #오늘의공구 #육아공구 #공동구매 #육아템 #맘캘린더 #인스타공구 #공구추천`;
+    return s;
+  };
+  // 인스타 캡션 2200자 제한에 맞춰 마감 목록을 자동으로 줄인다
+  let cut=ends.length, txt=build(cut);
+  while(txt.length>2200 && cut>0){ cut--; txt=build(cut); }
+  document.getElementById('captxt').value=txt;
+  document.getElementById('caplen').textContent=`${txt.length}자 / 2200자 (마감 ${cut}건 노출)`;
+}
+
+function copyCap(){
+  const t=document.getElementById('captxt');
+  t.select(); document.execCommand('copy');
+  document.getElementById('st').innerHTML='캡션을 복사했습니다 ✅';
+}
+
+(function init(){
+  const q=new URLSearchParams(location.search).get('d');
+  document.getElementById('day').value=q||todayKST();
+  load();
+})();
+</script>
 </body>
 </html>
