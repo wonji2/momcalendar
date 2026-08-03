@@ -519,34 +519,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div class="seller-scroll" id="sellerScroll"></div>
 </div>
 
-<!-- 🧪 광고 배너 테스트 슬롯 (bannerlive 전용, 실서비스 미반영) -->
-<div style="padding:4px 14px 0;display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:11px;color:#b3a9c8">
-  <span>🧪배지</span>
-  <button onclick="adSet('badge','핫딜')" style="font-size:11px;padding:3px 8px;border:1px solid #E7B7A8;background:#fff;border-radius:14px;font-family:inherit">핫딜</button>
-  <button onclick="adSet('badge','특가')" style="font-size:11px;padding:3px 8px;border:1px solid #E7B7A8;background:#fff;border-radius:14px;font-family:inherit">특가</button>
-  <button onclick="adSet('badge','기획전')" style="font-size:11px;padding:3px 8px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">기획전</button>
-  <span style="margin-left:4px">스타일</span>
-  <button onclick="adSet('style','plain')" style="font-size:11px;padding:3px 8px;border:1px solid #ECE7F3;background:#fff;border-radius:14px;font-family:inherit">흰배경</button>
-  <button onclick="adSet('style','fill')" style="font-size:11px;padding:3px 8px;border:1px solid #ECE7F3;background:#fff;border-radius:14px;font-family:inherit">옅은채움</button>
-</div>
-<div id="adTestSlot" style="padding:8px 14px 2px"></div>
-<script>
-(function(){
-  var _ad={badge:'핫딜',style:'plain',txt:'보텔라핏 · 온가족 장건강 케어'};
-  window.adSet=function(k,v){_ad[k]=v;renderAdTest();};
-  function renderAdTest(){
-    var c = _ad.badge==='기획전' ? '#7B3FB5' : '#D85A30';
-    var badge='<span style="background:'+c+';color:#fff;font-size:12px;font-weight:800;align-self:stretch;display:flex;align-items:center;padding:0 12px;flex-shrink:0">'+_ad.badge+'</span>';
-    var mid='<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;font-weight:700;color:#2b2340;padding:0 8px 0 11px">'+_ad.txt+'</span>';
-    var right='<span style="font-size:10px;color:#c3bad4;margin-right:3px">AD</span><span style="color:#7B3FB5;font-size:12.5px;font-weight:700;padding-right:12px;white-space:nowrap">보기 ›</span>';
-    var bg = _ad.style==='fill' ? (_ad.badge==='기획전'?'#F4EFFB':'#FCF2EC') : '#fff';
-    var box='<div style="display:flex;align-items:center;height:46px;background:'+bg+';border:1px solid #ECE7F3;border-radius:12px;overflow:hidden">'+badge+mid+right+'</div>';
-    document.getElementById('adTestSlot').innerHTML=box;
-  }
-  renderAdTest();
-})();
-</script>
-
 <!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 -->
 <div class="content-seg" id="contentSeg">
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
@@ -601,6 +573,29 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <span id="dayFilterLabel" style="font-size:13px;font-weight:700;color:#602090"></span>
     <button onclick="clearDayFilter()" style="background:#602090;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
   </div>
+  <!-- 🧪 광고 배너 테스트 슬롯 (bannerlive 전용 · 첫 카드 위) -->
+  <div style="padding:2px 14px 0;display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:11px;color:#b3a9c8">
+    <span>🧪 시안</span>
+    <button onclick="adSet('A')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">A 솔리드</button>
+    <button onclick="adSet('D')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">D 미니멀</button>
+    <button onclick="adSet('E')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">E 초슬림</button>
+    <button onclick="adSet('F')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">F 컬러바</button>
+  </div>
+  <div id="adTestSlot" style="padding:7px 14px 4px"></div>
+  <script>
+  (function(){
+    var TXT='보텔라핏 · 온가족 장건강 케어';
+    var ELL='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    var V={
+      A:'<div style="display:flex;align-items:center;gap:10px;height:40px;background:#7B3FB5;border-radius:11px;padding:0 12px"><span style="'+ELL+';color:#fff;font-size:13px;font-weight:700">'+TXT+'</span><span style="font-size:10px;color:rgba(255,255,255,.6)">AD</span><span style="color:#fff;font-size:12px;font-weight:700;white-space:nowrap">보기 ›</span></div>',
+      D:'<div style="display:flex;align-items:center;gap:9px;height:38px;background:#fff;border:1px solid #D9C2F0;border-radius:11px;padding:0 12px"><span style="width:6px;height:6px;border-radius:50%;background:#7B3FB5;flex-shrink:0"></span><span style="'+ELL+';color:#2b2340;font-size:13px">'+TXT+'</span><span style="font-size:10px;color:#b3a9c8">AD</span><span style="color:#7B3FB5;font-size:13px">›</span></div>',
+      E:'<div style="display:flex;align-items:center;gap:8px;height:30px;background:#F0E6FA;border-radius:9px;padding:0 12px"><span style="'+ELL+';color:#4A2A73;font-size:12px;font-weight:700">'+TXT+'</span><span style="font-size:9px;color:#9d8fc0">AD</span><span style="color:#7B3FB5;font-size:12px">›</span></div>',
+      F:'<div style="display:flex;align-items:center;gap:10px;height:40px;background:#fff;border:1px solid #ECE7F3;border-left:4px solid #7B3FB5;border-radius:0 11px 11px 0;padding:0 12px"><span style="'+ELL+';color:#2b2340;font-size:13px;font-weight:700">'+TXT+'</span><span style="font-size:10px;color:#b3a9c8">AD</span><span style="color:#7B3FB5;font-size:12px;font-weight:700;white-space:nowrap">보기 ›</span></div>'
+    };
+    window.adSet=function(k){ var el=document.getElementById('adTestSlot'); if(el) el.innerHTML=V[k]; };
+    adSet('F');
+  })();
+  </script>
   <div class="cards" id="cardList"></div>
 </div>
 
