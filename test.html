@@ -2029,6 +2029,15 @@ function attendGrid(d, pop){
   }
   return g;
 }
+// ⚙️ 출석 보상 등급 — 경품·인원은 여기만 고치면 화면에 그대로 반영됩니다.
+//    개근만 '전원 확정'인 이유: 개근자는 수가 적어 비용이 통제되고,
+//    확정이라야 20일에서 멈추지 않고 끝까지 갈 이유가 생긴다.
+const ATTEND_TIERS=[
+  {i:3, ico:'🎁', label:'개근 (한 달 내내)', how:'전원 드려요',   prize:'특별 경품'},
+  {i:2, ico:'🎀', label:'25일 이상',        how:'추첨 10명',      prize:'중간 경품'},
+  {i:1, ico:'☕', label:'20일 이상',        how:'추첨 20명',      prize:'커피 기프티콘'}
+];
+
 // 출석일수 등급 (매달 1일 추첨). 20일 미만은 응모 자격 없음.
 function attendTier(d){
   const n=d.month_days||0;
@@ -2069,20 +2078,20 @@ function renderAttend(d, justChecked){
       <div style="background:#FAF8FC;border-radius:12px;padding:14px 15px;margin-top:12px">
         <div style="font-size:12.5px;font-weight:800;color:#602090;margin-bottom:3px">매달 1일 추첨 🎁</div>
         <div style="font-size:11.5px;color:#9A93A6;margin-bottom:11px">${tier.i>0?`지금 <b style="color:#602090">${tier.ico} ${tier.name} 등급</b>이에요`:`<b style="color:#602090">${tier.need}일</b> 더 오시면 응모돼요`}</div>
-        ${[[3,'🎁','개근','한 달 내내','특별 경품'],
-           [2,'🎀','25일 이상','25일','중간 경품'],
-           [1,'☕','20일 이상','20일','커피 기프티콘']]
-          .map(t=>{
-            const on=tier.i>=t[0];
-            return `<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;margin-bottom:5px;
+        ${ATTEND_TIERS.map(t=>{
+            const on=tier.i>=t.i;
+            return `<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;margin-bottom:5px;
               background:${on?'#EFE6FA':'transparent'};border:1px solid ${on?'#DDCCF2':'#EFEDF2'}">
-              <span style="font-size:15px;${on?'':'filter:grayscale(1);opacity:.45'}">${t[1]}</span>
-              <span style="font-size:12px;font-weight:${on?800:600};color:${on?'#602090':'#B0AABD'}">${t[2]}</span>
-              <span style="margin-left:auto;font-size:11.5px;font-weight:${on?800:600};color:${on?'#4C4459':'#C6C0CE'}">${t[4]}</span>
+              <span style="font-size:15px;${on?'':'filter:grayscale(1);opacity:.45'}">${t.ico}</span>
+              <div style="min-width:0">
+                <div style="font-size:12px;font-weight:${on?800:600};color:${on?'#602090':'#B0AABD'}">${t.label}</div>
+                <div style="font-size:10.5px;color:${on?'#9A8FB0':'#C6C0CE'};margin-top:1px">${t.how}</div>
+              </div>
+              <span style="margin-left:auto;font-size:11.5px;font-weight:${on?800:600};color:${on?'#4C4459':'#C6C0CE'};text-align:right">${t.prize}</span>
             </div>`;
           }).join('')}
         <div style="font-size:11px;color:#B0AABD;line-height:1.7;margin-top:8px">
-          등급별로 추첨해 드려요 · 최소 20일 출석해야 응모돼요
+          최소 20일은 출석하셔야 응모돼요
         </div>
       </div>
     </div>`);
