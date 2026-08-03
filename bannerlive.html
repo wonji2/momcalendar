@@ -554,6 +554,14 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
       +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
       +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
     el.style.display='block';
+    // 노출 1회 집계 (CTR 계산용) — 같은 배너는 하루 1회만
+    try{
+      var key='mc_bimp_'+b.id+'_'+new Date().toISOString().slice(0,10);
+      if(!localStorage.getItem(key)){
+        localStorage.setItem(key,'1');
+        fetch(_SU+'/rest/v1/rpc/bump_banner_view',{method:'POST',headers:{'Content-Type':'application/json',apikey:_SK,Authorization:'Bearer '+_SK},body:JSON.stringify({p_banner_id:b.id})});
+      }
+    }catch(_){}
   }catch(e){}
 })();
 window.slimAdClick=function(id){

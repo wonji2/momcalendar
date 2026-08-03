@@ -188,6 +188,9 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너 <span id="badge-banner" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 이웃셀러</div>
     <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('inq',this)">💌 제보 <span id="badge-inq" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('member',this)">👥 회원</div>
+    <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -360,6 +363,55 @@ details summary::-webkit-details-marker{display:none}
 
     <div id="aiLoading" style="display:none;text-align:center;padding:30px;color:#999;font-size:14px">🤖 분석 중이에요...</div>
   </div>
+  <!-- 💌 제보/문의 탭 -->
+  <div id="inqView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">💌 제보·문의</div>
+      <button onclick="loadInquiries()" style="padding:8px 14px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻ 새로고침</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="inqf on" data-s="" onclick="setInqFilter('',this)">전체</button>
+      <button class="inqf" data-s="new" onclick="setInqFilter('new',this)">🆕 새 제보</button>
+      <button class="inqf" data-s="doing" onclick="setInqFilter('doing',this)">진행중</button>
+      <button class="inqf" data-s="done" onclick="setInqFilter('done',this)">완료</button>
+    </div>
+    <div id="inqList"></div>
+    <style>.inqf{padding:8px 14px;border:1.5px solid #DCD2FB;background:#fff;color:#4A35A0;border-radius:20px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}.inqf.on{background:#4A35A0;color:#fff;border-color:#4A35A0}</style>
+  </div>
+
+  <!-- 👥 회원 탭 -->
+  <div id="memberView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">👥 카카오 회원</div>
+      <button onclick="loadMembers()" style="padding:8px 14px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻ 새로고침</button>
+    </div>
+    <div id="memberStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px"></div>
+    <div style="background:#FFF7E6;border:1px solid #F3D48A;border-radius:10px;padding:10px 12px;font-size:11.5px;color:#7a5b12;line-height:1.7;margin-bottom:12px">
+      ℹ️ <b>채널 친구 수</b>는 카카오가 API로 주지 않아요. 정확한 친구 수는 <a href="https://center-pf.kakao.com" target="_blank" style="color:#4A35A0;font-weight:700">카카오톡 채널 관리자센터</a>에서 확인하세요. 여기 숫자는 <b>로그인하며 채널추가에 동의한 사람</b> 기준이에요.
+    </div>
+    <div id="memberList"></div>
+  </div>
+
+  <!-- 📈 광고성과 탭 -->
+  <div id="adperfView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">📈 광고 성과 (배너)</div>
+      <div style="display:flex;gap:6px">
+        <select id="adperfDays" onchange="loadAdPerf()" style="padding:8px;border:1.5px solid #EBEBEB;border-radius:9px;font-size:12px;font-family:inherit;background:#fff">
+          <option value="7">최근 7일</option>
+          <option value="30" selected>최근 30일</option>
+          <option value="90">최근 90일</option>
+        </select>
+        <button onclick="loadAdPerf()" style="padding:8px 14px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻</button>
+      </div>
+    </div>
+    <div style="background:#EEE9FF;border-radius:10px;padding:11px 13px;font-size:11.5px;color:#4A35A0;line-height:1.8;margin-bottom:12px">
+      💡 <b>CTR</b>=클릭÷노출 · <b>CPC</b>=계약금액÷클릭 (배너 수정에서 광고주·계약금액을 넣으면 자동 계산)<br>
+      ⚠️ <b>ROAS(매출)</b>는 결제가 브랜드 쇼핑몰에서 일어나 우리가 볼 수 없어요. 링크에 UTM을 붙여 브랜드가 자기 통계로 확인하게 하는 게 정확합니다.
+    </div>
+    <div id="adPerfList"></div>
+  </div>
+
   <!-- 배너 관리 탭 -->
   <div id="bannerView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -507,6 +559,13 @@ details summary::-webkit-details-marker{display:none}
         </div>
       </div>
       <input id="bOrder" type="hidden" value="1">
+      <div class="modal-field" id="bAdField">
+        <label>광고 계약 정보 <span style="font-weight:400;color:#999">(넣으면 광고성과 탭에서 CPC 자동계산)</span></label>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:8px">
+          <input id="bAdvertiser" type="text" placeholder="광고주(브랜드)명 예) 보텔라핏">
+          <input id="bAdPrice" type="number" placeholder="계약금액(원)">
+        </div>
+      </div>
       <div class="modal-field">
         <label>노출 대상 *</label>
         <div style="display:flex;gap:8px">
@@ -3935,6 +3994,7 @@ function openBannerAdd(){
   document.getElementById('bOrder').value=bannerData.length+1;
   document.getElementById('bActive').checked=true;
   setBStageRadio('test');   // 새로 만들 땐 테스트부터
+  { const a=document.getElementById('bAdvertiser'), p=document.getElementById('bAdPrice'); if(a)a.value=''; if(p)p.value=''; }
   updateBgPreview();
   ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
   syncBannerTypeUI();
@@ -3969,6 +4029,8 @@ function openBannerEdit(id){
   document.getElementById('bOrder').value=b.sort_order||1;
   document.getElementById('bActive').checked=b.active!==false;
   setBStageRadio(b.stage==='test'?'test':'live');
+  { const a=document.getElementById('bAdvertiser'), p=document.getElementById('bAdPrice');
+    if(a)a.value=b.ad_advertiser||''; if(p)p.value=(b.ad_price!=null?b.ad_price:''); }
   // 배경색 파싱
   const bgMatch=(b.bg||'').match(/linear-gradient\((\d+deg),(#[0-9a-fA-F]+)\s*0%,(#[0-9a-fA-F]+)\s*100%\)/);
   if(bgMatch){
@@ -4019,6 +4081,8 @@ async function saveBanner(){
     img_size:imgUrl?imgPos.size:'cover',
     active:document.getElementById('bActive').checked,
     stage:((document.querySelector('input[name="bStage"]:checked')||{}).value)||'live',
+    ad_advertiser:((document.getElementById('bAdvertiser')||{}).value||'').trim()||null,
+    ad_price:(function(){ var v=((document.getElementById('bAdPrice')||{}).value||'').trim(); return v?parseInt(v,10):null; })(),
   };
 
   if(!id){
@@ -4027,7 +4091,7 @@ async function saveBanner(){
   }
   const url=id?`${SB_URL}/rest/v1/banners?id=eq.${id}`:`${SB_URL}/rest/v1/banners`;
   const method=id?'PATCH':'POST';
-  const SCHED_COLS=['stage','link_open_at','show_from','show_until','img_position','img_size'];
+  const SCHED_COLS=['stage','ad_advertiser','ad_price','link_open_at','show_from','show_until','img_position','img_size'];
   const dropped=[];
   let res, lastMsg='';
   for(let attempt=0; attempt<8; attempt++){
@@ -6396,6 +6460,129 @@ async function saveExpEdit(id){
   }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
 }
 
+// ══════ 💌 제보·문의 / 👥 회원 / 📈 광고성과 ══════
+function admRpc(name, body){
+  return fetch(`${SB_URL}/rest/v1/rpc/${name}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
+    body:JSON.stringify(body||{})
+  }).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+}
+function esc2(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtWhen(iso){
+  if(!iso) return '';
+  const d=new Date(iso), n=new Date();
+  const diff=Math.floor((n-d)/60000);
+  if(diff<1) return '방금';
+  if(diff<60) return diff+'분 전';
+  if(diff<1440) return Math.floor(diff/60)+'시간 전';
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+// ── 제보 ──
+let _inqFilter='', _inqData=[];
+const INQ_KIND={request:{t:'🛒 공구요청',c:'#4A35A0',bg:'#EEE9FF'},question:{t:'❓ 문의',c:'#185FA5',bg:'#E6F1FB'},bug:{t:'🐛 오류제보',c:'#A32D2D',bg:'#FCEBEB'},partner:{t:'🤝 입점·제휴',c:'#0F6E56',bg:'#E1F5EE'},etc:{t:'기타',c:'#5F5E5A',bg:'#F1EFE8'}};
+const INQ_ST={new:{t:'🆕 새 제보',c:'#C62828'},doing:{t:'진행중',c:'#9A6A00'},done:{t:'✅ 완료',c:'#1E7D32'},hold:{t:'보류',c:'#8A8A8A'}};
+function setInqFilter(s,el){
+  _inqFilter=s;
+  document.querySelectorAll('.inqf').forEach(b=>b.classList.toggle('on', b===el));
+  renderInq();
+}
+async function loadInquiries(){
+  const el=document.getElementById('inqList'); if(!el) return;
+  el.innerHTML='<div style="text-align:center;padding:24px;color:#bbb;font-size:13px">불러오는 중…</div>';
+  try{
+    _inqData=await admRpc('inquiry_list',{p_status:null,p_limit:300});
+    const newCnt=(_inqData||[]).filter(x=>x.status==='new').length;
+    const b=document.getElementById('badge-inq');
+    if(b){ b.textContent=newCnt||''; b.style.display=newCnt?'inline-block':'none'; }
+    renderInq();
+  }catch(e){ el.innerHTML=`<div style="text-align:center;padding:24px;color:#C62828;font-size:13px">불러오기 실패 (${e.message})<br><span style="font-size:11px;color:#999">로그인이 만료됐으면 새로고침해 다시 로그인해주세요</span></div>`; }
+}
+function renderInq(){
+  const el=document.getElementById('inqList');
+  const rows=(_inqData||[]).filter(x=>!_inqFilter||x.status===_inqFilter);
+  if(!rows.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#bbb;font-size:13px">해당하는 제보가 없어요</div>'; return; }
+  el.innerHTML=rows.map(x=>{
+    const k=INQ_KIND[x.kind]||INQ_KIND.etc, st=INQ_ST[x.status]||INQ_ST.new;
+    const who=x.nickname?`💜 ${esc2(x.nickname)}`:(x.device_id?`🙈 비회원 ${esc2(String(x.device_id).slice(0,8))}`:'');
+    return `<div style="background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:9px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:${k.bg};color:${k.c}">${k.t}</span>
+        <span style="font-size:11px;font-weight:700;color:${st.c}">${st.t}</span>
+        <span style="font-size:11px;color:#bbb;margin-left:auto">${fmtWhen(x.created_at)}</span>
+      </div>
+      <div style="font-size:13.5px;color:#222;line-height:1.65;white-space:pre-wrap;word-break:break-word">${esc2(x.content)}</div>
+      <div style="font-size:11px;color:#999;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+        ${who?`<span>${who}</span>`:''}
+        ${x.contact?`<span>📮 ${esc2(x.contact)}</span>`:''}
+        ${x.page_url?`<span>📄 ${esc2(x.page_url)}</span>`:''}
+      </div>
+      <div style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap">
+        ${x.status!=='doing'?`<button onclick="setInqStatus(${x.id},'doing')" style="padding:6px 11px;background:#FFF6E0;color:#9A6A00;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">진행중</button>`:''}
+        ${x.status!=='done'?`<button onclick="setInqStatus(${x.id},'done')" style="padding:6px 11px;background:#E8F5E9;color:#1E7D32;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✅ 완료</button>`:''}
+        ${x.status!=='hold'?`<button onclick="setInqStatus(${x.id},'hold')" style="padding:6px 11px;background:#F0F0F0;color:#666;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">보류</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function setInqStatus(id,st){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/inquiries?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+      body:JSON.stringify({status:st})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    loadInquiries();
+  }catch(e){ alert('상태 변경 실패: '+e.message); }
+}
+// ── 회원 ──
+async function loadMembers(){
+  const sEl=document.getElementById('memberStats'), lEl=document.getElementById('memberList');
+  if(!sEl) return;
+  sEl.innerHTML='<div style="color:#bbb;font-size:13px">불러오는 중…</div>'; lEl.innerHTML='';
+  try{
+    const s=(await admRpc('member_stats',{p_days:30}))[0]||{};
+    const card=(lbl,val,sub)=>`<div style="background:#F7F5FF;border-radius:12px;padding:13px"><div style="font-size:11.5px;color:#8a80a0;margin-bottom:5px">${lbl}</div><div style="font-size:22px;font-weight:800;color:#2A1D6E">${(val||0).toLocaleString('ko-KR')}</div>${sub?`<div style="font-size:10.5px;color:#b3a9c8;margin-top:3px">${sub}</div>`:''}</div>`;
+    sEl.innerHTML=card('전체 회원',s.total_members)+card('최근 30일 신규',s.new_in_period)+card('오늘 가입',s.new_today)+card('채널추가 동의',s.channel_added_ct,'로그인 시 동의 기준')+card('찜한 회원',s.with_wish);
+    const list=await admRpc('member_list',{p_limit:200});
+    lEl.innerHTML=(list||[]).length? `<div style="background:#fff;border-radius:12px;padding:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)">`+list.map(m=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #F5F2FA">
+        <div style="width:34px;height:34px;border-radius:50%;background:#EEE9FF;display:flex;align-items:center;justify-content:center;font-size:14px">💜</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#222">${esc2(m.nickname||'(닉네임 없음)')}</div>
+          <div style="font-size:11px;color:#999">${fmtWhen(m.created_at)} · 찜 ${m.wish_count||0}개${m.channel_added?' · 채널추가✅':''}</div>
+        </div>
+      </div>`).join('')+`</div>` : '<div style="text-align:center;padding:30px;color:#bbb;font-size:13px">아직 카카오 로그인 회원이 없어요</div>';
+  }catch(e){ sEl.innerHTML=`<div style="color:#C62828;font-size:13px">불러오기 실패 (${e.message})</div>`; }
+}
+// ── 광고 성과 ──
+async function loadAdPerf(){
+  const el=document.getElementById('adPerfList'); if(!el) return;
+  el.innerHTML='<div style="text-align:center;padding:24px;color:#bbb;font-size:13px">불러오는 중…</div>';
+  const days=parseInt((document.getElementById('adperfDays')||{}).value||'30',10);
+  try{
+    const rows=await admRpc('banner_perf',{p_days:days});
+    if(!rows||!rows.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#bbb;font-size:13px">데이터가 없어요</div>'; return; }
+    el.innerHTML=rows.map(r=>{
+      const tp = r.type==='slim'?'🟪 슬림':(r.type==='promo'?'🎁 기획전':'🖼️ 메인');
+      return `<div style="background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:9px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;flex-wrap:wrap">
+          <span style="font-size:10.5px;font-weight:800;color:#7059A0;background:#F3EFFC;padding:2px 8px;border-radius:20px">${tp}</span>
+          <span style="font-size:13px;font-weight:700;color:#222;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc2(r.title||'(제목없음)')}</span>
+        </div>
+        ${r.advertiser?`<div style="font-size:11.5px;color:#0F6E56;margin-bottom:8px">🏷️ ${esc2(r.advertiser)}${r.ad_price?` · 계약 ${Number(r.ad_price).toLocaleString('ko-KR')}원`:''}</div>`:''}
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+          <div><div style="font-size:10.5px;color:#999">노출</div><div style="font-size:15px;font-weight:800;color:#2A1D6E">${Number(r.impressions||0).toLocaleString('ko-KR')}</div></div>
+          <div><div style="font-size:10.5px;color:#999">클릭</div><div style="font-size:15px;font-weight:800;color:#2A1D6E">${Number(r.clicks||0).toLocaleString('ko-KR')}</div></div>
+          <div><div style="font-size:10.5px;color:#999">CTR</div><div style="font-size:15px;font-weight:800;color:${r.ctr?'#1E7D32':'#ccc'}">${r.ctr!=null?r.ctr+'%':'—'}</div></div>
+          <div><div style="font-size:10.5px;color:#999">CPC</div><div style="font-size:15px;font-weight:800;color:${r.cpc?'#D85A30':'#ccc'}">${r.cpc!=null?Number(r.cpc).toLocaleString('ko-KR')+'원':'—'}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML=`<div style="text-align:center;padding:24px;color:#C62828;font-size:13px">불러오기 실패 (${e.message})</div>`; }
+}
+
 // ── 셀러 계정 생성 ──
 async function createSellerAccount(){
   const insta=document.getElementById('newSellerInsta').value.trim().replace('@','');
@@ -6457,6 +6644,15 @@ function switchTab(tab,el){
     } else if(tab==='banner'){
       document.getElementById('bannerView').style.display='block';
       loadBannerAdmin();
+    } else if(tab==='inq'){
+      document.getElementById('inqView').style.display='block';
+      loadInquiries();
+    } else if(tab==='member'){
+      document.getElementById('memberView').style.display='block';
+      loadMembers();
+    } else if(tab==='adperf'){
+      document.getElementById('adperfView').style.display='block';
+      loadAdPerf();
     } else if(tab==='seller'){
       document.getElementById('sellerView').style.display='block';
       loadSellerAdmin();
