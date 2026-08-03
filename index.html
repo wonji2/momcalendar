@@ -363,7 +363,25 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .chat-menu{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
 .chat-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
 .chat-menu-item{display:flex;align-items:center;gap:8px;background:#fff;border-radius:24px;padding:11px 18px;box-shadow:0 3px 12px rgba(0,0,0,.18);font-size:13px;font-weight:700;color:#333;text-decoration:none;white-space:nowrap}
-.chat-menu-ico{font-size:16px}
+/* 네이버 'N'은 글자라 이모지보다 좁다 → 아이콘 칸을 고정해 글자 시작점을 맞춤 */
+.chat-menu-ico{font-size:16px;width:19px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+/* 출석 도장 효과 */
+@keyframes atPop{0%{transform:scale(.4) rotate(-18deg);opacity:.3}55%{transform:scale(1.28) rotate(6deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@keyframes atSpark{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15)}}
+/* 경품 카드가 촤라락 펼쳐지는 느낌 */
+.at-card{position:relative;border-radius:12px;background:#fff;overflow:visible;
+  opacity:0;transform-origin:bottom center;animation:atCardIn .5s cubic-bezier(.2,1.25,.4,1) forwards}
+@keyframes atCardIn{
+  0%{opacity:0;transform:translateY(14px) rotate(-7deg) scale(.88)}
+  60%{opacity:1;transform:translateY(-3px) rotate(2deg) scale(1.03)}
+  100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
+@keyframes atBadge{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+  30%{transform:translate(-50%,-50%) scale(1)}
+  75%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-90%) scale(.95)}}
 .content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
 .content-seg .cseg{flex:1;text-align:center;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;color:#999;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit}
 .content-seg .cseg.on{color:#fff;font-weight:700}
@@ -434,8 +452,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <div id="kkoBg" onclick="kkoLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9992"></div>
 <div id="kkoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:24px 20px calc(26px + env(safe-area-inset-bottom));z-index:9993;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
   <div style="width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 5px 16px rgba(123,63,181,.28)">💜</div>
-  <div style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구, 안전하게 보관할까요?</div>
-  <div style="font-size:12.5px;color:#888;text-align:center;line-height:1.7;margin-bottom:18px">
+  <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구, 안전하게 보관할까요?</div>
+  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.7;margin-bottom:18px">
     지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>
     카카오로 시작하면 폰을 바꿔도 찜이 그대로예요
   </div>
@@ -535,17 +553,47 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   </div>
   <div class="side-body">
     <div id="kkoWho" style="text-align:center;padding:12px 10px 14px;margin-bottom:8px;border-bottom:1px solid var(--border);font-size:12.5px;color:#5b5170"></div>
-    <div class="side-sec-title">카테고리</div>
-    <button class="side-all-btn on" id="sideAllBtn" onclick="pickSideAll()"><span style="font-size:16px">🏠</span> 전체 ALL</button>
-    <div id="sideCats"></div>
-    <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">커뮤니티</div>
+    <div class="side-sec-title">맘캘린더</div>
+    <button class="side-link" onclick="closeSide();openAboutSheet()"><span class="side-link-ico">💜</span>맘캘린더 소개</button>
+    <button class="side-link" onclick="closeSide();openHowSheet()"><span class="side-link-ico">📖</span>이용 방법</button>
     <button class="side-link" onclick="closeSide();forceInstallPwa()" style="color:#602090;font-weight:800"><span class="side-link-ico">📲</span>홈 화면에 앱으로 추가</button>
+
+    <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">유용한 기능</div>
+    <button class="side-link" onclick="closeSide();openAttendSheet()"><span class="side-link-ico">💜</span>출석 체크</button>
+    <button class="side-link" onclick="closeSide();goCalMine()"><span class="side-link-ico">📅</span>내 공구 캘린더</button>
+    <button class="side-link" onclick="closeSide();exportWishIcs()"><span class="side-link-ico">📤</span>내 폰 캘린더에 넣기</button>
+    <button class="side-link" onclick="closeSide();openWnSheet()"><span class="side-link-ico">🔔</span>오픈 알림 설정</button>
+    <button class="side-link" onclick="closeSide();mcShare()"><span class="side-link-ico">🔗</span>친구에게 공유</button>
+
+    <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">커뮤니티</div>
     <a class="side-link" href="https://cafe.naver.com/momcal/" target="_blank"><span class="side-link-ico">☕</span>네이버 카페</a>
     <a class="side-link" href="https://www.instagram.com/momcal_" target="_blank"><span class="side-link-ico">📷</span>인스타그램</a>
     <a class="side-link" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="side-link-ico">📢</span>단톡 공지방</a>
     <a class="side-link" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="side-link-ico">💬</span>자유 수다방</a>
-    <button class="side-link" onclick="closeSide();openPartnerModal()"><span class="side-link-ico">📩</span>제휴·입점 문의</button>
+
+    <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">문의</div>
+    <a class="side-link" href="https://pf.kakao.com/_zGfxnX/chat" target="_blank"><span class="side-link-ico">💬</span>문의 · 오류제보</a>
+    <button class="side-link" onclick="closeSide();openPartnerModal()"><span class="side-link-ico">📩</span>제휴 · 입점 문의</button>
+
+    <!-- 카테고리는 메인 화면 칩으로 충분해서 사이드메뉴에서 뺐음.
+         (아래 두 요소는 다른 코드가 참조하고 있어 숨긴 채로 남겨둔다) -->
+    <button class="side-all-btn on" id="sideAllBtn" onclick="pickSideAll()" style="display:none"></button>
+    <div id="sideCats" style="display:none"></div>
+
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:10.5px;color:#A99CC0;line-height:1.7">
+      SNS 공구·핫딜·체험단 일정을 한곳에 모아보는 서비스예요.<br>
+      본 사이트는 각 셀러·쇼핑몰과 무관하며, 공개된 일정 정보를 모아 안내합니다.<br>
+      문의 <b style="color:#8A8395">momcal@kakao.com</b>
+    </div>
   </div>
+</div>
+
+<!-- 소개 / 이용방법 시트 -->
+<div id="infoBg" onclick="closeInfoSheet()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9996"></div>
+<div id="infoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;max-height:86vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:10px 20px calc(22px + env(safe-area-inset-bottom));z-index:9997;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
+  <div style="width:38px;height:4px;border-radius:4px;background:#E3E0E8;margin:0 auto 16px"></div>
+  <div id="infoBody"></div>
+  <button onclick="closeInfoSheet()" style="width:100%;background:none;border:none;color:#bbb;font-size:12.5px;font-family:inherit;cursor:pointer;padding:12px 6px 2px">닫기</button>
 </div>
 
 <!-- 메인 배너 -->
@@ -668,6 +716,11 @@ window.slimAdClick=function(id){
 
 <!-- 캘린더 뷰 -->
 <div class="calwrap" id="calView">
+  <!-- 전체 / 내 찜만 (캘린더 모양은 그대로, 무엇을 담을지만 고르는 토글) -->
+  <div id="calMineTg" style="display:flex;background:#EFEAF5;border-radius:10px;padding:3px;margin:0 12px 8px">
+    <button id="calTgAll" onclick="setCalMine(false)" style="flex:1;border:none;background:#602090;color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">전체</button>
+    <button id="calTgMine" onclick="setCalMine(true)" style="flex:1;border:none;background:none;color:#8A8395;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">💜 내 찜만</button>
+  </div>
   <div class="cal-catrow" id="calCatRow">
     <button class="chip on" data-cat="전체" onclick="setCalCat('전체',this)">전체</button>
     <button class="chip" data-cat="육아" onclick="setCalCat('육아',this)">육아</button>
@@ -688,6 +741,11 @@ window.slimAdClick=function(id){
       <div class="cal-navs"><button class="cal-tod" onclick="jumpToday()">오늘</button><button class="cal-nav" onclick="moveMonth(1)">▶</button></div>
     </div>
     <div class="cgrid" id="calGrid"></div>
+  </div>
+  <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
+  <div id="icsBar" style="display:none;margin:10px 12px 0">
+    <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#602090;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
+    <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
   </div>
   <div class="sel-box" id="selBox" style="display:none">
     <div class="sel-title" id="selTitle"></div>
@@ -1183,6 +1241,7 @@ function renderList(){
       : (iosNeedsInstall()
         ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">홈 화면에 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
         : `<div class="noti-banner"><span style="font-size:19px">🔔</span><span class="nb-txt">알림을 켜면 오픈 예정일 아침에 알려드려요</span><button onclick="openWnSheet()">켜기</button></div>`);
+    const banner2 = loginStripHtml() + banner;   // 로그인 권유는 시트 대신 이 조용한 띠로
     if(!WISH.size){
       el.innerHTML=banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
       return;
@@ -1196,7 +1255,7 @@ function renderList(){
                  || (realEnd(a)||'').localeCompare(realEnd(b)||''));   // 같은 오픈일이면 마감 임박순
     const gone=mine.filter(item=>isExpired(item))
       .sort((a,b)=>(realEnd(b)||'').localeCompare(realEnd(a)||''));    // 최근 마감 먼저
-    let h=banner;
+    let h=banner2;
     if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+live.map(item=>renderCard(item)).join('');
     if(gone.length) h+=`<div class="wish-sec">마감됨</div>`+gone.map(item=>renderEndedWish(item)).join('');
     if(!live.length && !gone.length) h+=`<div class="empty">찜한 공구를 불러오는 중이에요…</div>`;
@@ -1886,14 +1945,15 @@ function buildCalendar(){
   for(let d=1;d<=last;d++){
     const ds=`${y}-${pad(m+1)}-${pad(d)}`;
     const dow=new Date(y,m,d).getDay();
-    const evs=DATA.filter(item=>{
-      if(isExpired(item))return false;
-      if(fCalCat!=='전체'&&item.major!==fCalCat)return false;
-      return item.openDate===ds;
-    }).sort(cmpDatePartner);
+    const evs=calPool().filter(item=>item.openDate===ds).sort(cmpDatePartner);
+    // 마감 표시는 '내 찜만' 모드에서만. 전체 모드에선 매일 마감이 있어서 표시가 무의미해짐
+    const ends=calMine?calPool().filter(item=>realEnd(item)===ds):[];
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
     let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
+    // 마감일에도 '무엇이' 끝나는지 보이게 상품명을 붙인다 ("마감 1"만 뜨면 뭐가 끝나는지 알 수 없음)
+    evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F">~${ev.name.slice(0,5)}</div>`).join('');
+    if(ends.length>3) evHtml+=`<div class="cmore" style="color:#C0361F">+${ends.length-3}</div>`;
     grid.innerHTML+=`<div class="ccell ${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d}</div><div class="cevs">${evHtml}</div></div>`;
   }
   const rem=(7-(first+last)%7)%7;
@@ -1902,21 +1962,384 @@ function buildCalendar(){
 
 function pickCalDay(ds){
   selCalDate=ds;buildCalendar();
-  const evs=DATA.filter(item=>{
-    if(isExpired(item))return false;
-    if(fCalCat!=='전체'&&item.major!==fCalCat)return false;
-    return item.openDate===ds;
-  }).sort(cmpDatePartner);
+  const evs=calPool().filter(item=>item.openDate===ds).sort(cmpDatePartner);
+  const ends=calMine?calPool().filter(item=>realEnd(item)===ds&&item.openDate!==ds):[];
   const[,mo,dy]=ds.split('-');
   document.getElementById('selTitle').textContent=`${+mo}월 ${+dy}일 공구 목록`;
   // 캘린더 날짜 기준으로 D-day 계산
-  document.getElementById('selCards').innerHTML=evs.length
-    ?evs.map(item=>renderCard(item,ds)).join('')
-    :`<div class="empty" style="padding:16px 0">이 날은 공구 일정이 없어요</div>`;
+  let h = evs.length
+    ? evs.map(item=>renderCard(item,ds)).join('')
+    : `<div class="empty" style="padding:16px 0">이 날은 ${calMine?'찜한 공구 오픈이':'공구 일정이'} 없어요</div>`;
+  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + ends.map(item=>renderCard(item,ds)).join('');
+  document.getElementById('selCards').innerHTML=h;
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 }
 function setCalCat(v,el){fCalCat=v;document.querySelectorAll('#calCatRow .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');paintCatChips();buildCalendar();}
+
+// ── 회원 RPC 공통 (토큰은 서버에서 검증) ────────────────
+function mcToken(){ var m=(typeof memberGet==='function')?memberGet():null; return (m&&m.token)||''; }
+async function memberRpc(fn, body){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({p_token:mcToken()}, body||{}))
+    });
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+// ── 출석 체크 ──────────────────────────────────────────
+// 시트를 열면 '조회'만 하고, 도장은 사용자가 버튼을 눌러야 찍힌다(누르는 맛).
+function openAttendSheet(){
+  if(!isLoggedIn()){
+    openLoginSheet('출석 도장은 로그인해야 찍혀요',
+      '로그인하면 <b style="color:#7B3FB5">폰을 바꿔도</b> 출석 기록이 그대로예요');
+    return;
+  }
+  _openInfo(`<div style="padding:34px 0;text-align:center;color:#bbb;font-size:13px">불러오는 중...</div>`);
+  memberRpc('member_attendance').then(d=>{
+    if(!d || !d.ok){
+      _openInfo(`<div style="padding:30px 0;text-align:center;color:#999;font-size:13px">로그인이 만료됐어요.<br>로그아웃 후 다시 로그인해 주세요.</div>`);
+      return;
+    }
+    renderAttend(d, false);
+  });
+}
+function attendGrid(d, pop){
+  const today=new Date(d.today), last=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
+  const done=new Set(d.days||[]);
+  let g='';
+  for(let i=1;i<=last;i++){
+    const on=done.has(i), isToday=i===today.getDate();
+    g+=`<div ${isToday?'id="atToday"':''} style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:${on?'15px':'11px'};font-weight:${on?800:600};
+      background:${on?'#EFE6FA':'#F7F6F9'};color:${on?'#602090':'#C6C0CE'};${isToday&&!on?'box-shadow:0 0 0 2px #7B3FB5 inset':''}
+      ${isToday&&on&&pop?'animation:atPop .55s cubic-bezier(.2,1.4,.4,1)':''}">${on?'💜':i}</div>`;
+  }
+  return g;
+}
+// ⚙️ 출석 보상 등급 — 경품·인원은 여기만 고치면 화면에 그대로 반영됩니다.
+//    개근만 '전원 확정'인 이유: 개근자는 수가 적어 비용이 통제되고,
+//    확정이라야 20일에서 멈추지 않고 끝까지 갈 이유가 생긴다.
+// img 를 넣으면 이모지 대신 실제 상품 사진이 나옵니다 (예: img:'/prize/chicken.jpg')
+const ATTEND_TIERS=[
+  {i:1, ico:'☕', img:'', cond:'20일 이상', how:'추첨 5명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
+  {i:2, ico:'🎀', img:'', cond:'25일 이상', how:'추첨 3명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
+  {i:3, ico:'🍗', img:'', cond:'개근',      how:'추첨 2명', prize:'치킨 or 피자',   bg:'linear-gradient(160deg,#FFE9D9,#FFF4EC)'}
+];
+
+// 다음 등급까지 남은 일수로 응원 문구를 고른다 (출석 직후 · 등급이 코앞일 때만 노출)
+function attendCheer(d){
+  const n=d.month_days||0;
+  const today=new Date(d.today);
+  const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const leftMonth=last-today.getDate();               // 이 달 남은 날
+  if(n>=last) return {t:`개근 성공! 정말 대단해요 🎉`, hot:true};
+  if(n>=25)   return {t:`개근까지 ${last-n}일! 으쌰으쌰 🍗`, hot:true};
+  if(n>=20)   return {t:`25일까지 ${25-n}일! 조금만 더 🔥`, hot:true};
+  const need=20-n;
+  if(need>leftMonth) return null;                     // 이 달엔 이미 20일 달성이 불가능
+  if(need<=3) return {t:`20일까지 ${need}일! 거의 다 왔어요 💪`, hot:true};
+  return {t:`20일까지 ${need}일 남았어요, 영차영차!`, hot:false};
+}
+
+// 출석일수 등급 (매달 1일 추첨). 20일 미만은 응모 자격 없음.
+function attendTier(d){
+  const n=d.month_days||0;
+  const today=new Date(d.today);
+  const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  if(n>=last)  return {i:3, ico:'🍗', name:'개근',    desc:'한 달 내내 출석'};
+  if(n>=25)    return {i:2, ico:'🎀', name:'25일',    desc:'25일 이상 출석'};
+  if(n>=20)    return {i:1, ico:'☕', name:'20일',    desc:'20일 이상 출석'};
+  return {i:0, ico:'💜', name:'',     desc:'20일부터 응모돼요', need:20-n};
+}
+
+function renderAttend(d, justChecked){
+  const hot = (d.streak||0) >= 5;                    // 연속 5일부터 특별 대우
+  const tier = attendTier(d);
+  // 응원 문구는 매번 띄우면 잔소리가 되니, 출석한 직후나 등급이 코앞일 때만
+  const _c = attendCheer(d);
+  const cheer = (justChecked || (_c && _c.hot)) ? _c : null;
+  const cta = d.checked_today
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F2EFF6;color:#8A8395;border-radius:14px;padding:15px;font-size:14px;font-weight:800">✅ 오늘 출석 완료</div>`
+    : `<button id="atBtn" onclick="doCheckIn()" style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 5px 16px rgba(123,63,181,.3)">💜 출석 도장 찍기</button>`;
+  _openInfo(`
+    <div id="atWrap" style="position:relative">
+      <div style="text-align:center;margin-bottom:14px">
+        <div style="font-size:17px;font-weight:900;color:#232326">${justChecked?'출석 완료! 💜':(d.checked_today?'오늘도 오셨네요 😊':'오늘 출석하셨나요? 👀')}</div>
+        <div style="font-size:12.5px;color:#8A8395;margin-top:6px">
+          이번 달 <b style="color:#602090">${d.month_days}일</b> 출석
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:14px;
+        background:${hot?'linear-gradient(135deg,#FFF1F6,#F6EEFF)':'#F7F6F9'};border:1px solid ${hot?'#F3D9EA':'#EFEDF2'};
+        border-radius:12px;padding:11px 14px">
+        <span style="font-size:${hot?'19px':'15px'}">${hot?'🔥':'💜'}</span>
+        <span style="font-size:13px;font-weight:800;color:${hot?'#C2417A':'#8A8395'}">연속 ${d.streak}일</span>
+        ${hot?`<span style="font-size:11px;font-weight:800;color:#fff;background:#E05C97;padding:2px 8px;border-radius:20px">등급 UP 빨라요</span>`:''}
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:15px">${attendGrid(d, justChecked)}</div>
+      ${cheer?`<div style="text-align:center;font-size:12.5px;font-weight:800;line-height:1.6;margin-bottom:12px;padding:10px 12px;border-radius:11px;
+        background:${cheer.hot?'linear-gradient(135deg,#FFF3E6,#FFEDF4)':'#F7F6F9'};color:${cheer.hot?'#C2560F':'#8A8395'};
+        border:1px solid ${cheer.hot?'#F8DCC4':'#EFEDF2'}">${cheer.t}</div>`:''}
+      ${cta}
+
+      <div style="background:#FAF8FC;border-radius:12px;padding:14px 15px;margin-top:12px">
+        <div style="font-size:12.5px;font-weight:800;color:#602090;margin-bottom:3px">매달 1일 추첨 🎁</div>
+        <div style="font-size:11.5px;color:#9A93A6;margin-bottom:11px">${tier.i>0?`지금 <b style="color:#602090">${tier.ico} ${tier.name} 등급</b>이에요`:`<b style="color:#602090">${tier.need}일</b> 더 오시면 응모돼요`}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px">
+        ${ATTEND_TIERS.map((t,idx)=>{
+            const on=tier.i>=t.i;
+            const face=t.img
+              ? `<img src="${t.img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:11px 11px 0 0">`
+              : `<span style="font-size:30px;line-height:1">${t.ico}</span>`;
+            return `<div class="at-card" style="animation-delay:${idx*90}ms;border:1.5px solid ${on?'#C9AEE8':'#EDEAF2'};
+                ${on?'box-shadow:0 4px 14px rgba(123,63,181,.16)':''}">
+              <div style="height:62px;background:${t.bg};display:flex;align-items:center;justify-content:center;
+                border-radius:11px 11px 0 0;overflow:hidden;${on?'':'filter:grayscale(.75);opacity:.6'}">${face}</div>
+              <div style="padding:7px 6px 9px;text-align:center;background:#fff;border-radius:0 0 11px 11px">
+                <div style="font-size:10px;font-weight:800;color:${on?'#602090':'#B5AFBD'}">${t.cond}</div>
+                <div style="font-size:11px;font-weight:800;color:${on?'#232326':'#C6C0CE'};line-height:1.35;margin-top:3px;word-break:keep-all">${t.prize}</div>
+                <div style="font-size:9.5px;color:${on?'#9A8FB0':'#CFC9D8'};margin-top:3px">${t.how}</div>
+              </div>
+              ${on?'<div style="position:absolute;right:5px;top:5px;width:17px;height:17px;border-radius:17px;background:#7B3FB5;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center">✓</div>':''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="font-size:11px;color:#B0AABD;line-height:1.7">
+          최소 20일은 출석하셔야 응모돼요
+        </div>
+      </div>
+    </div>`);
+  if(justChecked) attendSparkle(d.streak||0);
+}
+function doCheckIn(){
+  const b=document.getElementById('atBtn');
+  if(b){ b.disabled=true; b.textContent='도장 찍는 중...'; }
+  memberRpc('member_check_in').then(d=>{
+    if(!d || !d.ok){ if(b){ b.disabled=false; b.textContent='💜 출석 도장 찍기'; } mcToast('잠시 후 다시 시도해 주세요'); return; }
+    renderAttend(d, true);
+    try{ trackEvent('check_in', String(d.month_days)); }catch(_){}
+  });
+}
+// 도장 찍히는 순간 반짝이 효과. 연속 5일 이상이면 팡팡 터지게.
+function attendSparkle(streak){
+  const w=document.getElementById('atWrap'), t=document.getElementById('atToday');
+  if(!w||!t) return;
+  const hot=(streak||0)>=5;
+  const wr=w.getBoundingClientRect(), tr=t.getBoundingClientRect();
+  const cx=tr.left-wr.left+tr.width/2, cy=tr.top-wr.top+tr.height/2;
+  const chars = hot
+    ? ['🎉','✨','💜','⭐','🎊','✨','💗','⭐','🎉','✨','💜','⭐','🎊','✨','💗','⭐','✨','💜']
+    : ['✨','💜','⭐','✨','💜','✨','⭐','✨'];
+  chars.forEach((ch,i)=>{
+    const s=document.createElement('span');
+    const ang=(Math.PI*2/chars.length)*i + (hot?(i%2?0.2:-0.2):0);
+    const dist=(hot?70:46)+(i%4)*(hot?22:14);
+    s.textContent=ch;
+    s.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;font-size:${(hot?15:13)+(i%3)*4}px;pointer-events:none;z-index:5;
+      transform:translate(-50%,-50%);animation:atSpark ${hot?1.15:.85}s ease-out ${(i%4)*40}ms forwards`;
+    s.style.setProperty('--dx', Math.cos(ang)*dist+'px');
+    s.style.setProperty('--dy', Math.sin(ang)*dist+'px');
+    w.appendChild(s);
+    setTimeout(()=>s.remove(), hot?1400:900);
+  });
+  if(hot){
+    // 연속 기록 축하 배지가 한 번 크게 떴다 사라짐
+    const b=document.createElement('div');
+    b.textContent=`🔥 연속 ${streak}일!`;
+    b.style.cssText=`position:absolute;left:50%;top:${cy}px;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
+      font-size:19px;font-weight:900;color:#fff;background:linear-gradient(135deg,#FF7EB3,#7B3FB5);
+      padding:9px 18px;border-radius:24px;box-shadow:0 6px 20px rgba(123,63,181,.4);animation:atBadge 1.5s ease-out forwards`;
+    w.appendChild(b);
+    setTimeout(()=>b.remove(), 1600);
+  }
+}
+
+// ── 사이드메뉴: 소개 / 이용방법 시트 ───────────────────
+function closeInfoSheet(){
+  document.getElementById('infoSheet').style.bottom='-110%';
+  document.getElementById('infoBg').style.display='none';
+}
+function _openInfo(html){
+  document.getElementById('infoBody').innerHTML=html;
+  document.getElementById('infoBg').style.display='block';
+  document.getElementById('infoSheet').style.bottom='0';
+}
+function openAboutSheet(){
+  _openInfo(`
+    <div style="font-size:17px;font-weight:900;color:#232326;line-height:1.45;margin-bottom:20px">
+      안녕하세요,<br>맘캘린더 방장입니다 💜
+    </div>
+
+    <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
+      임신하면서 회사를 그만두고<br>
+      육아도 살림도 잘 해내고 싶었는데<br>
+      마음처럼 되지 않더라고요.
+    </div>
+
+    <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
+      기저귀 천 원, 이천 원 싸게 사보겠다고<br>
+      맘카페라는 곳에 처음 가입해서<br>
+      핫딜 게시판을 하루에 백 번씩 새로고침했어요.
+    </div>
+
+    <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:18px">
+      인스타 공구를 알고 나서는 오픈 시간마다 알람을 맞추고,<br>
+      일정을 하나하나 캘린더에 옮겨 적었고요.
+    </div>
+
+    <div style="font-size:15px;font-weight:800;color:#7B3FB5;line-height:1.7;margin-bottom:18px">
+      그렇게 쓴 시간이<br>수천 시간이에요.
+    </div>
+
+    <div style="font-size:13.5px;color:#4C4459;line-height:2.0;margin-bottom:22px">
+      이제 시작하는 엄마들은<br>
+      그 시간을 안 쓰셨으면 해서 만들었어요.
+    </div>
+
+    <div style="height:1px;background:#EFECF4;margin-bottom:20px"></div>
+
+    <div style="font-size:13px;color:#6D6579;line-height:2.0;margin-bottom:14px">
+      맘캘린더는 처음엔 공구 정보를<br>
+      서로 알려주는 오픈 톡방이었어요.<br>
+      천 명이 넘으면서 네이버 카페를 만들었고,<br>
+      회원수가 2만명이 다 되어 가면서<br>
+      일정만 알려드리는 웹사이트 개발까지 오게 되었어요.
+    </div>
+    <a href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;justify-content:center;gap:7px;background:#F1FAF3;border:1px solid #CDE9D5;color:#1B7F3B;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;text-decoration:none;margin-bottom:22px">
+      <span style="color:#03C75A;font-weight:900;font-size:15px">N</span> 카페에서 이야기 나눠요
+    </a>
+
+    <div style="font-size:13px;color:#6D6579;line-height:2.0;margin-bottom:14px">
+      맘캘린더는 무료예요.<br>
+      저도 인스타에서 공구를 하고 있어서,<br>
+      도움이 되셨다면 팔로우 부탁드려요 💜
+    </div>
+    <a href="https://www.instagram.com/momcal_" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,#FDF2F8,#F7F1FD);border:1px solid #F0DCEB;color:#8A3F7A;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;text-decoration:none;margin-bottom:20px">
+      📷 인스타그램 팔로우하기
+    </a>
+
+    <div style="font-size:11px;color:#B0AABD;line-height:1.9">
+      본 사이트는 각 셀러·쇼핑몰과 무관하며, 공개된 일정 정보를 모아 안내해요.<br>
+      운영 · 원츠비 | 문의 momcal@kakao.com
+    </div>`);
+}
+function openHowSheet(){
+  _openInfo(`
+    <div style="font-size:18px;font-weight:900;color:#232326;margin-bottom:14px">이렇게 쓰시면 편해요</div>
+    ${[
+      ['1','관심 공구에 하트를 눌러요','카드 오른쪽 💜를 누르면 담겨요'],
+      ['2','오픈 알림을 켜요','찜한 공구가 오픈하는 날 아침에 알려드려요'],
+      ['3','캘린더에서 내 일정만 봐요','캘린더 탭 → 💜 내 찜만'],
+      ['4','폰 캘린더로 내보내요','구글·네이버·애플 캘린더에 일정으로 들어가요'],
+      ['5','검색은 한 번에','검색하면 공구·핫딜·체험단이 같이 나와요']
+    ].map(s=>`<div style="display:flex;gap:11px;margin-bottom:13px">
+        <div style="width:23px;height:23px;border-radius:23px;background:#EFE6FA;color:#602090;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${s[0]}</div>
+        <div><div style="font-size:13.5px;font-weight:700;color:#232326">${s[1]}</div>
+        <div style="font-size:12px;color:#9A93A6;margin-top:2px">${s[2]}</div></div>
+      </div>`).join('')}`);
+}
+// 사이드메뉴 → 내 공구 캘린더로 바로
+function goCalMine(){
+  switchContent('gonggu');
+  switchTab('cal');
+  setCalMine(true);
+  setTimeout(()=>document.getElementById('calView').scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+
+// ── 캘린더: 전체 / 내 찜만 ──────────────────────────────
+let calMine=false;
+function calPool(){
+  const pool = calMine ? DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id))) : DATA;
+  return pool.filter(item=>{
+    if(isExpired(item))return false;
+    if(calMine && !isWished(item.id))return false;
+    if(!calMine && fCalCat!=='전체' && item.major!==fCalCat)return false;  // 내 찜엔 카테고리 필터 안 걸음
+    return true;
+  });
+}
+function setCalMine(v){
+  calMine=v;
+  document.getElementById('calTgAll').style.cssText  = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:none;color:#8A8395':'background:#602090;color:#fff');
+  document.getElementById('calTgMine').style.cssText = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:#602090;color:#fff':'background:none;color:#8A8395');
+  document.getElementById('calCatRow').style.display = v?'none':'';      // 내 찜만 볼 땐 카테고리 줄은 군더더기
+  document.getElementById('icsBar').style.display    = v?'block':'none';
+  if(v) fetchWishExtra();                                                 // 찜했는데 지금 목록에 없는 것까지 끌어옴
+  selCalDate=null; document.getElementById('selBox').style.display='none';
+  buildCalendar();
+}
+
+// ── 찜한 공구 → 폰 캘린더(.ics) ────────────────────────
+// RFC 5545 표준이라 구글·네이버·애플·삼성·아웃룩이 모두 읽는다. 서버 없이 브라우저에서 바로 생성.
+async function exportWishIcs(){
+  // '내 것이 쌓이는 기능'은 로그인 필요 (보는 건 로그인 없이 — 트래픽 방어)
+  if(typeof isLoggedIn==='function' && !isLoggedIn()){
+    openLoginSheet('내 폰 캘린더에 넣으려면 로그인이 필요해요',
+      '로그인하면 <b style="color:#7B3FB5">이미 내보낸 공구</b>를 기억해서<br>폰 캘린더에 중복으로 쌓이지 않아요');
+    return;
+  }
+  // ⚠ calPool()을 쓰면 안 된다. + 메뉴에서 부르면 캘린더가 '전체' 모드라 공구 전체가 딸려나간다.
+  //    내보내기는 캘린더 모드와 무관하게 '내가 찜한 것'만.
+  const _all=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+  let items=_all.filter(it=>!isExpired(it) && isWished(it.id));
+  if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
+
+  // 이미 내보낸 건 또 내보내면 캘린더 앱에 따라 중복으로 쌓인다(네이버·삼성은 UID를 안 봐줌).
+  // → 내보낸 목록을 서버에 기록해서 폰을 바꿔도 유지되게 한다.
+  let sent=[];
+  const srv=await memberRpc('member_ics_sent');
+  if(srv && srv.ok) sent=srv.ids||[];
+  else { try{ sent=JSON.parse(localStorage.getItem('mc_ics_sent')||'[]'); }catch(_){} }  // 서버 실패 시 기기 기록으로 대체
+  const sentSet=new Set(sent);
+  const fresh=items.filter(it=>!sentSet.has(it.id));
+  if(sent.length && fresh.length && fresh.length<items.length){
+    const onlyNew=confirm(`새로 찜한 ${fresh.length}개만 내보낼까요?\n\n[확인] 새로 찜한 ${fresh.length}개만 (중복 없음)\n[취소] 찜한 것 전체 ${items.length}개 다시`);
+    if(onlyNew) items=fresh;
+  }else if(sent.length && !fresh.length){
+    if(!confirm(`새로 찜한 공구가 없어요.\n찜한 것 전체 ${items.length}개를 다시 내보낼까요?\n(캘린더에 중복으로 들어갈 수 있어요)`)) return;
+  }
+  const esc=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\r?\n/g,'\\n');
+  const ymd=s=>String(s||'').replace(/-/g,'');
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//momcalendar//KR','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:맘캘린더 내 공구'];
+  items.forEach(it=>{
+    const end=realEnd(it)||it.openDate;
+    // DTEND 는 '그날 자정'이라 하루 더해야 마감일이 캘린더에 포함된다
+    const e=new Date(end+'T00:00:00'); e.setDate(e.getDate()+1);
+    const eStr=`${e.getFullYear()}${pad(e.getMonth()+1)}${pad(e.getDate())}`;
+    L.push('BEGIN:VEVENT',
+      `UID:momcal-${it.id}@momcalendar.com`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd(it.openDate)}`,
+      `DTEND;VALUE=DATE:${eStr}`,
+      `SUMMARY:${esc((it.influencer?it.influencer+' · ':'')+it.name)}`,
+      `DESCRIPTION:${esc('맘캘린더에서 보기')}`,
+      'URL:https://momcalendar.com/',
+      'END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='맘캘린더_내공구.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  // 내보낸 것 기억 (다음엔 새로 찜한 것만 담을 수 있게)
+  memberRpc('member_ics_mark', {p_ids: items.map(it=>it.id)});   // 서버에 기록 (기기 바뀌어도 유지)
+  try{
+    const merged=Array.from(new Set(sent.concat(items.map(it=>it.id))));
+    localStorage.setItem('mc_ics_sent', JSON.stringify(merged));  // 서버가 안 될 때 대비한 사본
+  }catch(_){}
+  try{ trackEvent('ics_export', String(items.length)); }catch(_){}
+  mcToast(`${items.length}개 일정을 캘린더 파일로 만들었어요 📅`);
+}
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
 
@@ -2122,9 +2545,15 @@ function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||
 function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id); }
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
-function openLoginSheet(){
+// 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
+var KKO_DEFAULT_T='찜한 공구, 안전하게 보관할까요?';
+var KKO_DEFAULT_S='지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>카카오로 시작하면 폰을 바꿔도 찜이 그대로예요';
+function openLoginSheet(title, sub){
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
   if(!m||!bg) return;
+  var t=document.getElementById('kkoTitle'), s=document.getElementById('kkoSub');
+  if(t) t.textContent = title || KKO_DEFAULT_T;
+  if(s) s.innerHTML   = sub   || KKO_DEFAULT_S;
   bg.style.display='block'; m.style.bottom='0';
 }
 function closeLoginSheet(){
@@ -2133,14 +2562,10 @@ function closeLoginSheet(){
   bg.style.display='none'; m.style.bottom='-110%';
 }
 function kkoLater(){
-  // 거절할수록 뜸하게: 1 → 3 → 7 → 14일
-  var lvl=parseInt(localStorage.getItem('mc_login_lvl')||'0',10);
-  var days=[1,3,7,14][Math.min(lvl,3)];
-  try{
-    localStorage.setItem('mc_login_lvl', String(lvl+1));
-    localStorage.setItem('mc_login_next', String(Date.now()+days*86400000));
-  }catch(_){}
+  // 시트는 한 번만 띄우기로 했으므로(mc_login_asked), 여기선 닫기만 한다.
+  // 이후 권유는 '내 찜' 화면의 조용한 띠가 맡는다.
   closeLoginSheet();
+  if(typeof renderList==='function' && fSt==='wish') renderList();
 }
 function startKakaoLogin(){
   if(!kkoInit()){ alert('카카오 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
@@ -2149,14 +2574,39 @@ function startKakaoLogin(){
   Kakao.Auth.authorize({ redirectUri: kkoRedirect(), scope: 'profile_nickname' });
 }
 // 찜한 뒤 로그인 권유 (하루 1회 이하, 찜 2개 이상부터)
+// 로그인 권유: 찜 2개째에 시트를 딱 한 번만 띄우고,
+// 그 뒤로는 시트를 다시 띄우지 않고 '내 찜' 화면의 조용한 띠로만 권한다.
+function loginSheetShown(){ return localStorage.getItem('mc_login_asked')==='1'; }
 function maybeAskLogin(){
   if(isLoggedIn()) return false;
   if(WISH.size < 2) return false;
-  var next=parseInt(localStorage.getItem('mc_login_next')||'0',10);
-  if(next && Date.now()<next) return false;
-  try{ localStorage.setItem('mc_login_next', String(Date.now()+86400000)); }catch(_){}
+  if(loginSheetShown()) return false;                      // 시트는 평생 한 번
+  try{ localStorage.setItem('mc_login_asked','1'); }catch(_){}
   setTimeout(openLoginSheet, 350);
   return true;
+}
+// '내 찜' 탭 위에 뜨는 조용한 로그인 띠 (닫으면 며칠 안 보임)
+function loginStripHtml(){
+  if(isLoggedIn()) return '';
+  if(!loginSheetShown()) return '';                        // 시트를 아직 안 본 사람에겐 안 띄움
+  var next=parseInt(localStorage.getItem('mc_login_strip_next')||'0',10);
+  if(next && Date.now()<next) return '';
+  return `<div id="loginStrip" style="display:flex;align-items:center;gap:9px;background:#FBF7FF;border:1px solid #E7DCF5;border-radius:12px;padding:11px 13px;margin-bottom:10px">
+      <span style="font-size:17px">💜</span>
+      <span style="flex:1;font-size:12px;color:#6D6579;line-height:1.5">로그인하면 폰을 바꿔도<br>찜한 공구가 그대로예요</span>
+      <button onclick="startKakaoLogin()" style="background:#FEE500;color:#191919;border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap">카카오 로그인</button>
+      <button onclick="hideLoginStrip()" style="background:none;border:none;color:#C6C0CE;font-size:15px;cursor:pointer;padding:2px 4px" aria-label="닫기">✕</button>
+    </div>`;
+}
+function hideLoginStrip(){
+  // 닫을수록 뜸하게: 3 → 7 → 14 → 30일
+  var lvl=parseInt(localStorage.getItem('mc_login_strip_lvl')||'0',10);
+  var days=[3,7,14,30][Math.min(lvl,3)];
+  try{
+    localStorage.setItem('mc_login_strip_lvl', String(lvl+1));
+    localStorage.setItem('mc_login_strip_next', String(Date.now()+days*86400000));
+  }catch(_){}
+  var el=document.getElementById('loginStrip'); if(el) el.remove();
 }
 // 로그인 후 돌아왔을 때 ?code 처리
 (function(){
@@ -2169,7 +2619,8 @@ function maybeAskLogin(){
       body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
     }).then(function(r){ return r.json(); }).then(function(d){
       if(d && d.ok){
-        try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||''})); }catch(_){}
+        // token = 회원 세션. 출석·캘린더 내보내기를 서버에서 검증할 때 쓴다.
+        try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||''})); }catch(_){}
         try{ trackEvent('kakao_login_done',''); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
@@ -2894,6 +3345,10 @@ function toggleChatMenu(){
   document.getElementById('chatFab').classList.toggle('open');
   document.getElementById('chatMenu').classList.toggle('open');
 }
+function closeChatMenu(){
+  document.getElementById('chatFab').classList.remove('open');
+  document.getElementById('chatMenu').classList.remove('open');
+}
 </script>
 
 <!-- 떠다니는 카톡 채팅방 버튼 -->
@@ -2902,12 +3357,13 @@ function toggleChatMenu(){
 </button>
 <div class="chat-fab-wrap">
   <div class="chat-menu" id="chatMenu">
+    <!-- + 버튼에는 '홍보하고 싶은 것'만. 문의·오류제보는 사이드메뉴로 옮김 -->
+    <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
     <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
-    <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
-    <a class="chat-menu-item" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="chat-menu-ico">💬</span>자유 수다방</a>
-    <a class="chat-menu-item" href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" style="background:#FEE500"><span class="chat-menu-ico">💬</span>문의·오류제보</a>
-    <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>공유하기</button>
+    <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
+    <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();exportWishIcs()" style="border:none;cursor:pointer;font-family:inherit;background:#F3ECFF;color:#602090"><span class="chat-menu-ico">📅</span>내 폰 캘린더에 넣기</button>
+    <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>친구에게 공유</button>
   </div>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="채널·공유·제보 메뉴">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
