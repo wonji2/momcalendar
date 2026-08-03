@@ -81,6 +81,52 @@ const cpSearch  = (kw: string, limit = 10) =>   // ⚠ 쿠팡 검색 API는 limi
   cpFetch(BASE + "/products/search", `keyword=${encodeURIComponent(kw)}&limit=${limit}`);
 const cpGoldbox = () => cpFetch(BASE + "/products/goldbox");
 
+// ── 애드픽 (쇼핑메이트 핫딜) ────────────────────────────────
+// 쿠팡과 달리 price_org(정가)를 주므로, 가격이력 없이도 그날 바로 할인율을 말할 수 있다.
+// ⚠ 응답에 카테고리·상품ID가 없다 → 카테고리는 상품명으로 추정, 키는 링크에서 만든다.
+const ADPICK_AFFID = "a4cea7";
+const AP_MIN_DROP = 15;   // 이 이하 할인은 핫딜이라 부르지 않음
+const AP_MAX_DROP = 85;   // 이 이상은 '정가 뻥튀기' 의심 → 거름 (향수·화장품에서 자주 나옴)
+const AP_MAX = 8;
+
+// 상품명으로 카테고리 추정. 못 맞히면 등록하지 않는다(엉뚱한 분류보다 누락이 낫다).
+const AP_CAT: [RegExp, string, string][] = [
+  [/기저귀|분유|이유식|아기|유아|젖병|유모차|카시트|아동|키즈|어린이|장난감|물티슈/, "육아", "육아용품"],
+  [/유산균|오메가|비타민|홍삼|루테인|콜라겐|영양제|프로바이오|밀크씨슬/, "건강", "건강식품"],
+  [/라면|과자|음료|커피|생수|한우|삼겹|쌀|즉석|간편식|반찬|견과|과일|우유|만두|김치|닭가슴살/, "식품", "가공식품"],
+  [/휴지|세제|섬유유연제|샴푸|치약|칫솔|세정|위생|마스크팩?|락스|주방|수세미|지퍼백|비닐장갑/, "생필품", "생활용품"],
+  // ⚠ '스킨'만 넣으면 "심리스브라-스킨(L)" 같은 색상표기에 걸린다 → 스킨케어/스킨토너로 좁힘
+  [/스킨케어|스킨토너|로션|크림|앰플|에센스|선크림|쿠션|틴트|립스틱|향수|클렌징|토너/, "뷰티", "화장품"],
+  [/청소기|밥솥|에어프라이어|냉장고|세탁기|건조기|이어폰|노트북|모니터|선풍기|가습기|정수기/, "가전", "생활가전"],
+  [/강아지|고양이|사료|반려|펫/, "반려동물", "반려용품"],
+  [/수납|매트|이불|베개|커튼|블라인드|행거|정리함|러그/, "리빙", "홈리빙"],
+];
+// 맘 사이트에 안 맞는 것은 카테고리 판정 전에 제외
+const AP_BLOCK = /브라(자|렛)?[\s\-(]|팬티|속옷|보정속옷|성인|담배|전자담배|주류|와인|위스키/;
+function apCat(name: string): [string, string] | null {
+  if (AP_BLOCK.test(name)) return null;
+  for (const [re, a, b] of AP_CAT) if (re.test(name)) return [a, b];
+  return null;
+}
+const apNum = (s: unknown) => Number(String(s ?? "").replace(/[^\d]/g, "")) || 0;
+// 링크에서 안정적인 키 만들기 (애드픽은 상품ID를 안 준다)
+function apKey(buyurl: string): string {
+  const m = String(buyurl).match(/[?&]url=([^&]+)/);
+  const target = m ? decodeURIComponent(m[1]) : String(buyurl);
+  let h = 5381;
+  for (let i = 0; i < target.length; i++) h = ((h * 33) ^ target.charCodeAt(i)) >>> 0;
+  return "ap_" + h.toString(16);
+}
+async function apFetch(): Promise<any[]> {
+  const r = await fetch(
+    `https://adpick.co.kr/apis/sdk_shopping_hotdeal.php?affid=${ADPICK_AFFID}`,
+  );
+  if (!r.ok) throw new Error("adpick http " + r.status);
+  const j = await r.json();
+  const arr = Array.isArray(j) ? j : [j];
+  return arr.flatMap((x: any) => Array.isArray(x?.list) ? x.list : []);
+}
+
 // ── Supabase REST ──────────────────────────────────────────
 async function sb(path: string, init: RequestInit = {}): Promise<any> {
   const r = await fetch(SB_URL + "/rest/v1/" + path, {
@@ -113,6 +159,7 @@ Deno.serve(async (req) => {
 
   // ── 진단 모드 ──
   const test = u.searchParams.get("test");
+  if (test === "adpick") return Response.json((await apFetch()).slice(0, 5));
   if (test === "goldbox") return Response.json(await cpGoldbox());
   if (test) return Response.json(await cpSearch(u.searchParams.get("kw") ?? "기저귀", 5));
 
@@ -257,6 +304,38 @@ Deno.serve(async (req) => {
   picks.push(...golds);
   log.goldPicked = golds.length;
 
+  // 애드픽: 정가가 있으니 그날 바로 할인율 확정
+  try {
+    const rows = await apFetch();
+    log.adpickTotal = rows.length;
+    const ap = rows.map((p: any) => {
+      const sale = apNum(p.price_sale), org = apNum(p.price_org);
+      const name = String(p.product_name || "").slice(0, 200);
+      const cat = apCat(name);
+      if (!sale || !org || org <= sale || !cat) return null;
+      const drop = Math.round((org - sale) / org * 100);
+      if (drop < AP_MIN_DROP || drop > AP_MAX_DROP) return null;
+      return {
+        id: apKey(p.buyurl), name, price: sale, url: p.buyurl, img: p.photo,
+        major: cat[0], minor: cat[1], keyword: "애드픽", rocket: false,
+        avg: org, isLowest: false, discount: drop, src: "adpick",
+        mall: p.mall_name || p.mall || "",
+      };
+    }).filter(Boolean) as any[];
+    ap.sort((a, b) => b.discount - a.discount);
+    const apPicks = ap.filter((p) => !picks.some((q) => q.id === p.id)).slice(0, AP_MAX);
+    picks.push(...apPicks);
+    log.adpickPicked = apPicks.length;
+    // 애드픽 건도 가격을 기록해 둬야 나중에 '역대최저' 판정이 붙는다
+    if (apPicks.length) {
+      await sb("price_history?on_conflict=product_id,day", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(apPicks.map((p) => ({ product_id: p.id, day: today, price: p.price }))),
+      });
+    }
+  } catch (e) { log.errors.push({ kw: "adpick", err: String(e) }); }
+
   log.deals = picks.map((p) => ({
     name: p.name, price: p.price, avg: p.avg, discount: p.discount,
     lowest: p.isLowest, src: p.src,
@@ -278,6 +357,7 @@ Deno.serve(async (req) => {
       discount_rate: p.discount,
       img_url: p.img,
       source: p.src,
+      mall: p.mall ?? null,
       product_id: p.id,
       is_lowest: p.isLowest,
       deal_day: today,
