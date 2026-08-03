@@ -398,8 +398,10 @@ details summary::-webkit-details-marker{display:none}
         <select id="bType" style="width:100%;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="main">메인 배너 (상단 큰 슬라이드)</option>
           <option value="promo">🎁 기획전·제휴 존 (이웃셀러 아래 띠)</option>
+          <option value="slim">🟪 슬림 광고 배너 (공구 리스트 맨 위 · 한 줄)</option>
         </select>
         <div style="font-size:11px;color:#999;margin-top:4px">기획전은 브랜드 제휴·쿠팡 파트너스 등 광고용. 색은 아래에서 민트 계열을 고르면 예뻐요.</div>
+        <div style="font-size:11px;color:#7B3FB5;margin-top:3px;line-height:1.6">🟪 <b>슬림 광고 배너</b>: <b>제목</b>=상품 문구 · <b>브랜드명 칸</b>=왼쪽 태그(예: 오늘만 특가) · <b>링크</b>=연결 URL · <b>노출 기간</b>=게시 시작~종료(종료되면 자동으로 사라져요) · <b>배경색 왼쪽 첫 칸</b>이 배너 색. 이미지 없어도 돼요.</div>
       </div>
       <div class="modal-field"><label>제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
       <div class="modal-field"><label>브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
@@ -3620,7 +3622,7 @@ let bannerData=[];
 
 async function loadBannerAdmin(){
   // 메인 배너 + 기획전(promo) 배너 모두 로드
-  const res=await fetch(`${SB_URL}/rest/v1/banners?type=in.(main,promo)&order=type.asc,sort_order.asc`,{
+  const res=await fetch(`${SB_URL}/rest/v1/banners?type=in.(main,promo,slim)&order=type.asc,sort_order.asc`,{
     headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
   });
   bannerData=await res.json();
@@ -3740,6 +3742,7 @@ function renderBannerCards(){
           <div style="font-size:10px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.subtitle||''}</div>
         </div>
         <span style="position:absolute;top:7px;left:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:${st.bg};color:${st.c}">${st.label}</span>
+        <span style="position:absolute;bottom:7px;left:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.92);color:${b.type==='slim'?'#7B3FB5':(b.type==='promo'?'#0F6E56':'#4A35A0')}">${b.type==='slim'?'🟪 슬림배너':(b.type==='promo'?'🎁 기획전':'🖼️ 메인')}</span>
         <span style="position:absolute;top:7px;right:7px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.38);border-radius:20px;padding:2px 7px">#${i+1}</span>
       </div>
       <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
