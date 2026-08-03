@@ -3128,25 +3128,16 @@ function _autoPromptFromChrome(tries){
 }
 setTimeout(function(){ _autoPromptFromChrome(0); }, 900);
 
+// 자동 팝업은 더 이상 쓰지 않는다. 설치 안내는 얇은 띠 하나로만 하고,
+// 팝업(pwaModal)은 사이드메뉴 '홈 화면에 앱으로 추가'를 눌렀을 때만 forceInstallPwa() 로 연다.
 function maybeShowPwa(retry){
+  showPwaStrip();
+}
+function _pwaModalFlow(retry){
   retry=retry||0;
   try{
     if(_isStandalone()) return;                       // 이미 앱으로 열림 → 아무것도 안 띄움
     if(!_isMobile()) return;                           // PC(데스크톱)에선 PWA 유도 안 함
-    if(location.search.indexOf('pwa=1')>=0) return;    // 크롬으로 막 넘어온 참 → 자동 설치창에 맡김
-    // 첫 방문에는 아무 팝업도 띄우지 않는다. 사이트가 뭔지 보기도 전에 설치를 권하면 광고로 읽힌다.
-    // 두 번째 방문부터 권한다(한 번 와보고 마음에 든 사람이 설치율도 높음).
-    try{
-      var visits=parseInt(localStorage.getItem('mc_visit_n')||'0',10);
-      if(visits < 2){ showPwaStrip(); return; }         // 얇은 띠만 조용히
-    }catch(_){}
-    // 설치한 적 있는 사람에겐 팝업을 다시 띄우지 않는다(앱 있는데 또 뜨면 성가심).
-    // 앱을 지운 사람은 아래 얇은 띠로만 아주 가끔 안내.
-    if(localStorage.getItem('mc_pwa_installed')==='1'){ showPwaStrip(); return; }
-    if(localStorage.getItem('mc_pwa_ios_added_left')!==null){ showPwaStrip(); return; } // 아이폰 '추가했어요' → 팝업X, 띠만(카운터 소진까지)
-    if(localStorage.getItem('mc_pwa_never')==='1'){ showPwaStrip(); return; } // 영영 팝업 거절 → 그래도 얇은 띠는
-    const until=parseInt(localStorage.getItem('mc_pwa_snooze')||'0',10);
-    if(until && Date.now()<until){ showPwaStrip(); return; }   // 팝업 스누즈 중 → 얇은 띠만
     const ios=_isIOS();
     // ⚠ 카톡·인스타 인앱도 UA에 'Safari'가 들어있어 safari 문자열만으론 구분 불가.
     //    _isInApp()(KAKAOTALK 등 감지)을 반드시 함께 봐야 인앱을 사파리로 오판하지 않는다.
@@ -3155,7 +3146,7 @@ function maybeShowPwa(retry){
     // 진짜 크롬(설치프롬프트 받을 수 있는 환경)인데 아직 프롬프트가 안 왔으면 잠깐만 대기
     const mightInstall=!ios && !_isSamsung() && !_isInApp() && /Chrome\//i.test(navigator.userAgent);
     if(mightInstall && !_pwaDeferred && retry<2){
-      setTimeout(function(){ maybeShowPwa(retry+1); }, 1500);
+      setTimeout(function(){ _pwaModalFlow(retry+1); }, 1500);
       return;
     }
     // ── 팝업 표시 ──
@@ -3171,29 +3162,18 @@ function maybeShowPwa(retry){
 }
 // 띠 노출 간격: ✕ 누를수록 뜸해짐(1→3→5→7→10→15→30일), 그 뒤엔 30일마다 영원히 은은하게
 const PWA_STRIP_INT=[1,3,5,7,10,15,30];
+// 설치 안내는 '팝업'을 쓰지 않고 이 얇은 띠 하나로만 한다(팝업은 광고처럼 읽혀 거부감이 큼).
+// 첫 화면부터 계속 보이되, 앱을 이미 쓰는 사람에겐 절대 안 뜬다.
 function showPwaStrip(){
   try{
-    if(_isStandalone()) return;                       // 앱으로 실행 중이면 안 뜸
-    if(!_isMobile()) return;                           // PC에선 띠도 안 뜸
-    // 아이폰 '추가했어요' 직후엔 몇 번 바로 리마인드, 소진되면 아래 일반 간격으로 넘어감
-    const leftRaw=localStorage.getItem('mc_pwa_ios_added_left');
-    if(leftRaw!==null){
-      const left=parseInt(leftRaw,10);
-      if(left>0){
-        localStorage.setItem('mc_pwa_ios_added_left', String(left-1));
-        document.getElementById('pwaStrip').style.display='flex';
-        return;
-      }
-    }
-    // 일반: 쉬는 기간이면 스킵
-    const now=Date.now();
+    if(_isStandalone()) return;                        // 앱으로 실행 중 → 안 뜸
+    if(!_isMobile()) return;                            // PC → 안 뜸
+    if(localStorage.getItem('mc_pwa_installed')==='1') return;  // 설치한 사람 → 안 뜸
+    const el=document.getElementById('pwaStrip'); if(!el) return;
+    // ✕ 로 닫았을 때만 잠시 쉬어간다(닫을수록 뜸하게). 그 외엔 늘 보인다.
     const next=parseInt(localStorage.getItem('mc_pwa_strip_next')||'0',10);
-    if(next && now<next) return;
-    let lvl=parseInt(localStorage.getItem('mc_pwa_strip_lvl')||'0',10);
-    if(isNaN(lvl)||lvl<0) lvl=0;
-    const days=PWA_STRIP_INT[Math.min(lvl,PWA_STRIP_INT.length-1)];
-    localStorage.setItem('mc_pwa_strip_next', String(now + days*86400000)); // 무시해도 이번 간격만큼은 안 뜸
-    document.getElementById('pwaStrip').style.display='flex';
+    if(next && Date.now()<next) return;
+    el.style.display='flex';
   }catch(_){}
 }
 // 메뉴에서 언제든 설치(억제 플래그와 무관) — 재설치·이미설치자 모두
@@ -3262,6 +3242,18 @@ window.addEventListener('appinstalled', function(){ localStorage.setItem('mc_pwa
 // 배경 클릭으로 팝업 닫기(스누즈)
 document.getElementById('pwaModal').addEventListener('click',function(e){ if(e.target===this) pwaDismiss(); });
 // 로드 3초 뒤 노출
+// ?reset=1 → 이 기기의 저장값을 지우고 '처음 온 사람'처럼 다시 시작 (사장님 폰 테스트용)
+(function(){
+  try{
+    if(location.search.indexOf('reset=1')<0) return;
+    var keep=null; try{ keep=localStorage.getItem('mc_did'); }catch(_){}   // 기기ID는 살려둠(찜 서버기록 유지)
+    localStorage.clear(); sessionStorage.clear();
+    if(keep) localStorage.setItem('mc_did', keep);
+    var u=location.pathname;                                              // ?reset=1 떼고 새로 열기
+    setTimeout(function(){ location.replace(u); }, 60);
+  }catch(_){}
+})();
+
 // 방문 횟수 기록 (첫 방문 판별용)
 try{
   var _vn=parseInt(localStorage.getItem('mc_visit_n')||'0',10)+1;
