@@ -22,11 +22,15 @@ const MIN_POINTS = 7;      // 이력이 최소 7일은 쌓여야 판정
 const LOOKBACK   = 90;     // 최근 90일 기준
 const MIN_DROP   = 0.10;   // 역대최저 + 평균 대비 최소 10% 저렴
 const BIG_DROP   = 0.25;   // 역대최저 아니어도 평균 대비 25% 이상이면 핫딜
-const MAX_PER_RUN = 12;    // 하루 최대 등록 건수 (도배 방지)
+const MAX_PER_RUN = 20;    // 가격근거 기반 핫딜 하루 상한
+const REPOST_COOLDOWN = 3; // 같은 상품을 며칠 안에는 다시 안 올림 (매일 같은 상품 도배 방지)
+// ⚠️ 쿠팡 검색 API 시간당 호출 제한 방어선. 이 값을 함부로 올리지 말 것
+//    (3회 초과하면 파트너스 이용이 제한된다. 2026-08-03에 116개로 돌리다 1회 초과 경고를 받음)
+const KW_PER_RUN = 40;
 
 // 골드박스 = 쿠팡이 직접 고른 '오늘의 특가'.
 // 우리 가격이력이 없는 초기에도 게시판을 채울 수 있고, 근거는 "쿠팡 선정"으로 정직하게 표기한다.
-const MAX_GOLD = 8;
+const MAX_GOLD = 15;
 // 사이트 대분류에 맞춰 넓게 받는다(사장님 방침: 대분류는 넓을수록 좋다).
 // 여기에 없는 카테고리(자동차용품 등)만 버린다.
 const GOLD_CAT: Record<string, [string, string]> = {
@@ -87,7 +91,7 @@ const cpGoldbox = () => cpFetch(BASE + "/products/goldbox");
 const ADPICK_AFFID = "a4cea7";
 const AP_MIN_DROP = 15;   // 이 이하 할인은 핫딜이라 부르지 않음
 const AP_MAX_DROP = 60;   // 이 이상은 '정가 뻥튀기' 의심 → 거름 (향수·화장품에서 자주 나옴)
-const AP_MAX = 8;
+const AP_MAX = 20;
 
 // 상품명으로 카테고리 추정. 못 맞히면 등록하지 않는다(엉뚱한 분류보다 누락이 낫다).
 const AP_CAT: [RegExp, string, string][] = [
@@ -102,11 +106,16 @@ const AP_CAT: [RegExp, string, string][] = [
   [/수납|매트|이불|베개|커튼|블라인드|행거|정리함|러그/, "리빙", "홈리빙"],
 ];
 // 맘 사이트에 안 맞는 것은 카테고리 판정 전에 제외
-const AP_BLOCK = /브라(자|렛)?[\s\-(]|팬티|속옷|보정속옷|성인|담배|전자담배|주류|와인|위스키/;
+const AP_BLOCK =
+  /브라(자|렛)?[\s\-(]|팬티|속옷|보정속옷|성인|담배|전자담배|주류|와인|위스키/;
+// 명품·고가 패션은 맘캘린더 방문자와 안 맞음 (애드픽 피드에 자주 섞여 들어옴)
+const AP_LUXURY =
+  /루이비통|샤넬|구찌|프라다|디올|에르메스|버버리|보테가|셀린느|생로랑|발렌시아가|몽클레어|스톤아일랜드|꼼데가르송|메종키츠네|아미|톰브라운|골든구스|폴로랄프|명품/;
+const AP_MAX_PRICE = 150000;   // 이보다 비싼 건 핫딜로 안 올림
 function apCat(name: string): [string, string] | null {
-  if (AP_BLOCK.test(name)) return null;
+  if (AP_BLOCK.test(name) || AP_LUXURY.test(name)) return null;
   for (const [re, a, b] of AP_CAT) if (re.test(name)) return [a, b];
-  return null;
+  return ["리빙", "생활용품"];   // 못 맞히면 드롭하지 않고 넓은 분류로 (사장님 방침: 대분류는 넓게)
 }
 const apNum = (s: unknown) => Number(String(s ?? "").replace(/[^\d]/g, "")) || 0;
 // 링크에서 안정적인 키 만들기 (애드픽은 상품ID를 안 준다)
@@ -168,7 +177,11 @@ Deno.serve(async (req) => {
   const log: any = { today, dry, keywords: 0, scanned: 0, tracked: 0, deals: [], errors: [] };
 
   // 1) 키워드별 상품 수집
-  const kws = await sb("coupang_keywords?select=keyword,major,minor&active=eq.true");
+  // ⚠️ 쿠팡 검색 API는 시간당 호출 제한이 있고, 3회 초과하면 파트너스 이용이 제한된다.
+  //    전체 키워드를 매번 돌리지 말고, 가장 오래 안 본 것부터 KW_PER_RUN 개씩 돌아가며 조회한다.
+  const kws = await sb(
+    `coupang_keywords?select=id,keyword,major,minor&active=eq.true&order=last_seen.asc.nullsfirst&limit=${KW_PER_RUN}`,
+  );
   if (!Array.isArray(kws)) return Response.json({ error: "keywords 조회 실패", detail: kws }, { status: 500 });
   log.keywords = kws.length;
 
@@ -203,7 +216,15 @@ Deno.serve(async (req) => {
         });
       }
     } catch (e) { log.errors.push({ kw: k.keyword, err: String(e) }); }
-    await new Promise((r) => setTimeout(r, 400));   // 쿠팡 호출 간격 (스로틀 회피)
+    await new Promise((r) => setTimeout(r, 250));   // 쿠팡 호출 간격 (스로틀 회피)
+  }
+  // 이번에 돌린 키워드는 순번을 뒤로 (다음 실행 땐 아직 안 본 키워드가 먼저 온다)
+  if (kws.length) {
+    await sb(`coupang_keywords?id=in.(${kws.map((k: any) => k.id).join(",")})`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ last_seen: new Date().toISOString() }),
+    });
   }
 
   // 1-b) 골드박스(쿠팡 오늘의 특가) — 우리 관심 카테고리만
@@ -312,7 +333,7 @@ Deno.serve(async (req) => {
       const sale = apNum(p.price_sale), org = apNum(p.price_org);
       const name = String(p.product_name || "").slice(0, 200);
       const cat = apCat(name);
-      if (!sale || !org || org <= sale || !cat) return null;
+      if (!sale || !org || org <= sale || !cat || sale > AP_MAX_PRICE) return null;
       const drop = Math.round((org - sale) / org * 100);
       if (drop < AP_MIN_DROP || drop > AP_MAX_DROP) return null;
       return {
@@ -340,6 +361,16 @@ Deno.serve(async (req) => {
     name: p.name, price: p.price, avg: p.avg, discount: p.discount,
     lowest: p.isLowest, src: p.src,
   }));
+
+  // 최근 며칠 안에 이미 올린 상품은 제외 (같은 상품이 매일 올라오면 도배로 보임)
+  const coolFrom = new Date(Date.now() + 9 * 3600e3 - REPOST_COOLDOWN * 864e5).toISOString().slice(0, 10);
+  const recent = await sb(`hotdeals?select=product_id&deal_day=gte.${coolFrom}&product_id=not.is.null`);
+  const recentIds = new Set(Array.isArray(recent) ? recent.map((r: any) => r.product_id) : []);
+  const before = picks.length;
+  const fresh = picks.filter((p) => !recentIds.has(p.id));
+  log.skippedRecent = before - fresh.length;
+  picks.length = 0; picks.push(...fresh);
+  log.deals = picks.map((p) => ({ name: p.name, price: p.price, discount: p.discount, src: p.src }));
 
   if (dry || !picks.length) return Response.json(log);
 
