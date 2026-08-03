@@ -574,6 +574,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 
     <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">문의</div>
     <button class="side-link" onclick="closeSide();openInqSheet()"><span class="side-link-ico">🛠</span>오류 · 건의하기</button>
+    <a class="side-link" href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener"><span class="side-link-ico">💬</span>카카오톡 채널 문의</a>
     <button class="side-link" onclick="closeSide();openPartnerModal()"><span class="side-link-ico">📩</span>제휴 · 입점 문의</button>
 
     <!-- 카테고리는 메인 화면 칩으로 충분해서 사이드메뉴에서 뺐음.
@@ -2222,7 +2223,7 @@ function openInqSheet(){
   _openInfo(`
     <div style="font-size:16.5px;font-weight:900;color:#232326;margin-bottom:5px">무엇이 불편하셨나요? 🛠</div>
     <div style="font-size:12.5px;color:#8A8395;line-height:1.7;margin-bottom:15px">
-      보내주시면 확인하고 바로 고칠게요.<br>답이 필요하시면 연락처를 남겨주세요.
+      보내주시면 확인하고 바로 고칠게요.
     </div>
     <div style="display:flex;gap:6px;margin-bottom:12px" id="inqKinds">
       ${[['bug','🐞 오류'],['idea','💡 건의'],['gonggu','📅 공구 요청'],['etc','💬 기타']]
@@ -2232,8 +2233,6 @@ function openInqSheet(){
     </div>
     <textarea id="inqText" rows="5" placeholder="어떤 화면에서 무엇이 안 되었는지 적어주시면 큰 도움이 돼요"
       style="width:100%;border:1.5px solid #E7E3EE;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;line-height:1.7;resize:none;margin-bottom:9px"></textarea>
-    <input id="inqContact" type="text" placeholder="연락처 (선택 · 카톡 아이디나 이메일)"
-      style="width:100%;border:1.5px solid #E7E3EE;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;margin-bottom:13px">
     <button id="inqBtn" onclick="sendInquiry()"
       style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:13px;padding:15px;font-size:14.5px;font-weight:900;font-family:inherit;cursor:pointer">보내기</button>
     <div style="font-size:10.5px;color:#B0AABD;text-align:center;line-height:1.7;margin-top:10px">
@@ -2251,7 +2250,7 @@ function pickInqKind(k, el){
   });
 }
 async function sendInquiry(){
-  const t=document.getElementById('inqText'), c=document.getElementById('inqContact'), b=document.getElementById('inqBtn');
+  const t=document.getElementById('inqText'), b=document.getElementById('inqBtn');
   const txt=(t.value||'').trim();
   if(txt.length<5){ mcToast('조금만 더 자세히 적어주세요 🙏'); t.focus(); return; }
   b.disabled=true; b.textContent='보내는 중...';
@@ -2259,7 +2258,7 @@ async function sendInquiry(){
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_inquiry`,{
       method:'POST',
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({p_kind:window.__inqKind||'etc', p_content:txt, p_contact:(c.value||'').trim(),
+      body:JSON.stringify({p_kind:window.__inqKind||'etc', p_content:txt, p_contact:null,
         p_device:(typeof deviceId==='function'?deviceId():null), p_page:location.pathname+location.search,
         p_token:(typeof mcToken==='function'?mcToken():'')})
     });
@@ -2268,7 +2267,7 @@ async function sendInquiry(){
       _openInfo(`<div style="text-align:center;padding:26px 6px">
           <div style="font-size:38px;margin-bottom:10px">💜</div>
           <div style="font-size:16px;font-weight:900;color:#232326;margin-bottom:7px">보내주셔서 고마워요</div>
-          <div style="font-size:12.5px;color:#8A8395;line-height:1.8">확인하고 바로 고칠게요.<br>연락처를 남기셨다면 답변드릴게요.</div>
+          <div style="font-size:12.5px;color:#8A8395;line-height:1.8">확인하고 바로 고칠게요.</div>
         </div>`);
       try{ trackEvent('inquiry', window.__inqKind||''); }catch(_){}
     }else{
