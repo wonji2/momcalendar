@@ -702,11 +702,12 @@ window.slimAdClick=function(id){
     <div class="promo-scroll"></div>
     <div class="promo-notice" style="display:none">쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받을 수 있습니다.</div>
   </div>
-  <div style="font-size:11px;color:#D85A30;text-align:center;margin-bottom:10px">매일은 아니어도, 올라오면 믿고 보는 핫딜 🔥</div>
-  <div id="hotdealList"></div>
-  <div style="font-size:11px;color:#9a9aa5;text-align:center;line-height:1.6;margin:18px 4px 4px;padding-top:12px;border-top:1px solid #EEE">
-    이 페이지의 일부 링크는 쿠팡 파트너스 등 제휴마케팅 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
+  <div style="font-size:11px;color:#D85A30;text-align:center;margin-bottom:4px">매일은 아니어도, 올라오면 믿고 보는 핫딜 🔥</div>
+  <!-- 제휴 고지: 목록 맨 위 한 곳에 (하단은 스크롤 끝까지 안 가서 인식률이 낮음) -->
+  <div style="font-size:10.5px;color:#9a9aa5;text-align:center;line-height:1.55;margin:0 4px 11px">
+    아래 상품 링크는 쿠팡 파트너스 등 제휴마케팅 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
   </div>
+  <div id="hotdealList"></div>
 </div>
 <!-- ===== /핫딜 영역 ===== -->
 
@@ -716,11 +717,11 @@ window.slimAdClick=function(id){
     <div class="promo-scroll"></div>
     <div class="promo-notice" style="display:none">쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받을 수 있습니다.</div>
   </div>
-  <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:10px">🎁 '예정' 체험단은 오픈일에 신청 링크가 열려요</div>
-  <div id="expList"></div>
-  <div style="font-size:11px;color:#9a9aa5;text-align:center;line-height:1.6;margin:18px 4px 4px;padding-top:12px;border-top:1px solid #EEE">
-    이 페이지의 일부 링크는 쿠팡 파트너스 등 제휴마케팅 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
+  <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:4px">🎁 '예정' 체험단은 오픈일에 신청 링크가 열려요</div>
+  <div style="font-size:10.5px;color:#9a9aa5;text-align:center;line-height:1.55;margin:0 4px 11px">
+    아래 링크 중 일부는 제휴마케팅 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
   </div>
+  <div id="expList"></div>
 </div>
 
 <!-- ===== 통합검색 결과 (검색어 입력 시 공구·핫딜·체험단 한 화면) ===== -->
@@ -1579,7 +1580,9 @@ function hdCardHtml(h){
     ? `<span class="hc-today">오늘</span>`
     : `<span class="hc-ago">${diff===1?'어제':diff+'일 전'}</span>`;
 
-  const cat=[h.major,h.minor,h.mall].filter(Boolean).join(' · ');   // 애드픽은 판매처(11번가·SSG…)까지
+  const cat=[h.major,h.minor].filter(Boolean).join(' · ');
+  // 판매처는 제목 앞에 (베이비핫딜식 "오늘의집)상품명" — 카테고리 줄보다 훨씬 잘 보임)
+  const mallTag=h.mall?`<span style="color:#7B3FB5;font-weight:800">${hcEsc(h.mall)})</span> `:'';
   const top=`<div class="hc-top">
       <span class="hc-chip">핫딜</span>
       <span class="hc-cat">${hcEsc(cat)}</span>
@@ -1607,7 +1610,7 @@ function hdCardHtml(h){
       ${top}
       <div class="hc-row">
         <div class="hc-body">
-          <div class="hc-tit" style="margin-bottom:4px">${hcEsc(h.title)}</div>
+          <div class="hc-tit" style="margin-bottom:4px">${mallTag}${hcEsc(h.title)}</div>
           ${price}
         </div>
         <span class="hc-arrow">›</span>
@@ -1620,7 +1623,7 @@ function hdCardHtml(h){
       <img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="hc-body">
         ${top}
-        <div class="hc-tit">${hcEsc(h.title)}</div>
+        <div class="hc-tit">${mallTag}${hcEsc(h.title)}</div>
         ${price}
       </div>
     </div>

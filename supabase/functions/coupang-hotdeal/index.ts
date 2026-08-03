@@ -86,7 +86,7 @@ const cpGoldbox = () => cpFetch(BASE + "/products/goldbox");
 // ⚠ 응답에 카테고리·상품ID가 없다 → 카테고리는 상품명으로 추정, 키는 링크에서 만든다.
 const ADPICK_AFFID = "a4cea7";
 const AP_MIN_DROP = 15;   // 이 이하 할인은 핫딜이라 부르지 않음
-const AP_MAX_DROP = 85;   // 이 이상은 '정가 뻥튀기' 의심 → 거름 (향수·화장품에서 자주 나옴)
+const AP_MAX_DROP = 60;   // 이 이상은 '정가 뻥튀기' 의심 → 거름 (향수·화장품에서 자주 나옴)
 const AP_MAX = 8;
 
 // 상품명으로 카테고리 추정. 못 맞히면 등록하지 않는다(엉뚱한 분류보다 누락이 낫다).
