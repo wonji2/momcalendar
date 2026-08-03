@@ -371,6 +371,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 @keyframes atSpark{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
   25%{opacity:1}
   100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15)}}
+/* 경품 카드가 촤라락 펼쳐지는 느낌 */
+.at-card{position:relative;border-radius:12px;background:#fff;overflow:visible;
+  opacity:0;transform-origin:bottom center;animation:atCardIn .5s cubic-bezier(.2,1.25,.4,1) forwards}
+@keyframes atCardIn{
+  0%{opacity:0;transform:translateY(14px) rotate(-7deg) scale(.88)}
+  60%{opacity:1;transform:translateY(-3px) rotate(2deg) scale(1.03)}
+  100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
 @keyframes atBadge{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
   18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
   30%{transform:translate(-50%,-50%) scale(1)}
@@ -2032,10 +2039,11 @@ function attendGrid(d, pop){
 // ⚙️ 출석 보상 등급 — 경품·인원은 여기만 고치면 화면에 그대로 반영됩니다.
 //    개근만 '전원 확정'인 이유: 개근자는 수가 적어 비용이 통제되고,
 //    확정이라야 20일에서 멈추지 않고 끝까지 갈 이유가 생긴다.
+// img 를 넣으면 이모지 대신 실제 상품 사진이 나옵니다 (예: img:'/prize/chicken.jpg')
 const ATTEND_TIERS=[
-  {i:3, ico:'🍗', label:'개근 (한 달 내내)', how:'전원 드려요', prize:'치킨 or 피자'},
-  {i:2, ico:'🎀', label:'25일 이상',        how:'추첨 5명',    prize:'다이소 3천원권'},
-  {i:1, ico:'☕', label:'20일 이상',        how:'추첨 10명',   prize:'커피 기프티콘'}
+  {i:1, ico:'☕', img:'', cond:'20일 이상', how:'추첨 10명',   prize:'커피 기프티콘', bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
+  {i:2, ico:'🎀', img:'', cond:'25일 이상', how:'추첨 5명',    prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
+  {i:3, ico:'🍗', img:'', cond:'개근',      how:'전원 드려요', prize:'치킨 or 피자',   bg:'linear-gradient(160deg,#FFE9D9,#FFF4EC)'}
 ];
 
 // 출석일수 등급 (매달 1일 추첨). 20일 미만은 응모 자격 없음.
@@ -2078,19 +2086,26 @@ function renderAttend(d, justChecked){
       <div style="background:#FAF8FC;border-radius:12px;padding:14px 15px;margin-top:12px">
         <div style="font-size:12.5px;font-weight:800;color:#602090;margin-bottom:3px">매달 1일 추첨 🎁</div>
         <div style="font-size:11.5px;color:#9A93A6;margin-bottom:11px">${tier.i>0?`지금 <b style="color:#602090">${tier.ico} ${tier.name} 등급</b>이에요`:`<b style="color:#602090">${tier.need}일</b> 더 오시면 응모돼요`}</div>
-        ${ATTEND_TIERS.map(t=>{
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px">
+        ${ATTEND_TIERS.map((t,idx)=>{
             const on=tier.i>=t.i;
-            return `<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;margin-bottom:5px;
-              background:${on?'#EFE6FA':'transparent'};border:1px solid ${on?'#DDCCF2':'#EFEDF2'}">
-              <span style="font-size:15px;${on?'':'filter:grayscale(1);opacity:.45'}">${t.ico}</span>
-              <div style="min-width:0">
-                <div style="font-size:12px;font-weight:${on?800:600};color:${on?'#602090':'#B0AABD'}">${t.label}</div>
-                <div style="font-size:10.5px;color:${on?'#9A8FB0':'#C6C0CE'};margin-top:1px">${t.how}</div>
+            const face=t.img
+              ? `<img src="${t.img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:11px 11px 0 0">`
+              : `<span style="font-size:30px;line-height:1">${t.ico}</span>`;
+            return `<div class="at-card" style="animation-delay:${idx*90}ms;border:1.5px solid ${on?'#C9AEE8':'#EDEAF2'};
+                ${on?'box-shadow:0 4px 14px rgba(123,63,181,.16)':''}">
+              <div style="height:62px;background:${t.bg};display:flex;align-items:center;justify-content:center;
+                border-radius:11px 11px 0 0;overflow:hidden;${on?'':'filter:grayscale(.75);opacity:.6'}">${face}</div>
+              <div style="padding:7px 6px 9px;text-align:center;background:#fff;border-radius:0 0 11px 11px">
+                <div style="font-size:10px;font-weight:800;color:${on?'#602090':'#B5AFBD'}">${t.cond}</div>
+                <div style="font-size:11px;font-weight:800;color:${on?'#232326':'#C6C0CE'};line-height:1.35;margin-top:3px;word-break:keep-all">${t.prize}</div>
+                <div style="font-size:9.5px;color:${on?'#9A8FB0':'#CFC9D8'};margin-top:3px">${t.how}</div>
               </div>
-              <span style="margin-left:auto;font-size:11.5px;font-weight:${on?800:600};color:${on?'#4C4459':'#C6C0CE'};text-align:right">${t.prize}</span>
+              ${on?'<div style="position:absolute;right:5px;top:5px;width:17px;height:17px;border-radius:17px;background:#7B3FB5;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center">✓</div>':''}
             </div>`;
           }).join('')}
-        <div style="font-size:11px;color:#B0AABD;line-height:1.7;margin-top:8px">
+        </div>
+        <div style="font-size:11px;color:#B0AABD;line-height:1.7">
           최소 20일은 출석하셔야 응모돼요
         </div>
       </div>
