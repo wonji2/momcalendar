@@ -24,6 +24,18 @@ const MIN_DROP   = 0.10;   // 역대최저 + 평균 대비 최소 10% 저렴
 const BIG_DROP   = 0.25;   // 역대최저 아니어도 평균 대비 25% 이상이면 핫딜
 const MAX_PER_RUN = 12;    // 하루 최대 등록 건수 (도배 방지)
 
+// 골드박스 = 쿠팡이 직접 고른 '오늘의 특가'.
+// 우리 가격이력이 없는 초기에도 게시판을 채울 수 있고, 근거는 "쿠팡 선정"으로 정직하게 표기한다.
+const MAX_GOLD = 8;
+const GOLD_CAT: Record<string, [string, string]> = {
+  "출산/유아": ["육아", "육아용품"],
+  "유아동": ["육아", "육아용품"],
+  "식품": ["식품", "가공식품"],
+  "생활용품": ["생필품", "생활용품"],
+  "주방용품": ["생필품", "주방용품"],
+  "헬스/건강식품": ["식품", "건강식품"],
+};
+
 // ── 쿠팡 HMAC 서명 ─────────────────────────────────────────
 function signedDate(): string {
   // yyMMddTHHmmssZ (GMT)
@@ -132,6 +144,34 @@ Deno.serve(async (req) => {
     } catch (e) { log.errors.push({ kw: k.keyword, err: String(e) }); }
     await new Promise((r) => setTimeout(r, 400));   // 쿠팡 호출 간격 (스로틀 회피)
   }
+
+  // 1-b) 골드박스(쿠팡 오늘의 특가) — 우리 관심 카테고리만
+  const goldIds: string[] = [];
+  try {
+    const g = await cpGoldbox();
+    const glist = Array.isArray(g?.data) ? g.data : [];
+    log.goldboxTotal = glist.length;
+    for (const p of glist) {
+      const cat = GOLD_CAT[String(p.categoryName || "")];
+      if (!cat) continue;                                  // 로봇청소기·전자기기 등은 제외
+      const itemId = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+      const id = `${p.productId}_${itemId}`;
+      const price = Number(p.productPrice);
+      if (!price || price < 1000) continue;
+      goldIds.push(id);
+      if (!found.has(id)) {
+        found.set(id, {
+          id, name: String(p.productName || "").slice(0, 200), price,
+          url: p.productUrl, img: p.productImage,
+          major: cat[0], minor: cat[1], keyword: "골드박스", rocket: !!p.isRocket,
+        });
+      } else {
+        const f = found.get(id)!; f.major = cat[0]; f.minor = cat[1];
+      }
+    }
+  } catch (e) { log.errors.push({ kw: "goldbox", err: String(e) }); }
+  log.goldbox = goldIds.length;
+
   log.scanned = found.size;
   if (!found.size) return Response.json({ ...log, note: "수집 0건 — 쿠팡 API 응답 확인 필요(?test=1)" });
 
@@ -188,11 +228,24 @@ Deno.serve(async (req) => {
     });
   }
   cands.sort((a, b) => b.discount - a.discount);
-  const picks = cands.slice(0, MAX_PER_RUN);
+  const picks: any[] = cands.slice(0, MAX_PER_RUN).map((p) => ({ ...p, src: "coupang" }));
   log.candidates = cands.length;
+
+  // 이력 판정에 걸리지 않은 골드박스 건은 '쿠팡 선정 특가'로 채운다
+  // (우리 할인율 주장은 안 하고, 가격이력이 쌓이면 같은 카드에 그래프가 붙는다)
+  const already = new Set(picks.map((p) => p.id));
+  const golds = goldIds
+    .filter((id) => !already.has(id))
+    .map((id) => found.get(id)!)
+    .filter(Boolean)
+    .slice(0, MAX_GOLD)
+    .map((p) => ({ ...p, avg: null, isLowest: false, discount: null, src: "goldbox" }));
+  picks.push(...golds);
+  log.goldPicked = golds.length;
+
   log.deals = picks.map((p) => ({
     name: p.name, price: p.price, avg: p.avg, discount: p.discount,
-    lowest: p.isLowest, reason: p.reason,
+    lowest: p.isLowest, src: p.src,
   }));
 
   if (dry || !picks.length) return Response.json(log);
@@ -210,7 +263,7 @@ Deno.serve(async (req) => {
       price_before: p.avg,
       discount_rate: p.discount,
       img_url: p.img,
-      source: "coupang",
+      source: p.src,
       product_id: p.id,
       is_lowest: p.isLowest,
       deal_day: today,
@@ -218,5 +271,6 @@ Deno.serve(async (req) => {
     }))),
   });
   log.inserted = Array.isArray(ins) ? ins.length : 0;
+  if (!Array.isArray(ins)) log.insertError = ins;   // 조용히 0건 되는 것 방지
   return Response.json(log);
 });
