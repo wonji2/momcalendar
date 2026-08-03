@@ -1667,6 +1667,7 @@ async function openHdSheet(id){
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
           ${h.discount_rate?`<span style="font-size:19px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:''}
           <span style="font-size:20px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
+          ${h.price_before?`<span style="font-size:12px;color:#B0AAB8;text-decoration:line-through">${wonFmt(h.price_before)}</span>`:''}
         </div>
       </div>
     </div>
@@ -1688,17 +1689,19 @@ async function openHdSheet(id){
       </div>`:''}
     </div>`}
 
-    <div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
-      <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
-      ${h.source==='adpick'
-        ? `${h.mall?`<b>${h.mall}</b>에서 판매 중인 상품이에요. `:''}정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중이에요.
-           ${pts.length>=3?'맘캘린더가 기록한 실제 가격 흐름은 위 그래프에서 보실 수 있어요.':'표시된 정가는 판매처가 등록한 값이에요.'}`
-        : (h.source==='goldbox'&&!dropPct
-        ? `쿠팡이 <b>오늘의 특가</b>로 직접 고른 상품이에요. 맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>하고 있어서, 며칠 뒤엔 위 그래프로 평소 가격과 비교해 보실 수 있어요.`
-        : `맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
-           ${pts.length?`지금까지 ${pts.length}일치 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
-           ${dropPct?` 평소보다 <b style="color:#E8402A">${dropPct}% 저렴</b>합니다.`:''}`)}
-    </div>
+    ${h.source==='adpick'
+      // 애드픽은 정가가 곧 근거라 한 줄이면 충분하다 (설명을 붙이면 오히려 장황해짐)
+      ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
+           정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중
+         </div>`
+      : `<div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
+           <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
+           ${h.source==='goldbox'&&!dropPct
+             ? `쿠팡이 <b>오늘의 특가</b>로 직접 고른 상품이에요. 맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>하고 있어서, 며칠 뒤엔 위 그래프로 평소 가격과 비교해 보실 수 있어요.`
+             : `맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
+                ${pts.length?`지금까지 ${pts.length}일치 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
+                ${dropPct?` 평소보다 <b style="color:#E8402A">${dropPct}% 저렴</b>합니다.`:''}`}
+         </div>`}
 
     ${h.product_id==='__demo__'
       ? `<div style="text-align:center;background:#F2EFF6;color:#8A8395;border-radius:13px;padding:14px;font-size:13px;font-weight:700">예시 카드예요 · 실제 상품 링크는 없어요</div>`
