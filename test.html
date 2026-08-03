@@ -424,6 +424,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <div style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
 </div>
 
+<!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
+<div id="hdBg" onclick="closeHdSheet()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9994"></div>
+<div id="hdSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;max-height:88vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));z-index:9995;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
+  <div style="width:38px;height:4px;border-radius:4px;background:#E3E0E8;margin:0 auto 14px"></div>
+  <div id="hdSheetBody"></div>
+</div>
+
 <!-- 찜 알림 권한 요청 바텀시트 -->
 <div id="wnSheetBg" onclick="wnLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9990"></div>
 <div id="wnSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));z-index:9991;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
@@ -678,6 +685,9 @@ window.slimAdClick=function(id){
   </div>
   <div style="font-size:11px;color:#D85A30;text-align:center;margin-bottom:10px">매일은 아니어도, 올라오면 믿고 보는 핫딜 🔥</div>
   <div id="hotdealList"></div>
+  <div style="font-size:11px;color:#9a9aa5;text-align:center;line-height:1.6;margin:18px 4px 4px;padding-top:12px;border-top:1px solid #EEE">
+    이 페이지의 일부 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
+  </div>
 </div>
 <!-- ===== /핫딜 영역 ===== -->
 
@@ -689,6 +699,9 @@ window.slimAdClick=function(id){
   </div>
   <div style="font-size:11px;color:#0F6E56;text-align:center;margin-bottom:10px">🎁 '예정' 체험단은 오픈일에 신청 링크가 열려요</div>
   <div id="expList"></div>
+  <div style="font-size:11px;color:#9a9aa5;text-align:center;line-height:1.6;margin:18px 4px 4px;padding-top:12px;border-top:1px solid #EEE">
+    이 페이지의 일부 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
+  </div>
 </div>
 <!-- ===== /체험단 영역 ===== -->
 
@@ -1418,10 +1431,18 @@ async function loadHotdeals(){
     });
     if(!r.ok) throw 0;
     _hotdealData=await r.json();
+    if(location.search.indexOf('hddemo')>=0) _hotdealData=[_hdDemo()].concat(_hotdealData); // 디자인 확인용 예시
     renderHotdeals();
   }catch(e){
     el.innerHTML=emptyBox('hotdeal');
   }
+}
+// ⚠ 테스트 전용: ?hddemo=1 일 때만 뜨는 '예시' 카드 (실제 가격 아님)
+function _hdDemo(){
+  return {id:-1,title:'[예시] 하기스 네이처메이드 밴드형 기저귀 소형 4팩',
+    link:'https://www.coupang.com/',major:'육아',minor:'육아용품',
+    price:41900,price_before:54300,discount_rate:23,is_lowest:true,
+    product_id:'__demo__',source:'coupang',created_at:new Date().toISOString(),img_url:''};
 }
 function renderHotdeals(){
   const el=document.getElementById('hotdealList');
@@ -1442,17 +1463,136 @@ function renderHotdeals(){
       ? `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:800;color:#fff;background:#F0502E;padding:3px 10px;border-radius:20px">오늘</span>`
       : `<span style="margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;color:#AEAEAE;background:#F2F2F2;padding:3px 10px;border-radius:20px">${ageLabel}</span>`;
     const cardStyle=isToday?' style="border-color:#F6B49E;background:#FFF8F5"':'';
-    return `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener"${cardStyle}>
+
+    // 가격 추적된 건(쿠팡 자동수집)은 카드를 눌러 '왜 핫딜인지' 근거부터 보여준다
+    const tracked = !!h.product_id && h.price;
+    const priceRow = tracked ? `
+      <div style="display:flex;align-items:baseline;gap:7px;margin:6px 0 2px;flex-wrap:wrap">
+        ${h.discount_rate?`<span style="font-size:15px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:''}
+        <span style="font-size:16px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
+        ${h.price_before?`<span style="font-size:11.5px;color:#B0AAB8;text-decoration:line-through">평소 ${wonFmt(h.price_before)}</span>`:''}
+        ${h.is_lowest?`<span style="font-size:10px;font-weight:800;color:#fff;background:#E8402A;padding:2px 7px;border-radius:20px">역대 최저</span>`:''}
+      </div>` : '';
+    const thumb = tracked && h.img_url
+      ? `<img src="${h.img_url}" alt="" loading="lazy" style="width:62px;height:62px;border-radius:11px;object-fit:cover;flex-shrink:0;background:#F5F3F7">` : '';
+
+    const inner = `
       <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
         <span class="hd-tag" style="background:#FAECE7;color:#993C1D">🔥 핫딜</span>
         ${catChips(h.major,h.minor)}
         ${ageBadge}
       </div>
-      <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:3px;padding-right:24px">${h.title}</div>
-      <div style="font-size:11px;color:#999">🕐 ${tstr}</div>
-      <span class="ct-arrow" style="color:#ccc;font-size:18px">›</span>
-    </a>`;
+      <div style="display:flex;gap:11px;align-items:flex-start">
+        ${thumb}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:#222;margin-bottom:3px;padding-right:24px">${h.title}</div>
+          ${priceRow}
+          <div style="font-size:11px;color:#999">${tracked?'📊 가격 근거 보기':'🕐 '+tstr}</div>
+        </div>
+      </div>
+      <span class="ct-arrow" style="color:#ccc;font-size:18px">›</span>`;
+
+    return tracked
+      ? `<div class="hd-card" onclick="openHdSheet(${h.id})"${cardStyle}>${inner}</div>`
+      : `<a class="hd-card" href="${h.link||'#'}" target="_blank" rel="noopener"${cardStyle}>${inner}</a>`;
   }).join('');
+}
+function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
+
+// ── 핫딜 근거 시트 (폴센트식 가격 추이) ──────────────────────
+function closeHdSheet(){
+  document.getElementById('hdSheet').style.bottom='-110%';
+  document.getElementById('hdBg').style.display='none';
+}
+async function openHdSheet(id){
+  const h=(_hotdealData||[]).find(x=>x.id===id); if(!h) return;
+  const body=document.getElementById('hdSheetBody');
+  body.innerHTML=`<div style="padding:40px 0;text-align:center;color:#bbb;font-size:13px">가격 이력 불러오는 중...</div>`;
+  document.getElementById('hdBg').style.display='block';
+  document.getElementById('hdSheet').style.bottom='0';
+
+  let pts=[];
+  if(h.product_id==='__demo__'){                       // 예시 카드는 가짜 이력으로 그림만 보여줌
+    const base=[54300,54300,53900,52800,54300,54300,51900,49900,54300,53200,52800,54300,54300,50900,48900,47500,54300,52100,51200,49800,46900,45900,54300,52700,50200,48100,46200,44900,43800,41900];
+    pts=base.map((p,i)=>({day:i,price:p}));
+  } else
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/hotdeal_chart`,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify({pid:h.product_id})
+    });
+    if(r.ok) pts=await r.json();
+  }catch(e){}
+
+  const prices=pts.map(p=>p.price);
+  const lo=prices.length?Math.min(...prices):h.price;
+  const hi=prices.length?Math.max(...prices):h.price;
+  const avg=h.price_before||(prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):h.price);
+
+  body.innerHTML=`
+    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+      ${h.img_url?`<img src="${h.img_url}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${h.title}</div>
+        <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
+          ${h.discount_rate?`<span style="font-size:19px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:''}
+          <span style="font-size:20px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
+        </div>
+      </div>
+    </div>
+
+    ${h.is_lowest?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🏆 추적 기간 중 <b>가장 싼 가격</b>이에요</div>`:''}
+
+    <div style="border:1px solid #EFEDF2;border-radius:14px;padding:13px 12px 9px;margin-bottom:12px">
+      <div style="font-size:11.5px;font-weight:700;color:#8A8395;margin-bottom:8px">최근 ${pts.length||0}일 가격 추이</div>
+      ${hdChartSvg(pts,avg)}
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#A9A3B2;margin-top:6px">
+        <span>최저 ${wonFmt(lo)}</span><span>평균 ${wonFmt(avg)}</span><span>최고 ${wonFmt(hi)}</span>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
+      <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
+      맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
+      ${pts.length?`지금까지 ${pts.length}일치 중 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>예요.`:'아직 이력이 쌓이는 중이에요.'}
+      ${h.discount_rate?` 평소보다 <b style="color:#E8402A">${h.discount_rate}% 저렴</b>합니다.`:''}
+    </div>
+
+    <a href="${h.link}" target="_blank" rel="noopener" onclick="closeHdSheet()"
+       style="display:block;text-align:center;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border-radius:13px;padding:14px;font-size:14px;font-weight:800;text-decoration:none">
+      쿠팡에서 보기 ›
+    </a>
+    <div style="font-size:10px;color:#B5AFBD;text-align:center;line-height:1.6;margin-top:9px">
+      이 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.
+    </div>
+    <button onclick="closeHdSheet()" style="width:100%;background:none;border:none;color:#bbb;font-size:12px;font-family:inherit;cursor:pointer;padding:10px 6px 2px">닫기</button>`;
+}
+// 가격 추이 미니 라인차트 (외부 라이브러리 없이 SVG로)
+function hdChartSvg(pts,avg){
+  if(!pts||pts.length<2){
+    return `<div style="height:96px;display:flex;align-items:center;justify-content:center;color:#C6C0CE;font-size:11.5px;background:#FBFAFC;border-radius:9px">가격 이력을 모으는 중이에요<br>(며칠 뒤부터 그래프가 보여요)</div>`;
+  }
+  const W=300,H=96,PT=8,PB=8,PL=2,PR=2;
+  const ps=pts.map(p=>p.price);
+  let lo=Math.min(...ps), hi=Math.max(...ps);
+  if(hi===lo){ hi=lo+1; }
+  const x=i=>PL+(W-PL-PR)*(i/(pts.length-1));
+  const y=v=>PT+(H-PT-PB)*(1-(v-lo)/(hi-lo));
+  const line=ps.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area=`${line} L${x(ps.length-1).toFixed(1)},${H-PB} L${x(0).toFixed(1)},${H-PB} Z`;
+  const li=ps.indexOf(lo), last=ps.length-1;
+  const avgY=(avg>=lo&&avg<=hi)?y(avg):null;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:96px;display:block" preserveAspectRatio="none">
+    <defs><linearGradient id="hdg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7B3FB5" stop-opacity=".18"/><stop offset="100%" stop-color="#7B3FB5" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#hdg)"/>
+    ${avgY!==null?`<line x1="0" y1="${avgY.toFixed(1)}" x2="${W}" y2="${avgY.toFixed(1)}" stroke="#CFC7DA" stroke-width="1" stroke-dasharray="4 4"/>`:''}
+    <path d="${line}" fill="none" stroke="#7B3FB5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${x(li).toFixed(1)}" cy="${y(lo).toFixed(1)}" r="3.2" fill="#fff" stroke="#12A05C" stroke-width="2"/>
+    <circle cx="${x(last).toFixed(1)}" cy="${y(ps[last]).toFixed(1)}" r="4" fill="#E8402A" stroke="#fff" stroke-width="2"/>
+  </svg>`;
 }
 
 // ── 체험단 (모집중 → 예정 → 마감) ──
