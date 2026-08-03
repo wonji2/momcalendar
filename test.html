@@ -1678,19 +1678,24 @@ async function openHdSheet(id){
       :(h.source==='goldbox'?`<div style="background:#FFF8E8;border:1px solid #F5E0AE;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#8A6100;margin-bottom:12px">⭐ 쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>`
       :(h.source==='adpick'&&h.discount_rate?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🔻 정가보다 <b>${h.discount_rate}% 싼</b> 가격이에요</div>`:''))}
 
+    ${
+      // 애드픽은 '오늘의 핫딜 목록'만 주고 개별 상품 조회 API가 없다 → 그 상품이 내일 목록에 없으면 이력이 안 쌓인다.
+      // 그래서 이력이 실제로 있을 때만 그래프를 보여준다(없는데 "며칠 뒤 보여요"라고 약속하지 않음).
+      // 쿠팡은 매일 키워드로 다시 검색하므로 반드시 쌓인다 → 안내를 띄워도 된다.
+      (h.source==='adpick' && pts.length<3) ? '' : `
     <div style="border:1px solid #EFEDF2;border-radius:14px;padding:13px 12px 9px;margin-bottom:12px">
       <div style="font-size:11.5px;font-weight:700;color:#8A8395;margin-bottom:8px">${pts.length>=3?`최근 ${pts.length}일 가격 추이`:'가격 추이'}</div>
       ${hdChartSvg(pts,avg)}
       ${pts.length>=3?`<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#A9A3B2;margin-top:6px">
         <span>최저 ${wonFmt(lo)}</span><span>평균 ${wonFmt(avg)}</span><span>최고 ${wonFmt(hi)}</span>
       </div>`:''}
-    </div>
+    </div>`}
 
     <div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
       <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
       ${h.source==='adpick'
         ? `${h.mall?`<b>${h.mall}</b>에서 판매 중인 상품이에요. `:''}정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중이에요.
-           맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>해서, 앞으로 실제로 싼 값인지 위 그래프로 보여드릴게요.`
+           ${pts.length>=3?'맘캘린더가 기록한 실제 가격 흐름은 위 그래프에서 보실 수 있어요.':'표시된 정가는 판매처가 등록한 값이에요.'}`
         : (h.source==='goldbox'&&!dropPct
         ? `쿠팡이 <b>오늘의 특가</b>로 직접 고른 상품이에요. 맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>하고 있어서, 며칠 뒤엔 위 그래프로 평소 가격과 비교해 보실 수 있어요.`
         : `맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
