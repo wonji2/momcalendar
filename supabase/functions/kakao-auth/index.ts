@@ -52,7 +52,15 @@ Deno.serve(async (req) => {
     )
     if (error) return json({ error: 'DB 저장 실패', detail: error.message }, 500)
 
-    return json({ ok: true, kakao_id: kakaoId, nickname })
+    // 4) 회원 세션 발급 — 출석·캘린더 내보내기처럼 '내 것이 쌓이는 기능'을 서버에서 검증하려면 필요.
+    //    셀러 세션과 같은 방식으로, 토큰 원문은 저장하지 않고 sha256 해시만 남긴다.
+    const raw = crypto.randomUUID() + crypto.randomUUID().replaceAll('-', '')
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
+    const tokenHash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    const { error: sErr } = await sb.from('member_sessions').insert({ token_hash: tokenHash, kakao_id: kakaoId })
+    if (sErr) return json({ error: '세션 발급 실패', detail: sErr.message }, 500)
+
+    return json({ ok: true, kakao_id: kakaoId, nickname, token: raw })
   } catch (e) {
     return json({ error: String(e) }, 500)
   }
