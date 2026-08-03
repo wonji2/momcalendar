@@ -321,13 +321,15 @@ details summary::-webkit-details-marker{display:none}
       · 이미 등록된 적 있는 한글명은 <b>@ 없이 줄 맨 앞에 적어도</b> 자동 연결돼요. (예: <i>9/1 또또맘 과자</i>)
     </div>
 
-    <!-- (선택) 공통 인플루언서 -->
+    <!-- (선택) 공통 셀러 — 검색·선택하면 인스타 자동연결 -->
     <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:8px">전부 한 명이면 여기만 채우고 본문엔 날짜·상품만 적어도 돼요 (선택)</div>
+      <div style="font-size:13px;font-weight:800;color:#4A35A0;margin-bottom:2px">👤 이 셀러로 여러 건 등록 (기존 셀러 검색·선택)</div>
+      <div style="font-size:11px;color:#999;margin-bottom:8px">이름을 치면 <b>목록에서 선택</b>돼요(예: 이현맘). 선택하면 인스타가 <b>자동 연결</b> — 그다음 아래 칸에 <b>날짜·상품만</b> 붙여넣으면 끝!</div>
       <div style="display:flex;gap:8px">
-        <input id="aiInfluencer" type="text" placeholder="기본 한글 활동명 (선택)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
-        <input id="aiInsta" type="text" placeholder="기본 인스타 아이디 (선택)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <input id="aiInfluencer" type="text" list="qRegSellers" autocomplete="off" oninput="aiSellerSync()" placeholder="셀러 검색·선택 (한글명/＠아이디)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
+        <input id="aiInsta" type="text" placeholder="인스타 아이디 (자동)" style="flex:1;padding:10px;border:1.5px solid #EBEBEB;border-radius:10px;font-size:13px;font-family:inherit;outline:none">
       </div>
+      <div id="aiSellerHint" style="font-size:11px;min-height:15px;margin-top:5px"></div>
     </div>
 
     <!-- 텍스트 입력 -->
@@ -1693,6 +1695,25 @@ function qRegSellerHint(){
   const {insta,infl}=qRegResolveSeller();
   if(insta) h.innerHTML=`<span style="color:#0F6E56;font-weight:700">🔗 연결: @${insta}${infl?(' · '+infl):''}</span>`;
   else h.innerHTML=`<span style="color:#C62828">⚠️ 등록 안 된 이름이에요 — @아이디로 입력하면 연결돼요</span>`;
+}
+// AI 여러건 등록 — 공통셀러 검색·선택 시 인스타 자동연결 (단건등록과 동일 로직 재사용)
+function aiSellerSync(){
+  const el=document.getElementById('aiInfluencer'); if(!el) return;
+  const igEl=document.getElementById('aiInsta');
+  const h=document.getElementById('aiSellerHint');
+  const raw=(el.value||'').trim();
+  if(!raw){ if(h)h.textContent=''; return; }
+  const noAt=raw.replace(/^@/,'');
+  let insta='', infl='';
+  if(_qRegName2Insta[raw]){ insta=_qRegName2Insta[raw]; infl=raw; }            // 등록된 한글명 선택
+  else if(_qRegInsta2Name[noAt]){ insta=noAt; infl=_qRegInsta2Name[noAt]; }    // 등록된 @아이디 입력
+  if(insta){
+    if(igEl) igEl.value=insta;                          // 인스타 자동 연결
+    if(infl && infl!==raw) el.value=infl;               // @아이디로 친 경우 한글명으로 치환
+    if(h) h.innerHTML=`<span style="color:#0F6E56;font-weight:700">🔗 연결: @${insta}${infl?(' · '+infl):''} — 아래에 날짜·상품만 붙여넣으세요</span>`;
+  } else {
+    if(h) h.innerHTML=`<span style="color:#C62828">⚠️ 목록에 없는 셀러예요 — 오른쪽 칸에 @아이디를 직접 넣으면 새로 연결돼요</span>`;
+  }
 }
 function qGuessCat(n){
   n=n||'';
