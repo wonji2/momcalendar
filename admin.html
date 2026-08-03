@@ -190,6 +190,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('inq',this)">💌 제보 <span id="badge-inq" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('member',this)">👥 회원</div>
+    <div class="tab" onclick="switchTab('attend',this)">💜 출석·추첨</div>
     <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
@@ -377,6 +378,22 @@ details summary::-webkit-details-marker{display:none}
     </div>
     <div id="inqList"></div>
     <style>.inqf{padding:8px 14px;border:1.5px solid #DCD2FB;background:#fff;color:#4A35A0;border-radius:20px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}.inqf.on{background:#4A35A0;color:#fff;border-color:#4A35A0}</style>
+  </div>
+
+  <!-- 💜 출석·추첨 탭 -->
+  <div id="attendView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">💜 출석 · 추첨</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="month" id="atMonth" onchange="loadAttend()" style="padding:7px 10px;border:1.5px solid #DCD2FB;border-radius:9px;font-size:12.5px;font-family:inherit">
+        <button onclick="loadAttend()" style="padding:8px 13px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻</button>
+      </div>
+    </div>
+    <div id="atStats" style="margin-bottom:14px"></div>
+    <div id="atDrawBox" style="margin-bottom:14px"></div>
+    <div id="atWinners" style="margin-bottom:14px"></div>
+    <div style="font-size:12.5px;font-weight:800;color:#4A35A0;margin:16px 0 8px">출석 20일 이상 명단</div>
+    <div id="atList"></div>
   </div>
 
   <!-- 👥 회원 탭 -->
@@ -6469,6 +6486,117 @@ function admRpc(name, body){
   }).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
 }
 function esc2(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ══════ 💜 출석 · 추첨 ══════
+// 등급/경품은 사이트(test.html ATTEND_TIERS)와 같아야 한다.
+const AT_TIERS=[
+  {t:1, name:'20일 이상', prize:'커피 기프티콘',  count:10},
+  {t:2, name:'25일 이상', prize:'다이소 3천원권', count:5},
+  {t:3, name:'개근',      prize:'치킨 or 피자',   count:999}   // 개근은 전원 → 넉넉히
+];
+function atMonthVal(){
+  const el=document.getElementById('atMonth');
+  if(el && !el.value){ const d=new Date(); el.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+  return (el?el.value:'')+'-01';
+}
+async function loadAttend(){
+  const m=atMonthVal();
+  document.getElementById('atStats').innerHTML='<div style="color:#999;font-size:13px;padding:14px">불러오는 중...</div>';
+  try{
+    const d=await admRpc('admin_attendance_stats',{p_month:m});
+    const t=d.tiers||{};
+    document.getElementById('atStats').innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px">
+        ${[['출석한 사람',d.checked_any,'#4A35A0'],['20일↑',t.t1,'#0F6E56'],['25일↑',t.t2,'#B5651D'],[`개근(${d.last_day}일)`,t.t3,'#C2417A']]
+          .map(x=>`<div style="background:#fff;border:1px solid #E8E3F5;border-radius:11px;padding:11px 6px;text-align:center">
+            <div style="font-size:19px;font-weight:900;color:${x[2]}">${x[1]||0}</div>
+            <div style="font-size:10.5px;color:#8A8395;margin-top:3px">${x[0]}</div></div>`).join('')}
+      </div>`;
+    // 추첨 버튼
+    document.getElementById('atDrawBox').innerHTML=`
+      <div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:13px">
+        <div style="font-size:12.5px;font-weight:800;color:#2A1D6E;margin-bottom:9px">추첨하기</div>
+        ${AT_TIERS.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="flex:1;font-size:12px;color:#4C4459">${x.name} · <b>${x.prize}</b></div>
+            <input id="atN${x.t}" type="number" value="${x.t===3?'':x.count}" placeholder="전원" min="1"
+              style="width:62px;padding:6px 8px;border:1.5px solid #DCD2FB;border-radius:8px;font-size:12px;font-family:inherit;text-align:center">
+            <button onclick="drawAttend(${x.t})" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">뽑기</button>
+          </div>`).join('')}
+        <div style="font-size:10.5px;color:#9A93A6;line-height:1.6;margin-top:6px">
+          이미 당첨된 사람은 자동으로 빼고 뽑아요 · 개근은 인원을 비우면 전원
+        </div>
+      </div>`;
+    // 명단
+    const list=d.list||[];
+    document.getElementById('atList').innerHTML = list.length
+      ? list.map(x=>`<div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #EFEDF5;border-radius:10px;padding:10px 12px;margin-bottom:6px">
+          <span style="font-size:13px">${x.tier===3?'🍗':(x.tier===2?'🎀':'☕')}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:#232326">${esc2(x.nickname)}</div>
+            <div style="font-size:10.5px;color:#9A93A6">${esc2(x.kakao_id)}</div>
+          </div>
+          <span style="font-size:12.5px;font-weight:800;color:#4A35A0">${x.days}일</span>
+          ${x.won?`<span style="font-size:10px;font-weight:800;color:#fff;background:#C2417A;padding:3px 8px;border-radius:20px">${esc2(x.won)}</span>`:''}
+        </div>`).join('')
+      : '<div style="color:#B0AABD;font-size:12.5px;padding:16px 2px">20일 이상 출석한 사람이 아직 없어요</div>';
+    loadWinners();
+  }catch(e){
+    document.getElementById('atStats').innerHTML=`<div style="color:#C62828;font-size:12.5px;padding:12px">불러오기 실패: ${esc2(e.message)}</div>`;
+  }
+}
+async function drawAttend(tier){
+  const m=atMonthVal();
+  const cfg=AT_TIERS.find(x=>x.t===tier);
+  const raw=document.getElementById('atN'+tier).value;
+  const n=raw?parseInt(raw,10):9999;
+  if(!confirm(`${cfg.name} 등급에서 ${raw?n+'명':'전원'}을 뽑을까요?\n경품: ${cfg.prize}`)) return;
+  try{
+    const r=await admRpc('admin_attendance_draw',{p_month:m,p_tier:tier,p_count:n,p_prize:cfg.prize});
+    alert(`${r.drawn}명 뽑았어요 🎉`);
+    loadAttend();
+  }catch(e){ alert('실패: '+e.message); }
+}
+async function loadWinners(){
+  const m=atMonthVal();
+  try{
+    const w=await admRpc('admin_attendance_winners',{p_month:m});
+    document.getElementById('atWinners').innerHTML = (w&&w.length)
+      ? `<div style="background:#FFF7FB;border:1px solid #F3D9EA;border-radius:12px;padding:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+            <div style="font-size:12.5px;font-weight:800;color:#C2417A">🎉 당첨자 ${w.length}명</div>
+            <button onclick="copyWinners()" style="padding:6px 11px;background:#fff;border:1px solid #F3D9EA;color:#C2417A;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">📋 명단 복사</button>
+          </div>
+          ${w.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #F7E7EF">
+            <span style="font-size:13px">${x.tier===3?'🍗':(x.tier===2?'🎀':'☕')}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:700;color:#232326">${esc2(x.nickname)} <span style="font-size:10.5px;color:#9A93A6;font-weight:600">${x.days}일</span></div>
+              <div style="font-size:10.5px;color:#B08AA0">${esc2(x.prize)}</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#8A8395;cursor:pointer">
+              <input type="checkbox" ${x.sent?'checked':''} onchange="markSent(${x.id},this.checked)"> 발송
+            </label>
+          </div>`).join('')}
+          <button onclick="resetWinners()" style="width:100%;margin-top:10px;padding:8px;background:#fff;border:1px solid #EFD5DF;color:#B0808F;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">이 달 추첨 다시 하기</button>
+        </div>`
+      : '';
+    window.__winners=w||[];
+  }catch(e){}
+}
+function copyWinners(){
+  const w=window.__winners||[];
+  const txt=w.map(x=>`${x.nickname}\t${x.days}일\t${x.prize}`).join('\n');
+  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>alert('복사했어요! 카페 공지에 붙여넣으세요'));
+  else prompt('복사하세요', txt);
+}
+async function markSent(id, sent){
+  try{ await admRpc('admin_winner_sent',{p_id:id,p_sent:sent}); }catch(e){ alert('실패: '+e.message); }
+}
+async function resetWinners(){
+  if(!confirm('이 달 당첨자를 모두 지우고 다시 뽑을 수 있게 할까요?')) return;
+  try{ const r=await admRpc('admin_attendance_reset',{p_month:atMonthVal(),p_tier:null});
+    alert(`${r.deleted}건 삭제했어요`); loadAttend();
+  }catch(e){ alert('실패: '+e.message); }
+}
 function fmtWhen(iso){
   if(!iso) return '';
   const d=new Date(iso), n=new Date();
@@ -6617,7 +6745,8 @@ function switchTab(tab,el){
   checkedIds.clear();
   updateBulkBar();
   // 모든 뷰 숨기기
-  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView'].forEach(id=>{
+  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView',
+   'inqView','memberView','adperfView','attendView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
   if(tab==='stats'){
@@ -6650,6 +6779,9 @@ function switchTab(tab,el){
     } else if(tab==='member'){
       document.getElementById('memberView').style.display='block';
       loadMembers();
+    } else if(tab==='attend'){
+      document.getElementById('attendView').style.display='block';
+      loadAttend();
     } else if(tab==='adperf'){
       document.getElementById('adperfView').style.display='block';
       loadAdPerf();
