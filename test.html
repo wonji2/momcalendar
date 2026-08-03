@@ -1949,7 +1949,9 @@ function buildCalendar(){
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
     let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
-    if(ends.length) evHtml+=`<div class="cev" style="background:#FDECE8;color:#C0361F;font-weight:800">마감 ${ends.length}</div>`;
+    // 마감일에도 '무엇이' 끝나는지 보이게 상품명을 붙인다 ("마감 1"만 뜨면 뭐가 끝나는지 알 수 없음)
+    evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F">~${ev.name.slice(0,5)}</div>`).join('');
+    if(ends.length>3) evHtml+=`<div class="cmore" style="color:#C0361F">+${ends.length-3}</div>`;
     grid.innerHTML+=`<div class="ccell ${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d}</div><div class="cevs">${evHtml}</div></div>`;
   }
   const rem=(7-(first+last)%7)%7;
