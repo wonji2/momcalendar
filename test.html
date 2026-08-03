@@ -403,7 +403,10 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .hc.today{border-color:#F6B49E;background:#FFF8F5}
 .hc-row{display:flex;gap:10px;align-items:center}
 .hc-body{flex:1;min-width:0}
-.hc-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#F0EDF5;display:block}
+/* 원본이 커서 로딩이 늦다 → 뜨는 동안 흰 네모 대신 연보라 바탕, 다 받으면 부드럽게 나타남 */
+.hc-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;display:block;
+  background:linear-gradient(135deg,#F3EFF9,#EDE7F5);opacity:0;transition:opacity .22s ease}
+.hc-thumb.on{opacity:1}
 /* 썸네일 없을 때 자리 채우기 — 공구 카드엔 왼쪽 네모가 없어서, 이 실루엣이 '핫딜' 식별 신호가 된다 */
 .hc-ph{width:72px;height:72px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#FFF1EC,#FDE4DC);border:1px solid #F7D9CF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
 .hc-ph-i{font-size:21px;line-height:1}
@@ -1633,8 +1636,10 @@ function renderHotdeals(){
     el.innerHTML=emptyBox('hotdeal');
     return;
   }
+  _hdIdx=0;                                   // 위쪽 8장은 즉시 로드하려고 매 렌더마다 초기화
   el.innerHTML=hdOrder(_hotdealData).map(h=>hdCardHtml(h)).join('');
 }
+let _hdIdx=0;
 // 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
 // 같은 날 안에서는 자리가 바뀌지 않게 '날짜'를 씨앗으로 쓴다(새로고침할 때마다 튀면 어지러움).
 function hdOrder(list){
@@ -1686,8 +1691,12 @@ function hdCardHtml(h){
   // 썸네일이 없어도 자리를 비우지 않는다 — 공구 카드엔 왼쪽 네모가 없어서,
   // 이 실루엣이 통합검색에서 '핫딜'을 알아보는 가장 강한 신호다.
   const PH=`<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>`;
+  // 위쪽 카드(_hdIdx<8)는 바로 받고, 아래쪽만 lazy. 다 받으면 .on 으로 부드럽게 나타남.
+  const eager = (_hdIdx++ < 8);
   const thumb=(h.img_url)
-    ? `<img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" loading="lazy" onerror="this.outerHTML=window.__hcPh">`
+    ? `<img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" width="72" height="72" decoding="async"
+         ${eager?'loading="eager" fetchpriority="high"':'loading="lazy"'}
+         onload="this.classList.add('on')" onerror="this.outerHTML=window.__hcPh">`
     : PH;
 
   const cls=`hc${isToday?' today':''}`;
