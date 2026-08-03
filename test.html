@@ -1968,8 +1968,21 @@ function setCalMine(v){
 // ── 찜한 공구 → 폰 캘린더(.ics) ────────────────────────
 // RFC 5545 표준이라 구글·네이버·애플·삼성·아웃룩이 모두 읽는다. 서버 없이 브라우저에서 바로 생성.
 function exportWishIcs(){
-  const items=calPool();
+  let items=calPool();
   if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
+
+  // 이미 내보낸 건 또 내보내면 캘린더 앱에 따라 중복으로 쌓인다(네이버·삼성은 UID를 안 봐줌).
+  // → 전에 내보낸 목록을 기억해뒀다가, 새로 찜한 것만 담는 걸 기본으로 한다.
+  let sent=[];
+  try{ sent=JSON.parse(localStorage.getItem('mc_ics_sent')||'[]'); }catch(_){}
+  const sentSet=new Set(sent);
+  const fresh=items.filter(it=>!sentSet.has(it.id));
+  if(sent.length && fresh.length && fresh.length<items.length){
+    const onlyNew=confirm(`새로 찜한 ${fresh.length}개만 내보낼까요?\n\n[확인] 새로 찜한 ${fresh.length}개만 (중복 없음)\n[취소] 찜한 것 전체 ${items.length}개 다시`);
+    if(onlyNew) items=fresh;
+  }else if(sent.length && !fresh.length){
+    if(!confirm(`새로 찜한 공구가 없어요.\n찜한 것 전체 ${items.length}개를 다시 내보낼까요?\n(캘린더에 중복으로 들어갈 수 있어요)`)) return;
+  }
   const esc=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\r?\n/g,'\\n');
   const ymd=s=>String(s||'').replace(/-/g,'');
   const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
@@ -1996,6 +2009,11 @@ function exportWishIcs(){
   a.download='맘캘린더_내공구.ics';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  // 내보낸 것 기억 (다음엔 새로 찜한 것만 담을 수 있게)
+  try{
+    const merged=Array.from(new Set(sent.concat(items.map(it=>it.id))));
+    localStorage.setItem('mc_ics_sent', JSON.stringify(merged));
+  }catch(_){}
   try{ trackEvent('ics_export', String(items.length)); }catch(_){}
   mcToast(`${items.length}개 일정을 캘린더 파일로 만들었어요 📅`);
 }
