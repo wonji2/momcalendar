@@ -265,8 +265,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .card-go{display:none}
 .card-status-txt{font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1;display:flex;align-items:center}
 .card-go{color:#c4c0d4;font-size:16px;font-weight:400;line-height:1;display:flex;align-items:center}
-.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
-.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
+.card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:62px}
+.card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:62px}
 .card-seller-strong{color:#5b4ba8;font-weight:700}
 
 /* 날짜 섹션 구분선 */
@@ -1179,6 +1179,8 @@ function renderCard(item){
   else if(isOngoing(item)){ stTxt='진행중'; stColor='#2E7D32'; }
   else if(isUpcoming(item)){ stTxt='예정'; stColor='#E65100'; }
   const stHtml = stTxt?`<span class="card-status-txt" style="color:${stColor}">${stTxt}</span>`:'';
+  // 상태텍스트(오른쪽 58px 지점)와 상품명이 겹치지 않게, 글자수만큼 오른쪽 여백 확보
+  const stPad = stTxt ? (62 + stTxt.length*12) : 62;
 
   const instaUrl = item.insta
     ? `https://instagram.com/${item.insta}`
@@ -1205,8 +1207,8 @@ function renderCard(item){
       <span class="cat-sub">${item.minor}</span>
       ${partnerChip}
     </div>
-    <div class="card-name">${item.name}</div>
-    <div class="card-sellerline">${sellerLine}</div>
+    <div class="card-name" style="padding-right:${stPad}px">${item.name}</div>
+    <div class="card-sellerline" style="padding-right:${stPad}px">${sellerLine}</div>
     <span class="card-right">${stHtml}<span class="card-go">›</span></span>
     <button class="wbtn" data-wid="${item.id}" onclick="toggleWish(${item.id},this,event)" aria-label="찜하기">${heartSvg(isWished(item.id))}</button>
   </div>`;
