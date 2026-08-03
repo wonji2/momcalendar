@@ -495,6 +495,18 @@ details summary::-webkit-details-marker{display:none}
         </div>
       </div>
       <input id="bOrder" type="hidden" value="1">
+      <div class="modal-field">
+        <label>노출 대상 *</label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:flex;align-items:center;gap:7px;padding:10px;border:1.5px solid #FFD79A;background:#FFF8EC;border-radius:10px;cursor:pointer">
+            <input type="radio" name="bStage" value="test" style="accent-color:#B8860B"><span style="font-size:12.5px;font-weight:700;color:#8A6100">🧪 테스트 페이지만</span>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:7px;padding:10px;border:1.5px solid #BFE6D8;background:#F1FBF7;border-radius:10px;cursor:pointer">
+            <input type="radio" name="bStage" value="live" checked style="accent-color:#0F6E56"><span style="font-size:12.5px;font-weight:700;color:#0F6E56">🌐 정식 사이트</span>
+          </label>
+        </div>
+        <div style="font-size:11px;color:#999;margin-top:4px">🧪 테스트면 <b>bannerlive.html</b>(나만 보는 주소)에서만 보이고, 실제 방문자에겐 안 보여요. 확인 후 <b>정식 사이트</b>로 바꾸면 바로 노출됩니다.</div>
+      </div>
       <div class="modal-field" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="bActive" checked style="width:16px;height:16px;accent-color:#4A35A0">
         <label for="bActive" style="font-size:13px;font-weight:600;cursor:pointer">활성화 (사이트에 표시)</label>
@@ -3640,6 +3652,26 @@ const BFIL_HELP={
   promo:'🎁 이웃셀러 아래 띠 배너(브랜드 제휴·파트너스용)예요.'
 };
 function setBannerFilter(t){ bannerFilter=t; applyBannerFilter(); }
+function setBStageRadio(v){
+  document.querySelectorAll('input[name="bStage"]').forEach(r=>{ r.checked=(r.value===v); });
+}
+// 카드에서 바로 테스트↔정식 전환
+async function toggleBannerStage(id, cur){
+  const next=(cur==='test')?'live':'test';
+  const msg=(next==='live')
+    ? '이 배너를 🌐 정식 사이트에 노출할까요?\n(실제 방문자에게 바로 보입니다)'
+    : '이 배너를 🧪 테스트 페이지 전용으로 내릴까요?\n(정식 사이트에서 사라집니다)';
+  if(!confirm(msg)) return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/banners?id=eq.${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
+      body:JSON.stringify({stage:next})
+    });
+    if(!r.ok){ alert('변경 실패 ('+r.status+')'); return; }
+    loadBannerAdmin();
+  }catch(e){ alert('오류: '+e.message); }
+}
 // 모달: 배너 종류에 따라 필요한 칸만 보이게
 function syncBannerTypeUI(){
   const t=(document.getElementById('bType')||{}).value||'main';
@@ -3780,6 +3812,7 @@ function renderBannerCards(){
         </div>
         <span style="position:absolute;top:7px;left:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:${st.bg};color:${st.c}">${st.label}</span>
         <span style="position:absolute;bottom:7px;left:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.92);color:${b.type==='slim'?'#7B3FB5':(b.type==='promo'?'#0F6E56':'#4A35A0')}">${b.type==='slim'?'🟪 슬림배너':(b.type==='promo'?'🎁 기획전':'🖼️ 메인')}</span>
+        <span style="position:absolute;bottom:7px;right:7px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:${b.stage==='test'?'#FFF3D6':'#E3F6EE'};color:${b.stage==='test'?'#8A6100':'#0F6E56'}">${b.stage==='test'?'🧪 테스트 전용':'🌐 정식노출'}</span>
         <span style="position:absolute;top:7px;right:7px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.38);border-radius:20px;padding:2px 7px">#${i+1}</span>
       </div>
       <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
@@ -3793,6 +3826,7 @@ function renderBannerCards(){
             <button onclick="moveBanner(${i},-1)" ${i===0?'disabled':''} title="앞으로" style="width:28px;height:28px;border:1px solid #EBE7FA;background:#fff;border-radius:7px;cursor:pointer;color:${i===0?'#ddd':'#7B68EE'};font-family:inherit;font-size:12px">▲</button>
             <button onclick="moveBanner(${i},1)" ${i===bannerData.length-1?'disabled':''} title="뒤로" style="width:28px;height:28px;border:1px solid #EBE7FA;background:#fff;border-radius:7px;cursor:pointer;color:${i===bannerData.length-1?'#ddd':'#7B68EE'};font-family:inherit;font-size:12px">▼</button>
           </div>
+          <button onclick="toggleBannerStage(${b.id},'${b.stage==='test'?'test':'live'}')" title="${b.stage==='test'?'정식 사이트에 올리기':'테스트 전용으로 내리기'}" style="padding:6px 11px;background:${b.stage==='test'?'#E3F6EE':'#FFF3D6'};color:${b.stage==='test'?'#0F6E56':'#8A6100'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${b.stage==='test'?'🌐 정식배포':'🧪 테스트로'}</button>
           <button onclick="toggleBannerActive(${b.id},${b.active})" style="padding:6px 11px;background:${b.active?'#FFF9E6':'#E8F5E9'};color:${b.active?'#E6A817':'#2E7D32'};border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${b.active?'숨기기':'표시'}</button>
           <button onclick="openBannerEdit(${b.id})" style="padding:6px 11px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
           <button onclick="deleteBanner(${b.id})" title="삭제" style="padding:6px 11px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️</button>
@@ -3869,6 +3903,7 @@ function openBannerAdd(){
   resetImgAdj();
   document.getElementById('bOrder').value=bannerData.length+1;
   document.getElementById('bActive').checked=true;
+  setBStageRadio('test');   // 새로 만들 땐 테스트부터
   updateBgPreview();
   ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
   syncBannerTypeUI();
@@ -3902,6 +3937,7 @@ function openBannerEdit(id){
   }
   document.getElementById('bOrder').value=b.sort_order||1;
   document.getElementById('bActive').checked=b.active!==false;
+  setBStageRadio(b.stage==='test'?'test':'live');
   // 배경색 파싱
   const bgMatch=(b.bg||'').match(/linear-gradient\((\d+deg),(#[0-9a-fA-F]+)\s*0%,(#[0-9a-fA-F]+)\s*100%\)/);
   if(bgMatch){
@@ -3951,6 +3987,7 @@ async function saveBanner(){
     img_position:imgUrl?imgPos.pos:'center',
     img_size:imgUrl?imgPos.size:'cover',
     active:document.getElementById('bActive').checked,
+    stage:((document.querySelector('input[name="bStage"]:checked')||{}).value)||'live',
   };
 
   if(!id){
@@ -3959,7 +3996,7 @@ async function saveBanner(){
   }
   const url=id?`${SB_URL}/rest/v1/banners?id=eq.${id}`:`${SB_URL}/rest/v1/banners`;
   const method=id?'PATCH':'POST';
-  const SCHED_COLS=['link_open_at','show_from','show_until','img_position','img_size'];
+  const SCHED_COLS=['stage','link_open_at','show_from','show_until','img_position','img_size'];
   const dropped=[];
   let res, lastMsg='';
   for(let attempt=0; attempt<8; attempt++){

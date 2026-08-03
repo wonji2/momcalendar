@@ -535,17 +535,21 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     var r=await fetch(_SU+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
     if(!r.ok) return;
     var list=await r.json(), now=Date.now();
-    var b=(list||[]).find(function(x){
+    // 테스트 페이지: 테스트(stage=test) 배너를 우선 보여주고, 없으면 정식(live)
+    var inWin=function(x){
       var f=x.show_from?new Date(x.show_from).getTime():null;
       var u=x.show_until?new Date(x.show_until).getTime():null;
       return (f===null||f<=now) && (u===null||u>=now);
-    });
+    };
+    var b=(list||[]).find(function(x){ return x.stage==='test' && inWin(x); })
+       || (list||[]).find(function(x){ return x.stage!=='test' && inWin(x); });
     var el=document.getElementById('slimAdSlot'); if(!el) return;
     if(!b){ el.style.display='none'; return; }
     var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
     var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7B3FB5';
     var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
-    el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
+    var stageTag=(b.stage==='test')?'<div style="font-size:10px;font-weight:800;color:#8A6100;background:#FFF3D6;border-radius:6px;padding:2px 7px;display:inline-block;margin-bottom:4px">🧪 테스트 전용 배너 (실제 사이트엔 안 보임)</div>':'';
+    el.innerHTML=stageTag+'<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
       +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
       +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
       +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
