@@ -2028,9 +2028,9 @@ function attendGrid(d, pop){
 //    확정이라야 20일에서 멈추지 않고 끝까지 갈 이유가 생긴다.
 // img 를 넣으면 이모지 대신 실제 상품 사진이 나옵니다 (예: img:'/prize/chicken.jpg')
 const ATTEND_TIERS=[
-  {i:1, ico:'☕', img:'', cond:'20일 이상', how:'추첨 5명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
-  {i:2, ico:'🎀', img:'', cond:'25일 이상', how:'추첨 3명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
-  {i:3, ico:'🍗', img:'', cond:'개근',      how:'추첨 2명', prize:'치킨 or 피자',   bg:'linear-gradient(160deg,#FFE9D9,#FFF4EC)'}
+  {i:1, ico:'☕', img:'/prize/coffee.jpg',  cond:'20일 이상', how:'추첨 5명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
+  {i:2, ico:'🎀', img:'/prize/daiso.jpg',   cond:'25일 이상', how:'추첨 3명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
+  {i:3, ico:'🍗', img:'/prize/chicken.jpg', cond:'개근',      how:'추첨 2명', prize:'치킨 or 피자',   bg:'linear-gradient(160deg,#FFE9D9,#FFF4EC)'}
 ];
 
 // 다음 등급까지 남은 일수로 응원 문구를 고른다 (출석 직후 · 등급이 코앞일 때만 노출)
@@ -2136,8 +2136,9 @@ function renderAttend(d, justChecked){
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px">
         ${ATTEND_TIERS.map((t,idx)=>{
             const on=tier.i>=t.i;
+            // 상품컷이 흰 배경이라 cover 로 자르면 어색함 → contain 으로 통째로 보여준다
             const face=t.img
-              ? `<img src="${t.img}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:11px 11px 0 0">`
+              ? `<img src="${t.img}" alt="" loading="lazy" onerror="this.outerHTML='<span style=\\'font-size:30px;line-height:1\\'>${t.ico}</span>'" style="max-width:88%;max-height:88%;object-fit:contain;display:block">`
               : `<span style="font-size:30px;line-height:1">${t.ico}</span>`;
             return `<div class="at-card" style="animation-delay:${idx*90}ms;border:1.5px solid ${on?'#C9AEE8':'#EDEAF2'};
                 ${on?'box-shadow:0 4px 14px rgba(123,63,181,.16)':''}">
@@ -2411,18 +2412,23 @@ async function exportWishIcs(){
   const ymd=s=>String(s||'').replace(/-/g,'');
   const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
   const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//momcalendar//KR','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:맘캘린더 내 공구'];
+  const md=s=>{ const p=String(s||'').split('-'); return p.length>=3?(+p[1])+'/'+(+p[2]):''; };
   items.forEach(it=>{
     const end=realEnd(it)||it.openDate;
-    // DTEND 는 '그날 자정'이라 하루 더해야 마감일이 캘린더에 포함된다
-    const e=new Date(end+'T00:00:00'); e.setDate(e.getDate()+1);
+    // ⚠ 기간(오픈~마감) 일정으로 만들면 폰 캘린더에 여러 날 바가 깔려 어느 날이 오픈인지 흐려진다.
+    //    → '오픈일 하루'짜리 일정 하나로 넣고, 기간은 제목에 적는다.
+    //    이미 오픈일이 지난 진행중 건은 오늘 날짜에 올려 과거를 채우지 않는다.
+    const start = (it.openDate < todayStr) ? todayStr : it.openDate;
+    const e=new Date(start+'T00:00:00'); e.setDate(e.getDate()+1);
     const eStr=`${e.getFullYear()}${pad(e.getMonth()+1)}${pad(e.getDate())}`;
+    const range = md(it.openDate)+'~'+md(end);
     L.push('BEGIN:VEVENT',
       `UID:momcal-${it.id}@momcalendar.com`,
       `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ymd(it.openDate)}`,
+      `DTSTART;VALUE=DATE:${ymd(start)}`,
       `DTEND;VALUE=DATE:${eStr}`,
-      `SUMMARY:${esc((it.influencer?it.influencer+' · ':'')+it.name)}`,
-      `DESCRIPTION:${esc('맘캘린더에서 보기')}`,
+      `SUMMARY:${esc((it.influencer?it.influencer+' · ':'')+it.name+' ('+range+')')}`,
+      `DESCRIPTION:${esc('공구 기간 '+range+' · 맘캘린더')}`,
       'URL:https://momcalendar.com/',
       'END:VEVENT');
   });
@@ -2852,7 +2858,7 @@ async function wnAllow(){
   }
   closeWnSheet();
   const done=await enablePush();
-  if(done) mcToast('알림 켜졌어요 🔔 끄려면 💜 내 찜 탭에서');
+  if(done) mcToast('알림 켜졌어요 🔔');
   else mcToast('알림을 켜지 못했어요. 브라우저 설정을 확인해 주세요');
   if(fSt==='wish') renderList();
 }
