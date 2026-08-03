@@ -364,7 +364,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .chat-menu{display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
 .chat-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
 .chat-menu-item{display:flex;align-items:center;gap:8px;background:#fff;border-radius:24px;padding:11px 18px;box-shadow:0 3px 12px rgba(0,0,0,.18);font-size:13px;font-weight:700;color:#333;text-decoration:none;white-space:nowrap}
-.chat-menu-ico{font-size:16px}
+/* 네이버 'N'은 글자라 이모지보다 좁다 → 아이콘 칸을 고정해 글자 시작점을 맞춤 */
+.chat-menu-ico{font-size:16px;width:19px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1}
 .content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
 .content-seg .cseg{flex:1;text-align:center;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;color:#999;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit}
 .content-seg .cseg.on{color:#fff;font-weight:700}
@@ -2109,7 +2110,10 @@ async function exportWishIcs(){
       '로그인하면 <b style="color:#7B3FB5">이미 내보낸 공구</b>를 기억해서<br>폰 캘린더에 중복으로 쌓이지 않아요');
     return;
   }
-  let items=calPool();
+  // ⚠ calPool()을 쓰면 안 된다. + 메뉴에서 부르면 캘린더가 '전체' 모드라 공구 전체가 딸려나간다.
+  //    내보내기는 캘린더 모드와 무관하게 '내가 찜한 것'만.
+  const _all=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+  let items=_all.filter(it=>!isExpired(it) && isWished(it.id));
   if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
 
   // 이미 내보낸 건 또 내보내면 캘린더 앱에 따라 중복으로 쌓인다(네이버·삼성은 UID를 안 봐줌).
@@ -3160,8 +3164,8 @@ function closeChatMenu(){
     <!-- + 버튼에는 '홍보하고 싶은 것'만. 문의·오류제보는 사이드메뉴로 옮김 -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();exportWishIcs()" style="border:none;cursor:pointer;font-family:inherit;background:#F3ECFF;color:#602090"><span class="chat-menu-ico">📅</span>내 폰 캘린더에 넣기</button>
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
-    <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openWnSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔔</span>오픈 알림 받기</button>
     <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
+    <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
     <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
     <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>친구에게 공유</button>
   </div>
