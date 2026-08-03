@@ -1200,6 +1200,15 @@ const SA_FIRST=3;                                      // 섹션마다 처음 �
 
 function searchAllOn(){ return !!(fSearch && fSearch.trim()); }
 
+// 검색 결과에선 끝난 핫딜을 뺀다.
+// 자동수집 건은 expires_at 이 있고, 수동 등록 건은 종료일이 없으므로 등록 14일이 지나면 끝난 걸로 본다.
+const HD_STALE_DAYS=14;
+function hdExpired(h){
+  if(h.expires_at) return new Date(h.expires_at) < new Date();
+  const t=new Date(h.created_at).getTime();
+  return isFinite(t) && (Date.now()-t) > HD_STALE_DAYS*86400000;
+}
+
 function saToggle(kind){ _saOpen[kind]=!_saOpen[kind]; renderSearchAll(); }
 
 async function renderSearchAll(){
@@ -1224,7 +1233,7 @@ async function renderSearchAll(){
 
   const hit=(...vals)=>vals.some(v=>(v||'').toString().toLowerCase().includes(q));
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
-  const hd = (_hotdealData||[]).filter(h=>hit(h.title,h.major,h.minor));
+  const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
 
   const sec=(kind,ico,label,arr,cardFn)=>{
