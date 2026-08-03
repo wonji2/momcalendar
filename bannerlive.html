@@ -526,6 +526,39 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <button class="cseg" data-ct="exp" onclick="switchContent('exp')">🎁 체험단</button>
 </div>
 
+<!-- 광고 슬림 배너 (banners type=slim · 게시기간 자동 노출/종료 · 공구·핫딜·체험단 공통) -->
+<div id="slimAdSlot" style="padding:8px 14px 0;display:none"></div>
+<script>
+(async function(){
+  try{
+    var _SU='https://hycaqsqeogjtbscmzrtm.supabase.co', _SK='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+    var r=await fetch(_SU+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
+    if(!r.ok) return;
+    var list=await r.json(), now=Date.now();
+    var b=(list||[]).find(function(x){
+      var f=x.show_from?new Date(x.show_from).getTime():null;
+      var u=x.show_until?new Date(x.show_until).getTime():null;
+      return (f===null||f<=now) && (u===null||u>=now);
+    });
+    var el=document.getElementById('slimAdSlot'); if(!el) return;
+    if(!b){ el.style.display='none'; return; }
+    var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
+    var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7B3FB5';
+    var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+    el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
+      +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
+      +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
+      +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
+    el.style.display='block';
+  }catch(e){}
+})();
+window.slimAdClick=function(id){
+  var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
+  try{ if(typeof trackEvent==='function') trackEvent('banner_click',JSON.stringify({id:id})); }catch(_){}
+  if(lnk) window.open(lnk,'_blank');
+};
+</script>
+
 <!-- ===== 공구 영역 ===== -->
 <div id="gongguWrap" style="min-height:75vh">
 <!-- 상태 탭 -->
@@ -573,38 +606,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <span id="dayFilterLabel" style="font-size:13px;font-weight:700;color:#602090"></span>
     <button onclick="clearDayFilter()" style="background:#602090;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
   </div>
-  <!-- 광고 슬림 배너 (banners 테이블 type=slim · 게시기간대로 자동 노출/종료) -->
-  <div id="slimAdSlot" style="padding:7px 14px 4px;display:none"></div>
-  <script>
-  (async function(){
-    try{
-      var _SU='https://hycaqsqeogjtbscmzrtm.supabase.co', _SK='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-      var r=await fetch(_SU+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
-      if(!r.ok) return;
-      var list=await r.json(), now=Date.now();
-      var b=(list||[]).find(function(x){
-        var f=x.show_from?new Date(x.show_from).getTime():null;
-        var u=x.show_until?new Date(x.show_until).getTime():null;
-        return (f===null||f<=now) && (u===null||u>=now);
-      });
-      var el=document.getElementById('slimAdSlot'); if(!el) return;
-      if(!b){ el.style.display='none'; return; }
-      var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
-      var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7B3FB5';
-      var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
-      el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
-        +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
-        +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
-        +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
-      el.style.display='block';
-    }catch(e){}
-  })();
-  window.slimAdClick=function(id){
-    var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
-    try{ if(typeof trackEvent==='function') trackEvent('banner_click',JSON.stringify({id:id})); }catch(_){}
-    if(lnk) window.open(lnk,'_blank');
-  };
-  </script>
   <div class="cards" id="cardList"></div>
 </div>
 

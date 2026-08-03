@@ -363,14 +363,15 @@ details summary::-webkit-details-marker{display:none}
   <!-- 배너 관리 탭 -->
   <div id="bannerView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;color:#2A1D6E">🖼️ 메인 배너 관리</div>
+      <div style="font-size:14px;font-weight:800;color:#2A1D6E">🖼️ 배너 관리</div>
       <button onclick="openBannerAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 배너 추가</button>
     </div>
-    <div style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.8">
-      💡 사진은 어떤 사이즈든 자동으로 가운데 맞춰 잘려요 ✂️ · 권장 <b>960×320px</b>(3:1)<br>
-      ↕️ 순서는 <b>≡ 손잡이를 잡고 드래그</b>(또는 ▲▼)해서 바꾸면 자동 저장돼요<br>
-      🖼️ 사진이 안 보이면 Supabase Storage의 <b>banners 버킷이 공개(public)</b>인지 확인하세요(아래 가이드)
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="bfil-main" onclick="setBannerFilter('main')" style="flex:1;padding:9px 6px;border:1.5px solid #4A35A0;background:#4A35A0;color:#fff;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🖼️ 메인 <span id="bcnt-main" style="opacity:.75"></span></button>
+      <button id="bfil-slim" onclick="setBannerFilter('slim')" style="flex:1;padding:9px 6px;border:1.5px solid #DCD2FB;background:#fff;color:#7B3FB5;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🟪 슬림광고 <span id="bcnt-slim" style="opacity:.75"></span></button>
+      <button id="bfil-promo" onclick="setBannerFilter('promo')" style="flex:1;padding:9px 6px;border:1.5px solid #BFE6D8;background:#fff;color:#0F6E56;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🎁 기획전 <span id="bcnt-promo" style="opacity:.75"></span></button>
     </div>
+    <div id="bannerHelp" style="background:#EEE9FF;border-radius:10px;padding:11px 14px;font-size:12px;color:#4A35A0;margin-bottom:12px;line-height:1.8"></div>
     <div id="bannerList"></div>
   </div>
 
@@ -395,7 +396,7 @@ details summary::-webkit-details-marker{display:none}
       <div class="modal-title" id="bannerModalTitle">🖼️ 배너 추가</div>
       <input type="hidden" id="bId">
       <div class="modal-field"><label>배너 위치 *</label>
-        <select id="bType" style="width:100%;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
+        <select id="bType" onchange="syncBannerTypeUI()" style="width:100%;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
           <option value="main">메인 배너 (상단 큰 슬라이드)</option>
           <option value="promo">🎁 기획전·제휴 존 (이웃셀러 아래 띠)</option>
           <option value="slim">🟪 슬림 광고 배너 (공구 리스트 맨 위 · 한 줄)</option>
@@ -403,15 +404,15 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:11px;color:#999;margin-top:4px">기획전은 브랜드 제휴·쿠팡 파트너스 등 광고용. 색은 아래에서 민트 계열을 고르면 예뻐요.</div>
         <div style="font-size:11px;color:#7B3FB5;margin-top:3px;line-height:1.6">🟪 <b>슬림 광고 배너</b>: <b>제목</b>=상품 문구 · <b>브랜드명 칸</b>=왼쪽 태그(예: 오늘만 특가) · <b>링크</b>=연결 URL · <b>노출 기간</b>=게시 시작~종료(종료되면 자동으로 사라져요) · <b>배경색 왼쪽 첫 칸</b>이 배너 색. 이미지 없어도 돼요.</div>
       </div>
-      <div class="modal-field"><label>제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
-      <div class="modal-field"><label>브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
-      <div class="modal-field"><label>부제목</label><input id="bSubtitle" type="text" placeholder="예) 17,000명+ 맘들의 공구 커뮤니티"></div>
+      <div class="modal-field"><label id="bTitleLbl">제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
+      <div class="modal-field"><label id="bCtaLbl">브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
+      <div class="modal-field" id="bSubField"><label>부제목</label><input id="bSubtitle" type="text" placeholder="예) 17,000명+ 맘들의 공구 커뮤니티"></div>
       <div class="modal-field">
         <label>링크 URL</label>
         <input id="bLink" type="text" placeholder="https:// 또는 seller-popup / ad-popup">
         <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
       </div>
-      <div class="modal-field">
+      <div class="modal-field" id="bLinkOpenField">
         <label>링크 공개 일시 <span style="font-weight:400;color:#999">(비우면 즉시 작동)</span></label>
         <input id="bLinkOpenAt" type="datetime-local">
         <div style="font-size:11px;color:#999;margin-top:4px">배너 사진·제목은 지금부터 노출되고, 이 시각이 지나야 링크가 눌려요. 예: 공구 오픈일 자정</div>
@@ -424,7 +425,7 @@ details summary::-webkit-details-marker{display:none}
         </div>
         <div style="font-size:11px;color:#999;margin-top:4px">광고 상품용. 설정한 기간에만 배너가 노출되고, 종료 시각이 지나면 자동으로 사라져요.</div>
       </div>
-      <div class="modal-field">
+      <div class="modal-field" id="bBgField">
         <label>배경색</label>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <input type="color" id="bColor1" value="#1a6b4a" style="width:40px;height:36px;border:1.5px solid #EBEBEB;border-radius:8px;cursor:pointer;padding:2px">
@@ -438,9 +439,9 @@ details summary::-webkit-details-marker{display:none}
           <div id="bBgPreview" style="flex:1;min-width:60px;height:36px;border-radius:8px;border:1px solid #EBEBEB"></div>
         </div>
         <input id="bBg" type="hidden">
-        <div style="font-size:11px;color:#999">단색으로 하려면 두 색을 같게 설정하세요</div>
+        <div id="bBgHint" style="font-size:11px;color:#999">단색으로 하려면 두 색을 같게 설정하세요</div>
       </div>
-      <div class="modal-field">
+      <div class="modal-field" id="bImgField">
         <label>배너 이미지 <span style="font-weight:400;color:#999">(있으면 배경색 대신 사용)</span></label>
         <div id="bImgDrop" tabindex="0" style="border:2px dashed #EBEBEB;border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;outline:none" onclick="document.getElementById('bImgFile').click()">
           <div id="bImgPreview" style="display:none;margin-bottom:8px">
@@ -3625,9 +3626,45 @@ async function loadBannerAdmin(){
   const res=await fetch(`${SB_URL}/rest/v1/banners?type=in.(main,promo,slim)&order=type.asc,sort_order.asc`,{
     headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
   });
-  bannerData=await res.json();
-  renderBannerList();
+  bannerAll=await res.json();
+  applyBannerFilter();
   updateImgbbStatus();
+}
+
+// ── 배너 종류별 분리 보기 (메인 / 슬림광고 / 기획전) ──
+let bannerAll=[], bannerFilter='main';
+const BFIL_STYLE={main:{c:'#4A35A0',bd:'#DCD2FB'},slim:{c:'#7B3FB5',bd:'#DCD2FB'},promo:{c:'#0F6E56',bd:'#BFE6D8'}};
+const BFIL_HELP={
+  main:'💡 상단 큰 슬라이드 배너예요. 사진은 자동으로 가운데 맞춰 잘려요 ✂️ 권장 <b>960×320px</b>(3:1)<br>↕️ 순서는 <b>드래그</b>(또는 ▲▼)로 바꾸면 자동 저장돼요',
+  slim:'🟪 <b>공구 리스트 맨 위 한 줄 광고</b>예요. <b>제목</b>=문구 · <b>브랜드명 칸</b>=왼쪽 태그(예: 오늘만 특가) · <b>링크</b>=연결 URL · <b>노출 기간</b> 지정하면 끝나는 날 자동으로 사라져요.<br>👉 사진·그라데이션 필요 없어요. 맨 위 1개만 노출돼요(여러 개면 순서 위쪽).',
+  promo:'🎁 이웃셀러 아래 띠 배너(브랜드 제휴·파트너스용)예요.'
+};
+function setBannerFilter(t){ bannerFilter=t; applyBannerFilter(); }
+// 모달: 배너 종류에 따라 필요한 칸만 보이게
+function syncBannerTypeUI(){
+  const t=(document.getElementById('bType')||{}).value||'main';
+  const slim=(t==='slim');
+  const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('bImgField',!slim);        // 슬림은 이미지 불필요
+  show('bSubField',!slim);        // 부제목도 안 씀
+  show('bLinkOpenField',!slim);   // 링크 공개일시도 안 씀
+  const tl=document.getElementById('bTitleLbl'); if(tl) tl.innerHTML=slim?'문구 * <span style="font-weight:400;color:#999">(배너에 크게 보이는 글)</span>':'제목 *';
+  const cl=document.getElementById('bCtaLbl');   if(cl) cl.innerHTML=slim?'왼쪽 태그 <span style="font-weight:400;color:#999">(예: 오늘만 특가 · 비우면 "오늘만 특가")</span>':'브랜드명 (기획전용, 작은 글씨)';
+  const t1=document.getElementById('bTitle');    if(t1) t1.placeholder=slim?'예) 보텔라핏 · 온가족 장건강 케어':'예) 맘캘린더 공구 함께해요 💚';
+  const c1=document.getElementById('bCta');      if(c1) c1.placeholder=slim?'예) 오늘만 특가':'예) botellafit · 쿠팡 파트너스';
+  const bgHint=document.getElementById('bBgHint'); if(bgHint) bgHint.innerHTML=slim?'슬림 배너는 <b>왼쪽 첫 색</b>만 사용해요':'단색으로 하려면 두 색을 같게 설정하세요';
+}
+function applyBannerFilter(){
+  ['main','slim','promo'].forEach(t=>{
+    const b=document.getElementById('bfil-'+t); if(!b) return;
+    const on=(t===bannerFilter), st=BFIL_STYLE[t];
+    b.style.background=on?st.c:'#fff'; b.style.color=on?'#fff':st.c; b.style.borderColor=on?st.c:st.bd;
+    const cnt=document.getElementById('bcnt-'+t);
+    if(cnt) cnt.textContent=(bannerAll||[]).filter(x=>(x.type||'main')===t).length||'';
+  });
+  const help=document.getElementById('bannerHelp'); if(help) help.innerHTML=BFIL_HELP[bannerFilter]||'';
+  bannerData=(bannerAll||[]).filter(x=>(x.type||'main')===bannerFilter);
+  renderBannerList();
 }
 
 let bannerDragIdx=null;
@@ -3814,7 +3851,7 @@ async function persistBannerOrder(){
 function openBannerAdd(){
   document.getElementById('bannerModalTitle').textContent='🖼️ 배너 추가';
   document.getElementById('bId').value='';
-  document.getElementById('bType').value='main';
+  document.getElementById('bType').value=bannerFilter||'main';   // 보고 있던 종류로 기본 선택
   document.getElementById('bCta').value='';
   document.getElementById('bTitle').value='';
   document.getElementById('bSubtitle').value='';
@@ -3834,6 +3871,7 @@ function openBannerAdd(){
   document.getElementById('bActive').checked=true;
   updateBgPreview();
   ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
+  syncBannerTypeUI();
   document.getElementById('bannerModal').style.display='flex';
 }
 
@@ -3873,6 +3911,7 @@ function openBannerEdit(id){
   }
   updateBgPreview();
   ['bColor1','bColor2','bGradDir'].forEach(id=>document.getElementById(id).oninput=updateBgPreview);
+  syncBannerTypeUI();
   document.getElementById('bannerModal').style.display='flex';
 }
 
