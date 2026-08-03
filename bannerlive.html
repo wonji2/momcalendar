@@ -573,31 +573,36 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     <span id="dayFilterLabel" style="font-size:13px;font-weight:700;color:#602090"></span>
     <button onclick="clearDayFilter()" style="background:#602090;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
   </div>
-  <!-- 🧪 광고 배너 테스트 슬롯 (bannerlive 전용 · 첫 카드 위) -->
-  <div style="padding:2px 14px 0;display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:11px;color:#b3a9c8">
-    <span>🧪 시안</span>
-    <button onclick="adSet('1')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">왼쪽 오늘만특가</button>
-    <button onclick="adSet('2')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">왼쪽 핫딜</button>
-    <button onclick="adSet('3')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">오른쪽 오늘만특가</button>
-    <button onclick="adSet('4')" style="font-size:11px;padding:3px 9px;border:1px solid #D9C2F0;background:#fff;border-radius:14px;font-family:inherit">오른쪽 핫딜🔥</button>
-  </div>
-  <div id="adTestSlot" style="padding:7px 14px 4px"></div>
+  <!-- 광고 슬림 배너 (banners 테이블 type=slim · 게시기간대로 자동 노출/종료) -->
+  <div id="slimAdSlot" style="padding:7px 14px 4px;display:none"></div>
   <script>
-  (function(){
-    var TXT='보텔라핏 · 온가족 장건강 케어';
-    var ELL='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700';
-    var AD='<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span>';
-    function pill(t){ return '<span style="background:#fff;color:#7B3FB5;font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+t+'</span>'; }
-    function box(inner){ return '<div style="display:flex;align-items:center;gap:9px;height:40px;background:#7B3FB5;border-radius:11px;padding:0 11px">'+inner+'</div>'; }
-    var V={
-      '1': box(pill('오늘만 특가')+'<span style="'+ELL+'">'+TXT+'</span>'+AD),
-      '2': box(pill('핫딜')+'<span style="'+ELL+'">'+TXT+'</span>'+AD),
-      '3': box('<span style="'+ELL+'">'+TXT+'</span>'+AD+pill('오늘만 특가 ›')),
-      '4': box('<span style="'+ELL+'">'+TXT+'</span>'+AD+pill('🔥 핫딜 ›'))
-    };
-    window.adSet=function(k){ var el=document.getElementById('adTestSlot'); if(el) el.innerHTML=V[k]; };
-    adSet('1');
+  (async function(){
+    try{
+      var r=await fetch(SUPABASE_URL+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
+      if(!r.ok) return;
+      var list=await r.json(), now=Date.now();
+      var b=(list||[]).find(function(x){
+        var f=x.show_from?new Date(x.show_from).getTime():null;
+        var u=x.show_until?new Date(x.show_until).getTime():null;
+        return (f===null||f<=now) && (u===null||u>=now);
+      });
+      var el=document.getElementById('slimAdSlot'); if(!el) return;
+      if(!b){ el.style.display='none'; return; }
+      var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
+      var bg=(b.bg&&b.bg.indexOf('#')===0)?b.bg:'#7B3FB5';
+      var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+      el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
+        +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
+        +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
+        +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
+      el.style.display='block';
+    }catch(e){}
   })();
+  window.slimAdClick=function(id){
+    var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
+    try{ if(typeof trackEvent==='function') trackEvent('banner_click',JSON.stringify({id:id})); }catch(_){}
+    if(lnk) window.open(lnk,'_blank');
+  };
   </script>
   <div class="cards" id="cardList"></div>
 </div>
