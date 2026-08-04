@@ -2466,7 +2466,8 @@ async function exportWishIcs(){
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${ymd(start)}`,
       `DTEND;VALUE=DATE:${eStr}`,
-      `SUMMARY:${esc((it.influencer?it.influencer+' · ':'')+it.name+' ('+range+')')}`,
+      // ⚠️ 상품명이 앞. 폰 캘린더는 제목을 짧게 잘라 보여줘서 셀러명이 앞이면 무슨 공구인지 안 보인다.
+      `SUMMARY:${esc(it.name+' ('+range+')'+(it.influencer?' · '+it.influencer:''))}`,
       `DESCRIPTION:${esc('공구 기간 '+range+' · 맘캘린더')}`,
       'URL:https://momcalendar.com/',
       'END:VEVENT');
