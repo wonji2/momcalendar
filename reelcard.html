@@ -163,6 +163,7 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
   <button onclick="load()">카드 만들기</button>
   <button onclick="savePng()" id="btnSave">📥 사진 저장</button>
   <button class="ghost" onclick="copyCap()">캡션 복사</button>
+  <button id="btnWeek" onclick="saveWeek()" style="background:#3E8E5A">📦 이번 주 5일치</button>
   <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
   <label style="color:#E8C77E">↓ 글씨 크기</label>
   <select id="vsel" onchange="setV(this.value)" style="background:#6B4A9E;border:1px solid #8B6ABE;color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:700;font-family:inherit">
@@ -189,6 +190,18 @@ const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const md=d=>d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'';
 const DOW=['일','월','화','수','목','금','토'];
 
+// 날짜 더하기 — toISOString 은 UTC 라 한국 날짜가 밀린다
+function addDays(s,n){
+  const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// 같은 품목인지 — index.html _sameProduct 와 같은 사상(정규화 후 포함관계, 3자 이상)
+function sameProduct(a,b){
+  const N=s=>(s||'').toLowerCase().replace(/[\s.·_&/()\[\]-]/g,'');
+  const x=N(a), y=N(b); if(!x||!y) return false; if(x===y) return true;
+  const sh=x.length<=y.length?x:y, lo=x.length<=y.length?y:x;
+  return sh.length>=3 && lo.indexOf(sh)>=0;
+}
 function todayKST(){
   const n=new Date(Date.now()+9*3600*1000);
   return n.toISOString().slice(0,10);
@@ -198,14 +211,17 @@ async function load(){
   const day=document.getElementById('day').value||todayKST();
   document.getElementById('st').textContent='불러오는 중…';
   try{
-    const [gg,pt,cc,wc]=await Promise.all([
+    const [gg,pt,cc,wc,mySoon]=await Promise.all([
       fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date&limit=500`,{headers:H}).then(r=>r.json()),
       // ⚠️ 노출기간(start_date~end_date)까지 봐야 한다. is_partner 만 보면 계약 끝난 셀러가 이웃셀러로 뜬다.
       //    (2026-08-04: 건이맘이 7/31 로 끝났는데 8/4 카드에 이웃셀러로 나감 — 사장님 지적)
       //    index.html 의 파트너 판정과 같은 기준. 한쪽만 고치면 또 어긋난다.
       fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
-      fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json())
+      fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+      // 맘캘린더가 앞으로 3일 안에 오픈할 공구 — 같은 품목을 남의 이름으로 미리 홍보하지 않기 위해
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${day}`+
+            `&open_date=lte.${addDays(day,3)}&select=name,open_date`,{headers:H}).then(r=>r.json())
     ]);
     // 카드에 찍힌 날짜 기준으로 노출기간 안에 있는 이웃셀러만. 핸들은 소문자·@제거로 맞춘다(index.html normHandle 과 동일)
     const nh=s=>(s||'').replace('@','').trim().toLowerCase();
@@ -229,8 +245,14 @@ async function load(){
     }));
     // 맘캘린더 본인 → 이웃셀러 → 나머지(인기순)
     const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
-    const opens=rows.filter(r=>r.open_date===day).sort(sortFn);
-    const ends =rows.filter(r=>r.end_date===day).sort(sortFn);
+    // 맘캘린더가 곧(D+1~D+3) 오픈할 상품과 같은 품목은 카드에서 뺀다.
+    // 하루 전에 남의 이름으로 같은 상품을 홍보하면 우리 공구가 손해다. (사장님 지시 2026-08-04)
+    const soon=(mySoon||[]);
+    const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
+    const dropped=rows.filter(clash).map(x=>x.name+' ('+x.seller+')');
+    if(dropped.length) console.log('맘캘린더 예정건과 겹쳐 제외:', dropped);
+    const opens=rows.filter(r=>r.open_date===day && !clash(r)).sort(sortFn);
+    const ends =rows.filter(r=>r.end_date===day  && !clash(r)).sort(sortFn);
     window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
     render(day,opens,ends);
     makeCaption(day,opens,ends);
@@ -400,25 +422,72 @@ async function makeCaption(day,opens,ends){
   //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
   const line=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
   const nb=opens.filter(x=>x.partner), rest=opens.filter(x=>!x.partner);
-  const build=(endCut)=>{
+  const build=(endCut,openCut)=>{
+    const oShow=(openCut===undefined)?rest.length:openCut;
     let s=`📌 저장해두고 필요하실 때 꺼내 보세요\n\n맘캘린더에서 공유드리는\n${head} 오늘 공구 캘린더\n\n오픈 ${opens.length}건 · 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
     if(nb.length) s+=`\n💜 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
-    s+=`\n🔓 오늘 오픈하는 공구\n`+rest.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
+    const o=rest.slice(0,oShow);
+    s+=`\n🔓 오늘 오픈하는 공구\n`+o.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n');
+    if(rest.length>oShow) s+=`\n…외 ${rest.length-oShow}건`;
+    s+='\n';
     const e=ends.slice(0,endCut);
     s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
     if(ends.length>endCut) s+=`\n…외 ${ends.length-endCut}건`;
     s+=`\n\n━━━━━━━━━━━━━━\n\n오늘 진행하는 공구리스트 일부 공유입니다\n전체 일정 검색·조회는 프로필 링크 맘캘린더 웹사이트에서 가능해요.ᐟ.ᐟ\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요\n다음번 카드에 반영해서 올려드릴게요.ᐟ.ᐟ\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n${pickTags(day)}`;
     return s;
   };
-  // 인스타 캡션 2200자 제한에 맞춰 마감 목록을 자동으로 줄인다
+  // 인스타 캡션 2200자 제한. 마감부터 줄이고, 마감을 0으로 해도 넘치면 그때 오픈을 줄인다.
+  // (8/6 처럼 오픈이 66건이면 마감 0건이어도 2253자가 나온다 — 실측 2026-08-04)
   let cut=ends.length, txt=build(cut);
   while(txt.length>2200 && cut>0){ cut--; txt=build(cut); }
+  let oCut=rest.length;
+  while(txt.length>2200 && oCut>0){ oCut--; txt=build(0,oCut); }
   document.getElementById('captxt').value=txt;
-  document.getElementById('caplen').textContent=`${txt.length}자 / 2200자 (마감 ${cut}건 노출)`;
+  document.getElementById('caplen').textContent=
+    `${txt.length}자 / 2200자 · 오픈 ${Math.min(oCut,rest.length)}/${rest.length} · 마감 ${cut}/${ends.length}`;
 }
 
 // 캡처 없이 1080×1920 PNG 로 바로 저장
-async function savePng(){
+// ── 이번 주 평일(월~금) 한 번에 저장 ──
+// 매일 날짜 바꿔가며 5번 따로 저장하는 게 번거로워서 만든 것. (사장님 요청 2026-08-04)
+// 사진 5장 + 캡션 5개를 담은 txt 1개가 순서대로 내려받아진다.
+function weekdaysOf(dateStr){
+  // ⚠️ toISOString() 은 UTC 로 바꿔서 한국시간 기준 날짜가 하루 밀린다. 로컬 값으로 직접 만든다.
+  const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  const d=new Date(dateStr+'T00:00:00');
+  const mon=new Date(d); mon.setDate(d.getDate()-((d.getDay()+6)%7));   // 그 주 월요일
+  const out=[];
+  for(let i=0;i<5;i++){ const x=new Date(mon); x.setDate(mon.getDate()+i); out.push(fmt(x)); }
+  return out;
+}
+async function saveWeek(){
+  const btn=document.getElementById('btnWeek');
+  const base=document.getElementById('day').value||todayKST();
+  const days=weekdaysOf(base);
+  const keep=document.getElementById('day').value;
+  btn.disabled=true;
+  const caps=[];
+  for(let i=0;i<days.length;i++){
+    btn.textContent=`저장 중… ${i+1}/${days.length}`;
+    document.getElementById('day').value=days[i];
+    await load();                                   // 그 날짜로 다시 그리기
+    await new Promise(r=>setTimeout(r,250));
+    await savePng(true);                            // 조용히 저장
+    caps.push(`===== ${days[i]} =====\n`+document.getElementById('captxt').value);
+    await new Promise(r=>setTimeout(r,600));        // 브라우저 연속 다운로드 제한 회피
+  }
+  // 캡션 5개를 한 파일로
+  const blob=new Blob([caps.join('\n\n\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.download=`momcal_caption_${days[0].replace(/-/g,'')}_주간.txt`;
+  a.href=URL.createObjectURL(blob); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  document.getElementById('day').value=keep; await load();
+  btn.textContent='📦 이번 주 5일치'; btn.disabled=false;
+  document.getElementById('st').innerHTML=`이번 주 <b>${days.length}일치</b> 사진 + 캡션 저장 완료 ✅`;
+}
+
+async function savePng(quiet){
   const btn=document.getElementById('btnSave');
   const card=document.getElementById('card');
   const wasMini=document.body.classList.contains('mini');
