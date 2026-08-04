@@ -544,6 +544,14 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   <span class="intro-emph">공구 일정 &amp; 핫딜 정보 커뮤니티</span> 쏟아지는 이벤트와 체험단 정보까지 🔥
 </div>
 
+<!-- 재로그인 안내 띠 — 로그인이 중간에 끊긴 기기에만 한 번 뜬다 (2026-08-04) -->
+<div id="reloginStrip" style="display:none;margin:10px 12px 0;background:#F4ECFD;border:1px solid #CDAEEA;border-radius:10px;padding:10px 11px;align-items:center;gap:9px">
+  <span style="font-size:18px;flex-shrink:0">💜</span>
+  <span style="flex:1;font-size:11.5px;color:#4A2A72;line-height:1.45;word-break:keep-all"><b>로그인이 중단됐었어요</b><br><span style="color:#7A6494">다시 로그인하시면 찜·출석이 이어져요</span></span>
+  <button onclick="reloginStripGo()" style="color:#fff;background:#602090;border:none;border-radius:13px;padding:6px 12px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit">로그인</button>
+  <button onclick="reloginStripClose()" style="color:#B0A0C8;font-size:14px;background:none;border:none;cursor:pointer;padding:2px 4px" aria-label="닫기">✕</button>
+</div>
+
 <!-- PWA 홈화면 추가 얇은 띠 (문구 아래·공구 카드 위) -->
 <div id="pwaStrip" style="display:none;margin:10px 12px 0;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
   <img src="momcal-appicon.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
@@ -2747,6 +2755,8 @@ function startKakaoLogin(){
   if(!kkoInit()){ alert('카카오 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
+  // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
+  try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
   try{ trackEvent('kakao_login_start',''); }catch(_){}
   Kakao.Auth.authorize({ redirectUri: kkoRedirect(), scope: 'profile_nickname' });
 }
@@ -2800,6 +2810,9 @@ function hideLoginStrip(){
       if(d && d.ok){
         // token = 회원 세션. 출석·캘린더 내보내기를 서버에서 검증할 때 쓴다.
         try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||''})); }catch(_){}
+        // 무사히 돌아왔으니 실패 흔적을 지운다 (안 지우면 '실패'로 잘못 기록됨)
+        try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); }catch(_){}
+        if(typeof reloginStripHide==='function') reloginStripHide();
         try{ trackEvent('kakao_login_done',''); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
@@ -2829,9 +2842,77 @@ function paintMemberUI(){
 function kkoLogout(){
   if(!confirm('로그아웃할까요?\n(찜은 이 기기에 그대로 남아요)')) return;
   try{ localStorage.removeItem('mc_member'); }catch(_){}
+  // 스스로 로그아웃한 사람에게 "로그인이 중단됐었어요" 안내가 뜨면 엉뚱하다 → 대상에서 제외
+  try{
+    localStorage.removeItem('mc_login_from'); localStorage.removeItem('mc_login_try');
+    localStorage.removeItem('mc_login_fail'); localStorage.setItem('mc_relogin_done','1');
+  }catch(_){}
   paintMemberUI();
+  if(typeof reloginStripHide==='function') reloginStripHide();
 }
-document.addEventListener('DOMContentLoaded', function(){ kkoInit(); paintMemberUI(); });
+
+// ── 재로그인 안내 띠 (2026-08-04) ────────────────────────────────
+// 2026-08-03 카카오 로그인이 중간에 끊겨 6명이 못 들어왔다(events: 시작18 vs 성공12).
+// 실패는 카카오 화면에서 나기 때문에 우리 서버엔 아무 기록도 안 남는다.
+// → 아래 3가지 흔적으로 대상을 고른다.
+//    ① mc_login_fail  = 실패가 확정된 기기 (checkLoginFail 이 남김) — 가장 정확
+//    ② mc_member 는 있는데 token 이 없다 = 토큰 방식 이전 로그인자 (기능이 조용히 깨져 있던 사람)
+//    ③ mc_login_from 만 있다 = 8/3 사고 당시 로그인을 눌렀던 기기 (추정)
+// ②③은 추정이라 아래 종료일까지만 쓰고, ①은 앞으로도 계속 쓴다(상시 안전망).
+var RELOGIN_GUESS_UNTIL = Date.parse('2026-08-18T23:59:59+09:00');  // 추정 대상 안내 종료일
+var RELOGIN_FAIL_DAYS   = 30;                                        // 확정 실패는 30일 안쪽만
+function reloginStripTarget(){
+  try{
+    if(isLoggedIn()) return false;                                    // 이미 정상 로그인
+    if(localStorage.getItem('mc_relogin_done')==='1') return false;    // 평생 한 번만
+    var now=Date.now();
+    var f=parseInt(localStorage.getItem('mc_login_fail')||'0',10);
+    if(f && now-f < RELOGIN_FAIL_DAYS*86400000) return true;           // ①
+    if(now > RELOGIN_GUESS_UNTIL) return false;                        // 추정 안내는 여기서 끝
+    var m=memberGet();
+    if(m && m.kakao_id) return true;                                   // ②
+    return !!localStorage.getItem('mc_login_from');                    // ③
+  }catch(_){ return false; }
+}
+// 로그인이 끝까지 안 갔는지 확인해 기록으로 남긴다.
+// 이게 있어야 다음에 또 막혔을 때 사장님이 '몇 명이 어디서 막혔는지' 바로 알 수 있다.
+function checkLoginFail(){
+  try{
+    if(location.search.indexOf('code=')>=0) return;      // 지금 돌아오는 중 → 판단 보류
+    var raw=localStorage.getItem('mc_login_try'); if(!raw) return;
+    var t=JSON.parse(raw);
+    if(!t || !t.t) { localStorage.removeItem('mc_login_try'); return; }
+    if(Date.now()-t.t < 60000) return;                   // 1분 안쪽이면 아직 진행 중일 수 있음
+    localStorage.removeItem('mc_login_try');
+    localStorage.setItem('mc_login_fail', String(t.t));
+    if(typeof trackEvent==='function') trackEvent('kakao_login_fail', t.p||'');
+  }catch(_){ try{ localStorage.removeItem('mc_login_try'); }catch(__){} }
+}
+function showReloginStrip(){
+  try{
+    if(!reloginStripTarget()) return false;
+    var el=document.getElementById('reloginStrip');
+    if(!el) return false;                                             // 옛 캐시 HTML엔 없음 → 조용히 통과
+    el.style.display='flex';
+    return true;
+  }catch(_){ return false; }
+}
+function reloginStripHide(){
+  try{ localStorage.setItem('mc_relogin_done','1'); }catch(_){}
+  var el=document.getElementById('reloginStrip'); if(el) el.style.display='none';
+}
+function reloginStripClose(){ reloginStripHide(); }
+function reloginStripGo(){
+  reloginStripHide();
+  if(document.getElementById('kkoSheet') && typeof openLoginSheet==='function'){
+    openLoginSheet('다시 로그인해 주세요',
+      '지난번 로그인이 중간에 끊겼어요<br>다시 로그인하시면 <b style="color:#7B3FB5">찜·출석</b>이 그대로 이어져요',
+      '닉네임만 받아요 · 예전에 찜한 공구는 그대로 있어요');
+  }else if(typeof startKakaoLogin==='function'){
+    startKakaoLogin();
+  }
+}
+document.addEventListener('DOMContentLoaded', function(){ kkoInit(); paintMemberUI(); checkLoginFail(); showReloginStrip(); });
 
 // ── 바텀시트를 아래로 끌어서 닫기 ──────────────────────
 // 손잡이(회색 바)를 내리면 닫히는 게 자연스러운데 지금은 '닫기' 버튼밖에 없어서 추가.
@@ -3204,6 +3285,9 @@ function showPwaStrip(){
     if(!_isMobile()) return;                            // PC → 안 뜸
     if(localStorage.getItem('mc_pwa_installed')==='1') return;  // 설치한 사람 → 안 뜸
     const el=document.getElementById('pwaStrip'); if(!el) return;
+    // 재로그인 안내가 떠 있으면 띠를 두 줄 겹치지 않는다(광고처럼 읽힘)
+    const rs=document.getElementById('reloginStrip');
+    if(rs && rs.style.display==='flex') return;
     // ✕ 로 닫았을 때만 잠시 쉬어간다(닫을수록 뜸하게). 그 외엔 늘 보인다.
     const next=parseInt(localStorage.getItem('mc_pwa_strip_next')||'0',10);
     if(next && Date.now()<next) return;
