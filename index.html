@@ -3118,16 +3118,22 @@ function clearSearch(){
 }
 const sInput=document.getElementById('sInput');
 function scrollToResults(){
-  const target=searchAllOn()
+  const saOn=searchAllOn();
+  const target=saOn
     ? document.getElementById('searchAllView')
     : document.getElementById('cardList');
   if(!target) return;
-  // 핫딜/체험단 탭이면 공구 탭으로 전환(검색은 공구에서 동작)
-  const gw=document.getElementById('gongguWrap');
-  if(gw && gw.style.display==='none') switchContent('gonggu');
-  // 캘린더 탭이면 리스트로 전환해 결과가 보이도록
-  const lv=document.getElementById('listView');
-  if(lv && lv.style.display==='none') switchTab('list');
+  // ⚠️ 통합검색 중에는 아래 전환을 하면 안 된다.
+  //    applySearchMode 가 일부러 숨겨둔 공구 목록을 여기서 다시 켜버리면,
+  //    검색 결과(searchAllView)가 그 긴 목록 아래로 밀려 화면이 맨 밑으로 튄다.
+  if(!saOn){
+    // 핫딜/체험단 탭이면 공구 탭으로 전환(검색은 공구에서 동작)
+    const gw=document.getElementById('gongguWrap');
+    if(gw && gw.style.display==='none') switchContent('gonggu');
+    // 캘린더 탭이면 리스트로 전환해 결과가 보이도록
+    const lv=document.getElementById('listView');
+    if(lv && lv.style.display==='none') switchTab('list');
+  }
   const hd=document.querySelector('.hd');
   const off=(hd?hd.offsetHeight:60)+8; // sticky 검색바 높이만큼 빼서 그 아래에 결과가 보이게
   const y=target.getBoundingClientRect().top + window.pageYOffset - off;
