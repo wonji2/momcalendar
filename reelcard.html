@@ -79,8 +79,10 @@ body.clean .safe,body.clean .gcrop{display:none}
 .brand-t{font-family:var(--f-t);font-size:46px;color:var(--p-d);letter-spacing:-1.6px;font-weight:800}
 /* 제목 2줄 — 썸네일에서 "뭐지?" 하고 눌러보게 만드는 유일한 요소라 최대한 크게.
    건수 박스는 릴스 재생 아이콘(우측 상단)에 묻히므로 제목 아래 왼쪽으로 내렸다. (사장님 지시 2026-08-04) */
-.title{font-family:var(--f-t);color:var(--ink);letter-spacing:-4px;
-  line-height:1.02;font-weight:800;white-space:nowrap}
+/* ⚠️ line-height 를 1.02 처럼 좁게 주면 84px 이상에서 괄호·슬래시·받침(금의 ㅁ)이 잘린다.
+   (사장님 지적 2026-08-04) 큰 글자일수록 줄높이 여유가 필요하다. */
+.title{font-family:var(--f-t);color:var(--ink);letter-spacing:-3.5px;
+  line-height:1.45;font-weight:800;white-space:nowrap}
 /* 건수 박스를 제목 오른쪽에 붙이고, 제목이 남는 폭을 꽉 채운다.
    건수는 릴스 재생 아이콘에 가려질 수 있지만 제목은 안 잘린다. (사장님 지시 2026-08-04) */
 .title{font-size:var(--fs-title);flex:1;min-width:0}
@@ -171,6 +173,11 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
   <button onclick="savePng()" id="btnSave">📥 사진 저장</button>
   <button class="ghost" onclick="copyCap()">캡션 복사</button>
   <button id="btnWeek" onclick="saveWeek()" style="background:#3E8E5A">📦 이번 주 5일치</button>
+  <label>기간</label>
+  <input type="date" id="d1" style="width:150px">
+  <span style="color:#9E93AE">~</span>
+  <input type="date" id="d2" style="width:150px">
+  <button id="btnRange" onclick="saveRange()" style="background:#3E8E5A">📦 이 기간 저장</button>
   <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
   <label style="color:#E8C77E">↓ 글씨 크기</label>
   <select id="vsel" onchange="setV(this.value)" style="background:#6B4A9E;border:1px solid #8B6ABE;color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:700;font-family:inherit">
@@ -489,10 +496,9 @@ function weekdaysOf(dateStr){
   for(let i=0;i<5;i++){ const x=new Date(mon); x.setDate(mon.getDate()+i); out.push(fmt(x)); }
   return out;
 }
-async function saveWeek(){
-  const btn=document.getElementById('btnWeek');
-  const base=document.getElementById('day').value||todayKST();
-  const days=weekdaysOf(base);
+// 여러 날짜를 한 번에: 사진 N장 + 캡션 N개가 든 txt 1개
+async function saveDays(days, btn, label, tag){
+  if(!days.length) return;
   const keep=document.getElementById('day').value;
   btn.disabled=true;
   const caps=[];
@@ -505,15 +511,29 @@ async function saveWeek(){
     caps.push(`===== ${days[i]} =====\n`+document.getElementById('captxt').value);
     await new Promise(r=>setTimeout(r,600));        // 브라우저 연속 다운로드 제한 회피
   }
-  // 캡션 5개를 한 파일로
   const blob=new Blob([caps.join('\n\n\n')],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a');
-  a.download=`momcal_caption_${days[0].replace(/-/g,'')}_주간.txt`;
+  a.download=`momcal_caption_${days[0].replace(/-/g,'')}_${tag}.txt`;
   a.href=URL.createObjectURL(blob); a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
   document.getElementById('day').value=keep; await load();
-  btn.textContent='📦 이번 주 5일치'; btn.disabled=false;
-  document.getElementById('st').innerHTML=`이번 주 <b>${days.length}일치</b> 사진 + 캡션 저장 완료 ✅`;
+  btn.textContent=label; btn.disabled=false;
+  document.getElementById('st').innerHTML=`<b>${days.length}일치</b> 사진 + 캡션 저장 완료 ✅`;
+}
+async function saveWeek(){
+  const base=document.getElementById('day').value||todayKST();
+  await saveDays(weekdaysOf(base), document.getElementById('btnWeek'), '📦 이번 주 5일치', '주간');
+}
+// 날짜를 직접 지정해 그 기간을 통째로 (사장님 요청 2026-08-04)
+async function saveRange(){
+  const s=document.getElementById('d1').value, e=document.getElementById('d2').value;
+  const st=document.getElementById('st');
+  if(!s||!e){ st.textContent='기간 시작일과 종료일을 둘 다 골라주세요'; return; }
+  if(s>e){ st.textContent='시작일이 종료일보다 뒤예요'; return; }
+  const days=[]; let cur=s;
+  while(cur<=e && days.length<31){ days.push(cur); cur=addDays(cur,1); }   // 한 번에 최대 31일
+  if(cur<=e) st.textContent='한 번에 최대 31일까지만 됩니다';
+  await saveDays(days, document.getElementById('btnRange'), '📦 이 기간 저장', '기간');
 }
 
 async function savePng(quiet){
