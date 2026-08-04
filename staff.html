@@ -77,10 +77,11 @@
 <div id="app" style="display:none">
   <div class="topbar"><span>📅 맘캘린더 스탭 <b id="roleTag" style="font-size:11px;font-weight:500;opacity:.75"></b></span><button class="logout" onclick="doLogout()">로그아웃</button></div>
   <div class="tabs">
-    <div class="tab on" id="t-gonggu" onclick="showTab('gonggu')">📦 공구</div>
-    <div class="tab" id="t-hotdeal" onclick="showTab('hotdeal')">🔥 핫딜</div>
-    <div class="tab" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
-    <div class="tab" id="t-fix" onclick="showTab('fix')">🏷 분류 수정</div>
+    <!-- 사장님 지시(2026-08-04): 체험단·인스타카드만 노출. 나머지는 코드는 두되 탭을 감춘다 -->
+    <div class="tab" id="t-gonggu" onclick="showTab('gonggu')" style="display:none">📦 공구</div>
+    <div class="tab" id="t-hotdeal" onclick="showTab('hotdeal')" style="display:none">🔥 핫딜</div>
+    <div class="tab on" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
+    <div class="tab" id="t-fix" onclick="showTab('fix')" style="display:none">🏷 분류 수정</div>
     <div class="tab" id="t-card" onclick="showTab('card')">📸 인스타 카드</div>
   </div>
 
@@ -166,15 +167,12 @@
   </div>
 
   <!-- ── 📸 인스타 카드 ── -->
-  <div class="view" id="v-card" style="display:none">
-    <div class="sec">
-      <div class="sec-h">📸 인스타 카드</div>
-      <div style="font-size:12px;color:#666;line-height:1.7;margin-bottom:12px">
-        오늘의 공구 목록을 <b>1080×1920 릴스 카드</b>로 만들고 캡션까지 뽑아줍니다.<br>
-        날짜를 고르면 그날 카드가 나오고, <b>기간·이번 주 5일치</b>를 한 번에 저장할 수도 있어요.
-      </div>
-      <button class="copy" onclick="openReelCard()">📸 카드 만들기 열기</button>
-      <div style="font-size:11px;color:#aaa;margin-top:8px">새 탭에서 열립니다</div>
+  <!-- 탭을 누르면 곧바로 카드 화면이 뜬다(버튼 한 번 더 누르지 않게). 최초 1회만 로드. -->
+  <div class="view" id="v-card" style="display:none;padding:0">
+    <iframe id="cardFrame" title="인스타 카드 만들기"
+            style="display:block;width:100%;height:calc(100vh - 96px);border:0;background:#3A3145"></iframe>
+    <div id="cardFallback" style="display:none;padding:14px;font-size:12px;color:#666">
+      화면이 안 뜨면 <a href="#" onclick="openReelCard();return false" style="color:var(--p);font-weight:700">새 탭에서 열기</a>를 눌러주세요.
     </div>
   </div>
 </div>
@@ -290,9 +288,10 @@ function doLogout(){ clearSession(); location.reload(); }
 function enterApp(){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
+  showTab('exp');                   // 기본 화면 = 체험단 (관리자가 아니면 loadRole 이 카드로 바꾼다)
   loadRole();                       // 스태프면 등록 탭을 감춘다
-  loadSellers(); addGgRow(); loadGonggu();
-  addHdRow(); addExRow();
+  loadSellers();
+  addExRow();
 }
 
 // 자동 로그인: 저장된 refresh_token으로 세션 복구
@@ -324,6 +323,16 @@ function showTab(t){
   if(t==='hotdeal') loadHotdealAdmin();
   if(t==='exp') loadExpAdmin();
   if(t==='fix') fxLoad();
+  if(t==='card') mountReelCard();
+}
+
+// 인스타 카드를 탭 안에 붙인다. 이미 붙어 있으면 다시 로드하지 않는다(작업 중이던 내용 보존).
+function mountReelCard(){
+  const f=document.getElementById('cardFrame');
+  if(!f || f.dataset.on==='1') return;
+  f.dataset.on='1';
+  f.src=reelCardUrl();
+  f.onerror=function(){ document.getElementById('cardFallback').style.display='block'; };
 }
 
 // ───────── 권한 ─────────
@@ -337,14 +346,13 @@ async function loadRole(){
     ]);
     IS_ADMIN=r[0]===true; IS_STAFF=r[1]===true;
   }catch(_){ IS_ADMIN=false; IS_STAFF=false; }
+  // 스태프는 체험단 등록이 서버(RLS)에서 막혀 있으므로 인스타 카드만 보여준다.
   if(!IS_ADMIN){
-    ['gonggu','hotdeal','exp'].forEach(x=>{
-      const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none';
-    });
-    showTab('fix');
+    const tb=document.getElementById('t-exp'); if(tb) tb.style.display='none';
+    showTab('card');
   }
   const who=document.getElementById('roleTag');
-  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 분류 수정만 가능' : '권한 없음 — 사장님께 등록 요청하세요');
+  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 인스타 카드' : '권한 없음 — 사장님께 등록 요청하세요');
 }
 
 // ───────── 🏷 분류 수정 ─────────
@@ -405,11 +413,12 @@ async function fxDupOk(id,ok){
 }
 
 // ───────── 📸 인스타 카드 ─────────
-function openReelCard(){
+function reelCardUrl(){
   const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
   const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
-  window.open(base+'/reelcard.html?d='+kst+'&t='+Date.now(),'_blank');
+  return base+'/reelcard.html?d='+kst+'&t='+Date.now();
 }
+function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
 
 // ───────── 공구: 카테고리/셀러 ─────────
 function fillCats(pfx){
