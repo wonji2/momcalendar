@@ -13,6 +13,11 @@
   /* ── 시안 변수 (?v=A|B|C 로 바뀜) ──
      상단 256px 은 건드리지 말 것: 인스타 UI(200) + 프로필 그리드커버(240) 를 둘 다 피하는 값 */
   --fs-item:21px; --fs-sub:16px; --it-pad:8.1px;
+  /* 하단 여백. 줄일수록 목록이 아래까지 내려간다.
+     릴스 재생 중엔 하단 330px 를 인스타 UI 가 덮지만, 사장님이 "노란 CTA 는 썸네일에서 안 보여도 된다"
+     고 하셔서 목록을 우선한다 (2026-08-04) */
+  --pad-bot:190px;
+  --fs-title:88px;   /* 최장 "12/25(금) 오늘 공구 캘린더" 실측 903px < 가용 964px */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
@@ -68,8 +73,9 @@ body.clean .safe,body.clean .gcrop{display:none}
 .brand-ic{width:30px;height:30px;border-radius:9px;background:var(--p);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:16px}
 .brand-t{font-family:var(--f-t);font-size:24px;color:var(--p-d);letter-spacing:-.4px;font-weight:800}
-.title{font-family:var(--f-t);font-size:92px;color:var(--ink);letter-spacing:-4.5px;
-  line-height:1.05;font-weight:800;margin:2px 0 14px;white-space:nowrap}
+.title{font-family:var(--f-t);font-size:var(--fs-title);color:var(--ink);letter-spacing:-3.4px;
+  line-height:1.05;font-weight:800;margin:2px 0 18px;white-space:nowrap}
+.title .t-d{color:var(--p);letter-spacing:-2.4px}
 .hd-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
 .date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
 .date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
@@ -122,14 +128,14 @@ body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;marg
 .cta .u{font-family:var(--f-t);font-size:26px;color:var(--p-d);font-weight:800;white-space:nowrap}
 /* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
    흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
-.pad{height:342px;flex-shrink:0;margin-top:22px;background:var(--p-l);
+.pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
 .pad .w{font-family:var(--f-t);font-size:46px;font-weight:800;color:var(--p-d);letter-spacing:-1.6px}
 .pad .m{font-size:24px;color:#8B7BA6;font-weight:700;letter-spacing:-.5px}
 
 /* ── 시안 ── 글씨 크기만 다르다. 항목 수는 fitColumn 이 자동으로 맞춘다 */
-body.vA{--fs-item:26px; --fs-sub:19px; --it-pad:13px}
-body.vB{--fs-item:31px; --fs-sub:22px; --it-pad:16px}
+body.vA{--fs-item:24px; --fs-sub:18px; --it-pad:11px}   /* 기본 — "A보다 작고 지금보다 크게" (사장님 2026-08-04) */
+body.vB{--fs-item:28px; --fs-sub:20px; --it-pad:14px}
 body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 동일 */
 
 /* 캡션 패널 */
@@ -151,7 +157,7 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
   <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
   <label>글씨</label>
   <select id="vsel" onchange="setV(this.value)" style="background:#2C2436;border:1px solid #493C5A;color:#fff;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit">
-    <option value="A">A · 크게 (권장)</option><option value="B">B · 아주 크게</option><option value="C">C · 지금 그대로</option>
+    <option value="A">A · 24px (권장)</option><option value="B">B · 28px</option><option value="C">C · 21px (기존)</option>
   </select>
   <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선 켜기 / 끄기</button>
   <div class="st" id="st">불러오는 중…</div>
@@ -230,6 +236,8 @@ function itemHTML(x,showEnd){
 async function render(day,opens,ends){
   const d=new Date(day+'T00:00:00');
   const dstr=`${d.getMonth()+1}월 ${d.getDate()}일`, dow=DOW[d.getDay()]+'요일';
+  // 썸네일에서도 며칠 카드인지 보이게 제목에 날짜를 넣는다 (사장님 지시 2026-08-04)
+  const tdate=`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`;
   const on=await ongoingCount(day);
   const card=document.getElementById('card');
   card.innerHTML=`
@@ -238,9 +246,8 @@ async function render(day,opens,ends){
     <div class="gcrop"><b>그리드 커버 영역</b></div>
     <div class="hd">
       <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
-      <div class="title">오늘 공구 캘린더</div>
+      <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
       <div class="hd-main">
-        <div class="date"><b>${dstr}</b><span>${dow}</span></div>
         <div class="stats">
           <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
           <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
@@ -260,9 +267,19 @@ async function render(day,opens,ends){
     </div>
     <div class="pad"><div class="w">맘캘린더</div><div class="m">momcalendar.com</div></div>`;
 
+  fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
   fitColumn(document.getElementById('L1'),document.getElementById('M1'),opens,true);
   fitColumn(document.getElementById('L2'),document.getElementById('M2'),ends,false);
+}
+
+// 제목은 "8/4(화) 오늘 공구 캘린더" 라 날짜 자릿수에 따라 길이가 변한다(12/25(수) 가 가장 김).
+// 한 줄이 깨지면 카드가 통째로 어긋나므로 넘치면 폰트를 1px 씩 줄여 맞춘다.
+function fitTitle(){
+  const t=document.querySelector('.title'); if(!t) return;
+  let px=88;
+  t.style.fontSize=px+'px';
+  while(px>52 && t.scrollWidth>t.clientWidth){ px--; t.style.fontSize=px+'px'; }
 }
 
 // 이웃셀러는 정렬상 항상 맨 앞에 몰려 있다 → 그 연속 구간만 한 덩어리(.nbz)로 감싼다.
