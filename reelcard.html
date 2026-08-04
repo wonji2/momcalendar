@@ -99,10 +99,18 @@ body.clean .safe,body.clean .gcrop{display:none}
   align-items:baseline;line-height:1.25;white-space:nowrap}
 .it-sl{color:#6E6579}
 /* ⚠️ 음수 마진 금지 — .col 이 overflow:hidden 이라 왼쪽 글자가 잘림 */
-/* ⚠️ 그라데이션 금지 — html2canvas-pro 가 linear-gradient 를 못 그려서
-      화면엔 보라색이 보이는데 내려받은 PNG 에는 통째로 사라진다(2026-08-04 실측). 단색만 쓸 것. */
-.itNB{background:#EFE4FB;border-radius:9px;border-bottom:none}
-.itNB .it-nm{color:var(--p-d)}
+/* ── 이웃셀러 존 ──
+   항목마다 보라 네모를 그리면 어수선하다 → 연속된 이웃셀러를 한 덩어리로 감싼다 (사장님 지시 2026-08-04)
+   그라데이션은 html2canvas-pro 에서 정상 렌더된다(2026-08-04 픽셀 실측: 241,231,252 → 250,247,254). */
+.nbz{background:linear-gradient(90deg,#EDE0FA 0%,#F3EAFD 58%,rgba(243,234,253,.35) 100%);
+  border-radius:12px;margin-bottom:7px;overflow:hidden}
+.nbz .it{border-bottom:1px solid rgba(107,74,158,.13)}
+.nbz .it:last-child{border-bottom:none}
+.nbz .it-nm{color:var(--p-d)}
+.nbz .it-sl{color:#7A6394}
+/* 옛 방식(항목마다 네모) — 비교용. body.nbold 일 때만 */
+body.nbold .nbz{background:none;margin-bottom:0}
+body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;margin-bottom:3px}
 .more{font-family:var(--f-t);font-size:19px;flex-shrink:0;font-weight:700;margin-top:11px;padding-left:12px}
 .col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
 
@@ -215,7 +223,7 @@ function itemHTML(x,showEnd){
   const sub=showEnd
     ? `<span class="it-sl">${esc(x.seller)}</span><span class="gap"></span><span>~${md(x.end_date)}</span>`
     : `<span class="it-sl">${esc(x.seller)}</span>`;
-  return `<div class="it${x.partner?' itNB':''}"><div class="it-nm">${esc(x.name)}</div>
+  return `<div class="it"><div class="it-nm">${esc(x.name)}</div>
     <div class="it-sub">${sub}</div></div>`;
 }
 
@@ -257,14 +265,21 @@ async function render(day,opens,ends){
   fitColumn(document.getElementById('L2'),document.getElementById('M2'),ends,false);
 }
 
+// 이웃셀러는 정렬상 항상 맨 앞에 몰려 있다 → 그 연속 구간만 한 덩어리(.nbz)로 감싼다.
+// 항목마다 네모를 그리면 어수선하다는 사장님 지적(2026-08-04) 반영.
+function listHTML(arr,showEnd){
+  let k=0; while(k<arr.length && arr[k].partner) k++;
+  const zone = k ? `<div class="nbz">${arr.slice(0,k).map(x=>itemHTML(x,showEnd)).join('')}</div>` : '';
+  return zone + arr.slice(k).map(x=>itemHTML(x,showEnd)).join('');
+}
 function fitColumn(listEl,moreEl,arr,showEnd){
   const col=listEl.closest('.col');
-  listEl.innerHTML=arr.map(x=>itemHTML(x,showEnd)).join('');
+  listEl.innerHTML=listHTML(arr,showEnd);
   let n=arr.length;
   moreEl.textContent='';
   while(n>0 && col.scrollHeight>col.clientHeight){
     n--;
-    listEl.innerHTML=arr.slice(0,n).map(x=>itemHTML(x,showEnd)).join('');
+    listEl.innerHTML=listHTML(arr.slice(0,n),showEnd);
     moreEl.textContent=`+ ${arr.length-n}건 더`;
   }
 }
