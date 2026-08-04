@@ -10,6 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.11/dist/html2canvas-pro.min.js"></script>
 <style>
 :root{
+  /* ── 시안 변수 (?v=A|B|C 로 바뀜) ──
+     상단 256px 은 건드리지 말 것: 인스타 UI(200) + 프로필 그리드커버(240) 를 둘 다 피하는 값 */
+  --fs-item:21px; --fs-sub:16px; --it-pad:8.1px;
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
@@ -89,15 +92,16 @@ body.clean .safe,body.clean .gcrop{display:none}
 
 /* 한 줄 구조: [상품명 ─── 셀러 마감] */
 .it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:12px;
-  padding:8.1px 12px}
-.it-nm{flex:1;min-width:0;font-size:21px;font-weight:800;color:var(--ink);letter-spacing:-.5px;
+  padding:var(--it-pad) 12px}
+.it-nm{flex:1;min-width:0;font-size:var(--fs-item);font-weight:800;color:var(--ink);letter-spacing:-.5px;
   line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.it-sub{flex-shrink:0;font-size:16px;color:var(--mute);font-weight:700;display:flex;
+.it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;
   align-items:baseline;line-height:1.25;white-space:nowrap}
 .it-sl{color:#6E6579}
 /* ⚠️ 음수 마진 금지 — .col 이 overflow:hidden 이라 왼쪽 글자가 잘림 */
-.itNB{background:linear-gradient(90deg,#F1E7FC 0%,#F6F0FE 55%,rgba(246,240,254,.5) 100%);
-  border-radius:9px;border-bottom:none}
+/* ⚠️ 그라데이션 금지 — html2canvas-pro 가 linear-gradient 를 못 그려서
+      화면엔 보라색이 보이는데 내려받은 PNG 에는 통째로 사라진다(2026-08-04 실측). 단색만 쓸 것. */
+.itNB{background:#EFE4FB;border-radius:9px;border-bottom:none}
 .itNB .it-nm{color:var(--p-d)}
 .more{font-family:var(--f-t);font-size:19px;flex-shrink:0;font-weight:700;margin-top:11px;padding-left:12px}
 .col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
@@ -108,7 +112,17 @@ body.clean .safe,body.clean .gcrop{display:none}
 .cta .s{font-size:21px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
 .cta .s b{font-weight:800;color:#7A5C24}
 .cta .u{font-family:var(--f-t);font-size:26px;color:var(--p-d);font-weight:800;white-space:nowrap}
-.pad{height:342px;flex-shrink:0}
+/* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
+   흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
+.pad{height:342px;flex-shrink:0;margin-top:22px;background:var(--p-l);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.pad .w{font-family:var(--f-t);font-size:46px;font-weight:800;color:var(--p-d);letter-spacing:-1.6px}
+.pad .m{font-size:24px;color:#8B7BA6;font-weight:700;letter-spacing:-.5px}
+
+/* ── 시안 ── 글씨 크기만 다르다. 항목 수는 fitColumn 이 자동으로 맞춘다 */
+body.vA{--fs-item:26px; --fs-sub:19px; --it-pad:13px}
+body.vB{--fs-item:31px; --fs-sub:22px; --it-pad:16px}
+body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 동일 */
 
 /* 캡션 패널 */
 .cap{max-width:1080px;margin:0 auto 30px;background:#241E2E;border-radius:14px;padding:18px 20px}
@@ -127,6 +141,10 @@ body.clean .safe,body.clean .gcrop{display:none}
   <button onclick="savePng()" id="btnSave">📥 사진 저장</button>
   <button class="ghost" onclick="copyCap()">캡션 복사</button>
   <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
+  <label>글씨</label>
+  <select id="vsel" onchange="setV(this.value)" style="background:#2C2436;border:1px solid #493C5A;color:#fff;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit">
+    <option value="A">A · 크게 (권장)</option><option value="B">B · 아주 크게</option><option value="C">C · 지금 그대로</option>
+  </select>
   <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선 켜기 / 끄기</button>
   <div class="st" id="st">불러오는 중…</div>
   <div class="tip">캡처할 땐 <b>확대</b> + <b>가이드선 끄기</b> 후 카드 영역만 잘라내세요 &nbsp;|&nbsp;
@@ -174,6 +192,7 @@ async function load(){
     const sortFn=(a,b)=>(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
     const opens=rows.filter(r=>r.open_date===day).sort(sortFn);
     const ends =rows.filter(r=>r.end_date===day).sort(sortFn);
+    window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
     render(day,opens,ends);
     makeCaption(day,opens,ends);
     document.getElementById('st').innerHTML=`오픈 <b>${opens.length}</b>건 · 마감 <b>${ends.length}</b>건`;
@@ -231,7 +250,7 @@ async function render(day,opens,ends){
         <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
       <div class="u">momcalendar.com</div>
     </div>
-    <div class="pad"></div>`;
+    <div class="pad"><div class="w">맘캘린더</div><div class="m">momcalendar.com</div></div>`;
 
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
   fitColumn(document.getElementById('L1'),document.getElementById('M1'),opens,true);
@@ -310,9 +329,21 @@ function copyCap(){
   document.getElementById('st').innerHTML='캡션을 복사했습니다 ✅';
 }
 
+// 글씨 시안 전환. 항목 수는 fitColumn 이 다시 계산하므로 카드를 새로 그린다.
+function setV(v){
+  document.body.classList.remove('vA','vB','vC');
+  document.body.classList.add('v'+v);
+  try{ localStorage.setItem('mc_reel_v', v); }catch(_){}
+  if(window.__DATA) render.apply(null, window.__DATA);   // 데이터 재요청 없이 다시 그리기
+}
+
 (function init(){
-  const q=new URLSearchParams(location.search).get('d');
-  document.getElementById('day').value=q||todayKST();
+  const p=new URLSearchParams(location.search);
+  document.getElementById('day').value=p.get('d')||todayKST();
+  let v=p.get('v'); if(!v){ try{ v=localStorage.getItem('mc_reel_v'); }catch(_){} }
+  v = (v==='B'||v==='C') ? v : 'A';               // 기본값 A(권장)
+  document.getElementById('vsel').value=v;
+  document.body.classList.add('v'+v);
   load();
 })();
 </script>
