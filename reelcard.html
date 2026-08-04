@@ -30,22 +30,34 @@
   --f-b:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#3A3145;font-family:var(--f-b);padding:96px 0 60px;color:#fff}
+body{background:#3A3145;font-family:var(--f-b);padding:225px 0 60px;color:#fff}
+@media (max-width:520px){ body{padding-top:218px} }
 
-/* ── 조작 바 ── */
-.bar{position:fixed;top:0;left:0;right:0;background:#1B1622;z-index:99;padding:12px 18px;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 2px 14px rgba(0,0,0,.4)}
-.bar label{font-size:13px;color:#C9BFD8;font-weight:700}
-.bar input[type=date]{background:#2C2436;border:1px solid #493C5A;color:#fff;border-radius:8px;
-  padding:7px 10px;font-size:14px;font-family:inherit}
-.bar button{background:var(--p);color:#fff;border:0;border-radius:8px;padding:8px 15px;
-  font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+/* ── 조작 바 ── 폰에서 버튼이 제각각 크기로 흩어져 조잡했다(사장님 지적 2026-08-04).
+   줄(brow) 단위로 묶고 높이를 36px 로 통일한다. */
+.bar{position:fixed;top:0;left:0;right:0;background:#1B1622;z-index:99;padding:10px 12px;
+  display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 14px rgba(0,0,0,.4)}
+.brow{display:flex;gap:6px;align-items:center}
+.bar input[type=date],.bar button,.bar .sel{
+  height:36px;border-radius:9px;font-size:13px;font-weight:700;font-family:inherit;
+  border:0;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bar input[type=date]{background:#2C2436;border:1px solid #493C5A;color:#fff;
+  padding:0 8px;font-weight:600;cursor:auto;flex:1;min-width:0}
+.bar button{background:var(--p);color:#fff;padding:0 12px}
 .bar button:hover{background:#7d59b5}
-.bar button.ghost{background:#3A2F49}
-.bar .st{font-size:12.5px;color:#9E93AE;margin-left:auto}
+.bar button.ghost{background:#3A2F49;color:#C9BFD8}
+.bar button.go{background:#3E8E5A}
+.bar button.wide{flex:1}
+.bar .sel{background:#6B4A9E;color:#fff;border:1px solid #8B6ABE;padding:0 8px}
+.bar .tilde{color:#7A6E8C;font-size:13px;flex-shrink:0}
+.bar .st{font-size:12px;color:#9E93AE;text-align:right}
 .bar .st b{color:#E8C77E}
-.tip{width:100%;font-size:12px;color:#8E82A0;line-height:1.6}
+.tip{font-size:11px;color:#8E82A0;line-height:1.5}
 .tip b{color:#E8C77E}
+@media (max-width:520px){
+  .bar .sel{max-width:104px}
+  .tip{display:none}          /* 폰에서는 안내문을 접어 화면을 아낀다 */
+}
 
 .slot{width:1080px;height:1920px;margin:0 auto 40px;position:relative}
 .mini .card{transform:scale(.30);transform-origin:top left}
@@ -167,26 +179,31 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
 <body class="mini">
 
 <div class="bar">
-  <label>날짜</label>
-  <input type="date" id="day">
-  <button onclick="load()">카드 만들기</button>
-  <button onclick="savePng()" id="btnSave">📥 사진 저장</button>
-  <button class="ghost" onclick="copyCap()">캡션 복사</button>
-  <button id="btnWeek" onclick="saveWeek()" style="background:#3E8E5A">📦 이번 주 5일치</button>
-  <label>기간</label>
-  <input type="date" id="d1" style="width:150px">
-  <span style="color:#9E93AE">~</span>
-  <input type="date" id="d2" style="width:150px">
-  <button id="btnRange" onclick="saveRange()" style="background:#3E8E5A">📦 이 기간 저장</button>
-  <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
-  <label style="color:#E8C77E">↓ 글씨 크기</label>
-  <select id="vsel" onchange="setV(this.value)" style="background:#6B4A9E;border:1px solid #8B6ABE;color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:700;font-family:inherit">
-    <option value="A">30px · 기본</option><option value="B">27px · 작게</option><option value="C">21px · 예전</option>
-  </select>
-  <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선 켜기 / 끄기</button>
+  <div class="brow">
+    <input type="date" id="day">
+    <button onclick="load()">만들기</button>
+    <select id="vsel" onchange="setV(this.value)" class="sel">
+      <option value="A">글씨 30</option><option value="B">글씨 27</option><option value="C">글씨 21</option>
+    </select>
+  </div>
+  <div class="brow">
+    <button id="btnSave" onclick="savePng()" class="wide">📥 사진 저장</button>
+    <button class="ghost wide" onclick="copyCap()">캡션 복사</button>
+  </div>
+  <div class="brow">
+    <input type="date" id="d1">
+    <span class="tilde">~</span>
+    <input type="date" id="d2">
+    <button id="btnRange" onclick="saveRange()" class="go">📦 기간</button>
+  </div>
+  <div class="brow">
+    <button id="btnWeek" onclick="saveWeek()" class="go wide">📦 이번 주 5일치</button>
+    <button class="ghost" onclick="document.body.classList.toggle('mini')">확대</button>
+    <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선</button>
+  </div>
   <div class="st" id="st">불러오는 중…</div>
-  <div class="tip">캡처할 땐 <b>확대</b> + <b>가이드선 끄기</b> 후 카드 영역만 잘라내세요 &nbsp;|&nbsp;
-    <b style="color:#FF8A8A">빨강</b> 인스타 UI에 가려지는 곳 · <b style="color:#8FC0FF">파랑</b> 프로필 그리드에 보이는 곳</div>
+  <div class="tip">캡처는 <b>확대</b> + <b>가이드선</b> 끈 뒤 카드 영역만 &nbsp;·&nbsp;
+    <b style="color:#F19A9A">빨강</b> 인스타 UI 가림 &nbsp;<b style="color:#8FB8F0">파랑</b> 그리드에 보이는 곳</div>
 </div>
 
 <div class="slot"><div class="card" id="card"></div></div>
