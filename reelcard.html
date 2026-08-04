@@ -429,7 +429,10 @@ function onePerSeller(arr){
   const seen=new Set(), out=[];
   arr.forEach(function(x){
     if(x.partner){ out.push(x); return; }
-    const key=((x.insta||x.seller||'')+'').toLowerCase();
+    // ⚠️ 핸들이 아니라 "카드에 보이는 이름" 으로 묶는다.
+    //    같은 셀러가 핸들 2개를 쓰는 경우가 있어(라엘맘 rael_mom/rael.mom_yj 등)
+    //    핸들로 묶으면 카드·캡션에 같은 이름이 두 번 나온다. (2026-08-04 실측)
+    const key=((x.seller||x.insta||'')+'').trim().toLowerCase();
     if(seen.has(key)) return;
     seen.add(key); out.push(x);
   });
