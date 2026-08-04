@@ -17,7 +17,7 @@
      릴스 재생 중엔 하단 330px 를 인스타 UI 가 덮지만, 사장님이 "노란 CTA 는 썸네일에서 안 보여도 된다"
      고 하셔서 목록을 우선한다 (2026-08-04) */
   --pad-bot:190px;
-  --side:44px;       /* 카드 좌우 여백. 줄일수록 상품명이 덜 잘린다 (사장님 지시 2026-08-04) */
+  --side:32px;       /* 카드 좌우 여백. 줄일수록 상품명이 덜 잘린다 (사장님 지시 2026-08-04) */
   --fs-title:62px;   /* 제목 옆에 건수 박스가 붙어서 가용폭이 줄었다. fitTitle 이 자동으로 더 줄인다 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
@@ -89,18 +89,18 @@ body.clean .safe,body.clean .gcrop{display:none}
 .stat.open{background:var(--p-l)} .stat.open .n{color:var(--p)} .stat.open .l{color:var(--p-d)}
 .stat.close{background:var(--r-l)} .stat.close .n{color:var(--r)} .stat.close .l{color:var(--r)}
 
-.cols{flex:1;min-height:0;display:flex;padding:0 var(--side);overflow:hidden;margin-bottom:22px}
+.cols{flex:1;min-height:0;display:flex;padding:0 var(--side);overflow:hidden;margin-bottom:16px}
 .col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.col.open{padding-right:26px}
-.col.close{padding-left:26px;border-left:2px solid var(--line)}
-.col-hd{display:flex;align-items:center;gap:9px;margin-bottom:13px;flex-shrink:0}
+.col.open{padding-right:18px}
+.col.close{padding-left:18px;border-left:2px solid var(--line)}
+.col-hd{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0}
 .col-t{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800}
 .col.open .col-t{color:var(--p)} .col.close .col-t{color:var(--r)}
 .col-n{font-family:var(--f-t);font-size:19px;color:var(--mute);font-weight:700}
 
 /* 한 줄 구조: [상품명 ─── 셀러 마감] */
-.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:12px;
-  padding:var(--it-pad) 12px}
+.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:10px;
+  padding:var(--it-pad) 8px}
 .it-nm{flex:1;min-width:0;font-size:var(--fs-item);font-weight:800;color:var(--ink);letter-spacing:-.5px;
   line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;
@@ -119,7 +119,7 @@ body.clean .safe,body.clean .gcrop{display:none}
 /* 옛 방식(항목마다 네모) — 비교용. body.nbold 일 때만 */
 body.nbold .nbz{background:none;margin-bottom:0}
 body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;margin-bottom:3px}
-.more{font-family:var(--f-t);font-size:19px;flex-shrink:0;font-weight:700;margin-top:11px;padding-left:12px}
+.more{font-family:var(--f-t);font-size:20px;flex-shrink:0;font-weight:700;margin-top:8px;padding-left:8px}
 .col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
 
 .cta{flex-shrink:0;margin:0 var(--side) 0;padding:20px 26px;border-radius:18px;
@@ -131,13 +131,15 @@ body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;marg
 /* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
    흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
 .pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.pad .s{font-size:26px;color:#7A6394;font-weight:700;letter-spacing:-.6px;margin-bottom:2px}
 .pad .w{font-family:var(--f-t);font-size:46px;font-weight:800;color:var(--p-d);letter-spacing:-1.6px}
 .pad .m{font-size:24px;color:#8B7BA6;font-weight:700;letter-spacing:-.5px}
 
 /* ── 시안 ── 글씨 크기만 다르다. 항목 수는 fitColumn 이 자동으로 맞춘다 */
-body.vA{--fs-item:23px; --fs-sub:17px; --it-pad:11px}   /* 기본 — "A보다 작고 지금보다 크게" (사장님 2026-08-04) */
-body.vB{--fs-item:28px; --fs-sub:20px; --it-pad:14px}
+/* 글씨를 키우고 항목 여백을 줄이면 한 줄 높이는 오히려 줄어 항목이 더 들어간다 (사장님 지시 2026-08-04) */
+body.vA{--fs-item:34px; --fs-sub:23px; --it-pad:2px}     /* 기본 — 실측상 가장 크고 가장 꽉 참 */
+body.vB{--fs-item:31px; --fs-sub:21px; --it-pad:5px}   /* 좀 작게 (잘림 4건) */
 body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 동일 */
 
 /* 캡션 패널 */
@@ -283,7 +285,7 @@ async function render(day,opens,ends){
         <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
       <div class="u">momcalendar.com</div>
     </div>
-    <div class="pad"><div class="w">맘캘린더</div><div class="m">momcalendar.com</div></div>`;
+    <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div><div class="m">momcalendar.com</div></div>`;
 
   fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
