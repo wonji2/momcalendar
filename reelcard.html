@@ -7,6 +7,7 @@
 <title>맘캘린더 · 오늘 공구 캘린더 카드</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.11/dist/html2canvas-pro.min.js"></script>
 <style>
 :root{
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
@@ -123,9 +124,10 @@ body.clean .safe,body.clean .gcrop{display:none}
   <label>날짜</label>
   <input type="date" id="day">
   <button onclick="load()">카드 만들기</button>
+  <button onclick="savePng()" id="btnSave">📥 사진 저장</button>
+  <button class="ghost" onclick="copyCap()">캡션 복사</button>
   <button class="ghost" onclick="document.body.classList.toggle('mini')">확대 / 축소</button>
   <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선 켜기 / 끄기</button>
-  <button class="ghost" onclick="copyCap()">캡션 복사</button>
   <div class="st" id="st">불러오는 중…</div>
   <div class="tip">캡처할 땐 <b>확대</b> + <b>가이드선 끄기</b> 후 카드 영역만 잘라내세요 &nbsp;|&nbsp;
     <b style="color:#FF8A8A">빨강</b> 인스타 UI에 가려지는 곳 · <b style="color:#8FC0FF">파랑</b> 프로필 그리드에 보이는 곳</div>
@@ -269,6 +271,37 @@ async function makeCaption(day,opens,ends){
   while(txt.length>2200 && cut>0){ cut--; txt=build(cut); }
   document.getElementById('captxt').value=txt;
   document.getElementById('caplen').textContent=`${txt.length}자 / 2200자 (마감 ${cut}건 노출)`;
+}
+
+// 캡처 없이 1080×1920 PNG 로 바로 저장
+async function savePng(){
+  const btn=document.getElementById('btnSave');
+  const card=document.getElementById('card');
+  const wasMini=document.body.classList.contains('mini');
+  const wasClean=document.body.classList.contains('clean');
+  btn.textContent='저장 중…'; btn.disabled=true;
+  document.body.classList.remove('mini');   // 원본 1080×1920 로 되돌리고
+  document.body.classList.add('clean');     // 가이드선 끄고 캡처
+  await document.fonts.ready;
+  await new Promise(r=>setTimeout(r,200));
+  try{
+    const canvas=await html2canvas(card,{
+      width:1080,height:1920,scale:1,
+      backgroundColor:'#ffffff',useCORS:true,logging:false,
+      windowWidth:1080,windowHeight:1920
+    });
+    const day=document.getElementById('day').value||todayKST();
+    const a=document.createElement('a');
+    a.download=`momcal_${day.replace(/-/g,'')}.png`;
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+    document.getElementById('st').innerHTML='사진을 저장했습니다 ✅ <b>1080×1920</b>';
+  }catch(e){
+    document.getElementById('st').textContent='저장 실패: '+e.message;
+  }
+  if(wasMini) document.body.classList.add('mini');
+  if(!wasClean) document.body.classList.remove('clean');
+  btn.textContent='📥 사진 저장'; btn.disabled=false;
 }
 
 function copyCap(){

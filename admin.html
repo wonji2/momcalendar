@@ -192,6 +192,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('member',this)">👥 회원</div>
     <div class="tab" onclick="switchTab('attend',this)">💜 출석·추첨</div>
     <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
+    <div class="tab" onclick="openReelCard()" style="background:#F3ECFB;color:#5B3A8C;font-weight:800">📸 인스타 카드</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -3751,6 +3752,12 @@ function pickBannerColor(hex){
 function openBannerTestPage(){
   const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
   window.open(base+'/test.html?t='+Date.now(),'_blank');
+}
+// 📸 인스타 「오늘 공구 캘린더」 카드 — 날짜만 넣으면 카드·캡션이 자동 생성된다
+function openReelCard(){
+  const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
+  const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+  window.open(base+'/reelcard.html?d='+kst+'&t='+Date.now(),'_blank');
 }
 function setBStageRadio(v){
   document.querySelectorAll('input[name="bStage"]').forEach(r=>{ r.checked=(r.value===v); });
