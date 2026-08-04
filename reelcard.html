@@ -19,7 +19,6 @@
   --pad-bot:190px;
   --side:32px;       /* 카드 좌우 여백. 줄일수록 상품명이 덜 잘린다 (사장님 지시 2026-08-04) */
   --fs-title:96px;   /* fitTitle 이 좌우 끝까지 자동으로 맞춘다 */
-  --title-gap:130px; /* 제목 오른쪽 여백 — 릴스 재생 아이콘 자리 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
@@ -79,11 +78,12 @@ body.clean .safe,body.clean .gcrop{display:none}
    건수 박스는 릴스 재생 아이콘(우측 상단)에 묻히므로 제목 아래 왼쪽으로 내렸다. (사장님 지시 2026-08-04) */
 .title{font-family:var(--f-t);color:var(--ink);letter-spacing:-4px;
   line-height:1.02;font-weight:800;white-space:nowrap}
-/* 오른쪽은 릴스 재생 아이콘이 겹치는 자리라 여백을 더 둔다 (사장님 지시 2026-08-04) */
-.title{font-size:var(--fs-title);padding-right:var(--title-gap)}
+/* 건수 박스를 제목 오른쪽에 붙이고, 제목이 남는 폭을 꽉 채운다.
+   건수는 릴스 재생 아이콘에 가려질 수 있지만 제목은 안 잘린다. (사장님 지시 2026-08-04) */
+.title{font-size:var(--fs-title);flex:1;min-width:0}
 .title .t-d{color:var(--p)}
 /* 제목 + 건수 를 한 줄에 (사장님 지시 2026-08-04) */
-.hd-main{display:flex;align-items:center;gap:22px;margin:16px 0 18px}
+.hd-main{display:flex;align-items:center;gap:20px;margin:14px 0 18px}
 .date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
 .date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
 .date span{font-size:26px;color:var(--mute);letter-spacing:-.5px;font-weight:700}
@@ -129,10 +129,10 @@ body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;marg
 
 .cta{flex-shrink:0;margin:0 var(--side) 0;padding:20px 26px;border-radius:18px;
   background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
-.cta .t{font-family:var(--f-t);font-size:28px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
-.cta .s{font-size:21px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
+.cta .t{font-family:var(--f-t);font-size:29px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
+.cta .s{font-size:22px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
 .cta .s b{font-weight:800;color:#7A5C24}
-.cta .u{font-family:var(--f-t);font-size:26px;color:var(--p-d);font-weight:800;white-space:nowrap}
+.cta .u{font-family:var(--f-t);font-size:27px;color:var(--p-d);font-weight:800;white-space:nowrap}
 /* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
    흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
 .pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);
@@ -271,8 +271,8 @@ async function render(day,opens,ends){
     <div class="gcrop"><b>그리드 커버 영역</b></div>
     <div class="hd">
       <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
-      <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
       <div class="hd-main">
+        <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
         <div class="stats">
           <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
           <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
@@ -294,8 +294,8 @@ async function render(day,opens,ends){
 
   fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
-  fitColumn(document.getElementById('L1'),document.getElementById('M1'),opens,true);
-  fitColumn(document.getElementById('L2'),document.getElementById('M2'),ends,false);
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),onePerSeller(opens),true,opens.length);
+  fitColumn(document.getElementById('L2'),document.getElementById('M2'),onePerSeller(ends),false,ends.length);
   fitNames();   // 항목 수가 확정된 뒤에 이름을 다듬는다
 }
 
@@ -332,8 +332,8 @@ function fitNames(){
     while(w.length>1 && NAME_DROP.test(w[0]) && el.scrollWidth>el.clientWidth){
       w.shift(); el.textContent=w.join(' ');
     }
-    // ② 그래도 넘치면 앞 단어를 계속 덜어낸다. 마지막 2단어(품목)는 지킨다.
-    while(w.length>2 && el.scrollWidth>el.clientWidth){
+    // ② 그래도 넘치면 앞 단어를 계속 덜어낸다. 품목(마지막 단어)은 끝까지 지킨다.
+    while(w.length>1 && el.scrollWidth>el.clientWidth){
       w.shift(); el.textContent=w.join(' ');
     }
     el.title=full;
@@ -347,15 +347,28 @@ function listHTML(arr,showEnd){
   const zone = k ? `<div class="nbz">${arr.slice(0,k).map(x=>itemHTML(x,showEnd)).join('')}</div>` : '';
   return zone + arr.slice(k).map(x=>itemHTML(x,showEnd)).join('');
 }
-function fitColumn(listEl,moreEl,arr,showEnd){
+// 한 셀러가 여러 건이면 카드를 독차지한다 → 셀러당 1건만 실어 더 많은 셀러가 보이게 한다.
+// 이웃셀러·맘캘린더는 예외(전부 노출). (사장님 지시 2026-08-04)
+function onePerSeller(arr){
+  const seen=new Set(), out=[];
+  arr.forEach(function(x){
+    if(x.partner){ out.push(x); return; }
+    const key=((x.insta||x.seller||'')+'').toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key); out.push(x);
+  });
+  return out;
+}
+function fitColumn(listEl,moreEl,arr,showEnd,total){
   const col=listEl.closest('.col');
+  const all=(total===undefined)?arr.length:total;   // "+N건 더" 는 그날 전체 건수 기준
   listEl.innerHTML=listHTML(arr,showEnd);
   let n=arr.length;
-  moreEl.textContent='';
+  moreEl.textContent = (all>n) ? ('+ '+(all-n)+'건 더') : '';
   while(n>0 && col.scrollHeight>col.clientHeight){
     n--;
     listEl.innerHTML=listHTML(arr.slice(0,n),showEnd);
-    moreEl.textContent=`+ ${arr.length-n}건 더`;
+    moreEl.textContent='+ '+(all-n)+'건 더';
   }
 }
 
