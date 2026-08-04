@@ -400,30 +400,21 @@ async function makeCaption(day,opens,ends){
   //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
   const line=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
   const nb=opens.filter(x=>x.partner), rest=opens.filter(x=>!x.partner);
-  // ⚠️ 오픈만 전부 싣고 마감만 잘리면 마감 셀러가 손해다. 넘칠 땐 양쪽을 같은 비율로 줄인다.
-  //    (사장님 지적 2026-08-04: "오픈공구는 다 쓰고 마감은 …외 몇 건으로 끝난다")
-  const build=(ratio)=>{
-    const openCut=Math.max(0,Math.round(rest.length*ratio));
-    const endCut =Math.max(0,Math.round(ends.length*ratio));
+  const build=(endCut)=>{
     let s=`📌 저장해두고 필요하실 때 꺼내 보세요\n\n맘캘린더에서 공유드리는\n${head} 오늘 공구 캘린더\n\n오픈 ${opens.length}건 · 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
     if(nb.length) s+=`\n💜 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
-    const o=rest.slice(0,openCut);
-    s+=`\n🔓 오늘 오픈하는 공구\n`+o.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n');
-    if(rest.length>openCut) s+=`\n…외 ${rest.length-openCut}건`;
-    s+='\n';
+    s+=`\n🔓 오늘 오픈하는 공구\n`+rest.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
     const e=ends.slice(0,endCut);
     s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
     if(ends.length>endCut) s+=`\n…외 ${ends.length-endCut}건`;
     s+=`\n\n━━━━━━━━━━━━━━\n\n오늘 진행하는 공구리스트 일부 공유입니다\n전체 일정 검색·조회는 프로필 링크 맘캘린더 웹사이트에서 가능해요.ᐟ.ᐟ\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요\n다음번 카드에 반영해서 올려드릴게요.ᐟ.ᐟ\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n${pickTags(day)}`;
     return s;
   };
-  // 인스타 캡션 2200자 제한. 오픈·마감을 같은 비율로 줄여 한쪽만 손해보지 않게 한다.
-  let ratio=1, txt=build(ratio);
-  while(txt.length>2200 && ratio>0.05){ ratio-=0.02; txt=build(ratio); }
-  const oShown=Math.round(rest.length*ratio), eShown=Math.round(ends.length*ratio);
+  // 인스타 캡션 2200자 제한에 맞춰 마감 목록을 자동으로 줄인다
+  let cut=ends.length, txt=build(cut);
+  while(txt.length>2200 && cut>0){ cut--; txt=build(cut); }
   document.getElementById('captxt').value=txt;
-  document.getElementById('caplen').textContent=
-    `${txt.length}자 / 2200자 · 오픈 ${oShown}/${rest.length} · 마감 ${eShown}/${ends.length}`;
+  document.getElementById('caplen').textContent=`${txt.length}자 / 2200자 (마감 ${cut}건 노출)`;
 }
 
 // 캡처 없이 1080×1920 PNG 로 바로 저장
