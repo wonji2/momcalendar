@@ -318,20 +318,57 @@ function fitColumn(listEl,moreEl,arr,showEnd){
   }
 }
 
+// ── 해시태그 ──
+// 인스타는 릴스에 태그를 많이 달아도 앞쪽만 유효하다. 사장님 지시로 하루 5개만 쓴다.
+// TAGS 는 실제 게시물 수(검색량) 내림차순. 매일 시작점을 한 칸씩 밀어 5개를 뽑는다.
+// → 늘 상위 태그가 섞이면서도 매일 조합이 달라진다.
+// 2026-08-04 인스타에서 직접 잰 게시물 수(검색량) 내림차순. 추정 아님.
+const TAGS=[
+  '육아스타그램',   // 46,100,943
+  '육아소통',       // 44,840,607
+  '육아맘',         // 30,644,716
+  '맘스타그램',     // 24,411,957
+  '육아템',         //  6,991,199
+  '주부스타그램',   //  4,614,942
+  '공구',           //  2,528,841
+  '이유식',         //  2,041,790
+  '육아용품',       //  1,931,396
+  '공동구매',       //  1,024,002
+  '아기용품',       //    784,258
+  '살림템',         //    639,854
+  '육아꿀템',       //    333,977
+  '육아공구',       //    123,743
+  '생활꿀템',       //    122,035
+  '인스타공구',     //     85,109
+  '공구추천',       //     21,007
+  '공구일정',       //     11,511
+  '오늘의공구'      //      1,534
+];
+const TAG_POOL=10;   // 검색량 상위 10개 안에서만 돌린다 (하위 태그가 섞이면 유입이 줄어든다)
+function pickTags(day){
+  const d=new Date(day+'T00:00:00');
+  const seed=Math.floor(d.getTime()/86400000);          // 날짜별 고정 → 같은 날은 항상 같은 태그
+  const out=[];
+  for(let i=0;i<5;i++) out.push('#'+TAGS[(seed+i)%TAG_POOL]);
+  return out.join(' ');
+}
+
 async function makeCaption(day,opens,ends){
   const d=new Date(day+'T00:00:00');
   const head=`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]})`;
   const on=await ongoingCount(day);
-  const line=x=>`· ${x.name} — ${x.seller}${x.insta?' @'+x.insta:''}`;
+  // ⚠️ @핸들은 맘캘린더·이웃셀러에만 건다. 나머지는 한글 이름만.
+  //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
+  const line=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
   const nb=opens.filter(x=>x.partner), rest=opens.filter(x=>!x.partner);
   const build=(endCut)=>{
-    let s=`📌 저장해두고 오늘 하루 꺼내 보세요\n\n${head} 오늘 공구 캘린더\n오늘 오픈 ${opens.length}건 · 오늘 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
+    let s=`📌 저장해두고 필요하실 때 꺼내 보세요\n\n맘캘린더에서 공유드리는\n${head} 오늘 공구 캘린더\n\n오픈 ${opens.length}건 · 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
     if(nb.length) s+=`\n🩷 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
     s+=`\n🔓 오늘 오픈하는 공구\n`+rest.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
     const e=ends.slice(0,endCut);
     s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
     if(ends.length>endCut) s+=`\n…외 ${ends.length-endCut}건`;
-    s+=`\n\n━━━━━━━━━━━━━━\n\n여기 담은 건 오늘 공구의 일부예요.\n오늘 진행 중인 공구는 ${on}건이고, 전체 일정 검색·조회는\n프로필 링크 맘캘린더 웹사이트에서 가능합니다\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요. 내일 카드에 꼭 넣어드릴게요!\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요.\n구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n#${d.getMonth()+1}월공구일정 #공구일정 #오늘의공구 #육아공구 #공동구매 #육아템 #맘캘린더 #인스타공구 #공구추천`;
+    s+=`\n\n━━━━━━━━━━━━━━\n\n오늘 진행하는 공구리스트 일부 공유입니다\n전체 일정 검색·조회는 프로필 링크 맘캘린더 웹사이트에서 가능해요.ᐟ.ᐟ\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요\n다음번 카드에 반영해서 올려드릴게요.ᐟ.ᐟ\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n${pickTags(day)}`;
     return s;
   };
   // 인스타 캡션 2200자 제한에 맞춰 마감 목록을 자동으로 줄인다
