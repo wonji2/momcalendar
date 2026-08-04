@@ -17,7 +17,7 @@
      릴스 재생 중엔 하단 330px 를 인스타 UI 가 덮지만, 사장님이 "노란 CTA 는 썸네일에서 안 보여도 된다"
      고 하셔서 목록을 우선한다 (2026-08-04) */
   --pad-bot:190px;
-  --fs-title:88px;   /* 최장 "12/25(금) 오늘 공구 캘린더" 실측 903px < 가용 964px */
+  --fs-title:62px;   /* 제목 옆에 건수 박스가 붙어서 가용폭이 줄었다. fitTitle 이 자동으로 더 줄인다 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
@@ -73,17 +73,18 @@ body.clean .safe,body.clean .gcrop{display:none}
 .brand-ic{width:30px;height:30px;border-radius:9px;background:var(--p);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:16px}
 .brand-t{font-family:var(--f-t);font-size:24px;color:var(--p-d);letter-spacing:-.4px;font-weight:800}
-.title{font-family:var(--f-t);font-size:var(--fs-title);color:var(--ink);letter-spacing:-3.4px;
-  line-height:1.05;font-weight:800;margin:2px 0 18px;white-space:nowrap}
+.title{font-family:var(--f-t);font-size:var(--fs-title);color:var(--ink);letter-spacing:-2.6px;
+  line-height:1.08;font-weight:800;white-space:nowrap;flex:1;min-width:0}
 .title .t-d{color:var(--p);letter-spacing:-2.4px}
-.hd-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+/* 제목 + 건수 를 한 줄에 (사장님 지시 2026-08-04) */
+.hd-main{display:flex;align-items:center;justify-content:space-between;gap:22px;margin:2px 0 20px}
 .date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
 .date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
 .date span{font-size:26px;color:var(--mute);letter-spacing:-.5px;font-weight:700}
-.stats{display:flex;gap:13px}
-.stat{border-radius:18px;padding:14px 24px;text-align:center;min-width:118px}
-.stat .n{font-family:var(--f-t);font-size:50px;line-height:1;letter-spacing:-1.8px;font-weight:800}
-.stat .l{font-size:16px;font-weight:800;margin-top:5px}
+.stats{display:flex;gap:11px;flex-shrink:0}
+.stat{border-radius:16px;padding:11px 17px;text-align:center;min-width:102px}
+.stat .n{font-family:var(--f-t);font-size:42px;line-height:1;letter-spacing:-1.5px;font-weight:800}
+.stat .l{font-size:15px;font-weight:800;margin-top:4px}
 .stat.open{background:var(--p-l)} .stat.open .n{color:var(--p)} .stat.open .l{color:var(--p-d)}
 .stat.close{background:var(--r-l)} .stat.close .n{color:var(--r)} .stat.close .l{color:var(--r)}
 
@@ -246,8 +247,8 @@ async function render(day,opens,ends){
     <div class="gcrop"><b>그리드 커버 영역</b></div>
     <div class="hd">
       <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
-      <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
       <div class="hd-main">
+        <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
         <div class="stats">
           <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
           <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
@@ -277,7 +278,7 @@ async function render(day,opens,ends){
 // 한 줄이 깨지면 카드가 통째로 어긋나므로 넘치면 폰트를 1px 씩 줄여 맞춘다.
 function fitTitle(){
   const t=document.querySelector('.title'); if(!t) return;
-  let px=88;
+  let px=62;
   t.style.fontSize=px+'px';
   while(px>52 && t.scrollWidth>t.clientWidth){ px--; t.style.fontSize=px+'px'; }
 }
