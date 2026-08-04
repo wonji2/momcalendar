@@ -2684,13 +2684,20 @@ var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
 // ⚠ PWA(홈 화면 앱)는 manifest start_url 이 /index.html 이라 pathname 이 '/'가 아니다.
 //    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
 //    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
+// ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다.
+//    등록 안 된 경로로 보내면 KOE006 이 나고 사용자는 로그인 자체를 못 한다.
+//    (2026-08-04: PWA start_url 이 /index.html 이라 앱 사용자가 전부 막혀 있었음)
+var KKO_OK_PATHS = ['/', '/test.html'];   // 카카오 콘솔에 등록된 경로만 넣을 것
 function kkoRedirect(){
   var p = location.pathname;
-  if (p === '' || p === '/' || /\/index\.html$/i.test(p)) return location.origin + '/';
-  return location.origin + p;
+  if (p === '' || /\/index\.html$/i.test(p)) p = '/';
+  return location.origin + (KKO_OK_PATHS.indexOf(p) >= 0 ? p : '/');
 }
 function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){ return null; } }
-function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id); }
+// ⚠️ 세션 토큰이 없으면 로그인 안 된 것으로 본다.
+//    2026-08-03 토큰 방식으로 바꾸기 전에 로그인한 사람은 token 이 없어서,
+//    화면엔 로그인된 것처럼 보이는데 출석·캘린더가 전부 실패했다(2026-08-04 발견).
+function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id && m.token); }
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)

@@ -2704,13 +2704,16 @@ var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
 // ⚠ PWA(홈 화면 앱)는 manifest start_url 이 /index.html 이라 pathname 이 '/'가 아니다.
 //    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
 //    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
+// ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다 (KOE006 방지)
+var KKO_OK_PATHS = ['/', '/test.html'];
 function kkoRedirect(){
   var p = location.pathname;
-  if (p === '' || p === '/' || /\/index\.html$/i.test(p)) return location.origin + '/';
-  return location.origin + p;
+  if (p === '' || /\/index\.html$/i.test(p)) p = '/';
+  return location.origin + (KKO_OK_PATHS.indexOf(p) >= 0 ? p : '/');
 }
 function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){ return null; } }
-function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id); }
+// 세션 토큰 없으면 로그인 안 된 것으로 (옛 로그인자 하위호환)
+function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id && m.token); }
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
