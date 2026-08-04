@@ -18,7 +18,7 @@
      고 하셔서 목록을 우선한다 (2026-08-04) */
   --pad-bot:190px;
   --side:32px;       /* 카드 좌우 여백. 줄일수록 상품명이 덜 잘린다 (사장님 지시 2026-08-04) */
-  --fs-title:62px;   /* 제목 옆에 건수 박스가 붙어서 가용폭이 줄었다. fitTitle 이 자동으로 더 줄인다 */
+  --fs-title:96px;   /* 제목 한 줄. 건수를 아래로 내려 폭을 다 쓴다. fitTitle 이 넘치면 자동 축소 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
   --gold:#C9A24B; --gold-l:#FDF8EC;
@@ -74,11 +74,14 @@ body.clean .safe,body.clean .gcrop{display:none}
 .brand-ic{width:30px;height:30px;border-radius:9px;background:var(--p);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:16px}
 .brand-t{font-family:var(--f-t);font-size:24px;color:var(--p-d);letter-spacing:-.4px;font-weight:800}
-.title{font-family:var(--f-t);font-size:var(--fs-title);color:var(--ink);letter-spacing:-2.6px;
-  line-height:1.08;font-weight:800;white-space:nowrap;flex:1;min-width:0}
-.title .t-d{color:var(--p);letter-spacing:-2.4px}
+/* 제목 2줄 — 썸네일에서 "뭐지?" 하고 눌러보게 만드는 유일한 요소라 최대한 크게.
+   건수 박스는 릴스 재생 아이콘(우측 상단)에 묻히므로 제목 아래 왼쪽으로 내렸다. (사장님 지시 2026-08-04) */
+.title{font-family:var(--f-t);color:var(--ink);letter-spacing:-4px;
+  line-height:1.02;font-weight:800;white-space:nowrap}
+.title{font-size:var(--fs-title)}
+.title .t-d{color:var(--p)}
 /* 제목 + 건수 를 한 줄에 (사장님 지시 2026-08-04) */
-.hd-main{display:flex;align-items:center;justify-content:space-between;gap:22px;margin:2px 0 20px}
+.hd-main{display:flex;align-items:center;gap:22px;margin:16px 0 18px}
 .date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
 .date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
 .date span{font-size:26px;color:var(--mute);letter-spacing:-.5px;font-weight:700}
@@ -266,8 +269,8 @@ async function render(day,opens,ends){
     <div class="gcrop"><b>그리드 커버 영역</b></div>
     <div class="hd">
       <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
+      <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
       <div class="hd-main">
-        <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
         <div class="stats">
           <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
           <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
@@ -295,11 +298,13 @@ async function render(day,opens,ends){
 
 // 제목은 "8/4(화) 오늘 공구 캘린더" 라 날짜 자릿수에 따라 길이가 변한다(12/25(수) 가 가장 김).
 // 한 줄이 깨지면 카드가 통째로 어긋나므로 넘치면 폰트를 1px 씩 줄여 맞춘다.
+// 제목을 카드 좌우 끝까지 꽉 채운다 — 넘치기 직전 크기를 찾는다 (사장님 지시 2026-08-04)
+// 날짜 자릿수에 따라 길이가 달라지므로 고정 px 로는 매일 여백이 들쭉날쭉해진다.
 function fitTitle(){
   const t=document.querySelector('.title'); if(!t) return;
-  let px=62;
-  t.style.fontSize=px+'px';
-  while(px>52 && t.scrollWidth>t.clientWidth){ px--; t.style.fontSize=px+'px'; }
+  let px=60; t.style.fontSize=px+'px';
+  while(px<170 && t.scrollWidth<=t.clientWidth){ px++; t.style.fontSize=px+'px'; }
+  t.style.fontSize=(px-1)+'px';          // 넘치기 직전
 }
 
 // 이웃셀러는 정렬상 항상 맨 앞에 몰려 있다 → 그 연속 구간만 한 덩어리(.nbz)로 감싼다.
