@@ -208,14 +208,19 @@ async function load(){
         return true;
       })
       .map(x=>nh(x.insta)).filter(Boolean));
+    // 맘캘린더 본인 공구는 기간과 무관하게 항상 강조 (index.html isMomcal / FIXED_SELLER 와 같은 기준)
+    const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
+      || ['momcal_','momcalendar','momcal','momcalendar_'].includes(nh(g.insta));
     const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
     const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
     const rows=(gg||[]).map(g=>({...g,
-      partner:P.has(nh(g.insta)),   // 양쪽 다 정규화해야 대소문자·@ 차이로 놓치지 않는다
+      partner:isMomcal(g) || P.has(nh(g.insta)),   // 맘캘린더 본인 + 기간 유효한 이웃셀러
+      own:isMomcal(g),                             // 본인 것이 이웃셀러보다 위로
       score:(C[g.id]||0)+(W[g.id]||0),
       seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
     }));
-    const sortFn=(a,b)=>(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
+    // 맘캘린더 본인 → 이웃셀러 → 나머지(인기순)
+    const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
     const opens=rows.filter(r=>r.open_date===day).sort(sortFn);
     const ends =rows.filter(r=>r.end_date===day).sort(sortFn);
     window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
