@@ -75,11 +75,13 @@
 
 <!-- 앱 -->
 <div id="app" style="display:none">
-  <div class="topbar"><span>📅 맘캘린더 스탭</span><button class="logout" onclick="doLogout()">로그아웃</button></div>
+  <div class="topbar"><span>📅 맘캘린더 스탭 <b id="roleTag" style="font-size:11px;font-weight:500;opacity:.75"></b></span><button class="logout" onclick="doLogout()">로그아웃</button></div>
   <div class="tabs">
     <div class="tab on" id="t-gonggu" onclick="showTab('gonggu')">📦 공구</div>
     <div class="tab" id="t-hotdeal" onclick="showTab('hotdeal')">🔥 핫딜</div>
     <div class="tab" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
+    <div class="tab" id="t-fix" onclick="showTab('fix')">🏷 분류 수정</div>
+    <div class="tab" id="t-card" onclick="showTab('card')">📸 인스타 카드</div>
   </div>
 
   <!-- 공구 -->
@@ -142,6 +144,38 @@
     </div>
     <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 체험단</div>
     <div id="exAdminList"></div>
+  </div>
+
+  <!-- ── 🏷 분류 수정 ── 스태프는 여기서만 DB를 건드린다(대분류·소분류·중복오탐).
+       등록·삭제는 서버(RLS)에서 아예 막혀 있다. -->
+  <div class="view" id="v-fix" style="display:none">
+    <div class="sec">
+      <div class="sec-h">🏷 분류 수정 <span style="font-size:11px;color:#888;font-weight:400">대분류·소분류만 고칠 수 있어요</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <input id="fxQ" placeholder="상품명 · 셀러명 검색" style="flex:1;min-width:150px" onkeydown="if(event.key==='Enter')fxLoad()">
+        <select id="fxMode" style="width:130px">
+          <option value="all">전체</option>
+          <option value="nocat">소분류 없음</option>
+          <option value="auto">자동분류(미확인)</option>
+        </select>
+        <button class="copy" style="width:auto;padding:0 14px" onclick="fxLoad()">불러오기</button>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">오늘 기준 <b>최근 60일</b> 공구만 보여줍니다 · 최대 200건</div>
+      <div id="fxList"></div>
+    </div>
+  </div>
+
+  <!-- ── 📸 인스타 카드 ── -->
+  <div class="view" id="v-card" style="display:none">
+    <div class="sec">
+      <div class="sec-h">📸 인스타 카드</div>
+      <div style="font-size:12px;color:#666;line-height:1.7;margin-bottom:12px">
+        오늘의 공구 목록을 <b>1080×1920 릴스 카드</b>로 만들고 캡션까지 뽑아줍니다.<br>
+        날짜를 고르면 그날 카드가 나오고, <b>기간·이번 주 5일치</b>를 한 번에 저장할 수도 있어요.
+      </div>
+      <button class="copy" onclick="openReelCard()">📸 카드 만들기 열기</button>
+      <div style="font-size:11px;color:#aaa;margin-top:8px">새 탭에서 열립니다</div>
+    </div>
   </div>
 </div>
 
@@ -256,6 +290,7 @@ function doLogout(){ clearSession(); location.reload(); }
 function enterApp(){
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
+  loadRole();                       // 스태프면 등록 탭을 감춘다
   loadSellers(); addGgRow(); loadGonggu();
   addHdRow(); addExRow();
 }
@@ -280,12 +315,100 @@ window.addEventListener('DOMContentLoaded',restoreSession);
 
 // ───────── 탭 ─────────
 function showTab(t){
-  ['gonggu','hotdeal','exp'].forEach(x=>{
-    document.getElementById('t-'+x).classList.toggle('on',x===t);
-    document.getElementById('v-'+x).style.display=(x===t)?'block':'none';
+  ['gonggu','hotdeal','exp','fix','card'].forEach(x=>{
+    const tb=document.getElementById('t-'+x), vw=document.getElementById('v-'+x);
+    if(!tb||!vw) return;
+    tb.classList.toggle('on',x===t);
+    vw.style.display=(x===t)?'block':'none';
   });
   if(t==='hotdeal') loadHotdealAdmin();
   if(t==='exp') loadExpAdmin();
+  if(t==='fix') fxLoad();
+}
+
+// ───────── 권한 ─────────
+// 스태프는 등록·삭제가 서버에서 막혀 있다(RLS). 화면에서도 해당 탭을 감춰 헷갈리지 않게 한다.
+let IS_ADMIN=false, IS_STAFF=false;
+async function loadRole(){
+  try{
+    const r=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/rpc/is_app_admin`,{method:'POST',headers:sbHeaders(),body:'{}'}).then(x=>x.json()),
+      fetch(`${SB_URL}/rest/v1/rpc/is_app_staff`,{method:'POST',headers:sbHeaders(),body:'{}'}).then(x=>x.json())
+    ]);
+    IS_ADMIN=r[0]===true; IS_STAFF=r[1]===true;
+  }catch(_){ IS_ADMIN=false; IS_STAFF=false; }
+  if(!IS_ADMIN){
+    ['gonggu','hotdeal','exp'].forEach(x=>{
+      const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none';
+    });
+    showTab('fix');
+  }
+  const who=document.getElementById('roleTag');
+  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 분류 수정만 가능' : '권한 없음 — 사장님께 등록 요청하세요');
+}
+
+// ───────── 🏷 분류 수정 ─────────
+function fxEsc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+async function fxLoad(){
+  const box=document.getElementById('fxList'); if(!box) return;
+  box.innerHTML='<div style="color:#888;font-size:12px;padding:10px">불러오는 중…</div>';
+  const q=(document.getElementById('fxQ').value||'').trim();
+  const mode=document.getElementById('fxMode').value;
+  const from=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+  let url=`${SB_URL}/rest/v1/gonggu?select=id,name,influencer,insta,open_date,end_date,major,minor,cat_manual,dup_ok`
+        + `&open_date=gte.${from}&order=open_date.desc&limit=200`;
+  if(q) url+=`&or=(name.ilike.*${encodeURIComponent(q)}*,influencer.ilike.*${encodeURIComponent(q)}*)`;
+  if(mode==='nocat') url+=`&or=(minor.is.null,minor.eq.)`;
+  if(mode==='auto')  url+=`&cat_manual=is.false`;
+  try{
+    const rows=await fetch(url,{headers:sbHeaders()}).then(r=>r.json());
+    if(!Array.isArray(rows)||!rows.length){ box.innerHTML='<div style="color:#888;font-size:12px;padding:10px">해당하는 공구가 없어요</div>'; return; }
+    box.innerHTML=rows.map(fxRow).join('');
+  }catch(e){ box.innerHTML='<div style="color:#c33;font-size:12px;padding:10px">불러오기 실패: '+fxEsc(e.message)+'</div>'; }
+}
+function fxRow(d){
+  const maj=d.major||'', min=d.minor||'';
+  return `<div class="glist-card" id="fx-${d.id}">
+    <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px">${fxEsc(d.name)}</div>
+    <div style="font-size:11px;color:#999;margin-bottom:6px">${fxEsc(d.influencer||d.insta||'')} · ${d.open_date}~${d.end_date||''}
+      ${d.cat_manual?'':'<span style="color:#E08A00">· 자동분류</span>'}${d.dup_ok?' <span style="color:#3E8E5A">· 중복아님</span>':''}</div>
+    <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+      <select id="fxM-${d.id}" onchange="fxSyncMinor(${d.id})" style="width:96px;font-size:12px">${catOptions(maj)}</select>
+      <select id="fxN-${d.id}" style="width:120px;font-size:12px">${minorOptions(maj,min)}</select>
+      <button class="copy" style="width:auto;padding:0 12px;height:30px;font-size:12px" onclick="fxSave(${d.id})">저장</button>
+      <button class="copy" style="width:auto;padding:0 10px;height:30px;font-size:12px;background:#EFEFEF;color:#555" onclick="fxDupOk(${d.id},${d.dup_ok?'false':'true'})">${d.dup_ok?'중복아님 해제':'중복 아님'}</button>
+      <span id="fxS-${d.id}" style="font-size:11px;color:#3E8E5A"></span>
+    </div></div>`;
+}
+function fxSyncMinor(id){
+  const maj=document.getElementById('fxM-'+id).value;
+  document.getElementById('fxN-'+id).innerHTML=minorOptions(maj,'');
+}
+async function fxRpc(fn, body, id){
+  const tag=document.getElementById('fxS-'+id);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:sbHeaders(),body:JSON.stringify(body)});
+    const ok=await r.json();
+    if(!r.ok || ok===false) throw new Error(typeof ok==='object'&&ok.message?ok.message:'권한이 없거나 대상이 없어요');
+    if(tag){ tag.style.color='#3E8E5A'; tag.textContent='저장됨 ✓'; setTimeout(()=>{tag.textContent='';},2500); }
+    return true;
+  }catch(e){
+    if(tag){ tag.style.color='#c33'; tag.textContent=e.message; }
+    return false;
+  }
+}
+function fxSave(id){
+  fxRpc('staff_set_category',{p_id:id,p_major:document.getElementById('fxM-'+id).value,p_minor:document.getElementById('fxN-'+id).value},id);
+}
+async function fxDupOk(id,ok){
+  if(await fxRpc('staff_set_dup_ok',{p_id:id,p_ok:ok},id)) fxLoad();
+}
+
+// ───────── 📸 인스타 카드 ─────────
+function openReelCard(){
+  const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
+  const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+  window.open(base+'/reelcard.html?d='+kst+'&t='+Date.now(),'_blank');
 }
 
 // ───────── 공구: 카테고리/셀러 ─────────
