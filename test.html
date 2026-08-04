@@ -2705,7 +2705,7 @@ var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
 //    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
 //    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
 // ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다 (KOE006 방지)
-var KKO_OK_PATHS = ['/', '/test.html'];
+var KKO_OK_PATHS = ['/'];   // 등록 확인된 경로만. test.html 에서 로그인해도 / 로 돌아온다(로그인은 정상 완료)
 function kkoRedirect(){
   var p = location.pathname;
   if (p === '' || /\/index\.html$/i.test(p)) p = '/';
@@ -2820,7 +2820,8 @@ function hideLoginStrip(){
 function paintMemberUI(){
   var m=memberGet(), el=document.getElementById('kkoWho');
   if(!el) return;
-  el.innerHTML = m&&m.kakao_id
+  // ⚠️ isLoggedIn() 과 같은 기준. kakao_id 만 보면 토큰 없는 옛 로그인자가 재로그인을 못 한다.
+  el.innerHTML = isLoggedIn()
     ? '💜 <b>'+(m.nickname||'회원')+'</b>님 <button onclick="kkoLogout()" style="background:none;border:none;color:#b3a9c8;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline">로그아웃</button>'
     : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>';
 }

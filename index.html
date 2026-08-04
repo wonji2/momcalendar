@@ -2687,7 +2687,9 @@ var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
 // ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다.
 //    등록 안 된 경로로 보내면 KOE006 이 나고 사용자는 로그인 자체를 못 한다.
 //    (2026-08-04: PWA start_url 이 /index.html 이라 앱 사용자가 전부 막혀 있었음)
-var KKO_OK_PATHS = ['/', '/test.html'];   // 카카오 콘솔에 등록된 경로만 넣을 것
+//    ❗ 카카오 콘솔에 **실제로 등록된 것이 확인된** 경로만 넣을 것.
+//       확인 안 된 경로를 넣으면 그 페이지 사용자가 통째로 로그인 불가가 된다.
+var KKO_OK_PATHS = ['/'];
 function kkoRedirect(){
   var p = location.pathname;
   if (p === '' || /\/index\.html$/i.test(p)) p = '/';
@@ -2804,7 +2806,9 @@ function hideLoginStrip(){
 function paintMemberUI(){
   var m=memberGet(), el=document.getElementById('kkoWho');
   if(!el) return;
-  el.innerHTML = m&&m.kakao_id
+  // ⚠️ isLoggedIn() 과 같은 기준을 써야 한다. kakao_id 만 보면
+  //    토큰 없는 옛 로그인자에게 "로그아웃" 버튼만 보여서 재로그인 자체가 막힌다.
+  el.innerHTML = isLoggedIn()
     ? '💜 <b>'+(m.nickname||'회원')+'</b>님 <button onclick="kkoLogout()" style="background:none;border:none;color:#b3a9c8;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline">로그아웃</button>'
     : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>';
 }
