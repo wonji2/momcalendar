@@ -74,8 +74,8 @@ body.clean .safe,body.clean .gcrop{display:none}
 .hd{padding:256px var(--side) 0;flex-shrink:0}
 /* 썸네일에서 브랜드가 먼저 읽히게 크게. 제목과의 간격은 줄인다 (사장님 지시 2026-08-04) */
 .brand{display:inline-flex;align-items:center;gap:12px;margin-bottom:4px}
-.brand-ic{width:52px;height:52px;border-radius:15px;background:var(--p);color:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:28px}
+/* 맘캘린더 앱 아이콘(달력 속 하트) — 사장님 지시 2026-08-04 "우리 아이콘으로 써" */
+.brand-ic{width:58px;height:58px;border-radius:16px;display:block;flex-shrink:0}
 .brand-t{font-family:var(--f-t);font-size:46px;color:var(--p-d);letter-spacing:-1.6px;font-weight:800}
 /* 제목 2줄 — 썸네일에서 "뭐지?" 하고 눌러보게 만드는 유일한 요소라 최대한 크게.
    건수 박스는 릴스 재생 아이콘(우측 상단)에 묻히므로 제목 아래 왼쪽으로 내렸다. (사장님 지시 2026-08-04) */
@@ -138,11 +138,13 @@ body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;marg
 .cta .u{font-family:var(--f-t);font-size:27px;color:var(--p-d);font-weight:800;white-space:nowrap}
 /* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
    흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
-.pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
-.pad .s{font-size:26px;color:#7A6394;font-weight:700;letter-spacing:-.6px;margin-bottom:2px}
-.pad .w{font-family:var(--f-t);font-size:46px;font-weight:800;color:var(--p-d);letter-spacing:-1.6px}
-.pad .m{font-size:24px;color:#8B7BA6;font-weight:700;letter-spacing:-.5px}
+/* ⚠️ overflow:hidden 필수 — 띠를 100px 로 줄였더니 글자가 보라 배경 밖으로 튀어나왔다 (2026-08-04 사장님 지적).
+   공간이 모자라면 글자를 줄여 넣는다. 지금 23px+40px+gap = 약 80px 로 100px 안에 들어간다. */
+.pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.pad .s{font-size:23px;color:#7A6394;font-weight:700;letter-spacing:-.6px;line-height:1.2}
+.pad .w{font-family:var(--f-t);font-size:40px;font-weight:800;color:var(--p-d);letter-spacing:-1.4px;line-height:1.15}
+.pad .m{display:none}   /* URL 은 노란 CTA 에 이미 있어 중복 — 3줄이면 100px 를 넘는다 */
 
 /* ── 시안 ── 글씨 크기만 다르다. 항목 수는 fitColumn 이 자동으로 맞춘다 */
 /* 글씨를 키우고 항목 여백을 줄이면 한 줄 높이는 오히려 줄어 항목이 더 들어간다 (사장님 지시 2026-08-04) */
@@ -315,7 +317,7 @@ async function render(day,opens,ends){
     <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
     <div class="gcrop"><b>그리드 커버 영역</b></div>
     <div class="hd">
-      <div class="brand"><span class="brand-ic">♥</span><span class="brand-t">맘캘린더</span></div>
+      <div class="brand"><img class="brand-ic" src="momcal-appicon.png" alt=""><span class="brand-t">맘캘린더</span></div>
       <div class="hd-main">
         <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
         <div class="stats">
@@ -335,7 +337,7 @@ async function render(day,opens,ends){
         <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
       <div class="u">momcalendar.com</div>
     </div>
-    <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div><div class="m">momcalendar.com</div></div>`;
+    <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div></div>`;
 
   fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
