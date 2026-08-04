@@ -485,13 +485,23 @@ async function makeCaption(day,opens,ends){
     const oShow=(openCut===undefined)?rest.length:openCut;
     let s=`📌 저장해두고 필요하실 때 꺼내 보세요\n\n맘캘린더에서 공유드리는\n${head} 오늘 공구 캘린더\n\n오픈 ${opens.length}건 · 마감 ${ends.length}건\n\n━━━━━━━━━━━━━━\n`;
     if(nb.length) s+=`\n💜 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
+    // 남은 건수는 "사이트에서 보세요"로 유도한다. (사장님 지시 2026-08-04)
+    // 한 건도 못 넣은 섹션은 목록 제목만 덩그러니 남으므로 제목째로 한 줄로 줄인다.
     const o=rest.slice(0,oShow);
-    s+=`\n🔓 오늘 오픈하는 공구\n`+o.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n');
-    if(rest.length>oShow) s+=`\n…외 ${rest.length-oShow}건`;
+    if(o.length){
+      s+=`\n🔓 오늘 오픈하는 공구\n`+o.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n');
+      if(rest.length>oShow) s+=`\n…나머지 ${rest.length-oShow}건은 맘캘린더 사이트에서 보실 수 있어요`;
+    }else if(rest.length){
+      s+=`\n🔓 오늘 오픈하는 공구 ${rest.length}건은 맘캘린더 사이트에서 확인해 주세요`;
+    }
     s+='\n';
     const e=capEnds.slice(0,endCut);
-    s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
-    if(capEnds.length>endCut) s+=`\n…외 ${capEnds.length-endCut}건`;
+    if(e.length){
+      s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
+      if(capEnds.length>endCut) s+=`\n…나머지 ${capEnds.length-endCut}건은 맘캘린더 사이트에서 보실 수 있어요`;
+    }else if(capEnds.length){
+      s+=`\n⏰ 오늘 마감하는 공구 ${capEnds.length}건은 맘캘린더 사이트에서 확인해 주세요`;
+    }
     s+=`\n\n━━━━━━━━━━━━━━\n\n오늘 진행하는 공구리스트 일부 공유입니다\n전체 일정 검색·조회는 프로필 링크 맘캘린더 웹사이트에서 가능해요.ᐟ.ᐟ\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요\n다음번 카드에 반영해서 올려드릴게요.ᐟ.ᐟ\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n${pickTags(day)}`;
     return s;
   };

@@ -346,13 +346,14 @@ async function loadRole(){
     ]);
     IS_ADMIN=r[0]===true; IS_STAFF=r[1]===true;
   }catch(_){ IS_ADMIN=false; IS_STAFF=false; }
-  // 스태프는 체험단 등록이 서버(RLS)에서 막혀 있으므로 인스타 카드만 보여준다.
-  if(!IS_ADMIN){
+  // 스태프도 체험단은 등록·수정·삭제 가능(사장님 지시 2026-08-04, RLS exp_write 확장).
+  // 공구·핫딜은 여전히 서버에서 막혀 있다 → 명단에 없는 사람은 인스타 카드만.
+  if(!IS_ADMIN && !IS_STAFF){
     const tb=document.getElementById('t-exp'); if(tb) tb.style.display='none';
     showTab('card');
   }
   const who=document.getElementById('roleTag');
-  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 인스타 카드' : '권한 없음 — 사장님께 등록 요청하세요');
+  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 체험단·인스타 카드' : '권한 없음 — 사장님께 등록 요청하세요');
 }
 
 // ───────── 🏷 분류 수정 ─────────
