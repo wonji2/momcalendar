@@ -1,0 +1,62 @@
+name: 검색 노출 페이지 매일 갱신
+
+# 공구는 매일 바뀐다. 페이지가 굳어 있으면 검색엔진이 방문 빈도를 낮춘다.
+# DB 쪽 pg_cron(seo-refresh)이 04:20 KST 에 집계를 캐시에 넣어 두고,
+# 여기서는 05:10 KST 에 그 캐시를 읽어 페이지를 다시 만든다.
+# 데이터는 공개 키로 읽는 RPC 라서 GitHub Secret 이 필요 없다.
+
+on:
+  schedule:
+    - cron: '10 20 * * *'   # UTC 20:10 = KST 05:10
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '커밋하지 않고 생성·검증만 한다'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seo-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 페이지 생성
+        shell: pwsh
+        run: ./tools/seo/build.ps1
+
+      - name: 역검증 (실패하면 커밋하지 않는다)
+        shell: pwsh
+        run: |
+          $out = ./tools/seo/verify.ps1
+          $out | ForEach-Object { Write-Output $_ }
+          if(($out -join "`n") -notmatch '통과: 문제 없음'){
+            Write-Error '검증 실패 — 커밋을 중단한다'
+            exit 1
+          }
+
+      - name: 변경 사항 커밋
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name  "momcal-bot"
+          git config user.email "noreply@momcalendar.com"
+          # 생성물만 add 한다. index.html·admin.html 같은 라이브 파일은
+          # 자동 커밋이 절대 건드리면 안 된다(고정 규칙 0-A).
+          git add g p s m d c sitemap.xml sitemap-main.xml sitemap-brand.xml sitemap-product.xml sitemap-seller.xml robots.txt
+          git add --pathspec-from-file=tools/seo/generated.txt
+          git reset -q -- index.html admin.html test.html staff.html register.html kktest.html reelcard.html
+          if git diff --cached --quiet; then
+            echo "바뀐 것 없음 — 커밋 생략"
+          else
+            N=$(git diff --cached --name-only | wc -l)
+            git commit -m "검색 노출 페이지 자동 갱신 ($(TZ=Asia/Seoul date '+%Y-%m-%d') · ${N}개 파일)"
+            git push
+            echo "커밋 완료: ${N}개 파일"
+          fi
