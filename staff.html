@@ -83,6 +83,7 @@
     <div class="tab on" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
     <div class="tab" id="t-fix" onclick="showTab('fix')" style="display:none">🏷 분류 수정</div>
     <div class="tab" id="t-card" onclick="showTab('card')">📸 인스타 카드</div>
+    <div class="tab" id="t-staff" onclick="showTab('staff')" style="display:none">👥 스탭 관리</div>
   </div>
 
   <!-- 공구 -->
@@ -167,6 +168,21 @@
   </div>
 
   <!-- ── 📸 인스타 카드 ── -->
+  <!-- ── 👥 스탭 관리 ── 관리자만 보인다. 가입한 사람에게 권한을 주거나 뺀다. -->
+  <div class="view" id="v-staff" style="display:none">
+    <div class="sec">
+      <div class="sec-h">🙋 승인 대기 <span style="font-size:11px;color:#888;font-weight:400">가입만 하고 아직 권한이 없는 사람</span></div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">
+        승인하면 <b>체험단 등록·수정·삭제</b>와 <b>인스타 카드</b>를 쓸 수 있습니다. 공구·핫딜은 여전히 사장님만 가능합니다.
+      </div>
+      <div id="stPending"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h">👥 현재 스탭</div>
+      <div id="stList"></div>
+    </div>
+  </div>
+
   <!-- 탭을 누르면 곧바로 카드 화면이 뜬다(버튼 한 번 더 누르지 않게). 최초 1회만 로드. -->
   <div class="view" id="v-card" style="display:none;padding:0">
     <iframe id="cardFrame" title="인스타 카드 만들기"
@@ -314,7 +330,7 @@ window.addEventListener('DOMContentLoaded',restoreSession);
 
 // ───────── 탭 ─────────
 function showTab(t){
-  ['gonggu','hotdeal','exp','fix','card'].forEach(x=>{
+  ['gonggu','hotdeal','exp','fix','card','staff'].forEach(x=>{
     const tb=document.getElementById('t-'+x), vw=document.getElementById('v-'+x);
     if(!tb||!vw) return;
     tb.classList.toggle('on',x===t);
@@ -324,6 +340,59 @@ function showTab(t){
   if(t==='exp') loadExpAdmin();
   if(t==='fix') fxLoad();
   if(t==='card') mountReelCard();
+  if(t==='staff') stLoad();
+}
+
+// ───────── 👥 스탭 관리 (관리자 전용) ─────────
+// auth.users 는 브라우저에서 못 읽으므로 전부 RPC 로만 다룬다. 함수 안에서 관리자 여부를 다시 확인한다.
+async function stRpc(fn, body){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,
+    {method:'POST', headers:sbHeaders(), body:JSON.stringify(body||{})});
+  const d = await r.json().catch(()=>null);
+  if(!r.ok) throw new Error((d&&(d.message||d.hint))||('오류 '+r.status));
+  return d;
+}
+function stEsc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function stDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?'':`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`; }
+
+async function stLoad(){
+  const p=document.getElementById('stPending'), l=document.getElementById('stList');
+  if(!p||!l) return;
+  p.innerHTML='<div style="color:#888;font-size:12px;padding:10px">불러오는 중…</div>';
+  l.innerHTML='';
+  try{
+    const [pend, list] = await Promise.all([stRpc('admin_staff_pending'), stRpc('admin_staff_list')]);
+    p.innerHTML = (Array.isArray(pend)&&pend.length)
+      ? pend.map(x=>`<div class="glist-card" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="flex:1;min-width:110px">${stEsc(x.login_id)}</b>
+          <span style="font-size:11px;color:#999">가입 ${stDate(x.created_at)}</span>
+          <button class="copy" style="width:auto;padding:0 14px;height:32px"
+                  onclick="stApprove('${x.user_id}','${stEsc(x.login_id)}')">승인</button>
+        </div>`).join('')
+      : '<div style="color:#888;font-size:12px;padding:10px">승인 기다리는 사람이 없어요</div>';
+    l.innerHTML = (Array.isArray(list)&&list.length)
+      ? list.map(x=>`<div class="glist-card" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="flex:1;min-width:110px">${stEsc(x.login_id)}</b>
+          ${x.memo?`<span style="font-size:11px;color:#888">${stEsc(x.memo)}</span>`:''}
+          <span style="font-size:11px;color:#999">승인 ${stDate(x.added_at)}</span>
+          <button class="copy" style="width:auto;padding:0 12px;height:32px;background:#fff;color:#C62828;border:1px solid #E8C4C4"
+                  onclick="stRevoke('${x.user_id}','${stEsc(x.login_id)}')">권한 해제</button>
+        </div>`).join('')
+      : '<div style="color:#888;font-size:12px;padding:10px">아직 스탭이 없어요</div>';
+  }catch(e){
+    p.innerHTML='<div style="color:#c33;font-size:12px;padding:10px">'+stEsc(e.message)+'</div>';
+  }
+}
+async function stApprove(uid, name){
+  const memo = prompt(`"${name}" 님을 스탭으로 승인합니다.\n메모(누구인지 적어두면 나중에 편해요) — 비워도 됩니다.`, '');
+  if(memo===null) return;                       // 취소
+  try{ await stRpc('admin_staff_approve',{p_user:uid, p_memo:memo}); await stLoad(); }
+  catch(e){ alert('승인 실패: '+e.message); }
+}
+async function stRevoke(uid, name){
+  if(!confirm(`"${name}" 님의 권한을 해제할까요?\n계정은 남고, 체험단·인스타 카드를 쓸 수 없게 됩니다.`)) return;
+  try{ await stRpc('admin_staff_revoke',{p_user:uid}); await stLoad(); }
+  catch(e){ alert('해제 실패: '+e.message); }
 }
 
 // 인스타 카드를 탭 안에 붙인다. 이미 붙어 있으면 다시 로드하지 않는다(작업 중이던 내용 보존).
@@ -348,6 +417,9 @@ async function loadRole(){
   }catch(_){ IS_ADMIN=false; IS_STAFF=false; }
   // 스태프도 체험단·핫딜은 등록·수정·삭제 가능(사장님 지시 2026-08-04·05, RLS exp_write/hotdeals_admin_all 확장).
   // 공구(gonggu)는 여전히 서버에서 막혀 있다 → 명단에 없는 사람은 인스타 카드만.
+  if(IS_ADMIN){
+    const st=document.getElementById('t-staff'); if(st) st.style.display='';   // 스탭 관리는 사장님만
+  }
   if(!IS_ADMIN && !IS_STAFF){
     ['exp'].forEach(x=>{ const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none'; });
     showTab('card');
