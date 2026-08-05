@@ -26,7 +26,18 @@ const MAX_PER_RUN = 20;    // 가격근거 기반 핫딜 하루 상한
 const REPOST_COOLDOWN = 3; // 같은 상품을 며칠 안에는 다시 안 올림 (매일 같은 상품 도배 방지)
 // ⚠️ 쿠팡 검색 API 시간당 호출 제한 방어선. 이 값을 함부로 올리지 말 것
 //    (3회 초과하면 파트너스 이용이 제한된다. 2026-08-03에 116개로 돌리다 1회 초과 경고를 받음)
-const KW_PER_RUN = 40;
+// ═══ 쿠팡 API 한도 (공식 문서 확인, 2026-08-04) ═══
+//   /products/search : **1분당 50회**   ·   모든 API 합계 : 1분당 100회
+//   일별 총량 제한 : 없음               ·   초과 시 : 24시간 차단, 경고 3회 누적이면 이용 제한
+//
+//   ⚠️ 2026-08-03 사고의 진짜 원인은 "40개를 호출한 것"이 아니라 **250ms 간격으로 몰아친 것**.
+//      40회 ÷ 10초 = 분당 240회 → 한도(50)의 4.8배. 횟수가 아니라 **속도**가 문제였다.
+//   → 일별 제한이 없으므로 키워드 수는 넉넉히 두되, **간격을 2초로 고정**해 분당 30회로 억제한다.
+//   일별 총량 제한이 없으므로 **속도만 지키면 많이 가져올수록 좋다.**
+//   1.5초 간격 = 분당 40회 (한도 50의 80%) · 58개 × 1.5초 ≈ 87초 → Edge Function 실행시간 안쪽
+//   크론을 08:00 / 08:20 두 번 돌려 116개 키워드를 **매일 전량** 순회한다.
+const KW_PER_RUN  = 58;
+const CALL_GAP_MS = 1500;    // ❌ 이 값을 더 줄이지 말 것 — 분당 50회를 넘기면 24시간 차단
 
 // 골드박스 = 쿠팡이 직접 고른 '오늘의 특가'.
 // 우리 가격이력이 없는 초기에도 게시판을 채울 수 있고, 근거는 "쿠팡 선정"으로 정직하게 표기한다.
@@ -189,9 +200,21 @@ Deno.serve(async (req) => {
                 major: string; minor: string; keyword: string; rocket: boolean };
   const found = new Map<string, Prod>();
 
+  let rateLimited = false;
   for (const k of kws) {
     try {
       const res = await cpSearch(k.keyword);
+
+      // ⚠️ 429/403(시간당 한도 초과)이 오면 즉시 멈춘다.
+      //    계속 때리면 "초과 횟수"가 쌓이고 3회면 파트너스 이용이 제한된다.
+      const rc = String(res?.rCode ?? res?._httpStatus ?? "");
+      const rm = String(res?.rMessage ?? "");
+      if (rc === "403" || rc === "429" || rm.includes("초과")) {
+        rateLimited = true;
+        log.errors.push({ kw: k.keyword, rateLimited: true, msg: rm.slice(0, 160) });
+        break;
+      }
+
       const list = res?.data?.productData ?? [];
       if (!Array.isArray(list) || !list.length) {
         if (log.errors.length < 3) {                      // 원인 파악용으로 앞 3건만 본문 보관
@@ -216,7 +239,7 @@ Deno.serve(async (req) => {
         });
       }
     } catch (e) { log.errors.push({ kw: k.keyword, err: String(e) }); }
-    await new Promise((r) => setTimeout(r, 250));   // 쿠팡 호출 간격 (스로틀 회피)
+    await new Promise((r) => setTimeout(r, CALL_GAP_MS));  // 분당 50회 한도 방어선
   }
   // 이번에 돌린 키워드는 순번을 뒤로 (다음 실행 땐 아직 안 본 키워드가 먼저 온다)
   if (kws.length) {
@@ -255,6 +278,7 @@ Deno.serve(async (req) => {
   log.goldbox = goldIds.length;
 
   log.scanned = found.size;
+  log.rateLimited = rateLimited;   // true 면 쿠팡이 막은 것 — 키워드 수를 더 줄여야 한다
   if (!found.size) return Response.json({ ...log, note: "수집 0건 — 쿠팡 API 응답 확인 필요(?test=1)" });
 
   // 2) 오늘 가격 기록 + 감시목록 갱신
@@ -313,17 +337,24 @@ Deno.serve(async (req) => {
   const picks: any[] = cands.slice(0, MAX_PER_RUN).map((p) => ({ ...p, src: "coupang" }));
   log.candidates = cands.length;
 
-  // 이력 판정에 걸리지 않은 골드박스 건은 '쿠팡 선정 특가'로 채운다
-  // (우리 할인율 주장은 안 하고, 가격이력이 쌓이면 같은 카드에 그래프가 붙는다)
+  // ═══ 골드박스는 "가격이력이 부족할 때만" 자리를 메우는 임시 재료 ═══
+  //   맘캘린더 핫딜의 근거는 **우리가 쌓은 가격이력**이다(폴센트식). 골드박스는 쿠팡이 정한 특가라
+  //   "왜 싼지"를 우리가 설명할 수 없다. 그래서 가격근거 핫딜이 충분해지면 골드박스를 0으로 줄인다.
+  //   · 가격근거 핫딜이 GOLD_OFF_AT 건 이상 → 골드박스 아예 안 씀
+  //   · 그보다 적으면 모자란 만큼만 채움
+  const GOLD_OFF_AT = 8;
+  const goldQuota = Math.max(0, Math.min(MAX_GOLD, GOLD_OFF_AT - picks.length));
   const already = new Set(picks.map((p) => p.id));
-  const golds = goldIds
+  const golds = goldQuota === 0 ? [] : goldIds
     .filter((id) => !already.has(id))
     .map((id) => found.get(id)!)
     .filter(Boolean)
-    .slice(0, MAX_GOLD)
+    .slice(0, goldQuota)
     .map((p) => ({ ...p, avg: null, isLowest: false, discount: null, src: "goldbox" }));
   picks.push(...golds);
   log.goldPicked = golds.length;
+  log.goldQuota  = goldQuota;
+  log.mode = picks.length && goldQuota === 0 ? "가격이력만(골드박스 OFF)" : "가격이력 부족 → 골드박스로 보충";
 
   // 애드픽: 정가가 있으니 그날 바로 할인율 확정
   try {
