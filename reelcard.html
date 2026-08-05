@@ -19,7 +19,14 @@
   /* 하단 브랜드 띠. 이 값을 줄일수록 노란 CTA 가 아래로 내려간다.
      썸네일(그리드 커버)은 세로 240~1680px 만 보이므로 CTA top 이 1680 아래면 썸네일에 안 나온다. */
   --pad-bot:108px;
-  --side:32px;       /* 카드 좌우 여백. 줄일수록 상품명이 덜 잘린다 (사장님 지시 2026-08-04) */
+  /* 카드 좌우 여백.
+     ⚠️ 릴스는 9:16(1080×1920)인데 요즘 폰 화면은 19.5:9~20:9 로 더 길쭉하다.
+        인스타가 세로를 꽉 채우면서 좌우를 잘라낸다 → 각 118~135px 이 사라진다.
+        (사장님 실측 2026-08-05: 제목 "8"과 오른쪽 마감 배지가 잘려 나갔다)
+        19.5:9 폰 = 1080×2340 → 표시폭 1316 → 잘림 각 118px
+        20:9   폰 = 1080×2400 → 표시폭 1350 → 잘림 각 135px
+        여기에 여유 5px 를 더해 140px. 이 값을 32 로 되돌리면 다시 잘린다. */
+  --side:140px;
   --fs-title:96px;   /* fitTitle 이 좌우 끝까지 자동으로 맞춘다 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
@@ -78,7 +85,12 @@ body{background:#3A3145;font-family:var(--f-b);padding:225px 0 60px;color:#fff}
   pointer-events:none;z-index:7;box-sizing:border-box}
 .gcrop b{position:absolute;top:10px;right:14px;font-size:22px;color:#2C6FD1;background:rgba(255,255,255,.88);
   padding:5px 14px;border-radius:6px;font-weight:800}
-body.clean .safe,body.clean .gcrop{display:none}
+/* 좌우 잘림 — 릴스 재생 시 폰 화면비 때문에 양옆이 이만큼 사라진다 (2026-08-05 추가) */
+.hcrop{position:absolute;top:0;bottom:0;width:135px;background:rgba(255,90,90,.10);
+  pointer-events:none;z-index:7;box-sizing:border-box}
+.hcrop.l{left:0;border-right:3px dashed rgba(255,90,90,.6)}
+.hcrop.r{right:0;border-left:3px dashed rgba(255,90,90,.6)}
+body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
 
 .gap{display:inline-block;width:11px}
 
@@ -345,6 +357,7 @@ async function render(day,opens,ends){
     <div class="safe top"><b>상단 200px · UI 가림</b></div>
     <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
     <div class="gcrop"><b>그리드 커버 영역</b></div>
+    <div class="hcrop l"></div><div class="hcrop r"></div>
     <div class="hd">
       <div class="brand"><img class="brand-ic" src="momcal-appicon.png" alt=""><span class="brand-t">맘캘린더</span></div>
       <div class="hd-main">
