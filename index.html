@@ -1565,13 +1565,27 @@ function restoreViewState(){
     return true;
   }catch(_){ return false; }
 }
-// 인앱 웹뷰는 렌더가 늦어 한 번의 scrollTo로는 위치를 못 잡음 → 몇 번 재시도
+// 인앱 웹뷰는 렌더가 늦어 한 번의 scrollTo로는 위치를 못 잡음 → 끈질기게 재시도
+// ⚠️ 6회×120ms(0.7초)로는 모자랐다. 카드 이미지가 뒤늦게 들어오면서 목록 높이가 늘어나
+//    "맨 아래 맞춰둔 카드가 돌아오니 다른 자리에 있다"가 된다. (사장님 영상 2026-08-05)
+//    → 2초 넘게, 그리고 이미지 로드(load)·폰트 반영 뒤에도 한 번 더 맞춘다.
 function _restoreScroll(y){
+  if(!(y>0)) return;
   let n=0;
   (function attempt(){
-    window.scrollTo(0,y);
-    if(++n<6 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4){ setTimeout(attempt,120); }
+    var cur=window.scrollY||document.documentElement.scrollTop||0;
+    // 목표 지점까지 문서가 아직 안 자랐으면 기다렸다 다시 (밑에서 자르지 않는다)
+    var max=Math.max(0,(document.documentElement.scrollHeight||0)-window.innerHeight);
+    if(max>=y-2) window.scrollTo(0,y);
+    if(++n<16 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4){ setTimeout(attempt,140); }
   })();
+  // 늦게 들어오는 이미지 때문에 또 밀릴 수 있다 → 로드 완료 후 한 번 더
+  var fix=function(){ setTimeout(function(){
+    if(Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4) window.scrollTo(0,y);
+  }, 60); };
+  window.addEventListener('load', fix, {once:true});
+  setTimeout(fix, 1200);
+  setTimeout(fix, 2500);
 }
 
 function toggleStab(v,el){
@@ -3503,7 +3517,16 @@ window.addEventListener('pageshow', function(e){
   if(e.persisted){                       // bfcache에서 복원된 경우만
     try{
       if(typeof DATA!=='undefined' && DATA && DATA.length){
-        if(!restoreViewState()) renderList();   // 보던 화면 복원(TOP100·순서·스크롤 포함)
+        // ⚠️ 화면이 통째로 살아 돌아온 상태다. 여기서 다시 그리면 목록이 새로 만들어지면서
+        //    보던 자리가 틀어진다. ("바맘 카드를 맨 밑에 맞춰놨는데 돌아오니 자리가 달라졌어"
+        //     — 사장님 영상 2026-08-05)
+        //    이미 그려져 있으면 손대지 않고, 저장해둔 상태만 버린다.
+        var listEl=document.getElementById('cardList');
+        if(listEl && listEl.children.length){
+          try{ localStorage.removeItem('mc_view'); }catch(_){}
+        } else if(!restoreViewState()){
+          renderList();
+        }
       } else {
         loadData();
       }
