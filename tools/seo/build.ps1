@@ -26,6 +26,22 @@ $today = $D.today
 if(-not $today){ throw '데이터에 today 가 없다' }
 Write-Output "데이터 기준일: $today (캐시 $($D.cached_at))"
 
+# 조용히 낡는 것을 막는 가드.
+# 캐시를 만드는 pg_cron 이 멎으면 매일 '어제 페이지'를 다시 만들면서 아무 표시도 안 난다.
+# 여기서 멈춰야 Actions 가 실패로 뜨고 사람이 알아챈다.
+if($D.cached_at){
+  try{
+    $ageH = [int]((Get-Date).ToUniversalTime() - ([datetime]$D.cached_at).ToUniversalTime()).TotalHours
+    Write-Output "캐시 나이: ${ageH}시간"
+    if($ageH -gt 30){ throw "캐시가 ${ageH}시간째 갱신되지 않았다. pg_cron 'seo-refresh' 를 확인할 것" }
+  }catch [System.Management.Automation.RuntimeException] { throw }
+  catch { Write-Output "캐시 나이 계산 실패(무시): $($_.Exception.Message)" }
+}
+# 집계가 반쯤 깨진 채로 페이지를 통째로 날리는 사고를 막는다(실제로 0개 생성된 적 있다)
+if(@($D.brands).Count -lt 100 -or @($D.sellers).Count -lt 50){
+  throw "데이터가 비정상이다 (브랜드 $(@($D.brands).Count) · 셀러 $(@($D.sellers).Count)). 페이지를 만들지 않는다"
+}
+
 $N_TOTAL = [int]$D.stat.total; $N_SELLERS = [int]$D.stat.sellers
 $fmtTotal = '{0:N0}' -f $N_TOTAL; $fmtSellers = '{0:N0}' -f $N_SELLERS
 
