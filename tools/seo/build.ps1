@@ -228,28 +228,57 @@ foreach($m in $D.minors){
 }
 
 # ══ 월별 페이지 ══
+# 지난 달 페이지도 지우지 않는다(사장님 승인 2026-08-05).
+# "6월 공구" 같은 검색어는 매년 돌아오는데 페이지를 버리면 색인이 날아간다.
+# 대신 지난 달이라는 것을 사람이 바로 알 수 있게 맨 위에 안내를 넣는다.
+$thisYm = $today.Substring(0,7)
+$ymAll = @($D.months | ForEach-Object { $_.ym } | Sort-Object)
 $monthMade = New-Object System.Collections.ArrayList
 foreach($mm in $D.months){
   $ym = $mm.ym; $yy = $ym.Substring(0,4); $mo = [int]$ym.Substring(5,2)
   $rows = ParseRows $mm.rows @('name','who','od','ed','major')
   $live = @($rows | Where-Object { $_.ed -ge $today })
-  $title = "$yy년 $mo월 공구 일정 | 인스타 공동구매 $($mm.cnt)건 - 맘캘린더"
-  $desc  = "$yy년 $mo월에 진행된(진행 예정인) 인스타 공구 $($mm.cnt)건. 셀러 $($mm.sellers)명의 공동구매 일정을 날짜순으로 확인하세요."
+  $isPast = ($ym -lt $thisYm)
   $canon = "d/$ym.html"
-  $lead = "$yy년 $mo월 공구 일정입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
+
+  if($isPast){
+    $title = "${yy}년 ${mo}월 공구 일정 (지난 일정) | 인스타 공동구매 $($mm.cnt)건 - 맘캘린더"
+    $desc  = "${yy}년 ${mo}월에 진행된 인스타 공구 $($mm.cnt)건의 지난 기록. 셀러 $($mm.sellers)명의 공동구매 이력을 보고 다음 공구 시기를 가늠해 보세요."
+    $lead  = "${yy}년 ${mo}월에 진행된 공구 기록입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
+  } else {
+    $title = "${yy}년 ${mo}월 공구 일정 | 인스타 공동구매 $($mm.cnt)건 - 맘캘린더"
+    $desc  = "${yy}년 ${mo}월에 진행된(진행 예정인) 인스타 공구 $($mm.cnt)건. 셀러 $($mm.sellers)명의 공동구매 일정을 날짜순으로 확인하세요."
+    $lead  = "${yy}년 ${mo}월 공구 일정입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
+  }
   if($live.Count -gt 0){ $lead += " 그중 $($live.Count)건은 오늘도 진행 중입니다." }
 
-  $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
+  $body = ''
+  if($isPast){
+    $cur = ''
+    if($ymAll -contains $thisYm){ $cur = "<a href=${Q}/d/$thisYm.html${Q}>이번 달 공구 일정 보기</a> · " }
+    $body += "<div class=${Q}sec${Q}><div class=${Q}note${Q}><b>지난 일정입니다</b>"
+    $body += "<span>${yy}년 ${mo}월은 이미 지났습니다. 지금 진행 중인 공구를 찾으신다면 아래로 가세요.</span>"
+    $body += "<span class=${Q}lnk${Q}>$cur<a href=${Q}/${Q}>오늘 진행 중인 공구</a></span></div></div>"
+  }
+  $body += "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>아직 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
-  $body += "<div class=${Q}sec${Q}><h2>$yy년 $mo월 전체 일정</h2>" + (CardsHtml $rows 60 $false $true) + '</div>'
+  $body += "<div class=${Q}sec${Q}><h2>${yy}년 ${mo}월 전체 일정</h2>" + (CardsHtml $rows 60 $false $true) + '</div>'
+
+  # 앞뒤 달로 이어지는 링크 (크롤러가 월별 페이지를 타고 다니게)
+  $ix = [Array]::IndexOf($ymAll, $ym)
+  $nav = ''
+  if($ix -gt 0){ $pv = $ymAll[$ix-1]; $nav += "<a href=${Q}/d/$pv.html${Q}>← $([int]$pv.Substring(5,2))월 공구</a>" }
+  if($ix -ge 0 -and $ix -lt ($ymAll.Count-1)){ $nx = $ymAll[$ix+1]; $nav += "<a href=${Q}/d/$nx.html${Q}>$([int]$nx.Substring(5,2))월 공구 →</a>" }
+  foreach($o in $ymAll){ if($o -ne $ym){ $nav += "<a href=${Q}/d/$o.html${Q}>$($o.Substring(0,4))년 $([int]$o.Substring(5,2))월</a>" } }
+  $body += "<div class=${Q}sec${Q}><h2>다른 달 공구 일정</h2><div class=${Q}rel${Q}>$nav</div></div>"
 
   $ld = New-Object System.Collections.ArrayList
-  $l1 = LdItemList "$yy년 $mo월 공구 일정" $rows 25
+  $l1 = LdItemList "${yy}년 ${mo}월 공구 일정" $rows 25
   if($l1){ [void]$ld.Add($l1) }
-  [void]$ld.Add((LdCrumb "$yy년 $mo월 공구" $canon))
+  [void]$ld.Add((LdCrumb "${yy}년 ${mo}월 공구" $canon))
   WritePage @{ path=(Join-Path $Root "d/$ym.html"); title=$title; desc=$desc; canon=$canon;
-    h1="$yy년 $mo월 공구 일정"; sub="셀러 $($mm.sellers)명 · $($mm.cnt)건"; body=$body; jsonld=$ld; bcName="$mo월 공구" }
-  [void]$monthMade.Add([pscustomobject]@{ slug=$ym; label="$mo월"; cnt=[int]$mm.cnt })
+    h1="${yy}년 ${mo}월 공구 일정"; sub="셀러 $($mm.sellers)명 · $($mm.cnt)건"; body=$body; jsonld=$ld; bcName="${mo}월 공구" }
+  [void]$monthMade.Add([pscustomobject]@{ slug=$ym; label="${mo}월"; cnt=[int]$mm.cnt })
 }
 
 # ══ 카테고리 페이지 ══
@@ -366,16 +395,16 @@ function Hub([string]$file,[string]$title,[string]$desc,[string]$h1,[string]$sub
 }
 $lk = ''
 foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false})){ $lk += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand)</a>" }
-Hub '공구브랜드.html' "공구 브랜드 목록 $fmtBrands개 | 인스타 공동구매 - 맘캘린더" `
-  "인스타 공구로 진행된 브랜드 $fmtBrands개 목록. 브랜드를 누르면 그 브랜드의 공구 일정과 진행 셀러를 볼 수 있습니다." `
-  "공구 브랜드" "$fmtBrands개 브랜드의 공구 이력" `
-  "맘캘린더에 기록된 공구 브랜드 $fmtBrands개입니다. 브랜드를 누르면 그 브랜드를 공구한 셀러와 지난 일정, 진행 중인 공구를 볼 수 있습니다." $lk '공구 브랜드'
+Hub '공구브랜드.html' "공구 브랜드 목록 ${fmtBrands}개 | 인스타 공동구매 - 맘캘린더" `
+  "인스타 공구로 진행된 브랜드 ${fmtBrands}개 목록. 브랜드를 누르면 그 브랜드의 공구 일정과 진행 셀러를 볼 수 있습니다." `
+  "공구 브랜드" "${fmtBrands}개 브랜드의 공구 이력" `
+  "맘캘린더에 기록된 공구 브랜드 ${fmtBrands}개입니다. 브랜드를 누르면 그 브랜드를 공구한 셀러와 지난 일정, 진행 중인 공구를 볼 수 있습니다." $lk '공구 브랜드'
 $lk = ''
 foreach($s in ($sellerMade | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false})){ $lk += "<a href=${Q}/s/$(Enc $s.slug).html${Q}>$(HtmlEsc $s.kor)</a>" }
-Hub '공구셀러.html' "인스타 공구 셀러 목록 $fmtSellers명 | 맘캘린더" `
-  "인스타그램에서 공동구매를 진행하는 셀러 $fmtSellers명의 목록과 공구 이력. 셀러별 진행 중인 공구를 확인하세요." `
-  "인스타 공구 셀러" "$fmtSellers명의 공구 이력" `
-  "인스타에서 공동구매를 진행하는 셀러 $fmtSellers명입니다. 이름을 누르면 그 셀러의 공구 건수, 주력 분야, 진행 중인 공구를 볼 수 있습니다." $lk '공구 셀러'
+Hub '공구셀러.html' "인스타 공구 셀러 목록 ${fmtSellers}명 | 맘캘린더" `
+  "인스타그램에서 공동구매를 진행하는 셀러 ${fmtSellers}명의 목록과 공구 이력. 셀러별 진행 중인 공구를 확인하세요." `
+  "인스타 공구 셀러" "${fmtSellers}명의 공구 이력" `
+  "인스타에서 공동구매를 진행하는 셀러 ${fmtSellers}명입니다. 이름을 누르면 그 셀러의 공구 건수, 주력 분야, 진행 중인 공구를 볼 수 있습니다." $lk '공구 셀러'
 $lk = ''
 foreach($p in ($prodList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false})){ $lk += "<a href=${Q}/p/$(Enc $p.slug).html${Q}>$(HtmlEsc $p.key)</a>" }
 Hub '공구제품.html' "공구 제품 목록 $($prodList.Count)개 | 브랜드별 공동구매 - 맘캘린더" `

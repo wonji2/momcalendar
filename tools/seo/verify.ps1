@@ -22,6 +22,10 @@ foreach($p in $files){
   if(-not (Test-Path -LiteralPath $p)){ Bad "없는 파일: $p"; continue }
   $t = [IO.File]::ReadAllText($p)
   if($t -match '__TOTAL__|__SELLERS__|__BRANDS__'){ Bad "치환 안 된 자리표시자: $(Split-Path $p -Leaf)" }
+  # PowerShell 은 한글도 변수명으로 받는다. "$yy년" 처럼 쓰면 통째로 빈 값이 되어
+  # 제목에 구멍이 뚫린다(실제로 당했다). 값이 빠진 흔적을 전수로 잡는다.
+  if($t -match '<title>\s|목록\s+개|목록\s+명|<title>[^<]*\s{2,}'){ Bad "제목에 빈 값이 있다(변수 보간 실패 의심): $(Split-Path $p -Leaf)" }
+  if($t -match '<h1>\s*</h1>|<h1>\s'){ Bad "h1 이 비었다: $(Split-Path $p -Leaf)" }
   if($t -notmatch '<title>(.+?)</title>'){ Bad "title 없음: $(Split-Path $p -Leaf)" }
   else {
     $ti = [regex]::Match($t,'<title>(.*?)</title>').Groups[1].Value

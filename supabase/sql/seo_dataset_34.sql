@@ -130,8 +130,8 @@ months as (
     ) x
     from public.gonggu
     where approved=true and open_date ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
-      and open_date >= to_char((now() at time zone 'Asia/Seoul')::date - interval '6 months','YYYY-MM-DD')
-      and open_date <= to_char((now() at time zone 'Asia/Seoul')::date + interval '6 months','YYYY-MM-DD')
+      -- 창을 두지 않는다. 지난 달 페이지가 사라지면 색인이 날아간다(사장님 승인 2026-08-05).
+      and open_date >= '2020-01-01'
     group by substr(open_date,1,7) having count(*) >= 5
   ) q
 ),
