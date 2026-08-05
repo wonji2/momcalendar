@@ -488,19 +488,26 @@ function fitNames(){
       while(w.length>2 && NAME_JOSA.test(w[1])) w.splice(1,1);
       el.textContent=cleanParen(w.join(' '));
     }
-    // 두 단어만 남았는데도 넘치면 하나만 남긴다.
-    //  · 두 단어가 같은 꼬리를 공유하면(로지오가닉**쌀과자** / 유기농아기**쌀과자**) 앞(메인)을 남긴다
-    //    — 사장님 지시 2026-08-05 "로지오가닉쌀과자가 메인이니 이걸 남겨"
-    //  · 아니면 품목이 보이게 뒤를 남긴다 (뉴이 / 부스터 → 부스터)
+    // 두 단어만 남았는데도 넘치면 하나만 남긴다. 어느 쪽이 "브랜드"인지 보고 고른다.
+    //  ① 같은 꼬리를 공유하면 앞(메인)   — 로지오가닉**쌀과자** / 유기농아기**쌀과자** → 앞
+    //     (사장님 지시 2026-08-05 "로지오가닉쌀과자가 메인이니 이걸 남겨")
+    //  ② 앞이 더 길면 앞      — 브랜드는 보통 고유명사라 길다.
+    //     "르베르스핀360유모카" / "기내반입유모차" → 앞 (사장님 지시 "르베르스핀이 브랜드명이니까")
+    //  ③ 아니면 품목이 보이게 뒤 — "뉴이" / "부스터" → 부스터
     while(w.length>1 && el.scrollWidth>el.clientWidth){
       if(w.length===2){
         const a=w[0], b=w[1];
         let k=0; while(k<a.length-1 && k<b.length-1 && a[a.length-1-k]===b[b.length-1-k]) k++;
-        w = (k>=2) ? [a] : [b];
+        w = (k>=2 || a.length>b.length) ? [a] : [b];
       } else w.shift();
       el.textContent=cleanParen(w.join(' '));
     }
-    el.textContent=cleanParen(el.textContent);
+    // 이름을 줄인 경우엔 브랜드 속 모델번호도 턴다. "르베르스핀360유모카" → "르베르스핀유모카"
+    // 한글 사이에 낀 숫자만 지운다 — 맨 앞 숫자는 상품명의 일부다("100층짜리집").
+    // (사장님 지시 2026-08-05 "르베르스핀이 브랜드명이니까")
+    el.textContent=cleanParen(el.textContent)
+      .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2')
+      .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2');
   });
 }
 
