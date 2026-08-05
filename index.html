@@ -2343,14 +2343,39 @@ async function sendInquiry(){
 }
 
 // ── 사이드메뉴: 소개 / 이용방법 시트 ───────────────────
+// ── 시트가 열리면 뒤 화면을 잠근다 ──────────────────────────
+// 안 잠그면 시트 안에서 손가락을 움직일 때 뒤 목록이 같이 주르륵 내려간다.
+// (사장님 실측 2026-08-05 "출석체크 화면 아래로 스크롤하면 뒤에 메인리스트가 쭈르륵 내려가")
+// iOS 는 overflow:hidden 만으로는 안 막혀서 position:fixed 로 붙잡고, 닫을 때 원위치로 돌려놓는다.
+var _lockY=0, _lockN=0;
+function lockScroll(){
+  if(_lockN++ > 0) return;                       // 시트가 겹쳐 열려도 한 번만
+  _lockY = window.scrollY||document.documentElement.scrollTop||0;
+  var b=document.body;
+  b.style.position='fixed'; b.style.top=(-_lockY)+'px';
+  b.style.left='0'; b.style.right='0'; b.style.width='100%';
+}
+function unlockScroll(){
+  if(_lockN>0) _lockN--;
+  if(_lockN>0) return;
+  var b=document.body;
+  b.style.position=''; b.style.top=''; b.style.left=''; b.style.right=''; b.style.width='';
+  window.scrollTo(0,_lockY);
+}
 function closeInfoSheet(){
   document.getElementById('infoSheet').style.bottom='-110%';
   document.getElementById('infoBg').style.display='none';
+  unlockScroll();
 }
 function _openInfo(html){
+  var bg=document.getElementById('infoBg');
+  // ⚠️ 같은 시트를 두 번 그리는 경우가 있다(출석: '불러오는 중' → 내용).
+  //    그때마다 잠그면 카운트가 안 맞아 닫아도 화면이 굳는다. 처음 열 때만 잠근다.
+  var wasOpen = (bg.style.display==='block');
   document.getElementById('infoBody').innerHTML=html;
-  document.getElementById('infoBg').style.display='block';
+  bg.style.display='block';
   document.getElementById('infoSheet').style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function openAboutSheet(){
   _openInfo(`
@@ -2781,12 +2806,14 @@ function openLoginSheet(title, sub, fine, intent){
   if(s) s.innerHTML   = sub   || KKO_DEFAULT_S;
   // 찜 권유가 아닐 땐 '찜은 계속 쓸 수 있어요' 안내가 맥락에 안 맞음
   if(f) f.textContent = (fine===undefined) ? KKO_DEFAULT_F : fine;
+  var wasOpen=(bg.style.display==='block');
   bg.style.display='block'; m.style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function closeLoginSheet(){
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
   if(!m||!bg) return;
-  bg.style.display='none'; m.style.bottom='-110%';
+  bg.style.display='none'; m.style.bottom='-110%'; unlockScroll();
 }
 function kkoLater(){
   // 시트는 한 번만 띄우기로 했으므로(mc_login_asked), 여기선 닫기만 한다.
@@ -2855,6 +2882,10 @@ function hideLoginStrip(){
     var p=new URLSearchParams(location.search);
     var code=p.get('code');
     if(!code) return;
+    // ⚠️ 카카오 인가코드는 **한 번만** 쓸 수 있다.
+    //    응답을 기다리는 사이에 손님이 새로고침하면 같은 코드로 또 요청해 반드시 실패한다.
+    //    (인앱은 렌더가 느려 이 사이가 길다) → 요청을 보내기 전에 주소에서 먼저 지운다.
+    try{ history.replaceState({},'', location.pathname); }catch(_){}
     fetch(KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
       body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
@@ -2878,10 +2909,34 @@ function hideLoginStrip(){
         var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
         if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
         else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      }else{
+        // ⚠️ 여기가 비어 있었다. 카카오에서 돌아왔는데 서버 처리가 실패하면
+        //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
+        //    (2026-08-05 전면 재검증에서 발견 — 오늘 미완료 건의 일부가 이것일 수 있다)
+        kkoLoginFailed(d && d.error ? String(d.error).slice(0,60) : 'server');
       }
-    }).catch(function(){});
+    }).catch(function(e){ kkoLoginFailed('network'); });
   }catch(_){}
 })();
+// 로그인 마무리에 실패했을 때 — 조용히 넘기지 않는다. 알리고, 남기고, 다시 할 길을 준다.
+function kkoLoginFailed(why){
+  try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why); }catch(_){}
+  try{ localStorage.setItem('mc_login_fail', JSON.stringify({t:Date.now(), why:why})); }catch(_){}
+  try{ history.replaceState({},'', location.pathname); }catch(_){}   // ?code 를 URL 에서 지운다
+  var w=document.createElement('div');
+  w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;'+
+    'border-radius:14px;padding:14px 15px;z-index:99999;box-shadow:0 8px 26px rgba(0,0,0,.18);font-size:13px;color:#3A3345;line-height:1.6';
+  w.innerHTML='<b style="color:#7B3FB5">로그인을 마치지 못했어요</b><br>'+
+    '<span style="font-size:12px;color:#7A7286">잠시 문제가 있었어요. 한 번만 다시 눌러주세요.</span>'+
+    '<div style="display:flex;gap:7px;margin-top:11px">'+
+    '<button id="kkoRetryBtn" style="flex:1;background:#FEE500;color:#191919;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 로그인</button>'+
+    '<button id="kkoRetryX" style="background:#F3F0F7;color:#8A8194;border:none;border-radius:10px;padding:10px 13px;font-size:13px;font-family:inherit;cursor:pointer">닫기</button>'+
+    '</div>';
+  document.body.appendChild(w);
+  var b=w.querySelector('#kkoRetryBtn'), x=w.querySelector('#kkoRetryX');
+  if(b) b.onclick=function(){ w.remove(); startKakaoLogin(); };
+  if(x) x.onclick=function(){ w.remove(); };
+}
 // 로그인 상태를 사이드메뉴 등에 반영
 function paintMemberUI(){
   var m=memberGet(), el=document.getElementById('kkoWho');
@@ -3033,12 +3088,16 @@ function openWnSheet(){
     ok.textContent='알림 받기';
     ok.removeAttribute('data-mode');
   }
-  document.getElementById('wnSheetBg').style.display='block';
+  var wbg=document.getElementById('wnSheetBg');
+  var wasOpen=(wbg.style.display==='block');
+  wbg.style.display='block';
   document.getElementById('wnSheet').style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function closeWnSheet(){
   document.getElementById('wnSheetBg').style.display='none';
   document.getElementById('wnSheet').style.bottom='-110%';
+  unlockScroll();
 }
 function wnLater(){
   let lvl=parseInt(localStorage.getItem('mc_wn_lvl')||'0',10);
