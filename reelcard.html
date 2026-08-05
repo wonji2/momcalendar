@@ -20,13 +20,11 @@
      썸네일(그리드 커버)은 세로 240~1680px 만 보이므로 CTA top 이 1680 아래면 썸네일에 안 나온다. */
   --pad-bot:108px;
   /* 카드 좌우 여백.
-     ⚠️ 릴스는 9:16(1080×1920)인데 요즘 폰 화면은 19.5:9~20:9 로 더 길쭉하다.
-        인스타가 세로를 꽉 채우면서 좌우를 잘라낸다 → 각 118~135px 이 사라진다.
-        (사장님 실측 2026-08-05: 제목 "8"과 오른쪽 마감 배지가 잘려 나갔다)
-        19.5:9 폰 = 1080×2340 → 표시폭 1316 → 잘림 각 118px
-        20:9   폰 = 1080×2400 → 표시폭 1350 → 잘림 각 135px
-        여기에 여유 5px 를 더해 140px. 이 값을 32 로 되돌리면 다시 잘린다. */
-  --side:140px;
+     ⚠️ 릴스를 폰에서 재생하면 양옆이 조금 잘린다(화면비 차이).
+        32px 이던 때 제목 "8"과 오른쪽 마감 배지가 살짝 먹혔다(사장님 실측 2026-08-05).
+        140px → "과하다" → 70px → "미세하게 조금만 더" → 55px 로 맞췄다.
+        = 기존 32 + 잘린 만큼 약 23. 더 줄이면 다시 잘리고, 더 늘리면 상품명이 짧아진다. */
+  --side:55px;
   --fs-title:96px;   /* fitTitle 이 좌우 끝까지 자동으로 맞춘다 */
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
@@ -86,7 +84,7 @@ body{background:#3A3145;font-family:var(--f-b);padding:225px 0 60px;color:#fff}
 .gcrop b{position:absolute;top:10px;right:14px;font-size:22px;color:#2C6FD1;background:rgba(255,255,255,.88);
   padding:5px 14px;border-radius:6px;font-weight:800}
 /* 좌우 잘림 — 릴스 재생 시 폰 화면비 때문에 양옆이 이만큼 사라진다 (2026-08-05 추가) */
-.hcrop{position:absolute;top:0;bottom:0;width:135px;background:rgba(255,90,90,.10);
+.hcrop{position:absolute;top:0;bottom:0;width:55px;background:rgba(255,90,90,.10);
   pointer-events:none;z-index:7;box-sizing:border-box}
 .hcrop.l{left:0;border-right:3px dashed rgba(255,90,90,.6)}
 .hcrop.r{right:0;border-left:3px dashed rgba(255,90,90,.6)}
@@ -267,7 +265,13 @@ function sameProduct(a,b){
   if(A.length===1) return A[0].length>=4 && B.some(y2=>eqStrict(A[0],y2));
   if(B.length===1) return B[0].length>=4 && A.some(x2=>eqStrict(x2,B[0]));
   // ③ 한국어 상품명은 [브랜드 … 품목] 구조 → 첫 단어와 마지막 단어가 둘 다 맞아야 같은 상품
-  return eq(A[0],B[0]) && eq(A[A.length-1],B[B.length-1]);
+  if(eq(A[0],B[0]) && eq(A[A.length-1],B[B.length-1])) return true;
+  // ④ 제품 고유명이 앞쪽에서 겹치면 같은 상품으로 본다.
+  //    "블루래빗 콕콕콕 벽보 사운드북"(뚝딱맘) 과 "콕콕콕 사운드벽보"(로로맘) 가
+  //    ①②③ 을 모두 빠져나가 카드에 나란히 실렸다. (사장님 지적 2026-08-05)
+  //    3자 이상 토큰이 양쪽 다 앞 2단어 안에 있을 때만 — 2자("주니"·"미니")로는 엮지 않는다.
+  const head=(T,w)=>T.indexOf(w)>=0 && T.indexOf(w)<2;
+  return A.some(w=>w.length>=3 && head(A,w) && B.some(v=>v.length>=3 && head(B,v) && eq(w,v)));
 }
 function todayKST(){
   const n=new Date(Date.now()+9*3600*1000);
@@ -389,8 +393,8 @@ async function render(day,opens,ends){
 
   fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
-  fitColumn(document.getElementById('L1'),document.getElementById('M1'),onePerSeller(opens),true,opens.length);
-  fitColumn(document.getElementById('L2'),document.getElementById('M2'),onePerSeller(ends),false,ends.length);
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),oneProduct(onePerSeller(opens)),true,opens.length);
+  fitColumn(document.getElementById('L2'),document.getElementById('M2'),oneProduct(onePerSeller(ends)),false,ends.length);
   fitNames();   // 항목 수가 확정된 뒤에 이름을 다듬는다
 }
 
@@ -417,21 +421,36 @@ function fitTitle(){
 // "남해안 자연산 냉장 자숙 돌문어" 를 그냥 자르면 "남해안 자연산 냉장 자숙 돌…" 이 되어
 // 정작 돌문어가 안 보인다. → 앞쪽 수식어부터 덜어내 품목이 보이게 한다. (사장님 지시 2026-08-04)
 const NAME_DROP=/^(국내산|국산|남해안|서해안|동해안|제주|자연산|햇|생|냉장|냉동|자숙|손질|무항생제|유기농|프리미엄|명품|정품|신상|신제품|NEW|한정|초특가|특가|최저가|역대급|무료배송|대용량|[0-9]+차)$/i;
+// 잘린 끝에 남는 짝 없는 괄호·기호를 턴다. "…하이체어)" 같은 찌꺼기 방지.
+function cleanParen(s){
+  s=String(s||'').replace(/^[\s)\]）］,·/&+-]+/,'').replace(/[\s([（［,·/&+-]+$/,'');
+  if(!/[([（［]/.test(s)) s=s.replace(/[)\]）］]/g,'');   // 여는 괄호 없이 닫는 괄호만 남았으면 지운다
+  if(!/[)\]）］]/.test(s)) s=s.replace(/[([（［]/g,'');
+  return s.replace(/\s+/g,' ').trim();
+}
 function fitNames(){
   document.querySelectorAll('.it-nm').forEach(function(el){
     if(el.scrollWidth<=el.clientWidth) return;              // 안 잘리면 그대로
     const full=el.dataset.full||el.textContent;
     el.dataset.full=full;
-    let w=full.split(/\s+/);
+    el.title=full;
+    // ⓪ 괄호 안 보조설명을 통째로 먼저 뺀다.
+    //    앞 단어부터 지우면 "뉴이 클라우드 부스터(휴대용 하이체어)" 가 "하이체어)" 로 끝났다.
+    //    (사장님 지적 2026-08-05 "대괄호 같은건 다 지워야지")
+    let base=full;
+    const noParen=cleanParen(full.replace(/\s*[(（\[［][^)）\]］]*[)）\]］]?/g,' '));
+    if(noParen.length>=2){ base=noParen; el.textContent=base; }
+    if(el.scrollWidth<=el.clientWidth) return;
+    let w=base.split(/\s+/);
     // ① 사전에 있는 수식어부터 앞에서 덜어낸다
     while(w.length>1 && NAME_DROP.test(w[0]) && el.scrollWidth>el.clientWidth){
       w.shift(); el.textContent=w.join(' ');
     }
     // ② 그래도 넘치면 앞 단어를 계속 덜어낸다. 품목(마지막 단어)은 끝까지 지킨다.
     while(w.length>1 && el.scrollWidth>el.clientWidth){
-      w.shift(); el.textContent=w.join(' ');
+      w.shift(); el.textContent=cleanParen(w.join(' '));
     }
-    el.title=full;
+    el.textContent=cleanParen(el.textContent);
   });
 }
 
@@ -454,6 +473,19 @@ function onePerSeller(arr){
     const key=((x.seller||x.insta||'')+'').trim().toLowerCase();
     if(seen.has(key)) return;
     seen.add(key); out.push(x);
+  });
+  return out;
+}
+// 셀러가 달라도 같은 상품이면 한 번만 싣는다.
+// "블루래빗 콕콕콕 벽보 사운드북"(뚝딱맘) 과 "콕콕콕 사운드벽보"(로로맘) 가 나란히 실렸다.
+// (사장님 지적 2026-08-05 "같은 상품은 한개만 뜨게 해야지")
+// 이웃셀러·맘캘린더는 그대로 둔다 — 우리 공구가 남의 것과 엮여 빠지면 안 된다.
+function oneProduct(arr){
+  const out=[];
+  arr.forEach(function(x){
+    if(x.partner){ out.push(x); return; }
+    if(out.some(y=>!y.partner && sameProduct(y.name, x.name))) return;
+    out.push(x);
   });
   return out;
 }
@@ -498,7 +530,7 @@ async function makeCaption(day,opens,ends){
   //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
   const line=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
   // 캡션도 카드와 같은 원칙 — 셀러당 1건(이웃셀러·맘캘린더 제외). 한 셀러가 목록을 독차지하지 않게.
-  const capOpens=onePerSeller(opens), capEnds=onePerSeller(ends);
+  const capOpens=oneProduct(onePerSeller(opens)), capEnds=oneProduct(onePerSeller(ends));
   const nb=capOpens.filter(x=>x.partner), rest=capOpens.filter(x=>!x.partner);
   const build=(endCut,openCut)=>{
     const oShow=(openCut===undefined)?rest.length:openCut;
