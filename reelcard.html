@@ -502,12 +502,16 @@ function fitNames(){
       } else w.shift();
       el.textContent=cleanParen(w.join(' '));
     }
-    // 이름을 줄인 경우엔 브랜드 속 모델번호도 턴다. "르베르스핀360유모카" → "르베르스핀유모카"
+    el.textContent=cleanParen(el.textContent);
+    // 그래도 자리가 모자랄 때만 브랜드 속 모델번호를 턴다. "르베르스핀360유모카" → "르베르스핀유모카"
+    // 자리가 있으면 360 까지 두는 게 낫다 (사장님 2026-08-05 "자리없으면 터는거고 자리있으면 넣으면 더 좋지").
     // 한글 사이에 낀 숫자만 지운다 — 맨 앞 숫자는 상품명의 일부다("100층짜리집").
-    // (사장님 지시 2026-08-05 "르베르스핀이 브랜드명이니까")
-    el.textContent=cleanParen(el.textContent)
-      .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2')
-      .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2');
+    if(el.scrollWidth>el.clientWidth){
+      const packed=el.textContent
+        .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2')
+        .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2');
+      if(packed!==el.textContent) el.textContent=packed;
+    }
   });
 }
 
