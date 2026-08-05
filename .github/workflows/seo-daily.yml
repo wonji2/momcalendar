@@ -59,4 +59,10 @@ jobs:
             git commit -m "검색 노출 페이지 자동 갱신 ($(TZ=Asia/Seoul date '+%Y-%m-%d') · ${N}개 파일)"
             git push
             echo "커밋 완료: ${N}개 파일"
+            echo "changed=1" >> $GITHUB_ENV
           fi
+
+      - name: 빙·네이버에 색인 요청 (IndexNow)
+        if: ${{ github.event.inputs.dry_run != 'true' && env.changed == '1' }}
+        shell: pwsh
+        run: ./tools/seo/indexnow.ps1

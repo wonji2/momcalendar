@@ -1,4 +1,4 @@
-# IndexNow 로 색인 요청 (빙·네이버·야덱스 등이 받는다. 구글은 안 받는다)
+﻿# IndexNow 로 색인 요청 (빙·네이버·야덱스 등이 받는다. 구글은 안 받는다)
 #
 #   pwsh tools/seo/indexnow.ps1              ← sitemap 전체 제출
 #   pwsh tools/seo/indexnow.ps1 -Changed a,b ← 바뀐 URL 만 제출
@@ -27,8 +27,8 @@ if($Changed.Count -gt 0){
 }
 Write-Output "제출 대상 $($urls.Count) URL"
 
-# 한 번에 10,000개까지. 넉넉히 나눠 보낸다.
-$batch = 8000
+# 규격상 10,000개까지지만 실측하니 큰 묶음은 403 이 났다. 500개씩 나눠 보낸다.
+$batch = 500
 $sent = 0
 for($i=0; $i -lt $urls.Count; $i += $batch){
   $slice = @($urls[$i..([Math]::Min($i+$batch-1, $urls.Count-1))])
@@ -43,5 +43,6 @@ for($i=0; $i -lt $urls.Count; $i += $batch){
     if($_.Exception.Response){ $sc = $_.Exception.Response.StatusCode.value__ }
     Write-Output "  $($slice.Count)건 → 실패 HTTP $sc"
   }
+  Start-Sleep -Milliseconds 700
 }
 Write-Output "제출 완료: $sent / $($urls.Count)"
