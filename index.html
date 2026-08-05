@@ -681,11 +681,29 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 //    열리지 않으면 같은 창으로라도 반드시 보낸다. 링크가 안 열리는 건 곧 매출 손실이다.
 window.openLink=function(url){
   if(!url) return;
+  // 인앱은 새 웹뷰를 띄웠다 닫으면서 화면이 다시 그려져 스크롤이 조금씩 밀린다.
+  // (사장님 실측 2026-08-05 "누르는 순간 리스트가 약간 밑으로 내려가져서 돌아옴")
+  // 누르는 그 순간의 위치를 붙잡아두고, 돌아왔을 때 그 자리로 되돌린다.
+  try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){}
   try{
     var w = window.open(url, '_blank');
     if(!w || w.closed || typeof w.closed === 'undefined'){ window.location.href = url; }
   }catch(_){ try{ window.location.href = url; }catch(__){} }
 };
+// 인앱에서 돌아왔을 때 원래 보던 자리로. pageshow 만으로는 인앱 복귀를 못 잡는 경우가 있다.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  try{
+    var s=JSON.parse(localStorage.getItem('mc_scroll_at')||'null');
+    if(!s || Date.now()-s.t > 10*60*1000) return;
+    localStorage.removeItem('mc_scroll_at');
+    var n=0;
+    (function attempt(){
+      window.scrollTo(0, s.y);
+      if(++n<6 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-s.y)>4) setTimeout(attempt,120);
+    })();
+  }catch(_){}
+});
 window.slimAdClick=function(id){
   var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
   try{ if(typeof trackEvent==='function') trackEvent('banner_click',JSON.stringify({id:id})); }catch(_){}
@@ -1267,10 +1285,23 @@ function renderList(){
   if(fSt==='wish'){
     const banner = notiGranted()
       ? `<div class="noti-banner on"><span style="font-size:19px">✅</span><span class="nb-txt">알림 켜짐 · 오픈 예정일 아침에 알려드려요</span><button onclick="disablePush()">끄기</button></div>`
-      : (iosNeedsInstall()
-        ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">홈 화면에 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
+      // ⚠️ 인앱 웹뷰(카톡·인스타)는 푸시 구독 자체가 안 된다.
+      //    그런데 "켜기" 버튼을 보여주고 있어서, 누르면 "알림을 켜지 못했어요"만 떴다.
+      //    손님 대부분이 카톡에서 들어오므로 이게 기본 화면이었다. (사장님 실측 2026-08-05)
+      //    → 인앱에서는 앱으로 추가하는 길을 안내한다(pwaStripAdd 가 카톡→크롬/사파리까지 처리).
+      : ((iosNeedsInstall() || _isInApp())
+        ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">앱으로 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
         : `<div class="noti-banner"><span style="font-size:19px">🔔</span><span class="nb-txt">알림을 켜면 오픈 예정일 아침에 알려드려요</span><button onclick="openWnSheet()">켜기</button></div>`);
-    const banner2 = loginStripHtml() + banner;   // 로그인 권유는 시트 대신 이 조용한 띠로
+    // 캘린더 내보내기는 '+' 메뉴에만 있어서 찾기 어려웠다 (사장님 지적 2026-08-05
+    // "내 찜에서 캘린더 내보내기 버튼은 없는데?") → 찜 목록 바로 위에 둔다.
+    const icsBtn = WISH.size
+      ? `<div class="noti-banner" style="background:#F4F0FB;border-color:#E2D8F2">
+           <span style="font-size:19px">📅</span>
+           <span class="nb-txt">찜한 공구를 내 폰 캘린더에 넣기</span>
+           <button onclick="exportWishIcs()">내보내기</button>
+         </div>`
+      : '';
+    const banner2 = loginStripHtml() + banner + icsBtn;   // 로그인 권유는 시트 대신 이 조용한 띠로
     if(!WISH.size){
       el.innerHTML=banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
       return;
@@ -2489,9 +2520,11 @@ async function exportWishIcs(){
   //    (사장님 지시 2026-08-05 "인앱 사파리 크롬 인터넷 전부 다 오류가 없어야 한다")
   if(typeof _isInApp==='function' && _isInApp()){
     try{ trackEvent('ics_blocked_inapp', String(items.length)); }catch(_){}
-    if(confirm('카카오톡 안에서는 캘린더 파일을 받을 수 없어요.\n\n크롬(사파리)으로 열어서 다시 시도할까요?')){
-      if(typeof openInSafari==='function') openInSafari();
-      else location.href = location.href;
+    // 크롬으로 보내는 것보다 앱으로 추가하는 쪽이 낫다 — 다음부터는 이 문제가 아예 안 생긴다.
+    // (사장님 지시 2026-08-05 "바로 PWA로 받기 안내되는게 더 좋을듯")
+    if(confirm('카카오톡 안에서는 캘린더 파일을 받을 수 없어요.\n\n맘캘린더를 앱으로 추가하면 바로 받을 수 있어요.\n추가할까요?')){
+      if(typeof pwaStripAdd==='function') pwaStripAdd();
+      else if(typeof openInSafari==='function') openInSafari();
     }
     return;
   }
