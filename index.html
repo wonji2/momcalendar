@@ -2745,8 +2745,17 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start',''); }catch(_){}
-  Kakao.Auth.authorize({ redirectUri: kkoRedirect(), scope: 'profile_nickname' });
+  try{ trackEvent('kakao_login_start', _isInApp()?'inapp':'web'); }catch(_){}
+  // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
+  //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
+  //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
+  //    (2026-08-05 회원 제보 — 갤럭시, 카톡 인앱에서 출석체크→로그인 실패)
+  //    인앱에서는 웹으로만 인증시킨다.
+  Kakao.Auth.authorize({
+    redirectUri: kkoRedirect(),
+    scope: 'profile_nickname',
+    throughTalk: !_isInApp()
+  });
 }
 // 찜한 뒤 로그인 권유 (하루 1회 이하, 찜 2개 이상부터)
 // 로그인 권유: 찜 2개째에 시트를 딱 한 번만 띄우고,

@@ -2758,8 +2758,14 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start',''); }catch(_){}
-  Kakao.Auth.authorize({ redirectUri: kkoRedirect(), scope: 'profile_nickname' });
+  try{ trackEvent('kakao_login_start', _isInApp()?'inapp':'web'); }catch(_){}
+  // ⚠️ 카톡 인앱 브라우저에서 throughTalk(기본 true)로 카톡 앱을 다시 부르면 전환이 깨진다
+  //    → kauth.kakao.com "일시적인 네트워크 오류" (2026-08-05 회원 제보). 인앱은 웹 인증으로.
+  Kakao.Auth.authorize({
+    redirectUri: kkoRedirect(),
+    scope: 'profile_nickname',
+    throughTalk: !_isInApp()
+  });
 }
 // 찜한 뒤 로그인 권유 (하루 1회 이하, 찜 2개 이상부터)
 // 로그인 권유: 찜 2개째에 시트를 딱 한 번만 띄우고,
