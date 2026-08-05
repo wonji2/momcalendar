@@ -437,6 +437,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
   overscroll-behavior: none;
   touch-action: none;
 }
+/* 시트가 열려 있는 동안은 "당겨서 새로고침"을 막는다.
+   빠르게 내리는 손짓이 새로고침으로 먹히면 보던 자리가 통째로 날아간다. */
+body.sheet-open{ overscroll-behavior-y: none; }
 </style>
 </head>
 <body>
@@ -1100,7 +1103,31 @@ async function loadData() {
     console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
     console.error('데이터 로드 실패:', e);
-    DATA = [];
+    // ⚠️ 예전엔 여기서 DATA=[] 로 끝냈다. 그러면 손님은 **텅 빈 사이트**를 본다.
+    //    통신이 잠깐 흔들리거나 Supabase 가 느릴 때마다 "아무것도 없네" 하고 떠난다.
+    //    (2026-08-05 전면 점검에서 발견 — 세 환경 모두 해당)
+    //    → 날짜가 지났더라도 마지막으로 받아둔 목록을 그대로 쓴다. 낡은 정보가 빈 화면보다 낫다.
+    var used=false;
+    try{
+      var old=JSON.parse(localStorage.getItem(_GGKEY)||'null');
+      if(old && Array.isArray(old.data) && old.data.length){
+        DATA = old.data; used=true;
+        try{ trackEvent('data_load_fallback', String(old.date||'')); }catch(_){}
+      }
+    }catch(_){}
+    if(!used){
+      DATA = [];
+      try{ trackEvent('data_load_fail', String(e && e.message || '').slice(0,60)); }catch(_){}
+      setTimeout(function(){
+        var el=document.getElementById('cardList');
+        if(el && !el.children.length){
+          el.innerHTML='<div class="empty">공구를 불러오지 못했어요 😢<br>'+
+            '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요</span><br>'+
+            '<button onclick="location.reload()" style="margin-top:14px;background:#602090;color:#fff;border:none;'+
+            'border-radius:10px;padding:10px 18px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 불러오기</button></div>';
+        }
+      }, 60);
+    }
   }
   buildWeekTabs();
   if(!restoreViewState()) renderList();
@@ -1194,8 +1221,12 @@ function getFiltered(dateStr){
     // 맘캘린더 + 이웃셀러 중 TOP100에 못 든 진행중 카드 → 전부 포함
     const missing=inScope.filter(it=>effPartner(it)&&!topIds.has(it.id));
     if(missing.length){
-      const R=window.__rand||(window.__rand=JSON.parse(sessionStorage.getItem('mc_rand')||'{}'));
-      const rnd=id=>{ if(R[id]==null){ R[id]=Math.random(); try{sessionStorage.setItem('mc_rand',JSON.stringify(R));}catch(_){} } return R[id]; }; // id별 1회 고정(세션)
+      // ⚠️ sessionStorage 는 인앱에서 뒤로가기 하면 날아간다(웹뷰를 새로 만든다).
+      //    그러면 TOP100 순서가 바뀌어 "아까 본 카드가 어디 갔지" 가 된다.
+      //    localStorage + 날짜키로 하루 동안 고정한다. (2026-08-05 전면 점검)
+      const _RK='mc_rand_'+todayStr;
+      const R=window.__rand||(window.__rand=JSON.parse(localStorage.getItem(_RK)||'{}'));
+      const rnd=id=>{ if(R[id]==null){ R[id]=Math.random(); try{localStorage.setItem(_RK,JSON.stringify(R));}catch(_){} } return R[id]; };
       missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
         const pos=Math.floor(rnd(it.id)*(top.length+1));
         top.splice(pos,0,it);
@@ -2385,6 +2416,11 @@ function lockScroll(){
   var b=document.body;
   b.style.position='fixed'; b.style.top=(-_lockY)+'px';
   b.style.left='0'; b.style.right='0'; b.style.width='100%';
+  // ⚠️ 시트를 빠르게 내리면 그 손짓이 "당겨서 새로고침"으로 먹혀 화면이 통째로 새로고침된다.
+  //    보던 자리·찜 상태가 다 날아간다. (사장님 실측 2026-08-05)
+  //    시트가 열려 있는 동안만 막는다. 평소 새로고침 제스처는 그대로 둔다.
+  b.classList.add('sheet-open');
+  document.documentElement.style.overscrollBehaviorY='none';
 }
 function unlockScroll(){
   if(_lockN>0) _lockN--;
@@ -2392,6 +2428,9 @@ function unlockScroll(){
   var b=document.body;
   b.style.position=''; b.style.top=''; b.style.left=''; b.style.right=''; b.style.width='';
   window.scrollTo(0,_lockY);
+  b.classList.remove('sheet-open');
+  // 손가락이 아직 화면에 닿아 있으면 그 제스처가 곧바로 새로고침으로 이어질 수 있다 → 잠깐 뒤에 푼다
+  setTimeout(function(){ if(_lockN===0) document.documentElement.style.overscrollBehaviorY=''; }, 400);
 }
 function closeInfoSheet(){
   document.getElementById('infoSheet').style.bottom='-110%';
@@ -2858,7 +2897,7 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start', _isInApp()?'inapp':'web'); }catch(_){}
+  try{ trackEvent('kakao_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web'))); }catch(_){}
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
