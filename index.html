@@ -423,6 +423,20 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .hc-low{font-size:9px;font-weight:800;color:#E8402A;border:1px solid #F5C4BC;background:#FEF1EF;padding:1px 5px;border-radius:5px;white-space:nowrap}
 .hc-arrow{color:#D6D0DE;font-size:16px;flex-shrink:0;line-height:1}
 .ct-arrow{position:absolute;top:50%;right:13px;transform:translateY(-50%);display:flex;align-items:center;gap:3px}
+/* ── 시트가 열렸을 때 뒤 화면이 같이 밀리지 않게 ────────────────
+   body 를 position:fixed 로 잡아도(lockScroll), 시트 안에서 끝까지 밀면
+   그 스크롤이 뒤 문서로 넘어간다(scroll chaining). 인앱만이 아니라
+   일반 브라우저·PWA 에서도 똑같이 일어난다. (사장님 실측 2026-08-05)
+   → 시트는 자기 안에서만 스크롤되게(contain), 배경은 아예 터치를 안 먹게(none). */
+#infoSheet, #kkoSheet, #wnSheet, #hdSheet, #hdSheetBody,
+#commModal, #partnerModal, #pwaModal{
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#infoBg, #kkoBg, #wnSheetBg, #hdBg, #fmodalBg{
+  overscroll-behavior: none;
+  touch-action: none;
+}
 </style>
 </head>
 <body>
@@ -1776,13 +1790,16 @@ function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 function closeHdSheet(){
   document.getElementById('hdSheet').style.bottom='-110%';
   document.getElementById('hdBg').style.display='none';
+  unlockScroll();
 }
 async function openHdSheet(id){
   const h=(_hotdealData||[]).find(x=>x.id===id); if(!h) return;
   const body=document.getElementById('hdSheetBody');
   body.innerHTML=`<div style="padding:40px 0;text-align:center;color:#bbb;font-size:13px">가격 이력 불러오는 중...</div>`;
+  var _hdWas=(document.getElementById('hdBg').style.display==='block');
   document.getElementById('hdBg').style.display='block';
   document.getElementById('hdSheet').style.bottom='0';
+  if(!_hdWas) lockScroll();
 
   let pts=[];
   try{
@@ -3834,6 +3851,33 @@ function goCard(id, url){
   // 살짝 지연시켜 통계 기록(keepalive)과 상태저장이 끝난 뒤 이동
   setTimeout(function(){ window.location.href = url; }, 0);
 }
+
+// ── 모달이 열리면 뒤 화면 잠금 (빠뜨림 방지용 감시자) ─────────────
+// 시트는 열기·닫기 함수에서 직접 lock/unlock 하지만, .modal-bg 계열(셀러·제보·PWA)은
+// classList/ style 로 여닫는 곳이 여기저기 흩어져 있어 하나씩 고치면 반드시 빠뜨린다.
+// (사장님 지적 2026-08-05 "인앱만 고치면 어떻게해 사이트랑 pwa랑 전부 다같이 고쳐야지")
+// → 열림 상태를 감시해서 자동으로 잠그고 푼다. 새 모달이 생겨도 그대로 적용된다.
+(function(){
+  try{
+    var locked=false;
+    function anyOpen(){
+      if(document.querySelector('.modal-bg.on')) return true;
+      var p=document.getElementById('pwaModal');
+      if(p && p.style.display && p.style.display!=='none') return true;
+      return false;
+    }
+    function sync(){
+      var open=anyOpen();
+      if(open && !locked){ locked=true; lockScroll(); }
+      else if(!open && locked){ locked=false; unlockScroll(); }
+    }
+    var mo=new MutationObserver(sync);
+    document.querySelectorAll('.modal-bg, #pwaModal').forEach(function(el){
+      mo.observe(el, {attributes:true, attributeFilter:['class','style']});
+    });
+    sync();
+  }catch(_){}
+})();
 
 // ── 떠다니는 카톡 버튼 ──
 function toggleChatMenu(){
