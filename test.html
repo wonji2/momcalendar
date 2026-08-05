@@ -2,13 +2,12 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex, nofollow">
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
 <title>[테스트] 맘캘린더 · 새 기능 미리보기</title>
 <meta name="description" content="지금 공구중인곳 한눈에 확인! 공구 일정 확인은 맘캘린더. 인스타 공구 일정을 모아보는 공구 일정 사이트. 오늘 오픈·진행중·예정 공구를 육아·식품·뷰티·리빙 카테고리별로 무료 확인.">
 <meta name="keywords" content="맘캘린더,공구일정,공구 일정,공구일정사이트,공구 일정 사이트,공구일정확인,공구 일정 확인,공구일정앱,공구 일정 앱,공구일정찾는법,공구 일정 찾는법,공구일정카페,공구 일정 카페,공구이름,공구이름모음,공동구매일정,공동구매 일정,공동구매사이트,공동구매 사이트,공동구매찾는법,공동구매 찾는법,공동구매확인,공구중인곳,공구중인 곳,지금공구중인곳,공구하는곳,공구하는 곳,공구하시는곳,공구하고있는곳,공구하고 있는곳,공구예정인곳,공구예정인 곳,공구중이거나예정인곳,현재공구중인곳,공구진행중인곳,공구중인사이트,인스타공구중인곳,인스타공구하는곳,인스타공구,인스타 공구,인스타공구일정,인스타공동구매,인스타최신순,인스타 최신순,인스타최신순보기,인스타 최신순 보기,인스타최신순검색,인스타 최신순 검색,인스타최신순태그,인스타최신순으로보는법,인스타최신순검색하는법,인스타 최신순 보는방법,인스타공구최신순,인스타셀러,인스타쇼핑,인플루언서공구,인플루언서 공구,맘카페공구,맘카페 공구,맘공구,육아공구,육아 공구,식품공구,뷰티공구,리빙공구,가전공구,패션공구,반려동물공구,공구캘린더,공구모음,공구사이트,공구앱,바크공구,바크공구일정,오늘공구,오늘오픈공구,진행중공구,공구마감,공구모아,공구팡팡,위시버니,인플루언서쇼핑몰,셀러공구,맘셀러,공구셀러,핫딜공구,공구핫딜">
-<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://momcalendar.com">
 <!-- 네이버 서치어드바이저 인증 -->
 <meta name="naver-site-verification" content="820e21374c99ba646130a61ac817edad442372b0">
@@ -424,6 +423,23 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .hc-low{font-size:9px;font-weight:800;color:#E8402A;border:1px solid #F5C4BC;background:#FEF1EF;padding:1px 5px;border-radius:5px;white-space:nowrap}
 .hc-arrow{color:#D6D0DE;font-size:16px;flex-shrink:0;line-height:1}
 .ct-arrow{position:absolute;top:50%;right:13px;transform:translateY(-50%);display:flex;align-items:center;gap:3px}
+/* ── 시트가 열렸을 때 뒤 화면이 같이 밀리지 않게 ────────────────
+   body 를 position:fixed 로 잡아도(lockScroll), 시트 안에서 끝까지 밀면
+   그 스크롤이 뒤 문서로 넘어간다(scroll chaining). 인앱만이 아니라
+   일반 브라우저·PWA 에서도 똑같이 일어난다. (사장님 실측 2026-08-05)
+   → 시트는 자기 안에서만 스크롤되게(contain), 배경은 아예 터치를 안 먹게(none). */
+#infoSheet, #kkoSheet, #wnSheet, #hdSheet, #hdSheetBody,
+#commModal, #partnerModal, #pwaModal{
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#infoBg, #kkoBg, #wnSheetBg, #hdBg, #fmodalBg{
+  overscroll-behavior: none;
+  touch-action: none;
+}
+/* 시트가 열려 있는 동안은 "당겨서 새로고침"을 막는다.
+   빠르게 내리는 손짓이 새로고침으로 먹히면 보던 자리가 통째로 날아간다. */
+body.sheet-open{ overscroll-behavior-y: none; }
 </style>
 </head>
 <body>
@@ -555,7 +571,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- PWA 홈화면 추가 얇은 띠 (문구 아래·공구 카드 위) -->
 <div id="pwaStrip" style="display:none;margin:10px 12px 0;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
   <img src="momcal-appicon.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
-  <span style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
+  <span class="pwa-strip-txt" style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
   <button onclick="pwaStripAdd()" style="color:#fff;background:#602090;border:none;border-radius:13px;padding:5px 11px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit">추가</button>
   <button onclick="pwaStripClose()" style="color:#B0A0C8;font-size:14px;background:none;border:none;cursor:pointer;padding:2px 4px">✕</button>
 </div>
@@ -650,12 +666,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     var r=await fetch(_SU+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
     if(!r.ok) return;
     var list=await r.json(), now=Date.now();
-    // 테스트 페이지: 테스트(stage=test) 배너를 우선 보여주고, 없으면 정식(live)
+    // 라이브: 정식(stage!=='test') 배너만. 테스트 배너는 실제 방문자에게 절대 보이면 안 됨
     var inWin=function(x){
       var f=x.show_from?new Date(x.show_from).getTime():null;
       var u=x.show_until?new Date(x.show_until).getTime():null;
       return (f===null||f<=now) && (u===null||u>=now);
     };
+    // 테스트 페이지: 테스트(stage=test) 배너를 우선 보여주고, 없으면 정식(live)
     var b=(list||[]).find(function(x){ return x.stage==='test' && inWin(x); })
        || (list||[]).find(function(x){ return x.stage!=='test' && inWin(x); });
     var el=document.getElementById('slimAdSlot'); if(!el) return;
@@ -679,10 +696,38 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
     }catch(_){}
   }catch(e){}
 })();
+// ⚠️ 모바일 인앱(카톡·인스타)에서는 window.open 이 팝업 차단으로 null 을 돌려주는 경우가 있다.
+//    손님의 99%가 모바일이고, 대부분 카톡에서 공유받아 카톡 인앱으로 들어온다(사장님 2026-08-05).
+//    열리지 않으면 같은 창으로라도 반드시 보낸다. 링크가 안 열리는 건 곧 매출 손실이다.
+window.openLink=function(url){
+  if(!url) return;
+  // 인앱은 새 웹뷰를 띄웠다 닫으면서 화면이 다시 그려져 스크롤이 조금씩 밀린다.
+  // (사장님 실측 2026-08-05 "누르는 순간 리스트가 약간 밑으로 내려가져서 돌아옴")
+  // 누르는 그 순간의 위치를 붙잡아두고, 돌아왔을 때 그 자리로 되돌린다.
+  try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){}
+  try{
+    var w = window.open(url, '_blank');
+    if(!w || w.closed || typeof w.closed === 'undefined'){ window.location.href = url; }
+  }catch(_){ try{ window.location.href = url; }catch(__){} }
+};
+// 인앱에서 돌아왔을 때 원래 보던 자리로. pageshow 만으로는 인앱 복귀를 못 잡는 경우가 있다.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  try{
+    var s=JSON.parse(localStorage.getItem('mc_scroll_at')||'null');
+    if(!s || Date.now()-s.t > 10*60*1000) return;
+    localStorage.removeItem('mc_scroll_at');
+    var n=0;
+    (function attempt(){
+      window.scrollTo(0, s.y);
+      if(++n<6 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-s.y)>4) setTimeout(attempt,120);
+    })();
+  }catch(_){}
+});
 window.slimAdClick=function(id){
   var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
   try{ if(typeof trackEvent==='function') trackEvent('banner_click',JSON.stringify({id:id})); }catch(_){}
-  if(lnk) window.open(lnk,'_blank');
+  if(lnk) openLink(lnk);
 };
 </script>
 
@@ -1061,7 +1106,31 @@ async function loadData() {
     console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
     console.error('데이터 로드 실패:', e);
-    DATA = [];
+    // ⚠️ 예전엔 여기서 DATA=[] 로 끝냈다. 그러면 손님은 **텅 빈 사이트**를 본다.
+    //    통신이 잠깐 흔들리거나 Supabase 가 느릴 때마다 "아무것도 없네" 하고 떠난다.
+    //    (2026-08-05 전면 점검에서 발견 — 세 환경 모두 해당)
+    //    → 날짜가 지났더라도 마지막으로 받아둔 목록을 그대로 쓴다. 낡은 정보가 빈 화면보다 낫다.
+    var used=false;
+    try{
+      var old=JSON.parse(localStorage.getItem(_GGKEY)||'null');
+      if(old && Array.isArray(old.data) && old.data.length){
+        DATA = old.data; used=true;
+        try{ trackEvent('data_load_fallback', String(old.date||'')); }catch(_){}
+      }
+    }catch(_){}
+    if(!used){
+      DATA = [];
+      try{ trackEvent('data_load_fail', String(e && e.message || '').slice(0,60)); }catch(_){}
+      setTimeout(function(){
+        var el=document.getElementById('cardList');
+        if(el && !el.children.length){
+          el.innerHTML='<div class="empty">공구를 불러오지 못했어요 😢<br>'+
+            '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요</span><br>'+
+            '<button onclick="location.reload()" style="margin-top:14px;background:#602090;color:#fff;border:none;'+
+            'border-radius:10px;padding:10px 18px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 불러오기</button></div>';
+        }
+      }, 60);
+    }
   }
   buildWeekTabs();
   if(!restoreViewState()) renderList();
@@ -1155,8 +1224,12 @@ function getFiltered(dateStr){
     // 맘캘린더 + 이웃셀러 중 TOP100에 못 든 진행중 카드 → 전부 포함
     const missing=inScope.filter(it=>effPartner(it)&&!topIds.has(it.id));
     if(missing.length){
-      const R=window.__rand||(window.__rand=JSON.parse(sessionStorage.getItem('mc_rand')||'{}'));
-      const rnd=id=>{ if(R[id]==null){ R[id]=Math.random(); try{sessionStorage.setItem('mc_rand',JSON.stringify(R));}catch(_){} } return R[id]; }; // id별 1회 고정(세션)
+      // ⚠️ sessionStorage 는 인앱에서 뒤로가기 하면 날아간다(웹뷰를 새로 만든다).
+      //    그러면 TOP100 순서가 바뀌어 "아까 본 카드가 어디 갔지" 가 된다.
+      //    localStorage + 날짜키로 하루 동안 고정한다. (2026-08-05 전면 점검)
+      const _RK='mc_rand_'+todayStr;
+      const R=window.__rand||(window.__rand=JSON.parse(localStorage.getItem(_RK)||'{}'));
+      const rnd=id=>{ if(R[id]==null){ R[id]=Math.random(); try{localStorage.setItem(_RK,JSON.stringify(R));}catch(_){} } return R[id]; };
       missing.sort((a,b)=>rnd(a.id)-rnd(b.id)).forEach(it=>{
         const pos=Math.floor(rnd(it.id)*(top.length+1));
         top.splice(pos,0,it);
@@ -1168,7 +1241,13 @@ function getFiltered(dateStr){
   // 전체 = 진행중 먼저(파트너 우선) → 오픈 예정(날짜순)
   const ongoing=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   const upcoming=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate>todayStr).sort(cmpDatePartner);
-  return [...ongoing,...upcoming];
+  // ⚠️ 예정 공구는 날짜순이라, 그 카테고리에 '진행중 이웃셀러'가 없으면
+  //    예정 이웃셀러가 날짜에 묻혀 아래로 내려갔다.
+  //    (사장님 지적 2026-08-05 "대분류 버튼 누르면 이웃셀러 카드가 제일 위로 안올라와")
+  //    → 이웃셀러는 항상 맨 위로 모은다. 이웃셀러끼리는 진행중 → 예정 순서를 지킨다.
+  const all=[...ongoing,...upcoming];
+  const pt=all.filter(x=>effPartner(x)), rest=all.filter(x=>!effPartner(x));
+  return [...pt,...rest];
 }
 
 function filterCat(item){
@@ -1189,6 +1268,8 @@ function renderCard(item){
   const stHtml = stTxt?`<span class="card-status-txt" style="color:${stColor}">${stTxt}</span>`:'';
   // 상태텍스트("오늘마감" 등)와 상품명이 겹치지 않게 글자수만큼만 오른쪽 여백 확보.
   // 실측: 기본 pad 48px 에서 4글자는 9.2px 겹치고 3글자는 1.4px 남음 → 글자당 약 10.6px
+  // ⚠️ 이 수정이 test.html 에만 있고 라이브에는 안 들어가 있었다 (2026-08-05 발견).
+  //    8/3 에 사장님이 "카드 727장 전부 겹친다" 고 지적한 그 건이다.
   const stPad = stTxt ? Math.max(48, Math.round(23 + stTxt.length*10.6)) : 48;
 
   const instaUrl = item.insta
@@ -1263,10 +1344,23 @@ function renderList(){
   if(fSt==='wish'){
     const banner = notiGranted()
       ? `<div class="noti-banner on"><span style="font-size:19px">✅</span><span class="nb-txt">알림 켜짐 · 오픈 예정일 아침에 알려드려요</span><button onclick="disablePush()">끄기</button></div>`
-      : (iosNeedsInstall()
-        ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">홈 화면에 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
+      // ⚠️ 인앱 웹뷰(카톡·인스타)는 푸시 구독 자체가 안 된다.
+      //    그런데 "켜기" 버튼을 보여주고 있어서, 누르면 "알림을 켜지 못했어요"만 떴다.
+      //    손님 대부분이 카톡에서 들어오므로 이게 기본 화면이었다. (사장님 실측 2026-08-05)
+      //    → 인앱에서는 앱으로 추가하는 길을 안내한다(pwaStripAdd 가 카톡→크롬/사파리까지 처리).
+      : ((iosNeedsInstall() || _isInApp())
+        ? (pwaAskDone() ? '' : `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">앱으로 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`)
         : `<div class="noti-banner"><span style="font-size:19px">🔔</span><span class="nb-txt">알림을 켜면 오픈 예정일 아침에 알려드려요</span><button onclick="openWnSheet()">켜기</button></div>`);
-    const banner2 = loginStripHtml() + banner;   // 로그인 권유는 시트 대신 이 조용한 띠로
+    // 캘린더 내보내기는 '+' 메뉴에만 있어서 찾기 어려웠다 (사장님 지적 2026-08-05
+    // "내 찜에서 캘린더 내보내기 버튼은 없는데?") → 찜 목록 바로 위에 둔다.
+    const icsBtn = WISH.size
+      ? `<div class="noti-banner" style="background:#F4F0FB;border-color:#E2D8F2">
+           <span style="font-size:19px">📅</span>
+           <span class="nb-txt">찜한 공구를 내 폰 캘린더에 넣기</span>
+           <button onclick="exportWishIcs()">내보내기</button>
+         </div>`
+      : '';
+    const banner2 = loginStripHtml() + banner + icsBtn;   // 로그인 권유는 시트 대신 이 조용한 띠로
     if(!WISH.size){
       el.innerHTML=banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
       return;
@@ -1530,13 +1624,27 @@ function restoreViewState(){
     return true;
   }catch(_){ return false; }
 }
-// 인앱 웹뷰는 렌더가 늦어 한 번의 scrollTo로는 위치를 못 잡음 → 몇 번 재시도
+// 인앱 웹뷰는 렌더가 늦어 한 번의 scrollTo로는 위치를 못 잡음 → 끈질기게 재시도
+// ⚠️ 6회×120ms(0.7초)로는 모자랐다. 카드 이미지가 뒤늦게 들어오면서 목록 높이가 늘어나
+//    "맨 아래 맞춰둔 카드가 돌아오니 다른 자리에 있다"가 된다. (사장님 영상 2026-08-05)
+//    → 2초 넘게, 그리고 이미지 로드(load)·폰트 반영 뒤에도 한 번 더 맞춘다.
 function _restoreScroll(y){
+  if(!(y>0)) return;
   let n=0;
   (function attempt(){
-    window.scrollTo(0,y);
-    if(++n<6 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4){ setTimeout(attempt,120); }
+    var cur=window.scrollY||document.documentElement.scrollTop||0;
+    // 목표 지점까지 문서가 아직 안 자랐으면 기다렸다 다시 (밑에서 자르지 않는다)
+    var max=Math.max(0,(document.documentElement.scrollHeight||0)-window.innerHeight);
+    if(max>=y-2) window.scrollTo(0,y);
+    if(++n<16 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4){ setTimeout(attempt,140); }
   })();
+  // 늦게 들어오는 이미지 때문에 또 밀릴 수 있다 → 로드 완료 후 한 번 더
+  var fix=function(){ setTimeout(function(){
+    if(Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4) window.scrollTo(0,y);
+  }, 60); };
+  window.addEventListener('load', fix, {once:true});
+  setTimeout(fix, 1200);
+  setTimeout(fix, 2500);
 }
 
 function toggleStab(v,el){
@@ -1735,13 +1843,16 @@ function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
 function closeHdSheet(){
   document.getElementById('hdSheet').style.bottom='-110%';
   document.getElementById('hdBg').style.display='none';
+  unlockScroll();
 }
 async function openHdSheet(id){
   const h=(_hotdealData||[]).find(x=>x.id===id); if(!h) return;
   const body=document.getElementById('hdSheetBody');
   body.innerHTML=`<div style="padding:40px 0;text-align:center;color:#bbb;font-size:13px">가격 이력 불러오는 중...</div>`;
+  var _hdWas=(document.getElementById('hdBg').style.display==='block');
   document.getElementById('hdBg').style.display='block';
   document.getElementById('hdSheet').style.bottom='0';
+  if(!_hdWas) lockScroll();
 
   let pts=[];
   if(h.product_id==='__demo__'){                       // 예시 카드는 가짜 이력으로 그림만 보여줌
@@ -2322,14 +2433,47 @@ async function sendInquiry(){
 }
 
 // ── 사이드메뉴: 소개 / 이용방법 시트 ───────────────────
+// ── 시트가 열리면 뒤 화면을 잠근다 ──────────────────────────
+// 안 잠그면 시트 안에서 손가락을 움직일 때 뒤 목록이 같이 주르륵 내려간다.
+// (사장님 실측 2026-08-05 "출석체크 화면 아래로 스크롤하면 뒤에 메인리스트가 쭈르륵 내려가")
+// iOS 는 overflow:hidden 만으로는 안 막혀서 position:fixed 로 붙잡고, 닫을 때 원위치로 돌려놓는다.
+var _lockY=0, _lockN=0;
+function lockScroll(){
+  if(_lockN++ > 0) return;                       // 시트가 겹쳐 열려도 한 번만
+  _lockY = window.scrollY||document.documentElement.scrollTop||0;
+  var b=document.body;
+  b.style.position='fixed'; b.style.top=(-_lockY)+'px';
+  b.style.left='0'; b.style.right='0'; b.style.width='100%';
+  // ⚠️ 시트를 빠르게 내리면 그 손짓이 "당겨서 새로고침"으로 먹혀 화면이 통째로 새로고침된다.
+  //    보던 자리·찜 상태가 다 날아간다. (사장님 실측 2026-08-05)
+  //    시트가 열려 있는 동안만 막는다. 평소 새로고침 제스처는 그대로 둔다.
+  b.classList.add('sheet-open');
+  document.documentElement.style.overscrollBehaviorY='none';
+}
+function unlockScroll(){
+  if(_lockN>0) _lockN--;
+  if(_lockN>0) return;
+  var b=document.body;
+  b.style.position=''; b.style.top=''; b.style.left=''; b.style.right=''; b.style.width='';
+  window.scrollTo(0,_lockY);
+  b.classList.remove('sheet-open');
+  // 손가락이 아직 화면에 닿아 있으면 그 제스처가 곧바로 새로고침으로 이어질 수 있다 → 잠깐 뒤에 푼다
+  setTimeout(function(){ if(_lockN===0) document.documentElement.style.overscrollBehaviorY=''; }, 400);
+}
 function closeInfoSheet(){
   document.getElementById('infoSheet').style.bottom='-110%';
   document.getElementById('infoBg').style.display='none';
+  unlockScroll();
 }
 function _openInfo(html){
+  var bg=document.getElementById('infoBg');
+  // ⚠️ 같은 시트를 두 번 그리는 경우가 있다(출석: '불러오는 중' → 내용).
+  //    그때마다 잠그면 카운트가 안 맞아 닫아도 화면이 굳는다. 처음 열 때만 잠근다.
+  var wasOpen = (bg.style.display==='block');
   document.getElementById('infoBody').innerHTML=html;
-  document.getElementById('infoBg').style.display='block';
+  bg.style.display='block';
   document.getElementById('infoSheet').style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function openAboutSheet(){
   _openInfo(`
@@ -2493,6 +2637,20 @@ async function exportWishIcs(){
       'END:VEVENT');
   });
   L.push('END:VCALENDAR');
+  // ⚠️ 카톡·인스타 인앱 웹뷰는 파일 다운로드(a.download)를 무시한다.
+  //    그냥 두면 아무 일도 안 일어나고 손님은 "안 된다"고만 느낀다.
+  //    손님 대부분이 카톡에서 공유받아 인앱으로 들어오므로 반드시 길을 열어줘야 한다.
+  //    (사장님 지시 2026-08-05 "인앱 사파리 크롬 인터넷 전부 다 오류가 없어야 한다")
+  if(typeof _isInApp==='function' && _isInApp()){
+    try{ trackEvent('ics_blocked_inapp', String(items.length)); }catch(_){}
+    // 크롬으로 보내는 것보다 앱으로 추가하는 쪽이 낫다 — 다음부터는 이 문제가 아예 안 생긴다.
+    // (사장님 지시 2026-08-05 "바로 PWA로 받기 안내되는게 더 좋을듯")
+    if(confirm('카카오톡 안에서는 캘린더 파일을 받을 수 없어요.\n\n맘캘린더를 앱으로 추가하면 바로 받을 수 있어요.\n추가할까요?')){
+      if(typeof pwaStripAdd==='function') pwaStripAdd();
+      else if(typeof openInSafari==='function') openInSafari();
+    }
+    return;
+  }
   const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -2557,7 +2715,7 @@ function goSub(i){
   el.style.background=a.bg;
   el.onclick=()=>{
     if(a.link==='popup') openPartnerModal(1);
-    else window.open(a.link,'_blank');
+    else openLink(a.link);
   };
   document.getElementById('subAdT').textContent=a.t;
   document.getElementById('subAdS').textContent=a.s;
@@ -2713,8 +2871,13 @@ var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
 // ⚠ PWA(홈 화면 앱)는 manifest start_url 이 /index.html 이라 pathname 이 '/'가 아니다.
 //    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
 //    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
-// ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다 (KOE006 방지)
-// 등록 확인된 경로만 (앱 → 플랫폼 키 → JavaScript 키 → 카카오 로그인 리다이렉트 URI, 2026-08-04 확인)
+// ⚠️ 카카오에 등록된 Redirect URI 로만 보낸다.
+//    등록 안 된 경로로 보내면 KOE006 이 나고 사용자는 로그인 자체를 못 한다.
+//    (2026-08-04: PWA start_url 이 /index.html 이라 앱 사용자가 전부 막혀 있었음)
+//    ❗ 카카오 콘솔에 **실제로 등록된 것이 확인된** 경로만 넣을 것.
+//       확인 안 된 경로를 넣으면 그 페이지 사용자가 통째로 로그인 불가가 된다.
+//    등록 위치: 앱 → 플랫폼 키 → JavaScript 키 → 카카오 로그인 리다이렉트 URI
+//    2026-08-04 확인된 등록값: momcalendar.com / momcalendar.com/ / /kktest.html / /test.html
 var KKO_OK_PATHS = ['/', '/test.html', '/kktest.html'];
 function kkoRedirect(){
   var p = location.pathname;
@@ -2722,7 +2885,9 @@ function kkoRedirect(){
   return location.origin + (KKO_OK_PATHS.indexOf(p) >= 0 ? p : '/');
 }
 function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||'null'); }catch(_){ return null; } }
-// 세션 토큰 없으면 로그인 안 된 것으로 (옛 로그인자 하위호환)
+// ⚠️ 세션 토큰이 없으면 로그인 안 된 것으로 본다.
+//    2026-08-03 토큰 방식으로 바꾸기 전에 로그인한 사람은 token 이 없어서,
+//    화면엔 로그인된 것처럼 보이는데 출석·캘린더가 전부 실패했다(2026-08-04 발견).
 function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id && m.token); }
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
@@ -2739,12 +2904,14 @@ function openLoginSheet(title, sub, fine, intent){
   if(s) s.innerHTML   = sub   || KKO_DEFAULT_S;
   // 찜 권유가 아닐 땐 '찜은 계속 쓸 수 있어요' 안내가 맥락에 안 맞음
   if(f) f.textContent = (fine===undefined) ? KKO_DEFAULT_F : fine;
+  var wasOpen=(bg.style.display==='block');
   bg.style.display='block'; m.style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function closeLoginSheet(){
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
   if(!m||!bg) return;
-  bg.style.display='none'; m.style.bottom='-110%';
+  bg.style.display='none'; m.style.bottom='-110%'; unlockScroll();
 }
 function kkoLater(){
   // 시트는 한 번만 띄우기로 했으므로(mc_login_asked), 여기선 닫기만 한다.
@@ -2758,9 +2925,12 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start', _isInApp()?'inapp':'web'); }catch(_){}
-  // ⚠️ 카톡 인앱 브라우저에서 throughTalk(기본 true)로 카톡 앱을 다시 부르면 전환이 깨진다
-  //    → kauth.kakao.com "일시적인 네트워크 오류" (2026-08-05 회원 제보). 인앱은 웹 인증으로.
+  try{ trackEvent('kakao_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web'))); }catch(_){}
+  // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
+  //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
+  //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
+  //    (2026-08-05 회원 제보 — 갤럭시, 카톡 인앱에서 출석체크→로그인 실패)
+  //    인앱에서는 웹으로만 인증시킨다.
   Kakao.Auth.authorize({
     redirectUri: kkoRedirect(),
     scope: 'profile_nickname',
@@ -2810,6 +2980,10 @@ function hideLoginStrip(){
     var p=new URLSearchParams(location.search);
     var code=p.get('code');
     if(!code) return;
+    // ⚠️ 카카오 인가코드는 **한 번만** 쓸 수 있다.
+    //    응답을 기다리는 사이에 손님이 새로고침하면 같은 코드로 또 요청해 반드시 실패한다.
+    //    (인앱은 렌더가 느려 이 사이가 길다) → 요청을 보내기 전에 주소에서 먼저 지운다.
+    try{ history.replaceState({},'', location.pathname); }catch(_){}
     fetch(KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
       body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
@@ -2833,15 +3007,40 @@ function hideLoginStrip(){
         var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
         if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
         else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      }else{
+        // ⚠️ 여기가 비어 있었다. 카카오에서 돌아왔는데 서버 처리가 실패하면
+        //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
+        //    (2026-08-05 전면 재검증에서 발견 — 오늘 미완료 건의 일부가 이것일 수 있다)
+        kkoLoginFailed(d && d.error ? String(d.error).slice(0,60) : 'server');
       }
-    }).catch(function(){});
+    }).catch(function(e){ kkoLoginFailed('network'); });
   }catch(_){}
 })();
+// 로그인 마무리에 실패했을 때 — 조용히 넘기지 않는다. 알리고, 남기고, 다시 할 길을 준다.
+function kkoLoginFailed(why){
+  try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why); }catch(_){}
+  try{ localStorage.setItem('mc_login_fail', JSON.stringify({t:Date.now(), why:why})); }catch(_){}
+  try{ history.replaceState({},'', location.pathname); }catch(_){}   // ?code 를 URL 에서 지운다
+  var w=document.createElement('div');
+  w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;'+
+    'border-radius:14px;padding:14px 15px;z-index:99999;box-shadow:0 8px 26px rgba(0,0,0,.18);font-size:13px;color:#3A3345;line-height:1.6';
+  w.innerHTML='<b style="color:#7B3FB5">로그인을 마치지 못했어요</b><br>'+
+    '<span style="font-size:12px;color:#7A7286">잠시 문제가 있었어요. 한 번만 다시 눌러주세요.</span>'+
+    '<div style="display:flex;gap:7px;margin-top:11px">'+
+    '<button id="kkoRetryBtn" style="flex:1;background:#FEE500;color:#191919;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 로그인</button>'+
+    '<button id="kkoRetryX" style="background:#F3F0F7;color:#8A8194;border:none;border-radius:10px;padding:10px 13px;font-size:13px;font-family:inherit;cursor:pointer">닫기</button>'+
+    '</div>';
+  document.body.appendChild(w);
+  var b=w.querySelector('#kkoRetryBtn'), x=w.querySelector('#kkoRetryX');
+  if(b) b.onclick=function(){ w.remove(); startKakaoLogin(); };
+  if(x) x.onclick=function(){ w.remove(); };
+}
 // 로그인 상태를 사이드메뉴 등에 반영
 function paintMemberUI(){
   var m=memberGet(), el=document.getElementById('kkoWho');
   if(!el) return;
-  // ⚠️ isLoggedIn() 과 같은 기준. kakao_id 만 보면 토큰 없는 옛 로그인자가 재로그인을 못 한다.
+  // ⚠️ isLoggedIn() 과 같은 기준을 써야 한다. kakao_id 만 보면
+  //    토큰 없는 옛 로그인자에게 "로그아웃" 버튼만 보여서 재로그인 자체가 막힌다.
   el.innerHTML = isLoggedIn()
     ? '💜 <b>'+(m.nickname||'회원')+'</b>님 <button onclick="kkoLogout()" style="background:none;border:none;color:#b3a9c8;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline">로그아웃</button>'
     : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>';
@@ -2987,12 +3186,16 @@ function openWnSheet(){
     ok.textContent='알림 받기';
     ok.removeAttribute('data-mode');
   }
-  document.getElementById('wnSheetBg').style.display='block';
+  var wbg=document.getElementById('wnSheetBg');
+  var wasOpen=(wbg.style.display==='block');
+  wbg.style.display='block';
   document.getElementById('wnSheet').style.bottom='0';
+  if(!wasOpen) lockScroll();
 }
 function closeWnSheet(){
   document.getElementById('wnSheetBg').style.display='none';
   document.getElementById('wnSheet').style.bottom='-110%';
+  unlockScroll();
 }
 function wnLater(){
   let lvl=parseInt(localStorage.getItem('mc_wn_lvl')||'0',10);
@@ -3292,11 +3495,27 @@ function _pwaModalFlow(retry){
 const PWA_STRIP_INT=[1,3,5,7,10,15,30];
 // 설치 안내는 '팝업'을 쓰지 않고 이 얇은 띠 하나로만 한다(팝업은 광고처럼 읽혀 거부감이 큼).
 // 첫 화면부터 계속 보이되, 앱을 이미 쓰는 사람에겐 절대 안 뜬다.
+// ── 앱 설치 권유는 딱 두 번까지만 ─────────────────────────
+// "사이트로만 보는 사람이 앱으로 깔라는 내용이 너무 많이 떠서 피로하다" 는 건의가 들어왔다.
+// (사장님 전달 2026-08-05) → 두 번 보여주고 그 뒤엔 안 띄운다.
+//   필요하면 ☰ 메뉴 > '홈 화면에 앱으로 추가' 로 언제든 설치할 수 있다.
+const PWA_ASK_MAX=2;
+function pwaAskCount(){ try{ return parseInt(localStorage.getItem('mc_pwa_ask_n')||'0',10)||0; }catch(_){ return 0; } }
+function pwaAskDone(){ return pwaAskCount() >= PWA_ASK_MAX; }
+function pwaAskBump(){
+  try{
+    var d=_dstr();
+    if(localStorage.getItem('mc_pwa_ask_day')===d) return;   // 하루에 한 번만 센다
+    localStorage.setItem('mc_pwa_ask_day', d);
+    localStorage.setItem('mc_pwa_ask_n', String(pwaAskCount()+1));
+  }catch(_){}
+}
 function showPwaStrip(){
   try{
     if(_isStandalone()) return;                        // 앱으로 실행 중 → 안 뜸
     if(!_isMobile()) return;                            // PC → 안 뜸
     if(localStorage.getItem('mc_pwa_installed')==='1') return;  // 설치한 사람 → 안 뜸
+    if(pwaAskDone()) return;                            // 두 번 봤으면 끝. 이제 메뉴에서만.
     const el=document.getElementById('pwaStrip'); if(!el) return;
     // 재로그인 안내가 떠 있으면 띠를 두 줄 겹치지 않는다(광고처럼 읽힘)
     const rs=document.getElementById('reloginStrip');
@@ -3305,6 +3524,13 @@ function showPwaStrip(){
     const next=parseInt(localStorage.getItem('mc_pwa_strip_next')||'0',10);
     if(next && Date.now()<next) return;
     el.style.display='flex';
+    pwaAskBump();
+    // 마지막 노출이면 "앞으로는 메뉴에서 하시면 돼요" 를 알려주고 물러난다
+    if(pwaAskDone()){
+      var t=el.querySelector('.pwa-strip-txt') || el;
+      try{ t.insertAdjacentHTML('beforeend',
+        '<span style="display:block;font-size:10.5px;color:#9C93AC;margin-top:2px">앞으로는 ☰ 메뉴에서 추가할 수 있어요</span>'); }catch(_){}
+    }
   }catch(_){}
 }
 // 메뉴에서 언제든 설치(억제 플래그와 무관) — 재설치·이미설치자 모두
@@ -3398,7 +3624,16 @@ window.addEventListener('pageshow', function(e){
   if(e.persisted){                       // bfcache에서 복원된 경우만
     try{
       if(typeof DATA!=='undefined' && DATA && DATA.length){
-        if(!restoreViewState()) renderList();   // 보던 화면 복원(TOP100·순서·스크롤 포함)
+        // ⚠️ 화면이 통째로 살아 돌아온 상태다. 여기서 다시 그리면 목록이 새로 만들어지면서
+        //    보던 자리가 틀어진다. ("바맘 카드를 맨 밑에 맞춰놨는데 돌아오니 자리가 달라졌어"
+        //     — 사장님 영상 2026-08-05)
+        //    이미 그려져 있으면 손대지 않고, 저장해둔 상태만 버린다.
+        var listEl=document.getElementById('cardList');
+        if(listEl && listEl.children.length){
+          try{ localStorage.removeItem('mc_view'); }catch(_){}
+        } else if(!restoreViewState()){
+          renderList();
+        }
       } else {
         loadData();
       }
@@ -3485,7 +3720,7 @@ function goPromo(id, link){
   if(link==='seller-popup'){ openPartnerModal(1); return; }
   if(link==='ad-popup'){ openPartnerModal(2); return; }
   try{ saveViewState(); }catch(_){}
-  window.open(link,'_blank');
+  openLink(link);
 }
 loadPromoBanners();
 
@@ -3580,7 +3815,7 @@ function buildMainSlider(){
       try{ trackEvent('banner_click', String(b.id!=null?b.id:(b.title||''))); }catch(_){}
       if(link==='seller-popup') openPartnerModal(1);
       else if(link==='ad-popup') openPartnerModal(2);
-      else if(link) window.open(link,'_blank');
+      else if(link) openLink(link);
     };
   });
   document.getElementById('mainDots').innerHTML=
@@ -3683,6 +3918,33 @@ function goCard(id, url){
   // 살짝 지연시켜 통계 기록(keepalive)과 상태저장이 끝난 뒤 이동
   setTimeout(function(){ window.location.href = url; }, 0);
 }
+
+// ── 모달이 열리면 뒤 화면 잠금 (빠뜨림 방지용 감시자) ─────────────
+// 시트는 열기·닫기 함수에서 직접 lock/unlock 하지만, .modal-bg 계열(셀러·제보·PWA)은
+// classList/ style 로 여닫는 곳이 여기저기 흩어져 있어 하나씩 고치면 반드시 빠뜨린다.
+// (사장님 지적 2026-08-05 "인앱만 고치면 어떻게해 사이트랑 pwa랑 전부 다같이 고쳐야지")
+// → 열림 상태를 감시해서 자동으로 잠그고 푼다. 새 모달이 생겨도 그대로 적용된다.
+(function(){
+  try{
+    var locked=false;
+    function anyOpen(){
+      if(document.querySelector('.modal-bg.on')) return true;
+      var p=document.getElementById('pwaModal');
+      if(p && p.style.display && p.style.display!=='none') return true;
+      return false;
+    }
+    function sync(){
+      var open=anyOpen();
+      if(open && !locked){ locked=true; lockScroll(); }
+      else if(!open && locked){ locked=false; unlockScroll(); }
+    }
+    var mo=new MutationObserver(sync);
+    document.querySelectorAll('.modal-bg, #pwaModal').forEach(function(el){
+      mo.observe(el, {attributes:true, attributeFilter:['class','style']});
+    });
+    sync();
+  }catch(_){}
+})();
 
 // ── 떠다니는 카톡 버튼 ──
 function toggleChatMenu(){

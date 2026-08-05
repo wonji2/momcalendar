@@ -1238,7 +1238,13 @@ function getFiltered(dateStr){
   // 전체 = 진행중 먼저(파트너 우선) → 오픈 예정(날짜순)
   const ongoing=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   const upcoming=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate>todayStr).sort(cmpDatePartner);
-  return [...ongoing,...upcoming];
+  // ⚠️ 예정 공구는 날짜순이라, 그 카테고리에 '진행중 이웃셀러'가 없으면
+  //    예정 이웃셀러가 날짜에 묻혀 아래로 내려갔다.
+  //    (사장님 지적 2026-08-05 "대분류 버튼 누르면 이웃셀러 카드가 제일 위로 안올라와")
+  //    → 이웃셀러는 항상 맨 위로 모은다. 이웃셀러끼리는 진행중 → 예정 순서를 지킨다.
+  const all=[...ongoing,...upcoming];
+  const pt=all.filter(x=>effPartner(x)), rest=all.filter(x=>!effPartner(x));
+  return [...pt,...rest];
 }
 
 function filterCat(item){
@@ -1257,6 +1263,11 @@ function renderCard(item){
   else if(isOngoing(item)){ stTxt='진행중'; stColor='#2E7D32'; }
   else if(isUpcoming(item)){ stTxt='예정'; stColor='#E65100'; }
   const stHtml = stTxt?`<span class="card-status-txt" style="color:${stColor}">${stTxt}</span>`:'';
+  // 상태텍스트("오늘마감" 등)와 상품명이 겹치지 않게 글자수만큼만 오른쪽 여백 확보.
+  // 실측: 기본 pad 48px 에서 4글자는 9.2px 겹치고 3글자는 1.4px 남음 → 글자당 약 10.6px
+  // ⚠️ 이 수정이 test.html 에만 있고 라이브에는 안 들어가 있었다 (2026-08-05 발견).
+  //    8/3 에 사장님이 "카드 727장 전부 겹친다" 고 지적한 그 건이다.
+  const stPad = stTxt ? Math.max(48, Math.round(23 + stTxt.length*10.6)) : 48;
 
   const instaUrl = item.insta
     ? `https://instagram.com/${item.insta}`
@@ -1283,8 +1294,8 @@ function renderCard(item){
       <span class="cat-sub">${item.minor}</span>
       ${partnerChip}
     </div>
-    <div class="card-name">${item.name}</div>
-    <div class="card-sellerline">${sellerLine}</div>
+    <div class="card-name" style="padding-right:${stPad}px">${item.name}</div>
+    <div class="card-sellerline" style="padding-right:${stPad}px">${sellerLine}</div>
     <span class="card-right">${stHtml}<span class="card-go">›</span></span>
     <button class="wbtn" data-wid="${item.id}" onclick="toggleWish(${item.id},this,event)" aria-label="찜하기">${heartSvg(isWished(item.id))}</button>
   </div>`;
