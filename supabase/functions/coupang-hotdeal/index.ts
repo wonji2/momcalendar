@@ -395,12 +395,55 @@ Deno.serve(async (req) => {
 
   // 최근 며칠 안에 이미 올린 상품은 제외 (같은 상품이 매일 올라오면 도배로 보임)
   const coolFrom = new Date(Date.now() + 9 * 3600e3 - REPOST_COOLDOWN * 864e5).toISOString().slice(0, 10);
-  const recent = await sb(`hotdeals?select=product_id&deal_day=gte.${coolFrom}&product_id=not.is.null`);
-  const recentIds = new Set(Array.isArray(recent) ? recent.map((r: any) => r.product_id) : []);
+  const recent = await sb(`hotdeals?select=product_id,title&deal_day=gte.${coolFrom}`);
+  const recentRows = Array.isArray(recent) ? recent : [];
+  const recentIds = new Set(recentRows.map((r: any) => r.product_id).filter(Boolean));
   const before = picks.length;
   const fresh = picks.filter((p) => !recentIds.has(p.id));
   log.skippedRecent = before - fresh.length;
   picks.length = 0; picks.push(...fresh);
+
+  // ── 같은 상품은 하나만 ──────────────────────────────────────
+  // 옵션·용량만 다른 같은 상품이 나란히 올라갔다.
+  // (사장님 지적 2026-08-05: 펩시 355ml 24개입 / 펩시 엑스트라 피즈 355ml 24입 — 가격까지 16,500 으로 같았다)
+  // 용량·수량·괄호를 턴 뒤 앞 두 단어로 묶고, 묶음당 제일 싼(할인율 높은) 것만 남긴다.
+  // ⚠️ 단위는 **긴 것부터** 적어야 한다. "개" 를 먼저 두면 "24개입" 에서 "개" 만 잘려 "입" 이 남는다.
+  const baseKey = (name: string) => (name || "").toLowerCase()
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+    .replace(/[0-9]+\s*(개입|개|입|박스|세트|캔|팩|병|매|포|봉|정|구|장|ml|kg|l|g|p|ea)\b/g, " ")
+    .replace(/[0-9]+/g, " ")
+    .replace(/[^가-힣a-z]/g, " ")
+    .split(/\s+/).filter((w) => w.length >= 2).slice(0, 2).join(" ");
+  // 브랜드가 붙었냐 띄었냐로 키가 갈린다("펩시콜라" vs "펩시 엑스트라").
+  // 앞 두 글자 + 가격이 같으면 사실상 같은 물건으로 본다.
+  const brandKey = (name: string, price: number) =>
+    (name || "").replace(/^\[[^\]]*\]\s*/, "").trim().slice(0, 2) + "|" + price;
+
+  const usedKeys = new Set(recentRows.map((r: any) => baseKey(r.title || "")).filter(Boolean));
+  const usedBrand = new Set(recentRows.map((r: any) => brandKey(r.title || "", (r as any).price)).filter(Boolean));
+  picks.sort((a, b) => (b.discount ?? 0) - (a.discount ?? 0));   // 싼 것이 대표가 되게
+  const uniq: any[] = [];
+  for (const p of picks) {
+    const k = baseKey(p.name), bk = brandKey(p.name, p.price);
+    if ((k && usedKeys.has(k)) || usedBrand.has(bk)) { log.dedupOption = (log.dedupOption ?? 0) + 1; continue; }
+    if (k) usedKeys.add(k);
+    usedBrand.add(bk);
+    uniq.push(p);
+  }
+  picks.length = 0; picks.push(...uniq);
+
+  // ── 공구로 파는 상품은 핫딜에 올리지 않는다 ────────────────
+  // (사장님 지적 2026-08-05: 뉴케어 마이키즈는 공구 상품인데 핫딜 탭에 올라왔다)
+  try {
+    const gToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const gg = await sb(`gonggu?select=name&approved=eq.true&end_date=gte.${gToday}&limit=1000`);
+    const gKeys = new Set((Array.isArray(gg) ? gg : []).map((g: any) => baseKey(g.name || "")).filter(Boolean));
+    const beforeG = picks.length;
+    const notGonggu = picks.filter((p) => !gKeys.has(baseKey(p.name)));
+    log.skippedGonggu = beforeG - notGonggu.length;
+    picks.length = 0; picks.push(...notGonggu);
+  } catch (e) { log.errors.push({ kw: "gonggu-filter", err: String(e) }); }
+
   log.deals = picks.map((p) => ({ name: p.name, price: p.price, discount: p.discount, src: p.src }));
 
   if (dry || !picks.length) return Response.json(log);

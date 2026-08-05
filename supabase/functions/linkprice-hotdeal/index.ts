@@ -26,22 +26,21 @@ const BIG_DROP   = 0.25;   // 역대최저가 아니어도 평균 대비 25% 이
 const MAX_PER_RUN = 6;     // 링크프라이스발 핫딜 하루 상한 (쿠팡·애드픽과 섞이므로 적게)
 const REPOST_COOLDOWN = 3;
 
-// ── 제외 ── 우리 손님(엄마)에게 안 맞거나 "핫딜"로 부적절한 것
+// ── 제외 ──
+// ⚠️ 상품권·외식 기프티콘은 **빼지 않는다**. 추적해뒀다가 진짜 쌀 때 하나씩만 올린다.
+//    (사장님 지시 2026-08-05 "상품권 쉐이크쉑 메가커피 이런건 그냥 추적해뒀다가 진짜 쌀 때 하나씩만")
+//    한 상품당 하나만 나가는 건 아래 baseKey 묶음이 보장한다.
 const BLOCK = [
-  // 외식 기프티콘·쿠폰 — 가격이 고정이라 추적 의미가 없다
-  "버거킹", "메가mgc", "메가커피", "쉐이크쉑", "빽다방", "홍콩반점", "스타벅스", "투썸",
-  "맘스터치", "롯데리아", "맥도날드", "교촌", "bhc", "bbq", "도미노", "피자헛", "파리바게뜨",
-  "배스킨", "이디야", "공차", "설빙", "상품권", "금액권", "통합권", "잔액관리형", "e쿠폰",
   // 성인·고가·우리 카테고리 밖
   "명품", "구찌", "샤넬", "루이비통", "프라다", "롤렉스", "위스키", "와인", "소주", "맥주",
   "담배", "전자담배", "성인", "콘돔", "카지노", "복권",
   // 부품·B2B
   "ddr5", "ddr4", "ssd", "그래픽카드", "메인보드", "cpu", "ram ", "서버",
-  // 상품권류 — 실물이 아니라 "얼마나 싼지"가 성립하지 않는다.
-  // (사장님 지시 2026-08-05 "문화상품권 외식상품권 이런 상품권은 뺐으면 해")
-  // ※ 카테고리 자체는 안 좁힌다. 상품권만 뺀다.
-  "상품권", "금액권", "교환권", "기프티콘", "바우처", "문화상품권", "도서상품권",
-  "모바일금액권", "e카드", "충전권", "포인트권",
+];
+// 쇼핑몰 통째로 제외 — 도서·해외직구는 우리 핫딜에 안 맞는다 (사장님 지시 2026-08-05)
+const BLOCK_MALL = [
+  "yes24", "kbbook", "aladin", "kyobo", "interpark_book", "ridibooks", "bandinlunis",
+  "iherb",
 ];
 
 // ── 카테고리 추정 ── 애드픽에서 쓰던 규칙과 같은 사상
@@ -67,9 +66,27 @@ function categorize(name: string): [string, string] {
   for (const [major, minor, re] of CAT_RULES) if (re.test(s)) return [major, minor];
   return ["리빙", ""];
 }
-function blocked(name: string): boolean {
+function blocked(name: string, mall: string): boolean {
+  const m = (mall || "").toLowerCase();
+  if (BLOCK_MALL.some((x) => m.includes(x))) return true;
   const s = (name || "").toLowerCase();
   return BLOCK.some((w) => s.includes(w));
+}
+
+// ── 같은 상품의 옵션 묶기 ──
+// 코카콜라가 용량·수량만 다르게 5~6개 들어온다. 그대로 두면 핫딜이 콜라로 도배된다.
+// (사장님 지시 2026-08-05 "제일 싼 걸로 하나만, 코카콜라만 6개 올라오면 별로잖아")
+// 용량·수량·괄호를 턴 뒤 앞 두 단어를 묶음 열쇠로 쓴다.
+//   "코카콜라 제로 355ml 24캔"        → "코카콜라 제로"
+//   "코카콜라 제로 레몬라임 190ml 30캔" → "코카콜라 제로"
+function baseKey(name: string): string {
+  return (name || "").toLowerCase()
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+    // ⚠️ 단위는 긴 것부터. "개" 를 먼저 두면 "24개입" 에서 "개" 만 잘려 "입" 이 남는다.
+    .replace(/[0-9]+\s*(개입|개|입|박스|세트|캔|팩|병|매|포|봉|정|구|장|ml|kg|l|g|p|ea)\b/g, " ")
+    .replace(/[0-9]+/g, " ")
+    .replace(/[^가-힣a-z]/g, " ")
+    .split(/\s+/).filter((w) => w.length >= 2).slice(0, 2).join(" ");
 }
 const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 const todayKST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -98,7 +115,7 @@ async function collect(log: any): Promise<Item[]> {
   const seen = new Set<string>();
   const push = (mall: string, code: string, name: string, price: number, url: string, img: string) => {
     if (!code || !name || !(price > 0) || !url) return;
-    if (blocked(name)) { log.blocked = (log.blocked ?? 0) + 1; return; }
+    if (blocked(name, mall)) { log.blocked = (log.blocked ?? 0) + 1; return; }
     const id = `lp_${mall}_${code}`;
     if (seen.has(id)) return;
     seen.add(id);
@@ -113,6 +130,7 @@ async function collect(log: any): Promise<Item[]> {
       const j = await r.json();
       for (const key of Object.keys(j)) {
         if (!key.startsWith("list_")) continue;
+        if (key === "list_book") { log.skip_book = true; continue; }   // 도서는 통째로 제외
         const byMall = j[key];
         if (!byMall || typeof byMall !== "object") continue;
         for (const mall of Object.keys(byMall)) {
@@ -208,14 +226,38 @@ Deno.serve(async (req) => {
       cands.push({ ...p, avg, lowest, isLowest, reason, major, minor,
                    discount: Math.round(dropVsAvg * 100), points: h.length });
     }
+    // 싼 순서로 — 같은 상품 묶음에서 제일 싼(할인율 높은) 것이 대표가 되게
     cands.sort((a, b) => b.discount - a.discount);
     log.candidates = cands.length;
 
     // 3) 최근에 올린 상품은 건너뛴다 (도배 방지)
     const coolFrom = new Date(Date.now() + 9 * 3600e3 - REPOST_COOLDOWN * 864e5).toISOString().slice(0, 10);
-    const recent = await sb(`hotdeals?select=product_id&deal_day=gte.${coolFrom}&source=eq.linkprice`);
-    const recentIds = new Set((Array.isArray(recent) ? recent : []).map((r: any) => r.product_id));
-    const picks = cands.filter((p) => !recentIds.has(p.id)).slice(0, MAX_PER_RUN);
+    const recent = await sb(`hotdeals?select=product_id,title&deal_day=gte.${coolFrom}`);
+    const recentRows = Array.isArray(recent) ? recent : [];
+    const recentIds = new Set(recentRows.map((r: any) => r.product_id));
+    // 같은 상품이면 쿠팡·애드픽으로 이미 올라간 것과도 겹치지 않게 (콜라가 여기저기서 올라오면 안 된다)
+    // 브랜드가 붙었냐 띄었냐로 키가 갈린다("펩시콜라" vs "펩시 엑스트라") → 앞 두 글자 + 가격
+    const brandKey = (name: string, price: number) =>
+      (name || "").replace(/^\[[^\]]*\]\s*/, "").trim().slice(0, 2) + "|" + price;
+    const usedKeys = new Set(recentRows.map((r: any) => baseKey(r.title || "")).filter(Boolean));
+    const usedBrand = new Set(recentRows.map((r: any) => brandKey(r.title || "", (r as any).price)));
+
+    // 공구로 파는 상품은 핫딜에 올리지 않는다
+    // (사장님 지적 2026-08-05: 뉴케어 마이키즈는 공구 상품인데 핫딜 탭에 올라왔다)
+    const gg = await sb(`gonggu?select=name&approved=eq.true&end_date=gte.${today}&limit=1000`);
+    const gKeys = new Set((Array.isArray(gg) ? gg : []).map((g: any) => baseKey(g.name || "")).filter(Boolean));
+
+    const picks: any[] = [];
+    for (const p of cands) {
+      if (picks.length >= MAX_PER_RUN) break;
+      if (recentIds.has(p.id)) continue;
+      const k = baseKey(p.name), bk = brandKey(p.name, p.price);
+      if (k && gKeys.has(k)) { log.skip_gonggu = (log.skip_gonggu ?? 0) + 1; continue; }
+      if ((k && usedKeys.has(k)) || usedBrand.has(bk)) { log.dedup_option = (log.dedup_option ?? 0) + 1; continue; }
+      if (k) usedKeys.add(k);
+      usedBrand.add(bk);
+      picks.push(p);
+    }
     log.picked = picks.length;
 
     if (isDry) return Response.json({ log, picks }, { status: 200 });
