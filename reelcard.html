@@ -290,10 +290,13 @@ async function load(){
       fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
-      // 맘캘린더가 오늘~3일 안에 오픈할 공구 — 같은 품목을 남의 이름으로 홍보하지 않기 위해
-      // gte(같은 날 포함): 우리도 같은 날 여는 상품을 남 이름으로 같이 실으면 손님을 뺏긴다
-      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gte.${day}`+
-            `&open_date=lte.${addDays(day,3)}&select=name,open_date`,{headers:H}).then(r=>r.json())
+      // 맘캘린더 공구 — 같은 품목을 남의 이름으로 홍보하지 않기 위해
+      // ⚠️ "앞으로 3일 안에 오픈" 만 보면 **이미 진행 중인 우리 공구**를 놓친다.
+      //    (2026-08-05 사장님 지적: 8/5 오픈~8/19 마감인 바이탈플랜트 롤팬이
+      //     8/7 카드에 부끄 이름으로 실렸다)
+      //    → 마감이 아직 안 지났고(end>=day) 오픈이 3일 안(open<=day+3)인 것 = 진행중 + 곧오픈
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}`+
+            `&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json())
     ]);
     // 카드에 찍힌 날짜 기준으로 노출기간 안에 있는 이웃셀러만. 핸들은 소문자·@제거로 맞춘다(index.html normHandle 과 동일)
     const nh=s=>(s||'').replace('@','').trim().toLowerCase();
@@ -421,6 +424,13 @@ function fitTitle(){
 // "남해안 자연산 냉장 자숙 돌문어" 를 그냥 자르면 "남해안 자연산 냉장 자숙 돌…" 이 되어
 // 정작 돌문어가 안 보인다. → 앞쪽 수식어부터 덜어내 품목이 보이게 한다. (사장님 지시 2026-08-04)
 const NAME_DROP=/^(국내산|국산|남해안|서해안|동해안|제주|자연산|햇|생|냉장|냉동|자숙|손질|무항생제|유기농|프리미엄|명품|정품|신상|신제품|NEW|한정|초특가|특가|최저가|역대급|무료배송|대용량|[0-9]+차)$/i;
+// 상품명 **끝**에 붙는 판매 문구. 상품이 아니라 홍보말이라 앞부터 지우면 이것만 남는다.
+// (사장님 지적 2026-08-05: 유니맘 "로지오가닉쌀과자 유기농아기쌀과자 공동구매 단독구성" 이
+//  카드에 "공동구매 단독구성" 으로만 실렸다 — 뭘 파는지 알 수 없다)
+const NAME_TAIL=/^(공동구매|공구|단독구성|단독|기획전|모음전|골라담기|모음|세트구성|초특가|특가|할인|무료배송|앵콜|재오픈|리오픈|한정수량|마지막|예약|본품|증정|사은품|[0-9]+차)$/;
+// 이 말로 시작하면 뜻이 깨진다. 앞을 지우다 여기서 멈추면 안 된다.
+// (사장님 지적 2026-08-05: "은하수 초등학생을 위한 우리 고전" → "위한 우리 고전")
+const NAME_JOSA=/^(위한|위해|대한|관한|있는|없는|하는|되는|같은|그리고|또는|및|외|의|을|를|이|가|은|는|와|과|로|으로)$/;
 // 잘린 끝에 남는 짝 없는 괄호·기호를 턴다. "…하이체어)" 같은 찌꺼기 방지.
 function cleanParen(s){
   s=String(s||'').replace(/^[\s)\]）］,·/&+-]+/,'').replace(/[\s([（［,·/&+-]+$/,'');
@@ -438,17 +448,29 @@ function fitNames(){
     //    앞 단어부터 지우면 "뉴이 클라우드 부스터(휴대용 하이체어)" 가 "하이체어)" 로 끝났다.
     //    (사장님 지적 2026-08-05 "대괄호 같은건 다 지워야지")
     let base=full;
-    const noParen=cleanParen(full.replace(/\s*[(（\[［][^)）\]］]*[)）\]］]?/g,' '));
+    let cut=full.replace(/\s*[(（\[［][^)）\]］]*[)）\]］]?/g,' ');
+    // ⓪-2 "초등학생을 위한" 같은 꾸밈 구절은 통째로 덜어낸다.
+    //     한 단어씩 지우면 "은하수 초등학생을 위한 우리 고전" 이 "위한 우리 고전" 이 되고,
+    //     브랜드(은하수)까지 날아간다. (사장님 지적 2026-08-05)
+    cut=cut.replace(/\S+(?:을|를|에|의)\s*(?:위한|위해|대한|관한)\s*/g,' ');
+    const noParen=cleanParen(cut);
     if(noParen.length>=2){ base=noParen; el.textContent=base; }
     if(el.scrollWidth<=el.clientWidth) return;
     let w=base.split(/\s+/);
-    // ① 사전에 있는 수식어부터 앞에서 덜어낸다
+    // ① 끝에 붙은 판매 문구부터 턴다("… 공동구매 단독구성"). 앞을 먼저 지우면 이것만 남는다.
+    while(w.length>1 && NAME_TAIL.test(w[w.length-1]) && el.scrollWidth>el.clientWidth){
+      w.pop(); el.textContent=w.join(' ');
+    }
+    // ② 앞쪽 수식어를 덜어낸다("국내산 …")
     while(w.length>1 && NAME_DROP.test(w[0]) && el.scrollWidth>el.clientWidth){
       w.shift(); el.textContent=w.join(' ');
     }
-    // ② 그래도 넘치면 앞 단어를 계속 덜어낸다. 품목(마지막 단어)은 끝까지 지킨다.
+    // ③ 그래도 넘치면 앞 단어를 계속 덜어낸다. 품목(마지막 단어)은 끝까지 지킨다.
+    //    단, 지운 뒤 조사·연결어로 시작하면 뜻이 깨지므로 한 단어 더 지운다.
     while(w.length>1 && el.scrollWidth>el.clientWidth){
-      w.shift(); el.textContent=cleanParen(w.join(' '));
+      w.shift();
+      while(w.length>1 && NAME_JOSA.test(w[0])) w.shift();
+      el.textContent=cleanParen(w.join(' '));
     }
     el.textContent=cleanParen(el.textContent);
   });
