@@ -1241,13 +1241,10 @@ function getFiltered(dateStr){
   // 전체 = 진행중 먼저(파트너 우선) → 오픈 예정(날짜순)
   const ongoing=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   const upcoming=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate>todayStr).sort(cmpDatePartner);
-  // ⚠️ 예정 공구는 날짜순이라, 그 카테고리에 '진행중 이웃셀러'가 없으면
-  //    예정 이웃셀러가 날짜에 묻혀 아래로 내려갔다.
-  //    (사장님 지적 2026-08-05 "대분류 버튼 누르면 이웃셀러 카드가 제일 위로 안올라와")
-  //    → 이웃셀러는 항상 맨 위로 모은다. 이웃셀러끼리는 진행중 → 예정 순서를 지킨다.
-  const all=[...ongoing,...upcoming];
-  const pt=all.filter(x=>effPartner(x)), rest=all.filter(x=>!effPartner(x));
-  return [...pt,...rest];
+  // ⚠️ 이웃셀러를 무조건 맨 위로 모으면 안 된다. 8월 말에 열 예정인 건까지 위로 올라온다.
+  //    (2026-08-05 그렇게 바꿨다가 사장님께 바로 지적받고 되돌림)
+  //    맞는 동작: **오늘 진행 중인** 이웃셀러만 최상단. 예정 건은 날짜순을 지킨다.
+  return [...ongoing,...upcoming];
 }
 
 function filterCat(item){
