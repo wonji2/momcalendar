@@ -554,7 +554,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 <!-- PWA 홈화면 추가 얇은 띠 (문구 아래·공구 카드 위) -->
 <div id="pwaStrip" style="display:none;margin:10px 12px 0;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
   <img src="momcal-appicon.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
-  <span style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
+  <span class="pwa-strip-txt" style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
   <button onclick="pwaStripAdd()" style="color:#fff;background:#602090;border:none;border-radius:13px;padding:5px 11px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit">추가</button>
   <button onclick="pwaStripClose()" style="color:#B0A0C8;font-size:14px;background:none;border:none;cursor:pointer;padding:2px 4px">✕</button>
 </div>
@@ -1290,7 +1290,7 @@ function renderList(){
       //    손님 대부분이 카톡에서 들어오므로 이게 기본 화면이었다. (사장님 실측 2026-08-05)
       //    → 인앱에서는 앱으로 추가하는 길을 안내한다(pwaStripAdd 가 카톡→크롬/사파리까지 처리).
       : ((iosNeedsInstall() || _isInApp())
-        ? `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">앱으로 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`
+        ? (pwaAskDone() ? '' : `<div class="noti-banner"><span style="font-size:19px">📲</span><span class="nb-txt">앱으로 추가하면 알림을 받을 수 있어요</span><button onclick="pwaStripAdd()">추가</button></div>`)
         : `<div class="noti-banner"><span style="font-size:19px">🔔</span><span class="nb-txt">알림을 켜면 오픈 예정일 아침에 알려드려요</span><button onclick="openWnSheet()">켜기</button></div>`);
     // 캘린더 내보내기는 '+' 메뉴에만 있어서 찾기 어려웠다 (사장님 지적 2026-08-05
     // "내 찜에서 캘린더 내보내기 버튼은 없는데?") → 찜 목록 바로 위에 둔다.
@@ -3411,11 +3411,27 @@ function _pwaModalFlow(retry){
 const PWA_STRIP_INT=[1,3,5,7,10,15,30];
 // 설치 안내는 '팝업'을 쓰지 않고 이 얇은 띠 하나로만 한다(팝업은 광고처럼 읽혀 거부감이 큼).
 // 첫 화면부터 계속 보이되, 앱을 이미 쓰는 사람에겐 절대 안 뜬다.
+// ── 앱 설치 권유는 딱 두 번까지만 ─────────────────────────
+// "사이트로만 보는 사람이 앱으로 깔라는 내용이 너무 많이 떠서 피로하다" 는 건의가 들어왔다.
+// (사장님 전달 2026-08-05) → 두 번 보여주고 그 뒤엔 안 띄운다.
+//   필요하면 ☰ 메뉴 > '홈 화면에 앱으로 추가' 로 언제든 설치할 수 있다.
+const PWA_ASK_MAX=2;
+function pwaAskCount(){ try{ return parseInt(localStorage.getItem('mc_pwa_ask_n')||'0',10)||0; }catch(_){ return 0; } }
+function pwaAskDone(){ return pwaAskCount() >= PWA_ASK_MAX; }
+function pwaAskBump(){
+  try{
+    var d=_dstr();
+    if(localStorage.getItem('mc_pwa_ask_day')===d) return;   // 하루에 한 번만 센다
+    localStorage.setItem('mc_pwa_ask_day', d);
+    localStorage.setItem('mc_pwa_ask_n', String(pwaAskCount()+1));
+  }catch(_){}
+}
 function showPwaStrip(){
   try{
     if(_isStandalone()) return;                        // 앱으로 실행 중 → 안 뜸
     if(!_isMobile()) return;                            // PC → 안 뜸
     if(localStorage.getItem('mc_pwa_installed')==='1') return;  // 설치한 사람 → 안 뜸
+    if(pwaAskDone()) return;                            // 두 번 봤으면 끝. 이제 메뉴에서만.
     const el=document.getElementById('pwaStrip'); if(!el) return;
     // 재로그인 안내가 떠 있으면 띠를 두 줄 겹치지 않는다(광고처럼 읽힘)
     const rs=document.getElementById('reloginStrip');
@@ -3424,6 +3440,13 @@ function showPwaStrip(){
     const next=parseInt(localStorage.getItem('mc_pwa_strip_next')||'0',10);
     if(next && Date.now()<next) return;
     el.style.display='flex';
+    pwaAskBump();
+    // 마지막 노출이면 "앞으로는 메뉴에서 하시면 돼요" 를 알려주고 물러난다
+    if(pwaAskDone()){
+      var t=el.querySelector('.pwa-strip-txt') || el;
+      try{ t.insertAdjacentHTML('beforeend',
+        '<span style="display:block;font-size:10.5px;color:#9C93AC;margin-top:2px">앞으로는 ☰ 메뉴에서 추가할 수 있어요</span>'); }catch(_){}
+    }
   }catch(_){}
 }
 // 메뉴에서 언제든 설치(억제 플래그와 무관) — 재설치·이미설치자 모두
