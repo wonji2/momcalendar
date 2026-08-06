@@ -3088,7 +3088,11 @@ function checkLoginFail(){
     if(Date.now()-t.t < 60000) return;                   // 1분 안쪽이면 아직 진행 중일 수 있음
     localStorage.removeItem('mc_login_try');
     localStorage.setItem('mc_login_fail', String(t.t));
-    if(typeof trackEvent==='function') trackEvent('kakao_login_fail', t.p||'');
+    // ⚠ 이건 '확정 실패'가 아니라 '카카오 화면에서 안 돌아온 흔적'이다.
+    //   손님이 스스로 취소한 것도 여기로 들어온다. 진짜 장애(kkoLoginFailed)와
+    //   같은 이름으로 쌓이면 매번 파봐야 하므로 |추정 을 붙여 구분한다. (2026-08-06)
+    if(typeof trackEvent==='function')
+      trackEvent('kakao_login_fail', (t.p||'/')+'|'+(_isInApp()?'inapp':'web')+'|추정');
   }catch(_){ try{ localStorage.removeItem('mc_login_try'); }catch(__){} }
 }
 function showReloginStrip(){
