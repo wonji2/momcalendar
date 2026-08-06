@@ -57,12 +57,14 @@ async function call(method: string, path: string, token: string, body?: unknown)
   return wait(Number(id));
 }
 
-// 토큰은 1년짜리다. 받아서 저장해 두고 재사용한다(문서: 매번 재발급하지 말 것).
+// 토큰을 저장해 두고 재사용한다(문서: 매번 재발급하지 말 것 — 과도하면 이용 제한).
+// ⚠ 문서 예시에는 expires_in 이 31535999(약 1년)로 적혀 있지만 실제로는 **1시간**이 온다(실측 2026-08-06).
+//   여유를 1시간으로 두면 항상 '곧 만료'로 판정돼 매 호출마다 재발급하게 된다 → 5분으로 좁힌다.
 async function getToken(force = false): Promise<string> {
   if (!force) {
     const rows = await sb("toss_token?select=access_token,expires_at&id=eq.1");
     const t = Array.isArray(rows) ? rows[0] : null;
-    if (t?.access_token && new Date(t.expires_at).getTime() > Date.now() + 3600e3) return t.access_token;
+    if (t?.access_token && new Date(t.expires_at).getTime() > Date.now() + 300e3) return t.access_token;
   }
   const form = `grant_type=client_credentials&client_id=${encodeURIComponent(AK)}` +
                `&client_secret=${encodeURIComponent(SK)}` +
