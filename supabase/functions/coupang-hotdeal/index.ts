@@ -100,7 +100,9 @@ const cpGoldbox = () => cpFetch(BASE + "/products/goldbox");
 // 쿠팡과 달리 price_org(정가)를 주므로, 가격이력 없이도 그날 바로 할인율을 말할 수 있다.
 // ⚠ 응답에 카테고리·상품ID가 없다 → 카테고리는 상품명으로 추정, 키는 링크에서 만든다.
 const ADPICK_AFFID = "a4cea7";
-const AP_MIN_DROP = 15;   // 이 이하 할인은 핫딜이라 부르지 않음
+// 15% 로 두었더니 "던킨 아이스티 15%" 같은 게 핫딜로 올라갔다.
+// 사장님 지시(2026-08-06): 찐핫딜만 올린다 → 30% 로 올린다.
+const AP_MIN_DROP = 30;   // 이 이하 할인은 핫딜이라 부르지 않음
 const AP_MAX_DROP = 60;   // 이 이상은 '정가 뻥튀기' 의심 → 거름 (향수·화장품에서 자주 나옴)
 const AP_MAX = 20;
 
