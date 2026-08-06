@@ -222,6 +222,15 @@ Deno.serve(async (req) => {
       const r = await call("GET", "/health", token);
       return Response.json({ mode, status: r.status, body: r.body, publisherIdSet: !!PUB });
     }
+    // 저장해 둔 상품의 최신 가격·이미지·품절 여부를 다시 물어본다 (한 번에 30건까지).
+    // 쿠팡에는 없는 기능이다 — 이것 때문에 가격 이력이 끊기지 않는다.
+    if (mode === "detail") {           // ?mode=detail&ids=1,2,3  (기본 tacaId, item=1 이면 tacaItemId)
+      const ids = (u.searchParams.get("ids") ?? "").trim();
+      if (!ids) return Response.json({ error: "ids 가 필요하다" }, { status: 400 });
+      const key = u.searchParams.get("item") === "1" ? "tacaItemIds" : "tacaIds";
+      const r = await call("GET", `/products/detail?${key}=${encodeURIComponent(ids)}`, token);
+      return Response.json({ mode, status: r.status, body: r.body });
+    }
     if (mode === "collect") {
       const dry = u.searchParams.get("dry") === "1";
       return Response.json({ mode, dry, ...(await collectDeals(token, dry)) });
