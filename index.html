@@ -1786,10 +1786,13 @@ function hdCardHtml(h){
   // (네이버 등 직접 고른 핫딜은 이력이 없으므로 바로 링크로 보낸다)
   const tracked=!!h.product_id && !!h.price;
   const hasPrice=!!h.price;
+  // 정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다(실측: 20개 9,990원짜리를 정가 5만원이라 함).
+  // 근거 없는 할인율 대신 '개당 얼마'를 보여준다 — 우리가 직접 계산하니 100% 정확하다.
+  // (사장님 결정 2026-08-06)
+  const unit=hcUnitPrice(h);
   const price=hasPrice?`<div class="hc-price">
-      ${h.discount_rate?`<span class="hc-rate">${h.discount_rate}%</span>`:''}
+      ${unit?`<span class="hc-rate">개당 ${wonFmt(unit)}</span>`:(h.discount_rate&&h.discount_rate<=65?`<span class="hc-rate">${h.discount_rate}%</span>`:'')}
       <span class="hc-now">${wonFmt(h.price)}</span>
-      ${h.price_before?`<span class="hc-was">${wonFmt(h.price_before)}</span>`:''}
       ${h.is_lowest?`<span class="hc-low">최저</span>`:''}
     </div>`:'';
 
@@ -1824,6 +1827,27 @@ function hdCardHtml(h){
 // 이미지가 깨졌을 때 갈아끼울 플레이스홀더 (onerror 안에 따옴표를 중첩하지 않으려고 전역으로 둠)
 window.__hcPh='<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>';
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
+// 상품명에서 '몇 개짜리인지'를 읽어 개당 가격을 낸다.
+//  "바리스타룰스 아메리카노, 350ml, 20개" → 20 → 9,990원 ÷ 20 = 개당 500원
+// ⚠ 350ml·200g 같은 '용량'을 개수로 착각하면 안 된다 → 개수 단위만 인정한다.
+function hcUnitPrice(h){
+  try{
+    if(!h || !h.price) return 0;
+    var t=String(h.title||'');
+    var best=0;
+    // 개수 단위: 개/개입/입/팩/매/병/포/캔/봉/박스/세트/장. (ml·g·kg·L 은 제외)
+    // ⚠ 여러 개가 잡히면 '마지막 것'이 수량이다. 한국 상품명은 "용량, 수량" 순으로 쓴다.
+    //   "키친타월 100매, 9개" → 9 가 정답 (100 을 고르면 개당 79원이 나온다 — 실측으로 잡은 버그)
+    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장)(?![a-zA-Z가-힣])/g, m;
+    while((m=re.exec(t))!==null){
+      var n=parseInt(m[1],10);
+      if(n>=3 && n<=200) best=n;              // 2개 이하는 개당 표시가 의미 없다
+    }
+    if(!best) return 0;
+    var u=Math.round(h.price/best);
+    return (u>0 && u<h.price) ? u : 0;
+  }catch(_){ return 0; }
+}
 
 // ── 핫딜 근거 시트 (폴센트식 가격 추이) ──────────────────────
 function closeHdSheet(){
@@ -1863,9 +1887,10 @@ async function openHdSheet(id){
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${h.title}</div>
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
-          ${h.discount_rate?`<span style="font-size:19px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:''}
           <span style="font-size:20px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
-          ${h.price_before?`<span style="font-size:12px;color:#B0AAB8;text-decoration:line-through">${wonFmt(h.price_before)}</span>`:''}
+          ${(function(){var u=hcUnitPrice(h);
+            return u?`<span style="font-size:14px;font-weight:800;color:#E8402A">개당 ${wonFmt(u)}</span>`
+                 :(h.discount_rate&&h.discount_rate<=65?`<span style="font-size:16px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:'');})()}
         </div>
       </div>
     </div>
@@ -1887,10 +1912,14 @@ async function openHdSheet(id){
       </div>`:''}
     </div>`}
 
-    ${h.source==='adpick'
-      // 애드픽은 정가가 곧 근거라 한 줄이면 충분하다 (설명을 붙이면 오히려 장황해짐)
+    ${(h.source==='adpick'||h.source==='toss') && hcUnitPrice(h)
+      // 정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다 → 우리가 계산한 개당 가격을 근거로 쓴다
       ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
-           정가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>으로 <b style="color:#E8402A">${h.discount_rate}% 할인</b> 중
+           <b style="color:#E8402A">${wonFmt(h.price)}</b> · 나눠 보면 <b style="color:#E8402A">개당 ${wonFmt(hcUnitPrice(h))}</b>이에요
+         </div>`
+      : h.source==='adpick'
+      ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
+           판매처 표기가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>
          </div>`
       : `<div style="font-size:12px;color:#6D6579;line-height:1.75;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px">
            <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
