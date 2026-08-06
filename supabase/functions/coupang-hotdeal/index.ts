@@ -181,6 +181,29 @@ Deno.serve(async (req) => {
 
   // ── 진단 모드 ──
   const test = u.searchParams.get("test");
+  // ── 딥링크 변환: 남이 만든 핫딜 링크를 우리 수익 링크로 바꾼다 (사장님 지시 2026-08-06)
+  //    ?deeplink=상품URL1|상품URL2  (여러 개를 한 번에 → 쿠팡 API 호출은 1회로 끝난다)
+  const dlParam = u.searchParams.get("deeplink");
+  if (dlParam) {
+    const urls = dlParam.split("|").map((s) => s.trim()).filter(Boolean).slice(0, 20);
+    if (!urls.length) return Response.json({ error: "변환할 주소가 없다" }, { status: 400 });
+    const path = "/v2/providers/affiliate_open_api/apis/openapi/v1/deeplink";
+    const dt = signedDate();
+    const sig = await hmacHex(SECRET, dt + "POST" + path + "");
+    const r = await fetch(HOST + path, {
+      method: "POST",
+      headers: {
+        Authorization: `CEA algorithm=HmacSHA256, access-key=${ACCESS}, signed-date=${dt}, signature=${sig}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ coupangUrls: urls }),
+    });
+    const txt = await r.text();
+    let body: any = null;
+    try { body = JSON.parse(txt); } catch { body = txt.slice(0, 500); }
+    return Response.json({ mode: "deeplink", status: r.status, body });
+  }
+
   if (test === "adpick") return Response.json((await apFetch()).slice(0, 5));
   if (test === "goldbox") return Response.json(await cpGoldbox());
   if (test) return Response.json(await cpSearch(u.searchParams.get("kw") ?? "기저귀", 5));
