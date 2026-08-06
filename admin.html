@@ -201,6 +201,18 @@ details summary::-webkit-details-marker{display:none}
     <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
       제목·링크를 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 최신순으로 노출됩니다.
     </div>
+    <!-- 💰 링크 변환기 — 남이 올린 핫딜 링크를 우리 수익 링크로 (사장님 지시 2026-08-06) -->
+    <div style="background:#fff;border:2px solid #7B3FB5;border-radius:12px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:#5B2E8C;margin-bottom:4px">💰 링크 붙여넣기 → 내 수익 링크로 바꾸기</div>
+      <div style="font-size:11.5px;color:#8A7BA0;line-height:1.6;margin-bottom:8px">
+        카톡방·커뮤니티에서 받은 핫딜 링크를 그대로 넣으세요. 한 줄에 하나씩, 여러 개 가능(최대 15개).<br>
+        <b>토스</b>는 상품명·가격·사진까지 자동으로 채워집니다. <b>쿠팡</b>은 링크만 바뀌니 제목·가격은 직접 적어 주세요.
+      </div>
+      <textarea id="cvIn" rows="4" placeholder="https://toss.im/_m/XXXX&#10;https://link.coupang.com/a/XXXX&#10;https://커뮤니티주소/게시글..." style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #E3DCEF;border-radius:8px;font-size:12.5px;font-family:inherit;resize:vertical"></textarea>
+      <button onclick="cvRun()" id="cvBtn" style="width:100%;margin-top:7px;padding:11px;background:#7B3FB5;color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit">🔄 내 수익 링크로 변환</button>
+      <div id="cvOut" style="margin-top:10px"></div>
+    </div>
+
     <div style="background:#fff;border:1.5px solid #EBD9D2;border-radius:12px;padding:11px;margin-bottom:10px">
       <div style="font-size:12px;font-weight:800;color:#993C1D;margin-bottom:6px">📋 여러 줄 붙여넣기 <span style="font-size:11px;color:#aaa;font-weight:400">(한 줄에 하나씩 · 제목+링크 같이 또는 링크만)</span></div>
       <textarea id="hdBulk" rows="7" placeholder="타임 속옷 https://cafe.naver.com/...&#10;A상품 https://cafe.naver.com/...&#10;(링크만 붙여넣어도 됩니다 · 제목은 비워두고 나중에 채우기 가능)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
@@ -6256,6 +6268,98 @@ function addExRow(){
     </div>`;
   document.getElementById('exRows').appendChild(div);
 }
+// ── 💰 링크 변환기 (사장님 지시 2026-08-06) ──────────────────────
+// 카톡방·커뮤니티에서 받은 남의 핫딜 링크를 우리 수익 링크로 바꾼다.
+// 토스는 상품명·가격·사진까지 자동으로 온다. 쿠팡은 링크만 바뀐다(상품 정보 API가 없음).
+const CV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/toss-sync?mode=convert';
+let cvItems=[];
+function cvWon(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
+// 상품명에서 수량을 읽어 개당 가격을 낸다 (사이트 표시와 같은 규칙)
+function cvUnit(title, price){
+  try{
+    if(!price) return 0;
+    let best=0, m, re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장)(?![a-zA-Z가-힣])/g;
+    while((m=re.exec(String(title||'')))!==null){
+      const n=parseInt(m[1],10);
+      if(n>=3 && n<=200) best=n;          // 여러 개면 마지막 것이 수량(용량 표기와 구분)
+    }
+    if(!best) return 0;
+    const u=Math.round(price/best);
+    return (u>0 && u<price)?u:0;
+  }catch(_){ return 0; }
+}
+async function cvRun(){
+  const raw=(document.getElementById('cvIn').value||'').split(/\s+/).filter(s=>/^https?:\/\//.test(s));
+  const box=document.getElementById('cvOut'), btn=document.getElementById('cvBtn');
+  if(!raw.length){ alert('링크를 붙여넣어 주세요.'); return; }
+  btn.disabled=true; btn.textContent='변환 중… (10~20초)';
+  box.innerHTML='<div style="font-size:12px;color:#8A7BA0;padding:8px">링크를 따라가 상품을 찾는 중…</div>';
+  try{
+    // 관리자만 쓸 수 있는 기능이라 관리자 토큰을 함께 보낸다
+    const tk=localStorage.getItem('mc_admin_at')||'';
+    if(!tk){ throw new Error('관리자 로그인이 필요합니다'); }
+    const r=await fetch(CV_FN,{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},
+      body:JSON.stringify({urls:raw})});
+    const j=await r.json();
+    if(!j.items) throw new Error(j.error||'변환 실패');
+    cvItems=j.items;
+    box.innerHTML=cvItems.map((it,i)=>{
+      if(it.error) return `<div style="border:1px solid #F3D6D6;background:#FEF6F6;border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:12px;color:#B4453A">❌ ${it.error}<br><span style="font-size:10.5px;color:#C99">${it.input}</span></div>`;
+      const u=cvUnit(it.title,it.price);
+      return `<div class="cv-card" data-i="${i}" style="border:1.5px solid #E3DCEF;border-radius:10px;padding:10px;margin-bottom:7px;background:#FCFAFF">
+        <div style="display:flex;gap:9px;align-items:flex-start">
+          ${it.img_url?`<img src="${it.img_url}" style="width:46px;height:46px;border-radius:8px;object-fit:cover;flex-shrink:0">`:''}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:800;color:#7B3FB5">${it.mall}${it.sold_out?' · <span style="color:#C33">품절</span>':''}</div>
+            <input class="cv-title" value="${(it.title||'').replace(/"/g,'&quot;')}" placeholder="상품명을 적어 주세요"
+              style="width:100%;box-sizing:border-box;margin-top:4px;padding:6px 7px;border:1px solid #E3DCEF;border-radius:6px;font-size:12.5px;font-family:inherit">
+            <div style="display:flex;gap:5px;margin-top:5px">
+              <input class="cv-price" type="number" value="${it.price||''}" placeholder="가격"
+                style="flex:1;min-width:0;padding:6px 7px;border:1px solid #E3DCEF;border-radius:6px;font-size:12.5px;font-family:inherit">
+              <select class="cv-major" style="flex:1;min-width:0;padding:6px;border:1px solid #E3DCEF;border-radius:6px;font-size:12px;font-family:inherit">
+                ${['육아','식품','생필품','리빙','뷰티','건강','가전','패션','여행','반려동물'].map(c=>`<option ${c===(it.major||'육아')?'selected':''}>${c}</option>`).join('')}
+              </select>
+            </div>
+            <div style="font-size:11px;color:#8A7BA0;margin-top:5px">
+              ${u?`개당 <b style="color:#E8402A">${cvWon(u)}</b> · `:''}<span style="word-break:break-all">${it.link||'(링크 실패)'}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')
+    + `<button onclick="cvSave()" style="width:100%;margin-top:4px;padding:11px;background:#5B2E8C;color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit">🔥 위 상품들 핫딜에 등록</button>`;
+  }catch(e){
+    box.innerHTML=`<div style="font-size:12px;color:#B4453A;padding:8px">변환 실패: ${e.message||e}</div>`;
+  }finally{ btn.disabled=false; btn.textContent='🔄 내 수익 링크로 변환'; }
+}
+async function cvSave(){
+  // 카드마다 data-i 로 원본과 짝을 맞춘다 (DOM 을 거슬러 올라가 찾으면 구조가 바뀔 때 깨진다)
+  const rows=[];
+  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+  [...document.querySelectorAll('#cvOut .cv-card')].forEach(card=>{
+    const it=cvItems[Number(card.dataset.i)];
+    if(!it || it.error) return;
+    const t=(card.querySelector('.cv-title')||{}).value?.trim()||'';
+    const p=Number((card.querySelector('.cv-price')||{}).value||0)||0;
+    const mj=(card.querySelector('.cv-major')||{}).value||'육아';
+    if(!t || !it.link) return;
+    rows.push({ title:t, link:it.link, major:mj, minor:'', price:p||null,
+                price_before:it.price_before||null, discount_rate:it.discount_rate||null,
+                img_url:it.img_url||'', source:it.source, product_id:it.product_id,
+                mall:it.mall, deal_day:today });
+  });
+  if(!rows.length){ alert('등록할 항목이 없어요. 상품명을 적어 주세요.'); return; }
+  try{
+    const r=await fetch(HD_URL+'?on_conflict=product_id,deal_day',
+      {method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    alert(`핫딜 ${rows.length}건 등록 완료! 🔥`);
+    document.getElementById('cvIn').value=''; document.getElementById('cvOut').innerHTML=''; cvItems=[];
+    loadHotdealAdmin();
+  }catch(e){ alert('등록 실패: '+(e.message||e)); }
+}
+
 async function saveHotdealRows(){
   const rows=[...document.querySelectorAll('#hdRows .ct-row')].map(r=>({
     title:r.querySelector('.ct-title').value.trim(),

@@ -210,50 +210,215 @@ async function collectDeals(token: string, dry: boolean) {
   log.picked = log.deals.length;
   return log;
 }
+
+// ─────────── 링크 붙여넣기 → 우리 수익 링크로 변환 ───────────
+// 사장님이 어디서든 받은 핫딜 링크를 넣으면 상품을 알아내 우리 링크로 바꿔 준다.
+// (사장님 지시 2026-08-06)
+//
+// ⚠ 임의 주소를 서버가 따라가면 내부망을 훔쳐볼 수 있는 구멍(SSRF)이 된다.
+//   그래서 사설망·로컬 주소는 막고, 따라가는 횟수도 제한한다.
+const BAD_HOST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|\[?::1)/i;
+function safeUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    if (BAD_HOST.test(u.hostname)) return null;
+    return u.toString();
+  } catch { return null; }
+}
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
+
+// 중계 페이지·단축링크를 몇 단계 따라가며 '상품 식별자'를 찾는다
+async function resolveOne(raw: string) {
+  const first = safeUrl(raw);
+  if (!first) return { input: raw, error: "주소 형식이 아니다" };
+
+  let url = first;
+  let html = "";
+  for (let hop = 0; hop < 3; hop++) {
+    // 토스 상품 주소를 만나면 끝
+    let m = url.match(/toss\.shopping\/([ti])\/(\d+)/);
+    if (m) return { input: raw, kind: "toss", idKind: m[1] === "i" ? "item" : "taca", id: m[2] };
+    // 쿠팡 상품 주소를 만나면 끝
+    m = url.match(/coupang\.com\/vp\/products\/(\d+)/);
+    if (m) {
+      const it = url.match(/itemId=(\d+)/);
+      return { input: raw, kind: "coupang", productId: m[1], itemId: it ? it[1] : "" };
+    }
+
+    let r: Response;
+    try { r = await fetch(url, { headers: { "User-Agent": UA }, redirect: "follow" }); }
+    catch (e) { return { input: raw, error: "열 수 없다: " + String(e).slice(0, 60) }; }
+    if (r.url && r.url !== url) {
+      const s = safeUrl(r.url);
+      if (s) { url = s; continue; }              // 리다이렉트된 주소로 다시 판단
+    }
+    html = await r.text();
+
+    // 쿠팡 딥링크 중계 페이지: 스크립트 안에 productId/itemId 가 있다
+    let pm = html.match(/productId.{0,6}?(\d{6,})/);
+    let im = html.match(/itemId.{0,6}?(\d{6,})/);
+    if (pm) return { input: raw, kind: "coupang", productId: pm[1], itemId: im ? im[1] : "" };
+    // 토스 주소가 본문에 있는 경우
+    const tm = html.match(/toss\.shopping\/([ti])\/(\d+)/);
+    if (tm) return { input: raw, kind: "toss", idKind: tm[1] === "i" ? "item" : "taca", id: tm[2] };
+    // 커뮤니티 글이면 안에 들어 있는 판매 링크로 한 단계 더 들어간다
+    const nx = html.match(/https:\/\/(?:link\.coupang\.com\/a\/[A-Za-z0-9]+|toss\.im\/_m\/[A-Za-z0-9]+)/);
+    if (nx) { const s = safeUrl(nx[0]); if (s) { url = s; continue; } }
+    break;
+  }
+  return { input: raw, error: "상품을 못 찾았다(링크 안에 판매 주소가 없음)" };
+}
+
+async function convertLinks(token: string, raws: string[]) {
+  const found = await Promise.all(raws.slice(0, 15).map(resolveOne));
+  const out: any[] = [];
+
+  // ① 토스 — 상세 정보(이름·가격·이미지)까지 한 번에 받아온다
+  const tossTaca = found.filter((f: any) => f.kind === "toss" && f.idKind === "taca").map((f: any) => f.id);
+  const tossItem = found.filter((f: any) => f.kind === "toss" && f.idKind === "item").map((f: any) => f.id);
+  const detail: Record<string, any> = {};
+  for (const [ids, key] of [[tossTaca, "tacaIds"], [tossItem, "tacaItemIds"]] as [string[], string][]) {
+    if (!ids.length) continue;
+    const r = await call("GET", `/products/detail?${key}=${ids.join(",")}`, token);
+    for (const it of (r.body?.success?.items ?? [])) {
+      detail[String(it.tacaId)] = it;
+      detail[String(it.tacaItemId)] = it;
+    }
+  }
+
+  // ② 쿠팡 — 여러 개를 한 번에 딥링크로 (호출 1회)
+  const cpUrls = found.filter((f: any) => f.kind === "coupang")
+    .map((f: any) => `https://www.coupang.com/vp/products/${f.productId}` + (f.itemId ? `?itemId=${f.itemId}` : ""));
+  const cpMap: Record<string, string> = {};
+  if (cpUrls.length) {
+    const rr = await fetch(`${SB}/functions/v1/coupang-hotdeal?deeplink=${encodeURIComponent(cpUrls.join("|"))}`, {
+      headers: { "x-cron-secret": Deno.env.get("PUSH_CRON_SECRET") ?? "" },
+    });
+    const jj = await rr.json().catch(() => null);
+    for (const d of (jj?.body?.data ?? [])) {
+      const pm = String(d.originalUrl).match(/products\/(\d+)/);
+      if (pm) cpMap[pm[1]] = d.shortenUrl;
+    }
+  }
+
+  for (const f of found as any[]) {
+    if (f.error) { out.push({ input: f.input, error: f.error }); continue; }
+    if (f.kind === "toss") {
+      const d = detail[f.id];
+      const lr = await call("POST", "/links", token,
+        f.idKind === "item" ? { tacaItemId: Number(f.id), publisherId: PUB }
+                            : { tacaId: Number(f.id), publisherId: PUB });
+      const link = lr.body?.success?.shortUrl ?? "";
+      out.push({
+        input: f.input, mall: "토스쇼핑", source: "toss",
+        product_id: `toss_${d?.tacaItemId ?? f.id}`,
+        title: d?.displayName ?? "", price: d?.displayPrice ?? 0,
+        price_before: d?.originalPrice ?? null, discount_rate: d?.discountRate ?? null,
+        img_url: d?.thumbnailUrl ?? "", sold_out: !!d?.isSoldOut, link,
+      });
+    } else {
+      out.push({
+        input: f.input, mall: "쿠팡", source: "coupang",
+        product_id: `cp_${f.productId}`,
+        title: "", price: 0, price_before: null, discount_rate: null, img_url: "",
+        link: cpMap[f.productId] ?? "",
+        note: "쿠팡은 상품명·가격을 자동으로 못 받아온다 → 직접 적어 주세요",
+      });
+    }
+  }
+  return out;
+}
+// 관리자 화면(admin.html)에서 브라우저로 부르므로 CORS 를 열어 준다. 우리 도메인만.
+const OK_ORIGIN = /^https?:\/\/(momcalendar\.com|www\.momcalendar\.com|localhost(:\d+)?|127\.0\.0\.1(:\d+)?)$/;
+function corsHeaders(origin: string | null) {
+  const o = origin && OK_ORIGIN.test(origin) ? origin : "https://momcalendar.com";
+  return {
+    "Access-Control-Allow-Origin": o,
+    "Access-Control-Allow-Headers": "authorization, content-type, apikey",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+// 이 함수로 링크를 마구 찍어내지 못하게, 변환은 관리자만 쓸 수 있게 한다.
+async function isAdmin(req: Request): Promise<boolean> {
+  const auth = req.headers.get("authorization") ?? "";
+  if (!/^Bearer\s+\S+/i.test(auth)) return false;
+  try {
+    const r = await fetch(`${SB}/rest/v1/rpc/is_app_admin`, {
+      method: "POST",
+      headers: { apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? KEY, Authorization: auth, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!r.ok) return false;
+    return (await r.text()).trim() === "true";
+  } catch { return false; }
+}
+
 Deno.serve(async (req) => {
   const u = new URL(req.url);
   const mode = u.searchParams.get("mode") ?? "health";
+  const CORS = corsHeaders(req.headers.get("origin"));
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  const json = (b: unknown, s = 200) =>
+    new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
   try {
-    if (!AK || !SK) return Response.json({ error: "TOSS_ACCESS_KEY / TOSS_SECRET_KEY 가 비어 있다" }, { status: 400 });
+    if (mode === "convert" && !(await isAdmin(req))) {
+      return json({ error: "관리자만 쓸 수 있습니다. 관리자 로그인 후 다시 시도해 주세요." }, 401);
+    }
+    if (!AK || !SK) return json({ error: "TOSS_ACCESS_KEY / TOSS_SECRET_KEY 가 비어 있다" }, 400);
 
     const token = await getToken(u.searchParams.get("newtoken") === "1");
 
     if (mode === "health") {
       const r = await call("GET", "/health", token);
-      return Response.json({ mode, status: r.status, body: r.body, publisherIdSet: !!PUB });
+      return json({ mode, status: r.status, body: r.body, publisherIdSet: !!PUB });
     }
     // 저장해 둔 상품의 최신 가격·이미지·품절 여부를 다시 물어본다 (한 번에 30건까지).
     // 쿠팡에는 없는 기능이다 — 이것 때문에 가격 이력이 끊기지 않는다.
     if (mode === "detail") {           // ?mode=detail&ids=1,2,3  (기본 tacaId, item=1 이면 tacaItemId)
       const ids = (u.searchParams.get("ids") ?? "").trim();
-      if (!ids) return Response.json({ error: "ids 가 필요하다" }, { status: 400 });
+      if (!ids) return json({ error: "ids 가 필요하다" }, 400);
       const key = u.searchParams.get("item") === "1" ? "tacaItemIds" : "tacaIds";
       const r = await call("GET", `/products/detail?${key}=${encodeURIComponent(ids)}`, token);
-      return Response.json({ mode, status: r.status, body: r.body });
+      return json({ mode, status: r.status, body: r.body });
+    }
+    // 관리자에서 링크를 붙여넣어 우리 수익 링크로 바꾼다
+    if (mode === "convert") {
+      let raws: string[] = [];
+      if (req.method === "POST") {
+        const b = await req.json().catch(() => ({}));
+        raws = Array.isArray(b?.urls) ? b.urls : String(b?.text ?? "").split(/\s+/);
+      } else {
+        raws = String(u.searchParams.get("urls") ?? "").split(/[\s|]+/);
+      }
+      raws = raws.map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s));
+      if (!raws.length) return json({ error: "링크가 없다" }, 400);
+      return json({ mode, items: await convertLinks(token, raws) });
     }
     if (mode === "collect") {
       const dry = u.searchParams.get("dry") === "1";
-      return Response.json({ mode, dry, ...(await collectDeals(token, dry)) });
+      return json({ mode, dry, ...(await collectDeals(token, dry)) });
     }
     if (mode === "deals") {
       const r = await call("GET", "/products/today-deals?size=20", token);
-      return Response.json({ mode, status: r.status, body: r.body });
+      return json({ mode, status: r.status, body: r.body });
     }
     if (mode === "best") {
       const r = await call("GET", "/products/best-selling?size=5", token);
-      return Response.json({ mode, status: r.status, body: r.body });
+      return json({ mode, status: r.status, body: r.body });
     }
     if (mode === "link") {                       // ?mode=link&tacaItemId=... 또는 &tacaId=...
       const itemId = u.searchParams.get("tacaItemId");
       const tacaId = u.searchParams.get("tacaId");
-      if (!itemId && !tacaId) return Response.json({ error: "tacaItemId 나 tacaId 가 필요하다" }, { status: 400 });
+      if (!itemId && !tacaId) return json({ error: "tacaItemId 나 tacaId 가 필요하다" }, 400);
       const body: Record<string, unknown> = { publisherId: PUB };
       if (itemId) body.tacaItemId = Number(itemId); else body.tacaId = Number(tacaId);
       const r = await call("POST", "/links", token, body);
-      return Response.json({ mode, status: r.status, body: r.body });
+      return json({ mode, status: r.status, body: r.body });
     }
-    return Response.json({ error: "mode 는 health / best / link" }, { status: 400 });
+    return json({ error: "mode 는 health / best / link" }, 400);
   } catch (e) {
-    return Response.json({ error: String(e) }, { status: 500 });
+    return json({ error: String(e) }, 500);
   }
 });
