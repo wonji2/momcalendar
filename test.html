@@ -1819,9 +1819,11 @@ function hdCardHtml(h){
     : PH;
 
   const cls=`hc${isToday?' today':''}`;
+  // 핫딜이 실제로 눌리는지 기록한다. 이게 없으면 "아무도 안 산 건지, 애초에 안 눌린 건지"를 알 수 없다.
+  // (2026-08-09 사장님 질문 "아직 아무도 안산게 맞아?" 에 답할 데이터가 없었다)
   const open=tracked
-    ? `<div class="${cls}" onclick="openHdSheet(${h.id})">`
-    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener">`;
+    ? `<div class="${cls}" onclick="trackHd('open',${h.id});openHdSheet(${h.id})">`
+    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id})">`;
   const close=tracked?'</div>':'</a>';
 
   return `${open}
@@ -1947,7 +1949,7 @@ async function openHdSheet(id){
 
     ${h.product_id==='__demo__'
       ? `<div style="text-align:center;background:#F2EFF6;color:#8A8395;border-radius:13px;padding:14px;font-size:13px;font-weight:700">예시 카드예요 · 실제 상품 링크는 없어요</div>`
-      : `<a href="${h.link}" target="_blank" rel="noopener" onclick="closeHdSheet()"
+      : `<a href="${h.link}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id});closeHdSheet()"
        style="display:block;text-align:center;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border-radius:13px;padding:14px;font-size:14px;font-weight:800;text-decoration:none">
       구매하러 가기 ›
     </a>`}
@@ -3934,6 +3936,14 @@ function trackEvent(type,data=''){
   }).catch(()=>{});
 }
 // 카드 클릭: 삭제 후에도 통계가 남도록 상품명·인스타·인플루언서를 함께 저장
+// 핫딜 클릭 기록. what='open'(카드 눌러 시트 열기) / 'go'(구매하러 가기)
+// 판매처(source)를 같이 남긴다 — 토스·쿠팡·애드픽 중 어디가 실제로 눌리는지 봐야 한다.
+function trackHd(what,id){
+  try{
+    const h=(_hotdealData||[]).find(x=>x.id===id)||{};
+    trackEvent('hotdeal_'+what, JSON.stringify({id:id, s:h.source||'', n:(h.title||'').slice(0,40), p:h.price||0}));
+  }catch(e){ try{ trackEvent('hotdeal_'+what, JSON.stringify({id:id})); }catch(_){} }
+}
 function trackCard(id){
   saveViewState();   // 카드 눌러 나가기 전에 보던 화면(탭·순서·스크롤) 저장
   try{
