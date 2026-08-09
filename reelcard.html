@@ -564,24 +564,19 @@ function oneProduct(arr){
 function spillEnds(ends){
   const col=document.querySelector('.col.open'), listEl=document.getElementById('L1');
   if(!col||!listEl||!ends.length) return 0;
-  // ⚠️ clientHeight-scrollHeight 로는 여유를 못 잰다. scrollHeight 는 내용이 적어도
-  //    칼럼 높이 아래로 안 내려가서 항상 0 이 나온다(실측으로 잡은 버그).
-  //    → 마지막 요소의 아래 끝과 칼럼 안쪽 끝의 실제 간격을 잰다.
-  const last=document.getElementById('M1')||listEl;
-  const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
-  const free=(col.getBoundingClientRect().bottom-pb)-last.getBoundingClientRect().bottom;
-  const one=listEl.firstElementChild ? (listEl.firstElementChild.offsetHeight||44) : 44;
-  if(free < one*3) return 0;                       // 2건 이하 흘려봐야 어수선하기만 하다
   // 오픈의 "+N건 더" 는 목록 밖(아래)에 있어서, 그대로 두면 마감 목록 뒤에 붙어 오독된다.
   // → 오픈 목록 바로 뒤로 옮겨 넣고 원래 자리는 비운다.
   const m1=document.getElementById('M1'), mTxt=m1?m1.textContent:'';
   const base=listEl.innerHTML + (mTxt?'<div class="in-more">'+mTxt+'</div>':'');
-  let n=Math.min(ends.length, Math.floor(free/one));
-  while(n>0){
+  const fits=function(n){
     listEl.innerHTML = base + '<div class="spill-hd">오늘 마감</div>' + listHTML(ends.slice(0,n),false);
-    if(col.scrollHeight<=col.clientHeight){ if(m1) m1.textContent=''; return n; }
-    n--;
-  }
+    return col.scrollHeight<=col.clientHeight;
+  };
+  // ⚠️ 항목 높이를 추정해 나누면 빗나간다(이웃셀러 묶음·두 줄 이름이 섞여 높이가 제각각).
+  //    8/9 카드에서 20건이 들어갈 자리에 6건만 넣고 멈췄다. → 이분 탐색으로 실제 최대치를 찾는다.
+  let lo=0, hi=Math.min(ends.length, 40);
+  while(lo<hi){ const mid=(lo+hi+1)>>1; if(fits(mid)) lo=mid; else hi=mid-1; }
+  if(lo>=3){ fits(lo); if(m1) m1.textContent=''; return lo; }   // 2건 이하 흘려봐야 어수선하기만 하다
   listEl.innerHTML=base.replace(/<div class="in-more">[\s\S]*?<\/div>$/,'');
   return 0;
 }
