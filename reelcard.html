@@ -160,6 +160,10 @@ body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;marg
    fitColumn 의 넘침 판정(scrollHeight>clientHeight)에 이 여백이 포함돼 자연스럽게 한 칸 덜 채운다. */
 .more{font-family:var(--f-t);font-size:18px;flex-shrink:0;font-weight:700;margin:5px 0 8px;padding-left:8px;line-height:1.35}
 .col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
+/* 왼쪽에 자리가 남을 때 마감을 흘려보내는 자리(spillEnds). 칼럼 제목과 같은 크기로 맞춘다 */
+.spill-hd{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800;color:var(--r);
+  margin:18px 0 10px;padding-top:14px;border-top:2px solid #F0E7F8}
+.in-more{font-family:var(--f-t);font-size:18px;font-weight:700;color:var(--p);margin:5px 0 0;padding-left:8px;line-height:1.35}
 
 .cta{flex-shrink:0;margin:0 var(--side) 0;padding:20px 26px;border-radius:18px;
   background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
@@ -396,8 +400,12 @@ async function render(day,opens,ends){
 
   fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
   // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
-  fitColumn(document.getElementById('L1'),document.getElementById('M1'),oneProduct(onePerSeller(opens)),true,opens.length);
-  fitColumn(document.getElementById('L2'),document.getElementById('M2'),oneProduct(onePerSeller(ends)),false,ends.length);
+  const cOpens=oneProduct(onePerSeller(opens)), cEnds=oneProduct(onePerSeller(ends));
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),cOpens,true,opens.length);
+  // 오픈이 적은 날(일요일 등)은 왼쪽이 텅 비는데 오른쪽은 100건씩 잘린다.
+  // → 왼쪽에 남는 만큼 마감을 흘려보낸다. (8/9 카드에서 왼쪽 절반이 비었음)
+  const spill=spillEnds(cEnds);
+  fitColumn(document.getElementById('L2'),document.getElementById('M2'),cEnds.slice(spill),false,ends.length-spill);
   fitNames();   // 항목 수가 확정된 뒤에 이름을 다듬는다
 }
 
@@ -549,6 +557,33 @@ function oneProduct(arr){
     out.push(x);
   });
   return out;
+}
+// 왼쪽(오늘 오픈) 칼럼에 자리가 남으면 마감 항목을 이어 붙인다.
+// 오픈이 4건뿐인데 마감은 138건이라 113건이 잘리는 날이 있었다(2026-08-09 카드).
+// 반환값 = 왼쪽으로 옮긴 마감 건수. 오른쪽은 그만큼 건너뛰고 시작한다.
+function spillEnds(ends){
+  const col=document.querySelector('.col.open'), listEl=document.getElementById('L1');
+  if(!col||!listEl||!ends.length) return 0;
+  // ⚠️ clientHeight-scrollHeight 로는 여유를 못 잰다. scrollHeight 는 내용이 적어도
+  //    칼럼 높이 아래로 안 내려가서 항상 0 이 나온다(실측으로 잡은 버그).
+  //    → 마지막 요소의 아래 끝과 칼럼 안쪽 끝의 실제 간격을 잰다.
+  const last=document.getElementById('M1')||listEl;
+  const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+  const free=(col.getBoundingClientRect().bottom-pb)-last.getBoundingClientRect().bottom;
+  const one=listEl.firstElementChild ? (listEl.firstElementChild.offsetHeight||44) : 44;
+  if(free < one*3) return 0;                       // 2건 이하 흘려봐야 어수선하기만 하다
+  // 오픈의 "+N건 더" 는 목록 밖(아래)에 있어서, 그대로 두면 마감 목록 뒤에 붙어 오독된다.
+  // → 오픈 목록 바로 뒤로 옮겨 넣고 원래 자리는 비운다.
+  const m1=document.getElementById('M1'), mTxt=m1?m1.textContent:'';
+  const base=listEl.innerHTML + (mTxt?'<div class="in-more">'+mTxt+'</div>':'');
+  let n=Math.min(ends.length, Math.floor(free/one));
+  while(n>0){
+    listEl.innerHTML = base + '<div class="spill-hd">오늘 마감</div>' + listHTML(ends.slice(0,n),false);
+    if(col.scrollHeight<=col.clientHeight){ if(m1) m1.textContent=''; return n; }
+    n--;
+  }
+  listEl.innerHTML=base.replace(/<div class="in-more">[\s\S]*?<\/div>$/,'');
+  return 0;
 }
 function fitColumn(listEl,moreEl,arr,showEnd,total){
   const col=listEl.closest('.col');
