@@ -47,14 +47,16 @@ async function wait(reqId: number, maxMs = 22000) {
   throw new Error(`응답 없음 (reqId=${reqId})`);
 }
 
-async function call(method: string, path: string, token: string, body?: unknown) {
+async function call(method: string, path: string, token: string, body?: unknown, waitMs?: number) {
   const id = await rpc("toss_http", {
     p_method: method,
     p_url: BASE + path,
     p_headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     p_body: body ? JSON.stringify(body) : null,
   });
-  return wait(Number(id));
+  // ⚠ pg_net 은 커밋 뒤 백그라운드 워커가 보내서 지연이 있다.
+  //   상세조회를 여러 건 묶으면 22초를 넘긴다(실측 25초) → 필요한 곳은 넉넉히 준다.
+  return wait(Number(id), waitMs ?? 22000);
 }
 
 // 토큰을 저장해 두고 재사용한다(문서: 매번 재발급하지 말 것 — 과도하면 이용 제한).
@@ -360,6 +362,7 @@ async function isAdmin(req: Request): Promise<boolean> {
 Deno.serve(async (req) => {
   const u = new URL(req.url);
   const mode = u.searchParams.get("mode") ?? "health";
+  const isDry = u.searchParams.get("dry") === "1";
   const CORS = corsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   const json = (b: unknown, s = 200) =>
@@ -375,6 +378,98 @@ Deno.serve(async (req) => {
     if (mode === "health") {
       const r = await call("GET", "/health", token);
       return json({ mode, status: r.status, body: r.body, publisherIdSet: !!PUB });
+    }
+    // 이미 올린 토스 핫딜의 오늘 가격을 다시 물어 이력에 남긴다. (사장님 지시 2026-08-09)
+    //
+    // 왜 필요한가: 지금까지는 '오늘의 특가 목록'에 다시 뜬 상품만 이력이 남았다.
+    //   목록에서 빠지면 그날로 끊겨서, 30일간 추적한 2,810개 중 7일 이상 쌓인 게 0개였다.
+    //   (58% 는 하루 만에 끊김) → 카드의 "며칠 뒤 그래프가 보여요" 가 영영 오지 않았다.
+    //   상품ID 로 직접 되물을 수 있는 건 토스뿐이다(쿠팡·애드픽·링크프라이스는 목록만 준다).
+    //
+    // ⚠ product_id 가 tacaId 인 것과 tacaItemId 인 것이 섞여 있다.
+    //   수집 경로(collectDeals)와 변환 경로(convert)가 서로 다른 값을 넣어 왔다.
+    //   그래서 tacaIds 로 먼저 묻고, 못 찾은 것만 tacaItemIds 로 다시 묻는다.
+    if (mode === "track") {
+      const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+      const rows = await sb("hotdeals?source=eq.toss&select=id,product_id,price,title&order=id.desc&limit=500");
+      const ids = [...new Set((Array.isArray(rows) ? rows : [])
+        .map((r: any) => String(r.product_id ?? "").replace(/^toss_/, ""))
+        .filter((s: string) => /^\d+$/.test(s)))];
+      const log: any = { day, 대상: ids.length, 조회됨: 0, 기록: 0, 품절: 0, 못찾음: [] as string[] };
+      if (!ids.length) return json({ mode, ...log });
+
+      // ⚠ 여기서 응답을 기다리면 안 된다.
+      //   구조가 [크론(pg_net) → 이 함수 → 다시 pg_net → 토스] 라 이중 대기가 된다.
+      //   실측: 상세조회 응답이 25초에 오는데 크론 쪽이 먼저 끊겨 "응답 없음" 만 3번 났다.
+      //   → 요청만 넣어 두고(fire) 다음 실행 때 지난 응답을 수거(collect)한다. 대기가 아예 없다.
+      const got: Record<string, any> = {};                 // 우리 product_id 숫자 → 상품
+
+      // ① 수거 — 지난 실행이 넣어 둔 요청의 응답을 읽는다
+      const pend = await sb("toss_track_pending?select=req_id,created_at&order=req_id");
+      const pendRows = Array.isArray(pend) ? pend : [];
+      const pendIds = pendRows.map((r: any) => Number(r.req_id));
+      // ⚠ 기록 날짜는 '수거한 날'이 아니라 '물어본 날'이어야 한다.
+      //   밤에 발사한 걸 다음날 아침에 수거하면 어제 가격이 오늘로 찍힌다.
+      let askedDay = day;
+      for (const r of pendRows) {
+        const rid = Number(r.req_id);
+        const d = new Date(new Date(r.created_at).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+        const rows = await rpc("toss_http_result", { p_id: rid });
+        const row = Array.isArray(rows) ? rows[0] : rows;
+        if (row?.content == null) continue;
+        let b: any = null; try { b = JSON.parse(row.content); } catch { /* 형식이 깨졌으면 버린다 */ }
+        for (const it of (b?.success?.items ?? [])) {
+          for (const k of [it.tacaId, it.tacaItemId]) got[String(k)] = it;
+        }
+        askedDay = d;
+      }
+      log.기록날짜 = askedDay;
+      log.수거한요청 = pendIds.length;
+      if (pendIds.length) await sb(`toss_track_pending?req_id=in.(${pendIds.join(",")})`, { method: "DELETE" });
+
+      // ② 발사 — 이번 대상의 상세조회 요청을 넣어만 둔다(응답은 다음 실행에서 읽는다)
+      //    ID 체계가 tacaId/tacaItemId 로 섞여 있어 두 벌 다 물어본다. 어차피 안 기다리니 비용이 같다.
+      if (!isDry) {
+        const newIds: number[] = [];
+        for (const key of ["tacaIds", "tacaItemIds"]) {
+          for (let i = 0; i < ids.length; i += 20) {        // 한 번에 20건
+            const part = ids.slice(i, i + 20);
+            const rid = await rpc("toss_http", {
+              p_method: "GET",
+              p_url: `${BASE}/products/detail?${key}=${part.join(",")}`,
+              p_headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              p_body: null,
+            });
+            newIds.push(Number(rid));
+          }
+        }
+        if (newIds.length) {
+          await sb("toss_track_pending", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify(newIds.map((n) => ({ req_id: n }))),
+          });
+        }
+        log.보낸요청 = newIds.length;
+      }
+      log.조회됨 = ids.filter((x) => got[x]).length;
+      log.못찾음 = ids.filter((x) => !got[x]).slice(0, 20);
+
+      // 값이 확실한 것만 남긴다. 품절이면 가격이 의미가 없으니 이력에 넣지 않는다
+      //   (품절가를 넣으면 나중에 '역대 최저' 판정이 오염된다)
+      const hist = ids.filter((x) => got[x] && !got[x].isSoldOut && Number(got[x].displayPrice) > 0)
+        .map((x) => ({ product_id: `toss_${x}`, day: askedDay, price: Number(got[x].displayPrice) }));
+      log.품절 = ids.filter((x) => got[x]?.isSoldOut).length;
+      if (!isDry && hist.length) {
+        await sb("price_history?on_conflict=product_id,day", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(hist),
+        });
+        log.기록 = hist.length;
+      }
+      if (isDry) log.미리보기 = hist.slice(0, 10);
+      return json({ mode, ...log });
     }
     // 저장해 둔 상품의 최신 가격·이미지·품절 여부를 다시 물어본다 (한 번에 30건까지).
     // 쿠팡에는 없는 기능이다 — 이것 때문에 가격 이력이 끊기지 않는다.
