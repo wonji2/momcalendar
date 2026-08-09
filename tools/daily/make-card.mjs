@@ -63,6 +63,23 @@ writeFileSync(`daily/${day}.txt`, info.cap, 'utf8');
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const d = new Date(day + 'T00:00:00');
 const label = `${d.getMonth() + 1}월 ${d.getDate()}일(${'일월화수목금토'[d.getDay()]})`;
+
+// 사장님께 아침에 알릴 것. 매일 아침 이 페이지를 여시니 여기 띄우는 게 가장 확실하다.
+// 처리되면 이 상수를 비워 두면 사라진다. (todo/README 로 관리하지 않는 이유: 파일이 늘면 안 본다)
+const TODO = {
+  until: '2026-08-20',
+  title: '네이버 쇼핑 API 키 발급 (무료·5분)',
+  body: `핫딜이 진짜 싼지 <b>네이버 최저가와 대조</b>하려면 키가 필요합니다.
+    <a href="https://developers.naver.com/apps/#/register" target="_blank">developers.naver.com</a> →
+    애플리케이션 등록 → 사용 API <b>검색</b> 체크 → 환경 <b>WEB</b>, 서비스 URL <code>https://momcalendar.com</code><br>
+    나온 <b>Client ID / Client Secret</b> 을 Supabase 시크릿에
+    <code>NAVER_CLIENT_ID</code> / <code>NAVER_CLIENT_SECRET</code> 으로 넣어주세요(토스 키 넣으신 곳).<br>
+    넣어주시면 살아있는 핫딜 전부를 돌려 <b>그람수·용량·수량까지 똑같은 것만</b> 골라내
+    매칭률을 실측해 보고드립니다. (색상은 안 따집니다 — 사장님 지시 2026-08-09)`,
+};
+const todoHtml = (TODO.title && day <= TODO.until)
+  ? `<div class="todo"><b>사장님 확인 부탁드려요 · ${TODO.title}</b><p>${TODO.body}</p></div>`
+  : '';
 const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -79,9 +96,14 @@ textarea{width:100%;height:260px;border:1px solid #E3DCEF;border-radius:10px;pad
 .btn{display:block;width:100%;text-align:center;background:#5B2E8C;color:#fff;border:none;border-radius:11px;padding:14px;font-size:14.5px;font-weight:800;margin-top:9px;text-decoration:none;cursor:pointer;font-family:inherit}
 .btn2{background:#fff;color:#5B2E8C;border:1.5px solid #5B2E8C}
 .meta{font-size:12px;color:#8B82A0;margin-top:8px}
+.todo{background:#FFF8E6;border:1.5px solid #F0DFA8;border-radius:14px;padding:14px 15px;margin-top:14px}
+.todo b{color:#8A6A2E;font-size:14px}
+.todo p{font-size:12.5px;color:#6B6379;line-height:1.75;margin-top:6px}
+.todo a{color:#5B2E8C;font-weight:700}
 </style></head><body>
 <div class="hd"><div class="wrap"><h1>${label} 인스타 카드</h1><p>${esc(info.st)}</p></div></div>
 <div class="wrap">
+  ${todoHtml}
   <div class="card"><img src="./${day}.png" alt="오늘 공구 카드"></div>
   <a class="btn" href="./${day}.png" download="momcal_${day.replace(/-/g,'')}.png">사진 저장</a>
   <div class="card">
