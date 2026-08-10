@@ -3964,8 +3964,23 @@ function trackCard(id){
 // 카드 클릭 → 통계 저장 + 안전 이동 (뒤로가기 후 다른 카드 안 눌리던 문제 방지)
 function goCard(id, url){
   try{ trackCard(id); }catch(_){}
+  // ⚠️ 네이버 카페 글은 앱(PWA) 안에서 열면 안 된다.
+  //    PWA 웹뷰에는 네이버 로그인 세션이 없어서 "2단계 인증 / 로그인" 화면이 뜬다.
+  //    폰에서 이미 로그인돼 있어도 소용없다 — 웹뷰가 별개 저장소를 쓰기 때문이다.
+  //    (사장님 지적 2026-08-10 "카페글로 가는데 2단계 인증하라고 뜬다")
+  //    → 앱으로 실행 중일 때만 바깥 브라우저로 보낸다. 거기엔 로그인이 살아 있다.
+  var isCafe = /cafe\.naver\.com/.test(url);
+  var inApp  = false;
+  try{ inApp = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }catch(_){}
   // 살짝 지연시켜 통계 기록(keepalive)과 상태저장이 끝난 뒤 이동
-  setTimeout(function(){ window.location.href = url; }, 0);
+  setTimeout(function(){
+    if(isCafe && inApp){
+      var w=null;
+      try{ w = window.open(url, '_blank', 'noopener'); }catch(_){}
+      if(w) return;                 // 바깥 브라우저로 열렸으면 끝
+    }
+    window.location.href = url;     // 그 외(웹·인앱웹뷰) 또는 팝업이 막혔을 때
+  }, 0);
 }
 
 // ── 모달이 열리면 뒤 화면 잠금 (빠뜨림 방지용 감시자) ─────────────
