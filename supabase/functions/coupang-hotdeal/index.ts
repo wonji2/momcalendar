@@ -224,7 +224,9 @@ Deno.serve(async (req) => {
       const iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
       now.set(`cp_${p.productId}_${iid}`, Number(p.productPrice) || 0);
     }
-    const live = await sb("hotdeals?source=eq.goldbox&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
+    // 사장님이 카톡으로 주신 건(manual) 은 손대지 않는다 — 이미 걸러진 '찐 핫딜'이다(지시 2026-08-10).
+    //   크론이 스스로 주워온 것만 매일 다시 확인한다.
+    const live = await sb("hotdeals?source=eq.goldbox&manual=is.false&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
                           new Date().toISOString() + ")&limit=300");
     const rows = Array.isArray(live) ? live : [];
     out.확인 = rows.length; out.내린것 = [];
@@ -244,6 +246,35 @@ Deno.serve(async (req) => {
         out.갱신++;
       }
     }
+    // 애드픽도 같이 점검한다. 애드픽은 인증이 필요 없고 1분 1회 제한뿐이라 부담이 없다.
+    //   목록에서 빠졌으면 그 특가는 끝난 것이다(애드픽은 '실시간 핫딜'만 준다).
+    try {
+      const aps = await apFetch();
+      const apNow = new Map<string, number>();
+      for (const p of aps) apNow.set(apKey(String(p.buyurl ?? "")), apNum(p.price_sale));
+      const apLive = await sb("hotdeals?source=eq.adpick&manual=is.false&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
+                              new Date().toISOString() + ")&limit=300");
+      const apRows = Array.isArray(apLive) ? apLive : [];
+      let ap내림 = 0, ap갱신 = 0;
+      for (const r of apRows) {
+        const p = apNow.get(String(r.product_id));
+        if (p === undefined) {
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+          });
+          ap내림++;
+        } else if (p >= AP_MIN_PRICE && p !== Number(r.price)) {
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ price: p }),
+          });
+          ap갱신++;
+        }
+      }
+      out.애드픽 = { 확인: apRows.length, 내림: ap내림, 갱신: ap갱신, 목록: aps.length };
+    } catch (e) { out.애드픽오류 = String(e).slice(0, 120); }
+
     return Response.json(out);
   }
   if (test) return Response.json(await cpSearch(u.searchParams.get("kw") ?? "기저귀", 5));

@@ -391,7 +391,7 @@ Deno.serve(async (req) => {
     //   그래서 tacaIds 로 먼저 묻고, 못 찾은 것만 tacaItemIds 로 다시 묻는다.
     if (mode === "track") {
       const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-      const rows = await sb("hotdeals?source=eq.toss&select=id,product_id,price,title&order=id.desc&limit=500");
+      const rows = await sb("hotdeals?source=eq.toss&select=id,product_id,price,title,manual&order=id.desc&limit=500");
       const ids = [...new Set((Array.isArray(rows) ? rows : [])
         .map((r: any) => String(r.product_id ?? "").replace(/^toss_/, ""))
         .filter((s: string) => /^\d+$/.test(s)))];
@@ -494,8 +494,11 @@ Deno.serve(async (req) => {
           const org  = Number(it.originalPrice) || 0;
           const drop = Number(it.discountRate) || (org > now ? Math.round((org - now) / org * 100) : 0);
           const 품절 = !!it.isSoldOut;
-          // 품절이거나 할인이 시들해졌으면 카드를 내린다
-          if (품절 || !now || drop < TRACK_MIN_DROP) {
+          // 사장님이 카톡으로 주신 건 이미 걸러진 '찐 핫딜'이다(지시 2026-08-10).
+          //   할인율이 조금 떨어졌다고 우리가 멋대로 내리지 않는다. 가격만 맞춰 둔다.
+          //   품절은 명백하니 그때만 내린다.
+          const 수동 = r.manual === true;
+          if (품절 || !now || (!수동 && drop < TRACK_MIN_DROP)) {
             await sb(`hotdeals?id=eq.${r.id}`, {
               method: "PATCH", headers: { Prefer: "return=minimal" },
               body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
