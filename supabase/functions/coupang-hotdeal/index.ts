@@ -125,6 +125,11 @@ const AP_BLOCK =
 const AP_LUXURY =
   /루이비통|샤넬|구찌|프라다|디올|에르메스|버버리|보테가|셀린느|생로랑|발렌시아가|몽클레어|스톤아일랜드|꼼데가르송|메종키츠네|아미|톰브라운|골든구스|폴로랄프|명품/;
 const AP_MAX_PRICE = 150000;   // 이보다 비싼 건 핫딜로 안 올림
+// 🔴 애드픽은 일부 상품 가격을 **천원 단위로** 준다. price_sale:"26" 이 실제로는 26,443원이었다.
+//   (사장님 지적 2026-08-10 "[박스특가] 26원으로 떠 있는데 들어가면 2만 얼마")
+//   실제 응답에 price_sale:"1"·"3"·"5" 같은 값이 섞여 있다. 그대로 올리면 손님을 속이는 셈이 된다.
+//   1,000원 미만 핫딜은 배송비도 안 나와 어차피 의미가 없으니 통째로 거른다.
+const AP_MIN_PRICE = 1000;
 function apCat(name: string): [string, string] | null {
   if (AP_BLOCK.test(name) || AP_LUXURY.test(name)) return null;
   for (const [re, a, b] of AP_CAT) if (re.test(name)) return [a, b];
@@ -390,6 +395,7 @@ Deno.serve(async (req) => {
       const name = String(p.product_name || "").slice(0, 200);
       const cat = apCat(name);
       if (!sale || !org || org <= sale || !cat || sale > AP_MAX_PRICE) return null;
+      if (sale < AP_MIN_PRICE || org < AP_MIN_PRICE) return null;   // 천원 단위로 온 깨진 값 차단
       const drop = Math.round((org - sale) / org * 100);
       if (drop < AP_MIN_DROP || drop > AP_MAX_DROP) return null;
       return {
