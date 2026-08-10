@@ -1757,12 +1757,17 @@ function _hdDemo(){
 }
 function renderHotdeals(){
   const el=document.getElementById('hotdealList');
-  if(!_hotdealData||!_hotdealData.length){
+  // 🔴 끝난 핫딜은 목록에서도 빼야 한다. (사장님 지적 2026-08-10)
+  //    hdExpired 를 만들어 놓고 '검색 결과'에서만 쓰고 핫딜 탭에는 안 걸어 뒀다.
+  //    그래서 골드박스처럼 하루 지나면 값이 돌아가는 특가가 계속 떠 있었다
+  //    (서버에서 만료 처리해도 화면이 그걸 안 봤다).
+  const live=(_hotdealData||[]).filter(h=>!hdExpired(h));
+  if(!live.length){
     el.innerHTML=emptyBox('hotdeal');
     return;
   }
   _hdIdx=0;                                   // 위쪽 8장은 즉시 로드하려고 매 렌더마다 초기화
-  el.innerHTML=hdOrder(_hotdealData).map(h=>hdCardHtml(h)).join('');
+  el.innerHTML=hdOrder(live).map(h=>hdCardHtml(h)).join('');
 }
 let _hdIdx=0;
 // 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
