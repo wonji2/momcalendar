@@ -2054,6 +2054,34 @@ function crawlDbDup(existingData, name, insta, influencer, openDate){
   for(const d of existingData){ if(crawlPairDup(cand, d)) return true; }
   return false;
 }
+// 카페 글 번호를 제목으로 대조해 찾아 붙인다 (2026-08-10)
+//
+// 목록을 복사할 때 글 번호 줄이 빠지면 pay_link 가 비고, 그러면 손님이 카드를 눌러도
+// 갈 곳이 없다. 예전엔 그대로 등록돼 72건이 인스타 메인으로 떨어졌다.
+// 카페에는 글이 그대로 있으므로 최근 목록을 받아 제목을 맞춰본다.
+const MC_CAFE_ID = 31499187;   // 맘캘린더 카페 (cafe.naver.com/momcal)
+async function fillCafeLinks(rows){
+  const need = rows.filter(r => !r.pay_link && !r.insta);
+  if(!need.length) return 0;
+  // ⚠ 네이버 카페 API 는 CORS 헤더를 안 줘서 브라우저에서 직접 못 부른다 → 서버(cafe-lookup)를 거친다.
+  let list = [];
+  try{
+    const r = await fetch(`${SB_URL}/functions/v1/cafe-lookup?pages=6`);
+    const j = await r.json();
+    list = Array.isArray(j.items) ? j.items : [];
+  }catch(e){ return 0; }
+  if(!list.length) return 0;
+  const norm = s => String(s).replace(/[\s·._&/,!+()\[\]-]/g,'').toLowerCase();
+  const idx = list.map(a => ({ id:a.id, k:norm(a.subj) }));
+  let hit = 0;
+  need.forEach(r => {
+    const k = norm(r.name);
+    if(k.length < 4) return;
+    const m = idx.find(a => a.k.indexOf(k) >= 0);
+    if(m){ r.pay_link = `https://m.cafe.naver.com/momcal/${m.id}`; r._conn='cafe'; hit++; }
+  });
+  return hit;
+}
 function parseNaverCafe(text, existingData, minDate){
   const today=new Date(); const Y=today.getFullYear(); const pad=x=>String(x).padStart(2,'0');
   const todayStr=`${Y}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
@@ -2985,10 +3013,18 @@ async function crawlParse(){
   const smN=applySellerMultiFilter(crawlParsedData);  // 한 셀러 여러 항목 묶음 표시(체크는 그대로)
   const bdN=applyBrandDup(crawlParsedData);   // 셀러 내 같은 브랜드 변형 → 1개만 체크 유지
   const sdN=applySellerDateDup(crawlParsedData);   // 같은 셀러·같은 오픈일·공통단어 → 중복의심
+  // 카페 목록을 붙여넣을 때 글 번호 줄이 같이 복사되지 않으면 pay_link 가 비어
+  // "연결할 곳이 없어요" 로 전부 막힌다(사장님 지적 2026-08-10).
+  // → 카페에서 제목을 대조해 글 번호를 자동으로 찾아 붙인다.
+  let linkN=0;
+  if(site==='navercafe'){
+    btn.textContent='카페 글 번호 찾는 중…';
+    try{ linkN=await fillCafeLinks(crawlParsedData); }catch(e){}
+  }
   btn.disabled=false; btn.textContent='③ 파싱 & 미리보기';
   const dupN=parsed.dupCount||0;
   const newCnt=crawlParsedData.filter(it=>!it._dup&&!it._nonProduct&&!it._brandDup).length;
-  status.textContent=`파싱 완료 — 신규 ${newCnt}건`+(dupN?` · 🔴 중복의심 ${dupN}`:'')+(npN?` · 🚫 상품아님 ${npN}`:'')+((dupN||npN)?` (체크 해제됨)`:'')+(smN?` · 👤 한셀러 여러항목 ${smN}`:'')+(bdN?` · 🏷️ 브랜드중복 ${bdN} 정리`:'')+(sdN?` · 🔁 셀러·날짜중복 ${sdN}`:'')+(cleanN?` · ✂️ 상품명 정리 ${cleanN}`:'');
+  status.textContent=`파싱 완료 — 신규 ${newCnt}건`+(dupN?` · 🔴 중복의심 ${dupN}`:'')+(npN?` · 🚫 상품아님 ${npN}`:'')+((dupN||npN)?` (체크 해제됨)`:'')+(smN?` · 👤 한셀러 여러항목 ${smN}`:'')+(bdN?` · 🏷️ 브랜드중복 ${bdN} 정리`:'')+(sdN?` · 🔁 셀러·날짜중복 ${sdN}`:'')+(cleanN?` · ✂️ 상품명 정리 ${cleanN}`:'')+(linkN?` · 🔗 카페글 연결 ${linkN}`:'');
 
   if(!parsed.length){
     document.getElementById('crawlResultArea').style.display='none';
