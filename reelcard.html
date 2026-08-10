@@ -570,7 +570,10 @@ function spillEnds(ends){
   const base=listEl.innerHTML + (mTxt?'<div class="in-more">'+mTxt+'</div>':'');
   const fits=function(n){
     listEl.innerHTML = base + '<div class="spill-hd">오늘 마감</div>' + listHTML(ends.slice(0,n),false);
-    return col.scrollHeight<=col.clientHeight;
+    // 여기도 scrollHeight 로 재면 안 된다(.col 이 overflow:hidden). 실제 좌표로 본다.
+    const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+    const last=listEl.lastElementChild || listEl;
+    return last.getBoundingClientRect().bottom <= (col.getBoundingClientRect().bottom - pb) + 0.5;
   };
   // ⚠️ 항목 높이를 추정해 나누면 빗나간다(이웃셀러 묶음·두 줄 이름이 섞여 높이가 제각각).
   //    8/9 카드에서 20건이 들어갈 자리에 6건만 넣고 멈췄다. → 이분 탐색으로 실제 최대치를 찾는다.
@@ -583,10 +586,19 @@ function spillEnds(ends){
 function fitColumn(listEl,moreEl,arr,showEnd,total){
   const col=listEl.closest('.col');
   const all=(total===undefined)?arr.length:total;   // "+N건 더" 는 그날 전체 건수 기준
+  // ⚠️ scrollHeight>clientHeight 로는 넘침을 못 잡는다.
+  //    .col 이 overflow:hidden 이라 내용이 아무리 넘쳐도 scrollHeight 가 안 커진다.
+  //    한쪽이 비는 날엔 우연히 맞았지만, 양쪽이 꽉 차면 한 줄이 더 들어가
+  //    "+N건 더" 가 아래 CTA 박스에 가려 잘렸다(사장님 지적 2026-08-10 "짤리고").
+  //    → 마지막 요소(더보기)의 아래 끝이 칼럼 안쪽 끝을 넘는지 실제 좌표로 판정한다.
+  const over=()=>{
+    const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+    return moreEl.getBoundingClientRect().bottom > (col.getBoundingClientRect().bottom - pb) + 0.5;
+  };
   listEl.innerHTML=listHTML(arr,showEnd);
   let n=arr.length;
   moreEl.textContent = (all>n) ? ('+ '+(all-n)+'건 더') : '';
-  while(n>0 && col.scrollHeight>col.clientHeight){
+  while(n>0 && over()){
     n--;
     listEl.innerHTML=listHTML(arr.slice(0,n),showEnd);
     moreEl.textContent='+ '+(all-n)+'건 더';
