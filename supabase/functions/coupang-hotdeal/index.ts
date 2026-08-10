@@ -211,6 +211,41 @@ Deno.serve(async (req) => {
 
   if (test === "adpick") return Response.json((await apFetch()).slice(0, 5));
   if (test === "goldbox") return Response.json(await cpGoldbox());
+
+  // 올라가 있는 골드박스 카드만 점검한다 (쿠팡 호출 1회 — 검색은 돌리지 않는다).
+  // 오늘 특가 목록에서 빠졌으면 값이 원래대로 돌아간 것이므로 카드를 내린다.
+  if (u.searchParams.get("goldcheck") === "1") {
+    const out: any = { mode: "goldcheck", 확인: 0, 내림: 0, 갱신: 0, 목록: 0 };
+    const g = await cpGoldbox();
+    const glist = Array.isArray(g?.data) ? g.data : [];
+    out.목록 = glist.length;
+    const now = new Map<string, number>();
+    for (const p of glist) {
+      const iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+      now.set(`cp_${p.productId}_${iid}`, Number(p.productPrice) || 0);
+    }
+    const live = await sb("hotdeals?source=eq.goldbox&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
+                          new Date().toISOString() + ")&limit=300");
+    const rows = Array.isArray(live) ? live : [];
+    out.확인 = rows.length; out.내린것 = [];
+    for (const r of rows) {
+      const p = now.get(String(r.product_id));
+      if (p === undefined) {
+        await sb(`hotdeals?id=eq.${r.id}`, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+        });
+        out.내림++; out.내린것.push(String(r.title || "").slice(0, 24));
+      } else if (p > 0 && p !== Number(r.price)) {
+        await sb(`hotdeals?id=eq.${r.id}`, {
+          method: "PATCH", headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ price: p }),
+        });
+        out.갱신++;
+      }
+    }
+    return Response.json(out);
+  }
   if (test) return Response.json(await cpSearch(u.searchParams.get("kw") ?? "기저귀", 5));
 
   const dry = u.searchParams.get("dry") === "1";
@@ -282,14 +317,20 @@ Deno.serve(async (req) => {
 
   // 1-b) 골드박스(쿠팡 오늘의 특가) — 우리 관심 카테고리만
   const goldIds: string[] = [];
+  // 오늘 골드박스에 아직 남아 있는 상품과 그 값. 카테고리를 가리지 않고 전부 담는다.
+  // 쿠팡은 정가도, 상품ID 재조회도 안 준다. 우리가 가진 유일한 검증 수단이 '오늘 목록에 있느냐'다.
+  // (사장님 지적 2026-08-10 "핫딜 가격 문제없는거 맞아?" — 골드박스 23건이 검증 불가 상태였다)
+  const goldNow = new Map<string, number>();
   try {
     const g = await cpGoldbox();
     const glist = Array.isArray(g?.data) ? g.data : [];
     log.goldboxTotal = glist.length;
     for (const p of glist) {
+      const _iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+      goldNow.set(`cp_${p.productId}_${_iid}`, Number(p.productPrice) || 0);
       const cat = GOLD_CAT[String(p.categoryName || "")];
       if (!cat) continue;                                  // 로봇청소기·전자기기 등은 제외
-      const itemId = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+      const itemId = _iid;
       const id = `${p.productId}_${itemId}`;
       const price = Number(p.productPrice);
       if (!price || price < 1000) continue;
@@ -476,6 +517,34 @@ Deno.serve(async (req) => {
   } catch (e) { log.errors.push({ kw: "gonggu-filter", err: String(e) }); }
 
   log.deals = picks.map((p) => ({ name: p.name, price: p.price, discount: p.discount, src: p.src }));
+
+  // 3-b) 이미 올라가 있는 골드박스 카드 점검 — 오늘 목록에 없으면 특가가 끝난 것이다.
+  //   쿠팡은 상품ID 재조회를 안 주니 이게 유일한 검증 수단이다. 추가 호출은 0.
+  //   (2026-08-10: 골드박스 23건이 "지금 값이 맞는지 알 수 없는" 상태로 떠 있었다)
+  if (!dry && goldNow.size) {
+    try {
+      const live = await sb("hotdeals?source=eq.goldbox&select=id,product_id,price&or=(expires_at.is.null,expires_at.gt." +
+                            new Date().toISOString() + ")&limit=300");
+      let 내림 = 0, 갱신 = 0;
+      for (const r of (Array.isArray(live) ? live : [])) {
+        const now = goldNow.get(String(r.product_id));
+        if (now === undefined) {                     // 오늘 특가 목록에서 빠졌다 → 내린다
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+          });
+          내림++;
+        } else if (now > 0 && now !== Number(r.price)) {   // 값이 바뀌었다 → 맞춘다
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ price: now }),
+          });
+          갱신++;
+        }
+      }
+      log.goldboxCheck = { 확인: Array.isArray(live) ? live.length : 0, 내림, 갱신 };
+    } catch (e) { log.errors.push({ kw: "goldbox-check", err: String(e) }); }
+  }
 
   if (dry || !picks.length) return Response.json(log);
 
