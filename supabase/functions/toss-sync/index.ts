@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
       const got: Record<string, any> = {};                 // 우리 product_id 숫자 → 상품
 
       // ① 수거 — 지난 실행이 넣어 둔 요청의 응답을 읽는다
-      const pend = await sb("toss_track_pending?select=req_id,created_at&order=req_id");
+      const pend = await sb("toss_track_pending?select=req_id,created_at,id_kind&order=req_id");
       const pendRows = Array.isArray(pend) ? pend : [];
       const pendIds = pendRows.map((r: any) => Number(r.req_id));
       // ⚠ 기록 날짜는 '수거한 날'이 아니라 '물어본 날'이어야 한다.
@@ -418,8 +418,17 @@ Deno.serve(async (req) => {
         const row = Array.isArray(rows) ? rows[0] : rows;
         if (row?.content == null) continue;
         let b: any = null; try { b = JSON.parse(row.content); } catch { /* 형식이 깨졌으면 버린다 */ }
+        // ⚠️ tacaId 와 tacaItemId 를 둘 다 키로 넣으면 안 된다.
+        //   번호 체계가 달라 다른 상품의 값과 겹치고, 그러면 엉뚱한 가격이 붙는다.
+        //   실측 2026-08-10: 67% 상품이 3% 로 판정돼 멀쩡한 핫딜이 내려갔다.
+        //   → 물어본 종류에 맞는 키로만 매핑한다.
+        //   우리 product_id 는 대부분 tacaId 다. 그런데 같은 번호를 tacaItemId 로도 물어보기 때문에,
+        //   그 번호를 tacaItemId 로 가진 **다른 상품**이 걸려 덮어쓰는 일이 생긴다.
+        //   → 먼저 온 것(tacaIds 조회, req_id 가 작다)이 이긴다. 덮어쓰지 않는다.
+        const kind = String(r.id_kind || "tacaIds");
         for (const it of (b?.success?.items ?? [])) {
-          for (const k of [it.tacaId, it.tacaItemId]) got[String(k)] = it;
+          const k = String(kind === "tacaItemIds" ? it.tacaItemId : it.tacaId);
+          if (k && k !== "undefined" && !got[k]) got[k] = it;
         }
         askedDay = d;
       }
@@ -430,7 +439,7 @@ Deno.serve(async (req) => {
       // ② 발사 — 이번 대상의 상세조회 요청을 넣어만 둔다(응답은 다음 실행에서 읽는다)
       //    ID 체계가 tacaId/tacaItemId 로 섞여 있어 두 벌 다 물어본다. 어차피 안 기다리니 비용이 같다.
       if (!isDry) {
-        const newIds: number[] = [];
+        const newRows: any[] = [];
         for (const key of ["tacaIds", "tacaItemIds"]) {
           for (let i = 0; i < ids.length; i += 20) {        // 한 번에 20건
             const part = ids.slice(i, i + 20);
@@ -440,17 +449,17 @@ Deno.serve(async (req) => {
               p_headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
               p_body: null,
             });
-            newIds.push(Number(rid));
+            newRows.push({ req_id: Number(rid), id_kind: key });   // 어떤 종류로 물었는지 같이 적어 둔다
           }
         }
-        if (newIds.length) {
+        if (newRows.length) {
           await sb("toss_track_pending", {
             method: "POST",
             headers: { Prefer: "return=minimal" },
-            body: JSON.stringify(newIds.map((n) => ({ req_id: n }))),
+            body: JSON.stringify(newRows),
           });
         }
-        log.보낸요청 = newIds.length;
+        log.보낸요청 = newRows.length;
       }
       log.조회됨 = ids.filter((x) => got[x]).length;
       log.못찾음 = ids.filter((x) => !got[x]).slice(0, 20);
@@ -467,6 +476,41 @@ Deno.serve(async (req) => {
           body: JSON.stringify(hist),
         });
         log.기록 = hist.length;
+      }
+
+      // 🔴 이력만 쌓고 정작 카드에 뜨는 가격은 그대로 두고 있었다.
+      //   등록 후 값이 바뀌면 손님은 틀린 가격을 본다.
+      //   실측 2026-08-10: 다농원 콤부차를 13,800원으로 띄웠는데 실제로는 19,900원이었다.
+      //   (사장님 지적 "핫딜 가격 문제없는거 맞아? 이딴식으로 할거면 핫딜 운영 어떻게해")
+      //   → 매번 현재가로 맞추고, 조건에서 벗어난 건 내린다.
+      const TRACK_MIN_DROP = 25;          // 이보다 덜 깎이면 더는 핫딜이 아니다
+      log.가격갱신 = 0; log.내림 = [];
+      if (!isDry) {
+        for (const r of (Array.isArray(rows) ? rows : [])) {
+          const key = String(r.product_id ?? "").replace(/^toss_/, "");
+          const it = got[key];
+          if (!it) continue;
+          const now  = Number(it.displayPrice) || 0;
+          const org  = Number(it.originalPrice) || 0;
+          const drop = Number(it.discountRate) || (org > now ? Math.round((org - now) / org * 100) : 0);
+          const 품절 = !!it.isSoldOut;
+          // 품절이거나 할인이 시들해졌으면 카드를 내린다
+          if (품절 || !now || drop < TRACK_MIN_DROP) {
+            await sb(`hotdeals?id=eq.${r.id}`, {
+              method: "PATCH", headers: { Prefer: "return=minimal" },
+              body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+            });
+            log.내림.push(`${r.id}:${품절 ? "품절" : drop + "%"}`);
+            continue;
+          }
+          if (now !== Number(r.price)) {
+            await sb(`hotdeals?id=eq.${r.id}`, {
+              method: "PATCH", headers: { Prefer: "return=minimal" },
+              body: JSON.stringify({ price: now, price_before: org || null, discount_rate: drop || null }),
+            });
+            log.가격갱신++;
+          }
+        }
       }
       if (isDry) log.미리보기 = hist.slice(0, 10);
       return json({ mode, ...log });
