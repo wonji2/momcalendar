@@ -3111,6 +3111,11 @@ function crawlWarn(item){
   if(cats.includes(name)) return `상품명이 카테고리명 같아요("${name}") — 실제 상품명으로 고쳐주세요`;
   if(!item.major) return '대분류가 없어요';
   if(!item.open_date) return '오픈일이 없어요';
+  // 🔴 갈 곳이 없으면 등록하면 안 된다. (사장님 지적 2026-08-10)
+  //   카페 목록을 붙여넣을 때 게시글 번호 줄이 없으면 pay_link 가 빈 채로 들어간다.
+  //   그러면 손님이 카드를 눌러도 인스타 메인만 열린다("또또맘 인기간식" 건, 72건이 그렇게 등록됨).
+  if(!item.insta && !/^https?:\/\//.test(item.pay_link||''))
+    return '연결할 곳이 없어요 — 카페 글 번호나 인스타 핸들이 있어야 해요 (누르면 아무 데도 못 가요)';
   return '';
 }
 // 카드 항목 즉시 수정 → crawlParsedData에 반영 (검증 경고 갱신 위해 재렌더)
@@ -3390,6 +3395,18 @@ async function crawlInsertSelected(){
   // 화면 체크박스가 아니라 데이터(_checked) 기준 → 필터(중복/상품아님/여러항목)로 안 보이는 체크 항목도 빠짐없이 등록됨
   const selected=crawlParsedData.filter(d=>d._checked);
   if(!selected.length){alert('선택된 항목이 없어요!');return;}
+
+  // 🔴 갈 곳 없는 항목은 confirm 으로도 통과시키지 않는다. (사장님 지적 2026-08-10)
+  //   눌러도 인스타 메인만 열리는 카드가 72건 등록돼 있었다. 경고만으론 또 통과된다.
+  const noLink=selected.filter(d=>!d.insta && !/^https?:\/\//.test(d.pay_link||''));
+  if(noLink.length){
+    alert(`연결할 곳이 없는 항목 ${noLink.length}건은 등록할 수 없어요.\n\n`
+      + `카페 목록을 붙여넣을 때 **게시글 번호 줄**이 같이 복사돼야 카페 글로 연결돼요.\n`
+      + `(번호 없이 제목만 복사하면 이렇게 됩니다)\n\n`
+      + `· ${noLink.slice(0,5).map(d=>d.name).join('\n· ')}${noLink.length>5?`\n… 외 ${noLink.length-5}건`:''}\n\n`
+      + `번호를 포함해 다시 복사하거나, 항목별로 인스타 핸들을 채워 주세요.`);
+    return;
+  }
 
   // 사전 검증
   const warnSel=selected.filter(d=>crawlWarn(d));

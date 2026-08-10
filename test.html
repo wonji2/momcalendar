@@ -1101,7 +1101,12 @@ async function loadData() {
       openDate: r.open_date || '',
       endDate: r.end_date || '',
       payLink: (r.pay_link || '').trim(),
-    })).filter(d => d.name && d.openDate);
+    })).filter(d => d.name && d.openDate)
+    // ⚠️ 갈 곳이 없는 카드는 아예 안 보여준다. (사장님 지적 2026-08-10)
+    //    핸들도 결제·카페 링크도 없으면 눌러봐야 인스타 메인만 열린다.
+    //    "또또맘 인기간식" 이 그랬다. 카페 크롤러가 게시글 번호를 못 읽으면 이렇게 등록된다.
+    //    데이터는 그대로 두고 화면에서만 뺀다 → 관리자에서 링크를 채우면 곧바로 다시 보인다.
+      .filter(d => d.insta || /^https?:\/\//i.test(d.payLink));
     try{ localStorage.setItem(_GGKEY, JSON.stringify({date:todayStr, ts:Date.now(), data:DATA})); }catch(_){}
     console.log(`✅ Supabase ${DATA.length}건 로드`);
   } catch(e) {
@@ -1269,9 +1274,13 @@ function renderCard(item){
   //    8/3 에 사장님이 "카드 727장 전부 겹친다" 고 지적한 그 건이다.
   const stPad = stTxt ? Math.max(48, Math.round(23 + stTxt.length*10.6)) : 48;
 
+  // ⚠️ 핸들이 없을 때 인스타 검색 주소로 보내면 안 된다.
+  //    앱으로 전환되면서 검색어가 버려져 **인스타 메인 화면**만 열린다
+  //    (사장님 지적 2026-08-10 "또또맘 인기간식 눌렀는데 인스타 메인으로만 이동").
+  //    그런 카드는 위 loadData 에서 이미 걸러지지만, 여기서도 우리 카페로 보내 두 겹으로 막는다.
   const instaUrl = item.insta
     ? `https://instagram.com/${item.insta}`
-    : `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(item.influencer||item.name)}`;
+    : 'https://cafe.naver.com/momcal';
   // 셀러명: 한글명 있으면 한글명, 없으면 아이디(@ 제거)
   const seller = (item.influencer && !item.influencer.startsWith('@')) ? item.influencer : normHandle(item.insta);
   const period = `${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
