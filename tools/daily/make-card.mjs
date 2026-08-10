@@ -68,14 +68,14 @@ const label = `${d.getMonth() + 1}월 ${d.getDate()}일(${'일월화수목금토
 // 처리되면 이 상수를 비워 두면 사라진다. (todo/README 로 관리하지 않는 이유: 파일이 늘면 안 본다)
 const TODO = {
   until: '2026-08-20',
-  title: '네이버 쇼핑 API 키 발급 (무료·5분)',
-  body: `핫딜이 진짜 싼지 <b>네이버 최저가와 대조</b>하려면 키가 필요합니다.
-    <a href="https://developers.naver.com/apps/#/register" target="_blank">developers.naver.com</a> →
-    애플리케이션 등록 → 사용 API <b>검색</b> 체크 → 환경 <b>WEB</b>, 서비스 URL <code>https://momcalendar.com</code><br>
-    나온 <b>Client ID / Client Secret</b> 을 Supabase 시크릿에
-    <code>NAVER_CLIENT_ID</code> / <code>NAVER_CLIENT_SECRET</code> 으로 넣어주세요(토스 키 넣으신 곳).<br>
-    넣어주시면 살아있는 핫딜 전부를 돌려 <b>그람수·용량·수량까지 똑같은 것만</b> 골라내
-    매칭률을 실측해 보고드립니다. (색상은 안 따집니다 — 사장님 지시 2026-08-09)`,
+  title: '링크프라이스 · 오늘의집 제휴 신청 (각 5분)',
+  body: `핫딜을 우리 수익링크로 바꿀 수 있는 곳을 늘리는 일입니다.<br>
+    ① <b>링크프라이스</b> 로그인 → 머천트 검색 → <b>오늘의집·SSG</b> 제휴 신청
+    (지마켓·옥션·11번가·보리보리는 이미 열려 있습니다. 오늘의집은 "승인되지 않은 링크"로 막혀 있어요)<br>
+    ② <b>오늘의집 큐레이터</b> → 정산 정보가 아직 <b>미등록</b>이라 리워드가 지급되지 않습니다.
+    <a href="https://ohou.se/curator/activity" target="_blank">ohou.se/curator/activity</a> 하단에서 등록해 주세요.<br>
+    ③ 오늘의집 상품 아무거나 <b>공유 → 링크 복사</b> 한 번만 해서 보내주시면,
+    그 형식을 보고 자동 변환을 붙이겠습니다.`,
 };
 const todoHtml = (TODO.title && day <= TODO.until)
   ? `<div class="todo"><b>사장님 확인 부탁드려요 · ${TODO.title}</b><p>${TODO.body}</p></div>`
