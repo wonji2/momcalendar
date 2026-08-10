@@ -278,24 +278,29 @@ async function doSignup(){
   if(pw.length<6){ msg.textContent='비밀번호는 6자 이상으로 입력하세요.'; return; }
   if(pw!==pw2){ msg.textContent='비밀번호가 일치하지 않아요.'; return; }
   msg.textContent='가입 중…';
+  // ⚠️ /auth/v1/signup 은 못 쓴다. 7/23 보안 정비 때 공개 회원가입(disable_signup)을 껐기 때문에
+  //    항상 "Signups not allowed for this instance" 가 뜬다(사장님 지적 2026-08-10).
+  //    → 가입코드를 서버에서 확인하고 계정을 만들어 주는 staff-signup 을 쓴다.
+  //    계정만 생기고 권한은 없다. 사장님이 스탭 관리에서 승인해야 쓸 수 있다.
   try{
-    const res=await fetch(`${SB_URL}/auth/v1/signup`,{
+    const res=await fetch(`${SB_URL}/functions/v1/staff-signup`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:idToEmail(idRaw), password:pw, code:code})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){ msg.textContent = data.error || ('가입 실패 (오류 '+res.status+')'); return; }
+    // 만들어졌으니 곧바로 로그인시킨다
+    const lr=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
       method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
       body:JSON.stringify({email:idToEmail(idRaw),password:pw})
     });
-    const data=await res.json();
-    if(!res.ok){
-      const m=(data&&(data.msg||data.message||data.error_description||data.error||''))||'';
-      if(/registered|exists|already/i.test(m)) msg.textContent='이미 가입된 아이디예요. 로그인해 주세요.';
-      else msg.textContent='가입 실패: '+(m||('오류 '+res.status));
-      return;
-    }
-    if(data.access_token){
-      ACCESS_TOKEN=data.access_token; saveSession(data);
-      alert('가입 완료! 바로 로그인됩니다 🎉'); enterApp();
+    const ld=await lr.json().catch(()=>({}));
+    if(lr.ok && ld.access_token){
+      ACCESS_TOKEN=ld.access_token; saveSession(ld);
+      alert('가입 완료!\n사장님이 승인하면 체험단·인스타 카드를 쓸 수 있어요.'); enterApp();
     }else{
       msg.style.color='#0F6E56';
-      msg.textContent='가입은 됐어요. 다만 자동 로그인이 안 되면 Supabase에서 이메일 인증(Confirm email)을 꺼야 해요. 로그인 화면에서 같은 아이디로 로그인해 보세요.';
+      msg.textContent='가입됐어요. 로그인 화면에서 같은 아이디로 로그인해 주세요.';
     }
   }catch(e){ msg.textContent='가입 오류: '+(e&&e.message||e); }
 }
