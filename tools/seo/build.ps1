@@ -45,6 +45,28 @@ if(@($D.brands).Count -lt 100 -or @($D.sellers).Count -lt 50){
 $N_TOTAL = [int]$D.stat.total; $N_SELLERS = [int]$D.stat.sellers
 $fmtTotal = '{0:N0}' -f $N_TOTAL; $fmtSellers = '{0:N0}' -f $N_SELLERS
 
+# ── lastmod 위생: 지우기 전에 '지금 있는 것' 을 찍어둔다 ──
+# 내용이 안 바뀐 페이지까지 매일 오늘 날짜로 내보내면 크롤러가 우리 신호를 안 믿는다.
+# 그래서 ① 옛 sitemap 의 lastmod 와 ② 옛 파일 해시를 먼저 모아두고,
+# 새로 만든 파일이 옛것과 같으면 옛 날짜를 그대로 쓴다.
+$PrevMod = @{}; $PrevHash = @{}
+foreach($sm in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','sitemap-seller.xml')){
+  $p = Join-Path $Root $sm
+  if(-not (Test-Path $p)){ continue }
+  try{
+    $x = [xml][IO.File]::ReadAllText($p)
+    foreach($u in $x.urlset.url){
+      $rel = [uri]::UnescapeDataString(($u.loc -replace '^https://momcalendar\.com/',''))
+      if($rel -ne '' -and $u.lastmod){ $PrevMod[$rel] = "$($u.lastmod)" }
+    }
+  }catch{ Write-Output "옛 sitemap 읽기 실패(무시): $sm" }
+}
+foreach($rel in @($PrevMod.Keys)){
+  $fp = Join-Path $Root $rel
+  if(Test-Path -LiteralPath $fp){ $PrevHash[$rel] = (Get-FileHash -LiteralPath $fp -Algorithm MD5).Hash }
+}
+Write-Output "옛 lastmod $($PrevMod.Count)개 · 해시 $($PrevHash.Count)개 확보"
+
 # ── 폴더 초기화 (사라진 항목의 옛 페이지가 고아로 남지 않게) ──
 # ⚠ 반복 변수를 $d 로 쓰면 안 된다. PowerShell 은 대소문자를 구분하지 않아
 #   데이터가 담긴 $D 를 덮어써 버린다(실제로 한 번 당했다).
@@ -482,7 +504,22 @@ function WriteSitemap([string]$file, $urls, [string]$pri, [string]$freq){
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
   [void]$sb.AppendLine('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-  foreach($u in $urls){ [void]$sb.AppendLine("<url><loc>$SITE/$u</loc><lastmod>$today</lastmod><changefreq>$freq</changefreq><priority>$pri</priority></url>") }
+  foreach($u in $urls){
+    # lastmod 는 **내용이 실제로 바뀐 날**이어야 한다.
+    # 예전엔 6,900개 전부에 오늘 날짜를 박았다. 내용이 그대로인데 매일 "수정됨" 이라고 하면
+    # 크롤러가 우리 신호를 안 믿게 되고 크롤링 우선순위가 밀린다.
+    # → 파일이 이번 실행에서 정말 바뀌었는지 보고, 안 바뀌었으면 옛 날짜를 그대로 쓴다.
+    $lm = $today
+    $rel = [uri]::UnescapeDataString($u)
+    if($PrevMod.ContainsKey($rel) -and $PrevHash.ContainsKey($rel)){
+      $fp = Join-Path $Root $rel
+      if(Test-Path -LiteralPath $fp){
+        $h = (Get-FileHash -LiteralPath $fp -Algorithm MD5).Hash
+        if($h -eq $PrevHash[$rel]){ $lm = $PrevMod[$rel] }   # 내용 그대로 → 옛 날짜 유지
+      }
+    }
+    [void]$sb.AppendLine("<url><loc>$SITE/$u</loc><lastmod>$lm</lastmod><changefreq>$freq</changefreq><priority>$pri</priority></url>")
+  }
   [void]$sb.AppendLine('</urlset>')
   [IO.File]::WriteAllText((Join-Path $Root $file), $sb.ToString(), [Text.UTF8Encoding]::new($false))
 }
