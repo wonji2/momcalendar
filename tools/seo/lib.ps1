@@ -185,6 +185,61 @@ function LdItemList([string]$name, $items, [int]$max){
   return "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}ItemList${Q},${Q}name${Q}:${Q}$(JsonEsc $name)${Q},${Q}numberOfItems${Q}:$($el.Count),${Q}itemListElement${Q}:[$($el -join ',')]}"
 }
 
+# 본문 보강 — 참여 방법 + 자주 묻는 질문 (2026-08-11)
+#
+# 왜: 집계 문구를 걷어내니 본문이 얇아져 검색 순위가 위태로워졌다.
+#     집계는 사장님이 크몽에 팔 자산이라 못 쓴다 → **자산이 아닌 내용**으로 분량을 채운다.
+# 쓰는 것: 화면에 이미 보이는 날짜, 참여 방법 안내, 자주 묻는 질문.
+# ⚠ 안 쓰는 것: 셀러 수 · 진행 횟수 · 팔로워 수 · 첫/최근 공구일 · 품목 랭킹.
+#   이건 '이 시장이 어떻게 돌아가는가' 를 알려주는 값이라 곧 상품이다.
+# ⚠ 4,500개 페이지에 같은 글이 깔리면 중복으로 취급된다 →
+#   이름을 넣고, 진행중/곧열림/없음 상태에 따라 문장을 갈라 쓴다.
+function ExtraBody([string]$name, [string]$kind, $live, $soon, $past){
+  $q = [char]34
+  $nearest = ''
+  if($live.Count -gt 0){ $nearest = "$($live[0].od)" }
+  elseif($soon.Count -gt 0){ $nearest = "$($soon[0].od)" }
+
+  $steps = @()
+  if($live.Count -gt 0){
+    $steps += @{ t="1. 진행 중인 $name 공구를 고른다"; d="위 목록 맨 위가 지금 열려 있는 공구입니다. 상품명 아래에 셀러 이름과 마감일이 적혀 있습니다." }
+  } elseif($soon.Count -gt 0){
+    $steps += @{ t="1. 곧 열리는 $name 공구를 확인한다"; d="가장 가까운 일정은 $nearest 오픈입니다. 오픈일 전에 셀러 계정을 팔로우해 두면 알림을 놓치지 않습니다." }
+  } else {
+    $steps += @{ t="1. 지난 $name 공구 주기를 본다"; d="아래 지난 일정을 보면 이 브랜드가 대략 어느 간격으로 열리는지 가늠할 수 있습니다." }
+  }
+  $steps += @{ t='2. 카드를 눌러 셀러 인스타그램으로 간다'; d='공구는 셀러가 각자 인스타그램 계정에서 진행합니다. 카드를 누르면 해당 셀러 계정으로 바로 이동합니다.' }
+  $steps += @{ t='3. 마감일 전에 신청한다'; d='공구는 기간이 짧습니다. 대부분 3~7일이고, 마감이 지나면 정가로 돌아갑니다.' }
+
+  $faq = @()
+  $faq += @{ q="$name 공구는 어디서 하나요?";
+             a="인스타그램 셀러들이 각자 계정에서 진행합니다. 이 페이지 목록에서 셀러를 고르고 카드를 누르면 그 셀러의 인스타그램으로 이동합니다." }
+  $faq += @{ q="$name 공구 일정은 어떻게 확인하나요?";
+             a="이 페이지에서 오픈일과 마감일을 볼 수 있습니다. 맘캘린더는 매일 갱신되므로 새 일정이 잡히면 여기에 함께 올라옵니다." }
+  if($live.Count -gt 0){
+    $faq += @{ q="지금 $name 공구가 진행 중인가요?";
+               a="네, 지금 열려 있는 공구가 이 페이지 맨 위에 있습니다. 마감일을 확인하고 기간 안에 신청하세요." }
+  } elseif($soon.Count -gt 0){
+    $faq += @{ q="$name 공구는 언제 열리나요?";
+               a="가장 가까운 일정은 $nearest 오픈입니다. 오픈일에 맞춰 셀러 계정을 확인하시면 됩니다." }
+  } else {
+    $faq += @{ q="지금 진행 중인 $name 공구가 없으면 어떻게 하나요?";
+               a="아래 지난 일정을 보면 대략 어느 간격으로 열리는지 알 수 있습니다. 한 셀러가 끝내면 다른 셀러가 이어서 여는 경우도 많으니 며칠 뒤 다시 확인해 보세요." }
+  }
+  if($past.Count -gt 0){
+    $faq += @{ q="지난 $name 공구도 볼 수 있나요?";
+               a="네, 이 페이지 아래에 지난 일정이 날짜순으로 남아 있습니다. 어느 셀러가 언제 진행했는지 확인할 수 있습니다." }
+  }
+
+  $h = "<div class=${Q}sec${Q}><h2>$(HtmlEsc $name) 공구 참여 방법</h2>"
+  foreach($s in $steps){ $h += "<div class=${Q}stp${Q}><b>$(HtmlEsc $s.t)</b><span>$(HtmlEsc $s.d)</span></div>" }
+  $h += '</div>'
+  $h += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
+  foreach($f in $faq){ $h += "<div class=${Q}faq${Q}><b>$(HtmlEsc $f.q)</b><span>$(HtmlEsc $f.a)</span></div>" }
+  $h += '</div>'
+  return @{ html=$h; faq=@($faq | ForEach-Object { [pscustomobject]@{ q=$_.q; a=$_.a } }) }
+}
+
 # FAQPage JSON-LD
 function LdFaq($faq){
   if(-not $faq -or $faq.Count -eq 0){ return $null }

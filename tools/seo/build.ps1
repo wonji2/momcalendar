@@ -144,6 +144,8 @@ foreach($b in $brandList){
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
+  $ex = ExtraBody $b.brand '브랜드' $live $soon $past
+  $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>다른 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($t in $topBrands){ if($t.slug -ne $b.slug){ $body += "<a href=${Q}/g/$(Enc $t.slug).html${Q}>$(HtmlEsc $t.brand) 공구</a>" } }
   $body += '</div></div>'
@@ -151,6 +153,8 @@ foreach($b in $brandList){
   $ld = New-Object System.Collections.ArrayList
   $l1 = LdItemList "$($b.brand) 공구 일정" ($live + $past) 25
   if($l1){ [void]$ld.Add($l1) }
+  $lf = LdFaq $ex.faq
+  if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($b.brand) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
     h1="$($b.brand) 공구 일정"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
@@ -181,6 +185,8 @@ foreach($p in $prodList){
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
+  $ex = ExtraBody $p.key '제품' $live $soon $past
+  $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>관련 공구</h2><div class=${Q}rel${Q}>"
   if($brandSlug.ContainsKey($p.brand)){ $body += "<a href=${Q}/g/$(Enc $brandSlug[$p.brand]).html${Q}>$(HtmlEsc $p.brand) 전체 공구</a>" }
   if($prodMap.ContainsKey($p.brand)){
@@ -193,6 +199,8 @@ foreach($p in $prodList){
   $ld = New-Object System.Collections.ArrayList
   $l1 = LdItemList "$($p.key) 공구 일정" ($live + $past) 25
   if($l1){ [void]$ld.Add($l1) }
+  $lf = LdFaq $ex.faq
+  if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($p.key) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "p/$($p.slug).html"); title=$title; desc=$desc; canon=$canon;
     h1="$($p.key) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($p.key) 공구" }
@@ -226,6 +234,8 @@ foreach($s in $D.sellers){
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $false $sHref) + '</div>' }
   if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 공구</h2>" + (CardsHtml $soon 20 $false $false $sHref) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 공구</h2>" + (CardsHtml $past 40 $false $false $sHref) + '</div>' }
+  $ex = ExtraBody $s.kor '셀러' $live $soon $past
+  $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>인기 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 20)){
     $body += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand) 공구</a>"
@@ -235,6 +245,8 @@ foreach($s in $D.sellers){
   $ld = New-Object System.Collections.ArrayList
   $l1 = LdItemList "$($s.kor) 공구 일정" ($live + $past) 25
   if($l1){ [void]$ld.Add($l1) }
+  $lf = LdFaq $ex.faq
+  if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($s.kor) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "s/$slug.html"); title=$title; desc=$desc; canon=$canon;
     h1="$($s.kor) 공구 일정"; sub="@$($s.insta)"; body=$body; jsonld=$ld; bcName="$($s.kor) 공구" }
@@ -261,10 +273,14 @@ foreach($m in $D.minors){
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
   if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $soon 20 $false $true) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $past 30 $false $true) + '</div>' }
+  $ex = ExtraBody $m.minor '소분류' $live $soon $past
+  $body += $ex.html
 
   $ld = New-Object System.Collections.ArrayList
   $l1 = LdItemList "$($m.minor) 공구" ($live + $past) 25
   if($l1){ [void]$ld.Add($l1) }
+  $lf = LdFaq $ex.faq
+  if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($m.minor) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "m/$slug.html"); title=$title; desc=$desc; canon=$canon;
     h1="$($m.minor) 공구"; sub="$($m.major) 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($m.minor) 공구" }
