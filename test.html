@@ -103,6 +103,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .minor-list{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 12px 36px}
 .minor-chip{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--border);background:#fff;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s}
 .minor-chip.on{color:#fff;border-color:transparent}
+/* 검색 유입용 내부 링크 — 눈에 거슬리지 않게 하단에 조용히. 손님보다 크롤러가 주 독자다. */
+.seolinks{max-width:480px;margin:0 auto;padding:16px 16px 0}
+.seolinks-t{font-size:11px;font-weight:800;color:#B3A8C4;letter-spacing:.04em;margin:10px 0 7px}
+.seolinks-row{display:flex;flex-wrap:wrap;gap:6px}
+.seolinks-row a{font-size:12px;color:#7A6394;background:#F5F0FB;border:1px solid #EBE2F7;
+  border-radius:999px;padding:5px 11px;text-decoration:none;line-height:1.3}
+.seolinks-row a:active{background:#EBE2F7}
 .side-footer{flex-shrink:0;border-top:1px solid var(--border);padding:10px 0 4px}
 .side-footer-title{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.08em;padding:4px 16px 6px}
 .side-link{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border:none;background:none;font-family:inherit;width:100%;font-size:13px;font-weight:600;color:var(--t1);text-decoration:none;transition:.15s}
@@ -871,7 +878,7 @@ window.slimAdClick=function(id){
       </div>
       <a class="modal-kakao-btn" href="/register.html#signup" target="_blank" style="background:#4A35A0;color:#fff;margin-bottom:8px;text-decoration:none">🛍️ ① 셀러 가입하기</a>
       <a class="modal-kakao-btn" href="https://ig.me/m/momcal_" target="_blank" style="background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;margin-bottom:8px;text-decoration:none">📷 ② @momcal_ 로 인증 DM 보내기</a>
-      <a class="modal-kakao-btn" href="/register.html" target="_blank" style="background:#EEE9FF;color:#4A35A0;margin-bottom:8px;text-decoration:none">🔑 이미 가입했다면 · 로그인</a>
+      <a class="modal-kakao-btn" href="/%72%65%67%69%73%74%65%72.html" target="_blank" style="background:#EEE9FF;color:#4A35A0;margin-bottom:8px;text-decoration:none">🔑 이미 가입했다면 · 로그인</a>
     </div>
     <!-- 광고·제휴 (메일) -->
     <div class="ppane" id="ppane2">
@@ -4049,6 +4056,38 @@ function closeChatMenu(){
   </button>
 </div>
 
+
+<!-- ── 검색 유입용 내부 링크 (2026-08-11) ──────────────────────────────
+     왜 넣었나: 검색 노출 페이지 6,953개가 사이트맵으로만 발견되고 있었다.
+       홈에서 그쪽으로 가는 링크가 **0개**라 크롤러가 "중요하지 않은 페이지"로 본다.
+       실측: 맘캘린더 1위·공구일정 2위인데 "무아스 공구" 같은 브랜드 검색은 노출 없음.
+     ⚠ 반드시 **정적 <a href>** 여야 한다. JS 로 그리면 크롤러가 못 읽어 넣으나 마나다.
+     ⚠ 링크 대상은 **날짜가 안 들어간 고정 주소**만 쓴다. 매달 바뀌는 /d/2026-08 같은 걸 걸면
+        홈을 매달 고쳐야 하고, 그건 고정 규칙 0-A(라이브 직접 수정 금지)와 충돌한다.
+        브랜드·셀러·제품 목록은 허브 3개가 매일 자동 갱신되므로 홈은 한 번만 고치면 된다. -->
+<nav class="seolinks" aria-label="공구 일정 모아보기">
+  <div class="seolinks-t">공구 일정 모아보기</div>
+  <div class="seolinks-row">
+    <a href="/%EA%B3%B5%EA%B5%AC%EB%B8%8C%EB%9E%9C%EB%93%9C.html">브랜드별</a>
+    <a href="/%EA%B3%B5%EA%B5%AC%EC%85%80%EB%9F%AC.html">셀러별</a>
+    <a href="/%EA%B3%B5%EA%B5%AC%EC%A0%9C%ED%92%88.html">제품별</a>
+    <a href="/%EA%B3%B5%EA%B5%AC%EC%9D%BC%EC%A0%95.html">공구 일정</a>
+    <a href="/%EC%9D%B8%EC%8A%A4%ED%83%80%EA%B3%B5%EA%B5%AC.html">인스타 공구</a>
+  </div>
+  <div class="seolinks-t">분야별</div>
+  <div class="seolinks-row">
+    <a href="/c/%EC%9C%A1%EC%95%84%EA%B3%B5%EA%B5%AC.html">육아</a>
+    <a href="/c/%EB%A6%AC%EB%B9%99%EA%B3%B5%EA%B5%AC.html">리빙</a>
+    <a href="/c/%EC%8B%9D%ED%92%88%EA%B3%B5%EA%B5%AC.html">식품</a>
+    <a href="/c/%EA%B0%80%EC%A0%84%EA%B3%B5%EA%B5%AC.html">가전</a>
+    <a href="/c/%EB%B7%B0%ED%8B%B0%EA%B3%B5%EA%B5%AC.html">뷰티</a>
+    <a href="/c/%EA%B1%B4%EA%B0%95%EA%B3%B5%EA%B5%AC.html">건강</a>
+    <a href="/c/%ED%8C%A8%EC%85%98%EA%B3%B5%EA%B5%AC.html">패션</a>
+    <a href="/c/%EC%97%AC%ED%96%89%EA%B3%B5%EA%B5%AC.html">여행</a>
+    <a href="/c/%EC%83%9D%ED%95%84%ED%92%88%EA%B3%B5%EA%B5%AC.html">생필품</a>
+    <a href="/c/%EB%B0%98%EB%A0%A4%EB%8F%99%EB%AC%BC%EA%B3%B5%EA%B5%AC.html">반려동물</a>
+  </div>
+</nav>
 
 <!-- 사업자 정보 푸터 (접힘) -->
 <div style="max-width:480px;margin:0 auto;padding:18px 16px 90px;text-align:center">
