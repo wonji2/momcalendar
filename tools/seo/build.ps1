@@ -82,11 +82,31 @@ $brandSlug = @{}
 foreach($b in $brandList){ if(-not $brandSlug.ContainsKey($b.brand)){ $brandSlug[$b.brand] = $b.slug } }
 $topBrands = $brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 24
 
+# ══ 셀러 슬러그 먼저 ══
+# 카드에서 셀러 페이지로 링크하려면 주소를 미리 알아야 한다.
+# ⚠ insta 를 그대로 쓰면 안 된다 — 셀러 페이지 파일명은 SlugOf 를 거친 값이라 다를 수 있고,
+#   셀러 목록에 없는 insta 도 있다. 그대로 링크했다가 깨진 내부링크가 327개 났다(2026-08-11).
+$seenS = @{}; $SellerSlug = @{}; $korCount = @{}; $korSlug = @{}
+foreach($s in $D.sellers){
+  $sl = SlugOf $s.insta $seenS '-s'
+  if([string]::IsNullOrWhiteSpace($sl)){ continue }
+  if(-not $SellerSlug.ContainsKey($s.insta)){ $SellerSlug[$s.insta] = $sl }
+  # 소분류·월별 페이지는 데이터에 insta 가 없고 한글명(who)만 있다.
+  # 이름이 겹치지 않는 셀러에 한해 이름으로도 찾아갈 수 있게 둔다(겹치면 링크를 안 건다).
+  if($s.kor){
+    $k = "$($s.kor)"
+    $korCount[$k] = 1 + $(if($korCount.ContainsKey($k)){ $korCount[$k] } else { 0 })
+    $korSlug[$k] = $sl
+  }
+}
+$SellerByKor = @{}
+foreach($k in $korCount.Keys){ if($korCount[$k] -eq 1){ $SellerByKor[$k] = $korSlug[$k] } }
+
 # ══ 브랜드 페이지 ══
 foreach($b in $brandList){
   $rows = ParseRows $b.raw @('who','name','od','ed','insta')
-  $live = @($rows | Where-Object { $_.ed -ge $today })
-  $past = @($rows | Where-Object { $_.ed -lt $today })
+  $sp = SplitNow $rows $today
+  $live = $sp.now; $soon = $sp.soon; $past = $sp.past
   $tp = @(); if($b.topprods){ $tp = @($b.topprods -split '\|' | Where-Object { $_ -and $_ -ne $b.brand }) }
   $tpTxt = ''; if($tp.Count -gt 0){ $tpTxt = ($tp | Select-Object -First 3) -join '·' }
 
@@ -101,11 +121,15 @@ foreach($b in $brandList){
   $lead = "$($b.brand) 공동구매는 인스타 셀러 $($b.sellers)명이 지금까지 $($b.cnt)번 진행했습니다."
   if($tpTxt){ $lead += " 주로 나온 품목은 $tpTxt 입니다." }
   if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
+  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
   else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정을 보면 다음 공구 시기를 가늠할 수 있습니다." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>'
+  }
+  if($soon.Count -gt 0){
+    $body += "<div class=${Q}sec${Q}><h2>곧 열리는 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $soon 20 $false $true) + '</div>'
   }
   if($prodMap.ContainsKey($b.brand)){
     $ps = @($prodMap[$b.brand] | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false})
@@ -133,8 +157,8 @@ foreach($b in $brandList){
 # ══ 브랜드 × 제품 페이지 ══
 foreach($p in $prodList){
   $rows = ParseRows $p.raw @('name','who','od','ed','insta')
-  $live = @($rows | Where-Object { $_.ed -ge $today })
-  $past = @($rows | Where-Object { $_.ed -lt $today })
+  $sp = SplitNow $rows $today
+  $live = $sp.now; $soon = $sp.soon; $past = $sp.past
   $title = "$($p.key) 공구 | 공동구매 일정·진행중인 셀러 - 맘캘린더"
   $desc  = "$($p.key) 공구 일정. 인스타 셀러 $($p.sellers)명이 $($p.cnt)번 진행했습니다. 진행 중인 $($p.key) 공동구매와 지난 일정을 확인하세요."
   $canon = "p/$(Enc $p.slug).html"
@@ -142,6 +166,7 @@ foreach($p in $prodList){
   $lead = "$($p.key) 공동구매는 인스타 셀러 $($p.sellers)명이 $($p.cnt)번 진행했습니다."
   if($p.first -and $p.last){ $lead += " 처음 확인된 공구는 $($p.first), 가장 최근은 $($p.last) 입니다." }
   if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
+  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
   else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
@@ -150,6 +175,9 @@ foreach($p in $prodList){
   $body += '</div>'
   if($live.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>'
+  }
+  if($soon.Count -gt 0){
+    $body += "<div class=${Q}sec${Q}><h2>곧 열리는 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $soon 20 $false $true) + '</div>'
   }
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
@@ -172,13 +200,17 @@ foreach($p in $prodList){
 }
 
 # ══ 셀러 페이지 ══
-$seenS = @{}; $sellerMade = New-Object System.Collections.ArrayList
+# ⚠ 슬러그를 여기서 다시 만들면 안 된다. 위에서 만든 $SellerSlug 를 그대로 써야
+#   카드 링크 주소와 실제 파일명이 어긋나지 않는다.
+$sellerMade = New-Object System.Collections.ArrayList
 foreach($s in $D.sellers){
-  $slug = SlugOf $s.insta $seenS '-s'
+  $slug = $SellerSlug[$s.insta]
   if([string]::IsNullOrWhiteSpace($slug)){ continue }
   $rows = ParseRows $s.rows @('name','od','ed','major')
-  $live = @($rows | Where-Object { $_.ed -ge $today })
-  $past = @($rows | Where-Object { $_.ed -lt $today })
+  $sp = SplitNow $rows $today
+  $live = $sp.now; $soon = $sp.soon; $past = $sp.past
+  # 셀러 페이지 카드는 그 셀러 인스타로 보낸다(메인 사이트 카드와 같은 목적지)
+  $sHref = "https://www.instagram.com/$($s.insta)"
   $fw = 0; if($s.followers){ $fw = [int64]$s.followers }
 
   $title = "$($s.kor) 공구 일정 | 인스타 공동구매 $($s.cnt)건 - 맘캘린더"
@@ -187,7 +219,9 @@ foreach($s in $D.sellers){
   $lead = "$($s.kor)은(는) 인스타에서 공동구매를 진행하는 셀러입니다. 지금까지 확인된 공구는 $($s.cnt)건입니다."
   if($s.first_open){ $lead += " 맘캘린더에 기록된 첫 공구는 $($s.first_open) 입니다." }
   if($s.major){ $lead += " 주로 $($s.major) 분야를 다룹니다." }
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." } else { $lead += " 오늘 진행 중인 공구는 없습니다." }
+  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
+  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 공구는 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
+  else { $lead += " 오늘 진행 중인 공구는 없습니다." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   $body += "<div class=${Q}stat${Q}><div><b>$($s.cnt)</b>진행한 공구</div>"
@@ -195,8 +229,9 @@ foreach($s in $D.sellers){
   if($s.verified -eq $true){ $body += "<div><b>인증</b>공식 계정</div>" }
   if($s.major){ $body += "<div><b>$(HtmlEsc $s.major)</b>주력 분야</div>" }
   $body += '</div>'
-  if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $false) + '</div>' }
-  if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 공구</h2>" + (CardsHtml $past 40 $false $false) + '</div>' }
+  if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $false $sHref) + '</div>' }
+  if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 공구</h2>" + (CardsHtml $soon 20 $false $false $sHref) + '</div>' }
+  if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 공구</h2>" + (CardsHtml $past 40 $false $false $sHref) + '</div>' }
   $body += "<div class=${Q}sec${Q}><h2>인기 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 20)){
     $body += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand) 공구</a>"
@@ -217,17 +252,20 @@ $seenM = @{}; $minorMade = New-Object System.Collections.ArrayList; $catMap = @{
 foreach($m in $D.minors){
   $slug = SlugOf "$($m.minor)" $seenM '-m'
   if([string]::IsNullOrWhiteSpace($slug)){ continue }
-  $rows = ParseRows $m.rows @('name','who','od','ed')
-  $live = @($rows | Where-Object { $_.ed -ge $today })
-  $past = @($rows | Where-Object { $_.ed -lt $today })
+  $rows = ParseRows $m.rows @("name","who","od","ed")
+  $sp = SplitNow $rows $today
+  $live = $sp.now; $soon = $sp.soon; $past = $sp.past
   $title = "$($m.minor) 공구 | $($m.major) 공동구매 일정 - 맘캘린더"
   $desc  = "$($m.minor) 공구 일정. 인스타 셀러 $($m.sellers)명이 진행한 $($m.minor) 공동구매 $($m.cnt)건을 모았습니다."
   $canon = "m/$(Enc $slug).html"
   $lead = "$($m.major) 분야 중 $($m.minor) 공구입니다. 셀러 $($m.sellers)명이 지금까지 $($m.cnt)건을 진행했습니다."
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." } else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정을 참고하세요." }
+  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
+  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
+  else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정을 참고하세요." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
+  if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $soon 20 $false $true) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $past 30 $false $true) + '</div>' }
 
   $ld = New-Object System.Collections.ArrayList
@@ -252,8 +290,9 @@ $ymAll = @($D.months | ForEach-Object { $_.ym } | Sort-Object)
 $monthMade = New-Object System.Collections.ArrayList
 foreach($mm in $D.months){
   $ym = $mm.ym; $yy = $ym.Substring(0,4); $mo = [int]$ym.Substring(5,2)
-  $rows = ParseRows $mm.rows @('name','who','od','ed','major')
-  $live = @($rows | Where-Object { $_.ed -ge $today })
+  $rows = ParseRows $mm.rows @("name","who","od","ed","major")
+  $sp = SplitNow $rows $today
+  $live = $sp.now; $soon = $sp.soon
   $isPast = ($ym -lt $thisYm)
   $canon = "d/$ym.html"
 
@@ -267,6 +306,7 @@ foreach($mm in $D.months){
     $lead  = "${yy}년 ${mo}월 공구 일정입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
   }
   if($live.Count -gt 0){ $lead += " 그중 $($live.Count)건은 오늘도 진행 중입니다." }
+  elseif($soon.Count -gt 0 -and -not $isPast){ $lead += " 그중 $($soon.Count)건은 아직 오픈 전입니다." }
 
   $body = ''
   if($isPast){

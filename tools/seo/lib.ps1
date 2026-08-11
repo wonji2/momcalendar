@@ -48,9 +48,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun 
 .sec{margin-top:24px}
 .sec h2{font-size:16.5px;margin-bottom:10px;color:#5B3A8C}
 .sec p{font-size:14.5px;color:#3E374C;margin-bottom:11px}
-.card{background:#fff;border:1px solid #ECE7F3;border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.card{background:#fff;border:1px solid #ECE7F3;border-radius:12px;padding:12px 14px;margin-bottom:8px;
+  display:block;text-decoration:none;color:inherit}
 .card b{font-size:14px;display:block;margin-bottom:3px}
 .card span{font-size:12.5px;color:#7A7286}
+a.card:active{background:#F7F3FD}
+a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .live{border-color:#C9A8E8;background:#F8F4FD}
 .stp{background:#fff;border:1px solid #ECE7F3;border-radius:12px;padding:13px 15px;margin-bottom:9px}
 .stp b{display:block;font-size:14.5px;color:#5B3A8C;margin-bottom:4px}
@@ -113,8 +116,22 @@ function WritePage([hashtable]$o){
   [IO.File]::WriteAllText($o.path, $sb.ToString(), [Text.UTF8Encoding]::new($false))
 }
 
+# 오늘 기준 3분류
+# ⚠ 예전엔 '마감 >= 오늘' 을 전부 진행중으로 셌다. 그래서 8/11 에 8/28 오픈 건이
+#   "오늘 기준 2건 진행 중" 으로 나왔다(사장님 지적 2026-08-11). 오픈일도 같이 봐야 한다.
+function SplitNow($items, [string]$today){
+  return @{
+    now  = @($items | Where-Object { $_.od -le $today -and $_.ed -ge $today })
+    soon = @($items | Where-Object { $_.od -gt $today })
+    past = @($items | Where-Object { $_.ed -lt $today })
+  }
+}
+
 # 공구 목록 카드 HTML
-function CardsHtml($items, [int]$max, [bool]$isLive, [bool]$withWho){
+# ⚠ 예전엔 그냥 <div> 라 눌러도 아무 반응이 없었다(사장님 지적 2026-08-11).
+#   갈 곳이 있으면 <a> 로 낸다. 목적지는 우리 셀러 페이지 → 내부링크라 크롤러도 타고 간다.
+#   $fixedHref 를 주면 그 주소로 통일한다(셀러 페이지에선 그 셀러 인스타로).
+function CardsHtml($items, [int]$max, [bool]$isLive, [bool]$withWho, [string]$fixedHref = ''){
   $s = ''
   $n = 0
   foreach($x in $items){
@@ -122,7 +139,21 @@ function CardsHtml($items, [int]$max, [bool]$isLive, [bool]$withWho){
     $cls = if($isLive){ 'card live' } else { 'card' }
     $meta = "$($x.od) ~ $($x.ed)"
     if($withWho -and $x.who){ $meta = "$(HtmlEsc $x.who) · $meta" }
-    $s += "<div class=${Q}$cls${Q}><b>$(HtmlEsc $x.name)</b><span>$meta</span></div>"
+    $inner = "<b>$(HtmlEsc $x.name)</b><span>$meta</span>"
+    $href = ''
+    if($fixedHref){ $href = $fixedHref }
+    elseif($x.PSObject.Properties['insta'] -and $x.insta -and
+           $SellerSlug -and $SellerSlug.ContainsKey($x.insta)){
+      # ⚠ insta 가 아니라 셀러 페이지의 실제 슬러그로 링크한다. 목록에 없는 셀러면 링크를 안 건다.
+      $href = "/s/$(Enc $SellerSlug[$x.insta]).html"
+    }
+    elseif($x.PSObject.Properties['who'] -and $x.who -and
+           $SellerByKor -and $SellerByKor.ContainsKey("$($x.who)")){
+      # 소분류·월별 페이지는 insta 가 없다. 이름이 겹치지 않는 셀러만 이름으로 찾아간다.
+      $href = "/s/$(Enc $SellerByKor["$($x.who)"]).html"
+    }
+    if($href){ $s += "<a class=${Q}$cls${Q} href=${Q}$href${Q}>$inner</a>" }
+    else     { $s += "<div class=${Q}$cls${Q}>$inner</div>" }
     $n++
   }
   return $s
