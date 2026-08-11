@@ -129,8 +129,9 @@ function SplitNow($items, [string]$today){
 
 # 공구 목록 카드 HTML
 # ⚠ 예전엔 그냥 <div> 라 눌러도 아무 반응이 없었다(사장님 지적 2026-08-11).
-#   갈 곳이 있으면 <a> 로 낸다. 목적지는 우리 셀러 페이지 → 내부링크라 크롤러도 타고 간다.
-#   $fixedHref 를 주면 그 주소로 통일한다(셀러 페이지에선 그 셀러 인스타로).
+# ⚠ 목적지는 **셀러 인스타**다. 처음엔 우리 셀러 페이지로 보냈는데,
+#   사장님 지시(2026-08-11) — 집계 정보는 크몽에 팔 자산이라 굳이 보여주지 말고
+#   카드는 바로 인스타로 보낼 것. 그래서 내부 순환을 끊고 인스타로 직행시킨다.
 function CardsHtml($items, [int]$max, [bool]$isLive, [bool]$withWho, [string]$fixedHref = ''){
   $s = ''
   $n = 0
@@ -142,17 +143,15 @@ function CardsHtml($items, [int]$max, [bool]$isLive, [bool]$withWho, [string]$fi
     $inner = "<b>$(HtmlEsc $x.name)</b><span>$meta</span>"
     $href = ''
     if($fixedHref){ $href = $fixedHref }
-    elseif($x.PSObject.Properties['insta'] -and $x.insta -and
-           $SellerSlug -and $SellerSlug.ContainsKey($x.insta)){
-      # ⚠ insta 가 아니라 셀러 페이지의 실제 슬러그로 링크한다. 목록에 없는 셀러면 링크를 안 건다.
-      $href = "/s/$(Enc $SellerSlug[$x.insta]).html"
+    elseif($x.PSObject.Properties['insta'] -and $x.insta){
+      $href = "https://www.instagram.com/$($x.insta)"
     }
     elseif($x.PSObject.Properties['who'] -and $x.who -and
            $SellerByKor -and $SellerByKor.ContainsKey("$($x.who)")){
       # 소분류·월별 페이지는 insta 가 없다. 이름이 겹치지 않는 셀러만 이름으로 찾아간다.
-      $href = "/s/$(Enc $SellerByKor["$($x.who)"]).html"
+      $href = "https://www.instagram.com/$($SellerByKor["$($x.who)"])"
     }
-    if($href){ $s += "<a class=${Q}$cls${Q} href=${Q}$href${Q}>$inner</a>" }
+    if($href){ $s += "<a class=${Q}$cls${Q} href=${Q}$href${Q} rel=${Q}nofollow noopener${Q}>$inner</a>" }
     else     { $s += "<div class=${Q}$cls${Q}>$inner</div>" }
     $n++
   }

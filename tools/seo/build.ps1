@@ -86,21 +86,21 @@ $topBrands = $brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='
 # 카드에서 셀러 페이지로 링크하려면 주소를 미리 알아야 한다.
 # ⚠ insta 를 그대로 쓰면 안 된다 — 셀러 페이지 파일명은 SlugOf 를 거친 값이라 다를 수 있고,
 #   셀러 목록에 없는 insta 도 있다. 그대로 링크했다가 깨진 내부링크가 327개 났다(2026-08-11).
-$seenS = @{}; $SellerSlug = @{}; $korCount = @{}; $korSlug = @{}
+$seenS = @{}; $SellerSlug = @{}; $korCount = @{}; $korInsta = @{}
 foreach($s in $D.sellers){
   $sl = SlugOf $s.insta $seenS '-s'
   if([string]::IsNullOrWhiteSpace($sl)){ continue }
   if(-not $SellerSlug.ContainsKey($s.insta)){ $SellerSlug[$s.insta] = $sl }
   # 소분류·월별 페이지는 데이터에 insta 가 없고 한글명(who)만 있다.
-  # 이름이 겹치지 않는 셀러에 한해 이름으로도 찾아갈 수 있게 둔다(겹치면 링크를 안 건다).
+  # 이름이 겹치지 않는 셀러에 한해 이름으로 인스타를 찾는다(겹치면 링크를 안 건다).
   if($s.kor){
     $k = "$($s.kor)"
     $korCount[$k] = 1 + $(if($korCount.ContainsKey($k)){ $korCount[$k] } else { 0 })
-    $korSlug[$k] = $sl
+    $korInsta[$k] = "$($s.insta)"
   }
 }
 $SellerByKor = @{}
-foreach($k in $korCount.Keys){ if($korCount[$k] -eq 1){ $SellerByKor[$k] = $korSlug[$k] } }
+foreach($k in $korCount.Keys){ if($korCount[$k] -eq 1){ $SellerByKor[$k] = $korInsta[$k] } }
 
 # ══ 브랜드 페이지 ══
 foreach($b in $brandList){
@@ -112,17 +112,19 @@ foreach($b in $brandList){
 
   if($tpTxt){
     $title = "$($b.brand) 공구 일정 | $tpTxt 공동구매 진행중인 곳 - 맘캘린더"
-    $desc  = "$($b.brand) 공구 일정. $tpTxt 등을 셀러 $($b.sellers)명이 $($b.cnt)번 진행했습니다. 지금 진행 중인 $($b.brand) 공구와 지난 일정을 확인하세요."
+    $desc  = "$($b.brand) 공구 일정. $tpTxt 등 $($b.brand) 공동구매를 진행하는 인스타 셀러와 오픈·마감 날짜를 확인하세요."
   } else {
     $title = "$($b.brand) 공구 일정 | 공동구매 진행중인 곳 - 맘캘린더"
-    $desc  = "$($b.brand) 공동구매를 진행한 인스타 셀러 $($b.sellers)명, 공구 $($b.cnt)건. 지금 진행 중인 $($b.brand) 공구와 지난 일정을 맘캘린더에서 확인하세요."
+    $desc  = "$($b.brand) 공동구매를 진행하는 인스타 셀러와 오픈·마감 날짜. 지금 진행 중인 $($b.brand) 공구와 지난 일정을 맘캘린더에서 확인하세요."
   }
   $canon = "g/$(Enc $b.slug).html"
-  $lead = "$($b.brand) 공동구매는 인스타 셀러 $($b.sellers)명이 지금까지 $($b.cnt)번 진행했습니다."
-  if($tpTxt){ $lead += " 주로 나온 품목은 $tpTxt 입니다." }
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
-  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
-  else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정을 보면 다음 공구 시기를 가늠할 수 있습니다." }
+  # ⚠ 집계·분석 문구는 넣지 않는다. 셀러 수·진행 횟수·주력 품목 같은 값은
+  #   사장님이 크몽에 팔 데이터 자산이다(사장님 지시 2026-08-11). 일정 목록만 보여준다.
+  $lead = "$($b.brand) 공동구매 일정입니다. 인스타 셀러들이 진행하는 $($b.brand) 공구를 날짜순으로 모았습니다."
+  if($tpTxt){ $lead += " $tpTxt 등 $($b.brand) 제품의 공구 일정을 아래에서 확인하세요." }
+  if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
+  elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
+  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정을 보면 다음 공구 시기를 가늠할 수 있습니다." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){
@@ -151,7 +153,7 @@ foreach($b in $brandList){
   if($l1){ [void]$ld.Add($l1) }
   [void]$ld.Add((LdCrumb "$($b.brand) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($b.brand) 공구 일정"; sub="셀러 $($b.sellers)명 · 공구 $($b.cnt)건 기록"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
+    h1="$($b.brand) 공구 일정"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
 }
 
 # ══ 브랜드 × 제품 페이지 ══
@@ -159,20 +161,17 @@ foreach($p in $prodList){
   $rows = ParseRows $p.raw @('name','who','od','ed','insta')
   $sp = SplitNow $rows $today
   $live = $sp.now; $soon = $sp.soon; $past = $sp.past
-  $title = "$($p.key) 공구 | 공동구매 일정·진행중인 셀러 - 맘캘린더"
-  $desc  = "$($p.key) 공구 일정. 인스타 셀러 $($p.sellers)명이 $($p.cnt)번 진행했습니다. 진행 중인 $($p.key) 공동구매와 지난 일정을 확인하세요."
+  $title = "$($p.key) 공구 | 공동구매 일정·진행중인 곳 - 맘캘린더"
+  $desc  = "$($p.key) 공구 일정. 진행 중인 $($p.key) 공동구매와 지난 일정, 오픈·마감 날짜를 확인하세요."
   $canon = "p/$(Enc $p.slug).html"
 
-  $lead = "$($p.key) 공동구매는 인스타 셀러 $($p.sellers)명이 $($p.cnt)번 진행했습니다."
-  if($p.first -and $p.last){ $lead += " 처음 확인된 공구는 $($p.first), 가장 최근은 $($p.last) 입니다." }
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
-  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
-  else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
+  # ⚠ 집계·분석은 넣지 않는다(사장님 지시 2026-08-11 — 크몽에 팔 자산).
+  $lead = "$($p.key) 공동구매 일정입니다. 인스타 셀러들이 진행하는 $($p.key) 공구를 날짜순으로 모았습니다."
+  if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
+  elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
+  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
-  $body += "<div class=${Q}stat${Q}><div><b>$($p.cnt)</b>진행 횟수</div><div><b>$($p.sellers)</b>진행 셀러</div>"
-  if($p.major){ $body += "<div><b>$(HtmlEsc $p.major)</b>분야</div>" }
-  $body += '</div>'
   if($live.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>'
   }
@@ -196,7 +195,7 @@ foreach($p in $prodList){
   if($l1){ [void]$ld.Add($l1) }
   [void]$ld.Add((LdCrumb "$($p.key) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "p/$($p.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($p.key) 공구"; sub="셀러 $($p.sellers)명 · $($p.cnt)번 진행"; body=$body; jsonld=$ld; bcName="$($p.key) 공구" }
+    h1="$($p.key) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($p.key) 공구" }
 }
 
 # ══ 셀러 페이지 ══
@@ -213,22 +212,17 @@ foreach($s in $D.sellers){
   $sHref = "https://www.instagram.com/$($s.insta)"
   $fw = 0; if($s.followers){ $fw = [int64]$s.followers }
 
-  $title = "$($s.kor) 공구 일정 | 인스타 공동구매 $($s.cnt)건 - 맘캘린더"
-  $desc  = "$($s.kor)(@$($s.insta))의 인스타 공구 일정 $($s.cnt)건. 진행 중인 공동구매와 지난 공구 이력을 확인하세요."
+  $title = "$($s.kor)(@$($s.insta)) 공구 일정 | 인스타 공동구매 - 맘캘린더"
+  $desc  = "$($s.kor)(@$($s.insta))의 인스타 공구 일정. 진행 중인 공동구매와 오픈·마감 날짜를 확인하세요."
   $canon = "s/$(Enc $slug).html"
-  $lead = "$($s.kor)은(는) 인스타에서 공동구매를 진행하는 셀러입니다. 지금까지 확인된 공구는 $($s.cnt)건입니다."
-  if($s.first_open){ $lead += " 맘캘린더에 기록된 첫 공구는 $($s.first_open) 입니다." }
-  if($s.major){ $lead += " 주로 $($s.major) 분야를 다룹니다." }
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
-  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 공구는 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
-  else { $lead += " 오늘 진행 중인 공구는 없습니다." }
+  $lead = "$($s.kor)(@$($s.insta))의 인스타 공구 일정입니다."
+  if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다. 카드를 누르면 인스타그램으로 이동합니다." }
+  elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
+  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
 
+  # ⚠ 통계 상자(진행 횟수·팔로워·주력 분야)는 넣지 않는다.
+  #   사장님이 크몽에 팔 데이터 자산이라 공개하지 않는다(사장님 지시 2026-08-11).
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
-  $body += "<div class=${Q}stat${Q}><div><b>$($s.cnt)</b>진행한 공구</div>"
-  if($fw -gt 0){ $body += "<div><b>$('{0:N0}' -f $fw)</b>팔로워</div>" }
-  if($s.verified -eq $true){ $body += "<div><b>인증</b>공식 계정</div>" }
-  if($s.major){ $body += "<div><b>$(HtmlEsc $s.major)</b>주력 분야</div>" }
-  $body += '</div>'
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $false $sHref) + '</div>' }
   if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 공구</h2>" + (CardsHtml $soon 20 $false $false $sHref) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 공구</h2>" + (CardsHtml $past 40 $false $false $sHref) + '</div>' }
@@ -243,7 +237,7 @@ foreach($s in $D.sellers){
   if($l1){ [void]$ld.Add($l1) }
   [void]$ld.Add((LdCrumb "$($s.kor) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "s/$slug.html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($s.kor) 공구 일정"; sub="@$($s.insta) · 공구 $($s.cnt)건"; body=$body; jsonld=$ld; bcName="$($s.kor) 공구" }
+    h1="$($s.kor) 공구 일정"; sub="@$($s.insta)"; body=$body; jsonld=$ld; bcName="$($s.kor) 공구" }
   [void]$sellerMade.Add([pscustomobject]@{ slug=$slug; kor=$s.kor; insta=$s.insta; cnt=[int]$s.cnt; fw=$fw })
 }
 
@@ -256,12 +250,12 @@ foreach($m in $D.minors){
   $sp = SplitNow $rows $today
   $live = $sp.now; $soon = $sp.soon; $past = $sp.past
   $title = "$($m.minor) 공구 | $($m.major) 공동구매 일정 - 맘캘린더"
-  $desc  = "$($m.minor) 공구 일정. 인스타 셀러 $($m.sellers)명이 진행한 $($m.minor) 공동구매 $($m.cnt)건을 모았습니다."
+  $desc  = "$($m.minor) 공구 일정. 인스타 셀러들이 진행하는 $($m.minor) 공동구매를 날짜순으로 모았습니다."
   $canon = "m/$(Enc $slug).html"
-  $lead = "$($m.major) 분야 중 $($m.minor) 공구입니다. 셀러 $($m.sellers)명이 지금까지 $($m.cnt)건을 진행했습니다."
-  if($live.Count -gt 0){ $lead += " 오늘 기준 $($live.Count)건이 진행 중입니다." }
-  elseif($soon.Count -gt 0){ $lead += " 오늘 진행 중인 건은 없고, 앞으로 열릴 일정이 $($soon.Count)건 잡혀 있습니다." }
-  else { $lead += " 오늘 진행 중인 건은 없습니다. 지난 일정을 참고하세요." }
+  $lead = "$($m.major) 분야 중 $($m.minor) 공구 일정입니다. 인스타 셀러들이 진행하는 $($m.minor) 공동구매를 날짜순으로 모았습니다."
+  if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
+  elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
+  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정을 참고하세요." }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
@@ -273,7 +267,7 @@ foreach($m in $D.minors){
   if($l1){ [void]$ld.Add($l1) }
   [void]$ld.Add((LdCrumb "$($m.minor) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "m/$slug.html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($m.minor) 공구"; sub="$($m.major) · 셀러 $($m.sellers)명 · $($m.cnt)건"; body=$body; jsonld=$ld; bcName="$($m.minor) 공구" }
+    h1="$($m.minor) 공구"; sub="$($m.major) 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($m.minor) 공구" }
 
   $o = [pscustomobject]@{ slug=$slug; minor=$m.minor; major=$m.major; cnt=[int]$m.cnt }
   [void]$minorMade.Add($o)
@@ -297,16 +291,15 @@ foreach($mm in $D.months){
   $canon = "d/$ym.html"
 
   if($isPast){
-    $title = "${yy}년 ${mo}월 공구 일정 (지난 일정) | 인스타 공동구매 $($mm.cnt)건 - 맘캘린더"
-    $desc  = "${yy}년 ${mo}월에 진행된 인스타 공구 $($mm.cnt)건의 지난 기록. 셀러 $($mm.sellers)명의 공동구매 이력을 보고 다음 공구 시기를 가늠해 보세요."
-    $lead  = "${yy}년 ${mo}월에 진행된 공구 기록입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
+    $title = "${yy}년 ${mo}월 공구 일정 (지난 일정) | 인스타 공동구매 - 맘캘린더"
+    $desc  = "${yy}년 ${mo}월에 진행된 인스타 공구 일정 기록. 지난 공동구매 일정을 보고 다음 공구 시기를 가늠해 보세요."
+    $lead  = "${yy}년 ${mo}월에 진행된 인스타 공구 일정 기록입니다."
   } else {
-    $title = "${yy}년 ${mo}월 공구 일정 | 인스타 공동구매 $($mm.cnt)건 - 맘캘린더"
-    $desc  = "${yy}년 ${mo}월에 진행된(진행 예정인) 인스타 공구 $($mm.cnt)건. 셀러 $($mm.sellers)명의 공동구매 일정을 날짜순으로 확인하세요."
-    $lead  = "${yy}년 ${mo}월 공구 일정입니다. 셀러 $($mm.sellers)명이 $($mm.cnt)건을 진행했습니다."
+    $title = "${yy}년 ${mo}월 공구 일정 | 인스타 공동구매 - 맘캘린더"
+    $desc  = "${yy}년 ${mo}월 인스타 공구 일정. 오픈·마감 날짜를 날짜순으로 확인하세요."
+    $lead  = "${yy}년 ${mo}월 인스타 공구 일정입니다. 날짜순으로 모았습니다."
   }
-  if($live.Count -gt 0){ $lead += " 그중 $($live.Count)건은 오늘도 진행 중입니다." }
-  elseif($soon.Count -gt 0 -and -not $isPast){ $lead += " 그중 $($soon.Count)건은 아직 오픈 전입니다." }
+  if($live.Count -gt 0){ $lead += " 오늘도 진행 중인 공구는 맨 위에 있습니다." }
 
   $body = ''
   if($isPast){
@@ -333,7 +326,7 @@ foreach($mm in $D.months){
   if($l1){ [void]$ld.Add($l1) }
   [void]$ld.Add((LdCrumb "${yy}년 ${mo}월 공구" $canon))
   WritePage @{ path=(Join-Path $Root "d/$ym.html"); title=$title; desc=$desc; canon=$canon;
-    h1="${yy}년 ${mo}월 공구 일정"; sub="셀러 $($mm.sellers)명 · $($mm.cnt)건"; body=$body; jsonld=$ld; bcName="${mo}월 공구" }
+    h1="${yy}년 ${mo}월 공구 일정"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="${mo}월 공구" }
   [void]$monthMade.Add([pscustomobject]@{ slug=$ym; label="${mo}월"; cnt=[int]$mm.cnt })
 }
 
