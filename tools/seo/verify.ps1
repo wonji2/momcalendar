@@ -16,7 +16,7 @@ Write-Output "검사 대상: $($files.Count) 파일"
 
 # 1) 구조 · JSON-LD · 플레이스홀더
 $titles = @{}
-$ldCnt = 0; $ldBad = 0; $noDesc = 0; $emptyBody = 0
+$ldCnt = 0; $ldBad = 0; $noDesc = 0; $emptyBody = 0; $mojiCnt = 0
 $sample = 0
 foreach($p in $files){
   if(-not (Test-Path -LiteralPath $p)){ Bad "없는 파일: $p"; continue }
@@ -41,6 +41,17 @@ foreach($p in $files){
   $bodyTxt = [regex]::Replace($bodyTxt,'<[^>]+>',' ')
   $bodyTxt = [regex]::Replace($bodyTxt,'\s+',' ').Trim()
   if($bodyTxt.Length -lt 250){ $emptyBody++ }
+  # 글자 깨짐(이중인코딩) — DB 값이 깨져 있으면 페이지에 그대로 실려 나간다.
+  # 2026-08-11: DB 는 09시에 고쳤는데 캐시가 04:20 것이라 셀러 페이지에 깨진 글자가 남았고,
+  #             사장님이 화면에서 발견하셨다. 그때 verify 는 통과했다 — 이 검사가 없었다.
+  # ⚠ 정규식에 악센트 문자를 직접 쓰지 말 것. PowerShell 이 .ps1 을 읽을 때 깨져 항상 거짓이 된다.
+  # ⚠ '연속 2자' 로 잡아도 안 된다. 깨진 글자는 0xEB 0xA6 0xAC 처럼
+  #    악센트 문자(0xC0-0xFF)와 그 아래 범위(0x80-0xBF)가 번갈아 나온다. 그 쌍을 본다.
+  # ⚠ 곱셈기호 ×(0xD7)·÷(0xF7) 는 정상 상품명에 쓰이므로 범위에서 뺀다.
+  if($bodyTxt -cmatch '[\xC0-\xD6\xD8-\xF6\xF8-\xFF][\x80-\xBF]'){
+    $mojiCnt++
+    if($mojiCnt -le 5){ Bad "글자 깨짐(이중인코딩): $(Split-Path $p -Leaf)" }
+  }
   # JSON-LD 파싱
   foreach($m in [regex]::Matches($t,'(?s)<script type="application/ld\+json">(.*?)</script>')){
     $ldCnt++
@@ -55,7 +66,7 @@ foreach($p in $files){
   }
 }
 Write-Output "JSON-LD: $ldCnt 개 중 깨진 것 $ldBad"
-Write-Output "설명문 부실: $noDesc / 본문 250자 미만: $emptyBody"
+Write-Output "설명문 부실: $noDesc / 본문 250자 미만: $emptyBody / 글자깨짐: $mojiCnt"
 
 $dup = $titles.GetEnumerator() | Where-Object { $_.Value -gt 1 } | Sort-Object Value -Descending
 Write-Output "중복 title: $($dup.Count) 종류"
