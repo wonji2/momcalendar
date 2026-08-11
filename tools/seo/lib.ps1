@@ -194,46 +194,95 @@ function LdItemList([string]$name, $items, [int]$max){
 #   이건 '이 시장이 어떻게 돌아가는가' 를 알려주는 값이라 곧 상품이다.
 # ⚠ 4,500개 페이지에 같은 글이 깔리면 중복으로 취급된다 →
 #   이름을 넣고, 진행중/곧열림/없음 상태에 따라 문장을 갈라 쓴다.
-function ExtraBody([string]$name, [string]$kind, $live, $soon, $past){
-  $q = [char]34
+#
+# 📌 실측한 검색어(2026-08-11, 구글 자동완성 25개 브랜드)
+#   · `브랜드 공구`            — 전부 존재
+#   · `브랜드 제품 공구`        — **여기가 금맥**
+#       무아스 디스펜서 공구 / 무아스 드라이기 공구 / 무아스 에어롤 공구
+#       알텐바흐 저압냄비 공구 / 알텐바흐 티타늄 마스터 공구
+#       닌자 크리스피 공구 / 닌자 블렌더 공구 / 주니 자기주도컵 공구
+#   · `instagram 브랜드 공구`   — 바크·탁가온·주니·드시모네·블루래빗에서 확인
+#   · ❌ `브랜드 공구 일정`      — 자동완성에 **없다**. 제목을 '공구 일정' 으로 시작하면 안 된다
+#   · ❌ `브랜드 핫딜` `공구하는곳` `공구중인곳` — 제안 자체가 없다
+#   · ❌ `공구 참여 방법`        — 수요 없음(자기 자신만 뜸). 예전에 넣었다가 뺐다
+#   · 셀러명+공구는 수요가 거의 없다(드엘리사만) → 셀러 페이지는 가볍게 둔다
+#
+# $terms 에 제품명 배열을 주면 `브랜드 제품 공구` 조합을 본문에 풀어 쓴다.
+# 붙어 있는 낱말에서 떼어낼 일반 명사. 긴 것부터 봐야 '무선선풍기'→'선풍기' 가 먼저 걸린다.
+$script:PROD_NOUN = @(
+  '물티슈','프라이팬','에어프라이어','디스펜서','드라이기','선풍기','청소기','정수기','제습기','가습기',
+  '유모차','카시트','기저귀','텀블러','책장','매트','가방','의자','침대','이불','베개','수건','세제',
+  '치약','칫솔','밥솥','다리미','도마','그릇','수저','스푼','포크','빨대','양말','신발','모자','인형',
+  '블럭','냄비','젖병','분유','티슈','간식','사료','컵','팬','칼','책'
+) | Sort-Object -Property @{e={$_.Length};Descending=$true}
+
+function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
   $nearest = ''
   if($live.Count -gt 0){ $nearest = "$($live[0].od)" }
   elseif($soon.Count -gt 0){ $nearest = "$($soon[0].od)" }
-
-  $steps = @()
-  if($live.Count -gt 0){
-    $steps += @{ t="1. 진행 중인 $name 공구를 고른다"; d="위 목록 맨 위가 지금 열려 있는 공구입니다. 상품명 아래에 셀러 이름과 마감일이 적혀 있습니다." }
-  } elseif($soon.Count -gt 0){
-    $steps += @{ t="1. 곧 열리는 $name 공구를 확인한다"; d="가장 가까운 일정은 $nearest 오픈입니다. 오픈일 전에 셀러 계정을 팔로우해 두면 알림을 놓치지 않습니다." }
-  } else {
-    $steps += @{ t="1. 지난 $name 공구 주기를 본다"; d="아래 지난 일정을 보면 이 브랜드가 대략 어느 간격으로 열리는지 가늠할 수 있습니다." }
+  # 제품어 뽑기 — 상품명에서 브랜드를 떼고 앞 낱말을 쓴다.
+  # '무아스 에어롤 프로' → '에어롤',  '무아스 2 in 1 핸디 스팀 다리미' → '핸디'
+  # ⚠ topprods 만 쓰면 3개뿐이라 '무아스 드라이기 공구' 같은 실검색어를 놓친다(2026-08-11 실측).
+  #   실제 상품명에서 뽑아야 자동완성과 맞는다.
+  $freq = @{}
+  foreach($r in (@($live) + @($soon) + @($past))){
+    $nm = "$($r.name)"
+    if(-not $nm.StartsWith($name)){ continue }
+    $rest = $nm.Substring($name.Length)
+    $rest = [regex]::Replace($rest, '^[\s·,&/\-\+\(\)\[\]]+', '')
+    if($rest -eq ''){ continue }
+    # ⚠ 앞 낱말을 잡으면 수식어가 나온다('무아스 마그넷선풍기' → 마그넷, '2 in 1' → in).
+    #   한국어 상품명은 **뒷말이 제품 이름**이다('… 스팀 다리미' → 다리미). 뒤에서부터 찾는다.
+    $tk = @([regex]::Split($rest, '[\s·,&/\+\(\)\[\]]+') | Where-Object { $_ -ne '' })
+    for($i = $tk.Count - 1; $i -ge 0; $i--){
+      $t = $tk[$i]
+      if($t.Length -lt 2){ continue }
+      if($t -match '^\d'){ continue }
+      if($t -match '^(프로|세트|모음|모음전|기획전|특가|초특가|앵콜|국산|신상|한정|공구|전체|단품|구성|정품|골라담기|최초|런칭|버전|시리즈|에디션)$'){ continue }
+      if($t -match '^[A-Za-z]{1,2}$'){ continue }
+      $freq[$t] = 1 + $(if($freq.ContainsKey($t)){ $freq[$t] } else { 0 })
+      # '자기주도컵' → '컵', '마그넷선풍기' → '선풍기' 처럼 낱말이 붙어 있으면 일반 명사도 같이 뽑는다.
+      # 사람들은 '주니 컵 공구' 로 검색하지 '주니 자기주도컵 공구' 로는 덜 친다(자동완성 실측).
+      foreach($sfx in $script:PROD_NOUN){
+        if($t.Length -gt $sfx.Length -and $t.EndsWith($sfx)){
+          $freq[$sfx] = 1 + $(if($freq.ContainsKey($sfx)){ $freq[$sfx] } else { 0 })
+          break
+        }
+      }
+      break                                   # 상품명당 하나만
+    }
   }
-  $steps += @{ t='2. 카드를 눌러 셀러 인스타그램으로 간다'; d='공구는 셀러가 각자 인스타그램 계정에서 진행합니다. 카드를 누르면 해당 셀러 계정으로 바로 이동합니다.' }
-  $steps += @{ t='3. 마감일 전에 신청한다'; d='공구는 기간이 짧습니다. 대부분 3~7일이고, 마감이 지나면 정가로 돌아갑니다.' }
+  $tArr = @($freq.GetEnumerator() | Sort-Object -Property @{e={$_.Value};Descending=$true}, @{e='Key'} | ForEach-Object { $_.Key })
+  if($terms){ foreach($t in $terms){ if($t -and "$t" -ne $name -and $tArr -notcontains "$t"){ $tArr += "$t" } } }
+  $top = ''; if($tArr.Count -gt 0){ $top = "$($tArr[0])" }
+
+  $h = ''
+  # ── 검색어 조합을 문장으로 푼다 (브랜드 페이지에서 가장 크게 먹힌다)
+  if($tArr.Count -gt 0){
+    $combo = (($tArr | Select-Object -First 8) | ForEach-Object { "$name $_ 공구" }) -join ', '
+    $h += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $name) 공구, 어떤 제품이 열리나요</h2>"
+    $h += "<p>맘캘린더에 기록된 $(HtmlEsc $name) 공동구매는 $(HtmlEsc $combo) 등입니다. "
+    $h += "인스타그램 셀러들이 각자 계정에서 열며, 오픈일과 마감일은 위 목록에서 확인할 수 있습니다. "
+    $h += "찾는 제품이 목록에 없으면 지난 일정을 보면 대략 어느 간격으로 다시 열리는지 가늠할 수 있습니다.</p></div>"
+  }
 
   $faq = @()
+  if($top){
+    $faq += @{ q="$name $top 공구는 지금 진행 중인가요?";
+               a=$(if($live.Count -gt 0){ "이 페이지 맨 위 '지금 진행 중인 $name 공구' 에 열려 있는 건이 있습니다. 마감일을 확인하고 기간 안에 신청하세요." } elseif($soon.Count -gt 0){ "지금 열려 있는 건은 없고, 가장 가까운 $name 공구는 $nearest 오픈입니다." } else { "지금 열려 있는 $name $top 공구는 없습니다. 아래 지난 일정에서 언제 진행됐는지 확인하면 다음 시기를 가늠할 수 있습니다." }) }
+  }
   $faq += @{ q="$name 공구는 어디서 하나요?";
-             a="인스타그램 셀러들이 각자 계정에서 진행합니다. 이 페이지 목록에서 셀러를 고르고 카드를 누르면 그 셀러의 인스타그램으로 이동합니다." }
-  $faq += @{ q="$name 공구 일정은 어떻게 확인하나요?";
-             a="이 페이지에서 오픈일과 마감일을 볼 수 있습니다. 맘캘린더는 매일 갱신되므로 새 일정이 잡히면 여기에 함께 올라옵니다." }
-  if($live.Count -gt 0){
-    $faq += @{ q="지금 $name 공구가 진행 중인가요?";
-               a="네, 지금 열려 있는 공구가 이 페이지 맨 위에 있습니다. 마감일을 확인하고 기간 안에 신청하세요." }
-  } elseif($soon.Count -gt 0){
-    $faq += @{ q="$name 공구는 언제 열리나요?";
-               a="가장 가까운 일정은 $nearest 오픈입니다. 오픈일에 맞춰 셀러 계정을 확인하시면 됩니다." }
-  } else {
-    $faq += @{ q="지금 진행 중인 $name 공구가 없으면 어떻게 하나요?";
-               a="아래 지난 일정을 보면 대략 어느 간격으로 열리는지 알 수 있습니다. 한 셀러가 끝내면 다른 셀러가 이어서 여는 경우도 많으니 며칠 뒤 다시 확인해 보세요." }
+             a="인스타그램 셀러들이 각자 계정에서 진행합니다. 이 페이지 목록에서 셀러를 고르고 카드를 누르면 그 셀러의 인스타그램 계정으로 바로 이동합니다." }
+  $faq += @{ q="인스타그램 $name 공구는 어떻게 찾나요?";
+             a="셀러마다 계정이 달라 하나씩 찾기 어렵습니다. 맘캘린더는 여러 셀러의 $name 공구를 한곳에 모아 오픈일·마감일과 함께 보여줍니다. 매일 갱신됩니다." }
+  if($live.Count -eq 0 -and $soon.Count -gt 0){
+    $faq += @{ q="$name 공구는 언제 열리나요?"; a="가장 가까운 일정은 $nearest 오픈입니다. 오픈일에 맞춰 해당 셀러 계정을 확인하시면 됩니다." }
   }
   if($past.Count -gt 0){
     $faq += @{ q="지난 $name 공구도 볼 수 있나요?";
                a="네, 이 페이지 아래에 지난 일정이 날짜순으로 남아 있습니다. 어느 셀러가 언제 진행했는지 확인할 수 있습니다." }
   }
 
-  $h = "<div class=${Q}sec${Q}><h2>$(HtmlEsc $name) 공구 참여 방법</h2>"
-  foreach($s in $steps){ $h += "<div class=${Q}stp${Q}><b>$(HtmlEsc $s.t)</b><span>$(HtmlEsc $s.d)</span></div>" }
-  $h += '</div>'
   $h += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
   foreach($f in $faq){ $h += "<div class=${Q}faq${Q}><b>$(HtmlEsc $f.q)</b><span>$(HtmlEsc $f.a)</span></div>" }
   $h += '</div>'

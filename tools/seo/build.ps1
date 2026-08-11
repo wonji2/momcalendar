@@ -111,10 +111,10 @@ foreach($b in $brandList){
   $tpTxt = ''; if($tp.Count -gt 0){ $tpTxt = ($tp | Select-Object -First 3) -join '·' }
 
   if($tpTxt){
-    $title = "$($b.brand) 공구 일정 | $tpTxt 공동구매 진행중인 곳 - 맘캘린더"
-    $desc  = "$($b.brand) 공구 일정. $tpTxt 등 $($b.brand) 공동구매를 진행하는 인스타 셀러와 오픈·마감 날짜를 확인하세요."
+    $title = "$($b.brand) 공구 | $tpTxt 공동구매 일정·진행중인 곳 - 맘캘린더"
+    $desc  = "$($b.brand) 공구 정보. $tpTxt 등 $($b.brand) 공동구매를 진행하는 인스타 셀러와 오픈·마감 날짜를 한곳에서 확인하세요."
   } else {
-    $title = "$($b.brand) 공구 일정 | 공동구매 진행중인 곳 - 맘캘린더"
+    $title = "$($b.brand) 공구 | 인스타 공동구매 일정·진행중인 곳 - 맘캘린더"
     $desc  = "$($b.brand) 공동구매를 진행하는 인스타 셀러와 오픈·마감 날짜. 지금 진행 중인 $($b.brand) 공구와 지난 일정을 맘캘린더에서 확인하세요."
   }
   $canon = "g/$(Enc $b.slug).html"
@@ -144,7 +144,7 @@ foreach($b in $brandList){
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
-  $ex = ExtraBody $b.brand '브랜드' $live $soon $past
+  $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>다른 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($t in $topBrands){ if($t.slug -ne $b.slug){ $body += "<a href=${Q}/g/$(Enc $t.slug).html${Q}>$(HtmlEsc $t.brand) 공구</a>" } }
@@ -157,7 +157,7 @@ foreach($b in $brandList){
   if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($b.brand) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($b.brand) 공구 일정"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
+    h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
 }
 
 # ══ 브랜드 × 제품 페이지 ══
@@ -185,7 +185,7 @@ foreach($p in $prodList){
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $p.key) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
-  $ex = ExtraBody $p.key '제품' $live $soon $past
+  $ex = ExtraBody $p.key '제품' $live $soon $past @()
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>관련 공구</h2><div class=${Q}rel${Q}>"
   if($brandSlug.ContainsKey($p.brand)){ $body += "<a href=${Q}/g/$(Enc $brandSlug[$p.brand]).html${Q}>$(HtmlEsc $p.brand) 전체 공구</a>" }
@@ -234,7 +234,7 @@ foreach($s in $D.sellers){
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>" + (CardsHtml $live 20 $true $false $sHref) + '</div>' }
   if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 공구</h2>" + (CardsHtml $soon 20 $false $false $sHref) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 공구</h2>" + (CardsHtml $past 40 $false $false $sHref) + '</div>' }
-  $ex = ExtraBody $s.kor '셀러' $live $soon $past
+  $ex = ExtraBody $s.kor '셀러' $live $soon $past @()
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>인기 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 20)){
@@ -273,7 +273,7 @@ foreach($m in $D.minors){
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
   if($soon.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>곧 열리는 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $soon 20 $false $true) + '</div>' }
   if($past.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $past 30 $false $true) + '</div>' }
-  $ex = ExtraBody $m.minor '소분류' $live $soon $past
+  $ex = ExtraBody $m.minor '소분류' $live $soon $past @()
   $body += $ex.html
 
   $ld = New-Object System.Collections.ArrayList
