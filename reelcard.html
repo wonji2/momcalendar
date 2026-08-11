@@ -733,6 +733,50 @@ async function saveRange(){
   await saveDays(days, document.getElementById('btnRange'), '📦 이 기간 저장', '기간');
 }
 
+// html2canvas 는 문서를 통째로 복제해 다시 그린다.
+// 그 복제본에서 글꼴 기준선이 미세하게 달라져 한 줄이 0.9px 씩 높아진다(42.5 → 43.4, 실측 2026-08-11).
+// .it 이 align-items:baseline 이라 행 높이가 글꼴 메트릭에 좌우되기 때문이다.
+// 25줄이면 24px 이 밀려 "+N건 더" 가 .col 의 overflow:hidden 에 잘렸다.
+//   → 화면에선 멀쩡한데 저장한 PNG 만 잘린다. (사장님 지적 2026-08-11 "다 짤린거 안보여?")
+// 원본에서 맞춘 값을 믿지 말고, **실제로 그려질 복제본에서** 한 번 더 줄인다.
+function trimToFit(doc){
+  const win = doc.defaultView || window;
+  ['L1','L2'].forEach(function(id){
+    const list = doc.getElementById(id);        if(!list) return;
+    const col  = list.closest('.col');          if(!col)  return;
+    const more = doc.getElementById(id.replace('L','M'));
+    const pb   = parseFloat(win.getComputedStyle(col).paddingBottom) || 0;
+    // 아래 끝을 재는 대상: 바깥 더보기가 있으면 그것, 없으면(마감 흘려보낸 날) 목록의 마지막
+    const tail   = function(){ return (more && more.textContent.trim()) ? more : list.lastElementChild; };
+    const bottom = function(){ const t=tail(); return t ? t.getBoundingClientRect().bottom : 0; };
+    const limit  = function(){ return col.getBoundingClientRect().bottom - pb; };
+    let guard = 0;
+    while(list.children.length > 1 && bottom() > limit() && guard++ < 100){
+      // 마감을 흘려보낸 날엔 목록 맨 끝이 "+N건 더"(.in-more) 다.
+      // 그걸 지우면 건수 안내가 통째로 사라진다 → 바로 앞 항목을 대신 뺀다.
+      const inMore = list.lastElementChild && list.lastElementChild.classList.contains('in-more')
+                     ? list.lastElementChild : null;
+      const victim = inMore ? inMore.previousElementSibling : list.lastElementChild;
+      if(!victim) break;
+      const 항목 = victim.classList.contains('it');     // .nbz(이웃셀러 묶음)·머리말은 건수에 안 센다
+      list.removeChild(victim);
+      const l2 = inMore ? inMore.previousElementSibling : list.lastElementChild;
+      if(l2 && l2.classList.contains('spill-hd')) list.removeChild(l2);   // 머리말만 남으면 같이 뺀다
+      if(항목){
+        const lbl = (more && more.textContent.trim()) ? more : inMore;
+        if(lbl){
+          const m = lbl.textContent.match(/(\d+)/);
+          if(m) lbl.textContent = lbl.textContent.replace(/\d+/, String(parseInt(m[1],10)+1));
+          else  lbl.textContent = '+ 1건 더';
+        }
+      }
+    }
+    // 흘려보낸 묶음이 통째로 빠졌으면 그 묶음의 "+N건 더" 도 같이 뺀다(머리말 없는 미아 방지)
+    const orphan = list.querySelector('.in-more');
+    if(orphan && !list.querySelector('.spill-hd')) orphan.remove();
+  });
+}
+
 async function savePng(quiet){
   const btn=document.getElementById('btnSave');
   const card=document.getElementById('card');
@@ -747,7 +791,8 @@ async function savePng(quiet){
     const canvas=await html2canvas(card,{
       width:1080,height:1920,scale:1,
       backgroundColor:'#ffffff',useCORS:true,logging:false,
-      windowWidth:1080,windowHeight:1920
+      windowWidth:1080,windowHeight:1920,
+      onclone:trimToFit                       // ⬅ 실제 그려질 복제본에서 넘침을 다시 잡는다
     });
     const day=document.getElementById('day').value||todayKST();
     const a=document.createElement('a');
