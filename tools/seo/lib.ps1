@@ -213,7 +213,10 @@ $script:PROD_NOUN = @(
   '물티슈','프라이팬','에어프라이어','디스펜서','드라이기','선풍기','청소기','정수기','제습기','가습기',
   '유모차','카시트','기저귀','텀블러','책장','매트','가방','의자','침대','이불','베개','수건','세제',
   '치약','칫솔','밥솥','다리미','도마','그릇','수저','스푼','포크','빨대','양말','신발','모자','인형',
-  '블럭','냄비','젖병','분유','티슈','간식','사료','컵','팬','칼','책'
+  '블럭','냄비','젖병','분유','티슈','간식','사료','컵','팬','칼','책',
+  # 실측으로 추가(2026-08-11) — 자동완성에 뜨는데 우리가 못 뽑던 것들
+  '보호대','파우치','물병','사운드북','기피제','안전문','러닝타워','스푼포크','빨대컵','유산균',
+  '오메가','비타민','영양제','효소','콜라겐','철분','마그네슘','아연','루테인','프로바이오틱스','휴지통','에어건','밧드','냄비세트','조리도구','이유식','간식세트'
 ) | Sort-Object -Property @{e={$_.Length};Descending=$true}
 
 function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
@@ -240,11 +243,13 @@ function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
       if($t -match '^\d'){ continue }
       if($t -match '^(프로|세트|모음|모음전|기획전|특가|초특가|앵콜|국산|신상|한정|공구|전체|단품|구성|정품|골라담기|최초|런칭|버전|시리즈|에디션)$'){ continue }
       if($t -match '^[A-Za-z]{1,2}$'){ continue }
+      if($t -cmatch '^[A-Z]+$'){ continue }          # BEST · NEW · HOT 같은 잡음
+      if($t -match '^(종|개|팩|박스|차수|기획|할인|증정|무료|배송|리뉴얼|앵콜전|사은품)$'){ continue }
       $freq[$t] = 1 + $(if($freq.ContainsKey($t)){ $freq[$t] } else { 0 })
       # '자기주도컵' → '컵', '마그넷선풍기' → '선풍기' 처럼 낱말이 붙어 있으면 일반 명사도 같이 뽑는다.
       # 사람들은 '주니 컵 공구' 로 검색하지 '주니 자기주도컵 공구' 로는 덜 친다(자동완성 실측).
       foreach($sfx in $script:PROD_NOUN){
-        if($t.Length -gt $sfx.Length -and $t.EndsWith($sfx)){
+        if($t.Length -gt $sfx.Length -and $t.Contains($sfx)){
           $freq[$sfx] = 1 + $(if($freq.ContainsKey($sfx)){ $freq[$sfx] } else { 0 })
           break
         }
@@ -259,11 +264,23 @@ function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
   $h = ''
   # ── 검색어 조합을 문장으로 푼다 (브랜드 페이지에서 가장 크게 먹힌다)
   if($tArr.Count -gt 0){
-    $combo = (($tArr | Select-Object -First 8) | ForEach-Object { "$name $_ 공구" }) -join ', '
+    # ⚠ 상위 8개만 쓰면 '주니 자기주도스푼'·'주니 모서리보호대' 처럼 빈도가 낮은 실검색어가 잘린다.
+    #   (사장님 지적 2026-08-11 — DB 에 이미 있는데 페이지에 안 나온다)
+    #   앞 12개는 문장으로, 나머지는 한 줄 더 붙여 최대 30개까지 싣는다.
+    $head = @($tArr | Select-Object -First 12)
+    $tail = @($tArr | Select-Object -Skip 12 -First 18)
+    $combo = ($head | ForEach-Object { "$name $_ 공구" }) -join ', '
     $h += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $name) 공구, 어떤 제품이 열리나요</h2>"
     $h += "<p>맘캘린더에 기록된 $(HtmlEsc $name) 공동구매는 $(HtmlEsc $combo) 등입니다. "
-    $h += "인스타그램 셀러들이 각자 계정에서 열며, 오픈일과 마감일은 위 목록에서 확인할 수 있습니다. "
-    $h += "찾는 제품이 목록에 없으면 지난 일정을 보면 대략 어느 간격으로 다시 열리는지 가늠할 수 있습니다.</p></div>"
+    $h += "인스타그램 셀러들이 각자 계정에서 열며, 오픈일과 마감일은 위 목록에서 확인할 수 있습니다.</p>"
+    if($tail.Count -gt 0){
+      $combo2 = ($tail | ForEach-Object { "$name $_ 공구" }) -join ', '
+      $h += "<p>이 밖에 $(HtmlEsc $combo2) 도 진행된 적이 있습니다. "
+      $h += "찾는 제품이 목록에 없으면 지난 일정을 보면 대략 어느 간격으로 다시 열리는지 가늠할 수 있습니다.</p>"
+    } else {
+      $h += "<p>찾는 제품이 목록에 없으면 지난 일정을 보면 대략 어느 간격으로 다시 열리는지 가늠할 수 있습니다.</p>"
+    }
+    $h += '</div>'
   }
 
   $faq = @()
