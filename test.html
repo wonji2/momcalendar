@@ -103,8 +103,14 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .minor-list{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 12px 36px}
 .minor-chip{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--border);background:#fff;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s}
 .minor-chip.on{color:#fff;border-color:transparent}
-/* 검색 유입용 내부 링크 — 눈에 거슬리지 않게 하단에 조용히. 손님보다 크롤러가 주 독자다. */
-.seolinks{max-width:480px;margin:0 auto;padding:16px 16px 0}
+/* 검색 유입용 내부 링크 — 접어둔다. 손님 눈엔 한 줄, 크롤러는 안까지 읽는다.
+   ⚠ 상시 감추면(display:none·0px 글자) 구글이 숨김링크로 보고 사이트 전체가 위험해진다.
+      <details> 는 사용자가 펼 수 있어 허용된다. */
+.seolinks{max-width:480px;margin:0 auto;padding:14px 16px 0}
+.seolinks>summary{list-style:none;cursor:pointer;font-size:11px;color:#bbb;text-align:center;padding:4px}
+.seolinks>summary::-webkit-details-marker{display:none}
+.seolinks>summary::after{content:" ▾"}
+.seolinks[open]>summary::after{content:" ▴"}
 .seolinks-t{font-size:11px;font-weight:800;color:#B3A8C4;letter-spacing:.04em;margin:10px 0 7px}
 .seolinks-row{display:flex;flex-wrap:wrap;gap:6px}
 .seolinks-row a{font-size:12px;color:#7A6394;background:#F5F0FB;border:1px solid #EBE2F7;
@@ -4065,8 +4071,12 @@ function closeChatMenu(){
      ⚠ 링크 대상은 **날짜가 안 들어간 고정 주소**만 쓴다. 매달 바뀌는 /d/2026-08 같은 걸 걸면
         홈을 매달 고쳐야 하고, 그건 고정 규칙 0-A(라이브 직접 수정 금지)와 충돌한다.
         브랜드·셀러·제품 목록은 허브 3개가 매일 자동 갱신되므로 홈은 한 번만 고치면 된다. -->
-<nav class="seolinks" aria-label="공구 일정 모아보기">
-  <div class="seolinks-t">공구 일정 모아보기</div>
+<!-- 접어둔다. ⚠ 상시 display:none 이나 0px 글자로 '사람에게만' 숨기면 구글이 숨김링크(클로킹)로 본다.
+     <details> 처럼 **사용자가 눌러 펼 수 있는** 접힘은 허용된다 — 사이트의 '사업자정보 ▾' 와 같은 방식.
+     (사장님 요청 2026-08-11 "사람들 눈에 안보이게 가려둘수는 없어?") -->
+<details class="seolinks">
+  <summary>공구 일정 모아보기</summary>
+  <div class="seolinks-t">종류별</div>
   <div class="seolinks-row">
     <a href="/%EA%B3%B5%EA%B5%AC%EB%B8%8C%EB%9E%9C%EB%93%9C.html">브랜드별</a>
     <a href="/%EA%B3%B5%EA%B5%AC%EC%85%80%EB%9F%AC.html">셀러별</a>
@@ -4087,7 +4097,7 @@ function closeChatMenu(){
     <a href="/c/%EC%83%9D%ED%95%84%ED%92%88%EA%B3%B5%EA%B5%AC.html">생필품</a>
     <a href="/c/%EB%B0%98%EB%A0%A4%EB%8F%99%EB%AC%BC%EA%B3%B5%EA%B5%AC.html">반려동물</a>
   </div>
-</nav>
+</details>
 
 <!-- 사업자 정보 푸터 (접힘) -->
 <div style="max-width:480px;margin:0 auto;padding:18px 16px 90px;text-align:center">
