@@ -33,17 +33,20 @@ const REPOST_COOLDOWN = 3; // 같은 상품을 며칠 안에는 다시 안 올�
 //   ⚠️ 2026-08-03 사고의 진짜 원인은 "40개를 호출한 것"이 아니라 **250ms 간격으로 몰아친 것**.
 //      40회 ÷ 10초 = 분당 240회 → 한도(50)의 4.8배. 횟수가 아니라 **속도**가 문제였다.
 //   → 일별 제한이 없으므로 키워드 수는 넉넉히 두되, **간격을 2초로 고정**해 분당 30회로 억제한다.
-//   일별 총량 제한이 없으므로 **속도만 지키면 많이 가져올수록 좋다.**
-//   1.5초 간격 = 분당 40회 (한도 50의 80%) · 58개 × 1.5초 ≈ 87초 → Edge Function 실행시간 안쪽
-//   크론을 08:00 / 08:20 두 번 돌려 116개 키워드를 **매일 전량** 순회한다.
-const KW_PER_RUN  = 58;
-const CALL_GAP_MS = 1500;    // ❌ 이 값을 더 줄이지 말 것 — 분당 50회를 넘기면 24시간 차단
+//   🔴 보수 전환 (사장님 지시 2026-08-12): 이미 정지 2회. 한 번 더 막히면 끝이다.
+//      "많이" 가 아니라 "안전하게" 가 기준. 간격 2초 = 분당 30회(한도의 60%).
+//   호출 예산을 둘로 나눈다:
+//      · 키워드 검색 20회   — 새 상품 발굴 (예전 58회에서 축소)
+//      · 재추적 검색 20회   — **이미 추적 중인 상품을 상품명으로 다시 검색해 이력을 잇는다**
+//        쿠팡은 상품ID 재조회 API 가 없어서, 같은 상품이 검색에 다시 나와야만 이력이 쌓인다.
+//        키워드 검색은 매일 다른 상품이 나와 이력이 안 이어졌다(8/3~8/12 열흘간 7일 이상 이력 10개뿐).
+//   합계 40회/일 — 예전(58+골드박스+goldcheck 2회 ≈ 61회)보다 **줄었다**.
+const KW_PER_RUN      = 20;
+const RETRACK_PER_RUN = 20;  // 재추적 검색 상한
+const CALL_GAP_MS     = 2000; // ❌ 이 값을 더 줄이지 말 것 — 분당 50회를 넘기면 24시간 차단
 
-// 골드박스 = 쿠팡이 직접 고른 '오늘의 특가'.
-// 우리 가격이력이 없는 초기에도 게시판을 채울 수 있고, 근거는 "쿠팡 선정"으로 정직하게 표기한다.
-const MAX_GOLD = 15;
-// 사이트 대분류에 맞춰 넓게 받는다(사장님 방침: 대분류는 넓을수록 좋다).
-// 여기에 없는 카테고리(자동차용품 등)만 버린다.
+// 골드박스 자동 수집은 폐지(2026-08-12, 사장님 지시 "골드박스는 진짜 핫딜 아니잖아").
+// GOLD_CAT 은 goldcheck(남은 카드 정리)에서만 쓴다.
 const GOLD_CAT: Record<string, [string, string]> = {
   "출산/유아": ["육아", "육아용품"],
   "출산/유아동": ["육아", "육아용품"],
@@ -216,34 +219,37 @@ Deno.serve(async (req) => {
   // 오늘 특가 목록에서 빠졌으면 값이 원래대로 돌아간 것이므로 카드를 내린다.
   if (u.searchParams.get("goldcheck") === "1") {
     const out: any = { mode: "goldcheck", 확인: 0, 내림: 0, 갱신: 0, 목록: 0 };
-    const g = await cpGoldbox();
-    const glist = Array.isArray(g?.data) ? g.data : [];
-    out.목록 = glist.length;
-    const now = new Map<string, number>();
-    for (const p of glist) {
-      const iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
-      now.set(`cp_${p.productId}_${iid}`, Number(p.productPrice) || 0);
-    }
-    // 사장님이 카톡으로 주신 건(manual) 은 손대지 않는다 — 이미 걸러진 '찐 핫딜'이다(지시 2026-08-10).
-    //   크론이 스스로 주워온 것만 매일 다시 확인한다.
+    // 🔴 골드박스 수집을 폐지했으므로(2026-08-12) 남은 골드박스 카드가 있을 때만 쿠팡을 부른다.
+    //    없으면 쿠팡 호출 0 — 정지 2회 상태라 불필요한 호출은 한 번도 안 한다.
     const live = await sb("hotdeals?source=eq.goldbox&manual=is.false&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
                           new Date().toISOString() + ")&limit=300");
     const rows = Array.isArray(live) ? live : [];
     out.확인 = rows.length; out.내린것 = [];
-    for (const r of rows) {
-      const p = now.get(String(r.product_id));
-      if (p === undefined) {
-        await sb(`hotdeals?id=eq.${r.id}`, {
-          method: "PATCH", headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
-        });
-        out.내림++; out.내린것.push(String(r.title || "").slice(0, 24));
-      } else if (p > 0 && p !== Number(r.price)) {
-        await sb(`hotdeals?id=eq.${r.id}`, {
-          method: "PATCH", headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ price: p }),
-        });
-        out.갱신++;
+    if (rows.length) {
+      const g = await cpGoldbox();
+      const glist = Array.isArray(g?.data) ? g.data : [];
+      out.목록 = glist.length;
+      const now = new Map<string, number>();
+      for (const p of glist) {
+        const iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+        // ⚠ 키에 'cp_' 접두사 금지 — 등록부·price_history 는 `${productId}_${itemId}` 형식(2026-08-12 사고)
+        now.set(`${p.productId}_${iid}`, Number(p.productPrice) || 0);
+      }
+      for (const r of rows) {
+        const p = now.get(String(r.product_id));
+        if (p === undefined) {
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+          });
+          out.내림++; out.내린것.push(String(r.title || "").slice(0, 24));
+        } else if (p > 0 && p !== Number(r.price)) {
+          await sb(`hotdeals?id=eq.${r.id}`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ price: p }),
+          });
+          out.갱신++;
+        }
       }
     }
     // 애드픽도 같이 점검한다. 애드픽은 인증이 필요 없고 1분 1회 제한뿐이라 부담이 없다.
@@ -346,38 +352,65 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 1-b) 골드박스(쿠팡 오늘의 특가) — 우리 관심 카테고리만
-  const goldIds: string[] = [];
-  // 오늘 골드박스에 아직 남아 있는 상품과 그 값. 카테고리를 가리지 않고 전부 담는다.
-  // 쿠팡은 정가도, 상품ID 재조회도 안 준다. 우리가 가진 유일한 검증 수단이 '오늘 목록에 있느냐'다.
-  // (사장님 지적 2026-08-10 "핫딜 가격 문제없는거 맞아?" — 골드박스 23건이 검증 불가 상태였다)
-  const goldNow = new Map<string, number>();
-  try {
-    const g = await cpGoldbox();
-    const glist = Array.isArray(g?.data) ? g.data : [];
-    log.goldboxTotal = glist.length;
-    for (const p of glist) {
-      const _iid = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
-      goldNow.set(`cp_${p.productId}_${_iid}`, Number(p.productPrice) || 0);
-      const cat = GOLD_CAT[String(p.categoryName || "")];
-      if (!cat) continue;                                  // 로봇청소기·전자기기 등은 제외
-      const itemId = _iid;
-      const id = `${p.productId}_${itemId}`;
-      const price = Number(p.productPrice);
-      if (!price || price < 1000) continue;
-      goldIds.push(id);
-      if (!found.has(id)) {
-        found.set(id, {
-          id, name: String(p.productName || "").slice(0, 200), price,
-          url: p.productUrl, img: p.productImage,
-          major: cat[0], minor: cat[1], keyword: "골드박스", rocket: !!p.isRocket,
-        });
-      } else {
-        const f = found.get(id)!; f.major = cat[0]; f.minor = cat[1];
+  // 1-b) 재추적 — 이미 추적 중인 상품을 **상품명으로** 다시 검색해 이력을 잇는다
+  //   🔴 골드박스 수집은 폐지했다(사장님 지시 2026-08-12 "골드박스는 진짜 핫딜 아니잖아").
+  //      골드박스는 쿠팡이 정한 특가라 "왜 싼지" 우리 근거가 없다. 이제 **가격이력 근거가 있는 것만** 올린다.
+  //   쿠팡은 상품ID 재조회 API 가 없다. 키워드 검색은 매일 다른 상품이 나와 이력이 안 이어졌다
+  //   (8/3~8/12 열흘간 2,315개 추적했는데 7일 이상 이력은 10개). 그래서 이력이 이어진 상품부터
+  //   상품명으로 좁혀 검색한다 — 그 상품이 결과 상위에 다시 나오면서 이력이 매일 쌓인다.
+  let retracked = 0, retrackHit = 0;
+  if (!rateLimited && RETRACK_PER_RUN > 0) {
+    try {
+      // 최근 20일 이력에서 '이틀 이상 잡힌' 상품을 많이 잡힌 순으로 고른다 (오늘 이미 본 것 제외)
+      const since20 = new Date(Date.now() + 9 * 3600e3 - 20 * 864e5).toISOString().slice(0, 10);
+      const hrows = await sb(`price_history?select=product_id&day=gte.${since20}&limit=20000`);
+      const cnt = new Map<string, number>();
+      for (const r of (Array.isArray(hrows) ? hrows : [])) {
+        const id = String(r.product_id);
+        if (!/^[0-9]+_[0-9]+$/.test(id)) continue;         // 쿠팡 형식만 (lp_·toss_ 제외)
+        cnt.set(id, (cnt.get(id) ?? 0) + 1);
       }
-    }
-  } catch (e) { log.errors.push({ kw: "goldbox", err: String(e) }); }
-  log.goldbox = goldIds.length;
+      const targets = [...cnt.entries()]
+        .filter(([id, c]) => c >= 2 && !found.has(id))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, RETRACK_PER_RUN)
+        .map(([id]) => id);
+      if (targets.length) {
+        const wl = await sb(`coupang_watch?select=product_id,name,keyword,major,minor&product_id=in.(${
+          targets.map((x) => `"${x}"`).join(",")})`);
+        for (const w of (Array.isArray(wl) ? wl : [])) {
+          // 상품명 앞부분(옵션·용량 전)으로 검색해야 그 상품이 상위에 나온다
+          const q = String(w.name || "").split(",")[0].split(/\s+/).slice(0, 6).join(" ").trim();
+          if (q.length < 4) continue;
+          const res = await cpSearch(q);
+          const rc = String(res?.rCode ?? res?._httpStatus ?? "");
+          if (rc === "403" || rc === "429" || String(res?.rMessage ?? "").includes("초과")) {
+            rateLimited = true;
+            log.errors.push({ kw: `재추적:${q}`, rateLimited: true });
+            break;                                          // 막히면 그 즉시 전부 중단
+          }
+          retracked++;
+          for (const p of (res?.data?.productData ?? [])) {
+            const itemId = (String(p.productUrl || "").match(/[?&]itemId=(\d+)/) ?? [])[1] ?? "0";
+            const id = `${p.productId}_${itemId}`;
+            const price = Number(p.productPrice);
+            if (!price || price < 1000) continue;
+            if (id === String(w.product_id)) retrackHit++;  // 목표 상품을 다시 찾았다 = 이력이 이어진다
+            if (!found.has(id)) {
+              found.set(id, {
+                id, name: String(p.productName || "").slice(0, 200), price,
+                url: p.productUrl, img: p.productImage,
+                major: w.major, minor: w.minor, keyword: String(w.keyword || "재추적"),
+                rocket: !!p.isRocket,
+              });
+            }
+          }
+          await new Promise((r) => setTimeout(r, CALL_GAP_MS));
+        }
+      }
+    } catch (e) { log.errors.push({ kw: "재추적", err: String(e) }); }
+  }
+  log.재추적 = { 검색: retracked, 목표재발견: retrackHit };
 
   log.scanned = found.size;
   log.rateLimited = rateLimited;   // true 면 쿠팡이 막은 것 — 키워드 수를 더 줄여야 한다
@@ -439,24 +472,10 @@ Deno.serve(async (req) => {
   const picks: any[] = cands.slice(0, MAX_PER_RUN).map((p) => ({ ...p, src: "coupang" }));
   log.candidates = cands.length;
 
-  // ═══ 골드박스는 "가격이력이 부족할 때만" 자리를 메우는 임시 재료 ═══
-  //   맘캘린더 핫딜의 근거는 **우리가 쌓은 가격이력**이다(폴센트식). 골드박스는 쿠팡이 정한 특가라
-  //   "왜 싼지"를 우리가 설명할 수 없다. 그래서 가격근거 핫딜이 충분해지면 골드박스를 0으로 줄인다.
-  //   · 가격근거 핫딜이 GOLD_OFF_AT 건 이상 → 골드박스 아예 안 씀
-  //   · 그보다 적으면 모자란 만큼만 채움
-  const GOLD_OFF_AT = 8;
-  const goldQuota = Math.max(0, Math.min(MAX_GOLD, GOLD_OFF_AT - picks.length));
-  const already = new Set(picks.map((p) => p.id));
-  const golds = goldQuota === 0 ? [] : goldIds
-    .filter((id) => !already.has(id))
-    .map((id) => found.get(id)!)
-    .filter(Boolean)
-    .slice(0, goldQuota)
-    .map((p) => ({ ...p, avg: null, isLowest: false, discount: null, src: "goldbox" }));
-  picks.push(...golds);
-  log.goldPicked = golds.length;
-  log.goldQuota  = goldQuota;
-  log.mode = picks.length && goldQuota === 0 ? "가격이력만(골드박스 OFF)" : "가격이력 부족 → 골드박스로 보충";
+  // ═══ 골드박스 폐지 (사장님 지시 2026-08-12) ═══
+  //   "골드박스는 진짜 핫딜 아니잖아" — 쿠팡이 정한 특가라 우리 가격근거가 없다.
+  //   이제 **가격이력으로 검증된 것만** 올린다. 초기엔 건수가 적겠지만 그게 맞다.
+  log.mode = "가격이력 근거만(골드박스 폐지)";
 
   // 애드픽: 정가가 있으니 그날 바로 할인율 확정
   try {
@@ -549,33 +568,7 @@ Deno.serve(async (req) => {
 
   log.deals = picks.map((p) => ({ name: p.name, price: p.price, discount: p.discount, src: p.src }));
 
-  // 3-b) 이미 올라가 있는 골드박스 카드 점검 — 오늘 목록에 없으면 특가가 끝난 것이다.
-  //   쿠팡은 상품ID 재조회를 안 주니 이게 유일한 검증 수단이다. 추가 호출은 0.
-  //   (2026-08-10: 골드박스 23건이 "지금 값이 맞는지 알 수 없는" 상태로 떠 있었다)
-  if (!dry && goldNow.size) {
-    try {
-      const live = await sb("hotdeals?source=eq.goldbox&select=id,product_id,price&or=(expires_at.is.null,expires_at.gt." +
-                            new Date().toISOString() + ")&limit=300");
-      let 내림 = 0, 갱신 = 0;
-      for (const r of (Array.isArray(live) ? live : [])) {
-        const now = goldNow.get(String(r.product_id));
-        if (now === undefined) {                     // 오늘 특가 목록에서 빠졌다 → 내린다
-          await sb(`hotdeals?id=eq.${r.id}`, {
-            method: "PATCH", headers: { Prefer: "return=minimal" },
-            body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
-          });
-          내림++;
-        } else if (now > 0 && now !== Number(r.price)) {   // 값이 바뀌었다 → 맞춘다
-          await sb(`hotdeals?id=eq.${r.id}`, {
-            method: "PATCH", headers: { Prefer: "return=minimal" },
-            body: JSON.stringify({ price: now }),
-          });
-          갱신++;
-        }
-      }
-      log.goldboxCheck = { 확인: Array.isArray(live) ? live.length : 0, 내림, 갱신 };
-    } catch (e) { log.errors.push({ kw: "goldbox-check", err: String(e) }); }
-  }
+  // (3-b 골드박스 카드 점검은 폐지 — 골드박스 수집 자체를 없앴다. 2026-08-12)
 
   if (dry || !picks.length) return Response.json(log);
 
