@@ -97,12 +97,13 @@ const byMajor = MAJOR_ORDER.map((m) => [m, opens.filter((o) => o.major === m)]).
 const etc = opens.filter((o) => !MAJOR_ORDER.includes(o.major));
 if (etc.length) byMajor.push(['기타', etc]);
 
+// 해시태그를 본문 끝에 넣으면 네이버 에디터가 태그로 인식한다 → 본문 한 번 복사로 태그까지 해결
+const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '공구모음',
+  ...brands.map((b) => `${b}공구`)].map((t) => `#${t}`).join(' ');
+
 const blogBody = [
   `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
   `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
-  ``,
-  `전체 일정과 브랜드별 공구 검색은 맘캘린더에서 실시간으로 보실 수 있어요 → https://momcalendar.com`,
-  `오늘 공구 중인 링크 모음은 여기서 바로 보실 수 있어요 → https://link.inpock.co.kr/momcal`,
   ``,
   `(여기에 저장해 두신 카드 사진을 넣어주세요)`,
   ``,
@@ -115,15 +116,19 @@ const blogBody = [
   ``,
   `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
   ``,
-  `맘캘린더는 인스타 공구·핫딜·체험단 일정을 매일 모아 보여드리는 사이트예요.`,
-  `오늘 오픈 공구, 브랜드별 공구 일정, 역대최저가 핫딜까지 → https://momcalendar.com`,
-  `오늘 공구 중인 링크 모음 → https://link.inpock.co.kr/momcal`,
+  `─────────────`,
+  `맘캘린더 채널 한눈에`,
+  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
+  `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
+  `· 네이버카페 → https://cafe.naver.com/momcal`,
+  `· 인스타그램 → https://www.instagram.com/momcal_`,
+  `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
+  `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
+  ``,
+  blogTags,
 ].join('\n');
 
-const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '공구모음',
-  ...brands.map((b) => `${b}공구`)].join(',');
-
-writeFileSync(`daily/${day}_blog.txt`, `${blogTitle}\n\n${blogBody}\n\n${blogTags}`, 'utf8');
+writeFileSync(`daily/${day}_blog.txt`, `${blogTitle}\n\n${blogBody}`, 'utf8');
 
 // 폰에서 바로 저장·복사할 수 있는 페이지
 // 사장님께 아침에 알릴 것. 매일 아침 이 페이지를 여시니 여기 띄우는 게 가장 확실하다.
@@ -178,10 +183,8 @@ textarea{width:100%;height:260px;border:1px solid #E3DCEF;border-radius:10px;pad
     <textarea id="btitle" style="height:54px">${esc(blogTitle)}</textarea>
     <button class="btn btn2" onclick="cp('btitle','블로그 제목')">블로그 제목 복사</button>
     <textarea id="bbody" style="margin-top:9px">${esc(blogBody)}</textarea>
-    <button class="btn btn2" onclick="cp('bbody','블로그 본문')">블로그 본문 복사</button>
-    <textarea id="btags" style="height:54px;margin-top:9px">${esc(blogTags)}</textarea>
-    <button class="btn btn2" onclick="cp('btags','블로그 태그')">블로그 태그 복사</button>
-    <div class="meta">순서: 사진 저장 → 블로그 앱 글쓰기 → 제목·본문 붙여넣고 (여기에 카드 사진) 자리에 사진 → 태그 붙여넣기 → 발행</div>
+    <button class="btn" onclick="cp('bbody','블로그 본문 전체')">블로그 본문 전체 복사 (태그 포함)</button>
+    <div class="meta">순서: 사진 저장 → 블로그 앱 글쓰기 → 제목 붙여넣기 → 본문 붙여넣기 → (여기에 카드 사진) 자리에 사진 → 발행. 끝의 #태그들은 자동으로 태그가 돼요</div>
   </div>
 </div>
 <script>
