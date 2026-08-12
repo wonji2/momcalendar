@@ -104,7 +104,7 @@ const FRAMES = [
   () => `${label} ${audSp}${head} ${tail} | ${bAll} 공구 오픈`,
   () => `${label} ${audSp}${head} | ${bAll} 공구 ${tail}`,
   () => `${label} ${bAll} 공구 오픈 | ${audSp}${head} ${tail}`,
-  () => `${label} 오늘 오픈 ${audSp}${head} ${tail} | ${brands[0] || ''} 공구 외`,
+  () => `${label} ${head.includes('오늘') ? '' : '오늘 오픈 '}${audSp}${head} ${tail} | ${brands[0] || ''} 공구 외`,
 ];
 const blogTitle = (brands.length
   ? FRAMES[Math.floor(rnd() * FRAMES.length)]()
