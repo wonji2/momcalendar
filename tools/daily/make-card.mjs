@@ -102,6 +102,15 @@ const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '�
   ...brands.map((b) => `${b}공구`)].map((t) => `#${t}`).join(' ');
 
 const blogBody = [
+  `맘캘린더 채널 한눈에`,
+  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
+  `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
+  `· 네이버카페 → https://cafe.naver.com/momcal`,
+  `· 인스타그램 → https://www.instagram.com/momcal_`,
+  `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
+  `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
+  `─────────────`,
+  ``,
   `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
   `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
   ``,
@@ -115,15 +124,6 @@ const blogBody = [
   ...closes.map((o) => `· ${o.name} — ${seller(o)}`),
   ``,
   `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
-  ``,
-  `─────────────`,
-  `맘캘린더 채널 한눈에`,
-  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
-  `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
-  `· 네이버카페 → https://cafe.naver.com/momcal`,
-  `· 인스타그램 → https://www.instagram.com/momcal_`,
-  `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
-  `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
   ``,
   blogTags,
 ].join('\n');
