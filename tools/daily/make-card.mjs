@@ -102,16 +102,16 @@ const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '�
   ...brands.map((b) => `${b}공구`)].map((t) => `#${t}`).join(' ');
 
 const blogBody = [
-  // 맘캘린더만 https:// 를 붙인다 → 네이버 에디터가 이것만 링크·카드로 활성화하고 나머지는 일반 글자
+  // 전부 클릭되는 링크로. 네이버 에디터는 맨 위 URL(맘캘린더)만 카드로 펼치고 나머지는 텍스트 링크가 된다 (사장님 확인 2026-08-12)
   `맘캘린더 채널 한눈에`,
   `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
-  `· 네이버카페 → cafe.naver.com/momcal`,
-  `· 인스타그램 → instagram.com/momcal_`,
+  `· 네이버카페 → https://cafe.naver.com/momcal`,
+  `· 인스타그램 → https://www.instagram.com/momcal_`,
   ``,
-  `· 오늘 공구 중인 링크 → link.inpock.co.kr/momcal`,
+  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
   ``,
-  `· 카톡 공지방(공구 알림) → open.kakao.com/o/gJ3NIKCh`,
-  `· 카톡 수다방 → open.kakao.com/o/gr2kJhCh`,
+  `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
+  `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
   `─────────────`,
   ``,
   `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
