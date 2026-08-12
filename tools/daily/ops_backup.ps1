@@ -5,6 +5,9 @@ $repo = 'C:\Users\FAMILY\momcal-ops'
 $src  = 'C:\Users\FAMILY\Desktop\맘캘린더\사이트\MOMCALENDAR'
 $mem  = 'C:\Users\FAMILY\.claude\projects\C--Users-FAMILY-Desktop----------MOMCALENDAR\memory'
 
+# 백업 전에 네이버 SERP 일일 실측 → serp_log.tsv 가 같이 백업된다
+& 'C:\Program Files\Git\bin\bash.exe' "$src\tools\daily\serp_check.sh"
+
 if (-not (Test-Path "$repo\.git")) { git clone https://github.com/wonji2/momcal-ops.git $repo }
 Set-Location $repo
 git config user.name 'momcal-bot'

@@ -6,7 +6,7 @@
 //   node tools/daily/make-card.mjs          ← 오늘
 //   DAY=2026-08-10 node tools/daily/make-card.mjs
 import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const SITE = 'https://momcalendar.com';
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -89,22 +89,26 @@ const brandOf = (n) => {
 };
 const brands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].slice(0, 3);
 
-// 제목 키워드 로테이션 (사장님 지시 2026-08-12): 건수 대신 검색어 변형을 매일 다르게.
-// 날짜 기반 선택이라 같은 날을 다시 생성해도 제목이 같다(재생성 안전).
+// 제목 조합 엔진 (사장님 지시 2026-08-12): 고정 템플릿 대신 키워드 풀(head×tail×audience) 조합 — 수백 가지.
+// 풀은 tools/daily/blog_keywords.json — serp_check 로그 보고 잘 걸리는 키워드를 위로 올리면 제목이 진화한다.
+// 날짜 시드 LCG 라 같은 날을 다시 생성해도 제목이 같다(재생성 안전). 앞쪽 키워드가 뽑힐 확률이 높다(순서=가중치).
+const KW = JSON.parse(readFileSync('tools/daily/blog_keywords.json', 'utf8'));
+let _seed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+const rnd = () => { _seed = (_seed * 1103515245 + 12345) % 2147483648; return _seed / 2147483648; };
+const pick = (arr) => arr[Math.floor(Math.pow(rnd(), 1.6) * arr.length)];   // 지수로 앞쪽 편향
+
 const bAll = brands.join('·');
-const b1 = brands[0] || '', b2 = brands[1] || brands[0] || '';
-const TITLE_TPL = [
-  () => `${label} 인스타 공구일정 | ${bAll} 공구 오픈 총정리`,
-  () => `${label} 오늘 공구 일정 모음 | ${b1} 공구 · ${b2} 공동구매 오픈`,
-  () => `${label} 인스타 공동구매 일정 | ${bAll} 공구 시작하는 곳`,
-  () => `${label} 육아맘 인스타 공구 모음 | ${bAll} 오픈`,
-  () => `${label} 오늘 오픈 공구 총정리 | ${b1} 공구 일정 · ${b2} 공구`,
-  () => `${label} 공구일정 캘린더 | 인스타 ${bAll} 공동구매`,
-  () => `${label} 인스타 공구 오늘 뭐 열리지? ${bAll} 공구 오픈`,
+const head = pick(KW.head), tail = pick(KW.tail), aud = pick(KW.audience);
+const audSp = aud ? `${aud} ` : '';
+const FRAMES = [
+  () => `${label} ${audSp}${head} ${tail} | ${bAll} 공구 오픈`,
+  () => `${label} ${audSp}${head} | ${bAll} 공구 ${tail}`,
+  () => `${label} ${bAll} 공구 오픈 | ${audSp}${head} ${tail}`,
+  () => `${label} 오늘 오픈 ${audSp}${head} ${tail} | ${brands[0] || ''} 공구 외`,
 ];
-const blogTitle = brands.length
-  ? TITLE_TPL[(d.getMonth() * 31 + d.getDate()) % TITLE_TPL.length]()
-  : `${label} 인스타 공구일정 모음 | 오늘 오픈 공구 총정리`;
+const blogTitle = (brands.length
+  ? FRAMES[Math.floor(rnd() * FRAMES.length)]()
+  : `${label} ${audSp}${head} ${tail} | 오늘 오픈 공구`).replace(/\s+/g, ' ').trim();
 const MAJOR_ORDER = ['육아', '리빙', '식품', '건강', '뷰티', '가전', '패션', '여행', '인테리어', '반려동물'];
 const byMajor = MAJOR_ORDER.map((m) => [m, opens.filter((o) => o.major === m)]).filter(([, a]) => a.length);
 const etc = opens.filter((o) => !MAJOR_ORDER.includes(o.major));
