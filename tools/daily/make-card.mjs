@@ -97,9 +97,13 @@ let _seed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
 const rnd = () => { _seed = (_seed * 1103515245 + 12345) % 2147483648; return _seed / 2147483648; };
 const pick = (arr) => arr[Math.floor(Math.pow(rnd(), 1.6) * arr.length)];   // 지수로 앞쪽 편향
 
+// "8월 공구일정" 류 시즌 키워드는 실제 유입 패턴 — 두 번째 가중치로 끼워 넣는다
+const heads = [KW.head[0], `${d.getMonth() + 1}월 공구일정`, ...KW.head.slice(1)];
 const bAll = brands.join('·');
-const head = pick(KW.head), tail = pick(KW.tail), aud = pick(KW.audience);
+const head = pick(heads), tailRaw = pick(KW.tail), aud = pick(KW.audience);
+const tail = tailRaw.replace(/^공구\s*/, '');   // 앞말이 늘 '공구…'라 "공구일정 공구하는 곳" 중복 방지
 const audSp = aud ? `${aud} ` : '';
+// 모든 프레임에 head(공구일정 계열)가 반드시 들어간다 — 핵심 검색어 보장 (사장님 지시 2026-08-12)
 const FRAMES = [
   () => `${label} ${audSp}${head} ${tail} | ${bAll} 공구 오픈`,
   () => `${label} ${audSp}${head} | ${bAll} 공구 ${tail}`,
