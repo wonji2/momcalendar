@@ -103,10 +103,12 @@ const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '�
 
 const blogBody = [
   `맘캘린더 채널 한눈에`,
-  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
   `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
   `· 네이버카페 → https://cafe.naver.com/momcal`,
   `· 인스타그램 → https://www.instagram.com/momcal_`,
+  ``,
+  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
+  ``,
   `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
   `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
   `─────────────`,
