@@ -87,7 +87,7 @@ const brandOf = (n) => {
   const t = (String(n).replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/)[0] || '');
   return (t.length >= 2 && t.length <= 7 && !BRAND_STOP.has(t) && !/^\d/.test(t)) ? t : '';
 };
-const brands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].slice(0, 3);
+const brands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].slice(0, 8);   // 브랜드+공구가 실제 유입 검색어 — 8개 나열 (사장님 지시)
 
 // 제목 조합 엔진 (사장님 지시 2026-08-12): 고정 템플릿 대신 키워드 풀(head×tail×audience) 조합 — 수백 가지.
 // 풀은 tools/daily/blog_keywords.json — serp_check 로그 보고 잘 걸리는 키워드를 위로 올리면 제목이 진화한다.
