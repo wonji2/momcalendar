@@ -59,11 +59,71 @@ const b64 = pngDataUrl.split(',')[1];
 writeFileSync(`daily/${day}.png`, Buffer.from(b64, 'base64'));
 writeFileSync(`daily/${day}.txt`, info.cap, 'utf8');
 
-// 폰에서 바로 저장·복사할 수 있는 페이지
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const d = new Date(day + 'T00:00:00');
 const label = `${d.getMonth() + 1}월 ${d.getDate()}일(${'일월화수목금토'[d.getDay()]})`;
 
+// ── 네이버 블로그 초안 (사장님 지시 2026-08-12: blog.naver.com/momcal 에 매일 1건) ──
+// 글쓰기 API 가 2020년에 종료돼 발행은 사장님이 폰에서 붙여넣는다. 여기선 복붙 세트만 만든다.
+// 검색 실측 근거: 사람들은 "공구일정"(붙임)·"인스타 공구"·"브랜드명+공구" 로 검색한다.
+const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1';
+const SB_KEY = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const rest = (p) => fetch(`${SB}/gonggu?${p}`, { headers: { apikey: SB_KEY } }).then((r) => r.json());
+// 블로그 초안이 실패해도 카드는 살아야 한다 → 실패 시 빈 목록으로 계속
+let opens = [], closes = [];
+try {
+  opens  = await rest(`select=name,influencer,insta,major,end_date&approved=eq.true&open_date=eq.${day}&order=major.asc,name.asc`);
+  closes = await rest(`select=name,influencer,insta&approved=eq.true&end_date=eq.${day}&order=name.asc`);
+  if (!Array.isArray(opens))  opens  = [];
+  if (!Array.isArray(closes)) closes = [];
+} catch (e) { console.log('블로그용 REST 실패:', String(e).slice(0, 120)); }
+
+const seller = (g) => g.influencer || g.insta || '';
+const mmdd = (s) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? `${+s.slice(5, 7)}/${+s.slice(8, 10)}` : '';
+// 상품명 첫 토큰에서 브랜드 후보를 뽑는다. 일반명사·수식어는 제외 (제목·태그용 3개면 충분)
+const BRAND_STOP = new Set(['국민','만능','오늘','미니','역시즌','특가','신상','베스트','국산','유아','아기','키즈',
+  '시그니처','프리미엄','여름','겨울','간식','분리수거함','목욕놀이','새치컷팅기','고구마','돌반지','가족여행']);
+const brandOf = (n) => {
+  const t = (String(n).replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/)[0] || '');
+  return (t.length >= 2 && t.length <= 7 && !BRAND_STOP.has(t) && !/^\d/.test(t)) ? t : '';
+};
+const brands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].slice(0, 3);
+
+const blogTitle = brands.length
+  ? `${label} 인스타 공구일정 모음 | ${brands.join('·')} 공구 오픈 (오늘 ${opens.length}건 총정리)`
+  : `${label} 인스타 공구일정 모음 | 오늘 오픈 공구 ${opens.length}건 총정리`;
+const MAJOR_ORDER = ['육아', '리빙', '식품', '건강', '뷰티', '가전', '패션', '여행', '인테리어', '반려동물'];
+const byMajor = MAJOR_ORDER.map((m) => [m, opens.filter((o) => o.major === m)]).filter(([, a]) => a.length);
+const etc = opens.filter((o) => !MAJOR_ORDER.includes(o.major));
+if (etc.length) byMajor.push(['기타', etc]);
+
+const blogBody = [
+  `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
+  `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
+  ``,
+  `전체 일정과 브랜드별 공구 검색은 맘캘린더에서 실시간으로 보실 수 있어요 → https://momcalendar.com`,
+  ``,
+  `(여기에 저장해 두신 카드 사진을 넣어주세요)`,
+  ``,
+  `■ 오늘 오픈하는 공구 ${opens.length}건`,
+  ...byMajor.flatMap(([m, arr]) => [``, `[${m}]`,
+    ...arr.map((o) => `· ${o.name} — ${seller(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
+  ``,
+  `■ 오늘 마감하는 공구 ${closes.length}건`,
+  ...closes.map((o) => `· ${o.name} — ${seller(o)}`),
+  ``,
+  `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
+  ``,
+  `맘캘린더는 인스타 공구·핫딜·체험단 일정을 매일 모아 보여드리는 사이트예요.`,
+  `오늘 오픈 공구, 브랜드별 공구 일정, 역대최저가 핫딜까지 → https://momcalendar.com`,
+].join('\n');
+
+const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '공구모음',
+  ...brands.map((b) => `${b}공구`)].join(',');
+
+writeFileSync(`daily/${day}_blog.txt`, `${blogTitle}\n\n${blogBody}\n\n${blogTags}`, 'utf8');
+
+// 폰에서 바로 저장·복사할 수 있는 페이지
 // 사장님께 아침에 알릴 것. 매일 아침 이 페이지를 여시니 여기 띄우는 게 가장 확실하다.
 // 처리되면 이 상수를 비워 두면 사라진다. (todo/README 로 관리하지 않는 이유: 파일이 늘면 안 본다)
 const TODO = {
@@ -109,14 +169,24 @@ textarea{width:100%;height:260px;border:1px solid #E3DCEF;border-radius:10px;pad
   <div class="card">
     <textarea id="cap" readonly>${esc(info.cap)}</textarea>
     <div class="meta">${esc(info.lab)}</div>
-    <button class="btn btn2" onclick="cp()">캡션 복사</button>
+    <button class="btn btn2" onclick="cp('cap','캡션')">캡션 복사</button>
+  </div>
+  <div class="card">
+    <div class="meta" style="margin:0 0 8px;font-weight:800;color:#5B2E8C">네이버 블로그용 (blog.naver.com/momcal) — 수정해서 쓰셔도 돼요</div>
+    <textarea id="btitle" style="height:54px">${esc(blogTitle)}</textarea>
+    <button class="btn btn2" onclick="cp('btitle','블로그 제목')">블로그 제목 복사</button>
+    <textarea id="bbody" style="margin-top:9px">${esc(blogBody)}</textarea>
+    <button class="btn btn2" onclick="cp('bbody','블로그 본문')">블로그 본문 복사</button>
+    <textarea id="btags" style="height:54px;margin-top:9px">${esc(blogTags)}</textarea>
+    <button class="btn btn2" onclick="cp('btags','블로그 태그')">블로그 태그 복사</button>
+    <div class="meta">순서: 사진 저장 → 블로그 앱 글쓰기 → 제목·본문 붙여넣고 (여기에 카드 사진) 자리에 사진 → 태그 붙여넣기 → 발행</div>
   </div>
 </div>
 <script>
-function cp(){
-  var t=document.getElementById('cap');
-  navigator.clipboard.writeText(t.value).then(function(){ alert('캡션을 복사했어요'); })
-   .catch(function(){ t.removeAttribute('readonly'); t.select(); document.execCommand('copy'); alert('캡션을 복사했어요'); });
+function cp(id,label){
+  var t=document.getElementById(id);
+  navigator.clipboard.writeText(t.value).then(function(){ alert(label+'을(를) 복사했어요'); })
+   .catch(function(){ t.removeAttribute('readonly'); t.select(); document.execCommand('copy'); alert(label+'을(를) 복사했어요'); });
 }
 </script></body></html>`;
 writeFileSync(`daily/${day}.html`, html, 'utf8');
