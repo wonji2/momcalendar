@@ -1,6 +1,6 @@
 #!/bin/bash
 # 향후 7일치 카드+블로그 초안을 daily-card 워크플로로 순차 생성
-cd "C:/Users/FAMILY/Desktop/맘캘린더/사이트/MOMCALENDAR" || exit 1
+cd "C:/Users/안태인/MOMCALENDAR" || exit 1
 TOKEN=$(printf "protocol=https\nhost=github.com\n\n" | git credential fill | grep '^password=' | cut -d= -f2)
 API="https://api.github.com/repos/wonji2/momcalendar/actions/workflows/daily-card.yml"
 HDR=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json")

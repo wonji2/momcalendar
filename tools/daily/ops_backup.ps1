@@ -1,9 +1,9 @@
 ﻿# momcal 운영자산 백업 → 비공개 레포 wonji2/momcal-ops (사장님 A안, 2026-08-12)
 # 대상: scratchpad(도구·등록기록) + 슬래시커맨드 + 메모리 + CLAUDE/HANDOFF (로컬에만 있는 것들)
 $ErrorActionPreference = 'Continue'
-$repo = 'C:\Users\FAMILY\momcal-ops'
-$src  = 'C:\Users\FAMILY\Desktop\맘캘린더\사이트\MOMCALENDAR'
-$mem  = 'C:\Users\FAMILY\.claude\projects\C--Users-FAMILY-Desktop----------MOMCALENDAR\memory'
+$repo = "$env:USERPROFILE\momcal-ops"
+$src  = "$env:USERPROFILE\MOMCALENDAR"
+$mem  = "$env:USERPROFILE\.claude\projects\C--Users-----MOMCALENDAR\memory"
 
 # 백업 전에 네이버 SERP 일일 실측 → serp_log.tsv 가 같이 백업된다
 & 'C:\Program Files\Git\bin\bash.exe' "$src\tools\daily\serp_check.sh"
@@ -18,8 +18,9 @@ robocopy "$src\.claude\commands" "$repo\claude-commands" /MIR /NFL /NDL /NJH /NJ
 robocopy $mem "$repo\memory" /MIR /NFL /NDL /NJH /NJS | Out-Null
 Copy-Item "$src\CLAUDE.md" "$repo\CLAUDE-MOMCALENDAR.md" -Force
 Copy-Item "$src\HANDOFF.md" "$repo\HANDOFF.md" -Force
-Copy-Item 'C:\Users\FAMILY\Desktop\맘캘린더\CLAUDE.md' "$repo\CLAUDE-parent.md" -Force
-Copy-Item 'C:\Users\FAMILY\Desktop\CLAUDE.md' "$repo\CLAUDE-desktop.md" -Force
+# 구 PC의 상위폴더 CLAUDE.md 2종은 새 PC에 없음 — momcal-ops 안의 미러(CLAUDE-parent.md 등)가 최신본
+if (Test-Path 'C:\Users\안태인\Desktop\맘캘린더\CLAUDE.md') { Copy-Item 'C:\Users\안태인\Desktop\맘캘린더\CLAUDE.md' "$repo\CLAUDE-parent.md" -Force }
+if (Test-Path 'C:\Users\안태인\Desktop\CLAUDE.md') { Copy-Item 'C:\Users\안태인\Desktop\CLAUDE.md' "$repo\CLAUDE-desktop.md" -Force }
 
 Set-Location $repo
 git add -A
