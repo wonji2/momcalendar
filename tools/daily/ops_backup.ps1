@@ -12,8 +12,37 @@ $mem  = Get-ChildItem "$env:USERPROFILE\.claude\projects" -Directory -Filter '*M
         Sort-Object { (Get-Item (Join-Path $_ 'MEMORY.md')).LastWriteTime } -Descending |
         Select-Object -First 1
 
-# 백업 전에 네이버 SERP 일일 실측 → serp_log.tsv 가 같이 백업된다
-& 'C:\Program Files\Git\bin\bash.exe' "$src\tools\daily\serp_check.sh"
+# ── 안전장치: /MIR 는 원본에서 사라진 파일을 백업에서도 지운다 ──
+# 원본 파일수가 백업본보다 급감(30개 초과 감소 또는 70% 미만)이면 그 폴더 미러를 멈추고 경고만 남긴다.
+# 의도된 대량 삭제라면 momcal-ops\ALLOW_SHRINK.txt 를 만들어 두고 실행하면 1회 통과된다.
+function Count-Files([string]$p) {
+  (Get-ChildItem $p -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\\.git\\|\\node_modules\\' } | Measure-Object).Count
+}
+function Safe-Mirror([string]$s0, [string]$d0, [string]$label) {
+  if (Test-Path $d0) {
+    $s = Count-Files $s0; $d = Count-Files $d0
+    $flag = "$repo\ALLOW_SHRINK.txt"
+    if ($d -ge 20 -and (($d - $s) -gt 30 -or $s -lt [math]::Ceiling($d * 0.7))) {
+      if (Test-Path $flag) { Remove-Item $flag -Force }
+      else {
+        $msg = "[{0}] 경고: {1} 원본 파일수 급감 (원본 {2} vs 백업 {3}) - 미러 중단. 의도된 삭제면 ALLOW_SHRINK.txt 생성 후 재실행" -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $label, $s, $d
+        Add-Content -Path "$repo\BACKUP_WARNING.txt" -Value $msg -Encoding UTF8
+        Write-Warning $msg
+        return
+      }
+    }
+  }
+  robocopy $s0 $d0 /MIR /NFL /NDL /NJH /NJS | Out-Null
+}
+
+# 네이버 SERP 일일 실측 → serp_log.tsv 가 같이 백업된다.
+# 매시간 실행 체제(2026-08-14)에서도 SERP 는 하루 1회만 — 오늘 날짜 행이 이미 있으면 건너뛴다.
+$serpLog = "$src\scratchpad\serp_log.tsv"
+$today = Get-Date -Format 'yyyy-MM-dd'
+if (-not (Test-Path $serpLog) -or -not (Select-String -Path $serpLog -Pattern "^$today" -Quiet)) {
+  & 'C:\Program Files\Git\bin\bash.exe' "$src\tools\daily\serp_check.sh"
+}
 
 if (-not (Test-Path "$repo\.git")) { git clone https://github.com/wonji2/momcal-ops.git $repo }
 Set-Location $repo
@@ -24,9 +53,9 @@ git config user.email 'noreply@momcalendar.com'
 git pull --no-rebase -X ours origin main 2>$null
 if ($LASTEXITCODE -ne 0) { git merge --abort 2>$null }
 
-robocopy "$src\scratchpad" "$repo\scratchpad" /MIR /NFL /NDL /NJH /NJS | Out-Null
-robocopy "$src\.claude\commands" "$repo\claude-commands" /MIR /NFL /NDL /NJH /NJS | Out-Null
-robocopy $mem "$repo\memory" /MIR /NFL /NDL /NJH /NJS | Out-Null
+Safe-Mirror "$src\scratchpad" "$repo\scratchpad" 'scratchpad'
+Safe-Mirror "$src\.claude\commands" "$repo\claude-commands" 'claude-commands'
+Safe-Mirror $mem "$repo\memory" 'memory'
 Copy-Item "$src\CLAUDE.md" "$repo\CLAUDE-MOMCALENDAR.md" -Force
 Copy-Item "$src\HANDOFF.md" "$repo\HANDOFF.md" -Force
 # 상위폴더 CLAUDE.md 2종 — 있는 기계(구 PC)에서만 미러 갱신, 없는 기계는 momcal-ops 안의 미러가 최신본
