@@ -1896,13 +1896,10 @@ function closeHdSheet(){
 }
 async function openHdSheet(id){
   const h=(_hotdealData||[]).find(x=>x.id===id); if(!h) return;
-  const body=document.getElementById('hdSheetBody');
-  body.innerHTML=`<div style="padding:40px 0;text-align:center;color:#bbb;font-size:13px">가격 이력 불러오는 중...</div>`;
-  var _hdWas=(document.getElementById('hdBg').style.display==='block');
-  document.getElementById('hdBg').style.display='block';
-  document.getElementById('hdSheet').style.bottom='0';
-  if(!_hdWas) lockScroll();
 
+  // 이력을 먼저 조회하고, 그래프를 그릴 수 없으면(2점 미만) 시트를 아예 띄우지 않고 바로 구매 링크로 보낸다.
+  // (사장님 지시 2026-08-14 "그래프 추적 못하고 있으면 그 화면 빼고 그냥 바로 링크로" —
+  //  2026-08-10 "띄울 내용 없으면 바로 지마켓 링크로"와 같은 원칙. 조회는 보통 0.3초라 체감 지연 없음)
   let pts=[];
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/hotdeal_chart`,{
@@ -1912,6 +1909,20 @@ async function openHdSheet(id){
     });
     if(r.ok) pts=await r.json();
   }catch(e){}
+
+  if(!pts || pts.length<2){
+    trackHd('go',h.id);
+    // 인앱 웹뷰는 window.open 이 null → location.href 폴백 (고정 대응 패턴)
+    var w=null; try{ w=window.open(h.link,'_blank'); }catch(_){}
+    if(!w) location.href=h.link;
+    return;
+  }
+
+  const body=document.getElementById('hdSheetBody');
+  var _hdWas=(document.getElementById('hdBg').style.display==='block');
+  document.getElementById('hdBg').style.display='block';
+  document.getElementById('hdSheet').style.bottom='0';
+  if(!_hdWas) lockScroll();
 
   const prices=pts.map(p=>p.price);
   const lo=prices.length?Math.min(...prices):h.price;
