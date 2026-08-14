@@ -20,6 +20,10 @@ Set-Location $repo
 git config user.name 'momcal-bot'
 git config user.email 'noreply@momcalendar.com'
 
+# 두 PC 가 같은 날 둘 다 push 하면 뒤쪽이 거부된다(2026-08-14 실측) → 복사 전에 원격을 먼저 합친다
+git pull --no-rebase -X ours origin main 2>$null
+if ($LASTEXITCODE -ne 0) { git merge --abort 2>$null }
+
 robocopy "$src\scratchpad" "$repo\scratchpad" /MIR /NFL /NDL /NJH /NJS | Out-Null
 robocopy "$src\.claude\commands" "$repo\claude-commands" /MIR /NFL /NDL /NJH /NJS | Out-Null
 robocopy $mem "$repo\memory" /MIR /NFL /NDL /NJH /NJS | Out-Null
