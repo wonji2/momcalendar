@@ -13,15 +13,30 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 
 # ── 데이터 확보 ────────────────────────────────
+$key = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'
 if($DataFile){
   $D = [IO.File]::ReadAllText($DataFile) | ConvertFrom-Json
 } else {
   $api = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/rpc/seo_dataset'
-  $key = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'
   $r = Invoke-WebRequest -Uri $api -Method POST -TimeoutSec 180 `
         -Headers @{ apikey=$key; Authorization="Bearer $key"; 'Content-Type'='application/json' } -Body '{}'
   $D = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()) | ConvertFrom-Json
 }
+
+# ── 활성 핫딜 (브랜드 페이지 연동 — "OO 공구 핫딜" 검색 수요, 자동완성 실측 2026-08-14) ──
+# 공개 REST 만 쓴다(핫딜 목록은 어차피 사이트에 공개되는 내용). 실패해도 페이지 생성은 계속한다.
+$HotDeals = @()
+try{
+  $hApi = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals'
+  # ⚠ PostgREST 는 값 자리의 now() 를 문자열로 취급한다(실측: 핫딜 15개가 1개로 줄었다) → 실제 시각을 넣는다
+  $nowUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+  $hQ   = "?select=id,title,link&or=(expires_at.is.null,expires_at.gte.$nowUtc)&order=id.desc&limit=80"
+  $hr = Invoke-WebRequest -Uri ($hApi + $hQ) -TimeoutSec 30 `
+        -Headers @{ apikey=$key; Authorization="Bearer $key" }
+  # ⚠ PS 5.1 ConvertFrom-Json 은 JSON 배열을 한 덩어리로 준다 → 파이프로 한 번 풀어야 개수가 맞는다(실측 31→1)
+  $HotDeals = @(([Text.Encoding]::UTF8.GetString($hr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
+  Write-Output "활성 핫딜 $($HotDeals.Count)개 확보"
+}catch{ Write-Output "핫딜 조회 실패(무시): $($_.Exception.Message)" }
 $today = $D.today
 if(-not $today){ throw '데이터에 today 가 없다' }
 Write-Output "데이터 기준일: $today (캐시 $($D.cached_at))"
@@ -165,6 +180,13 @@ foreach($b in $brandList){
   }
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
+  }
+  # ── 이 브랜드 상품이 핫딜에 떠 있으면 연결 ("세이펜 공구 핫딜" 류 검색 수요) ──
+  $hd = @($HotDeals | Where-Object { $_.title -and ("$($_.title)").Contains($b.brand) } | Select-Object -First 3)
+  if($hd.Count -gt 0){
+    $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $b.brand) 핫딜</h2><div class=${Q}rel${Q}>"
+    foreach($x in $hd){ $body += "<a href=${Q}$(HtmlEsc $x.link)${Q} rel=${Q}nofollow sponsored${Q} target=${Q}_blank${Q}>🔥 $(HtmlEsc $x.title)</a>" }
+    $body += "</div><p style=${Q}margin-top:8px;font-size:11px;color:#B5AFBD${Q}>제휴 활동으로 일정액의 수수료를 받을 수 있습니다</p></div>"
   }
   $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp
   $body += $ex.html
