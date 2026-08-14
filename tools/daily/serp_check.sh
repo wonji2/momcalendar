@@ -33,3 +33,26 @@ for Q in "${QUERIES[@]}"; do
   sleep 3   # 네이버에 부담 안 주기
 done
 echo "serp_check done: $D"
+
+# ── 주 1회: 브랜드×공구 자동완성 실측 (사장님 지시 2026-08-14) ──
+# "무아스 공구 가격" 처럼 실제로 검색되는 브랜드·꼬리말을 자동 발견해 쌓는다.
+# 브랜드 명단: scratchpad/ac_brands.txt (최근 공구 빈도 상위 — 달에 한 번쯤 갱신)
+ACLOG="scratchpad/ac_log.tsv"
+ACBRANDS="scratchpad/ac_brands.txt"
+if [ "$(date +%u)" = "1" ] && [ -f "$ACBRANDS" ]; then
+  [ -f "$ACLOG" ] || printf "date\tbrand\thit\tsuggestions\n" > "$ACLOG"
+  # 오늘 이미 돌렸으면 건너뛴다 (ops_backup 이 하루 여러 번 부를 수 있음)
+  if ! grep -q "^$D" "$ACLOG" 2>/dev/null; then
+    while IFS= read -r B; do
+      [ -z "$B" ] && continue
+      ENC=$(printf '%s' "$B 공구" | perl -MURI::Escape -ne 'print uri_escape($_)' 2>/dev/null)
+      [ -z "$ENC" ] && continue
+      R=$(curl -s --max-time 10 -A "$UA" "https://ac.search.naver.com/nx/ac?q=$ENC&st=100&frm=nv&r_format=json&r_enc=UTF-8&q_enc=UTF-8")
+      HIT=$(printf '%s' "$R" | grep -c "\"$B 공구\"")
+      SUG=$(printf '%s' "$R" | grep -o '\["[^"]*"\]' | tr -d '[]"' | grep -v "^$B 공구$" | head -5 | tr '\n' ';')
+      printf "%s\t%s\t%s\t%s\n" "$D" "$B" "$HIT" "$SUG" >> "$ACLOG"
+      sleep 1
+    done < "$ACBRANDS"
+    echo "ac_check done: $(grep -c "^$D" "$ACLOG") brands"
+  fi
+fi

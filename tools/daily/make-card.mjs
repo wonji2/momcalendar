@@ -122,6 +122,35 @@ if (etc.length) byMajor.push(['기타', etc]);
 const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '공구모음',
   ...brands.map((b) => `${b}공구`)].map((t) => `#${t}`).join(' ');
 
+// ── 오늘의 브랜드 꼭지 (사장님 지시 2026-08-14) ──
+// "OO 공구 가격·정품·차이" 같은 정보성 검색은 네이버 블로그가 잘 받는다(자동완성 실측).
+// ⚠ 진행 횟수·셀러 수 같은 집계 수치는 넣지 않는다 — 사장님이 파는 데이터 자산(2026-08-11 지시).
+let brandStory = [];
+try {
+  const b = brands[0];
+  if (b) {
+    const hist = await rest(`select=name,influencer,insta,open_date&approved=eq.true&name=like.${encodeURIComponent(b)}*&order=open_date.desc&limit=60`);
+    const hs = Array.isArray(hist) ? hist : [];
+    const recentSellers = [...new Set(hs.map(seller).filter(Boolean))].slice(0, 3);
+    // 브랜드 페이지 링크는 실제로 있는지 확인하고 넣는다(슬러그가 이름과 다르면 404)
+    let bLink = 'https://momcalendar.com';
+    try {
+      const u = `https://momcalendar.com/g/${encodeURIComponent(b)}.html`;
+      const h = await fetch(u, { method: 'HEAD' });
+      if (h.ok) bLink = u;
+    } catch {}
+    if (hs.length >= 2 && recentSellers.length) {
+      brandStory = [
+        ``,
+        `■ 오늘의 브랜드: ${b}`,
+        `· ${b} 공구는 인스타 셀러들이 기간을 정해 여는 공동구매예요. 최근에는 ${recentSellers.join(', ')} 님이 진행했어요.`,
+        `· 가격은 오픈일에 셀러 계정 공지로 공개돼요. 같은 제품이라도 셀러·구성에 따라 조금씩 달라서, 공지에서 확인하는 게 가장 정확해요.`,
+        `· 이번에 놓쳤다면 너무 아쉬워하지 마세요. ${b} 공구는 보통 일정 간격을 두고 다시 열려요. 전체 일정은 여기서 → ${bLink}`,
+      ];
+    }
+  }
+} catch (e) { console.log('브랜드 꼭지 생략:', String(e).slice(0, 80)); }
+
 const blogBody = [
   // 전부 클릭되는 링크로. 네이버 에디터는 맨 위 URL(맘캘린더)만 카드로 펼치고 나머지는 텍스트 링크가 된다 (사장님 확인 2026-08-12)
   `맘캘린더 채널 한눈에`,
@@ -146,6 +175,7 @@ const blogBody = [
   ``,
   `■ 오늘 마감하는 공구 ${closes.length}건`,
   ...closes.map((o) => `· ${o.name} — ${seller(o)}`),
+  ...brandStory,
   ``,
   `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
   ``,
