@@ -497,6 +497,15 @@ details summary::-webkit-details-marker{display:none}
         <input id="bLink" type="text" placeholder="https:// 또는 seller-popup / ad-popup">
         <button type="button" id="bFetchImgBtn" onclick="fetchBannerImgFromLink()" style="width:100%;margin-top:7px;padding:10px;background:#EAF6EC;color:#1B7A4B;border:1px solid #BFE3C8;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🔗 이 링크에서 상품 대표사진 가져오기</button>
         <div id="bFetchImgMsg" style="font-size:11.5px;margin-top:5px;line-height:1.6"></div>
+        <!-- 네이버·쿠팡처럼 상품 페이지가 막힌 곳: 사진 주소만 있으면 받아온다(이미지 CDN은 안 막혀 있음) -->
+        <div id="bImgUrlBox" style="display:none;margin-top:7px;background:#FFF8E8;border:1px solid #F0DFA8;border-radius:9px;padding:9px 10px">
+          <div style="font-size:11.5px;color:#8A6A2E;line-height:1.65;margin-bottom:6px">
+            <b>사진 주소로 가져오기</b><br>
+            상품 페이지에서 <b>사진 우클릭 → 이미지 주소 복사</b> (폰은 사진 꾹 눌러 <b>이미지 주소 복사</b>) 후 아래에 붙여넣으세요
+          </div>
+          <input id="bImgUrl" type="text" placeholder="https://shop-phinf.pstatic.net/..." style="width:100%;box-sizing:border-box;padding:8px 9px;border:1.5px solid #E3DCEF;border-radius:7px;font-size:12px;font-family:inherit">
+          <button type="button" onclick="fetchBannerImgByUrl()" style="width:100%;margin-top:6px;padding:8px;background:#8A6A2E;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">이 주소로 사진 넣기</button>
+        </div>
         <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
       </div>
       <div class="modal-field" id="bLinkOpenField">
@@ -3893,10 +3902,39 @@ async function fetchBannerImgFromLink(){
       if(typeof previewImgUrl === 'function'){ try{ previewImgUrl(j.image); }catch(_){} }
       say(`✅ 대표사진을 가져왔어요${j.title?` · <span style="color:#888">${j.title.slice(0,40)}</span>`:''}`, '#1B7A4B');
     } else {
-      say(`⚠ ${(j&&j.error)||'가져오지 못했어요'}<br><span style="color:#888">상품 페이지에서 사진을 복사한 뒤 아래 <b>붙여넣기(Ctrl+V)</b>로 넣어 주세요</span>`, '#C2410C');
+      say(`⚠ ${(j&&j.error)||'가져오지 못했어요'}`, '#C2410C');
+      const box = document.getElementById('bImgUrlBox'); if(box) box.style.display='block';   // 사진 주소 입력칸 열기
     }
   }catch(e){ say('오류: '+String(e).slice(0,80), '#C2185B'); }
   btn.disabled = false; btn.textContent = old;
+}
+
+// 사진 주소를 직접 받아 넣기 (네이버·쿠팡 우회로 — 이미지 CDN 은 막혀 있지 않다)
+async function fetchBannerImgByUrl(){
+  const url = (document.getElementById('bImgUrl')||{}).value || '';
+  const msg = document.getElementById('bFetchImgMsg');
+  const say = (html, color) => { if(msg){ msg.innerHTML = html; msg.style.color = color || '#666'; } };
+  if(!/^https?:\/\//i.test(url.trim())){ say('사진 주소(https://…)를 붙여넣어 주세요', '#C2185B'); return; }
+  say('사진을 받는 중이에요…');
+  try{
+    const r = await fetch(`${SB_URL}/functions/v1/link-image`, {
+      method:'POST',
+      headers:{ 'apikey':SB_KEY, 'Authorization':`Bearer ${SB_KEY}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ image: url.trim() })
+    });
+    const j = await r.json();
+    if(j && j.ok && j.image){
+      document.getElementById('bImg').value = j.image;
+      const p = document.getElementById('bImgPreviewImg'), box = document.getElementById('bImgPreview');
+      if(p){ p.src = j.image; } if(box){ box.style.display='block'; }
+      const up = document.getElementById('bImgUploadTxt'); if(up) up.style.display='none';
+      if(typeof previewImgUrl === 'function'){ try{ previewImgUrl(j.image); }catch(_){} }
+      say('✅ 사진을 넣었어요', '#1B7A4B');
+      const ib = document.getElementById('bImgUrlBox'); if(ib) ib.style.display='none';
+    } else {
+      say(`⚠ ${(j&&j.error)||'가져오지 못했어요'}<br><span style="color:#888">사진 자체를 복사해 아래 <b>붙여넣기(Ctrl+V)</b>로 넣으셔도 돼요</span>`, '#C2410C');
+    }
+  }catch(e){ say('오류: '+String(e).slice(0,80), '#C2185B'); }
 }
 
 // 모달: 배너 종류에 따라 필요한 칸만 보이게
