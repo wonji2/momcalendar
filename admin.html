@@ -489,12 +489,14 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:11px;color:#999;margin-top:4px">기획전은 브랜드 제휴·쿠팡 파트너스 등 광고용. 색은 아래에서 민트 계열을 고르면 예뻐요.</div>
         <div style="font-size:11px;color:#7B3FB5;margin-top:3px;line-height:1.6">🟪 <b>슬림 광고 배너</b>: <b>제목</b>=상품 문구 · <b>브랜드명 칸</b>=왼쪽 태그(예: 오늘만 특가) · <b>링크</b>=연결 URL · <b>노출 기간</b>=게시 시작~종료(종료되면 자동으로 사라져요) · <b>배경색 왼쪽 첫 칸</b>이 배너 색. 이미지 없어도 돼요.</div>
       </div>
-      <div class="modal-field"><label id="bTitleLbl">제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚"></div>
+      <div class="modal-field"><label id="bTitleLbl">제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚" oninput="bLenTick()"><div id="bTitleLen" style="font-size:11px;color:#999;margin-top:3px"></div></div>
       <div class="modal-field"><label id="bCtaLbl">브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
-      <div class="modal-field" id="bSubField"><label>부제목</label><input id="bSubtitle" type="text" placeholder="예) 17,000명+ 맘들의 공구 커뮤니티"></div>
+      <div class="modal-field" id="bSubField"><label>부제목 <span style="font-weight:400;color:#999">(사진 아래 한 줄 설명)</span></label><input id="bSubtitle" type="text" placeholder="예) 방학에 쟁여두는 국내산 간식" oninput="bLenTick()"><div id="bSubLen" style="font-size:11px;color:#999;margin-top:3px"></div></div>
       <div class="modal-field">
         <label>링크 URL</label>
         <input id="bLink" type="text" placeholder="https:// 또는 seller-popup / ad-popup">
+        <button type="button" id="bFetchImgBtn" onclick="fetchBannerImgFromLink()" style="width:100%;margin-top:7px;padding:10px;background:#EAF6EC;color:#1B7A4B;border:1px solid #BFE3C8;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🔗 이 링크에서 상품 대표사진 가져오기</button>
+        <div id="bFetchImgMsg" style="font-size:11.5px;margin-top:5px;line-height:1.6"></div>
         <div style="font-size:11px;color:#999;margin-top:4px">seller-popup = 셀러입점 팝업 · ad-popup = 광고문의 팝업</div>
       </div>
       <div class="modal-field" id="bLinkOpenField">
@@ -3844,6 +3846,59 @@ async function toggleBannerStage(id, cur){
     loadBannerAdmin();
   }catch(e){ alert('오류: '+e.message); }
 }
+// ── 메인 배너 글자수 제한 (사장님 지시 2026-08-15: "안잘리는 범위까지만 쓸 수 있게") ──
+// 실측 근거: 2단 카드 글자칸 폭 170px. 제목 12px → 14자, 설명(부제) 10.5px → 16자에서 잘린다.
+// 넘으면 화면에서 "…" 로 잘리니 아예 입력을 막는다. 슬림/기획전은 형태가 달라 제한 없음.
+const BANNER_LIMIT = { title: 14, sub: 16 };
+function bLenTick(){
+  const type = (document.getElementById('bType')||{}).value || 'main';
+  const on = (type === 'main');
+  const put = (inputId, lenId, max) => {
+    const el = document.getElementById(inputId), out = document.getElementById(lenId);
+    if(!el || !out) return;
+    if(!on){ el.removeAttribute('maxlength'); out.textContent=''; return; }
+    el.setAttribute('maxlength', String(max));
+    const n = (el.value||'').length;
+    const left = max - n;
+    out.innerHTML = `<b style="color:${left<=0?'#C2185B':(left<=2?'#B8860B':'#1B7A4B')}">${n}/${max}자</b>`
+      + (left<=0 ? ' · 여기까지가 한 줄에 들어가는 최대예요' : '');
+  };
+  put('bTitle','bTitleLen', BANNER_LIMIT.title);
+  put('bSubtitle','bSubLen', BANNER_LIMIT.sub);
+}
+
+// ── 판매링크 → 상품 대표사진 자동 가져오기 (사장님 지시 2026-08-15) ──
+// 상품 페이지를 브라우저에서 직접 읽으면 CORS 로 막혀서, Edge Function(link-image)이 대신 받아온다.
+// ⚠ 네이버 스마트스토어·쿠팡은 봇을 차단해 실패한다(실측). 그럴 땐 붙여넣기로 안내한다.
+async function fetchBannerImgFromLink(){
+  const link = (document.getElementById('bLink')||{}).value || '';
+  const msg = document.getElementById('bFetchImgMsg');
+  const btn = document.getElementById('bFetchImgBtn');
+  const say = (html, color) => { if(msg){ msg.innerHTML = html; msg.style.color = color || '#666'; } };
+  if(!/^https?:\/\//i.test(link.trim())){ say('먼저 판매링크(https://…)를 넣어 주세요', '#C2185B'); return; }
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '가져오는 중… ⏳';
+  say('상품 페이지를 여는 중이에요…');
+  try{
+    const r = await fetch(`${SB_URL}/functions/v1/link-image`, {
+      method:'POST',
+      headers:{ 'apikey':SB_KEY, 'Authorization':`Bearer ${SB_KEY}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ link: link.trim() })
+    });
+    const j = await r.json();
+    if(j && j.ok && j.image){
+      document.getElementById('bImg').value = j.image;
+      const p = document.getElementById('bImgPreviewImg'), box = document.getElementById('bImgPreview');
+      if(p){ p.src = j.image; } if(box){ box.style.display='block'; }
+      const up = document.getElementById('bImgUploadTxt'); if(up) up.style.display='none';
+      if(typeof previewImgUrl === 'function'){ try{ previewImgUrl(j.image); }catch(_){} }
+      say(`✅ 대표사진을 가져왔어요${j.title?` · <span style="color:#888">${j.title.slice(0,40)}</span>`:''}`, '#1B7A4B');
+    } else {
+      say(`⚠ ${(j&&j.error)||'가져오지 못했어요'}<br><span style="color:#888">상품 페이지에서 사진을 복사한 뒤 아래 <b>붙여넣기(Ctrl+V)</b>로 넣어 주세요</span>`, '#C2410C');
+    }
+  }catch(e){ say('오류: '+String(e).slice(0,80), '#C2185B'); }
+  btn.disabled = false; btn.textContent = old;
+}
+
 // 모달: 배너 종류에 따라 필요한 칸만 보이게
 function syncBannerTypeUI(){
   const t=(document.getElementById('bType')||{}).value||'main';
@@ -3863,6 +3918,10 @@ function syncBannerTypeUI(){
   const t1=document.getElementById('bTitle');    if(t1) t1.placeholder=slim?'예) 보텔라핏 · 온가족 장건강 케어':'예) 맘캘린더 공구 함께해요 💚';
   const c1=document.getElementById('bCta');      if(c1) c1.placeholder=slim?'예) 오늘만 특가':'예) botellafit · 쿠팡 파트너스';
   const bgHint=document.getElementById('bBgHint'); if(bgHint) bgHint.innerHTML=slim?'슬림 배너는 <b>왼쪽 첫 색</b>만 사용해요':'단색으로 하려면 두 색을 같게 설정하세요';
+  // 링크에서 사진 가져오기는 이미지를 쓰는 종류(main·promo)에서만 의미가 있다
+  const fb=document.getElementById('bFetchImgBtn'); if(fb) fb.style.display=slim?'none':'';
+  const fm=document.getElementById('bFetchImgMsg'); if(fm && slim) fm.innerHTML='';
+  bLenTick();   // 종류가 바뀌면 글자수 제한도 다시 적용
 }
 function applyBannerFilter(){
   ['main','slim','promo'].forEach(t=>{
