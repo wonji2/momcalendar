@@ -29,7 +29,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun 
 .sub{color:rgba(255,255,255,.95);text-shadow:0 1px 4px rgba(0,0,0,.6);margin-top:2px}
 .r1610 .card{aspect-ratio:16/10}.r11 .card{aspect-ratio:1/1}.r34 .card{aspect-ratio:3/4}
 .big .slide{min-width:86%}.big .ttl{font-size:14px}.big .sub{font-size:10.5px}
-.two .slide{min-width:47.5%}.two .ttl{font-size:12px}.two .sub{font-size:9.5px}
+/* ⚠ min-width:% 로는 안 된다 — 플렉스 항목이 제목 길이(max-content)만큼 늘어나 1.7개가 된다(실측 205px).
+   calc 로 폭을 못박고 min-width:0 을 줘야 한 화면에 정확히 2개가 들어온다. */
+.two .slide{flex:0 0 calc((100% - 9px) / 2);min-width:0}.two .ttl{font-size:12px}.two .sub{font-size:9.5px}
+.two{scroll-snap-type:x mandatory}.two .slide{scroll-snap-align:start}
 /* H·I안: 사진 밖에 글자 */
 .ocard .pic{border-radius:13px;overflow:hidden;position:relative;background:#DDD8E6}
 .ocard .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
