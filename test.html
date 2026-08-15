@@ -135,9 +135,17 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .ptab{display:flex;background:#F1ECF8;border-radius:11px;padding:4px;margin:6px 0 14px}.ptab button{flex:1;border:none;background:transparent;font-size:12.5px;font-weight:700;color:#9a8ab5;padding:9px 0;border-radius:8px;cursor:pointer;font-family:inherit}.ptab button.on{background:var(--main);color:#fff}.ppane{display:none}.ppane.on{display:block}
 
 .main-slider-wrap{position:relative;overflow:hidden}
-.main-slider{display:flex;gap:10px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1)}
-.main-slide{min-width:86%;cursor:pointer}
-.main-slide-inner{border-radius:16px;overflow:hidden;position:relative;aspect-ratio:16/10;display:flex;align-items:flex-end}
+.main-slider{display:flex;gap:9px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1);scroll-snap-type:x mandatory}
+/* H-2안 (사장님 확정 2026-08-15): 정사각 사진 2구좌 + 글자는 사진 밖
+   근거 실측 — 배너 사진 14장 중 11장이 정사각(0.96~1.01). 기존 16:10은 위아래 37%를 잘라먹었다.
+   ⚠ 폭을 min-width:% 로 주면 카드가 제목 길이(max-content)만큼 늘어나 화면에 1.71개가 된다.
+     calc 로 못박고 min-width:0 을 줘야 정확히 2.00개가 들어온다(실측). */
+.main-slide{flex:0 0 calc((100% - 9px) / 2);min-width:0;cursor:pointer;scroll-snap-align:start}
+.main-slide-inner{border-radius:14px;overflow:hidden;position:relative;aspect-ratio:1/1;display:flex;align-items:flex-end}
+/* 글자칸: 제목 1줄(12px·14자) + 설명 1줄(10.5px·16자). 넘치면 … 로 자른다 */
+.main-slide-txt{padding:7px 2px 0}
+.main-slide-t1{font-size:12px;font-weight:800;color:var(--t1);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main-slide-t2{font-size:10.5px;color:var(--t2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
 .main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 32%,transparent 55%)}
 .main-slide-cnt{position:relative;z-index:1;padding:13px 15px;width:100%}
@@ -2749,8 +2757,8 @@ function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCal
     const dx=e.changedTouches[0].clientX-sx;
     const dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
-      if(dx<0) goMainBanner((mainIdx+1)%MAIN_BANNERS.length);
-      else goMainBanner((mainIdx-1+MAIN_BANNERS.length)%MAIN_BANNERS.length);
+      // 2장씩 보이므로 페이지 단위로 넘긴다 (goMainBanner 가 순환 처리)
+      goMainBanner(dx<0 ? mainIdx+1 : mainIdx-1);
     }
   },{passive:true});
 })();
@@ -3868,14 +3876,14 @@ function buildMainSlider(){
     // 이미지 배너는 화면에 보일 때만 로드(전송량 절약). data-bg에 넣어두고 표시 시 적용
     const bgAttr=isImg?` data-bg="${bg.replace(/"/g,'&quot;')}"`:'';
     const bgStyle=isImg?'#ECE8FA':bg;
+    // H-2안: 사진은 정사각 그대로(잘림 0), 글자는 사진 밖 흰 바탕에 (사장님 확정 2026-08-15)
     return`<div class="main-slide">
       <div class="main-slide-inner">
         <div class="main-slide-bg"${bgAttr} style="background:${bgStyle}"></div>
-        <div class="main-slide-ov"></div>
-        <div class="main-slide-cnt">
-          <div class="main-slide-ttl">${b.title||''}</div>
-          <div class="main-slide-sub">${b.subtitle||''}</div>
-        </div>
+      </div>
+      <div class="main-slide-txt">
+        <div class="main-slide-t1">${b.title||''}</div>
+        <div class="main-slide-t2">${b.subtitle||''}</div>
       </div>
     </div>`;
   }).join('');
@@ -3893,7 +3901,9 @@ function buildMainSlider(){
     };
   });
   document.getElementById('mainDots').innerHTML=
-    MAIN_BANNERS.map((_,i)=>`<div class="main-dot${i===0?' on':''}" onclick="goMainBanner(${i})"></div>`).join('');
+    // 점은 배너 개수가 아니라 **페이지 수**(2장 묶음)만큼 찍는다
+    Array.from({length: Math.max(1, Math.ceil(MAIN_BANNERS.length/2))},
+      (_,i)=>`<div class="main-dot${i===0?' on':''}" onclick="goMainBanner(${i})"></div>`).join('');
   mainIdx=0;
   loadSlideBg(0); loadSlideBg(1%MAIN_BANNERS.length);   // 첫 배너(+다음) 이미지만 우선 로드
   clearInterval(window._mainTimer);
@@ -3908,13 +3918,18 @@ function loadSlideBg(i){
   if(d){ el.style.background=d; el.removeAttribute('data-bg'); }
 }
 
+// H-2안은 한 화면에 2장이라 **2장 단위**로 넘어간다. i 는 '페이지' 번호(0,1,2…)
+const MB_PER_PAGE = 2;
+function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PAGE)); }
 function goMainBanner(i){
   if(!MAIN_BANNERS.length)return;
+  const pages = mbPages();
+  i = ((i % pages) + pages) % pages;      // 양쪽 끝에서 순환
   mainIdx=i;
-  loadSlideBg(i); loadSlideBg((i+1)%MAIN_BANNERS.length);   // 현재+다음 슬라이드 이미지 로드
+  for(let k=0;k<MB_PER_PAGE*2;k++) loadSlideBg((i*MB_PER_PAGE+k)%MAIN_BANNERS.length);  // 이번+다음 페이지 사진
   const slider=document.getElementById('mainSlider');
   const slide=slider.querySelector('.main-slide');
-  const step=slide?slide.getBoundingClientRect().width+10:0; // 슬라이드 너비 + gap
+  const step=slide?(slide.getBoundingClientRect().width+9)*MB_PER_PAGE:0;  // (카드폭+gap) × 2
   slider.style.transform=`translateX(-${i*step}px)`;
   document.querySelectorAll('.main-dot').forEach((d,idx)=>d.classList.toggle('on',idx===i));
 }
