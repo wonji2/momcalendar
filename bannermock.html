@@ -37,8 +37,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun 
 .ocard .pic{border-radius:13px;overflow:hidden;position:relative;background:#DDD8E6}
 .ocard .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ocard .txt{padding:7px 2px 0}
-.ocard .ot{font-size:12.5px;font-weight:800;color:#241C2E;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 제목 1줄 고정 (사장님 지시 2026-08-15 "두줄은 이상해서 한줄로만") */
+.ocard .ot{font-size:12.5px;font-weight:800;color:#241C2E;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ocard .os{font-size:10.5px;color:#8B82A0;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocard.f12 .ot{font-size:12px}.ocard.f11 .ot{font-size:11px}
+.lenbar{display:flex;gap:6px;padding:6px 16px 0;font-size:10px;color:#A9A3B2}
+.lenbar b{color:#C2185B}
 .sq .pic{aspect-ratio:1/1}.r45 .pic{aspect-ratio:4/5}
 .dots{display:flex;justify-content:center;gap:5px;padding:8px 0 9px}
 .dot{width:5px;height:5px;border-radius:50%;background:#DDD6E8}.dot.on{background:#7B3FB5;width:15px;border-radius:3px}
@@ -73,31 +77,66 @@ td b{color:#1B7A4B}td i{color:#C2410C;font-style:normal}
     사진도 안 가려지고, 흰 바탕이라 훨씬 잘 읽힙니다. 쇼핑앱들이 쓰는 방식입니다.</p>
   </div>
 
+  <div class="info">
+    <b>✍️ 실측: 한 줄에 몇 글자가 들어가나</b>
+    <p>글자칸 폭은 <b>170px</b>입니다. 한글 기준으로 재보면:</p>
+    <table style="margin-top:8px">
+      <tr><th>제목 글자크기</th><th>최대 글자수</th><th>느낌</th></tr>
+      <tr><td>12.5px (기본)</td><td><b>13자</b></td><td>또렷함</td></tr>
+      <tr><td>12px</td><td><b>14자</b></td><td>권장</td></tr>
+      <tr><td>11px</td><td>15자</td><td>작아짐</td></tr>
+      <tr><td>설명줄 10.5px</td><td><b>16자</b></td><td>회색 보조</td></tr>
+    </table>
+    <p style="margin-top:8px">→ 제목은 <b>13~14자</b>, 설명은 <b>16자</b>가 한 줄 한계입니다.
+    넘으면 <b>… 로 잘립니다.</b> 배너 등록할 때 이 글자수를 관리자에서 알려드리게 하겠습니다.</p>
+  </div>
+
   <!-- H안 -->
   <div class="opt">
-    <div class="opt-hd"><b>H안 · 정사각 사진 + 글자는 아래</b><span class="tag t-rec">신규 추천</span>
-      <p>사진은 <b>정사각 그대로(잘림 0%)</b>, 글자는 사진 밖에 검은 글씨로 큼직하게.</p>
-      <div class="spec">사진 <b>160×160</b> + 글자칸 45 = <b>205px</b> · 한 화면 <b>2구좌</b> · 사진 잘림 <b>0%</b> · 영역 높이 <b>250px</b><br>
-      → G안(250px)과 <b>같은 높이</b>인데 글자는 <b>2배</b>, 사진은 <b>안 잘림</b></div></div>
+    <div class="opt-hd"><b>H안 · 정사각 사진 + 제목 1줄 + 설명 1줄</b><span class="tag t-rec">추천</span>
+      <p>사진은 <b>정사각 그대로(잘림 0%)</b>. 제목 한 줄, 그 아래 <b>한 줄 설명</b>(마감일 대신 파는 말).</p>
+      <div class="spec">사진 <b>174×174</b> + 글자칸 42 = <b>216px</b> · 한 화면 <b>딱 2구좌</b> · 사진 잘림 <b>0%</b><br>
+      제목 <b>13자</b>(12.5px) · 설명 <b>16자</b>(10.5px) · 영역 높이 <b>261px</b></div></div>
     <div class="phone">
       <div class="sec-ttl">🔥 지금 HOT한 공구 🔥</div>
       <div class="slider two">
         <div class="slide ocard sq"><div class="pic"><img src="https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_1786583974535.jpg" alt=""></div>
-          <div class="txt"><div class="ot">방학에 쟁여야할 무항생제 동그랑땡</div><div class="os">우리무드 · ~8/20</div></div></div>
+          <div class="txt"><div class="ot">무항생제 동그랑땡</div><div class="os">방학에 쟁여두는 국내산 간식</div></div></div>
         <div class="slide ocard sq"><div class="pic"><img src="https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_1786230340418.jpg" alt=""></div>
-          <div class="txt"><div class="ot">선풍기로 안되는 더위 냉풍기로 잡자</div><div class="os">고요아 · ~8/18</div></div></div>
+          <div class="txt"><div class="ot">이동식 냉풍기</div><div class="os">선풍기로 안 되는 더위 잡기</div></div></div>
         <div class="slide ocard sq"><div class="pic"><img src="https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_1786319595929.jpg" alt=""></div>
-          <div class="txt"><div class="ot">미니백에도 충분한 초미니 물티슈</div><div class="os">스룩 · ~8/22</div></div></div>
+          <div class="txt"><div class="ot">초미니 물티슈</div><div class="os">미니백에도 쏙 들어가요</div></div></div>
       </div>
+      <div class="lenbar"><span>↑ 제목 13자 넘으면 <b>…</b> 로 잘림 · 설명 16자</span></div>
       <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
       <div class="fold"><span>여기부터 공구 목록</span></div>
     </div>
     <div class="pros">
-      <div class="p">◎ 제목이 <b>2줄 통째로</b> 들어갑니다. 흰 바탕 검은 글씨라 사진 위 흰 글씨보다 훨씬 잘 읽힙니다.</div>
-      <div class="p">◎ 셀러명·마감일까지 한 줄 더 넣을 수 있습니다(광고주가 좋아합니다).</div>
+      <div class="p">◎ 제목이 <b>한 줄로 깔끔</b>합니다. 흰 바탕 검은 글씨라 사진 위 흰 글씨보다 훨씬 잘 읽힙니다.</div>
+      <div class="p">◎ 아래 한 줄에 <b>파는 말</b>을 넣습니다(마감일은 어차피 카드 목록에 있으니 뺐습니다).</div>
       <div class="p">◎ 사진이 <b>하나도 안 잘립니다.</b> 정사각 그대로.</div>
-      <div class="m">△ 사진 자체 크기는 160×160으로 A안(291×182)보다 작습니다.</div>
+      <div class="m">△ 제목이 13자로 짧습니다 — 긴 상품명은 광고주와 줄여서 정해야 합니다.</div>
     </div>
+  </div>
+
+  <!-- H2안: 글자 조금 작게 -->
+  <div class="opt">
+    <div class="opt-hd"><b>H-2안 · 같은 구조, 제목 12px(14자)</b>
+      <p>제목을 아주 살짝 줄여 <b>한 글자 더</b> 넣는 안입니다.</p>
+      <div class="spec">제목 <b>14자</b> · 설명 <b>16자</b> · 나머지는 H안과 동일</div></div>
+    <div class="phone">
+      <div class="sec-ttl">🔥 지금 HOT한 공구 🔥</div>
+      <div class="slider two">
+        <div class="slide ocard sq f12"><div class="pic"><img src="https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_1786583974535.jpg" alt=""></div>
+          <div class="txt"><div class="ot">무항생제 동그랑땡 2차</div><div class="os">방학에 쟁여두는 국내산 간식</div></div></div>
+        <div class="slide ocard sq f12"><div class="pic"><img src="https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_1786230340418.jpg" alt=""></div>
+          <div class="txt"><div class="ot">10만원대 이동식 냉풍기</div><div class="os">선풍기로 안 되는 더위 잡기</div></div></div>
+      </div>
+      <div class="lenbar"><span>↑ 왼쪽은 13자(딱 맞음) · 오른쪽은 <b>12자 초과라 … 로 잘림</b></span></div>
+      <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+      <div class="fold"><span>여기부터 공구 목록</span></div>
+    </div>
+    <div class="pros"><div class="p">◎ 한 글자 차이지만 "10만원대 이동식 냉풍기" 같은 제목이 들어갑니다.</div></div>
   </div>
 
   <!-- I안 -->
