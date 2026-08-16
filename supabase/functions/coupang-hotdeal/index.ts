@@ -232,6 +232,19 @@ Deno.serve(async (req) => {
 
   if (test === "adpick") return Response.json((await apFetch()).slice(0, 5));
   if (test === "goldbox") return Response.json(await cpGoldbox());
+  // 카톡 제보를 수동 등록할 때 상품 대표사진을 받는 경로.
+  // 쿠팡 상품 페이지는 og:image 를 막아(403) 사진을 못 긁는다 → 공식 검색 API 로 받는다.
+  // ⚠ 검색은 1분당 50회. 수동 등록용이라 한 번에 몇 건만 부른다(자동 크론 호출량은 그대로).
+  if (test === "search") {
+    const kw = u.searchParams.get("kw") ?? "";
+    if (!kw) return Response.json({ error: "kw 가 필요하다" }, { status: 400 });
+    const r = await cpSearch(kw, Number(u.searchParams.get("limit") ?? 10));
+    const items = (r?.data?.productData ?? []).map((p: any) => ({
+      productId: p.productId, productName: p.productName,
+      productImage: p.productImage, productPrice: p.productPrice, productUrl: p.productUrl,
+    }));
+    return Response.json({ mode: "search", kw, count: items.length, items });
+  }
 
   // 올라가 있는 골드박스 카드만 점검한다 (쿠팡 호출 1회 — 검색은 돌리지 않는다).
   // 오늘 특가 목록에서 빠졌으면 값이 원래대로 돌아간 것이므로 카드를 내린다.
