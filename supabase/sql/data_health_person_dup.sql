@@ -1,3 +1,4 @@
+create extension if not exists fuzzystrmatch;
 -- 🔴 data_health() 에 ⑨번 추가: "한 사람이 계정 2개" 중복 감시 (2026-08-17)
 --
 -- 계기: 벤시몽 맘커플신발이 도하맘(my__doha_)·도하상점(bonheur_0926) 두 카드로 노출됨(사장님 지적).
@@ -43,18 +44,33 @@ begin
                                               or substring(end_date,9,2)::int  not between 1 and 31));
   if n > 0 then insert into health_alerts(kind, detail) values ('날짜불량', n || '건'); end if;
 
-  -- ⑥ 같은 셀러·같은 날 중복 (꾸밈말 제거 후 양방향 포함관계)
+  -- ⑥ 같은 셀러·같은 날 중복
+  --    🔴 2026-08-17 강화 — 붙여쓴 문자열 비교만으로는 **어순 변형·오타 변형**을 못 잡는다.
+  --       실제로 8/15 등록분에서 관리자엔 중복 15쌍이 떴는데 이 검사는 0이었다.
+  --       ('명란시대 저염명란' ↔ '저염명란 명란시대', '사회정서' ↔ '사화정서')
+  --       → 관리자(admin relName)와 같이 ①핵심낱말 포함 ②낱말 70% 겹침 ③글자 80% 유사 를 함께 본다.
   with g as (
     select id, insta, open_date,
-           lower(regexp_replace(regexp_replace(name,'([0-9]+차|초특가|특가|모음전|기획전|국산|신상|NEW|한정|공구|앵콜|재오픈)','','g'),'[[:space:]·._&/,!+()\[\]-]','','g')) nn
+           lower(regexp_replace(regexp_replace(name,'([0-9]+차|초특가|특가|모음전|기획전|국산|신상|NEW|한정|공구|앵콜|재오픈)','','g'),'[[:space:]·._&/,!+()\[\]-]','','g')) nn,
+           (select array_agg(t) from unnest(string_to_array(regexp_replace(lower(name),'([0-9]+\s*차|[()])',' ','g'), ' ')) t
+             where t <> '' and t not in ('국산','신상','신상품','최신상','신제품','모음','모음전','골라담기','기획','기획전',
+                                         '특가','세트','전제품','전상품','증정','한정','예약','앵콜','런칭','오픈','최저가','핫딜','외','및')) toks
     from gonggu where approved and open_date ~ '^\d{4}-\d{2}-\d{2}$'
-      and open_date >= to_char((now() at time zone 'Asia/Seoul')::date - 7, 'YYYY-MM-DD')
+      and open_date >= to_char((now() at time zone 'Asia/Seoul')::date - 30, 'YYYY-MM-DD')
   )
   select count(*) into n from g a join g b
     on a.insta=b.insta and a.open_date=b.open_date and a.id<b.id
-   and (a.nn=b.nn or (length(a.nn)>=4 and b.nn like '%'||a.nn||'%')
-                  or (length(b.nn)>=4 and a.nn like '%'||b.nn||'%'));
-  if n > 0 then insert into health_alerts(kind, detail) values ('중복공구', n || '쌍'); end if;
+   and (a.nn=b.nn
+     or (length(a.nn)>=4 and b.nn like '%'||a.nn||'%')
+     or (length(b.nn)>=4 and a.nn like '%'||b.nn||'%')
+     or (a.toks is not null and b.toks is not null and (a.toks <@ b.toks or b.toks <@ a.toks))
+     or (a.toks is not null and b.toks is not null and cardinality(a.toks)>0 and cardinality(b.toks)>0
+         and (select count(*) from (select unnest(a.toks) intersect select unnest(b.toks)) i)::numeric
+             / (select count(*) from (select unnest(a.toks) union select unnest(b.toks)) u) >= 0.7)
+     -- ⚠ 한글 짧은 낱말은 trigram 이 못 잡는다(룰라맘↔룰루맘=0.25) → levenshtein 을 쓸 것
+     or (length(a.nn) between 1 and 200 and length(b.nn) between 1 and 200
+         and 1 - levenshtein(a.nn, b.nn)::numeric / greatest(length(a.nn), length(b.nn)) >= 0.80));
+  if n > 0 then insert into health_alerts(kind, detail) values ('중복공구', n || '쌍 — 어순·오타 변형 포함'); end if;
 
   -- ⑦ 살아있는 핫딜에 가격·사진·링크 빈 것
   select count(*) into n from hotdeals
