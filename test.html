@@ -1219,10 +1219,16 @@ const BRAND_ALIAS=[
   ['kret','크렛'],
   ['bas','바스'],
 ];
-// 검색어를 별칭까지 넓힌다. 원본 + 치환본을 모두 후보로 돌려준다.
+// 🔗 상품 ↔ 브랜드 연관 — 손님이 **상품 이름만** 알고 검색하는 경우 (사장님 지시 2026-08-17)
+//   예) '빼빼구마' 는 룰루맘 브랜드의 공구 상품인데, 상품명에는 '룰루맘' 만 적혀 있다.
+//   ⚠ 표기 별칭(BRAND_ALIAS)과 성격이 다르다. 이건 **다른 낱말끼리** 잇는 것이라 따로 둔다.
+const SEARCH_LINK=[
+  ['빼빼구마','룰루맘'],
+];
+// 검색어를 별칭·연관어까지 넓힌다. 원본 + 치환본을 모두 후보로 돌려준다.
 function expandQuery(q){
   const out=[q];
-  for(const [a,b] of BRAND_ALIAS){
+  for(const [a,b] of BRAND_ALIAS.concat(SEARCH_LINK)){
     if(q.includes(a)) out.push(q.split(a).join(b));
     if(q.includes(b)) out.push(q.split(b).join(a));
   }
