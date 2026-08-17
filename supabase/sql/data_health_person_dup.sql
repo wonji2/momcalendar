@@ -85,8 +85,12 @@ begin
 
   -- ⑨ 🔴 한 사람이 계정 2개 (2026-08-17 신설 — 벤시몽 도하맘↔도하상점 사고)
   --    핸들이 다르면 ⑥번이 못 잡는다. 이름이 닮은 + 반복 겹침 두 신호를 모두 요구해 오탐을 눌렀다.
+  -- ⚡ 성능: 예전엔 like 양방향 포함관계로 조인해 O(n²) 가 되면서 함수 전체가 18초 걸렸다.
+  --    **정규화 이름 완전일치**로만 조인하면 해시조인이 걸려 1초 아래로 떨어진다.
+  --    꾸밈말(모음전·N차 등)은 이미 정규화에서 지우므로 '로보카폴리' ↔ '로보카 폴리 모음전' 은 여전히 일치한다.
+  --    실측: 도하맘↔도하상점은 이 조건만으로도 3회 겹쳐 잡힌다.
   with n2 as (
-    select id, influencer, insta, open_date,
+    select id, influencer, insta, open_date::date od,
            lower(regexp_replace(regexp_replace(name,'(u0026|u003c|u003e|[0-9]+차|초특가|특가|모음전|기획전|국산|신상|NEW|한정|공구|앵콜|재오픈)','','g'),'[[:space:]·._&/,!+()\[\]-]','','g')) nn
     from gonggu
     where open_date ~ '^\d{4}-\d{2}-\d{2}$' and name is not null and length(name) >= 3
@@ -96,10 +100,9 @@ begin
   p as (
     select a.insta ia, b.insta ib, min(a.influencer) na, min(b.influencer) nb, count(*) ovl
     from n2 a join n2 b
-      on a.insta < b.insta
-     and abs(a.open_date::date - b.open_date::date) <= 2
-     and (a.nn = b.nn or (length(a.nn) >= 4 and length(b.nn) >= 4
-          and (a.nn like '%'||b.nn||'%' or b.nn like '%'||a.nn||'%')))
+      on a.nn = b.nn                      -- 해시조인 (인덱스 없이도 빠름)
+     and a.insta < b.insta
+     and abs(a.od - b.od) <= 2
     group by a.insta, b.insta
   )
   select count(*) into n from p
