@@ -289,8 +289,15 @@ Deno.serve(async (req) => {
       const aps = await apFetch();
       const apNow = new Map<string, number>();
       for (const p of aps) apNow.set(apKey(String(p.buyurl ?? "")), apNum(p.price_sale));
-      const apLive = await sb("hotdeals?source=eq.adpick&manual=is.false&select=id,product_id,price,title&or=(expires_at.is.null,expires_at.gt." +
-                              new Date().toISOString() + ")&limit=300");
+      // 🔴 2026-08-18 수정 — 애드픽 카드가 **38분 만에 전부 사라지던** 문제.
+      //   원인: 애드픽 '실시간 핫딜' 목록은 노출 슬롯이 돌아가며 30분 남짓이면 다른 상품으로 교체된다.
+      //         목록에서 빠진 걸 '딜 종료'로 보고 즉시 내렸더니 08:01 등록분이 08:39 점검에서 전멸했다.
+      //         실측: 최근 7일 31건 등록 → 노출 0건(전부 수명 38분). 손님은 볼 수가 없었다.
+      //   → 등록 후 **24시간은 유지**하고, 그 뒤에도 목록에 없을 때만 내린다.
+      const AP_GRACE_H = 24;
+      const apCut = new Date(Date.now() - AP_GRACE_H * 3600e3).toISOString();
+      const apLive = await sb("hotdeals?source=eq.adpick&manual=is.false&select=id,product_id,price,title,created_at&or=(expires_at.is.null,expires_at.gt." +
+                              new Date().toISOString() + ")&created_at=lt." + apCut + "&limit=300");
       const apRows = Array.isArray(apLive) ? apLive : [];
       let ap내림 = 0, ap갱신 = 0;
       for (const r of apRows) {
