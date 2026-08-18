@@ -402,6 +402,12 @@ details summary::-webkit-details-marker{display:none}
         <button onclick="loadAttend()" style="padding:8px 13px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻</button>
       </div>
     </div>
+    <!-- 📋 오늘(또는 선택일) 출석 명단 — 사장님 지시 2026-08-18 "출석한사람 오늘자 명단도 볼 수 있어야" -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px">
+      <div style="font-size:12.5px;font-weight:800;color:#4A35A0">📋 일자별 출석 명단</div>
+      <input type="date" id="atDay" onchange="loadAttendDay()" style="padding:6px 9px;border:1.5px solid #DCD2FB;border-radius:9px;font-size:12px;font-family:inherit">
+    </div>
+    <div id="atDayBox" style="margin-bottom:16px"></div>
     <div id="atStats" style="margin-bottom:14px"></div>
     <div id="atDrawBox" style="margin-bottom:14px"></div>
     <div id="atWinners" style="margin-bottom:14px"></div>
@@ -6778,6 +6784,62 @@ function atMonthVal(){
   if(el && !el.value){ const d=new Date(); el.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
   return (el?el.value:'')+'-01';
 }
+// 📋 일자별 출석 명단 (admin_attendance_day RPC) — 누가 언제 찍었는지 + 연속일수
+async function loadAttendDay(){
+  const el=document.getElementById('atDay');
+  if(el && !el.value){ const d=new Date(); el.value=d.toISOString().slice(0,10); }
+  const box=document.getElementById('atDayBox');
+  box.innerHTML='<div style="color:#999;font-size:13px;padding:10px">불러오는 중...</div>';
+  try{
+    const d=await admRpc('admin_attendance_day', el&&el.value?{p_day:el.value}:{});
+    const list=d.list||[], tr=d.trend||[], top=d.top||[];
+    const mx=Math.max(1,...tr.map(t=>t.n||0));
+    box.innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px">
+        ${[['오늘 출석',d.today_count,'#4A35A0'],['어제',d.yday_count,'#6B6480'],['최근7일',d.week_count,'#0F6E56'],['이달 누적',d.month_count,'#C2417A']]
+          .map(x=>`<div style="background:#fff;border:1px solid #E8E3F5;border-radius:11px;padding:10px 6px;text-align:center">
+            <div style="font-size:18px;font-weight:900;color:${x[2]}">${x[1]||0}</div>
+            <div style="font-size:10px;color:#8A8395;margin-top:3px">${x[0]}</div></div>`).join('')}
+      </div>
+      <div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11.5px;font-weight:800;color:#4A35A0;margin-bottom:8px">최근 14일 추이</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:46px">
+          ${tr.map(t=>`<div title="${t.day} · ${t.n}명" style="flex:1;background:#B9A6EA;border-radius:3px 3px 0 0;height:${Math.round((t.n/mx)*100)}%;min-height:2px"></div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#9A93A8;margin-top:4px">
+          <span>${tr.length?tr[0].day.slice(5):''}</span><span>${tr.length?tr[tr.length-1].day.slice(5):''}</span>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:11.5px;font-weight:800;color:#4A35A0">${d.day} 출석자 ${list.length}명</div>
+          <button onclick="copyAttendDay()" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">명단 복사</button>
+        </div>
+        ${list.length? list.map(x=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #F2EFFA">
+            <div style="font-size:11px;color:#9A93A8;width:38px">${x.at_time}</div>
+            <div style="flex:1;font-size:12.5px;font-weight:700;color:#2A1D6E">${x.nickname}</div>
+            <div style="font-size:11px;color:#C2417A;font-weight:700">🔥${x.streak}일</div>
+            <div style="font-size:11px;color:#6B6480">이달 ${x.month_days} · 누적 ${x.total_days}</div>
+          </div>`).join('') : '<div style="color:#9A93A8;font-size:12px;padding:8px 0">이 날짜에 출석한 사람이 없어요</div>'}
+      </div>
+      ${top.length?`<div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:12px;margin-top:10px">
+        <div style="font-size:11.5px;font-weight:800;color:#4A35A0;margin-bottom:8px">이달 출석 많은 순 TOP 20</div>
+        ${top.map((t,i)=>`<div style="display:flex;gap:8px;padding:5px 0;border-top:${i?'1px solid #F2EFFA':'none'}">
+          <div style="width:20px;font-size:11px;color:#9A93A8">${i+1}</div>
+          <div style="flex:1;font-size:12px;color:#2A1D6E">${t.nickname}</div>
+          <div style="font-size:12px;font-weight:800;color:#4A35A0">${t.days}일</div></div>`).join('')}
+      </div>`:''}`;
+    window._atDayData=d;
+  }catch(e){ box.innerHTML='<div style="color:#C2417A;font-size:12.5px;padding:10px">불러오기 실패: '+(e&&e.message?e.message:e)+'</div>'; }
+}
+function copyAttendDay(){
+  const d=window._atDayData; if(!d) return;
+  const rows=[d.day+' 출석자 '+(d.list||[]).length+'명', ['시각','닉네임','연속','이달','누적'].join('\t')];
+  (d.list||[]).forEach(x=>rows.push([x.at_time,x.nickname,x.streak,x.month_days,x.total_days].join('\t')));
+  const txt=rows.join('\n');
+  navigator.clipboard.writeText(txt).then(()=>alert('복사됐어요!')).catch(()=>window.prompt('아래를 복사하세요', txt));
+}
 async function loadAttend(){
   const m=atMonthVal();
   document.getElementById('atStats').innerHTML='<div style="color:#999;font-size:13px;padding:14px">불러오는 중...</div>';
@@ -6832,7 +6894,7 @@ async function drawAttend(tier){
   try{
     const r=await admRpc('admin_attendance_draw',{p_month:m,p_tier:tier,p_count:n,p_prize:cfg.prize});
     alert(`${r.drawn}명 뽑았어요 🎉`);
-    loadAttend();
+    loadAttend(); loadAttendDay();
   }catch(e){ alert('실패: '+e.message); }
 }
 async function loadWinners(){
