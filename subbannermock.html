@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>이웃셀러존 아래 서브배너 — 안 비교</title>
+<style>
+:root{--main:#602090;--t1:#2A2A2E;--t2:#7A7580;--t3:#9A93A8;--line:#EFEBF7;--bg:#F7F5FB}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#E8E4F0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--t1);padding:14px 0 60px}
+.wrap{max-width:393px;margin:0 auto}
+.note{background:#fff;border-radius:12px;padding:12px 14px;margin:0 10px 14px;font-size:12px;line-height:1.6;color:#4C4459;border:1px solid var(--line)}
+.note b{color:var(--main)}
+.phone{width:393px;margin:0 auto 26px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,.1)}
+.opt{padding:12px 16px 6px;font-size:13px;font-weight:800;color:#fff;background:var(--main);display:flex;justify-content:space-between;align-items:center}
+.opt span{font-size:10.5px;font-weight:600;opacity:.9}
+.sect{padding:14px 16px 18px}
+.sect-t{font-size:13.5px;font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:5px}
+/* 참고용 상단 — 메인배너(확정안) + 이웃셀러존 축소 표시 */
+.ref{padding:12px 16px 4px;background:#FAF8FE;border-bottom:1px solid var(--line)}
+.ref-t{font-size:11px;color:var(--t3);font-weight:700;margin-bottom:7px}
+.mainrow{display:flex;gap:9px}
+.maincard{flex:0 0 calc((100% - 9px)/2);min-width:0}
+.maincard .ph{aspect-ratio:1/1;border-radius:14px;background:#DED6F2 center/cover no-repeat}
+.maincard .t1{font-size:12px;font-weight:800;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.maincard .t2{font-size:10.5px;color:var(--t2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ring{display:flex;gap:12px;padding:12px 0 4px}
+.ring i{width:46px;height:46px;border-radius:50%;background:#E3D5F5;display:block}
+
+/* ── A안: 가로형 4:3 + 아래 글자 (메인의 축소판) ── */
+.a-row{display:flex;gap:9px}
+.a-card{flex:0 0 calc((100% - 9px)/2);min-width:0}
+.a-card .ph{aspect-ratio:4/3;border-radius:12px;background:#DED6F2 center/cover no-repeat}
+.a-card .t1{font-size:11.5px;font-weight:800;margin-top:6px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a-card .t2{font-size:10px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── B안: 사진 위 글자 오버레이 (가장 컴팩트) ── */
+.b-row{display:flex;gap:9px}
+.b-card{flex:0 0 calc((100% - 9px)/2);min-width:0;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3}
+.b-card .ph{position:absolute;inset:0;background:#DED6F2 center/cover no-repeat}
+.b-card .ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,rgba(0,0,0,.28) 45%,transparent 72%)}
+.b-card .tx{position:absolute;left:9px;right:9px;bottom:8px;color:#fff}
+.b-card .t1{font-size:11.5px;font-weight:800;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.b-card .t2{font-size:9.5px;opacity:.92;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── C안: 좌우 분할 (사진 작게 + 글자 넓게 = 글자 2줄 가능) ── */
+.c-row{display:flex;gap:9px}
+.c-card{flex:0 0 calc((100% - 9px)/2);min-width:0;display:flex;gap:8px;align-items:center;background:#FBFAFE;border:1px solid var(--line);border-radius:12px;padding:8px}
+.c-card .ph{flex:0 0 52px;width:52px;height:52px;border-radius:9px;background:#DED6F2 center/cover no-repeat}
+.c-card .tx{min-width:0;flex:1}
+.c-card .t1{font-size:11px;font-weight:800;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.c-card .t2{font-size:9.5px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── D안: 위시버니형 (기간뱃지 + 셀러 + 상품 + 할인/가격) ── */
+.d-row{display:flex;gap:9px}
+.d-card{flex:0 0 calc((100% - 9px)/2);min-width:0}
+.d-card .ph{position:relative;aspect-ratio:1/1;border-radius:12px;background:#DED6F2 center/cover no-repeat;overflow:hidden}
+.d-card .badge{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.62);color:#fff;font-size:9px;font-weight:700;padding:3px 6px;border-radius:6px}
+.d-card .meta{font-size:9.5px;color:var(--t3);margin-top:6px}
+.d-card .t1{font-size:11.5px;font-weight:800;margin-top:2px;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.d-card .price{margin-top:4px;display:flex;align-items:baseline;gap:5px}
+.d-card .rate{font-size:12px;font-weight:900;color:#E8402A}
+.d-card .won{font-size:12px;font-weight:800}
+
+.tip{font-size:11px;color:var(--t2);padding:0 16px 14px;line-height:1.6}
+.tip b{color:var(--main)}
+.mea{font-size:10.5px;color:#fff;background:#4A3568;padding:7px 16px;line-height:1.55}
+</style></head><body>
+<div class="wrap">
+  <div class="note">
+    <b>이웃셀러존 아래 서브배너 — 4개 안</b><br>
+    모바일 <b>393px</b> 기준으로 그렸습니다. 위쪽 회색 영역은 참고용(확정된 메인배너 + 이웃셀러존)이고,
+    보라색 띠 아래가 <b>새로 넣을 자리</b>입니다.
+  </div>
+</div>
+
+<!-- A안 -->
+<div class="phone">
+  <div class="opt">A안 · 가로형 4:3 + 아래 글자 <span>메인의 축소판</span></div>
+  <div class="ref">
+    <div class="ref-t">↓ 참고: 메인배너(확정) · 이웃셀러</div>
+    <div class="mainrow">
+      <div class="maincard"><div class="ph" id="m1"></div><div class="t1">Amoo 킥보드가방 공구중</div><div class="t2">가을 필수템 귀여운 투명가방</div></div>
+      <div class="maincard"><div class="ph" id="m2"></div><div class="t1">아기 목욕 비건 입욕제</div><div class="t2">거품놀이 가능한 비건 클레이</div></div>
+    </div>
+    <div class="ring"><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div class="sect">
+    <div class="sect-t">🎁 이런 공구도 있어요</div>
+    <div class="a-row">
+      <div class="a-card"><div class="ph" id="a1"></div><div class="t1">라꽁비에뜨 무염/가염 버터</div><div class="t2">버터계의 에르메스</div></div>
+      <div class="a-card"><div class="ph" id="a2"></div><div class="t1">모기 진드기 무무키토</div><div class="t2">식약처인증 의약외품</div></div>
+    </div>
+  </div>
+  <div class="mea">카드 높이 <b>약 168px</b> (사진 132 + 글자 36) · 메인배너 261px보다 <b>93px 낮음</b><br>제목 13자 · 설명 15자까지 한 줄</div>
+</div>
+
+<!-- B안 -->
+<div class="phone">
+  <div class="opt">B안 · 사진 위 글자 <span>가장 컴팩트</span></div>
+  <div class="sect">
+    <div class="sect-t">🎁 이런 공구도 있어요</div>
+    <div class="b-row">
+      <div class="b-card"><div class="ph" id="b1"></div><div class="ov"></div><div class="tx"><div class="t1">라꽁비에뜨 버터</div><div class="t2">버터계의 에르메스</div></div></div>
+      <div class="b-card"><div class="ph" id="b2"></div><div class="ov"></div><div class="tx"><div class="t1">모기 진드기 무무키토</div><div class="t2">식약처인증 의약외품</div></div></div>
+    </div>
+  </div>
+  <div class="mea">카드 높이 <b>132px</b> — 가장 낮다 · 글자가 사진 위에 얹혀 <b>공간을 안 먹음</b><br>⚠ 사진이 밝거나 복잡하면 글자가 묻힌다(어두운 그라데이션으로 보완)</div>
+</div>
+
+<!-- C안 -->
+<div class="phone">
+  <div class="opt">C안 · 좌우 분할 <span>글자 2줄 가능</span></div>
+  <div class="sect">
+    <div class="sect-t">🎁 이런 공구도 있어요</div>
+    <div class="c-row">
+      <div class="c-card"><div class="ph" id="c1"></div><div class="tx"><div class="t1">라꽁비에뜨 무염/가염 버터</div><div class="t2">버터계의 에르메스</div></div></div>
+      <div class="c-card"><div class="ph" id="c2"></div><div class="tx"><div class="t1">모기 진드기 잡는 무무키토 모음전</div><div class="t2">식약처인증 의약외품</div></div></div>
+    </div>
+  </div>
+  <div class="mea">카드 높이 <b>70px</b> — 압도적으로 낮다 · 제목 <b>2줄(약 22자)</b>까지 들어감<br>⚠ 사진이 52px로 작아 상품이 잘 안 보인다</div>
+</div>
+
+<!-- D안 -->
+<div class="phone">
+  <div class="opt">D안 · 위시버니형 <span>기간·가격까지</span></div>
+  <div class="sect">
+    <div class="sect-t">🔥 마감 임박 공구</div>
+    <div class="d-row">
+      <div class="d-card">
+        <div class="ph" id="d1"><div class="badge">D-2 · 8/21 마감</div></div>
+        <div class="meta">08.19~08.21 · 육아</div>
+        <div class="t1">라꽁비에뜨 무염/가염 버터</div>
+        <div class="price"><span class="rate">27%</span><span class="won">32,900원</span></div>
+      </div>
+      <div class="d-card">
+        <div class="ph" id="d2"><div class="badge">D-4 · 8/23 마감</div></div>
+        <div class="meta">08.19~08.23 · 리빙</div>
+        <div class="t1">모기 진드기 잡는 무무키토 모음전</div>
+        <div class="price"><span class="rate">57%</span><span class="won">100,000원</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="mea">카드 높이 <b>약 265px</b> — 메인배너와 비슷 · 정보량이 가장 많다<br>⚠ <b>가격·할인율이 있어야 의미가 있다.</b> 공구는 가격을 안 받으므로 <b>핫딜에만</b> 쓸 수 있다</div>
+</div>
+
+<div class="wrap">
+  <div class="note">
+    <b>고르실 때 기준</b><br>
+    · <b>광고 구좌</b>로 팔 거면 → A안 (사진이 크고 메인과 톤이 같아 광고주에게 설명하기 쉬움)<br>
+    · <b>자리를 최대한 아끼려면</b> → B안 또는 C안<br>
+    · <b>핫딜을 보여줄 자리</b>면 → D안 (가격·마감이 들어가야 클릭이 나옴)<br>
+    · 무엇을 넣을지 정해주시면 그 안으로 test.html에 구현하겠습니다.
+  </div>
+</div>
+
+<script>
+// 실제 배너 사진으로 채운다 (목업이지만 진짜 이미지로 봐야 판단이 된다)
+const IMG = {
+  m1: 'https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_link_1786932835825.jpg',
+  m2: 'https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/public/banners/banner_link_1787102026283.png',
+  a1: 'https://momcalendar.com/banners/banner_1783923980628.jpg?v=1783923982315',
+  a2: 'https://momcalendar.com/banners/banner_1783443021968.jpg?v=1783443024191',
+  b1: 'https://momcalendar.com/banners/banner_1783923980628.jpg?v=1783923982315',
+  b2: 'https://momcalendar.com/banners/banner_1783443021968.jpg?v=1783443024191',
+  c1: 'https://momcalendar.com/banners/banner_1783923980628.jpg?v=1783923982315',
+  c2: 'https://momcalendar.com/banners/banner_1783443021968.jpg?v=1783443024191',
+  d1: 'https://momcalendar.com/banners/banner_1783923980628.jpg?v=1783923982315',
+  d2: 'https://momcalendar.com/banners/banner_1783443021968.jpg?v=1783443024191'
+};
+Object.keys(IMG).forEach(function(k){
+  var el = document.getElementById(k);
+  if (el) el.style.backgroundImage = "url('" + IMG[k] + "')";
+});
+// 실측값을 화면에 찍어 준다 (사장님이 눈으로 확인 가능하게)
+window.addEventListener('load', function(){
+  var rows = [['A', '.a-card'], ['B', '.b-card'], ['C', '.c-card'], ['D', '.d-card']];
+  rows.forEach(function(r){
+    var e = document.querySelector(r[1]);
+    if (!e) return;
+    var b = e.getBoundingClientRect();
+    console.log(r[0] + '안 카드: ' + Math.round(b.width) + 'x' + Math.round(b.height));
+  });
+});
+</script>
+</body></html>
