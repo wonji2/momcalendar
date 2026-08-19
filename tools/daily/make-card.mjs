@@ -108,7 +108,11 @@ const FRAMES = [
   () => `${label} ${audSp}${head} ${tail} | ${bAll} 공구 오픈`,
   () => `${label} ${audSp}${head} | ${bAll} 공구 ${tail}`,
   () => `${label} ${bAll} 공구 오픈 | ${audSp}${head} ${tail}`,
-  () => `${label} ${head.includes('오늘') ? '' : '오늘 오픈 '}${audSp}${head} ${tail} | ${brands[0] || ''} 공구 외`,
+  // 🔴 2026-08-19 수정: 이 틀만 brands[0] 하나만 쓰고 나머지 7개를 버렸다.
+  //   8/21 제목이 "데코아르 공구 외" 한 개뿐이라고 사장님이 지적 — 본문엔 32건·브랜드 8개가 다 있었다.
+  //   틀은 4개 중 무작위로 골라서 **나흘에 한 번꼴로** 브랜드 없는 제목이 나가고 있었다.
+  //   틀 모양(변화용)은 살리되 브랜드는 전부 싣는다.
+  () => `${label} ${head.includes('오늘') ? '' : '오늘 오픈 '}${audSp}${head} ${tail} | ${bAll} 공구 외`,
 ];
 const blogTitle = (brands.length
   ? FRAMES[Math.floor(rnd() * FRAMES.length)]()
