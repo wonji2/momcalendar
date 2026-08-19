@@ -136,19 +136,18 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 
 .main-slider-wrap{position:relative;overflow:hidden}
 .main-slider{display:flex;gap:9px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1);scroll-snap-type:x mandatory}
-/* 🎁 서브배너 (B안, 사장님 확정 2026-08-19) — 이웃셀러존 아래. 사진 위 글자 오버레이
-   메인배너(정사각 261px)보다 낮은 4:3 132px 로 두어 자리를 덜 먹게 한다.
-   ⚠ 밝은 사진이면 흰 글자가 묻힌다 → 아래쪽 어두운 그라데이션으로 가독성 확보(모바일 실측 기준). */
-.sub-zone{padding:4px 16px 6px;background:#fff}   /* 제목 없이 이웃셀러 동그라미 바로 아래 붙임(사장님 지시) */
-.sub-title{font-size:13.5px;font-weight:800;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:5px}
+/* ⭐ 셀러배너존 (사장님 확정 2026-08-19) — 이웃셀러 동그라미 바로 아래, 제목 없이 배너만
+   B안(사진 위 글자) 기반. 설명은 빼고 **제목만 2줄**로 — 짧은 카드에 두 줄이 들어가야 문구가 안 잘린다.
+   ⚠ 밝은 사진이면 흰 글자가 묻힌다 → 아래쪽 어두운 그라데이션으로 가독성 확보(모바일 실측). */
+.sub-zone{padding:4px 16px 8px;background:#fff}
 .sub-row{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .sub-row::-webkit-scrollbar{display:none}
 .sub-card{flex:0 0 calc((100% - 9px)/2);min-width:0;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;scroll-snap-align:start;background:#ECE8FA}
 .sub-bg{position:absolute;inset:0;background-position:center;background-size:cover;background-repeat:no-repeat}
-.sub-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.74) 0%,rgba(0,0,0,.30) 45%,rgba(0,0,0,0) 72%)}
+.sub-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,rgba(0,0,0,.34) 52%,rgba(0,0,0,0) 78%)}
 .sub-tx{position:absolute;left:9px;right:9px;bottom:8px;color:#fff}
-.sub-t1{font-size:11.5px;font-weight:800;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.55)}
-.sub-t2{font-size:9.5px;opacity:.93;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+/* 제목만 2줄 — 말줄임은 2줄을 넘길 때만 */
+.sub-t1{font-size:11.5px;font-weight:800;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 /* H-2안 (사장님 확정 2026-08-15): 정사각 사진 2구좌 + 글자는 사진 밖
    근거 실측 — 배너 사진 14장 중 11장이 정사각(0.96~1.01). 기존 16:10은 위아래 37%를 잘라먹었다.
    ⚠ 폭을 min-width:% 로 주면 카드가 제목 길이(max-content)만큼 늘어나 화면에 1.71개가 된다.
@@ -684,7 +683,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
   <div class="seller-scroll" id="sellerScroll"></div>
 </div>
 
-<!-- 🎁 서브배너 (이웃셀러존 아래) -->
+<!-- ⭐ 셀러배너존 (이웃셀러 동그라미 바로 아래) -->
 <div class="sub-zone" id="subZone" style="display:none">
   <div class="sub-row" id="subRow"></div>
 </div>
@@ -3956,7 +3955,7 @@ function buildMainSlider(){
       else if(link) openLink(link);
     };
   });
-  renderSubBanners();
+  renderSellerBanners();
   document.getElementById('mainDots').innerHTML=
     // 점은 배너 개수가 아니라 **페이지 수**(2장 묶음)만큼 찍는다
     Array.from({length: Math.max(1, Math.ceil(MAIN_BANNERS.length/2))},
@@ -3978,9 +3977,9 @@ function loadSlideBg(i){
 // H-2안은 한 화면에 2장이라 **2장 단위**로 넘어간다. i 는 '페이지' 번호(0,1,2…)
 const MB_PER_PAGE = 2;
 function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PAGE)); }
-// 🎁 서브배너 — 메인배너에 안 들어간 나머지를 여기에 보여준다(같은 banners 테이블).
+// ⭐ 셀러배너존 — 메인배너에 안 들어간 나머지를 여기에 보여준다(같은 banners 테이블).
 //   메인 2장은 위에서 이미 보여주므로 3번째부터 쓴다. 중복 노출을 피하려는 것.
-function renderSubBanners(){
+function renderSellerBanners(){
   const zone=document.getElementById('subZone'), row=document.getElementById('subRow');
   if(!zone||!row) return;
   const rest=(MAIN_BANNERS||[]).slice(MB_PER_PAGE);      // 메인에 쓴 것 제외
@@ -3995,7 +3994,6 @@ function renderSubBanners(){
       <div class="sub-ov"></div>
       <div class="sub-tx">
         <div class="sub-t1">${b.title||''}</div>
-        <div class="sub-t2">${b.subtitle||''}</div>
       </div>
     </div>`;
   }).join('');
