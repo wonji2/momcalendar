@@ -132,13 +132,13 @@ try {
     const hist = await rest(`select=name,influencer,insta,open_date&approved=eq.true&name=like.${encodeURIComponent(b)}*&order=open_date.desc&limit=60`);
     const hs = Array.isArray(hist) ? hist : [];
     const recentSellers = [...new Set(hs.map(seller).filter(Boolean))].slice(0, 3);
-    // 브랜드 페이지 링크는 실제로 있는지 확인하고 넣는다(슬러그가 이름과 다르면 404)
-    let bLink = 'https://momcalendar.com';
-    try {
-      const u = `https://momcalendar.com/g/${encodeURIComponent(b)}.html`;
-      const h = await fetch(u, { method: 'HEAD' });
-      if (h.ok) bLink = u;
-    } catch {}
+    // 🔴 2026-08-19 사장님 지시: "여기 들어가는 링크는 뭐든지 걍 맘캘 메인 홈페이지 링크로"
+    //   예전엔 브랜드 페이지(/g/데코아르.html)로 보냈는데
+    //     · 슬러그가 이름과 다르면 404 로 빠지고
+    //     · 한글이 인코딩돼 주소가 흉하게 길어진다(%EB%8D%B0%EC%BD%94...)
+    //     · 손님은 메인에서 검색하면 어차피 다 찾는다 — 브랜드 검색도 붙어 있다
+    //   → 본문에 나가는 링크는 **전부 메인 홈**으로 통일한다.
+    const bLink = 'https://momcalendar.com';
     if (hs.length >= 2 && recentSellers.length) {
       brandStory = [
         ``,
