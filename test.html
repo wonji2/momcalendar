@@ -3918,7 +3918,7 @@ function renderSellers(rows){
     </div>`;
   }).join('');
 }
-loadSellers();
+loadSellers(); loadSellerBanners();
 paintCatChips();
 
 function buildMainSlider(){
@@ -3955,7 +3955,6 @@ function buildMainSlider(){
       else if(link) openLink(link);
     };
   });
-  renderSellerBanners();
   document.getElementById('mainDots').innerHTML=
     // 점은 배너 개수가 아니라 **페이지 수**(2장 묶음)만큼 찍는다
     Array.from({length: Math.max(1, Math.ceil(MAIN_BANNERS.length/2))},
@@ -3977,32 +3976,51 @@ function loadSlideBg(i){
 // H-2안은 한 화면에 2장이라 **2장 단위**로 넘어간다. i 는 '페이지' 번호(0,1,2…)
 const MB_PER_PAGE = 2;
 function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PAGE)); }
-// ⭐ 셀러배너존 — 메인배너에 안 들어간 나머지를 여기에 보여준다(같은 banners 테이블).
-//   메인 2장은 위에서 이미 보여주므로 3번째부터 쓴다. 중복 노출을 피하려는 것.
+// ⭐ 셀러배너존 (사장님 확정 2026-08-19) — **셀러 전용 구좌**
+//   메인배너(type=main)와 완전히 분리된 type='seller' 배너만 보여준다.
+//   ⚠ 노출 순서는 **매번 무작위**다(사장님 지시). 셀러마다 위쪽에 걸릴 기회를 똑같이 주기 위함.
+//     정렬을 고정하면 sort_order 앞자리 셀러만 계속 이득을 본다.
+let SELLER_BANNERS = [];
+async function loadSellerBanners(){
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.seller&active=eq.true&select=*`, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    });
+    SELLER_BANNERS = res.ok ? await res.json() : [];
+  }catch(e){ SELLER_BANNERS = []; }
+  // 노출기간 필터 (show_from ~ show_until)
+  const today = todayStr;
+  SELLER_BANNERS = SELLER_BANNERS.filter(b=>{
+    if(b.show_from  && today < String(b.show_from).slice(0,10))  return false;
+    if(b.show_until && today > String(b.show_until).slice(0,10)) return false;
+    return true;
+  });
+  renderSellerBanners();
+}
 function renderSellerBanners(){
   const zone=document.getElementById('subZone'), row=document.getElementById('subRow');
   if(!zone||!row) return;
-  const rest=(MAIN_BANNERS||[]).slice(MB_PER_PAGE);      // 메인에 쓴 것 제외
-  if(!rest.length){ zone.style.display='none'; return; }
+  // 매번 새로 섞는다 (Fisher-Yates)
+  const list=SELLER_BANNERS.slice();
+  for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=list[i]; list[i]=list[j]; list[j]=t; }
+  if(!list.length){ zone.style.display='none'; return; }
   zone.style.display='block';
-  row.innerHTML=rest.map((b,i)=>{
+  row.innerHTML=list.map((b,i)=>{
     const isImg=!!b.img_url;
     const bg=isImg?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
                   :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
     return `<div class="sub-card" data-i="${i}">
       <div class="sub-bg" style="background:${bg}"></div>
       <div class="sub-ov"></div>
-      <div class="sub-tx">
-        <div class="sub-t1">${b.title||''}</div>
-      </div>
+      <div class="sub-tx"><div class="sub-t1">${b.title||''}</div></div>
     </div>`;
   }).join('');
   row.querySelectorAll('.sub-card').forEach((el,i)=>{
     el.onclick=()=>{
-      const b=rest[i];
+      const b=list[i];
       if(b.link_open_at && new Date(b.link_open_at) > new Date()) return;
       const link=(b.link||'');
-      try{ trackEvent('subbanner_click', String(b.id!=null?b.id:(b.title||''))); }catch(_){}
+      try{ trackEvent('sellerbanner_click', String(b.id!=null?b.id:(b.title||''))); }catch(_){}
       if(link==='seller-popup') openPartnerModal(1);
       else if(link==='ad-popup') openPartnerModal(2);
       else if(link) openLink(link);
