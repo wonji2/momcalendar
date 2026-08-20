@@ -1813,10 +1813,19 @@ function hdOrder(list){
   const pins=(list||[]).filter(x=>x.pin_random);
   if(!pins.length) return rest;
   const seedBase=todayStr.replace(/-/g,'');
+  // 🔴 2026-08-20 사장님 지적: "오늘 카드가 젤 위로 올라와야 하는데 계란 어제 카드 밑에 있어"
+  //    예전엔 '상위 12칸 중 아무 데나' 끼웠는데, 오늘 카드가 12장보다 적으면
+  //    상시 핫딜이 **어제 카드 밑으로** 내려간다(계란 실측).
+  //    → 섞는 범위를 **오늘 등록된 카드 안**으로 좁힌다. 오늘 것이 없을 때만 상위 12칸을 쓴다.
+  const KST=9*3600000;
+  const dayKst=t=>Math.floor((new Date(t).getTime()+KST)/86400000);
+  const today=dayKst(Date.now());
+  const todayCnt=rest.filter(x=>dayKst(x.created_at)===today).length;
+  const span=todayCnt>0?todayCnt:Math.min(rest.length,12);
   pins.forEach((p,i)=>{
     let s=0, key=seedBase+'|'+p.id;
     for(let k=0;k<key.length;k++) s=(s*31+key.charCodeAt(k))>>>0;
-    const pos=rest.length?(s%Math.min(rest.length+1,12)):0;   // 너무 아래로 가면 안 보이니 상위 12칸 안에서
+    const pos=rest.length?(s%(span+1)):0;
     rest.splice(pos,0,p);
   });
   return rest;
