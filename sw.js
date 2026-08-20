@@ -5,7 +5,7 @@
 
 // 아이콘 파일을 바꾸면 이 버전을 반드시 올릴 것.
 // 안 올리면 이미 앱을 설치한 사람은 예전 아이콘을 계속 보게 된다.
-const CACHE = 'momcal-v5';
+const CACHE = 'momcal-v6';
 const ASSETS = [
   '/momcal-badge.png',
   '/momcal-appicon.png',
@@ -34,6 +34,19 @@ self.addEventListener('fetch', function(e){
     e.respondWith(
       caches.match(e.request).then(function(r){ return r || fetch(e.request); })
     );
+    return;
+  }
+
+  // 🔴 2026-08-20 사장님 지적: "pwa 껐다 켜도 메인배너가 안 보여"
+  //    원인 — 우리는 HTML 을 캐시하지 않지만, **GitHub Pages 가 max-age=600(10분)** 을 준다.
+  //    PWA 는 브라우저 HTTP 캐시를 그대로 쓰므로 배포 후 10분간 옛 화면을 본다.
+  //    손님은 그동안 고쳐지지 않은 화면을 보고, 사장님은 "왜 안 고쳐졌냐" 고 하신다.
+  //    → 화면(문서) 요청만 **캐시를 건너뛰고** 받아온다. 실패하면 평소대로 둔다.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-cache' }).catch(function(){ return fetch(e.request); })
+    );
+    return;
   }
   // 그 외에는 기본 동작(네트워크) 그대로 → 실시간 데이터 보장
 });
