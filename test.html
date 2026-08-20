@@ -2794,23 +2794,31 @@ async function exportWishIcs(){
     //    → 날짜를 '오늘'에 의존하지 않는 **고정값**으로 바꾼다. 다시 내보내도 같은 자리에 덮인다.
     //       아직 안 열렸으면 오픈일, 이미 진행중이면 마감일.
     //       진행중 공구에 정작 필요한 알림은 '언제 열리나' 가 아니라 '언제 닫히나' 다.
-    const notYet = it.openDate >= todayStr;
-    const start  = notYet ? it.openDate : end;
-    const tag    = notYet ? '오픈일' : '마감일';
-    const e=new Date(start+'T00:00:00'); e.setDate(e.getDate()+1);
-    const eStr=`${e.getFullYear()}${pad(e.getMonth()+1)}${pad(e.getDate())}`;
     const range = md(it.openDate)+'~'+md(end);
-    L.push('BEGIN:VEVENT',
-      `UID:momcal-${it.id}@momcalendar.com`,
-      `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ymd(start)}`,
-      `DTEND;VALUE=DATE:${eStr}`,
-      // ⚠️ 상품명이 앞. 폰 캘린더는 제목을 짧게 잘라 보여줘서 셀러명이 앞이면 무슨 공구인지 안 보인다.
-      //    그 뒤에 이 날이 무슨 날인지 붙인다 — 안 붙이면 마감일 칸을 보고 오픈일로 오해한다.
-      `SUMMARY:${esc(it.name+' · '+tag+' ('+range+')'+(it.influencer?' · '+it.influencer:''))}`,
-      `DESCRIPTION:${esc('공구 기간 '+range+' · 오늘은 '+tag+' · 맘캘린더')}`,
-      'URL:https://momcalendar.com/',
-      'END:VEVENT');
+    // 🔴 2026-08-20 2차 수정 — 1차 수정도 날짜가 **한 번은 움직였다.**
+    //    1차: 오픈 전이면 오픈일, 진행중이면 마감일에 넣었다.
+    //    → 오늘 오픈한 공구를 오늘 내보내면 오픈일(8/20)에 들어가는데,
+    //      내일 다시 내보내면 같은 공구가 마감일(8/23)로 **옮겨간다.**
+    //      UID 를 안 봐주는 앱(네이버·삼성)에서는 그게 곧 중복이다. 고치려던 문제가 그대로 남는다.
+    //    → 이제 날짜를 '오늘' 과 완전히 끊는다. 두 이벤트 다 **DB 값 그대로**라 절대 안 움직인다.
+      //      · 마감일 이벤트: 항상 넣는다 (UID 는 옛것 그대로 — 이미 폰에 있는 건 갱신되게)
+      //      · 오픈일 이벤트: 아직 안 열린 것만 (UID 에 -open 을 붙여 마감 이벤트와 구분)
+    const put = (uid, day, tag) => {
+      const e2=new Date(day+'T00:00:00'); e2.setDate(e2.getDate()+1);
+      L.push('BEGIN:VEVENT',
+        `UID:${uid}@momcalendar.com`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${ymd(day)}`,
+        `DTEND;VALUE=DATE:${e2.getFullYear()}${pad(e2.getMonth()+1)}${pad(e2.getDate())}`,
+        // ⚠️ 상품명이 앞. 폰 캘린더는 제목을 짧게 잘라 보여줘서 셀러명이 앞이면 무슨 공구인지 안 보인다.
+        //    그 뒤에 이 날이 무슨 날인지 붙인다 — 안 붙이면 마감일 칸을 보고 오픈일로 오해한다.
+        `SUMMARY:${esc(it.name+' · '+tag+' ('+range+')'+(it.influencer?' · '+it.influencer:''))}`,
+        `DESCRIPTION:${esc('공구 기간 '+range+' · 이 날은 '+tag+' · 맘캘린더')}`,
+        'URL:https://momcalendar.com/',
+        'END:VEVENT');
+    };
+    if(it.openDate >= todayStr) put(`momcal-${it.id}-open`, it.openDate, '오픈일');
+    put(`momcal-${it.id}`, end, '마감일');
   });
   L.push('END:VCALENDAR');
   // ⚠️ 카톡·인스타 인앱 웹뷰는 파일 다운로드(a.download)를 무시한다.
