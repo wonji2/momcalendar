@@ -142,12 +142,21 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .sub-zone{padding:4px 16px 8px;background:#fff}
 .sub-row{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .sub-row::-webkit-scrollbar{display:none}
-.sub-card{flex:0 0 calc((100% - 9px)/2);min-width:0;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;scroll-snap-align:start;background:#ECE8FA}
+/* 🔴 B안 (사장님 확정 2026-08-20) — 글자를 사진 밖으로 빼고, 날짜만 사진 위 배지로.
+   예전엔 제목을 사진 위에 얹었는데 사진이 밝으면 글자가 묻혔다.
+   상품명은 셀러가 인포크에 써놓은 그대로, 날짜는 우리 DB 공구 기간에서 가져온다. */
+.sub-card{flex:0 0 calc((100% - 9px)/2);min-width:0;border-radius:12px;overflow:hidden;cursor:pointer;scroll-snap-align:start;background:#fff;border:1px solid #EDE8F3}
+.sub-ph{position:relative;aspect-ratio:4/3;background:#ECE8FA}
 .sub-bg{position:absolute;inset:0;background-position:center;background-size:cover;background-repeat:no-repeat}
-.sub-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,rgba(0,0,0,.34) 52%,rgba(0,0,0,0) 78%)}
-.sub-tx{position:absolute;left:9px;right:9px;bottom:8px;color:#fff}
+/* 날짜 배지 — 사진이 밝아도 읽히게 어두운 판을 깐다 */
+.sub-dt{position:absolute;left:6px;bottom:6px;background:rgba(20,14,28,.78);color:#fff;font-size:9.5px;
+        padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums;letter-spacing:.01em;
+        -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.sub-tx{padding:7px 9px 9px}
+.sub-sel{font-size:10.5px;color:#8A8194;line-height:1.3}
 /* 제목만 2줄 — 말줄임은 2줄을 넘길 때만 */
-.sub-t1{font-size:11.5px;font-weight:800;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.sub-t1{margin-top:2px;font-size:11.5px;font-weight:700;line-height:1.32;color:#241D2E;
+        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 /* H-2안 (사장님 확정 2026-08-15): 정사각 사진 2구좌 + 글자는 사진 밖
    근거 실측 — 배너 사진 14장 중 11장이 정사각(0.96~1.01). 기존 16:10은 위아래 37%를 잘라먹었다.
    ⚠ 폭을 min-width:% 로 주면 카드가 제목 길이(max-content)만큼 늘어나 화면에 1.71개가 된다.
@@ -4004,7 +4013,53 @@ async function loadSellerBanners(){
     if(b.show_until && today > String(b.show_until).slice(0,10)) return false;
     return true;
   });
+  await attachSellerPeriod();
   renderSellerBanners();
+}
+
+// 배너 상품에 **우리 DB 공구 기간**을 붙인다 (사장님 지시 2026-08-20: 날짜·셀러명·제목)
+//   배너 제목은 "상품명 - 셀러명" 이고, 상품명은 셀러가 인포크에 쓴 그대로다.
+//   DB 공구명과 표기가 달라 완전일치로는 못 찾는다 → **핵심 낱말 겹침**으로 가장 비슷한 것을 고른다.
+//   실측: 인포크 "주니 아기상어 스텐 자기주도컵…" ↔ DB "주니 스테인리스" (겹침 1)
+//   못 찾으면 날짜를 안 붙인다 — 틀린 날짜를 보여주느니 없는 게 낫다.
+async function attachSellerPeriod(){
+  if(!SELLER_BANNERS.length) return;
+  let rows=[];
+  try{
+    const t=todayStr;
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&end_date=gte.${t}&select=name,insta,influencer,open_date,end_date&order=open_date`,
+      {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+    rows=res.ok?await res.json():[];
+  }catch(e){ return; }
+  if(!rows.length) return;
+
+  const toks=s=>{
+    const out=new Set();
+    String(s||'').split(/[\s·,\/&+]+/).forEach(w=>{
+      const x=w.replace(/[^가-힣A-Za-z0-9]/g,'');
+      if(x.length>=2) out.add(x.toLowerCase());
+    });
+    return out;
+  };
+  const md=d=>String(d||'').slice(5).replace('-','.');
+
+  SELLER_BANNERS.forEach(b=>{
+    const raw=String(b.title||'');
+    const cut=raw.lastIndexOf(' - ');
+    const name=cut>0?raw.slice(0,cut):raw;
+    const seller=cut>0?raw.slice(cut+3):'';
+    if(!seller) return;
+    const mine=rows.filter(r=>r.influencer===seller);
+    if(!mine.length) return;               // DB에 그 셀러 공구가 없다(크레용맘) → 날짜 없이
+    const t=toks(name);
+    let best=null,bs=0;
+    mine.forEach(r=>{
+      const u=toks(r.name); let n=0;
+      t.forEach(w=>{ if(u.has(w)) n++; });
+      if(n>bs){ bs=n; best=r; }
+    });
+    if(best && bs>0) b.sub_period=`${md(best.open_date)}~${md(best.end_date)}`;
+  });
 }
 function renderSellerBanners(){
   const zone=document.getElementById('subZone'), row=document.getElementById('subRow');
@@ -4018,10 +4073,21 @@ function renderSellerBanners(){
     const isImg=!!b.img_url;
     const bg=isImg?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
                   :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
+    // 제목은 "상품명 - 셀러명" 으로 저장돼 있다. 화면에선 둘을 나눠 보여준다.
+    //   ⚠ 상품명 안에도 '-' 가 있을 수 있으므로 **마지막** 구분자로 자른다.
+    const raw=String(b.title||'');
+    const cut=raw.lastIndexOf(' - ');
+    const name=cut>0?raw.slice(0,cut):raw;
+    const seller=cut>0?raw.slice(cut+3):'';
     return `<div class="sub-card" data-i="${i}">
-      <div class="sub-bg" style="background:${bg}"></div>
-      <div class="sub-ov"></div>
-      <div class="sub-tx"><div class="sub-t1">${b.title||''}</div></div>
+      <div class="sub-ph">
+        <div class="sub-bg" style="background:${bg}"></div>
+        ${b.sub_period?`<span class="sub-dt">${b.sub_period}</span>`:''}
+      </div>
+      <div class="sub-tx">
+        ${seller?`<div class="sub-sel">${seller}</div>`:''}
+        <div class="sub-t1">${name}</div>
+      </div>
     </div>`;
   }).join('');
   row.querySelectorAll('.sub-card').forEach((el,i)=>{
@@ -4035,6 +4101,30 @@ function renderSellerBanners(){
       else if(link) openLink(link);
     };
   });
+  startSubAuto(row, list.length);
+}
+
+// 🔴 자동 넘김 + 무한 순환 (사장님 지시 2026-08-20)
+//   "동그라미 없이 자동으로 옆으로 슉슉 넘어가게 하고 왼쪽 오른쪽 돌리면 돌아가게"
+//   메인배너는 슬라이드 방식이지만 셀러배너존은 **가로 스크롤**이라 scrollTo 로 움직인다.
+//   ⚠ 손님이 직접 넘기는 중엔 자동 넘김이 끼어들면 안 된다 → 만지면 잠깐 멈춘다.
+function startSubAuto(row, n){
+  clearInterval(window._subTimer);
+  if(n<=2) return;                       // 2장 이하면 넘길 게 없다
+  let paused=false, resumeAt=0;
+  const hold=()=>{ paused=true; resumeAt=Date.now()+4000; };
+  ['touchstart','pointerdown','wheel'].forEach(ev=>row.addEventListener(ev,hold,{passive:true}));
+
+  window._subTimer=setInterval(()=>{
+    if(document.hidden) return;                       // 안 보이는 탭에선 돌리지 않는다
+    if(paused){ if(Date.now()<resumeAt) return; paused=false; }
+    const card=row.querySelector('.sub-card'); if(!card) return;
+    const step=card.getBoundingClientRect().width+9;  // 카드 폭 + gap
+    const max=row.scrollWidth-row.clientWidth;
+    // 끝에 닿았으면 처음으로 되돌아간다 = 무한 순환
+    const next=(row.scrollLeft >= max-4) ? 0 : Math.min(row.scrollLeft+step, max);
+    row.scrollTo({left:next, behavior:'smooth'});
+  }, 3500);
 }
 function goMainBanner(i){
   if(!MAIN_BANNERS.length)return;
