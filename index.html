@@ -2759,11 +2759,15 @@ async function exportWishIcs(){
   else { try{ sent=JSON.parse(localStorage.getItem('mc_ics_sent')||'[]'); }catch(_){} }  // 서버 실패 시 기기 기록으로 대체
   const sentSet=new Set(sent);
   const fresh=items.filter(it=>!sentSet.has(it.id));
+  // 🔴 문구 정정 (사장님 지적 2026-08-20)
+  //    "새로 찜한 공구가 없어요" 라고 띄웠더니 **찜을 안 한 줄로 오해**하셨다.
+  //    실제로는 오늘 아침에 5개를 찜하셨고, 그게 전부 '이미 내보냄'으로 기록돼 있던 것이다.
+  //    → 찜 개수와 '내보낸 기록'을 분리해서, 무엇 때문에 이런 안내가 뜨는지 밝힌다.
   if(sent.length && fresh.length && fresh.length<items.length){
-    const onlyNew=confirm(`새로 찜한 ${fresh.length}개만 내보낼까요?\n\n[확인] 새로 찜한 ${fresh.length}개만 (중복 없음)\n[취소] 찜한 것 전체 ${items.length}개 다시`);
+    const onlyNew=confirm(`찜한 ${items.length}개 중 ${items.length-fresh.length}개는 전에 내보낸 적이 있어요.\n\n[확인] 안 내보낸 ${fresh.length}개만 담기 (중복 없음)\n[취소] ${items.length}개 전부 다시 담기`);
     if(onlyNew) items=fresh;
   }else if(sent.length && !fresh.length){
-    if(!confirm(`새로 찜한 공구가 없어요.\n찜한 것 전체 ${items.length}개를 다시 내보낼까요?\n(캘린더에 중복으로 들어갈 수 있어요)`)) return;
+    if(!confirm(`찜한 ${items.length}개가 모두 전에 내보낸 걸로 기록돼 있어요.\n(저장을 중간에 취소했어도 기록은 남아요)\n\n${items.length}개를 다시 담을까요?`)) return;
   }
   const esc=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\r?\n/g,'\\n');
   const ymd=s=>String(s||'').replace(/-/g,'');
