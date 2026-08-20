@@ -165,6 +165,10 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
      calc 로 못박고 min-width:0 을 줘야 정확히 2.00개가 들어온다(실측). */
 .main-slide{flex:0 0 calc((100% - 9px) / 2);min-width:0;cursor:pointer;scroll-snap-align:start}
 .main-slide-inner{border-radius:14px;overflow:hidden;position:relative;aspect-ratio:1/1;display:flex;align-items:flex-end}
+/* 🔴 이 두 줄이 이식 중에 빠져 배너 사진이 하나도 안 떴다(2026-08-20).
+   position:absolute 가 없으면 크기가 0×0 이라 배경이 그려질 자리가 없다. */
+.main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
+.main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 32%,transparent 55%)}
 /* 글자칸: 제목 1줄(12px·14자) + 설명 1줄(10.5px·16자). 넘치면 … 로 자른다 */
 .main-slide-txt{padding:7px 2px 0}
 .main-slide-t1{font-size:12px;font-weight:800;color:var(--t1);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
