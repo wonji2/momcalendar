@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+<!DOCT
+<div class="sub-zone" id="subZone" style="display:none">
+  <div class="sub-row" id="subRow"></div>
+</div>
+YPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -172,6 +176,21 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .cat-count-bar b{color:var(--t1);font-weight:700}
 
 /* ⭐ 이웃셀러존 */
+.sub-zone{padding:4px 16px 8px;background:#fff}
+.sub-row{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sub-row::-webkit-scrollbar{display:none}
+/* 🔴 B안 (사장님 확정 2026-08-20) — 글자를 사진 밖으로 빼고, 날짜만 사진 위 배지로.
+   예전엔 제목을 사진 위에 얹었는데 사진이 밝으면 글자가 묻혔다.
+   상품명은 셀러가 인포크에 써놓은 그대로, 날짜는 우리 DB 공구 기간에서 가져온다. */
+.sub-card{flex:0 0 calc((100% - 9px)/2);min-width:0;border-radius:12px;overflow:hidden;cursor:pointer;scroll-snap-align:start;background:#fff;border:1px solid #EDE8F3}
+.sub-ph{position:relative;aspect-ratio:4/3;background:#ECE8FA}
+.sub-bg{position:absolute;inset:0;background-position:center;background-size:cover;background-repeat:no-repeat}
+/* 날짜 배지 — 사진이 밝아도 읽히게 어두운 판을 깐다 */
+.sub-tx{padding:7px 9px 9px}
+.sub-sel{font-size:10.5px;color:#8A8194;line-height:1.3}
+/* 제목만 2줄 — 말줄임은 2줄을 넘길 때만 */
+.sub-t1{margin-top:2px;font-size:11.5px;font-weight:700;line-height:1.32;color:#241D2E;
+        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .seller-zone{background:#fff;padding:14px 0 14px}
 /* 🎁 기획전·제휴 존 */
 .promo-zone{background:#fff;padding:6px 0 12px}
@@ -827,6 +846,7 @@ window.slimAdClick=function(id){
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
   <div id="icsBar" style="display:none;margin:10px 12px 0">
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#602090;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
+    <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
     <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
   </div>
   <div class="sel-box" id="selBox" style="display:none">
@@ -2760,7 +2780,9 @@ async function exportWishIcs(){
   const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='맘캘린더_내공구.ics';
+  // 🔴 파일명이 늘 같아서 안드로이드가 "이미 존재하는 이름입니다" 를 띄웠다 (사장님 지적 2026-08-20)
+  const _fn=new Date(Date.now()+9*3600e3).toISOString().slice(5,10).replace('-','');
+  a.download='맘캘린더_내공구_'+_fn+'_'+items.length+'건.ics';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
   // 내보낸 것 기억 (다음엔 새로 찜한 것만 담을 수 있게)
@@ -2770,7 +2792,8 @@ async function exportWishIcs(){
     localStorage.setItem('mc_ics_sent', JSON.stringify(merged));  // 서버가 안 될 때 대비한 사본
   }catch(_){}
   try{ trackEvent('ics_export', String(items.length)); }catch(_){}
-  mcToast(`${items.length}개 일정을 캘린더 파일로 만들었어요 📅`);
+  // 마감된 공구는 위에서 isExpired 로 이미 걸러진다 — 손님이 알 수 있게 문구로 밝힌다.
+  mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);
 }
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
@@ -2853,6 +2876,26 @@ function mcShare(){
   var url='https://momcalendar.com/';
   var data={ title:'맘캘린더', text:'공구·핫딜·체험단 일정을 한눈에! 맘캘린더 📅', url:url };
   try{ trackEvent('share_click',''); }catch(_){}
+  // 🔴 카톡 인앱에는 navigator.share 가 아예 없다 (사장님 지적 2026-08-20)
+  //    "실제 라이브 pwa에서 누르면 카톡 보낼 수 있는 창 뜨는데 인앱은 텍스트만 복사됐다고 뜬다"
+  //    → 손님 99%가 카톡에서 들어온다. 인앱에선 **카카오 공유창을 직접 띄운다.**
+  //    카카오 SDK 는 페이지 맨 위에서 이미 불러와 있다.
+  if(_isInApp() && kkoInit() && window.Kakao && Kakao.Share){
+    try{
+      Kakao.Share.sendDefault({
+        objectType:'feed',
+        content:{
+          title:'맘캘린더 📅',
+          description:'공구·핫딜·체험단 일정을 한눈에!',
+          imageUrl:'https://momcalendar.com/momcal-appicon.png',
+          link:{ mobileWebUrl:url, webUrl:url }
+        },
+        buttons:[{ title:'일정 보러가기', link:{ mobileWebUrl:url, webUrl:url } }]
+      });
+      return;
+    }catch(_){ /* 실패하면 아래 복사 폴백으로 */ }
+  }
+
   if(navigator.share){
     navigator.share(data).catch(function(){});          // 카톡·문자 등 네이티브 공유 시트
   } else if(navigator.clipboard && navigator.clipboard.writeText){
@@ -3754,6 +3797,7 @@ window.addEventListener('pageshow', function(e){
 // ── 배너 동적 로드 ──
 let mainIdx=0;
 let MAIN_BANNERS=[];
+let SELLER_BANNERS = [];   // 셀러배너존(이웃셀러 인포크 상품). 선언을 빠뜨리면 배너존이 통째로 죽는다
 const DEFAULT_BANNERS=[
   {title:'맘캘린더 공구 함께해요 💚',subtitle:'17,000명+ 맘들의 공구 커뮤니티',bg:'linear-gradient(135deg,#1a6b4a 0%,#1DB87A 100%)',link:'https://cafe.naver.com/momcal/'},
   {title:'셀러 일정 무료 등록 🛍️',subtitle:'셀러 가입 후 @momcal_ 인증 DM → 무료 등록 가능',bg:'linear-gradient(135deg,#2A1D6E 0%,#7B68EE 100%)',link:'seller-popup'},
@@ -3891,7 +3935,7 @@ function renderSellers(rows){
     </div>`;
   }).join('');
 }
-loadSellers();
+loadSellers(); loadSellerBanners();
 paintCatChips();
 
 function buildMainSlider(){
@@ -3944,6 +3988,87 @@ function loadSlideBg(i){
   if(d){ el.style.background=d; el.removeAttribute('data-bg'); }
 }
 
+async function loadSellerBanners(){
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.seller&active=eq.true&select=*`, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    });
+    SELLER_BANNERS = res.ok ? await res.json() : [];
+  }catch(e){ SELLER_BANNERS = []; }
+  // 노출기간 필터 (show_from ~ show_until)
+  const today = todayStr;
+  SELLER_BANNERS = SELLER_BANNERS.filter(b=>{
+    if(b.show_from  && today < String(b.show_from).slice(0,10))  return false;
+    if(b.show_until && today > String(b.show_until).slice(0,10)) return false;
+    return true;
+  });
+  renderSellerBanners();
+}
+
+function renderSellerBanners(){
+  const zone=document.getElementById('subZone'), row=document.getElementById('subRow');
+  if(!zone||!row) return;
+  // 매번 새로 섞는다 (Fisher-Yates)
+  const list=SELLER_BANNERS.slice();
+  for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=list[i]; list[i]=list[j]; list[j]=t; }
+  if(!list.length){ zone.style.display='none'; return; }
+  zone.style.display='block';
+  row.innerHTML=list.map((b,i)=>{
+    const isImg=!!b.img_url;
+    const bg=isImg?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
+                  :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
+    // 제목은 "상품명 - 셀러명" 으로 저장돼 있다. 화면에선 둘을 나눠 보여준다.
+    //   ⚠ 상품명 안에도 '-' 가 있을 수 있으므로 **마지막** 구분자로 자른다.
+    const raw=String(b.title||'');
+    const cut=raw.lastIndexOf(' - ');
+    const name=cut>0?raw.slice(0,cut):raw;
+    const seller=cut>0?raw.slice(cut+3):'';
+    return `<div class="sub-card" data-i="${i}">
+      <div class="sub-ph">
+        <div class="sub-bg" style="background:${bg}"></div>
+      </div>
+      <div class="sub-tx">
+        ${seller?`<div class="sub-sel">${seller}</div>`:''}
+        <div class="sub-t1">${name}</div>
+      </div>
+    </div>`;
+  }).join('');
+  row.querySelectorAll('.sub-card').forEach((el,i)=>{
+    el.onclick=()=>{
+      const b=list[i];
+      if(b.link_open_at && new Date(b.link_open_at) > new Date()) return;
+      const link=(b.link||'');
+      try{ trackEvent('sellerbanner_click', String(b.id!=null?b.id:(b.title||''))); }catch(_){}
+      if(link==='seller-popup') openPartnerModal(1);
+      else if(link==='ad-popup') openPartnerModal(2);
+      else if(link) openLink(link);
+    };
+  });
+  startSubAuto(row, list.length);
+}
+
+// 🔴 자동 넘김 + 무한 순환 (사장님 지시 2026-08-20)
+//   "동그라미 없이 자동으로 옆으로 슉슉 넘어가게 하고 왼쪽 오른쪽 돌리면 돌아가게"
+//   메인배너는 슬라이드 방식이지만 셀러배너존은 **가로 스크롤**이라 scrollTo 로 움직인다.
+//   ⚠ 손님이 직접 넘기는 중엔 자동 넘김이 끼어들면 안 된다 → 만지면 잠깐 멈춘다.
+function startSubAuto(row, n){
+  clearInterval(window._subTimer);
+  if(n<=2) return;                       // 2장 이하면 넘길 게 없다
+  let paused=false, resumeAt=0;
+  const hold=()=>{ paused=true; resumeAt=Date.now()+4000; };
+  ['touchstart','pointerdown','wheel'].forEach(ev=>row.addEventListener(ev,hold,{passive:true}));
+
+  window._subTimer=setInterval(()=>{
+    if(document.hidden) return;                       // 안 보이는 탭에선 돌리지 않는다
+    if(paused){ if(Date.now()<resumeAt) return; paused=false; }
+    const card=row.querySelector('.sub-card'); if(!card) return;
+    const step=card.getBoundingClientRect().width+9;  // 카드 폭 + gap
+    const max=row.scrollWidth-row.clientWidth;
+    // 끝에 닿았으면 처음으로 되돌아간다 = 무한 순환
+    const next=(row.scrollLeft >= max-4) ? 0 : Math.min(row.scrollLeft+step, max);
+    row.scrollTo({left:next, behavior:'smooth'});
+  }, 3500);
+}
 function goMainBanner(i){
   if(!MAIN_BANNERS.length)return;
   mainIdx=i;
@@ -4099,6 +4224,7 @@ function closeChatMenu(){
     <!-- + 버튼에는 '홍보하고 싶은 것'만. 문의·오류제보는 사이드메뉴로 옮김 -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
+    <a class="chat-menu-item" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="chat-menu-ico">💬</span>육아 수다방</a>
     <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
     <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
     <button class="chat-menu-item" onclick="mcShare()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">🔗</span>친구에게 공유</button>
