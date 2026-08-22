@@ -1486,6 +1486,17 @@ function hdExpired(h){
   return isFinite(t) && (Date.now()-t) > HD_STALE_DAYS*86400000;
 }
 
+// 🔴 검색 결과의 핫딜은 **어제까지 올린 것만** 보여준다 (사장님 지시 2026-08-22).
+//    핫딜 가격은 보통 하루면 변한다 — 며칠 지난 핫딜이 검색에 걸리면 틀린 가격을 보여주게 된다.
+//    상시 핫딜(pin_random)은 가격을 자동 추적하므로 예외. 핫딜 탭 자체는 그대로(hdExpired 만 적용).
+function hdFreshForSearch(h){
+  if(h.pin_random) return true;
+  const d=String(h.deal_day||h.created_at||'').slice(0,10);
+  if(!d) return false;
+  const y=new Date(Date.now()+9*3600e3); y.setUTCDate(y.getUTCDate()-1);   // KST 어제
+  return d >= y.toISOString().slice(0,10);
+}
+
 function saToggle(kind){ _saOpen[kind]=!_saOpen[kind]; renderSearchAll(); }
 
 async function renderSearchAll(){
@@ -1510,7 +1521,7 @@ async function renderSearchAll(){
 
   const hit=(...vals)=>vals.some(v=>(v||'').toString().toLowerCase().includes(q));
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
-  const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hit(h.title,h.major,h.minor));
+  const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
 
   const sec=(kind,ico,label,arr,cardFn)=>{
