@@ -2548,7 +2548,9 @@ function parsePaste(text, existingData, minDate){
       // 핸들 추출
       const handleLine=clean[handleIdx];
       let insta='', influencer='';
-      const engMatch=handleLine.match(/@([A-Za-z0-9_][A-Za-z0-9_.]*)/);
+      // ⚠ 인스타 핸들은 항상 소문자다. 대문자를 허용하면 "@Kim Jaeil"(사람 이름 멘션)의 "Kim"을
+      //    핸들로 오인한다 (2026-08-22 사장님 지적 — 리얼커플 real_couple0815 건). 못 찾으면 빈칸이 낫다.
+      const engMatch=handleLine.match(/@([a-z0-9_][a-z0-9_.]{2,29})(?![A-Za-z])/);
       const korMatch=handleLine.match(/@([가-힣A-Za-z0-9_][가-힣A-Za-z0-9_\s·ㅣl|]*?)(?:\s*$|\s+(?:댓글|프로필|링크|DM|알림|구매|흔적))/);
       if(engMatch){ insta=engMatch[1]; influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:''; }
       else if(korMatch){ influencer=korMatch[1].trim(); }
