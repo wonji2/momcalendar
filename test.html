@@ -1280,8 +1280,11 @@ function getFiltered(dateStr){
       if(fMajor!=='전체'&&item.major!==fMajor)return false;
       if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
+      // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
+      //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
       return[item.name,item.influencer,item.insta,item.major,item.minor]
-        .some(v=>{const s=(v||'').toLowerCase(); return qs.some(q=>s.includes(q));});
+        .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
+          return qs.some(q=>s.includes(q)||sn.includes(q.replace(/\s+/g,'')));});
     }).sort(cmpDatePartner);
   }
 
@@ -1523,7 +1526,9 @@ async function renderSearchAll(){
     if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
   }
 
-  const hit=(...vals)=>vals.some(v=>(v||'').toString().toLowerCase().includes(q));
+  // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
+  const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
+  const hit=(...vals)=>vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));

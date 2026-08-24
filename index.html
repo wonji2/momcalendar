@@ -1260,12 +1260,16 @@ const BRAND_ALIAS=[
   //   에이엠티·와이디와이·엠씨알엔·제이비제이는 한글 표기 사용 사례가 0건이라 뺐다.
   ['kret','크렛'],
   ['bas','바스'],
+  // 실측(2026-08-22): WECK 1건·웩 2건 — 두 표기가 실제로 있다. (vtech 는 영문 사용 0건이라 규칙대로 뺌)
+  ['weck','웩'],
 ];
 // 🔗 상품 ↔ 브랜드 연관 — 손님이 **상품 이름만** 알고 검색하는 경우 (사장님 지시 2026-08-17)
 //   예) '빼빼구마' 는 룰루맘 브랜드의 공구 상품인데, 상품명에는 '룰루맘' 만 적혀 있다.
 //   ⚠ 표기 별칭(BRAND_ALIAS)과 성격이 다르다. 이건 **다른 낱말끼리** 잇는 것이라 따로 둔다.
 const SEARCH_LINK=[
   ['빼빼구마','룰루맘'],
+  // 검색 0건 실측(2026-08-22): 손님은 '뽀사카'로 검색하는데 상품명은 '뽀로로 사운드 카드'다 (DB 5건)
+  ['뽀사카','뽀로로 사운드'],
 ];
 // 검색어를 별칭·연관어까지 넓힌다. 원본 + 치환본을 모두 후보로 돌려준다.
 function expandQuery(q){
@@ -1293,8 +1297,11 @@ function getFiltered(dateStr){
       if(fMajor!=='전체'&&item.major!==fMajor)return false;
       if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
+      // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
+      //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
       return[item.name,item.influencer,item.insta,item.major,item.minor]
-        .some(v=>{const s=(v||'').toLowerCase(); return qs.some(q=>s.includes(q));});
+        .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
+          return qs.some(q=>s.includes(q)||sn.includes(q.replace(/\s+/g,'')));});
     }).sort(cmpDatePartner);
   }
 
@@ -1536,7 +1543,9 @@ async function renderSearchAll(){
     if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
   }
 
-  const hit=(...vals)=>vals.some(v=>(v||'').toString().toLowerCase().includes(q));
+  // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
+  const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
+  const hit=(...vals)=>vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
