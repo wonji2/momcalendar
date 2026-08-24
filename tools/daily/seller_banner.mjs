@@ -97,12 +97,20 @@ function absImage(u) {
 }
 
 async function imageOk(u) {
+  // 🔴 2026-08-24 사고: 셀러가 블록 사진을 안 올리면 인포크가 **네이버 로그인 애플 아이콘 SVG**
+  //    (ssl.pstatic.net/static/nid/login/icon-apple.svg)를 넣어 준다. 200 image/* 라 통과해서
+  //    라이브 배너에 아이콘이 걸렸다(로이첸). 아이콘·SVG·초소형 이미지는 상품 사진이 아니다.
+  if (/\.svg(\?|$)|\/static\/nid\/|icon-|favicon|\/logo/i.test(u)) return false;
   try {
     const c = new AbortController();
     const t = setTimeout(() => c.abort(), 12000);
     const r = await fetch(u, { headers: { 'user-agent': UA }, signal: c.signal });
     clearTimeout(t);
-    return r.ok && String(r.headers.get('content-type') || '').startsWith('image/');
+    const ct = String(r.headers.get('content-type') || '');
+    const len = Number(r.headers.get('content-length') || 0);
+    if (!r.ok || !ct.startsWith('image/') || ct.includes('svg')) return false;
+    if (len > 0 && len < 5000) return false;   // 5KB 미만 = 아이콘/플레이스홀더
+    return true;
   } catch (e) { return false; }
 }
 
@@ -130,8 +138,23 @@ for (const s of sellers) {
     if (b.block_type !== 'link' || !b.image || !b.title) continue;
     const name = clean(b.title);
     if (!name || NOT_PRODUCT.test(name) || !looksLikeProduct(name)) continue;
-    const img = absImage(b.image);
-    if (!img || !(await imageOk(img))) continue;
+    let img = absImage(b.image);
+    if (!img || !(await imageOk(img))) {
+      // 블록 사진이 없거나 아이콘이면(로이첸 사고) **블록이 가리키는 상품 페이지의 og:image** 로 폴백
+      img = null;
+      if (b.url) {
+        try {
+          const target = b.url.startsWith('http') ? b.url : 'https://link.inpock.co.kr' + b.url;
+          const c = new AbortController(); const t = setTimeout(() => c.abort(), 15000);
+          const r = await fetch(target, { headers: { 'user-agent': UA }, redirect: 'follow', signal: c.signal });
+          clearTimeout(t);
+          const html = await r.text();
+          const m = html.match(/og:image"[^>]*content="([^"]+)"/) || html.match(/content="([^"]+)"[^>]*property="og:image"/);
+          if (m && (await imageOk(m[1]))) img = m[1];
+        } catch (e) { /* 폴백 실패 시 이 블록은 건너뛴다 */ }
+      }
+      if (!img) continue;
+    }
     picked.push({ name, img });
   }
   if (!picked.length) { console.log(`⛔ ${s.name} — 걸 상품 없음`); continue; }
