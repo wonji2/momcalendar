@@ -1819,7 +1819,10 @@ function qRegResolveSeller(){
   const noAt=raw.replace(/^@/,'');
   if(_qRegName2Insta[raw]) return {insta:_qRegName2Insta[raw], infl:raw};       // 등록된 한글명
   if(_qRegInsta2Name[noAt]) return {insta:noAt, infl:_qRegInsta2Name[noAt]};    // 등록된 @아이디
-  if(raw.startsWith('@')||/^[A-Za-z0-9._]+$/.test(raw)) return {insta:noAt, infl:''}; // 미등록 @아이디
+  // "크롱맘/@u_crong" · "크롱맘 @u_crong" · "크롱맘(@u_crong)" — 한글명과 핸들을 붙여 쓴 입력 (사장님 실사용 2026-08-24)
+  const combo=raw.match(/^(.*?)[\s\/(]*@([a-z0-9._]{2,30})\)?$/i);
+  if(combo&&combo[2]) return {insta:combo[2].toLowerCase(), infl:combo[1].replace(/[\s\/()]+$/,'').trim()};
+  if(raw.startsWith('@')||/^[A-Za-z0-9._]+$/.test(raw)) return {insta:noAt.toLowerCase(), infl:''}; // 미등록 @아이디
   return {insta:'', infl:raw};                                                  // 미등록 한글명(미연결)
 }
 function qRegSellerHint(){
