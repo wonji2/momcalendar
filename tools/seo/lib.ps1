@@ -87,6 +87,12 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<title>$tE</title>")
   [void]$sb.AppendLine("<meta name=${Q}description${Q} content=${Q}$dE${Q}>")
   [void]$sb.AppendLine("<link rel=${Q}canonical${Q} href=${Q}$SITE/$($o.canon)${Q}>")
+  # 파비콘 — 없으면 네이버·구글 검색결과에 지구본 아이콘이 뜬다(사장님 지적 2026-08-25).
+  # 반드시 절대경로(/)로. 상대경로면 g/·p/ 하위 페이지에서 깨진다.
+  [void]$sb.AppendLine("<link rel=${Q}icon${Q} href=${Q}/favicon.ico${Q} sizes=${Q}any${Q}>")
+  [void]$sb.AppendLine("<link rel=${Q}icon${Q} type=${Q}image/png${Q} sizes=${Q}512x512${Q} href=${Q}/momcal-appicon.png${Q}>")
+  [void]$sb.AppendLine("<link rel=${Q}apple-touch-icon${Q} href=${Q}/momcal-appicon.png${Q}>")
+  [void]$sb.AppendLine("<meta property=${Q}og:image${Q} content=${Q}$SITE/momcal-appicon.png${Q}>")
   [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}index,follow,max-image-preview:large${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:title${Q} content=${Q}$tE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:description${Q} content=${Q}$dE${Q}>")

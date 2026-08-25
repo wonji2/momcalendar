@@ -82,13 +82,16 @@ foreach($rel in @($PrevMod.Keys)){
 }
 Write-Output "옛 lastmod $($PrevMod.Count)개 · 해시 $($PrevHash.Count)개 확보"
 
-# ── 폴더 초기화 (사라진 항목의 옛 페이지가 고아로 남지 않게) ──
+# ── 폴더 준비 — 한 번 만든 페이지는 지우지 않는다 (2026-08-25, 월별 페이지와 같은 원칙) ──
+# 예전엔 매일 폴더를 비우고 그날 집계분만 다시 만들었다. 그런데 공구가 2개월 지나
+# gonggu_archive 로 이관되면 그 브랜드·셀러가 집계에서 빠지고, 페이지가 삭제돼
+# 하루 50~100개씩 404 가 됐다(서치콘솔 404 489건의 원인). 이제 오늘 집계에 없는
+# 페이지는 그대로 두고 sitemap 에도 남긴다(아래 KeptUrls 로 합류).
 # ⚠ 반복 변수를 $d 로 쓰면 안 된다. PowerShell 은 대소문자를 구분하지 않아
 #   데이터가 담긴 $D 를 덮어써 버린다(실제로 한 번 당했다).
 foreach($dir in @('g','p','s','m','d','c')){
   $pp = Join-Path $Root $dir
-  if(Test-Path $pp){ Remove-Item $pp -Recurse -Force }
-  New-Item -ItemType Directory -Path $pp | Out-Null
+  if(-not (Test-Path $pp)){ New-Item -ItemType Directory -Path $pp | Out-Null }
 }
 
 $liveRows = ParseRows $D.live @('name','who','od','ed','major')
@@ -209,8 +212,27 @@ foreach($p in $prodList){
   $rows = ParseRows $p.raw @('name','who','od','ed','insta')
   $sp = SplitNow $rows $today
   $live = $sp.now; $soon = $sp.soon; $past = $sp.past
-  $title = "$($p.key) 공구 | 공동구매 일정·진행중인 곳 - 맘캘린더"
-  $desc  = "$($p.key) 공구 일정. 진행 중인 $($p.key) 공동구매와 지난 일정, 오픈·마감 날짜를 확인하세요."
+  # 상세 변형 키워드 — 실제 상품명("대나무 칫솔" 등)이 제목·설명에 실려야
+  # "닥터노아 대나무 칫솔" 같은 상세 검색어에 걸린다(네이버 경쟁사 실측, 사장님 지시 2026-08-25).
+  $vn = @{}
+  foreach($r in $rows){
+    $t2 = ("$($r.name)").Trim()
+    $bLow = ("$($p.brand)").ToLower()
+    if($bLow -and $t2.ToLower().StartsWith($bLow)){ $t2 = $t2.Substring($bLow.Length).Trim() }
+    $t2 = ($t2 -replace '^[-·:,/]+','').Trim()
+    if($t2.Length -ge 2 -and $t2.Length -le 24 -and $t2 -ne "$($p.prod)" -and $t2 -ne "$($p.key)"){
+      if($vn.ContainsKey($t2)){ $vn[$t2] = [int]$vn[$t2] + 1 } else { $vn[$t2] = 1 }
+    }
+  }
+  $vTop = @($vn.GetEnumerator() | Sort-Object @{e='Value';Descending=$true}, @{e='Name';Descending=$false} | Select-Object -First 2 | ForEach-Object { $_.Name })
+  $vTxt = $vTop -join '·'
+  if($vTxt){
+    $title = "$($p.key) 공구 | $vTxt 공동구매 일정·진행중인 곳 - 맘캘린더"
+    $desc  = "$($p.key) 공구 일정. $vTxt 등 진행 중인 $($p.key) 공동구매와 지난 일정, 오픈·마감 날짜를 확인하세요."
+  } else {
+    $title = "$($p.key) 공구 | 공동구매 일정·진행중인 곳 - 맘캘린더"
+    $desc  = "$($p.key) 공구 일정. 진행 중인 $($p.key) 공동구매와 지난 일정, 오픈·마감 날짜를 확인하세요."
+  }
   $canon = "p/$(Enc $p.slug).html"
 
   # ⚠ 집계·분석은 넣지 않는다(사장님 지시 2026-08-11 — 크몽에 팔 자산).
@@ -545,6 +567,27 @@ function WriteSitemap([string]$file, $urls, [string]$pri, [string]$freq){
   [void]$sb.AppendLine('</urlset>')
   [IO.File]::WriteAllText((Join-Path $Root $file), $sb.ToString(), [Text.UTF8Encoding]::new($false))
 }
+# 오늘 집계에 없지만 디스크에 남아 있는 보존 페이지를 sitemap 에 합류시킨다.
+# 빼먹으면 verify 의 "sitemap 에 빠진 페이지(고아)" 검사에 걸리고,
+# sitemap 에서 사라진 URL 은 색인 자산이 깎인다. lastmod 는 WriteSitemap 이
+# 해시 대조로 옛 날짜를 유지해 준다(내용이 안 바뀐 보존 페이지는 안 바뀐 날짜 그대로).
+function KeptUrls([string]$dir2, $todayUrls){
+  $have = @{}
+  foreach($u in $todayUrls){ $have[[uri]::UnescapeDataString("$u")] = 1 }
+  $extra = @()
+  $dp = Join-Path $Root $dir2
+  if(Test-Path $dp){
+    foreach($f in (Get-ChildItem $dp -Filter *.html -File | Sort-Object Name)){
+      $rel = "$dir2/$($f.Name)"
+      if(-not $have.ContainsKey($rel)){ $extra += "$dir2/$(Enc $f.BaseName).html" }
+    }
+  }
+  # ⚠ 함수 안에서 Write-Output 을 쓰면 반환값에 섞인다 → Write-Host 로만 알린다.
+  # ⚠ `return ,$extra` 도 금지 — 중첩 배열이 되어 1,764개 URL 이 sitemap 한 줄에 뭉쳐 들어갔다(실측).
+  Write-Host "보존 페이지 합류($dir2): $($extra.Count)개"
+  return $extra
+}
+
 $uMain = New-Object System.Collections.ArrayList
 [void]$uMain.Add('')
 foreach($k in $kwMade){ [void]$uMain.Add("$(Enc $k).html") }
@@ -552,12 +595,16 @@ foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html'))
 foreach($c in $catMade){ [void]$uMain.Add("c/$(Enc $c).html") }
 foreach($m in $monthMade){ [void]$uMain.Add("d/$($m.slug).html") }
 foreach($m in $minorMade){ [void]$uMain.Add("m/$(Enc $m.slug).html") }
+foreach($k in @('c','d','m')){ foreach($x in (KeptUrls $k $uMain)){ [void]$uMain.Add($x) } }
 WriteSitemap 'sitemap-main.xml' $uMain '0.9' 'daily'
 $uB = @(); foreach($b in $brandList){ $uB += "g/$(Enc $b.slug).html" }
+$uB = @($uB) + @(KeptUrls 'g' $uB)
 WriteSitemap 'sitemap-brand.xml' $uB '0.7' 'weekly'
 $uP = @(); foreach($p in $prodList){ $uP += "p/$(Enc $p.slug).html" }
+$uP = @($uP) + @(KeptUrls 'p' $uP)
 WriteSitemap 'sitemap-product.xml' $uP '0.7' 'weekly'
 $uS = @(); foreach($s in $sellerMade){ $uS += "s/$(Enc $s.slug).html" }
+$uS = @($uS) + @(KeptUrls 's' $uS)
 WriteSitemap 'sitemap-seller.xml' $uS '0.7' 'weekly'
 
 $sm = New-Object System.Text.StringBuilder
