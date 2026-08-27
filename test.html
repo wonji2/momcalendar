@@ -1978,11 +1978,27 @@ function hcUnitPrice(h){
     //   써있어 의미없잖아 이런건 빼야지"
     //   → 수량 표기가 2개 이상이고 용량도 여러 번 나오면(=섞음 구성) 개당 표시를 아예 안 한다.
     //     정상 상품("키친타월 100매, 9개")은 용량 표기가 없으므로 그대로 동작한다.
-    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장)(?![a-zA-Z가-힣])/g, m;
-    var qtys=[];
-    while((m=re.exec(t))!==null){
-      var n=parseInt(m[1],10);
-      if(n>=3 && n<=200){ qtys.push(n); best=n; }   // 2개 이하는 개당 표시가 의미 없다
+    // 🔴 2026-08-24 — "키친타올 150매, 12롤" 이 개당 57원으로 나감(사장님 지적).
+    //   '매·장' 은 낱장 단위다. 롤·팩 같은 묶음 단위가 같이 적혀 있으면 묶음 쪽으로 나눈다.
+    //   화장지류 "30롤 2팩" 은 팩이 겉포장이라 총 롤수(30×2=60)로 나눠야 롤당 가격이 맞다.
+    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장|롤)(?![a-zA-Z가-힣])/g, m;
+    var toks=[];
+    while((m=re.exec(t))!==null){ toks.push({n:parseInt(m[1],10), u:m[2]}); }
+    var qtys=[], sheet=0, pack=0, roll=0;
+    toks.forEach(function(x){
+      if(x.n>=3 && x.n<=200){                        // 2개 이하는 개당 표시가 의미 없다
+        qtys.push(x.n);
+        if(x.u==='매'||x.u==='장') sheet=x.n;
+        else if(x.u==='롤') roll=x.n;
+        else pack=x.n;
+      }
+    });
+    var lastTok=toks.length?toks[toks.length-1]:null;
+    if(roll){
+      best=roll;
+      if(lastTok && (lastTok.u==='팩'||lastTok.u==='박스'||lastTok.u==='세트') && lastTok.n>=2 && lastTok.n<=20) best=roll*lastTok.n;
+    } else {
+      best=pack||sheet;
     }
     var volCnt=(t.match(/\d+\s*(ml|g|kg|L)(?![a-zA-Z가-힣])/gi)||[]).length;
     if(qtys.length>=2 && volCnt>=2) return 0;          // 용량이 서로 다른 묶음
