@@ -89,6 +89,22 @@ const brandOf = (n) => {
 };
 const brands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].slice(0, 8);   // 브랜드+공구가 실제 유입 검색어 — 8개 나열 (사장님 지시)
 
+// ── 브랜드+제품어 (사장님 지시 2026-08-27: A+B 조합 — "무아스 디스펜서 공구"형이 실제 유입) ──
+// 앞쪽 브랜드 2개에만 상품명 둘째 낱말을 붙인다. 8개 전부 붙이면 제목이 넘쳐 뒷브랜드가 잘린다.
+const PROD_STOP = /^(세트|모음전|모음|기획전|골라담기|특가|공구|오픈|외|신상|국산|프리미엄|시그니처)$/;
+const prodWordOf = (brand) => {
+  const o = opens.find((x) => brandOf(x.name) === brand);
+  if (!o) return '';
+  const toks = String(o.name).replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(1);
+  const w = toks.find((t) => t.length >= 2 && t.length <= 6 && !BRAND_STOP.has(t) && !PROD_STOP.test(t) && !/^\d/.test(t));
+  return w || '';
+};
+// 제목이 넘치면(58자) ①뒷브랜드부터 떨구고(최소 4개) ②그래도 넘치면 제품어를 뗀다
+const brandLine = (n, withProd) => brands.slice(0, n).map((b, i) => {
+  if (withProd && i < 2) { const w = prodWordOf(b); if (w && (b + w).length <= 11) return `${b} ${w}`; }
+  return b;
+}).join('·');
+
 // 제목 조합 엔진 (사장님 지시 2026-08-12): 고정 템플릿 대신 키워드 풀(head×tail×audience) 조합 — 수백 가지.
 // 풀은 tools/daily/blog_keywords.json — serp_check 로그 보고 잘 걸리는 키워드를 위로 올리면 제목이 진화한다.
 // 날짜 시드 LCG 라 같은 날을 다시 생성해도 제목이 같다(재생성 안전). 앞쪽 키워드가 뽑힐 확률이 높다(순서=가중치).
@@ -99,31 +115,41 @@ const pick = (arr) => arr[Math.floor(Math.pow(rnd(), 1.6) * arr.length)];   // �
 
 // "8월 공구일정" 류 시즌 키워드는 실제 유입 패턴 — 두 번째 가중치로 끼워 넣는다
 const heads = [KW.head[0], `${d.getMonth() + 1}월 공구일정`, ...KW.head.slice(1)];
-const bAll = brands.join('·');
 const head = pick(heads), tailRaw = pick(KW.tail), aud = pick(KW.audience);
 const tail = tailRaw.replace(/^공구\s*/, '');   // 앞말이 늘 '공구…'라 "공구일정 공구하는 곳" 중복 방지
 const audSp = aud ? `${aud} ` : '';
 // 모든 프레임에 head(공구일정 계열)가 반드시 들어간다 — 핵심 검색어 보장 (사장님 지시 2026-08-12)
+// 2026-08-27 A+B 조합(사장님 지시): head 계열을 항상 제목 앞쪽에 두고(검색결과는 앞 ~30자만 보인다),
+// 브랜드 자리엔 앞 2개에 제품어를 붙인다. 넘치면 뒷브랜드부터 떨궈 58자 안에 맞춘다.
 const FRAMES = [
-  () => `${label} ${audSp}${head} ${tail} | ${bAll} 공구 오픈`,
-  () => `${label} ${audSp}${head} | ${bAll} 공구 ${tail}`,
-  () => `${label} ${bAll} 공구 오픈 | ${audSp}${head} ${tail}`,
+  (b) => `${label} ${audSp}${head} ${tail} | ${b} 공구 오픈`,
+  (b) => `${label} ${audSp}${head} | ${b} 공구 ${tail}`,
+  (b) => `${label} ${audSp}${head} ${tail} | ${b} 공구 오픈`,
   // 🔴 2026-08-19 수정: 이 틀만 brands[0] 하나만 쓰고 나머지 7개를 버렸다.
-  //   8/21 제목이 "데코아르 공구 외" 한 개뿐이라고 사장님이 지적 — 본문엔 32건·브랜드 8개가 다 있었다.
-  //   틀은 4개 중 무작위로 골라서 **나흘에 한 번꼴로** 브랜드 없는 제목이 나가고 있었다.
   //   틀 모양(변화용)은 살리되 브랜드는 전부 싣는다.
-  () => `${label} ${head.includes('오늘') ? '' : '오늘 오픈 '}${audSp}${head} ${tail} | ${bAll} 공구 외`,
+  (b) => `${label} ${(head.includes('오늘') || head.includes('오픈')) ? '' : '오늘 오픈 '}${audSp}${head} ${tail} | ${b} 공구 외`,
 ];
-const blogTitle = (brands.length
-  ? FRAMES[Math.floor(rnd() * FRAMES.length)]()
-  : `${label} ${audSp}${head} ${tail} | 오늘 오픈 공구`).replace(/\s+/g, ' ').trim();
+let blogTitle = '';
+if (brands.length) {
+  const frame = FRAMES[Math.floor(rnd() * FRAMES.length)];
+  const nMin = Math.min(4, brands.length);
+  const tries = [];
+  for (const withProd of [true, false])
+    for (let n = brands.length; n >= nMin; n--) tries.push([n, withProd]);
+  for (const [n, withProd] of tries) {
+    blogTitle = frame(brandLine(n, withProd)).replace(/\s+/g, ' ').trim();
+    if (blogTitle.length <= 58) break;
+  }
+} else {
+  blogTitle = `${label} ${audSp}${head} ${tail} | 오늘 오픈 공구`.replace(/\s+/g, ' ').trim();
+}
 const MAJOR_ORDER = ['육아', '리빙', '식품', '건강', '뷰티', '가전', '패션', '여행', '인테리어', '반려동물'];
 const byMajor = MAJOR_ORDER.map((m) => [m, opens.filter((o) => o.major === m)]).filter(([, a]) => a.length);
 const etc = opens.filter((o) => !MAJOR_ORDER.includes(o.major));
 if (etc.length) byMajor.push(['기타', etc]);
 
 // 해시태그를 본문 끝에 넣으면 네이버 에디터가 태그로 인식한다 → 본문 한 번 복사로 태그까지 해결
-const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '공구모음',
+const blogTags = ['공구일정', '인스타공구', '인스타공구일정', '공동구매', '오늘의공구', '육아공구', '육아템', '공구모음',
   ...brands.map((b) => `${b}공구`)].map((t) => `#${t}`).join(' ');
 
 // ── 오늘의 브랜드 꼭지 (사장님 지시 2026-08-14) ──
