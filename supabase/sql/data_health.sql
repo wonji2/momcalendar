@@ -61,8 +61,10 @@ begin
   if n > 0 then insert into health_alerts(kind, detail) values ('핫딜누락', n || '건'); end if;
 
   -- ⑧ 승인 공구인데 갈 곳(핸들·결제링크) 없음 = 카드가 안 보임
+  --    ⚠ 스크래핑 함정(honeypot: 떼브란네·미르뎃소)은 일부러 insta·pay_link 를 비웠고 마감경과라 손님 노출 0 → 제외
   select count(*) into n from gonggu
-   where approved and coalesce(insta,'')='' and coalesce(pay_link,'') !~ '^https?://';
+   where approved and coalesce(insta,'')='' and coalesce(pay_link,'') !~ '^https?://'
+     and name not like '떼브란네%' and name not like '미르뎃소%';
   if n > 0 then insert into health_alerts(kind, detail) values ('갈곳없는공구', n || '건'); end if;
 end $$;
 
