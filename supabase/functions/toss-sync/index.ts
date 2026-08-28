@@ -464,6 +464,37 @@ Deno.serve(async (req) => {
       log.조회됨 = ids.filter((x) => got[x]).length;
       log.못찾음 = ids.filter((x) => !got[x]).slice(0, 20);
 
+      // 🔴 2026-08-28 — 다른 상품의 값이 붙는 교차오염 방어 (상품명 대조).
+      //   실측: 카드의 tacaId 가 판매종료로 죽었는데 같은 번호를 tacaItemId 로 가진
+      //   **맥세이프 거치대**가 걸려 '한미 완전두유' 카드에 거치대 가격(16,201)이 붙었다(id 333).
+      //   반대 방향도 났다 — product_id 가 tacaItemId 인 카드(399·402·421)에
+      //   같은 번호가 tacaId 인 티셔츠·레깅스·니트 가격이 붙어 실제보다 9천~1만4천원 비싸게 노출.
+      //   → 응답 상품명과 카드 제목이 낱말 하나도 안 겹치면 그 응답은 버린다
+      //     (가격갱신·내림·이력 전부. 남의 상품이 품절이면 멀쩡한 카드가 내려가는 것도 막는다).
+      const nameTokens = (s: string) => {
+        const w = String(s ?? "").replace(/\[[^\]]*\]/g, "").toLowerCase()
+          .split(/[^0-9a-z가-힣]+/).filter((t) => t.length >= 2);
+        return new Set(w);
+      };
+      const sameProduct = (cardTitle: string, apiName: string) => {
+        const a = nameTokens(cardTitle);
+        if (!a.size) return true;                      // 대조 불가면 기존 동작 유지
+        for (const t of nameTokens(apiName)) if (a.has(t)) return true;
+        return false;
+      };
+      const titleByKey: Record<string, string> = {};
+      for (const r of (Array.isArray(rows) ? rows : [])) {
+        const k = String(r.product_id ?? "").replace(/^toss_/, "");
+        if (k && !(k in titleByKey)) titleByKey[k] = String(r.title ?? "");
+      }
+      log.상품명불일치 = [];
+      for (const x of ids) {
+        if (got[x] && titleByKey[x] != null && !sameProduct(titleByKey[x], got[x].displayName)) {
+          log.상품명불일치.push(`${x}:${String(got[x].displayName ?? "").slice(0, 20)}`);
+          delete got[x];                               // 이 응답은 이 상품의 값이 아니다
+        }
+      }
+
       // 값이 확실한 것만 남긴다. 품절이면 가격이 의미가 없으니 이력에 넣지 않는다
       //   (품절가를 넣으면 나중에 '역대 최저' 판정이 오염된다)
       const hist = ids.filter((x) => got[x] && !got[x].isSoldOut && Number(got[x].displayPrice) > 0)

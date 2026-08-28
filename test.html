@@ -1996,7 +1996,9 @@ function hcUnitPrice(h){
     var lastTok=toks.length?toks[toks.length-1]:null;
     if(roll){
       best=roll;
-      if(lastTok && (lastTok.u==='팩'||lastTok.u==='박스'||lastTok.u==='세트') && lastTok.n>=2 && lastTok.n<=20) best=roll*lastTok.n;
+      // 🔴 2026-08-28 — "크리넥스 25m 30롤 2개" 가 개당 850원으로 나감(실제는 60롤 = 425원).
+      //   '2개'도 '2팩'처럼 겉포장 묶음이다 → 곱셈 단위에 '개' 추가.
+      if(lastTok && (lastTok.u==='팩'||lastTok.u==='박스'||lastTok.u==='세트'||lastTok.u==='개') && lastTok.n>=2 && lastTok.n<=20) best=roll*lastTok.n;
     } else {
       best=pack||sheet;
     }
