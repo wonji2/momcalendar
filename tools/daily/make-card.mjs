@@ -197,8 +197,7 @@ const blogBody = [
   `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
   `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
   ``,
-  `(여기에 저장해 두신 카드 사진을 넣어주세요)`,
-  ``,
+  // (사진 안내 문장 제거 — 사장님 지시 2026-08-27 "복사해서 그대로 붙여넣게". 사진 넣는 순서는 페이지 하단 안내문에만 남긴다)
   `■ 오늘 오픈하는 공구 ${opens.length}건`,
   ...byMajor.flatMap(([m, arr]) => [``, `[${m}]`,
     ...arr.map((o) => `· ${o.name} — ${seller(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
@@ -268,7 +267,7 @@ textarea{width:100%;height:260px;border:1px solid #E3DCEF;border-radius:10px;pad
     <button class="btn btn2" onclick="cp('btitle','블로그 제목')">블로그 제목 복사</button>
     <textarea id="bbody" style="margin-top:9px">${esc(blogBody)}</textarea>
     <button class="btn" onclick="cp('bbody','블로그 본문 전체')">블로그 본문 전체 복사 (태그 포함)</button>
-    <div class="meta">순서: 사진 저장 → 블로그 앱 글쓰기 → 제목 붙여넣기 → 본문 붙여넣기 → (여기에 카드 사진) 자리에 사진 → 발행. 끝의 #태그들은 자동으로 태그가 돼요</div>
+    <div class="meta">순서: 사진 저장 → 블로그 앱 글쓰기 → 제목 붙여넣기 → 본문 붙여넣기 → 본문 맨 위에 사진 추가 → 발행. 끝의 #태그들은 자동으로 태그가 돼요</div>
   </div>
 </div>
 <script>
