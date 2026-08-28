@@ -94,13 +94,40 @@ foreach($dir in @('g','p','s','m','d','c')){
   if(-not (Test-Path $pp)){ New-Item -ItemType Directory -Path $pp | Out-Null }
 }
 
+# ── 파일명 대소문자 정본 지도 (2026-08-28) ──
+# DB 의 브랜드 표기가 날마다 바뀌면(VOOKS → Vooks) 리눅스(Actions)에선 케이스만 다른
+# 파일이 하나 더 생긴다(실측: g/VOOKS.html + g/Vooks.html). 윈도우 로컬 체크아웃은
+# 이 둘을 한 파일로 합쳐 버려 저장소가 영구 dirty 가 되고 pull·rebase 가 전부 막힌다.
+# → 슬러그를 정할 때 디스크에 이미 있는 케이스를 그대로 재사용한다. 새 쌍은 생기지 않는다.
+#   케이스 쌍이 이미 있으면 서수(ordinal) 정렬이 앞선 쪽을 정본으로 삼는다(결정적 선택).
+$CaseCanon = @{}
+foreach($dir in @('g','p','s')){
+  $map = @{}
+  $names = @(Get-ChildItem (Join-Path $Root $dir) -Filter *.html -File | ForEach-Object { $_.BaseName })
+  [Array]::Sort($names, [System.StringComparer]::Ordinal)
+  foreach($n in $names){ $k = $n.ToLower(); if(-not $map.ContainsKey($k)){ $map[$k] = $n } }
+  $CaseCanon[$dir] = $map
+}
+function CanonCase([string]$slug, [string]$dirKey){
+  if([string]::IsNullOrWhiteSpace($slug)){ return $slug }
+  $m = $CaseCanon[$dirKey]; $k = $slug.ToLower()
+  if($m.ContainsKey($k)){ return $m[$k] }
+  $m[$k] = $slug; return $slug
+}
+
 $liveRows = ParseRows $D.live @('name','who','od','ed','major')
 $soonRows = ParseRows $D.soon @('name','who','od','ed','major')
 
 # ══ 제품 슬러그 먼저 (브랜드 페이지에서 링크해야 하므로) ══
 $seenP = @{}; $prodMap = @{}; $prodList = New-Object System.Collections.ArrayList
+$seenPName = @{}
 foreach($x in $D.products){
-  $slug = SlugOf "$($x.brand)-$($x.prod)" $seenP '-p'
+  # 케이스만 다른 같은 제품이 같은 날 집계에 함께 오면 두 번째가 -2 페이지로 갈라진다
+  # → 표기 하나만 남긴다(집계 정렬상 앞선 쪽 = 건수 많은 쪽)
+  $nk = ("$($x.brand)-$($x.prod)").ToLower()
+  if($seenPName.ContainsKey($nk)){ continue }
+  $seenPName[$nk] = 1
+  $slug = CanonCase (SlugOf "$($x.brand)-$($x.prod)" $seenP '-p') 'p'
   if([string]::IsNullOrWhiteSpace($slug)){ continue }
   $o = [pscustomobject]@{ slug=$slug; brand=$x.brand; prod=$x.prod; key=$x.key; cnt=[int]$x.cnt;
                           sellers=[int]$x.sellers; major=$x.major; minor=$x.minor;
@@ -112,8 +139,13 @@ foreach($x in $D.products){
 
 # ══ 브랜드 슬러그 ══
 $seenB = @{}; $brandList = New-Object System.Collections.ArrayList
+$seenBName = @{}
 foreach($x in $D.brands){
-  $slug = SlugOf $x.brand $seenB '-g'
+  # NON-GMO vs Non-gmo 처럼 케이스만 다른 같은 브랜드는 하나만 남긴다
+  $nk = ("$($x.brand)").ToLower()
+  if($seenBName.ContainsKey($nk)){ continue }
+  $seenBName[$nk] = 1
+  $slug = CanonCase (SlugOf $x.brand $seenB '-g') 'g'
   if([string]::IsNullOrWhiteSpace($slug)){ continue }
   [void]$brandList.Add([pscustomobject]@{ slug=$slug; brand=$x.brand; cnt=[int]$x.cnt; sellers=[int]$x.sellers;
        major=$x.major; first=$x.first_open; last=$x.last_open; topprods=$x.topprods; raw=$x.rows })
@@ -127,8 +159,13 @@ $topBrands = $brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='
 # ⚠ insta 를 그대로 쓰면 안 된다 — 셀러 페이지 파일명은 SlugOf 를 거친 값이라 다를 수 있고,
 #   셀러 목록에 없는 insta 도 있다. 그대로 링크했다가 깨진 내부링크가 327개 났다(2026-08-11).
 $seenS = @{}; $SellerSlug = @{}; $korCount = @{}; $korInsta = @{}
+$seenSName = @{}
 foreach($s in $D.sellers){
-  $sl = SlugOf $s.insta $seenS '-s'
+  # 인스타 핸들은 대소문자 구분이 없다 → 케이스만 다른 행은 같은 셀러, 하나만 남긴다
+  $nk = ("$($s.insta)").ToLower()
+  if($seenSName.ContainsKey($nk)){ continue }
+  $seenSName[$nk] = 1
+  $sl = CanonCase (SlugOf $s.insta $seenS '-s') 's'
   if([string]::IsNullOrWhiteSpace($sl)){ continue }
   if(-not $SellerSlug.ContainsKey($s.insta)){ $SellerSlug[$s.insta] = $sl }
   # 소분류·월별 페이지는 데이터에 insta 가 없고 한글명(who)만 있다.
@@ -542,6 +579,26 @@ Hub '공구제품.html' "공구 제품 목록 $($prodList.Count)개 | 브랜드�
   "인스타 공구로 여러 번 진행된 제품 $($prodList.Count)개. 제품을 누르면 진행한 셀러와 공구 이력, 다음 공구 시기를 가늠할 수 있습니다." `
   "공구 제품" "여러 번 진행된 제품 $($prodList.Count)개" `
   "두 번 이상 공구로 나온 제품 $($prodList.Count)개입니다. 같은 제품이 얼마 만에 다시 나오는지 이력으로 확인할 수 있습니다." $lk '공구 제품'
+
+# ── 케이스 쌍 blob 동기화 (2026-08-28) ──
+# 과거에 이미 생긴 케이스 쌍(g/VOOKS.html·g/Vooks.html 등)은 지우면 그 URL 이 404 가 된다
+# (페이지 보존 원칙). 대신 비정본 쪽 내용을 정본과 바이트 단위로 똑같이 만든다.
+# blob 이 같으면 윈도우 체크아웃이 더 이상 dirty 해지지 않고,
+# 비정본의 canonical 태그도 정본을 가리키게 되어 검색엔진 중복도 함께 정리된다.
+# 두 파일 모두 sitemap 에 남는다(KeptUrls) — 빼면 verify 의 고아 검사에 걸린다.
+# 윈도우에선 애초에 한 파일이라 이 블록은 할 일이 없다(리눅스 Actions 전용).
+foreach($dir in @('g','p','s')){
+  $dp2 = Join-Path $Root $dir
+  $grps = Get-ChildItem $dp2 -Filter *.html -File | Group-Object { $_.Name.ToLower() } | Where-Object { $_.Count -gt 1 }
+  foreach($g2 in $grps){
+    $nn = @($g2.Group | ForEach-Object { $_.Name }); [Array]::Sort($nn, [System.StringComparer]::Ordinal)
+    $src = Join-Path $dp2 $nn[0]
+    foreach($n2 in ($nn | Select-Object -Skip 1)){
+      [IO.File]::WriteAllBytes((Join-Path $dp2 $n2), [IO.File]::ReadAllBytes($src))
+      Write-Output "케이스 쌍 동기화: $dir/$($nn[0]) → $dir/$n2"
+    }
+  }
+}
 
 # ══ sitemap · robots ══
 function WriteSitemap([string]$file, $urls, [string]$pri, [string]$freq){
