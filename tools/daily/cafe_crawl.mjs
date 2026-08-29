@@ -70,12 +70,12 @@ function guessCat(name) {
 }
 
 // ── 메인 ──
-const r = await fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/cafe-lookup?pages=2');
+const r = await fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/cafe-lookup?pages=2', { headers: { connection: 'close' } });
 const j = await r.json();
 if (!j.ok) { log(`🔴 cafe-lookup 실패: ${JSON.stringify(j).slice(0, 120)}`); process.exit(1); }
 const lastId = existsSync(STATE) ? Number(readFileSync(STATE, 'utf8').trim()) : 0;
 const items = j.items.filter(x => x.id > lastId).sort((a, b) => a.id - b.id);
-if (!items.length) { console.log('새 글 없음'); process.exit(0); }
+if (!items.length) { console.log('새 글 없음'); setTimeout(() => process.exit(0), 300); await new Promise(() => {}); }
 
 const rows = [], skipped = [], noCat = [];
 for (const it of items) {
@@ -140,3 +140,5 @@ writeFileSync(STATE, String(Math.max(...j.items.map(x => x.id))));
 log(`새글 ${items.length} · 일정글 ${rows.length} → 등록 ${inserted} · 카페연결 ${linked}` +
     (noCat.length ? ` · 분류불가 ${noCat.length}건(세션에서 처리): ${noCat.join(' | ')}` : '') +
     (skipped.length ? ` · 스킵 ${skipped.length}` : ''));
+// node 24 윈도우 teardown 버그(libuv async.c assert)로 정상 완료 후에도 abort 되는 것 방어 (2026-08-30)
+setTimeout(() => process.exit(0), 300);
