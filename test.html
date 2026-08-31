@@ -98,6 +98,7 @@ body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{
 .hot-tag-row::-webkit-scrollbar{display:none}
 .hot-tag{flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 12px;border-radius:100px;background:#F3ECFA;color:#602090;border:none;font-family:inherit;cursor:pointer;white-space:nowrap}
 .hot-tag:active{background:#E0CDF5}
+.hot-tag.on{background:#602090;color:#fff}
 body.srch-suggest #gongguWrap,body.srch-suggest #hotdealView,body.srch-suggest #expView,
 body.srch-suggest #searchAllView{display:none!important}
 #searchDrop{display:none;padding:12px 16px 40px;min-height:60vh}
@@ -1246,6 +1247,7 @@ async function loadData() {
 //    진행중~7일 안 오픈 공구의 상품명 첫 낱말(=브랜드) 빈도 상위 8개. 탭하면 그 브랜드 검색결과로.
 //    ⚠ HOT_TAG_STOP: 브랜드가 아닌 일반 낱말은 칩으로 내보내지 않는다 (블로그 BRAND_STOP 과 같은 취지).
 const HOT_TAG_STOP=new Set(['유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
+let _hotTags=[];   // buildHotTags 가 계산해 보관 — 검색결과 상단 칩(hotTagChipsHtml)도 같은 목록을 쓴다
 function buildHotTags(){
   const el=document.getElementById('hotTagRow'); if(!el) return;
   try{
@@ -1256,11 +1258,17 @@ function buildHotTags(){
       const t=(it.name||'').trim().split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9]/g,'');
       if(t.length<2 || HOT_TAG_STOP.has(t)) return;
       cnt[t]=(cnt[t]||0)+1; });
-    const top=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    if(top.length<3){ el.style.display='none'; return; }
-    el.innerHTML=top.map(([m])=>`<button class="hot-tag" data-m="${m.replace(/"/g,'')}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
+    _hotTags=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([m])=>m);
+    if(_hotTags.length<3){ el.style.display='none'; return; }
+    el.innerHTML=_hotTags.map(m=>`<button class="hot-tag" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
     el.style.display='flex';
   }catch(_){ el.style.display='none'; }
+}
+// 검색결과 화면 상단(카드 위)에도 같은 칩 줄 — 결과 보다가 딴 브랜드도 생각 없이 눌러보게 (사장님 제안 2026-08-31)
+function hotTagChipsHtml(cur){
+  if(_hotTags.length<3) return '';
+  return `<div class="hot-tag-row" style="padding:2px 0 12px">${_hotTags.map(m=>
+    `<button class="hot-tag${m===cur?' on':''}" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('')}</div>`;
 }
 
 // ── 조회수(카드 클릭) 집계: 전체 TOP100 정렬용 (최근 클릭 기준) ──
@@ -1661,7 +1669,7 @@ async function renderSearchAll(){
   // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
   const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
 
-  el.innerHTML = (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
+  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
       <span style="font-size:12px;color:#bbb">브랜드명·상품명·셀러 닉네임으로 검색해보세요</span>
     </div>`) + backHome;
