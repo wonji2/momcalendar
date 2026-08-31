@@ -85,7 +85,41 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .intro-strip{background:var(--main-pale);color:var(--main-d);font-size:11px;text-align:center;padding:8px 16px;line-height:1.5}
 .intro-emph{font-weight:700}
 
-/* 검색 드롭다운 */
+/* ── 검색 UX 개편 (2026-08-31, momcal-search-spec) ──
+   검색창 포커스·입력 중(body.srch-mode)엔 배너·이웃셀러·탭·광고를 숨기고,
+   검색어가 비어 있으면(body.srch-suggest) 최근검색·뜨는검색어 드롭다운만 보여준다 */
+.srch-row{display:flex;align-items:center;gap:2px}
+.srch-row .srch{flex:1;min-width:0}
+/* 검색모드 이탈은 ← 화살표(왼쪽, 공구팡팡 방식) + 폰 뒤로가기 버튼 (사장님 지시 2026-08-31, 취소 글자 버튼 대체) */
+.s-back{display:none;background:none;border:none;cursor:pointer;padding:6px 6px 6px 0;flex-shrink:0;line-height:0}
+body.srch-mode .s-back{display:block}
+body.srch-mode .intro-strip,body.srch-mode .main-banner-section,body.srch-mode #sellerZone,
+body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
+body.srch-mode #reloginStrip,body.srch-mode #pwaStrip{display:none!important}
+body.srch-suggest #gongguWrap,body.srch-suggest #hotdealView,body.srch-suggest #expView,
+body.srch-suggest #searchAllView{display:none!important}
+#searchDrop{display:none;padding:16px 16px 40px;min-height:60vh}
+body.srch-suggest #searchDrop{display:block}
+.sdrop-sec{margin-bottom:22px}
+.sdrop-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sdrop-head h4{font-size:13.5px;margin:0;color:var(--t1);font-weight:800}
+.sdrop-clear{font-size:11.5px;color:#b3aabb;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
+.sdrop-empty{font-size:12px;color:#b3aabb}
+.recent-chips{display:flex;gap:7px;flex-wrap:wrap}
+.recent-chip{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:100px;padding:6px 8px 6px 12px;font-size:12px;color:var(--t1);cursor:pointer}
+.recent-chip .x{color:#c7bfcf;font-size:11px;padding:2px 4px}
+.rank-list{display:flex;flex-direction:column;gap:2px}
+.rank-item{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;padding:7px 2px;border-radius:8px}
+.rank-item:active{background:var(--main-soft)}
+.rank-num{width:16px;font-weight:800;color:#8a4fc2;font-size:13px;flex-shrink:0}
+.rank-item.top3 .rank-num{color:#602090}
+.rank-name{flex:1;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 검색결과 상단: 건수 + 정렬 */
+.sa-meta{display:flex;justify-content:space-between;align-items:center;padding:2px 2px 12px;font-size:12.5px;color:var(--t2)}
+.sa-meta b{color:var(--t1)}
+.sa-sort{display:flex;gap:10px}
+.sa-sort span{cursor:pointer;color:#9A93A6}
+.sa-sort span.on{color:#602090;font-weight:800}
 /* 사이드 메뉴 */
 .side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none}
 .side-overlay.on{display:block}
@@ -112,10 +146,10 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
    ⚠ 상시 감추면(display:none·0px 글자) 구글이 숨김링크로 보고 사이트 전체가 위험해진다.
       <details> 는 사용자가 펼 수 있어 허용된다. */
 .seolinks{max-width:480px;margin:0 auto;padding:14px 16px 0}
-.seolinks>summary{list-style:none;cursor:pointer;font-size:11px;color:#bbb;text-align:center;padding:4px}
+.seolinks>summary{list-style:none;cursor:pointer;font-size:11px;color:#bbb;display:flex;justify-content:center;align-items:center;gap:18px;padding:4px}
 .seolinks>summary::-webkit-details-marker{display:none}
-.seolinks>summary::after{content:" ▾"}
-.seolinks[open]>summary::after{content:" ▴"}
+.seolinks>summary .sl-t::after{content:" ▾"}
+.seolinks[open]>summary .sl-t::after{content:" ▴"}
 .seolinks-t{font-size:11px;font-weight:800;color:#B3A8C4;letter-spacing:.04em;margin:10px 0 7px}
 .seolinks-row{display:flex;flex-wrap:wrap;gap:6px}
 .seolinks-row a{font-size:12px;color:#7A6394;background:#F5F0FB;border:1px solid #EBE2F7;
@@ -165,14 +199,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
      calc 로 못박고 min-width:0 을 줘야 정확히 2.00개가 들어온다(실측). */
 .main-slide{flex:0 0 calc((100% - 9px) / 2);min-width:0;cursor:pointer;scroll-snap-align:start}
 .main-slide-inner{border-radius:14px;overflow:hidden;position:relative;aspect-ratio:1/1;display:flex;align-items:flex-end}
-/* 🔴 이 두 줄이 이식 중에 빠져 배너 사진이 하나도 안 떴다(2026-08-20).
-   position:absolute 가 없으면 크기가 0×0 이라 배경이 그려질 자리가 없다. */
-.main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
-.main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 32%,transparent 55%)}
 /* 글자칸: 제목 1줄(12px·14자) + 설명 1줄(10.5px·16자). 넘치면 … 로 자른다 */
 .main-slide-txt{padding:7px 2px 0}
 .main-slide-t1{font-size:12px;font-weight:800;color:var(--t1);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .main-slide-t2{font-size:10.5px;color:var(--t2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main-slide-bg{position:absolute;inset:0;background-size:cover;background-position:center}
+.main-slide-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.12) 32%,transparent 55%)}
 .main-slide-cnt{position:relative;z-index:1;padding:13px 15px;width:100%}
 .adtag{display:none}
 .main-slide-ttl{color:#fff;font-size:14px;font-weight:800;line-height:1.25;margin-bottom:2px;text-shadow:0 1px 4px rgba(0,0,0,.55)}
@@ -200,21 +232,6 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .cat-count-bar b{color:var(--t1);font-weight:700}
 
 /* ⭐ 이웃셀러존 */
-.sub-zone{padding:4px 16px 8px;background:#fff}
-.sub-row{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.sub-row::-webkit-scrollbar{display:none}
-/* 🔴 B안 (사장님 확정 2026-08-20) — 글자를 사진 밖으로 빼고, 날짜만 사진 위 배지로.
-   예전엔 제목을 사진 위에 얹었는데 사진이 밝으면 글자가 묻혔다.
-   상품명은 셀러가 인포크에 써놓은 그대로, 날짜는 우리 DB 공구 기간에서 가져온다. */
-.sub-card{flex:0 0 calc((100% - 9px)/2);min-width:0;border-radius:12px;overflow:hidden;cursor:pointer;scroll-snap-align:start;background:#fff;border:1px solid #EDE8F3}
-.sub-ph{position:relative;aspect-ratio:4/3;background:#ECE8FA}
-.sub-bg{position:absolute;inset:0;background-position:center;background-size:cover;background-repeat:no-repeat}
-/* 날짜 배지 — 사진이 밝아도 읽히게 어두운 판을 깐다 */
-.sub-tx{padding:7px 9px 9px}
-.sub-sel{font-size:10.5px;color:#8A8194;line-height:1.3}
-/* 제목만 2줄 — 말줄임은 2줄을 넘길 때만 */
-.sub-t1{margin-top:2px;font-size:11.5px;font-weight:700;line-height:1.32;color:#241D2E;
-        display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .seller-zone{background:#fff;padding:14px 0 14px}
 /* 🎁 기획전·제휴 존 */
 .promo-zone{background:#fff;padding:6px 0 12px}
@@ -609,12 +626,20 @@ body.sheet-open{ overscroll-behavior-y: none; }
       <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
     </div>
   </div>
-  <div class="srch">
-    <span class="si">🔍</span>
-    <input id="sInput" type="text" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off">
-    <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
+  <div class="srch-row">
+    <button class="s-back" id="sBack" onclick="exitSearchMode()" aria-label="메인으로 돌아가기">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>
+    </button>
+    <div class="srch">
+      <span class="si">🔍</span>
+      <input id="sInput" type="text" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off">
+      <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
+    </div>
   </div>
 </div>
+
+<!-- 검색 드롭다운: 최근 검색어 + 지금 뜨는 검색어 (검색창 포커스 · 검색어 없음일 때만 노출) -->
+<div id="searchDrop"></div>
 
 <!-- 한 줄 소개 띠 -->
 <div class="intro-strip">
@@ -711,6 +736,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
   <div class="seller-scroll" id="sellerScroll"></div>
 </div>
 
+<!-- ⭐ 셀러배너존 (이웃셀러 동그라미 바로 아래) -->
 <div class="sub-zone" id="subZone" style="display:none">
   <div class="sub-row" id="subRow"></div>
 </div>
@@ -874,6 +900,7 @@ window.slimAdClick=function(id){
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
   <div id="icsBar" style="display:none;margin:10px 12px 0">
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#602090;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
+    <!-- 마감된 건 자동으로 빠진다는 걸 누르기 전에 알려준다 (사장님 지적 2026-08-20) -->
     <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
     <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
   </div>
@@ -1223,6 +1250,7 @@ async function loadViewCounts(){
     rows.forEach(r=>{ const id=parseInt(r.id,10); if(!isNaN(id)) vc[id]=Number(r.clicks)||0; });
     window.__viewCounts=vc;
     if(fSt==='top100' && !dayFilter && !fSearch) renderList();
+    if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
   }catch(e){ /* 조회수 못 불러와도 TOP100은 파트너 우선 + 기본 정렬로 노출됨 */ }
 }
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
@@ -1262,6 +1290,9 @@ const BRAND_ALIAS=[
   ['bas','바스'],
   // 실측(2026-08-22): WECK 1건·웩 2건 — 두 표기가 실제로 있다. (vtech 는 영문 사용 0건이라 규칙대로 뺌)
   ['weck','웩'],
+  // 실측(2026-08-31): DB 는 '레꼴뜨'(recolte 무선초퍼, 10건+)가 정식인데 '레꼴드' 표기도 1건 있고
+  //   손님 검색은 '레꼴드'가 많다(수요갭 20회). 사장님 확인 — 같은 브랜드 맞음.
+  ['레꼴드','레꼴뜨'],
 ];
 // 🔗 상품 ↔ 브랜드 연관 — 손님이 **상품 이름만** 알고 검색하는 경우 (사장님 지시 2026-08-17)
 //   예) '빼빼구마' 는 룰루맘 브랜드의 공구 상품인데, 상품명에는 '룰루맘' 만 적혀 있다.
@@ -1346,7 +1377,7 @@ function getFiltered(dateStr){
   const ongoing=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate<=todayStr&&realEnd(item)>=todayStr).sort(cmpPartnerFirst);
   const upcoming=DATA.filter(item=>!isExpired(item)&&filterCat(item)&&item.openDate>todayStr).sort(cmpDatePartner);
   // ⚠️ 이웃셀러를 무조건 맨 위로 모으면 안 된다. 8월 말에 열 예정인 건까지 위로 올라온다.
-  //    (2026-08-05 내가 그렇게 바꿨다가 사장님께 바로 지적받고 되돌림)
+  //    (2026-08-05 그렇게 바꿨다가 사장님께 바로 지적받고 되돌림)
   //    맞는 동작: **오늘 진행 중인** 이웃셀러만 최상단. 예정 건은 날짜순을 지킨다.
   return [...ongoing,...upcoming];
 }
@@ -1495,8 +1526,14 @@ function renderList(){
 }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
-let _saOpen={gonggu:false,hotdeal:false,exp:false};   // 섹션별 '더 보기' 펼침 상태
-const SA_FIRST=3;                                      // 섹션마다 처음 보여줄 개수
+// 검색결과는 접지 않고 전부 바로 보여준다 (사장님 지시 2026-08-31 "몇 건 되지도 않는데 한번에 다 뜨게")
+let _saSort='open';                                    // 검색결과 정렬: open(오픈일순, 기본)·pop(인기순)·end(마감임박순)
+function setSaSort(k){
+  if(_saSort===k) return;
+  _saSort=k;
+  if(k==='pop'){ ensureViewCounts(); }   // 조회수는 인기순 처음 누를 때만 불러온다
+  renderSearchAll();
+}
 
 function searchAllOn(){ return !!(fSearch && fSearch.trim()); }
 
@@ -1520,8 +1557,6 @@ function hdFreshForSearch(h){
   const y=new Date(Date.now()+9*3600e3); y.setUTCDate(y.getUTCDate()-1);   // KST 어제
   return d >= y.toISOString().slice(0,10);
 }
-
-function saToggle(kind){ _saOpen[kind]=!_saOpen[kind]; renderSearchAll(); }
 
 async function renderSearchAll(){
   const el=document.getElementById('searchAllView');
@@ -1550,35 +1585,61 @@ async function renderSearchAll(){
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
 
+  // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
+  //    오픈일순(기본) = 기존 검색 정렬 그대로(cmpDatePartner: 오픈일 빠른 순, 같은 날짜는 파트너 우선)
+  //    인기순 = 조회수+찜수 / 마감임박순 = 마감일 빠른 순  (사장님 지시 2026-08-31 "정렬은 오픈일순으로")
+  //    ⚠ 찜 수는 정렬 가중치로만 쓴다. 카드에 숫자로 노출하지 않는다 (스펙 4번).
+  const ggS=[...gg];
+  if(_saSort==='pop'){
+    ensureViewCounts();                     // 처음 누르면 비어 있다가 로드되면 재렌더된다
+    const vc=window.__viewCounts||{};
+    ggS.sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0)));
+  }else if(_saSort==='end'){
+    ggS.sort((a,b)=>realEnd(a).localeCompare(realEnd(b)));
+  }
+  // 기본(open)은 getFiltered 가 이미 cmpDatePartner 로 정렬해 온 순서 그대로 둔다
+  // 맘캘린더·이웃셀러 공구는 검색결과에서도 맨 위 (사장님 지시 2026-08-31).
+  // sort 는 stable 이라 파트너/일반 각 그룹 안에서는 위에서 고른 정렬 순서가 유지된다.
+  ggS.sort((a,b)=>(effPartner(a)?0:1)-(effPartner(b)?0:1));
+
   const sec=(kind,ico,label,arr,cardFn)=>{
     if(!arr.length) return '';
-    const open=_saOpen[kind];
-    const shown=open?arr:arr.slice(0,SA_FIRST);
-    const rest=arr.length-shown.length;
     return `<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px">
         <span>${ico} ${label}</span>
         <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${arr.length}건</span>
       </div>
-      ${shown.map(cardFn).join('')}
-      ${rest>0?`<button onclick="saToggle('${kind}')" style="width:100%;background:#F7F5FA;border:1px solid #EDE9F3;color:#7B3FB5;border-radius:11px;padding:11px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;margin:2px 0 16px">⌄ ${label} ${rest}건 더 보기</button>`
-        :(open?`<button onclick="saToggle('${kind}')" style="width:100%;background:none;border:none;color:#B5AFBD;font-size:12px;font-family:inherit;cursor:pointer;margin:2px 0 16px">⌃ 접기</button>`:`<div style="height:16px"></div>`)}`;
+      ${arr.map(cardFn).join('')}
+      <div style="height:16px"></div>`;
   };
 
   const html =
-    sec('gonggu','🛒','공구',gg,it=>renderCard(it)) +
+    sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
     sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h)) +
     sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
 
-  el.innerHTML = html || `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
+  // 상단: 총 건수 + 정렬 (목업 ③번 화면)
+  const total=ggS.length+hd.length+ex.length;
+  const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
+    <div class="sa-sort">
+      <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
+      <span class="${_saSort==='pop'?'on':''}" onclick="setSaSort('pop')">인기순</span>
+      <span class="${_saSort==='end'?'on':''}" onclick="setSaSort('end')">마감임박순</span>
+    </div></div>`:'';
+
+  // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
+  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:55vh"></div>`;
+
+  el.innerHTML = (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
-      <span style="font-size:12px;color:#bbb">셀러 이름·상품명·인스타 아이디로 찾아보세요</span>
-    </div>`;
+      <span style="font-size:12px;color:#bbb">브랜드명·상품명·셀러 닉네임으로 검색해보세요</span>
+    </div>`) + backHome;
   paintHearts();
 }
 
 // 검색 중이면 통합검색 화면만, 아니면 원래 탭 화면으로
 function applySearchMode(){
   const on=searchAllOn();
+  updateSearchChrome();   // 검색 모드(배너·탭 숨김·드롭다운) 상태 동기화 (2026-08-31)
   const sa=document.getElementById('searchAllView');
   const seg=document.getElementById('contentSeg');
   if(!sa) return;
@@ -1592,7 +1653,6 @@ function applySearchMode(){
     document.getElementById('expView').style.display='none';
     renderSearchAll();
   }else{
-    _saOpen={gonggu:false,hotdeal:false,exp:false};
     switchContent(_ctPrev||'gonggu');
   }
 }
@@ -1920,8 +1980,7 @@ function hdCardHtml(h){
       ${ago}
     </div>`;
 
-  // 가격이 있으면 가격 줄은 항상 보여주고, '근거 시트'는 가격 이력이 있는 자동수집 건만.
-  // (네이버 등 직접 고른 핫딜은 이력이 없으므로 바로 링크로 보낸다)
+  // 가격이 있으면 가격 줄은 항상 보여주고, '근거 시트'는 보여줄 근거가 실제로 있을 때만 연다.
   // ⚠️ 지마켓·보리보리·11번가는 정가도 가격이력도 없다. 그런데도 시트를 열어
   //    "가격 이력을 모으는 중이에요" 라는 오지 않을 안내를 띄우고 있었다.
   //    (사장님 지적 2026-08-10 "띄울 내용 없으면 그냥 바로 지마켓 링크로 가게 해")
@@ -1951,9 +2010,9 @@ function hdCardHtml(h){
     : PH;
 
   const cls=`hc${isToday?' today':''}`;
+  // 핫딜이 실제로 눌리는지 기록한다. 이게 없으면 "아무도 안 산 건지, 애초에 안 눌린 건지"를 알 수 없다.
+  // (2026-08-09 사장님 질문 "아직 아무도 안산게 맞아?" 에 답할 데이터가 없었다)
   const open=tracked
-    // 핫딜이 실제로 눌리는지 기록한다. 이게 없으면 "아무도 안 산 건지, 애초에 안 눌린 건지"를 알 수 없다.
-    // (2026-08-09 사장님 질문 "아직 아무도 안산게 맞아?" 에 답할 데이터가 없었다)
     ? `<div class="${cls}" onclick="trackHd('open',${h.id});openHdSheet(${h.id})">`
     : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id})">`;
   const close=tracked?'</div>':'</a>';
@@ -2910,8 +2969,8 @@ function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCal
     const dx=e.changedTouches[0].clientX-sx;
     const dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
-      if(dx<0) goMainBanner((mainIdx+1)%MAIN_BANNERS.length);
-      else goMainBanner((mainIdx-1+MAIN_BANNERS.length)%MAIN_BANNERS.length);
+      // 2장씩 보이므로 페이지 단위로 넘긴다 (goMainBanner 가 순환 처리)
+      goMainBanner(dx<0 ? mainIdx+1 : mainIdx-1);
     }
   },{passive:true});
 })();
@@ -2978,6 +3037,7 @@ function mcShare(){
   var url='https://momcalendar.com/';
   var data={ title:'맘캘린더', text:'공구·핫딜·체험단 일정을 한눈에! 맘캘린더 📅', url:url };
   try{ trackEvent('share_click',''); }catch(_){}
+
   // 🔴 카톡 인앱에는 navigator.share 가 아예 없다 (사장님 지적 2026-08-20)
   //    "실제 라이브 pwa에서 누르면 카톡 보낼 수 있는 창 뜨는데 인앱은 텍스트만 복사됐다고 뜬다"
   //    → 손님 99%가 카톡에서 들어온다. 인앱에선 **카카오 공유창을 직접 띄운다.**
@@ -3067,6 +3127,7 @@ async function loadWishCounts(){
     rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
     _wishCounts=m;
     if(fSt==='top100') renderList();
+    if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
   }catch(_){}
 }
 
@@ -3577,7 +3638,8 @@ function goHome(){
   selWeekDate=todayStr;
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
-  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기
+  _suggestOpen=false;
+  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기 (검색모드 클래스도 여기서 회수)
   document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   document.getElementById('stab-all').classList.add('on-all');
   document.getElementById('sideAllBtn').classList.add('on');
@@ -3585,12 +3647,100 @@ function goHome(){
   renderList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function clearSearch(){
-  document.getElementById('sInput').value='';
+function clearSearch(){ exitSearchMode(); }   // ✕도 취소도 원래 화면 복귀 (스펙 1번)
+
+// ══ 검색 UX 개편 (2026-08-31, momcal-search-spec) ══
+// 포커스·입력 중(body.srch-mode)엔 배너·이웃셀러·탭을 숨기고,
+// 검색어가 없으면(body.srch-suggest) 최근검색·뜨는검색어 드롭다운만 보여준다.
+let _suggestOpen=false;
+// 폰 뒤로가기(하드웨어 버튼·스와이프)로도 검색이 닫히게 검색모드 진입 때 가짜 히스토리 1칸을 쌓는다.
+// 99%가 모바일 — 취소 버튼을 찾는 대신 뒤로가기를 누르는 게 자연스럽다 (사장님 지시 2026-08-31).
+let _srchHist=false;
+function updateSearchChrome(){
+  const on=searchAllOn();
+  const mode=on || _suggestOpen;
+  document.body.classList.toggle('srch-mode', mode);
+  document.body.classList.toggle('srch-suggest', _suggestOpen && !on);
+  if(mode && !_srchHist){ try{ history.pushState({mcSearch:1},''); _srchHist=true; }catch(_){} }
+  else if(!mode && _srchHist){ _srchHist=false; try{ history.back(); }catch(_){} }   // 버튼으로 닫으면 쌓아둔 칸 회수
+}
+window.addEventListener('popstate',()=>{
+  if(_srchHist){ _srchHist=false; if(document.body.classList.contains('srch-mode')) exitSearchMode(); }
+});
+function exitSearchMode(){
+  _suggestOpen=false;
+  const si=document.getElementById('sInput');
+  if(si){ si.value=''; si.blur(); }
   document.getElementById('sClear').style.display='none';
   fSearch='';
-  applySearchMode();   // 통합검색 화면 닫고 원래 탭으로
+  applySearchMode();   // 통합검색 화면 닫고 원래 탭으로 (updateSearchChrome 포함)
   renderList();
+}
+
+// ── 최근 검색어: 기기 저장(찜과 같은 패턴, 로그인 무관) · 최대 10개 ──
+const _RQKEY='mc_recent_q';
+function getRecentQ(){ try{ const a=JSON.parse(localStorage.getItem(_RQKEY)||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
+function saveRecentQ(q){
+  q=(q||'').trim(); if(!q || q.length>30) return;
+  const a=getRecentQ().filter(x=>x!==q); a.unshift(q);
+  try{ localStorage.setItem(_RQKEY, JSON.stringify(a.slice(0,10))); }catch(_){}
+}
+function delRecentQ(i){ const a=getRecentQ(); a.splice(i,1); try{ localStorage.setItem(_RQKEY, JSON.stringify(a)); }catch(_){} renderSearchDrop(); }
+function clearRecentQ(){ try{ localStorage.removeItem(_RQKEY); }catch(_){} renderSearchDrop(); }
+
+// ── 지금 뜨는 검색어: search_trending RPC (최근 3일 집계, 순위만 온다) · 10분 캐시 ──
+let _trendQ=null;
+async function loadTrendingQ(){
+  if(Array.isArray(_trendQ)) return _trendQ;
+  try{
+    const c=JSON.parse(localStorage.getItem('mc_trend_q')||'null');
+    if(c && (Date.now()-c.ts)<10*60*1000 && Array.isArray(c.list)) return (_trendQ=c.list);
+  }catch(_){}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/search_trending`,{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},body:'{}'});
+    const j=r.ok?await r.json():[];
+    _trendQ=(j||[]).map(x=>x&&x.term).filter(Boolean).slice(0,10);
+    try{ localStorage.setItem('mc_trend_q', JSON.stringify({ts:Date.now(),list:_trendQ})); }catch(_){}
+  }catch(_){ _trendQ=[]; }
+  return _trendQ;
+}
+function _escH(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function renderSearchDrop(){
+  const el=document.getElementById('searchDrop'); if(!el) return;
+  const rec=getRecentQ();
+  const recHtml = rec.length
+    ? `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4><button class="sdrop-clear" onclick="clearRecentQ()">전체삭제</button></div>
+        <div class="recent-chips">${rec.map((q,i)=>
+          `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
+    : `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4></div><div class="sdrop-empty">아직 검색 기록이 없어요</div></div>`;
+  el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>`;
+  const list=await loadTrendingQ();
+  const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
+  tl.innerHTML = list.length
+    ? list.map((q,i)=>`<div class="rank-item${i<3?' top3':''}" onclick="pickTrendQ(${i})"><span class="rank-num">${i+1}</span><span class="rank-name">${_escH(q)}</span></div>`).join('')
+    : `<div class="sdrop-empty">아직 집계가 부족해요</div>`;
+}
+function pickRecentQ(i){ const q=getRecentQ()[i]; if(q) runSearch(q); }
+function pickTrendQ(i){ const q=(_trendQ||[])[i]; if(q) runSearch(q); }
+// 드롭다운 칩 클릭 → 그 검색어로 즉시 검색 실행 (스펙 2번)
+function runSearch(q){
+  const si=document.getElementById('sInput');
+  si.value=q;
+  document.getElementById('sClear').style.display='block';
+  fSearch=q;
+  saveRecentQ(q);
+  _suggestOpen=false;
+  if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
+  try{
+    const _ql=q.toLowerCase();
+    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+    trackEvent('search', JSON.stringify({q:q, n:_n}));
+  }catch(_){}
+  applySearchMode();
+  si.blur();   // 모바일 키보드 내려서 결과가 보이게
+  setTimeout(scrollToResults,150);
 }
 const sInput=document.getElementById('sInput');
 function scrollToResults(){
@@ -3615,16 +3765,26 @@ function scrollToResults(){
   const y=target.getBoundingClientRect().top + window.pageYOffset - off;
   window.scrollTo({top:Math.max(y,0),behavior:'smooth'});
 }
-let _searchScrollTimer=null;
+let _searchScrollTimer=null, _recentSaveT=null;
+sInput.addEventListener('focus',()=>{
+  // 검색창 클릭 → 검색어 없으면 드롭다운(최근검색·뜨는검색어), 있으면 결과 화면 그대로 (스펙 1·2번)
+  if(!sInput.value.trim()){ _suggestOpen=true; renderSearchDrop(); }
+  updateSearchChrome();
+});
 sInput.addEventListener('input',e=>{
   const v=e.target.value;
   document.getElementById('sClear').style.display=v?'block':'none';
   fSearch=v;
   // 검색 시작하면 날짜 필터 해제 → 전체 DB에서 검색되도록 (탭 하이라이트도 끔)
   if(v.trim() && dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
-  _saOpen={gonggu:false,hotdeal:false,exp:false};   // 검색어 바뀌면 '더 보기' 초기화
+  // 검색어를 다 지우면 드롭다운으로 복귀 (스펙 2번)
+  _suggestOpen=!v.trim();
+  if(_suggestOpen) renderSearchDrop();
   applySearchMode();          // 검색 중이면 공구+핫딜+체험단 통합 결과로
-  if(!searchAllOn()) renderList();
+  if(!searchAllOn() && !_suggestOpen) renderList();
+  // 입력 후 2초 머문 검색어는 최근 검색어로 저장 (모바일은 엔터를 잘 안 누른다)
+  clearTimeout(_recentSaveT);
+  if(v.trim()) _recentSaveT=setTimeout(()=>saveRecentQ(v.trim()),2000);
   // 스크롤 이동은 엔터를 눌렀을 때만 (타이핑 중엔 화면이 움직이지 않게)
 });
 sInput.addEventListener('keydown',e=>{
@@ -3635,6 +3795,7 @@ sInput.addEventListener('keydown',e=>{
       const _ql=_q.toLowerCase();
       const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
       trackEvent('search', JSON.stringify({q:_q, n:_n}));
+      saveRecentQ(_q);   // 최근 검색어 저장 (2026-08-31)
     }
     sInput.blur(); // 모바일 키보드 내려서 결과가 잘 보이게
     setTimeout(scrollToResults,150); // 키보드 접힌 뒤 결과로 이동
@@ -3899,10 +4060,6 @@ window.addEventListener('pageshow', function(e){
 // ── 배너 동적 로드 ──
 let mainIdx=0;
 let MAIN_BANNERS=[];
-// H-2안은 한 화면에 2장이라 **2장 단위**로 넘어간다. i 는 '페이지' 번호(0,1,2…)
-const MB_PER_PAGE = 2;
-function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PAGE)); }
-let SELLER_BANNERS = [];   // 셀러배너존(이웃셀러 인포크 상품). 선언을 빠뜨리면 배너존이 통째로 죽는다
 const DEFAULT_BANNERS=[
   {title:'맘캘린더 공구 함께해요 💚',subtitle:'17,000명+ 맘들의 공구 커뮤니티',bg:'linear-gradient(135deg,#1a6b4a 0%,#1DB87A 100%)',link:'https://cafe.naver.com/momcal/'},
   {title:'셀러 일정 무료 등록 🛍️',subtitle:'셀러 가입 후 @momcal_ 인증 DM → 무료 등록 가능',bg:'linear-gradient(135deg,#2A1D6E 0%,#7B68EE 100%)',link:'seller-popup'},
@@ -4053,6 +4210,7 @@ function buildMainSlider(){
     // 이미지 배너는 화면에 보일 때만 로드(전송량 절약). data-bg에 넣어두고 표시 시 적용
     const bgAttr=isImg?` data-bg="${bg.replace(/"/g,'&quot;')}"`:'';
     const bgStyle=isImg?'#ECE8FA':bg;
+    // H-2안: 사진은 정사각 그대로(잘림 0), 글자는 사진 밖 흰 바탕에 (사장님 확정 2026-08-15)
     return`<div class="main-slide">
       <div class="main-slide-inner">
         <div class="main-slide-bg"${bgAttr} style="background:${bgStyle}"></div>
@@ -4094,6 +4252,14 @@ function loadSlideBg(i){
   if(d){ el.style.background=d; el.removeAttribute('data-bg'); }
 }
 
+// H-2안은 한 화면에 2장이라 **2장 단위**로 넘어간다. i 는 '페이지' 번호(0,1,2…)
+const MB_PER_PAGE = 2;
+function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PAGE)); }
+// ⭐ 셀러배너존 (사장님 확정 2026-08-19) — **셀러 전용 구좌**
+//   메인배너(type=main)와 완전히 분리된 type='seller' 배너만 보여준다.
+//   ⚠ 노출 순서는 **매번 무작위**다(사장님 지시). 셀러마다 위쪽에 걸릴 기회를 똑같이 주기 위함.
+//     정렬을 고정하면 sort_order 앞자리 셀러만 계속 이득을 본다.
+let SELLER_BANNERS = [];
 async function loadSellerBanners(){
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.seller&active=eq.true&select=*`, {
@@ -4332,6 +4498,7 @@ function closeChatMenu(){
     <!-- + 버튼에는 '홍보하고 싶은 것'만. 문의·오류제보는 사이드메뉴로 옮김 -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
     <a class="chat-menu-item" href="https://open.kakao.com/o/gJ3NIKCh" target="_blank"><span class="chat-menu-ico">📢</span>단톡 공지방</a>
+    <!-- 육아 수다방 (사장님 지시 2026-08-20) — 공지방만 있고 수다방 입구가 없었다 -->
     <a class="chat-menu-item" href="https://open.kakao.com/o/gr2kJhCh" target="_blank"><span class="chat-menu-ico">💬</span>육아 수다방</a>
     <a class="chat-menu-item" href="https://cafe.naver.com/momcal/" target="_blank"><span class="chat-menu-ico" style="color:#03C75A;font-weight:900">N</span>네이버 카페</a>
     <a class="chat-menu-item" href="https://www.instagram.com/momcal_" target="_blank"><span class="chat-menu-ico">📷</span>인스타그램</a>
@@ -4344,11 +4511,19 @@ function closeChatMenu(){
 </div>
 
 
+<!-- ── 검색 유입용 내부 링크 (2026-08-11) ──────────────────────────────
+     왜 넣었나: 검색 노출 페이지 6,953개가 사이트맵으로만 발견되고 있었다.
+       홈에서 그쪽으로 가는 링크가 **0개**라 크롤러가 "중요하지 않은 페이지"로 본다.
+       실측: 맘캘린더 1위·공구일정 2위인데 "무아스 공구" 같은 브랜드 검색은 노출 없음.
+     ⚠ 반드시 **정적 <a href>** 여야 한다. JS 로 그리면 크롤러가 못 읽어 넣으나 마나다.
+     ⚠ 링크 대상은 **날짜가 안 들어간 고정 주소**만 쓴다. 매달 바뀌는 /d/2026-08 같은 걸 걸면
+        홈을 매달 고쳐야 하고, 그건 고정 규칙 0-A(라이브 직접 수정 금지)와 충돌한다.
+        브랜드·셀러·제품 목록은 허브 3개가 매일 자동 갱신되므로 홈은 한 번만 고치면 된다. -->
 <!-- 접어둔다. ⚠ 상시 display:none 이나 0px 글자로 '사람에게만' 숨기면 구글이 숨김링크(클로킹)로 본다.
      <details> 처럼 **사용자가 눌러 펼 수 있는** 접힘은 허용된다 — 사이트의 '사업자정보 ▾' 와 같은 방식.
      (사장님 요청 2026-08-11 "사람들 눈에 안보이게 가려둘수는 없어?") -->
 <details class="seolinks">
-  <summary>공구 일정 모아보기</summary>
+  <summary><span class="sl-t">공구 일정 모아보기</span><button onclick="event.preventDefault();event.stopPropagation();var b=document.getElementById('bizInfo');b.style.display=b.style.display==='none'?'block':'none';" style="background:none;border:none;font-size:11px;color:#bbb;cursor:pointer;font-family:inherit;padding:0">사업자정보 ▾</button></summary>
   <div class="seolinks-t">종류별</div>
   <div class="seolinks-row">
     <a href="/%EA%B3%B5%EA%B5%AC%EB%B8%8C%EB%9E%9C%EB%93%9C.html">브랜드별</a>
@@ -4372,9 +4547,8 @@ function closeChatMenu(){
   </div>
 </details>
 
-<!-- 사업자 정보 푸터 (접힘) -->
-<div style="max-width:480px;margin:0 auto;padding:18px 16px 90px;text-align:center">
-  <button onclick="var b=document.getElementById('bizInfo');b.style.display=b.style.display==='none'?'block':'none';" style="background:none;border:none;font-size:11px;color:#bbb;cursor:pointer;font-family:inherit;padding:4px">사업자정보 ▾</button>
+<!-- 사업자 정보 푸터 (토글 버튼은 위 seolinks summary 안에 — 한 줄 배치, 사장님 지시 2026-08-31) -->
+<div style="max-width:480px;margin:0 auto;padding:10px 16px 90px;text-align:center">
   <div id="bizInfo" style="display:none;font-size:10.5px;color:#b0b0b0;line-height:1.7;margin-top:6px">
     상호 원츠비 · 대표 원지선<br>
     사업자등록번호 390-58-00826<br>
@@ -4384,10 +4558,8 @@ function closeChatMenu(){
     <a href="mailto:momcal@kakao.com?subject=[맘캘린더]%20공구%20정보%20삭제%20요청&body=삭제를%20원하는%20인스타그램%20계정(@)과%20상품명을%20적어주세요.%20확인%20후%20지체%20없이%20처리해%20드립니다." style="color:#c5c5c5;text-decoration:underline">공구 정보 정정·삭제 요청</a><br>
     <span style="color:#c5c5c5">맘캘린더는 통신판매중개자로 거래 당사자가 아니며, 상품 정보·거래에 대한 책임은 각 판매자에게 있습니다.</span>
   </div>
-  <div style="font-size:10px;color:#c0c0c0;line-height:1.6;margin-top:10px">
-    ⓒ 원츠비(맘캘린더). 사이트 내 모든 콘텐츠(공구 일정 데이터베이스·문구·UI·디자인 등)는 원츠비의 자산입니다.<br>
-    무단 복제·배포·전송·크롤링·스크래핑 및 이를 이용한 유사 서비스 제작을 금지하며,<br>
-    위반 시 저작권법·부정경쟁방지법 등 관련 법령에 따라 민·형사상 책임을 질 수 있습니다.
+  <div style="font-size:10px;color:#c0c0c0;line-height:1.6;margin-top:10px;word-break:keep-all">
+    ⓒ 원츠비(맘캘린더). 사이트 내 모든 콘텐츠(공구 일정 데이터베이스·문구·UI·디자인 등)는 원츠비의 자산입니다. 무단 복제·배포·전송·크롤링·스크래핑 및 이를 이용한 유사 서비스 제작을 금지하며, 위반 시 저작권법·부정경쟁방지법 등 관련 법령에 따라 민·형사상 책임을 질 수 있습니다.
   </div>
 </div>
 </body>

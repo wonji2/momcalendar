@@ -1624,10 +1624,13 @@ async function renderSearchAll(){
       <span class="${_saSort==='end'?'on':''}" onclick="setSaSort('end')">마감임박순</span>
     </div></div>`:'';
 
-  el.innerHTML = html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
+  // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
+  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:55vh"></div>`;
+
+  el.innerHTML = (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
       <span style="font-size:12px;color:#bbb">브랜드명·상품명·셀러 닉네임으로 검색해보세요</span>
-    </div>`;
+    </div>`) + backHome;
   paintHearts();
 }
 
