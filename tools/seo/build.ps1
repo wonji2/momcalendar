@@ -38,6 +38,24 @@ try{
   Write-Output "활성 핫딜 $($HotDeals.Count)개 확보"
 }catch{ Write-Output "핫딜 조회 실패(무시): $($_.Exception.Message)" }
 
+# ── 공구 캡션 (셀러 공지 원문 — 건별 상세 페이지의 고유 본문, 사장님 지시 2026-08-31 "다 수집해") ──
+# 저장 단계에서 전화·이메일·계좌열은 이미 제거돼 있다(caption_attach.mjs). 렌더 때 외부 링크를 추가로 걷어낸다.
+$CapMap = @{}
+try{
+  $cApi = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/gonggu'
+  $off = 0
+  while($true){
+    $cq = "?select=name,open_date,caption&approved=eq.true&caption=not.is.null&order=id.asc&offset=$off&limit=1000"
+    $cr = Invoke-WebRequest -Uri ($cApi + $cq) -TimeoutSec 60 -Headers @{ apikey=$key; Authorization="Bearer $key" }
+    $cj = @(([Text.Encoding]::UTF8.GetString($cr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
+    if($cj.Count -eq 0){ break }
+    foreach($c0 in $cj){ $CapMap[("$($c0.name)|$($c0.open_date)").ToLower()] = "$($c0.caption)" }
+    if($cj.Count -lt 1000){ break }
+    $off += 1000
+  }
+  Write-Output "공구 캡션 $($CapMap.Count)건 확보"
+}catch{ Write-Output "캡션 조회 실패(무시): $($_.Exception.Message)" }
+
 # ── GSC 실측 보강어 (2026-08-31) ──
 # 서치콘솔에서 '노출은 있는데 순위·클릭이 처지는' 검색어의 제품어를 브랜드별로 적어두면
 # 그 브랜드 페이지 제목·본문·FAQ 에 "브랜드 제품어 공구" 조합으로 실린다.
@@ -402,6 +420,22 @@ foreach($x in $ggRows){
   $item = [pscustomobject]@{ name=$x.name; who=$x.who; od=$x.od; ed=$x.ed; insta=$x.insta }
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   $body += "<div class=${Q}sec${Q}><h2>일정</h2>" + (CardsHtml @($item) 1 $isLive $true) + '</div>'
+
+  # 셀러 공지 원문 — 문서 고유성의 핵심 (지공이 이기던 비결). 렌더 시 외부 링크 제거·출처 명시.
+  $capK = ("$($x.name)|$($x.od)").ToLower()
+  if($CapMap.ContainsKey($capK)){
+    $cap = [regex]::Replace($CapMap[$capK], 'https?://\S+', '')
+    $cap = $cap.Trim()
+    if($cap.Length -gt 60){
+      if($cap.Length -gt 2000){ $cap = $cap.Substring(0,2000) + '…' }
+      $d1 = ([regex]::Replace($cap, '\s+', ' ')).Trim()
+      if($d1.Length -gt 140){ $d1 = $d1.Substring(0,140) + '…' }
+      $desc = "$($x.name) 공구 ($($x.od) 오픈) — $d1"
+      $capHtml = (HtmlEsc $cap) -replace "`n",'<br>'
+      $body += "<div class=${Q}sec${Q}><h2>셀러 공지</h2><div class=${Q}faq${Q}><span>$capHtml</span></div>"
+      $body += "<p style=${Q}font-size:11px;color:#B5AFBD;margin-top:6px${Q}>진행 셀러$(if($x.who){ ' ' + (HtmlEsc $x.who) })가 인스타그램에 게시한 공지 원문입니다.</p></div>"
+    }
+  }
 
   $faq = @()
   $faq += @{ q="$($x.name) 공구는 언제 하나요?"; a="이 일정은 $($x.od) 오픈, $($x.ed) 마감입니다. 기간이 지나면 정가로 돌아가므로 마감일 안에 신청해야 합니다." }
