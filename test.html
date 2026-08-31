@@ -1242,16 +1242,21 @@ async function loadData() {
   if(!restoreViewState()) renderList();
 }
 
-// 🔥 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — 검색 로그가 아니라 **등록량** 기준이라 즉시 돈다.
-//    오늘 진행중~7일 안에 오픈하는 공구가 많은 소분류 상위 8개. 탭하면 그 소분류 검색결과로(runSearch 가 minor 도 검색).
+// 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — **브랜드 기준**으로 뽑는다 (사장님 지적 "소분류는 대분류랑 뭐가 달라").
+//    진행중~7일 안 오픈 공구의 상품명 첫 낱말(=브랜드) 빈도 상위 8개. 탭하면 그 브랜드 검색결과로.
+//    ⚠ HOT_TAG_STOP: 브랜드가 아닌 일반 낱말은 칩으로 내보내지 않는다 (블로그 BRAND_STOP 과 같은 취지).
+const HOT_TAG_STOP=new Set(['유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
 function buildHotTags(){
   const el=document.getElementById('hotTagRow'); if(!el) return;
   try{
     const d=new Date(todayStr+'T00:00:00'); d.setDate(d.getDate()+7);
     const lim=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const cnt={};
-    DATA.forEach(it=>{ if(!it.minor || isExpired(it) || it.openDate>lim) return; cnt[it.minor]=(cnt[it.minor]||0)+1; });
-    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    DATA.forEach(it=>{ if(isExpired(it) || it.openDate>lim) return;
+      const t=(it.name||'').trim().split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9]/g,'');
+      if(t.length<2 || HOT_TAG_STOP.has(t)) return;
+      cnt[t]=(cnt[t]||0)+1; });
+    const top=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8);
     if(top.length<3){ el.style.display='none'; return; }
     el.innerHTML=top.map(([m])=>`<button class="hot-tag" data-m="${m.replace(/"/g,'')}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
     el.style.display='flex';
