@@ -143,7 +143,8 @@ body.srch-suggest #searchDrop{display:block}
 /* 검색 유입용 내부 링크 — 접어둔다. 손님 눈엔 한 줄, 크롤러는 안까지 읽는다.
    ⚠ 상시 감추면(display:none·0px 글자) 구글이 숨김링크로 보고 사이트 전체가 위험해진다.
       <details> 는 사용자가 펼 수 있어 허용된다. */
-.seolinks{max-width:480px;margin:0 auto;padding:14px 16px 0}
+/* 푸터(모아보기·사업자정보)는 어느 화면에서든 한참 내려야 보인다 — 모든 탭 공통 여백 (사장님 지시 2026-08-31) */
+.seolinks{max-width:480px;margin:45vh auto 0;padding:14px 16px 0}
 .seolinks>summary{list-style:none;cursor:pointer;font-size:11px;color:#bbb;display:flex;justify-content:center;align-items:center;gap:18px;padding:4px}
 .seolinks>summary::-webkit-details-marker{display:none}
 .seolinks>summary .sl-t::after{content:" ▾"}
@@ -1629,7 +1630,7 @@ async function renderSearchAll(){
     </div></div>`:'';
 
   // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
-  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:55vh"></div>`;
+  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
 
   el.innerHTML = (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
