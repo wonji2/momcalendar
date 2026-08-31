@@ -1167,7 +1167,9 @@ function cmpPartnerFirst(a,b){
 
 async function loadData() {
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
-  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); if(!restoreViewState()) renderList(); return; } }catch(_){}
+  // ⚠ 이 5분 캐시 빠른 경로는 return 으로 끝난다 — 아래 본경로에만 있는 초기화(buildHotTags 등)를 여기도 같이 불러야 한다
+  //    (2026-08-31 사고: 핫 키워드 칩이 여기 빠져서 5분 안에 재접속하면 칩이 사라졌다)
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); if(!restoreViewState()) renderList(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
