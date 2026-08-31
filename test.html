@@ -74,6 +74,8 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .srch{position:relative}
 .srch input{width:100%;padding:10px 36px 10px 36px;background:#fff;border:1.5px solid #fff;border-radius:10px;color:#333;font-size:13px;font-family:inherit;outline:none}
 .srch input::placeholder{color:#aaa}
+/* type=search 로 바꾸며 생기는 브라우저 기본 ✕·장식 제거 — 우리 ✕(#sClear)만 쓴다 */
+.srch input::-webkit-search-cancel-button,.srch input::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
 .srch input:focus{border-color:#C5B8FF}
 .srch .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;color:#bbb;pointer-events:none}
 .srch .sc{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;display:none}
@@ -93,9 +95,9 @@ body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
 body.srch-mode #reloginStrip,body.srch-mode #pwaStrip{display:none!important}
 body.srch-suggest #gongguWrap,body.srch-suggest #hotdealView,body.srch-suggest #expView,
 body.srch-suggest #searchAllView{display:none!important}
-#searchDrop{display:none;padding:16px 16px 40px;min-height:60vh}
+#searchDrop{display:none;padding:12px 16px 40px;min-height:60vh}
 body.srch-suggest #searchDrop{display:block}
-.sdrop-sec{margin-bottom:22px}
+.sdrop-sec{margin-bottom:14px}
 .sdrop-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .sdrop-head h4{font-size:13.5px;margin:0;color:var(--t1);font-weight:800}
 .sdrop-clear{font-size:11.5px;color:#b3aabb;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
@@ -103,8 +105,9 @@ body.srch-suggest #searchDrop{display:block}
 .recent-chips{display:flex;gap:7px;flex-wrap:wrap}
 .recent-chip{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:100px;padding:6px 8px 6px 12px;font-size:12px;color:var(--t1);cursor:pointer}
 .recent-chip .x{color:#c7bfcf;font-size:11px;padding:2px 4px}
-.rank-list{display:flex;flex-direction:column;gap:2px}
-.rank-item{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;padding:7px 2px;border-radius:8px}
+/* 2분할 세로쓰기: 왼쪽 1~5위 · 오른쪽 6~10위 — 키보드가 올라와도 10개가 다 보인다 (사장님 지시 2026-08-31) */
+.rank-list{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,auto);grid-template-columns:1fr 1fr;column-gap:16px;row-gap:1px}
+.rank-item{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 2px;border-radius:8px;min-width:0}
 .rank-item:active{background:var(--main-soft)}
 .rank-num{width:16px;font-weight:800;color:#8a4fc2;font-size:13px;flex-shrink:0}
 .rank-item.top3 .rank-num{color:#602090}
@@ -627,7 +630,8 @@ body.sheet-open{ overscroll-behavior-y: none; }
     </button>
     <div class="srch">
       <span class="si">🔍</span>
-      <input id="sInput" type="text" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off">
+      <!-- type=search + autocomplete=off: 삼성 키보드의 자동완성 줄(열쇠·카드·위치)이 안 붙게 검색창임을 명시 (사장님 지적 2026-08-31) -->
+      <input id="sInput" type="search" name="q" enterkeyhint="search" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
     </div>
   </div>
@@ -3721,11 +3725,12 @@ function _escH(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 async function renderSearchDrop(){
   const el=document.getElementById('searchDrop'); if(!el) return;
   const rec=getRecentQ();
+  // 기록이 없으면 섹션 자체를 숨긴다 — 키보드 위 공간이 좁아 뜨는 검색어부터 보여야 한다 (사장님 지적 2026-08-31)
   const recHtml = rec.length
     ? `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4><button class="sdrop-clear" onclick="clearRecentQ()">전체삭제</button></div>
         <div class="recent-chips">${rec.map((q,i)=>
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
-    : `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4></div><div class="sdrop-empty">아직 검색 기록이 없어요</div></div>`;
+    : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
     <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>`;
   const list=await loadTrendingQ();
