@@ -1520,7 +1520,7 @@ function renderList(){
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 let _saOpen={gonggu:false,hotdeal:false,exp:false};   // 섹션별 '더 보기' 펼침 상태
 const SA_FIRST=3;                                      // 섹션마다 처음 보여줄 개수
-let _saSort='latest';                                  // 검색결과 정렬: latest(최신순)·pop(인기순)·end(마감임박순)
+let _saSort='open';                                    // 검색결과 정렬: open(오픈일순, 기본)·pop(인기순)·end(마감임박순)
 function setSaSort(k){
   if(_saSort===k) return;
   _saSort=k;
@@ -1581,7 +1581,8 @@ async function renderSearchAll(){
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
 
   // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
-  //    최신순 = 최근 등록순(id) / 인기순 = 조회수+찜수 / 마감임박순 = 마감일 빠른 순
+  //    오픈일순(기본) = 기존 검색 정렬 그대로(cmpDatePartner: 오픈일 빠른 순, 같은 날짜는 파트너 우선)
+  //    인기순 = 조회수+찜수 / 마감임박순 = 마감일 빠른 순  (사장님 지시 2026-08-31 "정렬은 오픈일순으로")
   //    ⚠ 찜 수는 정렬 가중치로만 쓴다. 카드에 숫자로 노출하지 않는다 (스펙 4번).
   const ggS=[...gg];
   if(_saSort==='pop'){
@@ -1590,9 +1591,8 @@ async function renderSearchAll(){
     ggS.sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0)));
   }else if(_saSort==='end'){
     ggS.sort((a,b)=>realEnd(a).localeCompare(realEnd(b)));
-  }else{
-    ggS.sort((a,b)=>(b.id||0)-(a.id||0));
   }
+  // 기본(open)은 getFiltered 가 이미 cmpDatePartner 로 정렬해 온 순서 그대로 둔다
 
   const sec=(kind,ico,label,arr,cardFn)=>{
     if(!arr.length) return '';
@@ -1617,7 +1617,7 @@ async function renderSearchAll(){
   const total=ggS.length+hd.length+ex.length;
   const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
-      <span class="${_saSort==='latest'?'on':''}" onclick="setSaSort('latest')">최신순</span>
+      <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
       <span class="${_saSort==='pop'?'on':''}" onclick="setSaSort('pop')">인기순</span>
       <span class="${_saSort==='end'?'on':''}" onclick="setSaSort('end')">마감임박순</span>
     </div></div>`:'';
