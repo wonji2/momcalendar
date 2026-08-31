@@ -80,7 +80,40 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .intro-strip{background:var(--main-pale);color:var(--main-d);font-size:11px;text-align:center;padding:8px 16px;line-height:1.5}
 .intro-emph{font-weight:700}
 
-/* 검색 드롭다운 */
+/* ── 검색 UX 개편 (2026-08-31, momcal-search-spec) ──
+   검색창 포커스·입력 중(body.srch-mode)엔 배너·이웃셀러·탭·광고를 숨기고,
+   검색어가 비어 있으면(body.srch-suggest) 최근검색·뜨는검색어 드롭다운만 보여준다 */
+.srch-row{display:flex;align-items:center;gap:2px}
+.srch-row .srch{flex:1;min-width:0}
+.s-cancel{display:none;background:none;border:none;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;padding:8px 2px 8px 10px;white-space:nowrap;flex-shrink:0}
+body.srch-mode .s-cancel{display:block}
+body.srch-mode .intro-strip,body.srch-mode .main-banner-section,body.srch-mode #sellerZone,
+body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
+body.srch-mode #reloginStrip,body.srch-mode #pwaStrip{display:none!important}
+body.srch-suggest #gongguWrap,body.srch-suggest #hotdealView,body.srch-suggest #expView,
+body.srch-suggest #searchAllView{display:none!important}
+#searchDrop{display:none;padding:16px 16px 40px;min-height:60vh}
+body.srch-suggest #searchDrop{display:block}
+.sdrop-sec{margin-bottom:22px}
+.sdrop-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sdrop-head h4{font-size:13.5px;margin:0;color:var(--t1);font-weight:800}
+.sdrop-clear{font-size:11.5px;color:#b3aabb;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
+.sdrop-empty{font-size:12px;color:#b3aabb}
+.recent-chips{display:flex;gap:7px;flex-wrap:wrap}
+.recent-chip{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:100px;padding:6px 8px 6px 12px;font-size:12px;color:var(--t1);cursor:pointer}
+.recent-chip .x{color:#c7bfcf;font-size:11px;padding:2px 4px}
+.rank-list{display:flex;flex-direction:column;gap:2px}
+.rank-item{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;padding:7px 2px;border-radius:8px}
+.rank-item:active{background:var(--main-soft)}
+.rank-num{width:16px;font-weight:800;color:#8a4fc2;font-size:13px;flex-shrink:0}
+.rank-item.top3 .rank-num{color:#602090}
+.rank-name{flex:1;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 검색결과 상단: 건수 + 정렬 */
+.sa-meta{display:flex;justify-content:space-between;align-items:center;padding:2px 2px 12px;font-size:12.5px;color:var(--t2)}
+.sa-meta b{color:var(--t1)}
+.sa-sort{display:flex;gap:10px}
+.sa-sort span{cursor:pointer;color:#9A93A6}
+.sa-sort span.on{color:#602090;font-weight:800}
 /* 사이드 메뉴 */
 .side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none}
 .side-overlay.on{display:block}
@@ -587,12 +620,18 @@ body.sheet-open{ overscroll-behavior-y: none; }
       <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
     </div>
   </div>
-  <div class="srch">
-    <span class="si">🔍</span>
-    <input id="sInput" type="text" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off">
-    <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
+  <div class="srch-row">
+    <div class="srch">
+      <span class="si">🔍</span>
+      <input id="sInput" type="text" placeholder="브랜드, 상품명, 셀러명 검색" autocomplete="off">
+      <button class="sc" id="sClear" onclick="clearSearch()">✕</button>
+    </div>
+    <button class="s-cancel" id="sCancel" onclick="exitSearchMode()">취소</button>
   </div>
 </div>
+
+<!-- 검색 드롭다운: 최근 검색어 + 지금 뜨는 검색어 (검색창 포커스 · 검색어 없음일 때만 노출) -->
+<div id="searchDrop"></div>
 
 <!-- 한 줄 소개 띠 -->
 <div class="intro-strip">
@@ -1206,6 +1245,7 @@ async function loadViewCounts(){
     rows.forEach(r=>{ const id=parseInt(r.id,10); if(!isNaN(id)) vc[id]=Number(r.clicks)||0; });
     window.__viewCounts=vc;
     if(fSt==='top100' && !dayFilter && !fSearch) renderList();
+    if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
   }catch(e){ /* 조회수 못 불러와도 TOP100은 파트너 우선 + 기본 정렬로 노출됨 */ }
 }
 // 맘캘린더 본인 공구 여부 (이 계정만 장기 공구 무제한 노출)
@@ -1480,6 +1520,13 @@ function renderList(){
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 let _saOpen={gonggu:false,hotdeal:false,exp:false};   // 섹션별 '더 보기' 펼침 상태
 const SA_FIRST=3;                                      // 섹션마다 처음 보여줄 개수
+let _saSort='latest';                                  // 검색결과 정렬: latest(최신순)·pop(인기순)·end(마감임박순)
+function setSaSort(k){
+  if(_saSort===k) return;
+  _saSort=k;
+  if(k==='pop'){ ensureViewCounts(); }   // 조회수는 인기순 처음 누를 때만 불러온다
+  renderSearchAll();
+}
 
 function searchAllOn(){ return !!(fSearch && fSearch.trim()); }
 
@@ -1533,6 +1580,20 @@ async function renderSearchAll(){
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
 
+  // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
+  //    최신순 = 최근 등록순(id) / 인기순 = 조회수+찜수 / 마감임박순 = 마감일 빠른 순
+  //    ⚠ 찜 수는 정렬 가중치로만 쓴다. 카드에 숫자로 노출하지 않는다 (스펙 4번).
+  const ggS=[...gg];
+  if(_saSort==='pop'){
+    ensureViewCounts();                     // 처음 누르면 비어 있다가 로드되면 재렌더된다
+    const vc=window.__viewCounts||{};
+    ggS.sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0)));
+  }else if(_saSort==='end'){
+    ggS.sort((a,b)=>realEnd(a).localeCompare(realEnd(b)));
+  }else{
+    ggS.sort((a,b)=>(b.id||0)-(a.id||0));
+  }
+
   const sec=(kind,ico,label,arr,cardFn)=>{
     if(!arr.length) return '';
     const open=_saOpen[kind];
@@ -1548,11 +1609,20 @@ async function renderSearchAll(){
   };
 
   const html =
-    sec('gonggu','🛒','공구',gg,it=>renderCard(it)) +
+    sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
     sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h)) +
     sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
 
-  el.innerHTML = html || `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
+  // 상단: 총 건수 + 정렬 (목업 ③번 화면)
+  const total=ggS.length+hd.length+ex.length;
+  const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
+    <div class="sa-sort">
+      <span class="${_saSort==='latest'?'on':''}" onclick="setSaSort('latest')">최신순</span>
+      <span class="${_saSort==='pop'?'on':''}" onclick="setSaSort('pop')">인기순</span>
+      <span class="${_saSort==='end'?'on':''}" onclick="setSaSort('end')">마감임박순</span>
+    </div></div>`:'';
+
+  el.innerHTML = html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
       <span style="font-size:12px;color:#bbb">셀러 이름·상품명·인스타 아이디로 찾아보세요</span>
     </div>`;
@@ -1562,6 +1632,7 @@ async function renderSearchAll(){
 // 검색 중이면 통합검색 화면만, 아니면 원래 탭 화면으로
 function applySearchMode(){
   const on=searchAllOn();
+  updateSearchChrome();   // 검색 모드(배너·탭 숨김·드롭다운) 상태 동기화 (2026-08-31)
   const sa=document.getElementById('searchAllView');
   const seg=document.getElementById('contentSeg');
   if(!sa) return;
@@ -3064,6 +3135,7 @@ async function loadWishCounts(){
     rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
     _wishCounts=m;
     if(fSt==='top100') renderList();
+    if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
   }catch(_){}
 }
 
@@ -3574,7 +3646,8 @@ function goHome(){
   selWeekDate=todayStr;
   document.getElementById('sInput').value='';
   document.getElementById('sClear').style.display='none';
-  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기
+  _suggestOpen=false;
+  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기 (검색모드 클래스도 여기서 회수)
   document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
   document.getElementById('stab-all').classList.add('on-all');
   document.getElementById('sideAllBtn').classList.add('on');
@@ -3582,12 +3655,92 @@ function goHome(){
   renderList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function clearSearch(){
-  document.getElementById('sInput').value='';
+function clearSearch(){ exitSearchMode(); }   // ✕도 취소도 원래 화면 복귀 (스펙 1번)
+
+// ══ 검색 UX 개편 (2026-08-31, momcal-search-spec) ══
+// 포커스·입력 중(body.srch-mode)엔 배너·이웃셀러·탭을 숨기고,
+// 검색어가 없으면(body.srch-suggest) 최근검색·뜨는검색어 드롭다운만 보여준다.
+let _suggestOpen=false;
+function updateSearchChrome(){
+  const on=searchAllOn();
+  document.body.classList.toggle('srch-mode', on || _suggestOpen);
+  document.body.classList.toggle('srch-suggest', _suggestOpen && !on);
+}
+function exitSearchMode(){
+  _suggestOpen=false;
+  const si=document.getElementById('sInput');
+  if(si){ si.value=''; si.blur(); }
   document.getElementById('sClear').style.display='none';
   fSearch='';
-  applySearchMode();   // 통합검색 화면 닫고 원래 탭으로
+  applySearchMode();   // 통합검색 화면 닫고 원래 탭으로 (updateSearchChrome 포함)
   renderList();
+}
+
+// ── 최근 검색어: 기기 저장(찜과 같은 패턴, 로그인 무관) · 최대 10개 ──
+const _RQKEY='mc_recent_q';
+function getRecentQ(){ try{ const a=JSON.parse(localStorage.getItem(_RQKEY)||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
+function saveRecentQ(q){
+  q=(q||'').trim(); if(!q || q.length>30) return;
+  const a=getRecentQ().filter(x=>x!==q); a.unshift(q);
+  try{ localStorage.setItem(_RQKEY, JSON.stringify(a.slice(0,10))); }catch(_){}
+}
+function delRecentQ(i){ const a=getRecentQ(); a.splice(i,1); try{ localStorage.setItem(_RQKEY, JSON.stringify(a)); }catch(_){} renderSearchDrop(); }
+function clearRecentQ(){ try{ localStorage.removeItem(_RQKEY); }catch(_){} renderSearchDrop(); }
+
+// ── 지금 뜨는 검색어: search_trending RPC (최근 3일 집계, 순위만 온다) · 10분 캐시 ──
+let _trendQ=null;
+async function loadTrendingQ(){
+  if(Array.isArray(_trendQ)) return _trendQ;
+  try{
+    const c=JSON.parse(localStorage.getItem('mc_trend_q')||'null');
+    if(c && (Date.now()-c.ts)<10*60*1000 && Array.isArray(c.list)) return (_trendQ=c.list);
+  }catch(_){}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/search_trending`,{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},body:'{}'});
+    const j=r.ok?await r.json():[];
+    _trendQ=(j||[]).map(x=>x&&x.term).filter(Boolean).slice(0,10);
+    try{ localStorage.setItem('mc_trend_q', JSON.stringify({ts:Date.now(),list:_trendQ})); }catch(_){}
+  }catch(_){ _trendQ=[]; }
+  return _trendQ;
+}
+function _escH(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function renderSearchDrop(){
+  const el=document.getElementById('searchDrop'); if(!el) return;
+  const rec=getRecentQ();
+  const recHtml = rec.length
+    ? `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4><button class="sdrop-clear" onclick="clearRecentQ()">전체삭제</button></div>
+        <div class="recent-chips">${rec.map((q,i)=>
+          `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
+    : `<div class="sdrop-sec"><div class="sdrop-head"><h4>최근 검색어</h4></div><div class="sdrop-empty">아직 검색 기록이 없어요</div></div>`;
+  el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>`;
+  const list=await loadTrendingQ();
+  const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
+  tl.innerHTML = list.length
+    ? list.map((q,i)=>`<div class="rank-item${i<3?' top3':''}" onclick="pickTrendQ(${i})"><span class="rank-num">${i+1}</span><span class="rank-name">${_escH(q)}</span></div>`).join('')
+    : `<div class="sdrop-empty">아직 집계가 부족해요</div>`;
+}
+function pickRecentQ(i){ const q=getRecentQ()[i]; if(q) runSearch(q); }
+function pickTrendQ(i){ const q=(_trendQ||[])[i]; if(q) runSearch(q); }
+// 드롭다운 칩 클릭 → 그 검색어로 즉시 검색 실행 (스펙 2번)
+function runSearch(q){
+  const si=document.getElementById('sInput');
+  si.value=q;
+  document.getElementById('sClear').style.display='block';
+  fSearch=q;
+  saveRecentQ(q);
+  _suggestOpen=false;
+  if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
+  _saOpen={gonggu:false,hotdeal:false,exp:false};
+  try{
+    const _ql=q.toLowerCase();
+    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+    trackEvent('search', JSON.stringify({q:q, n:_n}));
+  }catch(_){}
+  applySearchMode();
+  si.blur();   // 모바일 키보드 내려서 결과가 보이게
+  setTimeout(scrollToResults,150);
 }
 const sInput=document.getElementById('sInput');
 function scrollToResults(){
@@ -3612,16 +3765,27 @@ function scrollToResults(){
   const y=target.getBoundingClientRect().top + window.pageYOffset - off;
   window.scrollTo({top:Math.max(y,0),behavior:'smooth'});
 }
-let _searchScrollTimer=null;
+let _searchScrollTimer=null, _recentSaveT=null;
+sInput.addEventListener('focus',()=>{
+  // 검색창 클릭 → 검색어 없으면 드롭다운(최근검색·뜨는검색어), 있으면 결과 화면 그대로 (스펙 1·2번)
+  if(!sInput.value.trim()){ _suggestOpen=true; renderSearchDrop(); }
+  updateSearchChrome();
+});
 sInput.addEventListener('input',e=>{
   const v=e.target.value;
   document.getElementById('sClear').style.display=v?'block':'none';
   fSearch=v;
   // 검색 시작하면 날짜 필터 해제 → 전체 DB에서 검색되도록 (탭 하이라이트도 끔)
   if(v.trim() && dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
+  // 검색어를 다 지우면 드롭다운으로 복귀 (스펙 2번)
+  _suggestOpen=!v.trim();
+  if(_suggestOpen) renderSearchDrop();
   _saOpen={gonggu:false,hotdeal:false,exp:false};   // 검색어 바뀌면 '더 보기' 초기화
   applySearchMode();          // 검색 중이면 공구+핫딜+체험단 통합 결과로
-  if(!searchAllOn()) renderList();
+  if(!searchAllOn() && !_suggestOpen) renderList();
+  // 입력 후 2초 머문 검색어는 최근 검색어로 저장 (모바일은 엔터를 잘 안 누른다)
+  clearTimeout(_recentSaveT);
+  if(v.trim()) _recentSaveT=setTimeout(()=>saveRecentQ(v.trim()),2000);
   // 스크롤 이동은 엔터를 눌렀을 때만 (타이핑 중엔 화면이 움직이지 않게)
 });
 sInput.addEventListener('keydown',e=>{
@@ -3632,6 +3796,7 @@ sInput.addEventListener('keydown',e=>{
       const _ql=_q.toLowerCase();
       const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
       trackEvent('search', JSON.stringify({q:_q, n:_n}));
+      saveRecentQ(_q);   // 최근 검색어 저장 (2026-08-31)
     }
     sInput.blur(); // 모바일 키보드 내려서 결과가 잘 보이게
     setTimeout(scrollToResults,150); // 키보드 접힌 뒤 결과로 이동
