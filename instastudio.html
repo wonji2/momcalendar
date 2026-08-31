@@ -177,7 +177,9 @@ body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
 .wday .d{font-family:var(--f-t);font-size:33px;font-weight:800;color:var(--p-d);letter-spacing:-1px}
 .wday .w{font-size:19px;font-weight:800;color:var(--mute);margin-top:2px}
 .wday .w.sat{color:#3E6FB8}.wday .w.sun{color:#C9483F}
-.wlist{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:8px 6px 8px 0}
+/* 요일 행 안을 2분할 — 오른쪽이 비어 보인다는 사장님 지적(2026-08-31)로 2열 그리드 */
+.wlist{flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;
+  align-content:center;padding:8px 6px 8px 0}
 .wl-nm{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.45;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wl-nm .sl{font-size:17px;color:var(--mute);font-weight:700}
@@ -601,7 +603,7 @@ async function tDaily(day){
   const bd=shell({
     chipTxt:`오늘 오픈 ${list.length}건`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
     titleHTML:`<span class="em"><span style="color:var(--p)">${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})</span> 공구 오픈</span><span class="em">카테고리별 한눈에</span>`,
-    subHTML:`오늘 마감 <b>${ends.length}건</b>은 캡션에서 확인하세요`,
+    subHTML:'',
     ctaT:`지금 진행 중인 공구 ${on}건`, ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서 검색됩니다`
   });
   fitTitle(86);
@@ -663,9 +665,9 @@ async function tTop10(day){
   const d=new Date(day+'T00:00:00');
   const bd=shell({
     theme:'dark',
-    chipTxt:'실시간 인기', chipBg:'rgba(241,200,107,.15)', chipCol:'#F1C86B',
+    chipTxt:`${d.getMonth()+1}/${d.getDate()} 실시간 인기`, chipBg:'rgba(241,200,107,.15)', chipCol:'#F1C86B',
     titleHTML:`<span class="em">지금 주목받는</span><span class="em">공구 <span style="color:#F1C86B">TOP 10</span></span>`,
-    subHTML:`${d.getMonth()+1}/${d.getDate()} 기준 · 맘캘린더 <b>조회·찜 데이터</b>로 뽑았어요`,
+    subHTML:'',
     ctaT:'순위는 매주 바뀌어요', ctaS:`전체 랭킹은 <b>프로필 링크</b> 맘캘린더 TOP100에서`
   });
   fitTitle(96);
@@ -703,9 +705,9 @@ async function tClosing(day){
   const d=new Date(day+'T00:00:00');
   const bd=shell({
     theme:'hot',
-    chipTxt:`오늘 마감 ${today.length}건`, chipBg:'#FDEDED', chipCol:'#C9483F',
+    chipTxt:`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) 마감 ${today.length}건`, chipBg:'#FDEDED', chipCol:'#C9483F',
     titleHTML:`<span class="em">오늘 지나면</span><span class="em"><span style="color:#C9483F">끝나는 공구</span> 모음</span>`,
-    subHTML:`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) 기준 · 망설였다면 지금 결정하세요`,
+    subHTML:'',
     ctaT:'마감 시각은 셀러마다 달라요', ctaS:`마감 전 <b>셀러 계정</b>에서 한 번 더 확인하세요`
   });
   fitTitle(90);
@@ -745,7 +747,7 @@ async function tWeekend(day){
   const bd=shell({
     chipTxt:`주말 ${A.length+B.length}건`, chipBg:'#E7F0FB', chipCol:'#2C5FA8',
     titleHTML:`<span class="em">주말 공구</span><span class="em"><span style="color:#2C5FA8">몰아보기</span> 🛒</span>`,
-    subHTML:`토·일 오픈 예정 — <b>미리 저장</b>해두고 놓치지 마세요`,
+    subHTML:'',
     ctaT:'알람 맞춰두면 편해요', ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서`
   });
   fitTitle(96);
@@ -786,7 +788,7 @@ async function tWeek(day){
   const bd=shell({
     chipTxt:`이번 주 ${rows.length}건`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
     titleHTML:`<span class="em">이번 주 공구</span><span class="em"><span style="color:var(--p)">한 장</span>으로 미리보기</span>`,
-    subHTML:`${md(days[0])} ~ ${md(days[6])} 오픈 예정 — 요일별 대표만 추렸어요`,
+    subHTML:'',
     ctaT:'매일 아침 그날 카드가 올라와요', ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서`
   });
   fitTitle(90);
@@ -802,17 +804,18 @@ async function tWeek(day){
         <div class="wcnt">${arr.length>perRow?'+'+(arr.length-perRow):''}</div></div>`;
     }).join('')}</div>`;
   };
-  let perRow=3; draw(perRow);
-  while(overflows(bd)&&perRow>1){ perRow--; draw(perRow); }
+  let perRow=6; draw(perRow);   // 2열 그리드 — 행당 6개(3×2)부터 (오른쪽 빈 공간 지적 2026-08-31)
+  while(overflows(bd)&&perRow>2){ perRow-=2; draw(perRow); }
   fitNames('.wl-nm');
-  let s=`${pickHook(HOOKS_WEEK,day)}\n\n🗓 ${d.getMonth()+1}월 ${DOW[d.getDay()]}요일 시작, 이번 주 오픈 ${rows.length}건\n`;
-  days.forEach(dd=>{
+  /* 캡션 — 요일별 섹션으로 2200자까지 (주간예고도 짧게 끝내지 않는다, 2026-08-31) */
+  const sections=days.map(dd=>{
     const dt=new Date(dd+'T00:00:00');
-    const arr=oneProduct(onePerSeller(byDay[dd].sort((a,b)=>b.score-a.score)));
-    if(!arr.length) return;
-    s+=`\n${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]}) — `+arr.slice(0,4).map(x=>x.name.split(/\s+/).slice(0,2).join(' ')).join(' · ')+(arr.length>4?` 외 ${arr.length-4}건`:'');
+    return {t:`🗓 ${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]}) 오픈`,
+      items:oneProduct(onePerSeller(byDay[dd].sort((a,b)=>b.score-a.score)))};
   });
-  setCaption(s+capTail(day));
+  setCaption(buildCap(day,{hook:pickHook(HOOKS_WEEK,day),
+    head:`이번 주(${md(days[0])}~${md(days[6])}) 오픈 예정 ${rows.length}건`,
+    sections}));
   return {week:rows.length};
 }
 function shortName(n){ const w=String(n).split(/\s+/); return w.slice(0,3).join(' '); }
@@ -828,9 +831,9 @@ async function tHotdeal(day){
   }
   const d=new Date(day+'T00:00:00');
   const bd=shell({
-    chipTxt:'가격 실측', chipBg:'#FDEDED', chipCol:'#C9483F',
+    chipTxt:`${d.getMonth()+1}/${d.getDate()} 가격 실측`, chipBg:'#FDEDED', chipCol:'#C9483F',
     titleHTML:`<span class="em">이번 주 핫딜</span><span class="em"><span style="color:#D3554F">베스트</span> 모음 🔥</span>`,
-    subHTML:`${d.getMonth()+1}/${d.getDate()} 기준 · <b>등록 시점 실측 가격</b>이라 믿을 수 있어요`,
+    subHTML:'',
     ctaT:'가격·품절은 수시로 바뀌어요', ctaS:`실시간 핫딜은 <b>프로필 링크</b> 맘캘린더 핫딜 탭에서`
   });
   fitTitle(96);
@@ -920,10 +923,12 @@ async function savePng(){
   const a=document.createElement('a');
   a.href=url; a.download=`momcal_${day}_${tpl}.png`; a.click();
 }
-function copyCap(){
+async function copyCap(){
+  // ⚠ 모바일(iOS)에서 select()+execCommand 는 일부만 복사되는 일이 있다 → clipboard API 우선
   const t=document.getElementById('captxt');
-  t.select(); document.execCommand('copy');
-  document.getElementById('st').textContent='캡션 복사됨';
+  try{ await navigator.clipboard.writeText(t.value); }
+  catch(_){ t.focus(); t.setSelectionRange(0, t.value.length); document.execCommand('copy'); }
+  document.getElementById('st').textContent='캡션 복사됨 ('+t.value.length+'자)';
 }
 /* 기간 일괄 — 날짜마다 요일 포맷으로 생성해 PNG 전부 + 캡션 모음 txt 저장 */
 async function saveRange(){
