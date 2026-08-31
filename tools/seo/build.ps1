@@ -37,6 +37,17 @@ try{
   $HotDeals = @(([Text.Encoding]::UTF8.GetString($hr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
   Write-Output "활성 핫딜 $($HotDeals.Count)개 확보"
 }catch{ Write-Output "핫딜 조회 실패(무시): $($_.Exception.Message)" }
+
+# ── GSC 실측 보강어 (2026-08-31) ──
+# 서치콘솔에서 '노출은 있는데 순위·클릭이 처지는' 검색어의 제품어를 브랜드별로 적어두면
+# 그 브랜드 페이지 제목·본문·FAQ 에 "브랜드 제품어 공구" 조합으로 실린다.
+# 파일: tools/seo/boost.json — { "브랜드": ["제품어", ...] }. 없어도 빌드는 계속된다.
+$Boost = @{}
+try{
+  $bj = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'boost.json')) | ConvertFrom-Json
+  foreach($pr in $bj.PSObject.Properties){ $Boost[$pr.Name] = @($pr.Value) }
+  Write-Output "GSC 보강어: 브랜드 $($Boost.Count)개"
+}catch{ Write-Output "boost.json 없음/읽기 실패(무시)" }
 $today = $D.today
 if(-not $today){ throw '데이터에 today 가 없다' }
 Write-Output "데이터 기준일: $today (캐시 $($D.cached_at))"
@@ -185,6 +196,19 @@ foreach($b in $brandList){
   $sp = SplitNow $rows $today
   $live = $sp.now; $soon = $sp.soon; $past = $sp.past
   $tp = @(); if($b.topprods){ $tp = @($b.topprods -split '\|' | Where-Object { $_ -and $_ -ne $b.brand }) }
+  # GSC 보강어는 앞에 붙인다 → 제목의 상위 3개 자리에 실린다.
+  # 기존 제품어 중 보강어와 겹치는 것(공백 무시 포함관계)은 걷어낸다 — "티오람 미니·미니·티오람미니" 같은 중복 방지.
+  if($Boost.ContainsKey($b.brand)){
+    $add = @($Boost[$b.brand] | Where-Object { $_ })
+    if($add.Count -gt 0){
+      $addN = @($add | ForEach-Object { "$_" -replace '\s','' })
+      $tp = @($tp | Where-Object {
+        $t = "$_" -replace '\s',''
+        -not (@($addN | Where-Object { $_ -eq $t -or $_.Contains($t) -or $t.Contains($_) }).Count -gt 0)
+      })
+      $tp = @($add) + @($tp)
+    }
+  }
   $tpTxt = ''; if($tp.Count -gt 0){ $tpTxt = ($tp | Select-Object -First 3) -join '·' }
 
   if($tpTxt){
@@ -323,8 +347,28 @@ foreach($s in $D.sellers){
   $sHref = "https://www.instagram.com/$($s.insta)"
   $fw = 0; if($s.followers){ $fw = [int64]$s.followers }
 
+  # 셀러명 검색은 노출만 되고 클릭이 없다(GSC 실측 2026-08-31: 지엠마 29·마마홈 18·지후맘 20 전부 0클릭).
+  # 제목에 그 셀러가 다루는 브랜드를 실어 '누를 이유'를 만든다. 브랜드 = 상품명 첫 낱말 최빈 2개.
+  $bt = @{}
+  foreach($r in $rows){
+    $t0 = @(("$($r.name)") -split '[\s·]+')[0]
+    if($t0.Length -lt 2 -or $t0 -match '^[\d\[\(]'){ continue }
+    if($t0 -match '^(국산|신상|한정|특가|정품|앵콜|단하루|오늘|인스타|공구|모음|모음전|기획전)$'){ continue }
+    $bt[$t0] = 1 + $(if($bt.ContainsKey($t0)){ $bt[$t0] } else { 0 })
+  }
+  $btTop = @($bt.GetEnumerator() | Sort-Object @{e={$_.Value};Descending=$true}, @{e='Key';Descending=$false} | Select-Object -First 2 | ForEach-Object { $_.Key })
+
   $title = "$($s.kor)(@$($s.insta)) 공구 일정 | 인스타 공동구매 - 맘캘린더"
   $desc  = "$($s.kor)(@$($s.insta))의 인스타 공구 일정. 진행 중인 공동구매와 오픈·마감 날짜를 확인하세요."
+  if($btTop.Count -gt 0){
+    $bTxt = $btTop -join '·'
+    $t2 = "$($s.kor)(@$($s.insta)) 공구 일정 | $bTxt 공동구매 - 맘캘린더"
+    if($t2.Length -gt 62 -and $btTop.Count -gt 1){ $bTxt = "$($btTop[0])"; $t2 = "$($s.kor)(@$($s.insta)) 공구 일정 | $bTxt 공동구매 - 맘캘린더" }
+    if($t2.Length -le 62){
+      $title = $t2
+      $desc  = "$($s.kor)(@$($s.insta))의 인스타 공구 일정. $bTxt 등 진행 공구와 오픈·마감 날짜, 다음 오픈 일정을 확인하세요."
+    }
+  }
   $canon = "s/$(Enc $slug).html"
   $lead = "$($s.kor)(@$($s.insta))의 인스타 공구 일정입니다."
   if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다. 카드를 누르면 인스타그램으로 이동합니다." }
