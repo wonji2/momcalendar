@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>맘캘린더 · 인스타 월간 스튜디오</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.11/dist/html2canvas-pro.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   인스타 월간 스튜디오 — 요일마다 다른 포맷 7종
+   월=주간예고  화·목=카테고리블록  수=인기TOP10
+   금=주말몰아보기  토=마감임박  일=핫딜베스트
+   안전영역은 reelcard.html 실측값 그대로: 상단 244 / 하단 108 / 좌우 55
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  --side:55px; --pad-bot:108px;
+  --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
+  --r:#D3554F; --r-l:#FDEDED;
+  --gold:#C9A24B; --gold-l:#FDF8EC;
+  --ink:#231C2E; --mute:#8A8194; --line:#EDE9F2;
+  --f-t:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
+  --f-b:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#3A3145;font-family:var(--f-b);padding:236px 0 60px;color:#fff}
+
+/* ── 조작 바 ── */
+.bar{position:fixed;top:0;left:0;right:0;background:#1B1622;z-index:99;padding:10px 12px;
+  display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 14px rgba(0,0,0,.4)}
+.brow{display:flex;gap:6px;align-items:center}
+.bar input[type=date],.bar button,.bar .sel{
+  height:36px;border-radius:9px;font-size:13px;font-weight:700;font-family:inherit;
+  border:0;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bar input[type=date]{background:#2C2436;border:1px solid #493C5A;color:#fff;
+  padding:0 8px;font-weight:600;cursor:auto;flex:1;min-width:0}
+.bar button{background:var(--p);color:#fff;padding:0 12px}
+.bar button:hover{background:#7d59b5}
+.bar button.ghost{background:#3A2F49;color:#C9BFD8}
+.bar button.go{background:#3E8E5A}
+.bar button.wide{flex:1}
+.bar .sel{background:#6B4A9E;color:#fff;border:1px solid #8B6ABE;padding:0 8px;flex:1;min-width:0}
+.bar .st{font-size:12px;color:#9E93AE;text-align:right}
+.bar .st b{color:#E8C77E}
+.plan{font-size:11px;color:#8E82A0;line-height:1.6}
+.plan b{color:#E8C77E}
+@media (max-width:520px){ .plan{display:none} body{padding-top:220px} }
+
+.slot{width:1080px;height:1920px;margin:0 auto 40px;position:relative}
+.mini .card{transform:scale(.30);transform-origin:top left}
+.mini .slot{width:324px;height:576px;margin-bottom:20px}
+
+/* ═══ 카드 캔버스 ═══ */
+.card{width:1080px;height:1920px;background:#fff;position:relative;overflow:hidden;
+  display:flex;flex-direction:column}
+
+/* 가이드선 */
+.safe{position:absolute;left:0;right:0;pointer-events:none;z-index:8}
+.safe.top{top:0;height:200px;background:rgba(255,90,90,.10);border-bottom:3px dashed rgba(255,90,90,.6)}
+.safe.bot{bottom:0;height:330px;background:rgba(255,90,90,.10);border-top:3px dashed rgba(255,90,90,.6)}
+.gcrop{position:absolute;left:0;right:0;top:240px;height:1440px;border:3px dashed rgba(90,160,255,.7);
+  pointer-events:none;z-index:7}
+.hcrop{position:absolute;top:0;bottom:0;width:55px;background:rgba(255,90,90,.10);pointer-events:none;z-index:7}
+.hcrop.l{left:0;border-right:3px dashed rgba(255,90,90,.6)}
+.hcrop.r{right:0;border-left:3px dashed rgba(255,90,90,.6)}
+body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
+
+/* ── 공통 헤더 ── */
+.hd{padding:244px var(--side) 0;flex-shrink:0}
+.hd-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:inline-flex;align-items:center;gap:12px}
+.brand-ic{width:58px;height:58px;border-radius:16px;display:block;flex-shrink:0}
+.brand-t{font-family:var(--f-t);font-size:46px;letter-spacing:-1.6px;font-weight:800;color:var(--p-d)}
+.chip{font-family:var(--f-t);font-size:26px;font-weight:800;border-radius:999px;padding:12px 26px;
+  letter-spacing:-.5px;flex-shrink:0}
+.title{font-family:var(--f-t);color:var(--ink);letter-spacing:-3.5px;line-height:1.32;font-weight:800;
+  margin-top:20px}
+.title .em{display:block}
+.sub{font-size:30px;color:var(--mute);font-weight:700;letter-spacing:-.8px;margin-top:14px}
+.sub b{color:var(--p-d)}
+
+/* ── 공통 하단 CTA + 브랜드 띠 ── */
+.cta{flex-shrink:0;margin:0 var(--side);padding:20px 26px;border-radius:18px;
+  background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
+.cta .t{font-family:var(--f-t);font-size:28px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
+.cta .s{font-size:21px;color:#96896F;font-weight:600;margin-top:7px;letter-spacing:-.4px}
+.cta .s b{font-weight:800;color:#7A5C24}
+.cta .u{font-family:var(--f-t);font-size:27px;color:var(--p-d);font-weight:800;white-space:nowrap}
+.pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.pad .s{font-size:20px;color:#7A6394;font-weight:700;letter-spacing:-.6px;line-height:1.2}
+.pad .w{font-family:var(--f-t);font-size:32px;font-weight:800;color:var(--p-d);letter-spacing:-1.4px;line-height:1.15}
+
+/* 본문 공통 틀 */
+.bd{flex:1;min-height:0;overflow:hidden;padding:26px var(--side) 0;margin-bottom:16px;position:relative}
+
+/* ═══ T1. 카테고리 블록형 (화·목) ═══ */
+.grid2{display:flex;gap:16px;height:100%}
+.gcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+.blk{border-radius:20px;overflow:hidden;flex-shrink:0;border:2px solid var(--bc,#EDE9F2);background:#fff}
+.blk-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;
+  background:var(--bh,#F2EBFB)}
+.blk-t{font-family:var(--f-t);font-size:26px;font-weight:800;letter-spacing:-.7px;color:var(--bt,#5B3A8C)}
+.blk-n{font-family:var(--f-t);font-size:20px;font-weight:800;color:var(--bt,#5B3A8C);opacity:.65}
+.blk-bd{padding:6px 16px 10px}
+.bit{display:flex;align-items:baseline;gap:9px;padding:7.5px 2px;border-bottom:1px solid #F3F0F7}
+.bit:last-child{border-bottom:none}
+.bit-nm{flex:1;min-width:0;font-size:22.5px;font-weight:800;color:var(--ink);letter-spacing:-.5px;
+  line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bit-sl{flex-shrink:0;font-size:16.5px;color:var(--mute);font-weight:700;white-space:nowrap}
+.bit.nb{background:linear-gradient(90deg,#EDE0FA,#F6F0FD);border-radius:9px;padding-left:9px;padding-right:9px;border-bottom:none;margin:2px 0}
+.bit.nb .bit-nm{color:var(--p-d)}
+.blk-more{font-size:17px;font-weight:800;color:var(--bt,#7A6394);padding:2px 2px 8px;opacity:.8}
+.etc{font-size:20px;font-weight:700;color:var(--mute);padding:6px 4px}
+
+/* ═══ T2. 인기 TOP10 (수) — 다크 ═══ */
+.card.dark{background:linear-gradient(160deg,#2B2144 0%,#1C1528 62%,#191221 100%)}
+.card.dark .brand-t{color:#E7DBFA}
+.card.dark .title{color:#fff}
+.card.dark .sub{color:#B4A8CC}
+.card.dark .sub b{color:#F1C86B}
+.rk{display:flex;align-items:center;gap:20px;padding:15px 6px;border-bottom:1px solid rgba(255,255,255,.09)}
+.rk:last-child{border-bottom:none}
+.rk-n{font-family:var(--f-t);width:74px;flex-shrink:0;font-size:52px;font-weight:800;letter-spacing:-2px;
+  color:#8F7DB6;text-align:center;line-height:1}
+.rk.top3 .rk-n{color:#F1C86B}
+.rk-m{flex:1;min-width:0}
+.rk-nm{font-size:29px;font-weight:800;color:#fff;letter-spacing:-.7px;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk-sl{font-size:19px;color:#9E90BC;font-weight:700;margin-top:3px}
+.rk-dd{flex-shrink:0;font-family:var(--f-t);font-size:20px;font-weight:800;border-radius:10px;
+  padding:8px 14px;background:rgba(241,200,107,.14);color:#F1C86B;letter-spacing:-.3px}
+.card.dark .cta{background:rgba(241,200,107,.1);border-color:rgba(241,200,107,.35)}
+.card.dark .cta .t{color:#F1C86B}.card.dark .cta .s{color:#B4A8CC}.card.dark .cta .s b{color:#E7DBFA}
+.card.dark .cta .u{color:#E7DBFA}
+.card.dark .pad{background:rgba(255,255,255,.06)}
+.card.dark .pad .s{color:#B4A8CC}.card.dark .pad .w{color:#E7DBFA}
+
+/* ═══ T3. 마감임박 (토) ═══ */
+.card.hot .title .em{color:#C9483F}
+.dz-hd{display:flex;align-items:center;gap:12px;margin:8px 0 8px}
+.dz-t{font-family:var(--f-t);font-size:27px;font-weight:800;letter-spacing:-.6px;color:#C9483F}
+.dz-t.tm{color:#C77E2E}
+.dz-n{font-family:var(--f-t);font-size:20px;color:var(--mute);font-weight:800}
+.dit{display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px solid #F7EEEC}
+.dit-dd{flex-shrink:0;font-family:var(--f-t);font-size:19px;font-weight:800;border-radius:9px;padding:7px 12px;
+  background:#FDEDED;color:#C9483F;letter-spacing:-.3px}
+.dit-dd.tm{background:#FDF4E7;color:#C77E2E}
+.dit-nm{flex:1;min-width:0;font-size:25px;font-weight:800;color:var(--ink);letter-spacing:-.6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dit-sl{flex-shrink:0;font-size:17px;color:var(--mute);font-weight:700}
+
+/* ═══ T4. 주말 몰아보기 (금) ═══ */
+.we{display:flex;gap:18px;height:100%}
+.wcol{flex:1;min-width:0;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;
+  border:2px solid var(--wc,#E4D8F5)}
+.wcol-hd{padding:16px;text-align:center;background:var(--wh,#F2EBFB)}
+.wcol-d{font-family:var(--f-t);font-size:34px;font-weight:800;letter-spacing:-1px;color:var(--wt,#5B3A8C)}
+.wcol-s{font-size:19px;font-weight:700;color:var(--wt,#5B3A8C);opacity:.6;margin-top:2px}
+.wcol-bd{flex:1;min-height:0;overflow:hidden;padding:8px 16px}
+.wit{padding:9px 2px;border-bottom:1px solid #F3F0F7}
+.wit:last-child{border-bottom:none}
+.wit-nm{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.28;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wit-sl{font-size:16.5px;color:var(--mute);font-weight:700;margin-top:2px}
+.wcol-more{font-size:18px;font-weight:800;color:var(--wt,#7A6394);padding:8px 18px 14px}
+
+/* ═══ T5. 주간예고 (월) ═══ */
+.wk{display:flex;flex-direction:column;gap:12px;height:100%}
+.wrow{display:flex;align-items:stretch;gap:14px;border-radius:18px;background:#FAF8FD;
+  border:2px solid #EFE9F8;overflow:hidden;flex:1;min-height:0}
+.wrow.today{background:#F2EBFB;border-color:#D9C8F0}
+.wday{flex-shrink:0;width:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(107,74,158,.07)}
+.wday .d{font-family:var(--f-t);font-size:33px;font-weight:800;color:var(--p-d);letter-spacing:-1px}
+.wday .w{font-size:19px;font-weight:800;color:var(--mute);margin-top:2px}
+.wday .w.sat{color:#3E6FB8}.wday .w.sun{color:#C9483F}
+.wlist{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:8px 6px 8px 0}
+.wl-nm{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.45;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-nm .sl{font-size:17px;color:var(--mute);font-weight:700}
+.wcnt{flex-shrink:0;display:flex;align-items:center;padding-right:18px;
+  font-family:var(--f-t);font-size:22px;font-weight:800;color:var(--p)}
+
+/* ═══ T6. 핫딜 (일) ═══ */
+.hd-it{display:flex;align-items:center;gap:16px;padding:14px 4px;border-bottom:1px solid #F3F0F7}
+.hd-it:last-child{border-bottom:none}
+.hd-rate{flex-shrink:0;width:104px;text-align:center;font-family:var(--f-t);font-size:36px;font-weight:800;
+  color:#D3554F;letter-spacing:-1.5px}
+.hd-rate small{display:block;font-size:15px;color:#C9A0A0;font-weight:700;letter-spacing:0;margin-top:2px}
+.hd-m{flex:1;min-width:0}
+.hd-nm{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.6px;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd-pr{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+.hd-p{font-family:var(--f-t);font-size:27px;font-weight:800;color:var(--p-d);letter-spacing:-.8px}
+.hd-p0{font-size:18px;color:#B9B0C4;font-weight:700;text-decoration:line-through}
+.hd-mall{flex-shrink:0;font-size:16px;font-weight:800;color:#7A6394;background:#F2EBFB;
+  border-radius:8px;padding:7px 12px}
+
+/* 캡션 패널 */
+.cap{max-width:1080px;margin:0 auto 30px;background:#241E2E;border-radius:14px;padding:18px 20px}
+.cap h3{font-size:14px;color:#E8C77E;margin-bottom:10px}
+.cap h3 span{font-size:12px;color:#9E93AE;font-weight:400}
+.cap textarea{width:100%;height:300px;background:#161219;color:#D8D0E2;border:1px solid #3A3145;
+  border-radius:10px;padding:14px;font-size:12.5px;line-height:1.65;font-family:inherit;resize:vertical}
+</style>
+</head>
+<body class="mini">
+
+<div class="bar">
+  <div class="brow">
+    <input type="date" id="day">
+    <select id="tsel" class="sel">
+      <option value="auto">자동(요일별)</option>
+      <option value="daily">카테고리 일정</option>
+      <option value="top10">인기 TOP10</option>
+      <option value="closing">마감임박</option>
+      <option value="weekend">주말 몰아보기</option>
+      <option value="week">주간예고</option>
+      <option value="hotdeal">핫딜 베스트</option>
+      <option value="list">리스트형(기존)</option>
+    </select>
+    <button onclick="load()">만들기</button>
+  </div>
+  <div class="brow">
+    <button onclick="savePng()" class="wide">📥 사진 저장</button>
+    <button class="ghost wide" onclick="copyCap()">캡션 복사</button>
+    <button class="ghost" onclick="document.body.classList.toggle('mini')">확대</button>
+    <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드</button>
+  </div>
+  <div class="brow">
+    <input type="date" id="d1"><input type="date" id="d2">
+    <button onclick="saveRange()" class="go wide">📦 기간 일괄 (사진+캡션)</button>
+  </div>
+  <div class="st" id="st">날짜를 고르고 [만들기]</div>
+  <div class="plan">요일 자동 배정: <b>월</b> 주간예고 · <b>화/목</b> 카테고리 일정 · <b>수</b> 인기TOP10 ·
+    <b>금</b> 주말 몰아보기 · <b>토</b> 마감임박 · <b>일</b> 핫딜 베스트 — 한 달을 돌리면 포맷 7종이 자동으로 섞입니다</div>
+</div>
+
+<div class="slot"><div class="card" id="card"></div></div>
+
+<div class="cap">
+  <h3>인스타 캡션 <span id="caplen"></span></h3>
+  <textarea id="captxt"></textarea>
+</div>
+
+<script>
+/* ══════════════ 공통 유틸 (reelcard.html 검증 로직 이식) ══════════════ */
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const md=d=>d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'';
+const DOW=['일','월','화','수','목','금','토'];
+const num=n=>Number(n||0).toLocaleString('ko-KR');
+function todayKST(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
+function addDays(s,n){ const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function seedOf(day){ const d=new Date(day+'T00:00:00'); return Math.floor(d.getTime()/86400000); }
+
+/* 같은 품목 판정 — reelcard.html 과 동일 사상 (사장님 지적 이력 반영분 그대로) */
+function prodToks(s){
+  return (s||'').toLowerCase()
+    .replace(/([0-9]+(차|종|개|입|팩|박스|매|병|kg|g|ml|l)?|초특가|특가|모음전|기획전|국산|국내산|신상|신제품|한정|공구|무료배송|대용량|증정|앵콜|재오픈|new)/g,'')
+    .split(/[\s.·_&/()\[\],+]+/).filter(w=>w.length>=2 && !/^[0-9]/.test(w));
+}
+function sameProduct(a,b){
+  const A=prodToks(a), B=prodToks(b);
+  if(!A.length||!B.length) return false;
+  const eq=(x,y)=>x===y||(Math.min(x.length,y.length)>=2&&(x.indexOf(y)>=0||y.indexOf(x)>=0));
+  const N=s=>(s||'').toLowerCase().replace(/[\s.·_&/()\[\],+-]/g,'');
+  const x=N(a), y=N(b);
+  const sh=x.length<=y.length?x:y, lo=x.length<=y.length?y:x;
+  if(sh.length>=4 && lo.indexOf(sh)>=0) return true;
+  const eqStrict=(p,q)=>p===q||(Math.min(p.length,q.length)>=4&&(p.indexOf(q)>=0||q.indexOf(p)>=0));
+  if(A.length===1) return A[0].length>=4 && B.some(y2=>eqStrict(A[0],y2));
+  if(B.length===1) return B[0].length>=4 && A.some(x2=>eqStrict(x2,B[0]));
+  if(eq(A[0],B[0]) && eq(A[A.length-1],B[B.length-1])) return true;
+  const head=(T,w)=>T.indexOf(w)>=0 && T.indexOf(w)<2;
+  return A.some(w=>w.length>=3 && head(A,w) && B.some(v=>v.length>=3 && head(B,v) && eq(w,v)));
+}
+function onePerSeller(arr){
+  const seen=new Set(), out=[];
+  arr.forEach(x=>{
+    if(x.partner){ out.push(x); return; }
+    const key=((x.seller||x.insta||'')+'').trim().toLowerCase();
+    if(seen.has(key)) return; seen.add(key); out.push(x);
+  });
+  return out;
+}
+function oneProduct(arr){
+  const out=[];
+  arr.forEach(x=>{
+    if(x.partner){ out.push(x); return; }
+    if(out.some(y=>!y.partner && sameProduct(y.name,x.name))) return;
+    out.push(x);
+  });
+  return out;
+}
+const nh=s=>(s||'').replace('@','').trim().toLowerCase();
+const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
+  || ['momcal_','momcalendar','momcal','momcalendar_'].includes(nh(g.insta));
+
+/* ── 데이터 로딩 ── */
+async function fetchDay(day){
+  const [gg,pt,cc,wc,mySoon]=await Promise.all([
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date,major&limit=500`,{headers:H}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json())
+  ]);
+  const P=new Set((pt||[]).filter(s=>{
+    if(s.start_date && day < s.start_date) return false;
+    if(s.end_date   && day > s.end_date)   return false;
+    return true;
+  }).map(x=>nh(x.insta)).filter(Boolean));
+  const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
+  const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
+  const rows=(gg||[]).map(g=>({...g,
+    partner:isMomcal(g)||P.has(nh(g.insta)), own:isMomcal(g),
+    score:(C[g.id]||0)+(W[g.id]||0)*3,
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
+  }));
+  const soon=(mySoon||[]);
+  const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
+  const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
+  return {
+    opens: rows.filter(r=>r.open_date===day && !clash(r)).sort(sortFn),
+    ends:  rows.filter(r=>r.end_date===day  && !clash(r)).sort(sortFn),
+    scoreMap:{C,W}
+  };
+}
+/* 그 날짜 기준 유효한 이웃셀러 핸들 집합 */
+async function partnerSet(day){
+  const pt=await fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json());
+  return new Set((pt||[]).filter(s=>!(s.start_date&&day<s.start_date)&&!(s.end_date&&day>s.end_date)).map(x=>nh(x.insta)).filter(Boolean));
+}
+async function ongoingCount(day){
+  try{
+    const r=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lte.${day}&end_date=gte.${day}&select=id`,
+      {headers:{...H,Prefer:'count=exact',Range:'0-0'}});
+    return parseInt((r.headers.get('content-range')||'').split('/')[1]||'0',10);
+  }catch(_){ return 0; }
+}
+
+/* ── 상품명 다듬기 — reelcard fitNames 이식 (ellipsis 로 잘리는 자리에서 품목이 살게) ── */
+const NAME_DROP=/^(국내산|국산|남해안|서해안|동해안|제주|자연산|햇|생|냉장|냉동|자숙|손질|무항생제|유기농|프리미엄|명품|정품|신상|신제품|NEW|한정|초특가|특가|최저가|역대급|무료배송|대용량|20[0-9][0-9]|[0-9]+차)$/i;
+const NAME_TAIL=/^(공동구매|공구|단독구성|단독|기획전|모음전|골라담기|모음|세트구성|초특가|특가|할인|무료배송|앵콜|재오픈|리오픈|한정수량|마지막|예약|본품|증정|사은품|[0-9]+차)$/;
+function cleanParen(s){
+  s=String(s||'').replace(/^[\s)\]）］,·/&+-]+/,'').replace(/[\s([（［,·/&+-]+$/,'');
+  if(!/[([（［]/.test(s)) s=s.replace(/[)\]）］]/g,'');
+  if(!/[)\]）］]/.test(s)) s=s.replace(/[([（［]/g,'');
+  return s.replace(/\s+/g,' ').trim();
+}
+function fitNames(sel){
+  document.querySelectorAll(sel||'.bit-nm,.dit-nm,.wit-nm,.rk-nm,.hd-nm').forEach(el=>{
+    if(el.scrollWidth<=el.clientWidth) return;
+    const full=el.dataset.full||el.textContent; el.dataset.full=full;
+    let cut=full.replace(/\s*[(（\[［][^)）\]］]*[)）\]］]?/g,' ');
+    cut=cut.replace(/\S+(?:을|를|에|의)\s*(?:위한|위해|대한|관한)\s*/g,' ');
+    const base=cleanParen(cut)||full;
+    el.textContent=base;
+    if(el.scrollWidth<=el.clientWidth) return;
+    let w=base.split(/[\s·・]+|\s*\+\s*/).filter(Boolean);
+    while(w.length>1 && NAME_TAIL.test(w[w.length-1]) && el.scrollWidth>el.clientWidth){ w.pop(); el.textContent=w.join(' '); }
+    while(w.length>1 && NAME_DROP.test(w[0]) && el.scrollWidth>el.clientWidth){ w.shift(); el.textContent=w.join(' '); }
+    while(w.length>2 && el.scrollWidth>el.clientWidth){ w.splice(1,1); el.textContent=cleanParen(w.join(' ')); }
+    el.textContent=cleanParen(el.textContent);
+  });
+}
+
+/* ── 제목 자동 크기 (한 줄 기준으로 최대) ── */
+function fitTitle(max){
+  const t=document.querySelector('.title'); if(!t) return;
+  const card=document.querySelector('.card');
+  const k=1080/card.getBoundingClientRect().width;
+  const avail=t.clientWidth;
+  const rng=document.createRange();
+  const lines=t.querySelectorAll('.em').length||1;
+  const widest=()=>{
+    let w=0;
+    (t.querySelectorAll('.em').length?t.querySelectorAll('.em'):[t]).forEach(e=>{
+      rng.selectNodeContents(e); w=Math.max(w,rng.getBoundingClientRect().width*k);
+    });
+    return w;
+  };
+  let px=48; t.style.fontSize=px+'px';
+  const cap=max||150;
+  while(px<cap && widest()<=avail){ px++; t.style.fontSize=px+'px'; }
+  t.style.fontSize=(px-1)+'px';
+}
+
+/* ── 공통 조각 ── */
+function shell({theme,chipTxt,chipBg,chipCol,titleHTML,subHTML,ctaT,ctaS}){
+  const card=document.getElementById('card');
+  card.className='card'+(theme?' '+theme:'');
+  card.innerHTML=`
+    <div class="safe top"><b></b></div><div class="safe bot"><b></b></div>
+    <div class="gcrop"></div><div class="hcrop l"></div><div class="hcrop r"></div>
+    <div class="hd">
+      <div class="hd-top">
+        <div class="brand"><img class="brand-ic" src="momcal-appicon.png" alt=""><span class="brand-t">맘캘린더</span></div>
+        <div class="chip" style="background:${chipBg};color:${chipCol}">${chipTxt}</div>
+      </div>
+      <div class="title">${titleHTML}</div>
+      ${subHTML?`<div class="sub">${subHTML}</div>`:''}
+    </div>
+    <div class="bd" id="bd"></div>
+    <div class="cta">
+      <div><div class="t">${ctaT}</div><div class="s">${ctaS}</div></div>
+      <div class="u">momcalendar.com</div>
+    </div>
+    <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div></div>`;
+  return document.getElementById('bd');
+}
+/* 본문이 넘치는지 실좌표로 판정 (reelcard 교훈: scrollHeight 는 overflow:hidden 에서 못 잡는다) */
+function overflows(bd){
+  const last=bd.lastElementChild; if(!last) return false;
+  const els=bd.querySelectorAll('*');
+  let bottom=0; els.forEach(e=>{ const b=e.getBoundingClientRect().bottom; if(b>bottom) bottom=b; });
+  return bottom > bd.getBoundingClientRect().bottom + 0.5;
+}
+
+/* ── 카테고리 색 ── */
+const CAT_COL={
+  '육아':  ['#F2EBFB','#5B3A8C','#E2D3F5'],
+  '식품':  ['#FDF0E3','#B0621B','#F3DCC2'],
+  '리빙':  ['#E8F5EA','#2E7D46','#CFE9D5'],
+  '뷰티':  ['#FDEBF2','#B03A6E','#F5CFE0'],
+  '가전':  ['#E7F0FB','#2C5FA8','#CCDFF5'],
+  '건강':  ['#E5F6F4','#1E7A6F','#C8EAE6'],
+  '패션':  ['#F3ECE2','#8A6A2E','#E5D7BE'],
+  '여행':  ['#E8F3FA','#2478A0','#CBE5F2'],
+  '인테리어':['#F0F2E5','#6B7A2E','#DDE2C4'],
+  '반려동물':['#F5EFE8','#7A5B3A','#E6D9C8']
+};
+const catCol=m=>CAT_COL[m]||['#F2ECF7','#5B3A8C','#E4DCEF'];
+
+/* ══════ 캡션 랜덤 엔진 (사장님 지시 2026-08-31: 줍줍 참고, 매일 새로 뽑기) ══════
+   날짜 시드 LCG — 같은 날을 다시 생성해도 캡션이 같다(재생성 안전, 블로그 제목 엔진과 같은 사상).
+   줍줍 캡션 실측 구조: 훅 → 브릿지 → 리스트 → [좋아요·저장·팔로우 CTA + 슬로건 + 내일 예고] → 태그 10개(#날짜공구 포함).
+   구조만 가져오고 문구는 전부 우리 것 — 그대로 베끼면 표절 티가 난다. */
+function srand(day,salt){
+  let s=seedOf(day)*7919+(salt||0)*104729+12345;
+  return ()=>{ s=(s*1103515245+12345)%2147483648; return s/2147483648; };
+}
+const pickR=(arr,rnd)=>arr[Math.floor(rnd()*arr.length)];
+function shuffleR(arr,rnd){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ── 훅(첫 줄) 풀 — 템플릿별 8종 ── */
+const HOOKS_DAILY=[
+  '오늘 뭐 열리나 궁금하셨죠? 카테고리별로 정리했어요',
+  '공구 찾아 헤매지 마세요, 오늘 오픈 전부 모았어요',
+  '이 중에 찾으시던 공구 하나쯤 있을 거예요',
+  '저장해두면 오늘 하루 공구 검색 끝이에요',
+  '바쁜 아침, 30초면 오늘 공구가 다 보여요',
+  '오늘 오픈 공구, 놓치기 아까운 것만 골라 담았어요',
+  '육아하느라 바쁜 사이에 열리는 공구, 제가 다 모아왔어요',
+  '오늘도 어김없이 공구 정리해서 왔어요'
+];
+const HOOKS_TOP=[
+  '지금 엄마들이 실제로 많이 보는 공구만 모았어요',
+  '요즘 뭐가 인기인지 궁금하면 이 10개만 보세요',
+  '맘캘린더 방문자들이 가장 많이 누른 공구 TOP10',
+  '다들 뭐 사나 궁금할 때 보는 랭킹이에요',
+  '이번 주 조회수로 뽑은 진짜 인기 공구예요',
+  '순위는 데이터가 정했어요, 저도 1위 보고 놀랐어요'
+];
+const HOOKS_CLOSE=[
+  '오늘 지나면 못 사는 공구들이에요',
+  '망설이던 공구 있다면 오늘이 마지막이에요',
+  '마감 전 마지막 체크! 오늘 끝나는 공구 모음',
+  '장바구니에 넣어두고 잊으셨다면 지금 보세요',
+  '내일이면 늦어요, 오늘 마감 공구 정리했어요',
+  '고민은 배송만 늦출 뿐… 오늘 끝나는 공구예요'
+];
+const HOOKS_WE=[
+  '주말에 열리는 공구, 미리 보고 알람 맞춰두세요',
+  '토·일 오픈 공구 몰아서 정리했어요',
+  '주말 육아 틈틈이 볼 수 있게 이틀치 모았어요',
+  '주말이라고 공구가 쉬진 않아요, 미리 체크하세요',
+  '이번 주말엔 이런 공구가 열려요'
+];
+const HOOKS_WEEK=[
+  '이번 주 공구 일정, 월요일에 미리 훑고 시작하세요',
+  '한 주 공구 계획은 이 카드 한 장이면 끝이에요',
+  '이번 주 뭐가 열리는지 요일별로 정리했어요',
+  '월요일 아침 루틴 — 이번 주 공구 미리보기예요',
+  '한 주 시작 전에 공구 캘린더부터 저장하세요'
+];
+const HOOKS_HOT=[
+  '가격 확인된 핫딜만 골랐어요. 지금가 그대로예요',
+  '할인율 높은 순으로 실측 핫딜만 모았어요',
+  '이번 주 핫딜 중 진짜만 — 가격은 등록 시점 실측가예요',
+  '광고 말고 진짜 핫딜, 가격 직접 확인하고 올려요',
+  '일요일엔 핫딜 정리 — 이번 주 놓친 딜 여기 있어요'
+];
+
+/* ── 마무리 블록 풀 (줍줍식 구조: CTA 3종 → 슬로건 → 내일 예고) ── */
+const CLOSERS=[
+  '👍 좋아요 · 📌 저장 · 💜 팔로우 해두시면\n매일 공구 일정을 가장 먼저 받아보실 수 있어요',
+  '📌 저장해두면 필요할 때 바로 꺼내 볼 수 있어요\n💜 팔로우하면 내일 일정도 놓치지 않아요',
+  '도움이 되셨다면 👍 좋아요 하나 눌러주세요\n📌 저장 · 💜 팔로우는 큰 힘이 됩니다',
+  '💜 팔로우 + 📌 저장 조합이면\n공구 놓칠 일이 없어요'
+];
+/* 사이트+카페 안내 — 매일 다른 문구로 자연스럽게 (사장님 지시 2026-08-31) */
+const ABOUTS=[
+  '저희는 공구 일정을 한 번에 조회·검색할 수 있는\n맘캘린더 사이트를 운영하고 있어요\n프로필 링크로 들어오시면 오늘 일정부터 검색까지 다 돼요\n인스타를 자주 안 보신다면 네이버카페 「맘캘린더」에서\n수다도 떨고 공구 소식도 받아보세요 ☕',
+  '이 계정은 공구일정 조회 사이트 맘캘린더가 운영해요\n찾는 공구는 프로필 링크에서 검색하면 바로 나와요\n인스타보다 카페가 편하신 분들은\n네이버카페 「맘캘린더」로 놀러오세요, 수다방도 있어요 💬',
+  '매일 올리는 이 일정, 전부 맘캘린더 사이트에 있어요\n프로필 링크 누르면 날짜별·브랜드별로 검색됩니다\n인스타 잘 안 하시는 분들은 네이버카페 「맘캘린더」에서\n같이 수다 떨면서 정보 받아보셔도 좋아요 🙂',
+  '공구 찾을 땐 프로필 링크의 맘캘린더 사이트에서\n검색 한 번이면 끝나요\n피드를 매일 못 보신다면 네이버카페 「맘캘린더」도 있어요\n엄마들끼리 수다 떨며 정보 나누는 공간이에요 ☕',
+  '오늘 카드에 못 담은 일정까지 전부\n맘캘린더 사이트(프로필 링크)에서 조회·검색돼요\n인스타가 어색하신 분들은 네이버카페 「맘캘린더」로 오세요\n수다도 떨고 공구 소식도 먼저 받아보실 수 있어요'
+];
+/* 댓글 유도 — 답글 약속은 안 한다(사장님 지시 2026-08-31). 댓글로 남긴 공구는 다음 일정 업데이트에 우선 반영. */
+const ASKS=[
+  '💬 찾으시는 공구 이름을 댓글로 남겨주세요\n다음 일정 업데이트에 우선순위로 반영해서 올릴게요',
+  '💬 궁금한 브랜드·공구는 댓글로 남겨주세요\n우선적으로 찾아서 맘캘린더에 올려드릴게요',
+  '💬 놓친 공구·찾는 공구가 있다면 댓글로 알려주세요\n다음 업데이트 때 1순위로 챙겨서 올릴게요',
+  '💬 댓글로 남겨주신 공구는\n맘캘린더 일정에 우선 반영해서 찾아드려요'
+];
+const BYES=[
+  '내일도 보기 쉽게 정리해서 올게요 🤍',
+  '오늘도 함께해 주셔서 감사해요, 내일 또 만나요 💜',
+  '내일 일정도 아침에 바로 올려드릴게요 :)',
+  '유익하셨길 바라며, 내일도 찾아올게요 🙌'
+];
+
+/* ── 해시태그 — 고정 3 + 날짜태그(줍줍 실측: #8월28일공구) + 풀 셔플 8 = 12개 ── */
+const TAG_FIXED=['맘캘린더','공구일정','육아공구'];
+const TAG_POOL=['육아용품','책육아','공동구매','육아정보','공구정보','육아템','먹거리공구','살림템',
+  '교구','유모차','영양제','아기용품','유아용품','놀잇감','공구오픈','공구모음','오늘의공구',
+  '공구추천','육아맘','맘스타그램','공구오픈일정','공구찾기','신학기준비','아기간식','육아일상'];
+function pickTags(day){
+  const d=new Date(day+'T00:00:00');
+  const dateTag=`${d.getMonth()+1}월${d.getDate()}일공구`;
+  const rnd=srand(day,7);
+  const rot=shuffleR(TAG_POOL,rnd).slice(0,8);
+  return [...TAG_FIXED,dateTag,...rot].map(t=>'#'+t).join(' ');
+}
+const pickHook=(arr,day,off)=>pickR(arr,srand(day,off||1));
+
+/* 캡션 공통 꼬리 — 매일 조합이 바뀐다 (CTA·사이트/카페 안내·댓글유도·인사 각각 랜덤) */
+function capTail(day){
+  const rnd=srand(day,3);
+  return `\n\n━━━━━━━━━━━━━━\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day)}`;
+}
+const capLine=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
+function setCaption(s){
+  if(s.length>2190) s=s.slice(0,2150)+'…';
+  document.getElementById('captxt').value=s;
+  document.getElementById('caplen').textContent=s.length+'자';
+}
+
+/* ══════ 캡션 리스트 빌더 — 2200자 한도까지 꽉 채우기 ══════
+   @핸들은 **이웃셀러·맘캘린더에만** 건다 (사장님 지시 2026-08-31 재확인 — 2026-08-04 규칙 유지).
+   섹션들을 라운드로빈으로 한 줄씩 채워 한도 직전까지 넣는다(카테고리 균형 유지). */
+function buildCap(day,{hook,head,sections}){
+  const tail=capTail(day);
+  const LIMIT=2185;
+  const fmt=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}${x.__end?` (~${x.__end})`:''}`;
+  const parts=sections.filter(s=>s.items.length).map(s=>({t:s.t,items:s.items,lines:[],idx:0,full:false}));
+  const assemble=()=>{
+    let out=`${hook}\n\n${head}\n\n━━━━━━━━━━━━━━\n`;
+    parts.forEach(p=>{
+      if(!p.lines.length){ out+=`\n${p.t} ${p.items.length}건은 사이트에서 확인해 주세요\n`; return; }
+      out+=`\n${p.t}\n`+p.lines.join('\n');
+      if(p.idx<p.items.length) out+=`\n…외 ${p.items.length-p.idx}건`;
+      out+='\n';
+    });
+    return out+tail;
+  };
+  let moved=true;
+  while(moved){
+    moved=false;
+    for(const p of parts){
+      if(p.full || p.idx>=p.items.length) continue;
+      p.lines.push(fmt(p.items[p.idx])); p.idx++;
+      if(assemble().length>LIMIT){ p.lines.pop(); p.idx--; p.full=true; }
+      else moved=true;
+    }
+  }
+  return assemble();
+}
+
+/* ══════════════ T1. 카테고리 블록형 (화·목) ══════════════ */
+async function tDaily(day){
+  const {opens,ends}=await fetchDay(day);
+  const on=await ongoingCount(day);
+  const d=new Date(day+'T00:00:00');
+  const list=oneProduct(onePerSeller(opens));
+  const byCat={};
+  list.forEach(x=>{ const m=x.major||'기타'; (byCat[m]=byCat[m]||[]).push(x); });
+  const cats=Object.entries(byCat).sort((a,b)=>b[1].length-a[1].length);
+  const bd=shell({
+    chipTxt:`오늘 오픈 ${list.length}건`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
+    titleHTML:`<span class="em"><span style="color:var(--p)">${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})</span> 공구 오픈</span><span class="em">카테고리별 한눈에</span>`,
+    subHTML:`오늘 마감 <b>${ends.length}건</b>은 캡션에서 확인하세요`,
+    ctaT:`지금 진행 중인 공구 ${on}건`, ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서 검색됩니다`
+  });
+  fitTitle(86);
+  const blkHTML=(m,items,n)=>{
+    const [bg,col,line]=catCol(m);
+    const shown=items.slice(0,n);
+    return `<div class="blk" style="--bh:${bg};--bt:${col};--bc:${line}">
+      <div class="blk-hd"><span class="blk-t">${esc(m)}</span><span class="blk-n">${items.length}건</span></div>
+      <div class="blk-bd">${shown.map(x=>`
+        <div class="bit${x.partner?' nb':''}"><div class="bit-nm">${esc(x.name)}</div><div class="bit-sl">${esc(x.seller)}</div></div>`).join('')}
+        ${items.length>n?`<div class="blk-more">+ ${items.length-n}건 더</div>`:''}
+      </div></div>`;
+  };
+  const draw=(maxPer,catN)=>{
+    const use=cats.slice(0,catN);
+    const rest=cats.slice(catN).reduce((s,c)=>s+c[1].length,0);
+    const colA=[],colB=[]; let hA=0,hB=0;
+    use.forEach(([m,items])=>{
+      const h=Math.min(items.length,maxPer)*44+70;
+      if(hA<=hB){colA.push([m,items]);hA+=h;}else{colB.push([m,items]);hB+=h;}
+    });
+    bd.innerHTML=`<div class="grid2">
+      <div class="gcol">${colA.map(([m,i])=>blkHTML(m,i,maxPer)).join('')}
+        ${rest?`<div class="etc">그 외 ${rest}건은 사이트에서 확인하세요</div>`:''}</div>
+      <div class="gcol">${colB.map(([m,i])=>blkHTML(m,i,maxPer)).join('')}</div></div>`;
+  };
+  let maxPer=5, catN=cats.length;
+  draw(maxPer,catN);
+  while(overflows(bd) && maxPer>2){ maxPer--; draw(maxPer,catN); }
+  while(overflows(bd) && catN>2){ catN--; draw(maxPer,catN); }
+  fitNames();
+  /* 캡션 — 2200자 한도까지 채운다. @핸들은 이웃셀러·맘캘린더만(buildCap이 처리) */
+  const capEnds=oneProduct(onePerSeller(ends));
+  const sections=cats.map(([m,items])=>({t:`${catEmoji(m)} ${m}`,items:items.map(x=>({...x,__end:md(x.end_date)}))}));
+  if(capEnds.length) sections.push({t:'⏰ 오늘 마감',items:capEnds});
+  setCaption(buildCap(day,{hook:pickHook(HOOKS_DAILY,day),
+    head:`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 공구 오픈 ${list.length}건 · 마감 ${capEnds.length}건`,
+    sections}));
+  return {opens:list.length,ends:capEnds.length};
+}
+const catEmoji=m=>({'육아':'🧸','식품':'🍱','리빙':'🏠','뷰티':'💄','가전':'🔌','건강':'💊','패션':'👕','여행':'✈️','인테리어':'🛋','반려동물':'🐶'}[m]||'📦');
+
+/* ══════════════ T2. 인기 TOP10 (수) ══════════════ */
+async function tTop10(day){
+  const [gg,cc,wc,pt]=await Promise.all([
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=gte.${day}&open_date=lte.${addDays(day,7)}&select=id,name,influencer,insta,open_date,end_date&limit=1000`,{headers:H}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+    fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json())
+  ]);
+  const P=new Set((pt||[]).filter(s=>!(s.start_date&&day<s.start_date)&&!(s.end_date&&day>s.end_date)).map(x=>nh(x.insta)).filter(Boolean));
+  const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
+  const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
+  const rows=(gg||[]).map(g=>({...g,score:(C[g.id]||0)+(W[g.id]||0)*3,
+    partner:isMomcal(g)||P.has(nh(g.insta)),
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+    .filter(g=>g.score>0).sort((a,b)=>b.score-a.score);
+  const top=oneProduct(onePerSeller(rows)).slice(0,10);
+  const d=new Date(day+'T00:00:00');
+  const bd=shell({
+    theme:'dark',
+    chipTxt:'실시간 인기', chipBg:'rgba(241,200,107,.15)', chipCol:'#F1C86B',
+    titleHTML:`<span class="em">지금 주목받는</span><span class="em">공구 <span style="color:#F1C86B">TOP 10</span></span>`,
+    subHTML:`${d.getMonth()+1}/${d.getDate()} 기준 · 맘캘린더 <b>조회·찜 데이터</b>로 뽑았어요`,
+    ctaT:'순위는 매주 바뀌어요', ctaS:`전체 랭킹은 <b>프로필 링크</b> 맘캘린더 TOP100에서`
+  });
+  fitTitle(96);
+  const dd=x=>{
+    if(x.open_date>day) return md(x.open_date)+' 오픈';
+    const left=Math.round((new Date(x.end_date)-new Date(day))/86400000);
+    return left<=0?'오늘 마감':`D-${left}`;
+  };
+  const draw=n=>{ bd.innerHTML=top.slice(0,n).map((x,i)=>`
+    <div class="rk${i<3?' top3':''}"><div class="rk-n">${i+1}</div>
+      <div class="rk-m"><div class="rk-nm">${esc(x.name)}</div><div class="rk-sl">${esc(x.seller)}</div></div>
+      <div class="rk-dd">${dd(x)}</div></div>`).join(''); };
+  let n=Math.min(10,top.length); draw(n);
+  while(overflows(bd)&&n>5){ n--; draw(n); }
+  fitNames();
+  let s=`${pickHook(HOOKS_TOP,day)}\n\n🏆 이번 주 인기 공구 TOP ${n}\n(맘캘린더 방문자 조회·찜 기준)\n\n`+
+    top.slice(0,n).map((x,i)=>`${i+1}. ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''} (${dd(x)})`).join('\n')+
+    `\n\n순위에 없는 공구가 궁금하면 사이트에서 검색해보세요`;
+  setCaption(s+capTail(day));
+  return {top:n};
+}
+
+/* ══════════════ T3. 마감임박 (토) ══════════════ */
+async function tClosing(day){
+  const {ends}=await fetchDay(day);
+  const tm=addDays(day,1);
+  const [gg2,P]=await Promise.all([
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=eq.${tm}&select=id,name,influencer,insta,open_date,end_date&limit=300`,{headers:H}).then(r=>r.json()),
+    partnerSet(day)]);
+  const tmRows=(gg2||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+    .sort((a,b)=>(b.partner-a.partner)||a.name.localeCompare(b.name,'ko'));
+  const today=oneProduct(onePerSeller(ends));
+  const tomo=oneProduct(onePerSeller(tmRows));
+  const d=new Date(day+'T00:00:00');
+  const bd=shell({
+    theme:'hot',
+    chipTxt:`오늘 마감 ${today.length}건`, chipBg:'#FDEDED', chipCol:'#C9483F',
+    titleHTML:`<span class="em">오늘 지나면</span><span class="em"><span style="color:#C9483F">끝나는 공구</span> 모음</span>`,
+    subHTML:`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) 기준 · 망설였다면 지금 결정하세요`,
+    ctaT:'마감 시각은 셀러마다 달라요', ctaS:`마감 전 <b>셀러 계정</b>에서 한 번 더 확인하세요`
+  });
+  fitTitle(90);
+  const item=(x,cls,label)=>`<div class="dit"><div class="dit-dd ${cls}">${label}</div>
+    <div class="dit-nm">${esc(x.name)}</div><div class="dit-sl">${esc(x.seller)}</div></div>`;
+  const draw=(n1,n2)=>{
+    bd.innerHTML=
+      `<div class="dz-hd"><span class="dz-t">🔥 오늘 마감</span><span class="dz-n">${today.length}건</span></div>`+
+      today.slice(0,n1).map(x=>item(x,'','D-DAY')).join('')+
+      (today.length>n1?`<div class="blk-more" style="color:#C9483F">+ ${today.length-n1}건 더 (캡션 참고)</div>`:'')+
+      (tomo.length?`<div class="dz-hd" style="margin-top:20px"><span class="dz-t tm">⏳ 내일 마감</span><span class="dz-n">${tomo.length}건</span></div>`+
+        tomo.slice(0,n2).map(x=>item(x,'tm','D-1')).join('')+
+        (tomo.length>n2?`<div class="blk-more" style="color:#C77E2E">+ ${tomo.length-n2}건 더</div>`:''):'');
+  };
+  let n1=Math.min(12,today.length), n2=Math.min(8,tomo.length);
+  draw(n1,n2);
+  while(overflows(bd)&&(n1>4||n2>2)){ if(n2>2)n2--; else n1--; draw(n1,n2); }
+  fitNames();
+  setCaption(buildCap(day,{hook:pickHook(HOOKS_CLOSE,day),
+    head:`⏰ ${d.getMonth()+1}월 ${d.getDate()}일 마감 ${today.length}건 · 내일 마감 ${tomo.length}건`,
+    sections:[{t:'🔥 오늘 마감',items:today},{t:`⏳ 내일(${md(tm)}) 마감`,items:tomo}]}));
+  return {today:today.length,tomo:tomo.length};
+}
+
+/* ══════════════ T4. 주말 몰아보기 (금) ══════════════ */
+async function tWeekend(day){
+  const sat=addDays(day,(6-new Date(day+'T00:00:00').getDay()+7)%7||7);
+  const sun=addDays(sat,1);
+  const [g1,g2,P]=await Promise.all([
+    ...[sat,sun].map(dd=>
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=eq.${dd}&select=id,name,influencer,insta,open_date,end_date&limit=300`,{headers:H}).then(r=>r.json())),
+    partnerSet(day)]);
+  const mk=a=>oneProduct(onePerSeller((a||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+    .sort((a2,b2)=>(b2.partner-a2.partner)||a2.name.localeCompare(b2.name,'ko'))));
+  const A=mk(g1), B=mk(g2);
+  const bd=shell({
+    chipTxt:`주말 ${A.length+B.length}건`, chipBg:'#E7F0FB', chipCol:'#2C5FA8',
+    titleHTML:`<span class="em">주말 공구</span><span class="em"><span style="color:#2C5FA8">몰아보기</span> 🛒</span>`,
+    subHTML:`토·일 오픈 예정 — <b>미리 저장</b>해두고 놓치지 마세요`,
+    ctaT:'알람 맞춰두면 편해요', ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서`
+  });
+  fitTitle(96);
+  const colHTML=(dd,arr,n,bg,col,line,wtag)=>{
+    const dt=new Date(dd+'T00:00:00');
+    return `<div class="wcol" style="--wh:${bg};--wt:${col};--wc:${line}">
+      <div class="wcol-hd"><div class="wcol-d">${dt.getMonth()+1}/${dt.getDate()} ${wtag}</div>
+        <div class="wcol-s">오픈 ${arr.length}건</div></div>
+      <div class="wcol-bd">${arr.slice(0,n).map(x=>`
+        <div class="wit"><div class="wit-nm">${esc(x.name)}</div><div class="wit-sl">${esc(x.seller)} · ~${md(x.end_date)}</div></div>`).join('')}</div>
+      ${arr.length>n?`<div class="wcol-more">+ ${arr.length-n}건 더</div>`:''}</div>`;
+  };
+  const draw=n=>{ bd.innerHTML=`<div class="we">
+    ${colHTML(sat,A,n,'#E7F0FB','#2C5FA8','#CCDFF5','토요일')}
+    ${colHTML(sun,B,n,'#FDEDED','#C9483F','#F5CFCF','일요일')}</div>`; };
+  let n=Math.min(13,Math.max(A.length,B.length)); draw(n);
+  while(overflows(bd)&&n>3){ n--; draw(n); }
+  fitNames();
+  setCaption(buildCap(day,{hook:pickHook(HOOKS_WE,day),
+    head:`주말 오픈 예정 ${A.length+B.length}건 — 미리 저장해두세요`,
+    sections:[
+      {t:`🗓 ${md(sat)}(토) 오픈`,items:A.map(x=>({...x,__end:md(x.end_date)}))},
+      {t:`🗓 ${md(sun)}(일) 오픈`,items:B.map(x=>({...x,__end:md(x.end_date)}))}]}));
+  return {sat:A.length,sun:B.length};
+}
+
+/* ══════════════ T5. 주간예고 (월) ══════════════ */
+async function tWeek(day){
+  const days=[...Array(7)].map((_,i)=>addDays(day,i));
+  const gg=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=gte.${days[0]}&open_date=lte.${days[6]}&select=id,name,influencer,insta,open_date,end_date&limit=1000`,{headers:H}).then(r=>r.json());
+  const cc=await fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
+  const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
+  const rows=(gg||[]).map(g=>({...g,partner:false,score:C[g.id]||0,
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}));
+  const byDay={}; days.forEach(dd=>byDay[dd]=[]);
+  rows.forEach(x=>{ if(byDay[x.open_date]) byDay[x.open_date].push(x); });
+  const d=new Date(day+'T00:00:00');
+  const bd=shell({
+    chipTxt:`이번 주 ${rows.length}건`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
+    titleHTML:`<span class="em">이번 주 공구</span><span class="em"><span style="color:var(--p)">한 장</span>으로 미리보기</span>`,
+    subHTML:`${md(days[0])} ~ ${md(days[6])} 오픈 예정 — 요일별 대표만 추렸어요`,
+    ctaT:'매일 아침 그날 카드가 올라와요', ctaS:`전체 일정은 <b>프로필 링크</b> 맘캘린더에서`
+  });
+  fitTitle(90);
+  const draw=perRow=>{
+    bd.innerHTML=`<div class="wk">${days.map(dd=>{
+      const dt=new Date(dd+'T00:00:00'), w=dt.getDay();
+      const arr=oneProduct(onePerSeller(byDay[dd].sort((a,b)=>b.score-a.score)));
+      const names=arr.slice(0,perRow).map(x=>`${esc(shortName(x.name))} <span class="sl">${esc(x.seller)}</span>`);
+      return `<div class="wrow${dd===day?' today':''}">
+        <div class="wday"><div class="d">${dt.getMonth()+1}/${dt.getDate()}</div>
+          <div class="w ${w===6?'sat':w===0?'sun':''}">${DOW[w]}요일</div></div>
+        <div class="wlist">${names.map(n2=>`<div class="wl-nm">${n2}</div>`).join('')||'<div class="wl-nm" style="color:var(--mute)">오픈 예정 없음</div>'}</div>
+        <div class="wcnt">${arr.length>perRow?'+'+(arr.length-perRow):''}</div></div>`;
+    }).join('')}</div>`;
+  };
+  let perRow=3; draw(perRow);
+  while(overflows(bd)&&perRow>1){ perRow--; draw(perRow); }
+  fitNames('.wl-nm');
+  let s=`${pickHook(HOOKS_WEEK,day)}\n\n🗓 ${d.getMonth()+1}월 ${DOW[d.getDay()]}요일 시작, 이번 주 오픈 ${rows.length}건\n`;
+  days.forEach(dd=>{
+    const dt=new Date(dd+'T00:00:00');
+    const arr=oneProduct(onePerSeller(byDay[dd].sort((a,b)=>b.score-a.score)));
+    if(!arr.length) return;
+    s+=`\n${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]}) — `+arr.slice(0,4).map(x=>x.name.split(/\s+/).slice(0,2).join(' ')).join(' · ')+(arr.length>4?` 외 ${arr.length-4}건`:'');
+  });
+  setCaption(s+capTail(day));
+  return {week:rows.length};
+}
+function shortName(n){ const w=String(n).split(/\s+/); return w.slice(0,3).join(' '); }
+
+/* ══════════════ T6. 핫딜 베스트 (일) ══════════════ */
+async function tHotdeal(day){
+  const now=new Date().toISOString();
+  let hd=await fetch(`${SB}/rest/v1/hotdeals?deal_day=gte.${addDays(day,-3)}&price=not.is.null&or=(expires_at.is.null,expires_at.gte.${now})&select=title,price,price_before,discount_rate,mall&order=discount_rate.desc.nullslast&limit=30`,{headers:H}).then(r=>r.json());
+  let list=(hd||[]).filter(x=>x.price>0);
+  if(list.length<5){   // 그날 딜이 적으면 최근 등록분으로 폴백 — 빈 카드 금지
+    hd=await fetch(`${SB}/rest/v1/hotdeals?price=not.is.null&or=(expires_at.is.null,expires_at.gte.${now})&select=title,price,price_before,discount_rate,mall,deal_day&order=deal_day.desc,discount_rate.desc.nullslast&limit=40`,{headers:H}).then(r=>r.json());
+    list=(hd||[]).filter(x=>x.price>0).sort((a,b)=>(b.discount_rate||0)-(a.discount_rate||0));
+  }
+  const d=new Date(day+'T00:00:00');
+  const bd=shell({
+    chipTxt:'가격 실측', chipBg:'#FDEDED', chipCol:'#C9483F',
+    titleHTML:`<span class="em">이번 주 핫딜</span><span class="em"><span style="color:#D3554F">베스트</span> 모음 🔥</span>`,
+    subHTML:`${d.getMonth()+1}/${d.getDate()} 기준 · <b>등록 시점 실측 가격</b>이라 믿을 수 있어요`,
+    ctaT:'가격·품절은 수시로 바뀌어요', ctaS:`실시간 핫딜은 <b>프로필 링크</b> 맘캘린더 핫딜 탭에서`
+  });
+  fitTitle(96);
+  const draw=n=>{ bd.innerHTML=list.slice(0,n).map(x=>`
+    <div class="hd-it">
+      <div class="hd-rate">${x.discount_rate?x.discount_rate+'%':'특가'}<small>${x.discount_rate?'할인':''}</small></div>
+      <div class="hd-m"><div class="hd-nm">${esc(x.title)}</div>
+        <div class="hd-pr"><span class="hd-p">${num(x.price)}원</span>${x.price_before?`<span class="hd-p0">${num(x.price_before)}원</span>`:''}</div></div>
+      <div class="hd-mall">${esc(x.mall||'')}</div></div>`).join(''); };
+  let n=Math.min(9,list.length); draw(n);
+  while(overflows(bd)&&n>4){ n--; draw(n); }
+  fitNames();
+  let s=`${pickHook(HOOKS_HOT,day)}\n\n🔥 이번 주 핫딜 베스트\n\n`+
+    list.slice(0,n).map(x=>`· ${x.title}\n  → ${num(x.price)}원${x.discount_rate?` (${x.discount_rate}%↓)`:''}${x.mall?` · ${x.mall}`:''}`).join('\n')+
+    `\n\n남은 핫딜 ${Math.max(0,list.length-n)}건 + 실시간 가격은 사이트 핫딜 탭에서 확인하세요`;
+  setCaption(s+capTail(day));
+  return {deals:n};
+}
+
+/* ══════════════ T7. 리스트형 (기존 카드 개선판 — 예비) ══════════════ */
+async function tList(day){
+  const {opens,ends}=await fetchDay(day);
+  const on=await ongoingCount(day);
+  const d=new Date(day+'T00:00:00');
+  const A=oneProduct(onePerSeller(opens)), B=oneProduct(onePerSeller(ends));
+  const bd=shell({
+    chipTxt:`오픈 ${A.length} · 마감 ${B.length}`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
+    titleHTML:`<span class="em"><span style="color:var(--p)">${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})</span> 오늘</span><span class="em">공구 캘린더</span>`,
+    subHTML:``,
+    ctaT:`오늘 진행 중인 공구 ${on}건 중 일부예요`, ctaS:`전체는 <b>프로필 링크</b> 맘캘린더에서`
+  });
+  fitTitle(96);
+  const item=x=>`<div class="dit"><div class="dit-nm">${esc(x.name)}</div><div class="dit-sl">${esc(x.seller)} ~${md(x.end_date)}</div></div>`;
+  const draw=(n1,n2)=>{
+    bd.innerHTML=`<div class="dz-hd"><span class="dz-t" style="color:var(--p)">🔓 오늘 오픈</span><span class="dz-n">${A.length}건</span></div>`+
+      A.slice(0,n1).map(item).join('')+
+      `<div class="dz-hd" style="margin-top:16px"><span class="dz-t">⏰ 오늘 마감</span><span class="dz-n">${B.length}건</span></div>`+
+      B.slice(0,n2).map(item).join('');
+  };
+  let n1=Math.min(11,A.length), n2=Math.min(8,B.length); draw(n1,n2);
+  while(overflows(bd)&&(n1>3||n2>2)){ if(n1>=n2&&n1>3)n1--; else if(n2>2)n2--; else n1--; draw(n1,n2); }
+  fitNames();
+  setCaption(buildCap(day,{hook:pickHook(HOOKS_DAILY,day,3),
+    head:`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 오픈 ${A.length}건 · 마감 ${B.length}건`,
+    sections:[
+      {t:'🔓 오늘 오픈',items:A.map(x=>({...x,__end:md(x.end_date)}))},
+      {t:'⏰ 오늘 마감',items:B}]}));
+  return {opens:A.length,ends:B.length};
+}
+
+/* ══════════════ 실행 ══════════════ */
+const AUTO={1:'week',2:'daily',3:'top10',4:'daily',5:'weekend',6:'closing',0:'hotdeal'};
+const RUN={daily:tDaily,top10:tTop10,closing:tClosing,weekend:tWeekend,week:tWeek,hotdeal:tHotdeal,list:tList};
+const TNAME={daily:'카테고리 일정',top10:'인기 TOP10',closing:'마감임박',weekend:'주말 몰아보기',week:'주간예고',hotdeal:'핫딜 베스트',list:'리스트형'};
+function tplFor(day){
+  const sel=document.getElementById('tsel').value;
+  if(sel!=='auto') return sel;
+  return AUTO[new Date(day+'T00:00:00').getDay()];
+}
+async function load(){
+  const day=document.getElementById('day').value||todayKST();
+  document.getElementById('day').value=day;
+  const tpl=tplFor(day);
+  document.getElementById('st').textContent='만드는 중… ('+TNAME[tpl]+')';
+  try{
+    const r=await RUN[tpl](day);
+    window.__CUR={day,tpl};
+    document.getElementById('st').innerHTML=`<b>${TNAME[tpl]}</b> · ${Object.entries(r).map(([k,v])=>k+' '+v).join(' · ')}`;
+  }catch(e){ document.getElementById('st').textContent='실패: '+e.message; }
+}
+async function renderPng(){
+  const card=document.getElementById('card');
+  const wasMini=document.body.classList.contains('mini');
+  document.body.classList.remove('mini');
+  document.body.classList.add('clean');
+  await document.fonts.ready;
+  await new Promise(r=>setTimeout(r,350));
+  const canvas=await html2canvas(card,{width:1080,height:1920,scale:1,
+    backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:1080,windowHeight:1920});
+  if(wasMini) document.body.classList.add('mini');
+  document.body.classList.remove('clean');
+  return canvas.toDataURL('image/png');
+}
+async function savePng(){
+  const url=await renderPng();
+  const {day,tpl}=window.__CUR||{day:todayKST(),tpl:'card'};
+  const a=document.createElement('a');
+  a.href=url; a.download=`momcal_${day}_${tpl}.png`; a.click();
+}
+function copyCap(){
+  const t=document.getElementById('captxt');
+  t.select(); document.execCommand('copy');
+  document.getElementById('st').textContent='캡션 복사됨';
+}
+/* 기간 일괄 — 날짜마다 요일 포맷으로 생성해 PNG 전부 + 캡션 모음 txt 저장 */
+async function saveRange(){
+  const d1=document.getElementById('d1').value, d2=document.getElementById('d2').value;
+  if(!d1||!d2||d1>d2){ alert('기간을 확인해 주세요'); return; }
+  const caps=[];
+  for(let dd=d1; dd<=d2; dd=addDays(dd,1)){
+    document.getElementById('day').value=dd;
+    document.getElementById('st').textContent=dd+' 만드는 중…';
+    await load();
+    const url=await renderPng();
+    const a=document.createElement('a');
+    a.href=url; a.download=`momcal_${dd}_${window.__CUR.tpl}.png`; a.click();
+    caps.push(`════════ ${dd} (${TNAME[window.__CUR.tpl]}) ════════\n`+document.getElementById('captxt').value);
+    await new Promise(r=>setTimeout(r,600));
+  }
+  const blob=new Blob([caps.join('\n\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`momcal_captions_${d1}_${d2}.txt`; a.click();
+  document.getElementById('st').textContent='기간 일괄 저장 완료 ('+caps.length+'일)';
+}
+
+document.getElementById('day').value=todayKST();
+load();
+</script>
+</body>
+</html>
