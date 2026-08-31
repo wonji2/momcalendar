@@ -87,7 +87,7 @@ $fmtTotal = '{0:N0}' -f $N_TOTAL; $fmtSellers = '{0:N0}' -f $N_SELLERS
 # 그래서 ① 옛 sitemap 의 lastmod 와 ② 옛 파일 해시를 먼저 모아두고,
 # 새로 만든 파일이 옛것과 같으면 옛 날짜를 그대로 쓴다.
 $PrevMod = @{}; $PrevHash = @{}
-foreach($sm in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','sitemap-seller.xml')){
+foreach($sm in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','sitemap-seller.xml','sitemap-gonggu.xml')){
   $p = Join-Path $Root $sm
   if(-not (Test-Path $p)){ continue }
   try{
@@ -111,7 +111,7 @@ Write-Output "옛 lastmod $($PrevMod.Count)개 · 해시 $($PrevHash.Count)개 �
 # 페이지는 그대로 두고 sitemap 에도 남긴다(아래 KeptUrls 로 합류).
 # ⚠ 반복 변수를 $d 로 쓰면 안 된다. PowerShell 은 대소문자를 구분하지 않아
 #   데이터가 담긴 $D 를 덮어써 버린다(실제로 한 번 당했다).
-foreach($dir in @('g','p','s','m','d','c')){
+foreach($dir in @('g','p','s','m','d','c','gg')){
   $pp = Join-Path $Root $dir
   if(-not (Test-Path $pp)){ New-Item -ItemType Directory -Path $pp | Out-Null }
 }
@@ -123,7 +123,7 @@ foreach($dir in @('g','p','s','m','d','c')){
 # → 슬러그를 정할 때 디스크에 이미 있는 케이스를 그대로 재사용한다. 새 쌍은 생기지 않는다.
 #   케이스 쌍이 이미 있으면 서수(ordinal) 정렬이 앞선 쪽을 정본으로 삼는다(결정적 선택).
 $CaseCanon = @{}
-foreach($dir in @('g','p','s')){
+foreach($dir in @('g','p','s','gg')){
   $map = @{}
   $names = @(Get-ChildItem (Join-Path $Root $dir) -Filter *.html -File | ForEach-Object { $_.BaseName })
   [Array]::Sort($names, [System.StringComparer]::Ordinal)
@@ -202,6 +202,33 @@ foreach($s in $D.sellers){
 $SellerByKor = @{}
 foreach($k in $korCount.Keys){ if($korCount[$k] -eq 1){ $SellerByKor[$k] = $korInsta[$k] } }
 
+# ══ 공구 건별 상세 페이지 선계산 (2026-08-31, 지금하는공구(09now) 대응 — 사장님 지시 "동일하게 작업") ══
+# 네이버 SERP 실측: 09now 는 공구 1건마다 "브랜드-제품" URL 상세 문서를 만들어
+# '바크 공구'·'세이펜 공구' 같은 브랜드 검색의 웹문서 자리를 전부 가져간다.
+# 우리는 브랜드당 집계 1장뿐이라 그 자리에 못 들어갔다 → 건별 문서를 만든다.
+# 슬러그 = 상품명(40자) + 오픈일 MMDD — 재실행에도 결정적. 페이지는 지우지 않는다(보존 원칙).
+$GgSlug = @{}; $ggSeen = @{}; $ggRows = New-Object System.Collections.ArrayList; $GgByBrand = @{}
+foreach($b in $brandList){
+  $rows0 = ParseRows $b.raw @('who','name','od','ed','insta')
+  foreach($r in $rows0){
+    $k = ("$($r.name)|$($r.od)").ToLower()
+    if($GgSlug.ContainsKey($k)){ continue }
+    if("$($r.od)".Length -lt 10 -or "$($r.ed)".Length -lt 10){ continue }
+    $base = SlugOf "$($r.name)" $null '-gg'
+    if([string]::IsNullOrWhiteSpace($base)){ continue }
+    $slug = CanonCase ("$base-" + $r.od.Replace('-','').Substring(4)) 'gg'
+    if($ggSeen.ContainsKey($slug.ToLower())){
+      $n2 = [int]$ggSeen[$slug.ToLower()] + 1; $ggSeen[$slug.ToLower()] = $n2; $slug = "$slug-$n2"
+    } else { $ggSeen[$slug.ToLower()] = 1 }
+    $GgSlug[$k] = $slug
+    $o2 = [pscustomobject]@{ slug=$slug; brand=$b.brand; who=$r.who; name=$r.name; od=$r.od; ed=$r.ed; insta=$r.insta }
+    [void]$ggRows.Add($o2)
+    if(-not $GgByBrand.ContainsKey($b.brand)){ $GgByBrand[$b.brand] = New-Object System.Collections.ArrayList }
+    [void]$GgByBrand[$b.brand].Add($o2)
+  }
+}
+Write-Output "공구 건별 상세 대상: $($ggRows.Count)건"
+
 # ══ 브랜드 페이지 ══
 foreach($b in $brandList){
   $rows = ParseRows $b.raw @('who','name','od','ed','insta')
@@ -257,6 +284,15 @@ foreach($b in $brandList){
   }
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
+  }
+  # 건별 상세 페이지로 가는 크롤 경로 (최근 일정 8건)
+  if($GgByBrand.ContainsKey($b.brand)){
+    $gl = @($GgByBrand[$b.brand] | Sort-Object @{e='od';Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 8)
+    if($gl.Count -gt 0){
+      $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 일정 상세</h2><div class=${Q}rel${Q}>"
+      foreach($x2 in $gl){ $body += "<a href=${Q}/gg/$(Enc $x2.slug).html${Q}>$(HtmlEsc $x2.name) ($($x2.od.Substring(5).Replace('-','/')))</a>" }
+      $body += '</div></div>'
+    }
   }
   # ── 이 브랜드 상품이 핫딜에 떠 있으면 연결 ("세이펜 공구 핫딜" 류 검색 수요) ──
   $hd = @($HotDeals | Where-Object { $_.title -and ("$($_.title)").Contains($b.brand) } | Select-Object -First 3)
@@ -344,6 +380,53 @@ foreach($p in $prodList){
   [void]$ld.Add((LdCrumb "$($p.key) 공구" $canon))
   WritePage @{ path=(Join-Path $Root "p/$($p.slug).html"); title=$title; desc=$desc; canon=$canon;
     h1="$($p.key) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($p.key) 공구" }
+}
+
+# ══ 공구 건별 상세 페이지 (gg/) ══
+foreach($x in $ggRows){
+  $isLive = ($x.od -le $today -and $x.ed -ge $today)
+  $isSoon = ($x.od -gt $today)
+  $odK = $x.od.Substring(5).Replace('-','/'); $edK = $x.ed.Substring(5).Replace('-','/')
+  $whoTxt = ''; if($x.who){ $whoTxt = "$($x.who) " }
+
+  # 오픈일을 제목에 넣어 재공구 회차끼리도 제목이 겹치지 않게 한다 (중복 title 회피)
+  $title = "$($x.name) 공구 | $($whoTxt)인스타 공동구매 · $odK 오픈 - 맘캘린더"
+  if($title.Length -gt 72){ $title = "$($x.name) 공구 일정 · $odK 오픈 - 맘캘린더" }
+  $desc = "$($x.name) 공구 일정 — $($x.od) 오픈, $($x.ed) 마감. $($whoTxt)인스타그램 공동구매의 날짜와 참여 방법을 확인하세요."
+  $canon = "gg/$(Enc $x.slug).html"
+
+  if($isLive){ $lead = "$($x.name) 공동구매가 지금 진행 중입니다. $odK 에 열렸고 $edK 마감입니다. 아래 카드를 누르면 진행 셀러의 인스타그램으로 이동합니다." }
+  elseif($isSoon){ $lead = "$($x.name) 공동구매는 $odK 오픈 예정입니다. 마감은 $edK 입니다. 오픈일에 셀러 계정 공지로 신청할 수 있습니다." }
+  else { $lead = "$($x.name) 공동구매는 $($x.od) ~ $($x.ed) 에 진행된 일정입니다. 같은 상품은 보통 몇 주~몇 달 간격으로 다시 열립니다. 브랜드 페이지에서 다음 일정을 확인하세요." }
+
+  $item = [pscustomobject]@{ name=$x.name; who=$x.who; od=$x.od; ed=$x.ed; insta=$x.insta }
+  $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
+  $body += "<div class=${Q}sec${Q}><h2>일정</h2>" + (CardsHtml @($item) 1 $isLive $true) + '</div>'
+
+  $faq = @()
+  $faq += @{ q="$($x.name) 공구는 언제 하나요?"; a="이 일정은 $($x.od) 오픈, $($x.ed) 마감입니다. 기간이 지나면 정가로 돌아가므로 마감일 안에 신청해야 합니다." }
+  $faq += @{ q="어디서 신청하나요?"; a=$(if($x.who){ "$($x.who) 셀러가 인스타그램 계정에서 진행합니다. 위 카드를 누르면 해당 계정으로 이동하고, 프로필 링크나 공지 게시물에서 신청할 수 있습니다." } else { "진행 셀러의 인스타그램 계정 공지에서 신청합니다. 위 카드를 누르면 이동합니다." }) }
+  $faq += @{ q="$($x.name) 공구 가격은 얼마인가요?"; a="공구 가격은 오픈일에 셀러가 인스타그램 공지로 공개합니다. 구성에 따라 다를 수 있으니 셀러 계정에서 확인하세요." }
+  $body += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
+  foreach($f in $faq){ $body += "<div class=${Q}faq${Q}><b>$(HtmlEsc $f.q)</b><span>$(HtmlEsc $f.a)</span></div>" }
+  $body += '</div>'
+
+  $body += "<div class=${Q}sec${Q}><h2>관련 일정</h2><div class=${Q}rel${Q}>"
+  if($brandSlug.ContainsKey($x.brand)){ $body += "<a href=${Q}/g/$(Enc $brandSlug[$x.brand]).html${Q}>$(HtmlEsc $x.brand) 전체 공구 일정</a>" }
+  if($x.insta -and $SellerSlug.ContainsKey($x.insta)){ $body += "<a href=${Q}/s/$(Enc $SellerSlug[$x.insta]).html${Q}>$(HtmlEsc $x.who) 셀러의 다른 공구</a>" }
+  if($GgByBrand.ContainsKey($x.brand)){
+    foreach($o3 in (@($GgByBrand[$x.brand] | Sort-Object @{e='od';Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 6))){
+      if($o3.slug -ne $x.slug){ $body += "<a href=${Q}/gg/$(Enc $o3.slug).html${Q}>$(HtmlEsc $o3.name) ($($o3.od.Substring(5).Replace('-','/')))</a>" }
+    }
+  }
+  $body += '</div></div>'
+
+  $ld = New-Object System.Collections.ArrayList
+  $lf = LdFaq @($faq | ForEach-Object { [pscustomobject]@{ q=$_.q; a=$_.a } })
+  if($lf){ [void]$ld.Add($lf) }
+  [void]$ld.Add((LdCrumb "$($x.name) 공구" $canon))
+  WritePage @{ path=(Join-Path $Root "gg/$($x.slug).html"); title=$title; desc=$desc; canon=$canon;
+    h1="$($x.name) 공구"; sub="$($x.od) ~ $($x.ed)$(if($x.who){ ' · ' + $x.who })"; body=$body; jsonld=$ld; bcName="$($x.name) 공구" }
 }
 
 # ══ 셀러 페이지 ══
@@ -644,7 +727,7 @@ Hub '공구제품.html' "공구 제품 목록 $($prodList.Count)개 | 브랜드�
 # 비정본의 canonical 태그도 정본을 가리키게 되어 검색엔진 중복도 함께 정리된다.
 # 두 파일 모두 sitemap 에 남는다(KeptUrls) — 빼면 verify 의 고아 검사에 걸린다.
 # 윈도우에선 애초에 한 파일이라 이 블록은 할 일이 없다(리눅스 Actions 전용).
-foreach($dir in @('g','p','s')){
+foreach($dir in @('g','p','s','gg')){
   $dp2 = Join-Path $Root $dir
   $grps = Get-ChildItem $dp2 -Filter *.html -File | Group-Object { $_.Name.ToLower() } | Where-Object { $_.Count -gt 1 }
   foreach($g2 in $grps){
@@ -720,11 +803,14 @@ WriteSitemap 'sitemap-product.xml' $uP '0.7' 'weekly'
 $uS = @(); foreach($s in $sellerMade){ $uS += "s/$(Enc $s.slug).html" }
 $uS = @($uS) + @(KeptUrls 's' $uS)
 WriteSitemap 'sitemap-seller.xml' $uS '0.7' 'weekly'
+$uGG = @(); foreach($x in $ggRows){ $uGG += "gg/$(Enc $x.slug).html" }
+$uGG = @($uGG) + @(KeptUrls 'gg' $uGG)
+WriteSitemap 'sitemap-gonggu.xml' $uGG '0.6' 'weekly'
 
 $sm = New-Object System.Text.StringBuilder
 [void]$sm.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
 [void]$sm.AppendLine('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','sitemap-seller.xml')){
+foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','sitemap-seller.xml','sitemap-gonggu.xml')){
   [void]$sm.AppendLine("<sitemap><loc>$SITE/$f</loc><lastmod>$today</lastmod></sitemap>")
 }
 [void]$sm.AppendLine('</sitemapindex>')
@@ -740,6 +826,6 @@ foreach($k in $kwMade){ [void]$genRoot.Add("$k.html") }
 foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html')){ [void]$genRoot.Add($h) }
 [IO.File]::WriteAllLines((Join-Path $PSScriptRoot 'generated.txt'), $genRoot, [Text.UTF8Encoding]::new($false))
 
-$total = $uMain.Count + $uB.Count + $uP.Count + $uS.Count
+$total = $uMain.Count + $uB.Count + $uP.Count + $uS.Count + $uGG.Count
 Write-Output "브랜드 $($brandList.Count) · 제품 $($prodList.Count) · 셀러 $($sellerMade.Count) · 소분류 $($minorMade.Count) · 월별 $($monthMade.Count) · 카테고리 $($catMade.Count) · 키워드 $($kwMade.Count) · 허브 3"
 Write-Output "sitemap URL 합계 = $total"

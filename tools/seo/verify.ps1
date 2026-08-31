@@ -6,7 +6,7 @@ function Bad([string]$m){ [void]$fail.Add($m) }
 
 # 대상 파일 모으기
 $files = New-Object System.Collections.ArrayList
-foreach($d in @('g','p','s','m','d','c')){
+foreach($d in @('g','p','s','m','d','c','gg')){
   foreach($f in (Get-ChildItem (Join-Path $root $d) -Filter *.html -File)){ [void]$files.Add($f.FullName) }
 }
 $kw = ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'keywords.json')) | ConvertFrom-Json).pages
