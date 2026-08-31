@@ -92,7 +92,12 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 body.srch-mode .s-back{display:block}
 body.srch-mode .intro-strip,body.srch-mode .main-banner-section,body.srch-mode #sellerZone,
 body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
-body.srch-mode #reloginStrip,body.srch-mode #pwaStrip{display:none!important}
+body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{display:none!important}
+/* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
+.hot-tag-row{display:flex;gap:7px;padding:10px 16px 2px;overflow-x:auto;scrollbar-width:none}
+.hot-tag-row::-webkit-scrollbar{display:none}
+.hot-tag{flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 12px;border-radius:100px;background:#F3ECFA;color:#602090;border:none;font-family:inherit;cursor:pointer;white-space:nowrap}
+.hot-tag:active{background:#E0CDF5}
 body.srch-suggest #gongguWrap,body.srch-suggest #hotdealView,body.srch-suggest #expView,
 body.srch-suggest #searchAllView{display:none!important}
 #searchDrop{display:none;padding:12px 16px 40px;min-height:60vh}
@@ -741,6 +746,9 @@ body.sheet-open{ overscroll-behavior-y: none; }
   <div class="sub-row" id="subRow"></div>
 </div>
 
+<!-- 🔥 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — 요즘 오픈이 활발한 소분류 태그. 탭하면 그 검색결과로 -->
+<div class="hot-tag-row" id="hotTagRow" style="display:none"></div>
+
 <!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 -->
 <div class="content-seg" id="contentSeg">
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
@@ -1231,7 +1239,25 @@ async function loadData() {
     }
   }
   buildWeekTabs();
+  buildHotTags();
   if(!restoreViewState()) renderList();
+}
+
+// 🔥 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — 검색 로그가 아니라 **등록량** 기준이라 즉시 돈다.
+//    오늘 진행중~7일 안에 오픈하는 공구가 많은 소분류 상위 8개. 탭하면 그 소분류 검색결과로(runSearch 가 minor 도 검색).
+function buildHotTags(){
+  const el=document.getElementById('hotTagRow'); if(!el) return;
+  try{
+    const d=new Date(todayStr+'T00:00:00'); d.setDate(d.getDate()+7);
+    const lim=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const cnt={};
+    DATA.forEach(it=>{ if(!it.minor || isExpired(it) || it.openDate>lim) return; cnt[it.minor]=(cnt[it.minor]||0)+1; });
+    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    if(top.length<3){ el.style.display='none'; return; }
+    el.innerHTML='<span style="flex:0 0 auto;font-size:12px;font-weight:800;color:#B3A8C4;padding:6px 0">🔥</span>'+
+      top.map(([m])=>`<button class="hot-tag" data-m="${m.replace(/"/g,'')}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
+    el.style.display='flex';
+  }catch(_){ el.style.display='none'; }
 }
 
 // ── 조회수(카드 클릭) 집계: 전체 TOP100 정렬용 (최근 클릭 기준) ──
