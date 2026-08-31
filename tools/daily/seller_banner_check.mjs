@@ -59,9 +59,14 @@ async function fetchBlocks(url) {
   } catch (e) { return null; }
 }
 
-const live = sql(`select id, title, link from public.banners
+// ad_memo 에 '유지' 가 적힌 배너는 인포크에서 내려가도 건드리지 않는다
+// (사장님 지시 2026-08-31: 이현맘 르베르 유모차(69)는 셀러 요청으로 유지)
+const rows = sql(`select id, title, link, coalesce(ad_memo,'') as memo from public.banners
                   where type='seller' and active order by sort_order;`);
-if (!live.length) { console.log('노출중인 셀러배너가 없다'); process.exit(0); }
+const keep = rows.filter((b) => b.memo.includes('유지'));
+keep.forEach((b) => console.log(`🔒 ${b.title.slice(0, 30)} — 유지 지정(점검 제외)`));
+const live = rows.filter((b) => !b.memo.includes('유지'));
+if (!live.length) { console.log('점검할 셀러배너가 없다'); process.exit(0); }
 console.log(`노출중 ${live.length}건 점검`);
 
 // 인포크 페이지는 셀러당 한 번만 읽는다 (같은 링크를 여러 배너가 공유한다)
