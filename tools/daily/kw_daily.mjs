@@ -14,6 +14,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
+import { execSync } from 'child_process';
 
 const ROOT = 'C:/Users/FAMILY/Desktop/MOMCALENDAR';
 const SCR = path.join(ROOT, 'scratchpad');
@@ -101,3 +102,40 @@ const log = [`[${today}] 브랜드 ${cur}~${cur + batchBrands.length}/${brands.l
   ...top.map(r => `  ${r[1]} = ${r[4]} (${r[5]})`)].join('\n');
 fs.appendFileSync(path.join(SCR, 'kw_daily_report.txt'), log + '\n', 'utf8');
 console.log(log);
+
+// ── 검색량 지도 재생성 → 저장소 자동 반영 (사장님 지시 2026-08-31 "매일 자동으로 돌아가게") ──
+// 누적 로그 전체에서 tools/seo/kw_volume.json 을 다시 만들고, 경량 클론(momcal-kwbot)으로
+// commit·push 한다. 다음 날 새벽빌드가 이 지도를 읽어 내부링크를 검색량순으로 재배치한다.
+// 잡음(일반어·하드웨어 공구)은 NOISE 로 제외 — 여기 한 줄 추가가 유일한 관리 지점.
+const NOISE = new Set(['우리', '자동차', '지금', '오늘', '한일', '스탠리', '보쉬', '디월트', '마끼다', '공구', '가정용', '전동', '국산']);
+try {
+  const brandSetL = new Set(brands.map(b => b.trim()));
+  const vol = {};
+  for (const line of fs.readFileSync(path.join(SCR, 'kw_volume_log.tsv'), 'utf8').split(/\r?\n/)) {
+    const c = line.split('\t');
+    if (c.length < 5 || !c[1].endsWith(' 공구')) continue;
+    const brand = c[1].slice(0, -3).trim();
+    const tot = parseInt(c[4]) || 0;
+    if (NOISE.has(brand)) continue;
+    if (brandSetL.has(brand) && tot >= 50) vol[brand] = tot; // 뒤 행(최신)이 덮어씀
+  }
+  const json = JSON.stringify(Object.fromEntries(Object.entries(vol).sort((a, b) => b[1] - a[1])), null, 1);
+  fs.writeFileSync(path.join(ROOT, 'tools', 'seo', 'kw_volume.json'), json, 'utf8'); // 로컬 빌드용
+  const BOT = 'C:/Users/FAMILY/momcal-kwbot';
+  if (fs.existsSync(BOT)) {
+    execSync('git pull --rebase -q', { cwd: BOT, stdio: 'pipe' });
+    fs.writeFileSync(path.join(BOT, 'tools', 'seo', 'kw_volume.json'), json, 'utf8');
+    const st = execSync('git status --porcelain tools/seo/kw_volume.json', { cwd: BOT }).toString().trim();
+    if (st) {
+      execSync('git add tools/seo/kw_volume.json', { cwd: BOT });
+      execSync(`git commit -q -m "검색량 지도 자동 갱신 (${today}, ${Object.keys(vol).length}개 브랜드)"`, { cwd: BOT });
+      execSync('git push -q', { cwd: BOT, stdio: 'pipe' });
+      console.log(`검색량 지도 push 완료 (${Object.keys(vol).length}개 브랜드)`);
+    } else console.log('검색량 지도 변화 없음 — push 생략');
+  } else {
+    fs.appendFileSync(path.join(SCR, 'kw_daily_report.txt'), `  🔴 momcal-kwbot 클론 없음 — 지도 push 생략\n`, 'utf8');
+  }
+} catch (e) {
+  // schtasks 는 콘솔을 버린다 — 실패는 보고 파일에 남겨 세션이 발견하게 한다
+  fs.appendFileSync(path.join(SCR, 'kw_daily_report.txt'), `  🔴 검색량 지도 push 실패: ${e.message.slice(0, 150)}\n`, 'utf8');
+}
