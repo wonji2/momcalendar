@@ -48,6 +48,17 @@ try{
   foreach($pr in $bj.PSObject.Properties){ $Boost[$pr.Name] = @($pr.Value) }
   Write-Output "GSC 보강어: 브랜드 $($Boost.Count)개"
 }catch{ Write-Output "boost.json 없음/읽기 실패(무시)" }
+
+# ── 네이버 월간 검색량 (2026-08-31, momcal-kw-daily 스윕 산출) ──
+# 내부 링크 자리는 한정 자원이다. '등록 건수' 가 아니라 '실제 검색량' 큰 브랜드에
+# 링크 힘을 몰아준다. 파일: tools/seo/kw_volume.json — { "브랜드": 월간합계 }.
+$KwVol = @{}
+try{
+  $kv = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'kw_volume.json')) | ConvertFrom-Json
+  foreach($pr in $kv.PSObject.Properties){ $KwVol[$pr.Name] = [int]$pr.Value }
+  Write-Output "검색량 지도: 브랜드 $($KwVol.Count)개"
+}catch{ Write-Output "kw_volume.json 없음(무시) — 링크 서열은 건수순" }
+function VolOf([string]$b){ if($KwVol.ContainsKey($b)){ return [int]$KwVol[$b] } return 0 }
 $today = $D.today
 if(-not $today){ throw '데이터에 today 가 없다' }
 Write-Output "데이터 기준일: $today (캐시 $($D.cached_at))"
@@ -163,7 +174,8 @@ foreach($x in $D.brands){
 }
 $brandSlug = @{}
 foreach($b in $brandList){ if(-not $brandSlug.ContainsKey($b.brand)){ $brandSlug[$b.brand] = $b.slug } }
-$topBrands = $brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 24
+# 검색량 1순위 · 건수 2순위 (검색되는 브랜드에 내부 링크 힘을 몰아준다, 2026-08-31)
+$topBrands = $brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 24
 
 # ══ 셀러 슬러그 먼저 ══
 # 카드에서 셀러 페이지로 링크하려면 주소를 미리 알아야 한다.
@@ -195,7 +207,8 @@ foreach($b in $brandList){
   $rows = ParseRows $b.raw @('who','name','od','ed','insta')
   $sp = SplitNow $rows $today
   $live = $sp.now; $soon = $sp.soon; $past = $sp.past
-  $tp = @(); if($b.topprods){ $tp = @($b.topprods -split '\|' | Where-Object { $_ -and $_ -ne $b.brand }) }
+  # 가격·수량 토큰("77,000원")과 '전제품' 같은 비제품어는 제목에 싣지 않는다 (상떼 실측 2026-08-31)
+  $tp = @(); if($b.topprods){ $tp = @($b.topprods -split '\|' | Where-Object { $_ -and $_ -ne $b.brand -and $_ -notmatch '^[\d,\.]+' -and $_ -notmatch '^(전제품|전상품|단하루|오늘|핫딜)$' }) }
   # GSC 보강어는 앞에 붙인다 → 제목의 상위 3개 자리에 실린다.
   # 기존 제품어 중 보강어와 겹치는 것(공백 무시 포함관계)은 걷어낸다 — "티오람 미니·미니·티오람미니" 같은 중복 방지.
   if($Boost.ContainsKey($b.brand)){
@@ -384,7 +397,7 @@ foreach($s in $D.sellers){
   $ex = ExtraBody $s.kor '셀러' $live $soon $past @()
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>인기 브랜드 공구</h2><div class=${Q}rel${Q}>"
-  foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 20)){
+  foreach($b in ($topBrands | Select-Object -First 20)){
     $body += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand) 공구</a>"
   }
   $body += '</div></div>'
@@ -540,7 +553,7 @@ function Sub3([string]$s){
   if($null -eq $s){ return '' }
   return $s.Replace('__TOTAL__',$fmtTotal).Replace('__SELLERS__',$fmtSellers).Replace('__BRANDS__',$fmtBrands)
 }
-$topB = $brandList  | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 30
+$topB = $brandList  | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 30
 $topP = $prodList   | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false} | Select-Object -First 30
 $topS = $sellerMade | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 40
 $topM = $minorMade  | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='minor';Descending=$false} | Select-Object -First 30

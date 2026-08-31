@@ -19,7 +19,7 @@ const ROOT = 'C:/Users/FAMILY/Desktop/MOMCALENDAR';
 const SCR = path.join(ROOT, 'scratchpad');
 const cfg = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.momcal_naverad.json'), 'utf8'));
 const BASE = 'https://api.searchad.naver.com', URI = '/keywordstool';
-const PER_DAY = 150;
+const PER_DAY = parseInt(process.env.KW_PER_RUN || '150', 10); // 전량 스윕은 KW_PER_RUN=9999 로
 
 function headers() {
   const ts = String(Date.now());
@@ -49,8 +49,9 @@ if (kst.getUTCDay() === 1) {
   try { core = fs.readFileSync(path.join(SCR, 'kw_targets.txt'), 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#')); } catch {}
 }
 const queries = [...core, ...batchBrands.map(b => `${b} 공구`)];
-const hintOf = k => k.replace(/\s+/g, '');
-const uniq = [...new Map(queries.map(k => [hintOf(k), k])).entries()];
+// 힌트는 한글·영숫자만 허용된다 — 특수문자(·&.+% 등) 섞이면 배치 전체가 400 난다(2026-08-31 실측)
+const hintOf = k => k.replace(/[^가-힣A-Za-z0-9]/g, '');
+const uniq = [...new Map(queries.map(k => [hintOf(k), k])).entries()].filter(([h]) => h.length >= 2);
 
 const volRows = [], relSeen = new Set(), relRows = [];
 let calls = 0;
@@ -63,7 +64,10 @@ for (let i = 0; i < uniq.length; i += 5) {
   calls++;
   if (!res.ok) {
     if (res.status === 429) { await sleep(30000); i -= 5; continue; }
-    console.error(`API ${res.status}`, (await res.text()).slice(0, 150)); break;
+    // 400(유효하지 않은 키워드)은 이 배치만 버리고 계속 간다 — 전체 스윕을 멈추지 않는다
+    console.error(`API ${res.status} (배치 스킵: ${batch.map(b => b[1]).join(',')})`, (await res.text()).slice(0, 120));
+    if (res.status === 400) continue;
+    break;
   }
   const j = await res.json();
   const list = j.keywordList || [];
