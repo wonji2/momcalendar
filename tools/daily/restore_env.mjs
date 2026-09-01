@@ -83,6 +83,42 @@ if (okOps) {
 }
 if (okWbk) fillFile(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
 
+// ── 파일 복구로는 절대 되살릴 수 없는 것들 (사람 손이 필요) ────────────────────
+// 로그인 쿠키·앱이 관리하는 예약작업은 백업 대상이 아니다. 있는 척하면 그게 더 위험하므로 따로 알린다.
+const manual = [];
+{
+  const cookies = join(REPO, 'sns-automation', 'browser-profile', 'Default', 'Network', 'Cookies');
+  if (!existsSync(cookies)) manual.push('네이버 블로그 로그인 — `cd sns-automation && npm run naver-login` (창에서 "로그인 상태 유지" 켜고 로그인)');
+  else {
+    const days = (Date.now() - statSync(cookies).mtimeMs) / 86400e3;
+    if (days > 25) manual.push(`네이버 로그인 쿠키가 ${Math.floor(days)}일 됨 (30일 만료) — npm run naver-login 으로 갱신 권장`);
+  }
+  try {
+    const out = execFileSync('schtasks', ['/query', '/fo', 'csv'], { encoding: 'latin1' });
+    const n = (out.match(/momcal-|work-backup/g) || []).length;
+    if (n < 5) manual.push(`윈도우 예약작업이 ${n}개뿐 — 백업·크롤러가 죽었을 수 있다 (schtasks /query 로 확인)`);
+  } catch { manual.push('schtasks 조회 실패 — 예약작업 생존 여부를 직접 확인할 것'); }
+  // 윈도우 예약작업은 앱 재설치에는 살아남지만 PC 를 바꾸면 사라진다 → 레포에 저장해둔 정의(XML)로 자동 복구
+  try {
+    const ps = join(REPO, 'tools', 'daily', 'tasks_backup.ps1');
+    if (existsSync(ps)) {
+      const out = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps, '-Restore'], { encoding: 'latin1', timeout: 120e3 });
+      const made = (out.match(/새로 등록 (\d+)/) || [])[1];
+      if (made && made !== '0') say('🟢', '예약작업', `${made}개 복구 (레포의 tasks/*.xml 에서)`);
+      else say('✅', '예약작업', '전부 살아있음');
+    }
+  } catch (e) { manual.push('예약작업 복구 실패 — `powershell tools\\daily\\tasks_backup.ps1 -Restore` 를 직접 돌려볼 것'); }
+  manual.push('인스타 파싱은 크롬 확장(claude-in-chrome) + 가계정 로그인이 필요 — 파싱 작업을 할 때만');
+  // 🔴 browser-profile* 은 네이버 로그인 쿠키라 백업에서 제외된다(공개·비공개 모두). 새 PC 면 반드시 다시 로그인.
+  const snsRoot = join(REPO, 'sns-automation');
+  if (existsSync(snsRoot)) {
+    if (!existsSync(join(snsRoot, 'browser-profile')))
+      manual.push('네이버 블로그 로그인 필요 — sns-automation 에서 `npm run login` (주간 예약 발행용)');
+    if (!existsSync(join(snsRoot, 'browser-profile-cafe')))
+      manual.push('네이버 카페 로그인 필요 — `node src/cafe-browser.js login` (핫딜 카페 자동 발행용)');
+  }
+}
+
 // 살아있는지 최종 확인
 const memCount = existsSync(MEM) ? readdirSync(MEM).length : 0;
 const cmdCount = existsSync(join(REPO, '.claude', 'commands')) ? readdirSync(join(REPO, '.claude', 'commands')).length : 0;
@@ -93,6 +129,10 @@ console.log(`\n  메모리 ${memCount}개 · 커맨드 ${cmdCount}개 · HANDOFF
 // 이어서 작업하려면 이 셋이 살아 있어야 한다. settings.json(훅)은 없어도 작업은 된다.
 const core = memCount > 0 && cmdCount > 0 && existsSync(join(REPO, 'HANDOFF.md'));
 const warn = log.filter(l => l.icon === '🟡').length;
+if (manual.length) {
+  console.log('\n  ⚠ 파일 복구로는 안 되는 것 (사람이 해야 함)');
+  for (const m of manual) console.log(`    · ${m}`);
+}
 if (core) {
   console.log('\n✅ 이어서 작업 가능한 상태' + (warn ? ` (경고 ${warn}건 — 핵심 아님)` : ''));
 } else {
