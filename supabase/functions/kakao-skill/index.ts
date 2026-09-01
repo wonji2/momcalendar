@@ -14,7 +14,7 @@ const SB = "https://hycaqsqeogjtbscmzrtm.supabase.co";
 const KEY = "sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE";
 const SITE = "https://momcalendar.com";
 const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 뽀사카 공구있어?)", "", "전체 일정은 " + SITE].join("\n");
-const MAX_SHOW = 30;   // 카드 6장 (한 장 5건)
+const MAX_SHOW = 20;   // 캐러셀 5장 × 4건 (카카오 최대치)
 
 const kst = () => new Date(Date.now() + 9 * 3600e3);
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -67,12 +67,14 @@ const one = (title: string, items: any[]) => ({
   })),
   buttons: [{ label: "전체 일정 보기", action: "webLink", webLinkUrl: SITE }],
 });
-// 카카오 listCard 는 한 장에 5건이 한계 → 5건씩 잘라 좌우로 넘기는 캐러셀
+// 카카오 규격: 캐러셀 **최대 5장**, 캐러셀 안 listCard 는 **항목 4개**까지(단일 카드는 5개).
+//   ⚠ 어기면 "말풍선 가이드 위반" 으로 응답이 통째로 버려져 손님에게 아무것도 안 간다 (2026-09-01 실사고).
+const CARD_MAX = 5, PER_CARD = 4;
 function cards(title: string, rows: any[]) {
+  if (rows.length <= 5) return { listCard: one(title, rows) };          // 단일 카드는 5개까지
   const ch: any[][] = [];
-  for (let i = 0; i < rows.length; i += 5) ch.push(rows.slice(i, i + 5));
-  if (ch.length <= 1) return { listCard: one(title, ch[0] || []) };
-  return { carousel: { type: "listCard", items: ch.map((c, i) => one(`${title} (${i + 1}/${ch.length})`, c)) } };
+  for (let i = 0; i < rows.length && ch.length < CARD_MAX; i += PER_CARD) ch.push(rows.slice(i, i + PER_CARD));
+  return { carousel: { type: "listCard", items: ch.map((c, i) => one(`${title} ${i + 1}/${ch.length}`, c)) } };
 }
 
 Deno.serve(async (req) => {
