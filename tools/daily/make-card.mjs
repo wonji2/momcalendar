@@ -78,7 +78,11 @@ try {
   if (!Array.isArray(closes)) closes = [];
 } catch (e) { console.log('블로그용 REST 실패:', String(e).slice(0, 120)); }
 
-const seller = (g) => g.influencer || g.insta || '';
+const seller = (g) => (g.influencer || g.insta || '').trim();
+// ⚠ 셀러를 모르는 행(카페 크롤러 등록분은 insta/influencer 가 빈 문자열)이 있다.
+//   그대로 `— ${seller(o)}` 로 쓰면 "상품명 — " 처럼 대시 뒤가 빈 채로 나간다(2026-09-01 사장님 지적).
+//   셀러가 없으면 대시째로 생략한다.
+const sellerSuffix = (g) => { const s = seller(g); return s ? ` — ${s}` : ''; };
 const mmdd = (s) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? `${+s.slice(5, 7)}/${+s.slice(8, 10)}` : '';
 // 상품명 첫 토큰에서 브랜드 후보를 뽑는다. 일반명사·수식어는 제외 (제목·태그용 3개면 충분)
 const BRAND_STOP = new Set(['국민','만능','오늘','미니','역시즌','특가','신상','베스트','국산','유아','아기','키즈',
@@ -200,10 +204,10 @@ const blogBody = [
   // (사진 안내 문장 제거 — 사장님 지시 2026-08-27 "복사해서 그대로 붙여넣게". 사진 넣는 순서는 페이지 하단 안내문에만 남긴다)
   `■ 오늘 오픈하는 공구 ${opens.length}건`,
   ...byMajor.flatMap(([m, arr]) => [``, `[${m}]`,
-    ...arr.map((o) => `· ${o.name} — ${seller(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
+    ...arr.map((o) => `· ${o.name}${sellerSuffix(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
   ``,
   `■ 오늘 마감하는 공구 ${closes.length}건`,
-  ...closes.map((o) => `· ${o.name} — ${seller(o)}`),
+  ...closes.map((o) => `· ${o.name}${sellerSuffix(o)}`),
   ...brandStory,
   ``,
   `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,

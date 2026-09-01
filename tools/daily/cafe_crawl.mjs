@@ -109,7 +109,11 @@ d as (  -- 이미 DB에 있는 같은 공구 (이름 정규화 일치/포함 + �
   select v.*, g.id gid, g.pay_link gpay
   from v join gonggu g
     on g.open_date ~ '^\\d{4}-\\d{2}-\\d{2}$'
-   and abs(g.open_date::date - v.open_date::date) <= 3
+   -- 오픈일만 보면 샌다(2026-09-01 사고): 카페 글은 기간을 길게 적고(8/26~9/2)
+   -- 셀러는 짧게 올린다(8/30~9/2). 오픈일은 4일 차라 창 밖인데 마감일이 같은 한 공구다.
+   -- 그래서 오픈일 또는 마감일 중 하나라도 3일 이내면 같은 공구로 본다.
+   and (abs(g.open_date::date - v.open_date::date) <= 3
+     or (g.end_date ~ '^\\d{4}-\\d{2}-\\d{2}$' and abs(g.end_date::date - v.end_date::date) <= 3))
    and (${NORM('g.name')} = ${NORM('v.name')}
      or (length(${NORM('v.name')}) >= 4 and ${NORM('g.name')} like '%'||${NORM('v.name')}||'%')
      or (length(${NORM('g.name')}) >= 4 and ${NORM('v.name')} like '%'||${NORM('g.name')}||'%'))
