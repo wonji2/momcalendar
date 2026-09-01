@@ -4360,10 +4360,12 @@ async function loadSellerAdmin(){
   }catch(e){ sellerData=[]; }
   renderSellerList();
 }
-// 이웃셀러(파트너)만 — is_partner=true 로 직접 등록한 파트너만 (login_insta 가입 셀러는 제외)
+// 이웃셀러(파트너) = is_partner=true 전부.
+// 🔴 예전엔 login_insta 가입 셀러를 제외했는데, 이현맘(8/19)·아드퓨(8/31)처럼 **가입 계정에 파트너
+//    속성을 병합**한 셀러가 관리자에서 안 보이는 사고가 났다(사장님 지적 2026-09-01). 제외 조건 삭제.
 function renderSellerList(){
   const el=document.getElementById('sellerList');
-  const neighbors=sellerData.filter(s=>s.is_partner===true && !s.login_insta);
+  const neighbors=sellerData.filter(s=>s.is_partner===true);
   if(!neighbors.length){
     el.innerHTML=`<div style="text-align:center;padding:30px;color:#999;font-size:13px">등록된 이웃셀러가 없어요<br>+ 셀러 추가 버튼으로 추가해주세요</div>`;
     return;
@@ -5356,7 +5358,7 @@ async function loadEventStats(){
       }
 
       // ─ ⭐ 이웃셀러·맘캘 클릭 점유율 ─
-      const partnerInstas=new Set((typeof sellerData!=='undefined'&&Array.isArray(sellerData)?sellerData:[]).filter(s=>s&&s.is_partner&&!s.login_insta).map(s=>String(s.insta||'').replace('@','').trim().toLowerCase()).filter(Boolean));
+      const partnerInstas=new Set((typeof sellerData!=='undefined'&&Array.isArray(sellerData)?sellerData:[]).filter(s=>s&&s.is_partner).map(s=>String(s.insta||'').replace('@','').trim().toLowerCase()).filter(Boolean));   // 가입계정 병합 파트너(이현맘·아드퓨)도 포함 (2026-09-01)
       const MOMCAL_IG=new Set(['momcal_','momcalendar','momcal','momcalendar_']);
       let cN=0,cM=0,cG=0,cT=0;
       all.forEach(e=>{ if(e.event_type!=='card_click'||!e.event_data)return; cT++; let o=null; try{o=JSON.parse(e.event_data);}catch(_){}
