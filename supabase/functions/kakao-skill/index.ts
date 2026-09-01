@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     u = String(body?.userRequest?.utterance ?? "").trim();
-    uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 8);
+    uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 8) + ":" + String(body?.userRequest?.user?.type ?? "?");
     const today = ymd(kst());
 
 
