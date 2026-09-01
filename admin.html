@@ -1033,6 +1033,7 @@ details summary::-webkit-details-marker{display:none}
         <button onclick="switchEvtTab('infl')" id="eTab-infl" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">👤 인기 인플루언서</button>
         <button onclick="switchEvtTab('search')" id="eTab-search" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🔍 인기 검색어</button>
         <button onclick="switchEvtTab('gap')" id="eTab-gap" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🕳️ 수요 갭</button>
+        <button onclick="switchEvtTab('bot')" id="eTab-bot" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🤖 챗봇</button>
         <button onclick="switchEvtTab('report')" id="eTab-report" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">🤝 이웃 리포트</button>
         <button onclick="switchEvtTab('type')" id="eTab-type" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:#F0E6FA;color:#602090">📈 인사이트</button>
       </div>
@@ -5140,7 +5141,7 @@ let _neighborReportText='';
 
 function switchEvtTab(tab){
   _evtTab=tab;
-  ['card','save','infl','search','gap','type','report'].forEach(t=>{
+  ['card','save','infl','search','gap','type','report','bot'].forEach(t=>{
     const b=document.getElementById('eTab-'+t);
     if(!b)return;
     b.style.background=t===tab?'#602090':'#F0E6FA';
@@ -5473,6 +5474,8 @@ async function loadEventStats(){
   const guide=document.getElementById('evtSetupGuide');
   if(el) el.innerHTML='<div style="color:#aaa;font-size:12px">로딩 중...</div>';
   if(_evtTab==='report'){ if(guide)guide.style.display='none'; renderNeighborReportUI(); return; }
+  // 🤖 챗봇 — 카카오 관리자센터엔 챗봇 대화가 안 남아서 우리가 events 에 쌓은 걸 보여준다 (2026-09-01)
+  if(_evtTab==='bot'){ if(guide)guide.style.display='none'; renderBotStats(); return; }
   // 💜 찜: 이벤트 로그(save)가 아니라 실제 wishes 테이블을 집계 (2026-07-23)
   if(_evtTab==='save'){
     if(guide)guide.style.display='none';
@@ -6322,6 +6325,59 @@ function getDupReason(item){
 let DASH_DAYS=14, _dashSellerPerfRows=[];
 function dashEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function dashNum(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+// 🤖 카카오톡 챗봇 — 손님이 뭘 물었고 우리가 답했는지 (카카오 관리자센터엔 안 남는다)
+//   RPC: admin_bot_log / admin_bot_miss / admin_bot_top  (supabase/sql/admin_bot_log_46.sql)
+async function renderBotStats(){
+  const el=document.getElementById('eventStats'); if(!el) return;
+  el.innerHTML='<div style="color:#aaa;font-size:12px">챗봇 대화 불러오는 중…</div>';
+  try{
+    const [log, miss, top] = await Promise.all([
+      adminRpc('admin_bot_log',  {p_days:7, p_limit:120}).catch(()=>[]),
+      adminRpc('admin_bot_miss', {p_days:14, p_limit:20}).catch(()=>[]),
+      adminRpc('admin_bot_top',  {p_days:14, p_limit:15}).catch(()=>[]),
+    ]);
+    const real=(log||[]).filter(r=>!r.is_test);
+    const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const kind=a=>/carousel|listCard/.test(a||'')?'<span style="color:#2E9E5B;font-weight:700">카드</span>'
+                 :(a?'<span style="color:#E0922E;font-weight:700">글</span>':'<span style="color:#bbb">-</span>');
+    let h=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:2px 0 4px">🤖 카카오톡 챗봇</div>
+      <div style="font-size:10.5px;color:#999;margin-bottom:10px">손님이 채널에서 물어본 내용이에요. 카카오 관리자센터엔 챗봇 대화가 남지 않아서 여기서만 볼 수 있어요.
+      <b>카드</b>=공구를 찾아드림 · <b>글</b>=안내문(못 찾았거나 인사)</div>`;
+
+    h+=`<div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:#F7F3FC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#8A8194">최근 7일 질문</div><div style="font-size:19px;font-weight:800;color:#4A35A0">${real.length}</div></div>
+      <div style="flex:1;background:#F7F3FC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#8A8194">물어본 사람</div><div style="font-size:19px;font-weight:800;color:#4A35A0">${new Set(real.map(r=>r.who)).size}</div></div>
+      <div style="flex:1;background:#FBE8EC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#A85">못 찾은 말</div><div style="font-size:19px;font-weight:800;color:#E0506E">${(miss||[]).length}</div></div>
+    </div>`;
+
+    if((miss||[]).length){
+      h+=`<div style="font-size:12px;font-weight:800;color:#E0506E;margin:14px 0 5px">🔴 챗봇이 못 알아들은 말 (최근 2주)</div>
+        <div style="font-size:10.5px;color:#999;margin-bottom:7px">이 목록을 클로드에게 알려주시면 알아듣게 고쳐드려요.</div>`;
+      h+=(miss||[]).map(m=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #F5F0FA">
+        <span style="font-size:12px;color:#333">${esc(m.sample||m.keyword)} <span style="font-size:10px;color:#bbb">→ '${esc(m.keyword)}' 로 찾음</span></span>
+        <span style="font-size:11px;color:#E0506E;font-weight:700;flex-shrink:0">${m.cnt}회</span></div>`).join('');
+    }
+    if((top||[]).length){
+      h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:16px 0 5px">🔥 많이 물어본 말 (최근 2주)</div>`;
+      const mx=Math.max(...top.map(t=>t.cnt));
+      h+=top.map((t,i)=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;gap:8px">
+        <span style="font-size:12px;color:#333">${i+1}. ${esc(t.utterance)}</span><span style="font-size:11px;color:#602090;font-weight:700">${t.cnt}회</span></div>
+        <div style="height:5px;background:#F0E6FA;border-radius:3px"><div style="height:5px;background:#7B3FB5;border-radius:3px;width:${Math.round(t.cnt/mx*100)}%"></div></div></div>`).join('');
+    }
+    h+=`<div style="font-size:12px;font-weight:800;color:#4A35A0;margin:16px 0 5px">💬 최근 대화</div>`;
+    if(!real.length) h+='<div style="color:#aaa;font-size:12px">아직 손님 질문이 없어요.</div>';
+    else h+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px">
+      <thead><tr style="color:#9B9B9B;text-align:left"><th style="padding:4px 6px;font-weight:700">시각</th><th style="padding:4px 6px;font-weight:700">손님이 물어본 말</th><th style="padding:4px 6px;font-weight:700">답</th></tr></thead>
+      <tbody>${real.slice(0,60).map(r=>`<tr style="border-top:1px solid #F3EEF9">
+        <td style="padding:5px 6px;color:#999;white-space:nowrap">${esc(String(r.kst).slice(5,16))}</td>
+        <td style="padding:5px 6px;color:#333">${esc(r.utterance)}</td>
+        <td style="padding:5px 6px">${kind(r.answer)}</td></tr>`).join('')}</tbody></table></div>`;
+    el.innerHTML=h;
+  }catch(e){
+    el.innerHTML=`<div style="color:#E0506E;font-size:12px">챗봇 기록을 불러오지 못했어요: ${String(e.message||e)}</div>`;
+  }
+}
+
 async function adminRpc(name, body){
   const r=await fetch(`${SB_URL}/rest/v1/rpc/${name}`,{
     method:'POST',
