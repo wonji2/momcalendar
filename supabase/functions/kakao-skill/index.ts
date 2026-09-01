@@ -100,6 +100,12 @@ const TAILS: RegExp[] = [
   /(종류|모음|관련|같은거|같은\s*거)$/,
   /(언제|어때|어떤|얼마|어디)$/,
   /(냐고|라고|다고|인데|는데|건데|이야|임|이지|잖아)$/,
+  /궁금\s*(해요|해용|해영|한데|하다|해|행)?$/,          // "물티슈 공구궁금해요!" (실제 손님)
+  /(알고|보고|사고)\s*싶(어요|어|다|은데)?$/,
+  /(어떤가요|어떨까요|없을까요|있을까요|될까요)$/,
+  /(주세요|주라|줄래|줘요|줘)$/,
+  /[♡♥❤️🩷💜🙏😊😀ㅡ]+$/,                                  // "…궁금해♡" 처럼 붙는 기호
+  /(이|가|은|는|을|를|도|만)$/,                            // "일정이" 에서 일정을 지운 뒤 남는 조사
   /(좀|요|용|넹|넵|야)$/,
 ];
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
@@ -164,7 +170,7 @@ Deno.serve(async (req) => {
     //   ⚠ uz 는 아래 인사 판정보다 먼저 정의해야 한다 — 늦게 두면 TDZ 로 전 요청 500 (2026-09-01 실사고, 2번째)
     const today = ymd(kst());
 
-    if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 2) return reply([text(HELP)]);
+    if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 1) return reply([text(HELP)]);
 
     // 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") — 조회수+찜 합산 순
     const wantTop = /인기|젤\s|제일|가장|탑\s*텐|탑10|탑\s*10|top\s*10|톱텐|조회수|많이\s*본|베스트|best|순위|랭킹/i.test(u);
@@ -239,17 +245,47 @@ Deno.serve(async (req) => {
     }
 
     // ① 브랜드·상품·셀러 검색 (말버릇을 걷어내고 남은 낱말이 있을 때만)
-    if (kw.length >= 2) {
+    // 한 글자("김")도 찾는다. 다만 한 글자는 셀러명까지 보면 오탐이 크니 상품명만 본다.
+    const STOP1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
+    if (kw.length >= 1 && !(kw.length === 1 && STOP1.includes(kw))) {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
       if (kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);   // 줄임말: 글자 사이를 연다
       for (const t of [...new Set(tries)]) {
-        const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${t}%`;
-        const enc = encodeURIComponent(pat);
-        const rows = await pick(`end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`, "order=open_date.asc", ph);
+        // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
+        const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
+        let cond: string;
+        if (ws.length >= 2) {
+          cond = ws.map((w) => {
+            const e = encodeURIComponent("%" + w + "%");
+            return `or(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})`;
+          }).join(",");
+          cond = `end_date=gte.${today}&and=(${cond})`;
+        } else {
+          const base = ws.length === 1 ? ws[0] : t;   // 짧은 낱말이 떨어져 나가면 남은 낱말로 찾는다
+          const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${base}%`;
+          const enc = encodeURIComponent(pat);
+          cond = base.length <= 1
+            ? `end_date=gte.${today}&name=ilike.${enc}`
+            : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
+        }
+        const rows = await pick(cond, "order=open_date.asc", ph);
         if (rows.length) return reply([cards(`'${kw}' 공구 일정`, rows)]);
       }
+      // 붙여 쓴 말은 상품명 낱말과 대조해 한 번 더 찾는다 (아기곰탕 → 곰탕) — 사장님 지시 2026-09-01
+      try {
+        const sw = await fetch(`${SB}/rest/v1/rpc/bot_subword`, { method: "POST",
+          headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_kw: kw }) }).then((x) => x.json());
+        const w = (Array.isArray(sw) && sw[0] && sw[0].word) ? String(sw[0].word) : "";
+        if (w) {
+          const e2 = encodeURIComponent("%" + w + "%");
+          const r2 = await pick(`end_date=gte.${today}&or=(name.ilike.${e2},influencer.ilike.${e2},insta.ilike.${e2})`, "order=open_date.asc", ph);
+          if (r2.length) return reply([cards(`'${w}' 공구 일정`, r2)]);
+        }
+      } catch (_) { /* 못 찾으면 아래 안내로 간다 */ }
+
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
       try {
         fetch(`${SB}/rest/v1/events`, { method: "POST",

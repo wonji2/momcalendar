@@ -9,7 +9,7 @@
  *   ④ 남은 것(후보 없음)은 🔴 로 보고서에 남긴다 → 세션이 보고 말투 규칙을 손본다
  *
  * 실행       node tools/daily/bot_learn.mjs        (--dry 면 등록 안 하고 보기만)
- * 예약작업   momcal-bot-learn — 매시 정각 (Claude 무관, PC 켜져 있을 때)
+ * 예약작업   momcal-bot-learn — 30분마다 (사장님 지시 2026-09-01, Claude 무관)
  * 보고서     scratchpad/bot_learn_report.txt  (최신이 맨 위, 세션이 훑는 곳)
  * 상태       없음 — 24시간 창을 매번 다시 보고, 이미 등록된 별칭은 건너뛴다
  */
@@ -54,7 +54,7 @@ const miss = sql(`
   select split_part(event_data,' <= ',1) kw, count(*) c,
          max(split_part(event_data,' <= ',2)) sample
     from events where event_type='kakao_bot_miss'
-     and visited_at > now() - interval '24 hours'
+     and visited_at > now() - interval '6 hours'
      and split_part(event_data,' <= ',1) <> ''
    group by 1 order by 2 desc limit 40;`);
 
