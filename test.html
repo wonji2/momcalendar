@@ -1885,19 +1885,26 @@ function pickCat(cat, el){
   renderList();
 }
 
+// ── 소분류 목록: 그 대분류에 상품이 실제로 있는 칸만 (사장님 지시 2026-09-01) ──
+// CATS 에 칸은 그대로 두고 0건일 때만 감춘다 → 상품이 생기면 자동으로 다시 뜬다.
+// 선택 중인 칸은 0건이어도 남긴다(안 그러면 누른 칩을 해제할 방법이 없다).
+// 🔑 메인 칩·필터 모달·사이드메뉴 세 곳이 전부 이 함수를 쓴다. 한 곳만 고치면 서로 어긋난다.
+function liveMinors(mj, sel){
+  const all = (typeof CATS!=='undefined' && CATS[mj]) ? CATS[mj] : [];
+  if(!all.length) return [];
+  const cnt = {};
+  try{ (DATA||[]).forEach(x=>{ if(x && x.major===mj && x.minor) cnt[x.minor]=(cnt[x.minor]||0)+1; }); }catch(_){ return all; }
+  const keep = all.filter(m => cnt[m]>0 || (sel||[]).includes(m));
+  return keep.length ? keep : all;   // 데이터가 아직 없으면 전부 보여준다
+}
+
 // 메인 소분류 행 빌드 (대분류 선택 시 표시, 중복선택 가능)
 function buildSubCats(){
   const row=document.getElementById('subCatRow');
   if(!row) return;
   if(fMajor==='전체'||!CATS[fMajor]){ row.style.display='none'; row.innerHTML=''; return; }
   row.style.display='flex';
-  // 🔑 그 대분류에 상품이 실제로 있는 소분류만 보여준다 (사장님 지시 2026-09-01).
-  //    칸은 CATS 에 그대로 두고 0건일 때만 숨긴다 → 상품이 생기면 자동으로 다시 뜬다.
-  //    선택 중인 칩은 0건이어도 남긴다(안 그러면 누른 칩이 사라져 해제할 수가 없다).
-  const _cnt={};
-  try{ (DATA||[]).forEach(x=>{ if(x&&x.major===fMajor&&x.minor) _cnt[x.minor]=(_cnt[x.minor]||0)+1; }); }catch(_){}
-  const _live=CATS[fMajor].filter(m=>_cnt[m]>0||fMinors.includes(m));
-  row.innerHTML=(_live.length?_live:CATS[fMajor]).map(m=>{
+  row.innerHTML=liveMinors(fMajor, fMinors).map(m=>{
     const on=fMinors.includes(m);
     return `<button class="subchip${on?' on':''}" onclick="toggleSubCat('${m}')">${m}</button>`;
   }).join('');
@@ -2482,7 +2489,7 @@ function buildFMajors(){
 function pickFMajor(v){tmpMajor=v;tmpMinors=[];buildFMajors();buildFMinors();}
 function buildFMinors(){
   const area=document.getElementById('fmodalMinorArea');
-  const ms=tmpMajor==='전체'?[]:CATS[tmpMajor]||[];
+  const ms=tmpMajor==='전체'?[]:liveMinors(tmpMajor, tmpMinors);
   if(!ms.length){area.style.display='none';return;}
   area.style.display='block';
   document.getElementById('fmodalMinors').innerHTML=
@@ -2500,7 +2507,8 @@ function applyFModal(){fMajor=tmpMajor;fMinors=[...tmpMinors];closeFModal();rend
 
 // ── 사이드 메뉴 ──
 function buildSideCats(){
-  document.getElementById('sideCats').innerHTML=Object.entries(CATS).map(([major,minors])=>{
+  document.getElementById('sideCats').innerHTML=Object.entries(CATS).map(([major,_allMinors])=>{
+    const minors = liveMinors(major, fMinors);
     const c=cc(major);
     return`<div>
       <button class="major-row" onclick="toggleSideMajor(this)">
