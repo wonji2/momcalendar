@@ -4181,11 +4181,15 @@ function _autoLoginFromChrome(){
     if(location.search.indexOf("login=1")<0) return;
     if(typeof isLoggedIn==="function" && isLoggedIn()) return;
     try{ history.replaceState({},"", location.pathname); }catch(_){}
-    setTimeout(function(){ if(typeof openLoginSheet==="function")
-      openLoginSheet("이제 한 번에 로그인돼요","카카오톡이 바로 떠서 아이디를 치지 않아도 돼요","닉네임만 받아요"); }, 700);
+    var open = function(){ if(typeof openLoginSheet==="function")
+      openLoginSheet("이제 한 번에 로그인돼요","카카오톡이 바로 떠서 아이디를 치지 않아도 돼요","닉네임만 받아요"); };
+    // ⚠ 일찍 열면 페이지 초기화가 시트를 도로 닫는다(실측 2026-09-01) → 늦게 열고, 닫혔으면 한 번 더
+    setTimeout(open, 2200);
+    setTimeout(function(){ var m=document.getElementById("kkoSheet");
+      if(m && m.style.bottom!=="0px" && m.style.bottom!=="0") open(); }, 4000);
   }catch(_){}
 }
-setTimeout(function(){ try{ _autoLoginFromChrome(); }catch(_){} }, 1200);
+setTimeout(function(){ try{ _autoLoginFromChrome(); }catch(_){} }, 800);
 
 function _autoPromptFromChrome(tries){
   tries=tries||0;
