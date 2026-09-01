@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 핫딜로 이동 중…</title>
+<!--
+  핫딜 단축 링크 (2026-09-01, 사장님 지시로 만든 카페 자동 발행용)
+
+  왜 필요했나: 네이버 카페는 **짧은 주소만 자동 링크**로 바꿔준다.
+    제휴 링크(click.linkprice.com/…tu=…%3F…, link.coupang.com/re/…)는 너무 길어서
+    글에 그대로 적으면 글자로만 남고 눌리지 않는다(첫 발행 실측: 32개 중 16개만 링크됨).
+  그래서 카페 글에는 `momcalendar.com/go.html?id=123` 만 싣고, 이 페이지가 진짜 구매 링크로 보낸다.
+
+  ⚠ 이 페이지는 hotdeals 의 link 만 읽어 이동시킨다. 다른 일은 하지 않는다.
+  ⚠ noindex — 검색 노출 대상이 아니다.
+-->
+<style>
+  body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       font-family:'Noto Sans KR',-apple-system,sans-serif;background:#FAF8FC;color:#3B3546;gap:14px}
+  .sp{width:34px;height:34px;border:3px solid #E5DCF0;border-top-color:#7B3FB5;border-radius:50%;
+      animation:s .8s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .t{font-size:14px;font-weight:700}
+  .s{font-size:12px;color:#9A93A6}
+  a{color:#7B3FB5;font-size:13px;font-weight:700;margin-top:6px}
+</style>
+</head>
+<body>
+  <div class="sp"></div>
+  <div class="t">상품 페이지로 이동 중이에요</div>
+  <div class="s" id="msg">잠시만 기다려 주세요</div>
+  <a href="https://momcalendar.com" id="home" style="display:none">맘캘린더로 가기</a>
+<script>
+(function(){
+  var SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+  var KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+  var id=(new URLSearchParams(location.search).get('id')||location.hash.replace('#','')||'').replace(/\D/g,'');
+  function fail(m){ document.querySelector('.sp').style.display='none';
+    document.querySelector('.t').textContent='상품을 찾지 못했어요';
+    document.getElementById('msg').textContent=m||'링크가 만료됐을 수 있어요';
+    document.getElementById('home').style.display='block'; }
+  if(!id) return fail('주소가 올바르지 않아요');
+  fetch(SB+'/rest/v1/hotdeals?select=link,title&id=eq.'+id,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}})
+    .then(function(r){ return r.ok?r.json():[]; })
+    .then(function(j){
+      var h=j&&j[0];
+      if(!h||!h.link) return fail();
+      try{ fetch(SB+'/rest/v1/events',{method:'POST',
+        headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({event_type:'cafe_hotdeal_click',event_data:String(id)})}); }catch(e){}
+      location.replace(h.link);
+    })
+    .catch(function(){ fail('잠시 후 다시 시도해 주세요'); });
+})();
+</script>
+</body>
+</html>
