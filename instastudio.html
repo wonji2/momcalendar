@@ -302,6 +302,9 @@ function oneProduct(arr){
   return out;
 }
 const nh=s=>(s||'').replace('@','').trim().toLowerCase();
+// 🔴 셀러를 모르는 공구는 시안에서 뺀다 (사장님 지시 2026-09-01 "누가 하는지를 모르는데")
+//    카페 크롤러 등록분은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
+const hasSeller=x=>!!String(x.seller||'').trim();
 const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
   || ['momcal_','momcalendar','momcal','momcalendar_'].includes(nh(g.insta));
 
@@ -325,7 +328,7 @@ async function fetchDay(day){
     partner:isMomcal(g)||P.has(nh(g.insta)), own:isMomcal(g),
     score:(C[g.id]||0)+(W[g.id]||0)*3,
     seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
-  }));
+  })).filter(hasSeller);
   const soon=(mySoon||[]);
   const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
   const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
@@ -669,7 +672,7 @@ async function tTop10(day){
   const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
   const rows=(gg||[]).map(g=>({...g,score:(C[g.id]||0)+(W[g.id]||0)*3,
     partner:isMomcal(g)||P.has(nh(g.insta)),
-    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
     .filter(g=>g.score>0).sort((a,b)=>b.score-a.score);
   const top=oneProduct(onePerSeller(rows)).slice(0,10);
   const d=new Date(day+'T00:00:00');
@@ -708,7 +711,7 @@ async function tClosing(day){
     fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=eq.${tm}&select=id,name,influencer,insta,open_date,end_date&limit=300`,{headers:H}).then(r=>r.json()),
     partnerSet(day)]);
   const tmRows=(gg2||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
-    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
     .sort((a,b)=>(b.partner-a.partner)||a.name.localeCompare(b.name,'ko'));
   // 셀러 중복은 오늘+내일 합쳐서 거른다 — 이웃셀러·맘캘린더 100%, 일반 1건 (2026-08-31 규칙)
   const both=oneProduct(onePerSeller([...ends,...tmRows]));
@@ -757,7 +760,7 @@ async function tWeekend(day){
   // 셀러 중복은 토·일 합쳐서 거른다 — 이웃셀러·맘캘린더 100%, 일반은 인기순 1건 (2026-08-31 규칙)
   const both=oneProduct(onePerSeller(
     [...(g1||[]),...(g2||[])].map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),score:C[g.id]||0,
-      seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}))
+      seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
       .sort((a2,b2)=>(b2.partner-a2.partner)||(b2.score-a2.score)||a2.name.localeCompare(b2.name,'ko'))));
   const A=both.filter(x=>x.open_date===sat), B=both.filter(x=>x.open_date===sun);
   const bd=shell({
@@ -802,7 +805,7 @@ async function tWeek(day){
   const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
   const rows=(gg||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
     score:(C[g.id]||0)+(W[g.id]||0)*3,
-    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')}));
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller);
   // 🔴 셀러 중복은 **주간 전체** 기준으로 거른다 (사장님 지적 2026-08-31: 리로네가 이틀에 두 번).
   //    맘캘린더·이웃셀러는 100% 유지, 일반 셀러는 인기순(찜×3+클릭)으로 1건만.
   const week=oneProduct(onePerSeller(rows.slice().sort((a,b)=>(b.partner-a.partner)||(b.score-a.score))));
