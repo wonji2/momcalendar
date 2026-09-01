@@ -221,7 +221,19 @@ Deno.serve(async (req) => {
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ event_type: "kakao_bot_miss", event_data: `${kw} <= ${u}`.slice(0, 70) }) });
       } catch (_) { /* 무시 */ }
-      return reply([text(`'${kw}' 공구는 지금 진행 중이거나 예정인 게 없어요.\n아래 버튼으로 전체 일정에서 찾아보실 수 있어요!`)]);
+      // 없다고만 하지 않고 "혹시 이거?" 로 되묻는다 (bot_guess RPC — 오타·긴말 대응, 2026-09-01)
+      let hint = "";
+      try {
+        const g = await fetch(`${SB}/rest/v1/rpc/bot_guess`, { method: "POST",
+          headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_kw: kw }) });
+        const gw = ((await g.json()) as any[]).map((x) => x.word).filter(Boolean).slice(0, 3);
+        if (gw.length) hint = `
+
+혹시 ${gw.map((w) => `'${w}'`).join(" · ")} 찾으셨을까요? 그대로 한번 보내보세요!`;
+      } catch (_) { /* 되묻기 실패해도 안내는 나간다 */ }
+      return reply([text(`'${kw}' 공구는 지금 진행 중이거나 예정인 게 없어요.
+아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}`)]);
     }
 
     // ② 날짜 질문
