@@ -1389,7 +1389,16 @@ function getFiltered(dateStr){
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
       return[item.name,item.influencer,item.insta,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
-          return qs.some(q=>s.includes(q)||sn.includes(q.replace(/\s+/g,'')));});
+          return qs.some(q=>{
+            const qn=q.replace(/\s+/g,'');
+            if(s.includes(q)||sn.includes(qn)) return true;   // ① 통째로 들어있으면 바로
+            // ② 낱말을 띄엄띄엄 기억한 경우 — 모든 낱말이 들어있으면 잡는다 (2026-09-01)
+            //    "알텐바흐 냄비" 로 "알텐바흐 저압냄비 3종" 을 찾을 수 있어야 한다.
+            //    ⚠ 낱말이 2개 이상일 때만 쓴다. 한 낱말이면 ①과 같아 무의미하고,
+            //      1글자 낱말('물','컵')은 아무 데나 걸려 오탐이 나므로 뺀다.
+            const ws=q.split(/\s+/).filter(w=>w.length>=2);
+            return ws.length>=2 && ws.every(w=>sn.includes(w));
+          });});
     }).sort(cmpDatePartner);
   }
 
@@ -1686,11 +1695,62 @@ async function renderSearchAll(){
   // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
   const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
 
-  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:40px 0;text-align:center;color:#aaa">
-      '<b style="color:#7B3FB5">${fSearch}</b>' 검색 결과가 없어요 🙅<br>
-      <span style="font-size:12px;color:#bbb">브랜드명·상품명·셀러 닉네임으로 검색해보세요</span>
-    </div>`) + backHome;
+  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:36px 0 10px;text-align:center;color:#aaa">
+      '<b style="color:#7B3FB5">${fSearch}</b>' 지금 진행 중인 공구는 없어요<br>
+      <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
+    </div><div id="pastWrap"></div>`) + backHome;
   paintHearts();
+  // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
+  if(!html) showPastResults((fSearch||'').trim());
+}
+
+
+// ── 검색 결과가 없을 때: 지난 공구를 찾아 보여준다 (사장님 지시 2026-09-01) ──
+// DATA 에는 진행중·예정만 실려 있어 마감된 것은 안 잡힌다. 그것만 따로 조회한다.
+// "지금은 없지만 최근에 이때 했어요" 를 알려주면 손님이 다음에 다시 온다.
+//   ⚠ 한 번에 8건만 받는다(이그레스). 검색할 때만 부르므로 평소 부담이 없다.
+let _pastCache = {};
+async function showPastResults(q){
+  const box = document.getElementById('pastWrap');
+  if(!box || !q || q.length < 2) return;
+  const key = q.toLowerCase();
+  try{
+    let rows = _pastCache[key];
+    if(!rows){
+      const enc = encodeURIComponent('%' + q + '%');
+      const r = await fetch(SUPABASE_URL + '/rest/v1/gonggu?approved=eq.true&name=ilike.' + enc
+        + '&select=id,name,influencer,insta,open_date,end_date,major,pay_link&order=end_date.desc&limit=8',
+        { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      rows = await r.json();
+      _pastCache[key] = rows;
+    }
+    var _h=document.getElementById("pastHint"); if(_h) _h.remove();   // 다 찾았으니 "찾아보는 중" 은 지운다
+    if(!Array.isArray(rows) || !rows.length){
+      box.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
+        + '아직 다룬 적 없는 브랜드예요. 브랜드명·상품명·셀러 닉네임으로 검색해보세요</div>';
+      return;
+    }
+    try{ trackEvent('search_past_hit', q); }catch(_){}
+    const md = d => { const p=String(d||'').split('-'); return p.length===3 ? (+p[1])+'/'+(+p[2]) : ''; };
+    box.innerHTML = '<div style="margin:2px 0 10px;text-align:center">'
+      + '<span style="font-size:12.5px;color:#7B3FB5;font-weight:700">최근에 이렇게 진행했어요</span>'
+      + '<div style="font-size:11.5px;color:#bbb;margin-top:3px">다시 열리면 여기에 올라와요</div></div>'
+      + rows.map(function(g){
+          const who = (g.influencer||g.insta||'').trim();
+          return '<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:7px;'
+            + 'background:var(--card,#fff);border:1px solid #EFE9F6;border-radius:11px">'
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:13.5px;font-weight:700;color:#4A3A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+            + _escH(g.name) + '</div>'
+            + '<div style="font-size:11.5px;color:#A99BC4;margin-top:2px">'
+            + (who ? _escH(who) + ' · ' : '') + md(g.open_date) + '~' + md(g.end_date) + ' 종료</div>'
+            + '</div></div>';
+        }).join('');
+  }catch(e){
+    box.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
+      + '브랜드명·상품명·셀러 닉네임으로 검색해보세요</div>';
+  }
 }
 
 // 검색 중이면 통합검색 화면만, 아니면 원래 탭 화면으로
