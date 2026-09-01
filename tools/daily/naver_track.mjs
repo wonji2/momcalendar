@@ -28,7 +28,11 @@ const out = runSql(`select json_agg(json_build_object('id',id,'title',title,'pri
 from hotdeals where source='naver' and (expires_at is null or expires_at>now());`);
 const m = out.match(/"j":\s*(\[.*\])\s*\}/s);
 const deals = m ? JSON.parse(m[1].replace(/\\u0026/g, '&')) : [];
-if (!deals.length) { console.log('추적할 네이버 핫딜 없음'); process.exit(0); }
+// 🔴 조용히 죽지 않게 (2026-09-01: 8/23~9/1 9일간 로그가 한 줄도 없었다).
+//    예전엔 대상 조회가 실패해도 console.log 만 하고 끝나 예약작업 결과는 '성공(0)' 으로 남았다.
+//    → 파일 로그로 남겨야 다음 세션이 "안 돌고 있다" 를 알아챈다.
+if (!m) { log('🔴 추적 대상 조회 실패 — SQL 응답을 못 읽었다 (CLI 출력 형식 변경 의심)'); process.exit(1); }
+if (!deals.length) { log('추적할 네이버 핫딜 없음 (source=naver 살아있는 카드 0건)'); process.exit(0); }
 
 for (const d of deals) {
   const pidM = (d.link || '').match(/channelProductNo=(\d+)/);
@@ -52,7 +56,16 @@ for (const d of deals) {
   const disc = pick(/"discountedKRWSalePrice"\s*:\s*"?([0-9,]+)"?/);
   const coup = pick(/"couponDiscountedPrice"\s*:\s*"?([0-9,]+)"?/);
   const candidates = [coup, disc].filter(x => x && x > 100);
-  const newPrice = candidates.length ? Math.min(...candidates) : sale;
+  // 🔴 할인·쿠폰가를 못 읽으면 **갱신하지 않는다** (2026-09-01 사고).
+  //    예전엔 못 읽으면 salePrice(정가)로 폴백했다 → 계란 카드가 정가 13,900원으로 덮였다.
+  //    핫딜 카드에 정가가 들어가면 그건 핫딜이 아니다. 못 읽으면 그대로 두고 경보만 남긴다.
+  if (!candidates.length) {
+    log(`⚠ id ${d.id} 할인·쿠폰가를 못 읽음 (SERP 정가 ${sale ?? '-'}) — 갱신 안 함`);
+    runSql(`insert into health_alerts(kind, detail) values ('naver핫딜가격파싱실패',
+      'id ${d.id} ${d.title.slice(0, 30).replace(/'/g, "''")} — SERP 에서 할인가를 못 읽었다. 카드 가격 직접 확인 필요');`);
+    continue;
+  }
+  const newPrice = Math.min(...candidates);
   if (!newPrice || newPrice < 100) { log(`⚠ id ${d.id} 가격 필드 없음`); continue; }
   // 급변(3배 이상·1/3 이하)은 파싱 오류로 보고 건드리지 않는다
   if (d.price && (newPrice > d.price * 3 || newPrice < d.price / 3)) {
@@ -64,7 +77,21 @@ for (const d of deals) {
   //    SERP 값이 **변했을 때만** "딜이 바뀌었다"로 보고 갱신한다.
   const stateF = join(ROOT, 'scratchpad', 'naver_track_state.json');
   let state = {}; try { state = JSON.parse(readFileSync(stateF, 'utf8')); } catch (_) {}
-  if (state[d.id] === newPrice) { log(`= id ${d.id} SERP 변동 없음 (${newPrice}) — 카드 유지 ${d.price}`); continue; }
+  // 🔴 SERP 값이 지난번과 같아도 **카드 값과 크게 벌어져 있으면 그냥 넘기지 않는다** (2026-09-01 사고).
+  //    예전엔 "SERP 변동 없음 → 카드 유지" 로 무조건 넘겨서, 8/22 부터 9일간 카드가 7,120원에 굳어 있었다
+  //    (실제 8,900원). 사장님 수동 정정을 되돌리지 않으려던 의도였는데 틀린 값을 지키는 로직이 됐다.
+  //    → 자동 갱신은 여전히 안 한다(수동 정정 존중). 대신 10% 이상 벌어지면 경보를 남겨 사람이 보게 한다.
+  if (state[d.id] === newPrice) {
+    const gap = d.price ? Math.abs(newPrice - d.price) / d.price : 0;
+    if (gap >= 0.1) {
+      log(`🔴 id ${d.id} SERP ${newPrice} vs 카드 ${d.price} — ${Math.round(gap * 100)}% 차이. 확인 필요`);
+      runSql(`insert into health_alerts(kind, detail) values ('naver핫딜가격불일치',
+        'id ${d.id} ${d.title.slice(0, 30).replace(/'/g, "''")} — 카드 ${d.price}원 / 네이버 ${newPrice}원 (${Math.round(gap * 100)}% 차이)');`);
+    } else {
+      log(`= id ${d.id} SERP 변동 없음 (${newPrice}) — 카드 유지 ${d.price}`);
+    }
+    continue;
+  }
   state[d.id] = newPrice; writeFileSync(stateF, JSON.stringify(state));
   if (newPrice === d.price) { log(`= id ${d.id} 변동 없음 (${newPrice})`); continue; }
   const rate = d.price_before ? Math.round((1 - newPrice / d.price_before) * 100) : null;
