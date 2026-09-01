@@ -22,13 +22,17 @@ const log = [];
 const say = (icon, what, detail) => { log.push({ icon, what, detail }); };
 
 // 백업 저장소가 아예 없으면 클론부터 (PC 교체 상황)
-function ensureRepo(dir, url, name) {
+function ensureRepo(dir, url, name, sparse) {
   if (existsSync(join(dir, '.git'))) return true;
   if (CHECK) { say('🔴', name, '없음 — 복구 실행 시 clone 한다'); return false; }
   try {
-    execFileSync('git', ['clone', '--depth', '1', url, dir], { stdio: 'pipe' });
-    say('🟢', name, 'clone 완료'); return true;
-  } catch (e) { say('🔴', name, 'clone 실패: ' + String(e).slice(0, 80)); return false; }
+    // work-backup 은 레포 전체+채팅기록이라 통째로 받으면 수 분 걸린다 → 필요한 폴더만 sparse 로.
+    const args = ['clone', '--depth', '1', '--filter=blob:none'];
+    if (sparse) args.push('--sparse');
+    execFileSync('git', [...args, url, dir], { stdio: 'pipe', timeout: 600000 });
+    if (sparse) execFileSync('git', ['-C', dir, 'sparse-checkout', 'set', ...sparse], { stdio: 'pipe', timeout: 300000 });
+    say('🟢', name, 'clone 완료' + (sparse ? ' (필요한 폴더만)' : '')); return true;
+  } catch (e) { say('🟡', name, 'clone 실패(핵심 아님): ' + String(e).slice(0, 80)); return false; }
 }
 
 // 없는 파일만 복사 (기존 파일은 절대 안 건드림)
@@ -52,8 +56,23 @@ function fillFile(src, dst, label) {
   say('🟢', label, '복구 완료');
 }
 
+// 디스크 여유 확인 — 2026-09-01 에 C 여유 0GB 라 git clone 이 "No space left on device" 로 죽었다.
+// 복구가 안 되는 이유가 스크립트 탓인지 디스크 탓인지 헷갈리지 않게 먼저 알려준다.
+function diskFree() {
+  try {
+    const out = execFileSync('powershell', ['-NoProfile', '-Command',
+      "(Get-PSDrive -Name C).Free"], { encoding: 'utf8', timeout: 30000 }).trim();
+    const gb = Number(out) / 1024 ** 3;
+    if (!isFinite(gb)) return;
+    if (gb < 1)      say('🔴', 'C드라이브 여유', `${gb.toFixed(2)}GB — clone·백업이 실패한다. 공간부터 확보할 것`);
+    else if (gb < 5) say('🟡', 'C드라이브 여유', `${gb.toFixed(1)}GB — 곧 부족해진다`);
+    else             say('✅', 'C드라이브 여유', `${gb.toFixed(1)}GB`);
+  } catch { /* 확인 실패는 무시 */ }
+}
+diskFree();
+
 const okOps = ensureRepo(OPS, 'https://github.com/wonji2/momcal-ops.git', 'momcal-ops(운영자산 백업)');
-const okWbk = ensureRepo(WBK, 'https://github.com/wonji2/work-backup.git', 'work-backup(레포·설정 백업)');
+const okWbk = ensureRepo(WBK, 'https://github.com/wonji2/work-backup.git', 'work-backup(설정 백업)', ['claude-config']);
 
 if (okOps) {
   fillMissing(join(OPS, 'memory'), MEM, '메모리');
@@ -71,6 +90,13 @@ const cmdCount = existsSync(join(REPO, '.claude', 'commands')) ? readdirSync(joi
 console.log(CHECK ? '=== 환경 진단 (고치지 않음) ===' : '=== 환경 자가복구 ===');
 for (const l of log) console.log(`  ${l.icon} ${l.what.padEnd(24)} ${l.detail}`);
 console.log(`\n  메모리 ${memCount}개 · 커맨드 ${cmdCount}개 · HANDOFF ${existsSync(join(REPO, 'HANDOFF.md')) ? 'O' : 'X'}`);
-const broken = log.filter(l => l.icon === '🔴').length;
-console.log(broken ? `\n🔴 미해결 ${broken}건 — 위 항목을 확인할 것` : '\n✅ 이어서 작업 가능한 상태');
-process.exit(broken && CHECK ? 2 : 0);
+// 이어서 작업하려면 이 셋이 살아 있어야 한다. settings.json(훅)은 없어도 작업은 된다.
+const core = memCount > 0 && cmdCount > 0 && existsSync(join(REPO, 'HANDOFF.md'));
+const warn = log.filter(l => l.icon === '🟡').length;
+if (core) {
+  console.log('\n✅ 이어서 작업 가능한 상태' + (warn ? ` (경고 ${warn}건 — 핵심 아님)` : ''));
+} else {
+  console.log(`\n🔴 이어서 작업 불가 — 메모리 ${memCount} · 커맨드 ${cmdCount} · HANDOFF ${existsSync(join(REPO, 'HANDOFF.md')) ? 'O' : 'X'}`);
+  console.log('   레포 폴더까지 없다면: git clone https://github.com/wonji2/work-backup.git 후 그 안 MOMCALENDAR 를 Desktop 으로 복사');
+}
+process.exit(core ? 0 : 1);
