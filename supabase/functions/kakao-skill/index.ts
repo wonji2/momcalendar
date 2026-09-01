@@ -79,17 +79,26 @@ function cards(title: string, rows: any[]) {
 
 Deno.serve(async (req) => {
   const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "Content-Type": "application/json" } });
-  const reply = (outputs: any[]) => json({ version: "2.0", template: { outputs } });
-  try {
-    const body = await req.json().catch(() => ({}));
-    const u = String(body?.userRequest?.utterance ?? "").trim();
-    const today = ymd(kst());
-
+  // 호출 기록 — 누가(uid) 무엇을 묻고 어떤 형태로 답했는지 남긴다.
+  //   ⚠ reply 는 body 파싱보다 먼저 정의되므로 u/uid 를 **let 으로 미리 선언**해야 한다.
+  //     (2026-09-01: body 를 직접 참조하게 만들었다가 전 요청이 500 으로 죽었다)
+  let u = "", uid = "?";
+  const reply = (outputs: any[]) => {
     try {
+      const kind = Object.keys(outputs[0] || {})[0] || "?";
+      const n = outputs[0]?.carousel?.items?.length ?? 0;
       fetch(`${SB}/rest/v1/events`, { method: "POST",
         headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ event_type: "kakao_bot", event_data: u.slice(0, 80) }) });
+        body: JSON.stringify({ event_type: "kakao_bot", event_data: `${u.slice(0, 40)} | uid=${uid} | ${kind}${n ? "x" + n : ""}` }) });
     } catch (_) { /* 기록 실패는 무시 */ }
+    return json({ version: "2.0", template: { outputs } });
+  };
+  try {
+    const body = await req.json().catch(() => ({}));
+    u = String(body?.userRequest?.utterance ?? "").trim();
+    uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 8);
+    const today = ymd(kst());
+
 
     if (/^(안녕|하이|하잉|반가|헬로|hi|hello|도움|사용법|메뉴|뭐해|누구)/i.test(u) || u.length < 2) {
       return reply([text(HELP)]);
