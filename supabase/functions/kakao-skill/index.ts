@@ -106,6 +106,7 @@ const TAILS: RegExp[] = [
   /(주세요|주라|줄래|줘요|줘)$/,
   /[♡♥❤️🩷💜🙏😊😀ㅡ]+$/,                                  // "…궁금해♡" 처럼 붙는 기호
   /(이|가|은|는|을|를|도|만)$/,                            // "일정이" 에서 일정을 지운 뒤 남는 조사
+  /(인거|인것|하는거|되는거|인가|인가요|이야|예요|에요)$/,
   /(좀|요|용|넹|넵|야)$/,
 ];
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
@@ -132,14 +133,15 @@ function keyword(u: string) {
   //   ⚠ 전역 치환은 낱말 속까지 먹는다 — 머그컵→'그컵', 해담옥→'담옥' 사고(2026-09-01).
   //     그래서 어미·감탄사는 stripTail 이 **문장 끝에서만** 처리하고, 여기선 안전한 것만 지운다.
   s = s
-    .replace(/이번\s*주에?|이번주|주간|오늘|내일|요즘|지금|현재/g, " ")
+    .replace(/이번\s*주에?|이번주|주간|오늘|내일|낼모레|낼|모레|요즘|지금|현재/g, " ")
     .replace(/공동구매|공구|일정|소식|목록|리스트/g, " ")
     // 실제 손님 발화에서 나온 말 (2026-09-01: "오늘 공구 진행중인 제품 알려줘")
     .replace(/진행\s*중인|진행중|진행|하는\s*중|중인/g, " ")
     .replace(/제품|상품|물건|아이템|템/g, " ")
     .replace(/핫한|인기\s*있는|인기|괜찮은|새로운|저렴한/g, " ")
-    .replace(/마감|끝나는|종료|오픈/g, " ")
+    .replace(/마지막\s*날|막날|마감|끝나는|끝나|종료|임박|오픈/g, " ")
     .replace(/바부야|바보야|아니고|아니라|말고|그리고|근데|좀/g, " ")
+    .replace(/하는\s*곳|파는\s*곳|사는\s*곳|어디서|어디에|어디/g, " ")   // "공구하는곳 있어?" (실제 손님)
     .replace(/[?？!！.,~·\-_/]/g, " ")
     .replace(/\s+/g, " ").trim();
   return stripTail(s);   // 부품을 지운 뒤 다시 말끝 정리 ("소고기 뭐" → "소고기")
@@ -249,16 +251,18 @@ Deno.serve(async (req) => {
     // 한 글자("김")도 찾는다. 다만 한 글자는 셀러명까지 보면 오탐이 크니 상품명만 본다.
     const STOP1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
     // 문장 부품을 지우고 남은 찌꺼기는 브랜드가 아니다 — 이걸 검색하면 엉뚱한 안내가 나간다
-    const STOPKW = ["되는거","하는거","되는것","하는것","되는","하는","임박","주말","토요일","일요일","평일","이번","다음","우리","그거","이거","저거","해줘","알려","보여","추천"];
+    const STOPKW = ["되는거","하는거","되는것","하는것","되는","하는","임박","주말","토요일","일요일","평일","이번","다음","우리","그거","이거","저거","해줘","하는곳","파는곳","어디","언제","얼마","가격","알려","보여","추천"];
     if (kw.length >= 1 && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
       // 별칭이 여러 낱말이면 대표 낱말로도 찾는다 — 뽀사카→"뽀로로 사운드" 가 0건이던 것 (2026-09-01)
       //   그 조합의 공구가 없어도 손님이 원하는 건 그 브랜드다.
-      for (const t of [...tries]) {
+      for (const t of tries.slice(1)) {   // ⚠ 0번(손님 말 원본)은 제외 — 넣으면 첫 낱말로만 검색된다
         const parts = t.split(/\s+/).filter((w) => w.length >= 2);
-        if (parts.length >= 2) tries.push(parts[0]);
+        // 손님 말이 원래 한 낱말일 때만 (뽀사카→"뽀로로 사운드"→뽀로로).
+        //   원래 두 낱말이면 적용하면 안 된다 — '신생아 기저귀' 이 '신생아' 로만 검색된다(실사고)
+        if (parts.length >= 2 && kw.split(/\s+/).filter((w) => w.length >= 2).length < 2) tries.push(parts[0]);
       }
       if (kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);   // 줄임말: 글자 사이를 연다
       for (const t of [...new Set(tries)]) {
@@ -290,7 +294,8 @@ Deno.serve(async (req) => {
         const w = (Array.isArray(sw) && sw[0] && sw[0].word) ? String(sw[0].word) : "";
         if (w) {
           const e2 = encodeURIComponent("%" + w + "%");
-          const r2 = await pick(`end_date=gte.${today}&or=(name.ilike.${e2},influencer.ilike.${e2},insta.ilike.${e2})`, "order=open_date.asc", ph);
+          // 폴백은 **상품명만** 본다 — 셀러명까지 보면 '로얄젤리'→'젤리'→젤리또리 셀러의 장난감이 나간다(2026-09-01 실사고)
+          const r2 = await pick(`end_date=gte.${today}&name=ilike.${e2}`, "order=open_date.asc", ph);
           if (r2.length) return reply([cards(`'${w}' 공구 일정`, r2)]);
         }
       } catch (_) { /* 못 찾으면 아래 안내로 간다 */ }
