@@ -6325,6 +6325,15 @@ function getDupReason(item){
 let DASH_DAYS=14, _dashSellerPerfRows=[];
 function dashEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function dashNum(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+// 사장님이 말투를 판정하면 챗봇이 바로 알아듣는다 (bot_phrase → kakao-skill 이 매 요청마다 읽음)
+async function botDecide(term, kind){
+  try{
+    const r = await adminRpc('admin_bot_decide', {p_term:term, p_kind:kind});
+    alert(kind==='skip' ? '넘겼습니다' : '반영됐어요! 챗봇이 바로 알아듣습니다');
+    renderBotStats();
+  }catch(e){ alert('처리 실패: '+(e.message||e)); }
+}
+
 // 🤖 카카오톡 챗봇 — 손님이 뭘 물었고 우리가 답했는지 (카카오 관리자센터엔 안 남는다)
 //   RPC: admin_bot_log / admin_bot_miss / admin_bot_top  (supabase/sql/admin_bot_log_46.sql)
 async function renderBotStats(){
@@ -6350,6 +6359,22 @@ async function renderBotStats(){
       <div style="flex:1;background:#FBE8EC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#A85">못 찾은 말</div><div style="font-size:19px;font-weight:800;color:#E0506E">${(miss||[]).length}</div></div>
     </div>`;
 
+    // 🙋 사장님 판정 — 챗봇이 못 알아들었는데 자동으로는 못 배우는 말(= 말투)
+    //   버튼을 누르면 bot_phrase 에 들어가고, 챗봇이 매 요청마다 읽으므로 재배포 없이 즉시 반영된다.
+    const rev = await adminRpc('admin_bot_review', {p_limit:30}).catch(()=>[]);
+    if((rev||[]).length){
+      h+=`<div style="font-size:12px;font-weight:800;color:#C06A00;margin:14px 0 5px">🙋 사장님이 판정해 주세요 (${rev.length}건)</div>
+        <div style="font-size:10.5px;color:#999;margin-bottom:8px">손님이 이렇게 말했는데 챗봇이 못 알아들었어요. 어떤 말인지 눌러주시면 <b>바로</b> 알아듣습니다.</div>`;
+      h+=(rev||[]).map(r=>{
+        const t=esc(r.term).replace(/'/g,'&#39;');
+        const btn=(k,label,bg)=>`<button onclick="botDecide('${t}','${k}')" style="border:0;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;background:${bg};color:#fff;cursor:pointer">${label}</button>`;
+        return `<div style="padding:8px 0;border-bottom:1px solid #F5F0FA">
+          <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:6px">"${esc(r.sample||r.term)}" <span style="font-size:10px;color:#bbb;font-weight:400">${r.cnt}회</span></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${btn('hello','인사','#7B3FB5')}${btn('thanks','고마움','#2E9E5B')}${btn('praise','칭찬','#E0922E')}${btn('bye','작별','#4A7BC0')}${btn('love','애정','#E0506E')}${btn('skip','상품·기타','#AAA')}
+          </div></div>`;
+      }).join('');
+    }
     if((miss||[]).length){
       h+=`<div style="font-size:12px;font-weight:800;color:#E0506E;margin:14px 0 5px">🔴 챗봇이 못 알아들은 말 (최근 2주)</div>
         <div style="font-size:10.5px;color:#999;margin-bottom:7px">이 목록을 클로드에게 알려주시면 알아듣게 고쳐드려요.</div>`;

@@ -39,6 +39,13 @@ async function aliases(): Promise<[string, string][]> {
   const rows = await q("bot_alias?select=term,expand");
   return (rows as any[]).map((r) => [String(r.term), String(r.expand)] as [string, string]);
 }
+// 사장님이 관리자 화면에서 확정한 말투 — 재배포 없이 즉시 반영된다 (bot_review_48.sql)
+//   자동 학습은 오타만 배운다. "고마웡" 같은 말투는 사람이 판정해야 하고, 그 창구가 이것이다.
+async function phrases(): Promise<[string, string][]> {
+  const rows = await q("bot_phrase?select=term,kind");
+  return (rows as any[]).map((r) => [String(r.term), String(r.kind)] as [string, string]);
+}
+
 async function partnerHandles(): Promise<string[]> {
   const rows = await q("sellers?select=insta&is_partner=eq.true&active=eq.true");
   const set = new Set<string>(MOMCAL);
@@ -172,6 +179,22 @@ Deno.serve(async (req) => {
       if (!rows.length) return reply([text("오늘 오픈하는 공구가 아직 없어요. 아래 버튼에서 이번 주 일정을 볼 수 있어요!")]);
       return reply([cards(`오늘(${today.slice(5)}) 오픈 공구`, rows)]);
     };
+
+    // ⓪-0 사장님이 판정해 둔 말투가 있으면 그것부터 (관리자 화면 🙋 검토)
+    const ANS: Record<string, string> = {
+      hello:  HELP,
+      thanks: "도움이 됐다니 저도 좋아요 🙂\n공구 궁금할 땐 언제든 물어봐 주세요!",
+      praise: "헤헤 감사합니다 🙂\n찾으시는 브랜드 이름을 말해주시면 공구 일정을 바로 알려드려요!",
+      bye:    "네! 또 필요하면 불러주세요 🙂",
+      love:   "나도 사랑해애액 ㅎㅎ 💜\n맘캘린더 많이 써주셔서 감사해요!",
+    };
+    try {
+      const uu = u.replace(/\s/g, "").toLowerCase(), uzz = uz.replace(/\s/g, "").toLowerCase();
+      for (const [term, kind] of await phrases()) {
+        const t = term.replace(/\s/g, "").toLowerCase();
+        if (t && (uu === t || uzz === t || uu.includes(t)) && ANS[kind]) return reply([text(ANS[kind])]);
+      }
+    } catch (_) { /* 못 읽어도 아래 기본 규칙으로 답한다 */ }
 
     // ⓪-a 인사·감사·칭찬에는 사람처럼 답한다 (손님이 실제로 이렇게 말한다)
     if ((x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(u) || (x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(uz)) {

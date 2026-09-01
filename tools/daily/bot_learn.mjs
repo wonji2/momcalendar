@@ -64,7 +64,7 @@ const known = new Set(sql(`select term from bot_alias;`).map(r => String(r.term)
 say(`\n===== ${now} 챗봇 학습 =====`);
 if (!miss.length) { say('못 알아들은 말 없음 — 손볼 것 없습니다.'); }
 
-let added = 0, pend = 0, dead = 0, fixed = 0, okNone = 0;
+let added = 0, pend = 0, dead = 0, fixed = 0, okNone = 0, review = 0;
 for (const m of miss) {
   const kw = String(m.kw || '').trim();
   if (!kw || known.has(kw.toLowerCase())) continue;
@@ -85,7 +85,18 @@ for (const m of miss) {
       else if (o.textCard) nowOk = 'text';
     } catch (_) { /* 확인 실패면 🔴 */ }
     if (nowOk === 'card' || nowOk === 'text') { fixed++; say(`🟢 이제 됨   "${say2}"  (${m.c}회) — 지난 로그, 손볼 것 없음`); continue; }
-    if (nowOk === 'none') { okNone++; say(`🟡 없는 게 맞음 "${say2}"  (${m.c}회) — 그런 공구가 실제로 없어서 안내가 나갔습니다`); continue; }
+    if (nowOk === 'none') {
+      // 브랜드처럼 안 생긴 짧은 순한글이면 말투일 가능성이 크다 → 사장님 검토판으로 올린다
+      const looksPhrase = /^[가-힣]{2,6}$/.test(kw) && !/공구|일정|오늘|내일|마감|핫딜/.test(kw);
+      if (looksPhrase) {
+        review++;
+        if (!DRY) { const qq = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+          try { sql(`select bot_review_add(${qq(kw)}, ${qq(say2)}, ${Number(m.c) || 1});`); } catch (_) {} }
+        say(`🙋 사장님 검토  "${say2}"  (${m.c}회) — 말투인지 상품인지 판정 필요`);
+        continue;
+      }
+      okNone++; say(`🟡 없는 게 맞음 "${say2}"  (${m.c}회) — 그런 공구가 실제로 없어서 안내가 나갔습니다`); continue;
+    }
     dead++; say(`🔴 확인 실패 "${kw}"  (원문: ${say2}) ${m.c}회 — 챗봇 응답을 못 받았습니다`); continue;
   }
 
@@ -111,7 +122,7 @@ for (const m of miss) {
     pend++; say(`⏳ 애매함  "${kw}" ~ ${cand.join(', ')}  (${m.c}회) — 사람이 판단`);
   }
 }
-say(`요약: 자동학습 ${added} · 사람판단 ${pend} · 이미해결 ${fixed} · 없는게맞음 ${okNone} · 🔴이상 ${dead}${DRY ? '  (--dry, 실제 등록 안 함)' : ''}`);
+say(`요약: 자동학습 ${added} · 🙋사장님검토 ${review} · 사람판단 ${pend} · 이미해결 ${fixed} · 없는게맞음 ${okNone} · 🔴이상 ${dead}${DRY ? '  (--dry, 실제 등록 안 함)' : ''}`);
 
 const prev = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
 fs.writeFileSync(REPORT, log.join('\n') + '\n' + prev.split('\n').slice(0, 400).join('\n'));
