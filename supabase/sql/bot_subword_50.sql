@@ -21,6 +21,8 @@ begin
    where a.tok <> k
      and position(a.tok in k) > 0
      and a.c >= 2
+     -- 한 글자는 말 끝에 올 때만 쓴다 (아기김→김 은 되고, 존재안하는브랜드→안 은 안 된다)
+     and (length(a.tok) >= 2 or position(a.tok in k) = length(k))
      and a.tok !~ '^(카드|세트|모음|모음전|전제품|시리즈|기획전|특가|골라담기|신상|국산|무료배송|택1|종|차|개|입|팩|세일|할인|최저가|공구|앵콜|재입고|사은품|증정)$'
      and a.tok !~ '^(아기|아가|아이|유아|영유아|신생아|키즈|어린이|아동|주니어|엄마|맘|남아|여아|우리|초등|성인)$'
    order by length(a.tok) desc, a.c desc
