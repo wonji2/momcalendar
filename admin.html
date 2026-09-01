@@ -444,6 +444,39 @@ details summary::-webkit-details-marker{display:none}
     <div id="vdList"><div style="color:#aaa;font-size:12px">불러오는 중…</div></div>
   </div>
 
+
+  <!-- 공급사 일정 붙여넣기 등록 (사장님 지시 2026-09-01) -->
+  <div id="vdAddModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:460px;max-height:88vh;overflow:auto">
+      <div style="font-size:15px;font-weight:800;color:#3D1F5C;margin-bottom:10px" id="vdAddTitle">일정 등록</div>
+      <div style="font-size:11.5px;color:#7A6A92;line-height:1.7;background:#F6F2FB;border-radius:9px;padding:10px;margin-bottom:10px">
+        한 줄에 하나씩 붙여넣으세요.<br>
+        예) <b>9/1 상품명</b> · <b>9/1~9/5 상품명</b> · <b>2026-09-01 상품명</b><br>
+        <span style="color:#A08BC0">마감일을 안 적으면 오픈+3일 · 최대 오픈+13일로 잘립니다</span>
+      </div>
+      <textarea id="vdAddText" style="width:100%;height:120px;padding:10px;border:1.4px solid #E3D9F2;border-radius:9px;font-size:13px;font-family:inherit;line-height:1.7" placeholder="9/1~9/5 소니베베 헤드투토워시&#10;9/3 아기욕조"></textarea>
+      <button onclick="vdPreview()" style="width:100%;margin-top:7px;padding:9px;background:#F3ECFB;color:#5B3A8C;border:0;border-radius:8px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit">읽어보기</button>
+      <div id="vdAddPrev" style="margin-top:9px;max-height:150px;overflow:auto"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px">
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">셀러명
+          <input id="vdAddSeller" style="width:100%;margin-top:4px;padding:8px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" placeholder="옐로소윤"></label>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">인스타 아이디
+          <input id="vdAddInsta" style="width:100%;margin-top:4px;padding:8px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" placeholder="yellow_soyoon"></label>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">대분류
+          <select id="vdAddMajor" onchange="vdFillMinor()" style="width:100%;margin-top:4px;padding:8px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit">
+            <option>육아</option><option>리빙</option><option>식품</option><option>가전</option><option>뷰티</option><option>건강</option><option>패션</option><option>여행</option><option>인테리어</option><option>반려동물</option>
+          </select></label>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">소분류
+          <select id="vdAddMinor" style="width:100%;margin-top:4px;padding:8px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit"></select></label>
+      </div>
+      <label style="font-size:12px;font-weight:700;color:#5B3A8C;display:block;margin-top:8px">판매 링크 (선택 — 비우면 셀러 인스타로)
+        <input id="vdAddLink" style="width:100%;margin-top:4px;padding:8px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" placeholder="https://smartstore.naver.com/..."></label>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="vdCloseAdd()" style="flex:1;padding:11px;background:#F2F2F5;color:#555;border:0;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+        <button onclick="vdAddSave()" style="flex:1.4;padding:11px;background:#7B3FB5;color:#fff;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">등록</button>
+      </div>
+    </div>
+  </div>
   <!-- 공급사 계약 입력 모달 -->
   <div id="vdModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center;padding:16px">
     <div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:88vh;overflow:auto">
@@ -1307,7 +1340,7 @@ restoreSession();
 // ── AI 파싱 ──
 // 연도 select 자동 세팅은 window.onload에서 처리
 var CATS_LIST={
-  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','목욕/세정','외출용품','방꾸미기','스킨로션','유모차카시트','육아용품'],
   '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','욕실용품','테이블웨어','헬스케어'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
   '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
@@ -5217,7 +5250,10 @@ async function loadVendors(){
         + '<span style="font-size:12px;font-weight:800;color:' + bar + '">' + v.used + '/' + v.quota + '건</span>'
         + '</div>'
         + '<div style="font-size:11px;color:#8A7AA0">' + v.start_date + ' ~ ' + v.end_date + remainTxt + ' · 카페게시 ' + (v.cafe_enabled ? 'O' : 'X') + memoTxt + '</div>'
-        + '<button onclick="vdShowGonggu(' + v.id + ')" style="margin-top:8px;width:100%;padding:7px;background:#fff;color:#7B3FB5;border:1.2px solid #E3D9F2;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">등록 내역 보기</button>'
+        + '<div style="display:flex;gap:6px;margin-top:8px">'
+        + '<button onclick="vdOpenAdd(' + v.id + ')" style="flex:1;padding:7px;background:#7B3FB5;color:#fff;border:0;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">＋ 일정 등록</button>'
+        + '<button onclick="vdShowGonggu(' + v.id + ')" style="flex:1;padding:7px;background:#fff;color:#7B3FB5;border:1.2px solid #E3D9F2;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">등록 내역</button>'
+        + '</div>'
         + '<div id="vdG' + v.id + '" style="display:none;margin-top:8px"></div>'
         + '</div>';
     }).join('');
@@ -5282,6 +5318,7 @@ async function vdShowGonggu(id){
   if (!box) return;
   if (box.style.display === 'block'){ box.style.display = 'none'; return; }
   box.style.display = 'block';
+  _vdOpenId = id;   // 수정·삭제 후 이 목록을 다시 그리기 위해 기억
   box.innerHTML = '<div style="color:#aaa;font-size:11.5px">불러오는 중…</div>';
   try{
     const rows = await adminRpc('admin_vendor_gonggu', { p_vendor: id, p_limit: 200 });
@@ -5292,11 +5329,145 @@ async function vdShowGonggu(id){
           const day = g.reg_day ? '<span style="color:#A99BC4">' + g.reg_day + '</span> ' : '';
           const who = dashEsc(g.influencer || g.insta || '');
           const ok = g.approved ? '' : ' <span style="color:#E8890C">미승인</span>';
-          return '<div style="font-size:11.5px;color:#4A3A5C;padding:5px 0;border-top:1px solid #F2ECF9">'
-            + day + dashEsc(g.name) + ' <span style="color:#A99BC4">— ' + who + ' · ' + g.open_date + '</span>' + ok + '</div>';
+          const nmEsc = String(g.name).replace(/'/g, "\\'");
+          return '<div style="font-size:11.5px;color:#4A3A5C;padding:5px 0;border-top:1px solid #F2ECF9;display:flex;align-items:center;gap:6px">'
+            + '<span style="flex:1">' + day + dashEsc(g.name) + ' <span style="color:#A99BC4">— ' + who + ' · ' + g.open_date + '</span>' + ok + '</span>'
+            + '<button onclick="vdEditGonggu(' + g.id + ')" style="padding:3px 7px;background:#F3ECFB;color:#5B3A8C;border:0;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>'
+            + '<button onclick="vdDelGonggu(' + g.id + ', \'' + nmEsc + '\')" style="padding:3px 7px;background:#FDECEC;color:#C62828;border:0;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>'
+            + '</div>';
         }).join('');
   }catch(e){ box.innerHTML = '<div style="color:#C62828;font-size:11.5px">' + dashEsc(e.message) + '</div>'; }
 }
+
+// ══════ 공급사 하위 일정 관리 (붙여넣기 등록·수정·삭제) — 사장님 지시 2026-09-01 ══════
+// "일정 쫙 붙여넣으면 그 공급사 하위로 관리되는 화면, 삭제 수정도 바로바로"
+let _vdCurId = null, _vdParsed = [];
+
+// 날짜+상품명 한 줄씩 파싱. register.html 과 같은 규칙:
+//   9/1 상품명  ·  9/1~9/5 상품명  ·  9/1-9/5 상품명  ·  2026-09-01 상품명
+// 마감일이 없으면 오픈+3일, 최대 오픈+13일로 자른다 (DB등록규칙)
+function vdParseLines(txt){
+  const y = new Date(Date.now() + 9*3600e3).getFullYear();
+  const pad = n => String(n).padStart(2,'0');
+  const mk = (m,d) => y + '-' + pad(m) + '-' + pad(d);
+  const plus = (iso,n) => { const t=new Date(iso+'T00:00:00'); t.setDate(t.getDate()+n);
+    return t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate()); };
+  const out = [];
+  String(txt||'').split(/\n+/).forEach(function(raw){
+    const line = raw.trim();
+    if (!line) return;
+    let m, od = null, ed = null, rest = line;
+    // 2026-09-01 ~ 2026-09-05 상품명
+    if ((m = line.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s*[~\-]\s*(\d{4})-(\d{1,2})-(\d{1,2})\s+(.+)$/))) {
+      od = m[1]+'-'+pad(m[2])+'-'+pad(m[3]); ed = m[4]+'-'+pad(m[5])+'-'+pad(m[6]); rest = m[7];
+    } else if ((m = line.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(.+)$/))) {
+      od = m[1]+'-'+pad(m[2])+'-'+pad(m[3]); rest = m[4];
+    } else if ((m = line.match(/^(\d{1,2})[\/.](\d{1,2})\s*[~\-]\s*(\d{1,2})[\/.](\d{1,2})\s+(.+)$/))) {
+      od = mk(m[1],m[2]); ed = mk(m[3],m[4]); rest = m[5];
+    } else if ((m = line.match(/^(\d{1,2})[\/.](\d{1,2})\s+(.+)$/))) {
+      od = mk(m[1],m[2]); rest = m[3];
+    } else { out.push({ bad: line }); return; }
+    if (!ed) ed = plus(od, 3);
+    if (ed > plus(od, 13)) ed = plus(od, 13);   // 상시공구 상위 독점 방지
+    const name = rest.replace(/\s+/g,' ').trim();
+    if (!name) { out.push({ bad: line }); return; }
+    out.push({ name: name, open_date: od, end_date: ed });
+  });
+  return out;
+}
+
+function vdOpenAdd(id){
+  _vdCurId = id;
+  const v = _vdCache.find(function(x){ return x.id === id; });
+  document.getElementById('vdAddTitle').textContent = (v ? v.name : '') + ' — 일정 등록';
+  document.getElementById('vdAddText').value = '';
+  document.getElementById('vdAddPrev').innerHTML = '';
+  document.getElementById('vdAddSeller').value = '';
+  document.getElementById('vdAddInsta').value = '';
+  document.getElementById('vdAddLink').value = '';
+  document.getElementById('vdAddMajor').value = '육아';
+  vdFillMinor();
+  document.getElementById('vdAddModal').style.display = 'flex';
+}
+function vdCloseAdd(){ document.getElementById('vdAddModal').style.display = 'none'; }
+function vdFillMinor(){
+  const mj = document.getElementById('vdAddMajor').value;
+  const sel = document.getElementById('vdAddMinor');
+  // ⚠ 관리자 페이지의 카테고리 상수는 CATS 가 아니라 CATS_LIST 다 (사이트와 이름이 다르다)
+  const src = (typeof CATS_LIST !== 'undefined') ? CATS_LIST : (typeof CATS !== 'undefined' ? CATS : {});
+  const list = src[mj] || [];
+  sel.innerHTML = list.map(function(m){ return '<option value="'+m+'">'+m+'</option>'; }).join('');
+}
+function vdPreview(){
+  _vdParsed = vdParseLines(document.getElementById('vdAddText').value);
+  const ok = _vdParsed.filter(function(x){ return !x.bad; });
+  const bad = _vdParsed.filter(function(x){ return x.bad; });
+  const el = document.getElementById('vdAddPrev');
+  if (!_vdParsed.length){ el.innerHTML = '<div style="color:#bbb;font-size:12px">붙여넣은 내용이 없어요.</div>'; return; }
+  el.innerHTML = '<div style="font-size:11.5px;color:#5B3A8C;font-weight:700;margin-bottom:5px">읽은 결과 '
+    + ok.length + '건' + (bad.length ? ' · <span style="color:#C62828">못 읽음 ' + bad.length + '건</span>' : '') + '</div>'
+    + ok.map(function(x){ return '<div style="font-size:11.5px;color:#4A3A5C;padding:3px 0;border-top:1px solid #F2ECF9">'
+        + '<span style="color:#A99BC4">' + x.open_date + '~' + x.end_date + '</span> ' + dashEsc(x.name) + '</div>'; }).join('')
+    + bad.map(function(x){ return '<div style="font-size:11.5px;color:#C62828;padding:3px 0;border-top:1px solid #F2ECF9">✕ '
+        + dashEsc(x.bad) + '</div>'; }).join('');
+}
+async function vdAddSave(){
+  const rows = _vdParsed.filter(function(x){ return !x.bad; });
+  if (!rows.length){ alert('읽은 일정이 없어요. [읽어보기]를 먼저 눌러주세요.'); return; }
+  const seller = document.getElementById('vdAddSeller').value.trim();
+  const insta = document.getElementById('vdAddInsta').value.trim().replace('@','');
+  const link = document.getElementById('vdAddLink').value.trim();
+  const mj = document.getElementById('vdAddMajor').value;
+  const mi = document.getElementById('vdAddMinor').value;
+  if (!seller && !insta){ alert('셀러명이나 인스타 아이디 중 하나는 넣어주세요.\n(둘 다 없으면 카드가 갈 곳이 없어요)'); return; }
+  const body = rows.map(function(r){
+    return { name: r.name, open_date: r.open_date, end_date: r.end_date,
+             major: mj, minor: mi || null, influencer: seller || insta, insta: insta,
+             pay_link: link || null, approved: true, cat_manual: true, vendor_id: _vdCurId };
+  });
+  try{
+    const res = await fetch(SB_URL + '/rest/v1/gonggu', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SB_KEY,
+                 'Authorization': 'Bearer ' + ACCESS_TOKEN, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0,120));
+    vdCloseAdd();
+    loadVendors();
+    alert(rows.length + '건 등록했어요.');
+  }catch(e){ alert('등록 실패: ' + e.message); }
+}
+
+// ── 등록 내역에서 바로 수정·삭제 ──
+async function vdEditGonggu(id){
+  const nm = prompt('상품명을 고쳐주세요 (취소하면 그대로)');
+  if (nm === null) return;
+  if (!nm.trim()){ alert('상품명은 비울 수 없어요'); return; }
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/gonggu?id=eq.' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type':'application/json','apikey':SB_KEY,
+                 'Authorization':'Bearer ' + ACCESS_TOKEN, 'Prefer':'return=minimal' },
+      body: JSON.stringify({ name: nm.trim() })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    vdShowGonggu(_vdOpenId); vdShowGonggu(_vdOpenId);   // 닫았다 다시 열어 새로고침
+  }catch(e){ alert('수정 실패: ' + e.message); }
+}
+async function vdDelGonggu(id, nm){
+  if (!confirm('이 공구를 삭제할까요?\n\n' + nm + '\n\n되돌릴 수 없어요.')) return;
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/gonggu?id=eq.' + id, {
+      method: 'DELETE',
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + ACCESS_TOKEN, 'Prefer':'return=minimal' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    vdShowGonggu(_vdOpenId); vdShowGonggu(_vdOpenId);
+    loadVendors();   // 소진 건수도 다시 센다
+  }catch(e){ alert('삭제 실패: ' + e.message); }
+}
+
 async function loadEventStats(){
   const el=document.getElementById('eventStats');
   const guide=document.getElementById('evtSetupGuide');
