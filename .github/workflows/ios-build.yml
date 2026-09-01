@@ -1,0 +1,135 @@
+# 맘캘린더 아이폰 앱 빌드 (맥 없이 — GitHub 의 macOS 러너가 대신 빌드한다)
+#
+# 왜 이렇게 하나
+#   사장님 PC 는 윈도우다. iOS 빌드는 맥에서만 된다.
+#   그래서 ios/ 네이티브 폴더를 레포에 두지 않고, 러너가 매번 `cap add ios` 로 새로 만든다.
+#   → 윈도우에서 절대 안 깨지고, 결과가 항상 재현된다.
+#
+# 지금 하는 일: 애플 개발자 계정 없이도 **컴파일이 되는지** 검증한다(서명 없이).
+#   계정(D-U-N-S → Apple Developer Program)이 나오면 아래 release 잡을 켜서 TestFlight 로 올린다.
+#
+# 실행: Actions 탭 → "iOS 앱 빌드" → Run workflow  (자동 실행 안 함 — 맥 러너는 분당 과금 단위가 크다)
+
+name: iOS 앱 빌드
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "unsigned = 서명 없이 컴파일만 확인 / release = TestFlight 업로드 (계정·시크릿 필요)"
+        required: true
+        default: unsigned
+        type: choice
+        options: [unsigned, release]
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치
+        working-directory: ios-app
+        run: npm install --no-audit --no-fund
+
+      - name: iOS 프로젝트 생성 (cap add ios)
+        working-directory: ios-app
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: 설정이 실제로 들어갔는지 확인
+        working-directory: ios-app
+        run: |
+          echo "--- Info.plist 앱 이름 ---"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" ios/App/App/Info.plist || true
+          echo "--- capacitor.config 이 복사됐나 ---"
+          test -f ios/App/App/capacitor.config.json && echo "OK" || (echo "🔴 설정 누락"; exit 1)
+          echo "--- 푸시 플러그인이 붙었나 ---"
+          grep -q "PushNotifications" ios/App/Podfile && echo "OK" || (echo "🔴 푸시 플러그인 없음"; exit 1)
+      - name: 푸시 권한(entitlements) 심고 프로젝트에 연결
+        working-directory: ios-app/ios/App
+        run: |
+          # Capacitor 기본 템플릿엔 APNs entitlement 가 없다.
+          # ⚠ 파일만 만들어두면 Xcode 가 안 읽는다 — project.pbxproj 의
+          #    CODE_SIGN_ENTITLEMENTS 까지 걸어야 실제로 붙는다.
+          cat > App/App.entitlements <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>aps-environment</key>
+            <string>development</string>
+          </dict>
+          </plist>
+          PLIST
+
+          # PRODUCT_BUNDLE_IDENTIFIER 줄 바로 뒤에 끼워 넣는다 (Debug/Release 양쪽)
+          python3 - <<'PY'
+          import re, sys
+          p = 'App.xcodeproj/project.pbxproj'
+          s = open(p, encoding='utf-8').read()
+          if 'CODE_SIGN_ENTITLEMENTS' in s:
+              print('이미 연결돼 있음'); sys.exit(0)
+          anchor = 'PRODUCT_BUNDLE_IDENTIFIER = '
+          n = s.count(anchor)
+          if n == 0:
+              print('🔴 앵커(PRODUCT_BUNDLE_IDENTIFIER)를 못 찾음 — 넣지 않고 실패로 끝낸다')
+              sys.exit(1)
+          s = s.replace(anchor, 'CODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n\t\t\t\t' + anchor)
+          open(p, 'w', encoding='utf-8').write(s)
+          print('연결함: %d 곳' % n)
+          PY
+
+          # 실제로 들어갔는지 되읽어 확인 — 안 들어갔으면 여기서 멈춘다
+          grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" App.xcodeproj/project.pbxproj \
+            && echo "✅ entitlements 연결 확인" \
+            || (echo "🔴 연결 실패"; exit 1)
+          grep -q "aps-environment" App/App.entitlements \
+            && echo "✅ APNs 권한 확인" \
+            || (echo "🔴 entitlements 내용 없음"; exit 1)
+
+      - name: 서명 없이 컴파일 검증
+        if: ${{ inputs.mode == 'unsigned' }}
+        working-directory: ios-app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -40
+
+      - name: 실패하면 화면을 남긴다
+        if: failure()
+        working-directory: ios-app
+        run: |
+          echo "=== 생성된 파일 목록 ==="
+          ls -R ios 2>/dev/null | head -60
+
+      # ── 아래는 애플 개발자 계정이 나온 뒤에 켠다 ───────────────────────
+      # 필요한 GitHub Secrets (Settings > Secrets and variables > Actions):
+      #   APPLE_CERT_P12       배포 인증서 (base64)
+      #   APPLE_CERT_PASSWORD  그 인증서 비밀번호
+      #   APPLE_PROFILE        프로비저닝 프로파일 (base64)
+      #   APPLE_API_KEY_P8     App Store Connect API 키 (base64)
+      #   APPLE_API_KEY_ID / APPLE_API_ISSUER_ID
+      - name: TestFlight 업로드
+        if: ${{ inputs.mode == 'release' }}
+        run: |
+          echo "🔴 아직 준비 안 됨 — 애플 개발자 계정과 시크릿 6종이 있어야 한다."
+          echo "   README 의 '사장님이 하셔야 하는 것' 참조."
+          exit 1
