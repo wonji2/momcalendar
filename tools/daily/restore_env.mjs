@@ -1,0 +1,76 @@
+// 새 PC·앱 재설치 후 작업 환경 자가복구 (사장님 지시 2026-09-01)
+//   "채팅 날아가도 항상 새로 앱 받아서 새 채팅 켜도 이어서 작업 가능하게"
+//
+//   node tools/daily/restore_env.mjs --check   ← 진단만 (아무것도 안 고침)
+//   node tools/daily/restore_env.mjs           ← 없는 것만 채운다
+//
+// ⚠ 절대 덮어쓰지 않는다. **없는 파일만** 채운다.
+//   (2026-08-14 /MIR 되감기 사고 — 백업이 최신본을 덮어 되돌린 적이 있다)
+import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+const HOME = process.env.USERPROFILE || process.env.HOME;
+const REPO = process.cwd();
+const CHECK = process.argv.includes('--check');
+const OPS  = join(HOME, 'momcal-ops');
+const WBK  = join(HOME, 'work-backup');
+const PROJ = join(HOME, '.claude', 'projects', 'C--Users-FAMILY-Desktop-MOMCALENDAR');
+const MEM  = join(PROJ, 'memory');
+
+const log = [];
+const say = (icon, what, detail) => { log.push({ icon, what, detail }); };
+
+// 백업 저장소가 아예 없으면 클론부터 (PC 교체 상황)
+function ensureRepo(dir, url, name) {
+  if (existsSync(join(dir, '.git'))) return true;
+  if (CHECK) { say('🔴', name, '없음 — 복구 실행 시 clone 한다'); return false; }
+  try {
+    execFileSync('git', ['clone', '--depth', '1', url, dir], { stdio: 'pipe' });
+    say('🟢', name, 'clone 완료'); return true;
+  } catch (e) { say('🔴', name, 'clone 실패: ' + String(e).slice(0, 80)); return false; }
+}
+
+// 없는 파일만 복사 (기존 파일은 절대 안 건드림)
+function fillMissing(srcDir, dstDir, label) {
+  if (!existsSync(srcDir)) { say('🔴', label, '백업 원본 없음: ' + srcDir); return; }
+  if (!existsSync(dstDir)) { if (CHECK) { say('🔴', label, '대상 폴더 없음 → 통째 복구 대상'); } else mkdirSync(dstDir, { recursive: true }); }
+  const src = readdirSync(srcDir).filter(f => statSync(join(srcDir, f)).isFile());
+  const missing = src.filter(f => !existsSync(join(dstDir, f)));
+  if (!missing.length) { say('✅', label, `${src.length}개 모두 정상`); return; }
+  if (CHECK) { say('🔴', label, `${missing.length}개 없음: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' …' : ''}`); return; }
+  for (const f of missing) copyFileSync(join(srcDir, f), join(dstDir, f));
+  say('🟢', label, `${missing.length}개 복구 (기존 ${src.length - missing.length}개는 그대로)`);
+}
+
+function fillFile(src, dst, label) {
+  if (!existsSync(src)) { say('🔴', label, '백업 원본 없음'); return; }
+  if (existsSync(dst)) { say('✅', label, '정상'); return; }
+  if (CHECK) { say('🔴', label, '없음 → 복구 대상'); return; }
+  mkdirSync(join(dst, '..'), { recursive: true });
+  copyFileSync(src, dst);
+  say('🟢', label, '복구 완료');
+}
+
+const okOps = ensureRepo(OPS, 'https://github.com/wonji2/momcal-ops.git', 'momcal-ops(운영자산 백업)');
+const okWbk = ensureRepo(WBK, 'https://github.com/wonji2/work-backup.git', 'work-backup(레포·설정 백업)');
+
+if (okOps) {
+  fillMissing(join(OPS, 'memory'), MEM, '메모리');
+  fillMissing(join(OPS, 'claude-commands'), join(REPO, '.claude', 'commands'), '슬래시 커맨드');
+  fillFile(join(OPS, 'HANDOFF.md'), join(REPO, 'HANDOFF.md'), 'HANDOFF.md');
+  fillFile(join(OPS, 'CLAUDE-MOMCALENDAR.md'), join(REPO, 'CLAUDE.md'), 'CLAUDE.md');
+  fillFile(join(OPS, 'CLAUDE-desktop.md'), join(HOME, 'Desktop', 'CLAUDE.md'), '상위 CLAUDE.md');
+}
+if (okWbk) fillFile(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
+
+// 살아있는지 최종 확인
+const memCount = existsSync(MEM) ? readdirSync(MEM).length : 0;
+const cmdCount = existsSync(join(REPO, '.claude', 'commands')) ? readdirSync(join(REPO, '.claude', 'commands')).length : 0;
+
+console.log(CHECK ? '=== 환경 진단 (고치지 않음) ===' : '=== 환경 자가복구 ===');
+for (const l of log) console.log(`  ${l.icon} ${l.what.padEnd(24)} ${l.detail}`);
+console.log(`\n  메모리 ${memCount}개 · 커맨드 ${cmdCount}개 · HANDOFF ${existsSync(join(REPO, 'HANDOFF.md')) ? 'O' : 'X'}`);
+const broken = log.filter(l => l.icon === '🔴').length;
+console.log(broken ? `\n🔴 미해결 ${broken}건 — 위 항목을 확인할 것` : '\n✅ 이어서 작업 가능한 상태');
+process.exit(broken && CHECK ? 2 : 0);
