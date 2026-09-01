@@ -93,6 +93,8 @@ body.srch-mode .s-back{display:block}
 body.srch-mode .intro-strip,body.srch-mode .main-banner-section,body.srch-mode #sellerZone,
 body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
 body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{display:none!important}
+/* 앱으로 들어온 사람에게 "앱으로 추가하세요" 안내는 무의미하다 */
+body.native-app #pwaStrip,body.native-app #reloginStrip{display:none!important}
 /* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
 .hot-tag-row{display:flex;gap:7px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none}
 .hot-tag-row::-webkit-scrollbar{display:none}
@@ -3728,11 +3730,20 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 // ══ 알림 권한 ══
-function notiGranted(){ try{ return Notification.permission==='granted' && localStorage.getItem('mc_push_on')==='1'; }catch(_){ return false; } }
-function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+// 아이폰 앱(Capacitor 웹뷰) 안인가. 웹이면 항상 false → 아래 분기는 하나도 안 탄다.
+function _isNativeApp(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(_){ return false; } }
+function notiGranted(){
+  // 앱 웹뷰에는 Notification API 가 아예 없다 → 우리가 저장한 값으로 판단한다
+  if(_isNativeApp()) { try{ return localStorage.getItem('mc_push_on')==='1'; }catch(_){ return false; } }
+  try{ return Notification.permission==='granted' && localStorage.getItem('mc_push_on')==='1'; }catch(_){ return false; } }
+function pushSupported(){
+  if(_isNativeApp()) return true;   // 앱은 APNs 를 쓴다 (serviceWorker·PushManager 없이 됨)
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
 
 // 아이폰은 홈 화면에 추가(PWA)해야만 알림 가능
-function iosNeedsInstall(){ return _isIOS() && !_isStandalone(); }
+function iosNeedsInstall(){
+  if(_isNativeApp()) return false;  // 앱을 이미 깔았는데 "홈 화면에 추가하세요" 라고 하면 안 된다
+  return _isIOS() && !_isStandalone(); }
 
 // 알림 안내 재노출 간격: "나중에" 누를수록 뜸해짐(1→3→5→10일), 그 뒤 10일마다
 // ※ 시각(24시간)이 아니라 '날짜' 기준. 밤 11시에 눌러도 다음날 아무 때나 접속하면 뜸.
@@ -3801,6 +3812,7 @@ async function wnAllow(){
 
 // 실제 푸시 구독 → 서버 저장
 async function enablePush(){
+  if(_isNativeApp()) return enablePushNative();
   try{
     if(!pushSupported()) return false;
     const perm=await Notification.requestPermission();
@@ -3822,6 +3834,16 @@ async function enablePush(){
   }catch(e){ return false; }
 }
 async function disablePush(){
+  if(_isNativeApp()){
+    try{
+      localStorage.setItem('mc_push_on','0');
+      await fetch(SUPABASE_URL+'/functions/v1/save-ios-token',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'off', device_id:deviceId()})}).catch(function(){});
+      try{ trackEvent('push_off','ios_app'); }catch(_){}
+    }catch(_){}
+    mcToast('알림을 껐어요'); renderList(); return;
+  }
   try{
     localStorage.setItem('mc_push_on','0');
     const reg=await navigator.serviceWorker.ready;
@@ -3835,6 +3857,55 @@ async function disablePush(){
   }catch(_){}
   mcToast('알림을 껐어요'); renderList();
 }
+// ══ 아이폰 앱 전용 (Capacitor) ══════════════════════════════════════
+//  웹에서는 여기 어느 함수도 호출되지 않는다.
+//  토큰은 기기·앱 재설치마다 바뀐다 → 앱을 켤 때마다 다시 보낸다(그게 정상).
+function _pushPlugin(){ try{ return window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications; }catch(_){ return null; } }
+
+async function enablePushNative(){
+  var P=_pushPlugin(); if(!P) return false;
+  try{
+    var st=await P.requestPermissions();
+    if(!st || st.receive!=='granted') return false;
+    await P.register();                       // 성공하면 'registration' 리스너로 토큰이 온다
+    localStorage.setItem('mc_push_on','1');
+    try{ trackEvent('push_on','ios_app'); }catch(_){}
+    return true;
+  }catch(e){ return false; }
+}
+
+async function _sendIosToken(token){
+  if(!token) return;
+  try{
+    await fetch(SUPABASE_URL+'/functions/v1/save-ios-token',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        action:'on', device_id:deviceId(), apns_token:token,
+        env:(location.hostname==='momcalendar.com'?'prod':'dev'),
+        ua:navigator.userAgent.slice(0,300)})});
+  }catch(_){}
+}
+
+function nativeBoot(){
+  if(!_isNativeApp()) return;               // ← 웹이면 여기서 끝. 아래는 실행되지 않는다.
+  try{ document.body.classList.add('native-app'); }catch(_){}
+  var P=_pushPlugin(); if(!P) return;
+  try{
+    P.addListener('registration', function(t){ _sendIosToken(t && t.value); });
+    P.addListener('registrationError', function(){ try{ trackEvent('push_err','ios_app'); }catch(_){} });
+    // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
+    P.addListener('pushNotificationActionPerformed', function(ev){
+      try{
+        var u=ev && ev.notification && ev.notification.data && ev.notification.data.url;
+        if(u && u.indexOf('https://momcalendar.com')===0) location.href=u;
+      }catch(_){}
+    });
+    // 이미 켜둔 사람은 앱을 켤 때마다 토큰을 새로 받아 갱신한다
+    if(localStorage.getItem('mc_push_on')==='1') P.register().catch(function(){});
+  }catch(_){}
+}
+document.addEventListener('DOMContentLoaded', nativeBoot);
+
 function urlB64ToUint8(b64){
   const pad='='.repeat((4-b64.length%4)%4);
   const s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');
