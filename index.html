@@ -1061,7 +1061,7 @@ function ddayObj(openDate){return ddayFromDate(openDate,todayStr);}
 
 // ── 카테고리 ──
 const CATS={
-  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','목욕/세정','외출용품','방꾸미기','스킨로션','유모차카시트','육아용품'],
   '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
   '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
@@ -1176,7 +1176,7 @@ async function loadData() {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
     const fromDate = dOff(-3);
-    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link`;
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
     // Supabase는 한 번에 최대 1000건만 반환 → Range 헤더로 끝까지 페이지네이션
     let rows = [];
     const PAGE = 1000;
@@ -1206,6 +1206,7 @@ async function loadData() {
       openDate: r.open_date || '',
       endDate: r.end_date || '',
       payLink: (r.pay_link || '').trim(),
+      vendorId: r.vendor_id || null,   // 입점 공급사 건이면 값이 있다 (핫 키워드 우선 노출용)
     })).filter(d => d.name && d.openDate)
     // ⚠️ 갈 곳이 없는 카드는 아예 안 보여준다. (사장님 지적 2026-08-10)
     //    핸들도 결제·카페 링크도 없으면 눌러봐야 인스타 메인만 열린다.
@@ -1262,7 +1263,18 @@ function buildHotTags(){
       const t=(it.name||'').trim().split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9]/g,'');
       if(t.length<2 || HOT_TAG_STOP.has(t)) return;
       cnt[t]=(cnt[t]||0)+1; });
-    _hotTags=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([m])=>m);
+    // 입점 공급사 브랜드를 앞자리에 섞는다 (사장님 지시 2026-09-01).
+    //   자동 집계는 3건 이상만 칩이 되지만, 공급사 건은 1건이어도 넣는다 — 그게 유료 노출의 값이다.
+    //   ⚠ 표기는 그대로 '#브랜드' 다. 입점사가 늘면 그때 라벨을 바꾸기로 함(지금은 0곳).
+    const vcnt={};
+    DATA.forEach(it=>{ if(!it.vendorId || isExpired(it) || it.openDate>lim) return;
+      const t=(it.name||'').trim().split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9]/g,'');
+      if(t.length<2 || HOT_TAG_STOP.has(t)) return;
+      vcnt[t]=(vcnt[t]||0)+1; });
+    const vTags=Object.entries(vcnt).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m])=>m);
+    const rest=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).map(([m])=>m)
+      .filter(m=>!vTags.includes(m));
+    _hotTags=[...vTags, ...rest].slice(0,8);
     if(_hotTags.length<3){ el.style.display='none'; return; }
     el.innerHTML=_hotTags.map(m=>`<button class="hot-tag" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
     el.style.display='flex';
@@ -3642,7 +3654,7 @@ async function fetchWishExtra(){
     const have=new Set(DATA.map(d=>d.id));
     const miss=[...WISH].filter(id=>!have.has(id) && !_wishExtra.some(x=>x.id===id));
     if(!miss.length) return;
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link`,{headers:wishHeaders()});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`,{headers:wishHeaders()});
     if(!r.ok) return;
     const rows=await r.json();
     _wishExtra=_wishExtra.concat(rows.map(x=>({

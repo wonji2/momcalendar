@@ -192,6 +192,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('member',this)">👥 회원</div>
     <div class="tab" onclick="switchTab('attend',this)">💜 출석·추첨</div>
     <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
+    <div class="tab" onclick="switchTab('vendor',this)">🏢 공급사</div>
     <div class="tab" onclick="openReelCard()" style="background:#F3ECFB;color:#5B3A8C;font-weight:800">📸 인스타 카드</div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
@@ -429,6 +430,57 @@ details summary::-webkit-details-marker{display:none}
   </div>
 
   <!-- 📈 광고성과 탭 -->
+  <!-- 🏢 공급사·벤더사 계약 (유료 일정 등록 대행) — 2026-09-01 신설 -->
+  <div id="vendorView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="font-size:15px;font-weight:800;color:#3D1F5C">🏢 공급사 계약</div>
+      <button onclick="vdOpenForm(null)" style="margin-left:auto;padding:7px 13px;background:#7B3FB5;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">＋ 계약 추가</button>
+    </div>
+    <div style="font-size:11.5px;color:#7A6A92;line-height:1.7;background:#F6F2FB;border-radius:9px;padding:10px;margin-bottom:12px">
+      셀러 셀프등록은 무료 · 공급사가 맡긴 일정은 유료입니다.<br>
+      공구를 등록할 때 <b>공급사를 지정</b>하면 여기서 소진 건수가 집계됩니다.<br>
+      <span style="color:#A08BC0">계약 기간 안에 등록된 건만 셉니다(등록 시각 기준).</span>
+    </div>
+    <div id="vdList"><div style="color:#aaa;font-size:12px">불러오는 중…</div></div>
+  </div>
+
+  <!-- 공급사 계약 입력 모달 -->
+  <div id="vdModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:88vh;overflow:auto">
+      <div style="font-size:15px;font-weight:800;color:#3D1F5C;margin-bottom:12px" id="vdTitle">공급사 계약 추가</div>
+      <input type="hidden" id="vdId">
+      <div style="display:grid;gap:9px">
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">공급사명
+          <input id="vdName" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" placeholder="○○물산"></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <label style="font-size:12px;font-weight:700;color:#5B3A8C">요금제
+            <select id="vdPlan" onchange="vdPlanChange()" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit">
+              <option value="basic">베이직 (1일1건·60건)</option>
+              <option value="premium">프리미엄 (1일2건·120건)</option>
+            </select></label>
+          <label style="font-size:12px;font-weight:700;color:#5B3A8C">계약 건수
+            <input id="vdQuota" type="number" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" value="60"></label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <label style="font-size:12px;font-weight:700;color:#5B3A8C">시작일
+            <input id="vdStart" type="date" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit"></label>
+          <label style="font-size:12px;font-weight:700;color:#5B3A8C">종료일
+            <input id="vdEnd" type="date" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit"></label>
+        </div>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C;display:flex;align-items:center;gap:7px">
+          <input id="vdCafe" type="checkbox" checked style="width:16px;height:16px"> 카페·인스타 게시 대상</label>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C;display:flex;align-items:center;gap:7px">
+          <input id="vdActive" type="checkbox" checked style="width:16px;height:16px"> 계약 유효</label>
+        <label style="font-size:12px;font-weight:700;color:#5B3A8C">메모
+          <input id="vdMemo" style="width:100%;margin-top:4px;padding:9px;border:1.4px solid #E3D9F2;border-radius:8px;font-size:13px;font-family:inherit" placeholder="담당자·연락처 등"></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="vdClose()" style="flex:1;padding:11px;background:#F2F2F5;color:#555;border:0;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+        <button onclick="vdSave()" style="flex:1.4;padding:11px;background:#7B3FB5;color:#fff;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">저장</button>
+      </div>
+    </div>
+  </div>
+
   <div id="adperfView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-size:14px;font-weight:800;color:#2A1D6E">📈 광고 성과 (배너)</div>
@@ -5122,6 +5174,129 @@ function curMatchCount(q){
   return c;
 }
 
+
+// ══════ 🏢 공급사 계약 (2026-09-01 신설) ══════
+// 셀러 셀프등록은 무료 · 공급사가 맡긴 일정은 유료다.
+// gonggu.vendor_id 로 "누구 몫", gonggu.created_at 으로 "언제 등록" 을 남긴다.
+// ⚠ created_at 이 없는 옛 행(3천여 건)은 집계에서 빠진다 — 앞으로 등록분만 센다.
+let _vdCache = [];
+async function loadVendors(){
+  const el = document.getElementById('vdList');
+  if (el) el.innerHTML = '<div style="color:#aaa;font-size:12px">불러오는 중…</div>';
+  try{
+    const rows = await adminRpc('admin_vendor_list', {});
+    _vdCache = Array.isArray(rows) ? rows : [];
+    if (!_vdCache.length){
+      el.innerHTML = '<div style="color:#bbb;font-size:12.5px;padding:18px 0;text-align:center">등록된 공급사 계약이 없어요.<br>우측 상단 [＋ 계약 추가]로 시작하세요.</div>';
+      return;
+    }
+    el.innerHTML = _vdCache.map(function(v){
+      const pct = v.quota > 0 ? Math.min(100, Math.round(v.used / v.quota * 100)) : 0;
+      const over = v.remain < 0;
+      const soon = v.days_left != null && v.days_left <= 7 && v.days_left >= 0;
+      const ended = v.days_left != null && v.days_left < 0;
+      const bar = over ? '#C62828' : (pct >= 80 ? '#E8890C' : '#7B3FB5');
+      const planTag = v.plan === 'premium' ? '프리미엄' : '베이직';
+      const planBg = v.plan === 'premium' ? '#F3E7FB' : '#EAF2FC';
+      const planCo = v.plan === 'premium' ? '#7B3FB5' : '#2C5FA8';
+      let stateTag = '';
+      if (ended) stateTag = '<span style="font-size:10.5px;color:#C62828;padding:2px 7px;background:#FDECEC;border-radius:20px">기간만료</span>';
+      else if (soon) stateTag = '<span style="font-size:10.5px;color:#E8890C;padding:2px 7px;background:#FFF4E5;border-radius:20px">D-' + v.days_left + '</span>';
+      const offTag = v.active ? '' : '<span style="font-size:10.5px;color:#999;padding:2px 7px;background:#F0F0F0;border-radius:20px">종료</span>';
+      const remainTxt = over ? ' · <b style="color:#C62828">' + (-v.remain) + '건 초과</b>' : ' · 잔여 ' + v.remain + '건';
+      const memoTxt = v.memo ? '<br><span style="color:#A99BC4">' + dashEsc(v.memo) + '</span>' : '';
+      return '<div style="border:1.4px solid ' + (v.active ? '#E3D9F2' : '#EEE') + ';border-radius:11px;padding:12px;margin-bottom:9px;background:' + (v.active ? '#fff' : '#FAFAFA') + '">'
+        + '<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">'
+        + '<span style="font-size:14px;font-weight:800;color:#3D1F5C">' + dashEsc(v.name) + '</span>'
+        + '<span style="font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:' + planBg + ';color:' + planCo + '">' + planTag + '</span>'
+        + offTag + stateTag
+        + '<button onclick="vdOpenForm(' + v.id + ')" style="margin-left:auto;padding:5px 10px;background:#F3ECFB;color:#5B3A8C;border:0;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+        + '<div style="flex:1;height:8px;background:#F0EAF8;border-radius:20px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + bar + '"></div></div>'
+        + '<span style="font-size:12px;font-weight:800;color:' + bar + '">' + v.used + '/' + v.quota + '건</span>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#8A7AA0">' + v.start_date + ' ~ ' + v.end_date + remainTxt + ' · 카페게시 ' + (v.cafe_enabled ? 'O' : 'X') + memoTxt + '</div>'
+        + '<button onclick="vdShowGonggu(' + v.id + ')" style="margin-top:8px;width:100%;padding:7px;background:#fff;color:#7B3FB5;border:1.2px solid #E3D9F2;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">등록 내역 보기</button>'
+        + '<div id="vdG' + v.id + '" style="display:none;margin-top:8px"></div>'
+        + '</div>';
+    }).join('');
+  }catch(e){
+    if (el) el.innerHTML = '<div style="color:#C62828;font-size:12px">계약을 불러오지 못했어요. (' + dashEsc(e.message) + ')</div>';
+  }
+}
+function vdPlanChange(){
+  const p = document.getElementById('vdPlan').value;
+  document.getElementById('vdQuota').value = (p === 'premium') ? 120 : 60;
+}
+function vdOpenForm(id){
+  const v = id ? _vdCache.find(function(x){ return x.id === id; }) : null;
+  document.getElementById('vdTitle').textContent = v ? '공급사 계약 수정' : '공급사 계약 추가';
+  document.getElementById('vdId').value = v ? v.id : '';
+  document.getElementById('vdName').value = v ? v.name : '';
+  document.getElementById('vdPlan').value = v ? v.plan : 'basic';
+  document.getElementById('vdQuota').value = v ? v.quota : 60;
+  document.getElementById('vdCafe').checked = v ? !!v.cafe_enabled : true;
+  document.getElementById('vdActive').checked = v ? !!v.active : true;
+  document.getElementById('vdMemo').value = (v && v.memo) ? v.memo : '';
+  if (v){
+    document.getElementById('vdStart').value = v.start_date;
+    document.getElementById('vdEnd').value = v.end_date;
+  } else {
+    // 기본값 = 오늘부터 2개월 (최소 계약 단위)
+    const t = new Date(Date.now() + 9 * 3600e3);
+    const e = new Date(t.getFullYear(), t.getMonth() + 2, t.getDate() - 1);
+    const pad = function(n){ return String(n).padStart(2, '0'); };
+    document.getElementById('vdStart').value = t.toISOString().slice(0, 10);
+    document.getElementById('vdEnd').value = e.getFullYear() + '-' + pad(e.getMonth() + 1) + '-' + pad(e.getDate());
+  }
+  document.getElementById('vdModal').style.display = 'flex';
+}
+function vdClose(){ document.getElementById('vdModal').style.display = 'none'; }
+async function vdSave(){
+  const name = document.getElementById('vdName').value.trim();
+  const st = document.getElementById('vdStart').value;
+  const en = document.getElementById('vdEnd').value;
+  if (!name){ alert('공급사명을 입력해주세요'); return; }
+  if (!st || !en){ alert('계약 기간을 입력해주세요'); return; }
+  if (en < st){ alert('종료일이 시작일보다 빠릅니다'); return; }
+  try{
+    const idv = document.getElementById('vdId').value;
+    await adminRpc('admin_vendor_upsert', {
+      p_id: idv ? Number(idv) : null,
+      p_name: name,
+      p_plan: document.getElementById('vdPlan').value,
+      p_quota: Number(document.getElementById('vdQuota').value) || 60,
+      p_start: st,
+      p_end: en,
+      p_cafe: document.getElementById('vdCafe').checked,
+      p_active: document.getElementById('vdActive').checked,
+      p_memo: document.getElementById('vdMemo').value.trim() || null
+    });
+    vdClose();
+    loadVendors();
+  }catch(e){ alert('저장 실패: ' + e.message); }
+}
+async function vdShowGonggu(id){
+  const box = document.getElementById('vdG' + id);
+  if (!box) return;
+  if (box.style.display === 'block'){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:#aaa;font-size:11.5px">불러오는 중…</div>';
+  try{
+    const rows = await adminRpc('admin_vendor_gonggu', { p_vendor: id, p_limit: 200 });
+    const a = Array.isArray(rows) ? rows : [];
+    if (!a.length){ box.innerHTML = '<div style="color:#bbb;font-size:11.5px">아직 이 공급사로 등록한 공구가 없어요.</div>'; return; }
+    box.innerHTML = '<div style="font-size:11px;color:#7A6A92;margin-bottom:5px">' + a.length + '건</div>'
+      + a.map(function(g){
+          const day = g.reg_day ? '<span style="color:#A99BC4">' + g.reg_day + '</span> ' : '';
+          const who = dashEsc(g.influencer || g.insta || '');
+          const ok = g.approved ? '' : ' <span style="color:#E8890C">미승인</span>';
+          return '<div style="font-size:11.5px;color:#4A3A5C;padding:5px 0;border-top:1px solid #F2ECF9">'
+            + day + dashEsc(g.name) + ' <span style="color:#A99BC4">— ' + who + ' · ' + g.open_date + '</span>' + ok + '</div>';
+        }).join('');
+  }catch(e){ box.innerHTML = '<div style="color:#C62828;font-size:11.5px">' + dashEsc(e.message) + '</div>'; }
+}
 async function loadEventStats(){
   const el=document.getElementById('eventStats');
   const guide=document.getElementById('evtSetupGuide');
@@ -7106,9 +7281,13 @@ function switchTab(tab,el){
   updateBulkBar();
   // 모든 뷰 숨기기
   ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView',
-   'inqView','memberView','adperfView','attendView'].forEach(id=>{
+   'inqView','memberView','adperfView','attendView','vendorView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
+  if(tab==='vendor'){
+    document.getElementById('vendorView').style.display='block';
+    loadVendors(); return;
+  }
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     loadAdminDash();
