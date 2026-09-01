@@ -573,10 +573,12 @@ body.sheet-open{ overscroll-behavior-y: none; }
     지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>
     카카오로 시작하면 폰을 바꿔도 찜이 그대로예요
   </div>
+  <div id="kkoBtns">
   <button onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
     <span style="font-size:17px">💬</span> 카카오로 3초 만에 시작
   </button>
-  <button onclick="kkoLater()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;font-family:inherit;cursor:pointer;padding:6px">나중에 할게요</button>
+  </div>
+  <button onclick="kkoLater()" style="width:100%;background:none;border:1px solid #EDE7F5;border-radius:13px;color:#8A8194;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:12px;min-height:44px">나중에 할게요</button>
   <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
 </div>
 
@@ -3393,7 +3395,48 @@ function kkoLater(){
   closeLoginSheet();
   if(typeof renderList==='function' && fSt==='wish') renderList();
 }
+// 카톡 안에서는 카카오 로그인이 유난히 잘 끊긴다 (실측 2026-09-01: 인앱 이탈 27% vs 웹 14%).
+//   원인은 인앱에서 카톡 앱 전환을 끈 것(throughTalk:false, 2026-08-04 사고 대응)이라
+//   손님이 카카오 아이디·비밀번호를 손으로 입력해야 하기 때문이다.
+//   → 크롬·사파리로 열면 앱 전환이 살아나 한 번에 끝난다.
+//   ⚠ 강요하지 않는다 — "그냥 여기서 할게요" 로 원래 길을 그대로 남긴다. 안내는 한 번만.
+function kkoInAppGuide(){
+  var ios = _isIOS();
+  var t = document.getElementById("kkoTitle"), sub = document.getElementById("kkoSub"),
+      fine = document.getElementById("kkoFine"), box = document.getElementById("kkoBtns");
+  if(!t || !sub || !box) return false;
+  try{ trackEvent("kakao_login_inapp_guide", ios?"ios":"android"); }catch(_){}
+  t.textContent = "카톡 안에서는 로그인이 자주 끊겨요";
+  sub.innerHTML = ios
+    ? "오른쪽 아래 <b style=\"color:#7B3FB5\">···</b> 를 누르고<br><b style=\"color:#7B3FB5\">사파리로 열기</b> 를 고르면 한 번에 끝나요"
+    : "<b style=\"color:#7B3FB5\">크롬으로 열면</b> 카카오톡이 바로 떠서<br>아이디를 치지 않아도 돼요";
+  if(fine) fine.textContent = "찜한 공구는 그대로 있어요";
+  var yellow = "width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px";
+  box.innerHTML = ios
+    ? '<button onclick="kkoForceLogin()" style="'+yellow+'">그냥 여기서 로그인할게요</button>'
+    : '<button onclick="kkoOpenChromeLogin()" style="width:100%;background:#7B3FB5;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px">크롬으로 열어서 로그인</button>'
+      + '<button onclick="kkoForceLogin()" style="'+yellow+';padding:12px;font-size:13px;font-weight:700">그냥 여기서 할게요</button>';
+  return true;
+}
+// 크롬으로 현재 화면을 다시 연다 (+ 도착하면 로그인 시트를 바로 띄우도록 ?login=1)
+function kkoOpenChromeLogin(){
+  try{ trackEvent("kakao_login_to_chrome", "android"); }catch(_){}
+  try{ localStorage.setItem("mc_login_from", location.pathname+location.search); }catch(_){}
+  try{
+    var fb="https://play.google.com/store/apps/details?id=com.android.chrome";
+    var q=location.search ? location.search+"&login=1" : "?login=1";
+    location.href="intent://"+location.host+location.pathname+q+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(fb)+";end";
+  }catch(_){ kkoForceLogin(); }
+}
+// 안내를 건너뛰고 원래대로 진행 — 인앱에서도 로그인은 된다, 조금 불편할 뿐이다
+function kkoForceLogin(){ window.__kkoSkipGuide = true; startKakaoLogin(); }
+
 function startKakaoLogin(){
+  // 카톡 인앱이면 먼저 더 편한 길을 알려준다 (기기당 한 번만)
+  if(_isInApp() && !window.__kkoSkipGuide){
+    try{ if(!localStorage.getItem("mc_inapp_guided")){ localStorage.setItem("mc_inapp_guided","1");
+      if(kkoInAppGuide()) return; } }catch(_){}
+  }
   if(!kkoInit()){ alert('카카오 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
@@ -4119,6 +4162,23 @@ function openInChrome(){
 }
 // 삼성 인터넷에서 크롬으로 넘어온 경우(?pwa=1) → 설치창을 자동으로 띄운다.
 // 크롬은 이미 설치돼 있으면 beforeinstallprompt 를 아예 안 주므로, 안 오면 조용히 넘어간다.
+// 카톡 → 크롬으로 넘어와 도착했을 때(?login=1) 로그인 시트를 바로 띄운다.
+//   안 그러면 "크롬으로 왔는데 뭘 하라는 거지" 하고 거기서 또 이탈한다.
+function _autoLoginFromChrome(){
+  try{
+    if(location.search.indexOf("login=1")<0) return;
+    if(typeof isLoggedIn==="function" && isLoggedIn()) return;
+    try{ history.replaceState({},"", location.pathname); }catch(_){}
+    var open = function(){ if(typeof openLoginSheet==="function")
+      openLoginSheet("이제 한 번에 로그인돼요","카카오톡이 바로 떠서 아이디를 치지 않아도 돼요","닉네임만 받아요"); };
+    // ⚠ 일찍 열면 페이지 초기화가 시트를 도로 닫는다(실측 2026-09-01) → 늦게 열고, 닫혔으면 한 번 더
+    setTimeout(open, 2200);
+    setTimeout(function(){ var m=document.getElementById("kkoSheet");
+      if(m && m.style.bottom!=="0px" && m.style.bottom!=="0") open(); }, 4000);
+  }catch(_){}
+}
+setTimeout(function(){ try{ _autoLoginFromChrome(); }catch(_){} }, 800);
+
 function _autoPromptFromChrome(tries){
   tries=tries||0;
   try{
