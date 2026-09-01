@@ -981,7 +981,19 @@ async function saveRange(){
   document.getElementById('st').textContent='기간 일괄 저장 완료 ('+caps.length+'일)';
 }
 
-document.getElementById('day').value=todayKST();
+// URL 파라미터로 날짜·시안을 지정할 수 있게 (2026-09-01 — 매일 아침 자동 생성용)
+//   ?d=2026-09-01&fmt=auto   fmt 생략 시 화면 기본값(자동=요일별)
+//   make-card.mjs 가 이 주소를 headless 로 열어 카드 PNG·캡션을 뽑는다.
+(function(){
+  var q = new URLSearchParams(location.search);
+  var d = (q.get('d') || '').trim();
+  document.getElementById('day').value = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : todayKST();
+  var f = (q.get('fmt') || '').trim();
+  if (f) {
+    var sel = document.getElementById('tsel');
+    if ([].some.call(sel.options, function(o){ return o.value === f; })) sel.value = f;
+  }
+})();
 load();
 </script>
 </body>

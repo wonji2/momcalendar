@@ -18,7 +18,11 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, de
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
 
-await page.goto(`${SITE}/reelcard.html?d=${day}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+// 🔴 2026-09-01: reelcard.html → instastudio.html 로 교체 (사장님 지시)
+//    "내 계정은 맨날 똑같은 폼이라 조회수가 안 나와" — reelcard 는 시안이 하나뿐이었다
+//    (A|B|C 는 글씨 크기만 다름). instastudio 는 요일별 7종 + 캡션 랜덤 엔진을 갖고 있다.
+//    월 주간예고 / 화·목 카테고리 / 수 인기TOP10 / 금 주말 / 토 마감임박 / 일 핫딜베스트
+await page.goto(`${SITE}/instastudio.html?d=${day}&fmt=auto&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
 
 // 캡션이 채워질 때까지 기다린다(데이터 로딩 완료 신호)
 await page.waitForFunction(() => {
@@ -192,6 +196,44 @@ try {
   }
 } catch (e) { console.log('브랜드 꼭지 생략:', String(e).slice(0, 80)); }
 
+// ── 매일 다른 글이 되게 (사장님 지시 2026-09-01 "맨날 똑같은 폼이라 조회수가 안 나와") ──
+// 날짜를 시드로 고른다 → 같은 날 다시 만들어도 같은 글이 나오고, 날마다는 달라진다.
+// instastudio 캡션 엔진과 같은 사상. ⚠ 제목·링크블록·태그는 SEO 자산이라 건드리지 않는다.
+const seed = Number(day.replace(/-/g, ''));
+const rot = (arr, salt = 0) => arr[(seed + salt) % arr.length];
+const dow = new Date(day + 'T00:00:00').getDay();
+
+const OPENERS = [
+  `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
+  `${label} 공구 일정이에요. 오늘 오픈하는 ${opens.length}건을 한 번에 모았어요.`,
+  `${label}, 오늘 문 여는 공동구매 ${opens.length}건이에요. 카테고리별로 보기 좋게 정리했어요.`,
+  `${label} 오늘의 공구 소식이에요. 새로 시작하는 ${opens.length}건을 담았어요.`,
+  `${label}, 인스타 셀러들이 오늘 여는 공구 ${opens.length}건을 모아왔어요.`,
+  `${label} 공구 오픈 소식이에요. 오늘 올라온 ${opens.length}건을 정리해 뒀어요.`,
+];
+const SUBS = [
+  `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
+  `오늘 끝나는 공구가 ${closes.length}건이라 아래쪽도 같이 확인해 보세요.`,
+  `마감이 오늘인 공구도 ${closes.length}건 있어요. 담아두셨다면 서두르셔야 해요.`,
+  `함께 마감 ${closes.length}건도 정리했어요. 놓친 게 없는지 훑어보세요.`,
+];
+const OPEN_H = [`■ 오늘 오픈하는 공구 ${opens.length}건`, `■ 오늘 새로 열리는 공구 ${opens.length}건`, `■ 오늘 시작하는 공구 ${opens.length}건`];
+const CLOSE_H = [`■ 오늘 마감하는 공구 ${closes.length}건`, `■ 오늘 끝나는 공구 ${closes.length}건`, `■ 오늘까지인 공구 ${closes.length}건`];
+const OUTROS = [
+  `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
+  `※ 일정과 가격은 셀러 사정으로 바뀔 수 있어요. 결제 전에 셀러 계정 공지를 꼭 다시 확인해 주세요.`,
+  `※ 수량이 빨리 소진되면 예정보다 일찍 닫히기도 해요. 관심 있는 공구는 오픈일에 바로 확인하시는 게 좋아요.`,
+  `※ 정확한 구성·가격은 셀러 공지 기준이에요. 이 글은 일정 모음이라 참고용으로 봐주세요.`,
+];
+// 마감이 임박한 날(금·토)엔 마감 목록을 먼저 보여준다 — 그날 급한 정보가 위로.
+const closeFirst = (dow === 5 || dow === 6) && closes.length > 0;
+const openBlock = [
+  rot(OPEN_H, 1),
+  ...byMajor.flatMap(([m, arr]) => [``, `[${m}]`,
+    ...arr.map((o) => `· ${o.name}${sellerSuffix(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
+];
+const closeBlock = [rot(CLOSE_H, 2), ...closes.map((o) => `· ${o.name}${sellerSuffix(o)}`)];
+
 const blogBody = [
   // 전부 클릭되는 링크로. 네이버 에디터는 맨 위 URL(맘캘린더)만 카드로 펼치고 나머지는 텍스트 링크가 된다 (사장님 확인 2026-08-12)
   `맘캘린더 채널 한눈에`,
@@ -205,19 +247,14 @@ const blogBody = [
   `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
   `─────────────`,
   ``,
-  `${label}, 오늘 새로 오픈하는 인스타 공구일정 ${opens.length}건을 카테고리별로 정리했어요.`,
-  `오늘 마감되는 공구도 ${closes.length}건 있으니 놓치지 마세요.`,
+  rot(OPENERS),
+  rot(SUBS, 3),
   ``,
   // (사진 안내 문장 제거 — 사장님 지시 2026-08-27 "복사해서 그대로 붙여넣게". 사진 넣는 순서는 페이지 하단 안내문에만 남긴다)
-  `■ 오늘 오픈하는 공구 ${opens.length}건`,
-  ...byMajor.flatMap(([m, arr]) => [``, `[${m}]`,
-    ...arr.map((o) => `· ${o.name}${sellerSuffix(o)}${mmdd(o.end_date) ? ` (~${mmdd(o.end_date)} 마감)` : ''}`)]),
-  ``,
-  `■ 오늘 마감하는 공구 ${closes.length}건`,
-  ...closes.map((o) => `· ${o.name}${sellerSuffix(o)}`),
+  ...(closeFirst ? [...closeBlock, ``, ...openBlock] : [...openBlock, ``, ...closeBlock]),
   ...brandStory,
   ``,
-  `※ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.`,
+  rot(OUTROS, 4),
   ``,
   blogTags,
 ].join('\n');
