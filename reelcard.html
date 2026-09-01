@@ -330,8 +330,13 @@ async function load(){
     const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
     const dropped=rows.filter(clash).map(x=>x.name+' ('+x.seller+')');
     if(dropped.length) console.log('맘캘린더 예정건과 겹쳐 제외:', dropped);
-    const opens=rows.filter(r=>r.open_date===day && !clash(r)).sort(sortFn);
-    const ends =rows.filter(r=>r.end_date===day  && !clash(r)).sort(sortFn);
+    // 🔴 셀러를 모르는 공구는 카드에서 뺀다 (사장님 지시 2026-09-01)
+    //    "누가 하는지를 모르는데" — 카페 크롤러 등록분은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
+    const noSeller=x=>!String(x.seller||'').trim();
+    const dropNS=rows.filter(noSeller).map(x=>x.name);
+    if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
+    const opens=rows.filter(r=>r.open_date===day && !clash(r) && !noSeller(r)).sort(sortFn);
+    const ends =rows.filter(r=>r.end_date===day  && !clash(r) && !noSeller(r)).sort(sortFn);
     window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
     render(day,opens,ends);
     makeCaption(day,opens,ends);
@@ -631,7 +636,7 @@ async function makeCaption(day,opens,ends){
   const on=await ongoingCount(day);
   // ⚠️ @핸들은 맘캘린더·이웃셀러에만 건다. 나머지는 한글 이름만.
   //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
-  const line=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
+  const line=x=>`· ${x.name}${String(x.seller||'').trim()?' — '+x.seller:''}${x.partner&&x.insta?' @'+x.insta:''}`;
   // 캡션도 카드와 같은 원칙 — 셀러당 1건(이웃셀러·맘캘린더 제외). 한 셀러가 목록을 독차지하지 않게.
   const capOpens=oneProduct(onePerSeller(opens)), capEnds=oneProduct(onePerSeller(ends));
   const nb=capOpens.filter(x=>x.partner), rest=capOpens.filter(x=>!x.partner);

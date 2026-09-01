@@ -79,9 +79,16 @@ try {
 } catch (e) { console.log('블로그용 REST 실패:', String(e).slice(0, 120)); }
 
 const seller = (g) => (g.influencer || g.insta || '').trim();
-// ⚠ 셀러를 모르는 행(카페 크롤러 등록분은 insta/influencer 가 빈 문자열)이 있다.
-//   그대로 `— ${seller(o)}` 로 쓰면 "상품명 — " 처럼 대시 뒤가 빈 채로 나간다(2026-09-01 사장님 지적).
-//   셀러가 없으면 대시째로 생략한다.
+// 🔴 셀러를 모르는 행은 카드·블로그에서 통째로 뺀다 (사장님 지시 2026-09-01)
+//    "누가 하는지를 모르는데" — 손님이 어디서 사는지 알 수 없는 줄은 실어봐야 소용이 없다.
+//    카페 크롤러 등록분(cafe_crawl.mjs)은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
+//    ⚠ 걸러낸 뒤에 건수를 세야 한다 — 본문의 "오늘 오픈 N건"이 실제 실린 줄 수와 어긋나면 안 된다.
+const droppedNoSeller = opens.filter((g) => !seller(g)).length
+                      + closes.filter((g) => !seller(g)).length;
+opens  = opens.filter(seller);
+closes = closes.filter(seller);
+if (droppedNoSeller) console.log(`셀러 미상 ${droppedNoSeller}건 제외 (카드·블로그 양쪽)`);
+// 셀러가 없으면 구분자(—)째 생략 — 위 필터가 뚫려도 "상품명 — " 이 나가지 않게 하는 2중 방어
 const sellerSuffix = (g) => { const s = seller(g); return s ? ` — ${s}` : ''; };
 const mmdd = (s) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? `${+s.slice(5, 7)}/${+s.slice(8, 10)}` : '';
 // 상품명 첫 토큰에서 브랜드 후보를 뽑는다. 일반명사·수식어는 제외 (제목·태그용 3개면 충분)
