@@ -546,7 +546,8 @@ body.sheet-open{ overscroll-behavior-y: none; }
     <div id="pwaIosInApp" style="display:none">
       <div style="font-size:12px;color:#999;margin-bottom:12px">카톡·인스타 안에서는 설치가 안 돼요</div>
       <button onclick="openInSafari()" style="width:100%;background:#602090;color:#fff;border:none;border-radius:12px;padding:14px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit">🧭 Safari로 열기</button>
-      <div style="font-size:10.5px;color:#B4B0BE;margin-top:8px;line-height:1.4">안 열리면 <b style="color:#888">우측 위 ⋯</b> → "다른 브라우저로 열기"</div>
+      <div id="pwaIosInAppHelp" style="display:none;font-size:11.5px;color:#6B5B80;margin-top:10px;line-height:1.6;background:#F6F2FB;border-radius:9px;padding:10px;text-align:left"></div>
+      <div style="font-size:10.5px;color:#B4B0BE;margin-top:8px;line-height:1.4">안 열리면 <b style="color:#888">⋯ 메뉴</b> → "Safari(외부 브라우저)로 열기"</div>
     </div>
     <!-- 아이폰(사파리): 안내 -->
     <div id="pwaIos" style="display:none;text-align:left">
@@ -3888,16 +3889,69 @@ function _isMobile(){ // 모바일/태블릿에서만 PWA 유도(모바일 퍼�
 }
 function openInSafari(){
   // 아이폰 인앱에서 외부 브라우저(사파리)로 열기.
-  // 카톡: 공식 스킴 kakaotalk://web/openExternal 이 가장 확실. 인스타·기타: x-safari- 스킴 시도.
-  try{ trackEvent('ios_open_safari',''); }catch(_){}
-  var url=window.location.href;
+  // 🔴 `x-safari-<url>` 스킴은 iOS 에서 막혔다 (2026-09-01 손님 CS: 네이버 인앱에서 누르면
+  //    "주소가 유효하지 않기 때문에 Safari가 해당 페이지를 열 수 없습니다" 가 떴다).
+  //    카톡만 공식 스킴이 살아 있고, 다른 인앱은 강제 이동 수단이 없다
+  //    → 주소를 복사해주고 그 앱에서 어디를 눌러야 하는지 알려준다.
+  var ua = navigator.userAgent || '';
+  try{ trackEvent('ios_open_safari', _appName(ua)); }catch(_){}
+  var url = window.location.href;
+  if(/KAKAOTALK/i.test(ua)){
+    try{ window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url); }catch(_){}
+    return;
+  }
+  _copyUrlThen(url, function(ok){
+    var box = document.getElementById('pwaIosInAppHelp');
+    if(box){
+      box.innerHTML = (ok ? '<b style="color:#602090">주소를 복사했어요.</b> ' : '') + _appGuide(ua);
+      box.style.display = 'block';
+    } else if(!ok){ alert('주소: ' + url); }
+  });
+}
+// 인앱 앱 이름 (통계·안내용)
+function _appName(ua){
+  ua = ua || navigator.userAgent || '';
+  if(/KAKAOTALK/i.test(ua)) return 'kakao';
+  if(/NAVER/i.test(ua)) return 'naver';
+  if(/Instagram/i.test(ua)) return 'instagram';
+  if(/FBAN|FBAV|FB_IAB/i.test(ua)) return 'facebook';
+  if(/Line\//i.test(ua)) return 'line';
+  if(/DaumApps/i.test(ua)) return 'daum';
+  return 'inapp';
+}
+// 그 앱에서 Safari 로 여는 실제 위치 (앱마다 다르다)
+function _appGuide(ua){
+  var n = _appName(ua);
+  var where = {
+    naver:     '네이버 앱 <b>우측 아래 ⋯</b> → <b>Safari로 열기</b>',
+    instagram: '인스타 <b>우측 위 ⋯</b> → <b>외부 브라우저에서 열기</b>',
+    facebook:  '<b>우측 위 ⋯</b> → <b>외부 브라우저에서 열기</b>',
+    line:      '<b>우측 아래 ⋯</b> → <b>다른 앱으로 열기</b>',
+    daum:      '<b>우측 아래 ⋯</b> → <b>Safari로 열기</b>'
+  }[n] || '<b>우측 위·아래 ⋯</b> → <b>Safari(외부 브라우저)로 열기</b>';
+  return where + '<br>또는 Safari 주소창에 붙여넣기 하시면 돼요.';
+}
+// 주소 복사 (클립보드 → 실패 시 임시 입력칸)
+function _copyUrlThen(url, cb){
   try{
-    if(/KAKAOTALK/i.test(navigator.userAgent||'')){
-      window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
-    } else {
-      window.location.href = 'x-safari-' + url;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){ cb(true); }).catch(function(){ cb(_copyFallback(url)); });
+      return;
     }
   }catch(_){}
+  cb(_copyFallback(url));
+}
+function _copyFallback(url){
+  try{
+    var t = document.createElement('textarea');
+    t.value = url; t.setAttribute('readonly','');
+    t.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(t);
+    t.select(); t.setSelectionRange(0, url.length);
+    var ok = document.execCommand('copy');
+    document.body.removeChild(t);
+    return !!ok;
+  }catch(_){ return false; }
 }
 function openInChrome(){
   // 현재 페이지를 크롬으로 다시 연다(인앱·삼성 → 크롬). 크롬 WebAPK는 구글 서명이라 Play 프로텍트 경고 없음.
