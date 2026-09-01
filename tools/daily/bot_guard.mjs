@@ -43,13 +43,17 @@ const alert = (kind, detail) => {
   const q = (t) => "'" + String(t).replace(/'/g, "''") + "'";
   try { sql(`insert into health_alerts(kind, detail) values (${q(kind)}, ${q(detail.slice(0, 400))});`); } catch (_) {}
 };
+let slowest = 0, slowestSay = '';
 const ask = async (utterance) => {
+  const _t0 = Date.now();
   const j = await fetch(`${SB}/functions/v1/kakao-skill`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userRequest: { utterance, user: { id: 'BOTGUARD' } } }),
   }).then((r) => r.json());
+  const _ms = Date.now() - _t0;
+  if (_ms > slowest) { slowest = _ms; slowestSay = utterance; }
   const o = j?.template?.outputs?.[0] || {};
-  return { card: !!(o.carousel || o.listCard || o.basicCard), text: o.textCard?.text || '', raw: o };
+  return { card: !!(o.carousel || o.listCard || o.basicCard), text: o.textCard?.text || '', raw: o, ms: _ms };
 };
 
 const now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -57,7 +61,7 @@ say(`===== ${now} 챗봇 감시 =====`);
 let bad = 0;
 
 // ① 생존
-const PING = ['오늘 공구', '물티슈', '안녕'];
+const PING = ['오늘 공구', '물티슈', '안녕', '네뷸라이저zzz없는거'];   // 마지막은 가장 느린 경로(별칭 많고 결과 없음)
 for (const p of PING) {
   try {
     const r = await ask(p);
@@ -65,7 +69,11 @@ for (const p of PING) {
     else if (/일시적으로 조회/.test(r.text)) { bad++; say(`🔴 조회 장애 "${p}"`); }
   } catch (e) { bad++; say(`🔴 생존 실패 "${p}" — ${String(e.message || e).slice(0, 60)}`); }
 }
-if (!bad) say('① 생존 정상');
+if (!bad) say(`① 생존 정상 (가장 느린 응답 ${slowest}ms)`);
+// ⏱ 카카오는 늦으면 "폴백 스킬 오류" 를 낸다(권장 3초·최대 5초). 느려지는 순간을 기록해 둔다.
+if (slowest > 3000) { bad++; say(`🔴 응답 지연 ${slowest}ms — "${slowestSay}" (카카오 폴백 오류 위험)`);
+  alert('챗봇응답지연', `${slowest}ms — "${slowestSay}" · 카카오는 늦으면 폴백 스킬 오류로 처리한다`); }
+else if (slowest > 2000) say(`⚠ 응답이 조금 느립니다 (${slowest}ms · "${slowestSay}")`);
 if (bad) alert('챗봇장애', `대표 발화 ${bad}건 실패 — 손님이 지금 답을 못 받고 있습니다`);
 
 // ② 회귀 (정시에만 — 105건은 무겁다)

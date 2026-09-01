@@ -16,6 +16,15 @@
 const SB = "https://hycaqsqeogjtbscmzrtm.supabase.co";
 const KEY = "sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE";
 const SITE = "https://momcalendar.com";
+// 핫딜에 사진이 없을 때 쓸 기본 이미지 — basicCard 는 thumbnail 이 비면 규격 위반이다
+const FALLBACK_THUMB = "https://momcalendar.com/momcal-appicon.png";
+// 카카오가 읽는 것은 jpg·png 다. webp 를 넣었다가 또 규격 위반이 나면 말풍선이 통째로 안 나간다.
+const thumbOf = (u: unknown) => {
+  const s = String(u || "");
+  const low = s.toLowerCase().split("?")[0];
+  const ok = s.startsWith("https://") && (low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"));
+  return ok ? s : FALLBACK_THUMB;
+};
 const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 냄비, 기저귀)"].join("\n");
 const MAX_SHOW = 20;   // 캐러셀 5장 × 4건 (카카오 최대치)
 
@@ -49,7 +58,7 @@ async function findHotdeal(words: string[], today: string) {
     if (!ws.length) continue;
     const and = ws.map((w) => `title.ilike.${encodeURIComponent("%" + w + "%")}`).join(",");
     const cond = ws.length >= 2 ? `and=(${and})` : `title=ilike.${encodeURIComponent("%" + ws[0] + "%")}`;
-    const hd = await q(`hotdeals?select=id,title,price,price_before,mall,link,deal_day&${cond}` +
+    const hd = await q(`hotdeals?select=id,title,price,price_before,mall,link,deal_day,img_url&${cond}` +
       `&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=id.desc&limit=1`) as any[];
     if (Array.isArray(hd) && hd.length && hd[0].link) {
       const d = hd[0];
@@ -57,6 +66,8 @@ async function findHotdeal(words: string[], today: string) {
       const isToday = String(d.deal_day || "") === today;
       return {
         basicCard: {
+          // ⚠ thumbnail 은 카카오 basicCard 필수 항목이다 — 빠지면 말풍선이 미발송 처리된다(2026-09-02 실경고)
+          thumbnail: { imageUrl: thumbOf(d.img_url) },
           title: "공구는 없지만 핫딜이 떴어요! 🔥",
           description: `${isToday ? "오늘 올라온 핫딜이에요\n\n" : ""}${d.title}\n${won(d.price)}${d.price_before ? ` (원래 ${won(d.price_before)})` : ""} · ${d.mall || ""}\n\n공구로는 안 열렸지만 이 값이면 공구 가격이에요.`.slice(0, 400),
           buttons: [
@@ -310,7 +321,9 @@ Deno.serve(async (req) => {
       const searchGonggu = async (list: string[]) => {
         // 표기가 달라도 같은 말이면 결과가 같아야 한다 → 후보를 전부 돌며 합친다 (중복 id 제거)
         const merged: any[] = []; const mseen = new Set<number>();
-        for (const t of [...new Set(list)]) {
+        // ⏱ 카카오는 늦으면 "폴백 스킬 오류" 를 낸다 → 1.8초 넘으면 지금까지 찾은 것으로 답한다
+        const t0 = Date.now();
+        for (const t of [...new Set(list)].slice(0, 8)) {   // 후보 상한 8개
           // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
           const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
           let cond: string;
@@ -331,6 +344,7 @@ Deno.serve(async (req) => {
           const rows = await pick(cond, "order=open_date.asc", ph);
           for (const r of rows) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
           if (merged.length >= MAX_SHOW) break;
+          if (Date.now() - t0 > 1800) break;   // 시간 초과 — 늦은 답보다 지금 답이 낫다
         }
         if (!merged.length) return null;
         // 맘캘린더·이웃셀러 공구는 무조건 맨 앞 (사장님 규칙) — 합치면서 섞이므로 다시 세운다
