@@ -3141,8 +3141,42 @@ async function crawlParse(){
     alert('새로 추가할 일정이 없어요.\n(형식이 안 맞을 수 있어요)');
     return;
   }
+  crawlAutoFillHandles(true);   // 셀러 한글명 → DB 핸들 자동 채움 (사장님 지시 2026-09-01)
   renderCrawlCards();
   document.getElementById('crawlResultArea').style.display='block';
+}
+
+// ── 셀러 핸들 자동 채우기 ────────────────────────────────────────────────
+// 공구모아·공구팡팡은 셀러를 **한글 이름**으로만 준다 → 핸들이 비어 "연결할 곳이 없어요"로 전부 막힌다.
+// 우리 DB(allData)에 그 이름으로 등록된 공구가 이미 있으면 핸들을 알고 있으므로 자동으로 채운다.
+// 이름 표기가 조금씩 달라 공백·점·가운뎃점을 지우고 맞춘다(모찌맘 = 모찌 맘 = 모찌·맘).
+function crawlNameKey(s){ return String(s||'').trim().toLowerCase().replace(/[\s·.,_\-]/g,''); }
+function crawlHandleIndex(){
+  const im=(typeof buildInflMap==='function')?buildInflMap():{map:{}};
+  const idx={};
+  Object.keys(im.map||{}).forEach(nm=>{ const k=crawlNameKey(nm); if(k && !idx[k]) idx[k]=im.map[nm]; });
+  // 이번 화면에서 사장님이 직접 넣은 핸들도 같이 쓴다
+  Object.keys(window.__crawlManualHandles||{}).forEach(k=>{ idx[k]=window.__crawlManualHandles[k]; });
+  return idx;
+}
+/** 핸들이 빈 항목을 이름으로 찾아 채운다. silent=true 면 알림 없음(파싱 직후용) */
+function crawlAutoFillHandles(silent){
+  const idx=crawlHandleIndex(); let n=0;
+  crawlParsedData.forEach(it=>{
+    if((it.insta||'').trim()) return;
+    const h=idx[crawlNameKey(it.influencer)];
+    if(h){ it.insta=h; it._handleAuto=true; it._conn='id'; n++; }
+  });
+  if(!silent){ renderCrawlCards(); alert(n?`✅ ${n}건에 핸들을 채웠어요.`:'채울 수 있는 항목이 없어요.\n(DB에 그 셀러 이름으로 등록된 공구가 있어야 찾을 수 있어요)'); }
+  return n;
+}
+/** 연결할 곳이 없는 항목(핸들도 카페글도 없음)만 모두 삭제 */
+function crawlDeleteNoLink(){
+  const targets=crawlParsedData.filter(it=>!(it.insta||'').trim() && !/^https?:\/\//.test(it.pay_link||''));
+  if(!targets.length){ alert('연결할 곳 없는 항목이 없어요.'); return; }
+  if(!confirm(`연결할 곳이 없는 ${targets.length}건을 목록에서 삭제할까요?\n(핸들도 카페글도 없어 등록해도 아무 데도 못 가는 항목이에요)`)) return;
+  crawlParsedData=crawlParsedData.filter(it=>(it.insta||'').trim() || /^https?:\/\//.test(it.pay_link||''));
+  renderCrawlCards();
 }
 
 function renderCrawlCards(){
@@ -3153,8 +3187,20 @@ function renderCrawlCards(){
   document.getElementById('crawlResultCnt').textContent=`총 ${crawlParsedData.length}건`+(_dupCnt?` · 🔴 중복의심 ${_dupCnt}`:'')+(_npCnt?` · 🚫 상품아님 ${_npCnt}`:'')+(_smCnt?` · 👤 여러항목 ${_smCnt}`:'');
   // 사전 검증: 의심 항목 개수
   const warnCount=crawlParsedData.filter(it=>crawlWarn(it)).length;
-  const warnBar = warnCount>0
-    ? `<div style="background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;padding:8px 11px;margin-bottom:8px;font-size:12px;color:#A86100;line-height:1.5">⚠️ <b>${warnCount}건</b>이 확인이 필요해요. 노란 테두리 항목의 상품명을 확인·수정하거나 🗑️로 빼고 등록하세요.</div>`
+  // 연결할 곳(핸들·카페글)이 없어 등록해도 아무 데도 못 가는 항목
+  const _noLink=crawlParsedData.filter(it=>!(it.insta||'').trim() && !/^https?:\/\//.test(it.pay_link||'')).length;
+  const _autoFilled=crawlParsedData.filter(it=>it._handleAuto).length;
+  const warnBar = (warnCount>0 || _noLink>0)
+    ? `<div style="background:#FFF7E6;border:1px solid #FFD591;border-radius:8px;padding:8px 11px;margin-bottom:8px;font-size:12px;color:#A86100;line-height:1.5">
+        ${warnCount>0?`⚠️ <b>${warnCount}건</b>이 확인이 필요해요. 노란 테두리 항목의 상품명을 확인·수정하거나 🗑️로 빼고 등록하세요.`:''}
+        ${_autoFilled?`<div style="margin-top:5px;color:#0F6E56">🔗 DB에서 셀러 핸들을 찾아 <b>${_autoFilled}건</b>을 자동으로 채웠어요.</div>`:''}
+        ${_noLink>0?`<div style="margin-top:7px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span>🔌 핸들이 없어 연결 안 되는 항목 <b>${_noLink}건</b> —</span>
+          <button onclick="crawlAutoFillHandles(false)" style="background:#0F6E56;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🔗 핸들 자동 채우기</button>
+          <button onclick="crawlDeleteNoLink()" style="background:#C62828;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🗑️ 연결 없는 항목 일괄 삭제 (${_noLink})</button>
+          <span style="font-size:10px;color:#8A6D00">한 건만 손으로 핸들을 넣으면 <b>같은 셀러의 빈 항목이 전부 자동으로 채워져요.</b></span>
+        </div>`:''}
+      </div>`
     : '';
   // DB 셀러 목록 datalist (검색·선택용) — buildInflMap 재활용
   const _im=(typeof buildInflMap==='function')?buildInflMap():{names:[],handles:[],map:{}};
@@ -3220,9 +3266,9 @@ function renderCrawlCards(){
         <input type="checkbox" class="crawl-cb" data-idx="${i}" ${item._checked?'checked':''} onchange="crawlParsedData[${i}]._checked=this.checked" style="width:16px;height:16px;accent-color:${item._dup?'#C62828':'#4A35A0'};cursor:pointer;flex-shrink:0">
         <input class="cr-f" value="${escAttr(item.name)}" oninput="editCrawl(${i},'name',this.value)" placeholder="상품명"
           style="flex:1;font-size:14px;font-weight:700;color:#191919;border:1px solid ${nameBorder};border-radius:8px;padding:7px 9px;font-family:inherit;outline:none">
-        <button onclick="deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:30px;height:30px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🗑️</button>
+        <button onclick="event.stopPropagation();deleteCrawl(${i})" title="이 항목 삭제" style="flex-shrink:0;width:34px;height:34px;border:none;background:#FBEAEA;color:#C0392B;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit">🗑️</button>
       </div>
-      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._sellerMulti?`<div style="font-size:11px;font-weight:700;color:#2C5E8A;background:#E8F1FB;padding:5px 8px;border-radius:6px;margin-bottom:7px">👤 같은 셀러 ${item._smCount}개 중 (보통 1개만 정상)</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':item._catMemo==='name'?'상품명에 있는 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${item._nameCleaned?`<div style="font-size:10px;color:#8A6D00;background:#FFF7E0;border-radius:6px;padding:4px 8px;margin-bottom:7px">✂️ 군더더기 정리됨 · 원래: ${escAttr(item._origName||'')}</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
+      ${item._nonProduct?`<div style="font-size:11px;font-weight:700;color:#555;background:#EFEFF2;padding:5px 8px;border-radius:6px;margin-bottom:7px">🚫 ${escAttr(item._npReason||'상품 아님 의심')}</div>`:''}${item._dup?`<div style="font-size:11px;font-weight:700;color:#C62828;background:#FFEBEE;padding:5px 8px;border-radius:6px;margin-bottom:7px">🔴 ${escAttr(item._dupReason||'중복의심')}</div>`:''}${item._sellerMulti?`<div style="font-size:11px;font-weight:700;color:#2C5E8A;background:#E8F1FB;padding:5px 8px;border-radius:6px;margin-bottom:7px">👤 같은 셀러 ${item._smCount}개 중 (보통 1개만 정상)</div>`:''}${item._catMemo?`<div style="font-size:10px;color:#4A35A0;background:#EEE9FF;border-radius:6px;padding:4px 8px;margin-bottom:7px">📌 ${item._catMemo==='brand'?'같은 브랜드(앞 단어) 분류로 맞췄어요':item._catMemo==='name'?'상품명에 있는 분류로 맞췄어요':'이전에 등록한 분류를 적용했어요'}</div>`:''}${item._nameCleaned?`<div style="font-size:10px;color:#8A6D00;background:#FFF7E0;border-radius:6px;padding:4px 8px;margin-bottom:7px">✂️ 군더더기 정리됨 · 원래: ${escAttr(item._origName||'')}</div>`:''}${item._handleAuto?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 셀러 이름으로 핸들을 자동으로 채웠어요 (@${escAttr((item.insta||'').replace('@',''))}) — 다르면 고쳐주세요</div>`:''}${warnMsg}${item.pay_link?`<div style="font-size:10px;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:4px 8px;margin-bottom:7px">🔗 카드 클릭 시 카페글로 이동</div>`:''}
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select class="cr-f" onchange="editCrawlMajor(${i},this.value)" style="flex:1;font-size:12px;font-weight:600;color:#4A35A0;background:#EEE9FF;border:none;border-radius:8px;padding:7px 8px;font-family:inherit;cursor:pointer">
           ${Object.keys(CATS_LIST).map(m=>`<option value="${m}"${item.major===m?' selected':''}>${m}</option>`).join('')}
@@ -3311,6 +3357,23 @@ function editCrawlSeller(i,field,val){
     crawlParsedData[i]._conn='id';
   } else if(field==='insta'){
     crawlParsedData[i]._conn=v?'id':'none';
+  }
+  // 🔴 한 명만 넣으면 같은 셀러 이름을 가진 **빈 항목이 전부** 채워진다 (사장님 지시 2026-09-01)
+  //    공구모아는 한 셀러가 여러 건을 올리는데, 매번 같은 핸들을 손으로 넣게 하면 안 된다.
+  const cur=crawlParsedData[i];
+  const myHandle=(cur.insta||'').trim().replace(/^@/,'');
+  const myKey=crawlNameKey(cur.influencer);
+  if(myHandle && myKey){
+    window.__crawlManualHandles=window.__crawlManualHandles||{};
+    window.__crawlManualHandles[myKey]=myHandle;      // 이 화면 안에서 기억 (다음 자동채움에도 쓰임)
+    let spread=0;
+    crawlParsedData.forEach((it,j)=>{
+      if(j===i) return;
+      if((it.insta||'').trim()) return;               // 이미 있는 건 안 건드린다
+      if(crawlNameKey(it.influencer)!==myKey) return;
+      it.insta=myHandle; it._handleAuto=true; it._conn='id'; spread++;
+    });
+    if(spread){ renderCrawlCards(); if(typeof toast==='function') toast(`같은 셀러 ${spread}건에 핸들을 함께 채웠어요`); }
   }
 }
 // 개별 삭제
