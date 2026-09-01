@@ -27,11 +27,14 @@ Deno.serve(async (req) => {
   try {
     const u = new URL(req.url);
     const pages = Math.min(Math.max(Number(u.searchParams.get("pages") ?? 6), 1), 10);
+    // menu=19 처럼 주면 그 게시판만 본다 (핫딜 제보 자동 처리용, 2026-09-01). 카페는 여전히 우리 것 하나로 고정.
+    const menu = Number(u.searchParams.get("menu") ?? 0) || 0;
     const out: { id: number; subj: string }[] = [];
     for (let p = 1; p <= pages; p++) {
       const r = await fetch(
         `https://apis.naver.com/cafe-web/cafe2/ArticleListV2.json` +
-        `?search.clubid=${CAFE_ID}&search.boardtype=L&search.page=${p}&search.perPage=50`,
+        `?search.clubid=${CAFE_ID}&search.boardtype=L&search.page=${p}&search.perPage=50` +
+        (menu ? `&search.menuid=${menu}` : ``),
         { headers: { Referer: "https://cafe.naver.com/momcal", "User-Agent": "Mozilla/5.0" } },
       );
       if (!r.ok) break;
