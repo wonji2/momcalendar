@@ -915,7 +915,10 @@ async function tList(day){
 }
 
 /* ══════════════ 실행 ══════════════ */
-const AUTO={1:'week',2:'daily',3:'top10',4:'daily',5:'weekend',6:'closing',0:'hotdeal'};
+// 🔴 일요일은 핫딜 베스트를 쓰지 않는다 (사장님 지시 2026-09-01)
+//    "핫딜은 하루만 지나도 가격이 바뀐다" — 카드에 박힌 가격이 틀려진다. 공구 내용으로 채운다.
+//    핫딜 시안 자체는 남겨둔다(수동 선택 가능). 자동 로테이션에서만 뺀다.
+const AUTO={1:'week',2:'daily',3:'top10',4:'daily',5:'weekend',6:'closing',0:'list'};
 const RUN={daily:tDaily,top10:tTop10,closing:tClosing,weekend:tWeekend,week:tWeek,hotdeal:tHotdeal,list:tList};
 const TNAME={daily:'카테고리 일정',top10:'인기 TOP10',closing:'마감임박',weekend:'주말 몰아보기',week:'주간예고',hotdeal:'핫딜 베스트',list:'리스트형'};
 function tplFor(day){
