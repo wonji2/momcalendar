@@ -95,6 +95,16 @@ const TAILS: RegExp[] = [
   /(냐고|라고|다고|인데|는데|건데|이야|임|이지|잖아)$/,
   /(좀|요|용|넹|넵|야)$/,
 ];
+// 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
+//   ⚠ 마지막 글자에만 쓴다. 문장 전체에 쓰면 티니핑→티니피 처럼 브랜드가 깨진다 (사장님 지적한 유형)
+function deJong(s: string) {
+  const t = s.trim(); if (!t) return t;
+  const c = t.charCodeAt(t.length - 1) - 0xAC00;
+  if (c < 0 || c > 11171) return t;
+  if (c % 28 !== 21) return t;                       // 21 = 받침 ㅇ
+  return t.slice(0, -1) + String.fromCharCode(0xAC00 + (c - 21));
+}
+
 function stripTail(s: string) {
   let prev = "";
   for (let i = 0; i < 8 && s !== prev; i++) {
@@ -143,9 +153,11 @@ Deno.serve(async (req) => {
     u = String(body?.userRequest?.utterance ?? "").trim();
     uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 6) + ":" + String(body?.userRequest?.user?.type ?? "?").slice(0, 4)
         + ":" + String(req.headers.get("user-agent") ?? "?").slice(0, 14);
+    const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)
+    //   ⚠ uz 는 아래 인사 판정보다 먼저 정의해야 한다 — 늦게 두면 TDZ 로 전 요청 500 (2026-09-01 실사고, 2번째)
     const today = ymd(kst());
 
-    if (/^(안녕|하이|하잉|반가|헬로|hi|hello|도움|사용법|메뉴|뭐해|누구)/i.test(u) || u.length < 2) return reply([text(HELP)]);
+    if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 2) return reply([text(HELP)]);
 
     // 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") — 조회수+찜 합산 순
     const wantTop = /인기|젤\s|제일|가장|탑\s*텐|탑10|탑\s*10|top\s*10|톱텐|조회수|많이\s*본|베스트|best|순위|랭킹/i.test(u);
@@ -162,17 +174,17 @@ Deno.serve(async (req) => {
     };
 
     // ⓪-a 인사·감사·칭찬에는 사람처럼 답한다 (손님이 실제로 이렇게 말한다)
-    if (/고마워|고맙|감사|땡큐|thank/i.test(u)) {
+    if ((x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(u) || (x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(uz)) {
       return reply([text("도움이 됐다니 저도 좋아요 🙂\n공구 궁금할 땐 언제든 물어봐 주세요!")]);
     }
-    if (/우와|우왕|대박|좋다|좋아요|최고|짱|잘한다|귀엽|신기/i.test(u)) {
+    if ((x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(u) || (x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(uz)) {
       return reply([text("헤헤 감사합니다 🙂\n찾으시는 브랜드 이름을 말해주시면 공구 일정을 바로 알려드려요!")]);
     }
-    if (/잘가|안녕히|바이|수고|굿밤|잘자/i.test(u)) {
+    if ((x=>/잘가|안녕히|바이|수고|굿밤|잘자|들어가|담에 봐|다음에 봐/i.test(x))(u) || (x=>/잘가|안녕히|바이|수고|굿밤|잘자|들어가|담에 봐|다음에 봐/i.test(x))(uz)) {
       return reply([text("네! 또 필요하면 불러주세요 🙂")]);
     }
     // 실제 손님이 이렇게 말했다 (2026-09-01 첫날 로그: "맘방사랑해") — 사장님 지시로 이스터에그
-    if (/사랑해|사랑합니다|좋아해|팬이|잘쓰고|잘 쓰고/i.test(u)) {
+    if ((x=>/사랑해|사랑행|사랑합니다|좋아해|팬이|잘쓰고|잘 쓰고/i.test(x))(u) || (x=>/사랑해|사랑행|사랑합니다|좋아해|팬이|잘쓰고|잘 쓰고/i.test(x))(uz)) {
       return reply([text("나도 사랑해애액 ㅎㅎ 💜\n맘캘린더 많이 써주셔서 감사해요!")]);
     }
 
