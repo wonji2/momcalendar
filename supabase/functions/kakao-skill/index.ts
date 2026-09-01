@@ -251,6 +251,12 @@ Deno.serve(async (req) => {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
+      // 별칭이 여러 낱말이면 대표 낱말로도 찾는다 — 뽀사카→"뽀로로 사운드" 가 0건이던 것 (2026-09-01)
+      //   그 조합의 공구가 없어도 손님이 원하는 건 그 브랜드다.
+      for (const t of [...tries]) {
+        const parts = t.split(/\s+/).filter((w) => w.length >= 2);
+        if (parts.length >= 2) tries.push(parts[0]);
+      }
       if (kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);   // 줄임말: 글자 사이를 연다
       for (const t of [...new Set(tries)]) {
         // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
