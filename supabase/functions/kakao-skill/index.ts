@@ -174,9 +174,10 @@ Deno.serve(async (req) => {
 
     // 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") — 조회수+찜 합산 순
     const wantTop = /인기|젤\s|제일|가장|탑\s*텐|탑10|탑\s*10|top\s*10|톱텐|조회수|많이\s*본|베스트|best|순위|랭킹/i.test(u);
-    const wantClose = /마감|끝나|종료/.test(u);
+    const wantClose = /마감|끝나|종료|임박|막차|마지막\s*날/.test(u);
     const wantTomorrow = /내일|낼/.test(u);
     const wantWeek = /이번\s*주|이번주|주간/.test(u);
+    const wantWeekend = /주말|토요일|일요일|토일/.test(u);
     const kw = keyword(u);
     const ph = await partnerHandles();
 
@@ -247,7 +248,9 @@ Deno.serve(async (req) => {
     // ① 브랜드·상품·셀러 검색 (말버릇을 걷어내고 남은 낱말이 있을 때만)
     // 한 글자("김")도 찾는다. 다만 한 글자는 셀러명까지 보면 오탐이 크니 상품명만 본다.
     const STOP1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
-    if (kw.length >= 1 && !(kw.length === 1 && STOP1.includes(kw))) {
+    // 문장 부품을 지우고 남은 찌꺼기는 브랜드가 아니다 — 이걸 검색하면 엉뚱한 안내가 나간다
+    const STOPKW = ["되는거","하는거","되는것","하는것","되는","하는","임박","주말","토요일","일요일","평일","이번","다음","우리","그거","이거","저거","해줘","알려","보여","추천"];
+    if (kw.length >= 1 && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
@@ -324,6 +327,15 @@ Deno.serve(async (req) => {
       const rows = await pick(`open_date=eq.${t}`, "order=id.desc", ph);
       if (!rows.length) return reply([text("내일 오픈 예정 공구가 아직 등록되지 않았어요.")]);
       return reply([cards(`내일(${t.slice(5)}) 오픈 공구`, rows)]);
+    }
+    // 주말: 이번 주 토·일에 오픈하는 공구 (실제 손님이 "주말 공구" 라고 묻는다)
+    if (wantWeekend) {
+      const d = kst(); const dow = d.getDay();
+      const sat = new Date(d); sat.setDate(d.getDate() + ((6 - dow) + 7) % 7);
+      const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+      const rows = await pick(`open_date=gte.${ymd(sat)}&open_date=lte.${ymd(sun)}`, "order=open_date.asc", ph);
+      if (!rows.length) return reply([text("이번 주말에 오픈하는 공구가 아직 없어요.\n아래 버튼에서 이번 주 일정을 볼 수 있어요!")]);
+      return reply([cards("이번 주말 오픈 공구", rows)]);
     }
     if (wantWeek) {
       const rows = await pick(`open_date=gte.${today}&open_date=lte.${addDays(today, 6)}`, "order=open_date.asc", ph);
