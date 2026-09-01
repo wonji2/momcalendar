@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { checkSpec } from './kakao_spec.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);                 // ⚠ 예약작업 cwd 는 System32 — supabase --linked 가 프로젝트를 못 찾는다
@@ -53,7 +54,7 @@ const ask = async (utterance) => {
   const _ms = Date.now() - _t0;
   if (_ms > slowest) { slowest = _ms; slowestSay = utterance; }
   const o = j?.template?.outputs?.[0] || {};
-  return { card: !!(o.carousel || o.listCard || o.basicCard), text: o.textCard?.text || '', raw: o, ms: _ms };
+  return { card: !!(o.carousel || o.listCard || o.basicCard), text: o.textCard?.text || '', raw: o, ms: _ms, spec: checkSpec(o) };
 };
 
 const now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -61,12 +62,15 @@ say(`===== ${now} 챗봇 감시 =====`);
 let bad = 0;
 
 // ① 생존
-const PING = ['오늘 공구', '물티슈', '안녕', '네뷸라이저zzz없는거'];   // 마지막은 가장 느린 경로(별칭 많고 결과 없음)
+const PING = ['오늘 공구', '물티슈', '안녕', '뽀사카', '네뷸라이저zzz없는거'];   // 뽀사카=basicCard(핫딜 폴백) 경로, 2026-09-02 규격 사고가 여기서 났다   // 마지막은 가장 느린 경로(별칭 많고 결과 없음)
 for (const p of PING) {
   try {
     const r = await ask(p);
     if (!r.card && !r.text) { bad++; say(`🔴 생존 실패 "${p}" — 응답이 비었습니다`); }
     else if (/일시적으로 조회/.test(r.text)) { bad++; say(`🔴 조회 장애 "${p}"`); }
+    // 📏 우리 서버가 200 을 보내도 규격을 어기면 카카오가 말풍선을 버린다 (2026-09-02 실사고)
+    else if (r.spec && r.spec.length) { bad++; say(`📏 규격 위반 "${p}" — ${r.spec.join(' / ')}`);
+      alert('챗봇규격위반', `"${p}" — ${r.spec.join(' / ')} · 카카오가 말풍선을 버려 손님에겐 무응답이 된다`); }
   } catch (e) { bad++; say(`🔴 생존 실패 "${p}" — ${String(e.message || e).slice(0, 60)}`); }
 }
 if (!bad) say(`① 생존 정상 (가장 느린 응답 ${slowest}ms)`);

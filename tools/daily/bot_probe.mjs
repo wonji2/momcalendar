@@ -9,6 +9,7 @@
  *   ⚠ 카드가 나왔다고 정답이 아니다 — '로얄젤리' 에 장난감정리함이 나간 적 있다(2026-09-01).
  *      그래서 bad 낱말(나오면 안 되는 말)도 함께 검사한다.
  */
+import { checkSpec } from './kakao_spec.mjs';
 const U = 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-skill';
 const ONLY = process.argv[2] || '';
 
@@ -89,9 +90,10 @@ const run = async ([grp, say, want, need]) => {
                : o.basicCard ? String(o.basicCard.title || '').slice(0, 38)
                : (o.textCard?.text || '').split('\n')[0].slice(0, 38);
     const down = /일시적으로 조회/.test(o.textCard?.text || '');
+    const spec = checkSpec(o);   // 📏 카카오 말풍선 규격 (어기면 손님에게 아예 안 나간다)
     // 카드가 나왔는데 기대 낱말이 한 건도 없으면 엉뚱한 답이다
     const off = need && got === 'card' && !items.some((t) => t.replace(/\s/g, '').includes(need));
-    return { grp, say, want, got, head, down, off, sample: items.slice(0, 2).join(' / ').slice(0, 46) };
+    return { grp, say, want, got, head, down, off, spec, sample: items.slice(0, 2).join(' / ').slice(0, 46) };
   } catch (e) { return { grp, say, want, got: 'ERR', head: String(e.message || e), down: true }; }
 };
 
@@ -102,8 +104,10 @@ for (const c of list) rs.push(await run(c));
 const down = rs.filter((r) => r.down);
 const miss = rs.filter((r) => !r.down && r.want !== 'any' && r.got !== r.want);
 const offs = rs.filter((r) => !r.down && (r.want === 'any' || r.got === r.want) && r.off);
-console.log(`총 ${rs.length}건 · 🔴장애 ${down.length} · ⚠기대와다름 ${miss.length} · 🟠엉뚱한답 ${offs.length}`);
+const bads = rs.filter((r) => r.spec && r.spec.length);
+console.log(`총 ${rs.length}건 · 🔴장애 ${down.length} · ⚠기대와다름 ${miss.length} · 🟠엉뚱한답 ${offs.length} · 📏규격위반 ${bads.length}`);
+for (const r of bads) console.log(`📏 [${r.grp}] "${r.say}" → ${r.spec.join(' / ')}`);
 for (const r of down) console.log(`🔴 장애 [${r.grp}] "${r.say}"`);
 for (const r of miss) console.log(`⚠ [${r.grp}] "${r.say}" 기대=${r.want} 실제=${r.got} → ${r.head}`);
 for (const r of offs) console.log(`🟠 [${r.grp}] "${r.say}" → ${r.head} · ${r.sample}`);
-if (!down.length && !miss.length && !offs.length) console.log('✅ 전건 기대대로');
+if (!down.length && !miss.length && !offs.length && !bads.length) console.log('✅ 전건 기대대로');
