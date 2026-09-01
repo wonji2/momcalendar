@@ -115,9 +115,14 @@ async function imageOk(u) {
 }
 
 // ── ① 이웃셀러 ─────────────────────────────────────────────
+// 🔴 계약기간 필터 필수 (2026-09-01 사고 예방): 젤리또리 계약이 8/28 에 끝났는데
+//    is_partner·active 플래그만 보고 제안에 2건이 들어갔다. 기간 지난 셀러는 배너 후보에서 뺀다.
 const sellers = sql(`select id, name, insta, coalesce(inpock_slug,'') as slug
-                     from public.sellers where is_partner and active order by id;`);
-console.log(`이웃셀러 ${sellers.length}명`);
+                     from public.sellers where is_partner and active
+                       and (start_date is null or start_date <= (now() at time zone 'Asia/Seoul')::date)
+                       and (end_date   is null or end_date   >= (now() at time zone 'Asia/Seoul')::date)
+                     order by id;`);
+console.log(`이웃셀러 ${sellers.length}명 (계약기간 내)`);
 
 const cur = sql(`select title, link, img_url from public.banners
                  where type='seller' and active order by sort_order;`);
