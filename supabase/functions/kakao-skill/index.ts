@@ -35,6 +35,40 @@ async function rpc(fn: string) {
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" }, body: "{}" });
   return r.ok ? await r.json() : [];
 }
+/**
+ * 공구가 없을 때 핫딜에서 찾는다 (사장님 지시 2026-09-01)
+ *   "뽀사카 공구는 없는데 오늘 공구 가격에 핫딜이 떴다" — 손님에게 그대로 쓸모 있는 답이다.
+ * ⚠ 기간 지난 딜은 절대 안 보낸다(expires_at). 가격이 바뀌면 판매처 추적기가 그 카드를 만료시키므로 여기서 자동으로 빠진다.
+ * 낱말이 여러 개면 제목에 **전부 들어간** 것만 (뽀로로 AND 사운드 → 사운드카드 딜만 잡힌다).
+ */
+async function findHotdeal(words: string[], today: string) {
+  const nowIso = new Date().toISOString();
+  const cands = [...new Set(words.map((w) => (w || "").trim()).filter((w) => w.length >= 2))].slice(0, 3);
+  for (const phrase of cands) {
+    const ws = phrase.split(/\s+/).filter((w) => w.length >= 2);
+    if (!ws.length) continue;
+    const and = ws.map((w) => `title.ilike.${encodeURIComponent("%" + w + "%")}`).join(",");
+    const cond = ws.length >= 2 ? `and=(${and})` : `title=ilike.${encodeURIComponent("%" + ws[0] + "%")}`;
+    const hd = await q(`hotdeals?select=id,title,price,price_before,mall,link,deal_day&${cond}` +
+      `&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=id.desc&limit=1`) as any[];
+    if (Array.isArray(hd) && hd.length && hd[0].link) {
+      const d = hd[0];
+      const won = (n: number) => Number(n || 0).toLocaleString("ko-KR") + "원";
+      const isToday = String(d.deal_day || "") === today;
+      return {
+        basicCard: {
+          title: "공구는 없지만 핫딜이 떴어요! 🔥",
+          description: `${isToday ? "오늘 올라온 핫딜이에요\n\n" : ""}${d.title}\n${won(d.price)}${d.price_before ? ` (원래 ${won(d.price_before)})` : ""} · ${d.mall || ""}\n\n공구로는 안 열렸지만 이 값이면 공구 가격이에요.`.slice(0, 400),
+          buttons: [
+            { action: "webLink", label: "핫딜 보러가기", webLinkUrl: String(d.link) },
+            { action: "webLink", label: "맘캘린더", webLinkUrl: SITE },
+          ],
+        },
+      };
+    }
+  }
+  return null;
+}
 async function aliases(): Promise<[string, string][]> {
   const rows = await q("bot_alias?select=term,expand");
   return (rows as any[]).map((r) => [String(r.term), String(r.expand)] as [string, string]);
@@ -256,6 +290,8 @@ Deno.serve(async (req) => {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
+      // 손님이 말한 그대로 + 별칭 그대로 (대표 낱말로 넓히기 **전**의 목록) — 핫딜 우선 판단에 쓴다
+      const specific = [...new Set(tries)];
       // 별칭이 여러 낱말이면 대표 낱말로도 찾는다 — 뽀사카→"뽀로로 사운드" 가 0건이던 것 (2026-09-01)
       //   그 조합의 공구가 없어도 손님이 원하는 건 그 브랜드다.
       for (const t of tries.slice(1)) {   // ⚠ 0번(손님 말 원본)은 제외 — 넣으면 첫 낱말로만 검색된다
@@ -265,33 +301,61 @@ Deno.serve(async (req) => {
         if (parts.length >= 2 && kw.split(/\s+/).filter((w) => w.length >= 2).length < 2) tries.push(parts[0]);
       }
       if (kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);   // 줄임말: 글자 사이를 연다
-      for (const t of [...new Set(tries)]) {
-        // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
-        const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
-        let cond: string;
-        if (ws.length >= 2) {
-          cond = ws.map((w) => {
-            const e = encodeURIComponent("%" + w + "%");
-            return `or(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})`;
-          }).join(",");
-          cond = `end_date=gte.${today}&and=(${cond})`;
-        } else {
-          const base = ws.length === 1 ? ws[0] : t;   // 짧은 낱말이 떨어져 나가면 남은 낱말로 찾는다
-          const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${base}%`;
-          const enc = encodeURIComponent(pat);
-          cond = base.length <= 1
-            ? `end_date=gte.${today}&name=ilike.${enc}`
-            : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
+
+      // 🔴 검색 순서 (사장님 지시 2026-09-01)
+      //   ① 손님이 말한 그대로·별칭 그대로 공구를 찾는다 (뽀사카 → "뽀로로 사운드")
+      //   ② 없으면 **핫딜을 먼저 본다** — "공구는 없는데 오늘 공구 가격에 핫딜이 떴다" 가 손님에게 진짜 답이다
+      //   ③ 그래도 없으면 대표 낱말로 넓힌다 (뽀로로 → 뮤직하우스·카메라…)
+      //   ⚠ ②를 ③보다 뒤에 두면 안 된다 — 뽀사카를 물었는데 뽀로로 여행패키지가 나간다(실측 2026-09-01)
+      const searchGonggu = async (list: string[]) => {
+        for (const t of [...new Set(list)]) {
+          // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
+          const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
+          let cond: string;
+          if (ws.length >= 2) {
+            cond = ws.map((w) => {
+              const e = encodeURIComponent("%" + w + "%");
+              return `or(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})`;
+            }).join(",");
+            cond = `end_date=gte.${today}&and=(${cond})`;
+          } else {
+            const base = ws.length === 1 ? ws[0] : t;   // 짧은 낱말이 떨어져 나가면 남은 낱말로 찾는다
+            const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${base}%`;
+            const enc = encodeURIComponent(pat);
+            cond = base.length <= 1
+              ? `end_date=gte.${today}&name=ilike.${enc}`
+              : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
+          }
+          const rows = await pick(cond, "order=open_date.asc", ph);
+          if (rows.length) return rows;
         }
-        const rows = await pick(cond, "order=open_date.asc", ph);
-        if (rows.length) return reply([cards(`'${kw}' 공구 일정`, rows)]);
+        return null;
+      };
+
+      const exact = await searchGonggu(specific.length ? specific : tries);
+      if (exact) return reply([cards(`'${kw}' 공구 일정`, exact)]);
+
+      // ② 핫딜 — **지정한 말에만** 붙인다 (사장님 지시 2026-09-01: "이번 뽀사카만, 나머지는 핫딜 붙이지 말고")
+      //    띄어쓰기는 사람마다 다르므로 공백을 전부 지우고 비교한다:
+      //    뽀사카 = 뽀로로 사운드카드 = 뽀로로 사운드 카드 = 뽀로로사운드 카드 = 뽀로로사운드카드
+      const flat = (s: string) => String(s || "").replace(/\s+/g, "");
+      const asked = [u, kw, ...specific].map(flat).join("|");
+      if (/뽀사카|뽀로로사운드/.test(asked)) {
+        const hdCard = await findHotdeal(["뽀로로 사운드"], today);
+        if (hdCard) return reply([hdCard]);
       }
+
+      // ③ 대표 낱말까지 넓혀서 다시
+      const wide = await searchGonggu(tries);
+      if (wide) return reply([cards(`'${kw}' 공구 일정`, wide)]);
       // 붙여 쓴 말은 상품명 낱말과 대조해 한 번 더 찾는다 (아기곰탕 → 곰탕) — 사장님 지시 2026-09-01
+      let subWord = "";   // (try 밖 선언 — 엣지함수 선언순서 사고 3번째 방지)
       try {
         const sw = await fetch(`${SB}/rest/v1/rpc/bot_subword`, { method: "POST",
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ p_kw: kw }) }).then((x) => x.json());
         const w = (Array.isArray(sw) && sw[0] && sw[0].word) ? String(sw[0].word) : "";
+        subWord = w;
         if (w) {
           const e2 = encodeURIComponent("%" + w + "%");
           // 폴백은 **상품명만** 본다 — 셀러명까지 보면 '로얄젤리'→'젤리'→젤리또리 셀러의 장난감이 나간다(2026-09-01 실사고)
