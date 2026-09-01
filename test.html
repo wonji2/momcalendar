@@ -692,6 +692,8 @@ body.sheet-open{ overscroll-behavior-y: none; }
     <button class="side-link" onclick="closeSide();exportWishIcs()"><span class="side-link-ico">📤</span>내 폰 캘린더 저장</button>
     <button class="side-link" onclick="closeSide();openWnSheet()"><span class="side-link-ico">🔔</span>오픈 알림 설정</button>
     <button class="side-link" onclick="closeSide();mcShare()"><span class="side-link-ico">🔗</span>친구에게 공유</button>
+    <!-- 회원 탈퇴: 로그인한 사람에게만 보인다 (paintMemberUI 가 표시를 켜고 끈다) -->
+    <button class="side-link" id="sideWithdraw" style="display:none;color:#B4B0BE" onclick="closeSide();openWithdraw()"><span class="side-link-ico">🗑</span>회원 탈퇴</button>
 
     <div class="side-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">커뮤니티</div>
     <a class="side-link" href="https://cafe.naver.com/momcal/" target="_blank"><span class="side-link-ico">☕</span>네이버 카페</a>
@@ -3418,6 +3420,8 @@ function kkoLoginFailed(why){
 }
 // 로그인 상태를 사이드메뉴 등에 반영
 function paintMemberUI(){
+  // 회원 탈퇴 메뉴는 로그인한 사람에게만 (2026-09-01)
+  try{ var _w=document.getElementById("sideWithdraw"); if(_w) _w.style.display = isLoggedIn() ? "flex" : "none"; }catch(_){}
   var m=memberGet(), el=document.getElementById('kkoWho');
   if(!el) return;
   // ⚠️ isLoggedIn() 과 같은 기준을 써야 한다. kakao_id 만 보면
@@ -3425,6 +3429,50 @@ function paintMemberUI(){
   el.innerHTML = isLoggedIn()
     ? '💜 <b>'+(m.nickname||'회원')+'</b>님 <button onclick="kkoLogout()" style="background:none;border:none;color:#b3a9c8;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline">로그아웃</button>'
     : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>';
+}
+// ── 회원 탈퇴 (계정 삭제) ──────────────────────────────
+// 되돌릴 수 없는 일이라 두 번 묻고, 무엇이 지워지고 무엇이 남는지 먼저 알려준다.
+// 찜은 기기(device_id) 기준이라 회원과 별개다 → 지울지 직접 고르게 한다.
+//   그냥 같이 지우면 "탈퇴했더니 찜이 다 사라졌다" 가 된다.
+function openWithdraw(){
+  if(!isLoggedIn()){ alert('로그인한 뒤에 이용할 수 있어요.'); return; }
+  var m = memberGet() || {};
+  var msg = '정말 탈퇴하시겠어요?\n\n'
+    + '지워지는 것\n'
+    + ' · 카카오 로그인 정보(닉네임)\n'
+    + ' · 출석 기록과 이벤트 응모·당첨 내역\n'
+    + ' · 저장하신 연락처(있는 경우)\n\n'
+    + '남는 것\n'
+    + ' · 이 기기의 찜 목록 (아래에서 같이 지울 수 있어요)\n\n'
+    + '되돌릴 수 없어요.';
+  if(!confirm(msg)) return;
+  var wipe = confirm('이 기기의 찜 목록도 함께 지울까요?\n\n확인 = 찜도 삭제\n취소 = 찜은 남겨두기');
+  if(!confirm('마지막 확인이에요.\n탈퇴를 진행할까요?')) return;
+  doWithdraw(wipe);
+}
+async function doWithdraw(wipe){
+  var m = memberGet();
+  if(!m || !m.token){ alert('로그인 정보를 찾을 수 없어요. 다시 로그인해 주세요.'); return; }
+  try{
+    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/member_delete_account', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+      body: JSON.stringify({ p_token: m.token, p_wipe_device: !!wipe })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    try{ trackEvent('member_withdraw', wipe ? 'with_wishes' : 'keep_wishes'); }catch(_){}
+    // 기기에 남은 로그인 흔적을 전부 지운다 (로그아웃과 같은 처리 + 재로그인 안내 대상에서 제외)
+    try{
+      localStorage.removeItem('mc_member');
+      localStorage.removeItem('mc_login_from'); localStorage.removeItem('mc_login_try');
+      localStorage.removeItem('mc_login_fail'); localStorage.setItem('mc_relogin_done','1');
+      if(wipe) localStorage.removeItem('mc_wish');
+    }catch(_){}
+    alert('탈퇴가 완료됐어요.\n그동안 이용해 주셔서 감사합니다.');
+    location.href = '/';
+  }catch(e){
+    alert('탈퇴 처리에 실패했어요. 잠시 후 다시 시도해 주세요.\n계속 안 되면 문의해 주세요.');
+  }
 }
 function kkoLogout(){
   if(!confirm('로그아웃할까요?\n(찜은 이 기기에 그대로 남아요)')) return;
