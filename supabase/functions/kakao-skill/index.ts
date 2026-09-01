@@ -19,7 +19,7 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (s: string, n: number) => { const d = new Date(s + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return ymd(d); };
 const norm = (x: unknown) => String(x || "").toLowerCase().replace("@", "").trim();
 const MOMCAL = ["momcal_", "momcalendar", "momcal", "momcalendar_"];
-const COLS = "id,name,influencer,insta,open_date,end_date";
+const COLS = "id,name,influencer,insta,open_date,end_date,pay_link";
 
 async function q(path: string) {
   const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
@@ -37,8 +37,8 @@ async function partnerHandles(): Promise<string[]> {
 // 조건(cond)에 맞는 공구를 **파트너 먼저** 최대 5건으로 모은다
 async function pick(cond: string, order: string, ph: string[]) {
   const inList = `(${ph.map((h) => `"${h}"`).join(",")})`;
-  const partner = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&insta=in.${inList}&${order}&limit=10`);
-  const rest = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&${order}&limit=20`);
+  const partner = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&insta=in.${inList}&${order}&limit=15`);
+  const rest = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&${order}&limit=30`);
   const seen = new Set((partner as any[]).map((g) => g.id));
   const out = [...(partner as any[]).map((g) => ({ ...g, __p: true }))];
   for (const g of rest as any[]) { if (!seen.has(g.id)) out.push({ ...g, __p: false }); if (out.length >= MAX_SHOW) break; }
@@ -47,13 +47,14 @@ async function pick(cond: string, order: string, ph: string[]) {
 
 const text = (s: string) => ({ simpleText: { text: s } });
 // 카카오 listCard 는 **한 장에 5건**이 한계다 → 5건씩 잘라 좌우로 넘기는 캐러셀로 만든다 (최대 15건)
-const MAX_SHOW = 15;
+const MAX_SHOW = 30;   // 카드 6장 (한 장 5건) — 사장님 지시 2026-09-01
 const one = (title: string, items: any[]) => ({
   header: { title },
   items: items.map((g: any) => ({
     title: (g.__p ? "💜 " : "") + String(g.name || "").slice(0, 34),
     description: `${g.influencer || g.insta || ""} · ${String(g.open_date).slice(5)}~${String(g.end_date).slice(5)}`.replace(/^ · /, ""),
-    link: { web: g.insta ? `https://instagram.com/${norm(g.insta)}` : SITE },
+    // 사이트 카드와 같은 규칙: 결제·카페 링크가 있으면 그리로, 없으면 셀러 인스타, 그것도 없으면 맘캘린더
+    link: { web: String(g.pay_link || "").startsWith("http") ? String(g.pay_link) : (g.insta ? `https://instagram.com/${norm(g.insta)}` : SITE) },
   })),
   buttons: [{ label: "전체 일정 보기", action: "webLink", webLinkUrl: SITE }],
 });
