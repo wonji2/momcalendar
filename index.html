@@ -1371,7 +1371,7 @@ async function loadAliasDb(){
   if(_aliasDb) return _aliasDb;
   try{
     const c = JSON.parse(localStorage.getItem('mc_alias')||'null');
-    if(c && (Date.now()-c.ts) < 6*3600e3 && Array.isArray(c.d)){ _aliasDb = c.d; return _aliasDb; }
+    if(c && (Date.now()-c.ts) < 30*60e3 && Array.isArray(c.d)){ _aliasDb = c.d; return _aliasDb; }   // 30분 — 별칭은 넣자마자 손님 화면에도 반영돼야 한다(사장님 지시)
   }catch(_){}
   try{
     const r = await fetch(SUPABASE_URL + '/rest/v1/bot_alias?select=term,expand',
