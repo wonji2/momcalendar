@@ -132,7 +132,7 @@ const TAILS: RegExp[] = [
   /해\s*(주세요|주라|줘|죠|줭)$/,
   /(뭐야|머야|뭐임|뭔데|뭐가|머가|뭐|머)$/,
   /(종류|모음|관련|같은거|같은\s*거)$/,
-  /(언제|어때|어떤|얼마|어디)$/,
+  /(언제|어때|어떤|얼마|어디)\s*(해요|해용|하나요|하나|한대요|한대|함|해|야)?$/,   // "물티슈 언제해요?"
   /(냐고|라고|다고|인데|는데|건데|이야|임|이지|잖아)$/,
   /궁금\s*(해요|해용|해영|한데|하다|해|행)?$/,          // "물티슈 공구궁금해요!" (실제 손님)
   /(알고|보고|사고)\s*싶(어요|어|다|은데)?$/,
@@ -141,7 +141,7 @@ const TAILS: RegExp[] = [
   /[♡♥❤️🩷💜🙏😊😀ㅡ]+$/,                                  // "…궁금해♡" 처럼 붙는 기호
   /(이|가|은|는|을|를|도|만)$/,                            // "일정이" 에서 일정을 지운 뒤 남는 조사
   /(인거|인것|하는거|되는거|인가|인가요|이야|예요|에요)$/,
-  /(좀|요|용|넹|넵|야)$/,
+  /(좀|요|용|야)$/,   // ⚠ 넵·넹 은 넣지 말 것 — 메쉬넵→메쉬 로 브랜드가 깎인다(2026-09-01 실사고)
 ];
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
 //   ⚠ 마지막 글자에만 쓴다. 문장 전체에 쓰면 티니핑→티니피 처럼 브랜드가 깨진다 (사장님 지적한 유형)
@@ -308,6 +308,8 @@ Deno.serve(async (req) => {
       //   ③ 그래도 없으면 대표 낱말로 넓힌다 (뽀로로 → 뮤직하우스·카메라…)
       //   ⚠ ②를 ③보다 뒤에 두면 안 된다 — 뽀사카를 물었는데 뽀로로 여행패키지가 나간다(실측 2026-09-01)
       const searchGonggu = async (list: string[]) => {
+        // 표기가 달라도 같은 말이면 결과가 같아야 한다 → 후보를 전부 돌며 합친다 (중복 id 제거)
+        const merged: any[] = []; const mseen = new Set<number>();
         for (const t of [...new Set(list)]) {
           // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
           const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
@@ -327,9 +329,13 @@ Deno.serve(async (req) => {
               : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
           }
           const rows = await pick(cond, "order=open_date.asc", ph);
-          if (rows.length) return rows;
+          for (const r of rows) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
+          if (merged.length >= MAX_SHOW) break;
         }
-        return null;
+        if (!merged.length) return null;
+        // 맘캘린더·이웃셀러 공구는 무조건 맨 앞 (사장님 규칙) — 합치면서 섞이므로 다시 세운다
+        merged.sort((a, b) => (a.__p ? 0 : 1) - (b.__p ? 0 : 1));
+        return merged.slice(0, MAX_SHOW);
       };
 
       const exact = await searchGonggu(specific.length ? specific : tries);
