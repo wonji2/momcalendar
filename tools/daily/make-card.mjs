@@ -235,16 +235,33 @@ const openBlock = [
 const closeBlock = [rot(CLOSE_H, 2), ...closes.map((o) => `· ${o.name}${sellerSuffix(o)}`)];
 
 const blogBody = [
-  // 전부 클릭되는 링크로. 네이버 에디터는 맨 위 URL(맘캘린더)만 카드로 펼치고 나머지는 텍스트 링크가 된다 (사장님 확인 2026-08-12)
+  // 🔴 링크 블록은 한 줄에 하나씩, 사이마다 빈 줄 (사장님 지시 2026-09-01)
+  //    빈 줄이 없으면 네이버 에디터에서 URL 뒤에 다음 항목이 그대로 붙어버린다
+  //    ("…momcalendar.com· 네이버카페 →…" 실제 사고). 링크는 이 글에서 제일 중요한 부분이다.
+  //    맨 앞 빈 줄 3개 = 사진 아래 여백. 사장님이 사진을 맨 위에 넣고 시작하신다.
+  ``,
+  ``,
+  ``,
   `맘캘린더 채널 한눈에`,
-  `· 전체 공구 일정 실시간 검색 → https://momcalendar.com`,
-  `· 네이버카페 → https://cafe.naver.com/momcal`,
-  `· 인스타그램 → https://www.instagram.com/momcal_`,
   ``,
-  `· 오늘 공구 중인 링크 → https://link.inpock.co.kr/momcal`,
+  `· 전체 공구 일정 실시간 검색`,
+  `https://momcalendar.com`,
   ``,
-  `· 카톡 공지방(공구 알림) → https://open.kakao.com/o/gJ3NIKCh`,
-  `· 카톡 수다방 → https://open.kakao.com/o/gr2kJhCh`,
+  `· 네이버카페`,
+  `https://cafe.naver.com/momcal`,
+  ``,
+  `· 인스타그램`,
+  `https://www.instagram.com/momcal_`,
+  ``,
+  `· 오늘 공구 중인 링크`,
+  `https://link.inpock.co.kr/momcal`,
+  ``,
+  `· 카톡 공지방(공구 알림)`,
+  `https://open.kakao.com/o/gJ3NIKCh`,
+  ``,
+  `· 카톡 수다방`,
+  `https://open.kakao.com/o/gr2kJhCh`,
+  ``,
   `─────────────`,
   ``,
   rot(OPENERS),
