@@ -23,7 +23,9 @@ function Safe-Mirror([string]$s0, [string]$d0, [string]$label) {
   if (Test-Path $d0) {
     $s = Count-Files $s0; $d = Count-Files $d0
     $flag = "$repo\ALLOW_SHRINK.txt"
-    if ($d -ge 20 -and (($d - $s) -gt 30 -or $s -lt [math]::Ceiling($d * 0.7))) {
+  # 20개 미만 폴더(claude-agents 1개·claude-commands 8개)는 위 비율 가드가 안 걸린다 →
+  # 원본이 통째로 사라진 경우($s=0)는 크기와 무관하게 미러를 멈춘다 (2026-09-01 검증자 지적)
+    if (($d -ge 20 -and (($d - $s) -gt 30 -or $s -lt [math]::Ceiling($d * 0.7))) -or ($d -ge 1 -and $s -eq 0)) {
       if (Test-Path $flag) { Remove-Item $flag -Force }
       else {
         $msg = "[{0}] 경고: {1} 원본 파일수 급감 (원본 {2} vs 백업 {3}) - 미러 중단. 의도된 삭제면 ALLOW_SHRINK.txt 생성 후 재실행" -f (Get-Date -Format 'yyyy-MM-dd HH:mm'), $label, $s, $d
