@@ -39,6 +39,29 @@ const runSql = (sql) => {
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
 // 최근 7일간 결과 0건이었던 검색어 + 그 말이 DB 에 실제로 있는지
+// 🔴 사이트가 이미 아는 별칭은 "DB 에 없음" 으로 세면 안 된다 (2026-09-01 오판).
+//    '빼빼구마' 는 상품명엔 0건이지만 사이트가 룰루맘으로 바꿔 찾아준다(SEARCH_LINK).
+//    그걸 모르고 "파싱해야 할 것" 으로 올려 사장님께 잘못 보고했다.
+//    → index.html 의 BRAND_ALIAS·SEARCH_LINK 를 읽어 실제로 찾는 말로 바꿔 센다.
+function loadAliases() {
+  const map = {};
+  try {
+    const h = readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    for (const block of ['BRAND_ALIAS', 'SEARCH_LINK']) {
+      const i = h.indexOf('const ' + block + '=');
+      if (i < 0) continue;
+      const seg = h.slice(i, h.indexOf('];', i));
+      for (const m of seg.matchAll(/\['([^']+)','([^']+)'\]/g)) {
+        map[m[1].toLowerCase()] = m[2];      // 손님이 쓰는 말 → 우리 표기
+        map[m[2].toLowerCase()] = m[1];
+      }
+    }
+  } catch (_) {}
+  return map;
+}
+const ALIAS = loadAliases();
+const asDb = (w) => ALIAS[String(w).toLowerCase()] || w;   // 별칭이 있으면 우리 표기로 바꿔 센다
+
 const rows = runSql(`
 with q as (
   select (event_data::jsonb->>'q') w, count(*) c
@@ -61,11 +84,24 @@ if (!rows.length) {
   process.exit(0);
 }
 
+// 별칭이 있는 말은 우리 표기로 다시 세어 실제 보유량을 채운다
+for (const r of rows) {
+  const alt = asDb(r.w);
+  if (alt === r.w) continue;
+  const got = runSql(`select
+      (select count(*) from gonggu g where g.name ilike '%${alt.replace(/'/g, "''")}%'
+         or g.influencer ilike '%${alt.replace(/'/g, "''")}%') total,
+      (select count(*) from gonggu g where (g.name ilike '%${alt.replace(/'/g, "''")}%'
+         or g.influencer ilike '%${alt.replace(/'/g, "''")}%')
+         and g.end_date >= to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD')) live;`);
+  if (got[0]) { r.total = got[0].total; r.live = got[0].live; r.alias = alt; }
+}
+
 const none = rows.filter(r => Number(r.total) === 0);
 const ended = rows.filter(r => Number(r.total) > 0 && Number(r.live) === 0);
 const bug = rows.filter(r => Number(r.live) > 0);
 
-const line = (r) => `- **${r.w}** · ${r.c}회 찾음` +
+const line = (r) => `- **${r.w}**${r.alias ? ' (→ ' + r.alias + ' 로 찾아줌)' : ''} · ${r.c}회 찾음` +
   (Number(r.total) ? ` · DB ${r.total}건(진행중 ${r.live}) · 마지막 마감 ${r.last_end}` : ' · DB 에 없음');
 
 const body = [
