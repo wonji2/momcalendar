@@ -77,6 +77,7 @@ const okWbk = ensureRepo(WBK, 'https://github.com/wonji2/work-backup.git', 'work
 if (okOps) {
   fillMissing(join(OPS, 'memory'), MEM, '메모리');
   fillMissing(join(OPS, 'claude-commands'), join(REPO, '.claude', 'commands'), '슬래시 커맨드');
+  fillMissing(join(OPS, 'claude-agents'), join(REPO, '.claude', 'agents'), '검증 에이전트');
   fillFile(join(OPS, 'HANDOFF.md'), join(REPO, 'HANDOFF.md'), 'HANDOFF.md');
   fillFile(join(OPS, 'CLAUDE-MOMCALENDAR.md'), join(REPO, 'CLAUDE.md'), 'CLAUDE.md');
   fillFile(join(OPS, 'CLAUDE-desktop.md'), join(HOME, 'Desktop', 'CLAUDE.md'), '상위 CLAUDE.md');

@@ -55,6 +55,7 @@ if ($LASTEXITCODE -ne 0) { git merge --abort 2>$null }
 
 Safe-Mirror "$src\scratchpad" "$repo\scratchpad" 'scratchpad'
 Safe-Mirror "$src\.claude\commands" "$repo\claude-commands" 'claude-commands'
+Safe-Mirror "$src\.claude\agents" "$repo\claude-agents" 'claude-agents'
 Safe-Mirror $mem "$repo\memory" 'memory'
 Copy-Item "$src\CLAUDE.md" "$repo\CLAUDE-MOMCALENDAR.md" -Force
 Copy-Item "$src\HANDOFF.md" "$repo\HANDOFF.md" -Force
