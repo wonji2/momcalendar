@@ -3455,7 +3455,7 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web'))); }catch(_){}
+  try{ trackEvent('kakao_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -3529,7 +3529,7 @@ function hideLoginStrip(){
         // 무사히 돌아왔으니 실패 흔적을 지운다 (안 지우면 '실패'로 잘못 기록됨)
         try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); }catch(_){}
         if(typeof reloginStripHide==='function') reloginStripHide();
-        try{ trackEvent('kakao_login_done',''); }catch(_){}
+        try{ trackEvent('kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
         try{ history.replaceState({},'', back || location.pathname); }catch(_){}
@@ -3550,7 +3550,8 @@ function hideLoginStrip(){
         // 카카오가 준 정확한 진단(KOE320 등)까지 남긴다 — 'server' 한 단어로는 사후에 아무것도 모른다
         var _why = d && d.error ? String(d.error) : ('server' + (window.__kkoHttp ? '_' + window.__kkoHttp : ''));
         try{ var _dt = d && d.detail;
-          if(_dt){ var _c = (typeof _dt === 'string') ? _dt : (_dt.error_code || _dt.error || '');
+          if(_dt){ var _c = (typeof _dt === 'string') ? _dt
+              : (_dt.error_code || _dt.error || _dt.code || _dt.msg || '');   // kapi 는 {msg, code} 로 준다
             if(_c) _why += '/' + String(_c).slice(0,24); } }catch(_){}   // detail 은 객체일 때도 문자열일 때도 있다
         kkoLoginFailed(_why.slice(0,60));
       }
@@ -3559,7 +3560,7 @@ function hideLoginStrip(){
 })();
 // 로그인 마무리에 실패했을 때 — 조용히 넘기지 않는다. 알리고, 남기고, 다시 할 길을 준다.
 function kkoLoginFailed(why){
-  try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why); }catch(_){}
+  try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   try{ localStorage.setItem('mc_login_fail', JSON.stringify({t:Date.now(), why:why})); }catch(_){}
   try{ localStorage.removeItem('mc_login_try'); }catch(_){}   // 확정 실패를 기록했으니 '추정' 으로 또 세지 않는다
   try{ history.replaceState({},'', location.pathname); }catch(_){}   // ?code 를 URL 에서 지운다
@@ -3696,7 +3697,7 @@ function checkLoginFail(){
     //   손님이 스스로 취소한 것도 여기로 들어온다. 진짜 장애(kkoLoginFailed)와
     //   같은 이름으로 쌓이면 매번 파봐야 하므로 |추정 을 붙여 구분한다. (2026-08-06)
     if(typeof trackEvent==='function')
-      trackEvent('kakao_login_fail', (t.p||'/')+'|'+(_isInApp()?'inapp':'web')+'|추정');
+      trackEvent('kakao_login_fail', (t.p||'/')+'|'+(_isInApp()?'inapp':'web')+'|추정' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })() + '|t=' + new Date(t.t + 32400000).toISOString().slice(0,10));   // 원래 시도한 날짜 — 안 남기면 며칠 전 시도가 오늘 칸에 쌓인다
   }catch(_){ try{ localStorage.removeItem('mc_login_try'); }catch(__){} }
 }
 function showReloginStrip(){
@@ -3714,7 +3715,7 @@ function reloginStripHide(){
 }
 function reloginStripClose(){ reloginStripHide(); }
 function reloginStripGo(){
-  reloginStripHide();
+  reloginStripHide(); try{ localStorage.removeItem('mc_relogin_done'); }catch(_){}   // 성공했으니 '안내 봤음' 표시를 지운다 — 다음에 실패하면 다시 안내한다
   if(document.getElementById('kkoSheet') && typeof openLoginSheet==='function'){
     openLoginSheet('다시 로그인해 주세요',
       '지난번 로그인이 중간에 끊겼어요<br>다시 로그인하시면 <b style="color:#7B3FB5">찜·출석</b>이 그대로 이어져요',
