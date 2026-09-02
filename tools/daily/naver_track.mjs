@@ -21,17 +21,52 @@ const LOG = join(ROOT, 'scratchpad', 'naver_track_log.txt');
 const log = (s) => { const t = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
   appendFileSync(LOG, `[${t}] ${s}\n`); console.log(s); };
 const sqlf = join(ROOT, 'scratchpad', '_naver_track.sql');
-const runSql = (sql) => { writeFileSync(sqlf, sql); return execFileSync(SB, ['db', 'query', '--linked', '-f', sqlf], { encoding: 'utf8', timeout: 60000 }); };
+const DUMP = join(ROOT, 'scratchpad', 'naver_track_lastfail.txt');
+// 🔴 실패 원인을 알 수 있게 원본을 남긴다 (2026-09-02: 4회 연속 실패했는데 stdout 이 없어
+//    '조회 실패' 라는 단정만 남았고 그 단정은 세 번 틀렸다 — 손으로 돌리면 정상이었다).
+const runSql = (sql, label = 'sql') => {
+  writeFileSync(sqlf, sql);
+  try {
+    return execFileSync(SB, ['db', 'query', '--linked', '-f', sqlf], { encoding: 'utf8', timeout: 60000 });
+  } catch (e) {
+    const body = [String(e.message || e), '--- stdout ---', String(e.stdout || ''), '--- stderr ---', String(e.stderr || '')].join(NL);
+    try { writeFileSync(DUMP, '[' + new Date().toISOString() + '] ' + label + NL + body); } catch {}
+    throw e;
+  }
+};
 
 // 1) 추적 대상: 살아있는 네이버 소스 핫딜
-const out = runSql(`select json_agg(json_build_object('id',id,'title',title,'price',price,'price_before',price_before,'link',link)) j
-from hotdeals where source='naver' and (expires_at is null or expires_at>now());`);
-const m = out.match(/"j":\s*(\[.*\])\s*\}/s);
-const deals = m ? JSON.parse(m[1].replace(/\\u0026/g, '&')) : [];
-// 🔴 조용히 죽지 않게 (2026-09-01: 8/23~9/1 9일간 로그가 한 줄도 없었다).
-//    예전엔 대상 조회가 실패해도 console.log 만 하고 끝나 예약작업 결과는 '성공(0)' 으로 남았다.
-//    → 파일 로그로 남겨야 다음 세션이 "안 돌고 있다" 를 알아챈다.
-if (!m) { log('🔴 추적 대상 조회 실패 — SQL 응답을 못 읽었다 (CLI 출력 형식 변경 의심)'); process.exit(1); }
+const SQL_TARGETS = `select json_agg(json_build_object('id',id,'title',title,'price',price,'price_before',price_before,'link',link)) j
+from hotdeals where source='naver' and (expires_at is null or expires_at>now());`;
+const out = runSql(SQL_TARGETS, 'targets');
+// json_agg 는 대상이 0건이면 [] 가 아니라 null 을 낸다 — 그걸 '파싱 실패' 로 찍으면
+// 멀쩡한 회차가 장애로 보인다(2026-09-02 시정). 둘을 구분하고, 못 읽으면 한 번 더 시도한다.
+const parseDeals = (raw) => {
+  const i = String(raw || '').indexOf('{');
+  if (i < 0) return { ok: false, deals: [] };
+  try {
+    const j = JSON.parse(String(raw).slice(i));
+    const rows = Array.isArray(j.rows) ? j.rows : [];
+    const v = rows.length ? rows[0].j : null;
+    if (v === null || v === undefined) return { ok: true, deals: [] };   // json_agg 는 0건이면 null
+    return { ok: true, deals: Array.isArray(v) ? v : [] };
+  } catch { return { ok: false, deals: [] }; }
+};
+let parsed = parseDeals(out);
+if (!parsed.ok) {
+  log('⚠ 대상 조회 응답을 못 읽었다 — 5초 뒤 한 번 더 시도한다');
+  await new Promise(r => setTimeout(r, 5000));
+  let retry = '';
+  try { retry = runSql(SQL_TARGETS, 'targets-retry'); } catch (e) { retry = ''; }
+  parsed = parseDeals(retry);
+  if (!parsed.ok) {
+    try { writeFileSync(DUMP, '[' + new Date().toISOString() + '] targets 파싱 실패' + NL + '--- 1차 ---' + NL + out + NL + '--- 재시도 ---' + NL + retry); } catch {}
+    log('🔴 추적 대상을 못 읽었다 (원문: scratchpad/naver_track_lastfail.txt 확인)');
+    process.exit(1);
+  }
+  log('🟢 재시도로 복구됨');
+}
+const deals = parsed.deals;
 if (!deals.length) { log('추적할 네이버 핫딜 없음 (source=naver 살아있는 카드 0건)'); process.exit(0); }
 
 for (const d of deals) {
