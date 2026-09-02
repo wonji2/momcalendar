@@ -571,7 +571,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
     카카오로 시작하면 폰을 바꿔도 찜이 그대로예요
   </div>
   <div id="kkoBtns">
-  <button onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
+  <button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
     <span style="font-size:17px">💬</span> 카카오로 3초 만에 시작
   </button>
   </div>
@@ -3395,6 +3395,12 @@ function openLoginSheet(title, sub, fine, intent){
   // 찜 권유가 아닐 땐 '찜은 계속 쓸 수 있어요' 안내가 맥락에 안 맞음
   if(f) f.textContent = (fine===undefined) ? KKO_DEFAULT_F : fine;
   var wasOpen=(bg.style.display==='block');
+  // ⚠ 인앱 안내(kkoInAppGuide)가 버튼을 통째로 바꿔놓는다 → 시트를 열 때마다 원래 버튼으로 되돌린다.
+  //    안 그러면 출석체크 시트에 "크롬으로 열어서 로그인" 이 뜬다 (2026-09-02 검증자 지적)
+  try{ var _bx=document.getElementById("kkoBtns");
+    if(_bx && !_bx.querySelector("[data-kko-main]")) _bx.innerHTML =
+      '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 3초 만에 시작</button>';
+  }catch(_){}
   bg.style.display='block'; m.style.bottom='0';
   if(!wasOpen) lockScroll();
 }
@@ -3440,10 +3446,13 @@ function kkoInAppGuide(){
 function kkoOpenChromeLogin(){
   try{ trackEvent("kakao_login_to_chrome", "android"); }catch(_){}
   try{ localStorage.setItem("mc_login_from", location.pathname+location.search); }catch(_){}
+  try{ localStorage.setItem("mc_login_intent", window.__loginIntent||""); }catch(_){}   // 출석·ICS 재개용
   try{
     var fb="https://play.google.com/store/apps/details?id=com.android.chrome";
     var q=location.search ? location.search+"&login=1" : "?login=1";
     location.href="intent://"+location.host+location.pathname+q+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(fb)+";end";
+    // intent:// 는 웹뷰가 막아도 예외를 안 던진다 → 화면이 그대로면 원래 방식으로 되돌린다
+    setTimeout(function(){ try{ if(!document.hidden) kkoForceLogin(); }catch(_){} }, 1800);
   }catch(_){ kkoForceLogin(); }
 }
 // 안내를 건너뛰고 원래대로 진행 — 인앱에서도 로그인은 된다, 조금 불편할 뿐이다
@@ -3522,7 +3531,9 @@ function hideLoginStrip(){
     fetch(KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
       body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
-    }).then(function(r){ return r.json(); }).then(function(d){
+    }).then(function(r){ try{ window.__kkoHttp = r.status; }catch(_){}   // 실패 진단용 — status 를 버리면 원인을 못 찾는다
+      return r.json().catch(function(){ return null; });
+    }).then(function(d){
       if(d && d.ok){
         // token = 회원 세션. 출석·캘린더 내보내기를 서버에서 검증할 때 쓴다.
         try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||''})); }catch(_){}
@@ -3546,7 +3557,8 @@ function hideLoginStrip(){
         // ⚠️ 여기가 비어 있었다. 카카오에서 돌아왔는데 서버 처리가 실패하면
         //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
         //    (2026-08-05 전면 재검증에서 발견 — 오늘 미완료 건의 일부가 이것일 수 있다)
-        kkoLoginFailed(d && d.error ? String(d.error).slice(0,60) : 'server');
+        // ⚠ 원인을 남긴다 — 'server' 한 단어면 사후에 무엇이 틀렸는지 영영 알 수 없다(2026-09-02 검증자 지적)
+        kkoLoginFailed(d && d.error ? String(d.error).slice(0,60) : ('server' + (window.__kkoHttp ? '_' + window.__kkoHttp : '')));
       }
     }).catch(function(e){ kkoLoginFailed('network'); });
   }catch(_){}
@@ -3567,7 +3579,8 @@ function kkoLoginFailed(why){
     '</div>';
   document.body.appendChild(w);
   var b=w.querySelector('#kkoRetryBtn'), x=w.querySelector('#kkoRetryX');
-  if(b) b.onclick=function(){ w.remove(); startKakaoLogin(); };
+  // 실패 직후엔 안내를 건너뛰고 곧바로 다시 시도한다 — 여기서 또 한 단계를 요구하면 손님이 떠난다
+  if(b) b.onclick=function(){ w.remove(); kkoForceLogin(); };
   if(x) x.onclick=function(){ w.remove(); };
 }
 // 로그인 상태를 사이드메뉴 등에 반영
