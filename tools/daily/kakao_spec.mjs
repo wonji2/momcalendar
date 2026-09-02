@@ -23,11 +23,10 @@ const MAX_BUTTONS = 3;
 const MAX_LABEL = 14;
 
 const isHttps = (u) => typeof u === 'string' && u.startsWith('https://');
-const isOkImage = (u) => {
-  if (!isHttps(u)) return false;
-  const low = String(u).toLowerCase().split('?')[0];
-  return low.endsWith('.jpg') || low.endsWith('.jpeg') || low.endsWith('.png');
-};
+// 이미지는 **https 인지만** 본다.
+//   확장자로 거르면 쿠팡·지마켓(확장자 없음)과 11번가 webp 가 전부 걸려 정상 사진이 버려진다.
+//   카카오 경고도 "thumbnail 을 채워라" 였지 형식 지적이 아니었다 (2026-09-02).
+const isOkImage = (u) => isHttps(u);
 
 function checkButtons(bs, where, out) {
   if (!Array.isArray(bs)) return;

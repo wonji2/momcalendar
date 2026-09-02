@@ -20,10 +20,14 @@ const SITE = "https://momcalendar.com";
 const FALLBACK_THUMB = "https://momcalendar.com/momcal-appicon.png";
 // 카카오가 읽는 것은 jpg·png 다. webp 를 넣었다가 또 규격 위반이 나면 말풍선이 통째로 안 나간다.
 const thumbOf = (u: unknown) => {
-  const s = String(u || "");
-  const low = s.toLowerCase().split("?")[0];
-  const ok = s.startsWith("https://") && (low.endsWith(".jpg") || low.endsWith(".jpeg") || low.endsWith(".png"));
-  return ok ? s : FALLBACK_THUMB;
+  let s = String(u || "").trim();
+  if (!s) return FALLBACK_THUMB;
+  // 카카오는 https 만 받는다. 판매처 CDN 은 http 로 저장된 게 있어 올려준다(실측: 대부분 https 로도 200)
+  if (s.startsWith("http://")) s = "https://" + s.slice(7);
+  if (!s.startsWith("https://")) return FALLBACK_THUMB;
+  // ⚠ 확장자로 거르지 않는다 — 쿠팡·지마켓은 확장자가 없어도 jpeg 이고,
+  //    webp 를 .jpg 로 바꾸면 오히려 404 가 되는 경로가 있다(2026-09-02 실측으로 4건 깨뜨렸다).
+  return s;
 };
 const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 냄비, 기저귀)"].join("\n");
 const MAX_SHOW = 20;   // 캐러셀 5장 × 4건 (카카오 최대치)
