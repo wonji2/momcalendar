@@ -6,7 +6,7 @@
 //
 // ⚠ 절대 덮어쓰지 않는다. **없는 파일만** 채운다.
 //   (2026-08-14 /MIR 되감기 사고 — 백업이 최신본을 덮어 되돌린 적이 있다)
-import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -69,6 +69,30 @@ function fillMissingTree(srcDir, dstDir, label) {
   say('🟢', label, `${missing.length}개 복구 (기존 ${total - missing.length}개는 그대로)`);
 }
 
+// settings.json 은 앱이 직접 쓰는 파일이다 — 재설치하면 앱이 훅 없는 기본 파일을 새로 만든다.
+// 존재만 보면 「✅ 정상」이 뜨는데 세션종료 자동백업은 죽어 있다(2026-09-02 검증자 지적).
+// 그래서 내용을 보고, 훅이 없으면 백업본의 hooks 만 병합한다(앱이 쓴 다른 키는 건드리지 않는다).
+function fillHooks(src, dst, label) {
+  if (!existsSync(src)) { say('🔴', label, '백업 원본 없음'); return; }
+  const read = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
+  const bak = read(src);
+  const bakHooks = bak && bak.hooks && Object.keys(bak.hooks).length ? bak.hooks : null;
+  if (!existsSync(dst)) {
+    if (CHECK) { say('🔴', label, '없음 → 복구 대상'); return; }
+    mkdirSync(join(dst, '..'), { recursive: true }); copyFileSync(src, dst);
+    say('🟢', label, '복구 완료'); return;
+  }
+  const cur = read(dst);
+  if (!cur) { say('🔴', label, '읽을 수 없는 JSON — 손대지 않음'); return; }
+  const curHooks = cur.hooks && Object.keys(cur.hooks).length ? Object.keys(cur.hooks) : null;
+  if (curHooks) { say('✅', label, '훅 ' + curHooks.join('/') + ' 살아있음'); return; }
+  if (!bakHooks) { say('🔴', label, '지금도 백업본에도 훅이 없다 — 세션종료 자동백업이 안 돈다'); return; }
+  if (CHECK) { say('🔴', label, '훅이 사라졌다 (' + Object.keys(bakHooks).join('/') + ' 복구 대상)'); return; }
+  cur.hooks = bakHooks;
+  writeFileSync(dst, JSON.stringify(cur, null, 2));
+  say('🟢', label, '훅 ' + Object.keys(bakHooks).join('/') + ' 복구 (다른 설정은 그대로)');
+}
+
 function fillFile(src, dst, label) {
   if (!existsSync(src)) { say('🔴', label, '백업 원본 없음'); return; }
   if (existsSync(dst)) { say('✅', label, '정상'); return; }
@@ -103,13 +127,15 @@ if (okOps) {
   // 점검·조회 도구 (login_health.sql 등) — 이게 없으면 세션 시작 규칙 0 을 못 지킨다.
   //   ⚠ work-backup 에는 두지 않는다: 거기 있던 사본이 4주 전 판으로 굳어
   //      PC 교체 복구 때 옛 결함판이 되살아났다(2026-09-02). momcal-ops 가 유일한 원본이다.
-  fillMissing(join(OPS, 'scratchpad'), join(REPO, 'scratchpad'), '점검 도구');
+  fillMissingTree(join(OPS, 'scratchpad'), join(REPO, 'scratchpad'), '점검 도구');
   fillFile(join(OPS, 'HANDOFF.md'), join(REPO, 'HANDOFF.md'), 'HANDOFF.md');
   fillFile(join(OPS, 'CLAUDE-MOMCALENDAR.md'), join(REPO, 'CLAUDE.md'), 'CLAUDE.md');
   fillFile(join(OPS, 'CLAUDE-desktop.md'), join(HOME, 'Desktop', 'CLAUDE.md'), '상위 CLAUDE.md');
 }
 if (okWbk) {
-  fillFile(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
+  fillHooks(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
+  // 도구 권한 승인·신뢰 다이얼로그가 든 파일. 앱이 쓰는 파일이라 있으면 덮지 않는다(없을 때만 복구).
+  fillFile(join(WBK, 'claude-config', 'claude.json'), join(HOME, '.claude.json'), '앱 권한·신뢰 설정');
   // ~/.claude 는 앱을 지우면 통째로 사라진다. 스케줄 자체는 못 되살리지만 절차서 내용은 남긴다.
   fillMissingTree(join(WBK, 'claude-config', 'scheduled-tasks'), join(HOME, '.claude', 'scheduled-tasks'), '앱 예약작업 절차서');
   fillMissingTree(join(WBK, 'claude-config', 'skills'), join(HOME, '.claude', 'skills'), '앱 스킬');
@@ -133,7 +159,7 @@ const manual = [];
   // 윈도우 예약작업은 앱 재설치에는 살아남지만 PC 를 바꾸면 사라진다 → 레포에 저장해둔 정의(XML)로 자동 복구
   try {
     const ps = join(REPO, 'tools', 'daily', 'tasks_backup.ps1');
-    if (existsSync(ps)) {
+    if (existsSync(ps) && !CHECK) {
       const out = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps, '-Restore'], { encoding: 'latin1', timeout: 120e3 });
       const made = (out.match(/새로 등록 (\d+)/) || [])[1];
       if (made && made !== '0') say('🟢', '예약작업', `${made}개 복구 (레포의 tasks/*.xml 에서)`);
