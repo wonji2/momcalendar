@@ -3529,6 +3529,9 @@ function hideLoginStrip(){
         // 무사히 돌아왔으니 실패 흔적을 지운다 (안 지우면 '실패'로 잘못 기록됨)
         try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); }catch(_){}
         if(typeof reloginStripHide==='function') reloginStripHide();
+        // 성공했으니 '안내 봤음' 표시를 지운다 — 나중에 진짜 실패하면 다시 안내가 뜬다
+        //   (2026-09-02: 이걸 안 지워서 한 번이라도 성공한 기기는 영영 안내를 못 받고 있었다)
+        try{ localStorage.removeItem('mc_relogin_done'); }catch(_){}
         try{ trackEvent('kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
@@ -3715,7 +3718,7 @@ function reloginStripHide(){
 }
 function reloginStripClose(){ reloginStripHide(); }
 function reloginStripGo(){
-  reloginStripHide(); try{ localStorage.removeItem('mc_relogin_done'); }catch(_){}   // 성공했으니 '안내 봤음' 표시를 지운다 — 다음에 실패하면 다시 안내한다
+  reloginStripHide();
   if(document.getElementById('kkoSheet') && typeof openLoginSheet==='function'){
     openLoginSheet('다시 로그인해 주세요',
       '지난번 로그인이 중간에 끊겼어요<br>다시 로그인하시면 <b style="color:#7B3FB5">찜·출석</b>이 그대로 이어져요',
