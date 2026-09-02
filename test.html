@@ -3528,6 +3528,9 @@ function hideLoginStrip(){
     //    응답을 기다리는 사이에 손님이 새로고침하면 같은 코드로 또 요청해 반드시 실패한다.
     //    (인앱은 렌더가 느려 이 사이가 길다) → 요청을 보내기 전에 주소에서 먼저 지운다.
     try{ history.replaceState({},'', location.pathname); }catch(_){}
+    // ⚠ 카카오에서 돌아온 시점에 시도 흔적을 지운다 — 안 지우면 성공한 회차까지 '추정 실패' 로 집계된다
+    //    (2026-09-02 검증자 지적: code 가 이미 URL 에서 지워져 checkLoginFail 의 가드가 무용지물이었다)
+    try{ localStorage.removeItem('mc_login_try'); }catch(_){}
     fetch(KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
       body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
@@ -3558,7 +3561,10 @@ function hideLoginStrip(){
         //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
         //    (2026-08-05 전면 재검증에서 발견 — 오늘 미완료 건의 일부가 이것일 수 있다)
         // ⚠ 원인을 남긴다 — 'server' 한 단어면 사후에 무엇이 틀렸는지 영영 알 수 없다(2026-09-02 검증자 지적)
-        kkoLoginFailed(d && d.error ? String(d.error).slice(0,60) : ('server' + (window.__kkoHttp ? '_' + window.__kkoHttp : '')));
+        // 카카오가 준 정확한 진단(KOE320 등)까지 남긴다 — 'server' 한 단어로는 사후에 아무것도 모른다
+        var _why = d && d.error ? String(d.error) : ('server' + (window.__kkoHttp ? '_' + window.__kkoHttp : ''));
+        try{ var _dt = d && d.detail; if(_dt) _why += '/' + String(_dt.error_code || _dt.error || '').slice(0,20); }catch(_){}
+        kkoLoginFailed(_why.slice(0,60));
       }
     }).catch(function(e){ kkoLoginFailed('network'); });
   }catch(_){}
@@ -3567,6 +3573,7 @@ function hideLoginStrip(){
 function kkoLoginFailed(why){
   try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why); }catch(_){}
   try{ localStorage.setItem('mc_login_fail', JSON.stringify({t:Date.now(), why:why})); }catch(_){}
+  try{ localStorage.removeItem('mc_login_try'); }catch(_){}   // 확정 실패를 기록했으니 '추정' 으로 또 세지 않는다
   try{ history.replaceState({},'', location.pathname); }catch(_){}   // ?code 를 URL 에서 지운다
   var w=document.createElement('div');
   w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;'+
@@ -4267,10 +4274,12 @@ function openInChrome(){
 function _autoLoginFromChrome(){
   try{
     if(location.search.indexOf("login=1")<0) return;
+    // 카톡에서 넘어오며 저장해 둔 "하려던 일" 을 되살린다 (없으면 빈값)
+    var _it = ""; try{ _it = localStorage.getItem("mc_login_intent") || ""; }catch(_){}
     if(typeof isLoggedIn==="function" && isLoggedIn()) return;
     try{ history.replaceState({},"", location.pathname); }catch(_){}
     var open = function(){ if(typeof openLoginSheet==="function")
-      openLoginSheet("이제 한 번에 로그인돼요","카카오톡이 바로 떠서 아이디를 치지 않아도 돼요","닉네임만 받아요"); };
+      openLoginSheet("이제 한 번에 로그인돼요","카카오톡이 바로 떠서 아이디를 치지 않아도 돼요","닉네임만 받아요", _it); };
     // ⚠ 일찍 열면 페이지 초기화가 시트를 도로 닫는다(실측 2026-09-01) → 늦게 열고, 닫혔으면 한 번 더
     setTimeout(open, 2200);
     setTimeout(function(){ var m=document.getElementById("kkoSheet");
