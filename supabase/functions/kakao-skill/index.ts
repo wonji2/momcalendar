@@ -404,6 +404,22 @@ Deno.serve(async (req) => {
         }
       } catch (_) { /* 못 찾으면 아래 안내로 간다 */ }
 
+      // 띄어 쓴 말이 AND 로 0건이면 **뒤 낱말**로 한 번 더 찾는다 (2026-09-02 실사고)
+      //   "이유식 스푼 파는곳 있어?" 는 0건인데 "이유식기" 는 18건이었다 — 손님이 말을 바꿔 다시 쳤다.
+      //   한국어는 수식어+핵심어라 **뒤가 핵심**이다(아기곰탕→곰탕 과 같은 규칙).
+      try {
+        const parts = kw.split(/\s+/).filter((w) => w.length >= 2);
+        if (parts.length >= 2) {
+          const head = parts[parts.length - 1];
+          if (head !== subWord) {   // subword 가 이미 시도한 낱말이면 또 부르지 않는다
+            const e3 = encodeURIComponent("%" + head + "%");
+            // 폴백은 **상품명만** 본다 (셀러명까지 보면 로얄젤리→젤리또리 사고가 재발한다)
+            const r3 = await pick(`end_date=gte.${today}&name=ilike.${e3}`, "order=open_date.asc", ph);
+            if (r3.length) return reply([cards(`'${head}' 공구 일정`, r3)]);
+          }
+        }
+      } catch (_) { /* 실패해도 아래 안내로 간다 */ }
+
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
       try {
         fetch(`${SB}/rest/v1/events`, { method: "POST",
@@ -421,6 +437,22 @@ Deno.serve(async (req) => {
 
 혹시 ${gw.map((w) => `'${w}'`).join(" · ")} 찾으셨을까요? 그대로 한번 보내보세요!`;
       } catch (_) { /* 되묻기 실패해도 안내는 나간다 */ }
+      // 진행 중이 없어도 **다룬 적이 있으면** 그렇게 말한다 (2026-09-02)
+      //   "선풍기" 는 DB 에 44건 있는데 전부 마감이라 손님에겐 "없어요" 만 나갔다.
+      //   사이트는 이미 지난 공구를 보여준다(showPastResults) — 챗봇만 빠져 있었다.
+      //   ⚠ 카드로 주지 않는다. 마감된 것을 눌러 들어가면 헛걸음이 된다 → 이름·날짜만 글로.
+      try {
+        const ep = encodeURIComponent("%" + kw + "%");
+        const past = await q(`gonggu?select=name,influencer,open_date&approved=eq.true&name=ilike.${ep}`
+          + `&end_date=lt.${today}&order=open_date.desc&limit=3`);
+        if (Array.isArray(past) && past.length) {
+          const li = past.map((p: any) => {
+            const d = String(p.open_date || "").slice(5).replace("-", "/");
+            return `· ${p.name}${p.influencer ? " — " + p.influencer : ""}${d ? " (" + d + ")" : ""}`;
+          }).join("\n");
+          return reply([text(`'${kw}' 공구는 지금 진행 중인 게 없어요.\n\n지난번에는 이런 게 있었어요\n${li}\n\n다시 열리면 맘캘린더에 바로 올라와요!`)]);
+        }
+      } catch (_) { /* 실패해도 아래 기본 안내가 나간다 */ }
       return reply([text(`'${kw}' 공구는 지금 진행 중이거나 예정인 게 없어요.
 아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}`)]);
     }
