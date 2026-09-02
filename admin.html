@@ -6424,7 +6424,7 @@ async function renderBotStats(){
 
     // 🙋 사장님 판정 — 챗봇이 못 알아들었는데 자동으로는 못 배우는 말(= 말투)
     //   버튼을 누르면 bot_phrase 에 들어가고, 챗봇이 매 요청마다 읽으므로 재배포 없이 즉시 반영된다.
-    const rev = await adminRpc('admin_bot_review', {p_limit:30}).catch(()=>[]);
+    const rev = await adminRpc('admin_bot_review', {p_limit:100}).catch(()=>[]);
     if((rev||[]).length){
       h+=`<div style="font-size:12px;font-weight:800;color:#C06A00;margin:14px 0 5px">🙋 사장님이 판정해 주세요 (${rev.length}건)</div>
         <div style="font-size:10.5px;color:#999;margin-bottom:8px">손님이 이렇게 말했는데 챗봇이 못 알아들었어요. 어떤 말인지 눌러주시면 <b>바로</b> 알아듣습니다.</div>`;
@@ -7405,8 +7405,12 @@ async function loadWinners(){
     document.getElementById('atWinners').innerHTML = (w&&w.length)
       ? `<div style="background:#FFF7FB;border:1px solid #F3D9EA;border-radius:12px;padding:13px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
-            <div style="font-size:12.5px;font-weight:800;color:#C2417A">🎉 당첨자 ${w.length}명</div>
-            <button onclick="copyWinners()" style="padding:6px 11px;background:#fff;border:1px solid #F3D9EA;color:#C2417A;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">📋 명단 복사</button>
+            <div style="font-size:12.5px;font-weight:800;color:#C2417A">🎉 당첨자 ${w.length}명
+              ${w.some(x=>!x.approved)
+                ? `<span style="margin-left:6px;font-size:10.5px;font-weight:800;color:#A86100;background:#FFF7E6;border:1px solid #FFD591;border-radius:6px;padding:2px 6px">승인 대기 ${w.filter(x=>!x.approved).length}명 — 아직 손님에게 안 보여요</span>`
+                : `<span style="margin-left:6px;font-size:10.5px;font-weight:800;color:#0F6E56;background:#E8F5EF;border-radius:6px;padding:2px 6px">안내 중</span>`}
+            </div>
+            ${w.some(x=>!x.approved) ? `<button onclick="approveWinners()" style="padding:6px 11px;background:#C2417A;border:none;color:#fff;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-right:5px">✅ 승인하고 안내 시작</button>` : ''}<button onclick="copyWinners()" style="padding:6px 11px;background:#fff;border:1px solid #F3D9EA;color:#C2417A;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">📋 명단 복사</button>
           </div>
           ${w.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #F7E7EF">
             <span style="font-size:13px">${x.tier===3?'🍗':(x.tier===2?'🎀':'☕')}</span>
@@ -7426,6 +7430,22 @@ async function loadWinners(){
       : '';
     window.__winners=w||[];
   }catch(e){}
+}
+// 승인해야 당첨자에게 안내가 나간다 (사장님 지시 2026-09-02: 자동추첨 → 승인 → 안내)
+async function approveWinners(){
+  const w=(window.__winners||[]).filter(x=>!x.approved);
+  if(!w.length){ alert('승인할 당첨자가 없어요.'); return; }
+  const NL=String.fromCharCode(10);   // 개행을 이스케이프로 쓰면 주입 때 깨진다(실사고 2026-09-02)
+  const list=w.map(x=>' · '+x.nickname+' — '+x.prize).join(NL);
+  const msg=w.length+'명을 승인할까요?'+NL+NL
+    +'승인하면 그때부터 당첨자 화면에 "당첨!" 안내가 뜨고'+NL
+    +'연락처를 남길 수 있게 됩니다.'+NL+NL+list;
+  if(!confirm(msg)) return;
+  try{
+    const r=await admRpc('admin_attendance_approve',{p_month:atMonthVal()});
+    alert(r.approved+'명 승인 완료 🎉'+NL+'이제 당첨자가 사이트에 들어오면 안내가 뜹니다.');
+    loadAttend();
+  }catch(e){ alert('실패: '+e.message); }
 }
 function copyWinners(){
   const w=window.__winners||[];
