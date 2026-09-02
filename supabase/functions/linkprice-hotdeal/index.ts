@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
 
     // 4) 등록
     if (picks.length) {
-      const expires = new Date(Date.now() + 9 * 3600e3 + 3 * 864e5).toISOString();
+      const expires = new Date(Date.now() + 3 * 864e5).toISOString();
       await sb("hotdeals?on_conflict=product_id,deal_day", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
