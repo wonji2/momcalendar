@@ -83,6 +83,11 @@ for (const it of items) {
   if (!p) { skipped.push(`${it.id} ${it.subj.slice(0, 40)}`); continue; }
   if (!p.name || p.name.length < 2) { skipped.push(`${it.id} 상품명없음`); continue; }
   if (p.end < todayStr) { skipped.push(`${it.id} 마감지남 ${p.name}`); continue; }
+  // 🔴 사장님이 직접 하는 공구는 다른 셀러가 진행해도 등록하지 않는다 (사장님 지시 2026-09-02).
+  //   "마이키즈랑 우랩 둘 다 빼, 내꺼 빼고"
+  //   승인표 게이트에는 own_product_check 가 있는데 **카페 크롤러에는 없어서** 뚫렸다.
+  //   ⚠ 낱말 경계를 본다 — 그냥 우랩이면 「그로우랩 유산균」까지 잡는다.
+  if (/(^|[^가-힣A-Za-z])(마이키즈|우랩|롤팬)/.test(p.name)) { skipped.push(`${it.id} 사장님상품 ${p.name}`); continue; }
   const cat = guessCat(p.name);   // 분류는 '신규 등록'에만 필요. 기존 행 카페연결은 분류 없이 한다.
   if (!cat) noCat.push(`${it.id} ${p.name} (${p.open}~${p.end})`);
   rows.push({ id: it.id, ...p, major: cat ? cat.major : null, minor: cat ? cat.minor : null });
