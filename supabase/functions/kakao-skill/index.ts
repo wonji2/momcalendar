@@ -43,6 +43,18 @@ async function q(path: string) {
   const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
   return r.ok ? await r.json() : [];
 }
+/** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
+async function countName(w: string, today: string): Promise<number> {
+  try {
+    const e = encodeURIComponent("%" + w + "%");
+    const r = await fetch(
+      `${SB}/rest/v1/gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=1`,
+      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Prefer: "count=exact" } });
+    const cr = r.headers.get("content-range") || "";     // "0-0/37" 형식
+    const n = Number(cr.split("/")[1]);
+    return Number.isFinite(n) ? n : 9999;
+  } catch { return 9999; }
+}
 async function rpc(fn: string) {
   const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method: "POST",
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" }, body: "{}" });
@@ -365,7 +377,10 @@ Deno.serve(async (req) => {
         //   원래 두 낱말이면 적용하면 안 된다 — '신생아 기저귀' 이 '신생아' 로만 검색된다(실사고)
         if (parts.length >= 2 && kw.split(/\s+/).filter((w) => w.length >= 2).length < 2) tries.push(parts[0]);
       }
-      if (kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);   // 줄임말: 글자 사이를 연다
+      // 줄임말(글자 사이 열기)은 **한글일 때만**. 영문에 쓰면 성긴 패턴이 아무 문장에나 걸린다.
+      //   실사고 2026-09-02: 'Keen' → %k%e%e%n% → "Scholastic Picture Book Garden Collection"
+      const hangulOnly = /^[가-힣]+$/.test(kw);
+      if (hangulOnly && kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);
 
       // 🔴 검색 순서 (사장님 지시 2026-09-01)
       //   ① 손님이 말한 그대로·별칭 그대로 공구를 찾는다 (뽀사카 → "뽀로로 사운드")
@@ -391,7 +406,10 @@ Deno.serve(async (req) => {
             const base = ws.length === 1 ? ws[0] : t;   // 짧은 낱말이 떨어져 나가면 남은 낱말로 찾는다
             const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${base}%`;
             const enc = encodeURIComponent(pat);
-            cond = base.length <= 1
+            // 줄임말(__ABBR__)은 글자 사이를 여는 성긴 패턴이라 셀러 핸들에 걸면 엉뚱한 게 잡힌다.
+            //   실사고 2026-09-02: 'Keen' → %K%e%e%n% → insta 'keepgoing_becky' → 자숙문어
+            const nameOnly = base.length <= 1 || t.startsWith("__ABBR__");
+            cond = nameOnly
               ? `end_date=gte.${today}&name=ilike.${enc}`
               : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
           }
@@ -414,7 +432,17 @@ Deno.serve(async (req) => {
           // 수식어를 빼고 한 낱말만 남아도 돈다 — "신생아 기저귀" → 기저귀 (2026-09-02)
           //   전에는 2개 이상일 때만 돌아서 이 경우 폴백이 통째로 죽어 있었다.
           if (ws2.length >= 2 || (ws2.length === 1 && all2.length >= 2)) {
+            // 어느 낱말이 핵심인가 = **DB 에 드문 쪽**이다.
+            //   '휴대용 물티슈' → 물티슈(7) < 휴대용(10) → 물티슈가 핵심 ✅
+            //   '씨밀렉스 수납장' → 씨밀렉스(희소) < 수납장(흔함) → 씨밀렉스가 핵심 ✅
+            //   ⚠ "뒤가 핵심" 규칙만 쓰면 브랜드가 앞에 올 때 망가진다(실측으로 되돌림).
+            const counted: [string, number][] = [];
             for (const w of ws2) {
+              if (Date.now() - t0 > 1200) { counted.push([w, 9999]); continue; }
+              counted.push([w, await countName(w, today)]);
+            }
+            counted.sort((a, b) => a[1] - b[1]);
+            for (const [w] of counted) {
               if (Date.now() - t0 > 1500) break;   // 카카오 5초 제한 — 늦은 답보다 지금 답이 낫다
               const e = encodeURIComponent("%" + w + "%");
               const r3 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph);
@@ -424,8 +452,15 @@ Deno.serve(async (req) => {
           }
         }
         if (!merged.length) return null;
+        // 손님이 친 낱말이 **상품명**에 있는 것을 먼저 보여준다.
+        //   실사고 2026-09-02: '우유' 를 물었는데 셀러 '우유맘' 의 리프팅크림이 1번으로 나갔다.
+        //   ⚠ 집합에서 빼지는 않는다 — "우유맘 공구 알려줘" 는 계속 되어야 하므로 순서만 세운다.
+        const qw = ([...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "")
+          .split(" ").filter((w) => w.length >= 2).map((w) => norm(w));
+        const nameHit = (g: any) => qw.length > 0 && qw.some((w) => norm(g.name).includes(w));
         // 맘캘린더·이웃셀러 공구는 무조건 맨 앞 (사장님 규칙) — 합치면서 섞이므로 다시 세운다
-        merged.sort((a, b) => (a.__p ? 0 : 1) - (b.__p ? 0 : 1));
+        merged.sort((a, b) =>
+          ((a.__p ? 0 : 1) - (b.__p ? 0 : 1)) || ((nameHit(a) ? 0 : 1) - (nameHit(b) ? 0 : 1)));
         return merged.slice(0, MAX_SHOW);
       };
 
