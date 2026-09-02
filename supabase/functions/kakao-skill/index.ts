@@ -158,12 +158,20 @@ const TAILS: RegExp[] = [
   //   '이' 끝 16종 104건: 미스티파이·꼬메모이·돌잡이·팁토이조이·리즈파이·대발이·마더케이·길쭉담이 …
   //   '만' 끝: 실리만 → '실리' 로 깎이면 실리콘 상품까지 섞여 나온다
   //   어제 inpock_harvest 관형형 검사에서 고친 것과 같은 뿌리다(모윰 쪽쪽이 드롭 사고)
-  /(가|은|는|을|를|도)$/,                            // "일정이" 에서 일정을 지운 뒤 남는 조사
+  // ⚠ 조사·짧은꼬리는 여기 두지 않는다 — 아래 CUT_TAILS 로 뺐다 (2026-09-02)
+  //    브랜드 끝 글자를 먹기 때문이다. **깎기 전 판으로 먼저 찾고** 없을 때만 이걸 쓴다.
   /(인거|인것|하는거|되는거|인가|인가요|이야|예요|에요)$/,
-  /(좀|요|용)$/,   // ⚠ 넵·넹·야 는 넣지 말 것 — 브랜드가 깎인다
   //   메쉬넵→메쉬 (2026-09-01) · 이치비야→이치비 (2026-09-02, 사장님 지적)
   //   "야" 로 끝나는 브랜드 8종: 이치비야·밧드야·하코야·요거모야·꽃게야·코코이찌방야·고새야
   //   "뭐야"·"얼마야" 는 위쪽 규칙이 이미 잡는다.
+];
+// 🔴 **말을 깎지 않는다** (사장님 지시 2026-09-02)
+//   조사·짧은꼬리는 브랜드 끝 글자와 구별이 안 된다 — '닥터포이'→'닥터포' · '실리만'→'실리' 사고.
+//   그래서 이것만 따로 뺐다. **깎기 전 판으로 먼저 찾고, 그래도 없을 때만** 이걸 쓴다.
+//   규칙으로 자르는 게 아니라 DB 에 무엇이 있는지 보고 정한다 = 문맥 파악.
+const CUT_TAILS: RegExp[] = [
+  /(가|은|는|을|를|도)$/,   // "일정이" 에서 일정을 지운 뒤 남는 조사
+  /(좀|요|용)$/,            // ⚠ 넵·넹·야 는 넣지 말 것 — 메쉬넵→메쉬 · 이치비야→이치비
 ];
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
 //   ⚠ 마지막 글자에만 쓴다. 문장 전체에 쓰면 티니핑→티니피 처럼 브랜드가 깨진다 (사장님 지적한 유형)
@@ -175,16 +183,18 @@ function deJong(s: string) {
   return t.slice(0, -1) + String.fromCharCode(0xAC00 + (c - 21));
 }
 
-function stripTail(s: string) {
+function stripTail(s: string, cut = true) {
+  const list = cut ? [...TAILS, ...CUT_TAILS] : TAILS;
   let prev = "";
   for (let i = 0; i < 8 && s !== prev; i++) {
     prev = s;
-    for (const re of TAILS) s = s.replace(re, "").trim();
+    for (const re of list) s = s.replace(re, "").trim();
   }
   return s;
 }
-function keyword(u: string) {
-  let s = stripTail(u);
+// cut=false 면 **조사를 안 뗀 판**을 준다 — 손님이 친 말에 더 가까운 쪽이다.
+function keyword(u: string, cut = true) {
+  let s = stripTail(u, cut);
   // 여기서 지우는 것은 **문장 부품**뿐이다. 브랜드가 될 수 있는 낱말은 절대 건드리지 않는다.
   //   ⚠ 전역 치환은 낱말 속까지 먹는다 — 머그컵→'그컵', 해담옥→'담옥' 사고(2026-09-01).
   //     그래서 어미·감탄사는 stripTail 이 **문장 끝에서만** 처리하고, 여기선 안전한 것만 지운다.
@@ -315,10 +325,38 @@ Deno.serve(async (req) => {
     const NUMONLY = kw.length <= 2 && !/[가-힣a-zA-Z]/.test(kw);
     if (kw.length >= 1 && !NUMONLY && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
       const AL = await aliases();
-      const tries = [kw];
-      for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
-      // 손님이 말한 그대로 + 별칭 그대로 (대표 낱말로 넓히기 **전**의 목록) — 핫딜 우선 판단에 쓴다
+      // 🔴 **깎기 전 판을 맨 앞에 둔다** (사장님 지시 2026-09-02: "말을 깎는건 절대 안 된다")
+      //   "닥터포이" 를 물으면 조사판은 '닥터포' 지만 깎기 전 판은 '닥터포이' 다.
+      //   DB 에 '닥터포이' 가 있으면 여기서 잡히고 조사판까지 가지 않는다.
+      const kwRaw = keyword(u, false);
+      const tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
+      // 별칭은 두 번 푼다 — 줄임말 → 정식이름 → 표기변형 (사장님 지시 2026-09-02)
+      //   "넘블은 넘버블럭스 넘버블록스 다 똑같은말이야 줄임말"
+      //   한 번만 풀면 넘블 → 넘버블록스 에서 멈춰 넘버블럭스 표기 상품을 못 찾는다.
+      const expand = (src: string[]) => {
+        const out: string[] = [];
+        for (const t of src) for (const [a, b] of AL) {
+          if (t.includes(a)) out.push(t.split(a).join(b));
+          if (t.includes(b)) out.push(t.split(b).join(a));
+        }
+        return out;
+      };
+      const p1 = expand(tries.slice());
+      tries.push(...p1);
+      // 손님이 말한 그대로 + 별칭 1단계 (대표 낱말로 넓히기 **전**의 목록) — 핫딜 우선 판단에 쓴다
+      //   ⚠ 2단계 확장은 여기 넣지 않는다 — 넓어져서 공구를 찾기도 전에 핫딜이 먼저 나간다(실측).
       const specific = [...new Set(tries)];
+      tries.push(...expand(p1));   // 2단계(표기변형)는 넓히기용
+      // 수식어는 **사전으로** 뗀다 — 깎는 게 아니다 (사장님 지시 2026-09-02)
+      //   "아기물티슈" → '물티슈' 는 정당하지만 "알테리" → '테리' 는 브랜드를 죽인다.
+      //   차이는 **아는 말만 떼느냐** 다. 사전에 없는 글자는 절대 건드리지 않는다.
+      //   ⚠ 넓히기 단계에만 넣는다 — 정확검색에 넣으면 '아기상어' 공구에 '상어' 가 섞인다.
+      const MODIFIERS = ["신생아", "어린이", "우리아이", "유아용", "아기", "유아", "아이", "키즈", "엄마"];
+      for (const t of [...new Set(tries)]) {
+        for (const m of MODIFIERS) {
+          if (t.startsWith(m) && t.length > m.length + 1) { tries.push(t.slice(m.length).trim()); break; }
+        }
+      }
       // 별칭이 여러 낱말이면 대표 낱말로도 찾는다 — 뽀사카→"뽀로로 사운드" 가 0건이던 것 (2026-09-01)
       //   그 조합의 공구가 없어도 손님이 원하는 건 그 브랜드다.
       for (const t of tries.slice(1)) {   // ⚠ 0번(손님 말 원본)은 제외 — 넣으면 첫 낱말로만 검색된다
@@ -371,8 +409,11 @@ Deno.serve(async (req) => {
           // 수식어는 브랜드가 아니다 — 이걸로 넓히면 "아기 물컵" 이 '아기병풍' 을 물어온다
           const WIDE_STOP = ["아기", "유아", "신생아", "아이", "어린이", "키즈", "우리", "엄마", "국내", "국산", "프리미엄", "무료", "특가", "모음", "세트", "기획"];
           const base = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
-          const ws2 = base.split(/\s+/).filter((w) => w.length >= 2 && !WIDE_STOP.includes(w));
-          if (ws2.length >= 2) {
+          const all2 = base.split(/\s+/).filter((w) => w.length >= 2);
+          const ws2 = all2.filter((w) => !WIDE_STOP.includes(w));
+          // 수식어를 빼고 한 낱말만 남아도 돈다 — "신생아 기저귀" → 기저귀 (2026-09-02)
+          //   전에는 2개 이상일 때만 돌아서 이 경우 폴백이 통째로 죽어 있었다.
+          if (ws2.length >= 2 || (ws2.length === 1 && all2.length >= 2)) {
             for (const w of ws2) {
               if (Date.now() - t0 > 1500) break;   // 카카오 5초 제한 — 늦은 답보다 지금 답이 낫다
               const e = encodeURIComponent("%" + w + "%");
@@ -391,44 +432,25 @@ Deno.serve(async (req) => {
       const exact = await searchGonggu(specific.length ? specific : tries);
       if (exact) return reply([cards(`'${kw}' 공구 일정`, exact)]);
 
-      // ② 핫딜 — **지정한 말에만** 붙인다 (사장님 지시 2026-09-01: "이번 뽀사카만, 나머지는 핫딜 붙이지 말고")
-      //    띄어쓰기는 사람마다 다르므로 공백을 전부 지우고 비교한다:
-      //    뽀사카 = 뽀로로 사운드카드 = 뽀로로 사운드 카드 = 뽀로로사운드 카드 = 뽀로로사운드카드
-      const flat = (s: string) => String(s || "").replace(/\s+/g, "");
-      const asked = [u, kw, ...specific].map(flat).join("|");
-      if (/뽀사카|뽀로로사운드/.test(asked)) {
-        const hdCard = await findHotdeal(["뽀로로 사운드"], today);
+      // ② 핫딜 — 공구가 없으면 **핫딜에 있는지 본다** (사장님 지시 2026-09-02)
+      //   🔴 2026-09-02: 뽀사카 하드코딩을 걷어냈다 (사장님 지시 "핫딜에 있으면 있다고 알려줘").
+      //   핫딜에 멀쩡히 있는데 "공구 없어요" 가 나가고 있었다 —
+      //   해담옥(손님이 9번 물음)·삼다수·칠성사이다·일리윤·한예지 전부 그랬다.
+      {
+        // 별칭 푼 말까지 넣는다. 손님이 친 말 그대로가 먼저다.
+        const hdWords = [...new Set([kwRaw, kw, ...specific])].filter((x) => x && !String(x).startsWith("__ABBR__"));
+        const hdCard = await findHotdeal(hdWords, today);
         if (hdCard) return reply([hdCard]);
       }
 
       // ③ 대표 낱말까지 넓혀서 다시
       const wide = await searchGonggu(tries);
       if (wide) return reply([cards(`'${kw}' 공구 일정`, wide)]);
-      // 붙여 쓴 말은 상품명 낱말과 대조해 한 번 더 찾는다 (아기곰탕 → 곰탕) — 사장님 지시 2026-09-01
-      let subWord = "";   // (try 밖 선언 — 엣지함수 선언순서 사고 3번째 방지)
-      try {
-        const sw = await fetch(`${SB}/rest/v1/rpc/bot_subword`, { method: "POST",
-          headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ p_kw: kw }) }).then((x) => x.json());
-        const w = (Array.isArray(sw) && sw[0] && sw[0].word) ? String(sw[0].word) : "";
-        subWord = w;
-        // 숫자·기호만인 조각은 낱말이 아니다 (2026-09-02)
-        //   "아기침대2024" 가 '24' 로, "없는브랜드12345" 가 '5' 로 검색돼 엉뚱한 20건을 뿌렸다.
-        //   subword 는 "아기곰탕 → 곰탕" 처럼 뜻이 있는 낱말을 찾으라고 만든 것이다.
-        //   버린 앞부분이 수식어일 때만 쓴다 (2026-09-02)
-        //   '아기곰탕'→'곰탕'(앞 '아기'=수식어) ✅ / '알테리'→'테리'·'머그컵'→'컵' 🚫
-        //   안 그러면 브랜드를 잘라 엉뚱한 걸 물어온다 — 손님이 '알테리' 를 5번 묻고 5번 테리빕을 받았다.
-        const SUB_OK = ["아기", "유아", "신생아", "아이", "어린이", "키즈", "우리", "엄마", "프리미엄", "국산", "수제", "무첨가", "유기농"];
-        const head = (w && kw.endsWith(w)) ? kw.slice(0, kw.length - w.length).trim() : null;
-        const subOk = !!w && /[가-힣a-zA-Z]/.test(w) && !!head && SUB_OK.includes(head);
-        if (!subOk) { /* 브랜드를 자른 것이거나 숫자뿐 — 쓰지 않는다 */ }
-        else if (w) {
-          const e2 = encodeURIComponent("%" + w + "%");
-          // 폴백은 **상품명만** 본다 — 셀러명까지 보면 '로얄젤리'→'젤리'→젤리또리 셀러의 장난감이 나간다(2026-09-01 실사고)
-          const r2 = await pick(`end_date=gte.${today}&name=ilike.${e2}`, "order=open_date.asc", ph);
-          if (r2.length) return reply([cards(`'${w}' 공구 일정`, r2)]);
-        }
-      } catch (_) { /* 못 찾으면 아래 안내로 간다 */ }
+      // 🔴 여기 있던 `bot_subword`(글자 조각 검색)를 걷어냈다 (사장님 지시 2026-09-02)
+      //    "말을 깎는건 절대 해서는 안되는거야 문맥을 파악해야지"
+      //    알테리→'테리' · 머그컵→'컵' 처럼 브랜드가 통째로 죽었다.
+      //    합성어(아기곰탕→곰탕)는 **bot_alias 로** 관리한다 — 한 곳에서 보고 재배포도 필요 없다.
+
       // ⚠ 여기 있던 "뒤 낱말 재시도" 는 걷어냈다 (2026-09-02 검증).
       //    "이유식 스푼" 에서 뒤 낱말 스푼 을 고르니 애플스푼 배도라지즙·스푼풀 오메가3 가 나갔다 —
       //    브랜드명에 그 글자가 든 것까지 걸린다. 손님이 바꿔 쳐서 성공한 말은 이유식기(앞 낱말)였다.
