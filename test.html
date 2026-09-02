@@ -3579,6 +3579,9 @@ function hideLoginStrip(){
 function kkoLoginFailed(why){
   try{ trackEvent('kakao_login_fail', (location.pathname||'/')+'|'+(_isInApp()?'inapp':'web')+'|'+why + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   try{ localStorage.setItem('mc_login_fail', JSON.stringify({t:Date.now(), why:why})); }catch(_){}
+  // 실패가 확정됐으니 '안내 봤음' 표시를 푼다 — 안 풀면 로그아웃 이력·재시도 실패자가 영영 안내를 못 받는다
+  //   (2026-09-02 검증: 성공 분기만 고쳤더니 같은 유형이 다른 입구에 남아 있었다)
+  try{ if(localStorage.getItem('mc_withdrawn')!=='1') localStorage.removeItem('mc_relogin_done'); }catch(_){}
   try{ localStorage.removeItem('mc_login_try'); }catch(_){}   // 확정 실패를 기록했으니 '추정' 으로 또 세지 않는다
   try{ history.replaceState({},'', location.pathname); }catch(_){}   // ?code 를 URL 에서 지운다
   var w=document.createElement('div');
@@ -3643,7 +3646,7 @@ async function doWithdraw(wipe){
     try{
       localStorage.removeItem('mc_member');
       localStorage.removeItem('mc_login_from'); localStorage.removeItem('mc_login_try');
-      localStorage.removeItem('mc_login_fail'); localStorage.setItem('mc_relogin_done','1');
+      localStorage.removeItem('mc_login_fail'); localStorage.setItem('mc_relogin_done','1'); localStorage.setItem('mc_withdrawn','1');   // 탈퇴자는 재로그인 안내 대상에서 영구 제외
       if(wipe) localStorage.removeItem('mc_wish');
     }catch(_){}
     alert('탈퇴가 완료됐어요.\n그동안 이용해 주셔서 감사합니다.');
@@ -3709,7 +3712,9 @@ function checkLoginFail(){
     if(!t || !t.t) { localStorage.removeItem('mc_login_try'); return; }
     if(Date.now()-t.t < 60000) return;                   // 1분 안쪽이면 아직 진행 중일 수 있음
     localStorage.removeItem('mc_login_try');
-    localStorage.setItem('mc_login_fail', String(t.t));
+    // ⚠ 추정(중도 이탈)은 mc_login_fail 에 쓰지 않는다 — 그 키는 '확정 실패' 전용이다.
+    //    스스로 카카오 화면에서 돌아선 손님에게 '로그인이 중단됐었어요' 를 띄우면 안 된다(2026-09-02).
+    localStorage.setItem('mc_login_guess', String(t.t));
     // ⚠ 이건 '확정 실패'가 아니라 '카카오 화면에서 안 돌아온 흔적'이다.
     //   손님이 스스로 취소한 것도 여기로 들어온다. 진짜 장애(kkoLoginFailed)와
     //   같은 이름으로 쌓이면 매번 파봐야 하므로 |추정 을 붙여 구분한다. (2026-08-06)
