@@ -47,6 +47,28 @@ function fillMissing(srcDir, dstDir, label) {
   say('🟢', label, `${missing.length}개 복구 (기존 ${src.length - missing.length}개는 그대로)`);
 }
 
+// 폴더 구조째로 없는 것만 복사 (하위 폴더 포함).
+// fillMissing 은 최상위 파일만 본다 — 앱 예약작업·스킬은 <이름>/SKILL.md 구조라 재귀가 필요하다.
+// 2026-09-02: daily-kr-learn-round 절차서 3,560B 가 앱 안에만 있던 것을 발견하고 신설.
+function fillMissingTree(srcDir, dstDir, label) {
+  if (!existsSync(srcDir)) { say('🔴', label, '백업 원본 없음: ' + srcDir); return; }
+  const count = (d) => readdirSync(d).reduce((n, f) => n + (statSync(join(d, f)).isDirectory() ? count(join(d, f)) : 1), 0);
+  const missing = [];
+  const walk = (sd, dd) => {
+    for (const f of readdirSync(sd)) {
+      const sp = join(sd, f), dp = join(dd, f);
+      if (statSync(sp).isDirectory()) walk(sp, dp);
+      else if (!existsSync(dp)) missing.push([sp, dp, f]);
+    }
+  };
+  walk(srcDir, dstDir);
+  const total = count(srcDir);
+  if (!missing.length) { say('✅', label, `${total}개 모두 정상`); return; }
+  if (CHECK) { say('🔴', label, `${missing.length}개 없음: ${missing.slice(0, 5).map(m => m[2]).join(', ')}`); return; }
+  for (const [sp, dp] of missing) { mkdirSync(join(dp, '..'), { recursive: true }); copyFileSync(sp, dp); }
+  say('🟢', label, `${missing.length}개 복구 (기존 ${total - missing.length}개는 그대로)`);
+}
+
 function fillFile(src, dst, label) {
   if (!existsSync(src)) { say('🔴', label, '백업 원본 없음'); return; }
   if (existsSync(dst)) { say('✅', label, '정상'); return; }
@@ -78,11 +100,20 @@ if (okOps) {
   fillMissing(join(OPS, 'memory'), MEM, '메모리');
   fillMissing(join(OPS, 'claude-commands'), join(REPO, '.claude', 'commands'), '슬래시 커맨드');
   fillMissing(join(OPS, 'claude-agents'), join(REPO, '.claude', 'agents'), '검증 에이전트');
+  // 점검·조회 도구 (login_health.sql 등) — 이게 없으면 세션 시작 규칙 0 을 못 지킨다.
+  //   ⚠ work-backup 에는 두지 않는다: 거기 있던 사본이 4주 전 판으로 굳어
+  //      PC 교체 복구 때 옛 결함판이 되살아났다(2026-09-02). momcal-ops 가 유일한 원본이다.
+  fillMissing(join(OPS, 'scratchpad'), join(REPO, 'scratchpad'), '점검 도구');
   fillFile(join(OPS, 'HANDOFF.md'), join(REPO, 'HANDOFF.md'), 'HANDOFF.md');
   fillFile(join(OPS, 'CLAUDE-MOMCALENDAR.md'), join(REPO, 'CLAUDE.md'), 'CLAUDE.md');
   fillFile(join(OPS, 'CLAUDE-desktop.md'), join(HOME, 'Desktop', 'CLAUDE.md'), '상위 CLAUDE.md');
 }
-if (okWbk) fillFile(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
+if (okWbk) {
+  fillFile(join(WBK, 'claude-config', 'settings.json'), join(HOME, '.claude', 'settings.json'), 'Claude 설정(세션종료 훅)');
+  // ~/.claude 는 앱을 지우면 통째로 사라진다. 스케줄 자체는 못 되살리지만 절차서 내용은 남긴다.
+  fillMissingTree(join(WBK, 'claude-config', 'scheduled-tasks'), join(HOME, '.claude', 'scheduled-tasks'), '앱 예약작업 절차서');
+  fillMissingTree(join(WBK, 'claude-config', 'skills'), join(HOME, '.claude', 'skills'), '앱 스킬');
+}
 
 // ── 파일 복구로는 절대 되살릴 수 없는 것들 (사람 손이 필요) ────────────────────
 // 로그인 쿠키·앱이 관리하는 예약작업은 백업 대상이 아니다. 있는 척하면 그게 더 위험하므로 따로 알린다.
