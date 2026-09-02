@@ -194,6 +194,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
     <div class="tab" onclick="switchTab('vendor',this)">🏢 공급사</div>
     <div class="tab" onclick="openReelCard()" style="background:#F3ECFB;color:#5B3A8C;font-weight:800">📸 인스타 카드</div>
+    <div class="tab" onclick="switchTab('bot',this)">🤖 챗봇 <span id="badge-bot" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
   </div>
 
@@ -1024,7 +1025,7 @@ details summary::-webkit-details-marker{display:none}
       <span style="font-size:10px;color:#9B9B9B;font-weight:600">인기 검색어·많이 본 공구·메뉴별 액션</span>
     </div>
     <!-- ── 사용자 행동 분석 ── -->
-    <div style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div id="behaviorBox" style="background:#fff;border-radius:12px;margin:10px 12px 0;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;font-weight:700;color:#222">🖱️ 사용자 행동 분석</div><button onclick="copyTrendSummary()" style="background:#2A1D6E;border:none;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit">📋 트렌드 요약 복사</button></div>
       <!-- 탭 -->
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
@@ -1300,6 +1301,14 @@ function enterAdmin(){
   document.getElementById('adminWrap').style.display='block';
   scheduleRefresh();
   loadData();
+  loadBotBadge();
+}
+// 🤖 챗봇 검토판 대기 건수 — 탭을 안 열어도 몇 건인지 보이게 (사장님 지시 2026-09-02)
+async function loadBotBadge(){
+  try{
+    const rev = await adminRpc('admin_bot_review', {p_limit:100});
+    if(typeof setBadge==='function') setBadge('badge-bot', (rev||[]).length);
+  }catch(_){ /* 못 세면 배지만 안 뜬다 — 탭은 그대로 동작한다 */ }
 }
 let _refreshTimer=null;
 function scheduleRefresh(){
@@ -7619,6 +7628,15 @@ function switchTab(tab,el){
    'inqView','memberView','adperfView','attendView','vendorView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
+  // 🤖 챗봇 검토판 — 관리자 3단계 깊이에 있던 것을 최상단 탭으로 뺐다 (사장님 지시 2026-09-02)
+  //   화면은 기존 것을 그대로 쓴다(renderBotStats). 두 벌로 만들면 한쪽만 고치는 사고가 난다.
+  if(tab==='bot'){
+    document.getElementById('statsView').style.display='block';
+    switchEvtTab('bot');                       // 안에서 renderBotStats 까지 돈다
+    setTimeout(()=>{ const b=document.getElementById('behaviorBox');
+      if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
+    return;
+  }
   if(tab==='vendor'){
     document.getElementById('vendorView').style.display='block';
     loadVendors(); return;
