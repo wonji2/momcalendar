@@ -29,6 +29,9 @@ const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const LOG = path.join(ROOT, 'scratchpad', 'bot_guard_log.txt');
 const FULL = process.argv.includes('--full') || new Date(Date.now() + 9 * 3600e3).getMinutes() < 30;
 
+const MISS_MSG = /진행 중이거나 예정인 게 없|다룬 적이 없/;   // ⚠ '지난번에는' 안내와 겹치지 않게 좁힌 것
+//   🔑 실패 판정은 "카드가 없다" 가 아니라 "못 찾음 안내를 냈다" 로 한다 (사장님 지적 2026-09-02).
+//      "맘방사랑해" 는 이스터에그가 정상 응답하는데 카드가 아니라는 이유로 매 회차 구멍으로 올라왔다.
 const out = [];
 const say = (s) => { console.log(s); out.push(s); };
 const sql = (text) => {
@@ -113,26 +116,45 @@ try {
 } catch (e) { say('③ 실패율 조회 실패'); }
 
 // ④ 손님이 찾는데 우리에게 없는 것 → 파싱 우선순위
+//   🔴 raw 집계만 하면 **이미 고친 것을 며칠씩 계속 보고**한다 (사장님 지적 2026-09-02)
+//      "이치비" 는 우리가 말끝 야 를 깎아 만든 유령이었고(그날 고침),
+//      "네뷸라이저" 는 별칭으로 묶여 지금은 정상 응답한다. 둘 다 파싱할 것이 아니다.
+//   → 목록을 **지금 다시 물어보고**, 여전히 못 찾는 것만 남긴다. ⑤ 와 같은 사상이다.
 try {
   const gap = sql(`
-    select split_part(event_data,' <= ',1) kw, count(*)::int c
+    select split_part(event_data,' <= ',1) kw,
+           (array_agg(split_part(event_data,' <= ',2) order by visited_at desc))[1] u,   -- 손님이 실제로 친 말
+           count(*)::int c
       from events where event_type='kakao_bot_miss'
        and visited_at > now() - interval '24 hours'
        and split_part(event_data,' <= ',1) ~ '^[가-힣A-Za-z0-9 ]{2,20}$'
        and split_part(event_data,' <= ',1) !~ '(존재|테스트|zzz|ㅁㄴㅇㄹ)'
-     group by 1 order by 2 desc limit 15;`);
-  if (gap.length) {
+     group by 1 order by 3 desc limit 15;`);
+  const real = [];   // 지금도 못 찾는 것
+  const fixed = [];  // 그 사이 해결된 것 (별칭·오타 시정·새로 등록)
+  for (const g of gap) {
+    try {
+      // 🔑 추출된 키워드가 아니라 **손님이 친 말 그대로** 물어본다.
+      //    "맘방사랑해"(정상 응답)를 "맘방사랑"(0건)으로 물어 유령을 만들던 것을 막는다.
+      const r = await ask(g.u || g.kw);
+      // 카드가 나오거나 "지난번에는" 안내가 나오면 우리가 다루는 브랜드다 → 파싱 대상이 아니다
+      if (r.card || !MISS_MSG.test(r.text || "")) fixed.push(g); else real.push(g);
+    } catch (_) { real.push(g); }   // 물어보다 실패하면 보수적으로 남긴다
+  }
+  if (fixed.length) say(`④ 이미 해결됨 ${fixed.length}건 (보고에서 뺀다) — ` + fixed.map((g) => g.kw).join(" · "));
+  if (real.length) {
     say('④ 손님이 찾는데 DB 에 없는 것 (파싱 우선순위)');
-    say('   ' + gap.map((g) => `${g.kw}(${g.c})`).join(' · '));
-    const top = gap.filter((g) => g.c >= 3);
-    if (top.length) {
-      const f = path.join(ROOT, 'scratchpad', 'bot_gap_report.md');
-      const body = `# ${now} 손님이 찾았는데 없는 브랜드\n\n`
-        + '| 브랜드·품목 | 물어본 횟수 |\n|---|---|\n'
-        + gap.map((g) => `| ${g.kw} | ${g.c} |`).join('\n')
-        + '\n\n> 손님이 돈 쓰려고 물어본 것입니다. 이 브랜드부터 파싱하면 바로 매출로 이어집니다.\n';
-      fs.writeFileSync(f, body);
-    }
+    say('   ' + real.map((g) => `${g.kw}(${g.c})`).join(' · '));
+    const f = path.join(ROOT, 'scratchpad', 'bot_gap_report.md');
+    const body = `# ${now} 손님이 찾았는데 없는 브랜드\n\n`
+      + '> 목록은 **지금 다시 물어봐서 여전히 못 찾는 것만** 남긴 것입니다.\n'
+      + '> 별칭·오타로 이미 해결된 말은 여기 없습니다.\n\n'
+      + '| 브랜드·품목 | 물어본 횟수 |\n|---|---|\n'
+      + real.map((g) => `| ${g.kw} | ${g.c} |`).join('\n')
+      + '\n\n> 손님이 돈 쓰려고 물어본 것입니다. 이 브랜드부터 파싱하면 바로 매출로 이어집니다.\n';
+    fs.writeFileSync(f, body);
+  } else if (gap.length) {
+    say('④ 손님이 못 찾은 말은 전부 지금은 해결됐다 (파싱할 것 없음)');
   }
 } catch (e) { say('④ 갭 조회 실패'); }
 
@@ -165,7 +187,7 @@ try {
   for (const r of flip) {
     try {
       const res = await ask(r.a);
-      if (!res.card) still.push(r);   // 지금도 카드를 못 받으면 진짜 구멍
+      if (MISS_MSG.test(res.text || "")) still.push(r);   // 못 찾음 안내를 냈을 때만 진짜 구멍이다
     } catch (_) { /* 물어보지 못하면 판단 보류 */ }
   }
   if (still.length) {
