@@ -358,9 +358,29 @@ Deno.serve(async (req) => {
               : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
           }
           const rows = await pick(cond, "order=open_date.asc", ph);
+          // 낱말을 다 만족하는 게 없으면 **낱말 하나씩이라도** 걸리는 것을 찾는다 (사장님 지시 2026-09-02)
+          //   "이유식 스푼" 은 그런 상품명이 없지만 손님이 찾는 건 이유식기다 — 없다고 하면 안 된다.
           for (const r of rows) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
           if (merged.length >= MAX_SHOW) break;
           if (Date.now() - t0 > 1800) break;   // 시간 초과 — 늦은 답보다 지금 답이 낫다
+        }
+        // 루프를 다 돌고도 0건이면 **낱말 하나씩이라도** 걸리는 것을 찾는다 (사장님 지시 2026-09-02)
+        //   "이유식 스푼" 같은 상품명은 없지만 손님이 찾는 건 이유식기다 — 없다고 하면 안 된다.
+        //   ⚠ 별칭으로 찾은 게 있으면 그게 정답이므로 여기까지 오지 않는다.
+        if (!merged.length) {
+          // 수식어는 브랜드가 아니다 — 이걸로 넓히면 "아기 물컵" 이 '아기병풍' 을 물어온다
+          const WIDE_STOP = ["아기", "유아", "신생아", "아이", "어린이", "키즈", "우리", "엄마", "국내", "국산", "프리미엄", "무료", "특가", "모음", "세트", "기획"];
+          const base = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
+          const ws2 = base.split(/\s+/).filter((w) => w.length >= 2 && !WIDE_STOP.includes(w));
+          if (ws2.length >= 2) {
+            for (const w of ws2) {
+              if (Date.now() - t0 > 1500) break;   // 카카오 5초 제한 — 늦은 답보다 지금 답이 낫다
+              const e = encodeURIComponent("%" + w + "%");
+              const r3 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph);
+              for (const r of r3) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
+              if (merged.length >= MAX_SHOW) break;
+            }
+          }
         }
         if (!merged.length) return null;
         // 맘캘린더·이웃셀러 공구는 무조건 맨 앞 (사장님 규칙) — 합치면서 섞이므로 다시 세운다
@@ -403,22 +423,10 @@ Deno.serve(async (req) => {
           if (r2.length) return reply([cards(`'${w}' 공구 일정`, r2)]);
         }
       } catch (_) { /* 못 찾으면 아래 안내로 간다 */ }
-
-      // 띄어 쓴 말이 AND 로 0건이면 **뒤 낱말**로 한 번 더 찾는다 (2026-09-02 실사고)
-      //   "이유식 스푼 파는곳 있어?" 는 0건인데 "이유식기" 는 18건이었다 — 손님이 말을 바꿔 다시 쳤다.
-      //   한국어는 수식어+핵심어라 **뒤가 핵심**이다(아기곰탕→곰탕 과 같은 규칙).
-      try {
-        const parts = kw.split(/\s+/).filter((w) => w.length >= 2);
-        if (parts.length >= 2) {
-          const head = parts[parts.length - 1];
-          if (head !== subWord) {   // subword 가 이미 시도한 낱말이면 또 부르지 않는다
-            const e3 = encodeURIComponent("%" + head + "%");
-            // 폴백은 **상품명만** 본다 (셀러명까지 보면 로얄젤리→젤리또리 사고가 재발한다)
-            const r3 = await pick(`end_date=gte.${today}&name=ilike.${e3}`, "order=open_date.asc", ph);
-            if (r3.length) return reply([cards(`'${head}' 공구 일정`, r3)]);
-          }
-        }
-      } catch (_) { /* 실패해도 아래 안내로 간다 */ }
+      // ⚠ 여기 있던 "뒤 낱말 재시도" 는 걷어냈다 (2026-09-02 검증).
+      //    "이유식 스푼" 에서 뒤 낱말 스푼 을 고르니 애플스푼 배도라지즙·스푼풀 오메가3 가 나갔다 —
+      //    브랜드명에 그 글자가 든 것까지 걸린다. 손님이 바꿔 쳐서 성공한 말은 이유식기(앞 낱말)였다.
+      //    위 searchGonggu 의 WIDE_STOP + 낱말 OR 합집합이 같은 일을 더 낫게 한다.
 
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
       try {

@@ -86,16 +86,20 @@ for (const m of miss) {
     } catch (_) { /* 확인 실패면 🔴 */ }
     if (nowOk === 'card' || nowOk === 'text') { fixed++; say(`🟢 이제 됨   "${say2}"  (${m.c}회) — 지난 로그, 손볼 것 없음`); continue; }
     if (nowOk === 'none') {
-      // 브랜드처럼 안 생긴 짧은 순한글이면 말투일 가능성이 크다 → 사장님 검토판으로 올린다
-      const looksPhrase = /^[가-힣]{2,6}$/.test(kw) && !/공구|일정|오늘|내일|마감|핫딜/.test(kw);
-      if (looksPhrase) {
+      // 🔑 거르지 말고 전부 올린다 (사장님 지시 2026-09-02)
+      //    전에는 순한글 2~6자만 올렸다. 그래서 "이유식 스푼 파는곳 있어?" 같은
+      //    **문장**이 사장님 눈에 안 보였고, 정작 그게 우리가 못 알아들은 진짜 사례였다.
+      //    무엇이 틀렸는지는 사장님이 보고 판단하신다.
+      // ⚠ 우리 테스트만 뺀다 — 사람이 친 말이 아니다.
+      const isOurTest = /ㅁㄴㅇㄹ|존재하지않|존재안하|존재안함|없는브랜드|아기침대2024|테스트|zzz|asdf|qwer/i.test(say2);
+      if (!isOurTest) {
         review++;
         if (!DRY) { const qq = (t) => "'" + String(t).replace(/'/g, "''") + "'";
           try { sql(`select bot_review_add(${qq(kw)}, ${qq(say2)}, ${Number(m.c) || 1});`); } catch (_) {} }
-        say(`🙋 사장님 검토  "${say2}"  (${m.c}회) — 말투인지 상품인지 판정 필요`);
+        say(`🙋 사장님 검토  "${say2}"  (${m.c}회)`);
         continue;
       }
-      okNone++; say(`🟡 없는 게 맞음 "${say2}"  (${m.c}회) — 그런 공구가 실제로 없어서 안내가 나갔습니다`); continue;
+      okNone++; say(`🟡 우리 테스트 "${say2}"  (${m.c}회) — 검토판에 안 올림`); continue;
     }
     dead++; say(`🔴 확인 실패 "${kw}"  (원문: ${say2}) ${m.c}회 — 챗봇 응답을 못 받았습니다`); continue;
   }
@@ -103,7 +107,12 @@ for (const m of miss) {
   // ③ 확실한 것만 자동 등록 = 한 낱말 + 편집거리 정확히 1 (= 진짜 오타)
   //   ⚠ 이 조건을 느슨하게 하면 "소고기 어" → "소고기칩" 처럼 다른 상품을 배운다 (2026-09-01 dry 에서 잡음)
   const best = cand[0];
-  const sure = !/s/.test(kw) && kw.length >= 3 && best[0] === kw[0] && lev(best, kw) === 1;
+  // 🔴 2026-09-02: 여기 `!/\s/` 에서 백슬래시가 사라져 `!/s/` 로 있었다.
+  //    "알파벳 s 가 없으면" 이라는 뜻이 되어 **공백 검사가 죽어 있었다.**
+  // 🔴 그리고 **길이가 같을 때만** 배운다 — 오타는 치환이지 글자가 빠지는 게 아니다.
+  //    이걸 안 걸어서 `브라운(3) → 브라(2)` 를 배웠다(리틀브라운 쌀빵 ↔ 누브라 속옷).
+  const sure = !/\s/.test(kw) && kw.length >= 3 &&
+    best.length === kw.length && best[0] === kw[0] && lev(best, kw) === 1;
   if (sure) {
     // ⚠ bot_alias 는 손님 키로 쓰기가 막혀 있다(RLS) → 반드시 CLI(관리자)로 넣고, 넣은 뒤 되읽어 확인한다.
     //   2026-09-01: anon 으로 넣다 조용히 실패했는데 catch 가 삼켜서 "배웠음"으로 거짓 보고했다.
