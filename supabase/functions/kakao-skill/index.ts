@@ -183,7 +183,8 @@ function keyword(u: string) {
   //     그래서 어미·감탄사는 stripTail 이 **문장 끝에서만** 처리하고, 여기선 안전한 것만 지운다.
   s = s
     .replace(/이번\s*주에?|이번주|주간|오늘|내일|낼모레|낼|모레|요즘|지금|현재/g, " ")
-    .replace(/공동구매|공구|일정|소식|목록|리스트/g, " ")
+    // 공궤·공귀 = 공구 오타 (2026-09-02 실제 손님: "노리터보드 공궤" → 못 찾고 다시 쳤다)
+    .replace(/공동구매|공구|공궤|공귀|일정|소식|목록|리스트/g, " ")
     // 실제 손님 발화에서 나온 말 (2026-09-01: "오늘 공구 진행중인 제품 알려줘")
     .replace(/진행\s*중인|진행중|진행|하는\s*중|중인/g, " ")
     .replace(/제품|상품|물건|아이템|템/g, " ")
@@ -301,7 +302,11 @@ Deno.serve(async (req) => {
     const STOP1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
     // 문장 부품을 지우고 남은 찌꺼기는 브랜드가 아니다 — 이걸 검색하면 엉뚱한 안내가 나간다
     const STOPKW = ["되는거","하는거","되는것","하는것","되는","하는","임박","주말","토요일","일요일","평일","이번","다음","우리","그거","이거","저거","해줘","하는곳","파는곳","어디","언제","얼마","가격","알려","보여","추천"];
-    if (kw.length >= 1 && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
+    // 부품을 지우고 숫자·기호만 남으면 브랜드가 아니다 (2026-09-02)
+    //   "없는브랜드12345" 가 '5' 로 줄어 '5' 가 든 상품 20건을 뿌렸다 — 손님에겐 뜻 없는 답이다.
+    //   '5차'(한글 있음)·'1+1'(3글자) 은 그대로 통과한다.
+    const NUMONLY = kw.length <= 2 && !/[가-힣a-zA-Z]/.test(kw);
+    if (kw.length >= 1 && !NUMONLY && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
       const AL = await aliases();
       const tries = [kw];
       for (const [a, b] of AL) { if (kw.includes(a)) tries.push(kw.split(a).join(b)); if (kw.includes(b)) tries.push(kw.split(b).join(a)); }
@@ -380,7 +385,11 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ p_kw: kw }) }).then((x) => x.json());
         const w = (Array.isArray(sw) && sw[0] && sw[0].word) ? String(sw[0].word) : "";
         subWord = w;
-        if (w) {
+        // 숫자·기호만인 조각은 낱말이 아니다 (2026-09-02)
+        //   "아기침대2024" 가 '24' 로, "없는브랜드12345" 가 '5' 로 검색돼 엉뚱한 20건을 뿌렸다.
+        //   subword 는 "아기곰탕 → 곰탕" 처럼 뜻이 있는 낱말을 찾으라고 만든 것이다.
+        if (w && !/[가-힣a-zA-Z]/.test(w)) { /* 숫자뿐 — 쓰지 않는다 */ }
+        else if (w) {
           const e2 = encodeURIComponent("%" + w + "%");
           // 폴백은 **상품명만** 본다 — 셀러명까지 보면 '로얄젤리'→'젤리'→젤리또리 셀러의 장난감이 나간다(2026-09-01 실사고)
           const r2 = await pick(`end_date=gte.${today}&name=ilike.${e2}`, "order=open_date.asc", ph);
