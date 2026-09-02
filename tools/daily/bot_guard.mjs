@@ -136,6 +136,77 @@ try {
   }
 } catch (e) { say('④ 갭 조회 실패'); }
 
+
+// ⑤ 손님이 말을 바꿔 다시 친 쌍 (앞 실패 → 3분 내 성공) — 우리 구멍이다
+//    2026-09-02 에 '노리터보드 공궤' → 16초 뒤 '노리터보드' 성공을 이걸로 찾았다.
+//    손님이 우리 대신 고쳐 쓰고 있다는 뜻이라, 회귀 109건으로는 절대 안 잡힌다.
+try {
+  const flip = sql(`
+    with t as (
+      select visited_at, split_part(event_data,' | ',1) utt,
+             split_part(split_part(event_data,' | ',2),':',1) uid,
+             split_part(event_data,' | ',3) shape
+        from events
+       where event_type='kakao_bot' and visited_at > now() - interval '24 hours'
+         and event_data like '%AHC%'
+    ), p as (
+      select t.utt a, lead(t.utt) over (partition by t.uid order by t.visited_at) b,
+             t.shape sa, lead(t.shape) over (partition by t.uid order by t.visited_at) sb,
+             extract(epoch from (lead(t.visited_at) over (partition by t.uid order by t.visited_at) - t.visited_at)) gap
+        from t
+    )
+    select a, b from p
+     where b is not null and gap <= 180
+       and sa like '%textCard%' and sb not like '%textCard%'
+       and a !~ '(핫딜|특가|할인|세일)'          -- 핫딜 안내는 설계상 textCard 다
+     limit 12;`);
+  // 🔑 지금도 그런지 다시 물어본다 — 이미 고친 옛 로그가 매 회차 뜨면 진짜 문제가 묻힌다
+  const still = [];
+  for (const r of flip) {
+    try {
+      const res = await ask(r.a);
+      if (!res.card) still.push(r);   // 지금도 카드를 못 받으면 진짜 구멍
+    } catch (_) { /* 물어보지 못하면 판단 보류 */ }
+  }
+  if (still.length) {
+    say('⑤ 손님이 말을 바꿔 다시 침 ' + still.length + '건 (지금도 실패) — 앞 표현이 우리 구멍이다');
+    still.forEach((r) => say('   🔸 "' + r.a + '" 실패 → "' + r.b + '" 성공'));
+  } else say('⑤ 말 바꿔 다시 친 것 ' + flip.length + '건 — 전부 지금은 정상 ✅');
+} catch (e) { say('⑤ 조회 실패'); }
+
+// ⑥ 브랜드가 어미·조사로 깎였는지 (추출어가 원문의 앞부분)
+//    2026-09-02: '이치비야'→'이치비' · '닥터포이'→'닥터포' 를 이걸로 찾았다.
+//    ⚠ 어미 목록에 글자를 더할 때마다 이 검사가 다음 사고를 잡는다.
+try {
+  const cut = sql(`
+    select distinct split_part(event_data,' <= ',1) kw, split_part(event_data,' <= ',2) raw
+      from events
+     where event_type='kakao_bot_miss' and visited_at > now() - interval '24 hours'
+       and event_data like '%<=%'
+       and split_part(event_data,' <= ',2) !~ '[[:space:]]'        -- 한 낱말일 때만
+       and split_part(event_data,' <= ',2) !~ '(존재|테스트|zzz|ㅁㄴㅇㄹ)'
+       and length(split_part(event_data,' <= ',2)) > length(split_part(event_data,' <= ',1))
+       and split_part(event_data,' <= ',2) like split_part(event_data,' <= ',1) || '%'
+     limit 12;`);
+  // 🔑 지금도 깎이는지 다시 물어본다 (머리말에 원문이 그대로 나오면 고쳐진 것이다)
+  const now2 = [];
+  for (const r of cut) {
+    try {
+      const res = await ask(r.raw);
+      const o = res.raw || {};
+      // 머리말에 원문이 그대로 있으면 고쳐진 것이다 (못 찾음 안내에도 원문이 그대로 들어간다)
+      const head = String(o.carousel?.items?.[0]?.header?.title || o.listCard?.header?.title || o.textCard?.text || "");
+      if (head && !head.includes(r.raw)) now2.push(r);
+    } catch (_) { /* 판단 보류 */ }
+  }
+  if (now2.length) {
+    bad++;
+    say('⑥ 🔴 브랜드가 깎인다 ' + now2.length + '건 — 어미·조사 목록을 확인할 것');
+    now2.forEach((r) => say('   🔴 "' + r.raw + '" → "' + r.kw + '"'));
+    alert('챗봇브랜드깎임', now2.map((r) => r.raw + '→' + r.kw).join(', ').slice(0, 300));
+  } else say('⑥ 브랜드 깎임 없음' + (cut.length ? ' (옛 로그 ' + cut.length + '건은 지금 정상 ✅)' : ''));
+} catch (e) { say('⑥ 조회 실패'); }
+
 say(bad ? `🔴 이상 ${bad}건 — health_alerts 확인` : '이상 없음');
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
 fs.writeFileSync(LOG, out.join('\n') + '\n\n' + prev.split('\n').slice(0, 600).join('\n'));
