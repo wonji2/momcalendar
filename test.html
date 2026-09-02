@@ -3545,7 +3545,7 @@ function hideLoginStrip(){
         if(typeof reloginStripHide==='function') reloginStripHide();
         // 성공했으니 '안내 봤음' 표시를 지운다 — 나중에 진짜 실패하면 다시 안내가 뜬다
         //   (2026-09-02: 이걸 안 지워서 한 번이라도 성공한 기기는 영영 안내를 못 받고 있었다)
-        try{ localStorage.removeItem('mc_relogin_done'); }catch(_){}
+        try{ localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}   // 로그인에 성공했으면 더는 탈퇴 상태가 아니다(재가입자 안내 차단 방지)
         try{ trackEvent('kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
