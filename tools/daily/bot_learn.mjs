@@ -117,7 +117,22 @@ for (const m of miss) {
   //    이걸 안 걸어서 `브라운(3) → 브라(2)` 를 배웠다(리틀브라운 쌀빵 ↔ 누브라 속옷).
   const sure = !/\s/.test(kw) && kw.length >= 3 &&
     best.length === kw.length && best[0] === kw[0] && lev(best, kw) === 1;
+  // 🔴 **우리 DB 에 그 이름의 상품이 있으면 오타가 아니라 브랜드다 — 배우지 않는다** (2026-09-05 실사고)
+  //   자동학습이 `실리만 → 실리콘` 을 넣어, 실리만을 물은 손님에게 **실리콘 유아식기·블럭**이 나갔다.
+  //   실리만은 실제 브랜드인데 공구가 **마감돼 0건이 되는 순간** '못 찾은 말' 로 잡히고,
+  //   길이가 같고 치환 1회라 기존 가드(브라운→브라 때 좁힌 것)를 그대로 통과했다.
+  //   ⚠ 마감된 것까지 본다 — 지금 진행중이 아니어도 브랜드는 브랜드다.
+  //   index.ts 199행 주석이 '실리만 → 실리 로 깎이면 실리콘이 섞인다' 고 못박은 그 사고가
+  //   코드가 아니라 **데이터 경로로** 재현됐다.
+  let isBrand = false;
   if (sure) {
+    try {
+      const qq = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+      isBrand = sql(`select 1 ok from gonggu where name ilike ${qq('%' + kw + '%')} limit 1;`).length > 0;
+    } catch (e) { isBrand = true; }   // 모르면 배우지 않는 쪽으로
+  }
+  if (sure && isBrand) { review++; say(`🙋 검토판으로 "${kw}" → "${best}" — 우리 상품에 그 이름이 있어 오타로 안 본다`); }
+  if (sure && !isBrand) {
     // ⚠ bot_alias 는 손님 키로 쓰기가 막혀 있다(RLS) → 반드시 CLI(관리자)로 넣고, 넣은 뒤 되읽어 확인한다.
     //   2026-09-01: anon 으로 넣다 조용히 실패했는데 catch 가 삼켜서 "배웠음"으로 거짓 보고했다.
     let okIns = DRY;
