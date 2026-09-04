@@ -52,21 +52,6 @@ async function hasWord(w: string, today: string): Promise<boolean> {
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
 }
-/** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
-/** 손님 말이 상품명 어떤 **낱말의 끝**(또는 낱말 전체)로 나오나 = 브랜드로 본다.
- *  🔴 이게 '조사 붙은 말' 과 '브랜드' 를 가른다 (2026-09-05 실측, 18낱말 오분류 0):
- *     보라**카이** · 덴티**조이** · **뉴이** · **블루이** · **미스티파이** · **마더케이** → 낱말 끝 = 브랜드, 안 자른다
- *     **책이**좋아 · 치약이 · 감자탕이                                        → 앞부분만 걸림 = 우연, 자른다
- *  🔑 건수로 가르려다 세 번 뒤집혔다(닥터포이→김이→국이→카이). **어디에 걸리는가**가 자다. */
-async function endsAsToken(w: string, today: string): Promise<boolean> {
-  try {
-    const e = encodeURIComponent("%" + w + "%");
-    const r = await q(`gonggu?select=name&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=40`);
-    if (!Array.isArray(r)) return true;   // 모르면 자르지 않는 쪽으로
-    for (const g of r) for (const t of String(g.name || "").split(" ")) if (t === w || t.endsWith(w)) return true;
-    return false;
-  } catch { return true; }
-}
 async function countName(w: string, today: string): Promise<number> {
   try {
     const e = encodeURIComponent("%" + w + "%");
@@ -448,13 +433,18 @@ Deno.serve(async (req) => {
         const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
         const base = j ? kw.slice(0, -1) : "";
         if (base && Date.now() - tReq < 2500) {
-          const [cBase, brandish] = [await countName(base, today), await endsAsToken(kw, today)];
-          // 🔴 **손님 말이 어떤 낱말의 끝으로 걸리면 브랜드다 — 자르지 않는다** (2026-09-05 검증 5차)
-          //   건수로 가르려다 세 번 뒤집혔다:
-          //     닥터포이→닥터포헤어(09-02·09-04) · 김이 45건 죽음 · 국이→미국이맘 캐리어 · 카이→보라카이 실종
-          //   문턱(cBase>=3)도 멀쩡한 답을 죽였다 — 「치약이」(2건)·「감자탕이」(1건)가 "없어요" 였다.
-          //   ⚠ 조회 실패는 **자르지 않는 쪽**으로(endsAsToken 이 true 를 준다). 모르면 손님 말 그대로 둔다.
-          if (cBase >= 1 && cBase < 9999 && !brandish) { tries = [base]; say = base; }
+          const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
+          // 🔴 **손님 말이 상품명에 하나라도 있으면 그걸 준다 — 자르지 않는다** (2026-09-05 검증 6차 확정)
+          //   자를 네 번 바꾸며 세 축이 번갈아 죽었다. 이 한 줄이 셋을 동시에 만족한 유일한 조건이다:
+          //     조사   치약이0/2 · 감자탕이0/1 · 국이0/33 · 김이0/40 · 물이0/140 · 쌀이0/8 · 옷이0/14   → 자른다
+          //     품목어 종이4 · 명이1 · 송이1 · 길이3 · 봉이1 · 접이4 · 세이20 · 나이6 · 사이10 · 다이10   → 지킨다
+          //     브랜드 카이2 · 조이4 · 뉴이2 · 블루이1 · 미스티파이4 · 돌잡이8 · 마더케이1 · 대발이3     → 지킨다
+          //   ⚠ 건수 문턱을 두면 「치약이」(2건)·「감자탕이」(1건)가 죽는다. 문턱은 **1**이다.
+          //   ⚠ 접미 토큰(endsAsToken)으로 가르려다 **종이→'종'** 이 됐다 — 한국어 품목어는 낱말 **앞**에 온다.
+          //   ⚠ 조회 실패는 양쪽 다 자르지 않는 쪽으로 간다 — countName 이 9999 를 주므로
+          //      cKw 실패면 `cKw===0` 이 거짓, cBase 실패면 `cBase<9999` 가 거짓이 된다.
+          //   ⚠ 남은 것: 「뮤이」(DB 0건)는 '뮤' 로 잘려 뮤주벨 등이 섞인다. "없어요"가 정답이나 미해결.
+          if (cKw === 0 && cBase >= 1 && cBase < 9999) { tries = [base]; say = base; }
         }
       }
 
