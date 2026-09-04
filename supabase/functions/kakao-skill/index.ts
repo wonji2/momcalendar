@@ -43,6 +43,15 @@ async function q(path: string) {
   const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
   return r.ok ? await r.json() : [];
 }
+/** 그 낱말이 진행중 공구 어딘가(상품명·셀러명·핸들)에 실제로 있나.
+ *  ⚠ 조회에 실패하면 true 를 준다 — 확실하지 않으면 낱말을 빼지 않는다(안전측). */
+async function hasWord(w: string, today: string): Promise<boolean> {
+  try {
+    const e = encodeURIComponent("%" + w + "%");
+    const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&or=(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})&limit=1`);
+    return Array.isArray(r) ? r.length > 0 : true;
+  } catch { return true; }
+}
 /** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
 async function countName(w: string, today: string): Promise<number> {
   try {
@@ -54,6 +63,30 @@ async function countName(w: string, today: string): Promise<number> {
     const n = Number(cr.split("/")[1]);
     return Number.isFinite(n) ? n : 9999;
   } catch { return 9999; }
+}
+/** 조건에 맞는 건수만 센다 (본문은 안 받는다). 못 세면 -1. */
+async function countOf(path: string): Promise<number> {
+  try {
+    const r = await fetch(`${SB}/rest/v1/${path}`, {
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Prefer: "count=exact" } });
+    const cr = r.headers.get("content-range") || "";     // "0-0/37"
+    const n = Number(cr.split("/")[1]);
+    return Number.isFinite(n) ? n : -1;
+  } catch { return -1; }
+}
+/**
+ * 그 낱말이 **브랜드**인가 품목인가.
+ * 🔑 브랜드는 상품명 **맨 앞**에 오고 품목은 안 온다 — 실측(2026-09-04):
+ *      프레벨롱 10/10(100%) · 룩트 2/2 · 래폴드 1/1 · 뽀로로 5/8(63%)
+ *      쌀 2/9(22%) · 휴대용 2/15(13%) · 물티슈·유산균·보관함·수납장·기저귀·간식 0%
+ * 이 값으로 "쌀 보관함"(품목 폴백 금지)과 "프레벨롱 유산균"(브랜드 폴백 허용)이 갈린다.
+ */
+async function brandScore(w: string, today: string) {
+  const base = `gonggu?select=id&approved=eq.true&end_date=gte.${today}&limit=1`;
+  const all = await countOf(`${base}&name=ilike.${encodeURIComponent("%" + w + "%")}`);
+  if (all <= 0) return { all, head: 0, ratio: 0 };
+  const head = await countOf(`${base}&name=ilike.${encodeURIComponent(w + "%")}`);
+  return { all, head, ratio: head > 0 ? head / all : 0 };
 }
 async function rpc(fn: string) {
   const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method: "POST",
@@ -433,7 +466,29 @@ Deno.serve(async (req) => {
               ? `end_date=gte.${today}&name=ilike.${enc}`
               : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
           }
-          const rows = await pick(cond, "order=open_date.asc", ph);
+          let rows = await pick(cond, "order=open_date.asc", ph);
+          // 🔴 **DB 에 아예 없는 낱말은 조건에서 뺀다** (사장님 승인 2026-09-04)
+          //   실사고: "루솔 도라지배즙" 은 '루솔' 9건이 진행중인데 '도라지배즙' 이
+          //   상품명 어디에도 없어 AND 가 통째로 0건이 됐다. 손님은 그냥 떠났다.
+          //   ⚠ **낱말이 전부 DB 에 있으면 그대로 0건을 유지한다** —
+          //     "쌀 보관함"(쌀·보관함 둘 다 있다)이 장난감 보관함을 물어오던 사고를 막는 선이 이것이다.
+          //     사장님: "쌀보관함은 없으면 없는거니까 없다고 해야지"
+          //   ⚠ AND 결과가 0건일 때만 돈다 → 평소 회차엔 조회 비용이 0이다.
+          // ⚠ **손님이 친 말일 때만** 뺀다 (2026-09-04 실사고).
+          //    별칭 확장판("휴대용 물팃")에 적용하면 우리가 만든 낱말이 빠지면서
+          //    '휴대용' 만 남아 바브레 휴대용 변기가 나갔다 — 쌀보관함과 같은 유형이다.
+          const ownWords = (t === kw || t === kwRaw);
+          if (ownWords && !rows.length && ws.length >= 2 && ws.length <= 4 && Date.now() - t0 < 1200) {
+            const keep: string[] = [];
+            for (const w of ws) if (await hasWord(w, today)) keep.push(w);
+            if (keep.length && keep.length < ws.length) {
+              const c2 = keep.map((w) => {
+                const e2 = encodeURIComponent("%" + w + "%");
+                return `or(name.ilike.${e2},influencer.ilike.${e2},insta.ilike.${e2})`;
+              }).join(",");
+              rows = await pick(`end_date=gte.${today}&and=(${c2})`, "order=open_date.asc", ph);
+            }
+          }
           // 낱말을 다 만족하는 게 없으면 **낱말 하나씩이라도** 걸리는 것을 찾는다 (사장님 지시 2026-09-02)
           //   "이유식 스푼" 은 그런 상품명이 없지만 손님이 찾는 건 이유식기다 — 없다고 하면 안 된다.
           for (const r of rows) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
@@ -445,16 +500,52 @@ Deno.serve(async (req) => {
         //    사장님: "없으면 없는거니까 없다고 해야지 장난감보관함을 보여주면 어케"
         //    → 없는 것은 없다고 한다. 넓혀야 하는 말은 **bot_alias** 로 관리한다
         //      ("이유식 스푼 → 이유식기" 는 이미 별칭 17개로 들어가 있다. 배포도 필요 없다).
+        // 낱말을 다 만족하는 게 없어도 **손님 말에 브랜드가 들어 있으면** 그 브랜드를 보여준다.
+        //   사장님 지적(2026-09-04): "프레벨롱은 명확히 있는 거고 룩트도 명확한 브랜드가 있는건데
+        //   쌀보관함이랑 니가 다르게 판단해야지"
+        //   ⚠ 품목 낱말로는 절대 폴백하지 않는다 — '쌀 보관함' 에 장난감 보관함이 나간 사고 그대로다.
+        if (!merged.length) {
+          const raw = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
+          const cand = raw.split(" ").filter((w) => w.length >= 2).slice(0, 3);
+          if (cand.length >= 2 && Date.now() - t0 < 1200) {
+            const scored: { w: string; ratio: number; all: number }[] = [];
+            for (const w of cand) {
+              if (Date.now() - t0 > 1500) break;
+              const sc = await brandScore(w, today);
+              // 브랜드 판정: 맨 앞에 한 번이라도 오고, 그 비율이 절반 이상
+              if (sc.head >= 1 && sc.ratio >= 0.5) scored.push({ w, ratio: sc.ratio, all: sc.all });
+            }
+            // 브랜드가 여럿이면 더 뚜렷한 쪽(맨앞비율 높고, 그다음 더 특정적인 쪽)
+            scored.sort((a, b) => (b.ratio - a.ratio) || (a.all - b.all));
+            for (const { w } of scored) {
+              if (Date.now() - t0 > 1700) break;
+              const e = encodeURIComponent("%" + w + "%");
+              const r2 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph);
+              for (const r of r2) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
+              if (merged.length >= MAX_SHOW) break;
+            }
+          }
+        }
         if (!merged.length) return null;
         // 손님이 친 낱말이 **상품명**에 있는 것을 먼저 보여준다.
         //   실사고 2026-09-02: '우유' 를 물었는데 셀러 '우유맘' 의 리프팅크림이 1번으로 나갔다.
         //   ⚠ 집합에서 빼지는 않는다 — "우유맘 공구 알려줘" 는 계속 되어야 하므로 순서만 세운다.
         const qw = ([...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "")
           .split(" ").filter((w) => w.length >= 2).map((w) => norm(w));
-        const nameHit = (g: any) => qw.length > 0 && qw.some((w) => norm(g.name).includes(w));
+        // 손님 낱말을 **몇 개나 맞췄는지**로 센다. 낱말이 통째로 있으면 2점,
+        //   앞부분만 겹쳐도 1점('사운드북' ↔ '사운드카드'). 브랜드 폴백에서 순서를 가른다.
+        //   실사고 2026-09-04: '뽀로로 사운드북' 1번이 "경주 켄싱턴+뽀로로 PKG 특가" 였다.
+        const wordScore = (g: any) => {
+          const nm = norm(g.name); let sc = 0;
+          for (const w of qw) {
+            if (nm.includes(w)) { sc += 2; continue; }
+            for (let L = w.length - 1; L >= 2; L--) { if (nm.includes(w.slice(0, L))) { sc += 1; break; } }
+          }
+          return sc;
+        };
         // 맘캘린더·이웃셀러 공구는 무조건 맨 앞 (사장님 규칙) — 합치면서 섞이므로 다시 세운다
         merged.sort((a, b) =>
-          ((a.__p ? 0 : 1) - (b.__p ? 0 : 1)) || ((nameHit(a) ? 0 : 1) - (nameHit(b) ? 0 : 1)));
+          ((a.__p ? 0 : 1) - (b.__p ? 0 : 1)) || (wordScore(b) - wordScore(a)));
         return merged.slice(0, MAX_SHOW);
       };
 
