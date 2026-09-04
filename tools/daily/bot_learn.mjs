@@ -84,7 +84,9 @@ for (const m of miss) {
         body: JSON.stringify({ userRequest: { utterance: say2, user: { id: 'BOTLEARN' } } }) }).then(x => x.json());
       const o = r?.template?.outputs?.[0] || {};
       // 카드 = 찾아줬다 / "없어요" 안내 = 그런 공구가 정말 없는 것(안내가 정답) / 그 외 텍스트 = 알아듣긴 했다
-      if (o.carousel || o.listCard) nowOk = 'card';
+      // ⚠ basicCard 도 답이다 — 공구가 없을 때 나가는 **핫딜 안내**(2026-09-02 신설)가 이 형태다.
+      //   이걸 안 세어서 「가을코디」(38회)가 매 회차 '🔴 챗봇 응답을 못 받았습니다' 로 찍혔다. 가짜 경보였다.
+      if (o.carousel || o.listCard || o.basicCard) nowOk = 'card';
       else if (/진행 중이거나 예정인 게 없어요/.test(o.textCard?.text || '')) nowOk = 'none';
       else if (o.textCard) nowOk = 'text';
     } catch (_) { /* 확인 실패면 🔴 */ }
@@ -131,8 +133,17 @@ for (const m of miss) {
       isBrand = sql(`select 1 ok from gonggu where name ilike ${qq('%' + kw + '%')} limit 1;`).length > 0;
     } catch (e) { isBrand = true; }   // 모르면 배우지 않는 쪽으로
   }
-  if (sure && isBrand) { review++; say(`🙋 검토판으로 "${kw}" → "${best}" — 우리 상품에 그 이름이 있어 오타로 안 본다`); }
-  if (sure && !isBrand) {
+  // 🔴 2026-09-05 검증 지적: 여기서 로그만 찍고 **검토판(bot_review)에 안 올리고 있었다.**
+  //   사장님 관리자 🤖 챗봇 탭에 영영 안 뜨고 텍스트 보고서에만 남았다.
+  //   ⚠ 그리고 아래를 `if / if` 로 쓰면 브랜드 건이 **뒤 else 까지 타서** 두 번 세어진다(실측).
+  if (sure && isBrand) {
+    review++;
+    if (!DRY) {
+      const qq = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+      try { sql(`select bot_review_add(${qq(kw)}, ${qq(m.sample || kw)}, ${Number(m.c) || 1});`); } catch (_) {}
+    }
+    say(`🙋 검토판으로 "${kw}" → "${best}" — 우리 상품에 그 이름이 있어 오타로 안 본다`);
+  } else if (sure && !isBrand) {
     // ⚠ bot_alias 는 손님 키로 쓰기가 막혀 있다(RLS) → 반드시 CLI(관리자)로 넣고, 넣은 뒤 되읽어 확인한다.
     //   2026-09-01: anon 으로 넣다 조용히 실패했는데 catch 가 삼켜서 "배웠음"으로 거짓 보고했다.
     let okIns = DRY;

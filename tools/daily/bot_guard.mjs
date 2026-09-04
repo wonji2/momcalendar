@@ -232,7 +232,14 @@ try {
       const o = res.raw || {};
       // 머리말에 원문이 그대로 있으면 고쳐진 것이다 (못 찾음 안내에도 원문이 그대로 들어간다)
       const head = String(o.carousel?.items?.[0]?.header?.title || o.listCard?.header?.title || o.textCard?.text || "");
-      if (head && !head.includes(r.raw)) now2.push(r);
+      // ⚠ 기호·조사만 다른 것은 결함이 아니다 (2026-09-05).
+      //    "치약이!!" 는 기호를 떼면 "치약이", 거기서 조사 이 를 뗀 "치약" 이 머리말이다 = 의도한 동작.
+      //    이걸 안 걸러 매 회차 가짜 경보가 났다. 조사 떼기 자체는 ⑦ 이 따로 본다.
+      const core = String(r.raw).replace(/[!?.~^s…]+$/, "");
+      const JOSA6 = ["이", "가", "은", "는", "을", "를", "도"];
+      const ok6 = head.includes(core)
+        || (JOSA6.includes(core.slice(-1)) && head.includes(core.slice(0, -1)));
+      if (head && !ok6) now2.push(r);
     } catch (_) { /* 판단 보류 */ }
   }
   if (now2.length) {
@@ -242,6 +249,38 @@ try {
     alert('챗봇브랜드깎임', now2.map((r) => r.raw + '→' + r.kw).join(', ').slice(0, 300));
   } else say('⑥ 브랜드 깎임 없음' + (cut.length ? ' (옛 로그 ' + cut.length + '건은 지금 정상 ✅)' : ''));
 } catch (e) { bad++; qfail++; say("⑥ 조회 실패: " + String(e.message || e).slice(0, 80)); }
+
+// ⑦ 조사를 뗀 결과가 손님 말과 어긋나는지 (2026-09-05 신설)
+//    ⑥ 은 '추출어가 원문보다 짧을 때' 만 본다. 그런데 조사 떼기는 **검색 안에서** 일어나
+//    추출어는 원문 그대로이고, 게다가 결과가 나오니 miss 로도 안 남는다 → ⑥ 이 구조적으로 못 본다.
+//    실제로 「오이」가 '오'(오가닉·오메가) 20건을 내보내고 있었는데 어떤 감시도 안 울렸다.
+//    🔑 손님이 친 말이 머리말에 그대로 없으면 잘린 것이다 — index.ts 의 NOT_JOSA 에 넣을 후보다.
+try {
+  const utt = sql(`
+    select distinct split_part(event_data,' | ',1) say
+      from events
+     where event_type='kakao_bot' and visited_at > now() - interval '24 hours'
+       and event_data like '%AHC%'                                  -- 실제 손님(카카오 서버)만
+       and split_part(event_data,' | ',1) !~ '[[:space:]]'          -- 한 낱말
+       and length(split_part(event_data,' | ',1)) between 2 and 6
+       and right(split_part(event_data,' | ',1),1) in ('이','가','은','는','을','를','도')
+     limit 12;`);
+  const cut2 = [];
+  for (const r of utt) {
+    try {
+      const o = (await ask(r.say)).raw || {};
+      const head = String(o.carousel?.items?.[0]?.header?.title || o.listCard?.header?.title
+        || o.basicCard?.title || o.textCard?.text || '');
+      if (head && !head.includes(r.say)) cut2.push({ say: r.say, head: head.slice(0, 40) });
+    } catch (_) { /* 판단 보류 */ }
+  }
+  if (cut2.length) {
+    bad++;
+    say('⑦ 🔴 조사를 뗐는데 손님 말이 사라졌다 ' + cut2.length + '건 — index.ts NOT_JOSA 확인');
+    cut2.forEach((r) => say('   🔴 "' + r.say + '" → ' + r.head));
+    alert('챗봇조사깎임', cut2.map((r) => r.say + '→' + r.head).join(', ').slice(0, 300));
+  } else say('⑦ 조사 떼기 이상 없음' + (utt.length ? ' (손님 발화 ' + utt.length + '건 재확인)' : ' (해당 발화 없음)'));
+} catch (e) { bad++; qfail++; say('⑦ 조회 실패: ' + String(e.message || e).slice(0, 80)); }
 
 say(bad ? `🔴 이상 ${bad}건 — health_alerts 확인` : '이상 없음');
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
