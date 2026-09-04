@@ -53,6 +53,20 @@ async function hasWord(w: string, today: string): Promise<boolean> {
   } catch { return true; }
 }
 /** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
+/** 손님 말이 상품명 어떤 **낱말의 끝**(또는 낱말 전체)로 나오나 = 브랜드로 본다.
+ *  🔴 이게 '조사 붙은 말' 과 '브랜드' 를 가른다 (2026-09-05 실측, 18낱말 오분류 0):
+ *     보라**카이** · 덴티**조이** · **뉴이** · **블루이** · **미스티파이** · **마더케이** → 낱말 끝 = 브랜드, 안 자른다
+ *     **책이**좋아 · 치약이 · 감자탕이                                        → 앞부분만 걸림 = 우연, 자른다
+ *  🔑 건수로 가르려다 세 번 뒤집혔다(닥터포이→김이→국이→카이). **어디에 걸리는가**가 자다. */
+async function endsAsToken(w: string, today: string): Promise<boolean> {
+  try {
+    const e = encodeURIComponent("%" + w + "%");
+    const r = await q(`gonggu?select=name&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=40`);
+    if (!Array.isArray(r)) return true;   // 모르면 자르지 않는 쪽으로
+    for (const g of r) for (const t of String(g.name || "").split(" ")) if (t === w || t.endsWith(w)) return true;
+    return false;
+  } catch { return true; }
+}
 async function countName(w: string, today: string): Promise<number> {
   try {
     const e = encodeURIComponent("%" + w + "%");
@@ -434,15 +448,13 @@ Deno.serve(async (req) => {
         const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
         const base = j ? kw.slice(0, -1) : "";
         if (base && Date.now() - tReq < 2500) {
-          const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
-          // 🔴 **cKw 가 1건이라도 있으면 절대 자르지 않는다** (2026-09-05 검증 4차)
-          //   전엔 `cBase >= 20 && cBase >= cKw*10` 도 자르게 했다가 **브랜드를 새로 깎았다**:
-          //     카이 2 ↔ 카 105 · 조이 4 ↔ 조 61 · 뉴이 2 ↔ 뉴 28 · 블루이 1 ↔ 블루 20
-          //     「카이」를 치면 **보라카이 2건이 통째로 빠지고** 헤이홈 카메라·돈카츠가 나갔다.
-          //   🔑 그 말이 상품명에 **한 건이라도 있으면** 손님이 찾는 게 그것일 수 있다. 자르지 않는다.
-          //   ⚠ 대가: 「책이」는 '책이좋아' 1건만 나온다(cKw=1). 그 말이 실제로 든 상품이라 오답은 아니다.
-          //   ⚠ 조회 실패(countName 이 9999 를 준다)도 자르지 않는 쪽으로 — 모르면 손님 말 그대로 둔다.
-          if (cKw === 0 && cBase >= 3 && cBase < 9999) { tries = [base]; say = base; }
+          const [cBase, brandish] = [await countName(base, today), await endsAsToken(kw, today)];
+          // 🔴 **손님 말이 어떤 낱말의 끝으로 걸리면 브랜드다 — 자르지 않는다** (2026-09-05 검증 5차)
+          //   건수로 가르려다 세 번 뒤집혔다:
+          //     닥터포이→닥터포헤어(09-02·09-04) · 김이 45건 죽음 · 국이→미국이맘 캐리어 · 카이→보라카이 실종
+          //   문턱(cBase>=3)도 멀쩡한 답을 죽였다 — 「치약이」(2건)·「감자탕이」(1건)가 "없어요" 였다.
+          //   ⚠ 조회 실패는 **자르지 않는 쪽**으로(endsAsToken 이 true 를 준다). 모르면 손님 말 그대로 둔다.
+          if (cBase >= 1 && cBase < 9999 && !brandish) { tries = [base]; say = base; }
         }
       }
 
