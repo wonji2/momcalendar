@@ -34,6 +34,19 @@ const CASES = [
   ['품목', '스티커', 'card', '스티커'], ['품목', '블록', 'card', '블록'],
   ['품목', '사운드북', 'card', '사운드'], ['품목', '이유식', 'card'],
   ['품목', '유산균', 'card'], ['품목', '젤리', 'card', '젤리'],
+  // ── 말깎임 (5번째 칸 = 머리말에 반드시 있어야 하는 말)
+  //   🔴 2026-09-04: 조사 '이' 를 깎아 '닥터포이'→'닥터포' 가 되면서 지난공구로
+  //      **닥터포헤어**(전혀 다른 브랜드)를 권했다. 그런데 109건에 '이' 끝 브랜드가
+  //      하나도 없어 두 번 다 '전건 통과' 로 나왔다. 그래서 이 묶음을 만든다.
+  //   ⚠ 여기 낱말을 지우지 말 것 — 지우면 같은 사고를 또 못 잡는다.
+  ['말깎임', '닥터포이', 'text', '', '닥터포이'],
+  ['말깎임', '미스티파이', 'card', '', '미스티파이'],
+  ['말깎임', '돌잡이', 'card', '', '돌잡이'],
+  ['말깎임', '마더케이', 'card', '', '마더케이'],
+  ['말깎임', '이치비야', 'any', '', '이치비야'],
+  ['말깎임', '실리만', 'any', '', '실리만'],
+  ['말깎임', '쌀이 있어?', 'card', '쌀', '쌀'],
+  ['말깎임', '컵을 찾아줘', 'card', '컵', '컵'],
   // ── 브랜드
   ['브랜드', '뽀로로', 'card', '뽀로로'], ['브랜드', '티니핑', 'card', '티니핑'],
   ['브랜드', '아티바바', 'card', '아티바바'], ['브랜드', '우아한김', 'card', '김'],
@@ -80,7 +93,7 @@ const CASES = [
   ['품목', '네불라이져', 'card', '네뷸'], ['품목', '메쉬넵', 'card', '네뷸'], ['품목', '휴비딕', 'card', '휴비딕'],
 ];
 
-const run = async ([grp, say, want, need]) => {
+const run = async ([grp, say, want, need, headWord]) => {
   try {
     const j = await fetch(U, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userRequest: { utterance: say, user: { id: 'BOTPROBE' } } }) }).then((r) => r.json());
@@ -95,8 +108,10 @@ const run = async ([grp, say, want, need]) => {
     const down = /일시적으로 조회/.test(o.textCard?.text || '');
     const spec = checkSpec(o);   // 📏 카카오 말풍선 규격 (어기면 손님에게 아예 안 나간다)
     // 카드가 나왔는데 기대 낱말이 한 건도 없으면 엉뚱한 답이다
+    // 머리말이 손님이 친 말을 잃었나 (말을 깎았다는 뜻)
+    const cut = headWord && !head.split(' ').join('').includes(headWord);
     const off = need && got === 'card' && !items.some((t) => t.replace(/\s/g, '').includes(need));
-    return { grp, say, want, got, head, down, off, spec, sample: items.slice(0, 2).join(' / ').slice(0, 46) };
+    return { grp, say, want, got, head, down, off, cut, spec, sample: items.slice(0, 2).join(' / ').slice(0, 46) };
   } catch (e) { return { grp, say, want, got: 'ERR', head: String(e.message || e), down: true }; }
 };
 
@@ -108,9 +123,11 @@ const down = rs.filter((r) => r.down);
 const miss = rs.filter((r) => !r.down && r.want !== 'any' && r.got !== r.want);
 const offs = rs.filter((r) => !r.down && (r.want === 'any' || r.got === r.want) && r.off);
 const bads = rs.filter((r) => r.spec && r.spec.length);
-console.log(`총 ${rs.length}건 · 🔴장애 ${down.length} · ⚠기대와다름 ${miss.length} · 🟠엉뚱한답 ${offs.length} · 📏규격위반 ${bads.length}`);
+const cuts = rs.filter((r) => !r.down && r.cut);
+console.log(`총 ${rs.length}건 · 🔴장애 ${down.length} · ⚠기대와다름 ${miss.length} · 🟠엉뚱한답 ${offs.length} · 📏규격위반 ${bads.length} · ✂말깎임 ${cuts.length}`);
 for (const r of bads) console.log(`📏 [${r.grp}] "${r.say}" → ${r.spec.join(' / ')}`);
+for (const r of cuts) console.log(`✂ [${r.grp}] "${r.say}" → 머리말이 '${r.head}' — 손님 말이 깎였다`);
 for (const r of down) console.log(`🔴 장애 [${r.grp}] "${r.say}"`);
 for (const r of miss) console.log(`⚠ [${r.grp}] "${r.say}" 기대=${r.want} 실제=${r.got} → ${r.head}`);
 for (const r of offs) console.log(`🟠 [${r.grp}] "${r.say}" → ${r.head} · ${r.sample}`);
-if (!down.length && !miss.length && !offs.length && !bads.length) console.log('✅ 전건 기대대로');
+if (!down.length && !miss.length && !offs.length && !bads.length && !cuts.length) console.log('✅ 전건 기대대로');

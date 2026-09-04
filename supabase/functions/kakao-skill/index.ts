@@ -218,7 +218,7 @@ const TAILS: RegExp[] = [
 //   그래서 이것만 따로 뺐다. **깎기 전 판으로 먼저 찾고, 그래도 없을 때만** 이걸 쓴다.
 //   규칙으로 자르는 게 아니라 DB 에 무엇이 있는지 보고 정한다 = 문맥 파악.
 const CUT_TAILS: RegExp[] = [
-  /(가|은|는|을|를|도|이)$/,   // "일정이" 에서 일정을 지운 뒤 남는 조사
+  /(가|은|는|을|를|도)$/,   // "일정이" 에서 일정을 지운 뒤 남는 조사  // ⚠ 이 를 넣지 말 것 — 닥터포이→닥터포 (09-02·09-04 두 번)
   /(좀|요|용)$/,            // ⚠ 넵·넹·야 는 넣지 말 것 — 메쉬넵→메쉬 · 이치비야→이치비
 ];
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
@@ -262,6 +262,11 @@ function keyword(u: string, cut = true) {
   // 🔴 여기서 cut 을 안 넘겨 **깎기 전 판(kwRaw)이 사실은 깎인 판**이었다 (2026-09-02)
   //    그래서 "오늘 하는 공구" → '하는' → 조사 '는' 이 떨어져 **'하'** 로 검색됐다.
   //    kwRaw 도 이 줄을 지나므로 우선검색·CUT_JUNK 가 통째로 무력했다.
+  // 부품을 지우고 남은 **홀로 선 조사** 만 지운다 — "공구 일정이" 의 '이'.
+  //   ⚠ CUT_TAILS 에 '이' 를 넣으면 안 된다. 낱말 **끝**을 먹어 닥터포이→닥터포 가 된다.
+  //   DB 실측 '이' 끝 브랜드 16종 104건: 미스티파이20·꼬메모이10·돌잡이9·팁토이조이8·마더케이5 …
+  const JOSA1 = ["이","가","은","는","을","를","도"];
+  s = s.split(" ").filter((w) => !JOSA1.includes(w)).join(" ").trim();
   return stripTail(s, cut);   // 부품을 지운 뒤 다시 말끝 정리 ("소고기 뭐" → "소고기")
 }
 
@@ -378,6 +383,11 @@ Deno.serve(async (req) => {
     //   "닥터포이" 를 물으면 조사판은 '닥터포' 지만 깎기 전 판은 '닥터포이' 다.
     //   DB 에 '닥터포이' 가 있으면 그쪽에서 잡히고 조사판까지 가지 않는다.
     const kwRaw = keyword(u, false);
+    // 🔴 **화면에 보이는 말·지난공구 조회는 손님이 친 말로 한다** (2026-09-04 실사고)
+    //    조사 '이' 를 깎으면 '닥터포이' 가 '닥터포' 가 되고, 그 말로 지난공구를 찾으면
+    //    **닥터포헤어**(전혀 다른 브랜드)를 권하게 된다. 검색은 깎은 판까지 써도 되지만
+    //    **말을 걸 때와 지난공구를 찾을 때는 손님 말** 이어야 한다.
+    const say = kwRaw || kw;
     // 🔴 **깎아서 만든 조각으로는 검색하지 않는다** (사장님 지적 2026-09-02)
     //   "오늘 하는 공구 알려줘" → 부품을 지우면 '하는', 조사 '는' 을 떼면 **'하'** 가 되어
     //   '하' 가 든 상품 20건이 나갔다. 날짜 의도('오늘')마저 무시됐다.
@@ -555,7 +565,7 @@ Deno.serve(async (req) => {
       };
 
       const exact = await searchGonggu(specific.length ? specific : tries);
-      if (exact) return reply([cards(`'${kw}' 공구 일정`, exact)]);
+      if (exact) return reply([cards(`'${say}' 공구 일정`, exact)]);
 
       // ② 핫딜 — 공구가 없으면 **핫딜에 있는지 본다** (사장님 지시 2026-09-02)
       //   🔴 2026-09-02: 뽀사카 하드코딩을 걷어냈다 (사장님 지시 "핫딜에 있으면 있다고 알려줘").
@@ -570,7 +580,7 @@ Deno.serve(async (req) => {
 
       // ③ 대표 낱말까지 넓혀서 다시
       const wide = await searchGonggu(tries);
-      if (wide) return reply([cards(`'${kw}' 공구 일정`, wide)]);
+      if (wide) return reply([cards(`'${say}' 공구 일정`, wide)]);
       // 🔴 여기 있던 `bot_subword`(글자 조각 검색)를 걷어냈다 (사장님 지시 2026-09-02)
       //    "말을 깎는건 절대 해서는 안되는거야 문맥을 파악해야지"
       //    알테리→'테리' · 머그컵→'컵' 처럼 브랜드가 통째로 죽었다.
@@ -604,7 +614,7 @@ Deno.serve(async (req) => {
       //   사이트는 이미 지난 공구를 보여준다(showPastResults) — 챗봇만 빠져 있었다.
       //   ⚠ 카드로 주지 않는다. 마감된 것을 눌러 들어가면 헛걸음이 된다 → 이름·날짜만 글로.
       try {
-        const ep = encodeURIComponent("%" + kw + "%");
+        const ep = encodeURIComponent("%" + say + "%");   // 🔴 kw(깎은 말)로 찾으면 닥터포→닥터포헤어
         const past = await q(`gonggu?select=name,influencer,open_date&approved=eq.true&name=ilike.${ep}`
           + `&end_date=lt.${today}&order=open_date.desc&limit=3`);
         if (Array.isArray(past) && past.length) {
@@ -612,10 +622,10 @@ Deno.serve(async (req) => {
             const d = String(p.open_date || "").slice(5).replace("-", "/");
             return `· ${p.name}${p.influencer ? " — " + p.influencer : ""}${d ? " (" + d + ")" : ""}`;
           }).join("\n");
-          return reply([text(`'${kw}' 공구는 지금 진행 중인 게 없어요.\n\n지난번에는 이런 게 있었어요\n${li}\n\n다시 열리면 맘캘린더에 바로 올라와요!`)]);
+          return reply([text(`'${say}' 공구는 지금 진행 중인 게 없어요.\n\n지난번에는 이런 게 있었어요\n${li}\n\n다시 열리면 맘캘린더에 바로 올라와요!`)]);
         }
       } catch (_) { /* 실패해도 아래 기본 안내가 나간다 */ }
-      return reply([text(`'${kw}' 공구는 지금 진행 중이거나 예정인 게 없어요.
+      return reply([text(`'${say}' 공구는 지금 진행 중이거나 예정인 게 없어요.
 아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}`)]);
     }
 
