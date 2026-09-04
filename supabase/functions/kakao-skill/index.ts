@@ -430,7 +430,13 @@ Deno.serve(async (req) => {
       //   ⚠ 검색 **앞**에서 정해야 한다. 뒤에 두면 그 엉뚱한 결과가 이미 나가버린다.
       {
         const JOSA = ["이", "가", "은", "는", "을", "를", "도"];
-        const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
+        // ⚠ 끝 글자가 조사처럼 보이지만 **낱말 자체**인 것들 — 자르면 안 된다.
+        //   실측(2026-09-05): 「오이」→'오' 226건(오가닉·오메가·오일) · 「먹이」→'먹' 4건.
+        //   둘 다 DB 에 없어 **"없어요" 가 정답**인데 엉뚱한 20건이 나갔다.
+        //   🔴 이건 원칙이 아니라 **땜질 목록**이다 — 구조로는 '오이'와 '국이' 를 못 가른다(사전이 필요하다).
+        //      같은 유형을 보시면 여기 한 줄만 추가하면 된다.
+        const NOT_JOSA = ["오이", "먹이"];
+        const j = kw === kwRaw && kw.length >= 2 && !NOT_JOSA.includes(kw) && JOSA.find((x) => kw.endsWith(x));
         const base = j ? kw.slice(0, -1) : "";
         if (base && Date.now() - tReq < 2500) {
           const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
