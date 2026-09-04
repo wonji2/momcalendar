@@ -70,7 +70,10 @@ async function findHotdeal(words: string[], today: string) {
   const nowIso = new Date().toISOString();
   const cands = [...new Set(words.map((w) => (w || "").trim()).filter((w) => w.length >= 2))].slice(0, 3);
   for (const phrase of cands) {
-    const ws = phrase.split(/\s+/).filter((w) => w.length >= 2);
+  // 🔑 공구 검색과 같은 이유로 한 글자도 넣는다 — 빼면 "쌀 보관함" 이 보관함만 걸려
+  //    벨베이비 자석블럭(이름에 보관함이 들어간다)이 핫딜로 나갔다. 낱말끼리 AND 라 좁아진다.
+  const HD1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
+    const ws = phrase.split(/\s+/).filter((w) => w.length >= 2 || (w.length === 1 && !HD1.includes(w)));
     if (!ws.length) continue;
     const and = ws.map((w) => `title.ilike.${encodeURIComponent("%" + w + "%")}`).join(",");
     const cond = ws.length >= 2 ? `and=(${and})` : `title=ilike.${encodeURIComponent("%" + ws[0] + "%")}`;
@@ -406,7 +409,12 @@ Deno.serve(async (req) => {
         const t0 = Date.now();
         for (const t of [...new Set(list)].slice(0, 8)) {   // 후보 상한 8개
           // 낱말이 둘 이상이면 낱말마다 ilike 를 AND 로 건다 (통째 매칭은 절대 안 걸린다)
-          const ws = t.startsWith("__ABBR__") ? [] : t.split(/\s+/).filter((w) => w.length >= 2);
+          // 🔑 한 글자도 넣는다 — 빼면 "쌀 보관함" 이 '보관함' 만 검색돼 장난감 보관함이 나간다.
+          //    낱말끼리는 AND 라 조건이 늘수록 좁아진다(느슨해지지 않는다).
+          //    뜻 없는 한 글자(거·것·게…)만 STOP1 으로 뺀다.
+          const WORD1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
+          const ws = t.startsWith("__ABBR__") ? []
+            : t.split(/\s+/).filter((w) => w.length >= 2 || (w.length === 1 && !WORD1.includes(w)));
           let cond: string;
           if (ws.length >= 2) {
             cond = ws.map((w) => {
@@ -432,37 +440,11 @@ Deno.serve(async (req) => {
           if (merged.length >= MAX_SHOW) break;
           if (Date.now() - t0 > 1800) break;   // 시간 초과 — 늦은 답보다 지금 답이 낫다
         }
-        // 루프를 다 돌고도 0건이면 **낱말 하나씩이라도** 걸리는 것을 찾는다 (사장님 지시 2026-09-02)
-        //   "이유식 스푼" 같은 상품명은 없지만 손님이 찾는 건 이유식기다 — 없다고 하면 안 된다.
-        //   ⚠ 별칭으로 찾은 게 있으면 그게 정답이므로 여기까지 오지 않는다.
-        if (!merged.length) {
-          // 수식어는 브랜드가 아니다 — 이걸로 넓히면 "아기 물컵" 이 '아기병풍' 을 물어온다
-          const WIDE_STOP = ["아기", "유아", "신생아", "아이", "어린이", "키즈", "우리", "엄마", "국내", "국산", "프리미엄", "무료", "특가", "모음", "세트", "기획"];
-          const base = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
-          const all2 = base.split(/\s+/).filter((w) => w.length >= 2);
-          const ws2 = all2.filter((w) => !WIDE_STOP.includes(w));
-          // 수식어를 빼고 한 낱말만 남아도 돈다 — "신생아 기저귀" → 기저귀 (2026-09-02)
-          //   전에는 2개 이상일 때만 돌아서 이 경우 폴백이 통째로 죽어 있었다.
-          if (ws2.length >= 2 || (ws2.length === 1 && all2.length >= 2)) {
-            // 어느 낱말이 핵심인가 = **DB 에 드문 쪽**이다.
-            //   '휴대용 물티슈' → 물티슈(7) < 휴대용(10) → 물티슈가 핵심 ✅
-            //   '씨밀렉스 수납장' → 씨밀렉스(희소) < 수납장(흔함) → 씨밀렉스가 핵심 ✅
-            //   ⚠ "뒤가 핵심" 규칙만 쓰면 브랜드가 앞에 올 때 망가진다(실측으로 되돌림).
-            const counted: [string, number][] = [];
-            for (const w of ws2) {
-              if (Date.now() - t0 > 1200) { counted.push([w, 9999]); continue; }
-              counted.push([w, await countName(w, today)]);
-            }
-            counted.sort((a, b) => a[1] - b[1]);
-            for (const [w] of counted) {
-              if (Date.now() - t0 > 1500) break;   // 카카오 5초 제한 — 늦은 답보다 지금 답이 낫다
-              const e = encodeURIComponent("%" + w + "%");
-              const r3 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph);
-              for (const r of r3) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
-              if (merged.length >= MAX_SHOW) break;
-            }
-          }
-        }
+        // 🔴 여기 있던 "낱말 하나씩 OR 검색" 을 걷어냈다 (사장님 지시 2026-09-02).
+        //    "쌀 보관함" 에 낱말 '보관함' 만 걸려 **아오라 장난감 보관함**이 나갔다.
+        //    사장님: "없으면 없는거니까 없다고 해야지 장난감보관함을 보여주면 어케"
+        //    → 없는 것은 없다고 한다. 넓혀야 하는 말은 **bot_alias** 로 관리한다
+        //      ("이유식 스푼 → 이유식기" 는 이미 별칭 17개로 들어가 있다. 배포도 필요 없다).
         if (!merged.length) return null;
         // 손님이 친 낱말이 **상품명**에 있는 것을 먼저 보여준다.
         //   실사고 2026-09-02: '우유' 를 물었는데 셀러 '우유맘' 의 리프팅크림이 1번으로 나갔다.
@@ -501,7 +483,8 @@ Deno.serve(async (req) => {
       // ⚠ 여기 있던 "뒤 낱말 재시도" 는 걷어냈다 (2026-09-02 검증).
       //    "이유식 스푼" 에서 뒤 낱말 스푼 을 고르니 애플스푼 배도라지즙·스푼풀 오메가3 가 나갔다 —
       //    브랜드명에 그 글자가 든 것까지 걸린다. 손님이 바꿔 쳐서 성공한 말은 이유식기(앞 낱말)였다.
-      //    위 searchGonggu 의 WIDE_STOP + 낱말 OR 합집합이 같은 일을 더 낫게 한다.
+      //    그 자리를 대신하던 낱말 OR 합집합도 2026-09-02 에 걷어냈다(엉뚱한 답을 냈다).
+      //    지금 이 일을 하는 것은 **bot_alias** 하나뿐이다 — 넓힐 말은 거기에 넣는다.
 
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
       try {
