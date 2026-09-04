@@ -52,6 +52,20 @@ async function hasWord(w: string, today: string): Promise<boolean> {
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
 }
+/** 그 낱말이 상품명에 **낱말로** 서 있나 — 조사를 떼도 되는지 가르는 자.
+ *  🔴 이게 브랜드 깎임과 진짜 조사를 가른다 (2026-09-05 실측):
+ *     닥터포 0회 · 마더케 0회 · 미스티파 0회 · 돌잡 0회  → 브랜드가 깎인 것이라 막는다
+ *     김 5회 · 컵 5회 · 우유 2회                        → 진짜 낱말이라 통과시킨다
+ *  ⚠ 부분일치(ilike)로는 못 가른다 — '닥터포' 가 닥터포헤어에 걸린다. 공백으로 쪼개 대조해야 한다. */
+async function hasToken(w: string, today: string): Promise<boolean> {
+  try {
+    const e = encodeURIComponent("%" + w + "%");
+    const r = await q(`gonggu?select=name&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=120`);
+    if (!Array.isArray(r)) return false;
+    for (const g of r) for (const t of String(g.name || "").split(" ")) if (t === w) return true;
+    return false;
+  } catch { return false; }
+}
 /** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
 async function countName(w: string, today: string): Promise<number> {
   try {
@@ -294,6 +308,9 @@ Deno.serve(async (req) => {
     const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)
     //   ⚠ uz 는 아래 인사 판정보다 먼저 정의해야 한다 — 늦게 두면 TDZ 로 전 요청 500 (2026-09-01 실사고, 2번째)
     const today = ymd(kst());
+    // 🔴 요청 단위 타이머 — searchGonggu 안 t0 는 그 함수 지역변수라 밖에서 쓰면 500 이 난다
+    //    (2026-09-05 실사고: 조사 재검색 블록이 t0 를 참조해 김이·쌀이·닥터포이가 전부 500)
+    const tReq = Date.now();
 
     if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 1) return reply([text(HELP)]);
 
@@ -581,6 +598,20 @@ Deno.serve(async (req) => {
       // ③ 대표 낱말까지 넓혀서 다시
       const wide = await searchGonggu(tries);
       if (wide) return reply([cards(`'${say}' 공구 일정`, wide)]);
+
+      // ③-b 조사만 붙은 말이면 떼고 한 번 더 — **뗀 낱말이 DB 에 낱말로 서 있을 때만**
+      //   "김이 있어?" 는 45건이 있는데 0건이 나가고 있었다(CUT_TAILS 에서 '이' 를 뺀 대가).
+      //   🔴 그렇다고 규칙으로 떼면 닥터포이→닥터포→**닥터포헤어** 가 된다(09-02·09-04 두 번 난 사고).
+      //   그래서 규칙이 아니라 DB 로 가른다 — hasToken 이 그 자다.
+      {
+        const JOSA = ["이", "가", "은", "는", "을", "를", "도"];
+        const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
+        const base = j ? kw.slice(0, -1) : "";
+        if (base && Date.now() - tReq < 3000 && (await hasToken(base, today))) {
+          const more = await searchGonggu([base]);
+          if (more) return reply([cards(`'${base}' 공구 일정`, more)]);
+        }
+      }
       // 🔴 여기 있던 `bot_subword`(글자 조각 검색)를 걷어냈다 (사장님 지시 2026-09-02)
       //    "말을 깎는건 절대 해서는 안되는거야 문맥을 파악해야지"
       //    알테리→'테리' · 머그컵→'컵' 처럼 브랜드가 통째로 죽었다.
@@ -614,9 +645,20 @@ Deno.serve(async (req) => {
       //   사이트는 이미 지난 공구를 보여준다(showPastResults) — 챗봇만 빠져 있었다.
       //   ⚠ 카드로 주지 않는다. 마감된 것을 눌러 들어가면 헛걸음이 된다 → 이름·날짜만 글로.
       try {
-        const ep = encodeURIComponent("%" + say + "%");   // 🔴 kw(깎은 말)로 찾으면 닥터포→닥터포헤어
-        const past = await q(`gonggu?select=name,influencer,open_date&approved=eq.true&name=ilike.${ep}`
+        // 🔴 손님 말로 먼저 찾는다. kw(깎은 말)로 찾으면 닥터포 → **닥터포헤어** 가 된다.
+        //   손님 말로 0건이면 깎은 말로 한 번 더 — 단 **낱말로 서 있을 때만**("선풍기가" → 선풍기).
+        const pastBy = async (w: string) => await q(
+          `gonggu?select=name,influencer,open_date&approved=eq.true&name=ilike.${encodeURIComponent("%" + w + "%")}`
           + `&end_date=lt.${today}&order=open_date.desc&limit=3`);
+        // 🔴 낱말 경계에서 걸린 것만 보여준다 — 안 그러면 '쌀이' 가 **좁쌀이불** 을 물어온다.
+        //   토큰이 그 말로 시작하거나 끝나야 한다: 무선선풍기(끝) ✅ · 실리만(전체) ✅ · 좁쌀이불(중간) 🚫
+        const okTok = (nm: string, w: string) =>
+          String(nm || "").split(" ").some((t) => t.startsWith(w) || t.endsWith(w));
+        const pick3 = (rows: any, w: string) =>
+          Array.isArray(rows) ? rows.filter((p: any) => okTok(p.name, w)) : [];
+        let past = pick3(await pastBy(say), say);
+        // 손님 말로 못 찾으면 조사를 뗀 말로 한 번 더 ("선풍기가" → 선풍기)
+        if (!past.length && kw && kw !== say && kw.length >= 2) past = pick3(await pastBy(kw), kw);
         if (Array.isArray(past) && past.length) {
           const li = past.map((p: any) => {
             const d = String(p.open_date || "").slice(5).replace("-", "/");
