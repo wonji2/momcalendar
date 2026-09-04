@@ -13,6 +13,7 @@
 // ⚠ supabase CLI 인증(--linked)에 의존한다. Claude 앱과 무관하게 돈다.
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows, firstNum } from './sb_query.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -139,9 +140,13 @@ select (select count(*) from ins) as inserted, (select count(*) from upd) as lin
   const f = join(ROOT, 'scratchpad', '_cafe_ins.sql');
   writeFileSync(f, sql);
   try {
-    const out = execFileSync(SB, ['db', 'query', '--linked', '-f', f], { encoding: 'utf8', timeout: 120000 });
-    const mi = out.match(/"inserted":\s*(\d+)/), ml = out.match(/"linked":\s*(\d+)/);
-    inserted = mi ? +mi[1] : 0; linked = ml ? +ml[1] : 0;
+    const out = execFileSync(SB, sbArgs(f), { encoding: 'utf8', timeout: 120000 });
+    // 🔴 못 읽으면 0 으로 적지 않는다 — 등록해놓고 "등록 0" 으로 남기면 다음 사람이 못 믿는다.
+    const parsed = parseRows(out);
+    if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+    const gi = firstNum(parsed.rows, 'inserted'), gl = firstNum(parsed.rows, 'linked');
+    if (gi === null || gl === null) throw new Error('등록 건수를 못 읽었다');
+    inserted = gi; linked = gl;
   } catch (e) { log(`🔴 SQL 실패: ${String(e).slice(0, 200)}`); process.exit(1); }
 }
 

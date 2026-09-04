@@ -17,6 +17,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows } from './sb_query.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,11 +31,11 @@ const DRY = process.argv.includes('--dry');
 const runSql = (sql) => {
   writeFileSync(TMP, sql, 'utf8');
   // ⚠ 예약작업 cwd 는 System32 다 → --linked 가 프로젝트를 찾도록 cwd 를 레포 루트로 준다
-  const out = execFileSync(SB, ['db', 'query', '--linked', '-f', TMP], { encoding: 'utf8', timeout: 120000, cwd: ROOT });
-  const i = out.indexOf('"rows"');
-  if (i < 0) return [];
-  const j = out.lastIndexOf('{', i);
-  try { return JSON.parse(out.slice(j)).rows || []; } catch (_) { return []; }
+  const out = execFileSync(SB, sbArgs(TMP), { encoding: 'utf8', timeout: 120000, cwd: ROOT });
+  // 🔴 못 읽은 것과 0건을 구분한다 — 예전엔 배열 형식에서 [] 를 조용히 돌려줬다.
+  const parsed = parseRows(out);
+  if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+  return parsed.rows;
 };
 
 // ── ① 사이트가 실제로 쓰는 CATS 를 index.html 에서 읽는다 ──

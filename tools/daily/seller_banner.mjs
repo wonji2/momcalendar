@@ -18,6 +18,7 @@
 //   node tools/daily/seller_banner.mjs --dry    미리보기만
 import { writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { parseRows } from './sb_query.mjs';
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
 const DRY = process.argv.includes('--dry');
@@ -40,11 +41,13 @@ function sql(text, wantJson = true) {
   const f = `${TMP}/_sb_${Date.now()}.sql`;
   writeFileSync(f, text, 'utf8');
   const args = ['db', 'query', '--linked', '-f', f];
-  if (wantJson) args.push('--output', 'json');
+  if (wantJson) args.push('--output-format', 'json')   // ⚠ '--output' 은 db query 플래그가 아니다 — 조용히 무시된다;
   const out = execFileSync(SB, args, { cwd: REPO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   if (!wantJson) return out;
-  const m = out.match(/\[[\s\S]*\]/);
-  return m ? JSON.parse(m[0]) : [];
+  // 못 읽은 것과 0건을 구분한다 (tools/daily/sb_query.mjs 공용 파서)
+  const parsed = parseRows(out);
+  if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+  return parsed.rows;
 }
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 

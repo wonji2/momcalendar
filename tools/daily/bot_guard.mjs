@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows } from './sb_query.mjs';
 import { checkSpec } from './kakao_spec.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -38,9 +39,12 @@ const sql = (text) => {
   const f = path.join(ROOT, 'scratchpad', '_guard_tmp.sql');
   fs.writeFileSync(f, text);
   try {
-    const o = execFileSync(CLI, ['db', 'query', '--linked', '-f', f], { encoding: 'utf8', maxBuffer: 1 << 24 });
-    const m = o.match(/"rows":\s*(\[[\s\S]*?\])\s*,?\s*\n\s*"warning"/) || o.match(/"rows":\s*(\[[\s\S]*\])/);
-    return m ? JSON.parse(m[1]) : [];
+    const o = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', maxBuffer: 1 << 24 });
+    // 🔴 못 읽은 것과 0건을 구분한다 — 예전엔 둘 다 [] 라
+    //    "성공했는데 아무 일도 안 한" 회차가 로그상 정상으로 보였다.
+    const parsed = parseRows(o);
+    if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+    return parsed.rows;
   } finally { try { fs.unlinkSync(f); } catch (_) {} }
 };
 const alert = (kind, detail) => {

@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);   // ⚠ 예약작업은 cwd 가 System32 라 supabase --linked 가 프로젝트를 못 찾는다 (카페 크롤러와 같은 함정)
@@ -29,10 +30,13 @@ const REPORT = path.join(ROOT, 'scratchpad', 'bot_learn_report.txt');
 const sql = (text) => {                       // events 는 anon 열람 차단 → CLI(관리자)로만 읽는다
   const f = path.join(ROOT, 'scratchpad', '_botlearn_tmp.sql');
   fs.writeFileSync(f, text);
-  const out = execFileSync(CLI, ['db', 'query', '--linked', '-f', f], { encoding: 'utf8', maxBuffer: 1 << 24 });
+  const out = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', maxBuffer: 1 << 24 });
   fs.unlinkSync(f);
-  const m = out.match(/"rows":\s*(\[[\s\S]*?\])\s*,?\s*\n\s*"warning"/) || out.match(/"rows":\s*(\[[\s\S]*\])/);
-  return m ? JSON.parse(m[1]) : [];
+  // 🔴 못 읽은 것과 0건을 구분한다 — 예전엔 둘 다 [] 라
+  //    "성공했는데 아무 일도 안 한" 회차가 로그상 정상으로 보였다.
+  const parsed = parseRows(out);
+  if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+  return parsed.rows;
 };
 const post = (p, b) => fetch(`${SB}/rest/v1/${p}`, { method: 'POST',
   headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },

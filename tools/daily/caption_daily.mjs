@@ -17,6 +17,7 @@
  * 로그:  scratchpad/caption_daily_log.txt
  */
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows, firstNum } from './sb_query.mjs';
 import { readFileSync, writeFileSync, appendFileSync, existsSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,14 +34,18 @@ const log = (s) => {
   try { appendFileSync(LOG, `[${t}] ${s}\n`); } catch (_) {}
   console.log(s);
 };
-const runSql = (file) => execFileSync(SB, ['db', 'query', '--linked', '-f', file],
+const runSql = (file) => execFileSync(SB, sbArgs(file),
   { encoding: 'utf8', timeout: 120000, cwd: ROOT });
 
 function countCaptions() {
   const f = path.join(ROOT, 'scratchpad', '_cap_count.sql');
   writeFileSync(f, "select count(*) filter (where caption is not null and caption<>'') c from gonggu;", 'utf8');
-  const m = runSql(f).match(/"c":\s*(\d+)/);
-  return m ? Number(m[1]) : -1;
+  // 🔴 -1 을 돌려주면 after-before 산술이 통째로 거짓이 된다. 못 읽으면 멈춘다.
+  const parsed = parseRows(runSql(f));
+  if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+  const c = firstNum(parsed.rows, 'c');
+  if (c === null) throw new Error('캡션 건수를 못 읽었다');
+  return c;
 }
 
 try {

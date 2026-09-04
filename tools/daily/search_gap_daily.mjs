@@ -16,6 +16,7 @@
  * 리포트: scratchpad/search_gap_report.md  (최신이 맨 위, 30일치 보관)
  */
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows } from './sb_query.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,12 +29,12 @@ const TMP = path.join(ROOT, 'scratchpad', '_gap_q.sql');
 
 const runSql = (sql) => {
   writeFileSync(TMP, sql, 'utf8');
-  const out = execFileSync(SB, ['db', 'query', '--linked', '-f', TMP],
+  const out = execFileSync(SB, sbArgs(TMP),
     { encoding: 'utf8', timeout: 90000, cwd: ROOT });
-  const i = out.indexOf('"rows"');
-  if (i < 0) return [];
-  const j = out.lastIndexOf('{', i);
-  try { return JSON.parse(out.slice(j)).rows || []; } catch (_) { return []; }
+  // 🔴 못 읽은 것과 0건을 구분한다 — 예전엔 배열 형식에서 [] 를 조용히 돌려줬다.
+  const parsed = parseRows(out);
+  if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
+  return parsed.rows;
 };
 
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);

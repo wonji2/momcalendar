@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);
@@ -27,10 +28,11 @@ select split_part(event_data,' | ',1) says, count(*) c
    and split_part(event_data,' | ',3) = 'textCard'
    and visited_at > now() - interval '${MIN} minutes'
  group by 1 order by 2 desc limit 25;`);
-const out = execFileSync(CLI, ['db', 'query', '--linked', '-f', f], { encoding: 'utf8', maxBuffer: 1 << 24 });
+const out = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', maxBuffer: 1 << 24 });
 fs.unlinkSync(f);
-const m = out.match(/"rows":\s*(\[[\s\S]*?\])\s*,?\s*\n\s*"warning"/) || out.match(/"rows":\s*(\[[\s\S]*\])/);
-const rows = m ? JSON.parse(m[1]) : [];
+const parsed = parseRows(out);
+if (!parsed.ok) { console.error('🔴 CLI 출력을 못 읽었다 — ' + parsed.why); process.exit(1); }
+const rows = parsed.rows;
 
 // 인사·감사류는 원래 글로 답하는 게 정상이라 제외한다
 const OK = /안녕|하이|반가|고마|감사|땡큐|사랑|좋아|최고|짱|대박|우와|우왕|잘가|수고|굿밤|잘자|송중기|핫딜|도움|메뉴|사용법/;
