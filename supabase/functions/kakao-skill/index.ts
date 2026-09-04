@@ -52,20 +52,6 @@ async function hasWord(w: string, today: string): Promise<boolean> {
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
 }
-/** 그 낱말이 상품명에 **낱말로** 서 있나 — 조사를 떼도 되는지 가르는 자.
- *  🔴 이게 브랜드 깎임과 진짜 조사를 가른다 (2026-09-05 실측):
- *     닥터포 0회 · 마더케 0회 · 미스티파 0회 · 돌잡 0회  → 브랜드가 깎인 것이라 막는다
- *     김 5회 · 컵 5회 · 우유 2회                        → 진짜 낱말이라 통과시킨다
- *  ⚠ 부분일치(ilike)로는 못 가른다 — '닥터포' 가 닥터포헤어에 걸린다. 공백으로 쪼개 대조해야 한다. */
-async function hasToken(w: string, today: string): Promise<boolean> {
-  try {
-    const e = encodeURIComponent("%" + w + "%");
-    const r = await q(`gonggu?select=name&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=120`);
-    if (!Array.isArray(r)) return false;
-    for (const g of r) for (const t of String(g.name || "").split(" ")) if (t === w) return true;
-    return false;
-  } catch { return false; }
-}
 /** 그 낱말이 상품명에 몇 건이나 있나. 폴백에서 "어느 낱말이 핵심인가" 를 가르는 데 쓴다. */
 async function countName(w: string, today: string): Promise<number> {
   try {
@@ -404,7 +390,7 @@ Deno.serve(async (req) => {
     //    조사 '이' 를 깎으면 '닥터포이' 가 '닥터포' 가 되고, 그 말로 지난공구를 찾으면
     //    **닥터포헤어**(전혀 다른 브랜드)를 권하게 된다. 검색은 깎은 판까지 써도 되지만
     //    **말을 걸 때와 지난공구를 찾을 때는 손님 말** 이어야 한다.
-    const say = kwRaw || kw;
+    let say = kwRaw || kw;
     // 🔴 **깎아서 만든 조각으로는 검색하지 않는다** (사장님 지적 2026-09-02)
     //   "오늘 하는 공구 알려줘" → 부품을 지우면 '하는', 조사 '는' 을 떼면 **'하'** 가 되어
     //   '하' 가 든 상품 20건이 나갔다. 날짜 의도('오늘')마저 무시됐다.
@@ -420,7 +406,7 @@ Deno.serve(async (req) => {
     const UNITONLY = /^[0-9]+\s*(박스|개입|개|팩|봉지|봉|캔|병|장|롤|매|구|입|세트|kg|g|ml|리터|인분|단계)$/i.test(kw);
     if (kw.length >= 1 && !NUMONLY && !CUT_JUNK && !UNITONLY && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
       const AL = await aliases();
-      const tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
+      let tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
       // 별칭은 두 번 푼다 — 줄임말 → 정식이름 → 표기변형 (사장님 지시 2026-09-02)
       //   "넘블은 넘버블럭스 넘버블록스 다 똑같은말이야 줄임말"
       //   한 번만 풀면 넘블 → 넘버블록스 에서 멈춰 넘버블럭스 표기 상품을 못 찾는다.
@@ -436,6 +422,23 @@ Deno.serve(async (req) => {
       tries.push(...p1);
       // 손님이 말한 그대로 + 별칭 1단계 (대표 낱말로 넓히기 **전**의 목록) — 핫딜 우선 판단에 쓴다
       //   ⚠ 2단계 확장은 여기 넣지 않는다 — 넓어져서 공구를 찾기도 전에 핫딜이 먼저 나간다(실측).
+      // 🔴 조사가 붙은 말인지 **DB 건수로** 가른다 — 규칙으로는 못 가른다(09-02·09-04 두 세션이 서로 넣었다 뺐다 했다)
+      //   실측 18낱말 오분류 0 (2026-09-05):
+      //     국이 0 ↔ 국 33 · 책이 1 ↔ 책 57 · 김이 0 ↔ 김 40 · 물이 0 ↔ 물 140  → 조사다, 뗀다
+      //     닥터포이 0 ↔ 닥터포 0 · 미스티파이 4 ↔ 미스티파 4 · 돌잡이 8 ↔ 돌잡 8  → 브랜드다, 안 뗀다
+      //   🔑 브랜드는 앞부분만 잘라도 건수가 안 는다. 조사는 떼면 확 는다. 그 차이가 자다.
+      //   ⚠ **상품명만** 센다 — '국이' 가 셀러 **미국이맘** 14건에 걸려 캐리어·의자를 주고 있었다.
+      //   ⚠ 검색 **앞**에서 정해야 한다. 뒤에 두면 그 엉뚱한 결과가 이미 나가버린다.
+      {
+        const JOSA = ["이", "가", "은", "는", "을", "를", "도"];
+        const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
+        const base = j ? kw.slice(0, -1) : "";
+        if (base && Date.now() - tReq < 2500) {
+          const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
+          if ((cKw === 0 && cBase >= 3) || (cBase >= 20 && cBase >= cKw * 10)) { tries = [base]; say = base; }
+        }
+      }
+
       const specific = [...new Set(tries)];
       tries.push(...expand(p1));   // 2단계(표기변형)는 넓히기용
       // 수식어는 **사전으로** 뗀다 — 깎는 게 아니다 (사장님 지시 2026-09-02)
@@ -598,20 +601,6 @@ Deno.serve(async (req) => {
       // ③ 대표 낱말까지 넓혀서 다시
       const wide = await searchGonggu(tries);
       if (wide) return reply([cards(`'${say}' 공구 일정`, wide)]);
-
-      // ③-b 조사만 붙은 말이면 떼고 한 번 더 — **뗀 낱말이 DB 에 낱말로 서 있을 때만**
-      //   "김이 있어?" 는 45건이 있는데 0건이 나가고 있었다(CUT_TAILS 에서 '이' 를 뺀 대가).
-      //   🔴 그렇다고 규칙으로 떼면 닥터포이→닥터포→**닥터포헤어** 가 된다(09-02·09-04 두 번 난 사고).
-      //   그래서 규칙이 아니라 DB 로 가른다 — hasToken 이 그 자다.
-      {
-        const JOSA = ["이", "가", "은", "는", "을", "를", "도"];
-        const j = kw === kwRaw && kw.length >= 2 && JOSA.find((x) => kw.endsWith(x));
-        const base = j ? kw.slice(0, -1) : "";
-        if (base && Date.now() - tReq < 3000 && (await hasToken(base, today))) {
-          const more = await searchGonggu([base]);
-          if (more) return reply([cards(`'${base}' 공구 일정`, more)]);
-        }
-      }
       // 🔴 여기 있던 `bot_subword`(글자 조각 검색)를 걷어냈다 (사장님 지시 2026-09-02)
       //    "말을 깎는건 절대 해서는 안되는거야 문맥을 파악해야지"
       //    알테리→'테리' · 머그컵→'컵' 처럼 브랜드가 통째로 죽었다.
