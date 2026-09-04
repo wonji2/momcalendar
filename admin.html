@@ -1306,8 +1306,11 @@ function enterAdmin(){
 // 🤖 챗봇 검토판 대기 건수 — 탭을 안 열어도 몇 건인지 보이게 (사장님 지시 2026-09-02)
 async function loadBotBadge(){
   try{
-    const rev = await adminRpc('admin_bot_review', {p_limit:100});
-    if(typeof setBadge==='function') setBadge('badge-bot', (rev||[]).length);
+    const [rev, prs] = await Promise.all([
+      adminRpc('admin_bot_review', {p_limit:100}).catch(()=>[]),
+      adminRpc('admin_bot_pairs',  {p_limit:100}).catch(()=>[]),
+    ]);
+    if(typeof setBadge==='function') setBadge('badge-bot', (rev||[]).length + (prs||[]).length);
   }catch(_){ /* 못 세면 배지만 안 뜬다 — 탭은 그대로 동작한다 */ }
 }
 let _refreshTimer=null;
@@ -6408,6 +6411,16 @@ async function botDecide(term, kind){
 
 // 🤖 카카오톡 챗봇 — 손님이 뭘 물었고 우리가 답했는지 (카카오 관리자센터엔 안 남는다)
 //   RPC: admin_bot_log / admin_bot_miss / admin_bot_top  (supabase/sql/admin_bot_log_46.sql)
+// 🔄 "이 뜻인가요?" 판정 — 같은 뜻이면 bot_alias 에 들어가 챗봇·웹사이트에 즉시 반영된다
+async function botPairDecide(wrong, right, ok){
+  try{
+    const r = await adminRpc('admin_bot_pair_decide', {p_wrong:wrong, p_right:right, p_ok:!!ok});
+    if(r==='notfound'){ alert('이미 판정된 항목이에요.'); }
+    else if(ok){ alert('"'+wrong+'" → "'+right+'" 로 알아듣게 했어요.\n재배포 없이 바로 반영됩니다.'); }
+    renderBotStats();
+    if(typeof loadBotBadge==='function') loadBotBadge();
+  }catch(e){ alert('판정 실패: '+e.message); }
+}
 async function renderBotStats(){
   const el=document.getElementById('eventStats'); if(!el) return;
   el.innerHTML='<div style="color:#aaa;font-size:12px">챗봇 대화 불러오는 중…</div>';
@@ -6430,6 +6443,30 @@ async function renderBotStats(){
       <div style="flex:1;background:#F7F3FC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#8A8194">물어본 사람</div><div style="font-size:19px;font-weight:800;color:#4A35A0">${new Set(real.map(r=>r.who)).size}</div></div>
       <div style="flex:1;background:#FBE8EC;border-radius:10px;padding:9px 11px"><div style="font-size:10px;color:#A85">못 찾은 말</div><div style="font-size:19px;font-weight:800;color:#E0506E">${(miss||[]).length}</div></div>
     </div>`;
+
+    // 🔄 손님이 말을 바꿔 다시 쳐서 성공한 쌍 (사장님 지시 2026-09-04)
+    //    답이 이미 우리 로그 안에 있다 — AI 를 부르지 않고 배운다.
+    //    ⚠ 자동 등록하지 않는 이유: 손님이 아예 다른 걸 물었을 수도 있다.
+    const pairs = await adminRpc('admin_bot_pairs', {p_limit:50}).catch(()=>[]);
+    if((pairs||[]).length){
+      h+=`<div style="font-size:12px;font-weight:800;color:#1B6E8C;margin:14px 0 5px">🔄 이 뜻인가요? (${pairs.length}건)</div>
+        <div style="font-size:10.5px;color:#999;margin-bottom:8px">손님이 <b>앞의 말로는 못 찾고</b> 뒤의 말로 바꿔서 찾았어요.
+        같은 뜻이면 눌러주세요 — 다음부터 앞의 말로도 바로 찾아드립니다.</div>`;
+      h+=(pairs||[]).map(p=>{
+        const w=esc(p.wrong).replace(/'/g,'&#39;'), r=esc(p.right_word).replace(/'/g,'&#39;');
+        return `<div style="padding:8px 0;border-bottom:1px solid #EAF4F7">
+          <div style="font-size:13px;color:#333;margin-bottom:6px">
+            <b style="color:#C0392B">"${esc(p.wrong)}"</b>
+            <span style="color:#bbb"> → </span>
+            <b style="color:#1B6E8C">"${esc(p.right_word)}"</b>
+            <span style="font-size:10px;color:#bbb;font-weight:400"> ${p.cnt}회</span>
+          </div>
+          <div style="display:flex;gap:5px">
+            <button onclick="botPairDecide('${w}','${r}',true)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#1B6E8C;color:#fff;cursor:pointer">같은 뜻이에요</button>
+            <button onclick="botPairDecide('${w}','${r}',false)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#AAA;color:#fff;cursor:pointer">아니에요</button>
+          </div></div>`;
+      }).join('');
+    }
 
     // 🙋 사장님 판정 — 챗봇이 못 알아들었는데 자동으로는 못 배우는 말(= 말투)
     //   버튼을 누르면 bot_phrase 에 들어가고, 챗봇이 매 요청마다 읽으므로 재배포 없이 즉시 반영된다.

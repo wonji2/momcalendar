@@ -197,6 +197,15 @@ try {
   if (still.length) {
     say('⑤ 손님이 말을 바꿔 다시 침 ' + still.length + '건 (지금도 실패) — 앞 표현이 우리 구멍이다');
     still.forEach((r) => say('   🔸 "' + r.a + '" 실패 → "' + r.b + '" 성공'));
+    // 🔄 사장님 검토판에 쌓는다 (사장님 지시 2026-09-04)
+    //    답이 이미 로그 안에 있으므로 AI 를 부르지 않는다 — 비용 0.
+    //    ⚠ 자동 별칭 등록은 하지 않는다: 손님이 다른 걸 물었을 수도 있어 판단은 사람이 한다.
+    const q = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+    let added = 0;
+    for (const r of still) {
+      try { sql(`select public.bot_pair_add(${q(r.a)}, ${q(r.b)});`); added++; } catch (_) { /* 한 건 실패는 넘긴다 */ }
+    }
+    if (added) say('   → 사장님 검토판에 ' + added + '건 올림 (관리자 🤖 챗봇 탭)');
   } else say('⑤ 말 바꿔 다시 친 것 ' + flip.length + '건 — 전부 지금은 정상 ✅');
 } catch (e) { say('⑤ 조회 실패'); }
 
