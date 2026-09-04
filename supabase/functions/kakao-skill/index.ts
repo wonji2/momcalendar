@@ -435,7 +435,14 @@ Deno.serve(async (req) => {
         const base = j ? kw.slice(0, -1) : "";
         if (base && Date.now() - tReq < 2500) {
           const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
-          if ((cKw === 0 && cBase >= 3) || (cBase >= 20 && cBase >= cKw * 10)) { tries = [base]; say = base; }
+          // 🔴 **cKw 가 1건이라도 있으면 절대 자르지 않는다** (2026-09-05 검증 4차)
+          //   전엔 `cBase >= 20 && cBase >= cKw*10` 도 자르게 했다가 **브랜드를 새로 깎았다**:
+          //     카이 2 ↔ 카 105 · 조이 4 ↔ 조 61 · 뉴이 2 ↔ 뉴 28 · 블루이 1 ↔ 블루 20
+          //     「카이」를 치면 **보라카이 2건이 통째로 빠지고** 헤이홈 카메라·돈카츠가 나갔다.
+          //   🔑 그 말이 상품명에 **한 건이라도 있으면** 손님이 찾는 게 그것일 수 있다. 자르지 않는다.
+          //   ⚠ 대가: 「책이」는 '책이좋아' 1건만 나온다(cKw=1). 그 말이 실제로 든 상품이라 오답은 아니다.
+          //   ⚠ 조회 실패(countName 이 9999 를 준다)도 자르지 않는 쪽으로 — 모르면 손님 말 그대로 둔다.
+          if (cKw === 0 && cBase >= 3 && cBase < 9999) { tries = [base]; say = base; }
         }
       }
 
