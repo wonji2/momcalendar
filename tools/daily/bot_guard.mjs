@@ -67,6 +67,7 @@ const ask = async (utterance) => {
 const now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 say(`===== ${now} 챗봇 감시 =====`);
 let bad = 0;
+let qfail = 0;   // 조회·도구 자체가 실패한 횟수 (챗봇 문제와 구분한다)
 
 // ① 생존
 const PING = ['오늘 공구', '물티슈', '안녕', '뽀사카', '네뷸라이저zzz없는거'];   // 뽀사카=basicCard(핫딜 폴백) 경로, 2026-09-02 규격 사고가 여기서 났다   // 마지막은 가장 느린 경로(별칭 많고 결과 없음)
@@ -101,7 +102,7 @@ if (FULL) {
       lines.forEach((l) => say('   ' + l.trim()));
       alert('챗봇회귀', `${head.trim()} | ${lines.join(' / ').slice(0, 300)}`);
     }
-  } catch (e) { say('② 회귀 점검 실패: ' + String(e.message || e).slice(0, 80)); }
+  } catch (e) { bad++; qfail++; say('② 회귀 점검 실패: ' + String(e.message || e).slice(0, 80)); }
 }
 
 // ③ 최근 30분 손님 실패율
@@ -117,7 +118,7 @@ try {
     say(`③ 최근 30분 손님 ${t}건 중 카드 못 받음 ${ms}건 (${pct}%)`);
     if (pct >= 50) alert('챗봇실패율', `최근 30분 실패율 ${pct}% (${ms}/${t}) — 말귀를 못 알아듣고 있을 수 있습니다`);
   } else say(`③ 최근 30분 손님 ${t}건 (표본 부족)`);
-} catch (e) { say('③ 실패율 조회 실패'); }
+} catch (e) { bad++; qfail++; say("③ 실패율 조회 실패: " + String(e.message || e).slice(0, 80)); }
 
 // ④ 손님이 찾는데 우리에게 없는 것 → 파싱 우선순위
 //   🔴 raw 집계만 하면 **이미 고친 것을 며칠씩 계속 보고**한다 (사장님 지적 2026-09-02)
@@ -160,7 +161,7 @@ try {
   } else if (gap.length) {
     say('④ 손님이 못 찾은 말은 전부 지금은 해결됐다 (파싱할 것 없음)');
   }
-} catch (e) { say('④ 갭 조회 실패'); }
+} catch (e) { bad++; qfail++; say("④ 갭 조회 실패: " + String(e.message || e).slice(0, 80)); }
 
 
 // ⑤ 손님이 말을 바꿔 다시 친 쌍 (앞 실패 → 3분 내 성공) — 우리 구멍이다
@@ -207,7 +208,7 @@ try {
     }
     if (added) say('   → 사장님 검토판에 ' + added + '건 올림 (관리자 🤖 챗봇 탭)');
   } else say('⑤ 말 바꿔 다시 친 것 ' + flip.length + '건 — 전부 지금은 정상 ✅');
-} catch (e) { say('⑤ 조회 실패'); }
+} catch (e) { bad++; qfail++; say("⑤ 조회 실패: " + String(e.message || e).slice(0, 80)); }
 
 // ⑥ 브랜드가 어미·조사로 깎였는지 (추출어가 원문의 앞부분)
 //    2026-09-02: '이치비야'→'이치비' · '닥터포이'→'닥터포' 를 이걸로 찾았다.
@@ -240,8 +241,11 @@ try {
     now2.forEach((r) => say('   🔴 "' + r.raw + '" → "' + r.kw + '"'));
     alert('챗봇브랜드깎임', now2.map((r) => r.raw + '→' + r.kw).join(', ').slice(0, 300));
   } else say('⑥ 브랜드 깎임 없음' + (cut.length ? ' (옛 로그 ' + cut.length + '건은 지금 정상 ✅)' : ''));
-} catch (e) { say('⑥ 조회 실패'); }
+} catch (e) { bad++; qfail++; say("⑥ 조회 실패: " + String(e.message || e).slice(0, 80)); }
 
 say(bad ? `🔴 이상 ${bad}건 — health_alerts 확인` : '이상 없음');
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
 fs.writeFileSync(LOG, out.join('\n') + '\n\n' + prev.split('\n').slice(0, 600).join('\n'));
+
+// 조회가 한 번이라도 실패했으면 예약작업 결과에 남긴다 (로그는 아무도 안 볼 수 있다)
+if (qfail) { console.error(`🔴 조회 실패 ${qfail}건 — scratchpad/bot_guard_log.txt 확인`); process.exit(1); }
