@@ -1414,7 +1414,7 @@ function getFiltered(dateStr){
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
-      return[item.name,item.influencer,item.insta,item.major,item.minor]
+      return[item.name,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
             const qn=q.replace(/\s+/g,'');
@@ -1422,8 +1422,9 @@ function getFiltered(dateStr){
             // ② 낱말을 띄엄띄엄 기억한 경우 — 모든 낱말이 들어있으면 잡는다 (2026-09-01)
             //    "알텐바흐 냄비" 로 "알텐바흐 저압냄비 3종" 을 찾을 수 있어야 한다.
             //    ⚠ 낱말이 2개 이상일 때만 쓴다. 한 낱말이면 ①과 같아 무의미하고,
-            //      1글자 낱말('물','컵')은 아무 데나 걸려 오탐이 나므로 뺀다.
-            const ws=q.split(/\s+/).filter(w=>w.length>=2);
+            //    🔑 한 글자도 넣는다 — 이 조건은 AND 라 낱말이 늘수록 **좁아진다**.
+            const SW1=['거','것','걸','게','요','좀','수','때','분','개','중','등','및','이','그','저'];
+            const ws=q.split(/\s+/).filter(w=>w.length>=2||(w.length===1&&!SW1.includes(w)));
             return ws.length>=2 && ws.every(w=>sn.includes(w));
           });});
     }).sort(cmpDatePartner);
@@ -3418,10 +3419,24 @@ function kkoInAppGuide(){
   try{ var _sh=document.getElementById("kkoSheet");
     if(!_sh || (_sh.style.bottom!=="0px" && _sh.style.bottom!=="0")){
       if(typeof openLoginSheet==="function") openLoginSheet(); else return false; } }catch(_){ return false; }
-  try{ trackEvent("kakao_login_inapp_guide", ios?"ios":"android"); }catch(_){}
-  t.textContent = "카톡 안에서는 로그인이 자주 끊겨요";
+  // 어느 앱에서 열었는지 (카톡·인스타·네이버…) — 안내 위치가 앱마다 다르다
+  var app = (typeof _appName === "function") ? _appName() : "inapp";
+  var appKo = ({kakao:"카톡", instagram:"인스타", naver:"네이버 앱", facebook:"페이스북",
+                line:"라인", daum:"다음 앱"})[app] || "이 앱";
+  try{ trackEvent("kakao_login_inapp_guide", (ios?"ios":"android")+"|"+app); }catch(_){}
+  t.textContent = appKo + " 안에서는 로그인이 자주 끊겨요";
+  // 🔴 앱마다 버튼 위치가 다르다 — 인스타엔 하단 공유 버튼이 **없다**(사장님 실기 제보 2026-09-05)
+  var shareSvg = "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"#7B3FB5\" stroke-width=\"2.1\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-2px\"><path d=\"M12 3v12M12 3l-4 4M12 3l4 4\"/><path d=\"M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7\"/></svg>";
+  var iosWhere = ({
+    kakao:     "주소창을 누르거나 <b style=\"color:#7B3FB5\">공유 " + shareSvg + "</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">Safari로 열기</b>",
+    instagram: "오른쪽 <b style=\"color:#7B3FB5\">위</b> 에 있는 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">외부 브라우저에서 열기</b>",
+    facebook:  "오른쪽 <b style=\"color:#7B3FB5\">위</b> 의 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">외부 브라우저에서 열기</b>",
+    naver:     "오른쪽 <b style=\"color:#7B3FB5\">아래</b> 의 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">Safari로 열기</b>",
+    line:      "오른쪽 <b style=\"color:#7B3FB5\">아래</b> 의 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">다른 앱으로 열기</b>",
+    daum:      "오른쪽 <b style=\"color:#7B3FB5\">아래</b> 의 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">Safari로 열기</b>"
+  })[app] || "오른쪽 <b style=\"color:#7B3FB5\">위나 아래</b> 의 <b style=\"color:#7B3FB5\">⋯</b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">Safari(외부 브라우저)로 열기</b>";
   sub.innerHTML = ios
-    ? "주소창을 누르거나 <b style=\"color:#7B3FB5\">공유 <svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"#7B3FB5\" stroke-width=\"2.1\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-2px\"><path d=\"M12 3v12M12 3l-4 4M12 3l4 4\"/><path d=\"M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7\"/></svg></b> 를 누르면 나오는<br><b style=\"color:#7B3FB5\">Safari로 열기</b> 를 고르면 한 번에 끝나요"
+    ? iosWhere + " 를 고르면 한 번에 끝나요"
     : "<b style=\"color:#7B3FB5\">크롬으로 열면</b> 카카오톡이 바로 떠서<br>아이디를 치지 않아도 돼요";
   if(fine) fine.textContent = "찜한 공구는 그대로 있어요";
   var yellow = "width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px";
@@ -4037,7 +4052,7 @@ function runSearch(q){
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   try{
     const _ql=q.toLowerCase();
-    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
     trackEvent('search', JSON.stringify({q:q, n:_n}));
   }catch(_){}
   applySearchMode();
@@ -4095,7 +4110,7 @@ sInput.addEventListener('keydown',e=>{
     const _q=sInput.value.trim();
     if(_q){
       const _ql=_q.toLowerCase();
-      const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+      const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
       trackEvent('search', JSON.stringify({q:_q, n:_n}));
       saveRecentQ(_q);   // 최근 검색어 저장 (2026-08-31)
     }
