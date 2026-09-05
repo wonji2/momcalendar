@@ -43,12 +43,12 @@ async function q(path: string) {
   const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
   return r.ok ? await r.json() : [];
 }
-/** 그 낱말이 진행중 공구 어딘가(상품명·셀러명·핸들)에 실제로 있나.
+/** 그 낱말이 진행중 공구 **상품명**에 실제로 있나.
  *  ⚠ 조회에 실패하면 true 를 준다 — 확실하지 않으면 낱말을 빼지 않는다(안전측). */
 async function hasWord(w: string, today: string): Promise<boolean> {
   try {
     const e = encodeURIComponent("%" + w + "%");
-    const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&or=(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})&limit=1`);
+    const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=1`);
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
 }
@@ -512,19 +512,17 @@ Deno.serve(async (req) => {
           if (ws.length >= 2) {
             cond = ws.map((w) => {
               const e = encodeURIComponent("%" + w + "%");
-              return `or(name.ilike.${e},influencer.ilike.${e},insta.ilike.${e})`;
+              return `name.ilike.${e}`;
             }).join(",");
             cond = `end_date=gte.${today}&and=(${cond})`;
           } else {
             const base = ws.length === 1 ? ws[0] : t;   // 짧은 낱말이 떨어져 나가면 남은 낱말로 찾는다
             const pat = t.startsWith("__ABBR__") ? "%" + t.slice(8).split("").join("%") + "%" : `%${base}%`;
             const enc = encodeURIComponent(pat);
-            // 줄임말(__ABBR__)은 글자 사이를 여는 성긴 패턴이라 셀러 핸들에 걸면 엉뚱한 게 잡힌다.
-            //   실사고 2026-09-02: 'Keen' → %K%e%e%n% → insta 'keepgoing_becky' → 자숙문어
-            const nameOnly = base.length <= 1 || t.startsWith("__ABBR__");
-            cond = nameOnly
-              ? `end_date=gte.${today}&name=ilike.${enc}`
-              : `end_date=gte.${today}&or=(name.ilike.${enc},influencer.ilike.${enc},insta.ilike.${enc})`;
+            // 🔴 검색은 **상품명만** 본다 (사장님 지시 2026-09-05).
+            //   실사고: 「포도」 에 셀러 '포도네'(podomami) 의 흉터스틱·잇니플러스가 나갔다.
+            //   셀러명·핸들을 보면 손님이 안 찾은 상품이 섞인다.
+            cond = `end_date=gte.${today}&name=ilike.${enc}`;
           }
           let rows = await pick(cond, "order=open_date.asc", ph);
           // 🔴 **DB 에 아예 없는 낱말은 조건에서 뺀다** (사장님 승인 2026-09-04)
@@ -544,7 +542,7 @@ Deno.serve(async (req) => {
             if (keep.length && keep.length < ws.length) {
               const c2 = keep.map((w) => {
                 const e2 = encodeURIComponent("%" + w + "%");
-                return `or(name.ilike.${e2},influencer.ilike.${e2},insta.ilike.${e2})`;
+                return `name.ilike.${e2}`;
               }).join(",");
               rows = await pick(`end_date=gte.${today}&and=(${c2})`, "order=open_date.asc", ph);
             }

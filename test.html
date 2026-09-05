@@ -1414,7 +1414,7 @@ function getFiltered(dateStr){
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
-      return[item.name,item.influencer,item.insta,item.major,item.minor]
+      return[item.name,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
             const qn=q.replace(/\s+/g,'');
@@ -4137,7 +4137,7 @@ function runSearch(q){
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
   try{
     const _ql=q.toLowerCase();
-    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+    const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
     trackEvent('search', JSON.stringify({q:q, n:_n}));
   }catch(_){}
   applySearchMode();
@@ -4195,7 +4195,7 @@ sInput.addEventListener('keydown',e=>{
     const _q=sInput.value.trim();
     if(_q){
       const _ql=_q.toLowerCase();
-      const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.influencer,item.insta,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
+      const _n=DATA.filter(item=>!isExpired(item) && [item.name,item.major,item.minor].some(v=>(v||'').toLowerCase().includes(_ql))).length;
       trackEvent('search', JSON.stringify({q:_q, n:_n}));
       saveRecentQ(_q);   // 최근 검색어 저장 (2026-08-31)
     }
