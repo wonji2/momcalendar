@@ -411,10 +411,15 @@ Deno.serve(async (req) => {
       return reply([text("TMI 방장아들은 1초 송중기를 닮았다 맘캘 VIP 회원님 감사합니다 🙂")]);
     }
 
-    // ⓪ 핫딜은 아직 챗봇에서 못 다룬다 → 사이트로 안내 (사장님 지시 2026-09-01)
-    if (/핫딜|특가|할인|세일|최저가|딜\b/.test(u)) {
-      return reply([text("핫딜은 아직 챗봇에서는 안 알려드려요 🙏\n맘캘린더 사이트 '🔥 핫딜' 탭에서 오늘 올라온 특가를 모아 보실 수 있어요!")]);
-    }
+    // ⓪ 핫딜·특가 질문 (사장님 지시 2026-09-01 → 2026-09-06 보강)
+    //   상품 낱말이 같이 오면(「물티슈 특가 있어?」) **공구 먼저, 없으면 핫딜 카드(수익링크 버튼)** — searchReply 안의 기존 폴백이 그 순서다.
+    //   사장님: "당연히 공구있으면 공구 먼저 알려주는데 핫딜있냐거나 공구 없으면 그때 핫딜로 안내하면 될듯 (내수익링크로)"
+    //   상품 낱말이 없으면 예전 안내 그대로. AI 는 안 탄다(핫딜 질문은 낱말이 분명하다).
+    const HD_GUIDE = "핫딜은 아직 챗봇에서는 안 알려드려요 🙏\n맘캘린더 사이트 '🔥 핫딜' 탭에서 오늘 올라온 특가를 모아 보실 수 있어요!";
+    const hdAsk = /핫딜|특가|할인|세일|최저가|딜\b/.test(u);
+    // ⚠ 핫딜 낱말에 붙은 어미까지 같이 뗀다 — 「해담옥 세일해?」에서 '해' 가 남아 '해담옥 해' 로 사랑해 보드북이 나갔다(실측)
+    const hdWord = hdAsk ? keyword(u.replace(/(핫딜|특가|할인|세일|최저가|딜\b)\s*(하나요|하냐|하니|해요|해|함|중|이야|야|은|는|이|가|도|로|으로)?/g, " ")).replace(/\s+/g, " ").trim() : "";
+    if (hdAsk && hdWord.length < 2) return reply([text(HD_GUIDE)]);
 
     // ⓪-b 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") = 조회수 + 찜 합산 순
     const topCards = async (): Promise<Response | null> => {
@@ -495,7 +500,7 @@ Deno.serve(async (req) => {
     };
 
     // ① 브랜드·상품 검색 본체 — 찾으면 답(Response), 못 찾으면 null (AI 해석 뒤 같은 함수로 다시 찾는다)
-    const searchReply = async (kw: string, kwRaw: string, say: string): Promise<Response | null> => {
+    const searchReply = async (kw: string, kwRaw: string, say: string, noAbbr = false): Promise<Response | null> => {
       const AL = await aliases();
       let tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
       // 별칭은 두 번 푼다 — 줄임말 → 정식이름 → 표기변형 (사장님 지시 2026-09-02)
@@ -540,7 +545,8 @@ Deno.serve(async (req) => {
       // 줄임말(글자 사이 열기)은 **한글일 때만**. 영문에 쓰면 성긴 패턴이 아무 문장에나 걸린다.
       //   실사고 2026-09-02: 'Keen' → %k%e%e%n% → "Scholastic Picture Book Garden Collection"
       const hangulOnly = /^[가-힣]+$/.test(kw);
-      if (hangulOnly && kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);
+      //   🔴 AI 가 뽑은 낱말(noAbbr)엔 안 연다 — 「즈크루」가 %즈%크%루% 로 디즈니 크루즈를 물어와 사전에 정답처럼 굳었다(2026-09-06 검증)
+      if (!noAbbr && hangulOnly && kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);
 
       // 🔴 검색 순서 (사장님 지시 2026-09-01)
       //   ① 손님이 말한 그대로·별칭 그대로 공구를 찾는다 (뽀사카 → "뽀로로 사운드")
@@ -688,9 +694,12 @@ Deno.serve(async (req) => {
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ event_type: "kakao_bot_miss", event_data: `${kw} <= ${u}`.slice(0, 70) }) });
       } catch (_) { /* 무시 */ }
+      // 🔴 총 마감 — AI(≤2초) 뒤에 재검색까지 하면 여기 올 때 3초를 넘기도 한다(검증 실측 4.9초).
+      //   카카오 5초를 지키려고 3초를 넘겼으면 되묻기·지난공구 조회(각 ~1초)를 건너뛰고 바로 답한다.
+      const rushed = Date.now() - tReq > 3000;
       // 없다고만 하지 않고 "혹시 이거?" 로 되묻는다 (bot_guess RPC — 오타·긴말 대응, 2026-09-01)
       let hint = "";
-      try {
+      if (!rushed) try {
         const g = await fetch(`${SB}/rest/v1/rpc/bot_guess`, { method: "POST",
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ p_kw: kw }) });
@@ -715,9 +724,9 @@ Deno.serve(async (req) => {
           String(nm || "").split(" ").some((t) => t.startsWith(w) || t.endsWith(w));
         const pick3 = (rows: any, w: string) =>
           Array.isArray(rows) ? rows.filter((p: any) => okTok(p.name, w)) : [];
-        let past = pick3(await pastBy(say), say);
+        let past = rushed ? [] : pick3(await pastBy(say), say);
         // 손님 말로 못 찾으면 조사를 뗀 말로 한 번 더 ("선풍기가" → 선풍기)
-        if (!past.length && kw && kw !== say && kw.length >= 2) past = pick3(await pastBy(kw), kw);
+        if (!rushed && !past.length && kw && kw !== say && kw.length >= 2) past = pick3(await pastBy(kw), kw);
         if (Array.isArray(past) && past.length) {
           const li = past.map((p: any) => {
             const d = String(p.open_date || "").slice(5).replace("-", "/");
@@ -740,7 +749,7 @@ Deno.serve(async (req) => {
           const qq = String(it.q || "").trim();
           if (!qq) return null;
           if (ruleDone && askable && qq === kw) return null;   // 규칙이 이미 그 말로 찾아봤다
-          return await searchReply(qq, qq, qq);
+          return await searchReply(qq, qq, qq, true);   // AI 낱말은 이미 깨끗하다 — 줄임말 열기 금지
         }
         case "today": return await todayCards();
         case "tomorrow": return await tomorrowCards();
@@ -755,6 +764,8 @@ Deno.serve(async (req) => {
       }
     };
 
+    // ⓪' 핫딜·특가 + 상품 낱말 → 공구 카드 → (없으면) 핫딜 카드 → (그래도 없으면) 안내. searchReply 정의 뒤라 여기서 처리한다.
+    if (hdAsk) { const r = await searchReply(hdWord, hdWord, hdWord); return r ?? reply([text(HD_GUIDE)]); }
     // 🧠 ① 해석 사전 — 이 말을 전에 풀어둔 적 있으면 그대로 답한다 (0원)
     const learned = await interpLookup(u);
     let hitPending = false;   // 사전 해석이 "규칙이 같은 말로 찾을 차례" 라 null 을 준 경우 — 규칙 결과를 보고 ok_cards 를 찍는다
@@ -788,7 +799,8 @@ Deno.serve(async (req) => {
       if (ai) { const r = await routeIntent(ai, true); if (r) return r; }
     }
     // AI 가 "이걸 찾는다" 고 했는데 어디에도 없다 → 그 낱말로 없어요 안내 (문장 통째가 아니라)
-    if (ai && ai.intent === "search" && ai.q) return await notFound(ai.q, ai.q);
+    const itp = ai ?? learned;   // 2회째(사전)도 1회째(AI)와 같은 낱말로 없어요 안내 (검증 지적)
+    if (itp && itp.intent === "search" && itp.q) return await notFound(itp.q, itp.q);
     if (askable) return await notFound(say, kw);
 
     // ②' 날짜 질문 (브랜드가 없을 때)
