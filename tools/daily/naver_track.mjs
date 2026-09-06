@@ -14,6 +14,12 @@ import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { sbArgs, parseRows } from './sb_query.mjs';
+// 🔴 2026-09-06: 9/5 04:21 부터 10회 연속 '추적 대상을 못 읽었다' 로 죽어 있었다(손으로 돌리면 정상). 원인 두 겹 —
+//   ① --output-format json 없이 CLI 를 불러 예약작업 환경에서는 ASCII 표가 와서 JSON 파싱이 실패했다
+//      (sb_query.mjs 머리말의 바로 그 사고. 다른 9개 도구는 옮겼는데 이 파일만 안 옮겨져 있었다) → sbArgs() 로 통일
+//   ② 실패 덤프를 쓰는 줄이 정의되지 않은 NL 을 써서 ReferenceError 를 catch{} 가 삼켰다 → 덤프가 한 번도 안 생겼다
+const NL = String.fromCharCode(10);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SB = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -27,7 +33,7 @@ const DUMP = join(ROOT, 'scratchpad', 'naver_track_lastfail.txt');
 const runSql = (sql, label = 'sql') => {
   writeFileSync(sqlf, sql);
   try {
-    return execFileSync(SB, ['db', 'query', '--linked', '-f', sqlf], { encoding: 'utf8', timeout: 60000 });
+    return execFileSync(SB, sbArgs(sqlf), { encoding: 'utf8', timeout: 60000 });
   } catch (e) {
     const body = [String(e.message || e), '--- stdout ---', String(e.stdout || ''), '--- stderr ---', String(e.stderr || '')].join(NL);
     try { writeFileSync(DUMP, '[' + new Date().toISOString() + '] ' + label + NL + body); } catch {}
@@ -42,11 +48,12 @@ const out = runSql(SQL_TARGETS, 'targets');
 // json_agg 는 대상이 0건이면 [] 가 아니라 null 을 낸다 — 그걸 '파싱 실패' 로 찍으면
 // 멀쩡한 회차가 장애로 보인다(2026-09-02 시정). 둘을 구분하고, 못 읽으면 한 번 더 시도한다.
 const parseDeals = (raw) => {
-  const i = String(raw || '').indexOf('{');
-  if (i < 0) return { ok: false, deals: [] };
+  // 🔴 2026-09-06 23:31 예약작업 실측: --output-format json 을 붙여도 예약작업 환경에선 최상위가 배열([{j:[…]}])로 와서
+  //    indexOf('{') + j.rows 방식은 못 읽었다. 세 형식을 다 받는 sb_query.parseRows() 로만 읽는다.
+  const p = parseRows(raw);
+  if (!p.ok) return { ok: false, deals: [] };
   try {
-    const j = JSON.parse(String(raw).slice(i));
-    const rows = Array.isArray(j.rows) ? j.rows : [];
+    const rows = p.rows;
     const v = rows.length ? rows[0].j : null;
     if (v === null || v === undefined) return { ok: true, deals: [] };   // json_agg 는 0건이면 null
     return { ok: true, deals: Array.isArray(v) ? v : [] };
