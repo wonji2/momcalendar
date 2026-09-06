@@ -12,7 +12,11 @@ const SITE = 'https://momcalendar.com';
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const day = process.env.DAY?.trim() || kstToday();
 
-const browser = await chromium.launch();
+// ⚠ 번들 headless 브라우저 → 없으면 설치된 Chrome 으로 폴백 (browser.js 와 같은 패턴).
+//   Claude 앱은 MSIX 패키지라 앱 안에서 `playwright install` 한 브라우저는 AppData\Local 의
+//   앱 전용 가상 폴더(Packages\Claude_*\LocalCache\Local\ms-playwright)에만 있고
+//   윈도우 예약작업(앱 밖)에서는 "Executable doesn't exist" 로 죽는다 (2026-09-05·06 이틀 블로그 예약 실패).
+const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
 const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, deviceScaleFactor: 1 });
 
 const errors = [];
