@@ -13,6 +13,9 @@
 //   ⚠ 카카오 규격: 캐러셀 최대 5장 · 캐러셀 안 항목 최대 4개(단일 5개) · 버튼 label 14자 · textCard 400자.
 //      어기면 응답이 통째로 버려져 손님에겐 무응답. **봇테스트는 이 검사를 안 한다.**
 //   ⚠ 손님이 '상담 진행중' 이면 카카오가 챗봇을 아예 호출하지 않는다 → 채널 관리자센터에서 상담 완료 처리.
+import Anthropic from "npm:@anthropic-ai/sdk@0.124.0";   // 버전 고정 — 재배포마다 최신을 받지 않게 (f9 검증 지적)
+import { z } from "npm:zod";
+import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.124.0/helpers/zod";
 const SB = "https://hycaqsqeogjtbscmzrtm.supabase.co";
 const KEY = "sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE";
 const SITE = "https://momcalendar.com";
@@ -51,17 +54,6 @@ async function hasWord(w: string, today: string): Promise<boolean> {
     const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=1`);
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
-}
-async function countName(w: string, today: string): Promise<number> {
-  try {
-    const e = encodeURIComponent("%" + w + "%");
-    const r = await fetch(
-      `${SB}/rest/v1/gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=1`,
-      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Prefer: "count=exact" } });
-    const cr = r.headers.get("content-range") || "";     // "0-0/37" 형식
-    const n = Number(cr.split("/")[1]);
-    return Number.isFinite(n) ? n : 9999;
-  } catch { return 9999; }
 }
 /** 조건에 맞는 건수만 센다 (본문은 안 받는다). 못 세면 -1. */
 async function countOf(path: string): Promise<number> {
@@ -142,6 +134,77 @@ async function phrases(): Promise<[string, string][]> {
   return (rows as any[]).map((r) => [String(r.term), String(r.kind)] as [string, string]);
 }
 
+// ── 🧠 말귀 학습 (사장님 지시 2026-09-06 "돈을 쓰는만큼 무조건 학습해서 … 데이터 많이 쌓이면 똑똑해져서 ai안써도 되게")
+//   순서: ① 해석 사전(bot_interp) 히트 → 0원 즉답  ② 규칙 검색  ③ 그래도 못 찾으면 AI 해석 → 사전에 저장 → 그 해석으로 다시 찾는다
+//   같은 말은 두 번 AI 에 안 간다. AI 는 "무엇을 찾는지"만 말하고 카드는 100% 우리 DB 에서 나온다(없는 공구를 지어낼 수 없다).
+//   키가 없으면(ANTHROPIC_API_KEY 미설정) ③ 만 조용히 건너뛴다. 모델은 BOT_AI_MODEL 로 바꾼다(기본 Haiku 4.5 — 사장님 "최소 비용").
+//   설계 원본: scratchpad/챗봇AI도입_계획.md 8장.
+const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || KEY;   // 사전 쓰기는 서비스 키 (anon 은 읽기만 허용)
+const AI_MODEL = Deno.env.get("BOT_AI_MODEL") || "claude-haiku-4-5";
+const INTENTS = ["search", "today", "tomorrow", "week", "weekend", "closing", "popular", "hotdeal", "greeting", "thanks", "other"] as const;
+type Interp = { intent: string; q: string; cat: string; src: string };
+const InterpSchema = z.object({ intent: z.enum(INTENTS), q: z.string(), cat: z.string() });
+const AI_SYSTEM = [
+  "너는 '맘캘린더' 카카오 챗봇의 해석기다. 맘캘린더는 인스타그램 공동구매(공구) 일정을 모아 보여주는 사이트다.",
+  "손님이 카톡으로 친 짧은 말을 읽고 무엇을 원하는지만 JSON 으로 답한다. 답변 문장은 쓰지 않는다.",
+  "intent: search(브랜드·상품·품목을 찾는다) | today(오늘 오픈) | tomorrow | week(이번 주) | weekend | closing(오늘 마감·끝나는 것) | popular(인기·베스트·핫한·잘 나가는·많이 보는 공구) | hotdeal(손님이 '핫딜·특가·세일' 이라는 낱말을 직접 썼고 찾는 상품이 없을 때만) | greeting(인사·도움말) | thanks(감사·칭찬) | other",
+  "🔴 상품·품목·브랜드가 한 낱말이라도 있으면 무조건 search 다. '기저귀 싸게 파는데 없나' 는 hotdeal 이 아니라 search(q=기저귀). '요즘 핫한 공구' 는 hotdeal 이 아니라 popular.",
+  "q: intent 가 search 일 때 검색할 핵심 낱말. 손님이 쓴 브랜드·상품명 표기를 **한 글자도 바꾸지 말고 그대로** 쓴다(줄이거나 고치지 않는다). 조사·어미·수식어('싸게','좀','그거','있어?')만 뺀다. 'A 말고 B' 면 B 만. 여러 품목이면 공백으로 나열. search 가 아니면 빈 문자열.",
+  "cat: 짐작되는 분류 하나(육아·식품·리빙·뷰티·패션·반려동물·기타) 또는 빈 문자열.",
+].join("\n");
+const normUtt = (x: string) => x.toLowerCase().replace(/[?？!！.,~♡♥]+$/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+async function interpLookup(u: string): Promise<Interp | null> {
+  try {
+    const un = normUtt(u); if (!un) return null;
+    const rows = await q(`bot_interp?select=intent,q,cat&utt_norm=eq.${encodeURIComponent(un)}&limit=1`);
+    const r = (rows as any[])[0]; if (!r) return null;
+    return { intent: String(r.intent), q: String(r.q || ""), cat: String(r.cat || ""), src: "dict" };
+  } catch { return null; }
+}
+// 사전에서 답했다 — 히트 수(= 아낀 호출 수)와 카드가 나왔는지를 기록한다. 실패는 무시.
+function interpHit(u: string, ok: boolean) {
+  try {
+    fetch(`${SB}/rest/v1/rpc/bot_interp_hit`, { method: "POST",
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_utt: normUtt(u), p_ok: ok }) }).catch(() => {});
+  } catch (_) { /* 무시 */ }
+}
+function logEv(type: string, data: string) {
+  try {
+    fetch(`${SB}/rest/v1/events`, { method: "POST",
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ event_type: type, event_data: data.slice(0, 200) }) }).catch(() => {});
+  } catch (_) { /* 무시 */ }
+}
+async function interpAI(u: string, tReq: number): Promise<Interp | null> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
+  // 카카오 5초 한도 — AI 뒤에 재검색(0.3~1초)·notFound(bot_guess+지난공구 조회, ~1.8초)가 더 붙는다.
+  //   그래서 AI 몫은 2초까지만 (f9 세션 검증 지적 2026-09-06: 4300/2500 이면 5초를 넘을 수 있다). 넘기면 규칙 폴백.
+  const left = 3800 - (Date.now() - tReq);
+  if (left < 900) return null;
+  const t0 = Date.now();
+  try {
+    const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: Math.min(2000, left - 300) });
+    const res = await client.messages.parse({
+      model: AI_MODEL, max_tokens: 200, system: AI_SYSTEM,
+      messages: [{ role: "user", content: u.slice(0, 200) }],
+      output_config: { format: zodOutputFormat(InterpSchema) },
+    });
+    const p = res.parsed_output; if (!p) return null;
+    const it: Interp = { intent: p.intent, q: p.q.trim().slice(0, 60), cat: p.cat.trim().slice(0, 20), src: "ai" };
+    const inT = res.usage?.input_tokens ?? 0, outT = res.usage?.output_tokens ?? 0;
+    // 🔴 저장 — 같은 말은 두 번 AI 에 안 간다. 저장 실패해도 답은 나간다.
+    fetch(`${SB}/rest/v1/bot_interp`, { method: "POST",
+      headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ utt_norm: normUtt(u), utt: u.slice(0, 120), intent: it.intent, q: it.q, cat: it.cat, src: "ai", model: AI_MODEL, in_tok: inT, out_tok: outT }) }).catch(() => {});
+    logEv("kakao_bot_ai", `${u.slice(0, 40)} => ${it.intent}:${it.q} | ${inT}/${outT}tok | ${Date.now() - t0}ms`);
+    return it;
+  } catch (e) {
+    logEv("kakao_bot_ai_err", `${u.slice(0, 40)} | ${String((e as any)?.message || e).slice(0, 80)} | ${Date.now() - t0}ms`);
+    return null;
+  }
+}
+
 async function partnerHandles(): Promise<string[]> {
   const rows = await q("sellers?select=insta&is_partner=eq.true&active=eq.true");
   const set = new Set<string>(MOMCAL);
@@ -195,7 +258,7 @@ const TAILS: RegExp[] = [
   /(뭐야|머야|뭐임|뭔데|뭐가|머가|뭐|머)$/,
   /(종류|모음|관련|같은거|같은\s*거)$/,
   /(언제|어때|어떤|얼마|어디)\s*(해요|해용|하나요|하나|한대요|한대|함|해|야)?$/,   // "물티슈 언제해요?"
-  /(냐고|라고|다고|인데|는데|건데|이야|임|이지|잖아)$/,
+  /(냐고|라고|다고|인데|는데|건데|잖아)$/,   // ⚠ 이야·이지·임 은 뺐다 — 브랜드 끝 글자를 먹는다(2026-09-06 검증)
   /궁금\s*(해요|해용|해영|한데|하다|해|행)?$/,          // "물티슈 공구궁금해요!" (실제 손님)
   /(알고|보고|사고)\s*싶(어요|어|다|은데)?$/,
   /(어떤가요|어떨까요|없을까요|있을까요|될까요)$/,
@@ -207,30 +270,18 @@ const TAILS: RegExp[] = [
   //   어제 inpock_harvest 관형형 검사에서 고친 것과 같은 뿌리다(모윰 쪽쪽이 드롭 사고)
   // ⚠ 조사·짧은꼬리는 여기 두지 않는다 — 아래 CUT_TAILS 로 뺐다 (2026-09-02)
   //    브랜드 끝 글자를 먹기 때문이다. **깎기 전 판으로 먼저 찾고** 없을 때만 이걸 쓴다.
-  /(인거|인것|하는거|되는거|인가|인가요|이야|예요|에요)$/,
+  /(인거|인것|하는거|되는거|인가|인가요|예요|에요)$/,
   //   메쉬넵→메쉬 (2026-09-01) · 이치비야→이치비 (2026-09-02, 사장님 지적)
   //   "야" 로 끝나는 브랜드 8종: 이치비야·밧드야·하코야·요거모야·꽃게야·코코이찌방야·고새야
   //   "뭐야"·"얼마야" 는 위쪽 규칙이 이미 잡는다.
 ];
-// 🔴 **말을 깎지 않는다** (사장님 지시 2026-09-02)
-//   조사·짧은꼬리는 브랜드 끝 글자와 구별이 안 된다 — '닥터포이'→'닥터포' · '실리만'→'실리' 사고.
-//   그래서 이것만 따로 뺐다. **깎기 전 판으로 먼저 찾고, 그래도 없을 때만** 이걸 쓴다.
-//   규칙으로 자르는 게 아니라 DB 에 무엇이 있는지 보고 정한다 = 문맥 파악.
-// 🔴 끝 글자가 조사처럼 보이지만 **낱말 자체**인 것들 — 어디서도 자르지 않는다 (2026-09-05).
-//   실측: 포도→'포'83건(발포세정제·분유포트) · 독도→'독'37(젖병소독기·독서대) · 오이→'오'226(오가닉·오메가).
-//   전부 그 말로는 DB 0건이라 **"없어요" 가 정답**인데 엉뚱한 20건이 나가고 있었다.
-//   ⚠ 머리말은 손님이 친 말을 그대로 쓰므로 **화면만 보면 멀쩡해 보인다** — 항목 이름까지 봐야 잡힌다.
-//   🔴 이건 원칙이 아니라 땜질 목록이다. 구조로는 '포도'와 '만두도' 를 못 가른다(품사 사전이 필요하다).
-//      감시 ⑦(bot_guard)이 손님 발화에서 새 후보를 찾아 올린다 — 보이면 여기 한 줄 추가.
-const NOT_JOSA = [
-  "오이", "먹이", "포도", "황도", "독도", "완도", "거제도",
-  "말랑이", "몽글이", "와이", "스웨이", "뮤이",
-];
-
-const CUT_TAILS: RegExp[] = [
-  /(가|은|는|을|를|도)$/,   // "일정이" 에서 일정을 지운 뒤 남는 조사  // ⚠ 이 를 넣지 말 것 — 닥터포이→닥터포 (09-02·09-04 두 번)
-  /(좀|요|용)$/,            // ⚠ 넵·넹·야 는 넣지 말 것 — 메쉬넵→메쉬 · 이치비야→이치비
-];
+// 🔴 **낱말의 글자를 깎는 규칙은 없다** (사장님 지시 2026-09-06)
+//   "단어 끝에 '이'자 맘대로 빼고 이런식으로 자꾸 앞뒤 낱말을 빼버리더라고 그럼 브랜드 이름이 이상하게 뭉개져서 안되고
+//    ai처럼 학습해서 사람 말 알아듣게 해봐"
+//   09-02~09-05 나흘간 조사(이·가·은·는·을·를·도) 를 떼는 규칙을 여섯 번 고쳤다 — 규칙으로는 '국이'(조사)와 '종이'(낱말),
+//   '인도'(나라)와 '만두도'(만두+도) 를 가를 수 없다. 여기 있던 NOT_JOSA 화이트리스트·CUT_TAILS·DB 건수 판정을 전부 걷어냈다.
+//   → 위 TAILS(문장 끝 말버릇, 낱말 단위)만 걷어내고, 그래도 못 찾으면 **AI 해석 → 해석 사전(bot_interp)** 이 맡는다.
+//   ⚠ 조사·어미를 글자 단위로 떼는 코드를 다시 넣지 말 것. 「국이 있어?」는 AI 가 q=국 을 내고 사전에 남아 두 번째부터 0원이다.
 // 말끝에 ㅇ 을 붙이는 말투를 벗긴다 — 고마웡→고마워 · 안뇽→안녕(X, 이건 목록) · 감사해용→감사해요 · 있엉→있어
 //   ⚠ 마지막 글자에만 쓴다. 문장 전체에 쓰면 티니핑→티니피 처럼 브랜드가 깨진다 (사장님 지적한 유형)
 function deJong(s: string) {
@@ -241,23 +292,17 @@ function deJong(s: string) {
   return t.slice(0, -1) + String.fromCharCode(0xAC00 + (c - 21));
 }
 
-function stripTail(s: string, cut = true) {
-  const list = cut ? [...TAILS, ...CUT_TAILS] : TAILS;
+function stripTail(s: string) {
   let prev = "";
   for (let i = 0; i < 8 && s !== prev; i++) {
     prev = s;
-    // ⚠ 규칙 하나하나 적용 **전에** 본다 — "포도 있어?" 는 한 바퀴 안에서 "있어?" 와 "도" 가
-    //    함께 지워져 s 가 "포" 가 돼버린다(바깥 루프 검사만으론 못 막는다. 2026-09-05 실측).
-    for (const re of list) {
-      if (NOT_JOSA.includes(s)) break;
-      s = s.replace(re, "").trim();
-    }
+    for (const re of TAILS) s = s.replace(re, "").trim();
   }
   return s;
 }
-// cut=false 면 **조사를 안 뗀 판**을 준다 — 손님이 친 말에 더 가까운 쪽이다.
-function keyword(u: string, cut = true) {
-  let s = stripTail(u, cut);
+// 손님이 친 말에서 **문장 부품(낱말 단위)** 만 걷어낸다. 낱말의 글자는 절대 깎지 않는다.
+function keyword(u: string) {
+  let s = stripTail(u);
   // 여기서 지우는 것은 **문장 부품**뿐이다. 브랜드가 될 수 있는 낱말은 절대 건드리지 않는다.
   //   ⚠ 전역 치환은 낱말 속까지 먹는다 — 머그컵→'그컵', 해담옥→'담옥' 사고(2026-09-01).
   //     그래서 어미·감탄사는 stripTail 이 **문장 끝에서만** 처리하고, 여기선 안전한 것만 지운다.
@@ -282,7 +327,7 @@ function keyword(u: string, cut = true) {
   //   DB 실측 '이' 끝 브랜드 16종 104건: 미스티파이20·꼬메모이10·돌잡이9·팁토이조이8·마더케이5 …
   const JOSA1 = ["이","가","은","는","을","를","도"];
   s = s.split(" ").filter((w) => !JOSA1.includes(w)).join(" ").trim();
-  return stripTail(s, cut);   // 부품을 지운 뒤 다시 말끝 정리 ("소고기 뭐" → "소고기")
+  return stripTail(s);   // 부품을 지운 뒤 다시 말끝 정리 ("소고기 뭐" → "소고기")
 }
 
 
@@ -372,7 +417,7 @@ Deno.serve(async (req) => {
     }
 
     // ⓪-b 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") = 조회수 + 찜 합산 순
-    if (wantTop) {
+    const topCards = async (): Promise<Response | null> => {
       const [cc, wc] = await Promise.all([rpc("gonggu_click_counts"), rpc("wish_counts")]);
       const score = new Map<number, number>();
       for (const r of cc as any[]) score.set(r.id, (score.get(r.id) ?? 0) + (r.clicks ?? 0));
@@ -386,9 +431,10 @@ Deno.serve(async (req) => {
           .slice(0, MAX_SHOW);
         if (sorted.length) return reply([cards("지금 인기 있는 공구", sorted)]);
       }
-    }
 
-    // ① 브랜드·상품·셀러 검색 (말버릇을 걷어내고 남은 낱말이 있을 때만)
+      return null;
+    };
+    // ① 브랜드·상품 검색에 쓰는 상수 (말버릇을 걷어내고 남은 낱말이 있을 때만 찾는다)
     // 한 글자("김")도 찾는다. 다만 한 글자는 셀러명까지 보면 오탐이 크니 상품명만 본다.
     const STOP1 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
     // 문장 부품을 지우고 남은 찌꺼기는 브랜드가 아니다 — 이걸 검색하면 엉뚱한 안내가 나간다
@@ -400,7 +446,7 @@ Deno.serve(async (req) => {
     // 🔴 **깎기 전 판을 맨 앞에 둔다** (사장님 지시 2026-09-02: "말을 깎는건 절대 안 된다")
     //   "닥터포이" 를 물으면 조사판은 '닥터포' 지만 깎기 전 판은 '닥터포이' 다.
     //   DB 에 '닥터포이' 가 있으면 그쪽에서 잡히고 조사판까지 가지 않는다.
-    const kwRaw = keyword(u, false);
+    const kwRaw = kw;   // 깎은 판이 따로 없다 — 낱말의 글자를 깎지 않는다 (2026-09-06)
     // 🔴 **화면에 보이는 말·지난공구 조회는 손님이 친 말로 한다** (2026-09-04 실사고)
     //    조사 '이' 를 깎으면 '닥터포이' 가 '닥터포' 가 되고, 그 말로 지난공구를 찾으면
     //    **닥터포헤어**(전혀 다른 브랜드)를 권하게 된다. 검색은 깎은 판까지 써도 되지만
@@ -419,7 +465,37 @@ Deno.serve(async (req) => {
     // 수량·단위만 남은 말은 상품이 아니다 — "1박스" 가 '햇 나주배 5kg 1박스' 를 물어왔다.
     //   ⚠ '1+1' 은 실제 상품 표기라 통과한다(숫자+단위 꼴이 아니다).
     const UNITONLY = /^[0-9]+\s*(박스|개입|개|팩|봉지|봉|캔|병|장|롤|매|구|입|세트|kg|g|ml|리터|인분|단계)$/i.test(kw);
-    if (kw.length >= 1 && !NUMONLY && !CUT_JUNK && !UNITONLY && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw)) {
+    const askable = kw.length >= 1 && !NUMONLY && !CUT_JUNK && !UNITONLY && !(kw.length === 1 && STOP1.includes(kw)) && !STOPKW.includes(kw);
+
+    // ② 날짜 질문 (AI 해석에서도 부르므로 닫힌 함수로 둔다)
+    const closeCards = async () => {
+      const rows = await pick(`end_date=eq.${today}`, "order=id.desc", ph);
+      if (!rows.length) return reply([text("오늘 마감인 공구가 없어요. 아래 버튼에서 전체 일정을 볼 수 있어요!")]);
+      return reply([cards(`오늘(${today.slice(5)}) 마감 공구`, rows)]);
+    };
+    const tomorrowCards = async () => {
+      const t = addDays(today, 1);
+      const rows = await pick(`open_date=eq.${t}`, "order=id.desc", ph);
+      if (!rows.length) return reply([text("내일 오픈 예정 공구가 아직 등록되지 않았어요.")]);
+      return reply([cards(`내일(${t.slice(5)}) 오픈 공구`, rows)]);
+    };
+    // 주말: 이번 주 토·일에 오픈하는 공구 (실제 손님이 "주말 공구" 라고 묻는다)
+    const weekendCards = async () => {
+      const d = kst(); const dow = d.getDay();
+      const sat = new Date(d); sat.setDate(d.getDate() + ((6 - dow) + 7) % 7);
+      const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+      const rows = await pick(`open_date=gte.${ymd(sat)}&open_date=lte.${ymd(sun)}`, "order=open_date.asc", ph);
+      if (!rows.length) return reply([text("이번 주말에 오픈하는 공구가 아직 없어요.\n아래 버튼에서 이번 주 일정을 볼 수 있어요!")]);
+      return reply([cards("이번 주말 오픈 공구", rows)]);
+    };
+    const weekCards = async (): Promise<Response | null> => {
+      const rows = await pick(`open_date=gte.${today}&open_date=lte.${addDays(today, 6)}`, "order=open_date.asc", ph);
+      if (rows.length) return reply([cards("이번 주 오픈 공구", rows)]);
+      return null;
+    };
+
+    // ① 브랜드·상품 검색 본체 — 찾으면 답(Response), 못 찾으면 null (AI 해석 뒤 같은 함수로 다시 찾는다)
+    const searchReply = async (kw: string, kwRaw: string, say: string): Promise<Response | null> => {
       const AL = await aliases();
       let tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
       // 별칭은 두 번 푼다 — 줄임말 → 정식이름 → 표기변형 (사장님 지시 2026-09-02)
@@ -437,34 +513,10 @@ Deno.serve(async (req) => {
       tries.push(...p1);
       // 손님이 말한 그대로 + 별칭 1단계 (대표 낱말로 넓히기 **전**의 목록) — 핫딜 우선 판단에 쓴다
       //   ⚠ 2단계 확장은 여기 넣지 않는다 — 넓어져서 공구를 찾기도 전에 핫딜이 먼저 나간다(실측).
-      // 🔴 조사가 붙은 말인지 **DB 건수로** 가른다 — 규칙으로는 못 가른다(09-02·09-04 두 세션이 서로 넣었다 뺐다 했다)
-      //   실측 18낱말 오분류 0 (2026-09-05):
-      //     국이 0 ↔ 국 33 · 책이 1 ↔ 책 57 · 김이 0 ↔ 김 40 · 물이 0 ↔ 물 140  → 조사다, 뗀다
-      //     닥터포이 0 ↔ 닥터포 0 · 미스티파이 4 ↔ 미스티파 4 · 돌잡이 8 ↔ 돌잡 8  → 브랜드다, 안 뗀다
-      //   🔑 브랜드는 앞부분만 잘라도 건수가 안 는다. 조사는 떼면 확 는다. 그 차이가 자다.
-      //   ⚠ **상품명만** 센다 — '국이' 가 셀러 **미국이맘** 14건에 걸려 캐리어·의자를 주고 있었다.
-      //   ⚠ 검색 **앞**에서 정해야 한다. 뒤에 두면 그 엉뚱한 결과가 이미 나가버린다.
-      {
-        const JOSA = ["이", "가", "은", "는", "을", "를", "도"];
-        // ⚠ NOT_JOSA(모듈 상단)에 있는 말은 자르지 않는다 — 끝 글자가 조사가 아니라 낱말이다.
-        const j = kw === kwRaw && kw.length >= 2 && !NOT_JOSA.includes(kw) && JOSA.find((x) => kw.endsWith(x));
-        const base = j ? kw.slice(0, -1) : "";
-        if (base && Date.now() - tReq < 2500) {
-          const [cKw, cBase] = [await countName(kw, today), await countName(base, today)];
-          // 🔴 **손님 말이 상품명에 하나라도 있으면 그걸 준다 — 자르지 않는다** (2026-09-05 검증 6차 확정)
-          //   자를 네 번 바꾸며 세 축이 번갈아 죽었다. 이 한 줄이 셋을 동시에 만족한 유일한 조건이다:
-          //     조사   치약이0/2 · 감자탕이0/1 · 국이0/33 · 김이0/40 · 물이0/140 · 쌀이0/8 · 옷이0/14   → 자른다
-          //     품목어 종이4 · 명이1 · 송이1 · 길이3 · 봉이1 · 접이4 · 세이20 · 나이6 · 사이10 · 다이10   → 지킨다
-          //     브랜드 카이2 · 조이4 · 뉴이2 · 블루이1 · 미스티파이4 · 돌잡이8 · 마더케이1 · 대발이3     → 지킨다
-          //   ⚠ 건수 문턱을 두면 「치약이」(2건)·「감자탕이」(1건)가 죽는다. 문턱은 **1**이다.
-          //   ⚠ 접미 토큰(endsAsToken)으로 가르려다 **종이→'종'** 이 됐다 — 한국어 품목어는 낱말 **앞**에 온다.
-          //   ⚠ 조회 실패는 양쪽 다 자르지 않는 쪽으로 간다 — countName 이 9999 를 주므로
-          //      cKw 실패면 `cKw===0` 이 거짓, cBase 실패면 `cBase<9999` 가 거짓이 된다.
-          //   ⚠ 남은 것: 「뮤이」(DB 0건)는 '뮤' 로 잘려 뮤주벨 등이 섞인다. "없어요"가 정답이나 미해결.
-          if (cKw === 0 && cBase >= 1 && cBase < 9999) { tries = [base]; say = base; }
-        }
-      }
-
+      // 🔴 조사 '이'를 떼는 규칙은 걷어냈다 (사장님 지시 2026-09-06: "단어 끝에 '이'자 맘대로 빼는 규칙은 절대 안돼")
+      //   09-02~09-05 나흘간 이 자리를 여섯 번 고쳤다 — 규칙으로는 '국이'(조사)와 '종이'(낱말)를 가를 수 없다.
+      //   말귀는 AI 해석 + 학습 사전이 맡는다 (scratchpad/챗봇AI도입_계획.md). 여기에 조사 규칙을 다시 넣지 말 것.
+      //   ⚠ 「국이 있어?」는 AI 가 붙기 전까지 "없어요" 다 — 최근 30일 실손님 발화에 그 형태 0건.
       const specific = [...new Set(tries)];
       tries.push(...expand(p1));   // 2단계(표기변형)는 넓히기용
       // 수식어는 **사전으로** 뗀다 — 깎는 게 아니다 (사장님 지시 2026-09-02)
@@ -626,17 +678,10 @@ Deno.serve(async (req) => {
       // ③ 대표 낱말까지 넓혀서 다시
       const wide = await searchGonggu(tries);
       if (wide) return reply([cards(`'${say}' 공구 일정`, wide)]);
-      // 🔴 여기 있던 `bot_subword`(글자 조각 검색)를 걷어냈다 (사장님 지시 2026-09-02)
-      //    "말을 깎는건 절대 해서는 안되는거야 문맥을 파악해야지"
-      //    알테리→'테리' · 머그컵→'컵' 처럼 브랜드가 통째로 죽었다.
-      //    합성어(아기곰탕→곰탕)는 **bot_alias 로** 관리한다 — 한 곳에서 보고 재배포도 필요 없다.
-
-      // ⚠ 여기 있던 "뒤 낱말 재시도" 는 걷어냈다 (2026-09-02 검증).
-      //    "이유식 스푼" 에서 뒤 낱말 스푼 을 고르니 애플스푼 배도라지즙·스푼풀 오메가3 가 나갔다 —
-      //    브랜드명에 그 글자가 든 것까지 걸린다. 손님이 바꿔 쳐서 성공한 말은 이유식기(앞 낱말)였다.
-      //    그 자리를 대신하던 낱말 OR 합집합도 2026-09-02 에 걷어냈다(엉뚱한 답을 냈다).
-      //    지금 이 일을 하는 것은 **bot_alias** 하나뿐이다 — 넓힐 말은 거기에 넣는다.
-
+      return null;
+    };
+    // 못 찾았을 때의 안내 (되묻기·지난 공구 포함)
+    const notFound = async (say: string, kw: string): Promise<Response> => {
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
       try {
         fetch(`${SB}/rest/v1/events`, { method: "POST",
@@ -683,33 +728,74 @@ Deno.serve(async (req) => {
       } catch (_) { /* 실패해도 아래 기본 안내가 나간다 */ }
       return reply([text(`'${say}' 공구는 지금 진행 중이거나 예정인 게 없어요.
 아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}`)]);
-    }
 
-    // ② 날짜 질문
-    if (wantClose) {
-      const rows = await pick(`end_date=eq.${today}`, "order=id.desc", ph);
-      if (!rows.length) return reply([text("오늘 마감인 공구가 없어요. 아래 버튼에서 전체 일정을 볼 수 있어요!")]);
-      return reply([cards(`오늘(${today.slice(5)}) 마감 공구`, rows)]);
+    };
+
+    // 🧠 해석 결과(사전·AI) → 기존 답변 경로로 보낸다. 답이 없으면 null.
+    const routeIntent = async (it: Interp, ruleDone = true): Promise<Response | null> => {
+      // 🔴 상품이 있으면 핫딜 안내가 아니라 검색이다 (2026-09-06 「기저귀 싸게 파는데 없나」가 핫딜로 분류돼 카드를 못 줬다)
+      if (it.intent === "hotdeal" && String(it.q || "").trim()) it = { ...it, intent: "search" };
+      switch (it.intent) {
+        case "search": {
+          const qq = String(it.q || "").trim();
+          if (!qq) return null;
+          if (ruleDone && askable && qq === kw) return null;   // 규칙이 이미 그 말로 찾아봤다
+          return await searchReply(qq, qq, qq);
+        }
+        case "today": return await todayCards();
+        case "tomorrow": return await tomorrowCards();
+        case "week": return (await weekCards()) ?? (await todayCards());
+        case "weekend": return await weekendCards();
+        case "closing": return await closeCards();
+        case "popular": return await topCards();
+        case "hotdeal": return reply([text("핫딜은 아직 챗봇에서는 안 알려드려요 🙏\n맘캘린더 사이트 '🔥 핫딜' 탭에서 오늘 올라온 특가를 모아 보실 수 있어요!")]);
+        case "greeting": return reply([text(HELP)]);
+        case "thanks": return reply([text(ANS.thanks)]);
+        default: return null;
+      }
+    };
+
+    // 🧠 ① 해석 사전 — 이 말을 전에 풀어둔 적 있으면 그대로 답한다 (0원)
+    const learned = await interpLookup(u);
+    let hitPending = false;   // 사전 해석이 "규칙이 같은 말로 찾을 차례" 라 null 을 준 경우 — 규칙 결과를 보고 ok_cards 를 찍는다
+    if (learned) {
+      const r = await routeIntent(learned);
+      if (r) { interpHit(u, true); return r; }
+      // ⚠ 여기서 바로 interpHit(u,false) 를 찍으면 규칙이 카드를 찾아도 ok_cards=false 로 남아
+      //   "hits 많고 ok_cards=false → 재해석 후보" 통계가 오염된다 (f9 세션 검증 지적 2026-09-06)
+      hitPending = true;
     }
-    if (wantTomorrow) {
-      const t = addDays(today, 1);
-      const rows = await pick(`open_date=eq.${t}`, "order=id.desc", ph);
-      if (!rows.length) return reply([text("내일 오픈 예정 공구가 아직 등록되지 않았어요.")]);
-      return reply([cards(`내일(${t.slice(5)}) 오픈 공구`, rows)]);
+    if (wantTop) { const r = await topCards(); if (r) return r; }
+    // 🧠 ③-a 문장형은 규칙보다 AI 먼저 (2026-09-06 실측: 「이번 주말에 오픈하는 거 알려줘」를 규칙이 '말에 하는 거' 로 잘라
+    //    "말하는 인형" 카드를 내놓았고, 규칙이 카드를 찾았으니 AI 는 불리지도 않았다).
+    //    낱말 3개 이상이거나 12자 이상이면 문장으로 본다. 짧은 브랜드·품목은 그대로 규칙 먼저(0원).
+    //    AI 가 못 하면(키 없음·2.5초 초과) 아래 규칙으로 그대로 내려간다.
+    const sentenceLike = u.trim().split(/\s+/).length >= 3 || u.trim().length >= 12;
+    let ai: Interp | null = null;
+    if (!learned && sentenceLike) {
+      ai = await interpAI(u, tReq);
+      // ⚠ ruleDone=false — 규칙이 아직 안 돌았으니 "규칙이 이미 찾아봤다" 건너뛰기를 하면 안 된다
+      //   (2026-09-06 실측: 「물티슈 공구 궁금해요!」가 그 건너뛰기에 걸려 '없어요' 로 나갔다)
+      if (ai) { const r = await routeIntent(ai, false); if (r) return r; }
     }
-    // 주말: 이번 주 토·일에 오픈하는 공구 (실제 손님이 "주말 공구" 라고 묻는다)
-    if (wantWeekend) {
-      const d = kst(); const dow = d.getDay();
-      const sat = new Date(d); sat.setDate(d.getDate() + ((6 - dow) + 7) % 7);
-      const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
-      const rows = await pick(`open_date=gte.${ymd(sat)}&open_date=lte.${ymd(sun)}`, "order=open_date.asc", ph);
-      if (!rows.length) return reply([text("이번 주말에 오픈하는 공구가 아직 없어요.\n아래 버튼에서 이번 주 일정을 볼 수 있어요!")]);
-      return reply([cards("이번 주말 오픈 공구", rows)]);
+    // ② 규칙 검색 (손님이 친 말 그대로 + 별칭)
+    if (askable) { const r = await searchReply(kw, kwRaw, say); if (r) { if (hitPending) interpHit(u, true); return r; } }
+    if (hitPending) interpHit(u, false);
+    // 🧠 ③-b 규칙이 못 찾았다 → AI 해석(키 없으면 건너뜀) → 사전 저장 → 그 해석으로 다시 찾는다
+    //    ⚠ kw 가 빈 발화(말버릇만 남은 「오늘 핫한 공구머있어」)는 AI 를 안 태운다 — 원칙 ①대로 오늘 공구다 (f9 검증 지적)
+    if (!learned && !sentenceLike && kw.length >= 1) {
+      ai = await interpAI(u, tReq);
+      if (ai) { const r = await routeIntent(ai, true); if (r) return r; }
     }
-    if (wantWeek) {
-      const rows = await pick(`open_date=gte.${today}&open_date=lte.${addDays(today, 6)}`, "order=open_date.asc", ph);
-      if (rows.length) return reply([cards("이번 주 오픈 공구", rows)]);
-    }
+    // AI 가 "이걸 찾는다" 고 했는데 어디에도 없다 → 그 낱말로 없어요 안내 (문장 통째가 아니라)
+    if (ai && ai.intent === "search" && ai.q) return await notFound(ai.q, ai.q);
+    if (askable) return await notFound(say, kw);
+
+    // ②' 날짜 질문 (브랜드가 없을 때)
+    if (wantClose) return await closeCards();
+    if (wantTomorrow) return await tomorrowCards();
+    if (wantWeekend) return await weekendCards();
+    if (wantWeek) { const r = await weekCards(); if (r) return r; }
     // ③ 말버릇만 남은 질문("오늘 핫한 공구머있어") = 오늘 공구
     return await todayCards();
   } catch (_) {
