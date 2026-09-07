@@ -117,7 +117,18 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}/${Q}>오늘 진행 중인 공구 보러 가기 →</a>")
   [void]$sb.AppendLine("<div class=${Q}foot${Q}>맘캘린더는 인스타그램 공동구매 일정을 모아 보여주는 무료 서비스입니다.<br>")
   [void]$sb.AppendLine("공구 일정은 매일 갱신됩니다.<br>")
-  [void]$sb.AppendLine("<a href=${Q}/${Q}>momcalendar.com</a> · <a href=${Q}/$(Enc('공구브랜드.html'))${Q}>브랜드</a> · <a href=${Q}/$(Enc('공구셀러.html'))${Q}>셀러</a> · <a href=${Q}/$(Enc('공구제품.html'))${Q}>제품</a></div>")
+  [void]$sb.AppendLine("<a href=${Q}/${Q}>momcalendar.com</a> · <a href=${Q}/$(Enc('공구브랜드.html'))${Q}>브랜드</a> · <a href=${Q}/$(Enc('공구셀러.html'))${Q}>셀러</a> · <a href=${Q}/$(Enc('공구제품.html'))${Q}>제품</a><br>")
+  # 검색 유입 키워드 페이지로 가는 내부 링크 (2026-09-07 사장님 지시 "관련 검색어 다 1위로").
+  # 실측: 키워드 랜딩 28장을 링크하는 곳이 홈의 2개뿐이라(나머지는 사이트맵만) 구글·네이버가 '중요하지 않은 페이지'로 본다.
+  # 생성 페이지 1.8만 장이 전부 이 줄을 달면 내부 링크가 생긴다. 앵커 문구 = 노리는 검색어 그대로.
+  $kwFoot = @(
+    @('인스타공구.html','인스타 공구'), @('인스타공구모음.html','인스타 공구 모음'), @('인스타공구사이트.html','인스타 공구 사이트'),
+    @('인스타공구어플.html','인스타 공구 어플'), @('공구일정.html','공구 일정'), @('공구일정사이트.html','공구 일정 사이트'),
+    @('공구사이트.html','공구 사이트'), @('오늘공구.html','오늘 공구'), @('공구하는곳.html','공구하는 곳'), @('공구모음사이트.html','공구 모음 사이트')
+  )
+  $kwLinks = @()
+  foreach($kf in $kwFoot){ $kwLinks += "<a href=${Q}/$(Enc($kf[0]))${Q}>$(HtmlEsc $kf[1])</a>" }
+  [void]$sb.AppendLine(($kwLinks -join ' · ') + '</div>')
   [void]$sb.AppendLine('</div></body></html>')
   [IO.File]::WriteAllText($o.path, $sb.ToString(), [Text.UTF8Encoding]::new($false))
 }
