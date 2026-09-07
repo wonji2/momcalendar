@@ -713,8 +713,12 @@ Deno.serve(async (req) => {
     // 못 찾았을 때의 안내 (되묻기·지난 공구 포함)
     const notFound = async (say: string, kw: string): Promise<Response> => {
       // 못 찾은 검색어를 쌓는다 — 이걸 보고 bot_alias 와 위 말버릇 목록을 채운다 (학습 루프)
+      // ⚠ 우리 로봇(bot_learn=BOTLEARN · bot_guard=BOTGUARD)이 되물은 것은 쌓지 않는다.
+      //   2026-09-07 실측: 6시간 미스 1,724건 중 로봇 호출이 절반(1,630/3,264) — 학습기가 자기 되묻기를 다시 '못 찾은 말'로 세어
+      //   "닥터포이가 있어? (54회)" 처럼 사장님께 가짜 횟수를 보고했다. uid 는 앞 6자만 남으니 BOTLE/BOTGU 로 본다.
+      const robot = /^BOT(LE|GU)/.test(uid);
       try {
-        fetch(`${SB}/rest/v1/events`, { method: "POST",
+        if (!robot) fetch(`${SB}/rest/v1/events`, { method: "POST",
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ event_type: "kakao_bot_miss", event_data: `${kw} <= ${u}`.slice(0, 70) }) });
       } catch (_) { /* 무시 */ }

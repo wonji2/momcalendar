@@ -9,7 +9,8 @@
  *   ④ 남은 것(후보 없음)은 🔴 로 보고서에 남긴다 → 세션이 보고 말투 규칙을 손본다
  *
  * 실행       node tools/daily/bot_learn.mjs        (--dry 면 등록 안 하고 보기만)
- * 예약작업   momcal-bot-learn — 30분마다 (사장님 지시 2026-09-01, Claude 무관)
+ * 예약작업   momcal-bot-learn — 30분마다, 창 숨김(run_hidden.vbs) (사장님 지시 2026-09-01·09-07, Claude 무관)
+ *            상태  scratchpad/bot_learn_state.json — 본 말은 3시간 동안 다시 안 묻는다 (2026-09-07)
  * 보고서     scratchpad/bot_learn_report.txt  (최신이 맨 위, 세션이 훑는 곳)
  * 상태       없음 — 24시간 창을 매번 다시 보고, 이미 등록된 별칭은 건너뛴다
  */
@@ -65,6 +66,16 @@ const miss = sql(`
 // 이미 등록된 별칭은 건너뛴다
 const known = new Set(sql(`select term from bot_alias;`).map(r => String(r.term).toLowerCase()));
 
+// ⏭ 상태: 한 번 본 말은 3시간 동안 다시 묻지 않는다 (2026-09-07 사장님 "10분에 하나씩 창이 뜬다 — 용량 낭비 아니냐")
+//   전에는 상태가 없어 같은 40개를 매 회차(10분)마다 챗봇에 되묻고 CLI 를 25번씩 띄웠다 — 결과는 매번 똑같았다.
+//   챗봇 응답을 못 받은 것(🔴)은 상태에서 지워 다음 회차에 다시 본다.
+const STATE = path.join(ROOT, 'scratchpad', 'bot_learn_state.json');
+const SEEN_MS = 3 * 3600e3;
+let state = {};
+try { state = JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch (_) { state = {}; }
+for (const k of Object.keys(state)) if (Date.now() - (state[k].at || 0) > 24 * 3600e3) delete state[k];   // 하루 지난 건 버린다
+let skipped = 0;
+
 say(`\n===== ${now} 챗봇 학습 =====`);
 if (!miss.length) { say('못 알아들은 말 없음 — 손볼 것 없습니다.'); }
 
@@ -72,6 +83,8 @@ let added = 0, pend = 0, dead = 0, fixed = 0, okNone = 0, review = 0;
 for (const m of miss) {
   const kw = String(m.kw || '').trim();
   if (!kw || known.has(kw.toLowerCase())) continue;
+  if (state[kw] && Date.now() - state[kw].at < SEEN_MS) { skipped++; continue; }   // 3시간 안에 본 말
+  state[kw] = { at: Date.now() };
   const g = await post('rpc/bot_guess', { p_kw: kw }).catch(() => []);
   const cand = Array.isArray(g) ? g.map(x => x.word).filter(Boolean) : [];
   if (!cand.length) {
@@ -107,7 +120,7 @@ for (const m of miss) {
       }
       okNone++; say(`🟡 우리 테스트 "${say2}"  (${m.c}회) — 검토판에 안 올림`); continue;
     }
-    dead++; say(`🔴 확인 실패 "${kw}"  (원문: ${say2}) ${m.c}회 — 챗봇 응답을 못 받았습니다`); continue;
+    delete state[kw]; dead++; say(`🔴 확인 실패 "${kw}"  (원문: ${say2}) ${m.c}회 — 챗봇 응답을 못 받았습니다`); continue;
   }
 
   // ③ 확실한 것만 자동 등록 = 한 낱말 + 편집거리 정확히 1 (= 진짜 오타)
@@ -162,7 +175,7 @@ for (const m of miss) {
         okIns = sql(`select 1 ok from bot_alias where term = ${q(kw)};`).length > 0;
       } catch (e) { okIns = false; }
     }
-    if (!okIns) { dead++; say(`🔴 등록실패 "${kw}" → "${best}" — bot_alias 에 안 들어갔습니다`); continue; }
+    if (!okIns) { delete state[kw]; dead++; say(`🔴 등록실패 "${kw}" → "${best}" — bot_alias 에 안 들어갔습니다`); continue; }
     known.add(kw.toLowerCase()); added++;
     say(`✅ 배웠음  "${kw}" → "${best}"  (${m.c}회)`);
   } else {
@@ -170,6 +183,8 @@ for (const m of miss) {
   }
 }
 say(`요약: 자동학습 ${added} · 🙋사장님검토 ${review} · 사람판단 ${pend} · 이미해결 ${fixed} · 없는게맞음 ${okNone} · 🔴이상 ${dead}${DRY ? '  (--dry, 실제 등록 안 함)' : ''}`);
+try { fs.writeFileSync(STATE, JSON.stringify(state)); } catch (_) {}
+if (skipped) say(`⏭ 3시간 안에 본 말 ${skipped}개는 건너뜀 (상태: scratchpad/bot_learn_state.json)`);
 
 const prev = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';
 fs.writeFileSync(REPORT, log.join('\n') + '\n' + prev.split('\n').slice(0, 400).join('\n'));
