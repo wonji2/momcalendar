@@ -107,6 +107,15 @@ async function sb(path: string, init: RequestInit = {}) {
   try { return t ? JSON.parse(t) : null; } catch { return null; }
 }
 
+// ── 표기 정리 (2026-09-07) ── 카드에 그대로 나가는 값이라 여기서 손님용 표기로 바꾼다.
+//   사고: id 684 가 mall='11st' 로 들어가 다른 11번가 카드(mall='11번가')와 표기가 달랐고,
+//   제목에 머천트가 이스케이프한 '78%%OFF' 가 그대로 나갔다 (verifier 2026-09-07 실측).
+const MALL_LABEL: Record<string, string> = {
+  "11st": "11번가", gmarket: "지마켓", auction: "옥션", boribori: "보리보리", ssg: "SSG",
+};
+const mallLabel = (m: string) => MALL_LABEL[(m || "").toLowerCase()] ?? m;
+const cleanTitle = (t: string) => String(t || "").replace(/%%/g, "%").replace(/\s+/g, " ").trim();
+
 // ── 수집 ── 두 피드를 합쳐 하나의 상품 목록으로
 type Item = { id: string; name: string; price: number; url: string; img: string; mall: string };
 
@@ -269,9 +278,9 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(picks.map((p) => ({
-          title: p.name, link: p.url, img_url: p.img,
+          title: cleanTitle(p.name), link: p.url, img_url: p.img,
           price: p.price, price_before: p.avg, discount_rate: p.discount,
-          major: p.major, minor: p.minor, mall: p.mall,
+          major: p.major, minor: p.minor, mall: mallLabel(p.mall),
           source: "linkprice", product_id: p.id, is_lowest: p.isLowest,
           deal_day: today, expires_at: expires,
         }))),

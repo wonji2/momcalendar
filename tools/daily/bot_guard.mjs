@@ -49,7 +49,12 @@ const sql = (text) => {
 };
 const alert = (kind, detail) => {
   const q = (t) => "'" + String(t).replace(/'/g, "''") + "'";
-  try { sql(`insert into health_alerts(kind, detail) values (${q(kind)}, ${q(detail.slice(0, 400))});`); } catch (_) {}
+  // 2026-09-07: 같은 kind+detail 이 24시간 안에 이미 있으면 다시 넣지 않는다.
+  //   "선풍기×21·치약이도" 브랜드깎임이 30분마다 똑같은 내용으로 6시간에 11건 쌓여 진짜 경보를 덮었다(verifier 실측).
+  //   내용이 바뀌면(새 발화가 섞이면) detail 이 달라지므로 그때는 새로 들어간다.
+  const d = q(detail.slice(0, 400));
+  try { sql(`insert into health_alerts(kind, detail) select ${q(kind)}, ${d}
+    where not exists (select 1 from health_alerts where kind=${q(kind)} and detail=${d} and created_at > now() - interval '24 hours');`); } catch (_) {}
 };
 let slowest = 0, slowestSay = '';
 const ask = async (utterance) => {
