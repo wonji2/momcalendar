@@ -149,6 +149,7 @@ const AI_SYSTEM = [
   "손님이 카톡으로 친 짧은 말을 읽고 무엇을 원하는지만 JSON 으로 답한다. 답변 문장은 쓰지 않는다.",
   "intent: search(브랜드·상품·품목을 찾는다) | today(오늘 오픈) | tomorrow | week(이번 주) | weekend | closing(오늘 마감·끝나는 것) | popular(인기·베스트·핫한·잘 나가는·많이 보는 공구) | hotdeal(손님이 '핫딜·특가·세일' 이라는 낱말을 직접 썼고 찾는 상품이 없을 때만) | greeting(인사·도움말) | thanks(감사·칭찬) | other",
   "🔴 상품·품목·브랜드가 한 낱말이라도 있으면 무조건 search 다. '기저귀 싸게 파는데 없나' 는 hotdeal 이 아니라 search(q=기저귀). '요즘 핫한 공구' 는 hotdeal 이 아니라 popular.",
+  "🔴 네가 모르는 낱말 하나짜리 말('이치비야','뮤이','도들','끄링물')은 브랜드·상품명일 가능성이 크다 → greeting/other 가 아니라 search(q=그 말 그대로). greeting 은 '안녕'·'하이' 처럼 인사가 분명할 때만, other 는 자모만 있거나 뜻이 없는 말('ㅁㄴㅇㄹ','xyz')에만.",
   "q: intent 가 search 일 때 검색할 핵심 낱말. 손님이 쓴 브랜드·상품명 표기를 **한 글자도 바꾸지 말고 그대로** 쓴다(줄이거나 고치지 않는다). 조사·어미·수식어('싸게','좀','그거','있어?')만 뺀다. 'A 말고 B' 면 B 만. 여러 품목이면 공백으로 나열. search 가 아니면 빈 문자열.",
   "cat: 짐작되는 분류 하나(육아·식품·리빙·뷰티·패션·반려동물·기타) 또는 빈 문자열.",
 ].join("\n");
@@ -349,6 +350,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     u = String(body?.userRequest?.utterance ?? "").trim();
+    // 인사말로 시작하는 문장은 인사 뒤 본문으로 본다 — 「안녕하세요 하베브릭스 장난감 공구일정 알고싶어요」에 도움말이 나갔다(실손님 09-02)
+    { const rest = u.replace(/^(안녕하세요|안녕하세용|안녕하십니까|안녕|안뇽|안냥|하이용|하이|헬로)[\s,.!~♡♥]*/i, ""); if (rest !== u && rest.length >= 2) u = rest; }
     uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 6) + ":" + String(body?.userRequest?.user?.type ?? "?").slice(0, 4)
         + ":" + String(req.headers.get("user-agent") ?? "?").slice(0, 14);
     const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)
@@ -392,7 +395,11 @@ Deno.serve(async (req) => {
     } catch (_) { /* 못 읽어도 아래 기본 규칙으로 답한다 */ }
 
     // ⓪-a 인사·감사·칭찬에는 사람처럼 답한다 (손님이 실제로 이렇게 말한다)
-    if ((x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(u) || (x=>/고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i.test(x))(uz)) {
+    //   ⚠ 감사 낱말이 든 **브랜드**가 있다 — 「땡스소윤」(냉동용기, DB 4건)이 '땡스' 에 걸려 "저도 좋아요" 가 나갔다(실손님 09-06).
+    //     상품명에 그 말이 통째로 있으면 인사가 아니라 검색이다.
+    const THANKS_RE = /고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i;
+    if ((THANKS_RE.test(u) || THANKS_RE.test(uz))
+        && !(u.length >= 3 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + u + "%")}`)) > 0)) {
       return reply([text("도움이 됐다니 저도 좋아요 🙂\n공구 궁금할 땐 언제든 물어봐 주세요!")]);
     }
     if ((x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(u) || (x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(uz)) {
@@ -758,8 +765,13 @@ Deno.serve(async (req) => {
         case "closing": return await closeCards();
         case "popular": return await topCards();
         case "hotdeal": return reply([text("핫딜은 아직 챗봇에서는 안 알려드려요 🙏\n맘캘린더 사이트 '🔥 핫딜' 탭에서 오늘 올라온 특가를 모아 보실 수 있어요!")]);
-        case "greeting": return reply([text(HELP)]);
-        case "thanks": return reply([text(ANS.thanks)]);
+        case "greeting": case "thanks": {
+          // AI 가 모르는 브랜드를 인사로 오해한다 — 이치비야·뮤이·도들 에 도움말이 나갔다(실손님). 상품명에 그 말이 있으면 검색이다.
+          if (kw.length >= 2 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + kw + "%")}`)) > 0) {
+            return await searchReply(kw, kw, kw, true);
+          }
+          return reply([text(it.intent === "greeting" ? HELP : ANS.thanks)]);
+        }
         default: return null;
       }
     };
