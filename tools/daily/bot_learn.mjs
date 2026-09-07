@@ -12,7 +12,8 @@
  * 예약작업   momcal-bot-learn — 30분마다, 창 숨김(run_hidden.vbs) (사장님 지시 2026-09-01·09-07, Claude 무관)
  *            상태  scratchpad/bot_learn_state.json — 본 말은 3시간 동안 다시 안 묻는다 (2026-09-07)
  * 보고서     scratchpad/bot_learn_report.txt  (최신이 맨 위, 세션이 훑는 곳)
- * 상태       없음 — 24시간 창을 매번 다시 보고, 이미 등록된 별칭은 건너뛴다
+ * 상태       scratchpad/bot_learn_state.json — 본 말은 3시간 재확인 안 함(🔴응답실패는 지워 재시도). --dry 는 저장 안 함.
+ *            이미 등록된 별칭은 매번 건너뛴다
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -183,7 +184,8 @@ for (const m of miss) {
   }
 }
 say(`요약: 자동학습 ${added} · 🙋사장님검토 ${review} · 사람판단 ${pend} · 이미해결 ${fixed} · 없는게맞음 ${okNone} · 🔴이상 ${dead}${DRY ? '  (--dry, 실제 등록 안 함)' : ''}`);
-try { fs.writeFileSync(STATE, JSON.stringify(state)); } catch (_) {}
+// ⚠ --dry 는 상태를 저장하지 않는다 — 검증자 지적(2026-09-07): dry 가 '본 말'로 찍어 두면 실제 회차가 3시간 동안 그 말의 별칭·검토판 등록을 건너뛴다
+if (!DRY) { try { fs.writeFileSync(STATE, JSON.stringify(state)); } catch (_) {} }
 if (skipped) say(`⏭ 3시간 안에 본 말 ${skipped}개는 건너뜀 (상태: scratchpad/bot_learn_state.json)`);
 
 const prev = fs.existsSync(REPORT) ? fs.readFileSync(REPORT, 'utf8') : '';

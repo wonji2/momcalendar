@@ -12,4 +12,10 @@ For i = 0 To WScript.Arguments.Count - 1
   cmd = cmd & """" & WScript.Arguments(i) & """ "
 Next
 ' 0 = 창 숨김, True = 끝날 때까지 기다려 종료코드를 예약작업에 돌려준다 (LastTaskResult 가 그대로 살아남는다)
-WScript.Quit sh.Run(cmd, 0, True)
+' ⚠ 실행파일이 없으면 sh.Run 이 예외를 던지고 wscript 는 0 으로 끝난다 (검증자 실측 2026-09-07) → 127 로 바꿔 예약작업에 실패가 보이게 한다
+Dim rc
+On Error Resume Next
+rc = sh.Run(cmd, 0, True)
+If Err.Number <> 0 Then rc = 127
+On Error GoTo 0
+WScript.Quit rc
