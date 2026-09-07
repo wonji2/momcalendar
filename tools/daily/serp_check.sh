@@ -59,4 +59,4 @@ fi
 
 # ── 진짜 순위(블록 순번) 실측 — 2026-09-07. 위 바이트 오프셋은 추세용, 순위는 이 로그를 본다 ──
 NODE=/c/Users/FAMILY/node-portable/node-v24.18.0-win-x64/node.exe
-[ -x "$NODE" ] && "$NODE" tools/daily/naver_rank.mjs >/dev/null 2>&1 && echo "naver_rank done: $(grep -c "^$D" scratchpad/naver_rank_log.tsv) queries"
+[ -x "$NODE" ] && "$NODE" tools/daily/naver_rank.mjs >>scratchpad/naver_rank_run.log 2>&1 && echo "naver_rank done: $(grep -c "^$D" scratchpad/naver_rank_log.tsv) queries"

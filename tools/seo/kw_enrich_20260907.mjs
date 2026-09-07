@@ -9,6 +9,8 @@ import fs from 'node:fs';
 const F = new URL('./keywords.json', import.meta.url);
 const k = JSON.parse(fs.readFileSync(F, 'utf8'));
 const by = Object.fromEntries(k.pages.map((p) => [p.slug, p]));
+// 재실행 가드 (검증자 지적: 두 번 돌리면 FAQ 가 겹친다 — 인스타공구 5→7). 신설 페이지가 이미 있으면 끝.
+if (by['공구사이트'] || by['공동구매사이트'] || by['인스타공동구매']) { console.log('이미 적용됨 — keywords.json 을 직접 고쳐라 (재실행 금지)'); process.exit(0); }
 
 // ── 기존 페이지 보강 ──
 Object.assign(by['인스타공구'], {

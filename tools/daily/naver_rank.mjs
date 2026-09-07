@@ -24,7 +24,9 @@ const QUERIES = [
   '무아스 공구', '바크 공구', '유라이크 공구', '상떼 공구', '알텐바흐 공구', '세이펜 공구', '탁가온 공구', '바이칸 공구',
 ];
 const OURS = /momcalendar\.com|blog\.naver\.com\/momcal\b|cafe\.naver\.com\/momcal\b/;
-const SKIP = /ader\.naver|pay\.naver|keep\.naver|shopping\.naver|mkt\.naver|policy\.naver|navercorp|whale\.naver|naver\.com\/?$|pstatic|search\.naver|help\.naver|nid\.naver/;
+// 네이버 자체 블록: 광고(ader)·페이·킵·쇼핑·마케팅·정책·**클립(shorts)**·**푸터(more.html·전체서비스)**·검색 내부 링크
+// (검증자 지적 2026-09-07: 클립·푸터가 빠져 "맘캘린더" 가 1위인데 2위로 기록됐다)
+const SKIP = /ader\.naver|pay\.naver|keep\.naver|shopping\.naver|mkt\.naver|policy\.naver|navercorp|whale\.naver|naver\.com\/?$|naver\.com\/more|naver\.com\/shorts|clip\.naver|tv\.naver\.com\/shorts|pstatic|search\.naver|help\.naver|nid\.naver|in\.naver\.com\/?$/;
 const strip = (s) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,14 +51,17 @@ export async function rankOf(q) {
   return { q, rank: oi >= 0 ? oi + 1 : 0, total: org.length, kind, ahead: org.slice(0, Math.max(0, Math.min(oi, 3))).map((r) => r.dom).join(','), url: me?.url || '' };
 }
 
-const qs = process.argv.slice(2).length ? process.argv.slice(2) : QUERIES;
-const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
-if (!fs.existsSync(LOG)) fs.writeFileSync(LOG, 'date\tquery\trank\torganic_total\tkind\tahead\turl\n');
-for (const q of qs) {
-  try {
-    const r = await rankOf(q);
-    fs.appendFileSync(LOG, [date, r.q, r.rank || '-', r.total, r.kind, r.ahead, r.url].join('\t') + '\n');
-    console.log(`${r.q.padEnd(12)} | ${r.rank ? `${r.rank}위/${r.total} (${r.kind})` : `🔴 없음/${r.total}`}${r.ahead ? ' | 앞: ' + r.ahead : ''}`);
-  } catch (e) { console.log(`${q.padEnd(12)} | ⚠ ${e.message}`); }
-  await sleep(2200);
+// import 해서 rankOf 만 쓸 때는 안 돈다 (검증자 지적: 가드 없이 import 만 해도 26개 전부 돌며 로그를 썼다)
+if (process.argv[1] && /naver_rank\.mjs$/.test(process.argv[1].replace(/\\/g, '/'))) {
+  const qs = process.argv.slice(2).length ? process.argv.slice(2) : QUERIES;
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  if (!fs.existsSync(LOG)) fs.writeFileSync(LOG, 'date\tquery\trank\torganic_total\tkind\tahead\turl\n');
+  for (const q of qs) {
+    try {
+      const r = await rankOf(q);
+      fs.appendFileSync(LOG, [date, r.q, r.rank || '-', r.total, r.kind, r.ahead, r.url].join('\t') + '\n');
+      console.log(`${r.q.padEnd(12)} | ${r.rank ? `${r.rank}위/${r.total} (${r.kind})` : `🔴 없음/${r.total}`}${r.ahead ? ' | 앞: ' + r.ahead : ''}`);
+    } catch (e) { console.log(`${q.padEnd(12)} | ⚠ ${e.message}`); }
+    await sleep(2200);
+  }
 }
