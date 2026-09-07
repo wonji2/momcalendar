@@ -144,6 +144,14 @@ for (const m of miss) {
     }
     say(`🙋 검토판으로 "${kw}" → "${best}" — 우리 상품에 그 이름이 있어 오타로 안 본다`);
   } else if (sure && !isBrand) {
+    // 🚫 사장님이 "다른 브랜드" 로 판정한 짝은 다시 배우지 않는다 — bot_alias_deny (2026-09-07 아토팜≠아이팜 · 보르르≠보아르)
+    //   DB 에 없는 브랜드는 위 isBrand 가드를 못 지나므로(아토팜은 우리 DB 에 0건) 이 표가 마지막 방어선이다. 못 읽으면 안 배우는 쪽으로.
+    let denied = false;
+    try {
+      const qd = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+      denied = sql(`select 1 ok from bot_alias_deny where term = ${qd(kw)} and expand = ${qd(best)};`).length > 0;
+    } catch (_) { denied = true; }
+    if (denied) { say(`🚫 금지표 "${kw}" → "${best}" — 사장님이 다른 브랜드로 판정, 안 배운다`); continue; }
     // ⚠ bot_alias 는 손님 키로 쓰기가 막혀 있다(RLS) → 반드시 CLI(관리자)로 넣고, 넣은 뒤 되읽어 확인한다.
     //   2026-09-01: anon 으로 넣다 조용히 실패했는데 catch 가 삼켜서 "배웠음"으로 거짓 보고했다.
     let okIns = DRY;

@@ -48,10 +48,13 @@ async function q(path: string) {
 }
 /** 그 낱말이 진행중 공구 **상품명**에 실제로 있나.
  *  ⚠ 조회에 실패하면 true 를 준다 — 확실하지 않으면 낱말을 빼지 않는다(안전측). */
-async function hasWord(w: string, today: string): Promise<boolean> {
+// "DB 에 아예 없는 낱말" 판정 — 🔴 기간 무관으로 본다 (2026-09-07 사장님: 「하베브릭스 장난감」→ 없다고 하는 게 낫다).
+//   진행중만 보면 마감된 브랜드(하베브릭스, 지난 공구 3건)가 '없는 낱말' 로 빠지고 '장난감' 만 남아 다른 브랜드 장난감이 나간다.
+//   지난 공구에라도 있으면 진짜 낱말이다 → 남긴다 → AND 0건 → "없어요 + 지난번엔 하베브릭스 모래놀이". (_today 는 호환용)
+async function hasWord(w: string, _today: string): Promise<boolean> {
   try {
     const e = encodeURIComponent("%" + w + "%");
-    const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${e}&limit=1`);
+    const r = await q(`gonggu?select=id&approved=eq.true&name=ilike.${e}&limit=1`);
     return Array.isArray(r) ? r.length > 0 : true;
   } catch { return true; }
 }
@@ -363,6 +366,9 @@ Deno.serve(async (req) => {
 
     if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 1) return reply([text(HELP)]);
 
+    // 「아무거나」= 오늘 공구 (사장님 확정 2026-09-07). 사전·AI 보다 앞 — 검색어로 보면 "'아무거나' 없어요" 가 나간다(실손님)
+    const wantAny = /^(아무거나|아무거|아무꺼나|암거나|아무말|아무것|추천|추천해줘|추천좀|뭐든)[\s!?~.]*$/.test(u);
+
     // 인기 질문 ("젤 인기있는", "젤 핫한거", "조회수 많은거", "오늘의 탑텐") — 조회수+찜 합산 순
     const wantTop = /인기|젤\s|제일|가장|탑\s*텐|탑10|탑\s*10|top\s*10|톱텐|조회수|많이\s*본|베스트|best|순위|랭킹/i.test(u);
     const wantClose = /마감|끝나|종료|임박|막차|마지막\s*날/.test(u);
@@ -631,7 +637,18 @@ Deno.serve(async (req) => {
         if (!merged.length) {
           const raw = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
           const cand = raw.split(" ").filter((w) => w.length >= 2).slice(0, 3);
+          // 🔴 브랜드가 분명한 낱말(상품명 맨 앞에 온 적 있음, 기간 무관)이 있는데 지금 공구가 0이면 → 다른 낱말로 넓히지 않는다.
+          //   사장님(2026-09-07): 「하베브릭스 장난감」에 리틀홈헬퍼·아오라 장난감이 나갔다 → "없다고 하는 게 낫다".
+          //   (아래 notFound 가 '지난번엔 하베브릭스 모래놀이' 까지 알려준다)
+          let closedBrand = false;
           if (cand.length >= 2 && Date.now() - t0 < 1200) {
+            for (const w of cand) {
+              const e = encodeURIComponent(w + "%");
+              const everHead = await countOf(`gonggu?select=id&approved=eq.true&name=ilike.${e}&limit=1`);
+              if (everHead > 0 && (await countOf(`gonggu?select=id&approved=eq.true&name=ilike.${e}&end_date=gte.${today}&limit=1`)) === 0) { closedBrand = true; break; }
+            }
+          }
+          if (!closedBrand && cand.length >= 2 && Date.now() - t0 < 1200) {
             const scored: { w: string; ratio: number; all: number }[] = [];
             for (const w of cand) {
               if (Date.now() - t0 > 1500) break;
@@ -778,6 +795,7 @@ Deno.serve(async (req) => {
 
     // ⓪' 핫딜·특가 + 상품 낱말 → 공구 카드 → (없으면) 핫딜 카드 → (그래도 없으면) 안내. searchReply 정의 뒤라 여기서 처리한다.
     if (hdAsk) { const r = await searchReply(hdWord, hdWord, hdWord); return r ?? reply([text(HD_GUIDE)]); }
+    if (wantAny) return await todayCards();   // 「아무거나」= 오늘 공구 (사장님 확정 2026-09-07)
     // 🧠 ① 해석 사전 — 이 말을 전에 풀어둔 적 있으면 그대로 답한다 (0원)
     const learned = await interpLookup(u);
     let hitPending = false;   // 사전 해석이 "규칙이 같은 말로 찾을 차례" 라 null 을 준 경우 — 규칙 결과를 보고 ok_cards 를 찍는다
