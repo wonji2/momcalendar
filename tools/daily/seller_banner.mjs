@@ -16,7 +16,7 @@
 //
 //   node tools/daily/seller_banner.mjs          실제 반영
 //   node tools/daily/seller_banner.mjs --dry    미리보기만
-import { writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';   // 🔴 2026-09-08: readFileSync 가 빠져 --apply 가 제안 파일을 못 읽고 원안을 넣었다
 import { execFileSync } from 'node:child_process';
 import { parseRows } from './sb_query.mjs';
 
