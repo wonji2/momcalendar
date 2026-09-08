@@ -191,13 +191,14 @@ function keepAlive(p: Promise<unknown>) {
 }
 // 답장 마감 — AI 시작 시점 기준. 실측 p50 1,671 · p90 1,833ms → 2,600 이면 90%+ 가 제때 온다. 넘기면 규칙 답 + 백그라운드 학습.
 const AI_DEADLINE_MS = Number(Deno.env.get("BOT_AI_DEADLINE_MS") || 2600);
+const LATE = Symbol("late");   // "마감 초과" 와 "AI 가 즉시 null(키 없음·오류)" 을 가른다 — 2026-09-08 검증: null 로 뭉뚱그려 err 마다 late 가 덤으로 찍혔다
 async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T | null> {
   let timer: number | undefined;
-  const late = new Promise<null>((res) => { timer = setTimeout(() => res(null), ms); });
+  const late = new Promise<typeof LATE>((res) => { timer = setTimeout(() => res(LATE), ms); });
   const r = await Promise.race([p, late]);
   clearTimeout(timer);
-  if (r === null) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); }
-  return r;
+  if (r === LATE) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); return null; }
+  return r as T | null;
 }
 async function interpAI(u: string, tReq: number): Promise<Interp | null> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
@@ -354,26 +355,30 @@ function keyword(u: string) {
 }
 
 
-Deno.serve(async (req) => {
+// 답장 로그(kakao_bot)는 **실제로 손님에게 나간 Response 한 건**만 남긴다.
+//   2026-09-08 검증: 규칙 검색(ruleP)을 AI 와 병렬로 돌리면서 버려지는 쪽 reply() 도 로그를 찍어 문장형 발화마다 kakao_bot 이 2행 쌓였다.
+//   → reply() 는 로그 문구만 Response 에 붙여두고, 서버 래퍼가 돌려보내는 Response 의 것만 기록한다.
+const REPLY_LOG = new WeakMap<Response, string>();
+async function handle(req: Request): Promise<Response> {
   const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "Content-Type": "application/json" } });
   // ⚠ reply 는 body 파싱보다 먼저 정의되므로 u/uid 는 let 으로 미리 선언한다 (2026-09-01: 전 요청 500 사고)
   let u = "", uid = "?";
   const reply = (outputs: any[]) => {
+    const res = json({ version: "2.0", template: { outputs } });
     try {
       const last = outputs[outputs.length - 1] as any;
       const kind = Object.keys(last || {})[0] || "?";
       const n = last?.carousel?.items?.length ?? 0;
-      fetch(`${SB}/rest/v1/events`, { method: "POST",
-        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ event_type: "kakao_bot", event_data: `${u.slice(0, 40)} | uid=${uid} | ${kind}${n ? "x" + n : ""}` }) });
+      REPLY_LOG.set(res, `${u.slice(0, 40)} | uid=${uid} | ${kind}${n ? "x" + n : ""}`);   // 기록은 handle() 밖 래퍼가 한다
     } catch (_) { /* 기록 실패는 무시 */ }
-    return json({ version: "2.0", template: { outputs } });
+    return res;
   };
   try {
     const body = await req.json().catch(() => ({}));
     u = String(body?.userRequest?.utterance ?? "").trim();
     // 인사말로 시작하는 문장은 인사 뒤 본문으로 본다 — 「안녕하세요 하베브릭스 장난감 공구일정 알고싶어요」에 도움말이 나갔다(실손님 09-02)
-    { const rest = u.replace(/^(안녕하세요|안녕하세용|안녕하십니까|안녕|안뇽|안냥|하이용|하이|헬로)[\s,.!~♡♥]*/i, ""); if (rest !== u && rest.length >= 2) u = rest; }
+    //   ⚠ 낱말 경계 필수 — 경계 없이 떼면 「하이드로플라스크」→'드로플라스크', 「헬로디노」→'디노', 「안녕달」→'달' (2026-09-08 검증, 진행중 11건)
+    { const rest = u.replace(/^(안녕하세요|안녕하세용|안녕하십니까|안녕|안뇽|안냥|하이용|하이|헬로)(?=[\s,.!~♡♥]|$)[\s,.!~♡♥]*/i, ""); if (rest !== u && rest.length >= 2) u = rest; }
     uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 6) + ":" + String(body?.userRequest?.user?.type ?? "?").slice(0, 4)
         + ":" + String(req.headers.get("user-agent") ?? "?").slice(0, 14);
     const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)
@@ -383,7 +388,11 @@ Deno.serve(async (req) => {
     //    (2026-09-05 실사고: 조사 재검색 블록이 t0 를 참조해 김이·쌀이·닥터포이가 전부 500)
     const tReq = Date.now();
 
-    if ((x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 1) return reply([text(HELP)]);
+    // ⚠ 인사말로 시작하는 **브랜드**가 있다 — 하이드로플라스크·헬로디노·안녕달·하이패스(진행중 11건). 첫 낱말이 상품명에 있으면 인사가 아니라 검색이다 (2026-09-08 검증)
+    const greetLike = (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(u) || (x=>/^(안녕|안뇽|안냥|하이|하잉|하영|헬로|할롱|hi|hello|반가|방가|도움|사용법|메뉴|뭐해|누구|넵|넹)/i.test(x))(uz) || u.length < 1;
+    const w1 = u.split(/\s+/)[0] || "";
+    const brandFirst = greetLike && w1.length >= 3 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + w1 + "%")}&limit=1`)) > 0;
+    if (greetLike && !brandFirst) return reply([text(HELP)]);
 
     // 「아무거나」= 오늘 공구 (사장님 확정 2026-09-07). 사전·AI 보다 앞 — 검색어로 보면 "'아무거나' 없어요" 가 나간다(실손님)
     const wantAny = /^(아무거나|아무거|아무꺼나|암거나|아무말|아무것|추천|추천해줘|추천좀|뭐든)[\s!?~.]*$/.test(u);
@@ -423,8 +432,9 @@ Deno.serve(async (req) => {
     //   ⚠ 감사 낱말이 든 **브랜드**가 있다 — 「땡스소윤」(냉동용기, DB 4건)이 '땡스' 에 걸려 "저도 좋아요" 가 나갔다(실손님 09-06).
     //     상품명에 그 말이 통째로 있으면 인사가 아니라 검색이다.
     const THANKS_RE = /고마워|고마와|고맙|감사|땡스|땡큐|thank|ㄱㅅ/i;
+    //   ⚠ 문장 전체(u)가 아니라 깎은 말(kw)로 센다 — 「땡스소윤 있어?」는 u 로 찾으면 0건이라 감사 답이 나갔다 (2026-09-08 검증)
     if ((THANKS_RE.test(u) || THANKS_RE.test(uz))
-        && !(u.length >= 3 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + u + "%")}`)) > 0)) {
+        && !(kw.length >= 2 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + kw + "%")}`)) > 0)) {
       return reply([text("도움이 됐다니 저도 좋아요 🙂\n공구 궁금할 땐 언제든 물어봐 주세요!")]);
     }
     if ((x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(u) || (x=>/우와|우왕|와우|대박|쩐다|좋다|좋아요|최고|짱|잘한다|똑똑|귀엽|신기/i.test(x))(uz)) {
@@ -870,4 +880,16 @@ Deno.serve(async (req) => {
   } catch (_) {
     return reply([text("일시적으로 조회가 안 되고 있어요. 잠시 뒤 다시 물어봐 주세요!")]);
   }
+}
+Deno.serve(async (req) => {
+  const res = await handle(req);
+  const line = REPLY_LOG.get(res);
+  if (line) {
+    try {
+      fetch(`${SB}/rest/v1/events`, { method: "POST",
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ event_type: "kakao_bot", event_data: line }) }).catch(() => {});
+    } catch (_) { /* 기록 실패는 무시 */ }
+  }
+  return res;
 });
