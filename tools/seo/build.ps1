@@ -66,6 +66,23 @@ try{
   foreach($pr in $bj.PSObject.Properties){ $Boost[$pr.Name] = @($pr.Value) }
   Write-Output "GSC 보강어: 브랜드 $($Boost.Count)개"
 }catch{ Write-Output "boost.json 없음/읽기 실패(무시)" }
+# ── 🚫 브랜드 차단 목록 (2026-09-08, 아틀리에 퀸스 측 "검색엔진·DB 전부 삭제, 수집 중단" 요청) ──
+# DB `brand_block.pattern`(정규식, 대소문자 무시). DB 트리거가 새 수집을 막고, 여기서는
+#   ① 오늘 집계에 남아 있어도 페이지를 안 만들고 ② 디스크에 남은 보존 페이지(g/·gg/·p/)를 지워 sitemap 에서도 뺀다.
+# 못 읽으면(네트워크) 차단 없이 진행하되 로그에 남긴다 — 다음 빌드가 다시 지운다.
+$BlockPats = @()
+try{
+  $bkr = Invoke-WebRequest -Uri 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/brand_block?select=pattern' -TimeoutSec 30 `
+        -Headers @{ apikey=$key; Authorization="Bearer $key" }
+  $BlockPats = @(([Text.Encoding]::UTF8.GetString($bkr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { "$($_.pattern)" } | Where-Object { $_ })
+  Write-Output "브랜드 차단 패턴 $($BlockPats.Count)개"
+}catch{ Write-Output "brand_block 조회 실패(차단 없이 진행): $($_.Exception.Message)" }
+function IsBlocked([string]$t){
+  if([string]::IsNullOrWhiteSpace($t)){ return $false }
+  foreach($p in $BlockPats){ if($t -imatch $p){ return $true } }
+  return $false
+}
+$BlockedRemoved = 0
 
 # ── 네이버 월간 검색량 (2026-08-31, momcal-kw-daily 스윕 산출) ──
 # 내부 링크 자리는 한정 자원이다. '등록 건수' 가 아니라 '실제 검색량' 큰 브랜드에
@@ -162,6 +179,7 @@ $soonRows = ParseRows $D.soon @('name','who','od','ed','major')
 $seenP = @{}; $prodMap = @{}; $prodList = New-Object System.Collections.ArrayList
 $seenPName = @{}
 foreach($x in $D.products){
+  if(IsBlocked "$($x.brand) $($x.prod)"){ continue }   # 🚫 차단 브랜드
   # 케이스만 다른 같은 제품이 같은 날 집계에 함께 오면 두 번째가 -2 페이지로 갈라진다
   # → 표기 하나만 남긴다(집계 정렬상 앞선 쪽 = 건수 많은 쪽)
   $nk = ("$($x.brand)-$($x.prod)").ToLower()
@@ -181,6 +199,7 @@ foreach($x in $D.products){
 $seenB = @{}; $brandList = New-Object System.Collections.ArrayList
 $seenBName = @{}
 foreach($x in $D.brands){
+  if(IsBlocked "$($x.brand)"){ continue }   # 🚫 차단 브랜드 — 페이지·링크 전부 안 만든다
   # NON-GMO vs Non-gmo 처럼 케이스만 다른 같은 브랜드는 하나만 남긴다
   $nk = ("$($x.brand)").ToLower()
   if($seenBName.ContainsKey($nk)){ continue }
@@ -229,6 +248,7 @@ $GgSlug = @{}; $ggSeen = @{}; $ggRows = New-Object System.Collections.ArrayList;
 foreach($b in $brandList){
   $rows0 = ParseRows $b.raw @('who','name','od','ed','insta')
   foreach($r in $rows0){
+    if(IsBlocked "$($r.name)"){ continue }   # 🚫 차단 브랜드 건별 페이지
     $k = ("$($r.name)|$($r.od)").ToLower()
     if($GgSlug.ContainsKey($k)){ continue }
     if("$($r.od)".Length -lt 10 -or "$($r.ed)".Length -lt 10){ continue }
@@ -809,6 +829,8 @@ function KeptUrls([string]$dir2, $todayUrls){
   $dp = Join-Path $Root $dir2
   if(Test-Path $dp){
     foreach($f in (Get-ChildItem $dp -Filter *.html -File | Sort-Object Name)){
+      # 🚫 차단 브랜드의 보존 페이지는 지운다 — 보존 원칙의 유일한 예외 (파일명에 브랜드가 들어간다: g/브랜드 · gg/상품명-MMDD · p/브랜드-제품)
+      if(IsBlocked $f.BaseName){ Remove-Item $f.FullName -Force; $script:BlockedRemoved++; continue }
       $rel = "$dir2/$($f.Name)"
       if(-not $have.ContainsKey($rel)){ $extra += "$dir2/$(Enc $f.BaseName).html" }
     }
