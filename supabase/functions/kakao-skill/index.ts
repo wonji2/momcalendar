@@ -200,11 +200,27 @@ async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T 
   if (r === LATE) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); return LATE; }
   return r as T | null;
 }
+// 💸 하루 AI 호출 상한 — 도구 폭주·루프·공격으로 돈이 새는 것을 코드에서 막는다 (사장님 지시 2026-09-08 "미리 대비").
+//   실측 실손님 AI 는 하루 1~2건, 도구 포함 최대 70건이었다. 600 이면 정상 운영의 8배다. 넘으면 그날은 규칙만으로 답한다.
+//   ⚠ events 는 anon 이 못 읽는다(RLS) → 서비스 키로 센다. 세지 못하면 0 으로 보고 AI 를 허용한다(막는 쪽이 아니라 답하는 쪽으로).
+const AI_DAILY_CAP = Number(Deno.env.get("BOT_AI_DAILY_CAP") || 600);
+async function aiCalledToday(): Promise<number> {
+  try {
+    const d = kst(); d.setUTCHours(0, 0, 0, 0);                       // KST 자정
+    const since = new Date(d.getTime() - 9 * 3600e3).toISOString();  // → UTC 시각
+    const r = await fetch(`${SB}/rest/v1/events?select=id&event_type=in.(kakao_bot_ai,kakao_bot_ai_err)&visited_at=gte.${since}&limit=1`,
+      { headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, Prefer: "count=exact" } });
+    const n = Number((r.headers.get("content-range") || "").split("/")[1]);
+    return Number.isFinite(n) ? n : 0;
+  } catch { return 0; }
+}
 async function interpAI(u: string, tReq: number): Promise<Interp | null | typeof AI_FAIL> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
   // 요청 시작 3.5초가 지났으면 시작조차 안 한다(돈을 안 쓴다). 그 전이면 시작하고, 마감은 withDeadline 이 건다.
   // ⚠ "콜드스타트 직후면 건너뛰기"(모듈 시각 기준)는 넣었다가 뺐다 (2026-09-08) — 엣지는 요청마다 새 인스턴스라 전 요청이 cold 로 보여 AI 가 꺼졌다.
   if (Date.now() - tReq > 3500) return null;
+  // 공짜 검사(위) 뒤에 상한 조회(REST 1회 ≈ 80ms) — 안 태울 요청에는 조회도 안 나가게 (검증 지적)
+  if (await aiCalledToday() >= AI_DAILY_CAP) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${AI_DAILY_CAP}건 상한 — 규칙만`); return null; }
   const t0 = Date.now();
   try {
     const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: 8000 });   // 끊지 않는다 — 8초는 과금·인스턴스 상한
@@ -363,8 +379,12 @@ async function handle(req: Request): Promise<Response> {
   const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "Content-Type": "application/json" } });
   // ⚠ reply 는 body 파싱보다 먼저 정의되므로 u/uid 는 let 으로 미리 선언한다 (2026-09-01: 전 요청 500 사고)
   let u = "", uid = "?";
-  const reply = (outputs: any[]) => {
-    const res = json({ version: "2.0", template: { outputs } });
+  // quick: 답 아래 붙는 선택 버튼(카카오 quickReplies, 최대 10개·label 14자). 누르면 그 말을 손님이 친 것과 같이 다시 들어온다.
+  //   2026-09-08: "없어요" 만 내지 않고 낱말별로 골라 보게 한다 — 사장님 "선택지 버튼" 안을 **답 뒤·애매할 때만** 적용한 것 (계획서 9-3).
+  const reply = (outputs: any[], quick?: string[]) => {
+    const quickReplies = (quick || []).filter((w) => w && w.length <= 14).slice(0, 5)
+      .map((w) => ({ label: w, action: "message", messageText: w }));
+    const res = json({ version: "2.0", template: quickReplies.length ? { outputs, quickReplies } : { outputs } });
     try {
       const last = outputs[outputs.length - 1] as any;
       const kind = Object.keys(last || {})[0] || "?";
@@ -633,6 +653,13 @@ async function handle(req: Request): Promise<Response> {
             cond = `end_date=gte.${today}&name=ilike.${enc}`;
           }
           let rows = await pick(cond, "order=open_date.asc", ph);
+          // 🔤 붙여쓰기 폴백 — 손님은 「뮴키즈오메가3」 라 치고 DB 는 「말랑구미 뮴키즈 오메가3」 다 (2026-09-08 재생 점검 실사고).
+          //    진행중 상품명 87% 에 공백이 있다. 한 낱말 4자 이상이 0건이면 공백 뺀 열(name_ns, 생성열)로 한 번 더 찾는다.
+          //    ⚠ 글자를 깎는 게 아니다 — 손님 말은 그대로고 DB 쪽 공백만 무시한다.
+          if (!rows.length && ws.length <= 1 && !t.startsWith("__ABBR__") && !/\s/.test(t) && t.length >= 4) {
+            const ns = encodeURIComponent("%" + t.toLowerCase() + "%");
+            rows = await pick(`end_date=gte.${today}&name_ns=ilike.${ns}`, "order=open_date.asc", ph);
+          }
           // 🔴 **DB 에 아예 없는 낱말은 조건에서 뺀다** (사장님 승인 2026-09-04)
           //   실사고: "루솔 도라지배즙" 은 '루솔' 9건이 진행중인데 '도라지배즙' 이
           //   상품명 어디에도 없어 AND 가 통째로 0건이 됐다. 손님은 그냥 떠났다.
@@ -801,8 +828,28 @@ async function handle(req: Request): Promise<Response> {
           return reply([text(`'${say}' 공구는 지금 진행 중인 게 없어요.\n\n지난번에는 이런 게 있었어요\n${li}\n\n다시 열리면 맘캘린더에 바로 올라와요!`)]);
         }
       } catch (_) { /* 실패해도 아래 기본 안내가 나간다 */ }
+      // 🔘 낱말이 둘 이상인데 조합으로는 없을 때 — 낱말별로 골라 보게 한다 (2026-09-08 재생 점검: 「래폴드 수납장」「뽀로로 스티커북」
+      //    「아기 장난감 유모차」「휴대용 물티슈」가 전부 "없어요" 로 끝났는데 낱말 하나씩은 진행중에 있었다).
+      //    ⚠ 자동으로 한 낱말 결과를 내보내지 않는다 — '쌀 보관함' 에 장난감 보관함이 나간 사고(사장님: 없으면 없다고 해야지).
+      //      대신 버튼으로 손님이 고른다. 진행중에 있는 낱말만, 최대 3개, 2초 예산 안에서.
+      const picks: string[] = [];
+      try {
+        const SKIP = ["신생아", "어린이", "우리아이", "유아용", "아기", "유아", "아이", "키즈", "엄마", "휴대용", "세트"];   // 수식어는 버튼이 안 된다
+        const own = String(kw || say).split(/\s+/).map((w) => w.trim()).filter((w) => w.length >= 2);   // 손님 낱말(수식어 포함)
+        const cand = [...new Set(own.filter((w) => !SKIP.includes(w)))].slice(0, 4);                      // 버튼 후보(수식어 제외)
+        // 손님 낱말이 2개 이상이면 후보가 1개라도 버튼을 단다 — 「휴대용 물티슈」→ [물티슈] (검증 지적: 수식어를 먼저 빼고 2개를 세면 이 경우가 빠진다)
+        if (own.length >= 2 && cand.length >= 1) {
+          for (const w of cand) {
+            if (Date.now() - tReq > 3600) break;
+            // ⚠ hasWord 는 기간 무관(지난 공구 포함)이라 못 쓴다 — 버튼은 **진행중** 에 있는 낱말만
+            const r = await q(`gonggu?select=id&approved=eq.true&end_date=gte.${today}&name=ilike.${encodeURIComponent("%" + w + "%")}&limit=1`);
+            if (Array.isArray(r) && r.length) picks.push(w);
+          }
+        }
+      } catch (_) { /* 버튼은 덤이다 — 실패해도 안내는 나간다 */ }
+      const tail = picks.length ? `\n\n대신 아래에서 낱말 하나씩 골라 보실 수 있어요 👇` : ``;
       return reply([text(`'${say}' 공구는 지금 진행 중이거나 예정인 게 없어요.
-아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}`)]);
+아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}${tail}`)], picks);
 
     };
 
