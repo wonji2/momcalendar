@@ -122,7 +122,7 @@ try {
       const j = await r.json(); const out = [];
       for (const s of (j?.data?.top?.sections || [])) for (const m of ((s.layout_content || {}).medias || (s.layout_content || {}).fill_items || [])) {
         const md = m.media || m; if (!md.user || !md.code) continue;
-        out.push({ code: md.code, u: md.user.username, t: new Date(md.taken_at * 1000).toISOString().slice(0, 10), ad: false, src: '#' + tag, cap: md.caption?.text || '' });
+        out.push({ code: md.code, u: md.user.username, fn: md.user.full_name || '', t: new Date(md.taken_at * 1000).toISOString().slice(0, 10), ad: false, src: '#' + tag, cap: md.caption?.text || '' });
       }
       return out;
     }, tag).catch(() => []);
@@ -148,12 +148,12 @@ try {
           if (r.status !== 200) return { status: r.status, posts: [] };
           const j = await r.json(); const d = j && j.data; const key = d ? Object.keys(d)[0] : null;
           const edges = (key && d[key] && d[key].edges) || [];
-          return { status: 200, posts: edges.map(e => e.node || {}).filter(n => n.code).map(n => ({ code: n.code, taken_at: n.taken_at || 0, cap: (n.caption && n.caption.text) || '' })) };
+          return { status: 200, posts: edges.map(e => e.node || {}).filter(n => n.code).map(n => ({ code: n.code, taken_at: n.taken_at || 0, cap: (n.caption && n.caption.text) || '', fn: (n.user && n.user.full_name) || (n.owner && n.owner.full_name) || '' })) };
         } catch (e) { return { status: -1, posts: [], err: String(e).slice(0, 80) }; }
       }, { tpl, u }).catch(() => ({ status: -2, posts: [] }));
       polled++;
       if (res.status !== 200) { pollErr++; if (pollErr >= 6) { console.error('🔴 셀러 폴링 연속 실패 — 중단 (마지막 status ' + res.status + ')'); break; } }
-      else { pollErr = 0; for (const p of res.posts) { if (p.taken_at < cutoff || found[p.code]) continue; found[p.code] = { code: p.code, u, t: new Date(p.taken_at * 1000).toISOString().slice(0, 10), ad: false, src: 'seller', cap: p.cap }; } }
+      else { pollErr = 0; for (const p of res.posts) { if (p.taken_at < cutoff || found[p.code]) continue; found[p.code] = { code: p.code, u, fn: p.fn || '', t: new Date(p.taken_at * 1000).toISOString().slice(0, 10), ad: false, src: 'seller', cap: p.cap }; } }
       await page.waitForTimeout(2500 + Math.random() * 2500);
     }
     state.sellerCursor = (cur + polled) % sellers.length;
