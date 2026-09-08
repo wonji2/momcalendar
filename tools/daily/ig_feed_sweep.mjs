@@ -41,7 +41,8 @@ const fail = (msg) => { writeFileSync(LASTERR, `[${KST()}] ${msg}\n`); saveState
 
 const launch = async (headless) => {
   const opts = { headless, viewport: { width: 1280, height: 900 }, locale: 'ko-KR',
-    args: headless ? [] : ['--window-position=-32000,-32000', '--window-size=1280,900'] };
+    // 예약작업(무인)일 때만 창을 화면 밖으로. --login 은 사장님이 봐야 하니 화면 안 (2026-09-08 "아무 창도 안 떠서" 사고)
+    args: (headless || LOGIN) ? ['--window-size=1280,900'] : ['--window-position=-32000,-32000', '--window-size=1280,900'] };
   try { return await chromium.launchPersistentContext(PROFILE, opts); }
   catch { return await chromium.launchPersistentContext(PROFILE, { ...opts, channel: 'chrome' }); }
 };
