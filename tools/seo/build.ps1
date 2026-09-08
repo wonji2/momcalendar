@@ -884,4 +884,5 @@ foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html'))
 
 $total = $uMain.Count + $uB.Count + $uP.Count + $uS.Count + $uGG.Count
 Write-Output "브랜드 $($brandList.Count) · 제품 $($prodList.Count) · 셀러 $($sellerMade.Count) · 소분류 $($minorMade.Count) · 월별 $($monthMade.Count) · 카테고리 $($catMade.Count) · 키워드 $($kwMade.Count) · 허브 3"
+if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 삭제: $BlockedRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
 Write-Output "sitemap URL 합계 = $total"
