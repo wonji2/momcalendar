@@ -72,6 +72,22 @@ try {
   // 알림 팝업 닫기
   for (const t of ['나중에 하기', 'Not Now']) { const b = await page.$(`text=${t}`); if (b) await b.click().catch(() => {}); }
 
+  // ── 0. graphql 템플릿 캡처 (2026-09-08 실측: 프로필 API web_profile_info 는 IP 429 지만
+  //      웹이 프로필 화면에서 쓰는 POST /graphql/query PolarisProfilePostsTabContentQuery 는 아무 계정이나 200 으로
+  //      최신 12개 게시물(code·taken_at·caption)을 준다. 요청 본문에 세션 토큰(fb_dtsg·lsd)이 들어 있어
+  //      한 번 가로챈 본문을 템플릿으로 두고 username 만 바꿔 재사용한다)
+  let tpl = null;
+  page.on('request', (req) => {
+    if (tpl || req.method() !== 'POST' || !/\/graphql\/query/.test(req.url())) return;
+    const b = req.postData() || '';
+    if (/PolarisProfilePostsTabContentQuery/.test(b)) tpl = b;
+  });
+  await page.goto('https://www.instagram.com/momcal_/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(4000);
+  for (let i = 0; i < 4 && !tpl; i++) { await page.mouse.wheel(0, 5000); await page.waitForTimeout(2500); }
+  await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(3000);
+
   // ── 1. 홈피드 스크롤 수집 ──
   const found = {};
   for (let i = 0; i < SCROLLS; i++) {
@@ -109,6 +125,35 @@ try {
     await page.waitForTimeout(1500);
   }
 
+  // ── 2-b. 셀러 순환 폴링 (scratchpad/ig_sellers.txt 를 PER_RUN 명씩 돌아가며, 최근 3일 게시물만) ──
+  const SELLERS = path.join(ROOT, 'scratchpad', 'ig_sellers.txt');
+  const PER_RUN = Number(process.env.PER_RUN || 150);
+  const sellers = existsSync(SELLERS) ? readFileSync(SELLERS, 'utf8').split(/\r?\n/).map(s => s.trim()).filter(Boolean) : [];
+  let polled = 0, pollErr = 0;
+  if (tpl && sellers.length) {
+    const cur = state.sellerCursor || 0;
+    const cutoff = Date.now() / 1000 - 3 * 86400;
+    for (let i = 0; i < Math.min(PER_RUN, sellers.length); i++) {
+      const u = sellers[(cur + i) % sellers.length];
+      const res = await page.evaluate(async ({ tpl, u }) => {
+        try {
+          const p = new URLSearchParams(tpl); const v = JSON.parse(p.get('variables')); v.username = u; v.after = null; v.first = 12; p.set('variables', JSON.stringify(v));
+          const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+          const r = await fetch('/graphql/query', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-csrftoken': csrf, 'x-ig-app-id': '936619743392459', 'x-fb-friendly-name': 'PolarisProfilePostsTabContentQuery_connection', 'x-requested-with': 'XMLHttpRequest' }, body: p.toString() });
+          if (r.status !== 200) return { status: r.status, posts: [] };
+          const j = await r.json(); const d = j && j.data; const key = d ? Object.keys(d)[0] : null;
+          const edges = (key && d[key] && d[key].edges) || [];
+          return { status: 200, posts: edges.map(e => e.node || {}).filter(n => n.code).map(n => ({ code: n.code, taken_at: n.taken_at || 0, cap: (n.caption && n.caption.text) || '' })) };
+        } catch (e) { return { status: -1, posts: [], err: String(e).slice(0, 80) }; }
+      }, { tpl, u }).catch(() => ({ status: -2, posts: [] }));
+      polled++;
+      if (res.status !== 200) { pollErr++; if (pollErr >= 6) { console.error('🔴 셀러 폴링 연속 실패 — 중단 (마지막 status ' + res.status + ')'); break; } }
+      else { pollErr = 0; for (const p of res.posts) { if (p.taken_at < cutoff || found[p.code]) continue; found[p.code] = { code: p.code, u, t: new Date(p.taken_at * 1000).toISOString().slice(0, 10), ad: false, src: 'seller', cap: p.cap }; } }
+      await page.waitForTimeout(2500 + Math.random() * 2500);
+    }
+    state.sellerCursor = (cur + polled) % sellers.length;
+  }
+
   // ── 3. 캡션 채우기 (피드 게시물은 /p/<code>/ og:description) ──
   const fresh = Object.values(found).filter(f => !seen.has(f.code));
   for (const f of fresh) {
@@ -139,8 +184,8 @@ try {
       leads++;
     }
   }
-  saveState({ lastOk: KST(), loginNeeded: false, runs: (state.runs || 0) + 1, newPosts: (state.newPosts || 0) + fresh.length, lastNew: fresh.length, lastLeads: leads, lastErr: null });
-  console.log(`✅ 피드 ${Object.values(found).filter(f => f.src === 'feed').length} · 태그 ${Object.values(found).filter(f => f.src !== 'feed').length} · 새 게시물 ${fresh.length} · 공구 단서 ${leads}`);
+  saveState({ lastOk: KST(), loginNeeded: false, runs: (state.runs || 0) + 1, newPosts: (state.newPosts || 0) + fresh.length, lastNew: fresh.length, lastLeads: leads, lastPolled: polled, tplOk: !!tpl, lastErr: null });
+  console.log(`✅ 피드 ${Object.values(found).filter(f => f.src === 'feed').length} · 태그 ${Object.values(found).filter(f => f.src.startsWith('#')).length} · 셀러폴링 ${polled}명/${Object.values(found).filter(f => f.src === 'seller').length}건 · 새 게시물 ${fresh.length} · 공구 단서 ${leads}`);
 } catch (e) {
   fail(String(e && e.message || e).split('\n')[0].slice(0, 200));
 } finally {
