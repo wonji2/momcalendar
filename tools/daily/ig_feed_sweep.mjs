@@ -55,7 +55,10 @@ if (LOGIN) {
   console.log('창에서 로그인하세요. 로그인이 확인되면 자동으로 닫힙니다 (최대 60분).');
   for (let i = 0; i < 360; i++) {
     await p.waitForTimeout(10000);
-    if (/instagram\.com\/?$/.test(p.url()) || await p.$('svg[aria-label="홈"], a[href="/direct/inbox/"]')) { console.log('✅ 로그인 확인'); break; }
+    // ⚠ URL 로 판단하면 안 된다 — 로그아웃 상태도 "/" 에 로그인 폼이 뜨므로 아이디를 치는 중에 창을 닫아버렸다(2026-09-08 사고).
+    //    로그인 표식(받은편지함 링크·홈 아이콘)이 실제로 보일 때만 닫는다.
+    const ok = await p.$('a[href="/direct/inbox/"], svg[aria-label="홈"], svg[aria-label="Home"]').catch(() => null);
+    if (ok) { console.log('✅ 로그인 확인'); await p.waitForTimeout(5000); break; }
   }
   await ctx.close(); process.exit(0);
 }
