@@ -42,7 +42,8 @@ const fail = (msg) => { writeFileSync(LASTERR, `[${KST()}] ${msg}\n`); saveState
 const launch = async (headless) => {
   const opts = { headless, viewport: { width: 1280, height: 900 }, locale: 'ko-KR',
     // 예약작업(무인)일 때만 창을 화면 밖으로. --login 은 사장님이 봐야 하니 화면 안 (2026-09-08 "아무 창도 안 떠서" 사고)
-    args: (headless || LOGIN) ? ['--window-size=1280,900'] : ['--window-position=-32000,-32000', '--window-size=1280,900'] };
+    // 크롬은 프로필에 마지막 창 위치를 기억한다 → 무인 회차의 화면 밖 좌표가 남아 로그인 창이 구석에 떴다(2026-09-08). 로그인 모드는 좌표를 명시한다.
+    args: LOGIN ? ['--window-position=120,80', '--window-size=1200,860'] : (headless ? ['--window-size=1280,900'] : ['--window-position=-32000,-32000', '--window-size=1280,900']) };
   try { return await chromium.launchPersistentContext(PROFILE, opts); }
   catch { return await chromium.launchPersistentContext(PROFILE, { ...opts, channel: 'chrome' }); }
 };
@@ -131,7 +132,7 @@ try {
 
   // ── 2-b. 셀러 순환 폴링 (scratchpad/ig_sellers.txt 를 PER_RUN 명씩 돌아가며, 최근 3일 게시물만) ──
   const SELLERS = path.join(ROOT, 'scratchpad', 'ig_sellers.txt');
-  const PER_RUN = Number(process.env.PER_RUN || 150);
+  const PER_RUN = Number(process.env.PER_RUN || 120);
   const sellers = existsSync(SELLERS) ? readFileSync(SELLERS, 'utf8').split(/\r?\n/).map(s => s.trim()).filter(Boolean) : [];
   let polled = 0, pollErr = 0;
   if (tpl && sellers.length) {
