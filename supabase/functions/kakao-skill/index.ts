@@ -188,7 +188,9 @@ async function interpAI(u: string, tReq: number): Promise<Interp | null> {
   if (left < 900) return null;
   const t0 = Date.now();
   try {
-    const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: Math.min(2000, left - 300) });
+    // 2026-09-08 실측 173건: 중앙값 1,671ms · p90 1,833ms · 최대 2,008ms — 2,000 캡이면 하루 16% 가 타임아웃(돈은 나가고 학습은 안 됨).
+    //   2,500 으로. notFound 의 rushed(3초) 가드가 있어 총 응답은 3.6초 안쪽이다.
+    const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: Math.min(2500, left - 300) });
     const res = await client.messages.parse({
       model: AI_MODEL, max_tokens: 200, system: AI_SYSTEM,
       messages: [{ role: "user", content: u.slice(0, 200) }],
