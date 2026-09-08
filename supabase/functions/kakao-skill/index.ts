@@ -184,6 +184,9 @@ async function interpAI(u: string, tReq: number): Promise<Interp | null> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
   // 카카오 5초 한도 — AI 뒤에 재검색(0.3~1초)·notFound(bot_guess+지난공구 조회, ~1.8초)가 더 붙는다.
   //   그래서 AI 몫은 2초까지만 (f9 세션 검증 지적 2026-09-06: 4300/2500 이면 5초를 넘을 수 있다). 넘기면 규칙 폴백.
+  // ⚠ "콜드스타트 직후면 AI 건너뛰기"(모듈 시각 BOOT_AT 기준)를 넣었다가 10분 만에 뺐다 (2026-09-08).
+  //   Supabase 엣지는 요청마다 새 인스턴스가 뜨는 일이 흔해 **모든 요청이 '방금 깨어남'** 으로 보였고 AI 가 통째로 꺼졌다(실측 3/3 skip).
+  //   함수 안에서는 부팅 시간을 알 방법이 없다. 배포 직후 첫 요청 5~17초는 배포 전파 비용이고 그때만 난다 — 손님 시간대를 피해 배포한다.
   const left = 3800 - (Date.now() - tReq);
   if (left < 900) return null;
   const t0 = Date.now();
