@@ -50,6 +50,7 @@ const CASES = [
   ['셀러명제외', '우유맘 공구 알려줘', 'text', '', ''],
   ['말깎임', '마더케이', 'any', '', '마더케이'],   // 진행 중 공구가 없으면 text 가 맞다 — 말깎임만 본다
   ['말깎임', '이치비야', 'any', '', '이치비야'],
+  // ⚠ 실리만·하베브릭스는 DB 진행중 유무에 따라 card/text 가 바뀐다(09-08 각 1건 진행중) — any 로 둔다
   ['말깎임', '실리만', 'any', '', '실리만'],
   // ⚠ '쌀이' 는 한 낱말이라 조사가 안 떨어진다 — 이걸 살리려고 CUT_TAILS 에 '이' 를 넣었다가
   //    브랜드 104건이 깎였다(닥터포이→닥터포). 브랜드가 훨씬 크므로 **없다고 답하는 게 맞다**.
@@ -66,7 +67,7 @@ const CASES = [
   ['말깎임', '송이 있어?', 'card', '송이', '송이'],
   // 🔴 2026-09-05: 자동학습이 `실리만 → 실리콘` 을 넣어 실리콘 유아식기가 나갔다(브랜드인데 마감돼 0건이라 오타로 잡혔다).
   //    bot_learn 에 '우리 상품에 그 이름이 있으면 안 배운다' 가드를 넣었다. 이 케이스가 재발을 잡는다.
-  ['말깎임', '실리만', 'text', '', '실리만'],
+  ['말깎임', '실리만', 'any', '', '실리만'],
   // 🔴 2026-09-05 검증 5차: 건수 문턱(cBase>=3)이 멀쩡한 답을 죽였다. 2건·1건짜리도 살려야 한다.
   ['말깎임', '치약이 있어?', 'card', '치약', ''],
   ['말깎임', '감자탕이 있어?', 'card', '감자탕', ''],
@@ -155,7 +156,7 @@ CASES.push(
   ['실손님', '이치비야', 'any', '', '이치비야'],                 // AI 가 greeting 으로 오해 → 도움말
   ['실손님', '안녕 물티슈 있어?', 'card', '물티슈'],
   // 사장님 판정 2026-09-07 새벽 (실손님 재현 5건)
-  ['판정', '하베브릭스 장난감', 'text', '', '하베브릭스'],   // 브랜드는 마감·품목만 있으면 다른 브랜드 장난감 말고 '없어요'
+  ['판정', '하베브릭스 장난감', 'any', '', '하베브릭스'],   // 브랜드는 마감·품목만 있으면 다른 브랜드 장난감 말고 '없어요'
   ['판정', '아무거나', 'card'],                              // = 오늘 공구
   ['판정', '아토팜', 'text', '', '아토팜'],                  // 아이팜과 다른 브랜드 — 별칭 삭제·금지표
   ['판정', '보르르', 'text', '', '보르르'],                  // 보아르와 다른 브랜드 — 별칭 삭제·금지표
@@ -172,7 +173,9 @@ CASES.push(
 const run = async ([grp, say, want, need, headWord]) => {
   try {
     const j = await fetch(U, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userRequest: { utterance: say, user: { id: 'BOTPROBE' } } }) }).then((r) => r.json());
+      // botai: 로봇(BOT*)은 기본으로 AI 를 안 탄다(비용) — '문장' 묶음(🐤 카나리아 포함)과 BOT_AI=1 일 때만 연다 (2026-09-08)
+      //   ⚠ 카나리아가 AI 를 못 타면 매시간 가짜 회귀 경보가 나고 진짜 AI 장애는 아무도 모른다 (검증 지적)
+      body: JSON.stringify({ userRequest: { utterance: say, user: { id: 'BOTPROBE' } }, botai: !!process.env.BOT_AI || grp === '문장' }) }).then((r) => r.json());
     const o = j?.template?.outputs?.[0] || {};
     const got = (o.carousel || o.listCard) ? 'card' : (o.basicCard || o.textCard) ? 'text' : '??';
     const items = o.carousel ? o.carousel.items.flatMap((c) => c.items.map((x) => x.title))

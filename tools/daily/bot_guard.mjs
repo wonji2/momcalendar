@@ -61,7 +61,8 @@ const ask = async (utterance) => {
   const _t0 = Date.now();
   const j = await fetch(`${SB}/functions/v1/kakao-skill`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userRequest: { utterance, user: { id: 'BOTGUARD' } } }),
+    // botai:true — 감시는 손님이 보는 그대로의 봇(AI 포함)을 봐야 한다. 같은 말은 사전에 저장돼 두 번째부터 AI 를 안 타므로 비용은 새 말에만 든다 (2026-09-08)
+    body: JSON.stringify({ userRequest: { utterance, user: { id: 'BOTGUARD' } }, botai: true }),
   }).then((r) => r.json());
   const _ms = Date.now() - _t0;
   if (_ms > slowest) { slowest = _ms; slowestSay = utterance; }
@@ -286,6 +287,26 @@ try {
     alert('챗봇조사깎임', cut2.map((r) => r.say + '→' + r.head).join(', ').slice(0, 300));
   } else say('⑦ 조사 떼기 이상 없음' + (utt.length ? ' (손님 발화 ' + utt.length + '건 재확인)' : ' (해당 발화 없음)'));
 } catch (e) { bad++; qfail++; say('⑦ 조회 실패: ' + String(e.message || e).slice(0, 80)); }
+
+// ⑧ 실손님이 AI 지연·오류로 제대로 된 답을 못 받았나 (2026-09-08 신설 — 사장님 "하루하루 날리지 말고 미리 대응")
+//    09-07~08 실손님 AI 6건 중 4건이 마감 초과였는데 하루가 지나서야 알았다. 30분마다 직전 35분을 본다.
+//    🔑 실손님 = 같은 말이 ±15초 안에 AHC 발화로도 찍힌 것. 도구(BOT*)는 AI 를 안 타므로 걸리지 않는다.
+try {
+  const late = sql(`
+    select to_char(a.visited_at at time zone 'Asia/Seoul','HH24:MI') t, a.event_type k, split_part(a.event_data,' | ',1) u
+      from events a
+     where a.event_type in ('kakao_bot_ai_late','kakao_bot_ai_err','kakao_bot_ai_wait') and a.visited_at > now() - interval '35 minutes'
+       and exists (select 1 from events e where e.event_type='kakao_bot' and e.event_data like '%AHC%'
+                    and split_part(e.event_data,' | ',1)=split_part(a.event_data,' | ',1)
+                    and abs(extract(epoch from (e.visited_at-a.visited_at))) < 15)
+     order by a.visited_at desc limit 20;`);
+  if (late.length) {
+    bad++;
+    say('⑧ 🔴 실손님이 AI 지연·오류를 겪었다 ' + late.length + '건 (직전 35분)');
+    late.forEach((r) => say('   🔴 ' + r.t + ' ' + r.k.replace('kakao_bot_ai_', '') + ' "' + r.u + '"'));
+    alert('챗봇AI지연', late.map((r) => r.t + ' ' + r.k.replace('kakao_bot_ai_', '') + ' ' + r.u).join(' · ').slice(0, 380));
+  } else say('⑧ 실손님 AI 지연·오류 없음 (직전 35분)');
+} catch (e) { bad++; qfail++; say('⑧ 조회 실패: ' + String(e.message || e).slice(0, 80)); }
 
 say(bad ? `🔴 이상 ${bad}건 — health_alerts 확인` : '이상 없음');
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';

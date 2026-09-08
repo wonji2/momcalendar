@@ -148,13 +148,12 @@ const INTENTS = ["search", "today", "tomorrow", "week", "weekend", "closing", "p
 type Interp = { intent: string; q: string; cat: string; src: string };
 const InterpSchema = z.object({ intent: z.enum(INTENTS), q: z.string(), cat: z.string() });
 const AI_SYSTEM = [
-  "너는 '맘캘린더' 카카오 챗봇의 해석기다. 맘캘린더는 인스타그램 공동구매(공구) 일정을 모아 보여주는 사이트다.",
-  "손님이 카톡으로 친 짧은 말을 읽고 무엇을 원하는지만 JSON 으로 답한다. 답변 문장은 쓰지 않는다.",
-  "intent: search(브랜드·상품·품목을 찾는다) | today(오늘 오픈) | tomorrow | week(이번 주) | weekend | closing(오늘 마감·끝나는 것) | popular(인기·베스트·핫한·잘 나가는·많이 보는 공구) | hotdeal(손님이 '핫딜·특가·세일' 이라는 낱말을 직접 썼고 찾는 상품이 없을 때만) | greeting(인사·도움말) | thanks(감사·칭찬) | other",
-  "🔴 상품·품목·브랜드가 한 낱말이라도 있으면 무조건 search 다. '기저귀 싸게 파는데 없나' 는 hotdeal 이 아니라 search(q=기저귀). '요즘 핫한 공구' 는 hotdeal 이 아니라 popular.",
-  "🔴 네가 모르는 낱말 하나짜리 말('이치비야','뮤이','도들','끄링물')은 브랜드·상품명일 가능성이 크다 → greeting/other 가 아니라 search(q=그 말 그대로). greeting 은 '안녕'·'하이' 처럼 인사가 분명할 때만, other 는 자모만 있거나 뜻이 없는 말('ㅁㄴㅇㄹ','xyz')에만.",
-  "q: intent 가 search 일 때 검색할 핵심 낱말. 손님이 쓴 브랜드·상품명 표기를 **한 글자도 바꾸지 말고 그대로** 쓴다(줄이거나 고치지 않는다). 조사·어미·수식어('싸게','좀','그거','있어?')만 뺀다. 'A 말고 B' 면 B 만. 여러 품목이면 공백으로 나열. search 가 아니면 빈 문자열.",
-  "cat: 짐작되는 분류 하나(육아·식품·리빙·뷰티·패션·반려동물·기타) 또는 빈 문자열.",
+  // ⚠ 짧게 유지한다 — 2026-09-08 실측 입력 960토큰/건 = 응답 1.7초·마감 초과의 원인. 규칙은 그대로, 말만 줄였다.
+  "맘캘린더(인스타 공동구매 일정 사이트) 카카오 챗봇 해석기. 손님 말을 읽고 JSON 만 낸다.",
+  "intent: search(브랜드·상품·품목 찾기) | today | tomorrow | week | weekend | closing(오늘 마감) | popular(인기·핫한·잘 나가는) | hotdeal('핫딜·특가·세일' 을 직접 썼고 상품이 없을 때만) | greeting(안녕·하이 처럼 분명한 인사만) | thanks | other(자모·뜻 없는 말만: ㅁㄴㅇㄹ, xyz)",
+  "상품·품목·브랜드가 한 낱말이라도 있으면 search. '기저귀 싸게 파는데 없나'→search q=기저귀. '요즘 핫한 공구'→popular. 모르는 한 낱말('이치비야','뮤이','도들')은 브랜드일 가능성이 크니 search q=그대로.",
+  "q: search 일 때 핵심 낱말. 손님 표기를 한 글자도 바꾸지 말고 그대로(줄이거나 고치지 않음). 조사·어미·수식어(싸게·좀·그거·있어?)만 뺀다. 'A 말고 B'→B. 여러 품목은 공백 나열. search 아니면 빈 문자열.",
+  "cat: 육아·식품·리빙·뷰티·패션·반려동물·기타 중 하나 또는 빈 문자열.",
 ].join("\n");
 const normUtt = (x: string) => x.toLowerCase().replace(/[?？!！.,~♡♥]+$/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
 async function interpLookup(u: string): Promise<Interp | null> {
@@ -191,16 +190,17 @@ function keepAlive(p: Promise<unknown>) {
 }
 // 답장 마감 — AI 시작 시점 기준. 실측 p50 1,671 · p90 1,833ms → 2,600 이면 90%+ 가 제때 온다. 넘기면 규칙 답 + 백그라운드 학습.
 const AI_DEADLINE_MS = Number(Deno.env.get("BOT_AI_DEADLINE_MS") || 2600);
+const AI_FAIL = Symbol("fail");   // API 오류(타임아웃·529 등) — 키 없음(null)과 가른다. 손님에겐 "없어요" 가 아니라 "찾는 중" 으로 (2026-09-08 검증 지적)
 const LATE = Symbol("late");   // "마감 초과" 와 "AI 가 즉시 null(키 없음·오류)" 을 가른다 — 2026-09-08 검증: null 로 뭉뚱그려 err 마다 late 가 덤으로 찍혔다
-async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T | null> {
+async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T | null | typeof LATE> {
   let timer: number | undefined;
   const late = new Promise<typeof LATE>((res) => { timer = setTimeout(() => res(LATE), ms); });
   const r = await Promise.race([p, late]);
   clearTimeout(timer);
-  if (r === LATE) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); return null; }
+  if (r === LATE) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); return LATE; }
   return r as T | null;
 }
-async function interpAI(u: string, tReq: number): Promise<Interp | null> {
+async function interpAI(u: string, tReq: number): Promise<Interp | null | typeof AI_FAIL> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
   // 요청 시작 3.5초가 지났으면 시작조차 안 한다(돈을 안 쓴다). 그 전이면 시작하고, 마감은 withDeadline 이 건다.
   // ⚠ "콜드스타트 직후면 건너뛰기"(모듈 시각 기준)는 넣었다가 뺐다 (2026-09-08) — 엣지는 요청마다 새 인스턴스라 전 요청이 cold 로 보여 AI 가 꺼졌다.
@@ -225,7 +225,7 @@ async function interpAI(u: string, tReq: number): Promise<Interp | null> {
     return it;
   } catch (e) {
     logEv("kakao_bot_ai_err", `${u.slice(0, 40)} | ${String((e as any)?.message || e).slice(0, 80)} | ${Date.now() - t0}ms`);
-    return null;
+    return AI_FAIL;   // 오류는 "없어요" 근거가 아니다 — 호출처가 "찾는 중" 으로 답한다
   }
 }
 
@@ -381,6 +381,14 @@ async function handle(req: Request): Promise<Response> {
     { const rest = u.replace(/^(안녕하세요|안녕하세용|안녕하십니까|안녕|안뇽|안냥|하이용|하이|헬로)(?=[\s,.!~♡♥]|$)[\s,.!~♡♥]*/i, ""); if (rest !== u && rest.length >= 2) u = rest; }
     uid = String(body?.userRequest?.user?.id ?? "?").slice(0, 6) + ":" + String(body?.userRequest?.user?.type ?? "?").slice(0, 4)
         + ":" + String(req.headers.get("user-agent") ?? "?").slice(0, 14);
+    // 🤖 우리 로봇(bot_probe·bot_guard·bot_learn·verifier) 은 uid 가 BOT+대문자. 카카오 실제 id 는 소문자·숫자라 안 겹친다.
+    //   2026-09-08 실측: AI 호출 70건 중 실손님 2건 — 나머지는 전부 도구였다. 로봇은 AI 를 안 태우고 사전 hits 도 안 올린다.
+    //   회귀에서 AI 경로를 시험할 때만 body.botai=true 로 연다 (bot_probe BOT_AI=1).
+    const robot = /^BOT[A-Z]/.test(uid);
+    const robotAI = robot && body?.botai === true;
+    const aiAllowed = !robot || robotAI;
+    const hit = (ok: boolean) => { if (!robot) interpHit(u, ok); };
+    let aiLate = false;   // AI 가 마감을 넘겼다 — "없어요" 대신 "찾는 중" 으로 답한다 (②)
     const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)
     //   ⚠ uz 는 아래 인사 판정보다 먼저 정의해야 한다 — 늦게 두면 TDZ 로 전 요청 500 (2026-09-01 실사고, 2번째)
     const today = ymd(kst());
@@ -747,7 +755,6 @@ async function handle(req: Request): Promise<Response> {
       //   "닥터포이가 있어? (54회)" 처럼 사장님께 가짜 횟수를 보고했다.
       //   우리 로봇 uid 는 전부 BOT+대문자(BOTLEARN·BOTGUARD·BOTPROBE·BOTWATCH) — 검증자 지적(2026-09-07): LE/GU 만 걸러
       //   탐침(BOTPROBE, 회차마다 ~20건)이 계속 쌓였다. 카카오 실제 user id 는 소문자·숫자라 BOT+대문자와 겹치지 않는다.
-      const robot = /^BOT[A-Z]/.test(uid);
       try {
         if (!robot) fetch(`${SB}/rest/v1/events`, { method: "POST",
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -836,8 +843,8 @@ async function handle(req: Request): Promise<Response> {
     let hitPending = false;   // 사전 해석이 "규칙이 같은 말로 찾을 차례" 라 null 을 준 경우 — 규칙 결과를 보고 ok_cards 를 찍는다
     if (learned) {
       const r = await routeIntent(learned);
-      if (r) { interpHit(u, true); return r; }
-      // ⚠ 여기서 바로 interpHit(u,false) 를 찍으면 규칙이 카드를 찾아도 ok_cards=false 로 남아
+      if (r) { hit(true); return r; }
+      // ⚠ 여기서 바로 hit(false) 를 찍으면 규칙이 카드를 찾아도 ok_cards=false 로 남아
       //   "hits 많고 ok_cards=false → 재해석 후보" 통계가 오염된다 (f9 세션 검증 지적 2026-09-06)
       hitPending = true;
     }
@@ -850,22 +857,31 @@ async function handle(req: Request): Promise<Response> {
     let ai: Interp | null = null;
     // 규칙 검색은 AI 와 **동시에** 시작한다 — AI 가 마감을 넘기면 이미 끝난 규칙 답을 바로 내보낸다(답장 시간 단축, 2026-09-08)
     const ruleP: Promise<Response | null> = askable ? searchReply(kw, kwRaw, say).catch(() => null) : Promise.resolve(null);
-    if (!learned && sentenceLike) {
-      ai = await withDeadline(interpAI(u, tReq), AI_DEADLINE_MS, u);
+    if (!learned && sentenceLike && aiAllowed) {
+      const r1 = await withDeadline(interpAI(u, tReq), AI_DEADLINE_MS, u);
+      if (r1 === LATE || r1 === AI_FAIL) aiLate = true; else ai = r1;
       // ⚠ ruleDone=false — 규칙이 아직 안 돌았으니 "규칙이 이미 찾아봤다" 건너뛰기를 하면 안 된다
       //   (2026-09-06 실측: 「물티슈 공구 궁금해요!」가 그 건너뛰기에 걸려 '없어요' 로 나갔다)
       if (ai) { const r = await routeIntent(ai, false); if (r) return r; }
     }
     // ② 규칙 검색 (손님이 친 말 그대로 + 별칭) — 위에서 이미 돌고 있다
-    if (askable) { const r = await ruleP; if (r) { if (hitPending) interpHit(u, true); return r; } }
-    if (hitPending) interpHit(u, false);
+    if (askable) { const r = await ruleP; if (r) { if (hitPending) hit(true); return r; } }
+    if (hitPending) hit(false);
     // 🧠 ③-b 규칙이 못 찾았다 → AI 해석(키 없으면 건너뜀) → 사전 저장 → 그 해석으로 다시 찾는다
     //    ⚠ kw 가 빈 발화(말버릇만 남은 「오늘 핫한 공구머있어」)는 AI 를 안 태운다 — 원칙 ①대로 오늘 공구다 (f9 검증 지적)
-    if (!learned && !sentenceLike && kw.length >= 1) {
-      ai = await withDeadline(interpAI(u, tReq), Math.max(400, Math.min(AI_DEADLINE_MS, 3600 - (Date.now() - tReq))), u);
+    if (!learned && !sentenceLike && kw.length >= 1 && aiAllowed) {
+      const r2 = await withDeadline(interpAI(u, tReq), Math.max(400, Math.min(AI_DEADLINE_MS, 3600 - (Date.now() - tReq))), u);
+      if (r2 === LATE || r2 === AI_FAIL) aiLate = true; else ai = r2;
       if (ai) { const r = await routeIntent(ai, true); if (r) return r; }
     }
     // AI 가 "이걸 찾는다" 고 했는데 어디에도 없다 → 그 낱말로 없어요 안내 (문장 통째가 아니라)
+    // ② AI 가 늦었다 → "없어요" 라고 단정하지 않는다. 늦은 결과는 백그라운드로 사전에 저장되므로 같은 말을 한 번 더 보내면 답이 나온다.
+    //    2026-09-08 실측: 실손님 AI 6건 중 4건이 마감 초과 → 드라이기(진행중 9건)·뮴키즈오메가3·유아 동화책이 "없어요" 로 나갔다.
+    //    ⚠ askable 일 때만 — 낱말이 없는 날짜 질문("내일 오픈하는 공구 뭐 있어요")은 아래 날짜 규칙이 정답 카드를 갖고 있다 (검증 지적 2026-09-08)
+    if (aiLate && !robot && askable) {
+      logEv("kakao_bot_ai_wait", `${u.slice(0, 40)} | 찾는 중 안내`);
+      return reply([text(`'${(say || u).slice(0, 30)}' 아직 찾는 중이에요 🙏\n3초 뒤에 같은 말을 한 번만 더 보내주시면 바로 알려드릴게요!`)]);
+    }
     const itp = ai ?? learned;   // 2회째(사전)도 1회째(AI)와 같은 낱말로 없어요 안내 (검증 지적)
     if (itp && itp.intent === "search" && itp.q) return await notFound(itp.q, itp.q);
     if (askable) return await notFound(say, kw);
