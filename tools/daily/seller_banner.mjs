@@ -42,7 +42,17 @@ function sql(text, wantJson = true) {
   writeFileSync(f, text, 'utf8');
   const args = ['db', 'query', '--linked', '-f', f];
   if (wantJson) args.push('--output-format', 'json')   // ⚠ '--output' 은 db query 플래그가 아니다 — 조용히 무시된다;
-  const out = execFileSync(SB, args, { cwd: REPO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  // 🔴 2026-09-08: CLI 가 가끔 LegacyDbConfigConnectTempRoleError(임시 역할 접속 실패)를 낸다 — 무인 실행이라 3번까지 다시 시도한다.
+  let out = '', lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      out = execFileSync(SB, args, { cwd: REPO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+      if (!/LegacyDbConfigConnectTempRoleError|Failed to connect/.test(out)) break;
+      lastErr = new Error('DB 연결 실패(temp role)');
+    } catch (e) { lastErr = e; }
+    if (attempt < 3) { console.log(`⚠ DB 호출 실패 — ${attempt}회차, 5초 뒤 재시도`); execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)']); }
+  }
+  if (lastErr && (!out || /LegacyDbConfigConnectTempRoleError|Failed to connect/.test(out))) throw lastErr;
   if (!wantJson) return out;
   // 못 읽은 것과 0건을 구분한다 (tools/daily/sb_query.mjs 공용 파서)
   const parsed = parseRows(out);
@@ -54,12 +64,13 @@ const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 // 상품이 아닌 블록 — 걸면 손님이 A/S·채널 페이지로 간다
 // ⚠ 실측으로 걸린 것: "힝버미네 youtube" · "이벤트 당첨되신분들 여기로🙋🏻‍♀️" (2026-08-20)
 //   셀러 인포크 맨 위엔 상품이 아니라 이벤트·공지가 올라와 있는 날이 많다.
-const NOT_PRODUCT = /(CS|C\s*\/\s*S|고객\s*센터|문의|바로가기|리뷰\s*이벤트|리뷰폼|네이버톡톡|카카오|인스타|블로그|유튜브|공지|안내|채널|youtube|instagram|blog|naver|kakao|link|당첨|이벤트|응모|참여|신청|추첨|여기로|폼\s*작성|후기|체험단|모집)/i;
+const NOT_PRODUCT = /(CS|C\s*\/\s*S|고객\s*센터|문의|바로가기|리뷰\s*이벤트|리뷰폼|네이버톡톡|카카오|인스타|블로그|유튜브|공지|안내|채널|youtube|instagram|blog|naver|kakao|link|당첨|이벤트|응모|참여|신청|추첨|여기로|폼\s*작성|후기|체험단|모집|네이버|예약|쿠폰|적립|공식몰|작성)/i;
 // ⚠ "힝버미네 youtube" 가 상품으로 잡혔다(2026-08-20). 한글 품목명 + 두 낱말 이상을 요구한다.
 const looksLikeProduct = (n) =>
   n.length >= 4 && n.length <= 44 && /[가-힣]{2}/.test(n) && n.split(/\s+/).length >= 2;
 
-const clean = (s) => String(s)
+const stripEmoji = (t) => [...String(t)].map((ch) => { const c = ch.codePointAt(0); return (c >= 0x1F000 || (c >= 0x2600 && c <= 0x27BF) || c === 0xFE0F) ? ' ' : ch; }).join('');   // 이모지는 빈칸으로 (붙은 낱말이 합쳐지지 않게)
+const clean = (s) => stripEmoji(String(s)).replace(/ : [^:]{1,12}$/, '')
   .replace(/\[[^\]]*\]\s*/g, '')          // "[키도러블x이현맘] " 같은 앞머리
   .replace(/[\r\n\t]+/g, ' ')
   .replace(/\s{2,}/g, ' ')
@@ -165,6 +176,16 @@ for (const s of sellers) {
     }
     picked.push({ name, img });
   }
+  // 🔴 2026-09-08 사장님 "매일 아침 알아서 자동교체" — 승인 없이 라이브에 넣으므로, 새로 못 고른 자리는
+  //    그 셀러의 **지금 배너**로 채운다(빈 자리·엉뚱한 블록으로 갈아끼우지 않는다).
+  const mine = cur.filter((b) => b.title.endsWith(' - ' + s.name));
+  for (const b of mine) {
+    if (picked.length >= PER_SELLER) break;
+    const name = b.title.slice(0, -(' - ' + s.name).length);
+    if (picked.some((p) => p.name === name)) continue;
+    picked.push({ name, img: b.img_url, kept: true });
+    console.log(`↩ ${s.name} — 기존 배너 유지: ${name.slice(0, 30)}`);
+  }
   if (!picked.length) { console.log(`⛔ ${s.name} — 걸 상품 없음`); continue; }
 
   // 제목 형식은 사장님 지정: "상품명 - 셀러명". 두 줄까지 보이므로 40자로 자른다.
@@ -185,8 +206,9 @@ if (!wanted.length) {
   process.exit(0);
 }
 
-const newKey = wanted.map((b) => `${b.title}|${b.link}|${b.img_url}`).join('\n');
-if (newKey === curKey) { console.log('\n바뀐 게 없다 — 손대지 않는다'); process.exit(0); }
+const keyOf = (arr) => arr.map((b) => `${b.title}|${b.link}|${b.img_url}`).sort().join('\n');   // 순서 무관 비교 (2026-09-08)
+const newKey = keyOf(wanted);
+if (newKey === keyOf(cur)) { console.log('\n바뀐 게 없다 — 손대지 않는다'); process.exit(0); }
 
 console.log(`\n제안: ${cur.length}건 → ${wanted.length}건`);
 wanted.forEach((w) => console.log('  ' + w.title));
@@ -201,8 +223,11 @@ wanted.forEach((w) => console.log('  ' + w.title));
 //
 //   승인 뒤 반영:  node tools/daily/seller_banner.mjs --apply
 const OUT = `${REPO}/scratchpad/_banner_proposal.json`;
-const APPLY = process.argv.includes('--apply');
+// 🔴 2026-09-08 사장님: "매일 아침에 알아서 하라니까 왜 자동으로 안돼?" — 08-20 의 '승인 후 반영' 을 걷었다.
+//    이제 기본이 **자동 반영**이다. --dry(미리보기)·--propose(제안 파일만) 만 예외. 바꾼 내용은 health_alerts 에 남긴다.
+const APPLY = !process.argv.includes('--propose') && !DRY;
 
+if (DRY) { console.log('(--dry) 미리보기만 - 반영 안 함'); process.exit(0); }
 if (!APPLY) {
   const payload = { made_at: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' '), banners: wanted };
   writeFileSync(OUT, JSON.stringify(payload, null, 2), 'utf8');
@@ -214,7 +239,8 @@ if (!APPLY) {
 
 // --apply : 저장해 둔 제안을 그대로 넣는다 (사장님이 본 것과 같은 내용이어야 하므로 파일을 쓴다)
 let approved = wanted;
-try {
+// 저장된 제안 파일은 옛 승인 흐름(--propose → --apply) 전용. 자동 모드에선 방금 뽑은 것을 그대로 넣는다 (2026-09-08).
+if (process.argv.includes('--apply')) try {
   const saved = JSON.parse(readFileSync(OUT, 'utf8'));
   if (saved?.banners?.length) approved = saved.banners;
   console.log(`저장된 제안(${saved.made_at})으로 반영한다`);
@@ -225,3 +251,11 @@ insert into public.banners (type,title,link,img_url,img_size,img_position,sort_o
 values
 ${approved.map((w, i) => `  ('seller', ${q(w.title)}, ${q(w.link)}, ${q(w.img_url)}, 'cover', 'center', ${i + 1}, true)`).join(',\n')};`, false);
 console.log(`반영 완료 (${approved.length}건)`);
+{
+  const before = new Set(cur.map((b) => b.title)), after = new Set(approved.map((b) => b.title));
+  const added = [...after].filter((t) => !before.has(t)), removed = [...before].filter((t) => !after.has(t));
+  if (!added.length && !removed.length) { console.log('내용 변화 없음(순서만) — 경보 생략'); } else {
+  const detail = ('추가: ' + (added.join(' / ') || '없음') + ' · 내림: ' + (removed.join(' / ') || '없음')).slice(0, 380);
+  try { sql(`insert into public.health_alerts(kind, detail) values ('이웃셀러배너교체', ${q(detail)});`, false); } catch (e) { console.log('경보 기록 실패: ' + e.message); }
+  }
+}
