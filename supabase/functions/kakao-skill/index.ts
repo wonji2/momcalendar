@@ -180,20 +180,33 @@ function logEv(type: string, data: string) {
       body: JSON.stringify({ event_type: type, event_data: data.slice(0, 200) }) }).catch(() => {});
   } catch (_) { /* 무시 */ }
 }
+// ── 🔴 돈이 나간 호출은 한 건도 버리지 않는다 (사장님 2026-09-08 "돈나가는데 학습안되면 때려쳐")
+//   전에는 AI 를 2~2.5초에서 **끊었다** — Anthropic 은 그래도 과금하고 결과는 버려졌다(하루 16%).
+//   이제 AI 요청은 끊지 않는다(최대 8초). 답장 마감(DEADLINE)까지 안 오면 답은 규칙으로 먼저 나가고,
+//   AI 결과는 **엣지 함수 백그라운드(EdgeRuntime.waitUntil)** 에서 끝까지 받아 사전에 저장한다 → 다음 손님부터 0원·0.3초.
+const PENDING: Promise<unknown>[] = [];
+function keepAlive(p: Promise<unknown>) {
+  PENDING.push(p);
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(Promise.allSettled(PENDING)); } catch (_) { /* 로컬 실행 등 — 없으면 그냥 간다 */ }
+}
+// 답장 마감 — AI 시작 시점 기준. 실측 p50 1,671 · p90 1,833ms → 2,600 이면 90%+ 가 제때 온다. 넘기면 규칙 답 + 백그라운드 학습.
+const AI_DEADLINE_MS = Number(Deno.env.get("BOT_AI_DEADLINE_MS") || 2600);
+async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T | null> {
+  let timer: number | undefined;
+  const late = new Promise<null>((res) => { timer = setTimeout(() => res(null), ms); });
+  const r = await Promise.race([p, late]);
+  clearTimeout(timer);
+  if (r === null) { keepAlive(p); logEv("kakao_bot_ai_late", `${u.slice(0, 40)} | ${ms}ms 안에 못 옴 → 규칙 답, 백그라운드 저장`); }
+  return r;
+}
 async function interpAI(u: string, tReq: number): Promise<Interp | null> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
-  // 카카오 5초 한도 — AI 뒤에 재검색(0.3~1초)·notFound(bot_guess+지난공구 조회, ~1.8초)가 더 붙는다.
-  //   그래서 AI 몫은 2초까지만 (f9 세션 검증 지적 2026-09-06: 4300/2500 이면 5초를 넘을 수 있다). 넘기면 규칙 폴백.
-  // ⚠ "콜드스타트 직후면 AI 건너뛰기"(모듈 시각 BOOT_AT 기준)를 넣었다가 10분 만에 뺐다 (2026-09-08).
-  //   Supabase 엣지는 요청마다 새 인스턴스가 뜨는 일이 흔해 **모든 요청이 '방금 깨어남'** 으로 보였고 AI 가 통째로 꺼졌다(실측 3/3 skip).
-  //   함수 안에서는 부팅 시간을 알 방법이 없다. 배포 직후 첫 요청 5~17초는 배포 전파 비용이고 그때만 난다 — 손님 시간대를 피해 배포한다.
-  const left = 3800 - (Date.now() - tReq);
-  if (left < 900) return null;
+  // 요청 시작 3.5초가 지났으면 시작조차 안 한다(돈을 안 쓴다). 그 전이면 시작하고, 마감은 withDeadline 이 건다.
+  // ⚠ "콜드스타트 직후면 건너뛰기"(모듈 시각 기준)는 넣었다가 뺐다 (2026-09-08) — 엣지는 요청마다 새 인스턴스라 전 요청이 cold 로 보여 AI 가 꺼졌다.
+  if (Date.now() - tReq > 3500) return null;
   const t0 = Date.now();
   try {
-    // 2026-09-08 실측 173건: 중앙값 1,671ms · p90 1,833ms · 최대 2,008ms — 2,000 캡이면 하루 16% 가 타임아웃(돈은 나가고 학습은 안 됨).
-    //   2,500 으로. notFound 의 rushed(3초) 가드가 있어 총 응답은 3.6초 안쪽이다.
-    const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: Math.min(2500, left - 300) });
+    const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: 8000 });   // 끊지 않는다 — 8초는 과금·인스턴스 상한
     const res = await client.messages.parse({
       model: AI_MODEL, max_tokens: 200, system: AI_SYSTEM,
       messages: [{ role: "user", content: u.slice(0, 200) }],
@@ -202,10 +215,11 @@ async function interpAI(u: string, tReq: number): Promise<Interp | null> {
     const p = res.parsed_output; if (!p) return null;
     const it: Interp = { intent: p.intent, q: p.q.trim().slice(0, 60), cat: p.cat.trim().slice(0, 20), src: "ai" };
     const inT = res.usage?.input_tokens ?? 0, outT = res.usage?.output_tokens ?? 0;
-    // 🔴 저장 — 같은 말은 두 번 AI 에 안 간다. 저장 실패해도 답은 나간다.
-    fetch(`${SB}/rest/v1/bot_interp`, { method: "POST",
+    // 🔴 저장 — 같은 말은 두 번 AI 에 안 간다. 저장 실패해도 답은 나간다. 답이 먼저 나갔어도 이 저장은 keepAlive 로 끝까지 간다.
+    const saveP = fetch(`${SB}/rest/v1/bot_interp`, { method: "POST",
       headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ utt_norm: normUtt(u), utt: u.slice(0, 120), intent: it.intent, q: it.q, cat: it.cat, src: "ai", model: AI_MODEL, in_tok: inT, out_tok: outT }) }).catch(() => {});
+    keepAlive(saveP);
     logEv("kakao_bot_ai", `${u.slice(0, 40)} => ${it.intent}:${it.q} | ${inT}/${outT}tok | ${Date.now() - t0}ms`);
     return it;
   } catch (e) {
@@ -824,19 +838,21 @@ Deno.serve(async (req) => {
     //    AI 가 못 하면(키 없음·2.5초 초과) 아래 규칙으로 그대로 내려간다.
     const sentenceLike = u.trim().split(/\s+/).length >= 3 || u.trim().length >= 12;
     let ai: Interp | null = null;
+    // 규칙 검색은 AI 와 **동시에** 시작한다 — AI 가 마감을 넘기면 이미 끝난 규칙 답을 바로 내보낸다(답장 시간 단축, 2026-09-08)
+    const ruleP: Promise<Response | null> = askable ? searchReply(kw, kwRaw, say).catch(() => null) : Promise.resolve(null);
     if (!learned && sentenceLike) {
-      ai = await interpAI(u, tReq);
+      ai = await withDeadline(interpAI(u, tReq), AI_DEADLINE_MS, u);
       // ⚠ ruleDone=false — 규칙이 아직 안 돌았으니 "규칙이 이미 찾아봤다" 건너뛰기를 하면 안 된다
       //   (2026-09-06 실측: 「물티슈 공구 궁금해요!」가 그 건너뛰기에 걸려 '없어요' 로 나갔다)
       if (ai) { const r = await routeIntent(ai, false); if (r) return r; }
     }
-    // ② 규칙 검색 (손님이 친 말 그대로 + 별칭)
-    if (askable) { const r = await searchReply(kw, kwRaw, say); if (r) { if (hitPending) interpHit(u, true); return r; } }
+    // ② 규칙 검색 (손님이 친 말 그대로 + 별칭) — 위에서 이미 돌고 있다
+    if (askable) { const r = await ruleP; if (r) { if (hitPending) interpHit(u, true); return r; } }
     if (hitPending) interpHit(u, false);
     // 🧠 ③-b 규칙이 못 찾았다 → AI 해석(키 없으면 건너뜀) → 사전 저장 → 그 해석으로 다시 찾는다
     //    ⚠ kw 가 빈 발화(말버릇만 남은 「오늘 핫한 공구머있어」)는 AI 를 안 태운다 — 원칙 ①대로 오늘 공구다 (f9 검증 지적)
     if (!learned && !sentenceLike && kw.length >= 1) {
-      ai = await interpAI(u, tReq);
+      ai = await withDeadline(interpAI(u, tReq), Math.max(400, Math.min(AI_DEADLINE_MS, 3600 - (Date.now() - tReq))), u);
       if (ai) { const r = await routeIntent(ai, true); if (r) return r; }
     }
     // AI 가 "이걸 찾는다" 고 했는데 어디에도 없다 → 그 낱말로 없어요 안내 (문장 통째가 아니라)
