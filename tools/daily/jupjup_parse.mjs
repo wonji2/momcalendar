@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..');
 const SB = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -79,10 +80,11 @@ writeFileSync(TMP, `with n(nm) as (values ${names.map(n => `($q$${n}$q$)`).join(
 select n.nm, (select g.insta from gonggu g where g.influencer = n.nm group by g.insta order by count(*) desc limit 1) as h from n;`, 'utf8');
 let map = {};
 try {
-  const out = execFileSync(SB, ['db', 'query', '--linked', '--output-format', 'json', '-f', TMP], { encoding: 'utf8', timeout: 180000, cwd: ROOT });
-  if (!/"rows"/.test(out)) throw new Error('CLI 출력을 못 읽었다');
-  const j = JSON.parse(out.slice(out.indexOf('{')));
-  for (const r of (j.rows || [])) if (r.h) map[r.nm] = r.h;
+  const out = execFileSync(SB, sbArgs(TMP), { encoding: 'utf8', timeout: 180000, cwd: ROOT });
+  // 터미널은 {rows:[…]}, 예약작업은 최상위 배열로 준다 — 공용 파서가 둘 다 읽는다 (2026-09-09 사고)
+  const pr = parseRows(out);
+  if (!pr.ok) throw new Error('CLI 출력을 못 읽었다: ' + pr.why);
+  for (const r of pr.rows) if (r.h) map[r.nm] = r.h;
 } catch (e) { console.error('🔴 핸들 조회 실패 —', String(e.message).slice(0, 90)); process.exit(1); }
 
 const withH = items.filter(i => map[i.seller]);

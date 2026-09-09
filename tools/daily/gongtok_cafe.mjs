@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..');
 const SB = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -80,10 +81,11 @@ select c.cid from c where not exists (
     and ( lower(regexp_replace(g.name,'[^0-9A-Za-z가-힣]','','g')) like '%'||lower(regexp_replace(split_part(c.nm,' ',1),'[^0-9A-Za-z가-힣]','','g'))||'%'
        or lower(regexp_replace(c.nm,'[^0-9A-Za-z가-힣]','','g')) like '%'||lower(regexp_replace(split_part(g.name,' ',1),'[^0-9A-Za-z가-힣]','','g'))||'%' ));`, 'utf8');
   try {
-    const out = execFileSync(SB, ['db', 'query', '--linked', '--output-format', 'json', '-f', TMP],
-      { encoding: 'utf8', timeout: 180000, cwd: ROOT });
-    if (!/"rows"/.test(out)) throw new Error('CLI 출력을 못 읽었다');   // 표 형식이면 실패로 본다
-    const keep = new Set([...out.matchAll(/"cid":\s*(\d+)/g)].map(m => +m[1]));
+    const out = execFileSync(SB, sbArgs(TMP), { encoding: 'utf8', timeout: 180000, cwd: ROOT });
+    // 터미널은 {rows:[…]}, 예약작업은 최상위 배열로 준다 — 공용 파서가 둘 다 읽는다 (2026-09-09 사고)
+    const pr = parseRows(out);
+    if (!pr.ok) throw new Error('CLI 출력을 못 읽었다: ' + pr.why);
+    const keep = new Set(pr.rows.map(r => Number(r.cid)).filter(Number.isFinite));
     fresh = rows.filter(r => keep.has(r.id));
   } catch (e) { save({ lastErr: 'DB 대조 실패: ' + String(e.message).slice(0, 100) }); console.error('🔴 DB 대조 실패 — 후보를 남기지 않는다'); process.exit(1); }
 }
