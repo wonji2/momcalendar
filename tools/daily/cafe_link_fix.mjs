@@ -35,6 +35,7 @@ import { harvest } from '../../scratchpad/inpock_harvest.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SB = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
+const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
 const LOG = join(ROOT, 'scratchpad', 'cafe_link_fix_log.txt');
 const APPLY = process.argv.includes('--apply');
 const LIMIT = Number(process.argv[process.argv.indexOf('--limit') + 1]) || 0;
@@ -43,13 +44,25 @@ const stamp = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16)
 const log = (s) => { appendFileSync(LOG, '[' + stamp() + '] ' + s + '\n'); console.log(s); };
 
 // DB 한 번 조회 — 못 읽으면 던진다 (0건과 장애를 구분한다)
+//   ⚠ 2026-09-09 실측: 같은 명령이 이유 없이 `Failed to connect` 를 뱉었다가 바로 다음에 성공한다.
+//     한 번 실패했다고 멈추면 예약작업이 조용히 죽는다 → 세 번까지 다시 걸어본다.
 function sql(text, tag) {
   const f = join(ROOT, 'scratchpad', '_clf_' + tag + '.sql');
   writeFileSync(f, text);
-  const out = execFileSync(SB, sbArgs(f), { encoding: 'utf8', timeout: 180000 });
-  const p = parseRows(out);
-  if (!p.ok) throw new Error('CLI 출력을 못 읽었다(' + tag + ') — ' + p.why);
-  return p.rows;
+  let last = null;
+  for (let i = 1; i <= 3; i++) {
+    try {
+      const out = execFileSync(SB, sbArgs(f), { encoding: 'utf8', timeout: 180000 });
+      const p = parseRows(out);
+      if (!p.ok) throw new Error('CLI 출력을 못 읽었다 — ' + p.why);
+      return p.rows;
+    } catch (e) {
+      last = e;
+      log('⚠ DB 조회 실패(' + tag + ') ' + i + '/3 — ' + String(e.message || e).slice(0, 120));
+      if (i < 3) execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},4000)'], { timeout: 20000 });
+    }
+  }
+  throw new Error('DB 조회 3번 다 실패(' + tag + ') — ' + String(last && last.message || last).slice(0, 160));
 }
 
 // ── 상품명 정규화: cafe_crawl.mjs 의 NORM 과 같은 사상 ──
@@ -59,6 +72,29 @@ const NORM = (s) => String(s || '').toLowerCase().replace(DECOR, '').replace(PUN
 
 const days = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 864e5);
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+// 🔴 인포크가 주는 url 은 **상대경로**다 — "/api/r/xxxx" (2026-09-09 실측).
+//    베이스를 안 붙이면 http 검사에서 전부 떨어져 **조용히 0건**이 된다. 처음에 이걸로 0건이 나왔다.
+function absolute(u, base) {
+  const s = String(u || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.charAt(0) === '/') return String(base || 'https://link.inpock.co.kr').replace(/\/$/, '') + s;
+  return '';
+}
+
+// 인포크 단축링크(/api/r/…)를 따라가 **진짜 판매처 주소**를 얻는다.
+//   못 따라가면 인포크 주소 그대로 쓴다 — 그것도 로그인 없이 열린다.
+async function resolveFinal(u) {
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 12000);
+    const r = await fetch(u, { redirect: 'follow', headers: { 'user-agent': UA }, signal: c.signal });
+    clearTimeout(t);
+    const f = String(r.url || '');
+    return usable(f) ? f : u;
+  } catch (e) { return u; }
+}
 
 // 링크로 쓸 수 있는 주소인가 — 카페로 되돌아가면 고친 게 아니다
 function usable(u) {
@@ -132,7 +168,8 @@ for (const h of todo) {
     const gn = NORM(it.name);
     let best = null;
     for (const c of hv.rows) {
-      if (!usable(c.url)) continue;
+      const abs = absolute(c.url, hv.base);
+      if (!usable(abs)) continue;
       const cn = NORM(c.name);
       if (!cn || !gn) continue;
       const nameOk = cn === gn
@@ -144,9 +181,9 @@ for (const h of todo) {
       const d = Math.min(dOpen, dEnd);
       if (d > 3) continue;
       const score = (cn === gn ? 0 : 10) + d;
-      if (!best || score < best.score) best = { score: score, c: c, exact: cn === gn, d: d };
+      if (!best || score < best.score) best = { score: score, c: c, url: abs, exact: cn === gn, d: d };
     }
-    if (best) hits.push(Object.assign({}, it, { slug: hv.slug, newUrl: best.c.url, matched: best.c.name, exact: best.exact, d: best.d }));
+    if (best) hits.push(Object.assign({}, it, { slug: hv.slug, newUrl: await resolveFinal(best.url), matched: best.c.name, exact: best.exact, d: best.d }));
     else misses.push(Object.assign({}, it, { why: '인포크 ' + hv.rows.length + '건 중 일치 없음' }));
   }
 }
@@ -160,7 +197,16 @@ for (const x of hits.slice(0, 60)) {
 }
 
 if (!hits.length) { log('바꿀 것 없음'); setTimeout(() => process.exit(0), 300); }
-else if (!APPLY) { log('확인만 했다. 실제로 바꾸려면 --apply'); setTimeout(() => process.exit(0), 300); }
+else if (!APPLY) {
+  // 확인만 해도 후보를 파일로 남긴다 — 채팅이 날아가도 다음 사람이 이어받을 수 있게 (규칙 0-Z)
+  const cand = join(ROOT, 'scratchpad', '카페링크교체_후보.json');
+  writeFileSync(cand, JSON.stringify(hits.map((x) => ({
+    id: x.id, name: x.name, open_date: x.open_date, insta: x.insta,
+    old_pay_link: x.pay_link, new_pay_link: x.newUrl, matched: x.matched, exact: x.exact,
+  })), null, 1), 'utf8');
+  log('후보 ' + cand + ' 에 남겼다. 실제로 바꾸려면 --apply');
+  setTimeout(() => process.exit(0), 300);
+}
 else {
   // ── 5. 백업 먼저, 그 다음 UPDATE ──
   const tag = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19).replace(/[:T-]/g, '');
