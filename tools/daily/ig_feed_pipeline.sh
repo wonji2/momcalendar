@@ -40,7 +40,7 @@ f="scratchpad/승인대기_igfeed_${DAY}_${TS}.md"
 mv "$CONV.md" "$f"
 # 한글명: DB 최빈 influencer → 없으면 스윕이 받은 full_name
 H=$(grep -oE '\| [A-Za-z0-9._]+ \|$' "$f" | tr -d '| ' | sort -u | awk '{printf "'"'"'%s'"'"',", $0}' | sed 's/,$//')
-"$SB" db query --linked "select insta, mode() within group (order by influencer) as nm from gonggu where insta in ($H) and influencer<>'' and influencer<>insta group by 1;" 2>/dev/null | grep -o '"insta": "[^"]*"\|"nm": "[^"]*"' | sed 's/"[a-z]*": "//; s/"$//' | paste -d'|' - - > "$CONV.names.db"
+"$SB" db query --linked --output-format json "select insta, mode() within group (order by influencer) as nm from gonggu where insta in ($H) and influencer<>'' and influencer<>insta group by 1;" 2>/dev/null | grep -o '"insta": "[^"]*"\|"nm": "[^"]*"' | sed 's/"[a-z]*": "//; s/"$//' | paste -d'|' - - > "$CONV.names.db"
 cat "$CONV.names.db" "$CONV.names" 2>/dev/null | awk -F'|' '!seen[$1]++' > "$CONV.names.all"
 awk 'BEGIN{FS="|"} FILENAME==ARGV[1]{nm[$1]=$2; next} {if($0 ~ /^\| [0-9]+ \| *\|/){n=split($0,c,"|"); h=c[n-1]; gsub(/ /,"",h); num=c[2]; gsub(/ /,"",num); if(nm[h]){sub(/^\| [0-9]+ \| *\|/, "| " num " | " nm[h] " |")}} print}' "$CONV.names.all" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 # 한글명 빈 행 → 보류 (셀러 칸이 공백뿐인 행)
@@ -67,7 +67,7 @@ fi
 if echo "$OUT" | grep -q '"already_in_db": [1-9]'; then
   sed '/^select count/,$d' scratchpad/_chk.sql > scratchpad/_chk_list_ig.sql
   echo "select insta||'/'||open_date||'/'||name as row from j where insta is not null and dup order by 1;" >> scratchpad/_chk_list_ig.sql
-  "$SB" db query --linked -f scratchpad/_chk_list_ig.sql 2>/dev/null | grep -o '"row": "[^"]*"' | sed 's/"row": "//; s/"$//' > "$CONV.dup"
+  "$SB" db query --linked --output-format json -f scratchpad/_chk_list_ig.sql 2>/dev/null | grep -o '"row": "[^"]*"' | sed 's/"row": "//; s/"$//' > "$CONV.dup"
   awk 'BEGIN{FS=" [|] "} FILENAME==ARGV[1]{split($0,a,"/"); d[a[1]"/"a[2]]=1; next} /^\| [0-9]/{h=$8; sub(/ \|$/,"",h); if(d[h"/"$4]) next} {print}' "$CONV.dup" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
   grep -q '^| [0-9]' "$f" || { log "전부 DB 에 이미 있음 — 끝"; exit 0; }
   OUT=$(gate)
@@ -75,17 +75,17 @@ fi
 TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
 if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then log "🔴 최종 게이트 불일치 총=$TOT 신규=$NEW — 등록 안 함"; cp "$f" "$HOLD.gate_$TS.md"; exit 1; fi
 
-BEFORE=$("$SB" db query --linked "select coalesce(max(id),0) m from gonggu;" 2>/dev/null | grep -o '"m": [0-9]*' | grep -o '[0-9]*')
+BEFORE=$("$SB" db query --linked --output-format json "select coalesce(max(id),0) m from gonggu;" 2>/dev/null | grep -o '"m": [0-9]*' | grep -o '[0-9]*')
 "$N" scratchpad/gen_insert_gonggu.mjs "$f" "$CONV.sql" >/dev/null 2>&1 || { log "🔴 SQL 생성 실패"; exit 1; }
-"$SB" db query --linked -f "$CONV.sql" >/dev/null 2>&1
-AFTER=$("$SB" db query --linked "select count(*) c, coalesce(max(id),0) m from gonggu where id > ${BEFORE:-0};" 2>/dev/null | grep -o '"[cm]": [0-9]*' | paste -sd' ')
+"$SB" db query --linked --output-format json -f "$CONV.sql" >/dev/null 2>&1
+AFTER=$("$SB" db query --linked --output-format json "select count(*) c, coalesce(max(id),0) m from gonggu where id > ${BEFORE:-0};" 2>/dev/null | grep -o '"[cm]": [0-9]*' | paste -sd' ')
 log "✅ 등록 $TOT 행 (DB 증가: $AFTER)"
 mkdir -p scratchpad/등록완료/무인_ig_feed && cp "$f" "scratchpad/등록완료/무인_ig_feed/${DAY}_${TS}_${TOT}건.md"
 
 # 사후검사: 새 id 가 낀 정확일치 중복은 새 행을 지운다 · 유사중복은 로그 · 소분류 이탈은 cat_guard 경보
-DUP=$("$SB" db query --linked -f scratchpad/_q_dup.sql 2>/dev/null | grep -o '"b_id": [0-9]*' | grep -o '[0-9]*' | awk -v b="${BEFORE:-0}" '$1>b' | paste -sd,)
-if [ -n "$DUP" ]; then "$SB" db query --linked "delete from gonggu where id in ($DUP) and id > ${BEFORE:-0};" >/dev/null 2>&1; log "⚠ 정확일치 중복 삭제: $DUP"; fi
-SIM=$("$SB" db query --linked -f scratchpad/_q_dup_sim.sql 2>/dev/null | grep -c '"a_id"'); [ "${SIM:-0}" != 0 ] && log "⚠ 유사중복 의심 $SIM 쌍 — _q_dup_sim.sql 확인 필요"
+DUP=$("$SB" db query --linked --output-format json -f scratchpad/_q_dup.sql 2>/dev/null | grep -o '"b_id": [0-9]*' | grep -o '[0-9]*' | awk -v b="${BEFORE:-0}" '$1>b' | paste -sd,)
+if [ -n "$DUP" ]; then "$SB" db query --linked --output-format json "delete from gonggu where id in ($DUP) and id > ${BEFORE:-0};" >/dev/null 2>&1; log "⚠ 정확일치 중복 삭제: $DUP"; fi
+SIM=$("$SB" db query --linked --output-format json -f scratchpad/_q_dup_sim.sql 2>/dev/null | grep -c '"a_id"'); [ "${SIM:-0}" != 0 ] && log "⚠ 유사중복 의심 $SIM 쌍 — _q_dup_sim.sql 확인 필요"
 "$N" tools/daily/cat_guard.mjs 2>/dev/null | tail -1 | sed 's/^/cat_guard: /' | tee -a "$LOG"
-"$SB" db query --linked "select public.seo_refresh();" >/dev/null 2>&1
+"$SB" db query --linked --output-format json "select public.seo_refresh();" >/dev/null 2>&1
 exit 0
