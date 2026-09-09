@@ -1172,11 +1172,23 @@ function cmpPartnerFirst(a,b){
   return a.openDate.localeCompare(b.openDate);   // 동률이면 오픈일 빠른 순
 }
 
+// 🔒 XSS 방어 (2026-09-09): 검색어는 결과가 없을 때 화면에 그대로 출력된다.
+//   딥링크(?q=)가 생기면 링크 한 줄로 남의 브라우저에서 스크립트를 돌릴 수 있어 반드시 이스케이프한다.
+function escHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+// 🔗 검색 딥링크 (2026-09-09, 카페 자동 댓글용): momcalendar.com/?q=브랜드 → 그 검색 결과를 바로 연다.
+//   ⚠ loadData 는 **5분 캐시 빠른 경로와 본경로 두 군데**서 끝난다 — 둘 다 이 함수를 부른다.
+//     (2026-08-31 사고: 캐시 경로에 buildHotTags 를 빠뜨려 칩이 사라졌다. 같은 함정이다)
+function bootView(){
+  var q="";
+  try{ q=(new URLSearchParams(location.search).get("q")||"").replace(/[<>"'&]/g,"").trim().slice(0,40); }catch(e){}
+  if(q){ try{ runSearch(q); return; }catch(e){} }
+  if(!restoreViewState()) renderList();
+}
 async function loadData() {
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
   // ⚠ 이 5분 캐시 빠른 경로는 return 으로 끝난다 — 아래 본경로에만 있는 초기화(buildHotTags 등)를 여기도 같이 불러야 한다
   //    (2026-08-31 사고: 핫 키워드 칩이 여기 빠져서 5분 안에 재접속하면 칩이 사라졌다)
-  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); if(!restoreViewState()) renderList(); return; } }catch(_){}
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); bootView(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
@@ -1250,7 +1262,7 @@ async function loadData() {
   }
   buildWeekTabs();
   buildHotTags(); loadAliasDb();
-  if(!restoreViewState()) renderList();
+  bootView();
 }
 
 // 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — **브랜드 기준**으로 뽑는다 (사장님 지적 "소분류는 대분류랑 뭐가 달라").
@@ -1726,7 +1738,7 @@ async function renderSearchAll(){
   const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
 
   el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:36px 0 10px;text-align:center;color:#aaa">
-      '<b style="color:#7B3FB5">${fSearch}</b>' 지금 진행 중인 공구는 없어요<br>
+      '<b style="color:#7B3FB5">${escHtml(fSearch)}</b>' 지금 진행 중인 공구는 없어요<br>
       <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
     </div><div id="pastWrap"></div>`) + backHome;
   paintHearts();
