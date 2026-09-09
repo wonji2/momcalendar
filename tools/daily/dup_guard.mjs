@@ -10,7 +10,12 @@
  * 판정 (게이트 규칙 ⑥ 과 같은 뿌리, 단 사후라서 더 넓게 본다)
  *   같은 셀러 + 기간 겹침 + **끝말(핵심 품목어) 동일** + 의미 낱말 2개 이상 공유
  *   ⚠ 끝말이 '선물세트·시리즈' 같은 일반 품목어면 뺀다 — '서해한과 선물세트'↔'제주 갈치 선물세트' 는 다른 상품이다.
- *   ⚠ **자동 삭제하지 않는다.** 다른 브랜드 같은 품목(데이타민↔갓스펙 칼마디 미네랄)은 정상 공구다. 사람이 판정한다.
+ *   ⚠ 이 넓은 판정은 **신고만** 한다 — 다른 브랜드 같은 품목(데이타민↔갓스펙 칼마디 미네랄)은 정상 공구다.
+ *
+ * 🗑 단 **완전히 똑같은 것은 승인 없이 자동 삭제**한다 (사장님 2026-09-09)
+ *   "날짜 상품명이 같은게 중복이지 날짜가 다른건 재공구니까 중복아니지"
+ *   = 같은 셀러 + 상품명 글자까지 동일 + 오픈일 동일 → id 작은 쪽만 남기고 지운다(전 컬럼 백업 후).
+ *   오픈일이 다르면 재공구라 손대지 않는다.
  *
  * 실행   node tools/daily/dup_guard.mjs           (예약작업 momcal-dup-guard, 매일 09:20)
  *        node tools/daily/dup_guard.mjs --all     이미 본 쌍도 다시 보고
@@ -34,6 +39,7 @@ const SEEN = path.join(ROOT, 'scratchpad', 'dup_guard_seen.json');
 const LOG = path.join(ROOT, 'scratchpad', 'dup_guard_log.txt');
 const ALL = process.argv.includes('--all');
 
+const stampFile = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0,16).replace(/[-:T]/g,'');
 const out = [];
 const say = (s) => { console.log(s); out.push(s); };
 const sql = (text) => {
@@ -70,6 +76,29 @@ select a.id id1, b.id id2, a.name n1, b.name n2, a.influencer, a.insta,
  where a.tail not in ('선물세트','선물','기획','모음','상품','제품','시리즈','구성','패키지','에디션','증정품')
    and (select count(*) from (select unnest(a.toks) intersect select unnest(b.toks)) i) >= 2
  order by a.open_date desc;`;
+
+// ── 0단계. **완전히 똑같은 것은 승인 없이 지운다** (사장님 지시 2026-09-09)
+//   > "완전히 똑같은건 승인 안받아도 니가 알아서 당연히 지워야지"
+//   > "날짜 상품명이 같은게 중복이지 날짜가 다른건 재공구니까 중복아니지"
+//   판정: 같은 셀러 + **상품명이 글자까지 같고** + **오픈일도 같다**  → 한 공구가 두 번 들어간 것. id 작은 쪽(먼저 등록)만 남긴다.
+//   ⚠ 오픈일이 다르면 손대지 않는다 — 명희홈쿡 바로육수 7/13·8/10·9/8 처럼 매달 다시 파는 게 정상이다(전 DB 153쌍이 이 경우다).
+//   ⚠ 표기만 같은 것(공백·기호 차이)은 **자동 삭제하지 않는다** — 어느 표기를 남길지는 셀러 원문을 봐야 한다. 아래 신고로만 간다.
+try {
+  const dead = sql(`
+    with t as (select id, insta, influencer, name, open_date, end_date from gonggu where approved and coalesce(insta,'') <> ''),
+    d as (select b.id from t a join t b on a.insta=b.insta and a.name=b.name and a.open_date=b.open_date and a.id<b.id)
+    select g.* from gonggu g where g.id in (select id from d);`);
+  if (dead.length) {
+    const bak = path.join(ROOT, 'scratchpad', `자동삭제_완전중복_${stampFile()}.json`);
+    fs.writeFileSync(bak, JSON.stringify(dead, null, 1), 'utf8');   // 전 컬럼 백업 — 되돌릴 수 있게
+    sql(`delete from gonggu where id in (${dead.map((r) => Number(r.id)).join(',')});`);
+    sql(`delete from wishes w where not exists (select 1 from gonggu g where g.id=w.gonggu_id) and w.gonggu_id in (${dead.map((r) => Number(r.id)).join(',')});`);
+    say(`🗑 완전 중복(이름·오픈일 동일) ${dead.length}건 자동 삭제 — 백업 ${path.basename(bak)}`);
+    for (const r of dead) say(`   #${r.id} ${r.name} | ${r.influencer} | ${r.open_date}~${r.end_date}`);
+    const q0 = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+    sql(`insert into health_alerts(kind, detail) values ('공구완전중복자동삭제', ${q0(dead.map((r) => `#${r.id} ${r.name}`).join(' · ').slice(0, 380))});`);
+  } else say('🗑 완전 중복(이름·오픈일 동일) 없음');
+} catch (e) { say('🔴 완전 중복 자동 삭제 실패: ' + String(e.message || e).slice(0, 150)); }
 
 let rows;
 try { rows = sql(Q); }
