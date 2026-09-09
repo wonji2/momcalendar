@@ -42,7 +42,10 @@ const PROMO = /(단독|최초|역대급|최저가|초특가|특가|앵콜|앙코
 // 판촉어 뒤에 한 글자가 붙어 있으면 그것까지 함께 뗀다: "최저가전" → 통째로.
 //   최저가만 떼면 "전"이 남아 상품명이 된다(2026-09-09 id 22773 실사고).
 //   낱말 끝에서만 적용하므로 "오늘의집" 같은 이름은 건드리지 않는다. PROMO 보다 먼저 돌린다.
-const PROMO_TAIL = new RegExp('(' + "단독|최초|역대급|최저가|초특가|특가|앵콜|앙코르|리오더|재입고|한정|선착순|오늘|내일|모레|드디어|드뎌|이번|이번주|이번엔|지금|바로|마지막|마감|임박|런칭|출시|신상|공구|공동구매|오픈|예고|시작|안내|공지|알림|링크|댓글|이벤트|여기|합니다|해요|입니다|예요|에요|했어요|됐어요|오전|오후|저녁" + ')[가-힣](?=[\s,.·&+/-]|$)', 'g');
+//   ⚠ 이 정규식을 **작은따옴표 문자열로 조립하지 말 것** — 셸을 거치며 \s 가 글자 s 로 죽어
+//     2026-09-09 에 아무 일도 안 하는 정규식이 됐고, 이걸 믿고 지운 방어 두 개까지 같이 사라졌다.
+//     정규식 리터럴로 직접 적는다.
+const PROMO_TAIL = /(단독|최초|역대급|최저가|초특가|특가|앵콜|앙코르|리오더|재입고|한정|선착순|오늘|내일|모레|드디어|드뎌|이번|이번주|이번엔|지금|바로|마지막|마감|임박|런칭|출시|신상|공구|공동구매|오픈|예고|시작|안내|공지|알림|링크|댓글|이벤트|여기|합니다|해요|입니다|예요|에요|했어요|됐어요|오전|오후|저녁)[가-힣](?=[\s,.·&+/\-]|$)/g;
 
 // 캡션에서 날짜로 읽으면 안 되는 구간을 먼저 지운다 (2026-09-09 오픈일 오류 3건의 원인)
 //   · 사이즈·용량 표기: 110 / 17~20kg · 30x40 · 500ml
@@ -60,28 +63,74 @@ const unfancy = (s) => String(s).replace(/[𝐀-𝟿]/gu, (ch) => {
   return " ";
 });
 const stripNonDate = (cap) => String(cap)
-  // 세 자리 이상 숫자에 붙은 / 구간은 사이즈표다
+  // 단위가 붙은 소수는 날짜가 아니다: "10.1인치 디스플레이" "1.5리터"
+  .replace(/\d+\s*[.]\s*\d+\s*(인치|inch|리터|L|kg|g|cm|mm|ml|ML|oz)/gi, ' ')
+  // 사이즈표: 세 자리 이상 숫자에 붙은 / 구간  "L : 4~5세 / 110 / 17~20kg"
   .replace(/\d{3,}\s*[/]\s*\d{1,3}(\s*[~-]\s*\d{1,3})?/g, ' ')
-  // 배송·발송·출고 안내가 붙은 날짜
-  .replace(/\d{1,2}\s*[/.월]\s*\d{1,2}\s*일?\s*(부터|이후|경)?\s*(순차)?\s*(발송|배송|출고|입고)/g, ' ');
+  // 배송·발송·출고·입고 안내가 붙은 날짜. 사이에 요일 괄호·조사가 껴도 잡는다
+  //   "9/14 (월) 부터 순차출고" · "9월 15일부터 순차 발송"
+  .replace(/\d{1,2}\s*[/.월]\s*\d{1,2}\s*일?\s*(\(\s*[월화수목금토일]\s*\))?\s*(부터|이후|경|쯤)?\s*(순차)?\s*(발송|배송|출고|입고)/g, ' ');
+
+// 캡션의 날짜 하나하나를 **오픈인지 마감인지** 가려낸다.
+//   2026-09-09 사고: 마감일만 적힌 캡션("~9/14 까지")에서 그 날짜를 오픈일로 등록해
+//   지금 열려 있는 공구가 손님에게 일주일 뒤 예정으로 보였다(22707·22717·22705·22740).
+const DATE_RE = /(\d{1,2})\s*([\/.월])\s*(\d{1,2})\s*일?\s*(?:\(\s*[월화수목금토일]\s*\))?/g;
+// 날짜 뒤에 시각 표기가 끼는 일이 흔하다: "9/11 오전 9시 마감" → 시각을 건너뛰고 단서를 본다
+const TIME_GAP = '(?:\\s*(?:오전|오후|밤|낮)?\\s*\\d{1,2}\\s*[시:]\\s*\\d{0,2}\\s*(?:분)?)?\\s*';
+const END_CUE = new RegExp('^' + TIME_GAP + '(까지|마감|종료|마지막|자정|밤\\s*12)');   // 날짜 뒤에 오면 마감일
+const OPEN_CUE = new RegExp('^' + TIME_GAP + '(오픈|OPEN|open|시작|부터|런칭|출시)');   // 날짜 뒤에 오면 오픈일
 const dateFrom = (rawCap, base) => {
   const cap = stripNonDate(unfancy(rawCap));
-  // "오늘 자정 마감" 은 오늘 끝나는 공구다. 캡션 아래 다른 상품 예고 날짜를 오픈일로 삼지 않게 여기서 끝낸다
-  //   (2026-09-09 id 22773: 쿠진아트 마감글에 적힌 알텐바흐 9/10 을 쿠진아트 오픈일로 가져왔다)
-  if (/오늘\s*자정\s*마감|자정\s*마감|오늘\s*(밤)?\s*마감/.test(rawCap))
-    return { open: addDays(base, -3), end: base };
-  const m = cap.match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})\s*일?\s*(?:\([월화수목금토일]\))?/g) || [];
-  const ds = [];
-  for (const s of m) { const mm = s.match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/); const M = +mm[1], D = +mm[2]; if (M < 1 || M > 12 || D < 1 || D > 31) continue; ds.push(`${today.slice(0, 4)}-${String(M).padStart(2, '0')}-${String(D).padStart(2, '0')}`); }
+  const opens = [], ends = [];
+  DATE_RE.lastIndex = 0;
+  let mm;
+  while ((mm = DATE_RE.exec(cap)) !== null) {
+    const M = +mm[1], D = +mm[3];
+    if (M < 1 || M > 12 || D < 1 || D > 31) continue;
+    // "10.1와일드 디스플레이" 처럼 점 뒤 숫자에 한글이 바로 붙으면 날짜가 아니라 규격이다
+    //   (요일·일 만 예외 — "9.13(일)" "9.7일")
+    if (mm[2] === '.') {
+      const nx = cap.slice(mm.index + mm[0].length, mm.index + mm[0].length + 1);
+      if (/[가-힣]/.test(nx) && !/[일월화수목금토]/.test(nx)) continue;
+    }
+    const d = `${today.slice(0, 4)}-${String(M).padStart(2, '0')}-${String(D).padStart(2, '0')}`;
+    if (!valid(d)) continue;
+    const after = cap.slice(mm.index + mm[0].length, mm.index + mm[0].length + 12);
+    const before = cap.slice(Math.max(0, mm.index - 3), mm.index);
+    if (END_CUE.test(after) || /[~\-–—∼]\s*$/.test(before)) ends.push(d);
+    else if (OPEN_CUE.test(after)) opens.push(d);
+    else opens.push(d);                                   // 단서가 없으면 오픈 후보
+  }
   let open = null, end = null;
-  if (ds.length) {
-    // "9/9 ~ 9/12" 또는 "9/9-9/12" 처럼 범위가 있으면 앞이 오픈, 뒤가 마감
-    const range = cap.match(/(\d{1,2}\s*[\/.월]\s*\d{1,2}\s*일?\s*(?:\([월화수목금토일]\))?)\s*[~\-–—∼]\s*(\d{1,2}\s*[\/.월]\s*\d{1,2})/);
-    if (range) { const a = range[1].match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/), b = range[2].match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/); open = `${today.slice(0, 4)}-${a[1].padStart(2, '0')}-${a[2].padStart(2, '0')}`; end = `${today.slice(0, 4)}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}`; }
-    else { open = ds[0]; const kk = cap.match(/(\d{1,2}\s*[\/.월]\s*\d{1,2})\s*일?\s*(?:\([월화수목금토일]\))?\s*까지/); if (kk) { const b = kk[1].match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/); const e = `${today.slice(0, 4)}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}`; if (e !== open) end = e; else if (ds.length > 1) open = ds.find(d => d !== e) || open, end = e; } }
-  } else if (/오늘\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap) || /오늘부터/.test(cap)) open = base;
-  else if (/내일\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap)) open = addDays(base, 1);
-  else if (/모레\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap)) open = addDays(base, 2);
+  // "9/9 ~ 9/12" 처럼 범위로 적혀 있으면 그게 가장 확실하다
+  const range = cap.match(/(\d{1,2}\s*[\/.월]\s*\d{1,2}\s*일?\s*(?:\(\s*[월화수목금토일]\s*\))?)\s*[~\-–—∼]\s*(\d{1,2})\s*(?:[\/.월]\s*)?(\d{1,2})?/);
+  if (range) {
+    const a = range[1].match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/);
+    open = `${today.slice(0, 4)}-${a[1].padStart(2, '0')}-${a[2].padStart(2, '0')}`;
+    // "9/8(화)~10(목)" 처럼 뒤쪽 달이 생략되면 앞 달을 쓴다
+    const eM = range[3] ? range[2] : a[1], eD = range[3] ? range[3] : range[2];
+    end = `${today.slice(0, 4)}-${String(+eM).padStart(2, '0')}-${String(+eD).padStart(2, '0')}`;
+  } else if (opens.length) {
+    open = opens[0];
+    if (ends.length) end = ends.find(e => e >= open) || null;
+  } else if (ends.length) {
+    // 마감일만 적힌 글이다. 그 날짜를 오픈일로 쓰면 안 된다 — 마감으로 두고 오픈은 역산한다
+    end = ends[0];
+    // 글 올린 날이 마감 전이면 **그날이 실제 오픈일**이다("9/7 오픈 … ~9/14까지" → 9/7)
+    open = (base && base <= end) ? base : addDays(end, -3);
+    if (open < addDays(end, -13)) open = addDays(end, -13);   // 14일 상한
+  }
+  // 날짜를 하나도 못 찾았을 때만 아래 폴백을 쓴다. 순서가 중요하다 —
+  //   "오늘 마감" 글이 "오픈" 이라는 낱말 하나 때문에 오늘 **여는** 공구로 등록되면 안 된다(22729 실사고)
+  if (!open && !end) {
+    if (/오늘\s*자정\s*마감|자정\s*마감|오늘\s*(밤)?\s*마감|오늘\s*마감/.test(rawCap)) { end = base; open = addDays(base, -3); }
+    else if (/오늘\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap) || /오늘부터/.test(cap)) open = base;
+    else if (/내일\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap)) open = addDays(base, 1);
+    else if (/모레\s*(?:\S+\s*){0,3}(오픈|공구|시작)/.test(cap)) open = addDays(base, 2);
+    // 날짜가 없는데 "오픈/OPEN" 이라고만 써 있으면 글 올린 날이 오픈일이다.
+    //   예고글(예고·예정·곧)은 제외한다 — 그건 미래 날짜가 따로 있다
+    else if (/오픈|OPEN|open|공구\s*시작|판매\s*시작/.test(cap) && !/예고|예정|곧\s*오픈|오픈\s*전/.test(cap)) open = base;
+  }
   if (open && !valid(open)) open = null;
   if (end && !valid(end)) end = null;
   if (open && !end) end = addDays(open, 3);
@@ -99,8 +148,13 @@ const productFrom = (cap) => {
   if (lines[0]) cands.push(lines[0]);
   for (let s of cands) {
     s = cleanName(s).replace(/[^\p{L}\p{N}\s&+·.,\/'\-]/gu, ' ');
-    s = s.replace(/^[가-힣A-Za-z]{2,8}\s?[xX×]\s?/, '').replace(/핫딜|최저가|공구가|특가/g, ' ');   // "다니맘X기운찬 …" 셀러 접두·판촉어
-    s = s.replace(PROMO_TAIL, ' ').replace(PROMO, ' ').replace(/\s+/g, ' ').trim().replace(/^[\s,.·&+\/\-]+|[\s,.·&+\/\-]+$/g, '');
+    // 🔴 순서가 중요하다: 판촉어+한글자(PROMO_TAIL)를 **가장 먼저** 뗀다.
+    //    "최저가"를 먼저 지우면 "최저가전"에서 "전"만 남아 그게 상품명이 된다(2026-09-09 id 22773 실사고).
+    s = s.replace(/^[가-힣A-Za-z]{2,8}\s?[xX×]\s?/, '')            // "다니맘X기운찬 …" 셀러 접두
+         .replace(PROMO_TAIL, ' ')
+         .replace(/(핫딜|최저가|공구가|특가)[가-힣](?=[\s,.·&+\/\-]|$)/g, ' ')
+         .replace(/핫딜|최저가|공구가|특가/g, ' ');
+    s = s.replace(PROMO, ' ').replace(/\s+/g, ' ').trim().replace(/^[\s,.·&+\/\-]+|[\s,.·&+\/\-]+$/g, '');
     if (s.length >= 2 && s.length <= 40 && /[가-힣A-Za-z]{2,}/.test(s) && !/^(제품|상품|아이템|이거|요거|그거|이것)$/.test(s)) return s;
   }
   return null;
@@ -130,7 +184,7 @@ for (const b of [...BRANDS]) if (BRAND_STOP.test(b) || !/^[가-힣A-Za-z][가-�
 const isBrand = (t) => BRANDS.has(t) || (t.length >= 3 && [...BRANDS].some(b => b.length >= 3 && t.startsWith(b)));
 // 예고·안내 글의 꼬리말·머리말. 상품명이 아니다 (2026-09-09 검증자 실측 17건)
 //   "오사닛 캔디 coming soon" · "올유베베 가을 PREVIEW" · "빌베리 D-day" · "제주항구 미리보기" · "베이비들 주목" — 국내유일·최대할인·가격표는 정상 상품명에도 쓰여 뺐다
-const TEASER = /(coming\s*soon|coming|preview|미리보기|사전예약|예약판매|check\s*point|d-?day|주목|무물모음|무물|연장|선물세트포함)/i;
+const TEASER = /(coming\s*soon|coming|preview|프리뷰|미리보기|사전예약|예약판매|check\s*point|d-?day|주목|무물모음|무물|연장|선물세트포함)/i;
 const JUNK_TOK = /^(or|초|Open|OPEN|open|EVENT|이벤트|자정|떴다링|X|x|카카오톡딜|일정|변경|역대|공유|할인사이트|\d{1,2}\/\d{1,2}|\d+|목|금|토|일|월|화|수)$/;
 // 상품명은 **브랜드 낱말로 시작**해야 한다. 앞에 문장 조각이 붙어 있으면 브랜드부터 자르고, 뒤의 잡낱말은 뗀다.
 //   "재 문의가 가장 많았던 아오라 우주빔" → "아오라 우주빔" · "9/10 목 유럽 1등 리오마레 참치" → "리오마레 참치"
@@ -143,7 +197,12 @@ const normalizeName = (s) => {
   // 판촉어 잔해(“최저가전” 의 “전”)는 PROMO_TAIL 이 productFrom 에서 이미 통째로 뗀다
   toks = toks.filter((t, k) => k === 0 || !JUNK_TOK.test(t));
   toks = toks.slice(0, 5);                                  // 브랜드 + 최대 4낱말
-  return toks.join(' ').replace(/\s*[,.]\s*$/, '');
+  //   짝 없는 따옴표 잔해만 떼어낸다: "래폴드 수납함'" (2026-09-09 검증자 지적)
+  //   ⚠ 짝이 있으면 그대로 둔다 — 「담백하루 알래스카오메가1000 "명절이벤트"」 의 닫는 따옴표를 지우면 안 된다
+  let out = toks.join(' ').replace(/\s*[,.]\s*$/, '').trim();
+  //   ⚠ 셀러들이 여는·닫는 따옴표를 섞어 쓴다(“…" · "…”) → **아무 따옴표든 앞에 있으면 짝으로 본다**
+  if (/['"`‘’“”]$/.test(out) && !/['"`‘’“”]/.test(out.slice(0, -1))) out = out.slice(0, -1).trim();
+  return out;
 };
 const goodName = (s) => {
   if (!s || s.length > 24 || TEASER.test(s) || SENTENCE.test(s) || SENTENCE2.test(s) || ENDING.test(s)) return false;
