@@ -85,7 +85,7 @@ try {
   for (const r of (j.rows || [])) if (r.tok && r.tok.length >= 2 && (r.tot || 0) >= 3) vocab.add(r.tok);
 } catch { }
 const SENTENCE = /(해요|합니다|했어|했습|드릴|주세요|보세요|하세요|입니다|이에요|예요|하는|하고|해서|이라|라고|저요|보여|같이|먹어야지|놓치지|챙겨|클릭|프로필|구매완료|휴대폰|뒷자리|기간|진행|이슈|반응|정착|실패|써보실|알고|먹으면|모든|상관없이|동안|남겨|댓글|링크|알림|이벤트|당첨|추첨|확인|필독|공지|안내|여러분|분들|엄마|아이가|우리|제가|저는|이거|요거|그냥|진짜|정말|너무|완전|역대급|미친|대박|추천|후기|가능|무료|증정|사은품)/;
-const SENTENCE2 = /(아시나요|된다고|배우는|그리고|돌아온|함께|인기폭발|폭발|인상전|가격 인상|만원대|천원대|원대|이라니|라니|미쳤|놀랬|가져왔|드디어|하자마자|품절되는|써보|먹어|마시|입히|신기|놓치|기다리|준비|소개|시작|끝|까지만|만에|무조건|필수|꿀템|찐|갓성비|가성비|누가|따라오|비결|이렇게|맛있었|퀄리티|발송|딱 하루|하루만|시간|Q&A|문의|골라담기 시)/;
+const SENTENCE2 = /(아시나요|된다고|배우는|그리고|돌아온|함께|인기폭발|폭발|인상전|가격 인상|만원대|천원대|원대|이라니|라니|미쳤|놀랬|가져왔|드디어|하자마자|품절되는|써보|먹어|마시|입히|신기|놓치|기다리|준비|소개|시작|끝|까지만|만에|무조건|필수|꿀템|찐|갓성비|가성비|누가|따라오|비결|이렇게|맛있었|퀄리티|발송|딱 하루|하루만|시간|Q&A|문의|골라담기 시|없는|있는|같은|모았|드실|잠시후|잠시 후|막차|드셔|넣어|담아|골랐)/;
 // 사장님 상품·파싱 제외 셀러는 변환 단계에서 미리 뺀다 (게이트에 걸리면 회차 전체가 멈추므로)
 const OWN_PRODUCT = /(^|[^가-힣])(우랩|마이키즈|롤팬)([^가-힣]|$)/;
 const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twins_', 'hyun._.brother', 'yunu_uno', 'momcal_']);
@@ -108,6 +108,9 @@ const normalizeName = (s) => {
   if (i < 0) return null;
   toks = toks.slice(i);
   while (toks.length > 1 && JUNK_TOK.test(toks[toks.length - 1])) toks.pop();
+  // 판촉어를 뗀 자리에 한 글자 잔해가 남는다: "…최저가전" 에서 최저가를 떼면 "전" 만 남는다
+  //   (2026-09-09 실사고: "쿠진아트 에어프라이어 전" 이 그대로 등록됐다)
+  while (toks.length > 1 && /^[가-힣]$/.test(toks[toks.length - 1])) toks.pop();
   toks = toks.filter((t, k) => k === 0 || !JUNK_TOK.test(t));
   toks = toks.slice(0, 5);                                  // 브랜드 + 최대 4낱말
   return toks.join(' ').replace(/\s*[,.]\s*$/, '');
@@ -118,6 +121,13 @@ const goodName = (s) => {
   const toks = s.split(/[\s&+·,\/]+/).filter(Boolean);
   if (!toks.length || !isBrand(toks[0])) return false;
   if (toks.length === 1 && toks[0].length < 3) return false;
+  // 마지막 낱말이 한 글자 한글이면 판촉어를 뗀 잔해다 (2026-09-09 "…에어프라이어 전")
+  if (toks.length > 1 && /^[가-힣]$/.test(toks[toks.length - 1])) return false;
+  // 중간 낱말이 조사로 끝나면 문장 조각이다 ("휴대용을 …", "카시트에 …", "유모차에 …")
+  //   의/도/다 는 정상 상품명에도 흔하다(모두의 육수·썼다 지웠다) → 을·를·에·으로·로 만 본다
+  for (const t of toks.slice(0, -1)) if (t.length >= 3 && /(을|를|에|으로|로)$/.test(t)) return false;
+  // 같은 낱말이 되풀이되면 캡션의 강조 문구다 ("알텐바흐, 알텐바흐~ 하고")
+  for (let i = 1; i < toks.length; i++) if (toks[i] === toks[i - 1]) return false;
   return true;
 };
 
