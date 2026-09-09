@@ -116,5 +116,32 @@ for (const r of fresh) {
   seen[`${r.id1}-${r.id2}`] = { at: stamp, live: !!r.live };
 }
 fs.writeFileSync(SEEN, JSON.stringify(seen, null, 1), 'utf8');
+
+// ── 핫딜 중복도 같이 본다 (2026-09-09 신설) ──────────────────────────
+// 왜: 같은 지마켓 상품(gm_2330457301)이 id 640·753 으로 **둘 다 노출 중**이었다. 하나는 18,130원 더 비쌌고,
+//     둘 다 품절이었다. 공구에는 감시가 있는데 핫딜에는 없어서 아무도 못 잡았다(검증자 지적).
+// 판정: 노출 중(expires_at null 또는 미래) 행에서 product_id 가 겹치면 즉시 신고한다.
+//     접두어(lp_gm_·gm_·toss_·oh_ …)를 벗겨 대조한다 — 같은 상품이 소스만 달리 들어오는 일이 있다.
+// ⚠ 자동으로 내리지 않는다. 어느 쪽을 남길지는 가격·조건을 봐야 하므로 사람이 정한다.
+try {
+  const hd = sql(`select regexp_replace(product_id,'^(lp_gm_|gm_|lp_11st_|11st_|lp_gmarket_|lp_bori_|toss_|oh_|cp_|ap_|ssg_)','') core,
+                         count(*) n,
+                         string_agg(id::text||':'||coalesce(mall,'?')||':'||price::text, ' / ' order by id) rows
+                    from public.hotdeals
+                   where (expires_at is null or expires_at > now())
+                     and product_id is not null and product_id <> ''
+                   group by 1 having count(*) > 1 order by n desc;`);
+  if (!hd.length) say('🔥 핫딜 중복 없음 (노출 중 product_id 전수)');
+  else {
+    say(`🔥 핫딜 중복 ${hd.length}건 — 같은 상품이 두 장 이상 노출 중`);
+    for (const r of hd) say(`   [${r.core}] ${r.rows}`);
+    const detail = hd.map((r) => `${r.core}: ${r.rows}`).join(' · ').slice(0, 380);
+    const q2 = (t) => "'" + String(t).replace(/'/g, "''") + "'";
+    sql(`insert into health_alerts(kind, detail) select '핫딜중복노출', ${q2(detail)}
+          where not exists (select 1 from health_alerts where kind='핫딜중복노출' and detail=${q2(detail)} and created_at > now() - interval '24 hours');`);
+    say('  → health_alerts 핫딜중복노출 등록');
+  }
+} catch (e) { say('🔴 핫딜 중복 검사 실패: ' + String(e.message || e).slice(0, 120)); }
+
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
 fs.writeFileSync(LOG, out.join('\n') + '\n\n' + prev.split('\n').slice(0, 500).join('\n'), 'utf8');
