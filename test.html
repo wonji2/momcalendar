@@ -4939,7 +4939,9 @@ function trackCard(id){
 //      앱 전환이 안 일어나면 1.6초 뒤 원래 주소로 보낸다. 빈 화면에 세워두지 않는다.
 function goCard(id, url){
   try{ trackCard(id); }catch(_){}
-  var isCafe = /cafe\.naver\.com/i.test(url);
+  //   ⚠ naver.me 단축링크도 카페로 간다 — https://naver.me/xxxx → 307 → m.cafe.naver.com/momcal/…
+  //      cafe.naver.com 만 보면 이 카드들(DB 4건)은 그대로 로그인 벽으로 간다.
+  var isCafe = /cafe\.naver\.com|naver\.me\//i.test(url);
   var standalone = false;
   try{ standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }catch(_){}
   var inWv = false;
@@ -4957,18 +4959,23 @@ function goCard(id, url){
     }
     // ② 네이버 앱으로 넘겨본다. 실패해도 아래 ③ 이 손님을 원래 주소로 보낸다.
     if(typeof openInNaverApp !== 'function') return go();
-    var moved = false;
-    var onHide = function(){ moved = true; };
-    try{ document.addEventListener('visibilitychange', onHide); window.addEventListener('pagehide', onHide); }catch(_){}
+    // 🔴 "한 번이라도 가려졌으면 앱으로 넘어간 것" 으로 **걸어두면 안 된다**.
+    //    visibilitychange 는 가려질 때도 다시 보일 때도 뜬다. 알림배너·스크린샷·앱선택창 취소처럼
+    //    화면이 잠깐 깜빡인 것만으로 폴백이 영영 풀려 **손님이 아무데도 못 간다**(검증자가 재현).
+    //    그래서 아무것도 기억하지 않고, 폴백이 도는 그 순간에 **지금 가려져 있는가**만 본다.
+    var wait = 1200;
+    try{ wait = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ? 2000 : 1200; }catch(_){}
     try{ openInNaverApp(url); }catch(_){ }
     // ③ 앱으로 안 넘어갔으면(화면이 그대로면) 원래 주소로 — 여기가 마지막 안전망이다.
+    //    ⚠ iOS 는 "NAVER 을 여시겠습니까" 확인창이 떠 있는 동안에도 화면이 보인다.
+    //       손님이 늦게 누르면 그 전에 원래 주소로 가버린다 — 그래도 **오늘 라이브와 같은 결과**일 뿐
+    //       손님이 멈춰 서지는 않는다. 그래서 아이폰만 조금 더(2초) 기다린다.
     setTimeout(function(){
-      try{ document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onHide); }catch(_){}
       var hidden = false;
       try{ hidden = document.hidden; }catch(_){}
-      if(moved || hidden) return;   // 앱으로 넘어갔다
+      if(hidden) return;   // 앱으로 넘어갔다
       go();
-    }, 1600);
+    }, wait);
   }, 0);
 }
 // 네이버 앱에 주소를 넘긴다. 성공 여부는 알 수 없다 — 판단은 goCard 의 ③ 이 한다.

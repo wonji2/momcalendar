@@ -39,8 +39,37 @@ const ENDED = /마감\s*(되었|됐|했|입니다|이에요|예요)|종료\s*(�
 const NOT_GG = /핫딜|체험단|서포터즈|협찬|제품제공|원고료|리뷰이벤트/;
 const REVIEW = /후기|구매완료 인증|인증샷|사용후기/;
 const PROMO = /(단독|최초|역대급|최저가|초특가|특가|앵콜|앙코르|리오더|재입고|한정|선착순|오늘|내일|모레|드디어|드뎌|이번|이번주|이번엔|지금|바로|곧|마지막|마감|임박|런칭|출시|신상|공구|공동구매|오픈|OPEN|open|예고|시작|안내|공지|알림|링크|댓글|이벤트|여기|합니다|해요|입니다|예요|에요|했어요|됐어요|중|D-\d+|\d+차|\d+회|\d+월|\d+일|\d+시|\d+분|오전|오후|저녁|밤|\(.*?\)|\[.*?\])/g;
+// 판촉어 뒤에 한 글자가 붙어 있으면 그것까지 함께 뗀다: "최저가전" → 통째로.
+//   최저가만 떼면 "전"이 남아 상품명이 된다(2026-09-09 id 22773 실사고).
+//   낱말 끝에서만 적용하므로 "오늘의집" 같은 이름은 건드리지 않는다. PROMO 보다 먼저 돌린다.
+const PROMO_TAIL = new RegExp('(' + "단독|최초|역대급|최저가|초특가|특가|앵콜|앙코르|리오더|재입고|한정|선착순|오늘|내일|모레|드디어|드뎌|이번|이번주|이번엔|지금|바로|마지막|마감|임박|런칭|출시|신상|공구|공동구매|오픈|예고|시작|안내|공지|알림|링크|댓글|이벤트|여기|합니다|해요|입니다|예요|에요|했어요|됐어요|오전|오후|저녁" + ')[가-힣](?=[\s,.·&+/-]|$)', 'g');
 
-const dateFrom = (cap, base) => {
+// 캡션에서 날짜로 읽으면 안 되는 구간을 먼저 지운다 (2026-09-09 오픈일 오류 3건의 원인)
+//   · 사이즈·용량 표기: 110 / 17~20kg · 30x40 · 500ml
+//   · 배송/발송 안내: "9월 15일부터 순차 발송"
+//   · 다른 상품 예고 목록: "📍 공구일정" 아래 줄들
+// 수학용 볼드·이탤릭 영문(𝙊𝙥𝙚𝙣 · 𝑶𝑷𝑬𝑵)을 보통 A-Z 로 되돌린다.
+//   그대로 두면 PROMO 의 OPEN 이 안 걸려 "무선 미니 후드 𝙊𝙥𝙚𝙣" 이 상품명이 된다 (2026-09-09 실측)
+const unfancy = (s) => String(s).replace(/[𝐀-𝟿]/gu, (ch) => {
+  const c = ch.codePointAt(0);
+  for (const [a, b, base] of [[0x1D400, 0x1D419, 65], [0x1D41A, 0x1D433, 97], [0x1D434, 0x1D44D, 65], [0x1D44E, 0x1D467, 97],
+    [0x1D468, 0x1D481, 65], [0x1D482, 0x1D49B, 97], [0x1D5A0, 0x1D5B9, 65], [0x1D5BA, 0x1D5D3, 97],
+    [0x1D5D4, 0x1D5ED, 65], [0x1D5EE, 0x1D607, 97], [0x1D608, 0x1D621, 65], [0x1D622, 0x1D63B, 97],
+    [0x1D63C, 0x1D655, 65], [0x1D656, 0x1D66F, 97], [0x1D670, 0x1D689, 65], [0x1D68A, 0x1D6A3, 97]])
+    if (c >= a && c <= b) return String.fromCharCode(base + (c - a));
+  return " ";
+});
+const stripNonDate = (cap) => String(cap)
+  // 세 자리 이상 숫자에 붙은 / 구간은 사이즈표다
+  .replace(/\d{3,}\s*[/]\s*\d{1,3}(\s*[~-]\s*\d{1,3})?/g, ' ')
+  // 배송·발송·출고 안내가 붙은 날짜
+  .replace(/\d{1,2}\s*[/.월]\s*\d{1,2}\s*일?\s*(부터|이후|경)?\s*(순차)?\s*(발송|배송|출고|입고)/g, ' ');
+const dateFrom = (rawCap, base) => {
+  const cap = stripNonDate(unfancy(rawCap));
+  // "오늘 자정 마감" 은 오늘 끝나는 공구다. 캡션 아래 다른 상품 예고 날짜를 오픈일로 삼지 않게 여기서 끝낸다
+  //   (2026-09-09 id 22773: 쿠진아트 마감글에 적힌 알텐바흐 9/10 을 쿠진아트 오픈일로 가져왔다)
+  if (/오늘\s*자정\s*마감|자정\s*마감|오늘\s*(밤)?\s*마감/.test(rawCap))
+    return { open: addDays(base, -3), end: base };
   const m = cap.match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})\s*일?\s*(?:\([월화수목금토일]\))?/g) || [];
   const ds = [];
   for (const s of m) { const mm = s.match(/(\d{1,2})\s*[\/.월]\s*(\d{1,2})/); const M = +mm[1], D = +mm[2]; if (M < 1 || M > 12 || D < 1 || D > 31) continue; ds.push(`${today.slice(0, 4)}-${String(M).padStart(2, '0')}-${String(D).padStart(2, '0')}`); }
@@ -61,7 +90,7 @@ const dateFrom = (cap, base) => {
 };
 
 const productFrom = (cap) => {
-  const c = cap.replace(/^"|"\.?$/g, '').replace(/https?:\/\/\S+/g, ' ').replace(/[#@]\S+/g, ' ');
+  const c = unfancy(cap).replace(/^"|"\.?$/g, '').replace(/https?:\/\/\S+/g, ' ').replace(/[#@]\S+/g, ' ');
   const lines = c.split(/\n+/).map(s => s.trim()).filter(Boolean);
   const pick = (s) => { const q = s.match(/[❝“"「『【<\[]([^❞”"」』】>\]]{2,40})[❞”"」』】>\]]/); return q ? q[1] : null; };
   const cands = [];
@@ -71,7 +100,7 @@ const productFrom = (cap) => {
   for (let s of cands) {
     s = cleanName(s).replace(/[^\p{L}\p{N}\s&+·.,\/'\-]/gu, ' ');
     s = s.replace(/^[가-힣A-Za-z]{2,8}\s?[xX×]\s?/, '').replace(/핫딜|최저가|공구가|특가/g, ' ');   // "다니맘X기운찬 …" 셀러 접두·판촉어
-    s = s.replace(PROMO, ' ').replace(/\s+/g, ' ').trim().replace(/^[\s,.·&+\/\-]+|[\s,.·&+\/\-]+$/g, '');
+    s = s.replace(PROMO_TAIL, ' ').replace(PROMO, ' ').replace(/\s+/g, ' ').trim().replace(/^[\s,.·&+\/\-]+|[\s,.·&+\/\-]+$/g, '');
     if (s.length >= 2 && s.length <= 40 && /[가-힣A-Za-z]{2,}/.test(s) && !/^(제품|상품|아이템|이거|요거|그거|이것)$/.test(s)) return s;
   }
   return null;
@@ -85,7 +114,7 @@ try {
   for (const r of (j.rows || [])) if (r.tok && r.tok.length >= 2 && (r.tot || 0) >= 3) vocab.add(r.tok);
 } catch { }
 const SENTENCE = /(해요|합니다|했어|했습|드릴|주세요|보세요|하세요|입니다|이에요|예요|하는|하고|해서|이라|라고|저요|보여|같이|먹어야지|놓치지|챙겨|클릭|프로필|구매완료|휴대폰|뒷자리|기간|진행|이슈|반응|정착|실패|써보실|알고|먹으면|모든|상관없이|동안|남겨|댓글|링크|알림|이벤트|당첨|추첨|확인|필독|공지|안내|여러분|분들|엄마|아이가|우리|제가|저는|이거|요거|그냥|진짜|정말|너무|완전|역대급|미친|대박|추천|후기|가능|무료|증정|사은품)/;
-const SENTENCE2 = /(아시나요|된다고|배우는|그리고|돌아온|함께|인기폭발|폭발|인상전|가격 인상|만원대|천원대|원대|이라니|라니|미쳤|놀랬|가져왔|드디어|하자마자|품절되는|써보|먹어|마시|입히|신기|놓치|기다리|준비|소개|시작|끝|까지만|만에|무조건|필수|꿀템|찐|갓성비|가성비|누가|따라오|비결|이렇게|맛있었|퀄리티|발송|딱 하루|하루만|시간|Q&A|문의|골라담기 시|없는|있는|같은|모았|드실|잠시후|잠시 후|막차|드셔|넣어|담아|골랐)/;
+const SENTENCE2 = /(아시나요|된다고|배우는|그리고|돌아온|함께|인기폭발|폭발|인상전|가격 인상|만원대|천원대|원대|이라니|라니|미쳤|놀랬|가져왔|드디어|하자마자|품절되는|써보|먹어|마시|입히|신기|놓치|기다리|준비|소개|시작|끝|까지만|만에|무조건|필수|꿀템|찐|갓성비|가성비|누가|따라오|비결|이렇게|맛있었|퀄리티|발송|딱 하루|하루만|시간|Q&A|문의|골라담기 시|모았|드실|잠시후|잠시 후|막차|드셔|넣어|담아|골랐)/;
 // 사장님 상품·파싱 제외 셀러는 변환 단계에서 미리 뺀다 (게이트에 걸리면 회차 전체가 멈추므로)
 const OWN_PRODUCT = /(^|[^가-힣])(우랩|마이키즈|롤팬)([^가-힣]|$)/;
 const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twins_', 'hyun._.brother', 'yunu_uno', 'momcal_']);
@@ -99,6 +128,9 @@ const ENDING = /(요|다|죠|네|지|든|면|서|고|는|던|를|을|에|의|도
 const BRAND_STOP = /^(자동|아무|무료|국민|국내|첫|새|신|올|온|전|총|각|매일|하루|오늘|내일|이번|다음|여름|가을|겨울|봄|추석|명절|아기|아이|유아|엄마|프리미엄|유기농|무항생제|국내산|제주|유럽|미국|독일|일본)$/;
 for (const b of [...BRANDS]) if (BRAND_STOP.test(b) || !/^[가-힣A-Za-z][가-힣A-Za-z0-9]*$/.test(b)) BRANDS.delete(b);
 const isBrand = (t) => BRANDS.has(t) || (t.length >= 3 && [...BRANDS].some(b => b.length >= 3 && t.startsWith(b)));
+// 예고·안내 글의 꼬리말·머리말. 상품명이 아니다 (2026-09-09 검증자 실측 17건)
+//   "오사닛 캔디 coming soon" · "올유베베 가을 PREVIEW" · "빌베리 D-day" · "제주항구 미리보기" · "베이비들 주목" — 국내유일·최대할인·가격표는 정상 상품명에도 쓰여 뺐다
+const TEASER = /(coming\s*soon|coming|preview|미리보기|사전예약|예약판매|check\s*point|d-?day|주목|무물모음|무물|연장|선물세트포함)/i;
 const JUNK_TOK = /^(or|초|Open|OPEN|open|EVENT|이벤트|자정|떴다링|X|x|카카오톡딜|일정|변경|역대|공유|할인사이트|\d{1,2}\/\d{1,2}|\d+|목|금|토|일|월|화|수)$/;
 // 상품명은 **브랜드 낱말로 시작**해야 한다. 앞에 문장 조각이 붙어 있으면 브랜드부터 자르고, 뒤의 잡낱말은 뗀다.
 //   "재 문의가 가장 많았던 아오라 우주빔" → "아오라 우주빔" · "9/10 목 유럽 1등 리오마레 참치" → "리오마레 참치"
@@ -108,26 +140,30 @@ const normalizeName = (s) => {
   if (i < 0) return null;
   toks = toks.slice(i);
   while (toks.length > 1 && JUNK_TOK.test(toks[toks.length - 1])) toks.pop();
-  // 판촉어를 뗀 자리에 한 글자 잔해가 남는다: "…최저가전" 에서 최저가를 떼면 "전" 만 남는다
-  //   (2026-09-09 실사고: "쿠진아트 에어프라이어 전" 이 그대로 등록됐다)
-  while (toks.length > 1 && /^[가-힣]$/.test(toks[toks.length - 1])) toks.pop();
+  // 판촉어 잔해(“최저가전” 의 “전”)는 PROMO_TAIL 이 productFrom 에서 이미 통째로 뗀다
   toks = toks.filter((t, k) => k === 0 || !JUNK_TOK.test(t));
   toks = toks.slice(0, 5);                                  // 브랜드 + 최대 4낱말
   return toks.join(' ').replace(/\s*[,.]\s*$/, '');
 };
 const goodName = (s) => {
-  if (!s || s.length > 24 || SENTENCE.test(s) || SENTENCE2.test(s) || ENDING.test(s)) return false;
+  if (!s || s.length > 24 || TEASER.test(s) || SENTENCE.test(s) || SENTENCE2.test(s) || ENDING.test(s)) return false;
   if (/\s그\s|^그\s|그런|이런|저런|이거|요거/.test(s)) return false;
   const toks = s.split(/[\s&+·,\/]+/).filter(Boolean);
   if (!toks.length || !isBrand(toks[0])) return false;
   if (toks.length === 1 && toks[0].length < 3) return false;
-  // 마지막 낱말이 한 글자 한글이면 판촉어를 뗀 잔해다 (2026-09-09 "…에어프라이어 전")
-  if (toks.length > 1 && /^[가-힣]$/.test(toks[toks.length - 1])) return false;
   // 중간 낱말이 조사로 끝나면 문장 조각이다 ("휴대용을 …", "카시트에 …", "유모차에 …")
   //   의/도/다 는 정상 상품명에도 흔하다(모두의 육수·썼다 지웠다) → 을·를·에·으로·로 만 본다
-  for (const t of toks.slice(0, -1)) if (t.length >= 3 && /(을|를|에|으로|로)$/.test(t)) return false;
-  // 같은 낱말이 되풀이되면 캡션의 강조 문구다 ("알텐바흐, 알텐바흐~ 하고")
-  for (let i = 1; i < toks.length; i++) if (toks[i] === toks[i - 1]) return false;
+  //   조사를 뗀 **줄기가 실제로 아는 낱말일 때만** 문장 조각으로 본다.
+  //     카시트에 → 카시트(사전에 있다) = 문장 · 자동차마을 → 자동차마(없다) = 그냥 이름 · 라텔리에 → 라텔리(없다) = 브랜드
+  //   로·으로 는 아예 보지 않는다 — 뽀로로·일프로·캠브로 처럼 브랜드가 너무 많다
+  for (const t of toks.slice(0, -1)) {
+    const m = t.match(/^(.+?)(을|를|에)$/);
+    //   ⚠ isBrand 는 앞부분만 같아도 참이다(“카시트에” ← 카시트) → 예외는 **정확일치**로만 본다
+    if (m && m[1].length >= 2 && !BRANDS.has(t) && !vocab.has(t) && (vocab.has(m[1]) || isBrand(m[1]))) return false;
+  }
+  //   되풀이는 이름이 **그 낱말 두 번뿐**일 때만 버린다("알텐바흐, 알텐바흐~ 하고").
+  //     "사랑해 사랑해 + 사과가 쿵" 같은 책 제목은 되풀이가 정상이다
+  if (toks.length === 2 && toks[0] === toks[1]) return false;
   return true;
 };
 
