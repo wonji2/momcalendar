@@ -146,7 +146,21 @@ const wanted = [];
 for (const s of sellers) {
   const slug = s.slug || s.insta;
   const got = await fetchBlocks(slug);
-  if (!got) { console.log(`⛔ ${s.name} — 인포크 없음 (${slug})`); continue; }
+  if (!got) {
+    // 🔴 2026-09-10 사고 예방: 인포크가 없는 셀러(집의온기 등)는 여기서 continue 하면
+    //    그 셀러 배너가 wanted 에 안 들어가고, 아래 `update … set active=false` 로 꺼진 뒤 복원되지 않는다.
+    //    → 손으로 걸어둔 배너가 다음 회차에 조용히 사라진다. 기존 배너를 **링크까지 그대로** 살려 둔다.
+    const keep = cur.filter((b) => b.title.endsWith(' - ' + s.name));
+    if (keep.length) {
+      keep.slice(0, PER_SELLER).forEach((b) => {
+        wanted.push({ title: b.title, link: b.link, img_url: b.img_url, seller: s.name });
+        console.log(`↩ ${s.name} — 인포크 없음, 기존 배너 유지: ${b.title.slice(0, 30)}`);
+      });
+    } else {
+      console.log(`⛔ ${s.name} — 인포크 없음 (${slug})`);
+    }
+    continue;
+  }
 
   // 🔴 셀러당 최대 2개 (사장님 지시 2026-08-20)
   //   한 셀러가 배너존을 독차지하면 다른 이웃셀러가 묻힌다.
@@ -183,7 +197,8 @@ for (const s of sellers) {
     if (picked.length >= PER_SELLER) break;
     const name = b.title.slice(0, -(' - ' + s.name).length);
     if (picked.some((p) => p.name === name)) continue;
-    picked.push({ name, img: b.img_url, kept: true });
+    // link 도 원래 배너 것을 그대로 살린다 — 상품 직링크로 걸어둔 배너가 인포크 주소로 바뀌면 안 된다 (2026-09-10)
+    picked.push({ name, img: b.img_url, kept: true, link: b.link });
     console.log(`↩ ${s.name} — 기존 배너 유지: ${name.slice(0, 30)}`);
   }
   if (!picked.length) { console.log(`⛔ ${s.name} — 걸 상품 없음`); continue; }
@@ -192,7 +207,7 @@ for (const s of sellers) {
   picked.forEach((p) => {
     wanted.push({
       title: `${p.name} - ${s.name}`.slice(0, 40),
-      link: `${got.base}/${slug}`,
+      link: p.link || `${got.base}/${slug}`,   // 유지 배너는 원래 링크, 새로 고른 것은 인포크
       img_url: p.img,
       seller: s.name,
     });
