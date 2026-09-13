@@ -63,13 +63,19 @@ function loadAliases() {
 const ALIAS = loadAliases();
 const asDb = (w) => ALIAS[String(w).toLowerCase()] || w;   // 별칭이 있으면 우리 표기로 바꿔 센다
 
+// 🔴 2026-09-13: 검색어가 글자수 제한에서 이모지 절반(\ud83c)만 남아 ::jsonb 캐스트가 22P02 로 깨져 4일간 죽어 있었다.
+//    캐스트 전에 짝 없는 상위(\ud8xx~\udbxx)·하위(\udcxx~\udfxx) 서로게이트를 지운다. 정상 쌍은 남는다(2026-09-13 DB 실측 6케이스).
+const B2 = "chr(92)||chr(92)";   // SQL 정규식 안의 리터럴 백슬래시 — 셸을 거치면 백슬래시가 죽어서 chr() 로 만든다
+const HI = B2 + "||'u[dD][89abAB][0-9a-fA-F]{2}(?!'||" + B2 + "||'u[dD][c-fC-F])'";
+const LO = "'(?<!'||" + B2 + "||'u[dD][89abAB][0-9a-fA-F]{2})'||" + B2 + "||'u[dD][c-fC-F][0-9a-fA-F]{2}'";
+const CLEAN = `regexp_replace(regexp_replace(event_data, ${HI}, '', 'g'), ${LO}, '', 'g')`;
 const rows = runSql(`
 with q as (
-  select (regexp_replace(event_data, chr(92)||chr(92)||'u[dD][89abAB][0-9a-fA-F]{2}(?!'||chr(92)||chr(92)||'u[dD][c-fC-F])', '', 'g')::jsonb->>'q') w, count(*) c
+  select (${CLEAN}::jsonb->>'q') w, count(*) c
     from events
    where event_type='search' and visited_at > now() - interval '7 days'
      and coalesce(event_data,'') <> '' and event_data like '{%'
-     and coalesce((regexp_replace(event_data, chr(92)||chr(92)||'u[dD][89abAB][0-9a-fA-F]{2}(?!'||chr(92)||chr(92)||'u[dD][c-fC-F])', '', 'g')::jsonb->>'n')::int, 0) = 0
+     and coalesce((${CLEAN}::jsonb->>'n')::int, 0) = 0
    group by 1 having count(*) >= 3
 )
 select q.w, q.c,
@@ -132,7 +138,7 @@ const kept = blocks.filter(b => { const m = b.match(/^## (\d{4}-\d{2}-\d{2})/); 
 writeFileSync(REPORT,
   '# 검색 실패 누적 (매일 자동)\n\n' +
   '손님이 찾다가 못 찾은 말. 세션은 이 파일을 보고 파싱 우선순위·별칭을 정한다.\n\n' +
-  body + kept.join('\n'), 'utf8');
+  body + '\n' + kept.join('\n'), 'utf8');   // 🔴 2026-09-13: '---' 뒤 줄바꿈이 filter(Boolean) 에 지워져 지난 블록이 '---## 날짜' 로 붙고, 같은 날 재실행 때 이력이 통째로 사라지던 결함
 
 console.log(`0건 검색어 ${rows.length}건 → 뒤늦게등록 ${bug.length} · 미보유 ${none.length} · 마감됨 ${ended.length}`);
 if (none.length) console.log('📥 파싱 우선순위: ' + none.map(r => r.w).join(', '));
