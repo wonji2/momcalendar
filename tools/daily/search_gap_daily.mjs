@@ -65,11 +65,11 @@ const asDb = (w) => ALIAS[String(w).toLowerCase()] || w;   // 별칭이 있으�
 
 const rows = runSql(`
 with q as (
-  select (event_data::jsonb->>'q') w, count(*) c
+  select (regexp_replace(event_data, chr(92)||chr(92)||'u[dD][89abAB][0-9a-fA-F]{2}(?!'||chr(92)||chr(92)||'u[dD][c-fC-F])', '', 'g')::jsonb->>'q') w, count(*) c
     from events
    where event_type='search' and visited_at > now() - interval '7 days'
      and coalesce(event_data,'') <> '' and event_data like '{%'
-     and coalesce((event_data::jsonb->>'n')::int, 0) = 0
+     and coalesce((regexp_replace(event_data, chr(92)||chr(92)||'u[dD][89abAB][0-9a-fA-F]{2}(?!'||chr(92)||chr(92)||'u[dD][c-fC-F])', '', 'g')::jsonb->>'n')::int, 0) = 0
    group by 1 having count(*) >= 3
 )
 select q.w, q.c,
