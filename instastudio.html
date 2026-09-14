@@ -671,9 +671,9 @@ async function tTop10(day){
   const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
   const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
   const rows=(gg||[]).map(g=>({...g,score:(C[g.id]||0)+(W[g.id]||0)*3,
-    partner:isMomcal(g)||P.has(nh(g.insta)),
+    partner:isMomcal(g)||P.has(nh(g.insta)),own:isMomcal(g),
     seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
-    .filter(g=>g.score>0).sort((a,b)=>b.score-a.score);
+    .filter(g=>g.score>0||g.own).sort((a,b)=>(b.own-a.own)||(b.score-a.score));
   const top=oneProduct(onePerSeller(rows)).slice(0,10);
   const d=new Date(day+'T00:00:00');
   const bd=shell({
@@ -727,9 +727,9 @@ async function tClosing(day){
   const [gg2,P]=await Promise.all([
     fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=eq.${tm}&select=id,name,influencer,insta,open_date,end_date&limit=300`,{headers:H}).then(r=>r.json()),
     partnerSet(day)]);
-  const tmRows=(gg2||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
+  const tmRows=(gg2||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),own:isMomcal(g),
     seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
-    .sort((a,b)=>(b.partner-a.partner)||a.name.localeCompare(b.name,'ko'));
+    .sort((a,b)=>(b.own-a.own)||(b.partner-a.partner)||a.name.localeCompare(b.name,'ko'));
   // 셀러 중복은 오늘+내일 합쳐서 거른다 — 이웃셀러·맘캘린더 100%, 일반 1건 (2026-08-31 규칙)
   const both=oneProduct(onePerSeller([...ends,...tmRows]));
   const today=both.filter(x=>x.end_date===day);
@@ -776,9 +776,9 @@ async function tWeekend(day){
   const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
   // 셀러 중복은 토·일 합쳐서 거른다 — 이웃셀러·맘캘린더 100%, 일반은 인기순 1건 (2026-08-31 규칙)
   const both=oneProduct(onePerSeller(
-    [...(g1||[]),...(g2||[])].map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),score:C[g.id]||0,
+    [...(g1||[]),...(g2||[])].map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),own:isMomcal(g),score:C[g.id]||0,
       seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller)
-      .sort((a2,b2)=>(b2.partner-a2.partner)||(b2.score-a2.score)||a2.name.localeCompare(b2.name,'ko'))));
+      .sort((a2,b2)=>(b2.own-a2.own)||(b2.partner-a2.partner)||(b2.score-a2.score)||a2.name.localeCompare(b2.name,'ko'))));
   const A=both.filter(x=>x.open_date===sat), B=both.filter(x=>x.open_date===sun);
   const bd=shell({
     chipTxt:`주말 ${A.length+B.length}건`, chipBg:'#E7F0FB', chipCol:'#2C5FA8',
@@ -829,15 +829,15 @@ async function tWeek(day){
     partnerSet(day)]);
   const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
   const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
-  const rows=(gg||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),
+  const rows=(gg||[]).map(g=>({...g,partner:isMomcal(g)||P.has(nh(g.insta)),own:isMomcal(g),
     score:(C[g.id]||0)+(W[g.id]||0)*3,
     seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(hasSeller);
   // 🔴 셀러 중복은 **주간 전체** 기준으로 거른다 (사장님 지적 2026-08-31: 리로네가 이틀에 두 번).
   //    맘캘린더·이웃셀러는 100% 유지, 일반 셀러는 인기순(찜×3+클릭)으로 1건만.
-  const week=oneProduct(onePerSeller(rows.slice().sort((a,b)=>(b.partner-a.partner)||(b.score-a.score))));
+  const week=oneProduct(onePerSeller(rows.slice().sort((a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score))));
   const byDay={}; days.forEach(dd=>byDay[dd]=[]);
   week.forEach(x=>{ if(byDay[x.open_date]) byDay[x.open_date].push(x); });
-  days.forEach(dd=>byDay[dd].sort((a,b)=>(b.partner-a.partner)||(b.score-a.score)));
+  days.forEach(dd=>byDay[dd].sort((a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)));
   const d=new Date(day+'T00:00:00');
   const bd=shell({
     chipTxt:`이번 주 ${rows.length}건`, chipBg:'var(--p-l)', chipCol:'var(--p-d)',
