@@ -138,7 +138,8 @@ const head = pick(heads), tailRaw = pick(KW.tail), aud = pick(KW.audience);
 let tail = tailRaw.replace(/^공구\s*/, '');   // 앞말이 늘 '공구…'라 "공구일정 공구하는 곳" 중복 방지
 // 🔴 2026-09-14 실제 발행 사고: head "인스타 공구 모음" + tail "모음" → "인스타 공구 모음 모음" 이 그대로 나갔다.
 //    head 가 이미 그 꼬리말로 끝나면 꼬리를 뺀다 (모음·사이트 처럼 head 풀과 tail 풀에 같은 말이 있다). 난수 순서는 건드리지 않는다.
-if (tail && head.endsWith(tail)) tail = '';
+//    2026-09-14 확장: head "지금 하는 공구" + tail "하는 곳" → "하는" 이 겹친다. 꼬리의 낱말 하나라도 head 에 있으면 꼬리를 뺀다.
+if (tail && tail.split(' ').some((w) => head.split(' ').includes(w))) tail = '';
 const audSp = aud ? `${aud} ` : '';
 // 모든 프레임에 head(공구일정 계열)가 반드시 들어간다 — 핵심 검색어 보장 (사장님 지시 2026-08-12)
 // 2026-08-27 A+B 조합(사장님 지시): head 계열을 항상 제목 앞쪽에 두고(검색결과는 앞 ~30자만 보인다),
