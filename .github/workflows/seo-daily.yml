@@ -49,7 +49,9 @@ jobs:
           git config user.email "noreply@momcalendar.com"
           # 생성물만 add 한다. index.html·admin.html 같은 라이브 파일은
           # 자동 커밋이 절대 건드리면 안 된다(고정 규칙 0-A).
-          git add g p s m d c sitemap.xml sitemap-main.xml sitemap-brand.xml sitemap-product.xml sitemap-seller.xml robots.txt
+          # 2026-09-14: gg(공구 개별 페이지)·sitemap-gonggu.xml 이 add 목록에 빠져 있어 08-20 이후 손 커밋(09-09)에서 멈춰 있었다.
+          #   브랜드 페이지(g/)는 매일 새 /gg/ 링크를 달고 나가는데 대상 파일은 안 올라가 라이브에 404 링크가 쌓였다(브랜드 페이지 링크의 39% 실측).
+          git add g p s m d c gg sitemap.xml sitemap-main.xml sitemap-brand.xml sitemap-product.xml sitemap-seller.xml sitemap-gonggu.xml robots.txt
           git add --pathspec-from-file=tools/seo/generated.txt
           git reset -q -- index.html admin.html test.html staff.html register.html kktest.html reelcard.html
           if git diff --cached --quiet; then
