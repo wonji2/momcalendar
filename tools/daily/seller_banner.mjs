@@ -22,6 +22,15 @@ import { parseRows } from './sb_query.mjs';
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
 const DRY = process.argv.includes('--dry');
+// 📝 실행 기록을 파일에도 남긴다 — 예약작업은 stdout 을 버려서 "매일 도는 게 맞냐"(사장님 2026-09-15)에 답할 근거가 DB 행뿐이었다.
+//    scratchpad/seller_banner_log.txt (최신이 아래). 회차마다 시각 한 줄 + 판정 줄들.
+{
+  const _log = console.log.bind(console);
+  const f = `${[process.env.USERPROFILE + '/Desktop/MOMCALENDAR', process.env.USERPROFILE + '/MOMCALENDAR'].find((p) => existsSync(p)) || process.cwd()}/scratchpad/seller_banner_log.txt`;
+  const t = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
+  try { writeFileSync(f, `\n[${t}] ${DRY ? '(dry) ' : ''}실행\n`, { flag: 'a' }); } catch (_) {}
+  console.log = (...a) => { _log(...a); try { writeFileSync(f, a.join(' ') + '\n', { flag: 'a' }); } catch (_) {} };
+}
 // 셀러당 배너 상한 (사장님 지시 2026-08-20) — 한 셀러가 배너존을 독차지하지 않게
 const PER_SELLER = 2;
 const TMP = (process.env.TEMP || process.env.TMP || '/tmp').replace(/\\/g, '/');
