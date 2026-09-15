@@ -35,7 +35,10 @@ for (const f of files) for (const line of readFileSync(path.join(DIR, f), 'utf8'
   if (!line.trim()) continue; try { const j = JSON.parse(line); if (j.code && !seen.has(j.code)) posts.push(j); } catch {}
 }
 
-const KW = /공구|공동구매/;
+// 🔴 2026-09-15 사장님 "공구팡팡처럼 그날그날 오늘 오픈·내일 예고 글도 다 긁기로 했잖아" — 캡션에 "공구" 낱말이 없고
+//    "#오픈 · OPEN · 오픈예고 · 런칭" 만 있는 판매글이 한 회차에 수십 건씩 "공구 언급 없음" 으로 버려졌다(15:25 회차 1,945 중 1,922 버림).
+//    KW 를 넓힌다. 날짜·상품명·판촉어 규칙은 그대로라 "카페 오픈" 같은 글은 뒤 단계에서 걸린다. 시험은 DRY=1 + KW 환경변수로.
+const KW = process.env.KW ? new RegExp(process.env.KW, 'i') : /공구|공동구매|오픈|OPEN|런칭|출시|예고|특가|핫딜링크|최저가/i;
 const ENDED = /마감\s*(되었|됐|했|입니다|이에요|예요)|종료\s*(되었|됐)|품절\s*(되었|됐)|마감되어|완판되었/;
 const NOT_GG = /핫딜|체험단|서포터즈|협찬|제품제공|원고료|리뷰이벤트/;
 const REVIEW = /후기|구매완료 인증|인증샷|사용후기/;

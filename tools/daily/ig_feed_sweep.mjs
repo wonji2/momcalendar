@@ -29,7 +29,7 @@ const SEEN = path.join(ROOT, 'scratchpad', 'ig_feed_seen.txt');
 const LASTERR = path.join(ROOT, 'scratchpad', 'ig_feed_lasterr.txt');
 const LOGIN = process.argv.includes('--login');
 const SCROLLS = Number(process.env.SCROLLS || 12);
-const TAGS = ['공구오픈', '공구중', '공구예고', '공구시작', '오늘오픈', '9월공구일정', '공구일정', '육아공구', '공동구매'];
+const TAGS = ['공구오픈', '공구중', '공구예고', '공구시작', '오늘오픈', '9월공구일정', '9월일정', '10월공구일정', '10월일정', '공구일정', '육아공구', '공동구매'];   // 달마다 N월 태그 갱신 (2026-09-15 10월 추가)
 const KST = () => new Date(Date.now() + 9 * 3600e3).toISOString().replace('Z', '+09:00');
 const today = () => KST().slice(0, 10);
 
