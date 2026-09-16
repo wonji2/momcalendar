@@ -280,7 +280,7 @@ for (const p of posts) {
   if (open < addDays(today, -3) || open > addDays(today, 60)) { why(`날짜 범위 밖 ${open}`); continue; }
   const raw = productFrom(cap);
   if (!raw) { why('상품명 못 뽑음'); continue; }
-  const name = normalizeName(raw).replace(/\s+(이|은|는|을|를|가|의|절찬|절찬리|중)$/, '');   // 2026-09-16 "케피 목욕놀이 이"·"모음전 절찬" 꼬리 조사 제거 (게시일=오픈일 규칙 DRY 실측)
+  const name = (normalizeName(raw) || '').replace(/\s+(이|은|는|을|를|가|의|절찬|절찬리|중)$/, '');   // 2026-09-16 "케피 목욕놀이 이"·"모음전 절찬" 꼬리 조사 제거 (게시일=오픈일 규칙 DRY 실측). normalizeName 은 null 을 돌려줄 수 있다
   if (!name || !goodName(name)) { why(`상품명 불확실: ${raw}`); continue; }
   if (openedByPost && !end) { const e = await inpockEnd(p.u, name, open); if (e) end = e; else end = addDays(open, 3); }
   if (openedByPost) { postDated++; postDatedRows.push(`${p.u}\t${p.t}\t${name}\t${open}\t${end}`); }
