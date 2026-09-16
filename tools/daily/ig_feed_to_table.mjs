@@ -282,6 +282,7 @@ for (const p of posts) {
   if (!raw) { why('상품명 못 뽑음'); continue; }
   const name = (normalizeName(raw) || '').replace(/\s+(이|은|는|을|를|가|의|절찬|절찬리|중)$/, '');   // 2026-09-16 "케피 목욕놀이 이"·"모음전 절찬" 꼬리 조사 제거 (게시일=오픈일 규칙 DRY 실측). normalizeName 은 null 을 돌려줄 수 있다
   if (!name || !goodName(name)) { why(`상품명 불확실: ${raw}`); continue; }
+  if (openedByPost && /(은|는|으로|에서|에게|이라|라고)\s|\s(합리적인|제품으로|가격으로)/.test(name)) { why(`상품명 문장형(게시일규칙): ${name}`); continue; }   // 2026-09-16 "제주갈치세트는 합리적인 가격으로" 류 — 중간 낱말의 조사로 잡는다(메모리 sentence-fragment-shows-mid-token)
   if (openedByPost && !end) { const e = await inpockEnd(p.u, name, open); if (e) end = e; else end = addDays(open, 3); }
   if (openedByPost) { postDated++; postDatedRows.push(`${p.u}\t${p.t}\t${name}\t${open}\t${end}`); }
   rows.push([p.u, p.u, name, open, end, ''].join('\t'));
