@@ -18,7 +18,7 @@ awk 'BEGIN{FS="|"} /^\| [0-9]/{for(i=1;i<=NF;i++)gsub(/^ +| +$/,"",$i); print $9
 # 분류 결과(핸들 기준)를 원표에 합친다
 f="scratchpad/승인대기_jupjup_${DAY}_${TS}.md"
 awk 'BEGIN{FS="|"} FILENAME==ARGV[1] && /^\| [0-9]/{for(i=1;i<=NF;i++)gsub(/^ +| +$/,"",$i); key=$9"|"$4; maj[key]=$7; min[key]=$8; next}
-     /^\| [0-9]/{for(i=1;i<=NF;i++)gsub(/^ +| +$/,"",$i); key=$9"|"$4; if(maj[key]!=""){printf "| %s | %s | %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,maj[key],min[key],$9; next}}
+     /^\| [0-9]/{raw=$0; for(i=1;i<=NF;i++)gsub(/^ +| +$/,"",$i); key=$9"|"$4; if(maj[key]!=""){printf "| %s | %s | %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,maj[key],min[key],$9; next} else {print raw; next}}
      {print}' "$RAW.cat" "$RAW" > "$f"
 grep -q '^| [0-9]' "$f" || { log "분류 합치기 실패"; exit 1; }
 # 분류 못 채운 행은 보류
