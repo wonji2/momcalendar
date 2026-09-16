@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { cleanName } from '../../scratchpad/profiles/decode_names.mjs';
+import { harvest as inpockHarvest } from '../../scratchpad/inpock_harvest.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..');
 const DIR = path.join(ROOT, 'scratchpad', 'ig_feed');
@@ -228,7 +229,37 @@ const goodName = (s) => {
 
 const cleanFn = (fn) => { const s = (fn || '').split(/[|｜ㅣ·•\/(\[]/)[0].replace(/[^가-힣A-Za-z0-9\s]/g, '').trim(); return s.length >= 2 && s.length <= 12 ? s : ''; };   // 한글·영문·숫자만 (ꯁ 같은 장식문자 사고)
 
-let kept = 0; const rows = [], names = new Map(), drops = [];
+// 게시일=오픈일 규칙의 판정식 (2026-09-16). "오픈했어요·오픈완료·OPEN!·공구중·공구 오픈합니다" 는 지금 파는 글,
+//   "예고·예정·COMING SOON·곧·D-N·내일" 이 있으면 아직 안 연 글이라 제외한다.
+// ⚠ 이 두 정규식은 리터럴로만 고친다 — 2026-09-16 셸 패치로 \s·\d 가 죽어 "오픈s*" 가 됐던 것을 파일 치환으로 되살렸다.
+const OPENED_NOW = /오픈\s*(했|됐|되었|완료|합니다|입니다|이에요|해요|중)|공구\s*중|공구\s*(오픈|시작)\s*(했|합니다|입니다|이에요|해요|!)|OPEN\s*[!🎉✨💗🩷💜🤍🔛]|\bOPEN\b(?!\s*(예정|예고|일|날))/i;
+const NOT_NOW = /예고|예정|COMING\s*SOON|커밍\s*순|곧\s*(오픈|공구|시작)|D\s*-\s*\d|내일|모레|다음\s*주|알림\s*(댓글|신청)|오픈\s*시\s*(링크|DM|디엠)|오픈\s*후\s*(링크|DM|디엠)|마감\s*임박|재입고\s*예정/i;
+// 인포크에서 같은 상품의 마감일을 찾는다 (핸들당 1회 조회, 회차당 최대 25명, 2.5초 간격). 못 찾으면 null.
+const _inpockCache = new Map(); let _inpockCalls = 0;
+const _tok = (t) => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []).map((x) => x.toLowerCase());
+const inpockEnd = async (handle, name, open) => {
+  try {
+    if (!_inpockCache.has(handle)) {
+      if (_inpockCalls >= 25) return null;
+      _inpockCalls++;
+      const r = await inpockHarvest(handle);
+      _inpockCache.set(handle, (r && r.rows) || []);
+      await new Promise((res) => setTimeout(res, 2500));
+    }
+    const nt = _tok(name); let best = null, bs = 0;
+    for (const it of _inpockCache.get(handle)) {
+      if (!it.end) continue;
+      const rt = _tok(it.name);
+      const sc = nt.filter((x) => rt.some((y) => y.includes(x) || x.includes(y))).length;
+      if (sc > bs) { bs = sc; best = it; }
+    }
+    if (!best || bs < 1) return null;
+    if (best.end < open) return null;                       // 이미 끝난 항목이면 무시
+    return best.end > addDays(open, 13) ? addDays(open, 13) : best.end;
+  } catch { return null; }
+};
+
+let kept = 0, postDated = 0; const rows = [], names = new Map(), drops = [], postDatedRows = [];
 for (const p of posts) {
   const cap = (p.cap || '').replace(/\r/g, '');
   const why = (r) => drops.push(`${p.u}\t${p.t}\t${r}\t${cap.replace(/\s+/g, ' ').slice(0, 90)}`);
@@ -239,13 +270,20 @@ for (const p of posts) {
   if (ENDED.test(cap)) { why('마감/종료 글'); continue; }
   if (NOT_GG.test(cap) && !/공구\s*(오픈|시작|예고|일정|중)/.test(cap)) { why('핫딜/체험단/협찬'); continue; }
   if (REVIEW.test(cap) && !/공구\s*(오픈|시작|예고|일정)/.test(cap)) { why('후기/인증 글'); continue; }
-  const { open, end } = dateFrom(cap, p.t);
+  let { open, end } = dateFrom(cap, p.t);
+  // 🔴 2026-09-16 사장님 "오픈했어요 있으면 인포크 가서 오픈일은 오늘(게시일) 기준, 마감일만 확인해서 등록" —
+  //    날짜가 한 글자도 없는 "오픈했어요/OPEN/공구중" 판매글은 게시일을 오픈일로 쓴다(예고·예정·마감 글은 제외).
+  //    마감은 아래에서 인포크 항목을 찾아 채우고, 없으면 +3.
+  let openedByPost = false;
+  if (!open && OPENED_NOW.test(cap) && !NOT_NOW.test(cap)) { open = p.t; end = null; openedByPost = true; }
   if (!open) { why('오픈 날짜 없음'); continue; }
   if (open < addDays(today, -3) || open > addDays(today, 60)) { why(`날짜 범위 밖 ${open}`); continue; }
   const raw = productFrom(cap);
   if (!raw) { why('상품명 못 뽑음'); continue; }
-  const name = normalizeName(raw);
+  const name = normalizeName(raw).replace(/\s+(이|은|는|을|를|가|의|절찬|절찬리|중)$/, '');   // 2026-09-16 "케피 목욕놀이 이"·"모음전 절찬" 꼬리 조사 제거 (게시일=오픈일 규칙 DRY 실측)
   if (!name || !goodName(name)) { why(`상품명 불확실: ${raw}`); continue; }
+  if (openedByPost && !end) { const e = await inpockEnd(p.u, name, open); if (e) end = e; else end = addDays(open, 3); }
+  if (openedByPost) { postDated++; postDatedRows.push(`${p.u}\t${p.t}\t${name}\t${open}\t${end}`); }
   rows.push([p.u, p.u, name, open, end, ''].join('\t'));
   if (p.fn && !names.has(p.u)) { const n = cleanFn(p.fn); if (n) names.set(p.u, n); }
   kept++;
@@ -254,4 +292,5 @@ writeFileSync(outF, rows.join('\n') + (rows.length ? '\n' : ''));
 writeFileSync(outF + '.names', [...names].map(([h, n]) => `${h}|${n}`).join('\n') + (names.size ? '\n' : ''));
 writeFileSync(outF + '.drop', drops.join('\n') + (drops.length ? '\n' : ''));
 if (!DRY) appendFileSync(SEEN, posts.map(p => p.code).join('\n') + (posts.length ? '\n' : ''));
-console.log(`변환: 게시물 ${posts.length} → 공구 후보 ${kept} · 버림 ${drops.length} → ${path.relative(ROOT, outF)}`);
+writeFileSync(outF + '.postdated', postDatedRows.join('\n') + (postDatedRows.length ? '\n' : ''));
+console.log(`변환: 게시물 ${posts.length} → 공구 후보 ${kept}(게시일=오픈일 ${postDated}) · 버림 ${drops.length} → ${path.relative(ROOT, outF)}`);
