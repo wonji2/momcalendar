@@ -73,7 +73,15 @@ if echo "$OUT" | grep -q '"already_in_db": [1-9]'; then
   OUT=$(gate)
 fi
 TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
-if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then log "🔴 최종 게이트 불일치 총=$TOT 신규=$NEW — 등록 안 함"; cp "$f" "$HOLD.gate_$TS.md"; exit 1; fi
+if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then
+  # 2026-09-16: 게이트 뒤 등록 사이에 다른 세션이 같은 공구를 먼저 넣으면 여기서 전체가 멈췄다(13:25 회차 9건 중 8건 유실).
+  #   한 번은 gate_filter 로 DB중복만 걷어내고 다시 잰다. 그래도 안 맞으면 그때 멈춘다.
+  bash scratchpad/gate_filter.sh "$f" "$f.new" >/dev/null 2>&1 && [ -s "$f.new" ] && mv "$f.new" "$f"
+  grep -q '^| [0-9]' "$f" || { log "전부 DB 에 이미 있음(재검) — 끝"; exit 0; }
+  OUT=$(gate); TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
+  if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then log "🔴 최종 게이트 불일치 총=$TOT 신규=$NEW — 등록 안 함"; cp "$f" "$HOLD.gate_$TS.md"; exit 1; fi
+  log "재검 통과(중복 걷어냄) 총=$TOT"
+fi
 
 BEFORE=$("$SB" db query --linked --output-format json "select coalesce(max(id),0) m from gonggu;" 2>/dev/null | grep -o '"m": [0-9]*' | grep -o '[0-9]*')
 "$N" scratchpad/gen_insert_gonggu.mjs "$f" "$CONV.sql" >/dev/null 2>&1 || { log "🔴 SQL 생성 실패"; exit 1; }
