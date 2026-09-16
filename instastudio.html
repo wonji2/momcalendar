@@ -558,7 +558,17 @@ function capTail(day){
 }
 const capLine=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
 function setCaption(s){
-  if(s.length>2190) s=s.slice(0,2150)+'…';
+  // 🔴 2026-09-16 사장님 지적: 한도를 넘으면 뒤(해시태그)가 "#맘캘린더 #공구일정 …" 로 잘려 나갔다.
+  //    넘칠 땐 **본문 목록을 줄이고 꼬리(안내문·해시태그)는 그대로** 둔다 — 인스타는 태그가 잘리면 검색에 안 잡힌다.
+  if(s.length>2190){
+    const cut=s.lastIndexOf('\n\n━━━━━━━━━━━━━━\n\n');            // capTail 시작 (마지막 구분선)
+    if(cut>0){
+      const tail=s.slice(cut), room=2190-tail.length-3;
+      let body=s.slice(0,cut);
+      if(body.length>room){ body=body.slice(0,room); const nl=body.lastIndexOf('\n'); if(nl>room-200) body=body.slice(0,nl); body+='\n…'; }
+      s=body+tail;
+    } else s=s.slice(0,2150)+'…';
+  }
   document.getElementById('captxt').value=s;
   document.getElementById('caplen').textContent=s.length+'자';
 }
@@ -707,9 +717,11 @@ async function tTop10(day){
     const _extra=oneProduct(onePerSeller(_to)).filter(x=>!_picked.has(x.id));
     if(_extra.length){
       let _s=s+`\n\n🔓 오늘 오픈\n`, _add=0;
+      // 뒤에 더 붙는 "…외 N건" 과 "순위에 없는 공구가 …" 안내줄 자리를 미리 뺀다 (안 빼서 해시태그가 잘렸다 — 2026-09-16)
+      const _reserve=`…외 ${_extra.length}건`.length+`\n\n순위에 없는 공구가 궁금하면 사이트에서 검색해보세요`.length;
       for(const x of _extra){
         const _l=`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}\n`;
-        if((_s+_l+_tail).length>_LIMIT) break;
+        if((_s+_l+_tail).length+_reserve>_LIMIT) break;
         _s+=_l; _add++;
       }
       if(_add){ if(_extra.length>_add) _s+=`…외 ${_extra.length-_add}건`; s=_s; }
