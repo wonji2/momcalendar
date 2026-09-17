@@ -50,12 +50,8 @@ if echo "$OUT" | grep -q '"already_in_db": [1-9]'; then
 fi
 TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
 [ -n "$TOT" ] && [ "$TOT" = "$NEW" ] && [ "$TOT" -gt 0 ] && echo "$OUT" | grep -q 'handle_split: 0' || { log "🔴 게이트 불일치 총=$TOT 신규=$NEW"; exit 1; }
-BEFORE=$("$SB" db query --linked --output-format json "select coalesce(max(id),0) m from gonggu;" 2>/dev/null | grep -o '"m": [0-9]*' | grep -o '[0-9]*')
-"$N" scratchpad/gen_insert_gonggu.mjs "$f" "$RAW.sql" >/dev/null 2>&1 && "$SB" db query --linked --output-format json -f "$RAW.sql" >/dev/null 2>&1
-log "✅ 등록 $TOT 행"
-mkdir -p scratchpad/등록완료/무인_공구줍줍 && cp "$f" "scratchpad/등록완료/무인_공구줍줍/${DAY}_${TS}_${TOT}건.md"
-DUP=$("$SB" db query --linked --output-format json -f scratchpad/_q_dup.sql 2>/dev/null | grep -o '"b_id": [0-9]*' | grep -o '[0-9]*' | awk -v b="${BEFORE:-0}" '$1>b' | paste -sd,)
-[ -n "$DUP" ] && { "$SB" db query --linked --output-format json "delete from gonggu where id in ($DUP) and id > ${BEFORE:-0};" >/dev/null 2>&1; log "⚠ 중복 삭제: $DUP"; }
-"$N" tools/daily/cat_guard.mjs 2>/dev/null | tail -1 | sed 's/^/cat_guard: /' | tee -a "$LOG"
-"$SB" db query --linked --output-format json "select public.seo_refresh();" >/dev/null 2>&1
+# 2026-09-17 사장님 지시: 게이트까지만 자동, 등록(INSERT)은 승인표로 보내고 사람이 "올려" 해야 실행한다.
+mkdir -p scratchpad/승인대기_보관
+cp "$f" "scratchpad/승인대기_보관/${DAY}_${TS}_jupjup_${TOT}건.md"
+log "🟡 게이트 통과 $TOT 건 — 등록 보류, 사장님 승인 대기: $f"
 exit 0

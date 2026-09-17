@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# 인스타 스윕 캡션 → 무인 등록 파이프라인 (사장님 2026-09-08 "무인으로 완성해 · 우리 검증 활용해서 공구 아닌 건 꼭 거르고 공구만")
+# 인스타 스윕 캡션 → 게이트까지 자동, 등록은 승인표로 (2026-09-08 "무인으로 완성해" → 2026-09-17 사장님 지시로 전부 승인표 방식으로 되돌림)
 #
 #   ig_feed_sweep.mjs(30분) 가 쌓은 jsonl → ig_feed_to_table.mjs(공구 판정·상품명·날짜) → harvest_clean → harvest_to_table(분류)
 #   → drop_ended → pending_dedupe → pending_check.sh(게이트: DB중복·제외셀러·사장님상품·핸들갈림) → 중복행 제거 → 한글명 채움
-#   → gen_insert_gonggu → INSERT → 사후검사(_q_dup·_q_dup_sim·cat_guard) → seo_refresh → 등록완료/ 보관
+#   → 게이트 통과 표를 scratchpad/승인대기_보관/ 에 저장하고 종료 (INSERT 는 사장님 "올려" 뒤 세션이 실행)
 #
 # 무인 안전장치 (하나라도 걸리면 그 행은 등록 안 하고 보류 파일로)
 #   · 게이트 excluded/own_product 가 0 이 아니면 회차 전체 중단
@@ -83,17 +83,9 @@ if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | gr
   log "재검 통과(중복 걷어냄) 총=$TOT"
 fi
 
-BEFORE=$("$SB" db query --linked --output-format json "select coalesce(max(id),0) m from gonggu;" 2>/dev/null | grep -o '"m": [0-9]*' | grep -o '[0-9]*')
-"$N" scratchpad/gen_insert_gonggu.mjs "$f" "$CONV.sql" >/dev/null 2>&1 || { log "🔴 SQL 생성 실패"; exit 1; }
-"$SB" db query --linked --output-format json -f "$CONV.sql" >/dev/null 2>&1
-AFTER=$("$SB" db query --linked --output-format json "select count(*) c, coalesce(max(id),0) m from gonggu where id > ${BEFORE:-0};" 2>/dev/null | grep -o '"[cm]": [0-9]*' | paste -sd' ')
-log "✅ 등록 $TOT 행 (DB 증가: $AFTER)"
-mkdir -p scratchpad/등록완료/무인_ig_feed && cp "$f" "scratchpad/등록완료/무인_ig_feed/${DAY}_${TS}_${TOT}건.md"
-
-# 사후검사: 새 id 가 낀 정확일치 중복은 새 행을 지운다 · 유사중복은 로그 · 소분류 이탈은 cat_guard 경보
-DUP=$("$SB" db query --linked --output-format json -f scratchpad/_q_dup.sql 2>/dev/null | grep -o '"b_id": [0-9]*' | grep -o '[0-9]*' | awk -v b="${BEFORE:-0}" '$1>b' | paste -sd,)
-if [ -n "$DUP" ]; then "$SB" db query --linked --output-format json "delete from gonggu where id in ($DUP) and id > ${BEFORE:-0};" >/dev/null 2>&1; log "⚠ 정확일치 중복 삭제: $DUP"; fi
-SIM=$("$SB" db query --linked --output-format json -f scratchpad/_q_dup_sim.sql 2>/dev/null | grep -c '"a_id"'); [ "${SIM:-0}" != 0 ] && log "⚠ 유사중복 의심 $SIM 쌍 — _q_dup_sim.sql 확인 필요"
-"$N" tools/daily/cat_guard.mjs 2>/dev/null | tail -1 | sed 's/^/cat_guard: /' | tee -a "$LOG"
-"$SB" db query --linked --output-format json "select public.seo_refresh();" >/dev/null 2>&1
+# 2026-09-17 사장님 지시: 게이트까지만 자동, 등록(INSERT)은 승인표로 보내고 사람이 "올려" 해야 실행한다.
+#   (09-08 지시는 "확실한 것만 무인 등록"이었으나, 이 세션이 애매한 구제 건까지 승인 없이 등록해 신뢰가 깨졌다 — 전부 승인표로 되돌림)
+mkdir -p scratchpad/승인대기_보관
+cp "$f" "scratchpad/승인대기_보관/${DAY}_${TS}_igfeed_${TOT}건.md"
+log "🟡 게이트 통과 $TOT 건 — 등록 보류, 사장님 승인 대기: $f"
 exit 0
