@@ -183,7 +183,11 @@ try { for (const l of readFileSync(path.join(ROOT, 'scratchpad', 'parsing_exclud
 const BRANDS = new Set();
 try { for (const l of readFileSync(path.join(ROOT, 'scratchpad', 'brand_vocab.txt'), 'utf8').split(/\r?\n/)) if (l.trim().length >= 2) BRANDS.add(l.trim()); } catch { }
 const ENDING = /(요|다|죠|네|지|든|면|서|고|는|던|를|을|에|의|도|만|까지|부터|라니|잖아|어요|해|봐|자|께)$/;
-const BRAND_STOP = /^(자동|아무|무료|국민|국내|첫|새|신|올|온|전|총|각|매일|하루|오늘|내일|이번|다음|여름|가을|겨울|봄|추석|명절|아기|아이|유아|엄마|프리미엄|유기농|무항생제|국내산|제주|유럽|미국|독일|일본)$/;
+// 2026-09-17: "첨가물"이 brand_vocab.txt 에 3건 이상으로 올라 있었다 — 여러 셀러가 상품명을
+//   "N가지 첨가물 ZERO!" 로 시작해서였다. isBrand("첨가물")=true 가 되면서 리니블 순델리 무첨가햄
+//   글에서 실제 상품명("순델리 무첨가햄 추석선물세트") 대신 마케팅 헤드라인("첨가물 ZERO")이 뽑혔다.
+//   상품 설명용 흔한 낱말은 브랜드가 아니다 — 여기 계속 추가할 것.
+const BRAND_STOP = /^(자동|아무|무료|국민|국내|첫|새|신|올|온|전|총|각|매일|하루|오늘|내일|이번|다음|여름|가을|겨울|봄|추석|명절|아기|아이|유아|엄마|프리미엄|유기농|무항생제|국내산|제주|유럽|미국|독일|일본|첨가물|무첨가|무설탕|무가당|저당|저염|저칼로리|국산|당일|산지)$/;
 for (const b of [...BRANDS]) if (BRAND_STOP.test(b) || !/^[가-힣A-Za-z][가-힣A-Za-z0-9]*$/.test(b)) BRANDS.delete(b);
 const isBrand = (t) => BRANDS.has(t) || (t.length >= 3 && [...BRANDS].some(b => b.length >= 3 && t.startsWith(b)));
 // 예고·안내 글의 꼬리말·머리말. 상품명이 아니다 (2026-09-09 검증자 실측 17건)
