@@ -4562,17 +4562,24 @@ function renderSellerList(){
 
 // ── 👤 셀러승인 (가입 셀러) ──
 let sellerAuthData=[];
+let sellerAuthLoadError='';
 async function loadSellerAuth(){
+  sellerAuthLoadError='';
   try{
     const res=await fetch(`${SB_URL}/rest/v1/sellers?login_insta=not.is.null&order=created_at.desc`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
     });
-    sellerAuthData=res.ok?await res.json():[];
-  }catch(e){ sellerAuthData=[]; }
+    if(res.ok){ sellerAuthData=await res.json(); }
+    // 2026-09-17: 로그인 세션이 조용히 만료되면(refreshToken 실패 → ACCESS_TOKEN이 anon으로 되돌아감)
+    //   login_insta·login_active 컬럼은 anon 에 권한이 없어 403 이 나는데, 여기서 그냥 빈 배열로
+    //   삼켜버려 화면엔 아무 안내 없이 목록만 안 뜨는 것처럼 보였다(사장님 실측). 원인을 알려준다.
+    else { sellerAuthData=[]; sellerAuthLoadError=(res.status===401||res.status===403)?'로그인이 만료됐어요. 새로고침해 다시 로그인해주세요.':`불러오기 실패 (${res.status})`; }
+  }catch(e){ sellerAuthData=[]; sellerAuthLoadError=`불러오기 실패 (${e.message})`; }
   renderSellerAuth();
 }
 function renderSellerAuth(){
   const el=document.getElementById('sellerAuthList');
+  if(sellerAuthLoadError){ el.innerHTML=`<div style="text-align:center;padding:24px;color:#C62828;font-size:13px">${sellerAuthLoadError}</div>`; return; }
   const pending=sellerAuthData.filter(s=>!s.login_active);
   const active=sellerAuthData.filter(s=>s.login_active);
   // 탭 알림 배지 (가입 대기 인원)
