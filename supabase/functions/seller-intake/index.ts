@@ -100,8 +100,9 @@ const emailOk = (e: string) => !e || /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-zA-Z]{2,}$
 const urlOk = (u: string) => !u || /^https?:\/\/[^\s]{3,300}$/i.test(u);
 
 // ── 누가 부르는지 확인 (사장님 / 직원 / 그 외) ──
-//   사장님(app_admins) = 전부 가능 · 직원(app_staff) = 링크 발급·접수 확인·상태 변경까지
-//   🔒 계좌번호·주민등록번호 열람(reveal)은 **사장님만**. 직원 화면엔 마스킹만 간다.
+//   사장님(app_admins) = 전부 가능
+//   직원(app_staff)   = 링크 발급·접수 확인·상태 변경 + **계좌번호 열람**(정산 담당이라 필요)
+//   🔒 직원에게 잠그는 것 = **연락처·주민등록번호** (사장님 지시 2026-09-18). 목록에서도 가려서 보낸다.
 type Who = { uid: string; role: "admin" | "staff" } | null;
 async function whoIs(req: Request): Promise<Who> {
   const auth = req.headers.get("authorization") ?? "";
@@ -142,15 +143,19 @@ async function toNotion(row: any) {
     "은행": { rich_text: [{ text: { content: row.bank || "" } }] },
     "예금주": { rich_text: [{ text: { content: row.acct_holder || "" } }] },
     "계좌 끝4자리": { rich_text: [{ text: { content: row.acct_last4 ? `****${row.acct_last4}` : "" } }] },
-    "상태": { select: { name: "신규접수" } },
+    "상태": { select: { name: row.status === "checked" ? "확인완료" : row.status === "hold" ? "보류" : "신규접수" } },
     "접수일시": { date: { start: row.created_at } },
     "접수번호": { number: row.id },
-    "비고": { rich_text: [{ text: { content: "계좌번호·주민등록번호 전체는 관리자 화면(sellerdesk)에서만 조회" } }] },
+    "비고": { rich_text: [{ text: { content: row.hold_reason ? `⚠ ${row.hold_reason} — 확인 필요` : "" } }] },
   };
-  const r = await fetch("https://api.notion.com/v1/pages", {
-    method: "POST",
+  // 이미 노션에 줄이 있으면 새로 만들지 않고 그 줄을 고친다 (사장님이 접수 내용을 수정한 경우)
+  const url = row.notion_page_id
+    ? `https://api.notion.com/v1/pages/${row.notion_page_id}`
+    : "https://api.notion.com/v1/pages";
+  const r = await fetch(url, {
+    method: row.notion_page_id ? "PATCH" : "POST",
     headers: { Authorization: `Bearer ${NOTION_TOKEN}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-    body: JSON.stringify({ parent: { database_id: NOTION_DB }, properties: props }),
+    body: JSON.stringify(row.notion_page_id ? { properties: props } : { parent: { database_id: NOTION_DB }, properties: props }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error(`notion ${r.status} ${JSON.stringify(j).slice(0, 300)}`);
@@ -266,6 +271,10 @@ Deno.serve(async (req) => {
         bank, acct_enc: await enc(acct), acct_last4: acct.slice(-4), acct_holder,
         agreed: true, agreed_at: now, consent_ver: CONSENT_VER,
         ip_hash, ua: clean(req.headers.get("user-agent"), 200),
+        // 사람이 눌러서 확인하지 않는다. 검사를 다 통과했으면 바로 '확인완료'.
+        // 정산 때 실제로 걸리는 것(예금주 ≠ 대표자명)만 '보류'로 돌려 사장님이 보게 한다.
+        status: acct_holder.replace(/\s/g, "") === owner_name.replace(/\s/g, "") ? "checked" : "hold",
+        hold_reason: acct_holder.replace(/\s/g, "") === owner_name.replace(/\s/g, "") ? null : "예금주와 대표자명이 다름",
       };
       const ins = await sb(`seller_intake`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(rec) });
       const row = ins?.[0];
@@ -299,7 +308,7 @@ Deno.serve(async (req) => {
     if (op === "invite" && req.method === "POST") {
       const label = clean(body.label, 80);
       if (!label) return json({ ok: false, reason: "label 필요" }, 400);
-      const days = Math.min(Math.max(Number(body.days ?? 7), 1), 30);
+      const days = Math.min(Math.max(Number(body.days ?? 3), 1), 30);   // 기본 3일 (사장님 지시 2026-09-18)
       const token = hex(16);
       const expires_at = new Date(Date.now() + days * 864e5).toISOString();
       await sb(`seller_invite`, {
@@ -312,22 +321,89 @@ Deno.serve(async (req) => {
     if (op === "list") {
       const invites = await sb(`seller_invite?select=token,label,memo,created_at,expires_at,used_at,revoked&order=created_at.desc&limit=100`);
       // 직원에게도 같은 목록을 주되, 아래 select 에 암호문(acct_enc·rrn_enc)은 애초에 없다.
-      const intakes = await sb(`seller_intake?select=id,seller_name,owner_name,phone,email,channel_url,followers,settle_type,biz_type,biz_name,biz_no,rrn_masked,zipcode,addr1,addr2,bank,acct_last4,acct_holder,status,notion_page_id,notion_synced_at,notion_error,created_at&order=id.desc&limit=200`);
-      return json({ ok: true, invites, intakes });
+      const intakes = await sb(`seller_intake?select=id,seller_name,owner_name,phone,email,channel_url,followers,settle_type,biz_type,biz_name,biz_no,rrn_masked,zipcode,addr1,addr2,bank,acct_last4,acct_holder,status,hold_reason,notion_page_id,notion_synced_at,notion_error,created_at&order=id.desc&limit=200`);
+      // 직원에게는 연락처·주민등록번호를 가려서 내보낸다 (목록 응답 자체에 값이 안 실린다)
+      const shown = who.role === "admin" ? intakes : (intakes ?? []).map((r: any) => ({
+        ...r,
+        phone: r.phone ? `${String(r.phone).slice(0, 3)}-****-${String(r.phone).slice(-4)}` : null,
+        rrn_masked: null,
+        locked: ["phone", "rrn"],
+      }));
+      return json({ ok: true, role: who.role, invites, intakes: shown });
     }
 
     if (op === "reveal") {
-      // 🔒 사장님 전용. 직원 계정으로는 계좌·주민번호를 절대 못 연다.
-      if (who.role !== "admin") return json({ ok: false, reason: "계좌·주민등록번호는 사장님 계정에서만 열 수 있어요." }, 403);
+      //   직원(정산 담당) = 계좌번호까지 / 사장님 = 계좌 + 연락처 + 주민등록번호
       const id = Number(u.searchParams.get("id") ?? 0);
-      const rows = await sb(`seller_intake?id=eq.${id}&select=id,acct_enc,rrn_enc,bank,acct_holder`);
+      const rows = await sb(`seller_intake?id=eq.${id}&select=id,acct_enc,rrn_enc,bank,acct_holder,phone`);
       const r = rows?.[0];
       if (!r) return json({ ok: false, reason: "없는 접수" }, 404);
-      const out: Record<string, unknown> = { ok: true, id: r.id, bank: r.bank, acct_holder: r.acct_holder };
+      const out: Record<string, unknown> = { ok: true, id: r.id, bank: r.bank, acct_holder: r.acct_holder, role: who.role };
       out.acct_no = r.acct_enc ? await dec(r.acct_enc) : null;
-      out.rrn = r.rrn_enc ? await dec(r.rrn_enc) : null;
-      await sb(`seller_intake_audit`, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ intake_id: id, admin_uid: uid, action: r.rrn_enc ? "reveal_rrn_acct" : "reveal_acct" }) });
+      if (who.role === "admin") {
+        out.rrn = r.rrn_enc ? await dec(r.rrn_enc) : null;
+        out.phone = r.phone ?? null;
+      } else {
+        out.rrn = null;
+        out.phone = null;
+        out.locked_note = "연락처·주민등록번호는 사장님 계정에서만 열립니다.";
+      }
+      await sb(`seller_intake_audit`, {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ intake_id: id, admin_uid: uid, action: who.role === "admin" ? "reveal_all" : "reveal_acct_staff" }),
+      });
       return json(out);
+    }
+
+    // ── 접수 내용 수정 (사장님 전용) ──
+    //   셀러가 잘못 냈을 때 링크를 다시 보내지 않고 여기서 고친다. 고치면 노션 줄도 같은 줄이 갱신된다.
+    if (op === "update" && req.method === "POST") {
+      if (who.role !== "admin") return json({ ok: false, reason: "수정은 사장님 계정에서만 가능해요." }, 403);
+      const id = Number(body.id ?? 0);
+      const cur = (await sb(`seller_intake?id=eq.${id}&select=*`))?.[0];
+      if (!cur) return json({ ok: false, reason: "없는 접수" }, 404);
+
+      const patch: Record<string, unknown> = {};
+      const bad: string[] = [];
+      const has = (k: string) => body[k] !== undefined && body[k] !== null;
+
+      if (has("seller_name")) { const v = clean(body.seller_name, 80); v ? patch.seller_name = v : bad.push("셀러명"); }
+      if (has("owner_name")) { const v = clean(body.owner_name, 40); v ? patch.owner_name = v : bad.push("대표자명"); }
+      if (has("phone")) { const v = digits(body.phone).slice(0, 11); phoneOk(v) ? patch.phone = v : bad.push("연락처"); }
+      if (has("email")) { const v = clean(body.email, 254).toLowerCase(); emailOk(v) ? patch.email = v || null : bad.push("이메일"); }
+      if (has("channel_url")) { const v = clean(body.channel_url, 300); urlOk(v) ? patch.channel_url = v || null : bad.push("채널 주소"); }
+      if (has("followers")) patch.followers = Number(digits(body.followers) || 0) || null;
+      if (has("bank")) { const v = clean(body.bank, 30); v ? patch.bank = v : bad.push("은행"); }
+      if (has("acct_holder")) { const v = clean(body.acct_holder, 40); v ? patch.acct_holder = v : bad.push("예금주"); }
+      if (has("zipcode")) patch.zipcode = digits(body.zipcode).slice(0, 6);
+      if (has("addr1")) patch.addr1 = clean(body.addr1, 200);
+      if (has("addr2")) patch.addr2 = clean(body.addr2, 120) || null;
+      if (has("biz_name")) patch.biz_name = clean(body.biz_name, 80) || null;
+      if (has("biz_no")) { const v = digits(body.biz_no).slice(0, 10); (!v || bizOk(v)) ? patch.biz_no = v || null : bad.push("사업자등록번호"); }
+      if (has("settle_type")) patch.settle_type = body.settle_type === "business" ? "business" : "freelancer";
+      if (has("biz_type")) patch.biz_type = body.biz_type === "simplified" ? "simplified" : body.biz_type === "general" ? "general" : null;
+      // 계좌번호·주민번호는 값을 새로 줄 때만 다시 암호화해서 덮는다 (빈칸이면 그대로 둔다)
+      if (clean(body.acct_no, 30)) {
+        const v = digits(body.acct_no).slice(0, 20);
+        if (v.length >= 8 && v.length <= 20) { patch.acct_enc = await enc(v); patch.acct_last4 = v.slice(-4); }
+        else bad.push("계좌번호");
+      }
+      if (clean(body.rrn, 20)) {
+        const v = digits(body.rrn).slice(0, 13);
+        if (rrnOk(v)) { patch.rrn_enc = await enc(v); patch.rrn_masked = `${v.slice(0, 6)}-${v[6]}******`; }
+        else bad.push("주민등록번호");
+      }
+      if (bad.length) return json({ ok: false, reason: "invalid_fields", fields: bad }, 400);
+      if (!Object.keys(patch).length) return json({ ok: false, reason: "바뀐 값이 없어요." }, 400);
+
+      await sb(`seller_intake?id=eq.${id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(patch) });
+      await sb(`seller_intake_audit`, {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ intake_id: id, admin_uid: uid, action: "edit:" + Object.keys(patch).join(",").slice(0, 120) }),
+      });
+      const fresh = (await sb(`seller_intake?id=eq.${id}&select=*`))?.[0];
+      const sync = await syncRow(fresh);
+      return json({ ok: true, id, changed: Object.keys(patch), notion: sync.ok });
     }
 
     if (op === "resync" && req.method === "POST") {
