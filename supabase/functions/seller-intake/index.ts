@@ -317,6 +317,8 @@ Deno.serve(async (req) => {
 
     if (op === "revoke" && req.method === "POST") {
       const token = clean(body.token, 64);
+      // 관리자만 오는 경로지만 필터 문자열에 그대로 들어가므로 여기서도 형식을 다시 본다 (검증자 지적 2026-09-18)
+      if (!/^[0-9a-f]{16,64}$/.test(token)) return json({ ok: false, reason: "invalid" }, 400);
       await sb(`seller_invite?token=eq.${token}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ revoked: true }) });
       return json({ ok: true });
     }
