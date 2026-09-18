@@ -177,9 +177,10 @@ function carryOver_(ss) {
   if (!sh || sh.getLastRow() < 2) return keep;
   var v = sh.getRange(2, 1, sh.getLastRow() - 1, COL.지급일).getValues();
   v.forEach(function (r) {
-    var name = r[COL.셀러명 - 1], st = r[COL.시작일 - 1];
+    var prod = r[COL.상품 - 1], name = r[COL.셀러명 - 1], st = r[COL.시작일 - 1];
     if (!name || !(st instanceof Date)) return;
-    keep[name + '|' + Utilities.formatDate(st, 'Asia/Seoul', 'yyyy-MM-dd')] = {
+    // 상품까지 열쇠에 넣어야 상품분할된 두 줄이 서로 값을 덮어쓰지 않는다
+    keep[prod + '|' + name + '|' + Utilities.formatDate(st, 'Asia/Seoul', 'yyyy-MM-dd')] = {
       sample: r[COL.샘플 - 1] === true,
       sales:  r[COL.총매출 - 1],
       vat:    r[COL.VAT제외 - 1],
@@ -228,28 +229,36 @@ function readSheet_(sh, src, tab, log, keep) {
     }
     yearHint = ps.d.getFullYear();
 
-    var raw = String(rawN).trim();
-    var p   = splitName_(raw);
-    var pr  = pickProduct_(raw, src.defaultProduct);
-    var k   = keep[p.name + '|' + Utilities.formatDate(ps.d, 'Asia/Seoul', 'yyyy-MM-dd')] || {};
+    var raw    = String(rawN).trim();
+    var p      = splitName_(raw);
+    var pr     = pickProduct_(raw, src.defaultProduct);
+    var shaded = isShaded_(bgs[r][0]) || /샘플\s*완료/.test(raw);
+    var day    = Utilities.formatDate(ps.d, 'Asia/Seoul', 'yyyy-MM-dd');
 
-    var row = new Array(COL_LAST).fill('');
-    row[COL.상품 - 1]     = pr.product;
-    row[COL.셀러명 - 1]   = p.name;
-    // C 스룩상품명 · F 정산예정일 · J~P 계산 · S 할일 · T 긴급 은 수식이라 비워 둔다
-    row[COL.시작일 - 1]   = ps.d;
-    row[COL.종료일 - 1]   = pe.d;
-    row[COL.샘플 - 1]     = isShaded_(bgs[r][0]) || /샘플\s*완료/.test(raw) || k.sample === true;
-    row[COL.총매출 - 1]   = (k.sales === 0 || k.sales) ? k.sales : '';
-    row[COL.VAT제외 - 1]  = k.vat === false ? false : true;      // 기본 켬
-    row[COL.단계 - 1]     = k.stage || '';
-    row[COL.지급일 - 1]   = k.paidAt || '';
-    row[COL.비고 - 1]     = [p.note, p.round].filter(String).join(' / ');
-    row[COL.연도추정 - 1] = (ps.guessed || pe.guessed) ? '⚠ 연도추정' : '';
-    row[COL.상품확인 - 1] = pr.uncertain ? '⚠ 상품확인' : '';
-    row[COL.원본탭 - 1]   = tab;
-    row[COL.원문 - 1]     = raw;
-    out.push(row);
+    // 상품이 여럿이면 상품마다 한 줄. 매출·정산도 상품별로 따로 잡힌다.
+    pr.products.forEach(function (prod, idx) {
+      var k = keep[prod + '|' + p.name + '|' + day] || {};
+      var row = new Array(COL_LAST).fill('');
+      row[COL.상품 - 1]     = prod;
+      row[COL.셀러명 - 1]   = p.name;
+      // C 스룩상품명 · F 정산예정일 · J~P 계산 · S 할일 · T 긴급 은 수식이라 비워 둔다
+      row[COL.시작일 - 1]   = ps.d;
+      row[COL.종료일 - 1]   = pe.d;
+      row[COL.샘플 - 1]     = shaded || k.sample === true;
+      row[COL.총매출 - 1]   = (k.sales === 0 || k.sales) ? k.sales : '';
+      row[COL.VAT제외 - 1]  = k.vat === false ? false : true;      // 기본 켬
+      row[COL.단계 - 1]     = k.stage || '';
+      row[COL.지급일 - 1]   = k.paidAt || '';
+      row[COL.비고 - 1]     = [p.note, p.round,
+                              pr.products.length > 1
+                                ? '상품분할 ' + (idx + 1) + '/' + pr.products.length : '']
+                              .filter(String).join(' / ');
+      row[COL.연도추정 - 1] = (ps.guessed || pe.guessed) ? '⚠ 연도추정' : '';
+      row[COL.상품확인 - 1] = pr.uncertain ? '⚠ 상품확인' : '';
+      row[COL.원본탭 - 1]   = tab;
+      row[COL.원문 - 1]     = raw;
+      out.push(row);
+    });
   }
   return out;
 }
@@ -299,16 +308,19 @@ function parseDate_(v, yearHint) {
 }
 
 // ── 상품 고르기 ────────────────────────────────────────────────
+//  상품 힌트가 둘 이상 걸리면("오프유(킥보드가방+원형바구니)") 상품이 2개인 공구다.
+//  하나로 뭉개지 않고 **상품마다 한 줄씩** 만든다 (사장님 지시 2026-09-18).
+//  스룩 상품명도 「오프유x아무 킥보드가방」·「오프유x아무 정리함」 으로 갈리므로
+//  매출도 각각 따로 잡힌다.
 function pickProduct_(raw, fallback) {
   var hit = [];
   PRODUCT_HINTS.forEach(function (h) {
     if (h.re.test(raw) && hit.indexOf(h.product) === -1) hit.push(h.product);
   });
-  // 상품 힌트가 둘 이상 = "킥보드가방+원형바구니" 처럼 한 행에 상품이 섞였다.
-  if (hit.length > 1)   return { product: hit[0], uncertain: true };
-  if (hit.length === 1) return { product: hit[0], uncertain: false };
+  if (hit.length) return { products: hit, uncertain: false };
   var m = raw.match(/[(\[（]([^)\]）]+)[)\]）]/);
-  return { product: fallback, uncertain: !!m && !OPTION_WORDS.test(m[1]) && !NOTE_WORDS.test(m[1]) };
+  return { products: [fallback],
+           uncertain: !!m && !OPTION_WORDS.test(m[1]) && !NOTE_WORDS.test(m[1]) };
 }
 
 // ── 셀러명 쪼개기 ──────────────────────────────────────────────
