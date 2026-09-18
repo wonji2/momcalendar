@@ -106,7 +106,14 @@ async function login(){
     });
     const d=await r.json();
     if(!d.access_token){ e.textContent='로그인 실패: '+(d.error_description||d.msg||'확인해 주세요'); return; }
-    AT=d.access_token; localStorage.setItem('mc_admin_at',AT);
+    AT=d.access_token;
+    // 역할에 맞는 자리에 보관한다 — 직원 토큰을 관리자 자리(mc_admin_at)에 넣으면 admin.html 이 로그인된 것으로 오해한다
+    const me=await api('op=whoami');
+    if(!me.ok){ e.textContent='권한이 없는 계정이에요. 사장님에게 스탭 승인을 요청해 주세요.'; AT=''; return; }
+    try{
+      if(me.role==='admin') localStorage.setItem('mc_admin_at',AT);
+      else localStorage.setItem('staffSess', JSON.stringify({rt:(JSON.parse(localStorage.getItem('staffSess')||'{}').rt)||'', at:AT}));
+    }catch(_){}
     $('liPw').value='';
     boot();
   }catch(x){ e.textContent='연결 오류'; }
