@@ -124,6 +124,12 @@ async function toNotion(row: any) {
     "채널": { url: row.channel_url || null },
     "팔로워": { number: row.followers ?? null },
     "정산유형": { select: { name: row.settle_type === "business" ? "사업자" : "프리랜서" } },
+    "과세유형": {
+      select: {
+        name: row.settle_type !== "business" ? "프리랜서(개인)"
+            : row.biz_type === "simplified" ? "간이과세자" : "일반과세자",
+      },
+    },
     "사업자명": { rich_text: [{ text: { content: row.biz_name || "" } }] },
     "사업자등록번호": { rich_text: [{ text: { content: row.biz_no || "" } }] },
     "샘플 수령 주소": { rich_text: [{ text: { content: addr } }] },
@@ -203,6 +209,8 @@ Deno.serve(async (req) => {
       if (new Date(iv.expires_at) < new Date()) return json({ ok: false, reason: "expired" }, 410);
 
       const settle_type = body.settle_type === "business" ? "business" : "freelancer";
+      // 사업자면 과세유형까지 받는다 (일반=세금계산서 필수 / 간이=부가세액 제외 후 현금영수증)
+      const biz_type = settle_type === "business" ? (body.biz_type === "simplified" ? "simplified" : "general") : null;
       const seller_name = clean(body.seller_name, 80);
       const owner_name  = clean(body.owner_name, 40);
       const phone       = digits(body.phone).slice(0, 11);
@@ -243,7 +251,7 @@ Deno.serve(async (req) => {
       const rec: Record<string, unknown> = {
         token, seller_name, owner_name, phone, email: email || null,
         channel_url: channel_url || null, followers: followersN || null,
-        settle_type,
+        settle_type, biz_type,
         biz_name: settle_type === "business" ? biz_name : null,
         biz_no: settle_type === "business" ? biz_no : null,
         rrn_enc: settle_type === "freelancer" ? await enc(rrn) : null,
@@ -290,7 +298,7 @@ Deno.serve(async (req) => {
 
     if (op === "list") {
       const invites = await sb(`seller_invite?select=token,label,memo,created_at,expires_at,used_at,revoked&order=created_at.desc&limit=100`);
-      const intakes = await sb(`seller_intake?select=id,seller_name,owner_name,phone,email,channel_url,followers,settle_type,biz_name,biz_no,rrn_masked,zipcode,addr1,addr2,bank,acct_last4,acct_holder,status,notion_page_id,notion_synced_at,notion_error,created_at&order=id.desc&limit=200`);
+      const intakes = await sb(`seller_intake?select=id,seller_name,owner_name,phone,email,channel_url,followers,settle_type,biz_type,biz_name,biz_no,rrn_masked,zipcode,addr1,addr2,bank,acct_last4,acct_holder,status,notion_page_id,notion_synced_at,notion_error,created_at&order=id.desc&limit=200`);
       return json({ ok: true, invites, intakes });
     }
 

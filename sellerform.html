@@ -41,7 +41,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .agree input{width:18px;height:18px;margin-top:1px;accent-color:var(--p);flex:none}
 .agree div{font-size:12px;color:var(--t2);line-height:1.6}
 .agree a{color:var(--p);font-weight:700}
-.lock{background:#F3FAF6;border:1px solid #CFE9DD;color:var(--green);font-size:11.5px;line-height:1.6;border-radius:12px;padding:11px 12px;margin-bottom:12px}
+.notice{background:#FFF9E8;border:1px solid #F0E0AE;color:#7A5A00;font-size:12px;line-height:1.65;border-radius:11px;padding:11px 12px;margin-top:12px}
+.notice b{color:#5A4200}
+.notice-sub{font-size:11.5px;color:var(--t3);line-height:1.6;margin-top:8px}
 .err{font-size:12.5px;color:var(--red);text-align:center;margin-top:9px;min-height:16px;line-height:1.5}
 .done{text-align:center;padding:34px 20px}
 .done .ic{width:62px;height:62px;border-radius:50%;background:#E8F6EF;color:var(--green);font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
@@ -69,15 +71,24 @@ details.pv div{font-size:11.5px;color:var(--t2);line-height:1.7;margin-top:7px;b
     <div class="logo-sub">공동구매 진행과 <b>정산·세금계산</b>에 필요한 정보예요.<br>한 번만 입력하시면 됩니다.</div>
   </div>
 
-  <div class="lock">🔒 입력하신 정보는 암호화되어 원츠비 담당자만 볼 수 있어요. 주민등록번호·계좌번호는 잠금 보관되고, 정산 담당자 화면에서만 열립니다.</div>
-
   <div class="card">
     <div class="sec">정산 유형</div>
     <div class="seg">
-      <button type="button" id="segBiz" class="on" onclick="setType('business')">사업자</button>
-      <button type="button" id="segFree" onclick="setType('freelancer')">프리랜서 (개인)</button>
+      <button type="button" id="segFree" class="on" onclick="setType('freelancer')">개인 (프리랜서)</button>
+      <button type="button" id="segBiz" onclick="setType('business')">사업자</button>
     </div>
-    <div class="hint">사업자등록증이 있으면 <b>사업자</b>, 없으면 <b>프리랜서</b>를 골라주세요. 프리랜서는 원천징수(3.3%) 때문에 주민등록번호가 필요해요.</div>
+    <div class="hint">사업자등록증이 없으면 <b>개인(프리랜서)</b>, 있으면 <b>사업자</b>를 눌러주세요.</div>
+
+    <div id="bizType" style="display:none;margin-top:12px">
+      <div class="fl" style="margin-bottom:6px"><label class="req">과세 유형</label></div>
+      <div class="seg">
+        <button type="button" id="segGen" class="on" onclick="setBizType('general')">일반과세자</button>
+        <button type="button" id="segSim" onclick="setBizType('simplified')">간이과세자</button>
+      </div>
+    </div>
+
+    <div class="notice" id="settleNote"></div>
+    <div class="notice-sub">정산일은 공구 마감일로부터 <b>영업일 D+15</b> 예정입니다.</div>
   </div>
 
   <div class="card">
@@ -94,16 +105,16 @@ details.pv div{font-size:11.5px;color:var(--t2);line-height:1.7;margin-top:7px;b
     <div class="fl"><label>팔로워 수</label><input id="followers" inputmode="numeric" maxlength="9" placeholder="예) 12000" autocomplete="off"></div>
   </div>
 
-  <div class="card" id="bizBox">
+  <div class="card" id="bizBox" style="display:none">
     <div class="sec">사업자 정보</div>
     <div class="fl"><label class="req">사업자명 (상호)</label><input id="bizName" maxlength="40" placeholder="사업자등록증상 상호" autocomplete="off"></div>
     <div class="fl"><label class="req">사업자등록번호</label><input id="bizNo" inputmode="numeric" maxlength="12" placeholder="000-00-00000" autocomplete="off"></div>
   </div>
 
-  <div class="card" id="freeBox" style="display:none">
-    <div class="sec">프리랜서 정보</div>
+  <div class="card" id="freeBox">
+    <div class="sec">개인 (프리랜서) 정보</div>
     <div class="fl"><label class="req">주민등록번호</label><input id="rrn" inputmode="numeric" maxlength="14" placeholder="000000-0000000" autocomplete="off"></div>
-    <div class="hint">원천징수 신고(소득세법)에만 씁니다. 암호화 보관되고 노션·메신저 어디에도 남지 않아요.</div>
+    <div class="hint">3.3% 원천징수 신고에만 씁니다.</div>
   </div>
 
   <div class="card">
@@ -165,17 +176,33 @@ details.pv div{font-size:11.5px;color:var(--t2);line-height:1.7;margin-top:7px;b
 <script>
 const FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/seller-intake';
 const TOKEN=(new URLSearchParams(location.search).get('t')||'').trim();
-let TYPE='business', SENDING=false, OPENED=Date.now();
+let TYPE='freelancer', BIZTYPE='general', SENDING=false, OPENED=Date.now();
 
 const $=id=>document.getElementById(id);
 const show=(id,on)=>{ $(id).style.display=on?'':'none'; };
+
+// 정산 고지 문구 — 노션 「셀러 소개용(공유용)」 정산 공통 규칙과 같은 기준
+const NOTE={
+  freelancer:'<b>개인(프리랜서)</b> — 부가세액을 제외한 금액에서 <b>3.3% 원천징수</b> 후 정산됩니다. 정산 시 신분증·통장사본이 필요해요.',
+  general:'<b>일반과세자</b> — <b>세금계산서 발행이 필수</b>입니다. 사업자등록증·통장사본이 필요해요.',
+  simplified:'<b>간이과세자</b> — 세금계산서 발행이 안 되어 <b>부가세액을 제외한 금액으로 정산</b>되고, 현금영수증으로 처리합니다. 사업자등록증·통장사본이 필요해요.',
+};
+function drawNote(){ $('settleNote').innerHTML = NOTE[TYPE==='business'?BIZTYPE:'freelancer']; }
 
 function setType(t){
   TYPE=t;
   $('segBiz').classList.toggle('on',t==='business');
   $('segFree').classList.toggle('on',t==='freelancer');
   show('bizBox',t==='business');
+  show('bizType',t==='business');
   show('freeBox',t==='freelancer');
+  drawNote();
+}
+function setBizType(b){
+  BIZTYPE=b;
+  $('segGen').classList.toggle('on',b==='general');
+  $('segSim').classList.toggle('on',b==='simplified');
+  drawNote();
 }
 
 // 보기 편하게 하이픈만 넣어준다 (서버로는 숫자만 간다)
@@ -213,6 +240,7 @@ async function boot(){
       $('bad').innerHTML=msg; show('bad',true); return;
     }
     show('formView',true);
+    setType('freelancer');
     hyphen($('phone'),'phone'); hyphen($('bizNo'),'biz'); hyphen($('rrn'),'rrn');
   }catch(e){ show('loading',false); $('bad').innerHTML='<b>연결에 실패했어요.</b><br>잠시 후 다시 열어주세요.'; show('bad',true); }
 }
@@ -242,7 +270,7 @@ async function submitForm(){
     const r=await fetch(`${FN}?op=submit`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        token:TOKEN, settle_type:TYPE,
+        token:TOKEN, settle_type:TYPE, biz_type:(TYPE==='business'?BIZTYPE:null),
         seller_name:v('sellerName'), owner_name:v('ownerName'), phone:num('phone'), email:v('email'),
         channel_url:v('channelUrl'), followers:num('followers'),
         biz_name:v('bizName'), biz_no:num('bizNo'), rrn:num('rrn'),

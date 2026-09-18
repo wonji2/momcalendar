@@ -93,3 +93,9 @@ revoke all on public.seller_intake_audit from anon, authenticated;
 revoke all on public.seller_intake_rate  from anon, authenticated;
 revoke all on sequence public.seller_intake_id_seq       from anon, authenticated;
 revoke all on sequence public.seller_intake_audit_id_seq from anon, authenticated;
+
+-- 2026-09-18 추가: 사업자 과세유형 (사장님 지시)
+--   일반과세자 → 세금계산서 발행 필수 / 간이과세자 → 부가세액 제외 후 현금영수증 처리
+--   (노션 「셀러 소개용(공유용)」 정산 공통 규칙과 같은 기준)
+alter table public.seller_intake add column if not exists biz_type text
+  check (biz_type in ('general','simplified'));
