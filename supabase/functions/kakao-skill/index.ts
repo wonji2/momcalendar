@@ -618,6 +618,42 @@ async function handle(req: Request): Promise<Response> {
       //   🔴 AI 가 뽑은 낱말(noAbbr)엔 안 연다 — 「즈크루」가 %즈%크%루% 로 디즈니 크루즈를 물어와 사전에 정답처럼 굳었다(2026-09-06 검증)
       if (!noAbbr && hangulOnly && kw.length >= 3 && kw.length <= 5) tries.push("__ABBR__" + kw);
 
+      // 🔴 줄임말(__ABBR__) 결과 걸러내기 (사장님 지시 2026-09-18 "2번" — 「블루이」가 블루타이거·블루마마를 물어왔다)
+      //   줄임말은 두 가지 중 하나다:
+      //     ① 낱말 첫 글자 잇기        뽀사카 → "뽀로로 사운드카드"  (마지막 글자만 그 낱말 안쪽 허용)
+      //     ② 낱말 앞토막 잇기         하뚱병풍 → "하뚱 세이하우스 병풍" (마지막 토막은 두 글자 이상이면 낱말 안쪽 허용)
+      //   낱말 안에서 글자를 건너뛰는 것(블루타이거의 블·루·이)만 막는다.
+      //   📏 기존 데이터 회귀(scratchpad/_abbr_regress3.mjs, 진행중 2,138건 × 손님 낱말 332개):
+      //      그대로 327 · 사라짐 5(전부 엉뚱한 답: 블루이·라마즈·글로이·엔그로우·마그네슘이) · 맞는 답 손실 0
+      const abbrWords = (nm: string) => String(nm).replace(/\[[^\]]*\]/g, " ").split(/[\s·/+,()&]+/).filter(Boolean);
+      const abbrInitials = (kwx: string, nm: string) => {
+        const ws = abbrWords(nm); const cs = [...kwx]; let wi = 0;
+        for (let i = 0; i < cs.length; i++) {
+          const last = i === cs.length - 1; let fo = -1;
+          for (let k = wi; k < ws.length; k++) if (ws[k][0] === cs[i]) { fo = k; break; }
+          if (fo >= 0) { wi = fo + (last ? 0 : 1); continue; }
+          if (last && wi > 0 && ws[wi - 1] && ws[wi - 1].slice(1).includes(cs[i])) continue;
+          return false;
+        }
+        return true;
+      };
+      const abbrPrefix = (kwx: string, nm: string) => {
+        const ws = abbrWords(nm);
+        const walk = (ci: number, wi: number): boolean => {
+          if (ci >= kwx.length) return true;
+          for (let k = wi; k < ws.length; k++) {
+            for (let len = Math.min(ws[k].length, kwx.length - ci); len >= 1; len--) {
+              const piece = kwx.slice(ci, ci + len);
+              if (ws[k].startsWith(piece) && walk(ci + len, k + 1)) return true;
+              if (ci + len >= kwx.length && piece.length >= 2 && ws[k].slice(1).includes(piece)) return true;
+            }
+          }
+          return false;
+        };
+        return walk(0, 0);
+      };
+      const abbrOk = (kwx: string, nm: string) => abbrInitials(kwx, nm) || abbrPrefix(kwx, nm);
+
       // 🔴 검색 순서 (사장님 지시 2026-09-01)
       //   ① 손님이 말한 그대로·별칭 그대로 공구를 찾는다 (뽀사카 → "뽀로로 사운드")
       //   ② 없으면 **핫딜을 먼저 본다** — "공구는 없는데 오늘 공구 가격에 핫딜이 떴다" 가 손님에게 진짜 답이다
@@ -653,6 +689,13 @@ async function handle(req: Request): Promise<Response> {
             cond = `end_date=gte.${today}&name=ilike.${enc}`;
           }
           let rows = await pick(cond, "order=open_date.asc", ph);
+          // 줄임말 결과는 규칙에 맞는 것만 남긴다 (낱말 안 건너뛰기 차단)
+          if (t.startsWith("__ABBR__")) {
+            const kwx = t.slice(8);
+            const before = rows.length;
+            rows = rows.filter((r: any) => abbrOk(kwx, String(r.name || "")));
+            if (before !== rows.length) logEv("kakao_bot_abbr", kwx + " | 줄임말 후보 " + before + "→" + rows.length);
+          }
           // 🔤 붙여쓰기 폴백 — 손님은 「뮴키즈오메가3」 라 치고 DB 는 「말랑구미 뮴키즈 오메가3」 다 (2026-09-08 재생 점검 실사고).
           //    진행중 상품명 87% 에 공백이 있다. 한 낱말 4자 이상이 0건이면 공백 뺀 열(name_ns, 생성열)로 한 번 더 찾는다.
           //    ⚠ 글자를 깎는 게 아니다 — 손님 말은 그대로고 DB 쪽 공백만 무시한다.
