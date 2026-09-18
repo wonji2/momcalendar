@@ -99,8 +99,11 @@ const phoneOk = (p: string) => /^01[016789]\d{7,8}$/.test(p);
 const emailOk = (e: string) => !e || /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-zA-Z]{2,}$/.test(e);
 const urlOk = (u: string) => !u || /^https?:\/\/[^\s]{3,300}$/i.test(u);
 
-// ── 관리자 확인 ──
-async function adminUid(req: Request): Promise<string | null> {
+// ── 누가 부르는지 확인 (사장님 / 직원 / 그 외) ──
+//   사장님(app_admins) = 전부 가능 · 직원(app_staff) = 링크 발급·접수 확인·상태 변경까지
+//   🔒 계좌번호·주민등록번호 열람(reveal)은 **사장님만**. 직원 화면엔 마스킹만 간다.
+type Who = { uid: string; role: "admin" | "staff" } | null;
+async function whoIs(req: Request): Promise<Who> {
   const auth = req.headers.get("authorization") ?? "";
   const tok = auth.replace(/^Bearer\s+/i, "");
   if (!tok) return null;
@@ -108,8 +111,11 @@ async function adminUid(req: Request): Promise<string | null> {
   if (!r.ok) return null;
   const u = await r.json();
   if (!u?.id) return null;
-  const rows = await sb(`app_admins?user_id=eq.${u.id}&select=user_id`);
-  return rows?.length ? u.id : null;
+  const admin = await sb(`app_admins?user_id=eq.${u.id}&select=user_id`);
+  if (admin?.length) return { uid: u.id, role: "admin" };
+  const staff = await sb(`app_staff?user_id=eq.${u.id}&select=user_id`);
+  if (staff?.length) return { uid: u.id, role: "staff" };
+  return null;
 }
 
 // ── 노션 기록 ──
@@ -282,9 +288,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, by: "cron", done: res });
     }
 
-    // ── 3) 여기부터 관리자 전용 ──
-    const uid = await adminUid(req);
-    if (!uid) return json({ ok: false, reason: "forbidden" }, 401);
+    // ── 3) 여기부터 로그인 필요 (사장님 또는 직원) ──
+    const who = await whoIs(req);
+    if (!who) return json({ ok: false, reason: "forbidden" }, 401);
+    const uid = who.uid;
+
+    // 화면이 역할에 맞게 그리도록 알려준다
+    if (op === "whoami") return json({ ok: true, role: who.role });
 
     if (op === "invite" && req.method === "POST") {
       const label = clean(body.label, 80);
@@ -292,17 +302,23 @@ Deno.serve(async (req) => {
       const days = Math.min(Math.max(Number(body.days ?? 7), 1), 30);
       const token = hex(16);
       const expires_at = new Date(Date.now() + days * 864e5).toISOString();
-      await sb(`seller_invite`, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ token, label, memo: clean(body.memo, 200) || null, expires_at }) });
+      await sb(`seller_invite`, {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ token, label, memo: clean(body.memo, 200) || null, expires_at, created_by: uid, created_role: who.role }),
+      });
       return json({ ok: true, token, expires_at, url: `https://momcalendar.com/sellerform.html?t=${token}` });
     }
 
     if (op === "list") {
       const invites = await sb(`seller_invite?select=token,label,memo,created_at,expires_at,used_at,revoked&order=created_at.desc&limit=100`);
+      // 직원에게도 같은 목록을 주되, 아래 select 에 암호문(acct_enc·rrn_enc)은 애초에 없다.
       const intakes = await sb(`seller_intake?select=id,seller_name,owner_name,phone,email,channel_url,followers,settle_type,biz_type,biz_name,biz_no,rrn_masked,zipcode,addr1,addr2,bank,acct_last4,acct_holder,status,notion_page_id,notion_synced_at,notion_error,created_at&order=id.desc&limit=200`);
       return json({ ok: true, invites, intakes });
     }
 
     if (op === "reveal") {
+      // 🔒 사장님 전용. 직원 계정으로는 계좌·주민번호를 절대 못 연다.
+      if (who.role !== "admin") return json({ ok: false, reason: "계좌·주민등록번호는 사장님 계정에서만 열 수 있어요." }, 403);
       const id = Number(u.searchParams.get("id") ?? 0);
       const rows = await sb(`seller_intake?id=eq.${id}&select=id,acct_enc,rrn_enc,bank,acct_holder`);
       const r = rows?.[0];

@@ -42,11 +42,12 @@ th{font-size:11px;color:var(--t3);font-weight:700;white-space:nowrap}
 </style>
 </head>
 <body>
-<div class="hd"><b>셀러 정보 접수함</b><button onclick="logout()">로그아웃</button></div>
+<div class="hd"><b>셀러 정보 접수함 <span id="roleTag" style="font-size:11px;font-weight:500;opacity:.8"></span></b><button onclick="logout()">로그아웃</button></div>
 
 <div id="loginView" class="wrap" style="display:none">
   <div class="card">
-    <h3>관리자 로그인</h3>
+    <h3>로그인</h3>
+    <div class="note" style="margin-bottom:10px">사장님은 관리자 이메일로, 직원은 <b>스탭 아이디@staff.momcal</b> 로 로그인하세요.</div>
     <div style="margin-bottom:8px"><label>이메일</label><input id="liEmail" type="email" autocomplete="username"></div>
     <div style="margin-bottom:10px"><label>비밀번호</label><input id="liPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
     <button class="btn" style="width:100%" onclick="login()">로그인</button>
@@ -80,6 +81,7 @@ th{font-size:11px;color:var(--t3);font-weight:700;white-space:nowrap}
     </tr></thead><tbody></tbody></table></div>
     <div class="msg" id="inMsg"></div>
     <div class="note">계좌번호·주민등록번호 전체는 <b>암호화 보관</b>이라 목록에 안 보입니다. [열기]를 누르면 그 순간만 복호화해 보여주고, 누가 언제 열었는지 기록에 남습니다.</div>
+    <div class="note" id="staffNote" style="display:none;background:#FFF9E8;border:1px solid #F0E0AE;color:#7A5A00;border-radius:9px;padding:9px;margin-top:6px">직원 계정은 계좌번호·주민등록번호를 열 수 없어요. 정산에 필요하면 사장님께 요청해 주세요.</div>
     <div style="margin-top:10px"><button class="btn s" onclick="resync()">노션 동기화 다시 시도</button></div>
   </div>
 </div>
@@ -89,7 +91,9 @@ const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
 const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 const FN=SB+'/functions/v1/seller-intake';
 const $=id=>document.getElementById(id);
-let AT=localStorage.getItem('mc_admin_at')||'';
+// 사장님은 admin.html 과 같은 토큰, 직원은 staff.html 과 같은 토큰을 쓴다 (둘 중 있는 것으로 시작)
+let AT=localStorage.getItem('mc_admin_at')||(()=>{ try{ return (JSON.parse(localStorage.getItem('staffSess')||'null')||{}).at||''; }catch(_){ return ''; } })();
+let ROLE='';   // admin | staff
 
 function logout(){ localStorage.removeItem('mc_admin_at'); AT=''; location.reload(); }
 
@@ -115,9 +119,14 @@ async function api(qs,opt={}){
 
 async function boot(){
   if(!AT){ $('loginView').style.display=''; $('main').style.display='none'; return; }
+  const me=await api('op=whoami');
+  if(!me.ok){ $('loginView').style.display=''; $('main').style.display='none'; $('liErr').textContent='로그인이 만료됐어요. 다시 로그인해 주세요.'; return; }
+  ROLE=me.role;
   const d=await api('op=list');
-  if(!d.ok){ $('loginView').style.display=''; $('main').style.display='none'; $('liErr').textContent='로그인이 만료됐어요. 다시 로그인해 주세요.'; return; }
+  if(!d.ok){ $('loginView').style.display=''; $('main').style.display='none'; $('liErr').textContent='권한이 없어요. 사장님에게 스탭 승인을 요청해 주세요.'; return; }
   $('loginView').style.display='none'; $('main').style.display='';
+  $('roleTag').textContent = ROLE==='admin' ? '사장님' : '직원';
+  $('staffNote').style.display = ROLE==='admin' ? 'none' : '';
   drawInvites(d.invites||[]); drawIntakes(d.intakes||[]);
 }
 
@@ -152,7 +161,13 @@ function drawIntakes(rows){
       <td>${esc(r.bank||'')} ****${esc(r.acct_last4||'')}<div class="note">${esc(r.acct_holder||'')}</div></td>
       <td>${esc((r.zipcode?'('+r.zipcode+') ':'')+(r.addr1||'')+' '+(r.addr2||''))}</td>
       <td>${notion}</td>
-      <td><button class="btn s" data-id="${r.id}" onclick="reveal(this)">열기</button><div id="rv${r.id}"></div></td>`;
+      <td>${ROLE==='admin'?`<button class="btn s" data-id="${r.id}" onclick="reveal(this)">열기</button>`:''}
+        <select onchange="setStatus(${r.id},this.value)" style="margin-top:4px;padding:4px 6px;font-size:11.5px">
+          <option value="new"${r.status==='new'?' selected':''}>신규접수</option>
+          <option value="checked"${r.status==='checked'?' selected':''}>확인완료</option>
+          <option value="hold"${r.status==='hold'?' selected':''}>보류</option>
+        </select>
+        <div id="rv${r.id}"></div></td>`;
     tb.appendChild(tr);
   }
 }
@@ -181,6 +196,12 @@ async function reveal(btn){
   box.innerHTML=`<div class="reveal"><b>계좌</b> ${esc(d.bank||'')} ${esc(d.acct_no||'')} (${esc(d.acct_holder||'')})`
     + (d.rrn?`<br><b>주민번호</b> ${esc(d.rrn.slice(0,6))}-${esc(d.rrn.slice(6))}`:'')
     + `<br><button class="btn g" onclick="this.closest('.reveal').remove()">닫기</button></div>`;
+}
+
+async function setStatus(id,st){
+  const m=$('inMsg'); const d=await api('op=status',{method:'POST',body:JSON.stringify({id,status:st})});
+  m.className='msg '+(d.ok?'o':'e');
+  m.textContent = d.ok ? `${id}번 상태를 바꿨어요.` : ('상태 변경 실패: '+(d.reason||''));
 }
 
 async function resync(){
