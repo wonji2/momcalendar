@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>셀러 정보 접수함 (관리자)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--p:#602090;--pd:#4A1A78;--pp:#F0E6FA;--bd:#E6E6E6;--t1:#111;--t2:#444;--t3:#888;--green:#0F6E56;--red:#C62828;--amber:#B26A00}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F6F4F9;color:var(--t1);max-width:900px;margin:0 auto;padding-bottom:60px}
+.hd{background:var(--pd);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.hd b{color:#fff;font-size:15px}
+.hd button{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer}
+.wrap{padding:14px}
+.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(96,32,144,.07);margin-bottom:12px}
+h3{font-size:14px;color:var(--p);margin-bottom:10px}
+label{font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px 12px;border:1.5px solid var(--bd);border-radius:9px;font-size:13px;font-family:inherit;outline:none}
+input:focus{border-color:var(--p)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>div{flex:1;min-width:120px}
+.btn{padding:10px 14px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#fff}
+.btn.s{background:var(--pp);color:var(--p);padding:6px 10px;font-size:12px}
+.btn.g{background:#EFEFEF;color:#555;padding:6px 10px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #F0F0F0;vertical-align:top}
+th{font-size:11px;color:var(--t3);font-weight:700;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px}
+.tag.new{background:#FFF6DF;color:var(--amber)}
+.tag.ok{background:#E8F6EF;color:var(--green)}
+.tag.off{background:#F0F0F0;color:#777}
+.tag.err{background:#FDECEC;color:var(--red)}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-all}
+.msg{font-size:12.5px;margin-top:8px;min-height:16px}
+.msg.e{color:var(--red)}
+.msg.o{color:var(--green)}
+.scroll{overflow-x:auto}
+.note{font-size:11.5px;color:var(--t3);line-height:1.6;margin-top:8px}
+.reveal{background:#FFFBEA;border:1px solid #F3E3B0;border-radius:9px;padding:9px;margin-top:6px;font-size:12.5px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="hd"><b>셀러 정보 접수함</b><button onclick="logout()">로그아웃</button></div>
+
+<div id="loginView" class="wrap" style="display:none">
+  <div class="card">
+    <h3>관리자 로그인</h3>
+    <div style="margin-bottom:8px"><label>이메일</label><input id="liEmail" type="email" autocomplete="username"></div>
+    <div style="margin-bottom:10px"><label>비밀번호</label><input id="liPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+    <button class="btn" style="width:100%" onclick="login()">로그인</button>
+    <div class="msg e" id="liErr"></div>
+  </div>
+</div>
+
+<div id="main" class="wrap" style="display:none">
+  <div class="card">
+    <h3>초대 링크 만들기</h3>
+    <div class="row">
+      <div><label>셀러 이름 / 메모</label><input id="ivLabel" placeholder="예) 또또맘 (9월 간식 공구)"></div>
+      <div style="flex:0 0 110px"><label>유효 기간</label>
+        <select id="ivDays"><option value="3">3일</option><option value="7" selected>7일</option><option value="14">14일</option><option value="30">30일</option></select>
+      </div>
+      <div style="flex:0 0 110px;display:flex;align-items:flex-end"><button class="btn" style="width:100%" onclick="makeInvite()">링크 생성</button></div>
+    </div>
+    <div class="msg" id="ivMsg"></div>
+    <div class="note">링크는 <b>1회용</b>입니다. 셀러가 제출하면 그 링크는 바로 잠겨요. 카톡으로 이 링크만 보내시면 됩니다.</div>
+  </div>
+
+  <div class="card">
+    <h3>보낸 링크</h3>
+    <div class="scroll"><table id="ivTable"><thead><tr><th>셀러</th><th>상태</th><th>만료</th><th>링크</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h3>접수된 셀러 정보</h3>
+    <div class="scroll"><table id="inTable"><thead><tr>
+      <th>#</th><th>셀러</th><th>대표자</th><th>연락처</th><th>유형</th><th>사업자/주민</th><th>계좌</th><th>주소</th><th>노션</th><th></th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="msg" id="inMsg"></div>
+    <div class="note">계좌번호·주민등록번호 전체는 <b>암호화 보관</b>이라 목록에 안 보입니다. [열기]를 누르면 그 순간만 복호화해 보여주고, 누가 언제 열었는지 기록에 남습니다.</div>
+    <div style="margin-top:10px"><button class="btn s" onclick="resync()">노션 동기화 다시 시도</button></div>
+  </div>
+</div>
+
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const FN=SB+'/functions/v1/seller-intake';
+const $=id=>document.getElementById(id);
+let AT=localStorage.getItem('mc_admin_at')||'';
+
+function logout(){ localStorage.removeItem('mc_admin_at'); AT=''; location.reload(); }
+
+async function login(){
+  const e=$('liErr'); e.textContent='';
+  try{
+    const r=await fetch(`${SB}/auth/v1/token?grant_type=password`,{
+      method:'POST', headers:{apikey:KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email:$('liEmail').value.trim(),password:$('liPw').value})
+    });
+    const d=await r.json();
+    if(!d.access_token){ e.textContent='로그인 실패: '+(d.error_description||d.msg||'확인해 주세요'); return; }
+    AT=d.access_token; localStorage.setItem('mc_admin_at',AT);
+    $('liPw').value='';
+    boot();
+  }catch(x){ e.textContent='연결 오류'; }
+}
+
+async function api(qs,opt={}){
+  const r=await fetch(`${FN}?${qs}`,{...opt,headers:{'Content-Type':'application/json',Authorization:'Bearer '+AT,...(opt.headers||{})}});
+  return await r.json();
+}
+
+async function boot(){
+  if(!AT){ $('loginView').style.display=''; $('main').style.display='none'; return; }
+  const d=await api('op=list');
+  if(!d.ok){ $('loginView').style.display=''; $('main').style.display='none'; $('liErr').textContent='로그인이 만료됐어요. 다시 로그인해 주세요.'; return; }
+  $('loginView').style.display='none'; $('main').style.display='';
+  drawInvites(d.invites||[]); drawIntakes(d.intakes||[]);
+}
+
+function drawInvites(rows){
+  const tb=$('ivTable').querySelector('tbody'); tb.innerHTML='';
+  for(const v of rows){
+    const url=`https://momcalendar.com/sellerform.html?t=${v.token}`;
+    const st = v.used_at ? '<span class="tag ok">사용됨</span>'
+             : v.revoked ? '<span class="tag off">중지</span>'
+             : new Date(v.expires_at)<new Date() ? '<span class="tag off">만료</span>'
+             : '<span class="tag new">대기중</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(v.label)}</td><td>${st}</td><td>${v.expires_at.slice(0,10)}</td>
+      <td class="mono">${v.used_at||v.revoked?'—':esc(url)}</td>
+      <td>${v.used_at||v.revoked?'':`<button class="btn s" data-u="${esc(url)}" onclick="copy(this)">복사</button> <button class="btn g" data-t="${v.token}" onclick="revoke(this)">중지</button>`}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+function drawIntakes(rows){
+  const tb=$('inTable').querySelector('tbody'); tb.innerHTML='';
+  for(const r of rows){
+    const notion = r.notion_synced_at ? '<span class="tag ok">기록됨</span>'
+                 : r.notion_error ? `<span class="tag err" title="${esc(r.notion_error)}">실패</span>`
+                 : '<span class="tag new">대기</span>';
+    const idno = r.settle_type==='business' ? esc(r.biz_no||'') : esc(r.rrn_masked||'');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.id}</td><td>${esc(r.seller_name)}<div class="note">${esc(r.channel_url||'')} ${r.followers?('· '+Number(r.followers).toLocaleString()+'명'):''}</div></td>
+      <td>${esc(r.owner_name)}</td><td>${esc(r.phone||'')}<div class="note">${esc(r.email||'')}</div></td>
+      <td>${r.settle_type==='business'?'사업자':'프리랜서'}</td>
+      <td>${idno}<div class="note">${esc(r.biz_name||'')}</div></td>
+      <td>${esc(r.bank||'')} ****${esc(r.acct_last4||'')}<div class="note">${esc(r.acct_holder||'')}</div></td>
+      <td>${esc((r.zipcode?'('+r.zipcode+') ':'')+(r.addr1||'')+' '+(r.addr2||''))}</td>
+      <td>${notion}</td>
+      <td><button class="btn s" data-id="${r.id}" onclick="reveal(this)">열기</button><div id="rv${r.id}"></div></td>`;
+    tb.appendChild(tr);
+  }
+}
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function makeInvite(){
+  const m=$('ivMsg'); m.className='msg'; m.textContent='';
+  const label=$('ivLabel').value.trim();
+  if(!label){ m.className='msg e'; m.textContent='셀러 이름을 적어주세요.'; return; }
+  const d=await api('op=invite',{method:'POST',body:JSON.stringify({label,days:Number($('ivDays').value)})});
+  if(!d.ok){ m.className='msg e'; m.textContent='생성 실패: '+(d.reason||''); return; }
+  await navigator.clipboard.writeText(d.url).catch(()=>{});
+  m.className='msg o'; m.textContent='링크를 만들고 복사했어요 → '+d.url;
+  $('ivLabel').value='';
+  boot();
+}
+
+async function copy(btn){ await navigator.clipboard.writeText(btn.dataset.u).catch(()=>{}); btn.textContent='복사됨'; setTimeout(()=>btn.textContent='복사',1500); }
+async function revoke(btn){ if(!confirm('이 링크를 중지할까요? 셀러가 더 이상 쓸 수 없어요.')) return; await api('op=revoke',{method:'POST',body:JSON.stringify({token:btn.dataset.t})}); boot(); }
+
+async function reveal(btn){
+  const id=btn.dataset.id, box=$('rv'+id);
+  const d=await api('op=reveal&id='+id);
+  if(!d.ok){ box.innerHTML='<div class="msg e">'+esc(d.reason||'열기 실패')+'</div>'; return; }
+  box.innerHTML=`<div class="reveal"><b>계좌</b> ${esc(d.bank||'')} ${esc(d.acct_no||'')} (${esc(d.acct_holder||'')})`
+    + (d.rrn?`<br><b>주민번호</b> ${esc(d.rrn.slice(0,6))}-${esc(d.rrn.slice(6))}`:'')
+    + `<br><button class="btn g" onclick="this.closest('.reveal').remove()">닫기</button></div>`;
+}
+
+async function resync(){
+  const m=$('inMsg'); m.className='msg'; m.textContent='보내는 중…';
+  const d=await api('op=resync',{method:'POST',body:JSON.stringify({})});
+  const fail=(d.done||[]).filter(x=>!x.ok);
+  m.className='msg '+(fail.length?'e':'o');
+  m.textContent = !d.done?.length ? '동기화할 건이 없어요.'
+    : fail.length ? `${d.done.length}건 중 ${fail.length}건 실패: ${fail[0].reason||''}`
+    : `${d.done.length}건 노션에 기록했어요.`;
+  boot();
+}
+boot();
+</script>
+</body>
+</html>
