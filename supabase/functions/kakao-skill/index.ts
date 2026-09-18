@@ -610,7 +610,15 @@ async function handle(req: Request): Promise<Response> {
         const parts = t.split(/\s+/).filter((w) => w.length >= 2);
         // 손님 말이 원래 한 낱말일 때만 (뽀사카→"뽀로로 사운드"→뽀로로).
         //   원래 두 낱말이면 적용하면 안 된다 — '신생아 기저귀' 이 '신생아' 로만 검색된다(실사고)
-        if (parts.length >= 2 && kw.split(/\s+/).filter((w) => w.length >= 2).length < 2) tries.push(parts[0]);
+        //  🔴 첫 낱말이 **브랜드일 때만** 넓힌다 (사장님 2026-09-18: 디자인스킨은 플레이테이블이 맞는데,
+        //     별칭 "디자인스킨 → 플레이 테이블" 의 첫 낱말 '플레이' 로 넓혀 데켓 쿡플레이트·플레이팅팬이 나갔다).
+        //     브랜드 판정 = 상품명 맨 앞에 온 적 있고 그 비율이 절반 이상(brandScore). 품목 낱말로는 넓히지 않는다 — 쌀보관함 원칙.
+        //     📏 회귀(scratchpad/_head_regress.mjs): 이 규칙이 도는 별칭 4개 중 뽀사카(뽀로로 맨앞 7/10)·릴리약사는 그대로,
+        //        디자인스킨(플레이 2/16)만 막힌다. 몰입체어는 진행중 0건이라 무관.
+        if (parts.length >= 2 && kw.split(/\s+/).filter((w) => w.length >= 2).length < 2) {
+          const scHead = await brandScore(parts[0], today);
+          if (scHead.head >= 1 && scHead.ratio >= 0.5) tries.push(parts[0]);
+        }
       }
       // 줄임말(글자 사이 열기)은 **한글일 때만**. 영문에 쓰면 성긴 패턴이 아무 문장에나 걸린다.
       //   실사고 2026-09-02: 'Keen' → %k%e%e%n% → "Scholastic Picture Book Garden Collection"
@@ -742,7 +750,11 @@ async function handle(req: Request): Promise<Response> {
         //   쌀보관함이랑 니가 다르게 판단해야지"
         //   ⚠ 품목 낱말로는 절대 폴백하지 않는다 — '쌀 보관함' 에 장난감 보관함이 나간 사고 그대로다.
         if (!merged.length) {
-          const raw = [...new Set(list)].find((x) => !x.startsWith("__ABBR__")) || "";
+          // 🔴 브랜드 폴백은 **손님이 친 말**로만 한다 (사장님 2026-09-18: 디자인스킨은 플레이테이블이 맞는데,
+          //    별칭 "디자인스킨 → 플레이 테이블" 이 확장된 뒤 낱말 '플레이' 가 브랜드로 판정돼
+          //    데켓 쿡플레이트·플레이팅팬·아무 플레이매트가 나갔다). 별칭 낱말은 우리가 만든 말이라 브랜드가 아니다.
+          //    — 낱말 빼기 규칙(ownWords)과 같은 원칙이다. 별칭이 가리키는 상품이 올라오면 ①정확검색이 바로 찾는다.
+          const raw = [kwRaw, kw].find((x) => x && !x.startsWith("__ABBR__")) || "";
           const cand = raw.split(" ").filter((w) => w.length >= 2).slice(0, 3);
           // 🔴 브랜드가 분명한 낱말(상품명 맨 앞에 온 적 있음, 기간 무관)이 있는데 지금 공구가 0이면 → 다른 낱말로 넓히지 않는다.
           //   사장님(2026-09-07): 「하베브릭스 장난감」에 리틀홈헬퍼·아오라 장난감이 나갔다 → "없다고 하는 게 낫다".
