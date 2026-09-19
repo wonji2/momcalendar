@@ -78,6 +78,43 @@ try {
   const rows = existsSync(tableF) ? readFileSync(tableF, 'utf8').split('\n').filter(l => l.startsWith('|') && !/^\|\s*[-#]/.test(l)).length : 0;
   log(`③ 자동분류 ${rows}행`);
 
+  // ③.5 한글명 채우기 (2026-09-19: 이 채널만 셀러 칸이 빈 채로 승인표에 올라가던 것 — ig_feed_pipeline 처럼
+  //   이미 등록된 핸들의 최빈 influencer 를 미리 채워둔다. 못 찾으면 빈칸 그대로 두고 등록 시점 SQL 이 채운다)
+  if (existsSync(tableF)) {
+    const lines = readFileSync(tableF, 'utf8').split('\n');
+    const dataLines = lines.filter(l => /^\|\s*\d/.test(l));
+    const handlesHere = [...new Set(dataLines.map(l => l.split('|').map(c => c.trim())[8]).filter(Boolean))];
+    const nameOf = {};
+    for (let i = 0; i < handlesHere.length; i += 40) {
+      const chunk = handlesHere.slice(i, i + 40);
+      const q = chunk.map(h => `insta.eq.${encodeURIComponent(h)}`).join(',');
+      try {
+        const r = await fetch(`${API}?select=insta,influencer&or=(${q})&influencer=not.eq.`, { headers: { apikey: KEY } });
+        const p = await r.json();
+        const counts = {};
+        if (Array.isArray(p)) for (const row of p) {
+          const h = row.insta, nm = row.influencer;
+          if (!h || !nm) continue;
+          counts[h] = counts[h] || {};
+          counts[h][nm] = (counts[h][nm] || 0) + 1;
+        }
+        for (const h of Object.keys(counts)) {
+          nameOf[h] = Object.entries(counts[h]).sort((a, b) => b[1] - a[1])[0][0];
+        }
+      } catch (_) {}
+    }
+    let filled = 0;
+    const outLines = lines.map(l => {
+      if (!/^\|\s*\d/.test(l)) return l;
+      const c = l.split('|');
+      const h = (c[8] || '').trim();
+      if (h && nameOf[h] && !(c[2] || '').trim()) { c[2] = ` ${nameOf[h]} `; filled++; }
+      return c.join('|');
+    });
+    writeFileSync(tableF, outLines.join('\n'), 'utf8');
+    log(`③.5 한글명 채움 ${filled}행 (핸들 ${handlesHere.length}명 조회)`);
+  }
+
   run([SP('merge_pending.mjs'), tableF, SP('승인대기_누적.md')]);
   const acc = existsSync(SP('승인대기_누적.md'))
     ? readFileSync(SP('승인대기_누적.md'), 'utf8').split('\n').filter(l => l.startsWith('|') && !/^\|\s*[-#]/.test(l)).length : 0;
