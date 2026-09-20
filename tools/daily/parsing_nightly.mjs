@@ -78,6 +78,41 @@ try {
   const rows = existsSync(tableF) ? readFileSync(tableF, 'utf8').split('\n').filter(l => l.startsWith('|') && !/^\|\s*[-#]/.test(l)).length : 0;
   log(`③ 자동분류 ${rows}행`);
 
+  // ③.3 핸들 정정 + 브랜드차단 필터 (2026-09-21: labu.bear/mo.jji.kom/이젠가습기가 밤샘 회차마다
+  //   계속 재발해 매번 손으로 고쳤다 — 인포크 슬러그가 실제 인스타 핸들과 달라서 생기는 문제.
+  //   scratchpad/handle_corrections.txt 로 알려진 것만 정정하고, brand_block 패턴에 걸리는 행은 미리 버린다)
+  if (existsSync(tableF)) {
+    let corrected = 0, blocked = 0;
+    const corrections = {};
+    try {
+      for (const l of readFileSync(SP('handle_corrections.txt'), 'utf8').split(/\r?\n/)) {
+        const s = l.split('#')[0].trim(); if (!s) continue;
+        const [bad, good] = s.split('\t').map(x => (x || '').trim());
+        if (bad && good) corrections[bad] = good;
+      }
+    } catch (_) {}
+    let patterns = [];
+    try {
+      const r = await fetch(`https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/brand_block?select=pattern`, { headers: { apikey: KEY } });
+      const p = await r.json();
+      if (Array.isArray(p)) patterns = p.map(x => { try { return new RegExp(x.pattern, 'i'); } catch (_) { return null; } }).filter(Boolean);
+    } catch (_) {}
+    const lines0 = readFileSync(tableF, 'utf8').split('\n');
+    const kept = lines0.filter(l => {
+      if (!/^\|\s*\d/.test(l)) return true;
+      if (patterns.some(re => re.test(l))) { blocked++; return false; }
+      return true;
+    }).map(l => {
+      if (!/^\|\s*\d/.test(l)) return l;
+      const c = l.split('|');
+      const h = (c[8] || '').trim();
+      if (corrections[h]) { c[8] = ` ${corrections[h]} `; corrected++; }
+      return c.join('|');
+    });
+    writeFileSync(tableF, kept.join('\n'), 'utf8');
+    log(`③.3 핸들 정정 ${corrected}행 · 브랜드차단 ${blocked}행 제외`);
+  }
+
   // ③.5 한글명 채우기 (2026-09-19: 이 채널만 셀러 칸이 빈 채로 승인표에 올라가던 것 — ig_feed_pipeline 처럼
   //   이미 등록된 핸들의 최빈 influencer 를 미리 채워둔다. 못 찾으면 빈칸 그대로 두고 등록 시점 SQL 이 채운다)
   if (existsSync(tableF)) {
