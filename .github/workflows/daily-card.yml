@@ -41,6 +41,16 @@ jobs:
           DAY: ${{ github.event.inputs.day }}
         run: node tools/daily/make-card.mjs
 
+      # 사장님 지시 2026-09-21: 인스타 카드는 요일별로 형식이 바뀌는데,
+      # 사장님은 늘 같은 「오늘 공구 캘린더」 형식을 하나씩 보고 싶어 하신다.
+      # 주소가 매일 같아야 즐겨찾기 하나로 보신다 → daily/today.png 에 덮어쓴다.
+      # 실패해도 인스타 카드는 이미 만들어졌으니 워크플로를 죽이지 않는다.
+      - name: 사장님용 오늘 카드 (daily/today.png)
+        continue-on-error: true
+        env:
+          DAY: ${{ github.event.inputs.day }}
+        run: node tools/daily/make-today-card.mjs
+
       - name: 커밋
         run: |
           git config user.name  "momcal-bot"
