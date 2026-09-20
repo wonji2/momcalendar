@@ -1,8 +1,14 @@
 // 「오늘 공구 캘린더」 카드 만들기 — 사장님 전용 고정 링크용 (사장님 지시 2026-09-21)
 //
 // 왜 따로 있나: 인스타에 올리는 카드는 요일별 7종 로테이션(make-card.mjs, fmt=auto)이다.
-//   사장님은 **매일 같은 「오늘 공구 캘린더」 형식**(오늘 오픈 / 오늘 마감 두 칸 = instastudio 의 `list` 시안)을
-//   하나씩 보고 싶어 하셔서, 인스타 로테이션은 그대로 두고 이 카드만 따로 뽑는다.
+//   사장님은 **매일 같은 「오늘 공구 캘린더」 형식**을 하나씩 보고 싶어 하셔서,
+//   인스타 로테이션은 그대로 두고 이 카드만 따로 뽑는다.
+//
+// 🔴 렌더러 = todaycard.html (사장님 지적 2026-09-21 "이런식으로 꽉채웠었어")
+//   처음엔 instastudio 의 `list` 시안을 썼는데, 그건 2026-09-02 에 새로 그린 **1단 성긴** 판이라
+//   오픈 10줄·마감 8줄밖에 안 들어갔다. 사장님이 쓰시던 8/17 카드는 **2단으로 꽉 채우고
+//   아래에 "+N건 더"** 가 붙는 옛 reelcard.html 이다(9/2 에 instastudio 리다이렉트 껍데기가 됐다).
+//   그 옛 판을 `todaycard.html` 로 되살려 여기서만 쓴다. instastudio·인스타 카드는 건드리지 않는다.
 //
 //   node tools/daily/make-today-card.mjs          ← 오늘
 //   DAY=2026-09-21 node tools/daily/make-today-card.mjs
@@ -16,7 +22,7 @@
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
-const SITE = 'https://momcalendar.com';
+const SITE = process.env.SITE?.trim() || 'https://momcalendar.com';  // SITE=http://localhost:8099 로 로컬 검증
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const day = process.env.DAY?.trim() || kstToday();
 
@@ -26,8 +32,7 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, de
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
 
-// fmt=list = instastudio 의 「리스트형(기존)」 = 인스타에 오래 올리던 '오늘 공구 캘린더' 그 형식
-await page.goto(`${SITE}/instastudio.html?d=${day}&fmt=list&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+await page.goto(`${SITE}/todaycard.html?d=${day}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
 
 // 데이터가 다 들어왔는지(캡션이 채워지는 것으로 판단) 기다린다
 await page.waitForFunction(() => {
@@ -46,6 +51,9 @@ const pngDataUrl = await page.evaluate(async () => {
     width: 1080, height: 1920, scale: 1,
     backgroundColor: '#ffffff', useCORS: true, logging: false,
     windowWidth: 1080, windowHeight: 1920,
+    // 🔴 복제본에서 넘침을 다시 잡는다. 없으면 맨 아래 "+N건 더" 가 잘린다
+    //    (2026-08-11 에 페이지 savePng 에만 들어갔던 수정 — 캡처 경로에도 똑같이 줘야 한다)
+    onclone: window.trimToFit,
   });
   return canvas.toDataURL('image/png');
 });

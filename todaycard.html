@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>맘캘린더 · 오늘 공구 캘린더 카드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.11/dist/html2canvas-pro.min.js"></script>
+<style>
+:root{
+  /* ── 시안 변수 (?v=A|B|C 로 바뀜) ──
+     상단 256px 은 건드리지 말 것: 인스타 UI(200) + 프로필 그리드커버(240) 를 둘 다 피하는 값 */
+  --fs-item:21px; --fs-sub:16px; --it-pad:8.1px;
+  /* 하단 여백. 줄일수록 목록이 아래까지 내려간다.
+     릴스 재생 중엔 하단 330px 를 인스타 UI 가 덮지만, 사장님이 "노란 CTA 는 썸네일에서 안 보여도 된다"
+     고 하셔서 목록을 우선한다 (2026-08-04) */
+  /* 하단 브랜드 띠. 이 값을 줄일수록 노란 CTA 가 아래로 내려간다.
+     썸네일(그리드 커버)은 세로 240~1680px 만 보이므로 CTA top 이 1680 아래면 썸네일에 안 나온다. */
+  --pad-bot:108px;
+  /* 카드 좌우 여백.
+     ⚠️ 릴스를 폰에서 재생하면 양옆이 조금 잘린다(화면비 차이).
+        32px 이던 때 제목 "8"과 오른쪽 마감 배지가 살짝 먹혔다(사장님 실측 2026-08-05).
+        140px → "과하다" → 70px → "미세하게 조금만 더" → 55px 로 맞췄다.
+        = 기존 32 + 잘린 만큼 약 23. 더 줄이면 다시 잘리고, 더 늘리면 상품명이 짧아진다. */
+  --side:55px;
+  --fs-title:96px;   /* fitTitle 이 좌우 끝까지 자동으로 맞춘다 */
+  --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
+  --r:#D3554F; --r-l:#FDEDED;
+  --gold:#C9A24B; --gold-l:#FDF8EC;
+  --ink:#231C2E; --mute:#8A8194; --line:#EDE9F2;
+  /* 글씨체는 이 두 줄만 바꾸면 전체 적용 */
+  --f-t:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
+  --f-b:"Wanted Sans Variable","Wanted Sans",Pretendard,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#3A3145;font-family:var(--f-b);padding:225px 0 60px;color:#fff}
+@media (max-width:520px){ body{padding-top:218px} }
+
+/* ── 조작 바 ── 폰에서 버튼이 제각각 크기로 흩어져 조잡했다(사장님 지적 2026-08-04).
+   줄(brow) 단위로 묶고 높이를 36px 로 통일한다. */
+.bar{position:fixed;top:0;left:0;right:0;background:#1B1622;z-index:99;padding:10px 12px;
+  display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 14px rgba(0,0,0,.4)}
+.brow{display:flex;gap:6px;align-items:center}
+.bar input[type=date],.bar button,.bar .sel{
+  height:36px;border-radius:9px;font-size:13px;font-weight:700;font-family:inherit;
+  border:0;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bar input[type=date]{background:#2C2436;border:1px solid #493C5A;color:#fff;
+  padding:0 8px;font-weight:600;cursor:auto;flex:1;min-width:0}
+.bar button{background:var(--p);color:#fff;padding:0 12px}
+.bar button:hover{background:#7d59b5}
+.bar button.ghost{background:#3A2F49;color:#C9BFD8}
+.bar button.go{background:#3E8E5A}
+.bar button.wide{flex:1}
+.bar .sel{background:#6B4A9E;color:#fff;border:1px solid #8B6ABE;padding:0 8px}
+.bar .tilde{color:#7A6E8C;font-size:13px;flex-shrink:0}
+.bar .st{font-size:12px;color:#9E93AE;text-align:right}
+.bar .st b{color:#E8C77E}
+.tip{font-size:11px;color:#8E82A0;line-height:1.5}
+.tip b{color:#E8C77E}
+@media (max-width:520px){
+  .bar .sel{max-width:104px}
+  .tip{display:none}          /* 폰에서는 안내문을 접어 화면을 아낀다 */
+}
+
+.slot{width:1080px;height:1920px;margin:0 auto 40px;position:relative}
+.mini .card{transform:scale(.30);transform-origin:top left}
+.mini .slot{width:324px;height:576px;margin-bottom:20px}
+
+/* ═══ 릴스 캔버스 1080×1920 ═══ */
+.card{width:1080px;height:1920px;background:#fff;position:relative;overflow:hidden;
+  display:flex;flex-direction:column}
+
+/* 가이드선 (캡처 전 끄기) */
+.safe{position:absolute;left:0;right:0;pointer-events:none;z-index:8}
+.safe.top{top:0;height:200px;background:rgba(255,90,90,.10);border-bottom:3px dashed rgba(255,90,90,.6)}
+.safe.bot{bottom:0;height:330px;background:rgba(255,90,90,.10);border-top:3px dashed rgba(255,90,90,.6)}
+.safe b{position:absolute;left:24px;font-size:22px;color:#C9483F;background:rgba(255,255,255,.85);
+  padding:5px 14px;border-radius:6px;font-weight:800}
+.safe.top b{bottom:12px} .safe.bot b{top:12px}
+.gcrop{position:absolute;left:0;right:0;top:240px;height:1440px;border:3px dashed rgba(90,160,255,.7);
+  pointer-events:none;z-index:7;box-sizing:border-box}
+.gcrop b{position:absolute;top:10px;right:14px;font-size:22px;color:#2C6FD1;background:rgba(255,255,255,.88);
+  padding:5px 14px;border-radius:6px;font-weight:800}
+/* 좌우 잘림 — 릴스 재생 시 폰 화면비 때문에 양옆이 이만큼 사라진다 (2026-08-05 추가) */
+.hcrop{position:absolute;top:0;bottom:0;width:55px;background:rgba(255,90,90,.10);
+  pointer-events:none;z-index:7;box-sizing:border-box}
+.hcrop.l{left:0;border-right:3px dashed rgba(255,90,90,.6)}
+.hcrop.r{right:0;border-left:3px dashed rgba(255,90,90,.6)}
+body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
+
+.gap{display:inline-block;width:11px}
+
+/* ── 헤더 ── 상단 256px 비움: 인스타 UI(200) + 그리드커버(240) 둘 다 회피 */
+/* 상단 여백 — 프로필 그리드 커버는 세로 240px 부터 보인다. 그보다 위로 올리면 브랜드가 잘린다.
+   244 는 그 4px 아래로 붙인 한계값 (사장님 지시 2026-08-04 "흰 여백이 과하다") */
+.hd{padding:244px var(--side) 0;flex-shrink:0}
+/* 썸네일에서 브랜드가 먼저 읽히게 크게. 제목과의 간격은 줄인다 (사장님 지시 2026-08-04) */
+.brand{display:inline-flex;align-items:center;gap:12px;margin-bottom:0}
+/* 맘캘린더 앱 아이콘(달력 속 하트) — 사장님 지시 2026-08-04 "우리 아이콘으로 써" */
+.brand-ic{width:58px;height:58px;border-radius:16px;display:block;flex-shrink:0}
+.brand-t{font-family:var(--f-t);font-size:46px;color:var(--p-d);letter-spacing:-1.6px;font-weight:800}
+/* 제목 2줄 — 썸네일에서 "뭐지?" 하고 눌러보게 만드는 유일한 요소라 최대한 크게.
+   건수 박스는 릴스 재생 아이콘(우측 상단)에 묻히므로 제목 아래 왼쪽으로 내렸다. (사장님 지시 2026-08-04) */
+/* ⚠️ line-height 를 1.02 처럼 좁게 주면 84px 이상에서 괄호·슬래시·받침(금의 ㅁ)이 잘린다.
+   (사장님 지적 2026-08-04) 큰 글자일수록 줄높이 여유가 필요하다. */
+.title{font-family:var(--f-t);color:var(--ink);letter-spacing:-3.5px;
+  line-height:1.45;font-weight:800;white-space:nowrap}
+/* 건수 박스를 제목 오른쪽에 붙이고, 제목이 남는 폭을 꽉 채운다.
+   건수는 릴스 재생 아이콘에 가려질 수 있지만 제목은 안 잘린다. (사장님 지시 2026-08-04) */
+.title{font-size:var(--fs-title);flex:1;min-width:0}
+.title .t-d{color:var(--p)}
+/* 제목 + 건수 를 한 줄에 (사장님 지시 2026-08-04) */
+/* 브랜드와 제목 사이 여백을 없애고, 아낀 폭·높이를 제목에 준다 (사장님 지시 2026-08-04) */
+.hd-main{display:flex;align-items:center;gap:14px;margin:0 0 22px}   /* 아래 여백은 유지 — 제목과 목록이 붙으면 답답하다 (사장님 지시 2026-08-04) */
+.date{font-family:var(--f-t);display:flex;align-items:baseline;gap:10px}
+.date b{font-size:34px;color:var(--p-d);letter-spacing:-1px;line-height:1.1;font-weight:800}
+.date span{font-size:26px;color:var(--mute);letter-spacing:-.5px;font-weight:700}
+/* 로고 줄: 왼쪽 브랜드 · 오른쪽 건수 배지. 배지는 잘려도 되는 영역이다 (사장님 지시 2026-08-05) */
+.hd-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.stats{display:flex;gap:9px;flex-shrink:0}
+.stat{border-radius:14px;padding:9px 12px;text-align:center;min-width:86px}
+.stat .n{font-family:var(--f-t);font-size:36px;line-height:1;letter-spacing:-1.3px;font-weight:800}
+.stat .l{font-size:13px;font-weight:800;margin-top:3px}
+.stat.open{background:var(--p-l)} .stat.open .n{color:var(--p)} .stat.open .l{color:var(--p-d)}
+.stat.close{background:var(--r-l)} .stat.close .n{color:var(--r)} .stat.close .l{color:var(--r)}
+
+.cols{flex:1;min-height:0;display:flex;padding:0 var(--side);overflow:hidden;margin-bottom:16px}
+.col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.col.open{padding-right:18px}
+.col.close{padding-left:18px;border-left:2px solid var(--line)}
+.col-hd{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0}
+.col-t{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800}
+.col.open .col-t{color:var(--p)} .col.close .col-t{color:var(--r)}
+.col-n{font-family:var(--f-t);font-size:19px;color:var(--mute);font-weight:700}
+
+/* 한 줄 구조: [상품명 ─── 셀러 마감] */
+.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:10px;
+  padding:var(--it-pad) 8px}
+.it-nm{flex:1;min-width:0;font-size:var(--fs-item);font-weight:800;color:var(--ink);letter-spacing:-.5px;
+  line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;
+  align-items:baseline;line-height:1.25;white-space:nowrap}
+.it-sl{color:#6E6579}
+/* ⚠️ 음수 마진 금지 — .col 이 overflow:hidden 이라 왼쪽 글자가 잘림 */
+/* ── 이웃셀러 존 ──
+   항목마다 보라 네모를 그리면 어수선하다 → 연속된 이웃셀러를 한 덩어리로 감싼다 (사장님 지시 2026-08-04)
+   그라데이션은 html2canvas-pro 에서 정상 렌더된다(2026-08-04 픽셀 실측: 241,231,252 → 250,247,254). */
+.nbz{background:linear-gradient(90deg,#EDE0FA 0%,#F3EAFD 58%,rgba(243,234,253,.35) 100%);
+  border-radius:12px;margin-bottom:7px;overflow:hidden}
+.nbz .it{border-bottom:1px solid rgba(107,74,158,.13)}
+.nbz .it:last-child{border-bottom:none}
+.nbz .it-nm{color:var(--p-d)}
+.nbz .it-sl{color:#7A6394}
+/* 옛 방식(항목마다 네모) — 비교용. body.nbold 일 때만 */
+body.nbold .nbz{background:none;margin-bottom:0}
+body.nbold .nbz .it{background:#EFE4FB;border-radius:9px;border-bottom:none;margin-bottom:3px}
+/* ⚠️ margin-bottom 이 여유다. 이게 없으면 "+N건 더" 글자 아래가 잘린다 (사장님 지적 2026-08-04).
+   fitColumn 의 넘침 판정(scrollHeight>clientHeight)에 이 여백이 포함돼 자연스럽게 한 칸 덜 채운다. */
+.more{font-family:var(--f-t);font-size:18px;flex-shrink:0;font-weight:700;margin:5px 0 8px;padding-left:8px;line-height:1.35}
+.col.open .more{color:var(--p)} .col.close .more{color:var(--r)}
+/* 왼쪽에 자리가 남을 때 마감을 흘려보내는 자리(spillEnds). 칼럼 제목과 같은 크기로 맞춘다 */
+.spill-hd{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800;color:var(--r);
+  margin:18px 0 10px;padding-top:14px;border-top:2px solid #F0E7F8}
+.in-more{font-family:var(--f-t);font-size:18px;font-weight:700;color:var(--p);margin:5px 0 0;padding-left:8px;line-height:1.35}
+
+.cta{flex-shrink:0;margin:0 var(--side) 0;padding:20px 26px;border-radius:18px;
+  background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
+.cta .t{font-family:var(--f-t);font-size:29px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
+.cta .s{font-size:22px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
+.cta .s b{font-weight:800;color:#7A5C24}
+.cta .u{font-family:var(--f-t);font-size:27px;color:var(--p-d);font-weight:800;white-space:nowrap}
+/* 하단 342px — 릴스 재생 화면에선 인스타 UI 가 덮지만, 피드·그리드에선 그대로 보인다.
+   흰색으로 비워두면 "밑이 텅 빈" 카드가 되므로 브랜드 띠로 마감한다. (사장님 지적 2026-08-04) */
+/* ⚠️ overflow:hidden 필수 — 띠를 100px 로 줄였더니 글자가 보라 배경 밖으로 튀어나왔다 (2026-08-04 사장님 지적).
+   공간이 모자라면 글자를 줄여 넣는다. 지금 23px+40px+gap = 약 80px 로 100px 안에 들어간다. */
+.pad{height:var(--pad-bot);flex-shrink:0;margin-top:18px;background:var(--p-l);overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.pad .s{font-size:20px;color:#7A6394;font-weight:700;letter-spacing:-.6px;line-height:1.2}
+.pad .w{font-family:var(--f-t);font-size:32px;font-weight:800;color:var(--p-d);letter-spacing:-1.4px;line-height:1.15}
+.pad .m{display:none}   /* URL 은 노란 CTA 에 이미 있어 중복 — 3줄이면 100px 를 넘는다 */
+
+/* ── 시안 ── 글씨 크기만 다르다. 항목 수는 fitColumn 이 자동으로 맞춘다 */
+/* 글씨를 키우고 항목 여백을 줄이면 한 줄 높이는 오히려 줄어 항목이 더 들어간다 (사장님 지시 2026-08-04) */
+body.vA{--fs-item:30px; --fs-sub:21px; --it-pad:2px}     /* 기본 — 30px 상한에서 가장 많이 들어감(25·26건) */
+body.vB{--fs-item:27px; --fs-sub:19px; --it-pad:5px}   /* 좀 작게 — 상품명 잘림이 5 → 3건 */
+body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 동일 */
+
+/* 캡션 패널 */
+.cap{max-width:1080px;margin:0 auto 30px;background:#241E2E;border-radius:14px;padding:18px 20px}
+.cap h3{font-size:14px;color:#E8C77E;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.cap h3 span{font-size:12px;color:#9E93AE;font-weight:400}
+.cap textarea{width:100%;height:320px;background:#161219;color:#D8D0E2;border:1px solid #3A3145;
+  border-radius:10px;padding:14px;font-size:12.5px;line-height:1.65;font-family:inherit;resize:vertical}
+</style>
+</head>
+<body class="mini">
+
+<div class="bar">
+  <div class="brow">
+    <input type="date" id="day">
+    <button onclick="load()">만들기</button>
+    <select id="vsel" onchange="setV(this.value)" class="sel">
+      <option value="A">글씨 30</option><option value="B">글씨 27</option><option value="C">글씨 21</option>
+    </select>
+  </div>
+  <div class="brow">
+    <button id="btnSave" onclick="savePng()" class="wide">📥 사진 저장</button>
+    <button class="ghost wide" onclick="copyCap()">캡션 복사</button>
+  </div>
+  <div class="brow">
+    <input type="date" id="d1">
+    <span class="tilde">~</span>
+    <input type="date" id="d2">
+    <button id="btnRange" onclick="saveRange()" class="go">📦 기간</button>
+  </div>
+  <div class="brow">
+    <button id="btnWeek" onclick="saveWeek()" class="go wide">📦 이번 주 5일치</button>
+    <button class="ghost" onclick="document.body.classList.toggle('mini')">확대</button>
+    <button class="ghost" onclick="document.body.classList.toggle('clean')">가이드선</button>
+  </div>
+  <div class="st" id="st">불러오는 중…</div>
+  <div class="tip">캡처는 <b>확대</b> + <b>가이드선</b> 끈 뒤 카드 영역만 &nbsp;·&nbsp;
+    <b style="color:#F19A9A">빨강</b> 인스타 UI 가림 &nbsp;<b style="color:#8FB8F0">파랑</b> 그리드에 보이는 곳</div>
+</div>
+
+<div class="slot"><div class="card" id="card"></div></div>
+
+<div class="cap">
+  <h3>인스타 캡션 <span id="caplen"></span></h3>
+  <textarea id="captxt"></textarea>
+</div>
+
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const md=d=>d?(+d.slice(5,7))+'/'+(+d.slice(8,10)):'';
+const DOW=['일','월','화','수','목','금','토'];
+
+// 날짜 더하기 — toISOString 은 UTC 라 한국 날짜가 밀린다
+function addDays(s,n){
+  const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// 같은 품목인지 — index.html _sameProduct 와 같은 사상(정규화 후 포함관계, 3자 이상)
+// ⚠️ 통짜 문자열 포함관계로 보면 중간에 단어가 끼는 순간 못 잡는다.
+//    "바이탈플랜트 롤팬" ⊄ "바이탈플랜트 자동회전롤팬"  ← 같은 상품인데 놓쳤다(2026-08-04 실측)
+//    → 단어(토큰) 집합으로 비교한다. 토큰끼리도 포함관계를 본다(롤팬 ⊂ 자동회전롤팬).
+function prodToks(s){
+  return (s||'').toLowerCase()
+    .replace(/([0-9]+(차|종|개|입|팩|박스|매|병|kg|g|ml|l)?|초특가|특가|모음전|기획전|국산|국내산|신상|신제품|한정|공구|무료배송|대용량|증정|앵콜|재오픈|new)/g,'')
+    // 숫자로 시작하는 토막(3종·2개·30l…)은 품목이 아니라 수량이라 버린다
+    .split(/[\s.·_&/()\[\],+]+/).filter(w=>w.length>=2 && !/^[0-9]/.test(w));
+}
+function sameProduct(a,b){
+  const A=prodToks(a), B=prodToks(b);
+  if(!A.length||!B.length) return false;
+  const eq=(x,y)=>x===y||(Math.min(x.length,y.length)>=2&&(x.indexOf(y)>=0||y.indexOf(x)>=0));
+  // ① 통짜 포함 — "자동회전 롤팬" ⊂ "바이탈플랜트 자동회전롤팬"
+  const N=s=>(s||'').toLowerCase().replace(/[\s.·_&/()\[\],+-]/g,'');
+  const x=N(a), y=N(b);
+  const sh=x.length<=y.length?x:y, lo=x.length<=y.length?y:x;
+  if(sh.length>=4 && lo.indexOf(sh)>=0) return true;
+  // ② 한쪽이 단어 하나뿐이면(브랜드만) 4자 이상 + 엄격 비교. "파스퇴르우유"가 "우유"로 엮이면 안 된다
+  const eqStrict=(p,q)=>p===q||(Math.min(p.length,q.length)>=4&&(p.indexOf(q)>=0||q.indexOf(p)>=0));
+  if(A.length===1) return A[0].length>=4 && B.some(y2=>eqStrict(A[0],y2));
+  if(B.length===1) return B[0].length>=4 && A.some(x2=>eqStrict(x2,B[0]));
+  // ③ 한국어 상품명은 [브랜드 … 품목] 구조 → 첫 단어와 마지막 단어가 둘 다 맞아야 같은 상품
+  if(eq(A[0],B[0]) && eq(A[A.length-1],B[B.length-1])) return true;
+  // ④ 제품 고유명이 앞쪽에서 겹치면 같은 상품으로 본다.
+  //    "블루래빗 콕콕콕 벽보 사운드북"(뚝딱맘) 과 "콕콕콕 사운드벽보"(로로맘) 가
+  //    ①②③ 을 모두 빠져나가 카드에 나란히 실렸다. (사장님 지적 2026-08-05)
+  //    3자 이상 토큰이 양쪽 다 앞 2단어 안에 있을 때만 — 2자("주니"·"미니")로는 엮지 않는다.
+  const head=(T,w)=>T.indexOf(w)>=0 && T.indexOf(w)<2;
+  return A.some(w=>w.length>=3 && head(A,w) && B.some(v=>v.length>=3 && head(B,v) && eq(w,v)));
+}
+function todayKST(){
+  const n=new Date(Date.now()+9*3600*1000);
+  return n.toISOString().slice(0,10);
+}
+
+async function load(){
+  const day=document.getElementById('day').value||todayKST();
+  document.getElementById('st').textContent='불러오는 중…';
+  try{
+    const [gg,pt,cc,wc,mySoon]=await Promise.all([
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date&limit=500`,{headers:H}).then(r=>r.json()),
+      // ⚠️ 노출기간(start_date~end_date)까지 봐야 한다. is_partner 만 보면 계약 끝난 셀러가 이웃셀러로 뜬다.
+      //    (2026-08-04: 건이맘이 7/31 로 끝났는데 8/4 카드에 이웃셀러로 나감 — 사장님 지적)
+      //    index.html 의 파트너 판정과 같은 기준. 한쪽만 고치면 또 어긋난다.
+      fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
+      // 맘캘린더 공구 — 같은 품목을 남의 이름으로 홍보하지 않기 위해
+      // ⚠️ "앞으로 3일 안에 오픈" 만 보면 **이미 진행 중인 우리 공구**를 놓친다.
+      //    (2026-08-05 사장님 지적: 8/5 오픈~8/19 마감인 바이탈플랜트 롤팬이
+      //     8/7 카드에 부끄 이름으로 실렸다)
+      //    → 마감이 아직 안 지났고(end>=day) 오픈이 3일 안(open<=day+3)인 것 = 진행중 + 곧오픈
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}`+
+            `&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json())
+    ]);
+    // 카드에 찍힌 날짜 기준으로 노출기간 안에 있는 이웃셀러만. 핸들은 소문자·@제거로 맞춘다(index.html normHandle 과 동일)
+    const nh=s=>(s||'').replace('@','').trim().toLowerCase();
+    const P=new Set((pt||[])
+      .filter(s=>{
+        if(s.start_date && day < s.start_date) return false;
+        if(s.end_date   && day > s.end_date)   return false;
+        return true;
+      })
+      .map(x=>nh(x.insta)).filter(Boolean));
+    // 맘캘린더 본인 공구는 기간과 무관하게 항상 강조 (index.html isMomcal / FIXED_SELLER 와 같은 기준)
+    const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
+      || ['momcal_','momcalendar','momcal','momcalendar_'].includes(nh(g.insta));
+    const C={}; (cc||[]).forEach(x=>C[x.id]=x.clicks);
+    const W={}; (wc||[]).forEach(x=>W[x.gonggu_id]=x.cnt);
+    const rows=(gg||[]).map(g=>({...g,
+      partner:isMomcal(g) || P.has(nh(g.insta)),   // 맘캘린더 본인 + 기간 유효한 이웃셀러
+      own:isMomcal(g),                             // 본인 것이 이웃셀러보다 위로
+      score:(C[g.id]||0)+(W[g.id]||0),
+      seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
+    }));
+    // 맘캘린더 본인 → 이웃셀러 → 나머지(인기순)
+    const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
+    // 맘캘린더가 곧(D+1~D+3) 오픈할 상품과 같은 품목은 카드에서 뺀다.
+    // 하루 전에 남의 이름으로 같은 상품을 홍보하면 우리 공구가 손해다. (사장님 지시 2026-08-04)
+    const soon=(mySoon||[]);
+    const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
+    const dropped=rows.filter(clash).map(x=>x.name+' ('+x.seller+')');
+    if(dropped.length) console.log('맘캘린더 예정건과 겹쳐 제외:', dropped);
+    // 🔴 셀러를 모르는 공구는 카드에서 뺀다 (사장님 지시 2026-09-01)
+    //    "누가 하는지를 모르는데" — 카페 크롤러 등록분은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
+    const noSeller=x=>!String(x.seller||'').trim();
+    const dropNS=rows.filter(noSeller).map(x=>x.name);
+    if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
+    const opens=rows.filter(r=>r.open_date===day && !clash(r) && !noSeller(r)).sort(sortFn);
+    const ends =rows.filter(r=>r.end_date===day  && !clash(r) && !noSeller(r)).sort(sortFn);
+    window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
+    render(day,opens,ends);
+    makeCaption(day,opens,ends);
+    document.getElementById('st').innerHTML=`오픈 <b>${opens.length}</b>건 · 마감 <b>${ends.length}</b>건`;
+  }catch(e){
+    document.getElementById('st').textContent='불러오기 실패: '+e.message;
+  }
+}
+
+// 진행 중(오늘 포함 기간) 건수 — 미끼 문구용
+async function ongoingCount(day){
+  try{
+    const r=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lt.${day}&end_date=gte.${day}&select=id`,
+      {headers:{...H,Prefer:'count=exact',Range:'0-0'}});
+    const cr=r.headers.get('content-range')||'';
+    return parseInt(cr.split('/')[1]||'0',10);
+  }catch(_){ return 0; }
+}
+
+function itemHTML(x,showEnd){
+  const sub=showEnd
+    ? `<span class="it-sl">${esc(x.seller)}</span><span class="gap"></span><span>~${md(x.end_date)}</span>`
+    : `<span class="it-sl">${esc(x.seller)}</span>`;
+  return `<div class="it"><div class="it-nm">${esc(x.name)}</div>
+    <div class="it-sub">${sub}</div></div>`;
+}
+
+async function render(day,opens,ends){
+  const d=new Date(day+'T00:00:00');
+  const dstr=`${d.getMonth()+1}월 ${d.getDate()}일`, dow=DOW[d.getDay()]+'요일';
+  // 썸네일에서도 며칠 카드인지 보이게 제목에 날짜를 넣는다 (사장님 지시 2026-08-04)
+  const tdate=`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`;
+  const on=await ongoingCount(day);
+  const card=document.getElementById('card');
+  card.innerHTML=`
+    <div class="safe top"><b>상단 200px · UI 가림</b></div>
+    <div class="safe bot"><b>하단 330px · 캡션·버튼 가림</b></div>
+    <div class="gcrop"><b>그리드 커버 영역</b></div>
+    <div class="hcrop l"></div><div class="hcrop r"></div>
+    <div class="hd">
+      <!-- 건수 배지는 로고 줄로 올린다. 제목이 가로를 다 써서 최대 크기가 되게.
+           (사장님 지시 2026-08-05 "배지는 짤려도 그만, 제목은 최대한 키워야 한다") -->
+      <div class="hd-top">
+        <div class="brand"><img class="brand-ic" src="momcal-appicon.png" alt=""><span class="brand-t">맘캘린더</span></div>
+        <div class="stats">
+          <div class="stat open"><div class="n">${opens.length}</div><div class="l">오늘 오픈</div></div>
+          <div class="stat close"><div class="n">${ends.length}</div><div class="l">오늘 마감</div></div>
+        </div>
+      </div>
+      <div class="hd-main">
+        <div class="title"><span class="t-d">${tdate}</span> 오늘 공구 캘린더</div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="col open"><div class="col-hd"><span class="col-t">오늘 오픈</span><span class="col-n">${opens.length}</span></div>
+        <div class="list" id="L1"></div><div class="more" id="M1"></div></div>
+      <div class="col close"><div class="col-hd"><span class="col-t">오늘 마감</span><span class="col-n">${ends.length}</span></div>
+        <div class="list" id="L2"></div><div class="more" id="M2"></div></div>
+    </div>
+    <div class="cta">
+      <div><div class="t">오늘 진행 중인 공구 ${on}건 중 일부예요</div>
+        <div class="s">공구 일정 검색 · 조회는 <b>프로필 링크</b> 맘캘린더 웹사이트에서 가능합니다</div></div>
+      <div class="u">momcalendar.com</div>
+    </div>
+    <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div></div>`;
+
+  fitTitle();   // 12/25(수) 처럼 날짜가 길어져도 한 줄을 유지
+  // 칼럼이 꽉 찰 때까지 넣고, 넘치면 하나씩 뺀다 (데이터가 매일 달라도 안전)
+  const cOpens=oneProduct(onePerSeller(opens)), cEnds=oneProduct(onePerSeller(ends));
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),cOpens,true,opens.length);
+  // 오픈이 적은 날(일요일 등)은 왼쪽이 텅 비는데 오른쪽은 100건씩 잘린다.
+  // → 왼쪽에 남는 만큼 마감을 흘려보낸다. (8/9 카드에서 왼쪽 절반이 비었음)
+  const spill=spillEnds(cEnds);
+  fitColumn(document.getElementById('L2'),document.getElementById('M2'),cEnds.slice(spill),false,ends.length-spill);
+  fitNames();   // 항목 수가 확정된 뒤에 이름을 다듬는다
+}
+
+// 제목은 "8/4(화) 오늘 공구 캘린더" 라 날짜 자릿수에 따라 길이가 변한다(12/25(수) 가 가장 김).
+// 한 줄이 깨지면 카드가 통째로 어긋나므로 넘치면 폰트를 1px 씩 줄여 맞춘다.
+// 제목을 카드 좌우 끝까지 꽉 채운다 — 넘치기 직전 크기를 찾는다 (사장님 지시 2026-08-04)
+// 날짜 자릿수에 따라 길이가 달라지므로 고정 px 로는 매일 여백이 들쭉날쭉해진다.
+function fitTitle(){
+  const t=document.querySelector('.title'); if(!t) return;
+  // ⚠️ scrollWidth/clientWidth 로 재면 padding-right 를 텍스트가 침범해도 못 잡는다.
+  //    실제 글자 폭(Range)으로 재야 오른쪽 여백이 지켜진다.
+  const card=document.querySelector('.card');
+  const k=1080/card.getBoundingClientRect().width;      // 미리보기 축소 보정
+  const avail=t.clientWidth-(parseFloat(getComputedStyle(t).paddingRight)||0);
+  const rng=document.createRange();
+  const textW=()=>{ rng.selectNodeContents(t); return rng.getBoundingClientRect().width*k; };
+  let px=60; t.style.fontSize=px+'px';
+  while(px<170 && textW()<=avail){ px++; t.style.fontSize=px+'px'; }
+  t.style.fontSize=(px-1)+'px';          // 넘치기 직전
+}
+
+// ── 상품명이 잘릴 때 "무엇을 파는지"를 살린다 ──
+// 한국어 상품명은 [브랜드/산지/상태] + [품목] 구조라 뒤가 핵심이다.
+// "남해안 자연산 냉장 자숙 돌문어" 를 그냥 자르면 "남해안 자연산 냉장 자숙 돌…" 이 되어
+// 정작 돌문어가 안 보인다. → 앞쪽 수식어부터 덜어내 품목이 보이게 한다. (사장님 지시 2026-08-04)
+const NAME_DROP=/^(국내산|국산|남해안|서해안|동해안|제주|자연산|햇|생|냉장|냉동|자숙|손질|무항생제|유기농|프리미엄|명품|정품|신상|신제품|NEW|한정|초특가|특가|최저가|역대급|무료배송|대용량|20[0-9][0-9]|[0-9]+차)$/i;
+// 상품명 **끝**에 붙는 판매 문구. 상품이 아니라 홍보말이라 앞부터 지우면 이것만 남는다.
+// (사장님 지적 2026-08-05: 유니맘 "로지오가닉쌀과자 유기농아기쌀과자 공동구매 단독구성" 이
+//  카드에 "공동구매 단독구성" 으로만 실렸다 — 뭘 파는지 알 수 없다)
+const NAME_TAIL=/^(공동구매|공구|단독구성|단독|기획전|모음전|골라담기|모음|세트구성|초특가|특가|할인|무료배송|앵콜|재오픈|리오픈|한정수량|마지막|예약|본품|증정|사은품|[0-9]+차)$/;
+// 이 말로 시작하면 뜻이 깨진다. 앞을 지우다 여기서 멈추면 안 된다.
+// (사장님 지적 2026-08-05: "은하수 초등학생을 위한 우리 고전" → "위한 우리 고전")
+const NAME_JOSA=/^(위한|위해|대한|관한|있는|없는|하는|되는|같은|그리고|또는|및|외|의|을|를|이|가|은|는|와|과|로|으로)$/;
+// "미니깜찍&아이깜찍 팝업북" → "미니&아이깜찍 팝업북"
+// & 로 묶인 두 토막이 같은 꼬리를 가지면 앞쪽 꼬리를 접는다. 글자를 버리는 게 아니라 겹치는 걸 줄인다.
+// (사장님 지시 2026-08-05 "깜찍 글자가 둘 다 들어가니까 센스껏")
+function squashAmp(s){
+  return String(s||'').replace(/(\S+)\s*&\s*(\S+)/g, function(m,a,b){
+    let k=0;
+    while(k<a.length-1 && k<b.length-1 && a[a.length-1-k]===b[b.length-1-k]) k++;
+    return k>=2 ? a.slice(0,a.length-k)+'&'+b : m;
+  });
+}
+// 잘린 끝에 남는 짝 없는 괄호·기호를 턴다. "…하이체어)" 같은 찌꺼기 방지.
+function cleanParen(s){
+  s=String(s||'').replace(/^[\s)\]）］,·/&+-]+/,'').replace(/[\s([（［,·/&+-]+$/,'');
+  if(!/[([（［]/.test(s)) s=s.replace(/[)\]）］]/g,'');   // 여는 괄호 없이 닫는 괄호만 남았으면 지운다
+  if(!/[)\]）］]/.test(s)) s=s.replace(/[([（［]/g,'');
+  return s.replace(/\s+/g,' ').trim();
+}
+function fitNames(){
+  document.querySelectorAll('.it-nm').forEach(function(el){
+    if(el.scrollWidth<=el.clientWidth) return;              // 안 잘리면 그대로
+    const full=el.dataset.full||el.textContent;
+    el.dataset.full=full;
+    el.title=full;
+    // ⓪ 괄호 안 보조설명을 통째로 먼저 뺀다.
+    //    앞 단어부터 지우면 "뉴이 클라우드 부스터(휴대용 하이체어)" 가 "하이체어)" 로 끝났다.
+    //    (사장님 지적 2026-08-05 "대괄호 같은건 다 지워야지")
+    let base=full;
+    let cut=full.replace(/\s*[(（\[［][^)）\]］]*[)）\]］]?/g,' ');
+    // ⓪-2 "초등학생을 위한" 같은 꾸밈 구절은 통째로 덜어낸다.
+    //     한 단어씩 지우면 "은하수 초등학생을 위한 우리 고전" 이 "위한 우리 고전" 이 되고,
+    //     브랜드(은하수)까지 날아간다. (사장님 지적 2026-08-05)
+    cut=cut.replace(/\S+(?:을|를|에|의)\s*(?:위한|위해|대한|관한)\s*/g,' ');
+    // ⓪-3 "미니깜찍&아이깜찍" 처럼 겹치는 꼬리를 접는다
+    cut=squashAmp(cut);
+    const noParen=cleanParen(cut);
+    if(noParen.length>=2){ base=noParen; el.textContent=base; }
+    if(el.scrollWidth<=el.clientWidth) return;
+    // 가운뎃점·+ 도 단어 구분으로 본다. "옴모크레용 6색·12색·스케치북" 처럼 한 덩어리로 붙어 있으면
+    // 중간을 못 덜어내고 브랜드(옴모크레용)가 통째로 날아간다. (사장님 지적 2026-08-05)
+    let w=base.split(/[\s·・]+|\s*\+\s*/).filter(Boolean);
+    // ① 끝에 붙은 판매 문구부터 턴다("… 공동구매 단독구성"). 앞을 먼저 지우면 이것만 남는다.
+    while(w.length>1 && NAME_TAIL.test(w[w.length-1]) && el.scrollWidth>el.clientWidth){
+      w.pop(); el.textContent=w.join(' ');
+    }
+    // ② 앞쪽 수식어를 덜어낸다("국내산 …")
+    while(w.length>1 && NAME_DROP.test(w[0]) && el.scrollWidth>el.clientWidth){
+      w.shift(); el.textContent=w.join(' ');
+    }
+    // ③ 그래도 넘치면 **가운데**부터 덜어낸다.
+    //    첫 단어(브랜드)와 마지막 단어(품목)는 끝까지 지킨다.
+    //    앞부터 지우면 "로지오가닉쌀과자 유기농아기쌀과자" 에서 메인인 로지오가닉이 날아간다.
+    //    (사장님 지시 2026-08-05 "로지오가닉쌀과자가 메인이니 이걸 남겨, 맘대로 지우지 않게")
+    while(w.length>2 && el.scrollWidth>el.clientWidth){
+      w.splice(1,1);
+      while(w.length>2 && NAME_JOSA.test(w[1])) w.splice(1,1);
+      el.textContent=cleanParen(w.join(' '));
+    }
+    // 두 단어만 남았는데도 넘치면 하나만 남긴다. 어느 쪽이 "브랜드"인지 보고 고른다.
+    //  ① 같은 꼬리를 공유하면 앞(메인)   — 로지오가닉**쌀과자** / 유기농아기**쌀과자** → 앞
+    //     (사장님 지시 2026-08-05 "로지오가닉쌀과자가 메인이니 이걸 남겨")
+    //  ② 앞이 더 길면 앞      — 브랜드는 보통 고유명사라 길다.
+    //     "르베르스핀360유모카" / "기내반입유모차" → 앞 (사장님 지시 "르베르스핀이 브랜드명이니까")
+    //  ③ 아니면 품목이 보이게 뒤 — "뉴이" / "부스터" → 부스터
+    while(w.length>1 && el.scrollWidth>el.clientWidth){
+      if(w.length===2){
+        const a=w[0], b=w[1];
+        let k=0; while(k<a.length-1 && k<b.length-1 && a[a.length-1-k]===b[b.length-1-k]) k++;
+        w = (k>=2 || a.length>b.length) ? [a] : [b];
+      } else w.shift();
+      el.textContent=cleanParen(w.join(' '));
+    }
+    el.textContent=cleanParen(el.textContent);
+    // 그래도 자리가 모자랄 때만 브랜드 속 모델번호를 턴다. "르베르스핀360유모카" → "르베르스핀유모카"
+    // 자리가 있으면 360 까지 두는 게 낫다 (사장님 2026-08-05 "자리없으면 터는거고 자리있으면 넣으면 더 좋지").
+    // 한글 사이에 낀 숫자만 지운다 — 맨 앞 숫자는 상품명의 일부다("100층짜리집").
+    if(el.scrollWidth>el.clientWidth){
+      const packed=el.textContent
+        .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2')
+        .replace(/([가-힣])[0-9]+([가-힣])/g,'$1$2');
+      if(packed!==el.textContent) el.textContent=packed;
+    }
+  });
+}
+
+// 이웃셀러는 정렬상 항상 맨 앞에 몰려 있다 → 그 연속 구간만 한 덩어리(.nbz)로 감싼다.
+// 항목마다 네모를 그리면 어수선하다는 사장님 지적(2026-08-04) 반영.
+function listHTML(arr,showEnd){
+  let k=0; while(k<arr.length && arr[k].partner) k++;
+  const zone = k ? `<div class="nbz">${arr.slice(0,k).map(x=>itemHTML(x,showEnd)).join('')}</div>` : '';
+  return zone + arr.slice(k).map(x=>itemHTML(x,showEnd)).join('');
+}
+// 한 셀러가 여러 건이면 카드를 독차지한다 → 셀러당 1건만 실어 더 많은 셀러가 보이게 한다.
+// 이웃셀러·맘캘린더는 예외(전부 노출). (사장님 지시 2026-08-04)
+function onePerSeller(arr){
+  const seen=new Set(), out=[];
+  arr.forEach(function(x){
+    if(x.partner){ out.push(x); return; }
+    // ⚠️ 핸들이 아니라 "카드에 보이는 이름" 으로 묶는다.
+    //    같은 셀러가 핸들 2개를 쓰는 경우가 있어(라엘맘 rael_mom/rael.mom_yj 등)
+    //    핸들로 묶으면 카드·캡션에 같은 이름이 두 번 나온다. (2026-08-04 실측)
+    const key=((x.seller||x.insta||'')+'').trim().toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key); out.push(x);
+  });
+  return out;
+}
+// 셀러가 달라도 같은 상품이면 한 번만 싣는다.
+// "블루래빗 콕콕콕 벽보 사운드북"(뚝딱맘) 과 "콕콕콕 사운드벽보"(로로맘) 가 나란히 실렸다.
+// (사장님 지적 2026-08-05 "같은 상품은 한개만 뜨게 해야지")
+// 이웃셀러·맘캘린더는 그대로 둔다 — 우리 공구가 남의 것과 엮여 빠지면 안 된다.
+function oneProduct(arr){
+  const out=[];
+  arr.forEach(function(x){
+    if(x.partner){ out.push(x); return; }
+    if(out.some(y=>!y.partner && sameProduct(y.name, x.name))) return;
+    out.push(x);
+  });
+  return out;
+}
+// 왼쪽(오늘 오픈) 칼럼에 자리가 남으면 마감 항목을 이어 붙인다.
+// 오픈이 4건뿐인데 마감은 138건이라 113건이 잘리는 날이 있었다(2026-08-09 카드).
+// 반환값 = 왼쪽으로 옮긴 마감 건수. 오른쪽은 그만큼 건너뛰고 시작한다.
+function spillEnds(ends){
+  const col=document.querySelector('.col.open'), listEl=document.getElementById('L1');
+  if(!col||!listEl||!ends.length) return 0;
+  // 오픈의 "+N건 더" 는 목록 밖(아래)에 있어서, 그대로 두면 마감 목록 뒤에 붙어 오독된다.
+  // → 오픈 목록 바로 뒤로 옮겨 넣고 원래 자리는 비운다.
+  const m1=document.getElementById('M1'), mTxt=m1?m1.textContent:'';
+  const base=listEl.innerHTML + (mTxt?'<div class="in-more">'+mTxt+'</div>':'');
+  const fits=function(n){
+    listEl.innerHTML = base + '<div class="spill-hd">오늘 마감</div>' + listHTML(ends.slice(0,n),false);
+    // 여기도 scrollHeight 로 재면 안 된다(.col 이 overflow:hidden). 실제 좌표로 본다.
+    const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+    const last=listEl.lastElementChild || listEl;
+    return last.getBoundingClientRect().bottom <= (col.getBoundingClientRect().bottom - pb) + 0.5;
+  };
+  // ⚠️ 항목 높이를 추정해 나누면 빗나간다(이웃셀러 묶음·두 줄 이름이 섞여 높이가 제각각).
+  //    8/9 카드에서 20건이 들어갈 자리에 6건만 넣고 멈췄다. → 이분 탐색으로 실제 최대치를 찾는다.
+  let lo=0, hi=Math.min(ends.length, 40);
+  while(lo<hi){ const mid=(lo+hi+1)>>1; if(fits(mid)) lo=mid; else hi=mid-1; }
+  if(lo>=3){ fits(lo); if(m1) m1.textContent=''; return lo; }   // 2건 이하 흘려봐야 어수선하기만 하다
+  listEl.innerHTML=base.replace(/<div class="in-more">[\s\S]*?<\/div>$/,'');
+  return 0;
+}
+function fitColumn(listEl,moreEl,arr,showEnd,total){
+  const col=listEl.closest('.col');
+  const all=(total===undefined)?arr.length:total;   // "+N건 더" 는 그날 전체 건수 기준
+  // ⚠️ scrollHeight>clientHeight 로는 넘침을 못 잡는다.
+  //    .col 이 overflow:hidden 이라 내용이 아무리 넘쳐도 scrollHeight 가 안 커진다.
+  //    한쪽이 비는 날엔 우연히 맞았지만, 양쪽이 꽉 차면 한 줄이 더 들어가
+  //    "+N건 더" 가 아래 CTA 박스에 가려 잘렸다(사장님 지적 2026-08-10 "짤리고").
+  //    → 마지막 요소(더보기)의 아래 끝이 칼럼 안쪽 끝을 넘는지 실제 좌표로 판정한다.
+  const over=()=>{
+    const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+    return moreEl.getBoundingClientRect().bottom > (col.getBoundingClientRect().bottom - pb) + 0.5;
+  };
+  listEl.innerHTML=listHTML(arr,showEnd);
+  let n=arr.length;
+  moreEl.textContent = (all>n) ? ('+ '+(all-n)+'건 더') : '';
+  while(n>0 && over()){
+    n--;
+    listEl.innerHTML=listHTML(arr.slice(0,n),showEnd);
+    moreEl.textContent='+ '+(all-n)+'건 더';
+  }
+}
+
+// ── 해시태그 ── 공구줍줍(팔로워 9천+)이 실제로 쓰는 걸 그대로 따라간다. (사장님 지시 2026-08-04)
+// 2026-08-04 공구줍줍 릴스 5개에서 직접 수집. 추정 아님.
+//   릴스1 11개 / 릴스2 13개 / 릴스3 12개 / 릴스4 13개 / 릴스5 11개  → 평균 12개
+//   5회 전부 등장: 공구일정 · 육아공구 · 육아용품 · 책육아 (+ 자기 브랜드 #공구줍줍)
+// ⚠️ 공구줍줍은 #육아스타그램(4610만) #육아소통(4484만) 같은 초대형 태그를 안 쓴다.
+//    경쟁이 심해 묻히기 때문. 중형 실무 태그로만 간다.
+const TAG_FIXED=['맘캘린더','공구일정','육아공구','육아용품','책육아'];   // 매번 고정(브랜드 + 5/5 등장)
+const TAG_ROT=[                                                          // 매일 7개 순환
+  '공동구매','육아정보','공구정보','육아템','먹거리공구','살림템','교구',
+  '유모차','영양제','아기용품','유아용품','놀잇감','공구오픈','공구모음',
+  '오늘의공구','공구추천','육아맘','맘스타그램'
+];
+function pickTags(day){
+  const d=new Date(day+'T00:00:00');
+  const seed=Math.floor(d.getTime()/86400000);          // 날짜별 고정 → 같은 날은 항상 같은 태그
+  const out=TAG_FIXED.slice();
+  for(let i=0;i<7;i++) out.push(TAG_ROT[(seed+i)%TAG_ROT.length]);
+  return out.map(t=>'#'+t).join(' ');
+}
+
+async function makeCaption(day,opens,ends){
+  const d=new Date(day+'T00:00:00');
+  const head=`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]})`;
+  const on=await ongoingCount(day);
+  // ⚠️ @핸들은 맘캘린더·이웃셀러에만 건다. 나머지는 한글 이름만.
+  //    (일반 셀러까지 태그하면 계정 언급이 과해지고, 우리 이웃셀러가 묻힌다 — 사장님 지시 2026-08-04)
+  const line=x=>`· ${x.name}${String(x.seller||'').trim()?' — '+x.seller:''}${x.partner&&x.insta?' @'+x.insta:''}`;
+  // 캡션도 카드와 같은 원칙 — 셀러당 1건(이웃셀러·맘캘린더 제외). 한 셀러가 목록을 독차지하지 않게.
+  const capOpens=oneProduct(onePerSeller(opens)), capEnds=oneProduct(onePerSeller(ends));
+  const nb=capOpens.filter(x=>x.partner), rest=capOpens.filter(x=>!x.partner);
+  const build=(endCut,openCut)=>{
+    const oShow=(openCut===undefined)?rest.length:openCut;
+    // ⚠ 머리말 건수는 반드시 '목록에 실제로 쓰는 것과 같은 기준'이어야 한다.
+    //   원본(opens/ends)을 쓰면 셀러중복·같은상품 제거분만큼 어긋나서
+    //   손님이 세어보면 숫자가 안 맞는다. (2026-08-06 실측: 머리말 116 vs 목록 99)
+    let s=`📌 저장해두고 필요하실 때 꺼내 보세요\n\n맘캘린더에서 공유드리는\n${head} 오늘 공구 캘린더\n\n오픈 ${capOpens.length}건 · 마감 ${capEnds.length}건\n\n━━━━━━━━━━━━━━\n`;
+    if(nb.length) s+=`\n💜 맘캘린더 이웃셀러\n`+nb.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n')+'\n';
+    // 남은 건수는 "사이트에서 보세요"로 유도한다. (사장님 지시 2026-08-04)
+    // 한 건도 못 넣은 섹션은 목록 제목만 덩그러니 남으므로 제목째로 한 줄로 줄인다.
+    const o=rest.slice(0,oShow);
+    if(o.length){
+      s+=`\n🔓 오늘 오픈하는 공구\n`+o.map(x=>line(x)+` (~${md(x.end_date)})`).join('\n');
+      if(rest.length>oShow) s+=`\n…나머지 ${rest.length-oShow}건은 맘캘린더 사이트에서 보실 수 있어요`;
+    }else if(rest.length){
+      s+=`\n🔓 오늘 오픈하는 공구 ${rest.length}건은 맘캘린더 사이트에서 확인해 주세요`;
+    }
+    s+='\n';
+    const e=capEnds.slice(0,endCut);
+    if(e.length){
+      s+=`\n⏰ 오늘 마감하는 공구\n`+e.map(line).join('\n');
+      if(capEnds.length>endCut) s+=`\n…나머지 ${capEnds.length-endCut}건은 맘캘린더 사이트에서 보실 수 있어요`;
+    }else if(capEnds.length){
+      s+=`\n⏰ 오늘 마감하는 공구 ${capEnds.length}건은 맘캘린더 사이트에서 확인해 주세요`;
+    }
+    s+=`\n\n━━━━━━━━━━━━━━\n\n오늘 진행하는 공구리스트 일부 공유입니다\n전체 일정 검색·조회는 프로필 링크 맘캘린더 웹사이트에서 가능해요.ᐟ.ᐟ\n\n💬 찾으시는 공구 있으면 댓글 남겨주세요\n다음번 카드에 반영해서 올려드릴게요.ᐟ.ᐟ\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경되거나 조기 마감될 수 있어요. 구매 전에 해당 셀러 계정에서 한 번 더 확인해 주세요.\n\n${pickTags(day)}`;
+    return s;
+  };
+  // 인스타 캡션 2200자 제한.
+  // 예전엔 마감부터 0까지 깎았더니 오픈이 많은 날 마감이 통째로 사라졌다
+  // (8/6: 오픈 59 전부 ↔ 마감 99건 중 7건). '오늘 마감'은 오늘 지나면 끝이라 정보 가치가 더 높다.
+  // → 사장님 결정(2026-08-06): 오픈과 마감에 자리를 반반 나눈다.
+  //   한쪽이 적으면 남는 자리는 다른 쪽이 가져가므로 낭비되지 않는다.
+  let oCut=rest.length, eCut=capEnds.length, txt=build(eCut,oCut);
+  while(txt.length>2200 && (oCut>0 || eCut>0)){
+    // 남은 건수가 많은 쪽을 한 칸씩 줄인다 → 자연히 반반에 수렴한다
+    if(oCut>=eCut && oCut>0) oCut--;
+    else if(eCut>0) eCut--;
+    else oCut--;
+    txt=build(eCut,oCut);
+  }
+  document.getElementById('captxt').value=txt;
+  document.getElementById('caplen').textContent=
+    `${txt.length}자 / 2200자 · 오픈 ${oCut}/${rest.length} · 마감 ${eCut}/${capEnds.length}`;
+}
+
+// 캡처 없이 1080×1920 PNG 로 바로 저장
+// ── 이번 주 평일(월~금) 한 번에 저장 ──
+// 매일 날짜 바꿔가며 5번 따로 저장하는 게 번거로워서 만든 것. (사장님 요청 2026-08-04)
+// 사진 5장 + 캡션 5개를 담은 txt 1개가 순서대로 내려받아진다.
+function weekdaysOf(dateStr){
+  // ⚠️ toISOString() 은 UTC 로 바꿔서 한국시간 기준 날짜가 하루 밀린다. 로컬 값으로 직접 만든다.
+  const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  const d=new Date(dateStr+'T00:00:00');
+  const mon=new Date(d); mon.setDate(d.getDate()-((d.getDay()+6)%7));   // 그 주 월요일
+  const out=[];
+  for(let i=0;i<5;i++){ const x=new Date(mon); x.setDate(mon.getDate()+i); out.push(fmt(x)); }
+  return out;
+}
+// 여러 날짜를 한 번에: 사진 N장 + 캡션 N개가 든 txt 1개
+async function saveDays(days, btn, label, tag){
+  if(!days.length) return;
+  const keep=document.getElementById('day').value;
+  btn.disabled=true;
+  const caps=[];
+  for(let i=0;i<days.length;i++){
+    btn.textContent=`저장 중… ${i+1}/${days.length}`;
+    document.getElementById('day').value=days[i];
+    await load();                                   // 그 날짜로 다시 그리기
+    await new Promise(r=>setTimeout(r,250));
+    await savePng(true);                            // 조용히 저장
+    caps.push(`===== ${days[i]} =====\n`+document.getElementById('captxt').value);
+    await new Promise(r=>setTimeout(r,600));        // 브라우저 연속 다운로드 제한 회피
+  }
+  const blob=new Blob([caps.join('\n\n\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.download=`momcal_caption_${days[0].replace(/-/g,'')}_${tag}.txt`;
+  a.href=URL.createObjectURL(blob); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  document.getElementById('day').value=keep; await load();
+  btn.textContent=label; btn.disabled=false;
+  document.getElementById('st').innerHTML=`<b>${days.length}일치</b> 사진 + 캡션 저장 완료 ✅`;
+}
+async function saveWeek(){
+  const base=document.getElementById('day').value||todayKST();
+  await saveDays(weekdaysOf(base), document.getElementById('btnWeek'), '📦 이번 주 5일치', '주간');
+}
+// 날짜를 직접 지정해 그 기간을 통째로 (사장님 요청 2026-08-04)
+async function saveRange(){
+  const s=document.getElementById('d1').value, e=document.getElementById('d2').value;
+  const st=document.getElementById('st');
+  if(!s||!e){ st.textContent='기간 시작일과 종료일을 둘 다 골라주세요'; return; }
+  if(s>e){ st.textContent='시작일이 종료일보다 뒤예요'; return; }
+  const days=[]; let cur=s;
+  while(cur<=e && days.length<31){ days.push(cur); cur=addDays(cur,1); }   // 한 번에 최대 31일
+  if(cur<=e) st.textContent='한 번에 최대 31일까지만 됩니다';
+  await saveDays(days, document.getElementById('btnRange'), '📦 이 기간 저장', '기간');
+}
+
+// html2canvas 는 문서를 통째로 복제해 다시 그린다.
+// 그 복제본에서 글꼴 기준선이 미세하게 달라져 한 줄이 0.9px 씩 높아진다(42.5 → 43.4, 실측 2026-08-11).
+// .it 이 align-items:baseline 이라 행 높이가 글꼴 메트릭에 좌우되기 때문이다.
+// 25줄이면 24px 이 밀려 "+N건 더" 가 .col 의 overflow:hidden 에 잘렸다.
+//   → 화면에선 멀쩡한데 저장한 PNG 만 잘린다. (사장님 지적 2026-08-11 "다 짤린거 안보여?")
+// 원본에서 맞춘 값을 믿지 말고, **실제로 그려질 복제본에서** 한 번 더 줄인다.
+function trimToFit(doc){
+  const win = doc.defaultView || window;
+  ['L1','L2'].forEach(function(id){
+    const list = doc.getElementById(id);        if(!list) return;
+    const col  = list.closest('.col');          if(!col)  return;
+    const more = doc.getElementById(id.replace('L','M'));
+    const pb   = parseFloat(win.getComputedStyle(col).paddingBottom) || 0;
+    // 아래 끝을 재는 대상: 바깥 더보기가 있으면 그것, 없으면(마감 흘려보낸 날) 목록의 마지막
+    const tail   = function(){ return (more && more.textContent.trim()) ? more : list.lastElementChild; };
+    const bottom = function(){ const t=tail(); return t ? t.getBoundingClientRect().bottom : 0; };
+    const limit  = function(){ return col.getBoundingClientRect().bottom - pb; };
+    let guard = 0;
+    while(list.children.length > 1 && bottom() > limit() && guard++ < 100){
+      // 마감을 흘려보낸 날엔 목록 맨 끝이 "+N건 더"(.in-more) 다.
+      // 그걸 지우면 건수 안내가 통째로 사라진다 → 바로 앞 항목을 대신 뺀다.
+      const inMore = list.lastElementChild && list.lastElementChild.classList.contains('in-more')
+                     ? list.lastElementChild : null;
+      const victim = inMore ? inMore.previousElementSibling : list.lastElementChild;
+      if(!victim) break;
+      const 항목 = victim.classList.contains('it');     // .nbz(이웃셀러 묶음)·머리말은 건수에 안 센다
+      list.removeChild(victim);
+      const l2 = inMore ? inMore.previousElementSibling : list.lastElementChild;
+      if(l2 && l2.classList.contains('spill-hd')) list.removeChild(l2);   // 머리말만 남으면 같이 뺀다
+      if(항목){
+        const lbl = (more && more.textContent.trim()) ? more : inMore;
+        if(lbl){
+          const m = lbl.textContent.match(/(\d+)/);
+          if(m) lbl.textContent = lbl.textContent.replace(/\d+/, String(parseInt(m[1],10)+1));
+          else  lbl.textContent = '+ 1건 더';
+        }
+      }
+    }
+    // 흘려보낸 묶음이 통째로 빠졌으면 그 묶음의 "+N건 더" 도 같이 뺀다(머리말 없는 미아 방지)
+    const orphan = list.querySelector('.in-more');
+    if(orphan && !list.querySelector('.spill-hd')) orphan.remove();
+  });
+}
+
+async function savePng(quiet){
+  const btn=document.getElementById('btnSave');
+  const card=document.getElementById('card');
+  const wasMini=document.body.classList.contains('mini');
+  const wasClean=document.body.classList.contains('clean');
+  btn.textContent='저장 중…'; btn.disabled=true;
+  document.body.classList.remove('mini');   // 원본 1080×1920 로 되돌리고
+  document.body.classList.add('clean');     // 가이드선 끄고 캡처
+  await document.fonts.ready;
+  await new Promise(r=>setTimeout(r,200));
+  try{
+    const canvas=await html2canvas(card,{
+      width:1080,height:1920,scale:1,
+      backgroundColor:'#ffffff',useCORS:true,logging:false,
+      windowWidth:1080,windowHeight:1920,
+      onclone:trimToFit                       // ⬅ 실제 그려질 복제본에서 넘침을 다시 잡는다
+    });
+    const day=document.getElementById('day').value||todayKST();
+    const a=document.createElement('a');
+    a.download=`momcal_${day.replace(/-/g,'')}.png`;
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+    document.getElementById('st').innerHTML='사진을 저장했습니다 ✅ <b>1080×1920</b>';
+  }catch(e){
+    document.getElementById('st').textContent='저장 실패: '+e.message;
+  }
+  if(wasMini) document.body.classList.add('mini');
+  if(!wasClean) document.body.classList.remove('clean');
+  btn.textContent='📥 사진 저장'; btn.disabled=false;
+}
+
+function copyCap(){
+  const t=document.getElementById('captxt');
+  t.select(); document.execCommand('copy');
+  document.getElementById('st').innerHTML='캡션을 복사했습니다 ✅';
+}
+
+// 글씨 시안 전환. 항목 수는 fitColumn 이 다시 계산하므로 카드를 새로 그린다.
+function setV(v){
+  document.body.classList.remove('vA','vB','vC');
+  document.body.classList.add('v'+v);
+  try{ localStorage.setItem('mc_reel_v', v); }catch(_){}
+  if(window.__DATA) render.apply(null, window.__DATA);   // 데이터 재요청 없이 다시 그리기
+}
+
+(function init(){
+  const p=new URLSearchParams(location.search);
+  document.getElementById('day').value=p.get('d')||todayKST();
+  let v=p.get('v'); if(!v){ try{ v=localStorage.getItem('mc_reel_v'); }catch(_){} }
+  v = (v==='B'||v==='C') ? v : 'A';               // 기본값 A(권장)
+  document.getElementById('vsel').value=v;
+  document.body.classList.add('v'+v);
+  load();
+})();
+</script>
+</body>
+</html>
