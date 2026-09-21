@@ -20,7 +20,7 @@
 //
 // 주기: 아침 카드(make-card.mjs) 예약작업 바로 뒤에 같이 돈다.
 import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const SITE = process.env.SITE?.trim() || 'https://momcalendar.com';  // SITE=http://localhost:8099 로 로컬 검증
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -69,6 +69,13 @@ writeFileSync(`daily/${day}_today.png`, buf);
 
 const d = new Date(day + 'T00:00:00');
 const label = `${d.getMonth() + 1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`;
+// 자동화가 조용히 멈춘 것을 사장님이 알 수 있는 유일한 자리 — 매일 보시는 페이지 맨 위.
+//   threads_learn_guard.mjs 가 복구까지 실패했을 때만 daily/_alert.txt 를 남긴다 (2026-09-21).
+let alertLine = '';
+try {
+  const a = readFileSync('daily/_alert.txt', 'utf8').trim();
+  if (a) alertLine = `<p style="margin:0;padding:10px 14px;background:#FFE9E9;color:#B3261E;font-size:13px;font-weight:700">⚠ ${a}</p>`;
+} catch { /* 없으면 정상 */ }
 writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -79,6 +86,7 @@ writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
 h1{font-size:17px;color:#4A1A78;padding:14px 0 10px;margin:0}
 img{width:100%;max-width:540px;display:block;margin:0 auto;border-radius:12px;box-shadow:0 2px 12px rgba(96,32,144,.12)}
 p{font-size:12.5px;color:#8A8A8A;padding:12px}</style></head><body>
+${alertLine}
 <h1>${label} 오늘 공구 캘린더</h1>
 <img src="./today.png?v=${Date.now()}" alt="${label} 오늘 공구 캘린더">
 <p>매일 아침 자동으로 새로 그려집니다 · <a href="https://momcalendar.com">맘캘린더</a></p>

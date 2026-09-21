@@ -170,6 +170,8 @@ details summary::-webkit-details-marker{display:none}
   <div class="hd">
     <div class="hd-logo" onclick="window.location.href='https://momcalendar.com'" style="cursor:pointer">맘캘린더 <span>관리자</span></div>
     <div class="hd-right">
+      <button class="hd-csv" onclick="openVendor()">🏢 원츠비</button>
+      <button class="hd-csv" onclick="openCashRcpt()">🧾 현금영수증</button>
       <button class="hd-csv" onclick="openCatFix()">🧹 분류정리</button>
       <button class="hd-csv" onclick="exportCSV()">📥 CSV</button>
       <button class="hd-logout" onclick="logout()">로그아웃</button>
@@ -554,6 +556,81 @@ details summary::-webkit-details-marker{display:none}
 
   <!-- 배너 추가/수정 모달 -->
   <!-- 🧹 분류 일괄 정리 미리보기 -->
+  <!-- 🏢 원츠비(벤더) 업무판 — 사장님 지시 2026-09-21 "하나에 몰아서 오늘 포함 3일 해야할 업무들 리스트"
+       자료: 벤더 운영시트 → Supabase vendor_todo → RPC vendor_todo_read (staff_test.html 과 같은 경로).
+       전일·당일·익일 기준으로 그날 손대야 하는 건만 골라 6갈래로 묶는다. -->
+  <div id="vendorModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:12px">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:980px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:15px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:16px;font-weight:800;color:#191919">🏢 원츠비 업무판</div>
+        <div id="vdWhen" style="font-size:11px;color:#999"></div>
+        <button onclick="vdLoad(1)" style="margin-left:auto;padding:7px 12px;background:#F4F1FF;color:#4A35A0;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">새로고침</button>
+      </div>
+      <div id="vdBody" style="flex:1;overflow-y:auto;padding:12px;background:#FAFAFC"></div>
+      <div style="padding:11px 16px;border-top:1px solid #eee;display:flex;justify-content:flex-end">
+        <button onclick="closeVendor()" style="padding:9px 16px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🧾 현금영수증 일괄발급 도우미 (사장님 지시 2026-09-21)
+       홈택스 「현금영수증 일괄발급 양식」 의 [엑셀업로드 양식] 시트 **7행부터** 붙여넣을 값을 만든다.
+       양식 규격(실제 양식 파일에서 확인): 용도구분(0 소득공제/1 지출증빙) · 발급수단번호(숫자·붙임표, 10~19자리)
+         · 총거래금액(1~9억) · 공급가액 · 부가가치세(공급가액의 10%) · 메모(300byte)
+       ⚠ 양식에 **수식이 들어가면 오류** → 숫자만 넣는다. ⚠ 거래일자 칸은 없다(일괄발급은 당일 발급).
+       ⚠ 발급수단번호에 **우리 사업자번호(390-58-00826)는 넣을 수 없다** — 받는 쪽(거래처) 번호다. -->
+  <div id="cashRcptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:620px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px;border-bottom:1px solid #eee">
+        <div style="font-size:16px;font-weight:800;color:#191919">🧾 현금영수증 일괄발급 만들기</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5">셀러별 <b>수수료 금액</b>을 붙여넣으면 홈택스 양식에 넣을 값을 만들어요. 총액만 넣으면 공급가액·부가세는 자동으로 나눠요.</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:14px">
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:190px">
+            <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">받는 곳 사업자번호 (발급수단번호)</div>
+            <input id="crBiz" value="1328153370" placeholder="1328153370"
+              style="width:100%;padding:9px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:13px;font-family:inherit">
+            <div id="crBizName" style="font-size:10.5px;color:#7B68EE;font-weight:700;margin-top:3px">리뉴얼라이프 (또또맘)</div>
+          </div>
+          <div style="width:120px">
+            <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">용도구분</div>
+            <select id="crUse" style="width:100%;padding:9px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:13px;font-family:inherit">
+              <option value="1" selected>1 지출증빙</option>
+              <option value="0">0 소득공제</option>
+            </select>
+          </div>
+          <div style="width:170px">
+            <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">부가세</div>
+            <select id="crVat" style="width:100%;padding:9px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:13px;font-family:inherit">
+              <option value="0" selected>0 으로 (지금까지 그랬음)</option>
+              <option value="split">총액에서 나누기 (÷1.1)</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:10.5px;color:#C62828;background:#FCF3F3;border:1px solid #F0D5D5;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.6">
+          ✅ 원츠비는 <b>간이과세자</b>라 부가세는 <b>0</b>이에요 (사장님 확인 2026-09-21). 공급가액 = 총거래금액으로 넣습니다.<br>양식에 "부가가치세 입력 불가 사업자" 오류코드가 있어서, 0이 아닌 값을 넣으면 업로드가 튕겨요.
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">메모에 붙일 말 (선택) — 셀러명 앞에 들어가요</div>
+          <input id="crMemo" placeholder="예) 또또맘 인기 간식 모음전 수수료"
+            style="width:100%;padding:9px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:13px;font-family:inherit">
+        </div>
+        <div style="margin-bottom:6px">
+          <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">셀러명 + 금액 (한 줄에 하나 · 탭이나 쉼표로 구분)</div>
+          <textarea id="crRaw" rows="7" placeholder="워니맘	100920&#10;또서안	477900&#10;서연맘	78060"
+            style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:13px;font-family:inherit;line-height:1.7"></textarea>
+        </div>
+        <button onclick="crBuild()" style="width:100%;padding:11px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">계산하기</button>
+        <div id="crOut" style="margin-top:12px"></div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeCashRcpt()" style="padding:9px 16px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">닫기</button>
+        <button id="crCopyBtn" onclick="crCopy()" disabled style="padding:9px 16px;background:#7B68EE;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;opacity:.45">📋 양식에 붙여넣기 복사</button>
+      </div>
+    </div>
+  </div>
+
   <div id="catFixModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
     <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:16px;border-bottom:1px solid #eee">
@@ -2933,6 +3010,147 @@ function applyCatMemory(items){
 }
 // ── 🧹 분류 일괄 정리 (미리보기 → 선택/수정 → 적용) ──
 let catFixProposals=[], _cfVia='', _cfMajor='', _cfSearch='', _cfBulkMajor='', _cfBulkMinor='';
+// ── 🏢 원츠비(벤더) 업무판 (사장님 지시 2026-09-21)
+//   "전일·당일·익일 해야 할 업무를 하나에 몰아서" — 샘플·링크공유·일정확정·정산서류·정산소통·영수증.
+//   자료는 벤더 운영시트가 30분마다 밀어 넣는 vendor_todo(payload JSON 배열)를 RPC 로 읽는다.
+//   한 줄의 뜻: open 오픈일 · close 마감일 · settle 정산일 · sample 샘플(미발송/완료) · share 링크공유(미완료/빈칸)
+//              stage 일정확정 · paid 정산소통 · type 정산유형 · todo 시트가 적어준 할 일 · urgent 지연표시
+let VD_ROWS = null, VD_AT = '';
+function openVendor(){ document.getElementById('vendorModal').style.display='flex'; vdLoad(0); }
+function closeVendor(){ document.getElementById('vendorModal').style.display='none'; }
+const vdYmd = (d)=>{ const t=new Date(d.getTime()+9*3600e3); return t.toISOString().slice(0,10); };
+async function vdLoad(force){
+  const box=document.getElementById('vdBody');
+  if(VD_ROWS && !force){ vdRender(); return; }
+  box.innerHTML='<div style="padding:24px;text-align:center;color:#999;font-size:13px">불러오는 중… ⏳</div>';
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/vendor_todo_read',{method:'POST',headers:sbHeaders(),body:'{}'});
+    const j=await r.json();
+    if(!r.ok) throw new Error((j&&j.message)||('HTTP '+r.status));
+    VD_ROWS = (Array.isArray(j)&&j.length&&Array.isArray(j[0].payload)) ? j[0].payload : [];
+    VD_AT = (Array.isArray(j)&&j.length&&j[0].updated_at)||'';
+    vdRender();
+  }catch(e){
+    box.innerHTML=`<div style="padding:20px;text-align:center;color:#C62828;font-size:13px">못 불러왔어요 — ${e.message}<br><span style="font-size:11px;color:#999">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 눌러 주세요.</span></div>`;
+  }
+}
+// 그날 손대야 하는 일만 고른다. 지난 것(지연)은 '오늘' 칸에 같이 올린다 — 안 그러면 영영 안 보인다.
+function vdPick(rows, day, isToday){
+  const g={샘플:[],링크공유:[],일정확정:[],정산서류:[],정산소통:[],영수증:[]};
+  for(const v of rows){
+    const open=v.open||'', close=v.close||'', settle=v.settle||'';
+    const late=(d)=>isToday && d && d<day;                       // 오늘 칸에만 지난 건을 얹는다
+    if((v.sample==='미발송') && (open===day || late(open))) g.샘플.push({v,why:open===day?'오늘 오픈':'오픈 지남 '+open});
+    if((v.share==='미완료') && (open===day || late(open)))   g.링크공유.push({v,why:open===day?'오늘 오픈':'오픈 지남 '+open});
+    if(!v.stage && (open===day || late(open)))               g.일정확정.push({v,why:open===day?'오늘 오픈':'오픈 지남 '+open});
+    if(close===day || late(close))                            g.정산서류.push({v,why:close===day?'오늘 마감':'마감 지남 '+close});
+    if(settle===day || late(settle))                          g.정산소통.push({v,why:settle===day?'오늘 정산일':'정산일 지남 '+settle});
+    if(settle===day || late(settle))                          g.영수증.push({v,why:settle===day?'오늘 정산일':'정산일 지남 '+settle});
+  }
+  return g;
+}
+function vdRender(){
+  const box=document.getElementById('vdBody');
+  document.getElementById('vdWhen').textContent = VD_AT ? ('시트 받은 시각 '+String(VD_AT).slice(0,16).replace('T',' ')) : '';
+  const rows=VD_ROWS||[];
+  if(!rows.length){ box.innerHTML='<div style="padding:24px;text-align:center;color:#888;font-size:13px">아직 받은 내용이 없어요.</div>'; return; }
+  const now=new Date();
+  const days=[-1,0,1].map(n=>{ const d=new Date(now.getTime()+n*86400e3); return {key:vdYmd(d), label:['어제','오늘','내일'][n+1], isToday:n===0}; });
+  const ICON={샘플:'📦',링크공유:'🔗',일정확정:'🗓',정산서류:'🧾',정산소통:'💬',영수증:'🧮'};
+  const NOTE={샘플:'샘플 보냈는지',링크공유:'판매링크 공유됐는지',일정확정:'일정 확정됐는지',정산서류:'마감 후 정산 서류 받았는지',정산소통:'정산 소통됐는지',영수증:'현금영수증 발급'};
+  let h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px">';
+  for(const d of days){
+    const g=vdPick(rows,d.key,d.isToday);
+    const n=Object.values(g).reduce((a,x)=>a+x.length,0);
+    h+=`<div style="background:#fff;border-radius:12px;border:1.5px solid ${d.isToday?'#7B68EE':'#EEE'};overflow:hidden">
+      <div style="padding:9px 12px;background:${d.isToday?'#F4F1FF':'#FAFAFA'};font-size:13px;font-weight:800;color:${d.isToday?'#4A35A0':'#666'}">${d.label} <span style="font-weight:600;font-size:11px;color:#999">${d.key} · ${n}건</span></div>
+      <div style="padding:8px 10px">`;
+    if(!n) h+='<div style="padding:14px;text-align:center;color:#BBB;font-size:12px">할 일 없음 👌</div>';
+    for(const k of Object.keys(g)){
+      const list=g[k]; if(!list.length) continue;
+      h+=`<div style="margin-bottom:9px"><div style="font-size:11.5px;font-weight:800;color:#4A35A0;margin-bottom:4px">${ICON[k]} ${k} <span style="color:#aaa;font-weight:600">${list.length} · ${NOTE[k]}</span></div>`;
+      for(const it of list.slice(0,12)){
+        const v=it.v;
+        h+=`<div style="border-top:1px solid #F4F4F4;padding:5px 0">
+          <div style="font-size:12px;color:#222;font-weight:700">${(v.seller||'-')} <span style="font-weight:500;color:#777">${(v.prod||'')}</span></div>
+          <div style="font-size:10.5px;color:#999;margin-top:1px">${it.why}${v.type?' · '+v.type:''}${v.urgent?' · '+v.urgent:''}</div>
+          ${v.todo?`<div style="font-size:10.5px;color:#C4632A;margin-top:1px">${v.todo}</div>`:''}
+        </div>`;
+      }
+      if(list.length>12) h+=`<div style="font-size:10.5px;color:#aaa;padding-top:3px">+ ${list.length-12}건 더</div>`;
+      h+='</div>';
+    }
+    h+='</div></div>';
+  }
+  h+='</div><div style="font-size:10.5px;color:#aaa;margin-top:8px;line-height:1.6">· 지난 건(오픈·마감·정산일이 지난 것)은 <b>오늘 칸</b>에 같이 올려요 — 안 그러면 영영 안 보여요.<br>· 「일정 확정」·「정산 소통」은 시트에 아직 값이 없어서 오픈일 기준으로만 띄워요. 시트에 칸이 채워지면 그대로 반영됩니다.</div>';
+  box.innerHTML=h;
+}
+
+// ── 🧾 현금영수증 일괄발급 도우미 (사장님 지시 2026-09-21)
+//   홈택스 양식 규격은 위 모달 주석 참고. 여기서는 **값만** 만든다 — 양식 파일은 사장님이 홈택스에서 받아 쓰신다.
+const CR_PARTNERS = { '1328153370': '리뉴얼라이프 (또또맘)' };   // 아는 거래처는 이름을 띄워 오타를 잡는다
+let _crRows = null;
+function openCashRcpt(){ document.getElementById('cashRcptModal').style.display='flex'; crBizName(); }
+function closeCashRcpt(){ document.getElementById('cashRcptModal').style.display='none'; }
+function crBizName(){
+  const v=(document.getElementById('crBiz').value||'').replace(/[^0-9]/g,'');
+  document.getElementById('crBizName').textContent = CR_PARTNERS[v] || (v.length===10?'사업자번호 10자리':'');
+}
+// 총액에서 공급가액·부가세를 가른다. 공급가액=총액/1.1 반올림, 부가세=나머지 → 합이 **반드시** 총액과 같다.
+//   (양식 검증이 "총거래금액 = 공급가액 + 부가가치세" 를 본다)
+//   🔴 단, 원츠비가 **부가세를 넣을 수 없는 사업자**(간이·면세)면 부가세는 0, 공급가액 = 총액이다.
+//   2026-08-24 실제 발급 5건이 전부 부가세 0 이었다(사장님 화면 캡처) → 기본을 0 으로 둔다.
+function crSplit(total, mode){
+  if(mode!=='split') return { supply: total, vat: 0 };
+  const supply=Math.round(total/1.1); return { supply, vat: total-supply };
+}
+function crBuild(){
+  const biz=(document.getElementById('crBiz').value||'').replace(/[^0-9-]/g,'');
+  const use=document.getElementById('crUse').value;
+  const vatMode=document.getElementById('crVat').value;
+  const memoPre=(document.getElementById('crMemo').value||'').trim();
+  const raw=(document.getElementById('crRaw').value||'').trim();
+  const out=document.getElementById('crOut');
+  const bad=[];
+  const digits=biz.replace(/-/g,'');
+  if(digits.length<10||digits.length>19) bad.push('발급수단번호는 10~19자리여야 해요 (지금 '+digits.length+'자리)');
+  if(digits==='3905800826') bad.push('🔴 우리 사업자번호예요. 받는 쪽(거래처) 번호를 넣어야 해요');
+  if(use==='0'&&digits.length===10) bad.push('사업자번호에는 용도구분 1(지출증빙)만 됩니다');
+  const rows=[];
+  for(const line of raw.split(/\r?\n/)){
+    const t=line.trim(); if(!t) continue;
+    const parts=t.split(/[\t,]+/).map(x=>x.trim()).filter(Boolean);
+    const amt=Number(String(parts[parts.length-1]||'').replace(/[^0-9]/g,''));
+    const name=parts.slice(0,-1).join(' ')||'(이름 없음)';
+    if(!amt){ bad.push(`금액을 못 읽었어요: "${t}"`); continue; }
+    if(amt>900000000) bad.push(`${name}: 9억을 넘어요`);
+    const {supply,vat}=crSplit(amt,vatMode);
+    rows.push({name,total:amt,supply,vat,memo:(memoPre?memoPre+' ':'')+name});
+  }
+  if(!rows.length) bad.push('읽을 줄이 없어요');
+  if(bad.length){ out.innerHTML=`<div style="padding:12px;background:#FCF3F3;border:1px solid #F0D5D5;border-radius:10px;font-size:12px;color:#C62828;line-height:1.7">${bad.map(b=>'· '+b).join('<br>')}</div>`; _crRows=null; crBtn(false); return; }
+  const t=rows.reduce((a,r)=>a+r.total,0), s=rows.reduce((a,r)=>a+r.supply,0), v=rows.reduce((a,r)=>a+r.vat,0);
+  _crRows=rows.map(r=>[use,biz,r.total,r.supply,r.vat,r.memo].join('\t')).join('\n');
+  const won=n=>n.toLocaleString('ko-KR');
+  out.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:6px">홈택스 양식 <b>[엑셀업로드 양식]</b> 시트 <b>7행 A열</b>부터 붙여넣으세요 · ${rows.length}건</div>
+  <div style="overflow-x:auto;border:1px solid #EEE;border-radius:10px">
+  <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+    <tr style="background:#F7F5FF;color:#4A35A0;font-weight:700"><td style="padding:6px">용도</td><td style="padding:6px">발급수단번호</td><td style="padding:6px;text-align:right">총거래금액</td><td style="padding:6px;text-align:right">공급가액</td><td style="padding:6px;text-align:right">부가세</td><td style="padding:6px">메모</td></tr>
+    ${rows.map(r=>`<tr style="border-top:1px solid #F2F2F2"><td style="padding:6px">${use}</td><td style="padding:6px">${biz}</td><td style="padding:6px;text-align:right;font-weight:700">${won(r.total)}</td><td style="padding:6px;text-align:right">${won(r.supply)}</td><td style="padding:6px;text-align:right">${won(r.vat)}</td><td style="padding:6px;color:#777">${r.memo}</td></tr>`).join('')}
+    <tr style="background:#FAFAFA;font-weight:800"><td colspan="2" style="padding:7px">합계 ${rows.length}건</td><td style="padding:7px;text-align:right">${won(t)}</td><td style="padding:7px;text-align:right">${won(s)}</td><td style="padding:7px;text-align:right">${won(v)}</td><td></td></tr>
+  </table></div>
+  <div style="font-size:11px;color:${s+v===t?'#2E7D32':'#C62828'};margin-top:6px;font-weight:700">${s+v===t?'✅ 공급가액+부가세 = 총거래금액 (양식 검증 통과 조건)':'🔴 합이 안 맞아요'}</div>`;
+  crBtn(true);
+}
+function crBtn(on){ const b=document.getElementById('crCopyBtn'); b.disabled=!on; b.style.opacity=on?1:.45; }
+function crCopy(){
+  if(!_crRows) return;
+  navigator.clipboard.writeText(_crRows).then(()=>{
+    const b=document.getElementById('crCopyBtn'); const o=b.textContent;
+    b.textContent='✅ 복사됨'; setTimeout(()=>{b.textContent=o;},1600);
+  }).catch(()=>alert('복사에 실패했어요. 표를 직접 긁어서 복사해 주세요.'));
+}
+
 function openCatFix(){
   const m=document.getElementById('catFixModal');
   m.style.display='flex';
