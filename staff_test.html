@@ -471,15 +471,16 @@ function tdMarks(r){
   return m.filter(x=>x.d);
 }
 
-let TODO_ROWS=[], TODO_AT='';
+let TODO_ROWS=[], TODO_AT='', TODO_DENIED=false;
 async function todoLoad(force){
   const box=document.getElementById('todoBody');
   if(TODO_ROWS.length && !force){ todoRender(); return; }
   box.innerHTML='<div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div>';
   try{
-    const res=await fetch(SB_URL+'/rest/v1/vendor_todo?id=eq.1&select=payload,updated_at',{headers:sbHeaders()});
+    const res=await fetch(SB_URL+'/rest/v1/rpc/vendor_todo_read',
+      {method:'POST',headers:sbHeaders(),body:'{}'});
     const j=await res.json();
-    if(!res.ok) throw new Error((j&&j.message)||('HTTP '+res.status));
+    if(!res.ok){ const e=new Error((j&&j.message)||('HTTP '+res.status)); e.denied=res.status===400||res.status===403; throw e; }
     if(!Array.isArray(j)||!j.length){
       box.innerHTML='<div class="card" style="color:#888;font-size:13px">아직 받은 내용이 없습니다.<br><span style="font-size:11px;color:#aaa">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 해 주세요.</span></div>';
       return;
@@ -487,6 +488,13 @@ async function todoLoad(force){
     TODO_ROWS = Array.isArray(j[0].payload) ? j[0].payload : [];
     TODO_AT   = j[0].updated_at||'';
   }catch(e){
+    if(e.denied){                       // 볼 수 있는 명단에 없는 계정 — 탭째로 감춘다
+      TODO_DENIED=true;
+      const tb=document.getElementById('t-todo'); if(tb) tb.style.display='none';
+      const vw=document.getElementById('v-todo'); if(vw) vw.style.display='none';
+      if(document.getElementById('t-exp')) showTab('exp');
+      return;
+    }
     box.innerHTML='<div class="card" style="color:#C62828;font-size:13px">불러오지 못했습니다 — '+tdEsc(e.message)+'</div>';
     return;
   }
@@ -563,12 +571,20 @@ async function loadRole(){
   if(IS_ADMIN){
     const st=document.getElementById('t-staff'); if(st) st.style.display='';   // 스탭 관리는 사장님만
   }
-  //  📋 오늘 할 일 — 스탭·관리자면 열어 주고, 로그인하면 여기부터 뜨게 한다
+  //  📋 오늘 할 일 — 스탭이라고 다 보이지 않는다.
+  //  서버가 「볼 수 있는 명단」에 있는 계정에만 자료를 준다(vendor_todo_read).
+  //  먼저 조용히 불러 보고, 받아지는 사람에게만 탭을 띄운다.
   if(IS_ADMIN||IS_STAFF){
-    const td=document.getElementById('t-todo'); if(td) td.style.display='';
-    //  loadRole 은 비동기라 늦게 끝난다. 그 사이 다른 탭을 눌렀으면 뺏지 않는다.
-    const ex=document.getElementById('t-exp');
-    if(ex&&ex.classList.contains('on')) showTab('todo');
+    try{
+      await todoLoad(1);
+      const got=document.getElementById('t-todo');
+      if(got && !TODO_DENIED){
+        got.style.display='';
+        const ex=document.getElementById('t-exp');
+        //  loadRole 은 비동기라 늦게 끝난다. 그 사이 다른 탭을 눌렀으면 뺏지 않는다.
+        if(ex&&ex.classList.contains('on')) showTab('todo');
+      }
+    }catch(_){}
   }
   if(!IS_ADMIN && !IS_STAFF){
     ['exp'].forEach(x=>{ const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none'; });
