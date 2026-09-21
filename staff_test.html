@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 · 스탭 (테스트)</title>
+<style>
+  :root{--p:#602090;--p2:#4A35A0;--bd:#EBEBEB;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F2FB;color:#222}
+  .topbar{background:var(--p);color:#fff;padding:13px 16px;font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+  .logout{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit}
+  .tabs{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:10}
+  .tab{flex:1;padding:13px 4px;text-align:center;font-size:14px;font-weight:700;color:#999;cursor:pointer;border-bottom:3px solid transparent}
+  .tab.on{color:var(--p);border-bottom-color:var(--p)}
+  .view{padding:14px;padding-bottom:90px;max-width:640px;margin:0 auto}
+  .card{background:#fff;border:1.5px solid #E4DBF7;border-radius:14px;padding:16px;margin-bottom:12px}
+  label{font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px}
+  input,select,textarea{width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:#fff}
+  input:focus,select:focus{border-color:var(--p)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mt{margin-top:10px}
+  .hint{font-size:11px;min-height:15px;margin-top:4px}
+  .req{color:#C62828;font-weight:800}
+  .gg-row{border:1.5px solid #E4DBF7;border-radius:12px;padding:10px;margin-bottom:8px;background:#FCFAFF}
+  .gg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .gg-del{width:30px;height:30px;flex-shrink:0;background:#F3EEFC;color:var(--p);border:none;border-radius:8px;font-size:14px;cursor:pointer;padding:0}
+  .gg-clone{flex-shrink:0;background:#EDE7FB;color:var(--p);border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;padding:0 9px;height:30px;font-family:inherit}
+  .gg-lab{font-size:11px;color:#666;margin-bottom:3px;font-weight:600}
+  .gg-row input,.gg-row select{padding:9px;font-size:13px}
+  .gg-row .mt{margin-top:6px}
+  .gg-head{margin-bottom:5px}
+  .gg-lab{margin-bottom:2px}
+  .gg-row .gg-hint,.gg-row .gg-dup{min-height:0;margin-top:0;line-height:1.35}
+  .gg-row .gg-hint:empty,.gg-row .gg-dup:empty{display:none}
+  .gg-row .gg-hint:not(:empty),.gg-row .gg-dup:not(:empty){margin-top:4px}
+  .btn{width:100%;padding:13px;background:var(--p2);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:14px}
+  .btn:active{opacity:.85}
+  .gate{max-width:360px;margin:70px auto 0;text-align:center;padding:0 16px}
+  .gate h1{font-size:22px;color:var(--p)}
+  .ct-row{background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px}
+  .copy{padding:9px 14px;background:var(--p2);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
+  .modal .inner{background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:18px}
+  .x{background:none;border:none;font-size:22px;cursor:pointer;color:#999}
+  .glist-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:9px 10px;margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="gate" class="gate">
+  <h1>맘캘린더 스탭</h1>
+  <p id="gateSub" style="color:#888;font-size:13px">스탭 계정으로 로그인하세요</p>
+
+  <div id="loginForm">
+    <input id="loginEmail" type="text" placeholder="아이디" style="margin-bottom:8px" autocomplete="username">
+    <input id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn" onclick="doLogin()">로그인</button>
+    <div style="margin-top:13px;font-size:12px;color:#888">계정이 없나요? <a href="#" onclick="showSignup();return false" style="color:var(--p);font-weight:700;text-decoration:none">회원가입</a></div>
+  </div>
+
+  <div id="signupForm" style="display:none">
+    <input id="suId" type="text" placeholder="아이디 (영문·숫자 3자 이상)" style="margin-bottom:8px" autocomplete="username">
+    <input id="suPw" type="password" placeholder="비밀번호 (6자 이상)" style="margin-bottom:8px" autocomplete="new-password">
+    <input id="suPw2" type="password" placeholder="비밀번호 확인" style="margin-bottom:8px" autocomplete="new-password">
+    <input id="suCode" type="text" placeholder="가입코드" onkeydown="if(event.key==='Enter')doSignup()">
+    <button class="btn" onclick="doSignup()">가입하기</button>
+    <div style="margin-top:13px;font-size:12px;color:#888">이미 계정이 있나요? <a href="#" onclick="showLogin();return false" style="color:var(--p);font-weight:700;text-decoration:none">로그인</a></div>
+  </div>
+
+  <div id="gateMsg" style="color:#C62828;font-size:12px;margin-top:8px"></div>
+</div>
+
+<!-- 앱 -->
+<div id="app" style="display:none">
+  <div class="topbar"><span>📅 맘캘린더 스탭 <b id="roleTag" style="font-size:11px;font-weight:500;opacity:.75"></b></span><button class="logout" onclick="doLogout()">로그아웃</button></div>
+  <div class="tabs">
+    <!-- 사장님 지시(2026-08-04): 체험단·인스타카드만 노출. 나머지는 코드는 두되 탭을 감춘다 -->
+    <div class="tab" id="t-todo" onclick="showTab('todo')" style="display:none">📋 오늘 할 일</div>
+    <div class="tab" id="t-gonggu" onclick="showTab('gonggu')" style="display:none">📦 공구</div>
+    <div class="tab" id="t-hotdeal" onclick="showTab('hotdeal')" style="display:none">🔥 핫딜</div>
+    <div class="tab on" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
+    <div class="tab" id="t-fix" onclick="showTab('fix')" style="display:none">🏷 분류 수정</div>
+    <div class="tab" id="t-card" onclick="showTab('card')">📸 인스타 카드</div>
+    <div class="tab" id="t-seller" onclick="goSellerDesk()">🧾 셀러 정보받기</div>
+    <div class="tab" id="t-staff" onclick="showTab('staff')" style="display:none">👥 스탭 관리</div>
+  </div>
+
+  <!-- 공구 -->
+  <!-- ───────── 📋 오늘 할 일 (벤더 운영시트 연동) ───────── -->
+  <div class="view" id="v-todo" style="display:none">
+    <div class="card">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <b style="font-size:17px">오늘 할 일</b>
+        <span id="todoToday" style="font-size:12px;color:#888"></span>
+        <span id="todoStamp" style="font-size:11px;color:#aaa;margin-left:auto"></span>
+        <button onclick="todoLoad(1)" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer;font-family:inherit">새로고침</button>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px">
+        벤더 운영시트(마스터)에서 30분마다 받아옵니다. 고치는 곳은 시트입니다.
+      </div>
+    </div>
+    <div id="todoBody" style="margin-top:10px"><div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div></div>
+  </div>
+  <div class="view" id="v-gonggu">
+    <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:6px">🤖 AI 텍스트로 한 번에</div>
+      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:8px">셀러와 일정을 붙여넣으면 자동으로 행을 만들어줘요. 셀러 한 명의 한 달 일정을 통째로 넣기 좋아요.<br>형식 예) <b>@ttobomom 또또맘</b> (또는 등록된 셀러는 <b>한글명만</b>) 줄 아래에 <b>9/1~9/5 과자</b> / <b>9/3 사과</b> 처럼 한 줄에 하나씩.</div>
+      <textarea id="ggAiText" placeholder="@ttobomom 또또맘&#10;9/1~9/5 과자&#10;9/3 유기농닭&#10;&#10;도란도란&#10;9/2~9/6 우유" style="width:100%;height:150px;padding:11px;border:1.5px solid var(--bd);border-radius:10px;font-size:13px;font-family:inherit;outline:none;resize:vertical;line-height:1.7;box-sizing:border-box"></textarea>
+      <button onclick="ggAiParse()" style="width:100%;margin-top:8px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">🤖 분석해서 행 만들기</button>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:6px">⚡ 공구 등록 <span style="font-size:11px;color:#aaa;font-weight:600">(여러 건 한 번에)</span></div>
+      <div style="font-size:11px;color:#888;line-height:1.7;margin-bottom:10px"><span class="req">*</span> 는 필수예요. 셀러는 등록된 곳이면 한글명/＠아이디 입력 시 자동 연결돼요. 처음 셀러면 한글명·＠아이디를 둘 다 넣어주세요(다음부턴 자동완성). 같은 셀러의 다른 상품은 <b>➕ 셀러 복사</b>로 셀러를 그대로 둔 새 줄을 만들 수 있어요. <b>＋ 줄 추가</b>로 여러 건을 쭉 등록!</div>
+      <datalist id="sellerList"></datalist>
+      <div id="ggRows"></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button onclick="addGgRow()" style="flex:1;padding:12px;background:#fff;color:var(--p);border:1.5px solid var(--p);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+        <button onclick="saveGongguRows()" style="flex:2;padding:12px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">⚡ 전체 등록</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:800;color:var(--p);margin-bottom:8px">✏️ 공구 수정 <span style="font-size:11px;color:#aaa;font-weight:600">(어느 칸이든 바꾸면 바로 자동저장 · 삭제는 불가)</span></div>
+      <input id="gSearch" type="text" placeholder="🔍 상품명/셀러로 찾기" oninput="gFilter.shown=120;renderGongguList()">
+      <div id="gFilters" style="margin-top:8px"></div>
+      <div id="gCount" style="margin-top:8px;font-size:11px;color:#888;font-weight:700"></div>
+      <div id="gongguList" style="margin-top:8px"><div style="color:#aaa;font-size:12px">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 핫딜 (관리자 동일) -->
+  <div class="view" id="v-hotdeal" style="display:none">
+    <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
+      제목·링크를 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 최신순으로 노출됩니다.
+    </div>
+    <div style="background:#fff;border:1.5px solid #EBD9D2;border-radius:12px;padding:11px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:#993C1D;margin-bottom:6px">📋 여러 줄 붙여넣기 <span style="font-size:11px;color:#aaa;font-weight:400">(한 줄에 하나씩 · 제목+링크 같이 또는 링크만)</span></div>
+      <textarea id="hdBulk" rows="7" placeholder="타임 속옷 https://cafe.naver.com/...&#10;A상품 https://cafe.naver.com/...&#10;(링크만 붙여넣어도 됩니다 · 제목은 비워두고 나중에 채우기 가능)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+      <button onclick="hdBulkParse()" style="width:100%;margin-top:7px;padding:10px;background:#993C1D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">⬇️ 붙여넣은 만큼 행 만들기</button>
+    </div>
+    <div id="hdRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addHdRow()" style="flex:1;padding:11px;background:#fff;color:#D85A30;border:1.5px solid #D85A30;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveHotdealRows()" style="flex:2;padding:11px;background:#D85A30;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔥 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 핫딜</div>
+    <div id="hdAdminList"></div>
+  </div>
+
+  <!-- 체험단 (관리자 동일) -->
+  <div class="view" id="v-exp" style="display:none">
+    <div style="background:#E1F5EE;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#0A5D52;line-height:1.7">
+      제목·링크·모집인원·마감일을 입력하고 분류를 선택하세요. <b>＋ 줄 추가</b>로 여러 개를 한 번에 등록할 수 있어요. 마감일이 지나면 자동 회색 처리됩니다.
+    </div>
+    <div id="exRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addExRow()" style="flex:1;padding:11px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveExperienceRows()" style="flex:2;padding:11px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🎁 전체 등록</button>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 체험단</div>
+    <div id="exAdminList"></div>
+  </div>
+
+  <!-- ── 🏷 분류 수정 ── 스태프는 여기서만 DB를 건드린다(대분류·소분류·중복오탐).
+       등록·삭제는 서버(RLS)에서 아예 막혀 있다. -->
+  <div class="view" id="v-fix" style="display:none">
+    <div class="sec">
+      <div class="sec-h">🏷 분류 수정 <span style="font-size:11px;color:#888;font-weight:400">대분류·소분류만 고칠 수 있어요</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <input id="fxQ" placeholder="상품명 · 셀러명 검색" style="flex:1;min-width:150px" onkeydown="if(event.key==='Enter')fxLoad()">
+        <select id="fxMode" style="width:130px">
+          <option value="all">전체</option>
+          <option value="nocat">소분류 없음</option>
+          <option value="auto">자동분류(미확인)</option>
+        </select>
+        <button class="copy" style="width:auto;padding:0 14px" onclick="fxLoad()">불러오기</button>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">오늘 기준 <b>최근 60일</b> 공구만 보여줍니다 · 최대 200건</div>
+      <div id="fxList"></div>
+    </div>
+  </div>
+
+  <!-- ── 📸 인스타 카드 ── -->
+  <!-- ── 👥 스탭 관리 ── 관리자만 보인다. 가입한 사람에게 권한을 주거나 뺀다. -->
+  <div class="view" id="v-staff" style="display:none">
+    <div class="sec">
+      <div class="sec-h">🙋 승인 대기 <span style="font-size:11px;color:#888;font-weight:400">가입만 하고 아직 권한이 없는 사람</span></div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">
+        승인하면 <b>체험단 등록·수정·삭제</b>와 <b>인스타 카드</b>를 쓸 수 있습니다. 공구·핫딜은 여전히 사장님만 가능합니다.
+      </div>
+      <div id="stPending"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-h">👥 현재 스탭</div>
+      <div id="stList"></div>
+    </div>
+  </div>
+
+  <!-- 탭을 누르면 곧바로 카드 화면이 뜬다(버튼 한 번 더 누르지 않게). 최초 1회만 로드. -->
+  <div class="view" id="v-card" style="display:none;padding:0">
+    <iframe id="cardFrame" title="인스타 카드 만들기"
+            style="display:block;width:100%;height:calc(100vh - 96px);border:0;background:#3A3145"></iframe>
+    <div id="cardFallback" style="display:none;padding:14px;font-size:12px;color:#666">
+      화면이 안 뜨면 <a href="#" onclick="openReelCard();return false" style="color:var(--p);font-weight:700">새 탭에서 열기</a>를 눌러주세요.
+    </div>
+  </div>
+</div>
+
+<!-- 카페 글 모달 -->
+<div id="cafeModal" class="modal">
+  <div class="inner">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:800;color:var(--p2)">📋 카페 글 만들기</div>
+      <button class="x" onclick="document.getElementById('cafeModal').style.display='none'">×</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin:4px 0 12px;line-height:1.6">버튼을 누르면 <b>제목+결제링크가 한 번에 복사</b>돼요. 글쓰기 화면이 뜨면 <b>본문에 그대로 붙여넣기(Ctrl+V)</b> → 맨 윗줄 <b>제목만 잘라내기(Ctrl+X)</b> 해서 위 제목칸에 붙여넣기 → 말머리 선택하면 끝!</div>
+    <button id="cafeWriteBtn" onclick="openCafeWrite()" style="width:100%;padding:12px;background:#03C75A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px">📝 글쓰기 열기 (제목+링크 복사됨)</button>
+    <label>제목 + 결제링크 <span style="font-size:10px;color:#aaa;font-weight:400">(윗줄=제목 / 아랫줄=링크)</span></label>
+    <textarea id="cafeCombo" readonly style="height:84px"></textarea>
+    <button class="copy" onclick="copyTa('cafeCombo',this)">📋 제목+링크 한 번에 복사</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="copy" style="flex:1;background:#F0F0F0;color:#555" onclick="copyTa('cafeTitle',this)">제목만 복사</button>
+      <button class="copy" style="flex:1;background:#F0F0F0;color:#555" onclick="copyTa('cafeLink',this)">링크만 복사</button>
+    </div>
+    <textarea id="cafeTitle" readonly style="display:none"></textarea>
+    <textarea id="cafeLink" readonly style="display:none"></textarea>
+  </div>
+</div>
+
+<script>
+const SB_URL='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const SB_KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+let ACCESS_TOKEN=SB_KEY;
+function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+ACCESS_TOKEN,'Content-Type':'application/json'},extra||{});}
+const HD_URL=SB_URL+'/rest/v1/hotdeals';
+const EX_URL=SB_URL+'/rest/v1/experiences';
+
+const CATS_LIST={
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
+  '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
+  '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
+  '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
+  '여행':['호텔/숙소','항공권','패키지/투어'],
+  '반려동물':['강아지','고양이','사료','간식'],
+};
+function catOptions(sel){ return Object.keys(CATS_LIST).map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join(''); }
+function minorOptions(major,sel){ return (CATS_LIST[major]||[]).map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join(''); }
+function rowSyncMinor(selEl){ const row=selEl.closest('.ct-row'); row.querySelector('.ct-minor').innerHTML=minorOptions(selEl.value,''); }
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ───────── 로그인 / 회원가입 ─────────
+const STAFF_DOMAIN='@staff.momcal';
+const SIGNUP_CODE='momcal260610';   // ← 사장님이 원하는 가입코드로 바꾸세요. 이 코드를 아는 스탭만 가입할 수 있어요.
+function idToEmail(v){ v=(v||'').trim().toLowerCase(); return v.includes('@')?v:v+STAFF_DOMAIN; }
+
+function showSignup(){ document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block'; document.getElementById('gateSub').textContent='새 스탭 계정 만들기'; document.getElementById('gateMsg').textContent=''; }
+function showLogin(){ document.getElementById('signupForm').style.display='none'; document.getElementById('loginForm').style.display='block'; document.getElementById('gateSub').textContent='스탭 계정으로 로그인하세요'; document.getElementById('gateMsg').textContent=''; }
+
+function saveSession(d){ try{ localStorage.setItem('staffSess', JSON.stringify({rt:d.refresh_token||'', at:d.access_token||''})); }catch(_){} }
+function clearSession(){ try{ localStorage.removeItem('staffSess'); sessionStorage.removeItem('staffTok'); }catch(_){} }
+
+async function doLogin(){
+  const email=idToEmail(document.getElementById('loginEmail').value);
+  const pw=document.getElementById('loginPw').value;
+  const msg=document.getElementById('gateMsg');
+  if(!document.getElementById('loginEmail').value.trim()||!pw){ msg.textContent='아이디와 비밀번호를 입력하세요.'; return; }
+  msg.textContent='로그인 중…';
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,password:pw})
+    });
+    const data=await res.json();
+    if(!res.ok||!data.access_token){ msg.textContent='로그인 실패: 아이디/비밀번호를 확인하세요.'; return; }
+    ACCESS_TOKEN=data.access_token; saveSession(data); enterApp();
+  }catch(e){ msg.textContent='로그인 오류: '+(e&&e.message||e); }
+}
+
+async function doSignup(){
+  const idRaw=document.getElementById('suId').value.trim();
+  const pw=document.getElementById('suPw').value;
+  const pw2=document.getElementById('suPw2').value;
+  const code=document.getElementById('suCode').value.trim();
+  const msg=document.getElementById('gateMsg');
+  if(code!==SIGNUP_CODE){ msg.textContent='가입코드가 올바르지 않아요. 사장님에게 코드를 받아주세요.'; return; }
+  if(!/^[a-zA-Z0-9._-]{3,}$/.test(idRaw)){ msg.textContent='아이디는 영문·숫자 3자 이상으로 입력하세요.'; return; }
+  if(pw.length<6){ msg.textContent='비밀번호는 6자 이상으로 입력하세요.'; return; }
+  if(pw!==pw2){ msg.textContent='비밀번호가 일치하지 않아요.'; return; }
+  msg.textContent='가입 중…';
+  // ⚠️ /auth/v1/signup 은 못 쓴다. 7/23 보안 정비 때 공개 회원가입(disable_signup)을 껐기 때문에
+  //    항상 "Signups not allowed for this instance" 가 뜬다(사장님 지적 2026-08-10).
+  //    → 가입코드를 서버에서 확인하고 계정을 만들어 주는 staff-signup 을 쓴다.
+  //    계정만 생기고 권한은 없다. 사장님이 스탭 관리에서 승인해야 쓸 수 있다.
+  try{
+    const res=await fetch(`${SB_URL}/functions/v1/staff-signup`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:idToEmail(idRaw), password:pw, code:code})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){ msg.textContent = data.error || ('가입 실패 (오류 '+res.status+')'); return; }
+    // 만들어졌으니 곧바로 로그인시킨다
+    const lr=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email:idToEmail(idRaw),password:pw})
+    });
+    const ld=await lr.json().catch(()=>({}));
+    if(lr.ok && ld.access_token){
+      ACCESS_TOKEN=ld.access_token; saveSession(ld);
+      alert('가입 완료!\n사장님이 승인하면 체험단·인스타 카드를 쓸 수 있어요.'); enterApp();
+    }else{
+      msg.style.color='#0F6E56';
+      msg.textContent='가입됐어요. 로그인 화면에서 같은 아이디로 로그인해 주세요.';
+    }
+  }catch(e){ msg.textContent='가입 오류: '+(e&&e.message||e); }
+}
+
+function doLogout(){ clearSession(); location.reload(); }
+function enterApp(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  showTab('exp');                   // 기본 화면 = 체험단 (관리자가 아니면 loadRole 이 카드로 바꾼다)
+  loadRole();                       // 스태프면 등록 탭을 감춘다
+  loadSellers();
+  addHdRow(); addExRow();
+}
+
+// 자동 로그인: 저장된 refresh_token으로 세션 복구
+async function restoreSession(){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem('staffSess')||'null'); }catch(_){}
+  // 구버전 세션(sessionStorage)도 한 번 받아줌
+  if(!s||!s.rt){ try{ const t=sessionStorage.getItem('staffTok'); if(t){ ACCESS_TOKEN=t; enterApp(); } }catch(_){} return; }
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:s.rt})
+    });
+    const data=await res.json();
+    if(res.ok&&data.access_token){ ACCESS_TOKEN=data.access_token; saveSession(data); enterApp(); }
+    else { clearSession(); }
+  }catch(_){ clearSession(); }
+}
+window.addEventListener('DOMContentLoaded',restoreSession);
+
+// 🧾 셀러 정보받기 — 셀러 온보딩 폼 접수함(sellerdesk)으로 보낸다.
+//   같은 Supabase 로그인을 쓰므로 스탭 토큰을 그대로 넘겨 다시 로그인하지 않게 한다.
+function goSellerDesk(){
+  try{ if(ACCESS_TOKEN) localStorage.setItem('staffSess', JSON.stringify({rt:(JSON.parse(localStorage.getItem('staffSess')||'{}').rt)||'', at:ACCESS_TOKEN})); }catch(_){}
+  location.href='sellerdesk.html';
+}
+
+// ───────── 탭 ─────────
+function showTab(t){
+  ['todo','gonggu','hotdeal','exp','fix','card','staff'].forEach(x=>{
+    const tb=document.getElementById('t-'+x), vw=document.getElementById('v-'+x);
+    if(!tb||!vw) return;
+    tb.classList.toggle('on',x===t);
+    vw.style.display=(x===t)?'block':'none';
+  });
+  if(t==='todo') todoLoad();
+  if(t==='hotdeal') loadHotdealAdmin();
+  if(t==='exp') loadExpAdmin();
+  if(t==='fix') fxLoad();
+  if(t==='card') mountReelCard();
+  if(t==='staff') stLoad();
+}
+
+// ───────── 👥 스탭 관리 (관리자 전용) ─────────
+// auth.users 는 브라우저에서 못 읽으므로 전부 RPC 로만 다룬다. 함수 안에서 관리자 여부를 다시 확인한다.
+async function stRpc(fn, body){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,
+    {method:'POST', headers:sbHeaders(), body:JSON.stringify(body||{})});
+  const d = await r.json().catch(()=>null);
+  if(!r.ok) throw new Error((d&&(d.message||d.hint))||('오류 '+r.status));
+  return d;
+}
+function stEsc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function stDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?'':`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`; }
+
+async function stLoad(){
+  const p=document.getElementById('stPending'), l=document.getElementById('stList');
+  if(!p||!l) return;
+  p.innerHTML='<div style="color:#888;font-size:12px;padding:10px">불러오는 중…</div>';
+  l.innerHTML='';
+  try{
+    const [pend, list] = await Promise.all([stRpc('admin_staff_pending'), stRpc('admin_staff_list')]);
+    p.innerHTML = (Array.isArray(pend)&&pend.length)
+      ? pend.map(x=>`<div class="glist-card" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="flex:1;min-width:110px">${stEsc(x.login_id)}</b>
+          <span style="font-size:11px;color:#999">가입 ${stDate(x.created_at)}</span>
+          <button class="copy" style="width:auto;padding:0 14px;height:32px"
+                  onclick="stApprove('${x.user_id}','${stEsc(x.login_id)}')">승인</button>
+        </div>`).join('')
+      : '<div style="color:#888;font-size:12px;padding:10px">승인 기다리는 사람이 없어요</div>';
+    l.innerHTML = (Array.isArray(list)&&list.length)
+      ? list.map(x=>`<div class="glist-card" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="flex:1;min-width:110px">${stEsc(x.login_id)}</b>
+          ${x.memo?`<span style="font-size:11px;color:#888">${stEsc(x.memo)}</span>`:''}
+          <span style="font-size:11px;color:#999">승인 ${stDate(x.added_at)}</span>
+          <button class="copy" style="width:auto;padding:0 12px;height:32px;background:#fff;color:#C62828;border:1px solid #E8C4C4"
+                  onclick="stRevoke('${x.user_id}','${stEsc(x.login_id)}')">권한 해제</button>
+        </div>`).join('')
+      : '<div style="color:#888;font-size:12px;padding:10px">아직 스탭이 없어요</div>';
+  }catch(e){
+    p.innerHTML='<div style="color:#c33;font-size:12px;padding:10px">'+stEsc(e.message)+'</div>';
+  }
+}
+async function stApprove(uid, name){
+  const memo = prompt(`"${name}" 님을 스탭으로 승인합니다.\n메모(누구인지 적어두면 나중에 편해요) — 비워도 됩니다.`, '');
+  if(memo===null) return;                       // 취소
+  try{ await stRpc('admin_staff_approve',{p_user:uid, p_memo:memo}); await stLoad(); }
+  catch(e){ alert('승인 실패: '+e.message); }
+}
+async function stRevoke(uid, name){
+  if(!confirm(`"${name}" 님의 권한을 해제할까요?\n계정은 남고, 체험단·인스타 카드를 쓸 수 없게 됩니다.`)) return;
+  try{ await stRpc('admin_staff_revoke',{p_user:uid}); await stLoad(); }
+  catch(e){ alert('해제 실패: '+e.message); }
+}
+
+// 인스타 카드를 탭 안에 붙인다. 이미 붙어 있으면 다시 로드하지 않는다(작업 중이던 내용 보존).
+function mountReelCard(){
+  const f=document.getElementById('cardFrame');
+  if(!f || f.dataset.on==='1') return;
+  f.dataset.on='1';
+  f.src=reelCardUrl();
+  f.onerror=function(){ document.getElementById('cardFallback').style.display='block'; };
+}
+
+
+// ───────── 📋 오늘 할 일 (벤더 운영시트 → Supabase → 여기) ─────────
+//  시트의 「할 일」 칸을 그대로 가져온다. 여기서 일을 다시 판단하지 않는다.
+//  날짜만 이 화면에서 따진다 — 어느 줄이 어제·오늘·내일에 걸리는지.
+//  ⚠ 날짜는 전부 'YYYY-MM-DD' 글자로 비교한다 (서울 기준. 시차로 하루 밀리지 않게)
+function tdToday(){
+  const d=new Date(Date.now()+9*3600*1000);      // UTC+9 = 서울
+  return d.toISOString().slice(0,10);
+}
+function tdAdd(ymd,n){
+  if(!ymd) return '';
+  const p=ymd.split('-').map(Number), dt=new Date(Date.UTC(p[0],p[1]-1,p[2]+n));
+  return dt.toISOString().slice(0,10);
+}
+// 원천세 신고기한 = 지급한 달의 다음달 10일
+function tdFiling(paid){
+  if(!paid) return '';
+  const p=paid.split('-').map(Number), dt=new Date(Date.UTC(p[0],p[1],10));
+  return dt.toISOString().slice(0,10);
+}
+function tdEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tdWon(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+
+// 한 줄에서 「무슨 일이 언제」를 뽑는다. 날짜가 없는 항목은 빼고.
+function tdMarks(r){
+  const m=[];
+  const done = r.stage==='지급완료' || r.stage==='신고완료';
+  if(r.open && r.share!=='완료')                 m.push({d:tdAdd(r.open,-7), t:'판매링크 공유'});
+  if(r.open && r.sample!=='완료')                m.push({d:tdAdd(r.open,-3), t:'샘플 확인'});
+  if(r.open)                                     m.push({d:r.open,  t:'공구 오픈'});
+  if(r.close)                                    m.push({d:r.close, t:'공구 마감'});
+  if(r.settle && !done)                          m.push({d:r.settle,t:'정산 지급'});
+  if(r.paid && r.type==='개인' && r.stage==='지급완료')
+                                                 m.push({d:tdFiling(r.paid), t:'원천세 신고'});
+  return m.filter(x=>x.d);
+}
+
+let TODO_ROWS=[], TODO_AT='';
+async function todoLoad(force){
+  const box=document.getElementById('todoBody');
+  if(TODO_ROWS.length && !force){ todoRender(); return; }
+  box.innerHTML='<div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div>';
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/vendor_todo?id=eq.1&select=payload,updated_at',{headers:sbHeaders()});
+    const j=await res.json();
+    if(!res.ok) throw new Error((j&&j.message)||('HTTP '+res.status));
+    if(!Array.isArray(j)||!j.length){
+      box.innerHTML='<div class="card" style="color:#888;font-size:13px">아직 받은 내용이 없습니다.<br><span style="font-size:11px;color:#aaa">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 해 주세요.</span></div>';
+      return;
+    }
+    TODO_ROWS = Array.isArray(j[0].payload) ? j[0].payload : [];
+    TODO_AT   = j[0].updated_at||'';
+  }catch(e){
+    box.innerHTML='<div class="card" style="color:#C62828;font-size:13px">불러오지 못했습니다 — '+tdEsc(e.message)+'</div>';
+    return;
+  }
+  todoRender();
+}
+
+function todoRender(){
+  const T=tdToday(), Y=tdAdd(T,-1), N=tdAdd(T,1);
+  document.getElementById('todoToday').textContent=T.slice(5).replace('-','/')+' 기준 · 어제~내일 3일';
+  const st=document.getElementById('todoStamp');
+  if(st) st.textContent = TODO_AT ? '시트 기준 '+new Date(TODO_AT).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  document.getElementById('todoBody').innerHTML = todoHtml(TODO_ROWS, T);
+}
+
+// ⚠ 순수 함수 — 화면·로그인 없이도 그대로 시험할 수 있다
+function todoHtml(rows, T){
+  const Y=tdAdd(T,-1), N=tdAdd(T,1), win={}; win[Y]='어제'; win[T]='오늘'; win[N]='내일';
+  const G={'🔴 밀린 일':[], '어제':[], '오늘':[], '내일':[]};
+  (rows||[]).forEach(r=>{
+    const hit=tdMarks(r).filter(m=>win[m.d]);
+    if(hit.length){
+      const day=hit.some(m=>m.d===T)?'오늘':(hit.some(m=>m.d===Y)?'어제':'내일');
+      G[day].push({r:r, marks:hit.map(m=>m.t)});
+    }else{
+      //  3일 창을 벗어난 것도 「밀린 일」로 올린다 —
+      //  ①시트가 🔴 로 잡은 건 ②기한이 지났는데 아직 안 끝난 정산·신고
+      const late=tdMarks(r).filter(m=>m.d<Y&&(m.t==='정산 지급'||m.t==='원천세 신고'));
+      if(String(r.urgent||'').indexOf('🔴')===0||late.length)
+        G['🔴 밀린 일'].push({r:r, marks:late.map(m=>m.t+' '+m.d.slice(5)+' 지남')});
+    }
+  });
+  let html='', any=0;
+  ['🔴 밀린 일','어제','오늘','내일'].forEach(g=>{
+    const list=G[g]; if(!list.length) return; any+=list.length;
+    list.sort((a,b)=>(String(b.r.urgent||'').indexOf('🔴')===0?1:0)-(String(a.r.urgent||'').indexOf('🔴')===0?1:0));
+    const tone = g==='오늘' ? '#0F6E56' : (g==='🔴 밀린 일' ? '#C62828' : '#888');
+    html+='<div style="margin:14px 2px 6px;font-size:13px;font-weight:800;color:'+tone+'">'+tdEsc(g)+' <span style="font-weight:600;color:#bbb">'+list.length+'</span></div>';
+    list.forEach(x=>{ html+=todoCard(x.r,x.marks); });
+  });
+  if(!any) html='<div class="card" style="color:#888;font-size:13px">어제·오늘·내일 할 일이 없습니다 👍</div>';
+  return html;
+}
+
+function todoCard(r,marks){
+  const hot=String(r.urgent||'').indexOf('🔴')===0;
+  const chips=marks.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#EEF3FF;color:#1967d2;font-size:11px;font-weight:700;margin-right:4px">'+tdEsc(t)+'</span>').join('');
+  return '<div class="card" style="padding:12px 13px;margin-bottom:8px;'+(hot?'border-left:4px solid #C62828':'border-left:4px solid #E8E8E8')+'">'
+    +'<div style="font-size:11px;color:#999;margin-bottom:3px">'+chips+(r.urgent?'<span style="color:#C62828;font-weight:700">'+tdEsc(r.urgent)+'</span>':'')+'</div>'
+    +'<div style="font-size:14px;font-weight:800;line-height:1.45">'+tdEsc(r.todo||marks.join(' · ')||'확인')+'</div>'
+    +'<div style="font-size:12px;color:#666;margin-top:5px">'
+      +tdEsc(r.seller)+' · '+tdEsc(r.prod)
+      +(r.open?'<br><span style="color:#999">공구 '+tdEsc(r.open.slice(5))+' ~ '+tdEsc((r.close||'').slice(5))+'</span>':'')
+      +(r.settle?'<span style="color:#999"> · 정산 '+tdEsc(r.settle.slice(5))+(r.pay?' · '+tdWon(r.pay)+'원':'')+'</span>':'')
+    +'</div>'
+    +(r.srook?'<div style="font-size:11px;color:#aaa;margin-top:4px">스룩 검색어: '+tdEsc(r.srook)+'</div>':'')
+    +'</div>';
+}
+
+// ───────── 권한 ─────────
+// 스태프는 등록·삭제가 서버에서 막혀 있다(RLS). 화면에서도 해당 탭을 감춰 헷갈리지 않게 한다.
+let IS_ADMIN=false, IS_STAFF=false;
+async function loadRole(){
+  try{
+    const r=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/rpc/is_app_admin`,{method:'POST',headers:sbHeaders(),body:'{}'}).then(x=>x.json()),
+      fetch(`${SB_URL}/rest/v1/rpc/is_app_staff`,{method:'POST',headers:sbHeaders(),body:'{}'}).then(x=>x.json())
+    ]);
+    IS_ADMIN=r[0]===true; IS_STAFF=r[1]===true;
+  }catch(_){ IS_ADMIN=false; IS_STAFF=false; }
+  // 스태프도 체험단·핫딜은 등록·수정·삭제 가능(사장님 지시 2026-08-04·05, RLS exp_write/hotdeals_admin_all 확장).
+  // 공구(gonggu)는 여전히 서버에서 막혀 있다 → 명단에 없는 사람은 인스타 카드만.
+  if(IS_ADMIN){
+    const st=document.getElementById('t-staff'); if(st) st.style.display='';   // 스탭 관리는 사장님만
+  }
+  //  📋 오늘 할 일 — 스탭·관리자면 열어 주고, 로그인하면 여기부터 뜨게 한다
+  if(IS_ADMIN||IS_STAFF){
+    const td=document.getElementById('t-todo'); if(td) td.style.display='';
+    showTab('todo');
+  }
+  if(!IS_ADMIN && !IS_STAFF){
+    ['exp'].forEach(x=>{ const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none'; });
+    showTab('card');
+  }
+  const who=document.getElementById('roleTag');
+  if(who) who.textContent = IS_ADMIN ? '관리자' : (IS_STAFF ? '스탭 · 체험단·인스타 카드' : '권한 없음 — 사장님께 등록 요청하세요');
+}
+
+// ───────── 🏷 분류 수정 ─────────
+function fxEsc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+async function fxLoad(){
+  const box=document.getElementById('fxList'); if(!box) return;
+  box.innerHTML='<div style="color:#888;font-size:12px;padding:10px">불러오는 중…</div>';
+  const q=(document.getElementById('fxQ').value||'').trim();
+  const mode=document.getElementById('fxMode').value;
+  const from=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+  let url=`${SB_URL}/rest/v1/gonggu?select=id,name,influencer,insta,open_date,end_date,major,minor,cat_manual,dup_ok`
+        + `&open_date=gte.${from}&order=open_date.desc&limit=200`;
+  if(q) url+=`&or=(name.ilike.*${encodeURIComponent(q)}*,influencer.ilike.*${encodeURIComponent(q)}*)`;
+  if(mode==='nocat') url+=`&or=(minor.is.null,minor.eq.)`;
+  if(mode==='auto')  url+=`&cat_manual=is.false`;
+  try{
+    const rows=await fetch(url,{headers:sbHeaders()}).then(r=>r.json());
+    if(!Array.isArray(rows)||!rows.length){ box.innerHTML='<div style="color:#888;font-size:12px;padding:10px">해당하는 공구가 없어요</div>'; return; }
+    box.innerHTML=rows.map(fxRow).join('');
+  }catch(e){ box.innerHTML='<div style="color:#c33;font-size:12px;padding:10px">불러오기 실패: '+fxEsc(e.message)+'</div>'; }
+}
+function fxRow(d){
+  const maj=d.major||'', min=d.minor||'';
+  return `<div class="glist-card" id="fx-${d.id}">
+    <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px">${fxEsc(d.name)}</div>
+    <div style="font-size:11px;color:#999;margin-bottom:6px">${fxEsc(d.influencer||d.insta||'')} · ${d.open_date}~${d.end_date||''}
+      ${d.cat_manual?'':'<span style="color:#E08A00">· 자동분류</span>'}${d.dup_ok?' <span style="color:#3E8E5A">· 중복아님</span>':''}</div>
+    <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+      <select id="fxM-${d.id}" onchange="fxSyncMinor(${d.id})" style="width:96px;font-size:12px">${catOptions(maj)}</select>
+      <select id="fxN-${d.id}" style="width:120px;font-size:12px">${minorOptions(maj,min)}</select>
+      <button class="copy" style="width:auto;padding:0 12px;height:30px;font-size:12px" onclick="fxSave(${d.id})">저장</button>
+      <button class="copy" style="width:auto;padding:0 10px;height:30px;font-size:12px;background:#EFEFEF;color:#555" onclick="fxDupOk(${d.id},${d.dup_ok?'false':'true'})">${d.dup_ok?'중복아님 해제':'중복 아님'}</button>
+      <span id="fxS-${d.id}" style="font-size:11px;color:#3E8E5A"></span>
+    </div></div>`;
+}
+function fxSyncMinor(id){
+  const maj=document.getElementById('fxM-'+id).value;
+  document.getElementById('fxN-'+id).innerHTML=minorOptions(maj,'');
+}
+async function fxRpc(fn, body, id){
+  const tag=document.getElementById('fxS-'+id);
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:sbHeaders(),body:JSON.stringify(body)});
+    const ok=await r.json();
+    if(!r.ok || ok===false) throw new Error(typeof ok==='object'&&ok.message?ok.message:'권한이 없거나 대상이 없어요');
+    if(tag){ tag.style.color='#3E8E5A'; tag.textContent='저장됨 ✓'; setTimeout(()=>{tag.textContent='';},2500); }
+    return true;
+  }catch(e){
+    if(tag){ tag.style.color='#c33'; tag.textContent=e.message; }
+    return false;
+  }
+}
+function fxSave(id){
+  fxRpc('staff_set_category',{p_id:id,p_major:document.getElementById('fxM-'+id).value,p_minor:document.getElementById('fxN-'+id).value},id);
+}
+async function fxDupOk(id,ok){
+  if(await fxRpc('staff_set_dup_ok',{p_id:id,p_ok:ok},id)) fxLoad();
+}
+
+// ───────── 📸 인스타 카드 ─────────
+function reelCardUrl(){
+  const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
+  const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+  return base+'/instastudio.html?d='+kst+'&fmt=auto&t='+Date.now();   // 🔴 reelcard(시안 1종) → instastudio(요일별 7종). 2026-09-02
+}
+function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
+
+// ───────── 공구: 카테고리/셀러 ─────────
+function fillCats(pfx){
+  const maj=document.getElementById(pfx+'Major');
+  maj.innerHTML=catOptions(Object.keys(CATS_LIST)[0]); syncMinor(pfx);
+}
+function syncMinor(pfx){
+  const maj=document.getElementById(pfx+'Major').value;
+  document.getElementById(pfx+'Minor').innerHTML=minorOptions(maj,'');
+}
+let name2insta={}, insta2name={};
+async function loadSellers(){
+  name2insta={}; insta2name={};
+  try{ const inf=await fetch(`${SB_URL}/rest/v1/influencers?select=insta,influencer`,{headers:sbHeaders()});
+    (await inf.json()||[]).forEach(r=>{ const nm=(r.influencer||'').trim(), ig=(r.insta||'').replace('@','').trim(); if(nm&&ig){ if(!name2insta[nm])name2insta[nm]=ig; insta2name[ig]=nm; }});
+  }catch(_){}
+  try{ const s=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:sbHeaders()});
+    (await s.json()||[]).forEach(r=>{ const nm=(r.name||'').trim(), ig=(r.insta||r.login_insta||'').replace('@','').trim(); if(nm&&ig){ if(!name2insta[nm])name2insta[nm]=ig; insta2name[ig]=nm; }});
+  }catch(_){}
+  document.getElementById('sellerList').innerHTML=Object.keys(name2insta).sort().map(nm=>`<option value="${esc(nm)}">@${name2insta[nm]}</option>`).join('');
+}
+function resolveSeller(){
+  const raw=(document.getElementById('seller').value||'').trim();
+  if(!raw) return {insta:'',infl:''};
+  const noAt=raw.replace(/^@/,'');
+  if(name2insta[raw]) return {insta:name2insta[raw], infl:raw};
+  if(insta2name[noAt]) return {insta:noAt, infl:insta2name[noAt]};
+  if(raw.startsWith('@')||/^[A-Za-z0-9._]+$/.test(raw)) return {insta:noAt, infl:''};
+  return {insta:'', infl:raw};
+}
+function sellerHint(){
+  const el=document.getElementById('sellerMsg');
+  const raw=(document.getElementById('seller').value||'').trim();
+  if(!raw){ el.textContent=''; return; }
+  const {insta,infl}=resolveSeller();
+  el.innerHTML = insta ? `<span style="color:#0F6E56;font-weight:700">🔗 연결: @${esc(insta)}${infl?(' · '+esc(infl)):''}</span>`
+    : `<span style="color:#C62828">⚠️ 등록 안 된 이름 — @아이디로 입력하면 연결돼요</span>`;
+}
+function guessCat(){
+  const n=document.getElementById('gName').value||''; if(!n)return;
+  let g={major:'리빙',minor:'생활용품'};
+  if(/유산균|비타민|오메가|철분|콜라겐|영양제|마그네슘|프로폴리스|엘더베리|커큐민/.test(n))g={major:'건강',minor:'비타민'};
+  else if(/책|동화|사운드북|전집|그림책|학습|문제집/.test(n))g={major:'육아',minor:'책'};
+  else if(/블럭|블록|퍼즐|교구|보드게임|자석|몬테소리|장난감|놀이/.test(n))g={major:'육아',minor:'장난감/놀이'};
+  else if(/실내복|양말|샌들|신발|모자|내복|수영복|래쉬가드|옷|티셔츠|선글라스/.test(n))g={major:'육아',minor:'의류잡화'};
+  else if(/선크림|로션|크림|샴푸|틴트|마스크팩|화장품|앰플/.test(n))g={major:'뷰티',minor:'스킨케어'};
+  else if(/선풍기|제습기|드라이기|청소기|에어건|가전|써큘레이터|에어프라이어/.test(n))g={major:'가전',minor:'생활가전'};
+  else if(/유모차|카시트|기저귀|분유|젖병|아기띠|쿨매트|냉감|매트/.test(n))g={major:'육아',minor:'육아용품'};
+  else if(/텀블러|수저|컵|그릇|도마|냄비|주방|식기|빨대컵/.test(n))g={major:'리빙',minor:'주방용품'};
+  else if(/우유|김|버터|요거트|곰탕|두부|계란|과일|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈/.test(n))g={major:'식품',minor:'간편식/밀키트'};
+  const maj=document.getElementById('gMajor'), min=document.getElementById('gMinor');
+  if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; syncMinor('g'); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+}
+function addDays(dateStr,n){const d=new Date(dateStr);d.setDate(d.getDate()+n);const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+
+// ───────── 공구: 여러 건 동시 등록 ─────────
+// 중복 판정(관리자와 동일): 정규화 일치 / 한쪽이 다른쪽 포함(3자 이상) / 유사도 0.7+
+function normalize(s){ return (s||'').replace(/[\s\-_·.]/g,'').toLowerCase(); }
+function similarity(a,b){
+  a=normalize(a); b=normalize(b); if(!a||!b) return 0; if(a===b) return 1;
+  const lo=a.length>b.length?a:b, sh=a.length>b.length?b:a;
+  if(lo.includes(sh)) return sh.length/lo.length;
+  let m=0; const ba=b.split(''); a.split('').forEach(c=>{const i=ba.indexOf(c); if(i>-1){m++;ba.splice(i,1);}});
+  return (2*m)/(a.length+b.length);
+}
+function dupNameMatch(a,b){
+  const x=normalize(a), y=normalize(b); if(!x||!y) return false; if(x===y) return true;
+  const lo=x.length>=y.length?x:y, sh=x.length>=y.length?y:x;
+  if(sh.length>=3 && lo.includes(sh)) return true;
+  return similarity(a,b)>=0.7;
+}
+// 이미 등록된 공구(_gongguCache)와 대조 — 이름 포함/유사 + 셀러 + (날짜 둘 다 있으면)동일
+function ggFindDup(nm, ig, pname, open){
+  if(!pname) return null;
+  nm=(nm||'').trim(); ig=(ig||'').replace('@','').trim().toLowerCase();
+  for(const d of _gongguCache){
+    if(!dupNameMatch(d.name, pname)) continue;
+    const dIns=(d.insta||'').replace('@','').trim().toLowerCase();
+    let sameSeller;
+    if(ig && dIns) sameSeller=(ig===dIns);
+    else if(nm && (d.influencer||'').trim()) sameSeller=(nm===(d.influencer||'').trim());
+    else sameSeller=true;
+    if(!sameSeller) continue;
+    if(open && d.open_date && d.open_date!==open) continue;
+    return d;
+  }
+  return null;
+}
+function ggMarkRowDup(row){
+  if(!row) return;
+  const el=row.querySelector('.gg-dup'); if(!el) return;
+  const nm=row.querySelector('.gg-sname').value.trim();
+  const ig=row.querySelector('.gg-sid').value.trim();
+  const pname=row.querySelector('.gg-pname').value.trim();
+  const open=row.querySelector('.gg-open').value;
+  if(!pname){ el.textContent=''; if(!row.dataset.invalid) row.style.borderColor='#E4DBF7'; return; }
+  const hit=ggFindDup(nm, ig, pname, open);
+  if(hit){ el.innerHTML=`<span style="color:#C62828;font-weight:700">🔴 이미 등록된 듯: "${esc(hit.name)}"${hit.open_date?(' ('+esc(hit.open_date)+')'):''}</span>`; row.style.borderColor='#C62828'; }
+  else { el.textContent=''; row.style.borderColor='#E4DBF7'; }
+}
+function addGgRow(){
+  const fm=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='gg-row';
+  div.innerHTML=`
+    <div class="gg-head"><span style="font-size:11px;font-weight:800;color:var(--p)">📦 공구</span>
+      <span style="display:flex;gap:6px">
+        <button class="gg-clone" onclick="cloneGgRow(this)" title="같은 셀러로 새 줄 추가">➕ 셀러 복사</button>
+        <button class="gg-del" onclick="this.closest('.gg-row').remove()">✕</button>
+      </span></div>
+    <div class="row">
+      <div><div class="gg-lab">셀러 한글명 <span class="req">*</span></div><input class="gg-sname" list="sellerList" autocomplete="off" placeholder="예) 현브로맘" oninput="ggByName(this)"></div>
+      <div><div class="gg-lab">＠아이디 <span class="req">*</span></div><input class="gg-sid" autocomplete="off" placeholder="예) hyunbro_mom" oninput="ggById(this)"></div>
+    </div>
+    <div class="gg-hint hint"></div>
+    <div class="gg-dup hint"></div>
+    <div class="mt"><div class="gg-lab">상품명 <span class="req">*</span></div><input class="gg-pname" type="text" placeholder="예) 이키 메쉬수면조끼" oninput="ggGuess(this)"></div>
+    <div class="row mt">
+      <div><div class="gg-lab">오픈일 <span class="req">*</span></div><input class="gg-open" type="date" onchange="ggMarkRowDup(this.closest('.gg-row'))"></div>
+      <div><div class="gg-lab">마감일 <span style="color:#aaa;font-weight:400">(선택·비우면+3일)</span></div><input class="gg-end" type="date"></div>
+    </div>
+    <div class="row mt">
+      <div><div class="gg-lab">대분류 <span class="req">*</span></div><select class="gg-major" onchange="ggSyncMinor(this)">${catOptions(fm)}</select></div>
+      <div><div class="gg-lab">소분류 <span class="req">*</span></div><select class="gg-minor">${minorOptions(fm,'')}</select></div>
+    </div>`;
+  document.getElementById('ggRows').appendChild(div);
+}
+function ggSyncMinor(sel){ const row=sel.closest('.gg-row'); row.querySelector('.gg-minor').innerHTML=minorOptions(sel.value,''); }
+function cloneGgRow(btn){
+  const row=btn.closest('.gg-row');
+  const nm=row.querySelector('.gg-sname').value, id=row.querySelector('.gg-sid').value;
+  addGgRow();
+  const nr=document.querySelector('#ggRows .gg-row:last-child');
+  nr.querySelector('.gg-sname').value=nm; nr.querySelector('.gg-sid').value=id;
+  ggHint(nr); nr.querySelector('.gg-pname').focus();
+}
+// ── AI 텍스트로 한 번에 (헤더+날짜+상품명 자동 인식) ──
+function ggAiParse(){
+  const ta=document.getElementById('ggAiText'); const text=(ta.value||'');
+  if(!text.trim()){ alert('붙여넣은 텍스트가 없어요.'); return; }
+  const today=new Date(); const Y=today.getFullYear(); const t0=new Date(Y,today.getMonth(),today.getDate());
+  const pad=x=>String(x).padStart(2,'0');
+  const mkDate=(mm,dd)=>{ let y=Y; if(new Date(y,mm-1,dd)<t0) y=Y+1; return `${y}-${pad(mm)}-${pad(dd)}`; };
+  const addD=(ds,n)=>{ const d=new Date(ds); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  const DP=/^(\d{1,2})\s*[\/.월]\s*(\d{1,2})/;
+  const isDateOnly=s=> DP.test(s) && /^[\d월일~\-\/\s.]+$/.test(s);
+  // 날짜만 있는 줄 + 다음 상품명 줄 병합
+  const raw=text.split('\n').map(l=>l.trim());
+  const lines=[];
+  for(let i=0;i<raw.length;i++){ const l=raw[i]; if(!l) continue;
+    if(isDateOnly(l)&&i+1<raw.length){ const nx=raw[i+1].trim(); if(nx&&!nx.startsWith('@')&&!isDateOnly(nx)){ lines.push(l+' '+nx); i++; continue; } }
+    lines.push(l);
+  }
+  let curName='', curInsta='', made=0;
+  lines.forEach(line=>{
+    if(line.startsWith('@')){ const m=line.replace(/^@/,'').trim().match(/^([A-Za-z0-9._]+)\s*(.*)$/); if(m){ curInsta=m[1]; curName=(m[2]||'').trim(); if(!curName&&insta2name[curInsta]) curName=insta2name[curInsta]; } return; }
+    const rev=line.match(/^([^@]+?)\s+@([A-Za-z0-9._]+)\s*$/); if(rev){ curName=rev[1].trim(); curInsta=rev[2]; return; }
+    if(!DP.test(line)){ curName=line.trim(); curInsta=name2insta[curName]||''; return; }
+    let s=line.replace(/(\d{1,2})월\s*(\d{1,2})일?/g,'$1/$2');
+    const range=s.match(/^(\d{1,2})\/(\d{1,2})\s*[~\-]\s*(\d{1,2})(?:\/(\d{1,2}))?\s+(.+)$/);
+    const single=s.match(/^(\d{1,2})\/(\d{1,2})\s+(.+)$/);
+    let open,end,pname;
+    if(range){ open=mkDate(+range[1],+range[2]); const em=range[4]?+range[3]:+range[1], ed=range[4]?+range[4]:+range[3]; end=mkDate(em,ed); pname=range[5].trim(); }
+    else if(single){ open=mkDate(+single[1],+single[2]); pname=single[3].trim(); }
+    else return;
+    if(!pname) return;
+    pname=pname.replace(/[(\[（].+?[)\]）]/g,'').trim();
+    if(!end||end<open) end=addD(open,3);
+    const maxEnd=addD(open,13); if(end>maxEnd) end=maxEnd;
+    addGgRow();
+    const row=document.querySelector('#ggRows .gg-row:last-child');
+    row.querySelector('.gg-sname').value=curName||'';
+    row.querySelector('.gg-sid').value=curInsta?('@'+curInsta):'';
+    row.querySelector('.gg-pname').value=pname;
+    row.querySelector('.gg-open').value=open;
+    row.querySelector('.gg-end').value=end;
+    try{ const g=catGuess(pname); const maj=row.querySelector('.gg-major'); if(g&&[...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; const min=row.querySelector('.gg-minor'); min.innerHTML=minorOptions(g.major,''); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; } }catch(_){}
+    ggHint(row); ggMarkRowDup(row); made++;
+  });
+  // 빈 기본행 제거
+  [...document.querySelectorAll('#ggRows .gg-row')].forEach(r=>{ const sn=r.querySelector('.gg-sname').value.trim(), pn=r.querySelector('.gg-pname').value.trim(), op=r.querySelector('.gg-open').value; if(!sn&&!pn&&!op) r.remove(); });
+  ta.value='';
+  if(!made){ alert('인식된 일정이 없어요. 형식을 확인해주세요.\n예)\n@ttobomom 또또맘\n9/1~9/5 과자'); if(!document.querySelector('#ggRows .gg-row')) addGgRow(); return; }
+  alert(`${made}건을 행으로 만들었어요. 셀러·분류 확인 후 ⚡ 전체 등록을 눌러주세요.`);
+  document.getElementById('ggRows').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function ggByName(inp){ const row=inp.closest('.gg-row'); const nm=inp.value.trim(); const idEl=row.querySelector('.gg-sid'); if(name2insta[nm]&&!idEl.value.trim()) idEl.value='@'+name2insta[nm]; ggHint(row); ggMarkRowDup(row); }
+function ggById(inp){ const row=inp.closest('.gg-row'); const ig=inp.value.trim().replace(/^@/,''); const nmEl=row.querySelector('.gg-sname'); if(insta2name[ig]&&!nmEl.value.trim()) nmEl.value=insta2name[ig]; ggHint(row); ggMarkRowDup(row); }
+function ggHint(row){
+  const nm=row.querySelector('.gg-sname').value.trim();
+  const ig=row.querySelector('.gg-sid').value.trim().replace(/^@/,'');
+  const el=row.querySelector('.gg-hint');
+  if(!nm&&!ig){ el.textContent=''; return; }
+  if((nm&&name2insta[nm])||(ig&&insta2name[ig])) el.innerHTML='<span style="color:#0F6E56;font-weight:700">🔗 등록된 셀러 · 자동 연결됨</span>';
+  else if(nm&&ig) el.innerHTML='<span style="color:#0F6E56;font-weight:700">🆕 새 셀러 — 등록하면 다음부턴 자동완성돼요</span>';
+  else el.innerHTML='<span style="color:#C62828">⚠️ 새 셀러는 한글명과 ＠아이디 둘 다 필요해요</span>';
+}
+function catGuess(n){
+  let g={major:'리빙',minor:'생활용품'};
+  if(/유산균|비타민|오메가|철분|콜라겐|영양제|마그네슘|프로폴리스|엘더베리|커큐민/.test(n))g={major:'건강',minor:'비타민'};
+  else if(/책|동화|사운드북|전집|그림책|학습|문제집/.test(n))g={major:'육아',minor:'책'};
+  else if(/블럭|블록|퍼즐|교구|보드게임|자석|몬테소리|장난감|놀이/.test(n))g={major:'육아',minor:'장난감/놀이'};
+  else if(/실내복|양말|샌들|신발|모자|내복|수영복|래쉬가드|옷|티셔츠|선글라스/.test(n))g={major:'육아',minor:'의류잡화'};
+  else if(/선크림|로션|크림|샴푸|틴트|마스크팩|화장품|앰플/.test(n))g={major:'뷰티',minor:'스킨케어'};
+  else if(/선풍기|제습기|드라이기|청소기|에어건|가전|써큘레이터|에어프라이어/.test(n))g={major:'가전',minor:'생활가전'};
+  else if(/유모차|카시트|기저귀|분유|젖병|아기띠|쿨매트|냉감|매트/.test(n))g={major:'육아',minor:'육아용품'};
+  else if(/텀블러|수저|컵|그릇|도마|냄비|주방|식기|빨대컵/.test(n))g={major:'리빙',minor:'주방용품'};
+  else if(/우유|김|버터|요거트|곰탕|두부|계란|과일|소고기|한우|쌀|간식|밀키트|이유식|퓨레|치즈/.test(n))g={major:'식품',minor:'간편식/밀키트'};
+  return g;
+}
+function ggGuess(inp){
+  const row=inp.closest('.gg-row'); const n=inp.value||''; if(!n) return;
+  const g=catGuess(n); const maj=row.querySelector('.gg-major');
+  if([...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; const min=row.querySelector('.gg-minor'); min.innerHTML=minorOptions(g.major,''); if([...min.options].some(o=>o.value===g.minor)) min.value=g.minor; }
+  ggMarkRowDup(row);
+}
+function ggRowResolve(row){
+  let nm=row.querySelector('.gg-sname').value.trim();
+  let ig=row.querySelector('.gg-sid').value.trim().replace(/^@/,'');
+  if(nm&&!ig&&name2insta[nm]) ig=name2insta[nm];
+  if(ig&&!nm&&insta2name[ig]) nm=insta2name[ig];
+  return {nm, ig};
+}
+async function saveGongguRows(){
+  const rows=[...document.querySelectorAll('#ggRows .gg-row')];
+  if(!rows.length){ alert('등록할 줄이 없어요. ＋ 줄 추가를 눌러주세요.'); return; }
+  const bodies=[], newSellers={}, probs=[], dupInfo=[];
+  rows.forEach((row,i)=>{
+    const {nm,ig}=ggRowResolve(row);
+    const pname=row.querySelector('.gg-pname').value.trim();
+    const open=row.querySelector('.gg-open').value;
+    let end=row.querySelector('.gg-end').value;
+    const major=row.querySelector('.gg-major').value, minor=row.querySelector('.gg-minor').value;
+    if(!nm&&!ig&&!pname&&!open){ row.style.borderColor='#E4DBF7'; return; } // 빈 줄 건너뜀
+    const miss=[];
+    if(!nm||!ig) miss.push('셀러(한글명＋＠아이디)');
+    if(!pname) miss.push('상품명');
+    if(!open) miss.push('오픈일');
+    if(!major) miss.push('대분류');
+    if(!minor) miss.push('소분류');
+    if(end&&open&&end<open) miss.push('마감일(오픈일보다 빠름)');
+    if(miss.length){ probs.push(`${i+1}번째 줄: ${miss.join(', ')}`); row.dataset.invalid='1'; row.style.borderColor='#C62828'; return; }
+    row.dataset.invalid='';
+    if(!end) end=addDays(open,3);
+    // 기존 DB와 중복이면 제외
+    const hit=ggFindDup(nm, ig, pname, open);
+    if(hit){ dupInfo.push(`${i+1}번째: "${pname}" → 이미 등록 "${hit.name}"`); row.style.borderColor='#C62828'; return; }
+    row.style.borderColor='#E4DBF7';
+    bodies.push({influencer:nm, insta:ig, major, minor, name:pname, open_date:open, end_date:end, approved:true});
+    if(!name2insta[nm]) newSellers[ig]=nm;
+  });
+  if(probs.length){ alert('아래 줄을 확인해주세요 (빨간 테두리):\n\n'+probs.join('\n')); return; }
+  if(dupInfo.length){
+    if(!bodies.length){ alert(`입력한 공구가 모두 이미 등록돼 있어요 (중복 ${dupInfo.length}건):\n\n${dupInfo.join('\n')}`); return; }
+    if(!confirm(`🔴 이미 등록된 것으로 보이는 ${dupInfo.length}건은 빼고, 새 ${bodies.length}건만 등록할까요?\n\n[중복 제외]\n${dupInfo.join('\n')}`)) return;
+  }
+  if(!bodies.length){ alert('등록할 내용을 입력해주세요.'); return; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(bodies)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`등록 실패 (${r.status})\n${m}`); return; }
+    const ns=Object.entries(newSellers).map(([insta,influencer])=>({insta,influencer}));
+    if(ns.length){ try{ await fetch(`${SB_URL}/rest/v1/influencers`,{method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(ns)}); }catch(_){} }
+    document.getElementById('ggRows').innerHTML=''; addGgRow();
+    await loadSellers(); loadGonggu();
+    alert(`공구 ${bodies.length}건 등록 완료! 🎉\n아래 목록의 📋 버튼으로 카페 글을 만들 수 있어요.`);
+  }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 공구 등록 ─────────
+async function submitGonggu(){
+  const name=(document.getElementById('gName').value||'').trim();
+  const open=document.getElementById('gOpen').value;
+  let end=document.getElementById('gEnd').value;
+  if(!name){alert('상품명을 입력해주세요!');return;}
+  if(!open){alert('오픈일을 선택해주세요!');return;}
+  if(end && end<open){alert('마감일이 오픈일보다 빨라요.');return;}
+  if(!end) end=addDays(open,3);
+  const {insta,infl}=resolveSeller();
+  if(!insta && !confirm('인스타 연결 없이 등록할까요?')) return;
+  const link=(document.getElementById('gLink').value||'').trim();
+  const body={influencer:infl||(insta?('@'+insta):''), insta:insta||'',
+    major:document.getElementById('gMajor').value, minor:document.getElementById('gMinor').value,
+    name, open_date:open, end_date:end, approved:true};
+  if(link) body.pay_link=link;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu`,{method:'POST',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`등록 실패 (${r.status})\n${m}`); return; }
+    const ins=await r.json();
+    if(!Array.isArray(ins)||!ins.length){ alert('⚠️ 등록은 됐지만 반영 확인 실패. 새로고침 후 확인해주세요.'); return; }
+    document.getElementById('gName').value=''; document.getElementById('gEnd').value=''; document.getElementById('gLink').value='';
+    showCafePost(ins[0]); loadGonggu();
+  }catch(e){ alert('등록 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 공구 목록 + 수정 (삭제 없음) ─────────
+let _gongguCache=[];
+let gFilter={status:'all', cat:'all', sort:'open', anomaly:'all', shown:120};
+async function loadGonggu(){
+  const el=document.getElementById('gongguList');
+  try{
+    let all=[];
+    for(let from=0;;from+=1000){
+      const r=await fetch(`${SB_URL}/rest/v1/gonggu?select=*&order=open_date.desc`,{headers:sbHeaders({'Range-Unit':'items','Range':`${from}-${from+999}`})});
+      if(!r.ok&&r.status!==206) throw new Error(r.status);
+      const p=await r.json(); if(!Array.isArray(p)||!p.length) break; all=all.concat(p); if(p.length<1000) break;
+    }
+    _gongguCache=all;
+    renderGongguFilters();
+    renderGongguList();
+  }catch(e){ el.innerHTML='<div style="color:#C62828;font-size:12px">불러오기 실패</div>'; }
+}
+function gTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function gRealEnd(d){ if(d.end_date) return d.end_date; if(d.open_date){ const t=new Date(d.open_date); t.setDate(t.getDate()+3); return t.toISOString().slice(0,10); } return ''; }
+// 이상 항목 감지 (스텝이 고칠 것 빠르게 찾기)
+function gAnomalies(d){
+  const a=new Set();
+  const op=d.open_date||'', en=d.end_date||'';
+  const ymd=s=>/^\d{4}-\d{2}-\d{2}$/.test(s);
+  if(ymd(op) && +op.slice(0,4)>=2027) a.add('날짜');                 // 미래 연도(2027+)
+  if(ymd(op)&&ymd(en)){ if(en<op) a.add('날짜'); else if((d.insta||'')!=='momcal_' && (new Date(en)-new Date(op))/86400000>6) a.add('날짜'); } // 역전 / 7일 초과(본인 일정 제외)
+  if(op&&!en) a.add('날짜');                                          // 마감 없음
+  if(!(d.insta&&String(d.insta).trim()) && !(d.pay_link&&String(d.pay_link).trim())) a.add('미연결');
+  const nm=d.name||'';
+  if(!nm.trim() || /[\[\]【】()（）★⭐☆]/.test(nm) || nm.length>40) a.add('상품명');
+  if(!d.major||!d.minor) a.add('미분류');
+  return [...a];
+}
+function gChip(label, active, onclick){
+  return `<button onclick="${onclick}" style="padding:5px 10px;border-radius:14px;border:1px solid ${active?'#4A35A0':'#E3DEF5'};background:${active?'#4A35A0':'#fff'};color:${active?'#fff':'#6B5BA8'};font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">${label}</button>`;
+}
+function gSet(k,v){ gFilter[k]=v; gFilter.shown=120; renderGongguFilters(); renderGongguList(); }
+function renderGongguFilters(){
+  const f=gFilter, row='display:flex;gap:5px;overflow-x:auto;padding-bottom:6px';
+  const st=[['all','전체'],['live','진행중'],['opentoday','오늘오픈'],['endtoday','오늘마감'],['upcoming','예정'],['past','지남']].map(([v,l])=>gChip(l,f.status===v,`gSet('status','${v}')`)).join('');
+  const cat=[['all','전체']].concat(Object.keys(CATS_LIST).map(m=>[m,m])).map(([v,l])=>gChip(l,f.cat===v,`gSet('cat','${v}')`)).join('');
+  const an=[['all','전체'],['any','⚠️ 이상 전체'],['날짜','📅 날짜'],['미연결','🔗 미연결'],['상품명','✏️ 상품명'],['미분류','🏷️ 미분류']].map(([v,l])=>gChip(l,f.anomaly===v,`gSet('anomaly','${v}')`)).join('');
+  const sort=[['open','오픈 가까운순'],['reg','등록순'],['endsoon','마감임박순']].map(([v,l])=>gChip(l,f.sort===v,`gSet('sort','${v}')`)).join('');
+  document.getElementById('gFilters').innerHTML=
+    `<div style="${row}">${st}</div><div style="${row}">${cat}</div>`+
+    `<div style="${row};flex-wrap:wrap">${an}</div>`+
+    `<div style="${row}"><span style="font-size:10px;color:#bbb;align-self:center;flex-shrink:0">정렬</span>${sort}</div>`;
+}
+function renderGongguList(){
+  const el=document.getElementById('gongguList');
+  if(!Array.isArray(_gongguCache)) return;
+  const today=gTodayStr(), f=gFilter;
+  const q=(document.getElementById('gSearch').value||'').trim().toLowerCase();
+  let rows=_gongguCache.filter(d=>{
+    if(q && !((d.name||'').toLowerCase().includes(q)||(d.influencer||'').toLowerCase().includes(q)||(d.insta||'').toLowerCase().includes(q))) return false;
+    if(f.cat!=='all' && d.major!==f.cat) return false;
+    if(f.status!=='all'){ const op=d.open_date||'', re=gRealEnd(d);
+      if(f.status==='opentoday'&&op!==today) return false;
+      if(f.status==='endtoday'&&re!==today) return false;
+      if(f.status==='upcoming'&&!(op>today)) return false;
+      if(f.status==='past'&&!(re&&re<today)) return false;
+      if(f.status==='live'&&!(op&&op<=today&&re>=today)) return false;
+    }
+    if(f.anomaly!=='all'){ const a=gAnomalies(d); if(f.anomaly==='any'){ if(!a.length) return false; } else if(!a.includes(f.anomaly)) return false; }
+    return true;
+  });
+  if(f.sort==='open') rows.sort((a,b)=>{
+    const ao=a.open_date||'', bo=b.open_date||'';
+    const af=(ao&&ao>=today)?0:1, bf=(bo&&bo>=today)?0:1;   // 오늘·미래=0, 지난=1
+    if(af!==bf) return af-bf;                                // 오늘·미래 먼저, 지난 건 뒤로
+    return af===0 ? ao.localeCompare(bo)                     // 미래: 곧 오픈하는 것 먼저
+                  : bo.localeCompare(ao);                    // 과거: 최근 것 먼저
+  });
+  else if(f.sort==='reg') rows.sort((a,b)=>(b.id||0)-(a.id||0));
+  else if(f.sort==='endsoon') rows.sort((a,b)=>gRealEnd(a).localeCompare(gRealEnd(b)));
+  const total=rows.length, shown=rows.slice(0,f.shown);
+  const cEl=document.getElementById('gCount'); if(cEl) cEl.textContent=total?`${total}건${total>shown.length?` (${shown.length}건 표시)`:''}`:'';
+  if(!total){ el.innerHTML='<div style="color:#aaa;font-size:12px">조건에 맞는 공구가 없어요.</div>'; return; }
+  el.innerHTML=shown.map(d=>{
+    const a=gAnomalies(d);
+    const qsel='flex:1;min-width:0;padding:6px;border:1px solid #E3DEF5;border-radius:7px;font-size:12px;font-family:inherit;background:#fff;color:#333';
+    const fcss='box-sizing:border-box;font-family:inherit;outline:none;border:1px solid #E3DEF5;border-radius:7px;padding:6px 8px;font-size:12px;color:#333;background:#fff';
+    return `<div class="glist-card" id="grow-${d.id}">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <input value="${esc(d.name)}" onchange="quickField(${d.id},'name',this.value)" placeholder="상품명" style="flex:1;min-width:0;${fcss};font-size:13px;font-weight:700;color:#191919;border-color:#D9D2F0">
+        <span id="qbadge-${d.id}" style="flex-shrink:0">${gBadgeHtml(a)}</span>
+        <button onclick="cafeFromList(${d.id})" title="카페글 보기" style="flex-shrink:0;width:30px;height:30px;border:none;background:#EEEAFB;color:#4A35A0;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">📋</button>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:5px">
+        <select onchange="quickMajor(${d.id},this.value)" style="${qsel}"><option value=""${!d.major?' selected':''}>대분류</option>${catOptions(d.major||'')}</select>
+        <select id="qmin-${d.id}" onchange="quickMinor(${d.id},this.value)" style="${qsel}"><option value=""${!d.minor?' selected':''}>소분류</option>${minorOptions(d.major||'',d.minor||'')}</select>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:5px">
+        <input value="${esc(d.influencer||'')}" onchange="quickField(${d.id},'influencer',this.value)" list="sellerList" placeholder="셀러명" style="flex:1;min-width:0;${fcss}">
+        <input value="${esc(d.insta||'')}" onchange="quickField(${d.id},'insta',this.value)" placeholder="인스타" style="flex:1;min-width:0;${fcss}">
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+        <input type="date" value="${esc(d.open_date||'')}" onchange="quickField(${d.id},'open_date',this.value)" style="flex:1;min-width:0;${fcss};color:#555">
+        <span style="font-size:11px;color:#bbb;flex-shrink:0">~</span>
+        <input type="date" value="${esc(d.end_date||'')}" onchange="quickField(${d.id},'end_date',this.value)" style="flex:1;min-width:0;${fcss};color:#555">
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input value="${esc(d.pay_link||'')}" onchange="quickField(${d.id},'pay_link',this.value)" placeholder="구매링크 (비우면 인스타로)" style="flex:1;min-width:0;${fcss};font-size:11px;color:#666">
+        <span id="qsave-${d.id}" style="font-size:10px;font-weight:700;color:#9CA3AF;white-space:nowrap;flex-shrink:0;text-align:right">자동저장</span>
+      </div>
+    </div>`;
+  }).join('')+(total>shown.length?`<button onclick="gFilter.shown+=120;renderGongguList()" style="width:100%;margin-top:8px;padding:10px;background:#F0EDFB;color:#4A35A0;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">더 보기 (${total-shown.length}건 남음)</button>`:'');
+}
+function cafeFromList(id){ const d=_gongguCache.find(x=>x.id===id); if(d) showCafePost(d); }
+// ── 목록에서 대/소분류 즉시 저장 ──
+function gBadgeHtml(an){ return an&&an.length?`<span style="font-size:9px;font-weight:700;color:#C62828;background:#FFEBEE;border-radius:5px;padding:1px 5px;margin-left:4px;white-space:nowrap">⚠️${an.join('·')}</span>`:''; }
+function flashSave(id,ok){
+  const el=document.getElementById('qsave-'+id); if(!el) return;
+  el.textContent=ok?'✓ 저장됨':'⚠ 실패'; el.style.color=ok?'#2E7D32':'#C62828';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ const e=document.getElementById('qsave-'+id); if(e){ e.textContent='자동저장'; e.style.color='#9CA3AF'; } },1400);
+}
+async function quickSave(id, body){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ flashSave(id,false); return false; }
+    let up=[]; try{up=await r.json();}catch(_){}
+    if(!Array.isArray(up)||!up.length){ flashSave(id,false); return false; }
+    Object.assign(d, body);
+    flashSave(id,true);
+    const bEl=document.getElementById('qbadge-'+id); if(bEl) bEl.innerHTML=gBadgeHtml(gAnomalies(d));
+    return true;
+  }catch(e){ flashSave(id,false); return false; }
+}
+async function quickMajor(id,val){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  const keep=(CATS_LIST[val]||[]).includes(d.minor)?d.minor:'';  // 대분류 바뀌면 안 맞는 소분류는 비움
+  const minorSel=document.getElementById('qmin-'+id);
+  if(minorSel) minorSel.innerHTML=`<option value=""${!keep?' selected':''}>소분류</option>`+minorOptions(val,keep);
+  await quickSave(id,{major:val, minor:keep, cat_manual:true});
+}
+async function quickMinor(id,val){ await quickSave(id,{minor:val, cat_manual:true}); }
+// 이름·셀러·인스타·날짜·링크 인라인 자동저장 (변경 시에만)
+function quickField(id, field, raw){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  let v=raw;
+  if(field==='insta') v=(raw||'').trim().replace(/^@+/,'');
+  else if(field==='name'){ v=(raw||'').trim(); if(!v){ flashSave(id,false); return; } }
+  else if(field==='influencer') v=(raw||'').trim();
+  else if(field==='pay_link') v=(raw||'').trim()||null;
+  else if(field==='open_date'||field==='end_date') v=raw||null;
+  if((d[field]||'')===(v||'')) return;   // 변경 없으면 저장 안 함
+  quickSave(id,{[field]:v});
+}
+function editGonggu(id){
+  const d=_gongguCache.find(x=>x.id===id); if(!d) return;
+  const row=document.getElementById('grow-'+id); if(!row) return;
+  const maj=d.major||Object.keys(CATS_LIST)[0];
+  const inp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#4A35A0;margin-bottom:7px">✏️ 공구 수정</div>
+    <div class="row" style="margin-bottom:7px">
+      <input id="gE-infl-${id}" type="text" value="${esc(d.influencer)}" placeholder="한글명" list="sellerList" style="${inp}">
+      <input id="gE-insta-${id}" type="text" value="${esc(d.insta)}" placeholder="인스타" style="${inp}">
+    </div>
+    <input id="gE-name-${id}" type="text" value="${esc(d.name)}" placeholder="상품명" style="${inp};margin-bottom:7px">
+    <div class="row" style="margin-bottom:7px">
+      <select id="gE-major-${id}" onchange="gEditSyncMinor(${id})" style="${inp}">${catOptions(maj)}</select>
+      <select id="gE-minor-${id}" style="${inp}">${minorOptions(maj,d.minor)}</select>
+    </div>
+    <div class="row" style="margin-bottom:7px">
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">오픈일</div><input id="gE-open-${id}" type="date" value="${esc(d.open_date)}" style="${inp}"></div>
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">마감일</div><input id="gE-end-${id}" type="date" value="${esc(d.end_date)}" style="${inp}"></div>
+    </div>
+    <input id="gE-link-${id}" type="url" value="${esc(d.pay_link)}" placeholder="구매링크 (비우면 인스타로 이동)" style="${inp};margin-bottom:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="saveGongguEdit(${id})" style="flex:1;background:#4A35A0;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="renderGongguList()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function gEditSyncMinor(id){ document.getElementById('gE-minor-'+id).innerHTML=minorOptions(document.getElementById('gE-major-'+id).value,''); }
+async function saveGongguEdit(id){
+  const name=document.getElementById('gE-name-'+id).value.trim();
+  if(!name){alert('상품명을 입력해주세요!');return;}
+  const body={
+    influencer:document.getElementById('gE-infl-'+id).value.trim(),
+    insta:document.getElementById('gE-insta-'+id).value.trim().replace('@',''),
+    major:document.getElementById('gE-major-'+id).value,
+    minor:document.getElementById('gE-minor-'+id).value,
+    name,
+    open_date:document.getElementById('gE-open-'+id).value||null,
+    end_date:document.getElementById('gE-end-'+id).value||null,
+    pay_link:document.getElementById('gE-link-'+id).value.trim()||null
+  };
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 확인 실패 (gonggu UPDATE 권한 확인 필요).'); return; }
+    _gongguCache=_gongguCache.map(d=>d.id===id?{...d,...body}:d);
+    renderGongguList();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 카페 글 ─────────
+const CAFE_CLUB='31499187';
+const CAFE_MENU={ '육아':22, '식품':24, '인테리어':39, '리빙':26, '건강':37, '가전':38, '패션':23, '뷰티':76, '여행':29, '반려동물':30 };
+let _cafeWriteUrl='';
+function cafeWriteUrl(major){
+  const m=CAFE_MENU[(major||'').trim()];
+  return m ? `https://cafe.naver.com/ca-fe/cafes/${CAFE_CLUB}/menus/${m}/articles/write?boardType=L`
+           : `https://cafe.naver.com/ca-fe/cafes/${CAFE_CLUB}`;
+}
+function openCafeWrite(){
+  // 제목+결제링크(두 줄)를 한 번에 클립보드로 → 본문에 붙여넣고 제목만 잘라 올리기
+  try{ const t=document.getElementById('cafeCombo').value||''; if(t&&navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(_){}
+  if(_cafeWriteUrl) window.open(_cafeWriteUrl,'_blank','noopener');
+}
+function cafePostText(d){
+  const md=s=>{ if(!s)return''; const p=String(s).split('-'); return `${+p[1]}/${+p[2]}`; };
+  const nm=(d.name||'').trim().replace(/\s*공구\s*$/,'');
+  const o=md(d.open_date||''), e=md(d.end_date||'');
+  const period = (o&&e)?`${o}~${e}`:(o||e||'');
+  const title = `${period?period+' ':''}${nm} 공구`.trim();
+  let link='';
+  if(d.pay_link && /^https?:\/\//.test(d.pay_link)) link=d.pay_link;
+  else if(d.insta) link=`https://instagram.com/${(d.insta||'').replace('@','')}`;
+  return {title, link};
+}
+function showCafePost(d){
+  const {title,link}=cafePostText(d);
+  document.getElementById('cafeTitle').value=title;
+  document.getElementById('cafeLink').value=link||'(저장된 결제링크/인스타가 없어요. 공구 수정에서 구매링크를 넣어주세요.)';
+  document.getElementById('cafeCombo').value = link ? (title+'\n'+link) : title;
+  _cafeWriteUrl=cafeWriteUrl(d.major);
+  const wb=document.getElementById('cafeWriteBtn');
+  if(wb) wb.textContent=`📝 ${(d.major||'').trim()||'카페'} 글쓰기 열기 (제목+링크 복사됨)`;
+  document.getElementById('cafeModal').style.display='flex';
+}
+function copyTa(id,btn){
+  const ta=document.getElementById(id); ta.focus(); ta.select();
+  const done=()=>{ const t=btn.textContent; btn.textContent='✓ 복사됨'; setTimeout(()=>{btn.textContent=t;},1200); };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value).then(done,()=>{try{document.execCommand('copy');}catch(_){}done();}); } else { document.execCommand('copy'); done(); } }
+  catch(_){ try{document.execCommand('copy');done();}catch(e){} }
+}
+
+// ───────── 핫딜 (관리자 동일) ─────────
+let _hdAdminCache=[];
+function addHdRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='ct-row';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#FBEAE7;color:#993C1D;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>`;
+  document.getElementById('hdRows').appendChild(div);
+}
+function hdBulkParse(){
+  const ta=document.getElementById('hdBulk');
+  const lines=(ta.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){ alert('붙여넣은 내용이 없어요. 한 줄에 하나씩 붙여넣어 주세요.'); return; }
+  [...document.querySelectorAll('#hdRows .ct-row')].forEach(r=>{ const t=r.querySelector('.ct-title').value.trim(), l=r.querySelector('.ct-link').value.trim(); if(!t&&!l) r.remove(); });
+  const gf=(typeof guessCat==='function')?guessCat:((typeof catGuess==='function')?catGuess:null);
+  let n=0;
+  lines.forEach(line=>{
+    const m=line.match(/https?:\/\/\S+/);
+    const link=m?m[0]:'';
+    const title=(link?line.replace(link,''):line).replace(/[|\t,]+/g,' ').trim();
+    addHdRow();
+    const row=document.querySelector('#hdRows .ct-row:last-child');
+    if(title) row.querySelector('.ct-title').value=title;
+    if(link) row.querySelector('.ct-link').value=link;
+    if(title && gf){ try{ const g=gf(title); const maj=row.querySelector('.ct-major'); if(g&&g.major&&[...maj.options].some(o=>o.value===g.major)){ maj.value=g.major; rowSyncMinor(maj); const min=row.querySelector('.ct-minor'); if(g.minor&&[...min.options].some(o=>o.value===g.minor)) min.value=g.minor; } }catch(_){} }
+    n++;
+  });
+  ta.value='';
+  alert(`${n}개 행을 만들었어요. 제목/분류 확인 후 🔥 전체 등록을 눌러주세요.`);
+}
+async function saveHotdealRows(){
+  const rows=[...document.querySelectorAll('#hdRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(), link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value, minor:r.querySelector('.ct-minor').value
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
+  try{ const r=await fetch(HD_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)}); if(!r.ok) throw 0;
+    document.getElementById('hdRows').innerHTML=''; addHdRow(); alert(`핫딜 ${rows.length}건 등록 완료! 🔥`); loadHotdealAdmin();
+  }catch(e){ alert('등록 실패. hotdeals 테이블/권한을 확인해주세요.'); }
+}
+async function loadHotdealAdmin(){
+  const el=document.getElementById('hdAdminList'); el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{ const r=await fetch(`${HD_URL}?select=*&order=created_at.desc&limit=200`,{headers:sbHeaders()}); if(!r.ok) throw 0;
+    const rows=await r.json(); _hdAdminCache=rows;
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 핫딜이 없어요.</div>';return;}
+    el.innerHTML=rows.map(h=>{ const dt=new Date(h.created_at); const t=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      return `<div id="hdrow-${h.id}" style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.title)}</div>
+        <div style="font-size:10px;color:#999">${esc(h.major||'')} ${esc(h.minor||'')} · 🕐 ${t}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editHotdeal(${h.id})" style="background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delHotdeal(${h.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">hotdeals 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delHotdeal(id){ if(!confirm('이 핫딜을 삭제할까요?'))return; try{ await fetch(`${HD_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadHotdealAdmin(); }catch(e){alert('삭제 실패');} }
+function editHotdeal(id){
+  const h=(_hdAdminCache||[]).find(x=>x.id===id); if(!h) return;
+  const row=document.getElementById('hdrow-'+id); if(!row) return;
+  const maj=h.major||Object.keys(CATS_LIST)[0];
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#D85A30;margin-bottom:7px">🔥 핫딜 수정</div>
+    <input id="hdE-title-${id}" type="text" value="${esc(h.title)}" placeholder="제목" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <input id="hdE-link-${id}" type="url" value="${esc(h.link)}" placeholder="카페 글 링크" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <select id="hdE-major-${id}" onchange="syncEditMinor(${id})" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(maj)}</select>
+      <select id="hdE-minor-${id}" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(maj,h.minor)}</select>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="saveHotdealEdit(${id})" style="flex:1;background:#D85A30;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadHotdealAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinor(id){ document.getElementById('hdE-minor-'+id).innerHTML=minorOptions(document.getElementById('hdE-major-'+id).value,''); }
+async function saveHotdealEdit(id){
+  const title=document.getElementById('hdE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const body={title, link:document.getElementById('hdE-link-'+id).value.trim(), major:document.getElementById('hdE-major-'+id).value, minor:document.getElementById('hdE-minor-'+id).value};
+  try{ const r=await fetch(`${HD_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 안 됨 (hotdeals UPDATE 권한 확인).'); return; }
+    alert('✅ 핫딜 수정 완료!'); loadHotdealAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+
+// ───────── 체험단 (관리자 동일) ─────────
+let _expAdminCache=[];
+function addExRow(){
+  const firstMajor=Object.keys(CATS_LIST)[0];
+  const div=document.createElement('div'); div.className='ct-row';
+  div.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-title" type="text" placeholder="제목" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#E1F5EE;color:#0A5D52;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <input class="ct-link" type="url" placeholder="카페 글 링크 (예정이면 비워두세요)" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select class="ct-major" onchange="rowSyncMinor(this)" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${catOptions(firstMajor)}</select>
+      <select class="ct-minor" style="width:100%;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">${minorOptions(firstMajor,'')}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:6px;margin-bottom:7px">
+      <input class="ct-count" type="number" inputmode="numeric" placeholder="모집인원" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit">
+      <input class="ct-end" type="date" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 마감일">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:#888;flex-shrink:0">모집 시작</span>
+      <input class="ct-open" type="date" style="flex:1;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit" title="모집 시작일 (미래면 예정)">
+      <span style="font-size:10px;color:#aaa;flex-shrink:0">미래=예정</span>
+    </div>`;
+  document.getElementById('exRows').appendChild(div);
+}
+async function saveExperienceRows(){
+  const rows=[...document.querySelectorAll('#exRows .ct-row')].map(r=>({
+    title:r.querySelector('.ct-title').value.trim(), link:r.querySelector('.ct-link').value.trim(),
+    major:r.querySelector('.ct-major').value, minor:r.querySelector('.ct-minor').value,
+    recruit_count: r.querySelector('.ct-count').value?parseInt(r.querySelector('.ct-count').value):null,
+    end_date: r.querySelector('.ct-end').value||null, open_date: r.querySelector('.ct-open').value||null
+  })).filter(x=>x.title);
+  if(!rows.length){alert('제목을 입력한 줄이 없어요.');return;}
+  try{ const r=await fetch(EX_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)}); if(!r.ok) throw 0;
+    document.getElementById('exRows').innerHTML=''; addExRow(); alert(`체험단 ${rows.length}건 등록 완료! 🎁`); loadExpAdmin();
+  }catch(e){ alert('등록 실패. experiences 테이블/권한을 확인해주세요.'); }
+}
+async function loadExpAdmin(){
+  const el=document.getElementById('exAdminList'); el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{ const r=await fetch(`${EX_URL}?select=*&order=end_date.asc&limit=200`,{headers:sbHeaders()}); if(!r.ok) throw 0;
+    const rows=await r.json();
+    if(!rows.length){el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 체험단이 없어요.</div>';return;}
+    _expAdminCache=rows; const today=new Date().toISOString().slice(0,10);
+    el.innerHTML=rows.map(e=>{ const ended=e.end_date&&e.end_date<today; const upcoming=e.open_date&&e.open_date>today;
+      const stat=ended?'마감':(upcoming?'예정':'모집중'); const statC=ended?'#999':(upcoming?'#888':'#0F6E56');
+      return `<div id="exrow-${e.id}" style="background:${ended?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:${ended?'#999':'#222'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)} <span style="font-size:10px;color:${statC}">[${stat}]</span></div>
+        <div style="font-size:10px;color:#999">${esc(e.major||'')} ${esc(e.minor||'')} · 👥${e.recruit_count||'-'}명 · ${e.open_date?('모집 '+e.open_date+' ~ '):''}마감 ${e.end_date||'-'}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editExp(${e.id})" style="background:#E1F2EC;color:#0F6E56;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="delExp(${e.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">experiences 테이블을 먼저 생성해주세요.</div>'; }
+}
+async function delExp(id){ if(!confirm('이 체험단을 삭제할까요?'))return; try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');} }
+function editExp(id){
+  const e=(_expAdminCache||[]).find(x=>x.id===id); if(!e) return;
+  const row=document.getElementById('exrow-'+id); if(!row) return;
+  const maj=e.major||Object.keys(CATS_LIST)[0];
+  const inp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+  row.style.display='block';
+  row.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:7px">🎁 체험단 수정</div>
+    <input id="exE-title-${id}" type="text" value="${esc(e.title)}" placeholder="제목" style="${inp};margin-bottom:7px">
+    <input id="exE-link-${id}" type="url" value="${esc(e.link)}" placeholder="신청 링크" style="${inp};margin-bottom:7px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <select id="exE-major-${id}" onchange="syncEditMinorEx(${id})" style="${inp}">${catOptions(maj)}</select>
+      <select id="exE-minor-${id}" style="${inp}">${minorOptions(maj,e.minor)}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px">
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">모집 시작일</div><input id="exE-open-${id}" type="date" value="${esc(e.open_date)}" style="${inp}"></div>
+      <div><div style="font-size:10px;color:#888;margin-bottom:2px">마감일</div><input id="exE-end-${id}" type="date" value="${esc(e.end_date)}" style="${inp}"></div>
+    </div>
+    <input id="exE-count-${id}" type="number" min="0" value="${e.recruit_count!=null?e.recruit_count:''}" placeholder="모집 인원(명)" style="${inp};margin-bottom:8px">
+    <div style="display:flex;gap:6px">
+      <button onclick="saveExpEdit(${id})" style="flex:1;background:#0F6E56;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadExpAdmin()" style="flex:1;background:#F0F0F0;color:#666;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+}
+function syncEditMinorEx(id){ document.getElementById('exE-minor-'+id).innerHTML=minorOptions(document.getElementById('exE-major-'+id).value,''); }
+async function saveExpEdit(id){
+  const title=document.getElementById('exE-title-'+id).value.trim();
+  if(!title){alert('제목을 입력해주세요!');return;}
+  const cnt=document.getElementById('exE-count-'+id).value;
+  const body={ title, link:document.getElementById('exE-link-'+id).value.trim(),
+    major:document.getElementById('exE-major-'+id).value, minor:document.getElementById('exE-minor-'+id).value,
+    open_date:document.getElementById('exE-open-'+id).value||null, end_date:document.getElementById('exE-end-'+id).value||null,
+    recruit_count:cnt?parseInt(cnt):null };
+  try{ const r=await fetch(`${EX_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=representation'}),body:JSON.stringify(body)});
+    if(!r.ok){ let m=''; try{const j=await r.json();m=j.message||j.hint||'';}catch(_){} alert(`수정 실패 (${r.status})\n${m}`); return; }
+    let up=[]; try{ up=await r.json(); }catch(_){}
+    if(!Array.isArray(up)||!up.length){ alert('⚠️ 저장은 됐지만 반영 안 됨 (experiences UPDATE 권한 확인).'); return; }
+    alert('✅ 체험단 수정 완료!'); loadExpAdmin();
+  }catch(e){ alert('수정 실패: '+(e&&e.message||e)); }
+}
+</script>
+</body>
+</html>
