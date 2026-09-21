@@ -1197,7 +1197,7 @@ async function loadData() {
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
   // ⚠ 이 5분 캐시 빠른 경로는 return 으로 끝난다 — 아래 본경로에만 있는 초기화(buildHotTags 등)를 여기도 같이 불러야 한다
   //    (2026-08-31 사고: 핫 키워드 칩이 여기 빠져서 5분 안에 재접속하면 칩이 사라졌다)
-  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); bootView(); return; } }catch(_){}
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); loadDenyDb(); bootView(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
@@ -1270,7 +1270,7 @@ async function loadData() {
     }
   }
   buildWeekTabs();
-  buildHotTags(); loadAliasDb();
+  buildHotTags(); loadAliasDb(); loadDenyDb();
   bootView();
 }
 
@@ -1407,6 +1407,34 @@ async function loadAliasDb(){
   }catch(_){ _aliasDb = []; }   // 실패해도 아래 기본값으로 검색은 된다
   return _aliasDb;
 }
+// 🚫 「다른 브랜드」 제외표 (bot_alias_deny) — 별칭의 뒷면이다 (사장님 지시 2026-09-21)
+//    *"오이는 먹는 오이 말한거니까 오이만 찾아야지 오이코스는 다른 침구 브랜드야"*
+//    별칭과 **같은 원칙**: DB 한 곳에 넣으면 사이트·챗봇이 같이 본다 (규칙 alias-single-source).
+//    ⚠ 손님이 친 말이 term 과 **정확히 같을 때만** 건다 — '오이코스' 로 찾는 손님은 그대로 본다.
+let _denyDb = null;
+async function loadDenyDb(){
+  if(_denyDb) return _denyDb;
+  try{
+    const c = JSON.parse(localStorage.getItem('mc_deny')||'null');
+    if(c && (Date.now()-c.ts) < 30*60e3 && Array.isArray(c.d)){ _denyDb = c.d; return _denyDb; }   // 별칭과 같은 30분
+  }catch(_){}
+  try{
+    const r = await fetch(SUPABASE_URL + '/rest/v1/bot_alias_deny?select=term,expand',
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    _denyDb = (Array.isArray(j)?j:[]).map(x=>[String(x.term||'').toLowerCase(), String(x.expand||'').toLowerCase()])
+      .filter(p=>p[0]&&p[1]);
+    try{ localStorage.setItem('mc_deny', JSON.stringify({ts:Date.now(), d:_denyDb})); }catch(_){}
+  }catch(_){ _denyDb = []; }   // 못 읽으면 제외를 안 한다 — 검색 자체는 그대로 된다
+  return _denyDb;
+}
+// 손님이 친 말로 이 상품을 빼야 하나
+function denyHit(q, ...vals){
+  const t = String(q||'').trim().toLowerCase(); if(!t || !(_denyDb||[]).length) return false;
+  const bad = _denyDb.filter(p=>p[0]===t).map(p=>p[1]); if(!bad.length) return false;
+  return vals.some(v=>{ const x=String(v||'').toLowerCase(); return bad.some(b=>x.includes(b)); });
+}
 function expandQuery(q){
   const out=[q];
   const pairs = BRAND_ALIAS.concat(SEARCH_LINK).concat(_aliasDb||[]);
@@ -1430,6 +1458,7 @@ function getFiltered(dateStr){
   if(fSearch){
     return DATA.filter(item=>{
       if(isExpired(item))return false;
+      if(denyHit(fSearch, item.name))return false;   // 🚫 「다른 브랜드」 는 빼고 보여준다 (2026-09-21)
       if(fMajor!=='전체'&&item.major!==fMajor)return false;
       if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
@@ -1697,7 +1726,8 @@ async function renderSearchAll(){
 
   // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
   const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
-  const hit=(...vals)=>vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
+  // 🚫 「다른 브랜드」 는 핫딜·체험단 섹션에서도 뺀다 — 공구만 막으면 오이코스 핫딜이 들어올 때 다시 샌다 (2026-09-21)
+  const hit=(...vals)=>!denyHit(q, ...vals) && vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));

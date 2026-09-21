@@ -93,7 +93,9 @@ async function rpc(fn: string) {
  * ⚠ 기간 지난 딜은 절대 안 보낸다(expires_at). 가격이 바뀌면 판매처 추적기가 그 카드를 만료시키므로 여기서 자동으로 빠진다.
  * 낱말이 여러 개면 제목에 **전부 들어간** 것만 (뽀로로 AND 사운드 → 사운드카드 딜만 잡힌다).
  */
-async function findHotdeal(words: string[], today: string) {
+// bad: 손님이 친 말로 판정된 「다른 브랜드」 낱말 — 제목에 들어 있으면 이 딜은 건너뛴다 (2026-09-21)
+//   공구 쪽만 막아두면 오이코스 핫딜이 하나 들어오는 순간 「오이」에 다시 나간다(검증자 지적).
+async function findHotdeal(words: string[], today: string, bad: string[] = []) {
   const nowIso = new Date().toISOString();
   const cands = [...new Set(words.map((w) => (w || "").trim()).filter((w) => w.length >= 2))].slice(0, 3);
   for (const phrase of cands) {
@@ -106,7 +108,8 @@ async function findHotdeal(words: string[], today: string) {
     const cond = ws.length >= 2 ? `and=(${and})` : `title=ilike.${encodeURIComponent("%" + ws[0] + "%")}`;
     const hd = await q(`hotdeals?select=id,title,price,price_before,mall,link,deal_day,img_url&${cond}` +
       `&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=id.desc&limit=1`) as any[];
-    if (Array.isArray(hd) && hd.length && hd[0].link) {
+    if (Array.isArray(hd) && hd.length && hd[0].link
+        && !bad.some((x) => String(hd[0].title || "").includes(x))) {
       const d = hd[0];
       const won = (n: number) => Number(n || 0).toLocaleString("ko-KR") + "원";
       const isToday = String(d.deal_day || "") === today;
@@ -863,7 +866,7 @@ async function handle(req: Request): Promise<Response> {
       {
         // 별칭 푼 말까지 넣는다. 손님이 친 말 그대로가 먼저다.
         const hdWords = [...new Set([kwRaw, kw, ...specific])].filter((x) => x && !String(x).startsWith("__ABBR__"));
-        const hdCard = await findHotdeal(hdWords, today);
+        const hdCard = await findHotdeal(hdWords, today, DENY);
         if (hdCard) return reply([hdCard]);
       }
 
@@ -894,7 +897,12 @@ async function handle(req: Request): Promise<Response> {
         const g = await fetch(`${SB}/rest/v1/rpc/bot_guess`, { method: "POST",
           headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ p_kw: kw }) });
-        const gw = ((await g.json()) as any[]).map((x) => x.word).filter(Boolean).slice(0, 3);
+        // 🚫 「다른 브랜드」로 판정한 말은 되묻지도 않는다 (2026-09-21 검증자 지적).
+        //    안 막으면 「아토팜」에 *"혹시 '아이팜' 찾으셨을까요?"* 가 나갔다 — 사장님이 2026-09-07 에
+        //    "다른 브랜드" 로 판정한 바로 그 짝을 챗봇이 권하는 꼴이다. 표 하나가 결과·학습·되묻기 셋을 다 막는다.
+        const gBad = (await denies()).get(kw) || [];
+        const gw = ((await g.json()) as any[]).map((x) => x.word).filter(Boolean)
+          .filter((w: string) => !gBad.some((x) => String(w).includes(x))).slice(0, 3);
         if (gw.length) hint = `
 
 혹시 ${gw.map((w) => `'${w}'`).join(" · ")} 찾으셨을까요? 그대로 한번 보내보세요!`;
