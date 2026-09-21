@@ -97,7 +97,12 @@ async function rpc(fn: string) {
 //   공구 쪽만 막아두면 오이코스 핫딜이 하나 들어오는 순간 「오이」에 다시 나간다(검증자 지적).
 async function findHotdeal(words: string[], today: string, bad: string[] = []) {
   const nowIso = new Date().toISOString();
-  const cands = [...new Set(words.map((w) => (w || "").trim()).filter((w) => w.length >= 2))].slice(0, 3);
+  // 🔑 한 글자도 후보로 받는다 — 공구 검색과 **같은 기준**이다(아래 HD1 만 뺀다).
+  //    전에는 여기서 통째로 잘라, 별칭이 푼 한 글자 품목(아기김 → 「김」)이 핫딜에 닿지 못했다.
+  //    사장님 2026-09-21: *"아기김 알려줘 하면 아기 먹일 김 공구나 핫딜을 찾는거고"* — 핫딜도 찾아야 한다.
+  const HD0 = ["거","것","걸","게","요","좀","수","때","분","개","중","등","및","이","그","저"];
+  const cands = [...new Set(words.map((w) => (w || "").trim())
+    .filter((w) => w.length >= 2 || (w.length === 1 && !HD0.includes(w))))].slice(0, 3);
   for (const phrase of cands) {
   // 🔑 공구 검색과 같은 이유로 한 글자도 넣는다 — 빼면 "쌀 보관함" 이 보관함만 걸려
   //    벨베이비 자석블럭(이름에 보관함이 들어간다)이 핫딜로 나갔다. 낱말끼리 AND 라 좁아진다.
@@ -107,10 +112,13 @@ async function findHotdeal(words: string[], today: string, bad: string[] = []) {
     const and = ws.map((w) => `title.ilike.${encodeURIComponent("%" + w + "%")}`).join(",");
     const cond = ws.length >= 2 ? `and=(${and})` : `title=ilike.${encodeURIComponent("%" + ws[0] + "%")}`;
     const hd = await q(`hotdeals?select=id,title,price,price_before,mall,link,deal_day,img_url&${cond}` +
-      `&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=id.desc&limit=1`) as any[];
-    if (Array.isArray(hd) && hd.length && hd[0].link
-        && !bad.some((x) => String(hd[0].title || "").includes(x))) {
-      const d = hd[0];
+      `&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=id.desc&limit=5`) as any[];
+    // 🔴 limit 1 이면 **제일 최근 딜 하나가 「다른 브랜드」일 때 핫딜이 통째로 안 나간다.**
+    //    「아기김」이 그렇다 — 김치 딜(볶음김치)이 최신이라 진짜 김 딜(삼육김·대천김·광천김)이 묻힌다.
+    //    5건을 받아 제외를 통과하는 **첫 딜**을 쓴다 (2026-09-21). 제외가 없으면 예전과 똑같이 최신 1건이다.
+    const d = (Array.isArray(hd) ? hd : []).find((x: any) =>
+      x && x.link && !bad.some((b) => String(x.title || "").includes(b)));
+    if (d) {
       const won = (n: number) => Number(n || 0).toLocaleString("ko-KR") + "원";
       const isToday = String(d.deal_day || "") === today;
       return {
