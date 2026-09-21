@@ -585,7 +585,22 @@ details summary::-webkit-details-marker{display:none}
         <div style="font-size:16px;font-weight:800;color:#191919">🧾 현금영수증 일괄발급 만들기</div>
         <div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5">셀러별 <b>수수료 금액</b>을 붙여넣으면 홈택스 양식에 넣을 값을 만들어요. 총액만 넣으면 공급가액·부가세는 자동으로 나눠요.</div>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:14px">
+      <div style="display:flex;gap:6px;padding:10px 14px 0">
+        <button id="crTab1" onclick="crTab(1)" style="flex:1;padding:8px;background:#7B68EE;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">① 발급할 값 만들기</button>
+        <button id="crTab2" onclick="crTab(2)" style="flex:1;padding:8px;background:#F4F1FF;color:#4A35A0;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">② 발급 결과</button>
+      </div>
+      <div id="crPane2" style="display:none;flex:1;overflow-y:auto;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">홈택스 「발급결과 조회」 화면을 긁어서 붙여넣으세요</div>
+        <textarea id="crResRaw" rows="6" placeholder="2026-08-24 12:49:22	Z58158732	132-81-53370	지출증빙	승인거래	125,640	0	125,640"
+          style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:12px;font-family:inherit;line-height:1.6"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="crBatch" placeholder="묶음 이름 (예: 2026-09-21 또또맘)" style="flex:1;padding:9px;border:1.5px solid #E8E8E8;border-radius:9px;font-size:12.5px;font-family:inherit">
+          <button onclick="crResSave()" style="padding:9px 14px;background:#7B68EE;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">저장</button>
+        </div>
+        <div id="crResMsg" style="font-size:11.5px;margin-top:7px"></div>
+        <div id="crResList" style="margin-top:12px"></div>
+      </div>
+      <div id="crPane1" style="flex:1;overflow-y:auto;padding:14px">
         <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
           <div style="flex:1;min-width:190px">
             <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px">받는 곳 사업자번호 (발급수단번호)</div>
@@ -3090,7 +3105,65 @@ function vdRender(){
 //   홈택스 양식 규격은 위 모달 주석 참고. 여기서는 **값만** 만든다 — 양식 파일은 사장님이 홈택스에서 받아 쓰신다.
 const CR_PARTNERS = { '1328153370': '리뉴얼라이프 (또또맘)' };   // 아는 거래처는 이름을 띄워 오타를 잡는다
 let _crRows = null;
-function openCashRcpt(){ document.getElementById('cashRcptModal').style.display='flex'; crBizName(); }
+function openCashRcpt(){ document.getElementById('cashRcptModal').style.display='flex'; crBizName(); crTab(1); }
+// 두 화면 — ① 발급할 값 만들기 ② 발급 결과 보관 (사장님 2026-09-21 "사이트에도 결과 알 수 있게")
+function crTab(n){
+  document.getElementById('crPane1').style.display = n===1?'block':'none';
+  document.getElementById('crPane2').style.display = n===2?'block':'none';
+  document.getElementById('crCopyBtn').style.display = n===1?'':'none';
+  for(const [i,id] of [[1,'crTab1'],[2,'crTab2']]){
+    const b=document.getElementById(id), on=(i===n);
+    b.style.background=on?'#7B68EE':'#F4F1FF'; b.style.color=on?'#fff':'#4A35A0';
+  }
+  if(n===2) crResList();
+}
+// 홈택스 발급결과 화면 한 줄을 뜯는다.
+//   거래일시 · 승인번호 · 발급수단 · 용도구분 · 거래구분 · 공급대가 · 부가세 · 총거래금액 · 메모
+//   ⚠ 맨 앞 '선택'(라디오) 칸은 복사하면 빈칸이 되거나 아예 안 붙는다 → **날짜부터 찾는다**.
+function crResParse(text){
+  const out=[];
+  for(const line of String(text||'').split(/\r?\n/)){
+    const t=line.trim(); if(!t) continue;
+    const m=t.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+(\S+)\s+([\d-]{10,19})\s+(\S+)\s+(\S+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)(?:\s+(.*))?$/);
+    if(!m) continue;
+    const num=(x)=>Number(String(x).replace(/,/g,''))||0;
+    out.push({ issued_at:`${m[1]}T${m[2]}+09:00`, approval_no:m[3], id_no:m[4], use_type:m[5], deal_type:m[6],
+               supply:num(m[7]), vat:num(m[8]), total:num(m[9]), memo:(m[10]||'').trim() });
+  }
+  return out;
+}
+async function crResSave(){
+  const msg=document.getElementById('crResMsg');
+  const rows=crResParse(document.getElementById('crResRaw').value);
+  if(!rows.length){ msg.style.color='#C62828'; msg.textContent='읽을 줄이 없어요. 표를 그대로 긁어서 붙여넣어 주세요 (거래일시부터 총거래금액까지).'; return; }
+  msg.style.color='#666'; msg.textContent=`${rows.length}건 읽었어요 — 저장 중…`;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/cash_receipt_save',{method:'POST',headers:sbHeaders(),
+      body:JSON.stringify({p_rows:rows,p_batch:(document.getElementById('crBatch').value||'').trim()||null})});
+    const j=await r.json();
+    if(!r.ok) throw new Error((j&&j.message)||('HTTP '+r.status));
+    msg.style.color='#2E7D32'; msg.textContent=`✅ ${rows.length}건 저장했어요 (승인번호가 같으면 덮어써요)`;
+    document.getElementById('crResRaw').value='';
+    crResList();
+  }catch(e){ msg.style.color='#C62828'; msg.textContent='저장 실패 — '+e.message; }
+}
+async function crResList(){
+  const box=document.getElementById('crResList');
+  box.innerHTML='<div style="color:#aaa;font-size:12px;padding:10px">불러오는 중…</div>';
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/cash_receipt_read',{method:'POST',headers:sbHeaders(),body:JSON.stringify({p_limit:200})});
+    const j=await r.json();
+    if(!r.ok) throw new Error((j&&j.message)||('HTTP '+r.status));
+    if(!Array.isArray(j)||!j.length){ box.innerHTML='<div style="color:#999;font-size:12px;padding:10px">아직 저장된 발급 내역이 없어요.</div>'; return; }
+    const won=n=>Number(n||0).toLocaleString('ko-KR');
+    const tot=j.reduce((a,x)=>a+Number(x.total||0),0);
+    box.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:5px">발급 내역 ${j.length}건 · 합계 <b>${won(tot)}원</b></div>
+    <div style="overflow-x:auto;border:1px solid #EEE;border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:11.5px">
+    <tr style="background:#F7F5FF;color:#4A35A0;font-weight:700"><td style="padding:6px">거래일시</td><td style="padding:6px">승인번호</td><td style="padding:6px">발급수단</td><td style="padding:6px;text-align:right">총거래금액</td><td style="padding:6px">묶음</td></tr>
+    ${j.map(x=>`<tr style="border-top:1px solid #F2F2F2"><td style="padding:6px;color:#666">${String(x.issued_at||'').slice(0,16).replace('T',' ')}</td><td style="padding:6px;font-weight:700">${x.approval_no||''}</td><td style="padding:6px;color:#666">${x.id_no||''}</td><td style="padding:6px;text-align:right;font-weight:700">${won(x.total)}</td><td style="padding:6px;color:#999">${x.batch||''}</td></tr>`).join('')}
+    </table></div>`;
+  }catch(e){ box.innerHTML=`<div style="color:#C62828;font-size:12px;padding:10px">못 불러왔어요 — ${e.message}</div>`; }
+}
 function closeCashRcpt(){ document.getElementById('cashRcptModal').style.display='none'; }
 function crBizName(){
   const v=(document.getElementById('crBiz').value||'').replace(/[^0-9]/g,'');
