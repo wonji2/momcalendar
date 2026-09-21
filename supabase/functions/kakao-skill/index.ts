@@ -117,7 +117,7 @@ async function findHotdeal(words: string[], today: string) {
           title: "공구는 없지만 핫딜이 떴어요! 🔥",
           description: `${isToday ? "오늘 올라온 핫딜이에요\n\n" : ""}${d.title}\n${won(d.price)}${d.price_before ? ` (원래 ${won(d.price_before)})` : ""} · ${d.mall || ""}\n\n공구로는 안 열렸지만 이 값이면 공구 가격이에요.`.slice(0, 400),
           buttons: [
-            { action: "webLink", label: "핫딜 보러가기", webLinkUrl: String(d.link) },
+            { action: "webLink", label: "핫딜 보러가기", webLinkUrl: webUrl(d.link, SITE) },
             { action: "webLink", label: "맘캘린더", webLinkUrl: SITE },
           ],
         },
@@ -267,10 +267,19 @@ const one = (title: string, items: any[]) => ({
   items: items.map((g: any) => ({
     title: (g.__p ? "💜 " : "") + String(g.name || "").slice(0, 34),
     description: `${g.influencer || g.insta || ""} · ${String(g.open_date).slice(5)}~${String(g.end_date).slice(5)}`.replace(/^ · /, ""),
-    link: { web: String(g.pay_link || "").startsWith("http") ? String(g.pay_link) : (g.insta ? `https://instagram.com/${norm(g.insta)}` : SITE) },
+    link: { web: webUrl(g.pay_link, g.insta ? `https://instagram.com/${norm(g.insta)}` : SITE) },
   })),
   buttons: [{ action: "webLink", label: "전체 일정 보기", webLinkUrl: SITE }],
 });
+// 🔴 카카오는 버튼·링크 URL 도 https 만 받는다. http:// 면 **말풍선을 통째로 버려 손님에겐 무응답**이 된다.
+//   (2026-09-15·19·20 경보 3회 — pay_link 에 http:// 가 한 건 있었다. 이미지 쪽 thumbOf 와 같은 방식으로 올린다.)
+//   올릴 수 없는 값이면 fb(대개 SITE)로 떨어뜨린다 — 링크 하나를 포기하더라도 말풍선은 살린다.
+const webUrl = (u: unknown, fb: string): string => {
+  let x = String(u || "").trim();
+  if (x.startsWith("http://")) x = "https://" + x.slice(7);
+  return x.startsWith("https://") ? x : fb;
+};
+
 function cards(title: string, rows: any[]) {
   if (rows.length <= 5) return { listCard: one(title, rows) };
   const ch: any[][] = [];
@@ -645,20 +654,25 @@ async function handle(req: Request): Promise<Response> {
         }
         return true;
       };
+      // 🔴 2026-09-21: 낱말을 걸쳐 조립할 때 뒷낱말에서 1글자만 떼는 것을 막는다.
+      //   「블루이」 = 블루마마(블루) + 이유식(이) 로 조립돼 엉뚱한 카드가 나갔다(회귀 🟠 실측).
+      //   한 낱말 안 접두(뽀로로→뽀로로사운드카드, 비타민→리포좀 비타민C)는 depth 0 이라 그대로 통과한다.
+      //   측정: 줄임말 340개 × 상품명 10,620개 → 바뀐 것 10개·사라진 매칭 29건(대부분 조사 붙은 말).
       const abbrPrefix = (kwx: string, nm: string) => {
         const ws = abbrWords(nm);
-        const walk = (ci: number, wi: number): boolean => {
+        const walk = (ci: number, wi: number, depth: number): boolean => {
           if (ci >= kwx.length) return true;
           for (let k = wi; k < ws.length; k++) {
-            for (let len = Math.min(ws[k].length, kwx.length - ci); len >= 1; len--) {
+            const minLen = depth === 0 ? 1 : 2;
+            for (let len = Math.min(ws[k].length, kwx.length - ci); len >= minLen; len--) {
               const piece = kwx.slice(ci, ci + len);
-              if (ws[k].startsWith(piece) && walk(ci + len, k + 1)) return true;
+              if (ws[k].startsWith(piece) && walk(ci + len, k + 1, depth + 1)) return true;
               if (ci + len >= kwx.length && piece.length >= 2 && ws[k].slice(1).includes(piece)) return true;
             }
           }
           return false;
         };
-        return walk(0, 0);
+        return walk(0, 0, 0);
       };
       const abbrOk = (kwx: string, nm: string) => abbrInitials(kwx, nm) || abbrPrefix(kwx, nm);
 
