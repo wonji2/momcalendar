@@ -178,6 +178,27 @@ const manual = [];
 }
 
 // 살아있는지 최종 확인
+// ── 공개 레포 보호 훅 — core.hooksPath 는 clone 으로 복구되지 않는다 (2026-09-21 노출 사고)
+try {
+  const { execSync } = await import('node:child_process');
+  const cur = execSync('git config --get core.hooksPath', { cwd: REPO })
+    .toString().trim();
+  if (cur !== '.githooks') throw new Error('미설정');
+  log.push({ icon: '✅', what: '커밋 보호 훅', detail: '.githooks 연결됨' });
+} catch (_) {
+  if (CHECK) {
+    log.push({ icon: '🟡', what: '커밋 보호 훅', detail: '꺼져 있음 — git config core.hooksPath .githooks' });
+  } else {
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync('git config core.hooksPath .githooks', { cwd: REPO });
+      log.push({ icon: '🔧', what: '커밋 보호 훅', detail: '다시 연결함(.githooks)' });
+    } catch (e) {
+      log.push({ icon: '🟡', what: '커밋 보호 훅', detail: '연결 실패: ' + e.message });
+    }
+  }
+}
+
 const memCount = existsSync(MEM) ? readdirSync(MEM).length : 0;
 const cmdCount = existsSync(join(REPO, '.claude', 'commands')) ? readdirSync(join(REPO, '.claude', 'commands')).length : 0;
 
