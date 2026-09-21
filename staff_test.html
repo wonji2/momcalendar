@@ -504,22 +504,24 @@ function todoRender(){
 // ⚠ 순수 함수 — 화면·로그인 없이도 그대로 시험할 수 있다
 function todoHtml(rows, T){
   const Y=tdAdd(T,-1), N=tdAdd(T,1), win={}; win[Y]='어제'; win[T]='오늘'; win[N]='내일';
-  const G={'🔴 밀린 일':[], '어제':[], '오늘':[], '내일':[]};
+  const G={'🔴 밀린 일':[], '어제':[], '오늘':[], '내일':[], '그 밖에 처리 대기':[]};
   (rows||[]).forEach(r=>{
     const hit=tdMarks(r).filter(m=>win[m.d]);
     if(hit.length){
       const day=hit.some(m=>m.d===T)?'오늘':(hit.some(m=>m.d===Y)?'어제':'내일');
       G[day].push({r:r, marks:hit.map(m=>m.t)});
     }else{
-      //  3일 창을 벗어난 것도 「밀린 일」로 올린다 —
-      //  ①시트가 🔴 로 잡은 건 ②기한이 지났는데 아직 안 끝난 정산·신고
-      const late=tdMarks(r).filter(m=>m.d<Y&&(m.t==='정산 지급'||m.t==='원천세 신고'));
-      if(String(r.urgent||'').indexOf('🔴')===0||late.length)
-        G['🔴 밀린 일'].push({r:r, marks:late.map(m=>m.t+' '+m.d.slice(5)+' 지남')});
+      //  3일 창 밖이어도 버리지 않는다. 시트가 「할 일」을 띄워 둔 줄은 반드시 어딘가에 보여야 한다.
+      //  (마감~정산 사이 11일처럼, 기한 마크가 없는 기간이 길다)
+      //  기한이 지났거나 시트가 🔴 로 잡은 건 위로, 나머지는 맨 아래 묶음으로.
+      const late=tdMarks(r).filter(m=>m.d<Y);
+      const hot=String(r.urgent||'').indexOf('🔴')===0;
+      if(hot||late.length) G['🔴 밀린 일'].push({r:r, marks:late.map(m=>m.t+' '+m.d.slice(5)+' 지남')});
+      else                 G['그 밖에 처리 대기'].push({r:r, marks:[]});
     }
   });
   let html='', any=0;
-  ['🔴 밀린 일','어제','오늘','내일'].forEach(g=>{
+  ['🔴 밀린 일','어제','오늘','내일','그 밖에 처리 대기'].forEach(g=>{
     const list=G[g]; if(!list.length) return; any+=list.length;
     list.sort((a,b)=>(String(b.r.urgent||'').indexOf('🔴')===0?1:0)-(String(a.r.urgent||'').indexOf('🔴')===0?1:0));
     const tone = g==='오늘' ? '#0F6E56' : (g==='🔴 밀린 일' ? '#C62828' : '#888');
@@ -564,7 +566,9 @@ async function loadRole(){
   //  📋 오늘 할 일 — 스탭·관리자면 열어 주고, 로그인하면 여기부터 뜨게 한다
   if(IS_ADMIN||IS_STAFF){
     const td=document.getElementById('t-todo'); if(td) td.style.display='';
-    showTab('todo');
+    //  loadRole 은 비동기라 늦게 끝난다. 그 사이 다른 탭을 눌렀으면 뺏지 않는다.
+    const ex=document.getElementById('t-exp');
+    if(ex&&ex.classList.contains('on')) showTab('todo');
   }
   if(!IS_ADMIN && !IS_STAFF){
     ['exp'].forEach(x=>{ const tb=document.getElementById('t-'+x); if(tb) tb.style.display='none'; });
