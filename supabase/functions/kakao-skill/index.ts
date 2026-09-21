@@ -130,6 +130,22 @@ async function aliases(): Promise<[string, string][]> {
   const rows = await q("bot_alias?select=term,expand");
   return (rows as any[]).map((r) => [String(r.term), String(r.expand)] as [string, string]);
 }
+// 🚫 「다른 브랜드」 표 — 손님이 term 을 그대로 쳤을 때 상품명에 expand 가 든 것을 **결과에서 뺀다** (사장님 지시 2026-09-21)
+//   *"오이는 먹는 오이 말한거니까 오이만 찾아야지 오이코스는 다른 침구 브랜드야"*
+//   낱말 경계 정규식으로 막지 않는 이유: '쌀 보관함' 원칙 — 한 글자도 빼면 멀쩡한 검색이 죽는다.
+//   대신 **사장님이 판정한 짝만** 데이터로 뺀다. 같은 표를 bot_learn 도 "다시 배우지 마라" 로 읽는다.
+//   ⚠ term 과 **정확히 같은 말**로 물었을 때만 건다 — 「오이코스」로 찾는 손님은 그대로 본다.
+async function denies(): Promise<Map<string, string[]>> {
+  const rows = await q("bot_alias_deny?select=term,expand");
+  const m = new Map<string, string[]>();
+  for (const r of rows as any[]) {
+    const t = String(r.term || "").trim(); const x = String(r.expand || "").trim();
+    if (!t || !x) continue;
+    if (!m.has(t)) m.set(t, []);
+    m.get(t)!.push(x);
+  }
+  return m;
+}
 // 사장님이 관리자 화면에서 확정한 말투 — 재배포 없이 즉시 반영된다 (bot_review_48.sql)
 //   자동 학습은 오타만 배운다. "고마웡" 같은 말투는 사람이 판정해야 하고, 그 창구가 이것이다.
 async function phrases(): Promise<[string, string][]> {
@@ -582,6 +598,7 @@ async function handle(req: Request): Promise<Response> {
     // ① 브랜드·상품 검색 본체 — 찾으면 답(Response), 못 찾으면 null (AI 해석 뒤 같은 함수로 다시 찾는다)
     const searchReply = async (kw: string, kwRaw: string, say: string, noAbbr = false): Promise<Response | null> => {
       const AL = await aliases();
+      const DENY = (await denies()).get(kw) || [];   // 손님 말 그대로일 때만 (아래 searchGonggu 끝에서 건다)
       let tries = kwRaw && kwRaw !== kw ? [kwRaw, kw] : [kw];
       // 별칭은 두 번 푼다 — 줄임말 → 정식이름 → 표기변형 (사장님 지시 2026-09-02)
       //   "넘블은 넘버블럭스 넘버블록스 다 똑같은말이야 줄임말"
@@ -801,6 +818,17 @@ async function handle(req: Request): Promise<Response> {
             }
           }
         }
+        // 🚫 「다른 브랜드」 제외 (bot_alias_deny) — 없으면 아무 일도 안 한다.
+        //    실측 2026-09-21: 「오이」 3건(오이코스 베개커버·오이스터 2건) 전부 빠져 "없어요" 가 된다.
+        //    「오이스터」·「오이코스」로 물은 손님은 kw 가 달라 걸리지 않으므로 그대로 본다.
+        if (DENY.length) {
+          const before = merged.length;
+          const keep = merged.filter((r: any) => !DENY.some((x) => String(r.name || "").includes(x)));
+          if (keep.length !== before) {
+            logEv("kakao_bot_deny", kw + " | 다른브랜드 제외 " + before + "→" + keep.length + " (" + DENY.join(",") + ")");
+            merged.length = 0; merged.push(...keep); mseen.clear(); for (const r of keep) mseen.add(r.id);
+          }
+        }
         if (!merged.length) return null;
         // 손님이 친 낱말이 **상품명**에 있는 것을 먼저 보여준다.
         //   실사고 2026-09-02: '우유' 를 물었는데 셀러 '우유맘' 의 리프팅크림이 1번으로 나갔다.
@@ -885,8 +913,15 @@ async function handle(req: Request): Promise<Response> {
         //   토큰이 그 말로 시작하거나 끝나야 한다: 무선선풍기(끝) ✅ · 실리만(전체) ✅ · 좁쌀이불(중간) 🚫
         const okTok = (nm: string, w: string) =>
           String(nm || "").split(" ").some((t) => t.startsWith(w) || t.endsWith(w));
-        const pick3 = (rows: any, w: string) =>
-          Array.isArray(rows) ? rows.filter((p: any) => okTok(p.name, w)) : [];
+        // 🚫 「다른 브랜드」는 지난 공구 안내에서도 뺀다 (사장님 2026-09-21) —
+        //    카드만 막으면 "지금은 없어요" 뒤에 오이코스 베개커버가 그대로 따라 나간다(실측).
+        const DN = await denies();
+        const pick3 = (rows: any, w: string) => {
+          const bad = DN.get(w) || [];
+          return Array.isArray(rows)
+            ? rows.filter((p: any) => okTok(p.name, w) && !bad.some((x) => String(p.name || "").includes(x)))
+            : [];
+        };
         let past = rushed ? [] : pick3(await pastBy(say), say);
         // 손님 말로 못 찾으면 조사를 뗀 말로 한 번 더 ("선풍기가" → 선풍기)
         if (!rushed && !past.length && kw && kw !== say && kw.length >= 2) past = pick3(await pastBy(kw), kw);

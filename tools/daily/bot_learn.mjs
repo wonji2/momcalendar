@@ -172,8 +172,12 @@ for (const m of miss) {
     if (!DRY) {
       const q = (t) => "'" + String(t).replace(/'/g, "''") + "'";
       try {
-        sql(`insert into bot_alias(term, expand) values (${q(kw)}, ${q(best)}) on conflict (term) do nothing;`);
-        okIns = sql(`select 1 ok from bot_alias where term = ${q(kw)};`).length > 0;
+        // ⚠ 2026-09-21: bot_alias PK 가 (term) → (term, expand) 로 넓어졌다(한 말에 여러 뜻, 사장님 "아기김은 우아한김이랑 또또맘").
+        //   그래서 대상 지정(`on conflict (term)`)은 더 이상 안 맞는다 → 제약 무지정으로 둔다.
+        //   자동학습은 위 known 집합으로 **이미 있는 말은 건너뛰므로** 여전히 한 말에 뜻 하나만 배운다.
+        //   여러 뜻은 사람(사장님)이 판정한 것만 넣는다.
+        sql(`insert into bot_alias(term, expand) values (${q(kw)}, ${q(best)}) on conflict do nothing;`);
+        okIns = sql(`select 1 ok from bot_alias where term = ${q(kw)} and expand = ${q(best)};`).length > 0;
       } catch (e) { okIns = false; }
     }
     if (!okIns) { delete state[kw]; dead++; say(`🔴 등록실패 "${kw}" → "${best}" — bot_alias 에 안 들어갔습니다`); continue; }
