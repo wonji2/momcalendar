@@ -214,13 +214,14 @@ async function aiCalledToday(): Promise<number> {
     return Number.isFinite(n) ? n : 0;
   } catch { return 0; }
 }
-async function interpAI(u: string, tReq: number): Promise<Interp | null | typeof AI_FAIL> {
+// ⚠ uid 를 받는다 — 이 로그로 "돈 나간 호출이 실손님인지 우리 로봇인지" 를 가린다 (2026-09-21).
+async function interpAI(u: string, tReq: number, uid = "?"): Promise<Interp | null | typeof AI_FAIL> {
   const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key) return null;
   // 요청 시작 3.5초가 지났으면 시작조차 안 한다(돈을 안 쓴다). 그 전이면 시작하고, 마감은 withDeadline 이 건다.
   // ⚠ "콜드스타트 직후면 건너뛰기"(모듈 시각 기준)는 넣었다가 뺐다 (2026-09-08) — 엣지는 요청마다 새 인스턴스라 전 요청이 cold 로 보여 AI 가 꺼졌다.
   if (Date.now() - tReq > 3500) return null;
   // 공짜 검사(위) 뒤에 상한 조회(REST 1회 ≈ 80ms) — 안 태울 요청에는 조회도 안 나가게 (검증 지적)
-  if (await aiCalledToday() >= AI_DAILY_CAP) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${AI_DAILY_CAP}건 상한 — 규칙만`); return null; }
+  if (await aiCalledToday() >= AI_DAILY_CAP) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${AI_DAILY_CAP}건 상한 — 규칙만 | uid=${uid}`); return null; }
   const t0 = Date.now();
   try {
     const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: 8000 });   // 끊지 않는다 — 8초는 과금·인스턴스 상한
@@ -237,10 +238,10 @@ async function interpAI(u: string, tReq: number): Promise<Interp | null | typeof
       headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ utt_norm: normUtt(u), utt: u.slice(0, 120), intent: it.intent, q: it.q, cat: it.cat, src: "ai", model: AI_MODEL, in_tok: inT, out_tok: outT }) }).catch(() => {});
     keepAlive(saveP);
-    logEv("kakao_bot_ai", `${u.slice(0, 40)} => ${it.intent}:${it.q} | ${inT}/${outT}tok | ${Date.now() - t0}ms`);
+    logEv("kakao_bot_ai", `${u.slice(0, 40)} => ${it.intent}:${it.q} | ${inT}/${outT}tok | ${Date.now() - t0}ms | uid=${uid}`);
     return it;
   } catch (e) {
-    logEv("kakao_bot_ai_err", `${u.slice(0, 40)} | ${String((e as any)?.message || e).slice(0, 80)} | ${Date.now() - t0}ms`);
+    logEv("kakao_bot_ai_err", `${u.slice(0, 40)} | ${String((e as any)?.message || e).slice(0, 80)} | ${Date.now() - t0}ms | uid=${uid}`);
     return AI_FAIL;   // 오류는 "없어요" 근거가 아니다 — 호출처가 "찾는 중" 으로 답한다
   }
 }
@@ -974,7 +975,7 @@ async function handle(req: Request): Promise<Response> {
     // 규칙 검색은 AI 와 **동시에** 시작한다 — AI 가 마감을 넘기면 이미 끝난 규칙 답을 바로 내보낸다(답장 시간 단축, 2026-09-08)
     const ruleP: Promise<Response | null> = askable ? searchReply(kw, kwRaw, say).catch(() => null) : Promise.resolve(null);
     if (!learned && sentenceLike && aiAllowed) {
-      const r1 = await withDeadline(interpAI(u, tReq), AI_DEADLINE_MS, u);
+      const r1 = await withDeadline(interpAI(u, tReq, uid), AI_DEADLINE_MS, u);
       if (r1 === LATE || r1 === AI_FAIL) aiLate = true; else ai = r1;
       // ⚠ ruleDone=false — 규칙이 아직 안 돌았으니 "규칙이 이미 찾아봤다" 건너뛰기를 하면 안 된다
       //   (2026-09-06 실측: 「물티슈 공구 궁금해요!」가 그 건너뛰기에 걸려 '없어요' 로 나갔다)
@@ -986,7 +987,7 @@ async function handle(req: Request): Promise<Response> {
     // 🧠 ③-b 규칙이 못 찾았다 → AI 해석(키 없으면 건너뜀) → 사전 저장 → 그 해석으로 다시 찾는다
     //    ⚠ kw 가 빈 발화(말버릇만 남은 「오늘 핫한 공구머있어」)는 AI 를 안 태운다 — 원칙 ①대로 오늘 공구다 (f9 검증 지적)
     if (!learned && !sentenceLike && kw.length >= 1 && aiAllowed) {
-      const r2 = await withDeadline(interpAI(u, tReq), Math.max(400, Math.min(AI_DEADLINE_MS, 3600 - (Date.now() - tReq))), u);
+      const r2 = await withDeadline(interpAI(u, tReq, uid), Math.max(400, Math.min(AI_DEADLINE_MS, 3600 - (Date.now() - tReq))), u);
       if (r2 === LATE || r2 === AI_FAIL) aiLate = true; else ai = r2;
       if (ai) { const r = await routeIntent(ai, true); if (r) return r; }
     }
