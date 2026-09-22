@@ -73,8 +73,13 @@ const label = `${d.getMonth() + 1}/${d.getDate()}(${'일월화수목금토'[d.ge
 //   threads_learn_guard.mjs 가 복구까지 실패했을 때만 daily/_alert.txt 를 남긴다 (2026-09-21).
 let alertLine = '';
 try {
-  const a = readFileSync('daily/_alert.txt', 'utf8').trim();
-  if (a) alertLine = `<p style="margin:0;padding:10px 14px;background:#FFE9E9;color:#B3261E;font-size:13px;font-weight:700">⚠ ${a}</p>`;
+  // 한 줄 = 「키|문구」. 도구마다 자기 키 줄만 쓴다(tools/daily/alert.mjs).
+  const lines = readFileSync('daily/_alert.txt', 'utf8').split(/\r?\n/)
+    .map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const i = l.indexOf('|'); return i < 0 ? l : l.slice(i + 1); });
+  if (lines.length) alertLine = lines
+    .map((a) => `<p style="margin:0;padding:10px 14px;background:#FFE9E9;color:#B3261E;font-size:13px;font-weight:700;line-height:1.5">⚠ ${a}</p>`)
+    .join('');
 } catch { /* 없으면 정상 */ }
 writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">

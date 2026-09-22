@@ -20,13 +20,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { setAlert, clearAlert, pushAlerts } from './alert.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SNS = path.join(REPO, 'sns-automation');
 const NODE = process.execPath;
 const DRY = process.argv.includes('--dry');
 const LOGF = path.join(REPO, 'scratchpad', 'threads_guard_log.txt');
-const ALERT = path.join(REPO, 'daily', '_alert.txt');
 const kst = () => new Date(Date.now() + 9 * 3600e3);
 const today = kst().toISOString().slice(0, 10);
 const log = (s) => { const t = kst().toISOString().slice(0, 16).replace('T', ' '); try { fs.appendFileSync(LOGF, `[${t}] ${s}\n`); } catch {} console.log(s); };
@@ -55,11 +55,13 @@ for (const w of WATCH) {
 // 사장님 눈에 띄는 곳으로 — 오늘 카드 페이지 맨 위
 if (!DRY) {
   if (broken.length) {
-    fs.mkdirSync(path.dirname(ALERT), { recursive: true });
-    fs.writeFileSync(ALERT, `스레드 말투 학습이 멈췄습니다 — ${broken.join(' · ')} (${today} 13시 확인)`, 'utf8');
+    // 🔴 파일을 통째로 덮지 않는다 — 알림을 내는 도구가 둘 이상이라 서로 지운다(2026-09-22). 내 키 줄만 건드린다.
+    setAlert('threads', `스레드 말투 학습이 멈췄습니다 — ${broken.join(' · ')} (${today} 13시 확인)`);
     log(`🔴 알림 남김: ${broken.join(' · ')}`);
   } else {
-    try { fs.unlinkSync(ALERT); } catch {}
+    clearAlert('threads');
     log('오늘 학습 정상 — 알림 없음');
   }
+  const pr = pushAlerts('스레드 학습 감시');
+  if (!pr.ok) log('⚠ 알림 올리기 실패: ' + pr.error);
 }
