@@ -499,10 +499,41 @@ async function fxDupOk(id,ok){
 }
 
 // ───────── 📸 인스타 카드 ─────────
+// 🔴 요일로 도구를 가른다 (사장님 지시 2026-09-22)
+//    *"평일은 이 형식으로 대부분 채우고 주말 이틀만 랜덤한 다른 형식으로 해봐"*
+//    *"오늘은 평일이라 오픈 공구 많은데 갯수가 몇개 안보여서"*
+//  · 평일(월~금) → reelcard 2단 카드. 한 장에 52건 들어가고, 넘치면 쪽으로 넘어간다(2026-09-22 신설).
+//    실측 2026-09-22(화): 오픈 54·마감 73 → 3장에 전부 실림. instastudio 카테고리 일정은 25건만 싣고 26건을 접었다.
+//  · 주말(토·일) → instastudio 시안 중 **날짜로 정해지는 하나**. 새로고침해도 같은 시안이 나온다.
+//    ⚠ Math.random 은 쓰지 않는다 — 누를 때마다 시안이 바뀌면 사장님이 같은 카드를 다시 못 만든다.
+//  📌 스레드 자동발행(threads-listcard.js)도 같은 정책이다(평일 reelPages · 주말 studioPage).
+//     그쪽은 tsel 을 명시적으로 넣으므로 이 배정과 서로 영향이 없다.
+//  ⚠ 'list' 는 평일 형식이라 주말 후보에서 뺀다 · 'hotdeal' 은 가격이 하루면 틀려져서 뺀다(사장님 2026-09-01)
+const CARD_WEEKEND_FMTS=['daily','top10','closing','weekend','week'];
+// 날짜를 씨앗으로 흩는다. xor·shift 만으로는 하위 비트가 날짜를 따라 그대로 돌아 "토→일" 이 붙어 나온다
+//   → 곱셈이 섞인 해시(splitmix32). threads-publish.js restWindow 와 같은 방식.
+function cardHash32(s){
+  let h=Number(String(s).replace(/-/g,''))>>>0;
+  h=Math.imul(h^(h>>>16),2246822507)>>>0;
+  h=Math.imul(h^(h>>>13),3266489909)>>>0;
+  return (h^(h>>>16))>>>0;
+}
+function weekendFmt(day){
+  const d=new Date(day+'T00:00:00');
+  const sat=new Date(d); sat.setDate(d.getDate()-(d.getDay()===0?1:0));   // 그 주말의 토요일
+  const satFmt=CARD_WEEKEND_FMTS[cardHash32(fmtYmdLocal(sat))%CARD_WEEKEND_FMTS.length];
+  if(d.getDay()===6) return satFmt;
+  // 일요일은 **토요일과 다른** 시안으로 — 이틀 연속 같은 형식이 나오지 않게
+  const rest=CARD_WEEKEND_FMTS.filter(x=>x!==satFmt);
+  return rest[cardHash32(day)%rest.length];
+}
+function fmtYmdLocal(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
 function reelCardUrl(){
   const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
   const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
-  return base+'/instastudio.html?d='+kst+'&fmt=auto&t='+Date.now();   // 🔴 reelcard(시안 1종) → instastudio(요일별 7종). 2026-09-02
+  const dow=new Date(kst+'T00:00:00').getDay();
+  if(dow===0||dow===6) return base+'/instastudio.html?d='+kst+'&fmt='+weekendFmt(kst)+'&t='+Date.now();
+  return base+'/reelcard.html?d='+kst+'&t='+Date.now();
 }
 function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
 
