@@ -343,7 +343,10 @@ async function load(){
       //    sameProduct 는 「어그」 같은 2글자 단일 낱말을 일부러 거부한다 — 그게 없으면 「우유」·「쌀」이 과잉매칭된다(사장님 지시).
       //    그래서 **브랜드로 확인된 낱말**만 따로 본다. 목록은 검색량 수집기가 매일 채우는 파일이라 자동으로 늘어난다.
       //    못 읽으면 브랜드 대조를 건너뛴다 — 카드는 그대로 나온다(안전측).
-      fetch('tools/seo/kw_volume.json').then(r=>r.ok?r.json():{}).catch(()=>({})),
+      //  ⚠ 스레드 자동발행은 이 파일을 **file://** 로 열기 때문에 상대경로 fetch 가 막힌다(CORS).
+      //    그러면 브랜드 대조가 조용히 꺼져 「어그」가 안 걸린다 → 실패하면 라이브 주소로 한 번 더 받는다.
+      fetch('tools/seo/kw_volume.json').then(r=>r.ok?r.json():Promise.reject(new Error('no')))
+        .catch(()=>fetch('https://momcalendar.com/tools/seo/kw_volume.json').then(r=>r.ok?r.json():{}).catch(()=>({}))),
       // 🎨 주말 모드용 추가 데이터 — 모드가 없으면 부르지 않는다(평일 비용 0)
       (function(){
         if(!MODE) return Promise.resolve([]);
