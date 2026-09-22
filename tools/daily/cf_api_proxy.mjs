@@ -43,12 +43,14 @@ async function cf(token, method, p, body, raw) {
   return j.result;
 }
 
-async function probe(label, url, headers) {
+// expect: 기대하는 HTTP 상태(기본 200). 404·400 을 기대하는 검사는 그 값이 와야 ✅ 다.
+async function probe(label, url, headers, expect = 200, init = {}) {
   try {
-    const r = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    const r = await fetch(url, { headers, signal: AbortSignal.timeout(10000), ...init });
     const t = await r.text();
-    console.log(`  ${r.ok ? '✅' : '🔴'} ${label}: ${r.status} ${t.slice(0, 80).replace(/\s+/g, ' ')}  proxy=${r.headers.get('x-momcal-proxy') || '-'}`);
-    return r.ok;
+    const ok = r.status === expect;
+    console.log(`  ${ok ? '✅' : '🔴'} ${label}: ${r.status} ${t.slice(0, 80).replace(/\s+/g, ' ')}  proxy=${r.headers.get('x-momcal-proxy') || '-'}`);
+    return ok;
   } catch (e) { console.log(`  🔴 ${label}: ${String(e).slice(0, 120)}`); return false; }
 }
 
@@ -112,12 +114,15 @@ async function main() {
   console.log(`  HTTPS 레코드 ${HOSTNAME}: ${await dnsHttps(HOSTNAME)}`);
   const ok1 = await probe('ping', `https://${HOSTNAME}/__ping`);
   const ok2 = await probe('rest gonggu 1건', `https://${HOSTNAME}/rest/v1/gonggu?select=id&limit=1`, { apikey: ANON, Authorization: 'Bearer ' + ANON });
-  const ok3 = await probe('functions kakao-auth(잘못된 code → 400 이 정상)', `https://${HOSTNAME}/functions/v1/kakao-auth`, { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' }).then(() => true);
-  const ok4 = await probe('차단 경로 404', `https://${HOSTNAME}/admin`).then(v => !v);
+  // POST + JSON 본문이 그대로 원서버까지 가는지 — 잘못된 code 에 카카오가 400/KOE320 을 주면 본문 전달까지 정상이다
+  const ok3 = await probe('functions kakao-auth POST(잘못된 code → 400 이 정상)', `https://${HOSTNAME}/functions/v1/kakao-auth`,
+    { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' }, 400,
+    { method: 'POST', body: JSON.stringify({ code: 'probe_invalid', redirect_uri: 'https://momcalendar.com/' }) });
+  const ok4 = await probe('허용 밖 경로 → 404', `https://${HOSTNAME}/admin`, undefined, 404);
   const rec = await dnsHttps(HOSTNAME);
   const echLeak = /ech=/.test(rec);
   console.log(echLeak ? '  🔴 HTTPS 레코드에 ech= 가 있다 — 8/29 사고 재발 위험. zone ECH 를 끄고 다시 확인' : '  ✅ ech 없음');
-  console.log(ok1 && ok2 && !echLeak ? '✅ 우회로 정상' : '🔴 우회로 미완성 — 위 🔴 를 잡을 것');
+  console.log(ok1 && ok2 && ok3 && ok4 && !echLeak ? '✅ 우회로 정상' : '🔴 우회로 미완성 — 위 🔴 를 잡을 것');
 }
 
 main().catch(e => { console.error('🔴', e.message || e); process.exit(1); });
