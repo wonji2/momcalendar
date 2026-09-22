@@ -3031,6 +3031,10 @@ let catFixProposals=[], _cfVia='', _cfMajor='', _cfSearch='', _cfBulkMajor='', _
 //   한 줄의 뜻: open 오픈일 · close 마감일 · settle 정산일 · sample 샘플(미발송/완료) · share 링크공유(미완료/빈칸)
 //              stage 일정확정 · paid 정산소통 · type 정산유형 · todo 시트가 적어준 할 일 · urgent 지연표시
 let VD_ROWS = null, VD_AT = '', VD_RCPT = [];   // VD_RCPT = 저장된 현금영수증 발급 내역(cash_receipt) — 「영수증」 갈래에 ✅ 를 띄우는 근거
+// 시트의 셀러 칸은 셀러원장에 없는 셀러를 「이름+인스타핸들」로 붙여 온다("이현맘ihyeon_mom_251125" · "리로네3__meow" · "정원이네 won2_mompick").
+//   뒤에 붙은 영문·숫자·밑줄·점 꼬리를 떼면 이름만 남는다. "3미니맘"처럼 한글로 끝나는 건 그대로.
+const vdSellerName = (s) => String(s||'').replace(/[A-Za-z0-9_.]+$/,'').trim() || String(s||'').trim();
+const vdSellerHandle = (s) => { const t=String(s||''); const n=vdSellerName(t); return n && t!==n ? t.slice(n.length).trim() : ''; };
 function openVendor(){ document.getElementById('vendorModal').style.display='flex'; vdLoad(0); }
 function closeVendor(){ document.getElementById('vendorModal').style.display='none'; }
 const vdYmd = (d)=>{ const t=new Date(d.getTime()+9*3600e3); return t.toISOString().slice(0,10); };
@@ -3067,7 +3071,9 @@ function vdPick(rows, day, isToday){
     if(settle===day || late(settle))                          g.정산소통.push({v,why:settle===day?'오늘 정산일':'정산일 지남 '+settle});
     // 영수증: 저장된 발급 내역(메모에 셀러명이 들어간 것)이 정산일 이후에 있으면 ✅ 발급됨 — 없으면 '발급하기'
     if(settle===day || late(settle)){
-      const got=(v.seller && VD_RCPT.find(rc => String(rc.memo||'').includes(v.seller) && String(rc.deal_type||'')!=='취소거래' && (!rc.issued_at || String(rc.issued_at).slice(0,10) >= (v.close||v.open||'')))) || null;
+      // ⚠ 시트는 셀러원장에 없는 셀러를 「이름+인스타핸들」로 붙여 보낸다("이현맘ihyeon_mom_251125", "리로네3__meow") → 뒤의 영문·숫자·밑줄 꼬리를 떼고 비교 (2026-09-22 사장님 지적)
+      const sname=vdSellerName(v.seller);
+      const got=(sname && VD_RCPT.find(rc => String(rc.memo||'').includes(sname) && String(rc.deal_type||'')!=='취소거래' && (!rc.issued_at || String(rc.issued_at).slice(0,10) >= (v.close||v.open||'')))) || null;
       g.영수증.push({v, why:settle===day?'오늘 정산일':'정산일 지남 '+settle, done: got ? ('발급됨 '+(got.approval_no||'')+' · '+Number(got.total||0).toLocaleString('ko-KR')+'원') : ''});
     }
   }
@@ -3096,7 +3102,7 @@ function vdRender(){
       for(const it of list.slice(0,12)){
         const v=it.v;
         h+=`<div style="border-top:1px solid #F4F4F4;padding:5px 0">
-          <div style="font-size:12px;color:#222;font-weight:700">${(v.seller||'-')} <span style="font-weight:500;color:#777">${(v.prod||'')}</span></div>
+          <div style="font-size:12px;color:#222;font-weight:700">${vdSellerName(v.seller)||'-'}${vdSellerHandle(v.seller)?` <span style="font-weight:500;color:#AAA;font-size:10.5px">@${vdSellerHandle(v.seller)}</span>`:''} <span style="font-weight:500;color:#777">${(v.prod||'')}</span></div>
           <div style="font-size:10.5px;color:#999;margin-top:1px">${it.why}${v.type?' · '+v.type:''}${v.urgent?' · '+v.urgent:''}${it.done?' · <b style="color:#2E7D32">✅ '+it.done+'</b>':(k==='영수증'?' · <b style="color:#C4632A">발급하기 → 🧾 현금영수증</b>':'')}</div>
           ${v.todo?`<div style="font-size:10.5px;color:#C4632A;margin-top:1px">${v.todo}</div>`:''}
         </div>`;
