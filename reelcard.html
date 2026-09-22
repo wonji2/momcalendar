@@ -206,7 +206,7 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
 <div class="bar">
   <div class="brow">
     <input type="date" id="day">
-    <button onclick="load()">만들기</button>
+    <button onclick="loadUI()">만들기</button>
     <select id="vsel" onchange="setV(this.value)" class="sel">
       <option value="A">글씨 30</option><option value="B">글씨 27</option><option value="C">글씨 21</option>
     </select>
@@ -360,8 +360,11 @@ async function load(){
     const opens=rows.filter(r=>r.open_date===day && !clash(r) && !noSeller(r)).sort(sortFn);
     const ends =rows.filter(r=>r.end_date===day  && !clash(r) && !noSeller(r)).sort(sortFn);
     window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
-    // 📄 날짜·시안이 바뀌면 쪽 수를 다시 센다 (2026-09-22)
-    try{ await calcPages(); PG=1; await drawPage(0,0,1); pgLabel(); }catch(_){}
+    // 📄 쪽 나누기용 — **여기서 한 번만** 셀러당 1건·같은 상품 1건을 거른다 (2026-09-22 검증자 지적 ③)
+    //    쪽마다 다시 거르면 1쪽에서 빠진 셀러·상품이 2·3쪽에서 되살아난다(「큐빅스 교구장」이 두 번 실렸다).
+    window.__DEDUP=[oneProduct(onePerSeller(opens)), oneProduct(onePerSeller(ends))];
+    // ⚠ 쪽 초기화는 여기서 하지 않는다 — 이 아래 render() 가 덮어써서 "+N건 더" 가 그대로 남았다(지적 ⑦).
+    //   화면용 초기화는 loadUI() 가 한다. 스레드 자동발행은 load() 만 부르므로 비용이 늘지 않는다.
     render(day,opens,ends);
     makeCaption(day,opens,ends);
     document.getElementById('st').innerHTML=`오픈 <b>${opens.length}</b>건 · 마감 <b>${ends.length}</b>건`;
@@ -384,7 +387,8 @@ function itemHTML(x,showEnd){
   const sub=showEnd
     ? `<span class="it-sl">${esc(x.seller)}</span><span class="gap"></span><span>~${md(x.end_date)}</span>`
     : `<span class="it-sl">${esc(x.seller)}</span>`;
-  return `<div class="it"><div class="it-nm">${esc(x.name)}</div>
+  // data-gid: 저장본(html2canvas 복제본)에서 **실제로 남은 항목**을 읽어 쪽 경계를 잡는다 (2026-09-22)
+  return `<div class="it" data-gid="${x.id}"><div class="it-nm">${esc(x.name)}</div>
     <div class="it-sub">${sub}</div></div>`;
 }
 
@@ -807,55 +811,74 @@ function trimToFit(doc){
 }
 
 /* ══════════════ 📄 쪽 나누기 (사장님 지시 2026-09-22) ══════════════
-   오늘처럼 오픈 51·마감 57 이면 2단 카드 한 장(약 52건)으로는 못 담는다.
-   스레드 자동발행(threads-listcard.js reelPages)이 쓰는 것과 **같은 방식**이다 —
-   render(day, 남은오픈, 남은마감) 을 다시 부르고, 그 장에 **실제로 그려진 수**만큼 시작점을 밀어 다음 장을 그린다.
-   ⚠ 글자 크기 시안(A/B/C)에 따라 한 장 용량이 바뀌므로 쪽 수는 그릴 때마다 다시 센다. 고정값을 쓰지 말 것. */
-const MAXPG = 8;          // 안전 상한 — 무한루프 방지
+   오늘처럼 오픈 54·마감 73 이면 2단 카드 한 장(약 52건)으로는 못 담는다.
+
+   🔴 쪽 경계는 **인덱스가 아니라 "남은 항목 목록"** 으로 잡는다. 두 번 틀려서 이렇게 왔다:
+     ① 화면에 그려진 수로 다음 쪽 시작점을 정했더니, 저장(html2canvas) 복제본에서
+        trimToFit 이 지운 줄이 "실렸다"고 세어져 **어느 쪽 PNG 에도 안 실렸다**(3건 소실).
+     ② 저장본에 남은 id 중 "가장 뒤 + 1" 로 고쳤더니, 마감이 왼쪽 칼럼으로 흘러드는 날
+        (09-27 일: 오픈 19·마감 89) 칼럼 **중간**이 지워져 그 구멍을 건너뛰었다(마감 2건 소실).
+   → 지금 방식: 쪽마다 **남은 배열을 그대로 그리고**, 저장본에 살아남은 id 를 **빼서** 다음 배열을 만든다.
+     구멍이 생길 수 없고, 남은 게 0이면 끝이다.
+
+   ⚠ 미리보기(화면)는 저장본이 아니라 화면 기준으로 센다 — 저장하면 쪽 수가 한 장 늘 수 있다.
+     저장이 끝나면 실제 결과로 쪽 목록을 갱신한다.
+   ⚠ 셀러당 1건·같은 상품 1건은 **불러올 때 한 번만**(__DEDUP) 거른다. 쪽마다 다시 거르면
+     1쪽에서 빠진 셀러·상품이 2·3쪽에서 되살아난다(「큐빅스 교구장」이 두 번 실렸다). */
+const MAXPG = 15;         // 안전 상한 — 무한루프 방지 (09-28 처럼 오픈 200건 넘는 날이 8장을 넘긴다)
 let PG = 1;               // 지금 보고 있는 쪽
-let PGSTARTS = [[0, 0]];  // 쪽별 시작점 [오픈idx, 마감idx]
+let PGPAGES = [];         // 쪽별 [남은오픈배열, 남은마감배열]
 let PGN = 1;              // 전체 쪽 수
 
-// 한 장을 그리고 "이 장에 몇 건이 실렸나 / 남은 건 몇인가" 를 돌려준다
-async function drawPage(a, b, p){
-  const D = window.__DATA; if(!D) return null;
-  const [day, opens, ends] = D;
-  const O = opens.slice(a), E = ends.slice(b);
+// 남은 배열을 한 장에 그린다. "그날 전체" 숫자는 __DEDUP 기준으로 되돌린다.
+async function drawArr(O, E, p){
+  const Z = window.__DEDUP, D = window.__DATA; if(!Z || !D) return null;
   if(!O.length && !E.length) return null;
-  await render(day, O, E);
+  await render(D[0], O, E);
   const card = document.getElementById('card');
-  // 머리 숫자·칼럼 건수는 **그날 전체**로 되돌린다 (슬라이스한 수가 아니라)
   const sO = card.querySelector('.stat.open .n'), sE = card.querySelector('.stat.close .n');
-  if(sO) sO.textContent = opens.length;
-  if(sE) sE.textContent = ends.length;
-  card.querySelectorAll('.col.open .col-n').forEach(e=>{ e.textContent = opens.length; });
-  card.querySelectorAll('.col.close .col-n').forEach(e=>{ e.textContent = ends.length; });
-  // 2장째부터는 이어지는 장이라고 알려준다
-  if(a || b){ const t = card.querySelector('.cta .t'); if(t) t.textContent = '오늘 공구 이어서 (' + p + '장째)'; }
+  if(sO) sO.textContent = Z[0].length;
+  if(sE) sE.textContent = Z[1].length;
+  card.querySelectorAll('.col.open .col-n').forEach(function(e){ e.textContent = Z[0].length; });
+  card.querySelectorAll('.col.close .col-n').forEach(function(e){ e.textContent = Z[1].length; });
+  if(p > 1){ const t = card.querySelector('.cta .t'); if(t) t.textContent = '오늘 공구 이어서 (' + p + '장째)'; }
+  // 남은 건수 안내 — 화면 기준(저장하면 한두 건 달라질 수 있다)
   const n1 = card.querySelectorAll('#L1 .it').length, n2 = card.querySelectorAll('#L2 .it').length;
-  const cO = oneProduct(onePerSeller(O)), cE = oneProduct(onePerSeller(E));   // render() 가 실제로 그린 배열(중복 제거본)
-  const shownO = Math.min(n1, cO.length), spill = Math.max(0, n1 - cO.length); // 왼쪽이 비면 마감이 왼쪽으로 흘러든다
-  const shownE = Math.min(cE.length, n2 + spill);
-  const idx = (arr, item) => (item ? arr.findIndex(x=>x.id===item.id) + 1 : 0);
-  const placedO = shownO ? idx(O, cO[shownO-1]) : 0, placedE = shownE ? idx(E, cE[shownE-1]) : 0;
-  const restO = cO.length - shownO, restE = cE.length - shownE;
+  const drawn = n1 + n2, rest = Math.max(0, O.length + E.length - drawn);
   const m1 = document.getElementById('M1'), m2 = document.getElementById('M2');
-  if(m1) m1.textContent = restO > 0 ? '+ ' + restO + '건 더 (다음 장)' : '';
-  if(m2) m2.textContent = restE > 0 ? '+ ' + restE + '건 더 (다음 장)' : '';
-  return { placedO, placedE, restO, restE };
+  if(m1) m1.textContent = rest > 0 ? '+ ' + rest + '건 더 (다음 장)' : '';
+  if(m2) m2.textContent = '';
+  return { drawn: drawn, rest: rest };
 }
 
-// 쪽 시작점을 처음부터 훑어 전체 쪽 수를 구한다 (그리면서 센다)
+// 화면에 그려진 항목의 id (미리보기용 — 저장본과 한두 건 다를 수 있다)
+function shownIds(){
+  const out = [];
+  ['L1','L2'].forEach(function(cid){
+    const el = document.getElementById(cid); if(!el) return;
+    el.querySelectorAll('.it[data-gid]').forEach(function(e){ out.push(e.getAttribute('data-gid')); });
+  });
+  return new Set(out);
+}
+
+// 미리보기용 쪽 목록 — 화면 기준으로 훑는다(html2canvas 를 안 돌려서 빠르다)
 async function calcPages(){
-  PGSTARTS = [[0,0]]; let a=0, b=0;
-  for(let p=1; p<=MAXPG; p++){
-    const r = await drawPage(a, b, p);
+  const Z = window.__DEDUP; if(!Z) { PGPAGES = []; PGN = 1; return 1; }
+  let O = Z[0].slice(), E = Z[1].slice();
+  const pages = [];
+  for(let p = 1; p <= MAXPG; p++){
+    if(!O.length && !E.length) break;
+    pages.push([O, E]);
+    const r = await drawArr(O, E, p);
     if(!r) break;
-    if(r.restO + r.restE <= 0 || r.placedO + r.placedE === 0) break;
-    a += r.placedO; b += r.placedE;
-    PGSTARTS.push([a,b]);
+    const kept = shownIds();
+    const nO = O.filter(function(x){ return !kept.has(String(x.id)); });
+    const nE = E.filter(function(x){ return !kept.has(String(x.id)); });
+    if(nO.length === O.length && nE.length === E.length) break;   // 진전 없으면 멈춘다
+    O = nO; E = nE;
   }
-  PGN = PGSTARTS.length;
+  PGPAGES = pages.length ? pages : [[Z[0].slice(), Z[1].slice()]];
+  PGN = PGPAGES.length;
   return PGN;
 }
 
@@ -865,38 +888,65 @@ function pgLabel(){
 }
 
 async function goPage(p){
-  if(!window.__DATA) return;
+  if(!PGPAGES.length) return;
   if(p < 1 || p > PGN) return;
   PG = p;
-  const [a,b] = PGSTARTS[p-1];
-  await drawPage(a, b, p);
+  await drawArr(PGPAGES[p-1][0], PGPAGES[p-1][1], p);
   pgLabel();
-  const st = document.getElementById('st');
-  if(st) st.innerHTML = '<b>' + PG + '장째</b> · 전체 ' + PGN + '장';
 }
 
 // 쪽 전부를 순서대로 저장한다 — 사장님이 누르는 버튼
+//  🔴 쪽 경계는 **저장본**이 정한다. 한 장 저장한 직후 그 그림에 살아남은 id 를 빼서 다음 장을 만든다.
 async function saveAllPages(){
-  if(!window.__DATA){ await load(); }
+  if(!window.__DEDUP){ await load(); }
   const btn = document.getElementById('btnSave');
+  const Z = window.__DEDUP;
   btn.disabled = true;
   try{
-    await calcPages();
-    for(let p=1; p<=PGN; p++){
-      btn.textContent = '저장 중… ' + p + '/' + PGN;
-      const [a,b] = PGSTARTS[p-1];
-      await drawPage(a, b, p);
-      await new Promise(r=>setTimeout(r,250));
-      await savePng(true, PGN > 1 ? p : 0);
-      await new Promise(r=>setTimeout(r,600));   // 브라우저 연속 다운로드 제한 회피
+    let O = Z[0].slice(), E = Z[1].slice();
+    const pages = []; let p = 0;
+    while(p < MAXPG && (O.length || E.length)){
+      p++;
+      btn.textContent = '저장 중… ' + p + '장째';
+      pages.push([O, E]);
+      const r = await drawArr(O, E, p);
+      if(!r) break;
+      await new Promise(function(x){ setTimeout(x, 250); });
+      window.__KEPT = null;
+      await savePng(true, p);                       // onclone 이 __KEPT 를 채운다
+      const kept = new Set(window.__KEPT || []);
+      const nO = kept.size ? O.filter(function(x){ return !kept.has(String(x.id)); }) : [];
+      const nE = kept.size ? E.filter(function(x){ return !kept.has(String(x.id)); }) : [];
+      if(!kept.size){ break; }                      // 계측 실패 — 더 그리지 않는다(빠뜨리는 것보다 낫다)
+      if(nO.length === O.length && nE.length === E.length) break;   // 진전 없음
+      O = nO; E = nE;
+      if(O.length || E.length) await new Promise(function(x){ setTimeout(x, 600); });   // 연속 다운로드 제한 회피
     }
+    PGPAGES = pages.length ? pages : PGPAGES;
+    PGN = PGPAGES.length || 1;
+    const left = O.length + E.length;
     await goPage(1);
-    document.getElementById('st').innerHTML = '사진 <b>' + PGN + '장</b> 저장 완료 ✅ 1080×1920';
+    document.getElementById('st').innerHTML = '사진 <b>' + PGN + '장</b> 저장 완료 ✅ 1080×1920'
+      + (left ? ' · 🔴 ' + left + '건을 못 실었습니다 (' + MAXPG + '장 상한)' : ' · 빠진 건 없습니다');
   }catch(e){
     document.getElementById('st').textContent = '저장 실패: ' + e.message;
   }
   btn.textContent = '📥 사진 저장 (전체 쪽)'; btn.disabled = false;
 }
+
+// 📄 화면용 — 불러오기 + 쪽 초기화. UI 는 이것을 부른다(스레드 자동발행은 load() 만 부른다).
+async function loadUI(){
+  await load();
+  try{
+    await calcPages();
+    PG = 1; await goPage(1);
+    const st = document.getElementById('st');
+    if(st) st.innerHTML = '전체 <b>' + PGN + '장</b>' + (PGN > 5
+      ? ' · ⚠ 저장하면 ' + PGN + '장이 연속으로 내려받아집니다 (브라우저가 한 번 허용을 물을 수 있어요)'
+      : ' · 「사진 저장」이 전부 저장합니다');
+  }catch(_){}
+}
+
 
 async function savePng(quiet, pageNo){
   const btn=document.getElementById('btnSave');
@@ -913,7 +963,20 @@ async function savePng(quiet, pageNo){
       width:1080,height:1920,scale:1,
       backgroundColor:'#ffffff',useCORS:true,logging:false,
       windowWidth:1080,windowHeight:1920,
-      onclone:trimToFit                       // ⬅ 실제 그려질 복제본에서 넘침을 다시 잡는다
+      onclone:(doc)=>{                        // ⬅ 실제 그려질 복제본에서 넘침을 다시 잡는다
+        trimToFit(doc);
+        // 🔴 넘침을 잡은 **뒤** 살아남은 항목을 기록한다 — 쪽 경계는 이 값으로 정한다(지적 ①)
+        //    ⚠ 복제본에서는 `#L1 .it` 같은 후손 셀렉터가 0을 준다(실측). trimToFit 과 같이
+        //      getElementById 로 칼럼을 잡고 그 안에서 찾아야 한다.
+        try{
+          const ids=[];
+          ['L1','L2'].forEach(function(cid){
+            const el=doc.getElementById(cid); if(!el) return;
+            el.querySelectorAll('.it[data-gid]').forEach(function(e){ ids.push(e.getAttribute('data-gid')); });
+          });
+          window.__KEPT = ids;
+        }catch(_){ window.__KEPT = null; }
+      }
     });
     const day=document.getElementById('day').value||todayKST();
     const a=document.createElement('a');
@@ -941,7 +1004,9 @@ function setV(v){
   document.body.classList.remove('vA','vB','vC');
   document.body.classList.add('v'+v);
   try{ localStorage.setItem('mc_reel_v', v); }catch(_){}
-  if(window.__DATA) render.apply(null, window.__DATA);   // 데이터 재요청 없이 다시 그리기
+  // 글자 크기가 바뀌면 한 장 용량이 달라진다 → 쪽을 다시 센다 (2026-09-22)
+  if(window.__DATA){ if(typeof calcPages==="function"){ calcPages().then(()=>{ PG=1; goPage(1); }); }
+                     else render.apply(null, window.__DATA); }
 }
 
 (function init(){
@@ -951,7 +1016,7 @@ function setV(v){
   v = (v==='B'||v==='C') ? v : 'A';               // 기본값 A(권장)
   document.getElementById('vsel').value=v;
   document.body.classList.add('v'+v);
-  load();
+  loadUI();   // 화면은 loadUI (불러오기 + 쪽 초기화). 스레드 자동발행은 load() 를 직접 부른다.
 })();
 </script>
 </body>
