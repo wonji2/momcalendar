@@ -762,6 +762,47 @@ body.sheet-open{ overscroll-behavior-y: none; }
 </div>
 
 <!-- 광고 슬림 배너 (banners type=slim · 게시기간 자동 노출/종료 · 공구·핫딜·체험단 공통) -->
+<script>
+// ── 🛟 데이터 서버 우회로 (2026-09-22, 회원 제보 두 번째) ──
+// 일부 손님 망(공유기 DNS 필터·보안앱·통신사)이 supabase.co 를 통째로 막는다. 그러면 배너·공구목록·로그인·기록이 전부 죽는데
+// 우리 쪽엔 아무 흔적도 안 남는다. 사이트의 모든 서버 호출이 fetch 라서 fetch 하나만 감싼다:
+//   ① supabase.co 로 보낸다 (10초 안에 답 없거나 망 오류면) → ② api.momcalendar.com(같은 서버로 가는 우리 도메인 Worker) 로 다시 보낸다
+//   ③ 우회로로 성공하면 6시간 동안 그 길을 먼저 쓴다(mc_api_base). 어느 길로 왔는지 net_fallback 이벤트로 남겨 원인을 센다.
+// ⚠ 이 블록은 서버를 부르는 첫 <script> 보다 앞에 있어야 한다. 순서를 바꾸면 위 슬림배너 호출부터 감싸지지 않는다.
+(function(){
+  var PRIMARY='https://hycaqsqeogjtbscmzrtm.supabase.co', FALLBACK='https://api.momcalendar.com';
+  var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=10000;
+  var _fetch=window.fetch.bind(window);
+  if(!_fetch || typeof AbortController==='undefined') return;   // 아주 옛 브라우저는 원래대로
+  function remembered(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||'null'); if(o && o.base===FALLBACK && Date.now()-o.t<TTL) return FALLBACK; }catch(_){} return PRIMARY; }
+  function remember(base){ try{ if(base===FALLBACK) localStorage.setItem(KEY, JSON.stringify({base:base,t:Date.now()})); else localStorage.removeItem(KEY); }catch(_){} }
+  function isNetErr(e){ return !!e && (e.name==='TypeError' || e.name==='AbortError'); }
+  var reported=false;
+  function report(via, why){   // 우회로로 살아난 기기가 몇이고 왜였는지 — 원인 추적의 유일한 창구
+    if(reported) return; reported=true;
+    try{ _fetch(via+'/rest/v1/events',{method:'POST',keepalive:true,
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE','Prefer':'return=minimal'},
+      body:JSON.stringify({event_type:'net_fallback',event_data:(via===FALLBACK?'to_fallback':'back_to_primary')+'|'+String(why).slice(0,30)+'|'+(navigator.userAgent||'').slice(0,110)})}).catch(function(){}); }catch(_){}
+  }
+  window.fetch=function(input, init){
+    var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
+    var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
+    if(!base || typeof input!=='string') return _fetch(input, init);       // 우리 서버가 아니거나 Request 객체면 그대로
+    var rest=url.slice(base.length), first=remembered(), second=(first===PRIMARY)?FALLBACK:PRIMARY;
+    var init1=Object.assign({}, init||{}), ac=null;
+    if(!init1.signal){ ac=new AbortController(); init1.signal=ac.signal; }
+    var timer = ac ? setTimeout(function(){ ac.abort(); }, FIRST_TIMEOUT) : null;
+    return _fetch(first+rest, init1).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){
+      if(timer) clearTimeout(timer);
+      if(!isNetErr(e)) throw e;
+      return _fetch(second+rest, init||{}).then(function(r){
+        remember(second); report(second, e.name);
+        return r;
+      }, function(e2){ throw e; });   // 둘 다 안 되면 원래 오류 그대로 — 호출부의 기존 폴백(캐시·안내)이 이어받는다
+    });
+  };
+})();
+</script>
 <div id="slimAdSlot" style="padding:8px 14px 0;display:none"></div>
 <script>
 (async function(){
