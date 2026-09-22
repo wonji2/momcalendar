@@ -1260,9 +1260,10 @@ async function loadData() {
       try{ trackEvent('data_load_fail', String(e && e.message || '').slice(0,60)); }catch(_){}
       setTimeout(function(){
         var el=document.getElementById('cardList');
-        if(el && !el.children.length){
+        if(el && !DATA.length){   // ⚠ children 검사는 항상 거짓이었다 — bootView() 가 먼저 "없어요" 를 그린다 (2026-09-22 검증자 지적, 라이브도 같은 결함)
           el.innerHTML='<div class="empty">공구를 불러오지 못했어요 😢<br>'+
-            '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요</span><br>'+
+            '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요<br>'+
+            '계속 안 되면 <b style="color:#888">와이파이를 끄고 데이터로</b>, 또는 <b style="color:#888">크롬</b>에서 열어보세요</span><br>'+
             '<button onclick="location.reload()" style="margin-top:14px;background:#602090;color:#fff;border:none;'+
             'border-radius:10px;padding:10px 18px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 불러오기</button></div>';
         }
@@ -3645,8 +3646,15 @@ function kkoLoginFailed(why){
   var w=document.createElement('div');
   w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;'+
     'border-radius:14px;padding:14px 15px;z-index:99999;box-shadow:0 8px 26px rgba(0,0,0,.18);font-size:13px;color:#3A3345;line-height:1.6';
-  w.innerHTML='<b style="color:#7B3FB5">로그인을 마치지 못했어요</b><br>'+
-    '<span style="font-size:12px;color:#7A7286">잠시 문제가 있었어요. 한 번만 다시 눌러주세요.</span>'+
+  // ⚠ network = 카카오는 통과했는데 **우리 서버(supabase)에 요청이 닿지 않은 것**이다. 다시 눌러도 같은 이유로 또 막힌다.
+  //    2026-09-22 회원 제보: 배너·공구목록·기록까지 전부 안 닿았다(그 기기만). 와이파이/보안앱/DNS 쪽이라 손님이 바꿔볼 것을 알려준다.
+  var _isNet = (why==='network');
+  w.innerHTML='<b style="color:#7B3FB5">'+(_isNet?'서버에 연결되지 않았어요':'로그인을 마치지 못했어요')+'</b><br>'+
+    (_isNet
+      ? '<span style="font-size:12px;color:#7A7286">카카오 인증은 됐는데 맘캘린더 서버에 닿지 않았어요.<br>'+
+        '<b style="color:#3A3345">와이파이를 끄고 데이터로</b> 다시 해보시거나, <b style="color:#3A3345">크롬</b>에서 열어주세요.<br>'+
+        '보안·광고차단 앱이 막는 경우도 있어요.</span>'
+      : '<span style="font-size:12px;color:#7A7286">잠시 문제가 있었어요. 한 번만 다시 눌러주세요.</span>')+
     '<div style="display:flex;gap:7px;margin-top:11px">'+
     '<button id="kkoRetryBtn" style="flex:1;background:#FEE500;color:#191919;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 로그인</button>'+
     '<button id="kkoRetryX" style="background:#F3F0F7;color:#8A8194;border:none;border-radius:10px;padding:10px 13px;font-size:13px;font-family:inherit;cursor:pointer">닫기</button>'+

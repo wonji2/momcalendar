@@ -1301,7 +1301,7 @@ async function loadData() {
       try{ trackEvent('data_load_fail', String(e && e.message || '').slice(0,60)); }catch(_){}
       setTimeout(function(){
         var el=document.getElementById('cardList');
-        if(el && !el.children.length){
+        if(el && !DATA.length){   // ⚠ children 검사는 항상 거짓이었다 — bootView() 가 먼저 "없어요" 를 그린다 (2026-09-22 검증자 지적, 라이브도 같은 결함)
           el.innerHTML='<div class="empty">공구를 불러오지 못했어요 😢<br>'+
             '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요<br>'+
             '계속 안 되면 <b style="color:#888">와이파이를 끄고 데이터로</b>, 또는 <b style="color:#888">크롬</b>에서 열어보세요</span><br>'+
