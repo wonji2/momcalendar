@@ -301,10 +301,22 @@ function todayKST(){
    ⚠ 모드는 staff.html·admin.html 이 날짜로 정해 ?mode= 로 넘긴다(토≠일·새로고침해도 같다).
      여기서 모드를 정하지 않는다 — 배정이 두 곳에 있으면 또 어긋난다. */
 const MODES = {
-  hot:      { t1:'이번주 핫한 공구', t2:'오늘 마감',     s1:'인기',   name:'이번주 핫한' },
-  closing:  { t1:'오늘 마감',        t2:'내일·모레 마감', s1:'마감',   name:'마감 공구만' },
-  weekopen: { t1:'이번주 오픈 예고',  t2:'오늘 마감',     s1:'날짜',   name:'오픈 예고' },
+  closing:  { t1:'오늘 마감',              t2:'내일·모레 마감', name:'마감 공구만' },
+  hot:      { t1:'이번주 핫한 공구',        t2:'오늘 마감',      name:'이번주 핫한' },
+  nexthot:  { t1:'다음주 핫한 공구',        t2:'오늘 마감',      name:'다음주 핫한' },
+  nextopen: { t1:'다음주 오픈런 준비',      t2:'오늘 마감',      name:'다음주 오픈런' },
+  nextplan: { t1:'다음주 오픈 예정 공구',   t2:'오늘 마감',      name:'다음주 오픈 예정' },
 };
+// 주말(토·일)에 만드는 카드의 "다음주" = 그 다음 월요일 ~ 일요일. 토·일 모두 같은 주를 가리킨다.
+function nextWeekRange(dayStr){
+  const d=new Date(dayStr+'T00:00:00');
+  const dow=d.getDay();                              // 6=토, 0=일
+  const toMon=(dow===0)?1:(8-dow)%7||7;              // 일→+1 · 토→+2 · 평일→다음 월요일
+  const mon=new Date(d); mon.setDate(d.getDate()+toMon);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const f=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  return [f(mon), f(sun)];
+}
 // 주말 모드 한 칼럼 상한 — 2장 안쪽으로 유지한다.
 //   안 두면 hot 은 진행중 155건(6장) · weekopen 은 7일치 254건(10장)이 된다(실측 09-27).
 //   주말 카드 취지는 "오픈이 적으니 다른 걸 보여주자" 이지 장수를 늘리자는 게 아니다.
@@ -353,8 +365,9 @@ async function load(){
         const sel='select=id,name,influencer,insta,open_date,end_date&limit=1000';
         if(MODE==='hot')      return fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lte.${day}&end_date=gte.${day}&${sel}`,{headers:H}).then(r=>r.json());
         if(MODE==='closing')  return fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=gte.${day}&end_date=lte.${addDays(day,2)}&${sel}`,{headers:H}).then(r=>r.json());
-        if(MODE==='weekopen') return fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=gte.${day}&open_date=lte.${addDays(day,7)}&${sel}`,{headers:H}).then(r=>r.json());
-        return Promise.resolve([]);
+        // 다음주 3종은 같은 창(다음 월~일)을 본다. 담는 순서만 다르다.
+        var nw=nextWeekRange(day);
+        return fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=gte.${nw[0]}&open_date=lte.${nw[1]}&${sel}`,{headers:H}).then(r=>r.json());
       })()
     ]);
     // 카드에 찍힌 날짜 기준으로 노출기간 안에 있는 이웃셀러만. 핸들은 소문자·@제거로 맞춘다(index.html normHandle 과 동일)
@@ -439,10 +452,24 @@ async function load(){
       }else if(MODE==='closing'){
         opens=rows.filter(r=>r.end_date===day && keep(r)).sort(sortFn);
         ends =rows.filter(r=>r.end_date>=d1 && r.end_date<=d2 && keep(r)).sort(sortFn);
-      }else{   // weekopen — 오늘 포함 앞으로 7일 오픈 예고
-        opens=rows.filter(r=>r.open_date>=day && r.open_date<=d7 && keep(r))
-                  .sort((a,b)=>(b.own-a.own)||(b.partner-a.partner)||a.open_date.localeCompare(b.open_date)||(b.score-a.score))
-                  .slice(0,MODE_CAP);   // 7일치는 254건(10장)이다 — 날짜 빠른 순으로 상한
+      }else{
+        // 다음주 3종 — 같은 창(다음 월~일)에서 **담는 순서**만 다르다. 실측 403건이라 상한이 꼭 필요하다.
+        const nw=nextWeekRange(day);
+        const pool=rows.filter(r=>r.open_date>=nw[0] && r.open_date<=nw[1] && keep(r));
+        const byDate=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||a.open_date.localeCompare(b.open_date)||(b.score-a.score);
+        if(MODE==='nexthot'){
+          //  찜·클릭이 붙은 것만 인기순 — 실측 403건 중 69건. 안 붙은 건 "핫하다" 고 할 근거가 없다.
+          opens=pool.filter(r=>r.score>0).sort(sortFn).slice(0,MODE_CAP);
+          if(opens.length<10) opens=pool.sort(byDate).slice(0,MODE_CAP);   // 근거가 너무 적으면 날짜순으로 떨어뜨린다
+        }else if(MODE==='nextopen'){
+          //  오픈런 준비 — 다음주 **첫 이틀(월·화)** 만. 임박해서 준비가 급한 것이다.
+          //  ⚠ nextplan 과 같은 목록이면 제목만 다른 카드가 두 개가 된다 → 창을 좁혀 실제로 다르게 한다.
+          const d2n=addDays(nw[0],1);
+          opens=pool.filter(r=>r.open_date<=d2n).sort(byDate).slice(0,MODE_CAP);
+          if(opens.length<10) opens=pool.sort(byDate).slice(0,MODE_CAP);   // 그 이틀이 비는 주엔 전체로
+        }else{   // nextplan — 다음주 오픈 예정 **전체**를 날짜순으로
+          opens=pool.sort(byDate).slice(0,MODE_CAP);
+        }
         ends =rows.filter(r=>r.end_date===day && keep(r)).sort(sortFn).slice(0,MODE_CAP);
       }
       const oi=new Set(opens.map(r=>r.id));
@@ -538,6 +565,13 @@ async function render(day,opens,ends,titles){
   // → 왼쪽에 남는 만큼 마감을 흘려보낸다. (8/9 카드에서 왼쪽 절반이 비었음)
   const spill=spillEnds(cEnds);
   fitColumn(document.getElementById('L2'),document.getElementById('M2'),cEnds.slice(spill),false,ends.length-spill);
+  // 🔴 마감이 왼쪽으로 안 흘러갔고 **왼쪽에 아직 못 실은 오픈이 남아 있으면**, 오른쪽 남는 자리에 오픈을 붙인다.
+  //    (사장님 지시 2026-09-22 "4장으로 줄여둬") 09-28(월) 7장 → 4장.
+  //    ⚠ spill>0 이면 부르지 않는다 — 양방향이 같이 돌면 같은 항목이 두 번 실린다.
+  if(!spill){
+    const shownO=document.getElementById('L1').querySelectorAll('.it').length;
+    if(cOpens.length>shownO) spillOpens(cOpens.slice(shownO));
+  }
   fitNames();   // 항목 수가 확정된 뒤에 이름을 다듬는다
 }
 
@@ -693,6 +727,28 @@ function oneProduct(arr){
 // 왼쪽(오늘 오픈) 칼럼에 자리가 남으면 마감 항목을 이어 붙인다.
 // 오픈이 4건뿐인데 마감은 138건이라 113건이 잘리는 날이 있었다(2026-08-09 카드).
 // 반환값 = 왼쪽으로 옮긴 마감 건수. 오른쪽은 그만큼 건너뛰고 시작한다.
+// 🔴 오른쪽(마감) 칼럼에 자리가 남으면 **오픈**을 이어 붙인다 (사장님 지시 2026-09-22 "4장으로 줄여둬")
+//   spillEnds 의 거울이다. 쪽 나누기에서 마감이 먼저 떨어지면 오픈만 남는 장이 생기는데,
+//   그때 오른쪽이 통째로 비었다 — 09-28(월) 7장 중 5장이 25건씩만 찼다.
+//   ⚠ 마감이 왼쪽으로 흘러간 날(spillEnds>0)엔 부르지 않는다 — 양방향이 동시에 돌면 같은 항목이 두 번 실린다.
+function spillOpens(opens){
+  const col=document.querySelector('.col.close'), listEl=document.getElementById('L2');
+  if(!col||!listEl||!opens.length) return 0;
+  const m2=document.getElementById('M2'), mTxt=m2?m2.textContent:'';
+  const base=listEl.innerHTML + (mTxt?'<div class="in-more">'+mTxt+'</div>':'');
+  const _sh=(window.__TITLES&&window.__TITLES.t1)||'오늘 오픈';
+  const fits=function(n){
+    listEl.innerHTML = base + '<div class="spill-hd">' + esc(_sh) + '</div>' + listHTML(opens.slice(0,n),true);
+    const pb=parseFloat(getComputedStyle(col).paddingBottom)||0;
+    const last=listEl.lastElementChild || listEl;
+    return last.getBoundingClientRect().bottom <= (col.getBoundingClientRect().bottom - pb) + 0.5;
+  };
+  let lo=0, hi=Math.min(opens.length, 40);
+  while(lo<hi){ const mid=(lo+hi+1)>>1; if(fits(mid)) lo=mid; else hi=mid-1; }
+  if(lo>=3){ fits(lo); if(m2) m2.textContent=''; return lo; }   // 2건 이하 흘려봐야 어수선하기만 하다
+  listEl.innerHTML=base.replace(/<div class="in-more">[\s\S]*?<\/div>$/,'');
+  return 0;
+}
 function spillEnds(ends){
   const col=document.querySelector('.col.open'), listEl=document.getElementById('L1');
   if(!col||!listEl||!ends.length) return 0;
