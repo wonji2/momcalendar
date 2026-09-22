@@ -33,6 +33,17 @@ const todayStr = `${Y}-${pad(_now.getUTCMonth() + 1)}-${pad(_now.getUTCDate())}`
 const addDays = (d, n) => { const [y, m, dd] = d.split('-').map(Number);
   const t = new Date(Date.UTC(y, m - 1, dd + n)); return t.toISOString().slice(0, 10); };
 
+// 🔴 2026-09-22 사고: 사장님 카페글 제목이 "9/31~9/27"(오타, 9월은 30일까지)였는데
+//   parseTitle 이 문자열을 그대로 이어붙여 "2026-09-31" 을 만들었고, INSERT 는 한 회차 전부를
+//   한 문장으로 묶어 보내서 이 한 줄 때문에 그날 새 글 전부가(00:40~08:40, 5회차) 등록되지 않았다.
+//   → 만든 날짜를 실제 캘린더 날짜로 되읽어 검증한다. 안 맞으면(=오타) 그 글만 건너뛴다.
+const isValidDate = (d) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d); if (!m) return false;
+  const [, y, mo, da] = m.map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, da));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === da;
+};
+
 // ── 제목 → {name, open, end} (admin parseNaverCafe 와 같은 사상 + 실제 카페 형식) ──
 function parseTitle(subj) {
   let s = subj.replace(/\s+/g, ' ').trim(), m;
@@ -41,16 +52,21 @@ function parseTitle(subj) {
   if ((m = s.match(/^\(?\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*[~\-]\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\)?\s+(.+)$/))) {
     const open = `${Y}-${pad(+m[1])}-${pad(+m[2])}`;
     const ey = (+m[3] < +m[1]) ? Y + 1 : Y;
-    return { open, end: `${ey}-${pad(+m[3])}-${pad(+m[4])}`, name: tail(m[5]) };
+    const end = `${ey}-${pad(+m[3])}-${pad(+m[4])}`;
+    if (!isValidDate(open) || !isValidDate(end)) return null;
+    return { open, end, name: tail(m[5]) };
   }
   // "(8/21오픈) 상품명 공구" / "(8/21 오픈) ..."
   if ((m = s.match(/^\(\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*일?\s*오픈\s*\)\s*(.+)$/))) {
     const open = `${Y}-${pad(+m[1])}-${pad(+m[2])}`;
+    if (!isValidDate(open)) return null;
     return { open, end: addDays(open, 3), name: tail(m[3]) };
   }
   // "(8/21마감) 상품명" — 오픈은 오늘
   if ((m = s.match(/^\(\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*일?\s*마감\s*\)\s*(.+)$/))) {
-    return { open: todayStr, end: `${Y}-${pad(+m[1])}-${pad(+m[2])}`, name: tail(m[3]) };
+    const end = `${Y}-${pad(+m[1])}-${pad(+m[2])}`;
+    if (!isValidDate(end)) return null;
+    return { open: todayStr, end, name: tail(m[3]) };
   }
   return null;  // 날짜 형식이 없으면 공구 일정 글이 아니다 (가입인사·질문·정보글)
 }
