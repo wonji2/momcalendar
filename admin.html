@@ -3030,7 +3030,7 @@ let catFixProposals=[], _cfVia='', _cfMajor='', _cfSearch='', _cfBulkMajor='', _
 //   자료는 벤더 운영시트가 30분마다 밀어 넣는 vendor_todo(payload JSON 배열)를 RPC 로 읽는다.
 //   한 줄의 뜻: open 오픈일 · close 마감일 · settle 정산일 · sample 샘플(미발송/완료) · share 링크공유(미완료/빈칸)
 //              stage 일정확정 · paid 정산소통 · type 정산유형 · todo 시트가 적어준 할 일 · urgent 지연표시
-let VD_ROWS = null, VD_AT = '';
+let VD_ROWS = null, VD_AT = '', VD_RCPT = [];   // VD_RCPT = 저장된 현금영수증 발급 내역(cash_receipt) — 「영수증」 갈래에 ✅ 를 띄우는 근거
 function openVendor(){ document.getElementById('vendorModal').style.display='flex'; vdLoad(0); }
 function closeVendor(){ document.getElementById('vendorModal').style.display='none'; }
 const vdYmd = (d)=>{ const t=new Date(d.getTime()+9*3600e3); return t.toISOString().slice(0,10); };
@@ -3044,6 +3044,11 @@ async function vdLoad(force){
     if(!r.ok) throw new Error((j&&j.message)||('HTTP '+r.status));
     VD_ROWS = (Array.isArray(j)&&j.length&&Array.isArray(j[0].payload)) ? j[0].payload : [];
     VD_AT = (Array.isArray(j)&&j.length&&j[0].updated_at)||'';
+    // 발급 내역도 같이 읽는다 — 못 읽어도(권한·빈 표) 업무판은 그대로 뜬다
+    try{
+      const rr=await fetch(SB_URL+'/rest/v1/rpc/cash_receipt_read',{method:'POST',headers:sbHeaders(),body:JSON.stringify({p_limit:500})});
+      const jj=await rr.json(); VD_RCPT = (rr.ok&&Array.isArray(jj))?jj:[];
+    }catch(_){ VD_RCPT=[]; }
     vdRender();
   }catch(e){
     box.innerHTML=`<div style="padding:20px;text-align:center;color:#C62828;font-size:13px">못 불러왔어요 — ${e.message}<br><span style="font-size:11px;color:#999">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 눌러 주세요.</span></div>`;
@@ -3060,7 +3065,11 @@ function vdPick(rows, day, isToday){
     if(!v.stage && (open===day || late(open)))               g.일정확정.push({v,why:open===day?'오늘 오픈':'오픈 지남 '+open});
     if(close===day || late(close))                            g.정산서류.push({v,why:close===day?'오늘 마감':'마감 지남 '+close});
     if(settle===day || late(settle))                          g.정산소통.push({v,why:settle===day?'오늘 정산일':'정산일 지남 '+settle});
-    if(settle===day || late(settle))                          g.영수증.push({v,why:settle===day?'오늘 정산일':'정산일 지남 '+settle});
+    // 영수증: 저장된 발급 내역(메모에 셀러명이 들어간 것)이 정산일 이후에 있으면 ✅ 발급됨 — 없으면 '발급하기'
+    if(settle===day || late(settle)){
+      const got=(v.seller && VD_RCPT.find(rc => String(rc.memo||'').includes(v.seller) && String(rc.deal_type||'')!=='취소거래' && (!rc.issued_at || String(rc.issued_at).slice(0,10) >= (v.close||v.open||'')))) || null;
+      g.영수증.push({v, why:settle===day?'오늘 정산일':'정산일 지남 '+settle, done: got ? ('발급됨 '+(got.approval_no||'')+' · '+Number(got.total||0).toLocaleString('ko-KR')+'원') : ''});
+    }
   }
   return g;
 }
@@ -3088,7 +3097,7 @@ function vdRender(){
         const v=it.v;
         h+=`<div style="border-top:1px solid #F4F4F4;padding:5px 0">
           <div style="font-size:12px;color:#222;font-weight:700">${(v.seller||'-')} <span style="font-weight:500;color:#777">${(v.prod||'')}</span></div>
-          <div style="font-size:10.5px;color:#999;margin-top:1px">${it.why}${v.type?' · '+v.type:''}${v.urgent?' · '+v.urgent:''}</div>
+          <div style="font-size:10.5px;color:#999;margin-top:1px">${it.why}${v.type?' · '+v.type:''}${v.urgent?' · '+v.urgent:''}${it.done?' · <b style="color:#2E7D32">✅ '+it.done+'</b>':(k==='영수증'?' · <b style="color:#C4632A">발급하기 → 🧾 현금영수증</b>':'')}</div>
           ${v.todo?`<div style="font-size:10.5px;color:#C4632A;margin-top:1px">${v.todo}</div>`:''}
         </div>`;
       }
