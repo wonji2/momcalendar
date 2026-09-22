@@ -467,8 +467,24 @@ async function load(){
           const d2n=addDays(nw[0],1);
           opens=pool.filter(r=>r.open_date<=d2n).sort(byDate).slice(0,MODE_CAP);
           if(opens.length<10) opens=pool.sort(byDate).slice(0,MODE_CAP);   // 그 이틀이 비는 주엔 전체로
-        }else{   // nextplan — 다음주 오픈 예정 **전체**를 날짜순으로
-          opens=pool.sort(byDate).slice(0,MODE_CAP);
+        }else{
+          // nextplan — 다음주 **한 주가 어떻게 흘러가는지** 보여준다 → 날짜별로 돌려가며 뽑는다.
+          //  ⚠ 그냥 날짜순으로 자르면 첫 이틀에 몰리는 주(09-26 기준 9/28·29 에 274건)엔
+          //    상한 100 이 전부 그 이틀로 채워져 nextopen 과 **똑같은 카드**가 된다(실측).
+          //    → 날짜마다 한 건씩 돌아가며 담아 7일이 고르게 보이게 한다.
+          const byDay={};
+          pool.slice().sort(byDate).forEach(function(r){ (byDay[r.open_date]=byDay[r.open_date]||[]).push(r); });
+          const days=Object.keys(byDay).sort();
+          const picked=[]; let more=true;
+          while(more && picked.length<MODE_CAP){
+            more=false;
+            for(const dk of days){
+              const q=byDay[dk];
+              if(q && q.length){ picked.push(q.shift()); more=true; if(picked.length>=MODE_CAP) break; }
+            }
+          }
+          //  우리 것은 언제나 맨 위로 (기본 규칙)
+          opens=picked.sort((a,b)=>(b.own-a.own)||(b.partner-a.partner)||a.open_date.localeCompare(b.open_date));
         }
         ends =rows.filter(r=>r.end_date===day && keep(r)).sort(sortFn).slice(0,MODE_CAP);
       }
