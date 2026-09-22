@@ -499,42 +499,36 @@ async function fxDupOk(id,ok){
 }
 
 // ───────── 📸 인스타 카드 ─────────
-// 🔴 요일로 도구를 가른다 (사장님 지시 2026-09-22)
-//    *"평일은 이 형식으로 대부분 채우고 주말 이틀만 랜덤한 다른 형식으로 해봐"*
-//    *"오늘은 평일이라 오픈 공구 많은데 갯수가 몇개 안보여서"*
-//  · 평일(월~금) → reelcard 2단 카드. 한 장에 52건 들어가고, 넘치면 쪽으로 넘어간다(2026-09-22 신설).
-//    실측 2026-09-22(화): 오픈 54·마감 73 → 3장에 전부 실림. instastudio 카테고리 일정은 25건만 싣고 26건을 접었다.
-//  · 주말(토·일) → instastudio 시안 중 **날짜로 정해지는 하나**. 새로고침해도 같은 시안이 나온다.
-//    ⚠ Math.random 은 쓰지 않는다 — 누를 때마다 시안이 바뀌면 사장님이 같은 카드를 다시 못 만든다.
-//  📌 스레드 자동발행(threads-listcard.js)도 같은 정책이다(평일 reelPages · 주말 studioPage).
-//     그쪽은 tsel 을 명시적으로 넣으므로 이 배정과 서로 영향이 없다.
-//  ⚠ 'list' 는 평일 형식이라 주말 후보에서 뺀다 · 'hotdeal' 은 가격이 하루면 틀려져서 뺀다(사장님 2026-09-01)
-const CARD_WEEKEND_FMTS=['daily','top10','closing','weekend','week'];
-// 날짜를 씨앗으로 흩는다. xor·shift 만으로는 하위 비트가 날짜를 따라 그대로 돌아 "토→일" 이 붙어 나온다
-//   → 곱셈이 섞인 해시(splitmix32). threads-publish.js restWindow 와 같은 방식.
+// 🔴 인스타 카드 주소 — **모든 날 2단 카드(reelcard)** 다 (사장님 지시 2026-09-22 "주말도 2단 카드로 해야지")
+//   평일: 오늘 오픈 + 오늘 마감. 한 장 약 50건, 넘치면 다음 장으로.
+//   주말(토·일): 오픈이 적어 내용을 바꾼다 — *"이번주 핫한 공구나 오늘 마감하는 공구(마감공구만) 등등
+//     여러개 디자인으로 돌려보라고"*. 어느 모드인지는 **날짜로 정해진다**(새로고침해도 같고, 토·일이 다르다).
+//   ⚠ Math.random 을 쓰지 않는다 — 누를 때마다 바뀌면 같은 카드를 다시 못 만든다.
+//   📌 이 코드는 staff.html 과 admin.html 에 **같은 내용**으로 들어있다. 한쪽만 고치지 말 것.
+const CARD_WEEKEND_MODES=['hot','closing','weekopen'];   // 이번주 핫한 · 오늘 마감만 · 오픈 예고
+//   날짜를 곱셈 섞인 해시로 흩는다(splitmix32). xor·shift 만으로는 하위 비트가 날짜를 따라 돌아 토·일이 붙어 나온다.
 function cardHash32(s){
   let h=Number(String(s).replace(/-/g,''))>>>0;
   h=Math.imul(h^(h>>>16),2246822507)>>>0;
   h=Math.imul(h^(h>>>13),3266489909)>>>0;
   return (h^(h>>>16))>>>0;
 }
-function weekendFmt(day){
+function fmtYmdLocal(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function weekendMode(day){
   const d=new Date(day+'T00:00:00');
   const sat=new Date(d); sat.setDate(d.getDate()-(d.getDay()===0?1:0));   // 그 주말의 토요일
-  const satFmt=CARD_WEEKEND_FMTS[cardHash32(fmtYmdLocal(sat))%CARD_WEEKEND_FMTS.length];
-  if(d.getDay()===6) return satFmt;
-  // 일요일은 **토요일과 다른** 시안으로 — 이틀 연속 같은 형식이 나오지 않게
-  const rest=CARD_WEEKEND_FMTS.filter(x=>x!==satFmt);
+  const satM=CARD_WEEKEND_MODES[cardHash32(fmtYmdLocal(sat))%CARD_WEEKEND_MODES.length];
+  if(d.getDay()===6) return satM;
+  const rest=CARD_WEEKEND_MODES.filter(x=>x!==satM);   // 일요일은 토요일과 다른 모드
   return rest[cardHash32(day)%rest.length];
 }
-function fmtYmdLocal(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
 function reelCardUrl(){
   const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
   const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
   const dow=new Date(kst+'T00:00:00').getDay();
-  if(dow===0||dow===6) return base+'/instastudio.html?d='+kst+'&fmt='+weekendFmt(kst)+'&t='+Date.now();
-  //  raw=1 은 옛 리다이렉트 방어용 — 2026-09-22 에 그 스크립트를 지웠지만 누가 되살려도 평일 카드가 안 엉키게 붙여둔다.
-  return base+'/reelcard.html?raw=1&d='+kst+'&t='+Date.now();
+  //  raw=1 은 옛 리다이렉트 방어용 — 2026-09-22 에 그 스크립트를 지웠지만 누가 되살려도 카드가 안 엉키게 붙여둔다.
+  const q='?raw=1&d='+kst+((dow===0||dow===6) ? '&mode='+weekendMode(kst) : '')+'&t='+Date.now();
+  return base+'/reelcard.html'+q;
 }
 function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
 

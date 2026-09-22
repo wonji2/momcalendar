@@ -4297,11 +4297,38 @@ function openBannerTestPage(){
   window.open(base+'/test.html?t='+Date.now(),'_blank');
 }
 // 📸 인스타 「오늘 공구 캘린더」 카드 — 날짜만 넣으면 카드·캡션이 자동 생성된다
-function openReelCard(){
+// 🔴 인스타 카드 주소 — **모든 날 2단 카드(reelcard)** 다 (사장님 지시 2026-09-22 "주말도 2단 카드로 해야지")
+//   평일: 오늘 오픈 + 오늘 마감. 한 장 약 50건, 넘치면 다음 장으로.
+//   주말(토·일): 오픈이 적어 내용을 바꾼다 — *"이번주 핫한 공구나 오늘 마감하는 공구(마감공구만) 등등
+//     여러개 디자인으로 돌려보라고"*. 어느 모드인지는 **날짜로 정해진다**(새로고침해도 같고, 토·일이 다르다).
+//   ⚠ Math.random 을 쓰지 않는다 — 누를 때마다 바뀌면 같은 카드를 다시 못 만든다.
+//   📌 이 코드는 staff.html 과 admin.html 에 **같은 내용**으로 들어있다. 한쪽만 고치지 말 것.
+const CARD_WEEKEND_MODES=['hot','closing','weekopen'];   // 이번주 핫한 · 오늘 마감만 · 오픈 예고
+//   날짜를 곱셈 섞인 해시로 흩는다(splitmix32). xor·shift 만으로는 하위 비트가 날짜를 따라 돌아 토·일이 붙어 나온다.
+function cardHash32(s){
+  let h=Number(String(s).replace(/-/g,''))>>>0;
+  h=Math.imul(h^(h>>>16),2246822507)>>>0;
+  h=Math.imul(h^(h>>>13),3266489909)>>>0;
+  return (h^(h>>>16))>>>0;
+}
+function fmtYmdLocal(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function weekendMode(day){
+  const d=new Date(day+'T00:00:00');
+  const sat=new Date(d); sat.setDate(d.getDate()-(d.getDay()===0?1:0));   // 그 주말의 토요일
+  const satM=CARD_WEEKEND_MODES[cardHash32(fmtYmdLocal(sat))%CARD_WEEKEND_MODES.length];
+  if(d.getDay()===6) return satM;
+  const rest=CARD_WEEKEND_MODES.filter(x=>x!==satM);   // 일요일은 토요일과 다른 모드
+  return rest[cardHash32(day)%rest.length];
+}
+function reelCardUrl(){
   const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
   const kst=new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
-  window.open(base+'/instastudio.html?d='+kst+'&fmt=auto&t='+Date.now(),'_blank');   // 🔴 reelcard(시안 1종) → instastudio(요일별 7종). 2026-09-02 사장님 지적 "왜 아직도 똑같은 형식만 나와?"
+  const dow=new Date(kst+'T00:00:00').getDay();
+  //  raw=1 은 옛 리다이렉트 방어용 — 2026-09-22 에 그 스크립트를 지웠지만 누가 되살려도 카드가 안 엉키게 붙여둔다.
+  const q='?raw=1&d='+kst+((dow===0||dow===6) ? '&mode='+weekendMode(kst) : '')+'&t='+Date.now();
+  return base+'/reelcard.html'+q;
 }
+function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
 function setBStageRadio(v){
   document.querySelectorAll('input[name="bStage"]').forEach(r=>{ r.checked=(r.value===v); });
 }
