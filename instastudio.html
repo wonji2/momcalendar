@@ -237,10 +237,10 @@ body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
     <button onclick="saveRange()" class="go wide">📦 기간 일괄 (사진+캡션)</button>
   </div>
   <div class="st" id="st">날짜를 고르고 [만들기]</div>
-  <div class="plan">📌 <b>스탭페이지 「인스타 카드」는 평일엔 이 도구가 아니라 2단 카드로 열립니다</b> —
-    한 장 52건, 넘치면 다음 장으로 넘어갑니다(9/22 화: 오픈 54·마감 73 → 3장).
-    <br>요일 자동 배정 (2026-09-22 변경): <b>평일</b> 카테고리 일정 · <b>주말(토·일)</b>만 <b>날짜로 정해지는 다른 시안</b>
-    (토·일 서로 다르고, 새로고침해도 같은 시안). 여기서 시안을 직접 고르면 그대로 만들어집니다.</div>
+  <div class="plan">요일 자동 배정: <b>월</b> 주간예고 · <b>화/목</b> 카테고리 일정 · <b>수</b> 인기TOP10 ·
+    <b>금</b> 주말 몰아보기 · <b>토</b> 마감임박 · <b>일</b> 리스트형 — 한 달을 돌리면 포맷이 자동으로 섞입니다
+    <br>📌 <b>스탭페이지 「인스타 카드」는 평일엔 이 도구가 아니라 2단 카드로 열립니다</b> —
+    한 장 52건, 넘치면 다음 장으로 넘어갑니다(9/22 화: 오픈 54·마감 73 → 3장). 주말엔 이 도구의 시안 하나가 날짜로 정해집니다.</div>
 </div>
 
 <div class="slot"><div class="card" id="card"></div></div>
@@ -958,41 +958,27 @@ async function tList(day){
 // 🔴 일요일은 핫딜 베스트를 쓰지 않는다 (사장님 지시 2026-09-01)
 //    "핫딜은 하루만 지나도 가격이 바뀐다" — 카드에 박힌 가격이 틀려진다. 공구 내용으로 채운다.
 //    핫딜 시안 자체는 남겨둔다(수동 선택 가능). 자동 로테이션에서만 뺀다.
-// 🔴 2026-09-22 사장님 지시로 배정을 바꿨다 — *"평일은 이 형식으로 대부분 채우고 주말 이틀만 랜덤한 다른 형식으로"*
-//    평일엔 오픈이 많다(09-22 화: 오픈 54·마감 73). 요일마다 시안을 돌리면 25건만 싣고 26건을 접는 날이 생긴다.
-//    → 평일은 **가장 많이 담기는 리스트형** 고정. 주말 이틀만 날짜로 정해지는 다른 시안.
-//    ⚠ 스탭페이지는 평일엔 이 도구가 아니라 **reelcard(2단 카드·쪽 넘김)** 로 연다 (staff.html reelCardUrl).
-//      여기 평일값은 이 도구를 직접 열었을 때를 위한 것이다.
-//    ⚠ 스레드 자동발행(threads-listcard.js studioPage)은 tsel 을 **명시적으로** 넣으므로 이 배정에 영향받지 않는다.
-//  ⚠ 'list'(리스트형)는 **평일 형식이라 주말 후보에서 뺀다** — 사장님은 "주말 이틀만 랜덤한 **다른** 형식" 이라 하셨다.
-//     'hotdeal' 도 뺀다 — 가격은 하루 지나면 틀려진다(사장님 2026-09-01).
-const WEEKEND_FMTS=['daily','top10','closing','weekend','week'];
-//  날짜를 곱셈 섞인 해시로 흩는다(splitmix32). xor·shift 만으로는 하위 비트가 날짜를 따라 돌아 토·일이 붙어 나온다.
-function fmtHash32(s){
-  let h=Number(String(s).replace(/-/g,''))>>>0;
-  h=Math.imul(h^(h>>>16),2246822507)>>>0;
-  h=Math.imul(h^(h>>>13),3266489909)>>>0;
-  return (h^(h>>>16))>>>0;
-}
-function ymdLocal(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
-function weekendFmtFor(day){
-  const d=new Date(day+'T00:00:00');
-  const sat=new Date(d); sat.setDate(d.getDate()-(d.getDay()===0?1:0));
-  const satFmt=WEEKEND_FMTS[fmtHash32(ymdLocal(sat))%WEEKEND_FMTS.length];
-  if(d.getDay()===6) return satFmt;
-  const rest=WEEKEND_FMTS.filter(x=>x!==satFmt);   // 일요일은 토요일과 다른 시안
-  return rest[fmtHash32(day)%rest.length];
-}
+// 🔴 일요일은 핫딜 베스트를 쓰지 않는다 (사장님 지시 2026-09-01)
+//    "핫딜은 하루만 지나도 가격이 바뀐다" — 카드에 박힌 가격이 틀려진다. 공구 내용으로 채운다.
+//    핫딜 시안 자체는 남겨둔다(수동 선택 가능). 자동 로테이션에서만 뺀다.
+//
+// 🔴🔴 2026-09-22: 이 표를 **건드리지 말 것**. 한 번 지웠다가 되돌렸다.
+//    사장님 지시는 *"**스탭페이지에서 내려받는** 공구 일정 평일은 이 형식으로…"* 였는데
+//    내가 이 표까지 평일 고정으로 바꿨다. 그런데 `fmt=auto` 를 쓰는 곳은 스탭페이지가 아니다:
+//      · `tools/daily/make-card.mjs` ← **매일 07:40 GitHub Actions(daily-card.yml)** 가 아침 카드·블로그 본문을 만든다
+//      · `admin.html` 4303행 관리자 「인스타 카드」 버튼
+//    → 평일 내내 「카테고리 일정」 한 형식이 됐다. 2026-09-02 사장님 지적("왜 아직도 똑같은 형식만 나와?")으로
+//      만든 로테이션을 내가 조용히 없앤 것이다. 검증자가 잡았다.
+//    ⚠ 요일 배정을 바꿔야 하면 **그 화면을 쓰는 곳을 먼저 세어라** — 이 도구는 최소 4곳이 공유한다.
+//    📌 스탭페이지 평일/주말 배정은 `staff.html` reelCardUrl 한 곳에만 있다(거기서 fmt 를 명시적으로 넘긴다).
+const AUTO={1:'week',2:'daily',3:'top10',4:'daily',5:'weekend',6:'closing',0:'list'};
 const RUN={daily:tDaily,top10:tTop10,closing:tClosing,weekend:tWeekend,week:tWeek,hotdeal:tHotdeal,list:tList};
 const TNAME={daily:'카테고리 일정',top10:'인기 TOP10',closing:'마감임박',weekend:'주말 몰아보기',week:'주간예고',hotdeal:'핫딜 베스트',list:'리스트형'};
 function tplFor(day){
   const sel=document.getElementById('tsel').value;
   if(sel!=='auto') return sel;
   const dow=new Date(day+'T00:00:00').getDay();
-  //  ⚠ 평일값은 'list' 가 아니라 'daily' 다 — 실측에서 리스트형 19건 < 카테고리 일정 25건이었다.
-  //    평일 스탭페이지는 애초에 이 도구가 아니라 reelcard(2단·쪽 넘김, 52건×쪽수) 로 연다.
-  //    여기 평일값은 이 도구를 **직접** 열었을 때 쓰이므로, 둘 중 더 많이 담기는 쪽을 둔다.
-  return (dow===0||dow===6) ? weekendFmtFor(day) : 'daily';
+  return AUTO[dow];
 }
 async function load(){
   const day=document.getElementById('day').value||todayKST();
