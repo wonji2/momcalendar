@@ -237,10 +237,10 @@ body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
     <button onclick="saveRange()" class="go wide">📦 기간 일괄 (사진+캡션)</button>
   </div>
   <div class="st" id="st">날짜를 고르고 [만들기]</div>
-  <div class="plan">요일 자동 배정 (2026-09-22 변경): <b>평일(월~금)</b>은 <b>리스트형</b> —
-    평일엔 오픈이 많아 한 장에 최대한 담아야 합니다. <b>주말(토·일)</b>만 <b>날짜로 정해지는 다른 시안</b>이 나옵니다(토·일 서로 다름).
-    <br>📌 스탭페이지 「인스타 카드」는 <b>평일엔 2단 카드(reelcard)</b>로 열립니다 — 한 장 52건, 넘치면 다음 장으로 넘어갑니다.
-    여기서 시안을 직접 고르면 그대로 만들어집니다.</div>
+  <div class="plan">📌 <b>스탭페이지 「인스타 카드」는 평일엔 이 도구가 아니라 2단 카드로 열립니다</b> —
+    한 장 52건, 넘치면 다음 장으로 넘어갑니다(9/22 화: 오픈 54·마감 73 → 3장).
+    <br>요일 자동 배정 (2026-09-22 변경): <b>평일</b> 카테고리 일정 · <b>주말(토·일)</b>만 <b>날짜로 정해지는 다른 시안</b>
+    (토·일 서로 다르고, 새로고침해도 같은 시안). 여기서 시안을 직접 고르면 그대로 만들어집니다.</div>
 </div>
 
 <div class="slot"><div class="card" id="card"></div></div>
@@ -989,7 +989,10 @@ function tplFor(day){
   const sel=document.getElementById('tsel').value;
   if(sel!=='auto') return sel;
   const dow=new Date(day+'T00:00:00').getDay();
-  return (dow===0||dow===6) ? weekendFmtFor(day) : 'list';   // 평일 리스트형 고정 · 주말만 날짜 고정 랜덤
+  //  ⚠ 평일값은 'list' 가 아니라 'daily' 다 — 실측에서 리스트형 19건 < 카테고리 일정 25건이었다.
+  //    평일 스탭페이지는 애초에 이 도구가 아니라 reelcard(2단·쪽 넘김, 52건×쪽수) 로 연다.
+  //    여기 평일값은 이 도구를 **직접** 열었을 때 쓰이므로, 둘 중 더 많이 담기는 쪽을 둔다.
+  return (dow===0||dow===6) ? weekendFmtFor(day) : 'daily';
 }
 async function load(){
   const day=document.getElementById('day').value||todayKST();

@@ -194,17 +194,12 @@ body.vC{--fs-item:21px; --fs-sub:16px; --it-pad:8.1px}   /* 지금 라이브와 
 .cap textarea{width:100%;height:320px;background:#161219;color:#D8D0E2;border:1px solid #3A3145;
   border-radius:10px;padding:14px;font-size:12.5px;line-height:1.65;font-family:inherit;resize:vertical}
 </style>
-<!-- 🔴 2026-09-02: 이 도구는 시안이 하나뿐이라 인스타가 매일 같은 형식으로 나갔다.
-     요일별 7종이 도는 instastudio 로 넘긴다. (사장님 지적 "왜 아직도 똑같은 형식만 나와?")
-     원본은 남겨둔다 — 되돌리려면 이 스크립트만 지우면 된다. -->
-<script>
-(function(){
-  var q=new URLSearchParams(location.search);
-  if(q.get("raw")==="1") return;            // ?raw=1 이면 옛 화면 그대로
-  var d=(q.get("d")||"").trim();
-  location.replace("/instastudio.html?fmt=auto"+(d?"&d="+encodeURIComponent(d):"")+"&t="+Date.now());
-})();
-</script>
+<!-- 🔴 2026-09-22: instastudio 로 넘기던 스크립트를 **지웠다** (사장님 지시 "평일은 이 형식으로 대부분 채우고").
+     · 2026-09-02 에 넣은 이유("시안이 하나뿐이라 매일 같은 형식")는 없어졌다 — 이제 평일 전용 도구다.
+     · 그대로 뒀다가 사고가 났다: 스탭페이지를 reelcard 로 보냈는데 이 스크립트가 instastudio?fmt=auto 로 되돌려
+       평일 카드가 19건짜리 리스트형으로 나갔다(사장님이 25건도 적다고 하신 그 자리에서 더 줄었다).
+     · 주말 랜덤 시안은 staff.html 이 instastudio 로 직접 보낸다. 요일 배정은 거기 한 곳에만 둔다.
+     · threads-listcard.js 는 여전히 ?raw=1 을 붙여 부른다 — 이제 아무 일도 안 하는 값이라 그대로 둬도 된다. -->
 </head>
 <body class="mini">
 
@@ -316,8 +311,15 @@ async function load(){
       //    (2026-08-05 사장님 지적: 8/5 오픈~8/19 마감인 바이탈플랜트 롤팬이
       //     8/7 카드에 부끄 이름으로 실렸다)
       //    → 마감이 아직 안 지났고(end>=day) 오픈이 3일 안(open<=day+3)인 것 = 진행중 + 곧오픈
-      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}`+
-            `&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json())
+      // 🔴 2026-09-22 사장님 지적: *"맘캘린더랑 이웃셀러가 공구중인거는 다른 셀러꺼 카드에 만들지 않는 원칙"*
+      //    전에는 insta=eq.momcal_ 만 봐서 **이웃셀러가 공구중인 품목**은 겹침 검사에 안 들어갔다.
+      //    실측 2026-09-22: 이웃셀러 아드퓨가 「아드퓨 X 아메리카 어그 UGG」를 9/21~9/27 진행중인데
+      //      다른 셀러 어그 2건(벨리맘·위캔드홈)이 그날 카드에 실리고 있었다.
+      //    → 맘캘린더 + **기간 유효한 이웃셀러 전부**를 같은 창(진행중 + 앞으로 3일)으로 본다.
+      //    ⚠ 핸들 목록은 아래 P 를 만들기 **전에** 필요하므로 여기서 sellers 를 한 번 더 부르지 않고
+      //      넓게(진행중+곧오픈) 받아 아래에서 P 로 거른다 — 요청 수를 늘리지 않는다.
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&end_date=gte.${day}`+
+            `&open_date=lte.${addDays(day,3)}&select=name,insta,influencer,open_date,end_date&limit=1000`,{headers:H}).then(r=>r.json())
     ]);
     // 카드에 찍힌 날짜 기준으로 노출기간 안에 있는 이웃셀러만. 핸들은 소문자·@제거로 맞춘다(index.html normHandle 과 동일)
     const nh=s=>(s||'').replace('@','').trim().toLowerCase();
@@ -341,12 +343,15 @@ async function load(){
     }));
     // 맘캘린더 본인 → 이웃셀러 → 나머지(인기순)
     const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
-    // 맘캘린더가 곧(D+1~D+3) 오픈할 상품과 같은 품목은 카드에서 뺀다.
-    // 하루 전에 남의 이름으로 같은 상품을 홍보하면 우리 공구가 손해다. (사장님 지시 2026-08-04)
-    const soon=(mySoon||[]);
-    const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
+    // 맘캘린더·이웃셀러가 **공구중이거나 곧(D+1~D+3) 오픈할** 상품과 같은 품목은 카드에서 뺀다.
+    // 남의 이름으로 같은 상품을 홍보하면 우리 공구가 손해다. (사장님 지시 2026-08-04 · 범위 확대 2026-09-22)
+    //   2026-09-22 사장님: "맘캘린더랑 이웃셀러가 공구중인거는 다른 셀러꺼 카드에 만들지 않는 원칙"
+    const soon=(mySoon||[]).filter(s=>isMomcal(s) || P.has(nh(s.insta)));   // 우리 것 = 맘캘린더 + 기간 유효한 이웃셀러
+    // ⚠ 빼는 기준은 own 이 아니라 **partner** 다 — 이웃셀러는 "다른 셀러" 가 아니다(사장님이 "우리 셀러" 라 부르신다).
+    //   own 으로 두면 이웃셀러끼리, 또 이웃셀러와 맘캘린더가 같은 품목을 할 때 이웃셀러 것이 빠진다.
+    const clash=x=>!x.partner && soon.some(s=>sameProduct(s.name,x.name));
     const dropped=rows.filter(clash).map(x=>x.name+' ('+x.seller+')');
-    if(dropped.length) console.log('맘캘린더 예정건과 겹쳐 제외:', dropped);
+    if(dropped.length) console.log('우리(맘캘린더·이웃셀러) 공구와 겹쳐 제외:', dropped);
     // 🔴 셀러를 모르는 공구는 카드에서 뺀다 (사장님 지시 2026-09-01)
     //    "누가 하는지를 모르는데" — 카페 크롤러 등록분은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
     const noSeller=x=>!String(x.seller||'').trim();
