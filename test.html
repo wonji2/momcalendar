@@ -45,6 +45,8 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* 화면에서는 안 보이고 크롤러·스크린리더에는 읽히는 제목 (h1). 접근성 표준 방식 — display:none 이면 둘 다 못 읽는다 */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 :root{
   --main:#602090;--main-d:#4A1A78;--main-l:#9B6FD4;--main-pale:#F0E6FA;--main-soft:#F9F4FD;
   --white:#fff;--cream:#F8F7FA;--border:#EBEBEB;
@@ -526,8 +528,52 @@ body.srch-suggest #searchDrop{display:block}
    빠르게 내리는 손짓이 새로고침으로 먹히면 보던 자리가 통째로 날아간다. */
 body.sheet-open{ overscroll-behavior-y: none; }
 </style>
+<!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
+     홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
+     하위 정적 페이지 11,535개는 이미 FAQPage·ItemList 를 갖고 있는데 정작 최상위 페이지가 비어 있었다.
+     ⚠ 여기 적는 것은 **사실만** — 화면에 없는 것을 있다고 말하지 않는다(거짓 구조화 데이터는 인용 신뢰를 죽인다). -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://momcalendar.com/#website",
+      "url": "https://momcalendar.com/",
+      "name": "맘캘린더",
+      "alternateName": "MomCalendar",
+      "description": "인스타그램 공동구매(공구) 일정을 한곳에 모아 보여주는 육아·리빙 공구 일정 캘린더. 브랜드·상품·오픈일·마감일과 검증된 핫딜을 매일 갱신합니다.",
+      "inLanguage": "ko-KR",
+      "publisher": { "@id": "https://momcalendar.com/#org" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": "https://momcalendar.com/?q={search_term_string}" },
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://momcalendar.com/#org",
+      "name": "원츠비",
+      "alternateName": "맘캘린더",
+      "url": "https://momcalendar.com/",
+      "logo": "https://momcalendar.com/momcal-appicon.png",
+      "email": "momcal@kakao.com",
+      "sameAs": [
+        "https://www.instagram.com/momcal_/",
+        "https://cafe.naver.com/momcal"
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
+
+<!-- 🔎 페이지 제목 (h1) — 화면에는 로고 이미지가 그 자리를 대신하지만,
+     로고는 PNG 라 크롤러에게는 글자가 아니다. title·설명·화면 내용과 **같은 말**을 h1 으로 둔다.
+     ⚠ 숨긴 키워드가 아니다(클로킹 금지). 스크린리더 사용자에게도 그대로 읽히는 접근성 표준 방식이다. -->
+<h1 class="sr-only">맘캘린더 — 오늘 오픈·마감하는 인스타 공구 일정</h1>
 
 <!-- PWA 홈화면 추가 안내 팝업 -->
 <div id="pwaModal" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.55);z-index:9999;align-items:center;justify-content:center;padding:22px">
