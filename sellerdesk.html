@@ -98,10 +98,10 @@ input:focus,select:focus{border-color:var(--p)}
 </div>
 
 <script>
-// ── 🛟 데이터 서버 우회로 (2026-09-22 회원 제보 · v2 검증자 지적 시정 · v3 이미지·경로 기록) ──
+// ── 🛟 데이터 서버 우회로 (2026-09-22 회원 제보 · v2 검증자 지적 시정 · v3 이미지·경로 기록 · 09-24 첫 시도 15초로: 사장님 결정) ──
 // 일부 손님 망(공유기 DNS 필터·보안앱·통신사)이 supabase.co 를 통째로 막는다. 그러면 배너·공구목록·로그인·기록이 전부 죽는데
 // 우리 쪽엔 아무 흔적도 안 남는다. 사이트의 모든 서버 호출이 fetch 라서 fetch 하나만 감싼다:
-//   ① 먼저 가는 길(직행 supabase.co, 우회로를 기억 중이면 우회로)로 보낸다 → 망 오류·10초 무응답·5xx 면
+//   ① 먼저 가는 길(직행 supabase.co, 우회로를 기억 중이면 우회로)로 보낸다 → 망 오류·15초 무응답·5xx 면
 //   ② 다른 길(api.momcalendar.com = 같은 서버로 가는 우리 도메인 Worker / 또는 직행)로 다시 보낸다 (15초 제한)
 //   ③ 다른 길이 5xx 아니게 답하면 그 길을 6시간 기억(mc_api_base — 직행이면 기억 삭제)하고 net_fallback 이벤트로 남겨 원인을 센다
 //   ④ 둘 다 안 되면 첫 결과(오류·응답)를 그대로 돌려준다 → 호출부의 기존 폴백(캐시·안내)이 이어받는다
@@ -113,7 +113,7 @@ input:focus,select:focus{border-color:var(--p)}
 // 원본은 index.html 의 이 블록. 다른 페이지엔 scratchpad/_patch_fallback_v3.mjs --attach 로 같은 블록을 넣는다.
 (function(){
   var PRIMARY='https://hycaqsqeogjtbscmzrtm.supabase.co', FALLBACK='https://api.momcalendar.com';
-  var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=10000, SECOND_TIMEOUT=15000;
+  var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=15000, SECOND_TIMEOUT=15000;
   var _fetch=window.fetch && window.fetch.bind(window);
   if(!_fetch) return;   // 아주 옛 브라우저는 원래대로
   function remembered(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||'null'); if(o && o.base===FALLBACK && Date.now()-o.t<TTL) return FALLBACK; }catch(_){} return PRIMARY; }
