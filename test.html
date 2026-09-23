@@ -1299,11 +1299,14 @@ function bootView(){
   }
   if(!restoreViewState()) renderList();
 }
+let _loadTry=0, _loadBusy=false;   // 🔁 목록 자동 재시도 횟수(성공하면 0, 9 = online 복귀로 받은 것) · 진행 중 표시 (2026-09-24)
 async function loadData() {
+  if(_loadBusy) return;   // 재시도 체인이 도는 중에 또 부르면(online·bfcache) 겹쳐 두 갈래가 된다 — 검증자 실측 fail 2건 중복
+  _loadBusy=true; const _t0=Date.now();   // 이 시도가 얼마나 걸렸나 — 오래 걸린 실패(무응답)는 재시도하지 않는다
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
   // ⚠ 이 5분 캐시 빠른 경로는 return 으로 끝난다 — 아래 본경로에만 있는 초기화(buildHotTags 등)를 여기도 같이 불러야 한다
   //    (2026-08-31 사고: 핫 키워드 칩이 여기 빠져서 5분 안에 재접속하면 칩이 사라졌다)
-  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); loadDenyDb(); bootView(); return; } }catch(_){}
+  try{ const c=JSON.parse(localStorage.getItem(_GGKEY)||'null'); if(c && c.date===todayStr && (Date.now()-c.ts)<_GGTTL && Array.isArray(c.data)){ _loadBusy=false; DATA=c.data; buildWeekTabs(); buildHotTags(); loadAliasDb(); loadDenyDb(); bootView(); return; } }catch(_){}
   try {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
@@ -1347,7 +1350,10 @@ async function loadData() {
       .filter(d => d.insta || /^https?:\/\//i.test(d.payLink));
     try{ localStorage.setItem(_GGKEY, JSON.stringify({date:todayStr, ts:Date.now(), data:DATA})); }catch(_){}
     console.log(`✅ Supabase ${DATA.length}건 로드`);
+    if(_loadTry){ try{ trackEvent('data_load_retry_ok', String(_loadTry)); }catch(_){} _loadTry=0; }   // 재시도로 살아난 방문 — 빈 화면을 볼 뻔한 수 (9 = online 복귀)
+    _loadBusy=false;
   } catch(e) {
+    _loadBusy=false;
     console.error('데이터 로드 실패:', e);
     // ⚠️ 예전엔 여기서 DATA=[] 로 끝냈다. 그러면 손님은 **텅 빈 사이트**를 본다.
     //    통신이 잠깐 흔들리거나 Supabase 가 느릴 때마다 "아무것도 없네" 하고 떠난다.
@@ -1362,14 +1368,28 @@ async function loadData() {
       }
     }catch(_){}
     if(!used){
-      DATA = [];
+      // 🔁 자동 재시도 (2026-09-24, 사장님 "하루 10명이면 너무 많다"): 캐시 없는 기기(첫 방문·앱 재설치)가 여기 온다.
+      //    실측으로 data_load_fail 이 기록된 순간엔 이미 서버에 닿았다(기록도 같은 서버로 간다) → 대부분 잠깐 끊긴 것.
+      //    그래서 "못 불러왔어요" 를 그리기 전에 2초·6초 뒤 두 번 더 받아 본다. 망 복귀(online) 때도 한 번 더 (아래 리스너).
+      //    ⚠ 5초 넘게 걸린 실패(무응답 → 🛟 감싸기가 15+15초 소진, 또는 한쪽 즉시실패+다른쪽 무응답)는 재시도하지 않는다
+      //       — 또 30초씩 기다리게 하면 최대 98초 빈 화면 (검증자 1·2차 지적). 오류 이름이 아니라 걸린 시간으로 가른다.
+      if(_loadTry<2 && (Date.now()-_t0)<5000){
+        _loadTry++;
+        try{ trackEvent('data_load_retry', _loadTry+'|'+String(e && e.message || '').slice(0,40)); }catch(_){}
+        var _cl=document.getElementById('cardList');
+        if(_cl && !_cl.children.length) _cl.innerHTML='<div class="empty" style="color:#bbb;font-size:13px">공구를 불러오는 중이에요…</div>';
+        _loadBusy=true;   // 기다리는 동안도 "진행 중" — 그 사이 online·bfcache 가 부르면 두 갈래가 된다(실측 재시도 3건)
+        setTimeout(function(){ _loadBusy=false; loadData(); }, _loadTry===1?2000:6000);
+        return;   // 아래 buildWeekTabs·bootView 는 재시도가 끝난 뒤(성공 경로 또는 최종 실패) 한 번만
+      }
+      DATA = []; _loadTry=0;   // 다음 호출(다시 불러오기·bfcache·online)은 새 기회
       try{ trackEvent('data_load_fail', String(e && e.message || '').slice(0,60)); }catch(_){}
       setTimeout(function(){
         var el=document.getElementById('cardList');
         if(el && !DATA.length){   // ⚠ children 검사는 항상 거짓이었다 — bootView() 가 먼저 "없어요" 를 그린다 (2026-09-22 검증자 지적, 라이브도 같은 결함)
           el.innerHTML='<div class="empty">공구를 불러오지 못했어요 😢<br>'+
-            '<span style="font-size:12px;color:#bbb">잠시 후 다시 시도해 주세요<br>'+
-            '계속 안 되면 <b style="color:#888">와이파이를 끄고 데이터로</b>, 또는 <b style="color:#888">크롬</b>에서 열어보세요</span><br>'+
+            '<span style="font-size:12px;color:#bbb">연결이 잠깐 끊긴 것 같아요. 잠시 후 다시 시도해 주세요<br>'+
+            '계속 안 되면 앱을 완전히 닫았다가 다시 열어주세요</span><br>'+
             '<button onclick="location.reload()" style="margin-top:14px;background:#602090;color:#fff;border:none;'+
             'border-radius:10px;padding:10px 18px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 불러오기</button></div>';
         }
@@ -1380,6 +1400,8 @@ async function loadData() {
   buildHotTags(); loadAliasDb(); loadDenyDb();
   bootView();
 }
+// 🔁 망이 돌아오는 순간(기내모드 해제·지하철 터널 통과) 목록이 비어 있으면 한 번 더 받는다 (2026-09-24)
+try{ window.addEventListener('online', function(){ if(!DATA.length && !_loadBusy){ _loadTry=9; loadData(); } }); }catch(_){}   // 9 = online 복귀 표시(재시도 체인은 안 탄다, 성공하면 retry_ok|9)
 
 // 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — **브랜드 기준**으로 뽑는다 (사장님 지적 "소분류는 대분류랑 뭐가 달라").
 //    진행중~7일 안 오픈 공구의 상품명 첫 낱말(=브랜드) 빈도 상위 8개. 탭하면 그 브랜드 검색결과로.
@@ -3769,13 +3791,13 @@ function kkoLoginFailed(why){
   w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;'+
     'border-radius:14px;padding:14px 15px;z-index:99999;box-shadow:0 8px 26px rgba(0,0,0,.18);font-size:13px;color:#3A3345;line-height:1.6';
   // ⚠ network = 카카오는 통과했는데 **우리 서버(supabase)에 요청이 닿지 않은 것**이다. 다시 눌러도 같은 이유로 또 막힌다.
-  //    2026-09-22 회원 제보: 배너·공구목록·기록까지 전부 안 닿았다(그 기기만). 와이파이/보안앱/DNS 쪽이라 손님이 바꿔볼 것을 알려준다.
+  //    2026-09-22 회원 제보: 배너·공구목록·기록까지 전부 안 닿았다(그 기기만). 그래서 우회로(🛟 블록)를 만들었다 — "다시 로그인" 은 다른 길로 간다.
+  //    ⚠ 손님에게 와이파이·브라우저·보안앱을 바꾸라는 안내는 하지 않는다 (사장님 지시 2026-09-22 "세상에 그런 앱은 없어").
   var _isNet = (why==='network');
   w.innerHTML='<b style="color:#7B3FB5">'+(_isNet?'서버에 연결되지 않았어요':'로그인을 마치지 못했어요')+'</b><br>'+
     (_isNet
-      ? '<span style="font-size:12px;color:#7A7286">카카오 인증은 됐는데 맘캘린더 서버에 닿지 않았어요.<br>'+
-        '<b style="color:#3A3345">와이파이를 끄고 데이터로</b> 다시 해보시거나, <b style="color:#3A3345">크롬</b>에서 열어주세요.<br>'+
-        '보안·광고차단 앱이 막는 경우도 있어요.</span>'
+      ? '<span style="font-size:12px;color:#7A7286">카카오 인증은 됐는데 연결이 잠깐 끊겼어요.<br>'+
+        '아래 <b style="color:#3A3345">다시 로그인</b>을 눌러주세요. 계속 안 되면 앱을 완전히 닫았다가 다시 열어주세요.</span>'
       : '<span style="font-size:12px;color:#7A7286">잠시 문제가 있었어요. 한 번만 다시 눌러주세요.</span>')+
     '<div style="display:flex;gap:7px;margin-top:11px">'+
     '<button id="kkoRetryBtn" style="flex:1;background:#FEE500;color:#191919;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">다시 로그인</button>'+
