@@ -2,6 +2,9 @@
 # 한글 리터럴이 있으므로 이 파일은 반드시 UTF-8 BOM 으로 저장할 것
 $Q = [char]34
 $SITE = 'https://momcalendar.com'
+# 기준일 (KST) — 네이버 AI 브리핑은 **신선도**와 **기준일이 박힌 사실**을 인용한다 (2026-09-23 NEO 작업).
+# 페이지마다 "언제 기준 데이터인가"가 없으면 기계가 최신성을 판단할 근거가 없다.
+$ASOF = [DateTime]::UtcNow.AddHours(9).ToString('yyyy-MM-dd')
 
 function HtmlEsc([string]$s){
   if($null -eq $s){ return '' }
@@ -67,6 +70,12 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .cta{display:block;text-align:center;background:#602090;color:#fff;text-decoration:none;border-radius:12px;padding:15px;font-weight:800;margin-top:22px}
 .rel{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .rel a{font-size:12.5px;background:#fff;border:1px solid #E3DCEF;border-radius:20px;padding:6px 12px;color:#5B3A8C;text-decoration:none}
+.asof{font-size:11.5px;color:#8E85A0;margin-top:12px}
+.facts{background:#fff;border:1px solid #ECE7F3;border-radius:12px;padding:4px 15px;margin:13px 0}
+.facts div{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F4F0F9;font-size:13.5px}
+.facts div:last-child{border-bottom:0}
+.facts dt{flex:0 0 92px;color:#7A7286;font-weight:600}
+.facts dd{flex:1;color:#2F2840;margin:0}
 .foot{font-size:11.5px;color:#9C93AC;margin-top:28px;text-align:center;line-height:1.9}
 .foot a{color:#7B3FB5}
 .note{background:#FFF6E5;border:1px solid #F0DCB4;border-radius:12px;padding:13px 15px}
@@ -101,6 +110,14 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<meta property=${Q}og:site_name${Q} content=${Q}맘캘린더${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:locale${Q} content=${Q}ko_KR${Q}>")
   [void]$sb.AppendLine("<meta name=${Q}twitter:card${Q} content=${Q}summary${Q}>")
+  # 🔎 dateModified — 기계가 "언제 기준 데이터인가"를 읽는 자리 (NEO/AI 브리핑 신선도 신호).
+  #   화면의 "$ASOF 기준" 줄과 **같은 날짜**여야 한다. 둘이 어긋나면 거짓 신호가 된다.
+  $wp = "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}WebPage${Q}," +
+        "${Q}name${Q}:${Q}$(JsonEsc $o.title)${Q},${Q}url${Q}:${Q}$SITE/$($o.canon)${Q}," +
+        "${Q}inLanguage${Q}:${Q}ko-KR${Q},${Q}dateModified${Q}:${Q}$ASOF${Q}," +
+        "${Q}isPartOf${Q}:{${Q}@type${Q}:${Q}WebSite${Q},${Q}name${Q}:${Q}맘캘린더${Q},${Q}url${Q}:${Q}$SITE/${Q}}," +
+        "${Q}publisher${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}원츠비${Q},${Q}url${Q}:${Q}$SITE/${Q}}}"
+  [void]$sb.AppendLine("<script type=${Q}application/ld+json${Q}>$wp</script>")
   if($o.jsonld){
     foreach($j in $o.jsonld){
       [void]$sb.AppendLine("<script type=${Q}application/ld+json${Q}>$j</script>")
@@ -113,6 +130,21 @@ function WritePage([hashtable]$o){
   if($o.bcName){
     [void]$sb.AppendLine("<div class=${Q}bc${Q}><a href=${Q}/${Q}>맘캘린더</a> › $(HtmlEsc $o.bcName)</div>")
   }
+  # 🔎 라벨-값 사실 표 (NEO/AI 브리핑) — 네이버 AI 브리핑은 산문 덩어리가 아니라
+  #   **항목-값 구조**를 인용한다. 카드 목록만 있던 페이지에 기계가 읽을 요약을 하나 둔다.
+  #   ⚠ 값이 없는 항목은 아예 그리지 않는다 — 빈칸이 보이면 사실이 아닌 것을 말하는 셈이다.
+  if($o.facts){
+    $fr = @()
+    foreach($f in $o.facts){
+      if($f -and $f.v -and -not [string]::IsNullOrWhiteSpace([string]$f.v)){
+        $fr += "<div><dt>$(HtmlEsc $f.k)</dt><dd>$(HtmlEsc([string]$f.v))</dd></div>"
+      }
+    }
+    if($fr.Count -gt 0){
+      [void]$sb.AppendLine("<dl class=${Q}facts${Q}>" + ($fr -join '') + "</dl>")
+    }
+  }
+  [void]$sb.AppendLine("<p class=${Q}asof${Q}>$ASOF 기준 · 공구 일정은 매일 자동 갱신됩니다</p>")
   [void]$sb.AppendLine($o.body)
   [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}/${Q}>오늘 진행 중인 공구 보러 가기 →</a>")
   [void]$sb.AppendLine("<div class=${Q}foot${Q}>맘캘린더는 인스타그램 공동구매 일정을 모아 보여주는 무료 서비스입니다.<br>")

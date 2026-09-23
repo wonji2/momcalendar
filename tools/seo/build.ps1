@@ -351,8 +351,26 @@ foreach($b in $brandList){
   $lf = LdFaq $ex.faq
   if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($b.brand) 공구" $canon))
+  # 🔎 라벨-값 사실 표 (NEO — 네이버 AI 브리핑이 인용하는 형태)
+  # ⚠ 위 주석대로 **집계는 넣지 않는다** — 셀러 수·진행 횟수는 사장님이 파는 데이터 자산이다.
+  #   여기 적는 것은 이미 화면 카드에 보이는 값을 기계가 읽기 좋게 옮긴 것뿐이다.
+  $fStatus = if($live.Count -gt 0){ '진행 중' } elseif($soon.Count -gt 0){ '예정' } else { '진행 중인 공구 없음' }
+  $fRecent = ''
+  $fSrc = ''
+  $rcv = if($live.Count -gt 0){ $live[0] } elseif($soon.Count -gt 0){ $soon[0] } elseif($past.Count -gt 0){ $past[0] } else { $null }
+  if($rcv){
+    $fRecent = "$($rcv.od) ~ $($rcv.ed)"
+    if($rcv.PSObject.Properties['who'] -and $rcv.who){ $fSrc = "$($rcv.who) 인스타그램 공지" }
+  }
+  $facts = @(
+    @{ k='브랜드'; v=$b.brand },
+    @{ k='공구 상태'; v=$fStatus },
+    @{ k='해당 일정'; v=$fRecent },
+    @{ k='정보 출처'; v=$fSrc },
+    @{ k='기준일'; v=$ASOF }
+  )
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구" }
+    h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구"; facts=$facts }
 }
 
 # ══ 브랜드 × 제품 페이지 ══
