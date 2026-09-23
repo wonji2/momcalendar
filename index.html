@@ -766,17 +766,19 @@ body.sheet-open{ overscroll-behavior-y: none; }
 
 <!-- 광고 슬림 배너 (banners type=slim · 게시기간 자동 노출/종료 · 공구·핫딜·체험단 공통) -->
 <script>
-// ── 🛟 데이터 서버 우회로 (2026-09-22, 회원 제보 두 번째 · v2 검증자 지적 시정) ──
+// ── 🛟 데이터 서버 우회로 (2026-09-22 회원 제보 · v2 검증자 지적 시정 · v3 이미지·경로 기록) ──
 // 일부 손님 망(공유기 DNS 필터·보안앱·통신사)이 supabase.co 를 통째로 막는다. 그러면 배너·공구목록·로그인·기록이 전부 죽는데
 // 우리 쪽엔 아무 흔적도 안 남는다. 사이트의 모든 서버 호출이 fetch 라서 fetch 하나만 감싼다:
 //   ① 먼저 가는 길(직행 supabase.co, 우회로를 기억 중이면 우회로)로 보낸다 → 망 오류·10초 무응답·5xx 면
 //   ② 다른 길(api.momcalendar.com = 같은 서버로 가는 우리 도메인 Worker / 또는 직행)로 다시 보낸다 (15초 제한)
 //   ③ 다른 길이 5xx 아니게 답하면 그 길을 6시간 기억(mc_api_base — 직행이면 기억 삭제)하고 net_fallback 이벤트로 남겨 원인을 센다
 //   ④ 둘 다 안 되면 첫 결과(오류·응답)를 그대로 돌려준다 → 호출부의 기존 폴백(캐시·안내)이 이어받는다
+//   ⑤ mcApiSrc(url): <img>·CSS 배경은 fetch 가 아니라 감싸기 밖 → 우회로를 기억 중이면 supabase.co 이미지 주소를 우회로로 바꿔 준다
 // ⚠ kakao-auth(카카오 인가코드 교환)는 **1회용**이라 시간제한·중단 재시도를 걸지 않는다 — 끊고 다시 보내면 서버가 이미 쓴 code 라 반드시 KOE320.
 //    망 오류(TypeError = 연결 자체가 안 됨)일 때만 다른 길로 다시 보낸다.
-// ⚠ 이 블록은 서버를 부르는 첫 <script> 보다 앞에 있어야 한다. 순서를 바꾸면 위 슬림배너 호출부터 감싸지지 않는다.
+// ⚠ 이 블록은 서버를 부르는 첫 <script> 보다 앞에 있어야 한다. 순서를 바꾸면 그 앞의 호출은 감싸지지 않는다.
 // ⚠ 브라우저에서 이 코드를 시험하면 net_fallback 이 진짜로 쌓인다 → UA 에 Claude/ 가 있으면 기록하지 않는다.
+// 원본은 index.html 의 이 블록. 다른 페이지엔 scratchpad/_patch_fallback_v3.mjs --attach 로 같은 블록을 넣는다.
 (function(){
   var PRIMARY='https://hycaqsqeogjtbscmzrtm.supabase.co', FALLBACK='https://api.momcalendar.com';
   var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=10000, SECOND_TIMEOUT=15000;
@@ -787,13 +789,15 @@ body.sheet-open{ overscroll-behavior-y: none; }
   function isNetErr(e){ return !!e && (e.name==='TypeError' || e.name==='AbortError'); }
   function broken(r){ return !r || r.status>=500; }   // 5xx = 그 길이 고장(Worker 502·Cloudflare 1027 한도 등). 4xx 는 서버가 답한 것 — 길은 살아 있다
   var reported=false;
-  function report(via, why){   // 우회로로 살아난 기기가 몇이고 왜였는지 — 원인 추적의 유일한 창구
+  function report(via, why, path){   // 우회로로 살아난 기기가 몇이고 왜·어느 요청이었는지 — 원인 추적의 유일한 창구
     if(reported) return; reported=true;
     try{ if(/Claude\//.test(navigator.userAgent||'')) return; }catch(_){}
     try{ _fetch(via+'/rest/v1/events',{method:'POST',keepalive:true,
       headers:{'Content-Type':'application/json','apikey':'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE','Prefer':'return=minimal'},
-      body:JSON.stringify({event_type:'net_fallback',event_data:(via===FALLBACK?'to_fallback':'back_to_primary')+'|'+String(why).slice(0,30)+'|'+(navigator.userAgent||'').slice(0,110)})}).catch(function(){}); }catch(_){}
+      body:JSON.stringify({event_type:'net_fallback',event_data:(via===FALLBACK?'to_fallback':'back_to_primary')+'|'+String(why).slice(0,30)+'|'+(navigator.userAgent||'').slice(0,110)+'|'+String(path||'').split('?')[0].slice(0,50)+'|'+(typeof location!=='undefined'?(location.pathname||''):'')})}).catch(function(){}); }catch(_){}
   }
+  // 이미지·CSS 배경 주소용 — 우회로 기억 중이면 supabase.co 만 바꾼다. 나머지 주소는 그대로
+  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0 && remembered()===FALLBACK) return FALLBACK+u.slice(PRIMARY.length); }catch(_){} return u; };
   window.fetch=function(input, init){
     var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
@@ -809,13 +813,13 @@ body.sheet-open{ overscroll-behavior-y: none; }
       if(!broken(r)) return r;                                   // 정상 답 (4xx 포함) → 그대로
       return attempt(second, SECOND_TIMEOUT).then(function(r2){
         if(broken(r2)) return r;                                 // 둘 다 5xx → 첫 응답 그대로
-        remember(second); report(second, 'http'+r.status); return r2;
+        remember(second); report(second, 'http'+r.status, rest); return r2;
       }, function(){ return r; });
     }, function(e){
       if(!isNetErr(e)) throw e;
       return attempt(second, SECOND_TIMEOUT).then(function(r2){
         if(broken(r2)) throw e;                                  // 다른 길도 고장 → 원래 오류 그대로
-        remember(second); report(second, e.name); return r2;
+        remember(second); report(second, e.name, rest); return r2;
       }, function(){ throw e; });
     });
   };
@@ -2273,7 +2277,7 @@ function hdCardHtml(h){
   // 위쪽 카드(_hdIdx<8)는 바로 받고, 아래쪽만 lazy. 다 받으면 .on 으로 부드럽게 나타남.
   const eager = (_hdIdx++ < 8);
   const thumb=(h.img_url)
-    ? `<img class="hc-thumb" src="${hcEsc(h.img_url)}" alt="" width="72" height="72" decoding="async"
+    ? `<img class="hc-thumb" src="${hcEsc(mcApiSrc(h.img_url))}" alt="" width="72" height="72" decoding="async"
          ${eager?'loading="eager" fetchpriority="high"':'loading="lazy"'}
          onload="this.classList.add('on')" onerror="this.outerHTML=window.__hcPh">`
     : PH;
@@ -2394,7 +2398,7 @@ async function openHdSheet(id){
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-      ${h.img_url?`<img src="${h.img_url}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
+      ${h.img_url?`<img src="${mcApiSrc(h.img_url)}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${h.title}</div>
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
@@ -4622,7 +4626,7 @@ async function loadPromoBanners(){
       const dark=/gradient|#[0-3]/.test(bg.toLowerCase()) && /gradient|rgb|#[0-6]/.test(bg.toLowerCase()) && !/#[e-fE-F]/.test(bg);
       const txtCol=dark?'#fff':'#1A5B3E';
       const ico=b.img_url
-        ? `<span class="pc-ico"><img src="${_promoEsc(b.img_url)}" alt=""></span>`
+        ? `<span class="pc-ico"><img src="${_promoEsc(mcApiSrc(b.img_url))}" alt=""></span>`
         : `<span class="pc-ico">🌿</span>`;
       const brand=b.cta?`<div class="pc-brand" style="color:${txtCol}">${_promoEsc(b.cta)}</div>`:'';
       const sub=b.subtitle?`<div class="pc-sub" style="color:${txtCol}">${_promoEsc(b.subtitle)}</div>`:'';
@@ -4715,7 +4719,7 @@ function buildMainSlider(){
   slider.innerHTML=MAIN_BANNERS.map(b=>{
     const isImg=!!b.img_url;
     const bg=isImg
-      ?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
+      ?`url('${mcApiSrc(b.img_url)}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
       :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
     // 이미지 배너는 화면에 보일 때만 로드(전송량 절약). data-bg에 넣어두고 표시 시 적용
     const bgAttr=isImg?` data-bg="${bg.replace(/"/g,'&quot;')}"`:'';
@@ -4797,7 +4801,7 @@ function renderSellerBanners(){
   zone.style.display='block';
   row.innerHTML=list.map((b,i)=>{
     const isImg=!!b.img_url;
-    const bg=isImg?`url('${b.img_url}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
+    const bg=isImg?`url('${mcApiSrc(b.img_url)}') ${b.img_position||'center'}/${b.img_size||'cover'} no-repeat`
                   :(b.bg||'linear-gradient(135deg,#2A1D6E,#7B68EE)');
     // 제목은 "상품명 - 셀러명" 으로 저장돼 있다. 화면에선 둘을 나눠 보여준다.
     //   ⚠ 상품명 안에도 '-' 가 있을 수 있으므로 **마지막** 구분자로 자른다.
