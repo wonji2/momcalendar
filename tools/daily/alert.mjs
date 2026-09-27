@@ -55,7 +55,9 @@ export function pushAlerts(note = '알림 갱신') {
     if (!changed) return { ok: true, skipped: '바뀐 것 없음' };
     run(['add', 'daily/_alert.txt']);
     run(['commit', '-m', `사장님 알림: ${note}`]);
-    try { run(['pull', '--rebase', '-q']); } catch { /* 충돌이면 그냥 push 를 시도한다 */ }
+    // ⚠ 2026-09-27 사고: 다른 세션의 미커밋 파일이 있으면 pull --rebase 가 거부돼 push 가 3일간(26회) 전부 실패했다 → 알림이 사장님 카드에 안 올라갔다.
+    //    --autostash 로 미커밋을 잠시 치웠다 되돌린다. 그래도 실패하면 로그에 남아야 한다(호출부가 ⚠ 를 찍는다).
+    try { run(['pull', '--rebase', '--autostash', '-q']); } catch (e) { return { ok: false, error: 'pull 실패: ' + String(e.stderr || e.message).slice(0, 140) }; }
     run(['push', '-q', 'origin', 'main']);
     return { ok: true };
   } catch (e) {
