@@ -38,6 +38,7 @@ language sql stable security definer set search_path = public as $$
     from e
   ),
   st as (select round(extract(epoch from (now()-max(updated_at)))/60)::bigint stale_min from gonggu_click_stats),
+  st2 as (select round(extract(epoch from (now()-max(updated_at)))/60)::bigint stale_min from search_trending_stats),
   ha as (select count(*) n from health_alerts where created_at > now()-interval '24 hours' and kind not like 'radar:%')
   select * from (
     select '빈화면(data_load_fail)'::text, f1, f24, '1h≥3 또는 24h≥15'::text,
@@ -61,6 +62,9 @@ language sql stable security definer set search_path = public as $$
     union all
     select '클릭통계 갱신 지연(분)', stale_min, stale_min, '≤30', case when stale_min>30 then '🔴' else '✅' end,
            'pg_cron 30 이 10분마다 채운다. 멈추면 500 은 안 나지만 TOP100 이 옛 숫자에 멈춘다' from st
+    union all
+    select '검색인기 갱신 지연(분)', stale_min, stale_min, '≤30', case when stale_min>30 then '🔴' else '✅' end,
+           'pg_cron search-trending-stats 가 10분마다 채운다(search_trending_64). 멈추면 500 은 안 나지만 검색어 칩이 옛것에 멈춘다' from st2
     union all
     select '다른 감시기 경보(24h)', n, n, '정보', case when n>0 then '⚠' else '✅' end,
            'login-health·site-health·seo-health·data-health 등이 health_alerts 에 남긴 것. select * from health_alerts order by created_at desc' from ha
@@ -92,6 +96,7 @@ select cron.schedule('error-watch', '35 * * * *', $$select public.run_error_watc
 
 select * from public.error_radar();
 
+-- 2026-09-27: 검색인기 갱신 지연 줄 추가 (search_trending_64 와 한 세트)
 -- ROLLBACK
 -- select cron.unschedule(jobid) from cron.job where jobname='error-watch';
 -- drop function public.run_error_watch(); drop function public.error_radar();
