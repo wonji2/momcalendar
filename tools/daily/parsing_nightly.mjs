@@ -66,7 +66,8 @@ try {
   // ① 수확 → ② 세척 → ③ 분류 → ④ 병합
   const outF = SP('_pn_out.tsv'), cleanF = SP('_pn_clean.tsv'),
         tableF = SP('_pn_table.md'), unclsF = SP('_pn_uncls.tsv');
-  run([SP('inpock_harvest.mjs'), todoF, outF, seenF, String(todo.length)]);
+  // ⚠ 2026-09-27 실측: 1,059명 전수는 30분 안에 안 끝난다(683명에서 ETIMEDOUT). 셀러당 8초로 잡는다(400명 53분·1,059명 2.4시간). 예약작업 한도 PT4H.
+  run([SP('inpock_harvest.mjs'), todoF, outF, seenF, String(todo.length)], Math.max(1800e3, todo.length * 8e3));
   const got = existsSync(outF) ? readFileSync(outF, 'utf8').split('\n').filter(Boolean).length : 0;
   log(`① 수확 ${got}건`);
   if (!got) { log('= 수확 0건 — 종료'); process.exit(0); }
