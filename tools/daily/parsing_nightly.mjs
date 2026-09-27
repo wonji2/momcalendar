@@ -50,6 +50,7 @@ try {
     if (p.length < 1000) break;
   }
   const seenF = SP('_inpock_seen_auto.txt');
+  if (process.argv.includes('--reset')) { writeFileSync(seenF, '', 'utf8'); log(`--reset: seen 비움 — 활동 셀러 전원(${handles.size}명) 처음부터 (매월 마지막주 전수, 사장님 지시 2026-09-27)`); }
   const seen = existsSync(seenF) ? new Set(readFileSync(seenF, 'utf8').split(/\r?\n/).filter(Boolean)) : new Set();
   let todo = [...handles].filter(h => !seen.has(h));
   if (!todo.length) {           // 한 바퀴 다 돌았으면 처음부터 다시
