@@ -28,12 +28,13 @@ const kstDate = (off = 0) => new Date(Date.now() + 9 * 3600e3 + off * 864e5).toI
 //   ⚠ 긴 말이 앞에 와야 한다 — '인스타' 가 '인스타그램' 앞에 있으면 "그램" 이 남는다(2026-09-28 실측 "인스타그램 공구 샤크닌자"→"그램샤크닌자").
 const TAIL = /(인스타그램|공동구매|공구일정|공구 ?가격|공구중|공구|내돈내산|핫딜가|핫딜|후기|가격|정품|추천|일정|인스타|모음|할인|세일|링크|오픈|마감|구매|최저가|이벤트|사이트|찾는법|하는곳|진행중|\d+월)/g;
 const GENERIC = /^(인스타|공구|공동구매|육아템|오늘|모음|일정|사이트|찾는법|기타|맘캘린더|맘캘|캘린더|달력|공구캘린더|공구달력)$/;
-//   영문·숫자만 8자 이상 = 인스타 핸들(inwoomom.somin 류)이 검색어로 들어온 것 — 브랜드가 아니다 (검증 지적 2026-09-28)
-const DROP_TOKEN = /^(중|가|것|곳|거|중인|하는|하는곳|어디|어디서|어때|뭐|왜|[a-z0-9._]{8,})$/;
+const DROP_TOKEN = /^(중|가|것|곳|거|중인|하는|하는곳|어디|어디서|어때|뭐|왜)$/;
 /** 검색어 → 낱말 배열(꼬리말 제거). 첫 낱말이 보통 브랜드다. */
 export const tokensOf = (q) => {
   const raw = String(q || '').toLowerCase().trim();
-  if (/^[a-z0-9._]+$/.test(raw) && /[._]/.test(raw)) return [];   // "inwoomom.somin" 같은 인스타 핸들 — 점으로 쪼개면 낱말 하나가 새어 나온다
+  // "inwoomom.somin" · "inwoomom.somin 공구" 같은 인스타 핸들(점·밑줄이 든 영문 낱말) — 점으로 쪼개면 낱말 하나가 새어 나온다 (검증 지적 2026-09-28).
+  //   ⚠ 영문 8자 이상을 통째로 버리던 규칙은 뺐다 — ergobaby·numberblocks 같은 영문 브랜드가 죽는다.
+  if (raw.split(/\s+/).some((w) => /^[a-z0-9]+[._][a-z0-9._]*$/.test(w))) return [];
   const s = raw.replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
   if (!s || GENERIC.test(s.replace(/\s/g, ''))) return [];
   const toks = s.split(' ').filter((t) => t && !DROP_TOKEN.test(t));
@@ -75,25 +76,30 @@ export async function kwGap({ week, blogSearch } = {}) {
   let site = [], gonggu = [];
   try { site = readSiteSearch(); } catch (e) { res.error += `사이트 검색어 못 읽음(${String(e.message).slice(0, 60)}) `; }
   try { gonggu = await fetchGonggu(kstDate(-90)); } catch (e) { res.error += `공구 목록 못 읽음(${String(e.message).slice(0, 60)}) `; }
-  // 별칭 표(bot_alias, 사이트·챗봇과 같은 한 곳) — "쉐프원"→"쉐프윈" 같은 오타·표기 변형을 대조 전에 정규화한다. 못 읽으면 별칭 없이 간다.
+  // 별칭 표(bot_alias, 사이트·챗봇과 같은 한 곳) — "쉐프원"→"쉐프윈" 같은 오타·표기 변형만 대조 전에 정규화한다.
+  //   ⚠ 표에는 카테고리 별칭(디자인스킨→플레이테이블, 빼빼구마→룰루맘)도 있다. 그걸 쓰면 실수요 목표(디자인스킨 28회·결과 0건)가 사라진다(검증 2차 지적)
+  //   → 글자 편집거리 2 이하·길이 차 1 이하인 것(표기 변형)만 쓴다. 못 읽으면(비배열 응답 포함) 오류로 남기고 별칭 없이 간다.
   const alias = new Map();
+  const lev = (a, b) => { const m = a.length, n = b.length; if (Math.abs(m - n) > 1) return 9; let p = Array.from({ length: n + 1 }, (_, i) => i); for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[n]; };
   try {
     const r = await fetch(`${SB}/bot_alias?select=term,expand&limit=2000`, { headers: { apikey: SB_KEY } }); const j = await r.json();
-    if (Array.isArray(j)) for (const a of j) { const t = String(a.term || '').toLowerCase().replace(/\s/g, ''), x = String(a.expand || '').toLowerCase().replace(/\s/g, ''); if (t && x && t !== x) alias.set(t, x); }
+    if (!Array.isArray(j)) throw new Error('bot_alias 응답이 목록이 아님 ' + r.status);
+    for (const a of j) { const t = String(a.term || '').toLowerCase().replace(/\s/g, ''), x = String(a.expand || '').toLowerCase().replace(/\s/g, ''); if (t && x && t !== x && t.length >= 3 && lev(t, x) <= 2) alias.set(t, x); }
   } catch (e) { res.error += `별칭 표 못 읽음(${String(e.message).slice(0, 40)}) `; }
   const canon = (c) => alias.get(c) || c;
   const names = gonggu.map((g) => String(g.name || '').toLowerCase().replace(/\s/g, ''));
-  // "공구가 있다" = 상품명(공백 제거)에 검색어 전체가 들어 있거나, **첫 낱말(브랜드)**이 들어 있으면 된다.
-  //   "윙플라 프라이팬" 은 DB 에 "아롱레시피 윙플라" 로 있다 — 전체 일치만 보면 없다고 잘못 나온다(2026-09-28 실측).
-  const has = (core, first) => names.some((n) => n.includes(core)) || (first && first.length >= 2 && !/^\d+$/.test(first) && names.some((n) => n.includes(first)));
-  const hasCount = (core, first) => names.filter((n) => n.includes(core) || (first && first.length >= 2 && n.includes(first))).length;
+  // "공구가 있다" = 상품명(공백 제거)에 검색어 전체가 들어 있거나, **첫 낱말(브랜드, 2자↑)** 또는 **둘째 낱말(3자↑)** 이 들어 있으면 된다.
+  //   "윙플라 프라이팬" 은 DB 에 "아롱레시피 윙플라" 로 있고, "아롱레시피 윙플라"(셀러명이 앞) 는 둘째 낱말로만 잡힌다(검증 2차 지적).
+  const wordHit = (w, min) => !!w && w.length >= min && !/^\d+$/.test(w) && names.some((n) => n.includes(w));
+  const has = (core, first, second) => names.some((n) => n.includes(core)) || wordHit(first, 2) || wordHit(second, 3);
+  const hasCount = (core, first, second) => names.filter((n) => n.includes(core) || (first && first.length >= 2 && n.includes(first)) || (second && second.length >= 3 && n.includes(second))).length;
 
   // A. 사이트 검색 — 30일 5회 이상인데 등록 공구 없음
-  for (const r of site) { const t = tokensOf(r.term), c = canon(t.join('')); if (!c || r.c30 < 5) continue; if (!has(c, canon(t[0]))) res.siteMiss.push({ term: r.term, core: c, c30: r.c30, c7: r.c7, miss30: r.miss30 }); }
+  for (const r of site) { const t = tokensOf(r.term), c = canon(t.join('')); if (!c || r.c30 < 5) continue; if (!has(c, canon(t[0]), t[1])) res.siteMiss.push({ term: r.term, core: c, c30: r.c30, c7: r.c7, miss30: r.miss30 }); }
   // B. 블로그 유입 검색어 — 등록 공구 없음 (같은 핵심어는 합친다)
   const bm = new Map();
-  for (const r of blog) { if (r.searchQuery === '기타') continue; const t = tokensOf(r.searchQuery), c = canon(t.join('')); if (!c) continue; const o = bm.get(c) || { core: c, first: canon(t[0]), cv: 0, q: [] }; o.cv += +r.cv || 0; if (!o.q.includes(r.searchQuery)) o.q.push(r.searchQuery); bm.set(c, o); }
-  for (const o of bm.values()) if (!has(o.core, o.first)) res.blogMiss.push(o);
+  for (const r of blog) { if (r.searchQuery === '기타') continue; const t = tokensOf(r.searchQuery), c = canon(t.join('')); if (!c) continue; const o = bm.get(c) || { core: c, first: canon(t[0]), second: t[1], cv: 0, q: [] }; o.cv += +r.cv || 0; if (!o.q.includes(r.searchQuery)) o.q.push(r.searchQuery); bm.set(c, o); }
+  for (const o of bm.values()) if (!has(o.core, o.first, o.second)) res.blogMiss.push(o);
   res.blogMiss.sort((a, b) => b.cv - a.cv);
   // C. 양쪽에 다 있고 공구도 있는 브랜드 → 블로그 우선 키워드 (블로그 검색어의 첫 낱말 = 사이트 검색어 로 잇는다)
   const siteMap = new Map(); for (const r of site) { const c = canon(coreOf(r.term)); if (c && !siteMap.has(c)) siteMap.set(c, r); }
