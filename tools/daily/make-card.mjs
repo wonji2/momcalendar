@@ -102,7 +102,7 @@ const mmdd = (s) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? `${+s.slice(5, 7)}/${
 // 상품명 첫 토큰에서 브랜드 후보를 뽑는다. 일반명사·수식어는 제외 (제목·태그용 3개면 충분)
 const BRAND_STOP = new Set(['국민','만능','오늘','미니','역시즌','특가','신상','베스트','국산','유아','아기','키즈',
   '시그니처','프리미엄','여름','겨울','간식','분리수거함','목욕놀이','새치컷팅기','고구마','돌반지','가족여행','부모님','추석선물','명절선물',
-  '일본','마그네틱','원목','유기농','국내산','수입','무료','한정']);   // 2026-09-28: 검색량 정렬로 앞에 나오던 일반어("일본 공구"·"마그네틱 공구") 차단
+  '일본','마그네틱','원목','유기농','국내산','수입','무료','한정','도서','난각번호']);   // 2026-09-28: 검색량 정렬로 앞에 나오던 일반어("일본 공구"·"마그네틱 공구") 차단
 const brandOf = (n) => {
   const t = (String(n).replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/)[0] || '');
   return (t.length >= 2 && t.length <= 7 && !BRAND_STOP.has(t) && !/^\d/.test(t)) ? t : '';
@@ -110,7 +110,10 @@ const brandOf = (n) => {
 // ── 사이트 검색량으로 브랜드 우선순위 (사장님 지시 2026-09-28 "넘버블럭스·미니두두·스트라이더처럼 사이트 안에서 검색량 많은 걸 블로그에 우선 키워드로") ──
 //   site_search_stats(30일 집계, pg_cron 새벽 03:20 갱신 · supabase/sql/site_search_stats_65.sql)를 CLI(관리자)로 읽는다.
 //   anon 으로는 못 읽는다(검색 횟수는 파는 데이터). CLI 가 없거나 실패하면 검색량 0 으로 두고 기존 순서(오픈 목록 순)로 간다 — 카드·블로그는 살아야 한다.
-//   점수 = 상품명(공백 제거)에 검색어가 들어 있는 것 중 가장 큰 30일 검색 수. 브랜드 순서·제목 앞자리·태그 순서·오늘의 브랜드 꼭지가 이 순서를 따른다.
+//   점수 = **브랜드 낱말**과 맞는 검색어의 30일 검색 수(최대). 맞는다 = 검색어가 브랜드와 같다 / 검색어가 브랜드로 시작한다("닌자크리스피"→닌자) /
+//          브랜드가 검색어로 시작한다(검색어 3자 이상·브랜드의 60% 이상, "베리네이"→베리네이처). 상품명 나머지 낱말(퓨레·캐리어·사운드북)은 안 본다 —
+//          그렇게 하면 일반 검색어가 브랜드 점수로 새어 들어간다(2026-09-28 검증에서 28개 중 19개 오탐 실측).
+//   브랜드 순서·제목 앞자리·태그 순서·오늘의 브랜드 꼭지가 이 순서를 따른다.
 const siteSearch = await (async () => {
   try {
     const { execFileSync } = await import('node:child_process');
@@ -126,10 +129,18 @@ const siteSearch = await (async () => {
     return p.rows.map((r) => [String(r.term || '').replace(/\s+/g, ''), Number(r.c30) || 0]).filter((x) => x[0].length >= 2);
   } catch (e) { console.log('사이트 검색량 생략(기존 순서로):', String(e.message || e).slice(0, 80)); return []; }
 })();
-const searchScore = (name) => { const n = String(name || '').toLowerCase().replace(/\s+/g, ''); let best = 0; for (const [t, c] of siteSearch) if (c > best && n.includes(t)) best = c; return best; };
-// 브랜드별 점수 = 그 브랜드로 시작하는 오늘 오픈 상품 중 최대 검색량. 점수 같으면 오픈 목록 순(안정 정렬)을 지킨다.
+const brandSearchScore = (brand) => {
+  const b = String(brand || '').toLowerCase(); let best = 0;
+  for (const [t, c] of siteSearch) {
+    if (c <= best) continue;
+    const hit = t === b || t.startsWith(b) || (t.length >= 3 && b.startsWith(t) && t.length >= b.length * 0.6);
+    if (hit) best = c;
+  }
+  return best;
+};
+// 브랜드별 점수. 점수 같으면 오픈 목록 순(안정 정렬)을 지킨다.
 const brandScore = {};
-for (const o of opens) { const b = brandOf(o.name); if (!b) continue; brandScore[b] = Math.max(brandScore[b] || 0, searchScore(o.name)); }
+for (const o of opens) { const b = brandOf(o.name); if (!b || b in brandScore) continue; brandScore[b] = brandSearchScore(b); }
 const allBrands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].sort((a, b) => (brandScore[b] || 0) - (brandScore[a] || 0));
 const searchedBrands = allBrands.filter((b) => brandScore[b] > 0);
 if (searchedBrands.length) console.log('사이트 검색량 반영 브랜드:', searchedBrands.map((b) => `${b}(${brandScore[b]})`).join(' · '));

@@ -27,11 +27,14 @@ const kstDate = (off = 0) => new Date(Date.now() + 9 * 3600e3 + off * 864e5).toI
 // 검색어 → 대조용 핵심어. 꼬리말(공구·9월·내돈내산…)을 떼고 공백을 없앤다. 너무 일반적인 말은 '' 로.
 //   ⚠ 긴 말이 앞에 와야 한다 — '인스타' 가 '인스타그램' 앞에 있으면 "그램" 이 남는다(2026-09-28 실측 "인스타그램 공구 샤크닌자"→"그램샤크닌자").
 const TAIL = /(인스타그램|공동구매|공구일정|공구 ?가격|공구중|공구|내돈내산|핫딜가|핫딜|후기|가격|정품|추천|일정|인스타|모음|할인|세일|링크|오픈|마감|구매|최저가|이벤트|사이트|찾는법|하는곳|진행중|\d+월)/g;
-const GENERIC = /^(인스타|공구|공동구매|육아템|오늘|모음|일정|사이트|찾는법|기타|맘캘린더|맘캘)$/;
-const DROP_TOKEN = /^(중|가|것|곳|거|중인|하는|하는곳|어디|어디서|어때|뭐|왜)$/;
+const GENERIC = /^(인스타|공구|공동구매|육아템|오늘|모음|일정|사이트|찾는법|기타|맘캘린더|맘캘|캘린더|달력|공구캘린더|공구달력)$/;
+//   영문·숫자만 8자 이상 = 인스타 핸들(inwoomom.somin 류)이 검색어로 들어온 것 — 브랜드가 아니다 (검증 지적 2026-09-28)
+const DROP_TOKEN = /^(중|가|것|곳|거|중인|하는|하는곳|어디|어디서|어때|뭐|왜|[a-z0-9._]{8,})$/;
 /** 검색어 → 낱말 배열(꼬리말 제거). 첫 낱말이 보통 브랜드다. */
 export const tokensOf = (q) => {
-  const s = String(q || '').toLowerCase().replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
+  const raw = String(q || '').toLowerCase().trim();
+  if (/^[a-z0-9._]+$/.test(raw) && /[._]/.test(raw)) return [];   // "inwoomom.somin" 같은 인스타 핸들 — 점으로 쪼개면 낱말 하나가 새어 나온다
+  const s = raw.replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
   if (!s || GENERIC.test(s.replace(/\s/g, ''))) return [];
   const toks = s.split(' ').filter((t) => t && !DROP_TOKEN.test(t));
   const core = toks.join('');
@@ -72,6 +75,13 @@ export async function kwGap({ week, blogSearch } = {}) {
   let site = [], gonggu = [];
   try { site = readSiteSearch(); } catch (e) { res.error += `사이트 검색어 못 읽음(${String(e.message).slice(0, 60)}) `; }
   try { gonggu = await fetchGonggu(kstDate(-90)); } catch (e) { res.error += `공구 목록 못 읽음(${String(e.message).slice(0, 60)}) `; }
+  // 별칭 표(bot_alias, 사이트·챗봇과 같은 한 곳) — "쉐프원"→"쉐프윈" 같은 오타·표기 변형을 대조 전에 정규화한다. 못 읽으면 별칭 없이 간다.
+  const alias = new Map();
+  try {
+    const r = await fetch(`${SB}/bot_alias?select=term,expand&limit=2000`, { headers: { apikey: SB_KEY } }); const j = await r.json();
+    if (Array.isArray(j)) for (const a of j) { const t = String(a.term || '').toLowerCase().replace(/\s/g, ''), x = String(a.expand || '').toLowerCase().replace(/\s/g, ''); if (t && x && t !== x) alias.set(t, x); }
+  } catch (e) { res.error += `별칭 표 못 읽음(${String(e.message).slice(0, 40)}) `; }
+  const canon = (c) => alias.get(c) || c;
   const names = gonggu.map((g) => String(g.name || '').toLowerCase().replace(/\s/g, ''));
   // "공구가 있다" = 상품명(공백 제거)에 검색어 전체가 들어 있거나, **첫 낱말(브랜드)**이 들어 있으면 된다.
   //   "윙플라 프라이팬" 은 DB 에 "아롱레시피 윙플라" 로 있다 — 전체 일치만 보면 없다고 잘못 나온다(2026-09-28 실측).
@@ -79,14 +89,14 @@ export async function kwGap({ week, blogSearch } = {}) {
   const hasCount = (core, first) => names.filter((n) => n.includes(core) || (first && first.length >= 2 && n.includes(first))).length;
 
   // A. 사이트 검색 — 30일 5회 이상인데 등록 공구 없음
-  for (const r of site) { const t = tokensOf(r.term), c = t.join(''); if (!c || r.c30 < 5) continue; if (!has(c, t[0])) res.siteMiss.push({ term: r.term, core: c, c30: r.c30, c7: r.c7, miss30: r.miss30 }); }
+  for (const r of site) { const t = tokensOf(r.term), c = canon(t.join('')); if (!c || r.c30 < 5) continue; if (!has(c, canon(t[0]))) res.siteMiss.push({ term: r.term, core: c, c30: r.c30, c7: r.c7, miss30: r.miss30 }); }
   // B. 블로그 유입 검색어 — 등록 공구 없음 (같은 핵심어는 합친다)
   const bm = new Map();
-  for (const r of blog) { if (r.searchQuery === '기타') continue; const t = tokensOf(r.searchQuery), c = t.join(''); if (!c) continue; const o = bm.get(c) || { core: c, first: t[0], cv: 0, q: [] }; o.cv += +r.cv || 0; if (!o.q.includes(r.searchQuery)) o.q.push(r.searchQuery); bm.set(c, o); }
+  for (const r of blog) { if (r.searchQuery === '기타') continue; const t = tokensOf(r.searchQuery), c = canon(t.join('')); if (!c) continue; const o = bm.get(c) || { core: c, first: canon(t[0]), cv: 0, q: [] }; o.cv += +r.cv || 0; if (!o.q.includes(r.searchQuery)) o.q.push(r.searchQuery); bm.set(c, o); }
   for (const o of bm.values()) if (!has(o.core, o.first)) res.blogMiss.push(o);
   res.blogMiss.sort((a, b) => b.cv - a.cv);
   // C. 양쪽에 다 있고 공구도 있는 브랜드 → 블로그 우선 키워드 (블로그 검색어의 첫 낱말 = 사이트 검색어 로 잇는다)
-  const siteMap = new Map(); for (const r of site) { const c = coreOf(r.term); if (c && !siteMap.has(c)) siteMap.set(c, r); }
+  const siteMap = new Map(); for (const r of site) { const c = canon(coreOf(r.term)); if (c && !siteMap.has(c)) siteMap.set(c, r); }
   const seenBoth = new Set();
   for (const o of bm.values()) {
     const key = siteMap.has(o.core) ? o.core : (siteMap.has(o.first) ? o.first : ''); const s = key && siteMap.get(key);
@@ -97,7 +107,8 @@ export async function kwGap({ week, blogSearch } = {}) {
   // 파싱 목표 파일 — 세션이 채널 4·5-b 검색어로 쓴다 (핵심어 · 근거 · 수치)
   const tg = new Map();
   for (const r of res.siteMiss) tg.set(r.core, { core: r.core, why: `사이트 검색 ${r.c30}회/30일${r.miss30 ? ` (결과 0건 ${r.miss30}회)` : ''}`, score: r.c30 });
-  for (const o of res.blogMiss) { const p = tg.get(o.core); if (p) p.why += ` · 블로그 유입 ${o.cv}`; else tg.set(o.core, { core: o.core, why: `블로그 유입 ${o.cv} (${o.q.slice(0, 2).join(', ')})`, score: o.cv }); }
+  // 블로그 쪽은 유입 2 이상만 목표로 (1건짜리는 오타·우연이 많다 — "A 드미노" 류). B 표에는 그대로 남긴다.
+  for (const o of res.blogMiss) { const p = tg.get(o.core); if (p) p.why += ` · 블로그 유입 ${o.cv}`; else if (o.cv >= 2) tg.set(o.core, { core: o.core, why: `블로그 유입 ${o.cv} (${o.q.slice(0, 2).join(', ')})`, score: o.cv }); }
   res.targets = [...tg.values()].sort((a, b) => b.score - a.score);
   const sp = path.join(REPO, 'scratchpad'); mkdirSync(sp, { recursive: true });
   writeFileSync(path.join(sp, 'parsing_targets_kw.txt'), `# 검색어 기반 파싱 목표 (${kstDate()} · blog_kw_gap.mjs). 핵심어\t근거 — 네이버 블로그/카페 검색(채널 4·5-b)에 "<핵심어> 공구" 로 넣어 셀러를 찾는다\n` + res.targets.map((t) => `${t.core}\t${t.why}`).join('\n') + '\n', 'utf8');
