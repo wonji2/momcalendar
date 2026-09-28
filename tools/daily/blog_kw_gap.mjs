@@ -35,7 +35,8 @@ export const tokensOf = (q) => {
   // "inwoomom.somin" · "inwoomom.somin 공구" 같은 인스타 핸들(점·밑줄이 든 영문 낱말) — 점으로 쪼개면 낱말 하나가 새어 나온다 (검증 지적 2026-09-28).
   //   ⚠ 영문 8자 이상을 통째로 버리던 규칙은 뺐다 — ergobaby·numberblocks 같은 영문 브랜드가 죽는다.
   if (raw.split(/\s+/).some((w) => /^[a-z0-9]+[._][a-z0-9._]*$/.test(w))) return [];
-  const s = raw.replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
+  // 영문과 한글이 붙은 말("ovroom액션캠")은 경계에서 나눈다 — DB 엔 "OVROOM 초미니 액션캠" 으로 있어 통째로는 못 찾는다
+  const s = raw.replace(/([a-z0-9])(?=[가-힣])/g, '$1 ').replace(/([가-힣])(?=[a-z])/g, '$1 ').replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
   if (!s || GENERIC.test(s.replace(/\s/g, ''))) return [];
   const toks = s.split(' ').filter((t) => t && !DROP_TOKEN.test(t));
   const core = toks.join('');
