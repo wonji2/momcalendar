@@ -14,7 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.5.11/dist/html2canvas-pro.min.js"></script>
 <style>
 :root{
-  --fs-item:29px; --fs-sub:21px; --it-pad:3px;
+  --fs-item:27px; --fs-sub:19px; --it-pad:3px;
   --pad-bot:108px; --side:55px; --fs-title:96px;
   --p:#6B4A9E; --p-d:#5B3A8C; --p-l:#F2EBFB;
   --r:#D3554F; --r-l:#FDEDED;
@@ -61,7 +61,7 @@ body.clean .bar{display:none}
 /* 한 줄: [상품명 ─── 판매처 가격 할인] */
 .it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:10px;padding:var(--it-pad) 8px}
 .it-nm{flex:1;min-width:0;font-size:var(--fs-item);font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;align-items:baseline;gap:8px;line-height:1.25;white-space:nowrap}
+.it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;align-items:baseline;gap:6px;line-height:1.25;white-space:nowrap}
 .it-mall{color:#6E6579}
 .it-price{font-family:var(--f-t);color:var(--ink);font-weight:800}
 .it-dc{color:var(--r);font-weight:800}
@@ -96,11 +96,14 @@ const H={apikey:KEY,Authorization:'Bearer '+KEY};
 const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const DOW=['일','월','화','수','목','금','토'];
 const won=n=>(n==null||isNaN(n))?'':Number(n).toLocaleString('ko-KR')+'원';
+// 판매처는 짧게 — 상품명 자리를 아낀다 (토스쇼핑→토스)
+const MALL={'토스쇼핑':'토스','롯데온':'롯데온','네이버':'네이버','11번가':'11번가','지마켓':'지마켓','쿠팡':'쿠팡','옥션':'옥션','SSG':'SSG'};
+const mallOf=m=>MALL[m]||String(m||'').replace(/쇼핑|몰/g,'').slice(0,4);
 const todayKST=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
 // 상품명 정리: 앞 대괄호([로켓프레시]·[쿠폰적용가])는 조건이라 뒤로 보내고, 뒤의 ", 1개" 같은 수량 꼬리는 뗀다
 function cleanTitle(t){
   t=String(t||'').replace(/\s+/g,' ').trim();
-  const tags=[]; t=t.replace(/^\s*\[([^\]]{1,14})\]\s*/g,(m,a)=>{tags.push(a.trim());return '';});
+  const tags=[]; t=t.replace(/^\s*\[([^\]]{1,24})\]\s*/g,(m,a)=>{tags.push(a.trim());return '';});
   t=t.replace(/,\s*\d+\s*(개|세트|팩|봉)\s*$/,'').replace(/\(\s*(냉동|냉장|상온)\s*\)/g,'$1').trim();
   return {name:t, tag:tags.filter(x=>/쿠폰|카드|와우|회원|결제|청구|즉시|적용가/.test(x))[0]||''};
 }
@@ -128,7 +131,7 @@ async function load(){
 function itemHTML(h){
   const dc=h.discount_rate?`<span class="it-dc">${h.discount_rate}%↓</span>`:'';
   return `<div class="it"><div class="it-nm">${esc(h.name)}${h.tag?` <span style="color:#8A8194;font-weight:700;font-size:.72em">(${esc(h.tag)})</span>`:''}</div>
-    <div class="it-sub"><span class="it-mall">${esc(h.mall||'')}</span><span class="it-price">${won(h.price)}</span>${dc}</div></div>`;
+    <div class="it-sub"><span class="it-mall">${esc(mallOf(h.mall))}</span><span class="it-price">${won(h.price)}</span>${dc}</div></div>`;
 }
 const listHTML=arr=>arr.map(itemHTML).join('');
 function render(day,today,alive){
