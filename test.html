@@ -889,7 +889,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
 (async function(){
   try{
     var _SU='https://hycaqsqeogjtbscmzrtm.supabase.co', _SK='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-    var r=await fetch(_SU+'/rest/v1/banners?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
+    var r=await fetch(_SU+'/rest/v1/banners_public?type=eq.slim&active=eq.true&select=*&order=sort_order.asc.nullslast',{headers:{apikey:_SK,Authorization:'Bearer '+_SK}});
     if(!r.ok) return;
     var list=await r.json(), now=Date.now();
     // 라이브: 정식(stage!=='test') 배너만. 테스트 배너는 실제 방문자에게 절대 보이면 안 됨
@@ -4754,7 +4754,7 @@ const DEFAULT_BANNERS=[
 
 async function loadBanners(){
   try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.main&active=eq.true&order=sort_order.asc`,{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/banners_public?type=eq.main&active=eq.true&order=sort_order.asc`,{
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
     });
     const rows=await res.json();
@@ -4778,7 +4778,7 @@ async function loadPromoBanners(){
   const zones=document.querySelectorAll('.promo-zone'); if(!zones.length) return;
   const hideAll=()=>zones.forEach(z=>z.style.display='none');
   try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.promo&active=eq.true&order=sort_order.asc`,{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/banners_public?type=eq.promo&active=eq.true&order=sort_order.asc`,{
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
     });
     if(!res.ok){ hideAll(); return; }
@@ -4945,7 +4945,7 @@ function mbPages(){ return Math.max(1, Math.ceil(MAIN_BANNERS.length / MB_PER_PA
 let SELLER_BANNERS = [];
 async function loadSellerBanners(){
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/banners?type=eq.seller&active=eq.true&select=*`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/banners_public?type=eq.seller&active=eq.true&select=*`, {
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
     });
     SELLER_BANNERS = res.ok ? await res.json() : [];
