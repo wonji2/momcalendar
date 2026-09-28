@@ -199,6 +199,17 @@ try {
   }
 }
 
+// 🔴 스레드 답글 승인 대기줄 — 사장님 승인 없이는 안 나가므로 **사람이 안 보면 영영 멈춰 있다**
+//   (사장님 2026-09-23 "답글은 내 승인을 받고 올려" + "새채팅으로 해도 이 루틴은 지속돼야해")
+try {
+  const pendFile = join(REPO, 'sns-automation', 'state', 'threads-pending.json');
+  const pend = existsSync(pendFile) ? JSON.parse(readFileSync(pendFile, 'utf8')) : [];
+  if (pend.length) {
+    const oldest = pend.map((x) => String(x.at || '').slice(0, 10)).sort()[0] || '';
+    manual.push(`스레드 답글 승인 대기 ${pend.length}건${oldest ? ` (가장 오래된 것 ${oldest})` : ''} — \`cd sns-automation && node src/threads-reply.js --pending\` 으로 보고 **사장님께 「이 댓글에 이 답글 나갑니다, 맞나요」 여쭐 것**`);
+  }
+} catch (_) { manual.push('스레드 승인 대기줄을 못 읽음 — sns-automation/state/threads-pending.json 확인'); }
+
 const memCount = existsSync(MEM) ? readdirSync(MEM).length : 0;
 const cmdCount = existsSync(join(REPO, '.claude', 'commands')) ? readdirSync(join(REPO, '.claude', 'commands')).length : 0;
 
