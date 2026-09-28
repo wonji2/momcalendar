@@ -890,7 +890,11 @@ foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','si
 [void]$sm.AppendLine('</sitemapindex>')
 [IO.File]::WriteAllText((Join-Path $Root 'sitemap.xml'), $sm.ToString(), [Text.UTF8Encoding]::new($false))
 
-$robots = "User-agent: *`nAllow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /test.html`nDisallow: /kktest.html`n`nSitemap: $SITE/sitemap.xml`n"
+# 🔴 robots.txt 는 **매일 이 빌드가 통째로 다시 쓴다** — 손으로 고쳐 봐야 다음 새벽에 지워진다.
+#   2026-09-24 에 손으로 넣은 Yeti 블록이 09-25 빌드(986bddfd92)에 그대로 날아갔다. 바꿀 것은 여기서 바꾼다.
+#   네이버 크롤러(Yeti)는 * 규칙으로도 허용되지만, 서치어드바이저가 이름으로 확인하므로 명시한다.
+$blockRules = "Allow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /test.html`nDisallow: /kktest.html"
+$robots = "User-agent: *`n$blockRules`n`nUser-agent: Yeti`n$blockRules`n`nSitemap: $SITE/sitemap.xml`n"
 [IO.File]::WriteAllText((Join-Path $Root 'robots.txt'), $robots, [Text.UTF8Encoding]::new($false))
 
 # 루트에 만든 HTML 목록을 남긴다.
