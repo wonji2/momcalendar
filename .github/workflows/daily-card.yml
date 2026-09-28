@@ -51,6 +51,13 @@ jobs:
           DAY: ${{ github.event.inputs.day }}
         run: node tools/daily/make-today-card.mjs
 
+      # 사장님 지시 2026-09-28 "핫딜카드도 이런식으로 하나 뽑아봐" — 같은 판(2단 꽉 채움)으로 오늘 핫딜 카드. daily/hotdeal.png 에 덮어쓴다.
+      - name: 사장님용 오늘 핫딜 카드 (daily/hotdeal.png)
+        continue-on-error: true
+        env:
+          DAY: ${{ github.event.inputs.day }}
+        run: node tools/daily/make-hotdeal-card.mjs
+
       - name: 커밋
         run: |
           git config user.name  "momcal-bot"
