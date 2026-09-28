@@ -128,3 +128,20 @@ begin
   execute 'grant insert on table public.inquiries to anon';
 end $$;
 select count(*) as anon_쓰기권_남은_표 from information_schema.role_table_grants g where g.table_schema='public' and g.grantee='anon' and g.privilege_type in ('UPDATE','DELETE','TRUNCATE');
+
+-- ⑦ 검증 에이전트 잔여 지적 반영 (2026-09-28 21:10)
+--   · inquiries: 손님 페이지는 전부 rpc submit_inquiry(SECURITY DEFINER, 하루 5건·길이 검사) 를 쓴다. anon 직접 INSERT 는 그 검사를 우회하고 status·admin_memo 까지 넣을 수 있었다 → anon 권한 전부 회수, 정책은 남겨도 권한이 없어 무력.
+--   · authenticated 의 TRUNCATE·REFERENCES·TRIGGER 는 RLS 가 안 보는 권한이고 PostgREST 경로도 없다 → 전부 회수(관리자 SELECT/INSERT/UPDATE/DELETE 는 그대로).
+revoke all on table public.inquiries from anon;
+do $$
+declare r record;
+begin
+  for r in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') loop
+    execute format('revoke truncate, references, trigger on table public.%I from authenticated', r.relname);
+  end loop;
+end $$;
+-- 검증 에이전트가 남긴 시험 행 제거
+delete from public.inquiries where content like 'verifier test 2026-09-28 lockdown check%';
+select (select count(*) from information_schema.role_table_grants where table_schema='public' and grantee='anon' and table_name='inquiries') as inquiries_anon권한,
+       (select count(*) from information_schema.role_table_grants where table_schema='public' and grantee='authenticated' and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER')) as auth_잔여위험권한,
+       (select count(*) from public.inquiries where content like 'verifier test%') as 시험행;
