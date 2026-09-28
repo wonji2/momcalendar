@@ -50,23 +50,51 @@ body.clean .bar{display:none}
 .hd-main{display:flex;align-items:center;gap:14px;margin:0 0 22px}
 .title{font-family:var(--f-t);color:var(--ink);letter-spacing:-3.5px;line-height:1.45;font-weight:800;white-space:nowrap;font-size:var(--fs-title);flex:1;min-width:0}
 .title .t-d{color:var(--o)}
+/* ── 1열 + 사진 (사장님 지시 2026-09-28 "핫딜은 종류 잘리니까 1열로 길게, 사진도, 보기 편하게") ──
+   한 줄 = [사진 108px] [상품명 2줄까지 / 판매처 · 가격 · 정가 · 할인율]. 잘린 상품명이 없어야 한다. */
 .cols{flex:1;min-height:0;display:flex;padding:0 var(--side);overflow:hidden;margin-bottom:16px}
 .col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.col.new{padding-right:18px}
-.col.alive{padding-left:18px;border-left:2px solid var(--line)}
-.col-hd{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0}
-.col-t{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800}
-.col.new .col-t{color:var(--o)} .col.alive .col-t{color:var(--p)}
+.col-hd{display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-shrink:0}
+.col-t{font-family:var(--f-t);font-size:23px;letter-spacing:-.4px;font-weight:800;color:var(--o)}
 .col-n{font-family:var(--f-t);font-size:19px;color:var(--mute);font-weight:700}
-/* 한 줄: [상품명 ─── 판매처 가격 할인] */
-.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:baseline;gap:10px;padding:var(--it-pad) 8px}
-.it-nm{flex:1;min-width:0;font-size:var(--fs-item);font-weight:800;color:var(--ink);letter-spacing:-.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.it-sub{flex-shrink:0;font-size:var(--fs-sub);color:var(--mute);font-weight:700;display:flex;align-items:baseline;gap:6px;line-height:1.25;white-space:nowrap}
+.it{border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:center;gap:20px;padding:11px 6px}
+.th{width:108px;height:108px;border-radius:16px;object-fit:cover;flex-shrink:0;background:#F3F0F7;border:1px solid #EDE9F2}
+.th.none{display:flex;align-items:center;justify-content:center;font-size:40px}
+.it-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.it-nm{font-size:29px;font-weight:800;color:var(--ink);letter-spacing:-.6px;line-height:1.22;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.it-nm .tag{color:#8A8194;font-weight:700;font-size:.72em}
+.it-sub{font-size:22px;color:var(--mute);font-weight:700;display:flex;align-items:baseline;gap:10px;line-height:1.2;white-space:nowrap;overflow:hidden}
 .it-mall{color:#6E6579}
-.it-price{font-family:var(--f-t);color:var(--ink);font-weight:800}
-.it-dc{color:var(--r);font-weight:800}
-.more{font-family:var(--f-t);font-size:18px;flex-shrink:0;font-weight:700;margin:5px 0 8px;padding-left:8px;line-height:1.35}
-.col.new .more{color:var(--o)} .col.alive .more{color:var(--p)}
+.it-price{font-family:var(--f-t);color:var(--ink);font-weight:800;font-size:30px}
+.it-was{color:#B0A8BA;text-decoration:line-through;font-weight:600}
+.it-dc{color:#fff;background:var(--r);font-weight:800;font-size:19px;border-radius:8px;padding:2px 8px;line-height:1.3}
+.it-new{color:var(--o-d);background:var(--o-l);font-weight:800;font-size:17px;border-radius:7px;padding:2px 7px;line-height:1.3}
+.more{font-family:var(--f-t);font-size:20px;flex-shrink:0;font-weight:700;margin:8px 0 6px;padding-left:6px;line-height:1.35;color:var(--p)}
+/* ── 시안 (?v=A|B|C|D) — 사장님 2026-09-28 "여러 시안 뽑아봐" ──
+   A 기본: 1열 · 사진 108 · 상품명 2줄          B 큰 사진: 1열 · 사진 156 · 상품명 2줄 · 가격 크게 (건수 적고 시원함)
+   C 촘촘: 1열 · 사진 없음 · 상품명 2줄 (가장 많이 들어감)   D 격자: 3열 카드 · 사진 위 · 이름 2줄 · 가격 (쇼핑몰 느낌) */
+body.vB .th{width:156px;height:156px;border-radius:20px}
+body.vB .it{gap:24px;padding:13px 6px}
+body.vB .it-nm{font-size:32px}
+body.vB .it-price{font-size:36px}
+body.vB .it-sub{font-size:24px}
+body.vC .th{display:none}
+body.vC .it{padding:9px 6px;gap:0}
+body.vC .it-nm{font-size:28px;-webkit-line-clamp:2}
+body.vC .it-price{font-size:28px}
+body.vC .it-sub{font-size:21px}
+body.vD .list{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 16px;align-content:start}
+body.vD .it{flex-direction:column;align-items:stretch;gap:8px;padding:0 0 10px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#fff}
+body.vD .th{width:100%;height:210px;border-radius:0;border:0;border-bottom:1px solid var(--line)}
+body.vD .th.none{font-size:64px}
+body.vD .it-body{padding:0 12px;gap:4px}
+body.vD .it-nm{font-size:23px;line-height:1.25;letter-spacing:-.5px;min-height:57px}
+body.vD .it-sub{font-size:18px;gap:6px;flex-wrap:wrap;white-space:normal;overflow:visible}
+body.vD .it-price{font-size:26px}
+body.vD .it-dc{font-size:16px;padding:1px 6px}
+body.vD .it-new{font-size:15px}
+body.vD .it-was{display:none}
 .cta{flex-shrink:0;margin:0 var(--side) 0;padding:20px 26px;border-radius:18px;background:var(--gold-l);border:2px solid #E8D5A8;display:flex;align-items:center;justify-content:space-between}
 .cta .t{font-family:var(--f-t);font-size:29px;color:#8A6A2E;font-weight:800;letter-spacing:-.7px}
 .cta .s{font-size:22px;color:#96896F;font-weight:600;margin-top:8px;letter-spacing:-.4px}
@@ -104,7 +132,8 @@ const todayKST=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
 function cleanTitle(t){
   t=String(t||'').replace(/\s+/g,' ').trim();
   const tags=[]; t=t.replace(/^\s*\[([^\]]{1,24})\]\s*/g,(m,a)=>{tags.push(a.trim());return '';});
-  t=t.replace(/,\s*\d+\s*(개|세트|팩|봉)\s*$/,'').replace(/\(\s*(냉동|냉장|상온)\s*\)/g,'$1').trim();
+  // 수량은 가격의 근거라 남긴다("2.5L, 4개" 의 4개). 끝의 ", 1개/1세트/1팩/1봉" 만 뗀다
+  t=t.replace(/,\s*1\s*(개|세트|팩|봉|박스)\s*$/,'').replace(/\(\s*(냉동|냉장|상온)\s*\)/g,'$1').trim();
   return {name:t, tag:tags.filter(x=>/쿠폰|카드|와우|회원|결제|청구|즉시|적용가/.test(x))[0]||''};
 }
 async function load(){
@@ -114,7 +143,7 @@ async function load(){
   try{
     const since=new Date(new Date(day+'T00:00:00Z').getTime()-6*864e5).toISOString().slice(0,10);   // 최근 7일 안에 뜬 것만 — 가격이 낡지 않게
     const nowIso=new Date().toISOString();
-    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at&deal_day=gte.${since}&deal_day=lte.${day}&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=deal_day.desc,discount_rate.desc.nullslast,created_at.desc&limit=400`,{headers:H}).then(r=>r.json());
+    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&deal_day=gte.${since}&deal_day=lte.${day}&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=deal_day.desc,discount_rate.desc.nullslast,created_at.desc&limit=400`,{headers:H}).then(r=>r.json());
     const all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
     // 같은 상품명은 하나만 (여러 몰에서 같은 딜이 뜬다)
     const seen=new Set(); const uniq=all.filter(h=>{const k=h.name.toLowerCase().replace(/\s/g,'');if(seen.has(k))return false;seen.add(k);return true;});
@@ -132,8 +161,10 @@ async function load(){
 }
 function itemHTML(h){
   const dc=h.discount_rate?`<span class="it-dc">${h.discount_rate}%↓</span>`:'';
-  return `<div class="it"><div class="it-nm">${esc(h.name)}${h.tag?` <span style="color:#8A8194;font-weight:700;font-size:.72em">(${esc(h.tag)})</span>`:''}</div>
-    <div class="it-sub"><span class="it-mall">${esc(mallOf(h.mall))}</span><span class="it-price">${won(h.price)}</span>${dc}</div></div>`;
+  const was=(h.price_before&&h.price_before>h.price)?`<span class="it-was">${won(h.price_before)}</span>`:'';
+  const img=h.img_url?`<img class="th" src="${esc(h.img_url)}" alt="" onerror="this.outerHTML='<div class=\\'th none\\'>🛒</div>'">`:`<div class="th none">🛒</div>`;
+  return `<div class="it">${img}<div class="it-body"><div class="it-nm">${h.isNew?'<span class="it-new">오늘</span> ':''}${esc(h.name)}${h.tag?` <span class="tag">(${esc(h.tag)})</span>`:''}</div>
+    <div class="it-sub"><span class="it-mall">${esc(mallOf(h.mall))}</span><span class="it-price">${won(h.price)}</span>${was}${dc}</div></div></div>`;
 }
 const listHTML=arr=>arr.map(itemHTML).join('');
 function render(day,today,alive){
@@ -151,10 +182,8 @@ function render(day,today,alive){
       <div class="hd-main"><div class="title"><span class="t-d">${tdate}</span> 오늘 핫딜 모음</div></div>
     </div>
     <div class="cols">
-      <div class="col new"><div class="col-hd"><span class="col-t">오늘 새로 뜬 핫딜</span><span class="col-n">${today.length}</span></div>
+      <div class="col"><div class="col-hd"><span class="col-t">할인율 높은 순</span><span class="col-n">오늘 뜬 것 먼저 · 전체 ${today.length+alive.length}건</span></div>
         <div class="list" id="L1"></div><div class="more" id="M1"></div></div>
-      <div class="col alive"><div class="col-hd"><span class="col-t">아직 살아있는 핫딜</span><span class="col-n">${alive.length}</span></div>
-        <div class="list" id="L2"></div><div class="more" id="M2"></div></div>
     </div>
     <div class="cta">
       <div><div class="t">핫딜은 매일 새로 떠요 · 가격은 오늘 기준</div>
@@ -163,8 +192,9 @@ function render(day,today,alive){
     </div>
     <div class="pad"><div class="s">엄마들을 위한 공구·핫딜·체험단 조회사이트</div><div class="w">맘캘린더</div></div>`;
   fitTitle();
-  fitColumn(document.getElementById('L1'),document.getElementById('M1'),today);
-  fitColumn(document.getElementById('L2'),document.getElementById('M2'),alive);
+  // 오늘 뜬 것(할인율 순) → 아직 살아있는 것(할인율 순) 한 줄로
+  const all=[...today.map(h=>({...h,isNew:true})),...alive];
+  fitColumn(document.getElementById('L1'),document.getElementById('M1'),all);
 }
 function fitTitle(){
   const t=document.querySelector('.title'); if(!t) return;
@@ -186,7 +216,7 @@ function fitColumn(listEl,moreEl,arr){
 // html2canvas 복제본에서 넘침을 다시 잡는다 (복제본은 줄 높이가 조금씩 달라 맨 아래가 잘린다 — todaycard 실측)
 function trimToFit(doc){
   const win=doc.defaultView||window;
-  ['L1','L2'].forEach(function(id){
+  ['L1'].forEach(function(id){
     const list=doc.getElementById(id); if(!list) return; const col=list.closest('.col'); const more=doc.getElementById(id.replace('L','M'));
     const pb=parseFloat(win.getComputedStyle(col).paddingBottom)||0;
     const tail=()=>(more&&more.textContent.trim())?more:list.lastElementChild;
@@ -215,6 +245,7 @@ async function savePng(){
   const q=new URLSearchParams(location.search); const d=q.get('d')||todayKST();
   document.getElementById('day').value=d;
   if(q.get('raw')==='1') document.body.classList.remove('mini');
+  const v=(q.get('v')||'A').toUpperCase(); if(/^[BCD]$/.test(v)) document.body.classList.add('v'+v);
   load();
 })();
 </script>
