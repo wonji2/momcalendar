@@ -36,7 +36,8 @@ export const tokensOf = (q) => {
   //   ⚠ 영문 8자 이상을 통째로 버리던 규칙은 뺐다 — ergobaby·numberblocks 같은 영문 브랜드가 죽는다.
   if (raw.split(/\s+/).some((w) => /^[a-z0-9]+[._][a-z0-9._]*$/.test(w))) return [];
   // 영문과 한글이 붙은 말("ovroom액션캠")은 경계에서 나눈다 — DB 엔 "OVROOM 초미니 액션캠" 으로 있어 통째로는 못 찾는다
-  const s = raw.replace(/([a-z0-9])(?=[가-힣])/g, '$1 ').replace(/([가-힣])(?=[a-z])/g, '$1 ').replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
+  //   ⚠ 숫자는 나누지 않는다 — "9월" 을 "9 월" 로 갈라 놓으면 꼬리말 규칙(\d+월)이 못 잡는다(2026-09-28 자체 검사에서 잡음)
+  const s = raw.replace(/([a-z])(?=[가-힣])/g, '$1 ').replace(/([가-힣])(?=[a-z])/g, '$1 ').replace(TAIL, ' ').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/\s+/g, ' ');
   if (!s || GENERIC.test(s.replace(/\s/g, ''))) return [];
   const toks = s.split(' ').filter((t) => t && !DROP_TOKEN.test(t));
   const core = toks.join('');
