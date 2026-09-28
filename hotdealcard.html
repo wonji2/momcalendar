@@ -122,6 +122,8 @@ async function load(){
     const today=uniq.filter(h=>h.deal_day===day).sort(byDc);
     const alive=uniq.filter(h=>h.deal_day<day).sort(byDc);
     window.__DATA=[day,today,alive];
+    // 글꼴이 로드되기 전에 줄 수를 세면 폭이 달라 한 줄 넘치거나 덜 찬다(검증 지적 2026-09-28) → 글꼴 준비 뒤에 그린다
+    try{ await document.fonts.ready; }catch(_){}
     render(day,today,alive);
     makeCaption(day,today,alive);
     document.getElementById('st').innerHTML=`오늘 <b>${today.length}</b>건 · 진행중 <b>${alive.length}</b>건`;
