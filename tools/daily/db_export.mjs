@@ -4,7 +4,7 @@
 //   ① 핵심 표(작은 것)   : 매일 통째로  <표>.jsonl  (id 순 → git 이 바뀐 줄만 저장)
 //   ② 크고 느린 표(gonggu·gonggu_archive·coupang_watch·seller_profile·gonggu_click_stats·price_history): 일요일만 통째로 (평일에 다 받으면 이 넷만 월 190MB)
 //      평일엔 gonggu 새 id 만 gonggu_2026-09.jsonl 에 덧붙인다 — 고친 행은 일요일 판이 담는다
-//   ③ 로그성 큰 표       : events·visits·visitors·seller_profile_history — 새 id 만 <표>_<YYYY-MM>.jsonl 에 덧붙임(물 높이 _watermarks.json)
+//   ③ 로그성 큰 표       : events·visits·visitors·seller_profile_history — 새 id 만 <표>_<YYYY-MM-DD>.jsonl 에 덧붙임(물 높이 _watermarks.json)
 //   ④ 구조               : 함수·정책·뷰·트리거·크론·컬럼·인덱스 → schema/*.sql (되살릴 때 순서: 표 → 함수 → 뷰 → 정책 → 트리거 → 크론)
 // 실행: node tools/daily/db_export.mjs           (예약작업 momcal-db-export 매일 04:40, 로그 scratchpad/db_export_log.txt)
 //       node tools/daily/db_export.mjs --full     (gonggu 도 통째로)
@@ -71,7 +71,8 @@ function incTable(t, wm) {
   const last = Number(wm[t] || 0);
   const rows = q(`select row_to_json(t) r from (select * from public.${t} where id > ${last} order by id limit 200000) t`).map((x) => x.r);
   if (!rows.length) return 0;
-  const f = path.join(OUT, `${t}_${kst().toISOString().slice(0, 7)}.jsonl`);
+  // 🔴 날짜별로 쪼갠다 — 달 단위로 모으면 events 가 며칠 만에 89MB 가 되고 **GitHub 100MB 한 파일 한도**에 걸려 백업이 통째로 막힌다(2026-09-29 실측)
+  const f = path.join(OUT, `${t}_${kst().toISOString().slice(0, 10)}.jsonl`);
   fs.appendFileSync(f, jsonl(rows), 'utf8'); wm[t] = rows[rows.length - 1].id; return rows.length;
 }
 function schema() {
@@ -87,7 +88,7 @@ function schema() {
   w('rls.txt', q(`select coalesce(string_agg(format('%s rls=%s', relname, relrowsecurity), E'\\n' order by relname), '') s from pg_class where relkind='r' and relnamespace='public'::regnamespace`)[0].s);
 }
 function restoreDrill() {
-  const files = fs.readdirSync(OUT).filter((f) => /^events_\d{4}-\d{2}\.jsonl$/.test(f)).sort();
+  const files = fs.readdirSync(OUT).filter((f) => /^events_\d{4}-\d{2}(-\d{2}|_p\d+)?\.jsonl$/.test(f)).sort();
   if (!files.length) throw new Error('events 내보낸 파일 없음');
   const lines = fs.readFileSync(path.join(OUT, files[files.length - 1]), 'utf8').trim().split('\n').slice(-100);
   const arr = '[' + lines.join(',') + ']';
