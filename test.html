@@ -827,6 +827,10 @@ body.sheet-open{ overscroll-behavior-y: none; }
 (function(){
   var PRIMARY='https://hycaqsqeogjtbscmzrtm.supabase.co', FALLBACK='https://api.momcalendar.com';
   var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=15000, SECOND_TIMEOUT=15000;
+  // 🪣 손님용 목록(GET·anon 키·공개 표)은 캐시 우회로부터 간다 — Supabase 무료 플랜 전송량 월 5GB 대응 (2026-09-29). Worker 가 5분~1시간 붙잡아 두어
+  //    Supabase 는 캐시가 빌 때만 응답한다. 우회로가 죽거나 한도(1027)면 8초 안에 직행으로 넘어가 손님은 모른다. 표 목록은 Worker 의 CACHE_RE 와 같아야 한다
+  var CACHE_RE=/^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block)(?:\?|$)/, CACHE_TIMEOUT=8000;
+  function cacheable(rest, init){ try{ if(init && init.method && String(init.method).toUpperCase()!=='GET') return false; if(!CACHE_RE.test(rest)) return false; var h=init&&init.headers; var a=''; if(h){ a=(typeof h.get==='function')?(h.get('Authorization')||h.get('authorization')||''):(h.Authorization||h.authorization||''); } return !a || a==='Bearer sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; }catch(_){ return false; } }
   var _fetch=window.fetch && window.fetch.bind(window);
   if(!_fetch) return;   // 아주 옛 브라우저는 원래대로
   function remembered(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||'null'); if(o && o.base===FALLBACK && Date.now()-o.t<TTL) return FALLBACK; }catch(_){} return PRIMARY; }
@@ -862,23 +866,25 @@ body.sheet-open{ overscroll-behavior-y: none; }
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
     if(!base || typeof input!=='string') return _fetch(input, init);       // 우리 서버가 아니거나 Request 객체면 그대로
     var rest=url.slice(base.length), first=remembered(), second=(first===PRIMARY)?FALLBACK:PRIMARY;
+    var viaCache = cacheable(rest, init); if(viaCache){ first=FALLBACK; second=PRIMARY; }   // 캐시 대상은 우회로가 먼저, 안 되면 직행
     var oneShot = rest.indexOf('/functions/v1/kakao-auth')===0;
     function attempt(b, ms){
       var i=Object.assign({}, init||{}), ac=null, timer=null;
       if(!i.signal && !oneShot && typeof AbortController!=='undefined'){ ac=new AbortController(); i.signal=ac.signal; timer=setTimeout(function(){ ac.abort(); }, ms); }
       return _fetch(b+rest, i).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){ if(timer) clearTimeout(timer); throw e; });
     }
-    return attempt(first, FIRST_TIMEOUT).then(function(r){
-      if(!broken(r)) return r;                                   // 정상 답 (4xx 포함) → 그대로
+    var cacheBroken=function(r){ return broken(r) || (viaCache && r && r.status===429); };   // 우회로 한도(Cloudflare 1027/429)도 "그 길 고장" 으로 본다
+    return attempt(first, viaCache?CACHE_TIMEOUT:FIRST_TIMEOUT).then(function(r){
+      if(!cacheBroken(r)) return r;                              // 정상 답 (4xx 포함) → 그대로
       return attempt(second, SECOND_TIMEOUT).then(function(r2){
         if(broken(r2)) return r;                                 // 둘 다 5xx → 첫 응답 그대로
-        remember(second); report(second, 'http'+r.status, rest); return r2;
+        if(!viaCache){ remember(second); report(second, 'http'+r.status, rest); } return r2;   // 캐시 길의 실패는 기억·기록하지 않는다(우회로 통계를 흐리지 않게)
       }, function(){ return r; });
     }, function(e){
       if(!isNetErr(e)) throw e;
       return attempt(second, SECOND_TIMEOUT).then(function(r2){
         if(broken(r2)) throw e;                                  // 다른 길도 고장 → 원래 오류 그대로
-        remember(second); report(second, e.name, rest); return r2;
+        if(!viaCache){ remember(second); report(second, e.name, rest); } return r2;
       }, function(){ throw e; });
     });
   };
