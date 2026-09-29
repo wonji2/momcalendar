@@ -860,7 +860,10 @@ body.sheet-open{ overscroll-behavior-y: none; }
     window.addEventListener('unhandledrejection', function(ev){ try{ var r=ev && ev.reason; reportErr('unhandled: '+(r && (r.message||r.name) || String(r)), '', 0, 0); }catch(_){} });
   }catch(_){}
   // 이미지·CSS 배경 주소용 — 우회로 기억 중이면 supabase.co 만 바꾼다. 나머지 주소는 그대로
-  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0 && remembered()===FALLBACK) return FALLBACK+u.slice(PRIMARY.length); }catch(_){} return u; };
+  // 공개 저장소 사진(배너·카드)은 **언제나** 우회로로 — 파일 이름에 시각이 박혀 내용이 안 바뀌므로 엣지가 하루 붙잡아 두고 브라우저에도 하루 물린다.
+  //   Supabase 무료 전송량 5GB/월 중 사진이 월 2GB 였다(2026-09-29 실측). 우회로가 못 주면 사진만 안 보이고 사이트는 그대로 돈다.
+  var IMG_PUBLIC='/storage/v1/object/public/';
+  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
   window.fetch=function(input, init){
     var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);

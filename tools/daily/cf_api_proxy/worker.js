@@ -21,6 +21,10 @@ const ANON = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 // 계산: 빈 캐시 채우는 횟수 ≈ (1440 / TTL분) × 지점 수(ICN·NRT 실측 2) × 큰 URL 2개(108KB) → 5분 1.9GB/월 · 10분 1.0GB/월
 const CACHE_TTL = { hotdeals: 300, gonggu: 600, banners_public: 300, bot_alias: 3600, bot_alias_deny: 3600, sellers: 600, experiences: 600, brand_block: 3600 };
 const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block)(?:\?|$)/;
+// 공개 저장소 사진(배너·카드 이미지)은 파일 이름에 시각이 박혀 있어 내용이 바뀌지 않는다 → 하루 붙잡아 두고 브라우저에도 하루 물린다.
+// 활성 배너 3장이 600KB 인데 손님마다 새로 받아가면 월 2GB 다(2026-09-29 실측). 비공개(object/sign·authenticated)는 건드리지 않는다.
+const IMG_RE = /^\/storage\/v1\/object\/public\//;
+const IMG_TTL = 86400;
 
 function cors(req) {
   const h = new Headers();
@@ -37,6 +41,7 @@ function cors(req) {
 // 캐시해도 되는 요청인가: GET · 공개 표 · anon 키 · 관리자/회원 토큰 없음
 function cacheTtl(req, url) {
   if (req.method !== 'GET') return 0;
+  if (IMG_RE.test(url.pathname)) return IMG_TTL;        // 공개 사진은 키 없이도 누구나 받는 것이라 apikey 검사를 하지 않는다
   const m = url.pathname.match(CACHE_RE); if (!m) return 0;
   if ((req.headers.get('apikey') || '') !== ANON) return 0;
   const auth = req.headers.get('authorization') || '';
@@ -91,12 +96,13 @@ export default {
     const c = cors(req); c.forEach((v, k) => out.set(k, v));
     out.set('X-Momcal-Proxy', '1');
     if (ttl) out.set('X-Momcal-Cache', 'MISS');
+    if (IMG_RE.test(url.pathname) && (res.status === 200 || res.status === 206)) out.set('Cache-Control', 'public, max-age=' + IMG_TTL + ', immutable');
 
     // 정상 답(200·206)만 붙잡아 둔다. 오류·빈 답은 다음 손님이 다시 물어본다
     if (ttl && (res.status === 200 || res.status === 206)) {
       const body = await res.arrayBuffer();
       const sh = new Headers(out);
-      sh.set('Cache-Control', 'public, s-maxage=' + ttl + ', max-age=0');
+      sh.set('Cache-Control', IMG_RE.test(url.pathname) ? 'public, max-age=' + IMG_TTL + ', immutable' : 'public, s-maxage=' + ttl + ', max-age=0');
       sh.delete('Set-Cookie'); sh.delete('X-Momcal-Cache');
       ctx.waitUntil(caches.default.put(key, new Response(body, { status: res.status, headers: sh })));
       return new Response(body, { status: res.status, statusText: res.statusText, headers: out });
