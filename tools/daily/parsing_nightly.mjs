@@ -216,8 +216,15 @@ try {
       if (slug.length) log(`   핸들 칸이 인포크 슬러그: ${slug.join(' · ')}`);
       // 🔑 **문제 행 몇 개가 회차 전체를 멈추게 하지 않는다** — 게이트가 이름을 대준 핸들만 빼고 한 번 더 본다.
       //    (판정은 게이트가 한다. 이 단계는 추측으로 고치지 않고 빼기만 한다)
+      // 🔴 **게이트가 못 끝난 것과 데이터가 걸린 것을 가른다.** 숫자를 못 읽었으면(undefined·-1)
+      //   게이트가 중간에 죽은 것이다 — 그때 행을 빼면 **멀쩡한 행이 억울하게 빠진다**
+      //   (2026-09-29 실측: gate_db_overlap 이 JSON 파싱으로 죽었는데 진솔 4행이 빠졌다).
+      const numsRead = excluded !== undefined && own !== undefined && split !== undefined && noHandle >= 0 && isNew >= 0;
+      if (!numsRead) {
+        log(`   🔴 게이트가 끝까지 못 갔다(숫자 못 읽음) — **행을 빼지 않는다.** 도구 실패다. 전문을 볼 것: ${GATEOUT}`);
+      }
       let retried = false;
-      if (existsSync(SP('_drop_gate_blockers.mjs'))) {
+      if (numsRead && existsSync(SP('_drop_gate_blockers.mjs'))) {
         try {
           run([SP('_drop_gate_blockers.mjs'), tableF, GATEOUT]);
           let g2 = '';
