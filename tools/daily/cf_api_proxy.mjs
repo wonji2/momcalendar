@@ -100,6 +100,10 @@ async function main() {
     // 3) 🔴 ECH 끄기 (8/29 사고 재발 방지) — zone 전체 설정이지만 프록시 레코드가 api. 하나뿐이라 영향도 그것뿐
     const ech = await cf(token, 'GET', `/zones/${zone.id}/settings/ech`).catch(() => null);
     if (ech && ech.value !== 'off') { await cf(token, 'PATCH', `/zones/${zone.id}/settings/ech`, { value: 'off' }); console.log('  ✅ zone ECH off 로 변경'); }
+    // 🔴 2026-09-29 검증 지적: zone 의 Browser Cache TTL 4시간이 Worker 가 붙인 max-age=0 을 덮어써
+    //    손님 브라우저가 핫딜 목록을 4시간 들고 있었다(마감된 딜이 계속 보임). 0 = 우리가 붙인 머리말을 존중하게 한다.
+    const bct = await cf(token, 'GET', `/zones/${zone.id}/settings/browser_cache_ttl`).catch(() => null);
+    if (bct && Number(bct.value) !== 0) { await cf(token, 'PATCH', `/zones/${zone.id}/settings/browser_cache_ttl`, { value: 0 }); console.log(`  ✅ zone 브라우저 캐시 ${bct.value}초 → 머리말 존중(0)`); }
     else console.log(`  ✅ zone ECH ${ech ? ech.value : '(설정 조회 불가 — 아래 HTTPS 레코드로 확인)'}`);
   }
 
@@ -109,6 +113,8 @@ async function main() {
     const doms = await cf(token, 'GET', `/accounts/${account}/workers/domains?hostname=${HOSTNAME}`).catch(() => []);
     console.log(`  도메인 연결: ${doms.length ? doms.map(d => d.hostname + '→' + d.service).join(', ') : '없음'}`);
     const ech = await cf(token, 'GET', `/zones/${zone.id}/settings/ech`).catch(() => null);
+    const bct2 = await cf(token, 'GET', `/zones/${zone.id}/settings/browser_cache_ttl`).catch(() => null);
+    console.log('  zone 브라우저 캐시:', bct2 ? (Number(bct2.value) === 0 ? '머리말 존중 ✅' : bct2.value + '초 🔴') : '모름');
     console.log(`  zone ECH: ${ech ? ech.value : '조회 불가'}`);
   }
   console.log(`  HTTPS 레코드 ${HOSTNAME}: ${await dnsHttps(HOSTNAME)}`);

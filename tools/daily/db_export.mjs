@@ -33,9 +33,14 @@ fs.mkdirSync(path.join(OUT, 'schema'), { recursive: true });
 const INC = ['events', 'visits', 'visitors', 'seller_profile_history'];   // id 가 있고 계속 쌓이기만 하는 표
 const WEEKLY_MIN_MB = 1;            // 이보다 큰 표는 일요일만 (평일에 다 받으면 gonggu_archive 하나가 월 100MB)
 let CORE = [], WEEKLY = ['gonggu'];  // gonggu 는 평일엔 새 id 만(incTable), 일요일엔 통째로
+// 살아있는 열쇠는 백업에 두지 않는다 — 비공개 저장소라도 (work-backup/.gitignore 의 브라우저 프로필과 같은 뿌리).
+//   toss_token 은 toss-sync 함수가 다시 발급한다. seller_auth.login_pw 는 bcrypt 해시라 담아도 된다(2026-09-29 확인).
+const SKIP = ['toss_token'];
+const FAILED = [];
 function planTables() {
   const rows = q(`select relname t, round(pg_total_relation_size(oid)/1048576.0,2) mb from pg_class where relkind='r' and relnamespace='public'::regnamespace order by 2 desc`);
   for (const r of rows) {
+    if (SKIP.includes(r.t)) continue;
     if (INC.includes(r.t) || r.t === 'gonggu') continue;
     (Number(r.mb) >= WEEKLY_MIN_MB ? WEEKLY : CORE).push(r.t);
   }
@@ -43,9 +48,12 @@ function planTables() {
 }
 
 function q(sql) {
-  const f = path.join(REPO, 'scratchpad', '_db_export_q.sql'); fs.writeFileSync(f, sql, 'utf8');
+  const f = path.join(REPO, 'scratchpad', `_db_export_q_${process.pid}.sql`); fs.writeFileSync(f, sql, 'utf8');   // 회차마다 다른 이름 — 겹쳐 돌면 서로 덮어썼다(2026-09-29 검증)
   let raw = '';
-  for (let a = 1; a <= 2; a++) { try { raw = execFileSync(CLI, sbArgs(f), { cwd: REPO, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 300e3 }); break; } catch (e) { if (a === 2) throw e; } }
+  let err = null;
+  for (let a = 1; a <= 3; a++) { try { raw = execFileSync(CLI, sbArgs(f), { cwd: REPO, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 300e3 }); err = null; break; } catch (e) { err = e; } }
+  try { fs.unlinkSync(f); } catch {}
+  if (err) throw err;
   const r = parseRows(raw); if (!r.ok) throw new Error('CLI 출력 못 읽음: ' + raw.slice(0, 200)); return r.rows;
 }
 const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : '');
@@ -63,17 +71,31 @@ function fullTables(list) {
   for (let i = 0; i < list.length; i += 12) {
     const chunk = list.slice(i, i + 12);
     const sql = chunk.map((t) => `select '${t}' t, coalesce((select json_agg(row_to_json(x) ${hasId(t) ? 'order by x.id' : ''}) from public.${t} x), '[]'::json) j`).join(' union all ');
-    for (const r of q(sql)) { const rows = r.j || []; fs.writeFileSync(path.join(OUT, r.t + '.jsonl'), jsonl(rows), 'utf8'); out.push(`${r.t}:${rows.length}`); }
+    try { for (const r of q(sql)) { const rows = r.j || []; fs.writeFileSync(path.join(OUT, r.t + '.jsonl'), jsonl(rows), 'utf8'); out.push(`${r.t}:${rows.length}`); } }
+    catch (e) { log(`⚠ 묶음 실패 → 한 표씩 다시: ${String(e.message).slice(0, 60)}`); for (const t of chunk) { try { out.push(`${t}:${fullTable(t)}`); } catch (e2) { FAILED.push(t); log(`🔴 ${t} 실패 — 다음 회차에 다시 받는다`); } } }
   }
   return out;
 }
+function saveWm(wm) { fs.writeFileSync(WM, JSON.stringify(wm, null, 1), 'utf8'); }
+// 물높이 파일을 잃으면 id 1 부터 다시 받아 그날 파일이 90MB 가 되고 GitHub 100MB 한도에 걸려 백업이 통째로 멈춘다 → 내보낸 파일에서 되살린다
+function wmFromFiles(t) {
+  const files = fs.readdirSync(OUT).filter((f) => f.startsWith(t + '_') && f.endsWith('.jsonl')).sort();
+  let max = 0;
+  for (const f of files) {
+    const txt = fs.readFileSync(path.join(OUT, f), 'utf8'); const i = txt.lastIndexOf('\n', txt.length - 2);
+    const lastLine = txt.slice(i + 1).trim(); if (!lastLine) continue;
+    try { max = Math.max(max, Number(JSON.parse(lastLine).id) || 0); } catch {}
+  }
+  return max;
+}
 function incTable(t, wm) {
+  if (!wm[t]) { const back = wmFromFiles(t); if (back) { wm[t] = back; log(`물높이 되살림 ${t} → ${back} (내보낸 파일에서)`); } }
   const last = Number(wm[t] || 0);
   const rows = q(`select row_to_json(t) r from (select * from public.${t} where id > ${last} order by id limit 200000) t`).map((x) => x.r);
   if (!rows.length) return 0;
   // 🔴 날짜별로 쪼갠다 — 달 단위로 모으면 events 가 며칠 만에 89MB 가 되고 **GitHub 100MB 한 파일 한도**에 걸려 백업이 통째로 막힌다(2026-09-29 실측)
   const f = path.join(OUT, `${t}_${kst().toISOString().slice(0, 10)}.jsonl`);
-  fs.appendFileSync(f, jsonl(rows), 'utf8'); wm[t] = rows[rows.length - 1].id; return rows.length;
+  fs.appendFileSync(f, jsonl(rows), 'utf8'); wm[t] = rows[rows.length - 1].id; saveWm(wm); return rows.length;   // 표마다 바로 저장 — 뒤에서 죽으면 같은 행이 두 번 붙었다
 }
 function schema() {
   const w = (n, s) => fs.writeFileSync(path.join(OUT, 'schema', n), s, 'utf8');
@@ -81,9 +103,11 @@ function schema() {
   w('views.sql', q(`select coalesce(string_agg(format('create or replace view public.%I as %s', viewname, definition), E'\\n\\n' order by viewname), '') s from pg_views where schemaname='public'`)[0].s);
   w('policies.sql', q(`select coalesce(string_agg(format('-- %s.%s%s%screate policy %I on public.%I as %s for %s to %s%s%s;', schemaname, tablename, E'\\n', '', policyname, tablename, permissive, cmd, array_to_string(roles, ','), case when qual is not null then ' using ('||qual||')' else '' end, case when with_check is not null then ' with check ('||with_check||')' else '' end), E'\\n' order by tablename, policyname), '') s from pg_policies where schemaname='public'`)[0].s);
   w('triggers.sql', q(`select coalesce(string_agg(pg_get_triggerdef(t.oid)||';', E'\\n' order by t.tgname), '') s from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relnamespace='public'::regnamespace and not t.tgisinternal`)[0].s);
+  // 기본키·외래키·고유·검사 제약 — tables.sql 은 컬럼과 타입만 담는다(2026-09-29 검증 지적). 되살릴 때 표 다음에 이걸 건다
+  w('constraints.sql', q(`select coalesce(string_agg(format('alter table public.%I add constraint %I %s;', c.relname, con.conname, pg_get_constraintdef(con.oid)), E'\n' order by c.relname, con.conname), '') s from pg_constraint con join pg_class c on c.oid=con.conrelid where c.relnamespace='public'::regnamespace and con.contype in ('p','f','u','c')`)[0].s);
   w('indexes.sql', q(`select coalesce(string_agg(indexdef||';', E'\\n' order by tablename, indexname), '') s from pg_indexes where schemaname='public'`)[0].s);
   w('cron.sql', q(`select coalesce(string_agg(format('select cron.schedule(%L, %L, %L);', jobname, schedule, command), E'\\n' order by jobname), '') s from cron.job where active`)[0].s);
-  w('tables.sql', q(`select string_agg(format('create table if not exists public.%I (%s);', t, cols), E'\\n' order by t) s from (select table_name t, string_agg(format('%I %s%s', column_name, case when data_type='ARRAY' then udt_name||'[]' when data_type='USER-DEFINED' then udt_name else data_type end, case when is_nullable='NO' then ' not null' else '' end), ', ' order by ordinal_position) cols from information_schema.columns where table_schema='public' group by 1) x`)[0].s || '');
+  w('tables.sql', q(`select string_agg(format('create table if not exists public.%I (%s);', t, cols), E'\\n' order by t) s from (select table_name t, string_agg(format('%I %s%s', column_name, case when data_type='ARRAY' then udt_name||'[]' when data_type='USER-DEFINED' then udt_name else data_type end, case when is_nullable='NO' then ' not null' else '' end), ', ' order by ordinal_position) cols from information_schema.columns c where c.table_schema='public' and exists (select 1 from information_schema.tables t where t.table_schema='public' and t.table_name=c.table_name and t.table_type='BASE TABLE') group by 1) x`)[0].s || '');   // 뷰 제외(2026-09-29 검증: 뷰 11개가 표로 담겨 복구가 깨졌다)
   w('grants.txt', q(`select coalesce(string_agg(format('%s %s %s', table_name, grantee, privilege_type), E'\\n' order by table_name, grantee, privilege_type), '') s from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated')`)[0].s);
   w('rls.txt', q(`select coalesce(string_agg(format('%s rls=%s', relname, relrowsecurity), E'\\n' order by relname), '') s from pg_class where relkind='r' and relnamespace='public'::regnamespace`)[0].s);
 }
@@ -100,12 +124,19 @@ try {
   if (DRILL) { log(restoreDrill()); process.exit(0); }
   const wm = fs.existsSync(WM) ? JSON.parse(fs.readFileSync(WM, 'utf8')) : {};
   log(planTables());
+  // 지난 회차에 실패한 표는 요일과 상관없이 오늘 다시 받는다
+  const failFile = path.join(OUT, '_failed.json');
+  const prevFailed = fs.existsSync(failFile) ? JSON.parse(fs.readFileSync(failFile, 'utf8')) : [];
+  for (const t of prevFailed) if (!CORE.includes(t) && !INC.includes(t)) CORE.push(t);
+  if (prevFailed.length) log(`지난 회차 실패분 다시 받기: ${prevFailed.join(', ')}`);
   const t0 = Date.now(); const done = [];
   try { done.push(...fullTables(CORE)); } catch (e) { log(`⚠ 핵심 표 묶음 실패 ${String(e.message).slice(0, 120)}`); for (const t of CORE) { try { done.push(`${t}:${fullTable(t)}`); } catch (e2) { log(`⚠ ${t} 실패 ${String(e2.message).slice(0, 80)}`); } } }
   if (FULL || kst().getUTCDay() === 0) { done.push(...fullTables(WEEKLY)); wm.gonggu = q(`select coalesce(max(id),0) m from public.gonggu`)[0].m; }
   else { done.push(`gonggu:+${incTable('gonggu', wm)}`); }   // 평일엔 새 공구만 (고친 행은 일요일 판이 담는다)
   for (const t of INC) { try { done.push(`${t}:+${incTable(t, wm)}`); } catch (e) { log(`⚠ ${t} 실패 ${String(e.message).slice(0, 80)}`); } }
   schema(); done.push('schema');
-  fs.writeFileSync(WM, JSON.stringify(wm, null, 1));
+  saveWm(wm);
+  fs.writeFileSync(path.join(OUT, '_failed.json'), JSON.stringify(FAILED), 'utf8');
+  if (FAILED.length) log(`🔴 못 받은 표 ${FAILED.length}개: ${FAILED.join(', ')} — 다음 회차에 다시 받는다`);
   log(`✅ ${Math.round((Date.now() - t0) / 1000)}초 · ${done.join(' ')}`);
 } catch (e) { log('🔴 ' + String(e.stack || e.message).slice(0, 300)); process.exitCode = 1; }
