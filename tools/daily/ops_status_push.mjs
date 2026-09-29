@@ -68,6 +68,9 @@ const LOGS = {
   error_guard: ['scratchpad/error_guard_log.txt'],
   inquiry_guard: ['scratchpad/inquiry_guard_log.txt'],
   seller_banner: ['scratchpad/seller_banner_log.txt'],
+  db_export: ['scratchpad/db_export_log.txt'],        // 무료 플랜엔 자동 백업이 없다 — 이게 멈추면 사본이 낡는다
+  db_retention: ['scratchpad/db_retention_log.txt'],  // 이게 멈추면 DB 가 500MB 로 달린다
+  momsholic: ['scratchpad/momsholic_log.txt'],
   kw_daily: ['scratchpad/kw_daily_report.txt'],
 };
 out.logs = {};
