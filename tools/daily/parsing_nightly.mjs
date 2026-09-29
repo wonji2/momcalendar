@@ -219,12 +219,16 @@ try {
       // 🔴 **게이트가 못 끝난 것과 데이터가 걸린 것을 가른다.** 숫자를 못 읽었으면(undefined·-1)
       //   게이트가 중간에 죽은 것이다 — 그때 행을 빼면 **멀쩡한 행이 억울하게 빠진다**
       //   (2026-09-29 실측: gate_db_overlap 이 JSON 파싱으로 죽었는데 진솔 4행이 빠졌다).
-      const numsRead = excluded !== undefined && own !== undefined && split !== undefined && noHandle >= 0 && isNew >= 0;
-      if (!numsRead) {
-        log(`   🔴 게이트가 끝까지 못 갔다(숫자 못 읽음) — **행을 빼지 않는다.** 도구 실패다. 전문을 볼 것: ${GATEOUT}`);
+      // 🔑 **게이트가 이름을 대준 데이터 문제**와 **도구가 죽은 것**을 가른다.
+      //   숫자를 못 읽었다는 것만으로 판단하면 안 된다 — 게이트는 핸들갈림을 찾으면 숫자를 찍기 전에 끊기도 한다
+      //   (2026-09-29: 그래서 도구 실패로 오판해 행을 안 뺐고, 회차가 또 0건이었다).
+      const named = /승인표핸들|\s+→\s+/.test(gate);                       // 어느 핸들이 문제인지 게이트가 말했다
+      const toolFail = /실행 실패|SyntaxError|at file:\/\/\//.test(gate);   // 도구가 죽었다
+      if (toolFail && !named) {
+        log(`   🔴 게이트 도구가 죽었다 — **행을 빼지 않는다.** 전문을 볼 것: ${GATEOUT}`);
       }
       let retried = false;
-      if (numsRead && existsSync(SP('_drop_gate_blockers.mjs'))) {
+      if (named && existsSync(SP('_drop_gate_blockers.mjs'))) {
         try {
           run([SP('_drop_gate_blockers.mjs'), tableF, GATEOUT]);
           let g2 = '';
