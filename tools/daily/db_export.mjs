@@ -2,7 +2,8 @@
 //
 // 흐름: supabase CLI(관리자) 로 표를 JSON Lines 로 받아 work-backup(비공개 레포)/db-export/ 에 쓴다 → backup.ps1 이 매시간 git 으로 올린다.
 //   ① 핵심 표(작은 것)   : 매일 통째로  <표>.jsonl  (id 순 → git 이 바뀐 줄만 저장)
-//   ② gonggu(15MB)·price_history(7MB, id 없음): 일요일만 통째로, 평일은 새 id 만 gonggu_inc.jsonl 에 덧붙임 (수정된 행은 일요일 판이 담는다)
+//   ② 크고 느린 표(gonggu·gonggu_archive·coupang_watch·seller_profile·gonggu_click_stats·price_history): 일요일만 통째로 (평일에 다 받으면 이 넷만 월 190MB)
+//      평일엔 gonggu 새 id 만 gonggu_2026-09.jsonl 에 덧붙인다 — 고친 행은 일요일 판이 담는다
 //   ③ 로그성 큰 표       : events·visits·visitors·seller_profile_history — 새 id 만 <표>_<YYYY-MM>.jsonl 에 덧붙임(물 높이 _watermarks.json)
 //   ④ 구조               : 함수·정책·뷰·트리거·크론·컬럼·인덱스 → schema/*.sql (되살릴 때 순서: 표 → 함수 → 뷰 → 정책 → 트리거 → 크론)
 // 실행: node tools/daily/db_export.mjs           (예약작업 momcal-db-export 매일 04:40, 로그 scratchpad/db_export_log.txt)
@@ -27,14 +28,19 @@ const stamp = () => kst().toISOString().slice(0, 16).replace('T', ' ');
 const log = (m) => { const l = `[${stamp()}] ${m}`; console.log(l); try { fs.appendFileSync(LOG, l + '\n'); } catch {} };
 fs.mkdirSync(path.join(OUT, 'schema'), { recursive: true });
 
-// 매일 통째로 (모두 작다). id 가 없는 표는 첫 컬럼 순
-const CORE = ['sellers', 'hotdeals', 'banners', 'experiences', 'bot_alias', 'bot_alias_deny', 'bot_phrase', 'bot_pair', 'bot_review', 'bot_interp', 'brand_block', 'item_dict', 'item_stop',
-  'members', 'member_sessions', 'member_ics', 'attendance', 'attendance_winners', 'wishes', 'push_subs', 'push_ios', 'push_log', 'inquiries',
-  'seller_inpock', 'seller_profile', 'seller_contacts', 'seller_auth', 'seller_sessions', 'seller_intake', 'seller_intake_audit', 'seller_invite', 'partner_history', 'influencers', 'person_dup_allow',
-  'vendors', 'vendor_todo', 'app_admins', 'app_staff', 'app_vendor_viewers', 'cash_receipt', 'coupang_keywords', 'coupang_watch', 'toss_track_pending',
-  'gonggu_click_stats', 'site_search_stats', 'search_trending_stats', 'health_alerts', 'site_alerts', 'login_alerts', 'gonggu_archive', 'hotdeals_archive', 'hotdeals_deleted_log', 'gonggu_deleted_log', 'parse_stash', 'banner_impressions'];
-// 새 행만 덧붙이는 큰 표 (id 기준)
-const INC = ['events', 'visits', 'visitors', 'seller_profile_history'];   // price_history 는 id 가 없다(product_id,day,price) → 일요일 통째로
+// 어떤 표를 언제 받을지는 **DB 에서 재서 정한다** — 손으로 적으면 새 표가 조용히 빠진다(실측: events_daily·ops_status 누락)
+//   INC(큰 로그성, id 로 새 행만) → WEEKLY(1MB 넘는 표, 일요일만 통째로) → 나머지 전부 매일 통째로
+const INC = ['events', 'visits', 'visitors', 'seller_profile_history'];   // id 가 있고 계속 쌓이기만 하는 표
+const WEEKLY_MIN_MB = 1;            // 이보다 큰 표는 일요일만 (평일에 다 받으면 gonggu_archive 하나가 월 100MB)
+let CORE = [], WEEKLY = ['gonggu'];  // gonggu 는 평일엔 새 id 만(incTable), 일요일엔 통째로
+function planTables() {
+  const rows = q(`select relname t, round(pg_total_relation_size(oid)/1048576.0,2) mb from pg_class where relkind='r' and relnamespace='public'::regnamespace order by 2 desc`);
+  for (const r of rows) {
+    if (INC.includes(r.t) || r.t === 'gonggu') continue;
+    (Number(r.mb) >= WEEKLY_MIN_MB ? WEEKLY : CORE).push(r.t);
+  }
+  return `표 ${rows.length}개 → 매일 ${CORE.length} · 주1회 ${WEEKLY.length} · 증분 ${INC.length}`;
+}
 
 function q(sql) {
   const f = path.join(REPO, 'scratchpad', '_db_export_q.sql'); fs.writeFileSync(f, sql, 'utf8');
@@ -92,10 +98,11 @@ function restoreDrill() {
 try {
   if (DRILL) { log(restoreDrill()); process.exit(0); }
   const wm = fs.existsSync(WM) ? JSON.parse(fs.readFileSync(WM, 'utf8')) : {};
+  log(planTables());
   const t0 = Date.now(); const done = [];
   try { done.push(...fullTables(CORE)); } catch (e) { log(`⚠ 핵심 표 묶음 실패 ${String(e.message).slice(0, 120)}`); for (const t of CORE) { try { done.push(`${t}:${fullTable(t)}`); } catch (e2) { log(`⚠ ${t} 실패 ${String(e2.message).slice(0, 80)}`); } } }
-  if (FULL || kst().getUTCDay() === 0) { done.push(`gonggu:${fullTable('gonggu')}`); wm.gonggu = q(`select coalesce(max(id),0) m from public.gonggu`)[0].m; done.push(`price_history:${fullTable('price_history')}`); }
-  else { const n = incTable('gonggu', wm); done.push(`gonggu:+${n}`); }
+  if (FULL || kst().getUTCDay() === 0) { done.push(...fullTables(WEEKLY)); wm.gonggu = q(`select coalesce(max(id),0) m from public.gonggu`)[0].m; }
+  else { done.push(`gonggu:+${incTable('gonggu', wm)}`); }   // 평일엔 새 공구만 (고친 행은 일요일 판이 담는다)
   for (const t of INC) { try { done.push(`${t}:+${incTable(t, wm)}`); } catch (e) { log(`⚠ ${t} 실패 ${String(e.message).slice(0, 80)}`); } }
   schema(); done.push('schema');
   fs.writeFileSync(WM, JSON.stringify(wm, null, 1));

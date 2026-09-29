@@ -18,6 +18,7 @@ returns jsonb
 language plpgsql security definer set search_path to 'public' as $$
 declare
   v_cron jsonb; v_radar jsonb; v_counts jsonb; v_alerts jsonb; v_pc jsonb; v_pc_at timestamptz; v_edge jsonb; v_bot jsonb;
+  v_free jsonb; v_db numeric; v_grow numeric;
 begin
   if not public.is_app_admin() then raise exception 'forbidden' using errcode = '28000'; end if;
   -- ① pg_cron: 작업별 마지막 실행·상태·24h 실패 수
@@ -63,8 +64,20 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('at', to_char(created_at at time zone 'Asia/Seoul','MM-DD HH24:MI'), 'kind', kind, 'msg', left(coalesce(detail::text, ''), 160)) order by created_at desc), '[]'::jsonb)
     into v_alerts from (select * from health_alerts where created_at > now()-interval '24 hours' order by created_at desc limit 40) h;
   -- ⑤ PC 쪽 상태
+  -- ④-2 무료 플랜 여유 (2026-09-29 사장님 결정) — DB 500MB 를 넘으면 읽기 전용이 된다. 남은 날은 최근 7일 증가 속도 기준
+  select round(pg_database_size(current_database())/1048576.0,1) into v_db;
+  select round((
+      (select count(*) from events where visited_at > now()-interval '7 days') * (pg_total_relation_size('events')::numeric / greatest((select count(*) from events),1))
+    + (select count(*) from visits where visited_at > now()-interval '7 days') * (pg_total_relation_size('visits')::numeric / greatest((select count(*) from visits),1))
+    + (select count(*) from visitors where visited_at > now()-interval '7 days') * (pg_total_relation_size('visitors')::numeric / greatest((select count(*) from visitors),1))
+    ) / 7 / 1048576.0, 2) into v_grow;
+  select jsonb_build_object('db_mb', v_db, 'db_limit', 500, 'grow_mb', v_grow,
+    'days_left', case when v_grow > 0 then floor((500 - v_db) / v_grow)::integer else null end,
+    'storage_mb', (select round(coalesce(sum((metadata->>'size')::bigint),0)/1048576.0,1) from storage.objects),
+    'events_rows', (select count(*) from events), 'rollup_days', (select count(*) from events_daily)) into v_free;
+
   select payload, updated_at into v_pc, v_pc_at from ops_status where id='pc';
-  return jsonb_build_object('at', to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS'), 'cron', v_cron, 'http24', v_edge, 'radar', v_radar, 'counts', v_counts, 'alerts', v_alerts,
+  return jsonb_build_object('at', to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS'), 'cron', v_cron, 'http24', v_edge, 'radar', v_radar, 'free', v_free, 'counts', v_counts, 'alerts', v_alerts,
     'pc', coalesce(v_pc, '{}'::jsonb), 'pc_at', to_char(v_pc_at at time zone 'Asia/Seoul','MM-DD HH24:MI'), 'pc_age_min', case when v_pc_at is null then null else round(extract(epoch from (now()-v_pc_at))/60) end);
 end $$;
 revoke all on function public.ops_status_get() from public, anon;

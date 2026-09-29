@@ -138,6 +138,7 @@ function render(d){
     {n:taskBad.length+'/'+(pc.tasks||[]).length, l:'PC 예약작업 실패', bad:taskBad.length>0||pcStale, ok:!taskBad.length&&!pcStale},
     {n:c.events_1h??'-', l:'이벤트 1시간'}, {n:c.visitors_24h??'-', l:'방문 24시간'}, {n:c.kakao_bot_24h??'-', l:'챗봇 대화 24h'},
     {n:c.gonggu_live??'-', l:'노출 공구'}, {n:c.hotdeals_live??'-', l:'노출 핫딜'}, {n:c.inquiries_open??'-', l:'미처리 문의', bad:Number(c.inquiries_open)>0},
+    {n:(d.free&&d.free.days_left)??'-', l:'무료 한도 여유(일)', bad:Number(d.free&&d.free.days_left)<60, ok:Number(d.free&&d.free.days_left)>=120},
   ];
   document.getElementById('sum').innerHTML=pills.map(p=>`<div class="pill ${p.bad?'bad':(p.ok?'ok':'')}"><div class="n">${esc(p.n)}</div><div class="l">${esc(p.l)}</div></div>`).join('');
   const S=[];
@@ -146,6 +147,14 @@ function render(d){
   sec('🌐 사이트·서버 (오류 레이더)', radarBad.length?['bad',`🔴 ${radarBad.length}`]:['ok','정상'],
     `<table><tr><th>상태</th><th>종류</th><th>1h</th><th>24h</th><th>임계</th><th>설명</th></tr>${(d.radar||[]).map(r=>`<tr class="${String(r.상태).includes('🔴')?'bad':''}"><td>${esc(r.상태)}</td><td>${esc(r.kind)}</td><td>${esc(r.h1)}</td><td>${esc(r.h24)}</td><td>${esc(r.임계)}</td><td>${esc(r.설명)}</td></tr>`).join('')}</table>
      <div class="row"><span><span class="k">로그인 완료 24h</span> ${esc(c.login_done_24h)} · <span class="k">실패</span> ${esc(c.login_fail_24h)}</span><span><span class="k">푸시 구독</span> ${esc(c.push_subs)}</span><span><span class="k">활성 배너</span> ${esc(c.banners_active)}</span><span><span class="k">SEO 캐시</span> ${esc(c.seo_cache_at)}</span><span><span class="k">클릭통계</span> ${esc(c.click_stats_at)}</span><span><span class="k">검색인기</span> ${esc(c.search_stats_at)}</span><span><span class="k">사이트검색 집계</span> ${esc(c.site_search_at)}</span></div>`, radarBad.length>0);
+  // 1-b 무료 플랜 여유 (2026-09-29 사장님 결정 "무료 플랜으로") — DB 500MB 를 넘으면 읽기 전용이 된다
+  {const f=d.free||{}; const dl=Number(f.days_left);
+   sec('💸 무료 플랜 여유', !isFinite(dl)?['','모름']:(dl<60?['bad','🔴 '+dl+'일']:(dl<120?['','주의 '+dl+'일']:['ok',dl+'일'])),
+    `<div class="row"><span><span class="k">DB</span> ${esc(f.db_mb)}MB / ${esc(f.db_limit)}MB · <span class="k">하루</span> +${esc(f.grow_mb)}MB · <span class="k">남은 날</span> ${esc(f.days_left)}</span><span><span class="k">저장소</span> ${esc(f.storage_mb)}MB / 1024MB</span></div>
+     <div class="row"><span><span class="k">events</span> ${esc(f.events_rows)}행 (건수 요약 ${esc(f.rollup_days)}일치 보관) </span><span class="k">전송량은 Supabase 대시보드 Usage 에서 본다 (월 5GB)</span></div>
+     <div class="row"><span class="k">여유가 60일 밑이면: node tools/daily/db_retention.mjs --yes (오래된 events 원본 정리 · 원본은 백업과 건수요약에 남음)</span></div>`,
+    dl<60);}
+
   // 2 챗봇
   sec('🤖 카카오 챗봇', ['ok','확인 중'], `<div id="botBox">스킬 서버 응답 재는 중… · <span class="k">24h 손님 대화</span> ${esc(c.kakao_bot_24h)} <span class="k">(로봇 ${esc(c.kakao_bot_robot_24h)} 제외)</span> · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}</div>`, false);
   // 3 서버 크론
