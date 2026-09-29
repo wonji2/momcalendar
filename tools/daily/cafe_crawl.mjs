@@ -156,7 +156,13 @@ select (select count(*) from ins) as inserted, (select count(*) from upd) as lin
   const f = join(ROOT, 'scratchpad', '_cafe_ins.sql');
   writeFileSync(f, sql);
   try {
-    const out = execFileSync(SB, sbArgs(f), { encoding: 'utf8', timeout: 120000 });
+    // CLI 는 "Initialising login role" 에서 가끔 2분을 넘는다 → 240초 × 3회 (2026-09-29: 하루 12회 중 2회가 ETIMEDOUT 으로 등록을 통째로 날렸다)
+    let out = '', cliErr = null;
+    for (let a = 1; a <= 3; a++) {
+      try { out = execFileSync(SB, sbArgs(f), { encoding: 'utf8', timeout: 240000 }); cliErr = null; break; }
+      catch (e) { cliErr = e; }
+    }
+    if (cliErr) throw cliErr;
     // 🔴 못 읽으면 0 으로 적지 않는다 — 등록해놓고 "등록 0" 으로 남기면 다음 사람이 못 믿는다.
     const parsed = parseRows(out);
     if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);
