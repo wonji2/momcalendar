@@ -32,7 +32,10 @@ fs.mkdirSync(path.join(OUT, 'schema'), { recursive: true });
 //   INC(큰 로그성, id 로 새 행만) → WEEKLY(1MB 넘는 표, 일요일만 통째로) → 나머지 전부 매일 통째로
 const INC = ['events', 'visits', 'visitors', 'seller_profile_history'];   // id 가 있고 계속 쌓이기만 하는 표
 const WEEKLY_MIN_MB = 1;            // 이보다 큰 표는 일요일만 (평일에 다 받으면 gonggu_archive 하나가 월 100MB)
-let CORE = [], WEEKLY = ['gonggu'];  // gonggu 는 평일엔 새 id 만(incTable), 일요일엔 통째로
+// 🔴 gonggu 는 **매일 통째로** — 이 표엔 updated_at 이 없어 '고친 행' 을 가려낼 방법이 없다.
+//    새 id 만 담으면 주중에 고친 공구(이름·날짜·승인)가 최대 일주일 사본 밖에 있다(검증자 지적 2026-09-29).
+//    16.7MB/일 = 월 0.5GB 로 무료 5GB 의 10% 지만, 이게 우리 본 데이터다.
+let CORE = ['gonggu'], WEEKLY = [];
 // 살아있는 열쇠는 백업에 두지 않는다 — 비공개 저장소라도 (work-backup/.gitignore 의 브라우저 프로필과 같은 뿌리).
 //   toss_token 은 toss-sync 함수가 다시 발급한다. seller_auth.login_pw 는 bcrypt 해시라 담아도 된다(2026-09-29 확인).
 const SKIP = ['toss_token'];
@@ -41,7 +44,7 @@ function planTables() {
   const rows = q(`select relname t, round(pg_total_relation_size(oid)/1048576.0,2) mb from pg_class where relkind='r' and relnamespace='public'::regnamespace order by 2 desc`);
   for (const r of rows) {
     if (SKIP.includes(r.t)) continue;
-    if (INC.includes(r.t) || r.t === 'gonggu') continue;
+    if (INC.includes(r.t) || r.t === 'gonggu') continue;   // gonggu 는 위에서 CORE 로 못박았다
     (Number(r.mb) >= WEEKLY_MIN_MB ? WEEKLY : CORE).push(r.t);
   }
   return `표 ${rows.length}개 → 매일 ${CORE.length} · 주1회 ${WEEKLY.length} · 증분 ${INC.length}`;
@@ -131,8 +134,8 @@ try {
   if (prevFailed.length) log(`지난 회차 실패분 다시 받기: ${prevFailed.join(', ')}`);
   const t0 = Date.now(); const done = [];
   try { done.push(...fullTables(CORE)); } catch (e) { log(`⚠ 핵심 표 묶음 실패 ${String(e.message).slice(0, 120)}`); for (const t of CORE) { try { done.push(`${t}:${fullTable(t)}`); } catch (e2) { log(`⚠ ${t} 실패 ${String(e2.message).slice(0, 80)}`); } } }
-  if (FULL || kst().getUTCDay() === 0) { done.push(...fullTables(WEEKLY)); wm.gonggu = q(`select coalesce(max(id),0) m from public.gonggu`)[0].m; }
-  else { done.push(`gonggu:+${incTable('gonggu', wm)}`); }   // 평일엔 새 공구만 (고친 행은 일요일 판이 담는다)
+  if ((FULL || kst().getUTCDay() === 0) && WEEKLY.length) done.push(...fullTables(WEEKLY));
+
   for (const t of INC) { try { done.push(`${t}:+${incTable(t, wm)}`); } catch (e) { log(`⚠ ${t} 실패 ${String(e.message).slice(0, 80)}`); } }
   schema(); done.push('schema');
   saveWm(wm);
