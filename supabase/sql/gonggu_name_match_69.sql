@@ -91,3 +91,15 @@ returns boolean language sql immutable as $$
     else false
   end
 $$;
+
+-- 🔴 2026-09-29 추가: **오픈일이 정확히 같을 때는 2자 이름도 본다.**
+--   내가 판촉 잔해를 떼며 이름을 「압스」(2자)로 줄였더니, 원래 이름
+--   「뭐만 하면 다 인생템이래.. 진짜 압스」 가 같은 날짜에 새 행으로 다시 들어왔다(25947).
+--   포함검사 문턱(4자)·같은날짜 문턱(3자)에 둘 다 안 걸렸다.
+create or replace function public.gg_same_product_sameday(p_a text, p_b text)
+returns boolean language sql immutable as $$
+  with n as (select public.gg_norm(p_a) a, public.gg_norm(p_b) b)
+  select public.gg_same_product(p_a, p_b)
+      or (select length(a) >= 2 and length(b) >= 2
+                 and (a like '%' || b || '%' or b like '%' || a || '%') from n)
+$$;

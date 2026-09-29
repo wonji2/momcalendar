@@ -176,9 +176,25 @@ try {
     run([SP('drop_ended.mjs'), tableF]);
     run([SP('pending_dedupe.mjs'), tableF]);
     if (existsSync(SP('_drop_excluded.mjs'))) run([SP('_drop_excluded.mjs'), tableF]);
+    // 🚫 한 번 버린 행이 다시 들어오지 않게 (2026-09-29: 내가 지운 「독서대 미리보기」가 되살아났다)
+    if (existsSync(SP('_drop_rejected.mjs'))) run([SP('_drop_rejected.mjs'), tableF]);
     if (existsSync(SP('_slug_as_handle_check.mjs'))) run([SP('_slug_as_handle_check.mjs'), tableF, '--fix']);
 
-    const gate = execFileSync(BASH, [SP('pending_check.sh'), tableF], { encoding: 'utf8', timeout: 900e3 });
+    // 🔴🔴 2026-09-29 사고: **게이트는 걸린 게 있으면 종료코드 1을 낸다.** 그게 정상 동작인데
+    //   execFileSync 가 그 순간 예외를 던져서, 아래 숫자를 **읽기도 전에** catch 로 빠졌다.
+    //   그래서 로그엔 「등록 단계 실패」만 찍히고 **무엇이 걸렸는지 한 줄도 안 남았다** —
+    //   11:40 · 14:40 · 17:40 · 20:40 **네 회차 연속 등록 0건**을 사장님이 물어보시기 전까지 아무도 몰랐다.
+    //   → 종료코드와 무관하게 **출력(stdout)을 읽는다.** 예외의 e.stdout 에 담겨 있다.
+    //   → 전문을 파일로 남긴다(로그는 160자에서 잘린다 · 메모리 `scheduled-task-swallows-stderr`).
+    const GATEOUT = SP('_pn_gate_out.txt');
+    let gate = '';
+    try {
+      gate = execFileSync(BASH, [SP('pending_check.sh'), tableF], { encoding: 'utf8', timeout: 900e3 });
+    } catch (ge) {
+      gate = String(ge.stdout || '') + String(ge.stderr || '');
+      if (!gate.trim()) throw ge;   // 출력이 아예 없으면 진짜 실행 실패다
+    }
+    try { writeFileSync(GATEOUT, gate, 'utf8'); } catch (_) {}
     const num = (k) => { const m = gate.match(new RegExp('"' + k + '": (\\d+)')); return m ? +m[1] : -1; };
     const excluded = (gate.match(/excluded:\s*(\d+)/) || [])[1];
     const own = (gate.match(/own_product:\s*(\d+)/) || [])[1];
@@ -187,12 +203,52 @@ try {
     log(`⑤ 게이트 — 제외셀러 ${excluded} · 사장님상품 ${own} · 핸들갈림 ${split} · 핸들없음 ${noHandle} · 신규 ${isNew}`);
 
     const clean = excluded === '0' && own === '0' && split === '0' && noHandle === 0;
+    let okToRegister = clean;
     if (!clean) {
-      log('🔴 게이트에 걸린 것이 있다 — 이 회차는 **등록하지 않는다**. 승인표에 남겨두고 사람이 본다.');
-    } else if (isNew <= 0) {
+      // 무엇이 걸렸는지 로그에 남긴다 — 이게 없어서 네 회차 동안 원인을 몰랐다
+      const why = [];
+      if (excluded !== '0') why.push(`제외셀러 ${excluded}`);
+      if (own !== '0') why.push(`사장님상품 ${own}`);
+      if (split !== '0') why.push(`핸들갈림 ${split}`);
+      if (noHandle !== 0) why.push(`핸들없음 ${noHandle}`);
+      const slug = (gate.match(/^\s{3}(\S+)\s+→\s+(\S+)$/gm) || []).slice(0, 5).map((s) => s.trim());
+      log(`🔴 게이트에 걸림(${why.join(' · ') || '숫자 못 읽음'}) — 전문: ${GATEOUT}`);
+      if (slug.length) log(`   핸들 칸이 인포크 슬러그: ${slug.join(' · ')}`);
+      // 🔑 **문제 행 몇 개가 회차 전체를 멈추게 하지 않는다** — 게이트가 이름을 대준 핸들만 빼고 한 번 더 본다.
+      //    (판정은 게이트가 한다. 이 단계는 추측으로 고치지 않고 빼기만 한다)
+      let retried = false;
+      if (existsSync(SP('_drop_gate_blockers.mjs'))) {
+        try {
+          run([SP('_drop_gate_blockers.mjs'), tableF, GATEOUT]);
+          let g2 = '';
+          try { g2 = execFileSync(BASH, [SP('pending_check.sh'), tableF], { encoding: 'utf8', timeout: 900e3 }); }
+          catch (ge2) { g2 = String(ge2.stdout || '') + String(ge2.stderr || ''); }
+          try { writeFileSync(GATEOUT, g2, 'utf8'); } catch (_) {}
+          gate = g2; retried = true;
+        } catch (e2) { log(`   ⚠ 막힌 행 빼기 실패: ${String(e2.message || e2).slice(0, 120)}`); }
+      }
+      if (retried) {
+        const ex2 = (gate.match(/excluded:\s*(\d+)/) || [])[1];
+        const ow2 = (gate.match(/own_product:\s*(\d+)/) || [])[1];
+        const sp2 = (gate.match(/handle_split:\s*(\d+)/) || [])[1];
+        const nh2 = num('no_handle');
+        if (ex2 === '0' && ow2 === '0' && sp2 === '0' && nh2 === 0) {
+          log(`   ✅ 막힌 행을 빼고 게이트 통과 — 신규 ${num('is_new')}건으로 계속한다`);
+          okToRegister = true;
+        } else {
+          log(`   🔴 빼고도 막힘(제외 ${ex2} · 사장님상품 ${ow2} · 갈림 ${sp2} · 핸들없음 ${nh2}) — 이 회차 등록 없음`);
+        }
+      }
+      if (!okToRegister) log('🔴 승인표에 남겨두고 사람이 본다.');
+    }
+
+    const newCnt = num('is_new');
+    if (!okToRegister) {
+      // 게이트에 막혔다 — 수확·승인표는 남아 있다
+    } else if (newCnt <= 0) {
       log('= 새로 넣을 것이 없다.');
-    } else if (isNew > DAY_CAP) {
-      log(`🔴 신규 ${isNew}건은 하루 상한(${DAY_CAP})을 넘는다 — 등록을 멈춘다. 도구 오작동일 수 있다.`);
+    } else if (newCnt > DAY_CAP) {
+      log(`🔴 신규 ${newCnt}건은 하루 상한(${DAY_CAP})을 넘는다 — 등록을 멈춘다. 도구 오작동일 수 있다.`);
     } else {
       const insF = SP('_pn_ins.sql');
       // 🌉 등록 시점에 캡션이 함께 저장되게 스윕(jsonl)을 수확 형식으로 바꿔 둔다 (규칙 0-C · 2026-09-29)
@@ -226,7 +282,7 @@ try {
       try { execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', 'cat_guard.mjs')], { encoding: 'utf8', timeout: 600e3 }); } catch (_) {}
       // 🔴 `_q_dup.sql` 하나만 돌렸더니 완전일치 1쌍만 잡히고 **브랜드낱말 겹침 17쌍**을 놓쳤다(2026-09-29).
       //    중복은 4가지 검사가 서로 다른 유형을 잡는다 — 넷 다 돌린다.
-      for (const q of ['_q_dup_sim.sql', '_q_dup_brand.sql', '_q_dup_alias.sql', '_q_dup_noseller.sql', '_q_badname.sql', '_q_encoding.sql']) {
+      for (const q of ['_q_dup_sim.sql', '_q_dup_brand.sql', '_q_dup_alias.sql', '_q_dup_noseller.sql', '_q_badname.sql', '_q_own_live.sql', '_q_encoding.sql']) {
         try {
           const o = execFileSync(SB, ['db', 'query', '--linked', '--file', SP(q), '--output-format', 'json'],
             { encoding: 'utf8', timeout: 600e3 });
