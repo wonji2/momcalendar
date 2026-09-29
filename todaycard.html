@@ -337,6 +337,27 @@ async function load(){
     if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
     const opens=rows.filter(r=>r.open_date===day && !clash(r) && !noSeller(r)).sort(sortFn);
     const ends =rows.filter(r=>r.end_date===day  && !clash(r) && !noSeller(r)).sort(sortFn);
+    // 🔴 맘캘린더 본인 + 기간 유효한 이웃셀러의 **진행중** 공구(오늘 오픈·마감이 아니어도)를 오늘 오픈 칸 맨 위에 싣는다
+    //    (사장님 지시 2026-09-29 "오픈마감 아니어도 오늘 것만 넣어줘 — 이웃배너 갱신된 걸로 카드에 올리면 되지"). 이웃배너(momcal-seller-banner)와 같은 셀러 집합.
+    try{
+      const ph=[...P, 'momcal_','momcalendar','momcal'].map(h=>h.replace(/[^a-z0-9._]/gi,'')).filter(Boolean);
+      const og=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lt.${day}&end_date=gte.${day}&insta=in.(${ph.join(',')})&select=id,name,influencer,insta,open_date,end_date&limit=100`,{headers:H}).then(r=>r.json());
+      const have=new Set(rows.map(r=>r.id));
+      const extra=(Array.isArray(og)?og:[]).filter(g=>!have.has(g.id)).map(g=>({...g,partner:true,own:isMomcal(g),score:(C[g.id]||0)+(W[g.id]||0),ongoing:true,
+        seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(x=>!noSeller(x));
+      // 이웃셀러 배너(momcal-seller-banner 가 인포크 보고 매일 갱신)에 있는 상품은 gonggu 에 행이 없어도 싣는다 — 제목 "상품 - 셀러"
+      const bn=await fetch(`${SB}/rest/v1/banners_public?type=eq.seller&active=eq.true&select=id,title,show_until,link`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+      const pend=Object.fromEntries((pt||[]).map(s=>[String(s.name||'').trim(),s.end_date]));
+      const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+      const names=new Set([...rows,...extra].map(x=>norm(x.name)));
+      for(const b of (Array.isArray(bn)?bn:[])){
+        const m=String(b.title||'').match(/^(.*?)\s*-\s*([^-]+)$/); if(!m) continue;
+        const name=m[1].trim(), seller=m[2].trim(); if(!name||!seller||names.has(norm(name))) continue;
+        const end=(b.show_until||'').slice(0,10)||pend[seller]||'';
+        extra.push({id:'b'+b.id,name,seller,insta:'',influencer:seller,open_date:day,end_date:end,partner:true,own:false,score:0,ongoing:true}); names.add(norm(name));
+      }
+      if(extra.length){ opens.push(...extra); opens.sort(sortFn); console.log('이웃·맘캘 진행중 추가:', extra.map(x=>x.name+' ('+x.seller+')')); }
+    }catch(e){ console.log('진행중 이웃 공구 생략:', e.message); }
     window.__DATA=[day,opens,ends];   // 시안 전환 시 재요청 없이 다시 그리기 위해 보관
     render(day,opens,ends);
     makeCaption(day,opens,ends);
@@ -357,7 +378,7 @@ async function ongoingCount(day){
 }
 
 function itemHTML(x,showEnd){
-  const sub=showEnd
+  const sub=(showEnd||x.ongoing)
     ? `<span class="it-sl">${esc(x.seller)}</span><span class="gap"></span><span>~${md(x.end_date)}</span>`
     : `<span class="it-sl">${esc(x.seller)}</span>`;
   return `<div class="it"><div class="it-nm">${esc(x.name)}</div>
