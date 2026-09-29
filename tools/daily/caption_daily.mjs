@@ -52,6 +52,12 @@ try {
   const before = countCaptions();
 
   // 1) 매칭 SQL 생성
+  try {
+    const br = execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', 'feed_sweep_to_harvest.mjs')],
+      { encoding: 'utf8', timeout: 600000, cwd: ROOT });
+    log('🌉 ' + br.trim().split(/\r?\n/).pop());
+  } catch (e) { log('⚠ 스윕 변환 실패(있는 파일로 계속): ' + String(e.message || e).slice(0, 120)); }
+
   const out = execFileSync(NODE, [path.join(ROOT, 'scratchpad', 'caption_attach.mjs')],
     { encoding: 'utf8', timeout: 300000, cwd: ROOT });
   const hit = (out.match(/매칭 성공:\s*(\d+)/) || [])[1];
