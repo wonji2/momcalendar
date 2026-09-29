@@ -19,7 +19,7 @@ const browser = await chromium.launch().catch(() => chromium.launch({ channel: '
 const page = await browser.newPage({ viewport: { width: 1200, height: 2100 }, deviceScaleFactor: 1 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
-await page.goto(`${SITE}/hotdealcard.html?d=${day}&raw=1&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });
+await page.goto(`${SITE}/hotdealcard.html?d=${day}&raw=1&v=D&cb=${Date.now()}`, { waitUntil: 'load', timeout: 60000 });
 await page.waitForFunction(() => window.__READY === true || window.__ERROR, null, { timeout: 60000 });
 const err = await page.evaluate(() => window.__ERROR || '');
 if (err) { console.error('데이터 실패:', err); await browser.close(); process.exit(1); }
