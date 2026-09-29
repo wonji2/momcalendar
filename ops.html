@@ -110,7 +110,8 @@ async function refresh(){
 }
 // ── 챗봇 실측: 스킬 서버가 살아 있나 (anon 으로 ping — 실제 손님 발화처럼)
 async function probeBot(){
-  try{ const t0=Date.now(); const r=await fetch(`${SB}/functions/v1/kakao-skill`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({userRequest:{utterance:'ping',user:{id:'ops_probe'}}})}); return {code:r.status, ms:Date.now()-t0}; }catch(e){ return {code:0, ms:0}; }
+  // ⚠ 엣지 함수는 브라우저 CORS 헤더가 없어 supabase.co 직접 호출은 status 0 이 된다 → CORS 를 붙여주는 우회로(api.momcalendar.com)로 잰다
+  try{ const t0=Date.now(); const r=await fetch(`https://api.momcalendar.com/functions/v1/kakao-skill`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({userRequest:{utterance:'ping',user:{id:'ops_probe'}}})}); return {code:r.status, ms:Date.now()-t0}; }catch(e){ return {code:0, ms:0}; }
 }
 const TASK_GROUP=[
   ['스레드', /^momcal-threads/], ['블로그', /^momcal-blog/], ['카페', /^momcal-cafe|gongtok/], ['핫딜', /baby-hotdeal|hotdeal|naver-track|we09|honeypot|pp-|jupjup/],
