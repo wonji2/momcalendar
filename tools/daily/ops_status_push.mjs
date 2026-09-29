@@ -8,7 +8,7 @@
 //   parsing  밤샘 파싱 로그 마지막 줄·승인 대기 표 수·월말 전수 다음 시각
 //   guards   error_guard·inquiry 로그 마지막 줄·오늘 카드 알림줄(daily/_alert.txt)
 //   backups  work-backup·momcal-ops 마지막 실행
-// 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 로 화면에만
+// 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 는 서버에 안 올리고 화면에 찍는다(ops_status_last.json 은 갱신)
 // 상태: scratchpad/ops_status_last.json (마지막으로 올린 것) · 로그 scratchpad/ops_status_log.txt
 import fs from 'node:fs';
 import path from 'node:path';
@@ -51,7 +51,8 @@ try {
   const marks = (d) => { const dir = path.join(SNS, 'daily', d); let fs_ = []; try { fs_ = fs.readdirSync(dir).filter((f) => /^threads-.*\.json$/.test(f)); } catch {} return fs_.map((f) => { let j = {}; try { j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch {} return { win: f.replace(/^threads-|\.json$/g, ''), id: j.id || j.mainId || j.main || null, at: String(j.at || j.time || '').slice(0, 16) }; }); };
   const log = fs.existsSync(path.join(REPO, 'scratchpad', 'threads_log.txt')) ? fs.readFileSync(path.join(REPO, 'scratchpad', 'threads_log.txt'), 'utf8').split(/\r?\n/).filter((l) => /발행 ✅|🔴|실패|오류/.test(l) && !/dry/i.test(l)) : [];
   let env = ''; try { env = fs.readFileSync(path.join(SNS, '.env'), 'utf8'); } catch {}
-  out.threads = { today: marks(today), yesterday: marks(addD(today, -1)), last_lines: log.slice(-4).map((l) => l.slice(0, 160)), token: /THREADS_ACCESS_TOKEN=\S{10,}/.test(env), reply_pending: tailLines(path.join(SNS, 'state', 'threads-reply-pending.json'), 1).length };
+  let pending = 0; try { const p = JSON.parse(fs.readFileSync(path.join(SNS, 'state', 'threads-pending.json'), 'utf8')); pending = Array.isArray(p) ? p.length : Object.keys(p || {}).length; } catch {}   // 답글 대기줄 실제 파일 (검증 지적 2026-09-29: 전엔 없는 파일명을 읽어 항상 0)
+  out.threads = { today: marks(today), yesterday: marks(addD(today, -1)), last_lines: log.slice(-4).map((l) => l.slice(0, 160)), token: /THREADS_ACCESS_TOKEN=\S{10,}/.test(env), reply_pending: pending };
 } catch (e) { out.threads = { error: String(e.message).slice(0, 160) }; }
 
 // ④ 카페·핫딜·인스타 발행기 로그 (있는 것만)
@@ -61,7 +62,7 @@ const LOGS = {
   cafe_greeting: ['scratchpad/cafe_greeting_log.txt'],
   cafe_answer: ['scratchpad/cafe_answer_log.txt'],
   cafe_crawl: ['scratchpad/cafe_crawl_log.txt'],
-  soldout: ['scratchpad/soldout_log.txt'],
+  soldout: ['scratchpad/hotdeal_soldout_log.txt', 'scratchpad/soldout_log.txt'],
   parsing_nightly: ['scratchpad/parsing_nightly_log.txt'],
   ig_feed: ['scratchpad/ig_feed_log.txt'],
   error_guard: ['scratchpad/error_guard_log.txt'],
@@ -99,11 +100,15 @@ const sqlFile = path.join(REPO, 'scratchpad', '_ops_status_push.sql');
 fs.writeFileSync(sqlFile, `insert into public.ops_status (id, payload, updated_at) values ('pc', $ops$${JSON.stringify(out).replace(/\$ops\$/g, '')}$ops$::jsonb, now())
 on conflict (id) do update set payload = excluded.payload, updated_at = now();
 select id, to_char(updated_at at time zone 'Asia/Seoul','MM-DD HH24:MI') at from public.ops_status where id='pc';`, 'utf8');
+// CLI 는 'Initialising login role…' 에서 2분 넘게 걸릴 때가 있다(검증 실측 2026-09-29 10:25 회차 120s 초과) → 240s · 2번 시도
 let msg = '';
-try {
-  const raw = execFileSync(CLI, ['db', 'query', '--linked', '--output-format', 'json', '-f', sqlFile], { encoding: 'utf8', timeout: 120e3, cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
-  msg = /"id"\s*:\s*"pc"/.test(raw) ? '✅ 올림' : '🔴 응답 이상 ' + raw.slice(0, 120);
-} catch (e) { msg = '🔴 CLI 실패 ' + String(e.stderr || e.message).slice(0, 160); }
+for (let attempt = 1; attempt <= 2; attempt++) {
+  try {
+    const raw = execFileSync(CLI, ['db', 'query', '--linked', '--output-format', 'json', '-f', sqlFile], { encoding: 'utf8', timeout: 240e3, cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+    msg = /"id"\s*:\s*"pc"/.test(raw) ? '✅ 올림' + (attempt > 1 ? `(${attempt}번째)` : '') : '🔴 응답 이상 ' + raw.replace(/\s+/g, ' ').slice(0, 120);
+    if (msg.startsWith('✅')) break;
+  } catch (e) { msg = '🔴 CLI 실패 ' + String(e.stderr || e.message).replace(/\s+/g, ' ').slice(0, 160); }
+}
 const line = `[${out.at}] ${msg} · 작업 ${(out.tasks || []).length}개 · 블로그 예약 ${(out.blog.markers || []).filter((m) => m.scheduled).length}/8 · 스레드 오늘 ${(out.threads.today || []).length}건`;
 fs.appendFileSync(path.join(REPO, 'scratchpad', 'ops_status_log.txt'), line + '\n');
 console.log(line);

@@ -26,8 +26,11 @@ begin
       'last_run', (select to_char(max(start_time) at time zone 'Asia/Seoul','MM-DD HH24:MI') from cron.job_run_details d where d.jobid=j.jobid),
       'last_status', (select status from cron.job_run_details d where d.jobid=j.jobid order by start_time desc limit 1),
       'last_msg', (select left(return_message, 120) from cron.job_run_details d where d.jobid=j.jobid order by start_time desc limit 1),
-      'fails24', (select count(*) from cron.job_run_details d where d.jobid=j.jobid and d.status<>'succeeded' and d.start_time>now()-interval '24 hours')
+      'fails24', (select count(*) from cron.job_run_details d where d.jobid=j.jobid and d.status='failed' and d.start_time>now()-interval '24 hours')
     ) order by j.jobid), '[]'::jsonb) into v_cron from cron.job j;
+  -- ①-b http 호출형 크론이 부른 엣지 함수의 응답 코드 24h — 함수가 죽어도 pg_cron 은 succeeded 라 여기서만 보인다 (검증 지적 2026-09-29: 24h 에 500·401·429×16 이 숨어 있었다)
+  select coalesce(jsonb_agg(jsonb_build_object('status', s, 'n', n) order by s), '[]'::jsonb) into v_edge
+    from (select status_code s, count(*) n from net._http_response where created > now()-interval '24 hours' group by 1) x;
   -- ② 오류 레이더
   select coalesce(jsonb_agg(jsonb_build_object('상태', r.상태, 'kind', r.kind, 'h1', r.h1, 'h24', r.h24, '임계', r.임계, '설명', r.설명)), '[]'::jsonb) into v_radar from public.error_radar() r;
   -- ③ 건수·최신
@@ -42,8 +45,10 @@ begin
     'events_1h', (select count(*) from events where visited_at > now()-interval '1 hour'),
     'events_24h', (select count(*) from events where visited_at > now()-interval '24 hours'),
     'visitors_24h', (select count(*) from visits where visited_at > now()-interval '24 hours'),
-    'kakao_bot_24h', (select count(*) from events where event_type='kakao_bot' and visited_at > now()-interval '24 hours'),
-    'kakao_bot_last', (select to_char(max(visited_at) at time zone 'Asia/Seoul','MM-DD HH24:MI') from events where event_type='kakao_bot'),
+    -- 로봇(uid=BOT…: bot_guard·bot_learn·현황판 probe)은 뺀다 — 검증 실측 24h 5,518 중 5,431 이 로봇이었다
+    'kakao_bot_24h', (select count(*) from events where event_type='kakao_bot' and visited_at > now()-interval '24 hours' and event_data !~ 'uid=BOT[A-Z]'),
+    'kakao_bot_robot_24h', (select count(*) from events where event_type='kakao_bot' and visited_at > now()-interval '24 hours' and event_data ~ 'uid=BOT[A-Z]'),
+    'kakao_bot_last', (select to_char(max(visited_at) at time zone 'Asia/Seoul','MM-DD HH24:MI') from events where event_type='kakao_bot' and event_data !~ 'uid=BOT[A-Z]'),
     'login_done_24h', (select count(*) from events where event_type='kakao_login_done' and visited_at > now()-interval '24 hours'),
     'login_fail_24h', (select count(*) from events where event_type='kakao_login_fail' and visited_at > now()-interval '24 hours'),
     'inquiries_open', (select count(*) from inquiries where status='new'),
@@ -59,7 +64,7 @@ begin
     into v_alerts from (select * from health_alerts where created_at > now()-interval '24 hours' order by created_at desc limit 40) h;
   -- ⑤ PC 쪽 상태
   select payload, updated_at into v_pc, v_pc_at from ops_status where id='pc';
-  return jsonb_build_object('at', to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS'), 'cron', v_cron, 'radar', v_radar, 'counts', v_counts, 'alerts', v_alerts,
+  return jsonb_build_object('at', to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS'), 'cron', v_cron, 'http24', v_edge, 'radar', v_radar, 'counts', v_counts, 'alerts', v_alerts,
     'pc', coalesce(v_pc, '{}'::jsonb), 'pc_at', to_char(v_pc_at at time zone 'Asia/Seoul','MM-DD HH24:MI'), 'pc_age_min', case when v_pc_at is null then null else round(extract(epoch from (now()-v_pc_at))/60) end);
 end $$;
 revoke all on function public.ops_status_get() from public, anon;

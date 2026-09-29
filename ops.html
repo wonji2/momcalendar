@@ -67,7 +67,7 @@ tr.bad td{background:#FFF3F2}
 </div>
 <script>
 const SB='https://hycaqsqeogjtbscmzrtm.supabase.co', KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const at=()=>localStorage.getItem('mc_admin_at');
 async function login(){
   const email=document.getElementById('email').value.trim(), pw=document.getElementById('pw').value;
@@ -111,7 +111,8 @@ async function refresh(){
 // ── 챗봇 실측: 스킬 서버가 살아 있나 (anon 으로 ping — 실제 손님 발화처럼)
 async function probeBot(){
   // ⚠ 엣지 함수는 브라우저 CORS 헤더가 없어 supabase.co 직접 호출은 status 0 이 된다 → CORS 를 붙여주는 우회로(api.momcalendar.com)로 잰다
-  try{ const t0=Date.now(); const r=await fetch(`https://api.momcalendar.com/functions/v1/kakao-skill`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({userRequest:{utterance:'ping',user:{id:'ops_probe'}}})}); return {code:r.status, ms:Date.now()-t0}; }catch(e){ return {code:0, ms:0}; }
+  // user.id 는 BOT+대문자 규약(kakao-skill 의 robot 판정) — 안 지키면 손님 통계·kakao_bot_miss 학습 입력·AI 호출을 오염시킨다(검증 지적 2026-09-29)
+  try{ const t0=Date.now(); const r=await fetch(`https://api.momcalendar.com/functions/v1/kakao-skill`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({userRequest:{utterance:'ping',user:{id:'BOTOPS'}}})}); return {code:r.status, ms:Date.now()-t0}; }catch(e){ return {code:0, ms:0}; }
 }
 const TASK_GROUP=[
   ['스레드', /^momcal-threads/], ['블로그', /^momcal-blog/], ['카페', /^momcal-cafe|gongtok/], ['핫딜', /baby-hotdeal|hotdeal|naver-track|we09|honeypot|pp-|jupjup/],
@@ -125,7 +126,9 @@ function render(d){
   document.getElementById('pcstamp').textContent=`PC 상태 ${d.pc_at||'없음'}${pcAge!=null?` (${pcAge}분 전)`:''}`;
   const c=d.counts||{}, pc=d.pc||{};
   const radarBad=(d.radar||[]).filter(r=>String(r.상태).includes('🔴'));
-  const cronBad=(d.cron||[]).filter(j=>j.active&&(j.last_status&&j.last_status!=='succeeded'||Number(j.fails24)>0));
+  const cronBad=(d.cron||[]).filter(j=>j.active&&(j.last_status==='failed'||Number(j.fails24)>0));
+  // http 호출형 크론은 엣지 함수가 죽어도 pg_cron 은 succeeded 다 → 서버가 받은 응답 코드(net._http_response 24h)를 따로 본다
+  const http=(d.http24||[]); const httpBad=http.filter(h=>Number(h.status)>=400);
   const taskBad=(pc.tasks||[]).filter(t=>!t.ok);
   const pcStale=pcAge==null||pcAge>90;
   // 요약 알약
@@ -144,10 +147,11 @@ function render(d){
     `<table><tr><th>상태</th><th>종류</th><th>1h</th><th>24h</th><th>임계</th><th>설명</th></tr>${(d.radar||[]).map(r=>`<tr class="${String(r.상태).includes('🔴')?'bad':''}"><td>${esc(r.상태)}</td><td>${esc(r.kind)}</td><td>${esc(r.h1)}</td><td>${esc(r.h24)}</td><td>${esc(r.임계)}</td><td>${esc(r.설명)}</td></tr>`).join('')}</table>
      <div class="row"><span><span class="k">로그인 완료 24h</span> ${esc(c.login_done_24h)} · <span class="k">실패</span> ${esc(c.login_fail_24h)}</span><span><span class="k">푸시 구독</span> ${esc(c.push_subs)}</span><span><span class="k">활성 배너</span> ${esc(c.banners_active)}</span><span><span class="k">SEO 캐시</span> ${esc(c.seo_cache_at)}</span><span><span class="k">클릭통계</span> ${esc(c.click_stats_at)}</span><span><span class="k">검색인기</span> ${esc(c.search_stats_at)}</span><span><span class="k">사이트검색 집계</span> ${esc(c.site_search_at)}</span></div>`, radarBad.length>0);
   // 2 챗봇
-  sec('🤖 카카오 챗봇', ['ok','확인 중'], `<div id="botBox">스킬 서버 응답 재는 중… · <span class="k">24h 대화</span> ${esc(c.kakao_bot_24h)} · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}</div>`, false);
+  sec('🤖 카카오 챗봇', ['ok','확인 중'], `<div id="botBox">스킬 서버 응답 재는 중… · <span class="k">24h 손님 대화</span> ${esc(c.kakao_bot_24h)} <span class="k">(로봇 ${esc(c.kakao_bot_robot_24h)} 제외)</span> · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}</div>`, false);
   // 3 서버 크론
-  sec('⏱ 서버 크론 (pg_cron)', cronBad.length?['bad',`🔴 ${cronBad.length}`]:['ok',`${(d.cron||[]).length}개 정상`],
-    `<table><tr><th>이름</th><th>주기</th><th>마지막</th><th>상태</th><th>24h 실패</th></tr>${(d.cron||[]).map(j=>{const bad=j.active&&(j.last_status&&j.last_status!=='succeeded'||Number(j.fails24)>0);return `<tr class="${bad?'bad':''}"><td>${esc(j.name)}${j.active?'':' <span class="k">(꺼짐)</span>'}</td><td class="mono">${esc(j.schedule)}</td><td>${esc(j.last_run||'-')}</td><td><span class="dot ${bad?'bad':(j.last_status?'':'gray')}"></span>${esc(j.last_status||'-')}${j.last_msg&&bad?`<div class="mono">${esc(j.last_msg)}</div>`:''}</td><td>${esc(j.fails24)}</td></tr>`;}).join('')}</table>`, cronBad.length>0);
+  sec('⏱ 서버 크론 (pg_cron)', cronBad.length?['bad',`🔴 ${cronBad.length}`]:(httpBad.length?['warn',`엣지 응답 오류 ${httpBad.reduce((a,h)=>a+Number(h.n),0)}건`]:['ok',`${(d.cron||[]).length}개 정상`]),
+    `<div class="row"><span><span class="k">엣지 함수 응답 24h</span> ${http.length?http.map(h=>`<b style="color:${Number(h.status)>=400?'var(--bad)':'var(--ok)'}">${esc(h.status)}</b>×${esc(h.n)}`).join(' · '):'없음'} <span class="k">(크론이 부른 함수가 돌려준 코드 — 4xx·5xx 는 크론 succeeded 뒤에 숨는 실패)</span></span></div>
+     <table><tr><th>이름</th><th>주기</th><th>마지막</th><th>상태</th><th>24h 실패</th></tr>${(d.cron||[]).map(j=>{const bad=j.active&&(j.last_status==='failed'||Number(j.fails24)>0);return `<tr class="${bad?'bad':''}"><td>${esc(j.name)}${j.active?'':' <span class="k">(꺼짐)</span>'}</td><td class="mono">${esc(j.schedule)}</td><td>${esc(j.last_run||'-')}</td><td><span class="dot ${bad?'bad':(j.last_status?'':'gray')}"></span>${esc(j.last_status||'-')}${j.last_msg&&bad?`<div class="mono">${esc(j.last_msg)}</div>`:''}</td><td>${esc(j.fails24)}</td></tr>`;}).join('')}</table>`, cronBad.length>0||httpBad.length>0);
   // 4 PC 예약작업 — 채널별
   const groups={}; for(const t of (pc.tasks||[])) (groups[groupOf(t.name)]=groups[groupOf(t.name)]||[]).push(t);
   const taskRows=(arr)=>`<table><tr><th>작업</th><th>상태</th><th>마지막 실행</th><th>결과</th><th>다음</th></tr>${arr.map(t=>`<tr class="${t.ok?'':'bad'}"><td>${esc(t.name)}</td><td>${esc(t.state)}</td><td>${esc(t.last||'-')}</td><td><span class="dot ${t.ok?'':'bad'}"></span>${t.result===0?'성공':t.result===267009?'실행 중':t.result===267011?'아직 안 돎':esc(t.result)}</td><td>${esc(t.next||'-')}</td></tr>`).join('')}</table>`;
@@ -169,11 +173,14 @@ function render(d){
   const L=pc.logs||{};
   const logBox=(keys)=>`<table><tr><th>로그</th><th>갱신</th><th>마지막 줄</th></tr>${keys.filter(k=>L[k]).map(k=>`<tr class="${(L[k].last||[]).some(l=>/🔴|실패|ERR|Error/.test(l))?'bad':''}"><td>${esc(k)}</td><td>${esc(L[k].at||'-')}</td><td class="mono">${esc((L[k].last||[]).slice(-1)[0]||(L[k].file?'(비어 있음)':'로그 파일 없음'))}</td></tr>`).join('')}</table>`;
   sec('☕ 네이버 카페 발행기', (groups['카페']||[]).some(t=>!t.ok)?['bad','🔴']:['ok','정상'], logBox(['cafe_hotdeal','cafe_gonggu','cafe_greeting','cafe_answer','cafe_crawl'])+taskRows(groups['카페']||[]), (groups['카페']||[]).some(t=>!t.ok));
-  sec('🔥 핫딜', (groups['핫딜']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`노출 ${esc(c.hotdeals_live)} · 오늘 ${esc(c.hotdeals_today)}`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.hotdeals_last_insert)}</span></div>`+logBox(['soldout','kw_daily'])+taskRows(groups['핫딜']||[]), (groups['핫딜']||[]).some(t=>!t.ok));
+  sec('🔥 핫딜', (groups['핫딜']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`노출 ${esc(c.hotdeals_live)} · 오늘 ${esc(c.hotdeals_today)}`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.hotdeals_last_insert)}</span></div>`+logBox(['soldout'])+taskRows(groups['핫딜']||[]), (groups['핫딜']||[]).some(t=>!t.ok));
   const pr=pc.parsing||{};
-  sec('🔎 파싱·등록', (groups['파싱']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`24h 등록 ${esc(c.gonggu_24h)}건`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.gonggu_last_insert)}</span><span><span class="k">오늘 오픈</span> ${esc(c.gonggu_today_open)}</span><span><span class="k">승인 대기</span> ${esc(pr.pending_rows)}행 (${esc(pr.pending_at)})</span><span><span class="k">검색어 목표</span> ${esc(pr.kw_targets)}</span><span><span class="k">인포크 seen</span> ${esc(pr.seen_at)}</span></div>`+logBox(['parsing_nightly','ig_feed','seller_banner'])+taskRows(groups['파싱']||[]), (groups['파싱']||[]).some(t=>!t.ok));
-  sec('🛡 감시기·백업', (groups['감시·백업']||[]).some(t=>!t.ok)?['bad','🔴']:['ok','정상'], `<div class="row"><span><span class="k">오늘 카드 알림줄</span> ${(pc.alerts||[]).length?`<div class="mono">${esc((pc.alerts||[]).join('\n'))}</div>`:'없음'}</span></div><div class="row"><span><span class="k">HANDOFF</span> ${esc(pc.backup&&pc.backup.handoff_at)} (${esc(pc.backup&&pc.backup.handoff_kb)}KB)</span></div>`+logBox(['error_guard','inquiry_guard'])+taskRows(groups['감시·백업']||[]), (groups['감시·백업']||[]).some(t=>!t.ok));
+  sec('🔎 파싱·등록', (groups['파싱']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`24h 등록 ${esc(c.gonggu_24h)}건`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.gonggu_last_insert)}</span><span><span class="k">오늘 오픈</span> ${esc(c.gonggu_today_open)}</span><span><span class="k">승인 대기</span> ${esc(pr.pending_rows)}행 (${esc(pr.pending_at)})</span><span><span class="k">검색어 목표</span> ${esc(pr.kw_targets)}</span><span><span class="k">인포크 seen</span> ${esc(pr.seen_at)}</span></div>`+logBox(['parsing_nightly','ig_feed','seller_banner','kw_daily'])+taskRows(groups['파싱']||[]), (groups['파싱']||[]).some(t=>!t.ok));
+  sec('🛡 감시기·백업', (groups['감시·백업']||[]).some(t=>!t.ok)?['bad','🔴']:['ok','정상'], `<div class="row"><span><span class="k">오늘 카드 알림줄</span> ${(pc.alerts||[]).length?`<div class="mono">${esc((pc.alerts||[]).join('\n'))}</div>`:'없음'}</span></div><div class="row"><span><span class="k">HANDOFF</span> ${esc(pc.backup&&pc.backup.handoff_at)} (${esc(pc.backup&&pc.backup.handoff_kb)}KB)</span><span><span class="k">work-backup 마지막</span> ${esc(pc.backup&&pc.backup.work_backup_at)}</span></div>`+logBox(['error_guard','inquiry_guard'])+taskRows(groups['감시·백업']||[]), (groups['감시·백업']||[]).some(t=>!t.ok));
   if(groups['기타']&&groups['기타'].length) sec('📦 기타 예약작업', groups['기타'].some(t=>!t.ok)?['bad','🔴']:['ok','정상'], taskRows(groups['기타']), groups['기타'].some(t=>!t.ok));
+  // 모든 로그 파일 최신순 — 위 절 어디에도 안 잡힌 채널도 여기엔 나온다
+  const al=pc.all_logs||[]; const alBad=al.filter(l=>/🔴|실패|ERR|Error/.test(l.last||''));
+  sec('🗂 모든 로그 (최신순)', alBad.length?['warn',`🔴 ${alBad.length}`]:['ok',`${al.length}개`], `<table><tr><th>파일</th><th>갱신</th><th>마지막 줄</th></tr>${al.map(l=>`<tr class="${/🔴|실패|ERR|Error/.test(l.last||'')?'bad':''}"><td>${esc(l.file)}</td><td>${esc(l.at||'-')}</td><td class="mono">${esc(l.last||'')}</td></tr>`).join('')}</table>`, false);
   // 8 감시기 경보 24h
   sec('🚨 감시기 경보 (24시간)', (d.alerts||[]).length?['warn',`${(d.alerts||[]).length}건`]:['ok','없음'], `<table><tr><th>시각</th><th>종류</th><th>내용</th></tr>${(d.alerts||[]).map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.kind)}</td><td class="mono">${esc(a.msg)}</td></tr>`).join('')}</table>`, false);
   document.getElementById('sections').innerHTML=S.join('');
