@@ -51,7 +51,9 @@ begin
 end $$;
 revoke all on function public.events_purge(integer, bigint, boolean) from public, anon, authenticated;
 
--- 롤업은 매일 자동(지우는 건 사람이 결정). KST 05:20
+-- ⚠ 이 파일의 events_rollup·events_purge 는 2026-09-29 저녁 retention_fix_72.sql 로 **덮어써졌다**(경계일 요약이 덮이는 결함).
+--    지금 서버에 있는 것은 72 판이다. 이 파일은 표 정의(events_daily)와 이력용으로만 본다.
+-- 롤업 크론은 72 에서 KST 04:10 으로 옮겼다(정리 작업 05:20 과 겹치지 않게)
 select cron.unschedule(jobid) from cron.job where jobname = 'events-rollup';
 select cron.schedule('events-rollup', '20 20 * * *', $$select public.events_rollup()$$);
 
