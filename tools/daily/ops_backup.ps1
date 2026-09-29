@@ -47,6 +47,30 @@ if (-not (Test-Path $serpLog) -or -not (Select-String -Path $serpLog -Pattern "^
 }
 
 if (-not (Test-Path "$repo\.git")) { git clone https://github.com/wonji2/momcal-ops.git $repo }
+
+# ── 2026-09-28 추가: 엔잡방장 블로그 자동화 자산 (사장님 "새 컴퓨터에서도 이어서" 지시) ──
+function Mirror-Ex([string]$s0, [string]$d0, [string[]]$xd, [string[]]$xf) {
+  if (-not (Test-Path $s0)) { return }
+  $rc = @($s0, $d0, '/MIR', '/NFL', '/NDL', '/NJH', '/NJS')
+  if ($xd) { $rc += '/XD'; $rc += $xd }
+  if ($xf) { $rc += '/XF'; $rc += $xf }
+  robocopy @rc | Out-Null
+}
+# sns-automation 코드 (비밀키·브라우저 프로필·node_modules·daily 릴스·사진은 제외)
+Mirror-Ex "$src\sns-automation" "$repo\sns-automation" @('node_modules','browser-profile','browser-profile-cafe','browser-profile-inpock','browser-profile-scrape','browser-profile-srook','browser-profile-njob','browser-profile-blog1','browser-profile-blog3','daily','images') @('.env','*.png','*.jpg','*.mp4')
+Mirror-Ex "$src\tools\daily\tasks" "$repo\tools-daily-tasks" @() @()
+# 블로그원고(지침·도구·원고)와 발행 폴더(예약 기록 published-blog.json) — 사진·html 은 뺀다
+$blogSrc = "$env:USERPROFILE\Desktop\블로그원고"
+if (Test-Path $blogSrc) { Mirror-Ex $blogSrc "$repo\blog-drafts" @('사진','사진_*','발행용사진_*','16_블로그꾸미기') @('*.png','*.jpg','*.jpeg','*.html','naver_ad_keys.txt') }
+$blogPub = "$env:USERPROFILE\Desktop\블로그"
+if (Test-Path $blogPub) { Mirror-Ex $blogPub "$repo\blog-published" @() @('*.png','*.jpg','*.jpeg','*.html','*.xlsx') }
+# 블로그 프로젝트 클로드 메모리 (프로젝트 폴더명이 scratch-workspaces 라 위 $mem 에 안 잡힌다)
+$memBlog = Get-ChildItem "$env:USERPROFILE\.claude\projects" -Directory -Filter '*scratch-workspaces*' -ErrorAction SilentlyContinue |
+  ForEach-Object { Join-Path $_.FullName 'memory' } | Where-Object { Test-Path (Join-Path $_ 'MEMORY.md') } |
+  Sort-Object { (Get-Item (Join-Path $_ 'MEMORY.md')).LastWriteTime } -Descending | Select-Object -First 1
+if ($memBlog) { Mirror-Ex $memBlog "$repo\memory-blog" @() @() }
+$skill = "$env:USERPROFILE\.claude\scheduled-tasks"
+if (Test-Path $skill) { Mirror-Ex $skill "$repo\claude-scheduled-tasks" @() @() }
 Set-Location $repo
 git config user.name 'momcal-bot'
 git config user.email 'noreply@momcalendar.com'

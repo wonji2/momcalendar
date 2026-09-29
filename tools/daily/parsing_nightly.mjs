@@ -16,7 +16,7 @@
  * 상태  scratchpad/_inpock_seen_auto.txt  (이미 확인한 핸들 — 다음 회차는 그 다음부터)
  */
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +24,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..');
 const SP = (f) => path.join(ROOT, 'scratchpad', f);
 const NODE = process.execPath;
+// supabase CLI — bash PATH 에 없다(메모리 node-portable-path 와 같은 함정). 절대경로를 먼저 쓴다
+const SB = existsSync('C:/Users/FAMILY/supabase-cli/supabase.exe') ? 'C:/Users/FAMILY/supabase-cli/supabase.exe' : 'supabase';
+// 🔴 **예약작업 환경에는 bash 가 PATH 에 없다.** 셸에서 돌 땐 되는데 무인 회차만 `spawnSync bash ENOENT` 로
+//   등록 단계가 통째로 실패했다(2026-09-29 실측, 두 회차 연속). node 와 같은 함정 — 절대경로를 먼저 쓴다.
+const BASH = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files/Git/usr/bin/bash.exe']
+  .find((p) => existsSync(p)) || 'bash';
 const LOG = SP('parsing_nightly_log.txt');
 const N = Number((process.argv.find(a => a === '--n') ? process.argv[process.argv.indexOf('--n') + 1] : 0)) || 400;
 
@@ -156,7 +162,91 @@ try {
   const acc = existsSync(SP('승인대기_누적.md'))
     ? readFileSync(SP('승인대기_누적.md'), 'utf8').split('\n').filter(l => l.startsWith('|') && !/^\|\s*[-#]/.test(l)).length : 0;
   log(`④ 병합 완료 — 누적 승인표 ${acc}행`);
-  log(`✅ 끝. 등록은 사람이 승인한 뒤에 한다(이 스크립트는 승인표까지만 쌓는다).`);
+
+  // ─────────────────────────────────────────────────────────────
+  // ⑤ 등록까지 자동 (사장님 지시 2026-09-28 "계속 멈추고 말걸지말고 24시간 내내 알아서 계속 돌려")
+  //
+  // 🔴 게이트를 **전부 통과한 것만** 넣는다. 하나라도 걸리면 그 회차는 등록하지 않고 승인표에만 남긴다.
+  //   막는 것: 마감지난 · 표내부중복 · 파싱제외셀러 · 사장님상품(우랩·마이키즈·롤팬) ·
+  //            핸들 칸에 인포크 슬러그 · 핸들갈림 · 핸들없음
+  //   INSERT 문 자체에도 `where not exists` 중복검사가 들어 있다(gen_insert_gonggu.mjs).
+  // ⚠ 하루 상한을 둔다 — 도구가 오작동해도 피해가 하루치를 넘지 않게.
+  const DAY_CAP = 600;
+  try {
+    run([SP('drop_ended.mjs'), tableF]);
+    run([SP('pending_dedupe.mjs'), tableF]);
+    if (existsSync(SP('_drop_excluded.mjs'))) run([SP('_drop_excluded.mjs'), tableF]);
+    if (existsSync(SP('_slug_as_handle_check.mjs'))) run([SP('_slug_as_handle_check.mjs'), tableF, '--fix']);
+
+    const gate = execFileSync(BASH, [SP('pending_check.sh'), tableF], { encoding: 'utf8', timeout: 900e3 });
+    const num = (k) => { const m = gate.match(new RegExp('"' + k + '": (\\d+)')); return m ? +m[1] : -1; };
+    const excluded = (gate.match(/excluded:\s*(\d+)/) || [])[1];
+    const own = (gate.match(/own_product:\s*(\d+)/) || [])[1];
+    const split = (gate.match(/handle_split:\s*(\d+)/) || [])[1];
+    const isNew = num('is_new'), noHandle = num('no_handle');
+    log(`⑤ 게이트 — 제외셀러 ${excluded} · 사장님상품 ${own} · 핸들갈림 ${split} · 핸들없음 ${noHandle} · 신규 ${isNew}`);
+
+    const clean = excluded === '0' && own === '0' && split === '0' && noHandle === 0;
+    if (!clean) {
+      log('🔴 게이트에 걸린 것이 있다 — 이 회차는 **등록하지 않는다**. 승인표에 남겨두고 사람이 본다.');
+    } else if (isNew <= 0) {
+      log('= 새로 넣을 것이 없다.');
+    } else if (isNew > DAY_CAP) {
+      log(`🔴 신규 ${isNew}건은 하루 상한(${DAY_CAP})을 넘는다 — 등록을 멈춘다. 도구 오작동일 수 있다.`);
+    } else {
+      const insF = SP('_pn_ins.sql');
+      // 🌉 등록 시점에 캡션이 함께 저장되게 스윕(jsonl)을 수확 형식으로 바꿔 둔다 (규칙 0-C · 2026-09-29)
+      try { execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', 'feed_sweep_to_harvest.mjs')], { encoding: 'utf8', timeout: 600e3 }); } catch (_) {}
+      // 🔴 등록 건수는 **DB 로 센다**. 응답의 `"id":` 를 세면 다른 키·다른 문장까지 세어 과대집계된다
+      //    (2026-09-29 실측: 게이트 신규 95 · 로그 109 · 실제 103 — 셋이 다 달랐다)
+      const cntSql = SP('_pn_cnt.sql');
+      writeFileSync(cntSql, "select count(*) as n from public.gonggu;\n", 'utf8');
+      const readCnt = () => {
+        try {
+          const o = execFileSync(SB, ['db', 'query', '--linked', '--file', cntSql, '--output-format', 'json'],
+            { encoding: 'utf8', timeout: 300e3 });
+          const m = o.match(/"n":\s*"?(\d+)/); return m ? +m[1] : -1;
+        } catch (_) { return -1; }
+      };
+      const before = readCnt();
+      run([SP('gen_insert_gonggu.mjs'), tableF, insF, '--source', 'inpock']);
+      // SQL 이 크면 413 → 조각으로 나눠 넣는다(조각마다 중복검사가 살아 있는지 도구가 확인한다)
+      run([SP('_split_insert.mjs'), insF, SP('_pn_ins_'), '120']);
+      const parts = readdirSync(SP('.')).filter(f => /^_pn_ins_\d+\.sql$/.test(f)).sort();
+      for (const p of parts) {
+        execFileSync(SB, ['db', 'query', '--linked', '--file', SP(p), '--output-format', 'json'],
+          { encoding: 'utf8', timeout: 900e3 });
+      }
+      const after = readCnt();
+      const done = (before >= 0 && after >= 0) ? after - before : -1;
+      log(`⑥ 등록 ${done < 0 ? '?' : done}건 (DB ${before} → ${after})`);
+      if (done > DAY_CAP) log(`🔴 실제 등록 ${done}건이 하루 상한 ${DAY_CAP}을 넘었다 — 도구 오작동 여부를 사람이 확인할 것`);
+
+      // 등록 뒤 자동 점검 — 게이트가 못 보는 것(소분류 이탈·중복)을 본다
+      try { execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', 'cat_guard.mjs')], { encoding: 'utf8', timeout: 600e3 }); } catch (_) {}
+      // 🔴 `_q_dup.sql` 하나만 돌렸더니 완전일치 1쌍만 잡히고 **브랜드낱말 겹침 17쌍**을 놓쳤다(2026-09-29).
+      //    중복은 4가지 검사가 서로 다른 유형을 잡는다 — 넷 다 돌린다.
+      for (const q of ['_q_dup_sim.sql', '_q_dup_brand.sql', '_q_dup_alias.sql', '_q_dup_noseller.sql', '_q_badname.sql', '_q_encoding.sql']) {
+        try {
+          const o = execFileSync(SB, ['db', 'query', '--linked', '--file', SP(q), '--output-format', 'json'],
+            { encoding: 'utf8', timeout: 600e3 });
+          const n = (o.match(/"(a_id|id)":/g) || []).length;
+          const bad = (o.match(/"(날짜불량|십사일초과|이중인코딩|역슬래시|유령문자|이스케이프)":\s*"?([1-9]\d*)/g) || []).length;
+          if (n || bad) log(`⚠ ${q} → ${n ? n + '행' : ''}${bad ? ' 불량지표 ' + bad + '종' : ''} — 사람이 확인할 것`);
+        } catch (_) {}
+      }
+      try {
+        const q = execFileSync(SB, ['db', 'query', '--linked', '--file', SP('_q_dup.sql'), '--output-format', 'json'],
+          { encoding: 'utf8', timeout: 600e3 });
+        const dups = (q.match(/"a_id":/g) || []).length;
+        if (dups) log(`⚠ 등록 뒤 완전중복 ${dups}쌍 — 사람이 확인할 것`);
+      } catch (_) {}
+      try { execFileSync(SB, ['db', 'query', '--linked', '--file', SP('_q_seo_refresh.sql'), '--output-format', 'json'], { encoding: 'utf8', timeout: 600e3 }); } catch (_) {}
+    }
+  } catch (e) {
+    log(`🔴 등록 단계 실패(수확·승인표는 남았다): ${String(e.message || e).slice(0, 160)}`);
+  }
+  log(`✅ 회차 끝.`);
 } catch (e) {
   log(`🔴 실패: ${String(e.message).slice(0, 200)}`);
   process.exit(1);

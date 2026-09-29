@@ -19,7 +19,11 @@ import path from 'node:path';
 const ROOT = 'C:/Users/FAMILY/Desktop/MOMCALENDAR';
 const DIR = path.join(ROOT, 'scratchpad', 'ig_feed');
 const OUT = path.join(ROOT, 'scratchpad', '_feed_sweep.json');
-const DAYS = Number((process.argv.find((a) => a.startsWith('--days=')) || '').split('=')[1] || process.env.DAYS || 90);
+// `--days=60` 과 `--days 60` 둘 다 받는다 (공백형만 주면 조용히 기본값이 되던 것을 2026-09-29 시정)
+const argv = process.argv.slice(2);
+const eqForm = (argv.find((a) => a.startsWith('--days=')) || '').split('=')[1];
+const spForm = argv[argv.indexOf('--days') + 1];
+const DAYS = Number(eqForm || (argv.includes('--days') ? spForm : '') || process.env.DAYS || 90) || 90;
 
 const cutoff = new Date(Date.now() + 9 * 3600e3 - DAYS * 864e5).toISOString().slice(0, 10);
 const files = fs.readdirSync(DIR).filter((f) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f) && f.slice(0, 10) >= cutoff).sort();
