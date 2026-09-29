@@ -26,7 +26,14 @@ if (err) { console.error('데이터 실패:', err); await browser.close(); proce
 const counts = await page.evaluate(() => ({ today: window.__DATA[1].length, alive: window.__DATA[2].length, shown: document.querySelectorAll('#L1 .it, #L2 .it').length }));
 if (!counts.today && !counts.alive) { console.log('핫딜 0건 — 카드 안 만듦'); await browser.close(); process.exit(0); }
 await page.evaluate(() => { document.body.classList.remove('mini'); document.body.classList.add('clean'); const c = document.getElementById('card'); c.style.transform = 'none'; });
-await page.waitForTimeout(500);
+// 🔴 사진이 다 뜰 때까지 기다린다(최대 20초) — 안 기다리면 빈 사진칸으로 찍힌다(2026-09-29 사장님 지적 "사진이 2개밖에 없는 걸 검수도 없이 보내니").
+await page.waitForFunction(() => [...document.querySelectorAll('#L1 img.th')].every((i) => i.complete), null, { timeout: 20000 }).catch(() => {});
+await page.waitForTimeout(800);
+// 그래도 못 뜬 사진은 빈칸 대신 🛒 자리표시로 바꾸고 개수를 센다 — 사진 없는 칸이 많으면 실패로 끝낸다(사람이 본다)
+const broken = await page.evaluate(() => { let n = 0; for (const i of document.querySelectorAll('#L1 img.th')) { if (!i.naturalWidth) { n++; i.outerHTML = '<div class="th none">🛒</div>'; } } return n; });
+const total = await page.evaluate(() => document.querySelectorAll('#L1 .it').length);
+if (broken > 0) console.log(`⚠ 사진 못 뜬 칸 ${broken}/${total}`);
+if (total && broken / total > 0.3) { console.error(`🔴 사진 ${broken}/${total} 실패 — 카드 안 만듦`); await browser.close(); process.exit(1); }
 // 넘침 재확인 — 마지막 줄·더보기가 칼럼 아래를 넘으면 한 줄씩 뺀다 (스크린샷엔 trimToFit 이 없다)
 await page.evaluate(() => window.trimToFit && window.trimToFit(document));
 const overflow = await page.evaluate(() => ['L1', 'L2'].map((id) => { const l = document.getElementById(id), col = l && l.closest('.col'); if (!l || !col || !l.lastElementChild) return 0; return Math.max(0, Math.round(l.lastElementChild.getBoundingClientRect().bottom - col.getBoundingClientRect().bottom)); }));
