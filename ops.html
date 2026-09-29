@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>맘캘린더 운영 현황판</title>
+<!-- 뒷단 현황판 (사장님 지시 2026-09-29 "전 라인 다 잘 도는지 검증 가능한 뒷단 웹사이트 — 연결된 모든 채널 포함, 스레드 등등")
+     관리자 로그인(admin.html 과 같은 계정) → rpc/ops_status_get (is_app_admin 만) 로 서버·PC 상태를 한 번에 받아 그린다.
+     PC 쪽 상태는 tools/daily/ops_status_push.mjs 가 30분마다 올린다(예약작업 momcal-ops-status). 손님용 아님. -->
+<style>
+:root{--p:#6B4A9E;--p-d:#5B3A8C;--p-l:#F2EBFB;--ok:#2E8B57;--bad:#D3554F;--warn:#D9782B;--ink:#231C2E;--mute:#8A8194;--line:#EDE9F2;--bg:#F7F5FA}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);padding:14px 12px 60px;max-width:960px;margin:0 auto}
+h1{font-size:20px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+h1 small{font-size:12px;color:var(--mute);font-weight:500}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+button{border:0;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;background:var(--p);color:#fff;cursor:pointer;font-family:inherit}
+button.ghost{background:#E6E0F0;color:var(--p-d)}
+input{border:1px solid #D7CFE3;border-radius:9px;padding:9px 10px;font-size:14px;font-family:inherit;width:100%}
+.login{max-width:360px;margin:60px auto;background:#fff;border-radius:16px;padding:22px;box-shadow:0 2px 14px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:10px}
+.sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+.pill{background:#fff;border-radius:12px;padding:10px 12px;border:1px solid var(--line)}
+.pill .n{font-size:22px;font-weight:800;line-height:1.1}
+.pill .l{font-size:12px;color:var(--mute);margin-top:2px}
+.pill.bad{border-color:var(--bad);background:#FFF3F2}.pill.bad .n{color:var(--bad)}
+.pill.ok .n{color:var(--ok)}
+section{background:#fff;border-radius:14px;border:1px solid var(--line);margin-bottom:12px;overflow:hidden}
+section h2{font-size:15px;padding:11px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+section h2 .st{margin-left:auto;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:#E8F5EC;color:var(--ok)}
+section h2 .st.bad{background:#FDECEA;color:var(--bad)}
+section h2 .st.warn{background:#FFF1E6;color:var(--warn)}
+section .body{padding:0 14px 12px;font-size:13px}
+section.closed .body{display:none}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td,th{padding:6px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:top;word-break:break-all}
+th{color:var(--mute);font-weight:700;font-size:11.5px;border-top:0}
+tr.bad td{background:#FFF3F2}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:middle}
+.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}.dot.gray{background:#C9C2D3}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#4B4358;white-space:pre-wrap}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
+.row .k{color:var(--mute)}
+.only-bad section:not(.has-bad){display:none}
+.foot{font-size:11.5px;color:var(--mute);margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<h1>🛠 맘캘린더 운영 현황판 <small id="stamp"></small></h1>
+<div id="loginBox" class="login" hidden>
+  <div style="font-weight:800;font-size:16px">관리자 로그인</div>
+  <input id="email" type="email" placeholder="이메일" autocomplete="username">
+  <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <button id="loginBtn" onclick="login()">로그인</button>
+  <div class="foot">admin.html 과 같은 계정. 로그인 정보는 이 기기에만 저장돼요.</div>
+</div>
+<div id="app" hidden>
+  <div class="top">
+    <button onclick="refresh()">🔄 새로고침</button>
+    <button class="ghost" onclick="toggleBad()" id="badBtn">🔴 문제만 보기</button>
+    <button class="ghost" onclick="logout()">로그아웃</button>
+    <span class="foot" id="pcstamp"></span>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="sections"></div>
+  <div class="foot">서버 쪽(pg_cron·오류 레이더·건수)은 지금 시각 기준, PC 쪽(예약작업·블로그·스레드·카페·파싱)은 <b>ops_status_push.mjs</b> 가 30분마다 올린 시각 기준. PC 상태가 90분 넘게 안 올라오면 PC 가 꺼졌거나 예약작업이 죽은 것.</div>
+</div>
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co', KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const at=()=>localStorage.getItem('mc_admin_at');
+async function login(){
+  const email=document.getElementById('email').value.trim(), pw=document.getElementById('pw').value;
+  if(!email||!pw) return alert('이메일·비밀번호를 넣어주세요');
+  const b=document.getElementById('loginBtn'); b.disabled=true;
+  try{
+    const r=await fetch(`${SB}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok||!d.access_token) throw new Error(d.error_description||d.msg||'로그인 실패');
+    localStorage.setItem('mc_admin_at',d.access_token); if(d.refresh_token) localStorage.setItem('mc_admin_rt',d.refresh_token);
+    boot();
+  }catch(e){ alert(e.message); } finally{ b.disabled=false; }
+}
+async function refreshToken(){
+  const rt=localStorage.getItem('mc_admin_rt'); if(!rt) return false;
+  const r=await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({refresh_token:rt})});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok&&d.access_token){ localStorage.setItem('mc_admin_at',d.access_token); if(d.refresh_token) localStorage.setItem('mc_admin_rt',d.refresh_token); return true; }
+  return false;
+}
+function logout(){ localStorage.removeItem('mc_admin_at'); localStorage.removeItem('mc_admin_rt'); location.reload(); }
+async function rpc(name,body){
+  const call=()=>fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+at()},body:JSON.stringify(body||{})});
+  let r=await call();
+  if(r.status===401&&await refreshToken()) r=await call();
+  if(!r.ok){ const t=await r.text(); throw new Error(r.status+' '+t.slice(0,160)); }
+  return r.json();
+}
+async function boot(){
+  if(!at()){ document.getElementById('loginBox').hidden=false; document.getElementById('app').hidden=true; return; }
+  document.getElementById('loginBox').hidden=true; document.getElementById('app').hidden=false;
+  refresh();
+}
+let DATA=null;
+async function refresh(){
+  document.getElementById('stamp').textContent='불러오는 중…';
+  try{ DATA=await rpc('ops_status_get'); }
+  catch(e){ if(/401|403|forbidden|28000/.test(e.message)){ logout(); return; } document.getElementById('stamp').textContent='🔴 '+e.message; return; }
+  render(DATA);
+}
+// ── 챗봇 실측: 스킬 서버가 살아 있나 (anon 으로 ping — 실제 손님 발화처럼)
+async function probeBot(){
+  try{ const t0=Date.now(); const r=await fetch(`${SB}/functions/v1/kakao-skill`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({userRequest:{utterance:'ping',user:{id:'ops_probe'}}})}); return {code:r.status, ms:Date.now()-t0}; }catch(e){ return {code:0, ms:0}; }
+}
+const TASK_GROUP=[
+  ['스레드', /^momcal-threads/], ['블로그', /^momcal-blog/], ['카페', /^momcal-cafe|gongtok/], ['핫딜', /baby-hotdeal|hotdeal|naver-track|we09|honeypot|pp-|jupjup/],
+  ['파싱', /night-parsing|month-sweep|ig-feed|ig-register|ig-capfill|caption|cat-guard|dup-guard|search-gap|kw-daily|profile-check/],
+  ['감시·백업', /error-guard|inquiry-guard|bot-guard|bot-learn|restore-env|ops-backup|work-backup|ops-status|winner|seller-banner|hub-/],
+];
+const groupOf=(n)=>(TASK_GROUP.find(([,re])=>re.test(n))||['기타'])[0];
+function render(d){
+  document.getElementById('stamp').textContent='서버 '+d.at;
+  const pcAge=d.pc_age_min==null?null:Number(d.pc_age_min);
+  document.getElementById('pcstamp').textContent=`PC 상태 ${d.pc_at||'없음'}${pcAge!=null?` (${pcAge}분 전)`:''}`;
+  const c=d.counts||{}, pc=d.pc||{};
+  const radarBad=(d.radar||[]).filter(r=>String(r.상태).includes('🔴'));
+  const cronBad=(d.cron||[]).filter(j=>j.active&&(j.last_status&&j.last_status!=='succeeded'||Number(j.fails24)>0));
+  const taskBad=(pc.tasks||[]).filter(t=>!t.ok);
+  const pcStale=pcAge==null||pcAge>90;
+  // 요약 알약
+  const pills=[
+    {n:radarBad.length, l:'오류 레이더 🔴', bad:radarBad.length>0, ok:radarBad.length===0},
+    {n:cronBad.length+'/'+(d.cron||[]).length, l:'서버 크론 실패', bad:cronBad.length>0, ok:cronBad.length===0},
+    {n:taskBad.length+'/'+(pc.tasks||[]).length, l:'PC 예약작업 실패', bad:taskBad.length>0||pcStale, ok:!taskBad.length&&!pcStale},
+    {n:c.events_1h??'-', l:'이벤트 1시간'}, {n:c.visitors_24h??'-', l:'방문 24시간'}, {n:c.kakao_bot_24h??'-', l:'챗봇 대화 24h'},
+    {n:c.gonggu_live??'-', l:'노출 공구'}, {n:c.hotdeals_live??'-', l:'노출 핫딜'}, {n:c.inquiries_open??'-', l:'미처리 문의', bad:Number(c.inquiries_open)>0},
+  ];
+  document.getElementById('sum').innerHTML=pills.map(p=>`<div class="pill ${p.bad?'bad':(p.ok?'ok':'')}"><div class="n">${esc(p.n)}</div><div class="l">${esc(p.l)}</div></div>`).join('');
+  const S=[];
+  const sec=(title,status,body,bad)=>S.push(`<section class="${bad?'has-bad':''}"><h2 onclick="this.parentElement.classList.toggle('closed')">${esc(title)}<span class="st ${status[0]}">${esc(status[1])}</span></h2><div class="body">${body}</div></section>`);
+  // 1 사이트 서버
+  sec('🌐 사이트·서버 (오류 레이더)', radarBad.length?['bad',`🔴 ${radarBad.length}`]:['ok','정상'],
+    `<table><tr><th>상태</th><th>종류</th><th>1h</th><th>24h</th><th>임계</th><th>설명</th></tr>${(d.radar||[]).map(r=>`<tr class="${String(r.상태).includes('🔴')?'bad':''}"><td>${esc(r.상태)}</td><td>${esc(r.kind)}</td><td>${esc(r.h1)}</td><td>${esc(r.h24)}</td><td>${esc(r.임계)}</td><td>${esc(r.설명)}</td></tr>`).join('')}</table>
+     <div class="row"><span><span class="k">로그인 완료 24h</span> ${esc(c.login_done_24h)} · <span class="k">실패</span> ${esc(c.login_fail_24h)}</span><span><span class="k">푸시 구독</span> ${esc(c.push_subs)}</span><span><span class="k">활성 배너</span> ${esc(c.banners_active)}</span><span><span class="k">SEO 캐시</span> ${esc(c.seo_cache_at)}</span><span><span class="k">클릭통계</span> ${esc(c.click_stats_at)}</span><span><span class="k">검색인기</span> ${esc(c.search_stats_at)}</span><span><span class="k">사이트검색 집계</span> ${esc(c.site_search_at)}</span></div>`, radarBad.length>0);
+  // 2 챗봇
+  sec('🤖 카카오 챗봇', ['ok','확인 중'], `<div id="botBox">스킬 서버 응답 재는 중… · <span class="k">24h 대화</span> ${esc(c.kakao_bot_24h)} · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}</div>`, false);
+  // 3 서버 크론
+  sec('⏱ 서버 크론 (pg_cron)', cronBad.length?['bad',`🔴 ${cronBad.length}`]:['ok',`${(d.cron||[]).length}개 정상`],
+    `<table><tr><th>이름</th><th>주기</th><th>마지막</th><th>상태</th><th>24h 실패</th></tr>${(d.cron||[]).map(j=>{const bad=j.active&&(j.last_status&&j.last_status!=='succeeded'||Number(j.fails24)>0);return `<tr class="${bad?'bad':''}"><td>${esc(j.name)}${j.active?'':' <span class="k">(꺼짐)</span>'}</td><td class="mono">${esc(j.schedule)}</td><td>${esc(j.last_run||'-')}</td><td><span class="dot ${bad?'bad':(j.last_status?'':'gray')}"></span>${esc(j.last_status||'-')}${j.last_msg&&bad?`<div class="mono">${esc(j.last_msg)}</div>`:''}</td><td>${esc(j.fails24)}</td></tr>`;}).join('')}</table>`, cronBad.length>0);
+  // 4 PC 예약작업 — 채널별
+  const groups={}; for(const t of (pc.tasks||[])) (groups[groupOf(t.name)]=groups[groupOf(t.name)]||[]).push(t);
+  const taskRows=(arr)=>`<table><tr><th>작업</th><th>상태</th><th>마지막 실행</th><th>결과</th><th>다음</th></tr>${arr.map(t=>`<tr class="${t.ok?'':'bad'}"><td>${esc(t.name)}</td><td>${esc(t.state)}</td><td>${esc(t.last||'-')}</td><td><span class="dot ${t.ok?'':'bad'}"></span>${t.result===0?'성공':t.result===267009?'실행 중':t.result===267011?'아직 안 돎':esc(t.result)}</td><td>${esc(t.next||'-')}</td></tr>`).join('')}</table>`;
+  const pcHead=pcStale?['bad',pcAge==null?'PC 상태 없음':`PC 상태 ${pcAge}분 전 — 끊김`]:(taskBad.length?['bad',`🔴 ${taskBad.length}`]:['ok',`${(pc.tasks||[]).length}개 정상`]);
+  // 5 블로그
+  const bm=(pc.blog&&pc.blog.markers)||[]; const sched=bm.filter(m=>m.scheduled).length;
+  sec('📝 네이버 블로그', sched>=6?['ok',`예약 ${sched}/${bm.length}일`]:['warn',`예약 ${sched}/${bm.length}일`],
+    `<div class="row">${bm.map(m=>`<span><span class="dot ${m.scheduled?'':'bad'}"></span>${esc(m.day.slice(5))}${m.logNo?` <a href="https://blog.naver.com/momcal/${esc(m.logNo)}" target="_blank">글</a>`:''}</span>`).join('')}</div>
+     <div class="mono">${esc((pc.blog&&pc.blog.weekly_log||[]).join('\n'))}</div>
+     <div class="row"><span><span class="k">주간 보고</span> ${esc(pc.blog&&pc.blog.report_at)} — ${esc((pc.blog&&pc.blog.report_head||[''])[0])}</span></div>
+     <div class="row"><span><span class="k">주간 디벨롭</span> ${esc((pc.blog&&pc.blog.develop_log||[''])[0])}</span></div>
+     ${taskRows(groups['블로그']||[])}`, sched<6);
+  // 6 스레드
+  const th=pc.threads||{}; const thBad=!th.token||(th.last_lines||[]).some(l=>/🔴|실패|오류/.test(l));
+  sec('🧵 스레드 (Threads)', thBad?['bad','🔴 확인']:['ok',`오늘 ${(th.today||[]).length}건 발행`],
+    `<div class="row"><span><span class="k">토큰</span> ${th.token?'✅':'🔴 없음'}</span><span><span class="k">오늘</span> ${(th.today||[]).map(x=>esc(x.win)).join(' · ')||'-'}</span><span><span class="k">어제</span> ${(th.yesterday||[]).map(x=>esc(x.win)).join(' · ')||'-'}</span><span><span class="k">답글 대기</span> ${esc(th.reply_pending)}</span></div>
+     <div class="mono">${esc((th.last_lines||[]).join('\n'))}</div>${taskRows(groups['스레드']||[])}`, thBad);
+  // 7 카페·핫딜·파싱·감시 — 로그 마지막 줄 + 작업표
+  const L=pc.logs||{};
+  const logBox=(keys)=>`<table><tr><th>로그</th><th>갱신</th><th>마지막 줄</th></tr>${keys.filter(k=>L[k]).map(k=>`<tr class="${(L[k].last||[]).some(l=>/🔴|실패|ERR|Error/.test(l))?'bad':''}"><td>${esc(k)}</td><td>${esc(L[k].at||'-')}</td><td class="mono">${esc((L[k].last||[]).slice(-1)[0]||(L[k].file?'(비어 있음)':'로그 파일 없음'))}</td></tr>`).join('')}</table>`;
+  sec('☕ 네이버 카페 발행기', (groups['카페']||[]).some(t=>!t.ok)?['bad','🔴']:['ok','정상'], logBox(['cafe_hotdeal','cafe_gonggu','cafe_greeting','cafe_answer','cafe_crawl'])+taskRows(groups['카페']||[]), (groups['카페']||[]).some(t=>!t.ok));
+  sec('🔥 핫딜', (groups['핫딜']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`노출 ${esc(c.hotdeals_live)} · 오늘 ${esc(c.hotdeals_today)}`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.hotdeals_last_insert)}</span></div>`+logBox(['soldout','kw_daily'])+taskRows(groups['핫딜']||[]), (groups['핫딜']||[]).some(t=>!t.ok));
+  const pr=pc.parsing||{};
+  sec('🔎 파싱·등록', (groups['파싱']||[]).some(t=>!t.ok)?['bad','🔴']:['ok',`24h 등록 ${esc(c.gonggu_24h)}건`], `<div class="row"><span><span class="k">마지막 등록</span> ${esc(c.gonggu_last_insert)}</span><span><span class="k">오늘 오픈</span> ${esc(c.gonggu_today_open)}</span><span><span class="k">승인 대기</span> ${esc(pr.pending_rows)}행 (${esc(pr.pending_at)})</span><span><span class="k">검색어 목표</span> ${esc(pr.kw_targets)}</span><span><span class="k">인포크 seen</span> ${esc(pr.seen_at)}</span></div>`+logBox(['parsing_nightly','ig_feed','seller_banner'])+taskRows(groups['파싱']||[]), (groups['파싱']||[]).some(t=>!t.ok));
+  sec('🛡 감시기·백업', (groups['감시·백업']||[]).some(t=>!t.ok)?['bad','🔴']:['ok','정상'], `<div class="row"><span><span class="k">오늘 카드 알림줄</span> ${(pc.alerts||[]).length?`<div class="mono">${esc((pc.alerts||[]).join('\n'))}</div>`:'없음'}</span></div><div class="row"><span><span class="k">HANDOFF</span> ${esc(pc.backup&&pc.backup.handoff_at)} (${esc(pc.backup&&pc.backup.handoff_kb)}KB)</span></div>`+logBox(['error_guard','inquiry_guard'])+taskRows(groups['감시·백업']||[]), (groups['감시·백업']||[]).some(t=>!t.ok));
+  if(groups['기타']&&groups['기타'].length) sec('📦 기타 예약작업', groups['기타'].some(t=>!t.ok)?['bad','🔴']:['ok','정상'], taskRows(groups['기타']), groups['기타'].some(t=>!t.ok));
+  // 8 감시기 경보 24h
+  sec('🚨 감시기 경보 (24시간)', (d.alerts||[]).length?['warn',`${(d.alerts||[]).length}건`]:['ok','없음'], `<table><tr><th>시각</th><th>종류</th><th>내용</th></tr>${(d.alerts||[]).map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.kind)}</td><td class="mono">${esc(a.msg)}</td></tr>`).join('')}</table>`, false);
+  document.getElementById('sections').innerHTML=S.join('');
+  // PC 상태 자체가 끊겼으면 맨 위에 경고
+  if(pcStale){ document.getElementById('sections').insertAdjacentHTML('afterbegin',`<section class="has-bad"><h2>🖥 PC 상태 <span class="st bad">${esc(pcHead[1])}</span></h2><div class="body">예약작업 momcal-ops-status 가 30분마다 올려야 해요. PC 가 꺼졌거나 작업이 죽었으면 여기부터 보세요.</div></section>`); }
+  probeBot().then(b=>{ const el=document.getElementById('botBox'); if(!el) return; const ok=b.code===200; el.innerHTML=`<span class="dot ${ok?'':'bad'}"></span>스킬 서버 ${ok?`응답 ${b.ms}ms`:`🔴 응답 ${b.code||'없음'}`} · <span class="k">24h 대화</span> ${esc(c.kakao_bot_24h)} · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}`; const st=el.closest('section').querySelector('.st'); st.textContent=ok?'정상':'🔴 응답 없음'; st.className='st '+(ok?'ok':'bad'); if(!ok) el.closest('section').classList.add('has-bad'); });
+}
+function toggleBad(){ document.body.classList.toggle('only-bad'); document.getElementById('badBtn').textContent=document.body.classList.contains('only-bad')?'전체 보기':'🔴 문제만 보기'; }
+document.getElementById('pw').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+boot();
+setInterval(()=>{ if(at()&&!document.hidden) refresh(); }, 5*60*1000);
+</script>
+</body>
+</html>
