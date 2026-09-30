@@ -644,7 +644,10 @@ const TAG_STOP=new Set(['모음전','골라담기','기획전','세트','신상'
    `site_search_stats` 는 anon 이 못 읽으므로(의도된 잠금) node 가 매일 낱말만 구워 둔다
    — tools/daily/search_terms_bake.mjs → daily/search_terms.json (많이 검색된 순 · 횟수는 안 굽는다) */
 let SEARCH_TERMS=[], SEARCH_RANK=new Map();
-(async()=>{ try{
+/* ⚠ **반드시 기다려야 한다.** 처음엔 그냥 비동기로 받게 뒀더니, 캡션이 먼저 만들어져
+   검색어가 빈 배열이었고 태그가 예전 방식(상품명 앞 낱말)으로 나갔다(2026-09-30 실측).
+   load() 첫 줄에서 await TERMS_READY 한다. */
+const TERMS_READY=(async()=>{ try{
   const r=await fetch('daily/search_terms.json',{cache:'no-cache'});
   if(!r.ok) throw 0;
   const j=await r.json();
@@ -1181,6 +1184,7 @@ function tplFor(day){
   return AUTO[dow];
 }
 async function load(){
+  await TERMS_READY;                     // 인기 검색어를 먼저 받아야 상품 태그가 검색어로 나간다
   const day=document.getElementById('day').value||todayKST();
   document.getElementById('day').value=day;
   const tpl=tplFor(day);

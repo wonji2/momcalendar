@@ -851,7 +851,9 @@ const TAG_STOP=new Set(['모음전','골라담기','기획전','세트','신상'
    — tools/daily/search_terms_bake.mjs → daily/search_terms.json (많이 검색된 순 · 횟수는 안 굽는다).
    못 읽으면 빈 배열로 두고 예전 방식(상품명 앞 낱말)으로 돈다. */
 let SEARCH_TERMS=[], SEARCH_RANK=new Map();
-(async()=>{ try{
+/* ⚠ **반드시 기다린다.** 안 기다리면 캡션이 먼저 만들어져 검색어가 빈 배열이고
+   태그가 예전 방식(상품명 앞 낱말)으로 나간다(2026-09-30 실측). makeCaption 첫 줄에서 await. */
+const TERMS_READY=(async()=>{ try{
   const r=await fetch('daily/search_terms.json',{cache:'no-cache'});
   if(!r.ok) throw 0;
   const j=await r.json();
@@ -922,6 +924,7 @@ function pickTags(day,names){
 }
 
 async function makeCaption(day,opens,ends){
+  await TERMS_READY;                     // 인기 검색어를 먼저 받아야 상품 태그가 검색어로 나간다
   const d=new Date(day+'T00:00:00');
   const head=`${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]})`;
   const on=await ongoingCount(day);
