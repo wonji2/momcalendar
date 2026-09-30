@@ -644,7 +644,7 @@ function productTags(names,rnd,want){
   for(const raw of shuffleR(names.filter(Boolean),rnd)){
     for(const w of String(raw).split(/[\s·,&/+()\[\]|~×]+/)){
       let t=w.replace(/[^가-힣A-Za-z0-9]/g,'');
-      t=t.replace(/[0-9]+$/,'');                       // 「자일리톨100」→「자일리톨」 (끝 숫자는 용량·수량이다)
+      t=t.replace(/[0-9]+(차|종|개|팩|색|매|입|구|p|P)?$/,'');                       // 「자일리톨100」→「자일리톨」 (끝 숫자는 용량·수량이다)
       if(t.length<2||t.length>12) continue;
       if(TAG_STOP.has(t)||/^\d+$/.test(t)||/^[0-9]+(차|종|개|팩|색)$/.test(t)) continue;
       if(!/[가-힣]/.test(t)) continue;                 // 영문만인 것은 태그로 약하다
@@ -695,7 +695,11 @@ function cycleHook(arr,day,off){
 /* 캡션 공통 꼬리 — 매일 조합이 바뀐다 (CTA·사이트/카페 안내·댓글유도·인사 각각 랜덤) */
 function capTail(day,names){
   const rnd=srand(day,3);
-  return `\n\n━━━━━━━━━━━━━━\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names)}`;
+  /* 🔑 댓글 유도를 **두 곳**에 둔다 — 리스트 직후(구분선 앞)와 꼬리.
+     꼬리까지 안 내려가는 사람이 대부분이다. capTail 이 모든 시안의 공통 관문이라 여기 둔다
+     (buildCap 안에 두면 TOP10·핫딜 시안이 빠진다 — 2026-09-30 실측). */
+  return `\n\n${pickR(ASKS_TOP,srand(day,11))}`
+    +`\n\n━━━━━━━━━━━━━━\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names)}`;
 }
 const capLine=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
 function setCaption(s){
@@ -750,8 +754,7 @@ function buildCap(day,{hook,head,sections}){
       if(p.idx<p.items.length) out+=`\n…외 ${p.items.length-p.idx}건`;
       out+='\n';
     });
-    /* 리스트 직후에 **댓글 유도를 한 번 더** 둔다 — 꼬리까지 안 내려가는 사람이 대부분이다 */
-    return out+`\n${pickR(ASKS_TOP,srand(day,11))}\n`+tail;
+    return out+tail;
   };
   let moved=true;
   while(moved){

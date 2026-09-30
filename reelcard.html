@@ -853,7 +853,7 @@ function productTags(names,seed,want){
   const seen=new Set(), out=[];
   for(const raw of arr){
     for(const w of String(raw).split(/[\s·,&/+()\[\]|~×]+/)){
-      let t=w.replace(/[^가-힣A-Za-z0-9]/g,'').replace(/[0-9]+$/,'');   // 끝 숫자는 용량·수량
+      let t=w.replace(/[^가-힣A-Za-z0-9]/g,'').replace(/[0-9]+(차|종|개|팩|색|매|입|구|p|P)?$/,'');   // 끝 숫자는 용량·수량
       if(t.length<2||t.length>12) continue;
       if(TAG_STOP.has(t)||/^\d+$/.test(t)) continue;
       if(!/[가-힣]/.test(t)) continue;
