@@ -35,7 +35,7 @@ import path from 'node:path';
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, '')), '..', '..');
 const OUT = path.join(REPO, 'scratchpad', '_blog_sellers.txt');
-const OUT_SLUG = path.join(REPO, 'scratchpad', '_blog_slugs.txt');   // 인포크 수확기가 먹는 명단
+const OUT_SLUG = path.join(REPO, "scratchpad", "_blog_slugs.txt");   // parsing_nightly 가 회차 명단에 편입한다(2026-09-30 연결)
 const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const KEY = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 const UA_M = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';

@@ -55,6 +55,26 @@ try {
     p.forEach(x => { const h = String(x.insta || '').trim(); if (h) handles.add(h); });
     if (p.length < 1000) break;
   }
+  const fromDb = handles.size;
+  // 🔴 2026-09-30 — 명단을 `gonggu.insta` 로만 만들면 **DB 에 없는 신규 셀러는 영원히 안 들어온다.**
+  //   블로그·구글·카페·체이닝으로 발굴한 후보가 파일에만 쌓이고 아무도 읽지 않던 것을 검증에서 잡았다
+  //   (`_blog_slugs.txt` 주석에 "수확기가 먹는다"고 적어놨는데 사실이 아니었다).
+  //   → 발굴 채널의 산출물을 여기서 합친다. 이미 확인한 것은 `_inpock_seen_auto.txt` 가 걸러 주므로
+  //     한 번 확인한 노이즈(문화재단·학원 등)를 매 회차 다시 치지는 않는다.
+  const CAND_FILES = ['_blog_sellers.txt', '_blog_slugs.txt', '_new_sellers.txt', '_cands_review.txt'];
+  let fromCand = 0;
+  for (const cf of CAND_FILES) {
+    try {
+      if (!existsSync(SP(cf))) continue;
+      for (const l of readFileSync(SP(cf), 'utf8').split(/\r?\n/)) {
+        const v = l.trim().split(/[\s,\t]/)[0].toLowerCase();
+        if (!v || v.startsWith('#') || !/^[a-z0-9._-]{2,40}$/.test(v)) continue;
+        if (!handles.has(v)) { handles.add(v); fromCand++; }
+      }
+    } catch (_) {}
+  }
+  if (fromCand) log(`발굴 후보 ${fromCand}명 편입 (DB 활동셀러 ${fromDb} + 후보 ${fromCand} = ${handles.size})`);
+
   const seenF = SP('_inpock_seen_auto.txt');
   if (process.argv.includes('--reset')) { writeFileSync(seenF, '', 'utf8'); log(`--reset: seen 비움 — 활동 셀러 전원(${handles.size}명) 처음부터 (매월 마지막주 전수, 사장님 지시 2026-09-27)`); }
   const seen = existsSync(seenF) ? new Set(readFileSync(seenF, 'utf8').split(/\r?\n/).filter(Boolean)) : new Set();
