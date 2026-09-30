@@ -156,8 +156,16 @@ try {
         const p = await r.json();
         const counts = {};
         if (Array.isArray(p)) for (const row of p) {
-          const h = row.insta, nm = row.influencer;
-          if (!h || !nm) continue;
+          const h = row.insta;
+          if (!h || !row.influencer) continue;
+          // 🔴 2026-09-30 — DB 에 **한글명 칸에 핸들이 든 행**이 많다(노출중 166건 실측).
+          //   그걸 후보로 세면 최빈값 투표에서 이겨 핸들이 셀러명으로 등록된다.
+          //   실제로 이 회차가 `sani_and_haeng` 8건을 그렇게 넣었다 — DB 에 `사니엘블랑` 6건이 있었는데
+          //   핸들 15건이 더 많아서 졌다. `@` 붙은 것(`@cocobebe___`)도 같은 함정.
+          const nm = row.influencer.trim().replace(/^@+/, '');
+          if (!nm) continue;
+          if (nm.toLowerCase() === h.toLowerCase()) continue;
+          if (!/[가-힣]/.test(nm) && /^[A-Za-z0-9._]+$/.test(nm)) continue;   // 핸들 꼴은 이름이 아니다
           counts[h] = counts[h] || {};
           counts[h][nm] = (counts[h][nm] || 0) + 1;
         }
