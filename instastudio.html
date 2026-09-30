@@ -698,8 +698,9 @@ function capTail(day,names){
   /* 🔑 댓글 유도를 **두 곳**에 둔다 — 리스트 직후(구분선 앞)와 꼬리.
      꼬리까지 안 내려가는 사람이 대부분이다. capTail 이 모든 시안의 공통 관문이라 여기 둔다
      (buildCap 안에 두면 TOP10·핫딜 시안이 빠진다 — 2026-09-30 실측). */
-  return `\n\n${pickR(ASKS_TOP,srand(day,11))}`
-    +`\n\n━━━━━━━━━━━━━━\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names)}`;
+  /* ⚠ 🔎 줄은 **구분선 아래**에 둔다. 위에 뒀더니 길이 조절이 본문 끝줄로 보고 잘라냈다(2026-09-30 실측).
+     공구줍줍도 구분선 아래에 「🔎 찾으시는 공구가 있다면…」을 둔다. */
+  return `\n\n━━━━━━━━━━━━━━\n\n${pickR(ASKS_TOP,srand(day,11))}\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names)}`;
 }
 const capLine=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
 function setCaption(s){
