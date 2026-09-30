@@ -44,8 +44,15 @@ const toDrill = (sql) => sql.split('public.').join('restore_drill.');
 const readSchema = (n) => { const p = path.join(OUT, 'schema', n); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; };
 const dropDrill = () => q('drop schema if exists restore_drill cascade;', '정리');
 
+// 회차가 겹치면 서로의 restore_drill 을 지워 결과가 뒤섞인다(2026-09-30 실측) — 겹치면 뒤 회차는 그냥 쉰다
+const LOCK = path.join(REPO, 'scratchpad', 'restore_rehearsal.lock');
 try {
-  if (DROP) { dropDrill(); log('restore_drill 스키마 지움'); process.exit(0); }
+  if (DROP) { dropDrill(); try { fs.unlinkSync(LOCK); } catch {} log('restore_drill 스키마 지움'); process.exit(0); }
+  if (fs.existsSync(LOCK)) {
+    const mins = (Date.now() - fs.statSync(LOCK).mtimeMs) / 60000;
+    if (mins < 40) { console.log('이미 도는 회차가 있다(' + Math.round(mins) + '분 전 시작) — 이번 회차는 쉰다'); process.exit(0); }
+  }
+  fs.writeFileSync(LOCK, new Date().toISOString());
   if (!RESUME) fs.writeFileSync(LOG, '');
   const t0 = Date.now();
   log(`■ 복원 리허설 ${RESUME ? '이어서' : '시작'} — 백업만으로 다시 세운다`);
@@ -67,6 +74,9 @@ try {
 
   // 2) JSONL 적재 (이어서면 비어 있는 표만)
   const drillTables = new Set(q(`select table_name t from information_schema.tables where table_schema='restore_drill'`, '표 목록').map((r) => r.t));
+  // 계산 컬럼(attgenerated='s')은 값을 못 넣는다 → 적재 컬럼에서 뺀다. 자동 id 는 overriding system value 로 밀어 넣는다
+  const colMap = new Map();
+  for (const r of q(`select c.relname t, string_agg(quote_ident(a.attname), ', ' order by a.attnum) cols, bool_or(a.attidentity = 'a') hasalways from pg_class c join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped and a.attgenerated <> 's' where c.relkind='r' and c.relnamespace='restore_drill'::regnamespace group by 1`, '적재 컬럼')) colMap.set(r.t, r);
   const already = new Set(RESUME ? q(`select relname t from pg_stat_user_tables where schemaname='restore_drill' and n_live_tup > 0`, '적재된 표').map((r) => r.t) : []);
   const plain = fs.readdirSync(OUT).filter((f) => f.endsWith('.jsonl') && !f.startsWith('_') && !/_\d{4}-\d{2}/.test(f)).map((f) => f.replace('.jsonl', ''));
   let loaded = 0, calls = 0; const skipped = [];
@@ -80,7 +90,10 @@ try {
       let buf = [], bytes = 0;
       const flush = () => {
         if (!buf.length) return;
-        q(`insert into restore_drill.${t} select * from json_populate_recordset(null::restore_drill.${t}, $j$[${buf.join(',')}]$j$);`, t + ' 적재');
+        const m = colMap.get(t);
+        const cols = m ? m.cols : '*';
+        const over = m && (m.hasalways === true || m.hasalways === 'true') ? ' overriding system value' : '';
+        q(`insert into restore_drill.${t} (${cols})${over} select ${cols} from json_populate_recordset(null::restore_drill.${t}, $j$[${buf.join(',')}]$j$);`, t + ' 적재');
         calls++; buf = []; bytes = 0;
       };
       for (const l of use) { buf.push(l); bytes += l.length; if (bytes >= CHUNK_BYTES) flush(); }
@@ -116,7 +129,8 @@ try {
   try {
     const h = q(`select (select md5(string_agg(x,'|' order by x)) from (select id||name||coalesce(open_date,'')||coalesce(end_date,'')||coalesce(insta,'') x from restore_drill.gonggu) b) d,
                         (select md5(string_agg(x,'|' order by x)) from (select id||name||coalesce(open_date,'')||coalesce(end_date,'')||coalesce(insta,'') x from public.gonggu where id <= (select max(id) from restore_drill.gonggu)) a) p`, 'gonggu 해시')[0];
-    hash = h.p === h.d ? `✅ 같음 (백업 시점까지 전 행 일치)` : `🔴 다름 (원본 ${String(h.p).slice(0, 10)} ↔ 복원 ${String(h.d).slice(0, 10)})`;
+    if (!h.d) { hash = '🔴 복원 쪽 gonggu 가 비어 있다 — 비교 자체가 성립 안 함'; notes.push('🔴 gonggu 가 복원되지 않아 내용 비교를 못 했다'); }
+    else hash = h.p === h.d ? `✅ 같음 (백업 시점까지 전 행 일치)` : `🔴 다름 (원본 ${String(h.p).slice(0, 10)} ↔ 복원 ${String(h.d).slice(0, 10)})`;
     if (h.p !== h.d) notes.push('🔴 gonggu 내용 해시가 다르다 — 값이 바뀌어 들어갔다');
   } catch (e) { notes.push('⚠ gonggu 해시 비교 실패: ' + String(e.message).slice(0, 120)); }
 
@@ -166,7 +180,7 @@ try {
     '## 진짜 복원 순서 (이 리허설로 확인된 것)',
     '1. 새 프로젝트 → 확장 설치(pg_cron·pg_net·pg_trgm·pgcrypto·uuid-ossp·fuzzystrmatch)',
     '2. `schema/sequences.sql` → `schema/tables.sql` → `schema/constraints.sql` → `schema/indexes.sql` (표 기본값이 시퀀스를 참조하므로 순서 고정)',
-    '3. `*.jsonl` 을 `json_populate_recordset` 으로 적재 (200KB 씩 끊어서)',
+    '3. `*.jsonl` 을 `json_populate_recordset` 으로 적재 (200KB 씩 끊어서). ⚠ **계산 컬럼은 빼고, 자동 id 표는 `overriding system value`** — 안 그러면 gonggu·sellers 같은 표가 통째로 안 들어간다',
     '4. `schema/functions.sql` → `views.sql` → `triggers.sql` → `policies.sql` → `cron.sql`',
     '5. `schema/grants.txt`·`rls.txt` 를 보고 권한·RLS 를 다시 건다',
     '6. ⚠ 백업에 없는 것: Edge Function 시크릿·Vault·storage 파일(사진은 GitHub Pages `banners/` 에도 있다)·`toss_token`(재발급)',
@@ -175,9 +189,11 @@ try {
   for (const n of notes) log('  ' + n);
 
   if (!KEEP) { dropDrill(); log('restore_drill 스키마 지움 (원래대로)'); }
+  try { fs.unlinkSync(LOCK); } catch {}
   log(`■ 끝 — 짚을 것 ${notes.length}건 · ${secs}초`);
 } catch (e) {
   log('🔴 오류 ' + String(e.stack || e.message).slice(0, 400));
   try { dropDrill(); log('오류 뒤 restore_drill 정리함'); } catch {}
+  try { fs.unlinkSync(LOCK); } catch {}
   process.exitCode = 1;
 }
