@@ -845,12 +845,46 @@ const TAG_ROT=[
 /* 상품명에서 태그를 만든다 — 공구줍줍 방식. 브랜드는 상품명 앞쪽에 온다(우리 등록 규칙). */
 const TAG_STOP=new Set(['모음전','골라담기','기획전','세트','신상','특가','초특가','할인','공구','오픈','마감',
   '모음','골라','담기','전품목','단독','한정','증정','이벤트','무료배송','최저가','앵콜','추가','재입고','예약']);
+/* 🔤 사이트 인기 검색어 — 상품 태그를 **사람들이 실제로 검색한 낱말**로 고른다 (사장님 2026-09-30)
+   > "우리 db에 있는 인기 검색어로 상품명 해시태그 써"
+   `public.site_search_stats` 는 anon 이 못 읽으므로(의도된 잠금) node 가 매일 낱말만 구워 둔다
+   — tools/daily/search_terms_bake.mjs → daily/search_terms.json (많이 검색된 순 · 횟수는 안 굽는다).
+   못 읽으면 빈 배열로 두고 예전 방식(상품명 앞 낱말)으로 돈다. */
+let SEARCH_TERMS=[], SEARCH_RANK=new Map();
+(async()=>{ try{
+  const r=await fetch('daily/search_terms.json',{cache:'no-cache'});
+  if(!r.ok) throw 0;
+  const j=await r.json();
+  SEARCH_TERMS=Array.isArray(j.terms)?j.terms:[];
+  SEARCH_TERMS.forEach((t,i)=>SEARCH_RANK.set(t,i));      // 앞이 많이 검색된 것
+}catch(e){ /* 없으면 예전 방식 */ } })();
+/* 검색어 목록에서 이 상품명에 들어 있는 낱말을 찾는다 — 있으면 **그 낱말 그대로** 태그로 쓴다.
+   사람들이 검색한 표기가 곧 태그다(「미니두두」「스트라이더」). */
+function searchTermIn(name){
+  const n=String(name||'').replace(/\s+/g,'');
+  let best=null, bestRank=1e9;
+  for(const t of SEARCH_TERMS){
+    if(t.length<2||!n.includes(t)) continue;
+    const r=SEARCH_RANK.get(t);
+    if(r<bestRank){ best=t; bestRank=r; }
+  }
+  return best;
+}
 function productTags(names,seed,want){
   let s=(seed*2654435761+7)%2147483648;
   const rnd=()=>{ s=(s*1103515245+12345)%2147483648; return s/2147483648; };
   const arr=names.filter(Boolean).slice();
   for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
   const seen=new Set(), out=[];
+  /* 🔑 1순위 = **사이트에서 많이 검색된 낱말**. 사람들이 실제로 찾는 표기가 태그로 나가야 한다.
+     캡션에 실린 상품 중 검색어에 걸리는 것을 검색 많은 순으로 먼저 담는다. */
+  const hits=[];
+  for(const raw of names.filter(Boolean)){
+    const t=searchTermIn(raw);
+    if(t && !seen.has(t)){ seen.add(t); hits.push([t,SEARCH_RANK.get(t)]); }
+  }
+  hits.sort((a,b)=>a[1]-b[1]).forEach(([t])=>{ if(out.length<want) out.push(t); });
+  if(out.length>=want) return out;
   for(const raw of arr){
     for(const w of String(raw).split(/[\s·,&/+()\[\]|~×]+/)){
       let t=w.replace(/[^가-힣A-Za-z0-9]/g,'').replace(/[0-9]+(차|종|개|팩|색|매|입|구|p|P)?$/,'');   // 끝 숫자는 용량·수량

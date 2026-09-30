@@ -7,6 +7,7 @@
 //   DAY=2026-08-10 node tools/daily/make-card.mjs
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';   // 인기 검색어 굽기(아래) — 아래쪽 동적 import 와 겹쳐도 무해
 
 const SITE = 'https://momcalendar.com';
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -63,6 +64,10 @@ if (!pngDataUrl) { console.error('카드를 못 그렸다'); process.exit(1); }
 if (errors.length) console.log('페이지 오류:', errors.slice(0, 3).join(' | '));
 
 mkdirSync('daily', { recursive: true });
+// 🔤 인기 검색어를 먼저 굽는다 — 캡션의 상품 해시태그가 이걸 읽는다 (사장님 2026-09-30)
+//   못 구워도 카드는 만든다(페이지가 폴백으로 상품명 앞 낱말을 쓴다)
+try { execFileSync(process.execPath, ['tools/daily/search_terms_bake.mjs'], { encoding: 'utf8', timeout: 180e3 }); }
+catch (e) { console.log('검색어 굽기 생략:', String(e.message || e).slice(0, 80)); }
 const b64 = pngDataUrl.split(',')[1];
 writeFileSync(`daily/${day}.png`, Buffer.from(b64, 'base64'));
 writeFileSync(`daily/${day}.txt`, info.cap, 'utf8');

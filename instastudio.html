@@ -639,8 +639,38 @@ const TAG_POOL=['육아용품','책육아','공동구매','육아정보','공구
    ⚠ 「모음전·골라담기」 같은 꾸밈말은 태그로 쓰지 않는다 — 검색하는 사람이 없다. */
 const TAG_STOP=new Set(['모음전','골라담기','기획전','세트','신상','특가','초특가','할인','공구','오픈','마감',
   '모음','골라','담기','전품목','단독','한정','증정','이벤트','무료배송','최저가','앵콜','추가','재입고','예약']);
+/* 🔤 사이트 인기 검색어 — 상품 태그를 **사람들이 실제로 검색한 낱말**로 고른다 (사장님 2026-09-30)
+   > "우리 db에 있는 인기 검색어로 상품명 해시태그 써"
+   `site_search_stats` 는 anon 이 못 읽으므로(의도된 잠금) node 가 매일 낱말만 구워 둔다
+   — tools/daily/search_terms_bake.mjs → daily/search_terms.json (많이 검색된 순 · 횟수는 안 굽는다) */
+let SEARCH_TERMS=[], SEARCH_RANK=new Map();
+(async()=>{ try{
+  const r=await fetch('daily/search_terms.json',{cache:'no-cache'});
+  if(!r.ok) throw 0;
+  const j=await r.json();
+  SEARCH_TERMS=Array.isArray(j.terms)?j.terms:[];
+  SEARCH_TERMS.forEach((t,i)=>SEARCH_RANK.set(t,i));
+}catch(e){ /* 없으면 예전 방식(상품명 앞 낱말) */ } })();
+function searchTermIn(name){
+  const n=String(name||'').replace(/\s+/g,'');
+  let best=null, bestRank=1e9;
+  for(const t of SEARCH_TERMS){
+    if(t.length<2||!n.includes(t)) continue;
+    const r=SEARCH_RANK.get(t);
+    if(r<bestRank){ best=t; bestRank=r; }
+  }
+  return best;
+}
 function productTags(names,rnd,want){
   const seen=new Set(), out=[];
+  /* 🔑 1순위 = **사이트에서 많이 검색된 낱말**. 사람들이 찾는 표기가 태그로 나가야 한다. */
+  const hits=[];
+  for(const raw of names.filter(Boolean)){
+    const t=searchTermIn(raw);
+    if(t && !seen.has(t)){ seen.add(t); hits.push([t,SEARCH_RANK.get(t)]); }
+  }
+  hits.sort((a,b)=>a[1]-b[1]).forEach(([t])=>{ if(out.length<want) out.push(t); });
+  if(out.length>=want) return out;
   for(const raw of shuffleR(names.filter(Boolean),rnd)){
     for(const w of String(raw).split(/[\s·,&/+()\[\]|~×]+/)){
       let t=w.replace(/[^가-힣A-Za-z0-9]/g,'');
