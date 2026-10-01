@@ -33,6 +33,14 @@ const DRY = process.argv.includes('--dry');
 }
 // 셀러당 배너 상한 (사장님 지시 2026-08-20) — 한 셀러가 배너존을 독차지하지 않게
 const PER_SELLER = 2;
+// 🔴 사장님이 뺀 상품 명단 — tools/daily/seller_banner_skip.txt (한 줄에 하나, # 은 주석)
+//    없으면 빈 명단으로 돈다. 사장님이 "이거 빼" 하시면 **그 자리에서 이 파일에 한 줄 적는다** — 안 적으면 다음 날 되돌아온다.
+const SKIP = (() => {
+  try {
+    const p = new URL('./seller_banner_skip.txt', import.meta.url);
+    return readFileSync(p, 'utf8').split('\n').map((x) => x.trim()).filter((x) => x && !x.startsWith('#'));
+  } catch { return []; }
+})();
 const TMP = (process.env.TEMP || process.env.TMP || '/tmp').replace(/\\/g, '/');
 
 const SB = [
@@ -180,6 +188,10 @@ for (const s of sellers) {
     if (b.block_type !== 'link' || !b.image || !b.title) continue;
     const name = clean(b.title);
     if (!name || NOT_PRODUCT.test(name) || !looksLikeProduct(name)) continue;
+    // 🔴 사장님이 "이건 빼" 하신 상품은 건너뛴다 (2026-10-01 "크레용맘 젤리빼고 다른거 넣어줘 배너")
+    //    명단은 tools/daily/seller_banner_skip.txt — 한 줄에 하나, 제목에 그 말이 들어가면 뺀다. #으로 시작하면 주석.
+    //    이게 없으면 다음 날 10:05 자동 교체가 **사장님이 뺀 상품을 그대로 다시 넣는다.**
+    if (SKIP.some((w) => name.includes(w))) { console.log(`  ↷ ${s.name} — 「${name}」 은 제외 명단이라 건너뜀`); continue; }
     let img = absImage(b.image);
     if (!img || !(await imageOk(img))) {
       // 블록 사진이 없거나 아이콘이면(로이첸 사고) **블록이 가리키는 상품 페이지의 og:image** 로 폴백
