@@ -35,6 +35,17 @@ await page.waitForFunction(() => {
   return t && t.value && t.value.length > 200;
 }, { timeout: 60000 });
 
+// 🔴 캡션이 찼다고 다 그려진 게 아니다 — instastudio 도 그 뒤에 정렬·자체상품 우선 넣기를 끝낸다.
+//    스레드 카드가 이 구멍으로 제목·목록이 틀린 채 나갔다(2026-09-30). 카드 안 줄 수가 멈출 때까지 기다린다.
+{
+  let prev = -1, settled = false;
+  for (let t = 1; t <= 8; t++) {
+    const n = await page.evaluate(() => document.querySelectorAll('#card .bit-nm, #card .dit-nm, #card .wit-nm, #card .rk-nm').length);
+    if (n > 0 && n === prev) { settled = true; break; }
+    prev = n; await new Promise((r) => setTimeout(r, 800));
+  }
+  if (!settled) console.log('⚠ 인스타 카드 줄 수가 계속 바뀐다 — 마지막 값으로 진행');
+}
 const info = await page.evaluate(() => {
   const cap = document.getElementById('captxt').value;
   const st  = (document.getElementById('st')?.textContent || '').replace(/\s+/g, ' ').trim();

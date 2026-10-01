@@ -39,6 +39,15 @@ await page.waitForFunction(() => {
   const t = document.getElementById('captxt');
   return t && t.value && t.value.length > 200;
 }, { timeout: 60000 });
+// 🔴 다 그려진 뒤에 찍는다 — 카드 줄 수가 멈출 때까지(스레드 2026-09-30 사고와 같은 구멍)
+{
+  let prev = -1;
+  for (let t = 1; t <= 8; t++) {
+    const n = await page.evaluate(() => document.querySelectorAll('#card .it-nm, #card .item, #card li').length);
+    if (n > 0 && n === prev) break;
+    prev = n; await new Promise((r) => setTimeout(r, 800));
+  }
+}
 
 const pngDataUrl = await page.evaluate(async () => {
   const card = document.getElementById('card');
