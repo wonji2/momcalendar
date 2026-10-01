@@ -166,6 +166,21 @@ const manual = [];
       else say('✅', '예약작업', '전부 살아있음');
     }
   } catch (e) { manual.push('예약작업 복구 실패 — `powershell tools\\daily\\tasks_backup.ps1 -Restore` 를 직접 돌려볼 것'); }
+  // 🔴🔴 검은 콘솔 창 — 사장님이 **세 번** 지적하셨다(2026-09-07 · 09-28 · 10-01).
+  //   매번 그때 있는 작업만 감싸고 끝내서, 새 작업을 만들 때마다 또 터졌다(10-01 에 20개가 안 감싸져 있었다).
+  //   → 사람 기억이 아니라 여기서 **매 세션 다시 본다**. 창을 띄우는 작업이 있으면 그 자리에서 감싼다.
+  try {
+    const ps = join(REPO, 'tools', 'daily', 'hide_task_windows.ps1');
+    if (existsSync(ps)) {
+      const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps];
+      if (!CHECK) args.push('-Apply');
+      const out = execFileSync('powershell.exe', args, { encoding: 'utf8', timeout: 180e3 });
+      const n = +((out.match(/창을 띄우는 작업 (\d+)개/) || [])[1] || 0);
+      if (!n) say('✅', '예약작업 창 숨김', '전부 감춰져 있음');
+      else if (CHECK) manual.push(`예약작업 ${n}개가 검은 창을 띄운다 — \`powershell tools\\daily\\hide_task_windows.ps1 -Apply\``);
+      else say('🔧', '예약작업 창 숨김', `${n}개를 run_hidden.vbs 로 감쌌다`);
+    }
+  } catch (e) { manual.push('예약작업 창 숨김 점검 실패 — `powershell tools\\daily\\hide_task_windows.ps1` 를 직접 돌려볼 것'); }
   manual.push('인스타 파싱은 크롬 확장(claude-in-chrome) + 가계정 로그인이 필요 — 파싱 작업을 할 때만');
   // 🔴 browser-profile* 은 네이버 로그인 쿠키라 백업에서 제외된다(공개·비공개 모두). 새 PC 면 반드시 다시 로그인.
   const snsRoot = join(REPO, 'sns-automation');
