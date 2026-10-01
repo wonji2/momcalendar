@@ -201,7 +201,11 @@ for (const f of ['parsing_excluded.txt', 'calendar_not_sellers.txt']) {
 //    분류 사전 낱말(욕실·아기·여행…)은 일반어라 근거가 못 된다 → **DB 상품명의 첫 낱말(브랜드) 사전**(scratchpad/brand_vocab.txt, 3건 이상)에
 //    있는 낱말이 들어 있어야 통과. 문장 어미(…요/다/죠/면/서/고/는/던/를/을/에/도)로 끝나면 버린다.
 const BRANDS = new Set();
-try { for (const l of readFileSync(path.join(ROOT, 'scratchpad', 'brand_vocab.txt'), 'utf8').split(/\r?\n/)) if (l.trim().length >= 2) BRANDS.add(l.trim()); } catch { }
+// 사전 경로를 환경변수로 바꿔 끼울 수 있다 — **라이브 파일을 건드리지 않고** 문턱을 재기 위해서다
+//   (momcal-ig-feed 가 상시 돌고 있어 파일을 바꿔치기하면 무인 회차가 영향을 받는다)
+//   BRAND_VOCAB=후보.txt DRY=1 node tools/daily/ig_feed_to_table.mjs <출력>
+const VOCAB_F = process.env.BRAND_VOCAB || path.join(ROOT, 'scratchpad', 'brand_vocab.txt');
+try { for (const l of readFileSync(VOCAB_F, 'utf8').split(/\r?\n/)) if (l.trim().length >= 2) BRANDS.add(l.trim()); } catch { }
 const ENDING = /(요|다|죠|네|지|든|면|서|고|는|던|를|을|에|의|도|만|까지|부터|라니|잖아|어요|해|봐|자|께)$/;
 // 2026-09-17: "첨가물"이 brand_vocab.txt 에 3건 이상으로 올라 있었다 — 여러 셀러가 상품명을
 //   "N가지 첨가물 ZERO!" 로 시작해서였다. isBrand("첨가물")=true 가 되면서 리니블 순델리 무첨가햄

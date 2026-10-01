@@ -83,9 +83,56 @@ if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | gr
   log "재검 통과(중복 걷어냄) 총=$TOT"
 fi
 
-# 2026-09-17 사장님 지시: 게이트까지만 자동, 등록(INSERT)은 승인표로 보내고 사람이 "올려" 해야 실행한다.
-#   (09-08 지시는 "확실한 것만 무인 등록"이었으나, 이 세션이 애매한 구제 건까지 승인 없이 등록해 신뢰가 깨졌다 — 전부 승인표로 되돌림)
+# ──────────────────────────────────────────────────────────────────────────────
+# 🔴🔴 2026-10-01 사장님 지시 — **그날 오픈하는 건 매일 찾아서 다 등록한다**
+#   *"그날 오픈하는건 찾아서 파도타면서 다 등록해야해"*
+#   *"다 올려 원래 하루에 200개씩 파싱하라고 했잖아"*
+#
+#   그래서 **게이트가 깨끗한 행은 무인 등록**한다. 09-17 에 전부 승인표로 되돌린 이유는
+#   「게이트가 못 믿을 것」이 아니라 **세션이 애매한 구제 건까지 승인 없이 넣어서**였다.
+#   여기까지 온 행은 게이트가 이것을 보장한다:
+#     excluded=0 · own_product=0 · handle_split=0 · 표 총=신규 (DB 중복 0) · 한글명 채움 · 분류 완료
+#   애매한 것은 이미 위에서 전부 보류 파일로 빠져 있다.
+#
+#   ⚠ 안전장치
+#     · 하루 상한 400건 — 도구가 오작동해도 피해가 하루치를 넘지 않는다
+#     · 등록 건수는 **DB 로 센다**(응답의 "id" 를 세면 과대집계된다 — 2026-09-29 실측)
+#     · 등록본은 승인대기_보관 에 그대로 남겨 사장님이 사후에 보실 수 있게 한다
+#     · INSERT 문 자체에 `where not exists` 중복검사가 들어 있다(gen_insert_gonggu.mjs)
+# ──────────────────────────────────────────────────────────────────────────────
 mkdir -p scratchpad/승인대기_보관
 cp "$f" "scratchpad/승인대기_보관/${DAY}_${TS}_igfeed_${TOT}건.md"
-log "🟡 게이트 통과 $TOT 건 — 등록 보류, 사장님 승인 대기: $f"
+
+DAY_CAP=400
+cnt_today(){ "$SB" db query --linked --output-format json \
+  "select count(*) as n from gonggu where created_at >= (now() at time zone 'Asia/Seoul')::date and source='insta_feed'" 2>/dev/null \
+  | grep -o '"n": *"\?[0-9]*' | grep -o '[0-9]*$' | head -1; }
+cnt_all(){ "$SB" db query --linked --output-format json "select count(*) as n from public.gonggu" 2>/dev/null \
+  | grep -o '"n": *"\?[0-9]*' | grep -o '[0-9]*$' | head -1; }
+
+TODAY_N=$(cnt_today)
+if [ -z "${TODAY_N:-}" ]; then
+  # 🔑 상한을 모르는 채로 넣지 않는다 (fail-closed) — 조회 실패를 「0건」으로 읽으면 상한이 무력해진다
+  log "🟡 오늘 등록 건수를 못 읽었다 — 등록하지 않고 보류: $f"; exit 0
+fi
+if [ "$TODAY_N" -ge "$DAY_CAP" ]; then
+  log "🟡 오늘 insta_feed 등록 $TODAY_N 건 ≥ 상한 $DAY_CAP — 등록하지 않고 보류: $f"; exit 0
+fi
+
+BEFORE=$(cnt_all)
+"$N" scratchpad/gen_insert_gonggu.mjs "$f" "$f.sql" --source insta_feed >/dev/null 2>&1 \
+  || { log "🔴 INSERT 생성 실패 — 보류: $f"; exit 1; }
+# SQL 이 크면 413 → 조각으로 나눠 넣는다
+"$N" scratchpad/_split_insert.mjs "$f.sql" scratchpad/_ig_ins_ 120 >/dev/null 2>&1 || true
+PARTS=$(ls scratchpad/_ig_ins_*.sql 2>/dev/null | sort)
+[ -n "$PARTS" ] || PARTS="$f.sql"
+for p in $PARTS; do "$SB" db query --linked --file "$p" --output-format json >/dev/null 2>&1; done
+rm -f scratchpad/_ig_ins_*.sql
+AFTER=$(cnt_all)
+if [ -n "${BEFORE:-}" ] && [ -n "${AFTER:-}" ]; then DONE=$((AFTER-BEFORE)); else DONE=-1; fi
+log "✅ 무인 등록 ${DONE}건 (게이트 통과 $TOT · DB ${BEFORE:-?} → ${AFTER:-?} · 등록 전 오늘 insta_feed $TODAY_N / 상한 $DAY_CAP)"
+if [ "$DONE" -gt "$DAY_CAP" ] 2>/dev/null; then log "🔴 실제 등록 ${DONE}건이 상한 ${DAY_CAP}을 넘었다 — 사람이 확인할 것"; fi
+
+# 등록 뒤 자동 점검 — 게이트가 못 보는 것(소분류 이탈·중복)을 본다
+"$N" tools/daily/cat_guard.mjs >/dev/null 2>&1 || true
 exit 0

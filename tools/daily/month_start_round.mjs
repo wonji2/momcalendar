@@ -1,5 +1,5 @@
 /**
- * 🗓️ **월초 총력전 회차** — 사람·채팅 없이 매월 1~5일에 스스로 돈다
+ * 🗓️ **월말→월초 집중 회차** — 사람·채팅 없이 **매월 24일부터 다음달 7일까지 매일** 스스로 돈다
  *
  * 사장님 지시 2026-10-01:
  *   *"파싱이 그 무엇보다 우리 업무의 99%비중 중요한거야 매월 똑같은말 하게 하지 말고
@@ -29,9 +29,11 @@
  *
  *   node tools/daily/month_start_round.mjs [--skip inpock,calendar] [--n 1200]
  * 로그: scratchpad/month_start_log.txt
- * 주기: 윈도우 예약작업 momcal-month-start — 매월 1·2·3·5일 01:10
+ * 주기: 윈도우 예약작업 momcal-month-blitz — **매일 01:10**. 창(24일~다음달 7일) 판단은 이 스크립트가 한다.
+ *       (날짜 목록 트리거를 쓰면 2월에 30일이 없어 안 돈다 — 그래서 매일 돌고 안에서 가른다)
  *
- * ⚠ 등록은 하지 않는다. 인포크·카페는 각 채널 무인 등록기가, 인스타는 사장님 "올려" 가 한다.
+ * ⚠ 이 회차는 **수확**을 한다. 등록은 각 채널 무인 등록기가 한다 —
+ *    인포크는 parsing_nightly 가, 인스타는 ig_feed_pipeline.sh 가(2026-10-01 부터 무인 등록, 하루 상한 400).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -60,7 +62,29 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > -1 ? proce
 const SKIP = new Set(String(arg('--skip', '')).split(',').filter(Boolean));
 const N_INPOCK = +arg('--n', 1200);
 
-const thisMonth = KST().toISOString().slice(0, 7);
+// ── 🔴🔴 집중 창: **월말 24일 ~ 다음달 7일** (사장님 지시 2026-10-01)
+//   *"월말이야 정확히는 월말에서 월초 2주에 걸쳐서 새로운 달 일정 올라오는거 전수조사 파싱 가능하게
+//    모든 방안을 총동원해서 돌린다 자동으로!!"*
+//
+//   🔴 **날짜 목록 트리거(/D 24,27,30)를 쓰지 않는다** — 2026-10-01 에 내가 그렇게 만들었다가 고쳤다.
+//      `30` 은 **2월에 아예 안 돈다.** 2·4·6·9·11월도 말일이 다르다.
+//      → 예약작업은 **매일** 돌고, 창 판단은 여기서 한다. 달 길이와 무관해진다.
+//
+//   🔑 **겨냥하는 달이 날짜에 따라 다르다.** 10/28 에 비어 있는 건 11월 일정이다 —
+//      이걸 틀리면 월말 2주 동안 엉뚱한 달을 들여다본다.
+const now = KST();
+const dayOfMonth = now.getUTCDate();
+const IN_WINDOW = dayOfMonth >= 24 || dayOfMonth <= 7;
+const FORCE = process.argv.includes('--force');
+if (!IN_WINDOW && !FORCE) {
+  log(`창 밖(${dayOfMonth}일) — 집중 창은 24일~다음달 7일이다. 끝. (강제: --force)`);
+  process.exit(0);
+}
+// 24일 이후면 **다음 달**이 겨냥 대상, 7일 이전이면 **이번 달**
+const target = new Date(now.getTime());
+target.setUTCDate(1);
+if (dayOfMonth >= 24) target.setUTCMonth(target.getUTCMonth() + 1);
+const thisMonth = target.toISOString().slice(0, 7);
 const mon1 = `${thisMonth}-01`;
 const d = KST(); d.setUTCMonth(d.getUTCMonth() - 3);
 const threeAgo = d.toISOString().slice(0, 10);
@@ -87,7 +111,8 @@ const run = (script, args = []) =>
   execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', script), ...args], { encoding: 'utf8', cwd: ROOT, timeout: 50 * 60e3 });
 const tail = (out, n = 2) => String(out || '').trim().split('\n').slice(-n).join(' | ').slice(0, 220);
 
-log(`════ 월초 총력전 ${thisMonth} 시작 (규칙 원본: tools/daily/PARSING_RULES.md) ════`);
+log(`════ 집중 회차 — 오늘 ${dayOfMonth}일 · 겨냥 ${thisMonth} ${dayOfMonth >= 24 ? '(월말: 다음 달 일정이 올라오는 때)' : '(월초)'} ════`);
+log(`   규칙 원본: tools/daily/PARSING_RULES.md · 창 24일~다음달 7일`);
 
 // ── 0. 그 달 일정이 DB에 없는 활동 셀러 — 물량이 여기 있다 (A3)
 step('gap-sellers', () => {
@@ -143,6 +168,6 @@ log('──── 회차 결과 ────');
 for (const [k, v] of results) log(`  ${k.padEnd(14)} ${v}`);
 log(`  ${'보고'.padEnd(14)} ${report}`);
 const bad = results.filter(([, v]) => v.startsWith('🔴'));
-log(`════ 월초 총력전 ${thisMonth} 끝 — 단계 ${results.length}개 중 실패 ${bad.length}개 ════`);
+log(`════ 집중 회차 ${thisMonth} 끝 — 단계 ${results.length}개 중 실패 ${bad.length}개 ════`);
 // 🔴 실패를 성공으로 보고하지 않는다. 예약작업 LastResult 에 남아 현황판에 뜬다
 process.exit(bad.length ? 1 : 0);

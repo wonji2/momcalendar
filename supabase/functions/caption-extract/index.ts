@@ -99,9 +99,13 @@ Deno.serve(async (req) => {
   if (raw.length > MAX_ITEMS) return json({ error: `한 번에 ${MAX_ITEMS}건까지` }, 400);
 
   // ── 준비: 캡션 자르고 sha
+  // 🔴 2026-10-01 실측: `slice()` 가 **이모지의 서로게이트 쌍을 반으로 잘라** 요청 본문이 깨졌다.
+  //    3회 호출 중 1회가 400 으로 죽고 8건이 조용히 「판독못함」이 됐다. 캡션은 이모지로 가득하다.
+  //    → 자른 뒤 **짝 없는 서로게이트를 걷어낸다.** (JSON.stringify 는 이걸 통과시킨다 — 서버가 거부한다)
+  const cut = (s: string) => s.slice(0, CAP_CHARS).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
   const items: { id: string; insta: string; cap: string; sha: string }[] = [];
   for (const it of raw) {
-    const cap = String(it?.cap || "").slice(0, CAP_CHARS).trim();
+    const cap = cut(String(it?.cap || "")).trim();
     if (!cap) continue;
     items.push({ id: String(it?.id ?? items.length), insta: String(it?.insta || ""), cap, sha: await sha(cap) });
   }
@@ -154,8 +158,12 @@ Deno.serve(async (req) => {
 
   let inTok = 0, outTok = 0, calls = 0;
   const errs: string[] = [];
-  for (let i = 0; i < uniq.length; i += PER_CALL) {
-    const chunk = uniq.slice(i, i + PER_CALL);
+  // 🔴 한 묶음이 실패하면 **쪼개 다시 묻는다** — 캡션 한 건 때문에 8건을 잃지 않게.
+  //    (2026-10-01: 400 한 번에 8건이 통째로 「판독못함」이 됐다)
+  const chunks: typeof uniq[] = [];
+  for (let i = 0; i < uniq.length; i += PER_CALL) chunks.push(uniq.slice(i, i + PER_CALL));
+  while (chunks.length) {
+    const chunk = chunks.shift()!;
     const user = chunk.map((x, n) => `[${n}] @${x.insta}\n${x.cap}`).join("\n\n---\n\n");
     try {
       const res = await client.messages.parse({
@@ -167,15 +175,18 @@ Deno.serve(async (req) => {
       inTok += res.usage?.input_tokens ?? 0;
       outTok += res.usage?.output_tokens ?? 0;
       const got = res.parsed_output?.items || [];
+      // 🔴 2026-10-01 실측: 빈 문자열을 달라고 했는데 **문자열 "null"** 을 넣어 왔다
+      //    (`아이보 브로우밤` 날짜 "null"). 그대로 두면 날짜 파서에 "null" 이 들어간다.
+      const nz = (s: unknown) => { const t = String(s ?? "").trim(); return /^(null|undefined|none|없음|미정|-|n\/a)$/i.test(t) ? "" : t; };
       for (const g of got) {
         const src = chunk[g.idx];
         if (!src) continue;        // 번호가 어긋나면 버린다 — 엉뚱한 캡션에 붙이지 않는다
         out.set(src.sha, {
           cap_sha: src.sha,
           is_gonggu: !!g.is_gonggu,
-          product: String(g.product || "").trim().slice(0, 60),
-          date_text: String(g.date_text || "").trim().slice(0, 60),
-          note: String(g.note || "").trim().slice(0, 20),
+          product: nz(g.product).slice(0, 60),
+          date_text: nz(g.date_text).slice(0, 60),
+          note: nz(g.note).slice(0, 20),
           cached: false,
         });
       }
@@ -183,7 +194,14 @@ Deno.serve(async (req) => {
       const answered = new Set(got.map((g) => g.idx));
       for (let n = 0; n < chunk.length; n++) if (!answered.has(n)) errs.push(`무응답 @${chunk[n].insta}`);
     } catch (e) {
-      errs.push(`호출실패 ${String((e as any)?.message || e).slice(0, 90)}`);
+      const msg = String((e as any)?.message || e).replace(/\s+/g, " ").slice(0, 200);
+      if (chunk.length > 1) {                               // 쪼개 다시 — 한 건이 나머지를 죽이지 않게
+        const h = Math.ceil(chunk.length / 2);
+        chunks.unshift(chunk.slice(0, h), chunk.slice(h));
+        errs.push(`쪼개 재시도(${chunk.length}→${h}) ${msg}`);
+      } else {
+        errs.push(`호출실패 @${chunk[0].insta} ${msg}`);     // 1건까지 쪼갰는데도 실패 — 그 캡션이 문제다
+      }
     }
   }
 
