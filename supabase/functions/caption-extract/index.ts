@@ -92,6 +92,21 @@ const json = (o: unknown, s = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  // 🔴🔴 2026-10-01 검증자 지적: 이 함수는 `verify_jwt:false` 로 배포됐고 핸들러에 인증이 **한 줄도 없었다.**
+  //    헤더 하나 없이 POST 하면 200 이 떨어졌다 — **누구나 우리 Anthropic 돈을 쓸 수 있는 상태**였다.
+  //    anon 키는 index.html 에 공개돼 있어 키 검사로는 못 막는다 → **별도 비밀 토큰**을 본다.
+  //    토큰은 Supabase 시크릿 `CAPTION_AI_TOKEN` 에만 둔다(디스크·레포에 두지 않는다).
+  //    🔑 토큰이 설정돼 있지 않으면 **함수를 아예 닫는다**(fail-closed) — 열어두는 쪽으로 기울지 않는다.
+  const want = Deno.env.get("CAPTION_AI_TOKEN");
+  if (!want) return json({ error: "CAPTION_AI_TOKEN 미설정 — 함수를 닫는다" }, 503);
+  //    ⚠ `crypto.timingSafeEqual` 은 Deno 표준에 없다 — 부르면 런타임에서 터져 500 이 된다(더 나쁘다).
+  //       길이를 먼저 보고, 같은 길이면 전체를 XOR 로 훑어 비교한다(조기 종료 없음).
+  const got = req.headers.get("x-caption-token") || "";
+  let diff = got.length === want.length ? 0 : 1;
+  for (let i = 0; i < Math.max(got.length, want.length); i++) {
+    diff |= (got.charCodeAt(i) || 0) ^ (want.charCodeAt(i) || 0);
+  }
+  if (diff !== 0) return json({ error: "unauthorized" }, 401);
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
   const raw = Array.isArray(body?.items) ? body.items : [];

@@ -103,6 +103,24 @@ fi
 mkdir -p scratchpad/승인대기_보관
 cp "$f" "scratchpad/승인대기_보관/${DAY}_${TS}_igfeed_${TOT}건.md"
 
+# 🔴🔴 2026-10-01 검증자 불통과 — **게이트는 상품명이 상품명인지 안 본다.**
+#   `pending_check.sh` 는 DB중복·제외셀러·사장님상품·핸들갈림만 센다. 그래서 무인 등록을 켠 뒤
+#   「알텐바흐 롯데백화점 최대품목 최대할인 특집전」·「아미 빅로고 가디건129000원」·
+#   「어그 싹 털다 걸린 썰...ㅋㅋㅋㅋㅋ」 같은 것이 라이브로 나갔다(실측 8건).
+#   → 등록 **직전**에 상품명 위생을 본다. 걸린 행만 보류로 빼고 회차는 계속 간다.
+#   (검사 기준은 scratchpad/_q_badname.sql · 메모리 product-name-hygiene — 새로 만든 게 아니다)
+BADOUT=$("$N" tools/daily/drop_badname.mjs "$f" "$HOLD" 2>&1 || true)
+BADN=$(echo "$BADOUT" | grep -o 'badname: -\?[0-9]*' | grep -o '\-\?[0-9]*$')
+if [ -z "${BADN:-}" ] || [ "$BADN" = "-1" ]; then
+  # 🔑 검사가 못 돌았으면 등록하지 않는다 (fail-closed) — 「0건」으로 읽으면 검사가 무력해진다
+  log "🟡 상품명 검사가 못 돌았다 — 등록하지 않고 보류: $f"; exit 0
+fi
+if [ "$BADN" -gt 0 ]; then
+  log "🧹 상품명이 아닌 행 ${BADN}건 보류로 뺌: $(echo "$BADOUT" | sed -n '2,4p' | tr '\n' ' ')"
+  grep -q '^| [0-9]' "$f" || { log "남은 행 0 — 끝"; exit 0; }
+  TOT=$(grep -c '^| [0-9]' "$f")
+fi
+
 DAY_CAP=400
 cnt_today(){ "$SB" db query --linked --output-format json \
   "select count(*) as n from gonggu where created_at >= (now() at time zone 'Asia/Seoul')::date and source='insta_feed'" 2>/dev/null \

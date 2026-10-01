@@ -123,8 +123,9 @@ step('gap-sellers', () => {
      and g.insta not in (select distinct insta from gonggu
                           where coalesce(insta,'') <> '' and open_date >= '${mon1}')
    group by g.insta order by c desc limit 2000`;
-  const out = execFileSync(SBX, ['db', 'query', '--linked', sql], { encoding: 'utf8', cwd: ROOT, timeout: 5 * 60e3 });
-  // 🔴 CLI 출력 형식이 환경에 따라 다르다(메모리 cli-rows-wrapper-is-the-terminal) → 양쪽을 다 받는다
+  const out = execFileSync(SBX, ['db', 'query', '--linked', '--output-format', 'json', sql], { encoding: 'utf8', cwd: ROOT, timeout: 5 * 60e3 });
+  // 🔴 CLI 출력 형식이 환경에 따라 다르다(메모리 cli-rows-wrapper-is-the-terminal) →
+  //    형제 도구들처럼 `--output-format json` 을 붙여 형식을 고정한다(이 파일만 빠뜨리고 있었다)
   //   JSON 이 섞여 오든(세션) 표로 오든(예약작업) 핸들만 뽑는다 — 「"insta": "값"」 만 읽는다
   const handles = [...new Set([...out.matchAll(/"insta"\s*:\s*"([^"]+)"/g)].map((m) => m[1].replace(/^@+/, '').toLowerCase()))];
   // 🔑 수확 0건은 "없다"가 아니라 내 도구가 틀린 것이다 (규칙 0-P)
@@ -153,11 +154,15 @@ let report = '';
 try {
   const pend = SP('승인대기_누적.md');
   const rows = fs.existsSync(pend) ? fs.readFileSync(pend, 'utf8').split('\n').filter((l) => l.startsWith('|') && /\d/.test(l)).length : 0;
-  const sql = `select count(*) as today, max(created_at) as last_at from gonggu
+  // 🔴 2026-10-01 검증자 지적: `max(created_at)` 을 그냥 찍어 **UTC 가 그대로 나왔다**
+  //    (로그에 「마지막 2026-10-01 02:25」로 찍혔는데 실제 KST 는 11:25). 프로젝트 기술함정 2.
+  const sql = `select count(*) as today,
+                      to_char(max(created_at) at time zone 'Asia/Seoul','YYYY-MM-DD HH24:MI') as last_at
+                 from gonggu
                 where created_at >= (now() at time zone 'Asia/Seoul')::date`;
   let today = '?', lastAt = '?';
   try {
-    const out = execFileSync(SBX, ['db', 'query', '--linked', sql], { encoding: 'utf8', cwd: ROOT, timeout: 3 * 60e3 });
+    const out = execFileSync(SBX, ['db', 'query', '--linked', '--output-format', 'json', sql], { encoding: 'utf8', cwd: ROOT, timeout: 3 * 60e3 });
     const m = out.match(/"today":\s*(\d+)/); if (m) today = m[1];
     const m2 = out.match(/"last_at":\s*"([^"]+)"/); if (m2) lastAt = m2[1].slice(0, 16);
   } catch { }

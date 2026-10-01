@@ -72,6 +72,15 @@ const LOGS = {
   db_retention: ['scratchpad/db_retention_log.txt'],  // 이게 멈추면 DB 가 500MB 로 달린다
   momsholic: ['scratchpad/momsholic_log.txt'],
   kw_daily: ['scratchpad/kw_daily_report.txt'],
+  // 🔴 2026-10-01 검증자 지적: 월말→월초 집중 회차(momcal-month-blitz)·파도타기·달력 회차가
+  //    현황판에 **없어서, 조용히 죽어도 아무도 모르는 상태**였다. 파싱이 업무의 99% 인데(사장님)
+  //    그 핵심 회차가 감시 밖에 있었다.
+  month_blitz: ['scratchpad/month_start_log.txt'],    // 매일 01:10, 창 24일~다음달 7일
+  calendar: ['scratchpad/calendar_round_log.txt'],    // 피드 달력글 (8시간마다)
+  cal_gap: ['scratchpad/calendar_gap_log.txt'],       // 달력 빈 셀러 바이오 (매월 1~5일)
+  surf: ['scratchpad/mention_surf_log.txt'],          // 파도타기 — 캡션 @태그 (하루 2회)
+  pangpang: ['scratchpad/pangpang_leads_log.txt'],    // 집계 사이트 새 셀러 핸들 (하루 2회)
+  ig_register: ['scratchpad/ig_feed_pipeline_log.txt'], // 그날 오픈 → 무인 등록 (매시간)
 };
 out.logs = {};
 for (const [k, cands] of Object.entries(LOGS)) {

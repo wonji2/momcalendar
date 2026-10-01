@@ -104,8 +104,10 @@ for (let d = 0; d < DAYS; d++) {
     //    🔴🔴 2026-10-01 사장님 지시로 **「공구 낱말이 있어야 한다」를 없앴다** —
     //       *"공구라는 낱말 없으면 버리라는게 무슨 이상한 규칙이야 그딴 규칙 없애"*
     //       셀러는 달력에 「10월 일정」만 쓰고 「공구」를 안 쓰는 경우가 흔하다.
-    //       → 낱말을 **요구하지 않고**, 공구 셀러가 아닌 업종을 **직접 막는다**(병원·학원·보육·공연 등).
-    //       명단으로도 막는다: scratchpad/calendar_not_sellers.txt (사람이 보고 한 줄 추가)
+    //       → 낱말을 **요구하지 않는다.** 공구 셀러가 아닌 계정은 **계정 명단으로만** 막는다:
+    //         scratchpad/calendar_not_sellers.txt (사람이 보고 한 줄 추가).
+    //         업종 낱말 차단(병원·학원·약국…)은 재봤다가 **되돌렸다** — 위 :55 주석 참조
+    //         (피드 쪽에서 재니 정상 공구 24건이 죽었다). 코드에도 없다.
     const lines = cap.split('\n').map((x) => x.trim()).filter(Boolean);
     const dateLines = lines.filter((x) => DATE_LINE.test(x)).length;
     if (!(CAL_MARK.test(cap) && dateLines >= 2) && dateLines < 3) continue;
