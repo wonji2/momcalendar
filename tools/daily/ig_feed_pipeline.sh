@@ -95,7 +95,7 @@ fi
 #   애매한 것은 이미 위에서 전부 보류 파일로 빠져 있다.
 #
 #   ⚠ 안전장치
-#     · 하루 상한 400건 — 도구가 오작동해도 피해가 하루치를 넘지 않는다
+#     · ~~하루 상한~~ → **없앴다**(사장님 2026-10-01 "상한은 왜있어"). 아래 124번 줄 참조
 #     · 등록 건수는 **DB 로 센다**(응답의 "id" 를 세면 과대집계된다 — 2026-09-29 실측)
 #     · 등록본은 승인대기_보관 에 그대로 남겨 사장님이 사후에 보실 수 있게 한다
 #     · INSERT 문 자체에 `where not exists` 중복검사가 들어 있다(gen_insert_gonggu.mjs)
@@ -121,21 +121,15 @@ if [ "$BADN" -gt 0 ]; then
   TOT=$(grep -c '^| [0-9]' "$f")
 fi
 
-DAY_CAP=400
-cnt_today(){ "$SB" db query --linked --output-format json \
-  "select count(*) as n from gonggu where created_at >= (now() at time zone 'Asia/Seoul')::date and source='insta_feed'" 2>/dev/null \
-  | grep -o '"n": *"\?[0-9]*' | grep -o '[0-9]*$' | head -1; }
+# 🔴🔴 2026-10-01 사장님 지시 — **하루 상한을 없앴다**
+#   *"상한은 왜있어 상한없이 다 올리고 하루에 한번 중복db나 말이 안되는 상품이나 셀러가 오류라거나
+#    공구가 아니라거나 이런거 걸러"*
+#   → 막는 쪽이 아니라 **거르는 쪽**으로 간다. 들어올 건 다 들어오고, 하루 한 번 라이브를 훑어 내린다:
+#       momcal-dup-guard  (매일 09:20) — 중복. 완전 동일은 삭제, 의심은 신고
+#       momcal-live-audit (매일 09:50) — 말이 안 되는 상품명 · 셀러 오류 · 공구 아닌 것
+#   (상한을 되살리려면 사장님께 먼저 물어본다)
 cnt_all(){ "$SB" db query --linked --output-format json "select count(*) as n from public.gonggu" 2>/dev/null \
   | grep -o '"n": *"\?[0-9]*' | grep -o '[0-9]*$' | head -1; }
-
-TODAY_N=$(cnt_today)
-if [ -z "${TODAY_N:-}" ]; then
-  # 🔑 상한을 모르는 채로 넣지 않는다 (fail-closed) — 조회 실패를 「0건」으로 읽으면 상한이 무력해진다
-  log "🟡 오늘 등록 건수를 못 읽었다 — 등록하지 않고 보류: $f"; exit 0
-fi
-if [ "$TODAY_N" -ge "$DAY_CAP" ]; then
-  log "🟡 오늘 insta_feed 등록 $TODAY_N 건 ≥ 상한 $DAY_CAP — 등록하지 않고 보류: $f"; exit 0
-fi
 
 BEFORE=$(cnt_all)
 "$N" scratchpad/gen_insert_gonggu.mjs "$f" "$f.sql" --source insta_feed >/dev/null 2>&1 \
@@ -148,8 +142,7 @@ for p in $PARTS; do "$SB" db query --linked --file "$p" --output-format json >/d
 rm -f scratchpad/_ig_ins_*.sql
 AFTER=$(cnt_all)
 if [ -n "${BEFORE:-}" ] && [ -n "${AFTER:-}" ]; then DONE=$((AFTER-BEFORE)); else DONE=-1; fi
-log "✅ 무인 등록 ${DONE}건 (게이트 통과 $TOT · DB ${BEFORE:-?} → ${AFTER:-?} · 등록 전 오늘 insta_feed $TODAY_N / 상한 $DAY_CAP)"
-if [ "$DONE" -gt "$DAY_CAP" ] 2>/dev/null; then log "🔴 실제 등록 ${DONE}건이 상한 ${DAY_CAP}을 넘었다 — 사람이 확인할 것"; fi
+log "✅ 무인 등록 ${DONE}건 (게이트 통과 $TOT · DB ${BEFORE:-?} → ${AFTER:-?} · 상한 없음 — 사후 감시로 거른다)"
 
 # 등록 뒤 자동 점검 — 게이트가 못 보는 것(소분류 이탈·중복)을 본다
 "$N" tools/daily/cat_guard.mjs >/dev/null 2>&1 || true

@@ -81,6 +81,7 @@ const LOGS = {
   surf: ['scratchpad/mention_surf_log.txt'],          // 파도타기 — 캡션 @태그 (하루 2회)
   pangpang: ['scratchpad/pangpang_leads_log.txt'],    // 집계 사이트 새 셀러 핸들 (하루 2회)
   ig_register: ['scratchpad/ig_feed_pipeline_log.txt'], // 그날 오픈 → 무인 등록 (매시간)
+  live_audit: ['scratchpad/live_audit_log.txt'],       // 라이브 사후 감시 (매일 09:50) — 상한 대신 이걸로 거른다
 };
 out.logs = {};
 for (const [k, cands] of Object.entries(LOGS)) {
