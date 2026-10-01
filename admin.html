@@ -6645,12 +6645,29 @@ async function loadData(){
     const nkey=s=>(s||'').trim().replace(/\s+/g,' ');
     knownNameInsta={};
     Object.entries(inflMapping||{}).forEach(([ig,nm])=>{ const k=nkey(nm); ig=(ig||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
+    let sellerRows=[];
     try{
       const sres=await fetch(`${SB_URL}/rest/v1/sellers?select=name,insta,login_insta`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}});
-      (await sres.json()||[]).forEach(s=>{ const k=nkey(s.name); const ig=(s.insta||s.login_insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
+      sellerRows=(await sres.json())||[];
+      sellerRows.forEach(s=>{ const k=nkey(s.name); const ig=(s.insta||s.login_insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
     }catch(_){}
     // 이미 insta가 연결된 공구에서도 한글명→insta 수집 (레거시·influencers 누락분 자가치유)
     allData.forEach(d=>{ const k=nkey(d.influencer); const ig=(d.insta||'').replace('@','').trim(); if(k&&ig&&!knownNameInsta[k]) knownNameInsta[k]=ig; });
+    // 🔴🔴 동명이인은 자동연결에서 뺀다 (사장님 지시 2026-10-01 "선율맘처럼 중복은 db내에선 인스타핸들로 확실히 가르고")
+    //   위 세 수집은 전부 '먼저 본 것이 이긴다'(!knownNameInsta[k]) 라서 한글명이 두 핸들에 걸리면
+    //   **아무거나 하나가 이기고** 그 값이 아래 autoFill 에서 DB 로 PATCH 된다 — 남의 핸들이 붙는다.
+    //   DB등록규칙 3번이 원래 "동명이인이면 미연결, 사장님이 @아이디 직접 선택" 이다. 그 규칙을 여기 걸어 둔다.
+    //   실측 2026-10-01: 솔맘(_sol_mom·dearsol_mommy) · 용감이네(__bravehome·luv_.brave) · 선율맘(seanyul_mom·two_mrchu).
+    {
+      const seen={};
+      const note=(nm,ig)=>{ const k=nkey(nm); const h=(ig||'').replace('@','').trim().toLowerCase(); if(k&&h)(seen[k]=seen[k]||new Set()).add(h); };
+      Object.entries(inflMapping||{}).forEach(([ig,nm])=>note(nm,ig));
+      sellerRows.forEach(s=>note(s.name, s.insta||s.login_insta));
+      allData.forEach(d=>note(d.influencer, d.insta));
+      let dropped=0;
+      Object.keys(seen).forEach(k=>{ if(seen[k].size>1){ delete knownNameInsta[k]; dropped++; } });
+      if(dropped) console.log(`[셀러 자동연결] 동명이인 ${dropped}명은 자동연결 제외 — @아이디를 직접 고르세요`);
+    }
 
     // 인스타 핸들 → 한글명 (influencer 칸에 영문 아이디만 들어가 이름매칭이 안 되는 카드 연결용)
     const handleToName={};
