@@ -227,10 +227,14 @@ try {
     const excluded = (gate.match(/excluded:\s*(\d+)/) || [])[1];
     const own = (gate.match(/own_product:\s*(\d+)/) || [])[1];
     const split = (gate.match(/handle_split:\s*(\d+)/) || [])[1];
+    // 🔴 2026-10-01 — 슬러그가 핸들 칸에 들어간 행. 게이트가 찍어주는데 **여기서 안 읽어서 무시되고 있었다.**
+    //   그 결과 노출중 42건이 인포크 슬러그로 등록돼 사이트 셀러 링크가 빈 계정으로 갔다.
+    //   `-1` 은 「검사가 못 돌았다」는 뜻이다 — 그것도 통과시키지 않는다(fail-closed).
+    const slugH = (gate.match(/slug_as_handle:\s*(-?\d+)/) || [])[1];
     const isNew = num('is_new'), noHandle = num('no_handle');
-    log(`⑤ 게이트 — 제외셀러 ${excluded} · 사장님상품 ${own} · 핸들갈림 ${split} · 핸들없음 ${noHandle} · 신규 ${isNew}`);
+    log(`⑤ 게이트 — 제외셀러 ${excluded} · 사장님상품 ${own} · 핸들갈림 ${split} · 슬러그핸들 ${slugH} · 핸들없음 ${noHandle} · 신규 ${isNew}`);
 
-    const clean = excluded === '0' && own === '0' && split === '0' && noHandle === 0;
+    const clean = excluded === '0' && own === '0' && split === '0' && slugH === '0' && noHandle === 0;
     let okToRegister = clean;
     if (!clean) {
       // 무엇이 걸렸는지 로그에 남긴다 — 이게 없어서 네 회차 동안 원인을 몰랐다
@@ -238,6 +242,8 @@ try {
       if (excluded !== '0') why.push(`제외셀러 ${excluded}`);
       if (own !== '0') why.push(`사장님상품 ${own}`);
       if (split !== '0') why.push(`핸들갈림 ${split}`);
+      if (slugH === '-1') why.push('슬러그검사 못 돌았음(DB 표 안 읽힘)');
+      else if (slugH !== '0') why.push(`슬러그핸들 ${slugH}`);
       if (noHandle !== 0) why.push(`핸들없음 ${noHandle}`);
       const slug = (gate.match(/^\s{3}(\S+)\s+→\s+(\S+)$/gm) || []).slice(0, 5).map((s) => s.trim());
       log(`🔴 게이트에 걸림(${why.join(' · ') || '숫자 못 읽음'}) — 전문: ${GATEOUT}`);
@@ -270,12 +276,13 @@ try {
         const ex2 = (gate.match(/excluded:\s*(\d+)/) || [])[1];
         const ow2 = (gate.match(/own_product:\s*(\d+)/) || [])[1];
         const sp2 = (gate.match(/handle_split:\s*(\d+)/) || [])[1];
+        const sg2 = (gate.match(/slug_as_handle:\s*(-?\d+)/) || [])[1];
         const nh2 = num('no_handle');
-        if (ex2 === '0' && ow2 === '0' && sp2 === '0' && nh2 === 0) {
+        if (ex2 === '0' && ow2 === '0' && sp2 === '0' && sg2 === '0' && nh2 === 0) {
           log(`   ✅ 막힌 행을 빼고 게이트 통과 — 신규 ${num('is_new')}건으로 계속한다`);
           okToRegister = true;
         } else {
-          log(`   🔴 빼고도 막힘(제외 ${ex2} · 사장님상품 ${ow2} · 갈림 ${sp2} · 핸들없음 ${nh2}) — 이 회차 등록 없음`);
+          log(`   🔴 빼고도 막힘(제외 ${ex2} · 사장님상품 ${ow2} · 갈림 ${sp2} · 슬러그핸들 ${sg2} · 핸들없음 ${nh2}) — 이 회차 등록 없음`);
         }
       }
       if (!okToRegister) log('🔴 승인표에 남겨두고 사람이 본다.');
