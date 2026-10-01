@@ -43,12 +43,18 @@ const AGG = /^(gonggu_|gongu_|gonggoo|ggonggu|momcal)/;
 // 🔴 파싱 제외 셀러는 **여기서 미리 뺀다** — 게이트(pending_check)에 걸리면 회차 전체가 멈춘다
 //    (ig_feed_to_table.mjs 가 같은 이유로 같은 자리에서 뺀다. 2026-09-30 첫 회차에 yunu_uno 가 들어왔다)
 const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twins_', 'hyun._.brother', 'yunu_uno', 'momcal_']);
-try {
-  for (const l of fs.readFileSync(path.join(ROOT, 'scratchpad', 'parsing_excluded.txt'), 'utf8').split(/\r?\n/)) {
-    const h = l.trim().split(/[\s|#(]/)[0];
-    if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h);
-  }
-} catch { }
+// 두 명단을 읽는다:
+//   parsing_excluded.txt      — 사장님 지정 제외셀러
+//   calendar_not_sellers.txt  — 달력꼴 글을 올리지만 **공구 셀러가 아닌 계정**(헬스장·학원·공연기획사·어린이집 등, 내 실측분)
+for (const f of ['parsing_excluded.txt', 'calendar_not_sellers.txt']) {
+  try {
+    for (const l of fs.readFileSync(path.join(ROOT, 'scratchpad', f), 'utf8').split(/\r?\n/)) {
+      if (l.trim().startsWith('#')) continue;
+      const h = l.trim().split(/[\s|#(]/)[0];
+      if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h);
+    }
+  } catch { }
+}
 
 const seen = new Set(fs.existsSync(SEEN_F) ? fs.readFileSync(SEEN_F, 'utf8').split(/\r?\n/).filter(Boolean) : []);
 
@@ -97,6 +103,13 @@ for (const l of out.split('\n').filter((x) => /^\s{2}\d{4}-/.test(x)).slice(0, 1
 if (!+got) { log('뽑힌 일정 0건 — 끝'); fs.writeFileSync(SEEN_F, [...seen].join('\n') + '\n'); process.exit(0); }
 if (DRY) { log(`--dry — 여기서 멈춘다 (TSV: ${tsvF})`); process.exit(0); }
 fs.writeFileSync(SEEN_F, [...seen].join('\n') + '\n');
+
+// 📋 달력 셀러 명단 갱신 (사장님 지시 2026-10-01 — 달력 올리는 셀러를 기억해 매달 챈다)
+//    명단: scratchpad/calendar_sellers.tsv · 이번 달 빈 셀러: `--gaps`
+try {
+  const r = execFileSync(NODE, [path.join(ROOT, 'tools', 'daily', 'calendar_roster.mjs'), '--add', tsvF], { encoding: 'utf8', cwd: ROOT });
+  for (const l of r.split('\n').filter((x) => x.trim()).slice(0, 3)) log('📋 ' + l.trim());
+} catch (e) { log('⚠ 명단 갱신 실패 — ' + String(e.message).split('\n')[0]); }
 
 // ── 기존 수확 파이프라인에 그대로 얹는다
 const run = (script, args) => execFileSync(NODE, [path.join(ROOT, script), ...args], { encoding: 'utf8', cwd: ROOT });
