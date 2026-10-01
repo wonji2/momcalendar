@@ -204,8 +204,11 @@ const BRANDS = new Set();
 // 사전 경로를 환경변수로 바꿔 끼울 수 있다 — **라이브 파일을 건드리지 않고** 문턱을 재기 위해서다
 //   (momcal-ig-feed 가 상시 돌고 있어 파일을 바꿔치기하면 무인 회차가 영향을 받는다)
 //   BRAND_VOCAB=후보.txt DRY=1 node tools/daily/ig_feed_to_table.mjs <출력>
-const VOCAB_F = process.env.BRAND_VOCAB || path.join(ROOT, 'scratchpad', 'brand_vocab.txt');
-try { for (const l of readFileSync(VOCAB_F, 'utf8').split(/\r?\n/)) if (l.trim().length >= 2) BRANDS.add(l.trim()); } catch { }
+// 🔴 2026-10-01: 처음엔 이 상수를 `VOCAB_F` 로 썼는데 **위에서 catvocab.json 이 그 이름을 이미 쓰고 있었다**
+//    → `SyntaxError: Identifier 'VOCAB_F' has already been declared` 로 **파일이 통째로 안 돌았다.**
+//    문법 검사를 안 돌리고 커밋해서 매시간 도는 등록기가 죽을 상태로 나갔다. 이름은 겹치지 않게.
+const BRAND_F = process.env.BRAND_VOCAB || path.join(ROOT, 'scratchpad', 'brand_vocab.txt');
+try { for (const l of readFileSync(BRAND_F, 'utf8').split(/\r?\n/)) if (l.trim().length >= 2) BRANDS.add(l.trim()); } catch { }
 const ENDING = /(요|다|죠|네|지|든|면|서|고|는|던|를|을|에|의|도|만|까지|부터|라니|잖아|어요|해|봐|자|께)$/;
 // 2026-09-17: "첨가물"이 brand_vocab.txt 에 3건 이상으로 올라 있었다 — 여러 셀러가 상품명을
 //   "N가지 첨가물 ZERO!" 로 시작해서였다. isBrand("첨가물")=true 가 되면서 리니블 순델리 무첨가햄
