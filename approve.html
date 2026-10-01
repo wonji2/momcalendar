@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>맘캘린더 발행 승인</title>
+<!-- 스레드 글 승인/반려 (사장님 지시 2026-10-01 "수정저장 바로 가능하게 내 승인 반려-반려시 수정방향 지시까지 바로 가능하게")
+     🔴 스레드 글은 올리면 우리가 못 지운다 → 여기서 승인한 것만 나간다.
+     관리자 로그인(admin.html 과 같은 계정) → rpc/threads_queue_* (is_app_admin 만). 표·함수 원본 supabase/sql/threads_queue_76.sql
+     시안 넣기: node sns-automation/src/threads-queue.js --seed   ·   반려 읽기: --rejected -->
+<style>
+:root{--p:#6B4A9E;--p-d:#5B3A8C;--p-l:#F2EBFB;--ok:#2E8B57;--bad:#D3554F;--warn:#D9782B;--ink:#231C2E;--mute:#8A8194;--line:#EDE9F2;--bg:#F7F5FA}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);padding:14px 12px 70px;max-width:720px;margin:0 auto;-webkit-text-size-adjust:100%}
+h1{font-size:19px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+h1 small{font-size:12px;color:var(--mute);font-weight:500}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 14px}
+button{border:0;border-radius:9px;padding:10px 13px;font-size:14px;font-weight:700;background:var(--p);color:#fff;cursor:pointer;font-family:inherit}
+button.ghost{background:#E6E0F0;color:var(--p-d)}
+button.ok{background:var(--ok)}
+button.no{background:var(--bad)}
+button:disabled{opacity:.5}
+input,textarea{border:1px solid #D7CFE3;border-radius:9px;padding:10px;font-size:15px;font-family:inherit;width:100%;line-height:1.55;background:#fff;color:var(--ink)}
+textarea{resize:vertical}
+.login{display:flex;flex-direction:column;gap:9px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;max-width:360px;margin:40px auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:12px}
+.card.rej{border-color:#F0C9C7;background:#FFF8F8}
+.hd{display:flex;align-items:center;gap:7px;margin-bottom:9px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--p-l);color:var(--p-d)}
+.st{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+.st.pending{background:#FFF3E0;color:#A9641F}
+.st.approved{background:#E6F4EC;color:#216D43}
+.st.rejected{background:#FBE9E8;color:#9E3833}
+.st.posted{background:#ECE9F2;color:#655C72}
+.when{font-size:11px;color:var(--mute);margin-left:auto}
+.lbl{font-size:11px;font-weight:800;color:var(--mute);margin:10px 0 4px}
+.btns{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.btns button{flex:1;min-width:88px}
+img.shot{width:100%;max-width:260px;border-radius:10px;border:1px solid var(--line);display:block;margin-top:6px}
+.note{background:#FBE9E8;border-radius:9px;padding:9px 10px;font-size:13px;color:#8A302B;margin-top:9px;white-space:pre-wrap}
+.sec{font-size:13px;font-weight:800;color:var(--mute);margin:20px 0 8px;display:flex;gap:6px;align-items:center}
+.foot{font-size:11.5px;color:var(--mute);line-height:1.6;margin-top:18px}
+a{color:var(--p-d)}
+.empty{background:#fff;border:1px dashed #D7CFE3;border-radius:12px;padding:22px;text-align:center;color:var(--mute);font-size:14px}
+</style>
+</head>
+<body>
+<h1>📮 발행 승인 <small>스레드</small></h1>
+<div class="foot" style="margin:0">승인한 글만 올라가요. <b>한 번 올라간 스레드 글은 지울 수 없어서</b> 여기서 먼저 보시는 거예요.</div>
+
+<div id="loginBox" class="login" hidden>
+  <div style="font-weight:800;font-size:16px">관리자 로그인</div>
+  <input id="email" type="email" placeholder="이메일" autocomplete="username">
+  <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <button id="loginBtn" onclick="login()">로그인</button>
+  <div class="foot">admin.html 과 같은 계정. 로그인 정보는 이 기기에만 저장돼요.</div>
+</div>
+
+<div id="app" hidden>
+  <div class="top">
+    <button class="ghost" onclick="boot()">↻ 새로고침</button>
+    <button class="ghost" onclick="logout()">로그아웃</button>
+    <span class="when" id="cnt"></span>
+  </div>
+  <div id="list"></div>
+  <div class="foot">· <b>수정 저장</b>을 누르면 고친 내용으로 다시 <b>승인 대기</b>가 돼요(바로 올라가지 않아요).<br>
+    · <b>반려</b>하시면 적어주신 수정방향을 보고 다시 짜서 올려둘게요.<br>
+    · 본문에 링크를 넣으면 승인이 막혀요 — 맘캘 규칙상 링크는 답글로만 나가요.</div>
+</div>
+
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co', KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const at=()=>localStorage.getItem('mc_admin_at');
+const $=id=>document.getElementById(id);
+
+async function login(){
+  const email=$('email').value.trim(), pw=$('pw').value;
+  if(!email||!pw) return alert('이메일·비밀번호를 넣어주세요');
+  const b=$('loginBtn'); b.disabled=true;
+  try{
+    const r=await fetch(`${SB}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok||!d.access_token) throw new Error(d.error_description||d.msg||'로그인 실패');
+    localStorage.setItem('mc_admin_at',d.access_token); if(d.refresh_token) localStorage.setItem('mc_admin_rt',d.refresh_token);
+    boot();
+  }catch(e){ alert(e.message); } finally{ b.disabled=false; }
+}
+async function refreshToken(){
+  const rt=localStorage.getItem('mc_admin_rt'); if(!rt) return false;
+  const r=await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({refresh_token:rt})});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok&&d.access_token){ localStorage.setItem('mc_admin_at',d.access_token); if(d.refresh_token) localStorage.setItem('mc_admin_rt',d.refresh_token); return true; }
+  return false;
+}
+function logout(){ localStorage.removeItem('mc_admin_at'); localStorage.removeItem('mc_admin_rt'); location.reload(); }
+async function rpc(name,body){
+  const call=()=>fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+at()},body:JSON.stringify(body||{})});
+  let r=await call();
+  if(r.status===401&&await refreshToken()) r=await call();
+  if(!r.ok){ const t=await r.text(); throw new Error(t.slice(0,200)); }
+  return r.json();
+}
+
+const LABEL={pending:'승인 대기',approved:'승인됨 · 발행 대기',rejected:'반려됨',posted:'발행됨'};
+
+function card(x){
+  const rej=x.status==='rejected';
+  return `<div class="card ${rej?'rej':''}" id="c${x.id}">
+    <div class="hd">
+      <span class="chip">${esc(x.variant)}</span>
+      <span class="st ${x.status}">${LABEL[x.status]||x.status}</span>
+      <span class="when">#${x.id} · ${esc(x.created)}</span>
+    </div>
+    ${x.reject_note?`<div class="note">🔴 적어주신 수정방향\n${esc(x.reject_note)}</div>`:''}
+    <div class="lbl">본문 (이대로 올라가요)</div>
+    <textarea id="b${x.id}" rows="8">${esc(x.body)}</textarea>
+    ${x.image_url?`<div class="lbl">사진</div><img class="shot" src="${esc(x.image_url)}" alt="사진" onerror="this.insertAdjacentHTML('afterend','<div class=note>🔴 사진이 안 열려요 — 이대로 올리면 빈칸으로 나가요</div>');this.remove();">`:''}
+    <div class="lbl">답글 (링크는 여기로 나가요)</div>
+    <textarea id="r${x.id}" rows="3">${esc(x.reply_text||'')}</textarea>
+    ${x.permalink?`<div class="lbl">올라간 글</div><a href="${esc(x.permalink)}" target="_blank" rel="noopener">${esc(x.permalink)}</a>`:''}
+    ${x.status==='posted'?'':`
+    <div class="btns">
+      <button class="ghost" onclick="save(${x.id})">수정 저장</button>
+      <button class="ok" onclick="approve(${x.id})">승인</button>
+      <button class="no" onclick="showReject(${x.id})">반려</button>
+    </div>
+    <div id="rj${x.id}" hidden>
+      <div class="lbl">어떻게 고칠까요? (적어주시면 그대로 다시 짜요)</div>
+      <textarea id="rn${x.id}" rows="3" placeholder="예) 말투를 더 가볍게, 질문을 하나만, 숫자를 앞에"></textarea>
+      <div class="btns"><button class="no" onclick="reject(${x.id})">이 방향으로 반려</button>
+        <button class="ghost" onclick="document.getElementById('rj${x.id}').hidden=true">취소</button></div>
+    </div>`}
+  </div>`;
+}
+
+function showReject(id){ const e=$('rj'+id); e.hidden=false; $('rn'+id).focus(); }
+
+async function act(fn,msg){
+  try{ await fn(); await boot(); }catch(e){ alert((msg?msg+'\n\n':'')+String(e.message||e).replace(/^\{.*?"message":"/,'').replace(/".*$/,'')); }
+}
+const save=id=>act(()=>rpc('threads_queue_save',{p_id:id,p_body:$('b'+id).value,p_image_url:null,p_reply:$('r'+id).value}),'저장이 안 됐어요');
+const approve=id=>act(async()=>{
+  await rpc('threads_queue_save',{p_id:id,p_body:$('b'+id).value,p_image_url:null,p_reply:$('r'+id).value});
+  await rpc('threads_queue_approve',{p_id:id});
+},'승인이 안 됐어요');
+const reject=id=>act(()=>rpc('threads_queue_reject',{p_id:id,p_note:$('rn'+id).value}),'반려가 안 됐어요');
+
+async function boot(){
+  if(!at()){ $('loginBox').hidden=false; $('app').hidden=true; return; }
+  $('loginBox').hidden=true; $('app').hidden=false;
+  let rows;
+  try{ rows=await rpc('threads_queue_list'); }
+  catch(e){ if(String(e.message).includes('forbidden')){ alert('관리자 계정이 아니에요'); logout(); return; } $('list').innerHTML=`<div class="empty">불러오지 못했어요<br><small>${esc(e.message)}</small></div>`; return; }
+  rows=rows||[];
+  const by=s=>rows.filter(r=>r.status===s);
+  const sec=(t,s)=>by(s).length?`<div class="sec">${t} <span class="chip">${by(s).length}</span></div>`+by(s).map(card).join(''):'';
+  const html=sec('🕐 승인 기다리는 글','pending')+sec('🔴 반려한 글','rejected')+sec('✅ 승인됨 — 발행 대기','approved')+sec('📤 올라간 글','posted');
+  $('list').innerHTML=html||'<div class="empty">지금은 볼 글이 없어요 🙂</div>';
+  $('cnt').textContent=`대기 ${by('pending').length} · 승인 ${by('approved').length} · 반려 ${by('rejected').length}`;
+}
+boot();
+</script>
+</body>
+</html>
