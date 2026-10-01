@@ -62,8 +62,13 @@ export const badReason = (name) => {
   const s = String(name || '').trim();
   if (!s) return null;
   const hit = BAD.find(([re]) => re.test(s));
-  return hit ? hit[1] : null;
+  if (hit) return hit[1];
+  // 깨진 표기(따옴표·시각조각·머리번호·꺾쇠·꼬리기호)는 **버리지 않고 고친다**
+  if (cleanJunkProbe(s)) return '군더더기';
+  return null;
 };
+// badReason 안에서 쓰려고 미리 선언 — 실제 구현은 아래 cleanJunk
+let cleanJunkProbe = () => null;
 
 // ── 🔴🔴 2026-10-01 라이브 실측으로 가른 것 — **사유마다 다루는 법이 다르다**
 //   라이브 2,611행에 걸어보니 걸린 10건 중 **대부분이 진짜 공구**였다:
@@ -74,8 +79,37 @@ export const badReason = (name) => {
 //   **이미 라이브에 있는 행을 내리는 건 되돌리기 전까지 손님이 못 본다.** 그래서 라이브는 좁게 본다.
 /** 라이브에서 **내려야** 하는 사유 — 사람이 봐도 상품명이 아닌 것만 */
 export const HARD = new Set(['문장형', '문장형2', '조사끝', '안내문구', '해시태그잔해', '구어체잔해', '숫자잔해', '공구아님']);
-/** 라이브에서 **이름만 고치면 되는** 사유 — 상품은 멀쩡하고 꼬리가 붙은 것 */
-export const FIXABLE = new Set(['가격붙음', '날짜붙음']);
+/** 라이브에서 **이름만 고치면 되는** 사유 — 상품은 멀쩡하고 군더더기가 붙은 것 */
+export const FIXABLE = new Set(['가격붙음', '날짜붙음', '군더더기']);
+
+// 🔴🔴 2026-10-01 사장님 지적 — 카드 2쪽 상품명이 깨져 있었다:
+//   «"짐버 프리미엄 유기농 생강농축액"» · «00, [NEW] 바이리브 생기철철 콜라겐» · «00PM - 마사지베개»
+//   «8.자동스퀴지:» · «플레인팟<매일 안심할 수 있는 이유>» · «욕실청소 종결템'스퀴지'»
+//   → 아래 cleanJunk 가 걷어낸다. live_audit 이 매일 돌며 **이름만 고치고 살린다**(내리지 않는다).
+//
+// ⚠ 같은 날 내가 낸 사고: 머리 시각조각을 `^[0O]{1,2}…` 로 지웠더니 **「Only 90kcal…」의 O 를 먹어
+//    「nly 90kcal…」** 가 됐고 「Oello 수제화」가 「ello 수제화」가 됐다(둘 다 되돌렸다).
+//    → 알파벳 `O` 는 **시각 꼴일 때만** 지운다(`00PM`·`00시`·`00,`). 맨 앞 글자 하나를 그냥 깎지 않는다.
+const JUNK = [
+  [/^\s*0{2}\s*(?:PM|AM|pm|am|시)\s*[-–—,.:]?\s*/u, ''],      // 00PM - · 00시
+  [/^\s*0{2}\s*[,.:]\s*/u, ''],                                // 00,  00:
+  [/^\s*\d{1,2}\s*[.)]\s+/u, ''],                              // 「8. 자동스퀴지」 머리번호 (뒤에 공백이 있어야 — 「3.5kg」 보호)
+  [/\[[^\]]{0,12}\]/gu, ' '],                                  // [NEW] [단독]
+  [/\s*[<〈]\s*[^>〉]{4,}\s*[>〉]\s*/gu, ' '],                   // <매일 안심할 수 있는 이유>
+  [/["'`‘’“”]/gu, ''],                                         // 따옴표 — 브랜드를 감쌌을 뿐이다
+  [/\s{2,}/gu, ' '],
+  [/[\s:,.·~\-–—]+$/u, ''],                                    // 꼬리 기호
+];
+/** 군더더기를 걷어낸 이름 (바뀐 게 없으면 null) */
+export const cleanJunk = (name) => {
+  let s = String(name || '');
+  for (const [re, to] of JUNK) s = s.replace(re, to);
+  s = s.trim();
+  if (!s || s === String(name || '').trim()) return null;
+  if (s.replace(/\s/g, '').length < 2) return null;            // 다 깎여 나가면 고친 게 아니다
+  return s;
+};
+cleanJunkProbe = cleanJunk;   // badReason 이 쓸 수 있게 연결 (위 선언 참조)
 /** 꼬리 떼기 — 가격·날짜가 붙은 이름을 살린다 (못 떼면 null) */
 export const stripTail = (name) => {
   let s = String(name || '').trim();

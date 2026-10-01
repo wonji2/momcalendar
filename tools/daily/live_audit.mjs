@@ -32,7 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { badReason, HARD, FIXABLE, stripTail } from './drop_badname.mjs';
+import { badReason, HARD, FIXABLE, stripTail, cleanJunk } from './drop_badname.mjs';
 // 🔴 CLI 출력은 환경마다 모양이 다르다 — 직접 파싱하면 예약작업만 조용히 죽는다.
 //    공용 파서를 쓴다(메모리 cli-rows-wrapper-is-the-terminal).
 import { sbArgs, parseRows } from './sb_query.mjs';
@@ -121,7 +121,7 @@ for (const r of rows) {
   if (why) {
     if (FIXABLE.has(why)) {
       // 꼬리만 붙은 것 — 상품은 멀쩡하다. **이름을 고치고 살린다**
-      const fixed = stripTail(name);
+      const fixed = why === '군더더기' ? cleanJunk(name) : stripTail(name);
       if (fixed) { fixN.push([r.id, name, fixed]); continue; }
       down.push([r.id, `상품명(${why}·못 고침)`, name, insta]); continue;
     }
