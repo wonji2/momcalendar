@@ -7,7 +7,8 @@
 // 상태: scratchpad/ig_feed_conv_seen.txt (변환한 게시물 code)
 //
 // 공구 판정 (전부 만족해야 통과) — 아니면 drop 파일에 사유를 남긴다
-//   ① 캡션에 "공구" 또는 "공동구매" 가 있다 (OPEN·오픈만으로는 안 됨)
+//   ① ~~캡션에 "공구" 낱말이 있다~~ → **없앴다** (사장님 지시 2026-10-01, 아래 KW 자리 주석 참조).
+//      공구의 기준은 낱말이 아니라 **날짜와 상품명**이다. 거르는 일은 ②~⑤ 가 한다.
 //   ② 오픈 날짜가 확실하다: 9/9 · 9월 9일 · 9.9 · (수) 붙은 것 · "오늘/내일/모레 오픈" (게시일 기준)
 //   ③ 마감·종료·품절 글, 핫딜·체험단·협찬·광고 글(공구 언급 없이), 후기·인증 글이 아니다
 //   ④ 상품명이 뽑힌다 (2자 이상, 판촉어만 남은 것 제외)
@@ -35,10 +36,22 @@ for (const f of files) for (const line of readFileSync(path.join(DIR, f), 'utf8'
   if (!line.trim()) continue; try { const j = JSON.parse(line); if (j.code && !seen.has(j.code)) posts.push(j); } catch {}
 }
 
-// 🔴 2026-09-15 사장님 "공구팡팡처럼 그날그날 오늘 오픈·내일 예고 글도 다 긁기로 했잖아" — 캡션에 "공구" 낱말이 없고
-//    "#오픈 · OPEN · 오픈예고 · 런칭" 만 있는 판매글이 한 회차에 수십 건씩 "공구 언급 없음" 으로 버려졌다(15:25 회차 1,945 중 1,922 버림).
-//    KW 를 넓힌다. 날짜·상품명·판촉어 규칙은 그대로라 "카페 오픈" 같은 글은 뒤 단계에서 걸린다. 시험은 DRY=1 + KW 환경변수로.
-const KW = process.env.KW ? new RegExp(process.env.KW, 'i') : /공구|공동구매|오픈|OPEN|런칭|출시|예고|특가|핫딜링크|최저가/i;
+// 🔴🔴 2026-10-01 사장님 지시 — **낱말 게이트를 없앴다**:
+//    *"공구라는 낱말 없으면 버리라는게 무슨 이상한 규칙이야 그딴 규칙 없애;; 니 맘대로 규칙 만들지마"*
+//    이 게이트는 내가 만든 것이다. 2026-09-08 지시 "공구 아닌 건 꼭 거르고 공구만" 은
+//    **핫딜·체험단을 거르라는 뜻**이었는데 내가 그걸 「낱말 일치 검사」로 바꿔놨다.
+//    실측: 2026-10-01 하루에 이 사유로만 **11,183건**을 버렸다. 공구팡팡과의 격차(오늘 30건 중 20건이
+//    저쪽에만 있었다)가 전부 여기서 났다 — 버린 글 안에 아이그릭 요거트메이커·리틀피기 가을신상·
+//    모슈 텀블러·리틀모엘 미아방지목걸이·실리콘 신발세탁망이 다 있었다.
+//    🔑 **거르는 일은 뒤 단계가 한다** — 마감글·핫딜/체험단·후기글 차단, 오픈 날짜, 상품명 위생(goodName).
+//       낱말이 아니라 **날짜와 상품명이 있는가**가 공구의 기준이다.
+//    (되살리지 말 것. 다시 세우려면 사장님께 먼저 물어본다.)
+// 🔴🔴 2026-10-01 — **업종 낱말 차단은 걷어냈다. 다시 넣지 말 것.**
+//    낱말 게이트를 없앤 자리에 「병원·학원·약국…」 차단을 넣어 봤다가 실측으로 되돌렸다:
+//      얻은 것 12건(진짜 공구 10건) ↔ **죽인 것 24건이 전부 정상 공구였다.**
+//      `약국` 이 약사 셀러(woori_yaksa·yaksa_mh·yakstagram_)를 잡고, `공연`·`수강` 이 일반 캡션에 걸렸다.
+//    캡션 낱말로 업종을 가르려는 시도는 이렇게 실패한다 — **계정 단위**로 막아야 한다
+//    (`parsing_excluded.txt` · `calendar_not_sellers.txt`). 메모리 measure-rule-change-on-existing-data.
 const ENDED = /마감\s*(되었|됐|했|입니다|이에요|예요)|종료\s*(되었|됐)|품절\s*(되었|됐)|마감되어|완판되었/;
 const NOT_GG = /핫딜|체험단|서포터즈|협찬|제품제공|원고료|리뷰이벤트/;
 const REVIEW = /후기|구매완료 인증|인증샷|사용후기/;
@@ -176,7 +189,14 @@ const SENTENCE2 = /(아시나요|된다고|배우는|그리고|돌아온|함께|
 // 사장님 상품·파싱 제외 셀러는 변환 단계에서 미리 뺀다 (게이트에 걸리면 회차 전체가 멈추므로)
 const OWN_PRODUCT = /(^|[^가-힣])(우랩|마이키즈|롤팬)([^가-힣]|$)/;
 const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twins_', 'hyun._.brother', 'yunu_uno', 'momcal_']);
-try { for (const l of readFileSync(path.join(ROOT, 'scratchpad', 'parsing_excluded.txt'), 'utf8').split(/\r?\n/)) { const h = l.trim().split(/[\s|#(]/)[0]; if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h); } } catch { }
+// 두 명단을 다 읽는다 (2026-10-01):
+//   parsing_excluded.txt      — **사장님이 지정한 제외 셀러.** 내 판단을 여기 넣지 않는다(롤리픽 오판).
+//   calendar_not_sellers.txt  — 공구 셀러가 아예 아닌 계정(학원·병원·보육·행사). 판단이 아니라 사실이다.
+// 🔴 전엔 앞 파일만 읽어 `noonnoppi_macheon`(눈높이 마천학원) 수강 일정이 상품으로 통과했다.
+//    calendar_round.mjs·calendar_roster.mjs 는 둘 다 읽는데 여기만 안 읽었다 — 같은 모양의 재발이다.
+for (const f of ['parsing_excluded.txt', 'calendar_not_sellers.txt']) {
+  try { for (const l of readFileSync(path.join(ROOT, 'scratchpad', f), 'utf8').split(/\r?\n/)) { if (l.trim().startsWith('#')) continue; const h = l.trim().split(/[\s|#(]/)[0]; if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h); } } catch { }
+}
 // 🔴 2026-09-08 23:16 사고: "욕실 매트 없이도"·"아기랑 여행 한 번 다녀오면 알잖아요" 같은 문장 조각 12건이 자동 등록됐다(삭제).
 //    분류 사전 낱말(욕실·아기·여행…)은 일반어라 근거가 못 된다 → **DB 상품명의 첫 낱말(브랜드) 사전**(scratchpad/brand_vocab.txt, 3건 이상)에
 //    있는 낱말이 들어 있어야 통과. 문장 어미(…요/다/죠/면/서/고/는/던/를/을/에/도)로 끝나면 버린다.
@@ -273,7 +293,6 @@ for (const p of posts) {
   if (p.ad) { why('광고'); continue; }
   if (EXCLUDED.has(p.u)) { why('제외 셀러'); continue; }
   if (OWN_PRODUCT.test(cap.slice(0, 200))) { why('사장님 상품(우랩·마이키즈·롤팬)'); continue; }
-  if (!KW.test(cap)) { why('공구 언급 없음'); continue; }
   if (ENDED.test(cap)) { why('마감/종료 글'); continue; }
   if (NOT_GG.test(cap) && !/공구\s*(오픈|시작|예고|일정|중)/.test(cap)) { why('핫딜/체험단/협찬'); continue; }
   if (REVIEW.test(cap) && !/공구\s*(오픈|시작|예고|일정)/.test(cap)) { why('후기/인증 글'); continue; }

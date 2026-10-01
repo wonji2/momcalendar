@@ -52,6 +52,11 @@ const CAL_MARK = /(#?\s*\d{1,2}\s*월\s*공구\s*(달력|일정|라인업)|공�
 //   ② 또는 **날짜줄이 3개 이상** 있는 글 (스스로 말하지 않아도 달력이다)
 const DATE_LINE = /^[^0-9\n]{0,4}(\d{1,2})\s*(?:[\/.]\s*\d{1,2}|월\s*\d{1,2}\s*일?)/;
 const AGG = /^(gonggu_|gongu_|gonggoo|ggonggu|momcal)/;
+// 🔴🔴 2026-10-01 — 공구 셀러가 아닌 계정은 **계정 명단으로만** 막는다(`calendar_not_sellers.txt`).
+//    업종 낱말(병원·학원·약국…)로 막아 봤다가 되돌렸다: 피드 쪽에서 재니 **죽인 24건이 전부 정상 공구**였다
+//    (`약국` 이 약사 셀러 woori_yaksa·yaksa_mh·yakstagram_ 를 잡았다).
+//    2026-09-30 사고 계정 4개(doksanyouth·pangyodaycare·j.entclinic·baesebok_dental)는
+//    **이미 그 명단에 있다** — 낱말 차단은 애초에 중복이었다. 새 비셀러가 보이면 명단에 한 줄 더한다.
 // 🔴 파싱 제외 셀러는 **여기서 미리 뺀다** — 게이트(pending_check)에 걸리면 회차 전체가 멈춘다
 //    (ig_feed_to_table.mjs 가 같은 이유로 같은 자리에서 뺀다. 2026-09-30 첫 회차에 yunu_uno 가 들어왔다)
 const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twins_', 'hyun._.brother', 'yunu_uno', 'momcal_']);
@@ -96,8 +101,11 @@ for (let d = 0; d < DAYS; d++) {
     // 🔴 2026-09-30 실측: "날짜줄 3개 이상"만으로 통과시키니 **공구 셀러가 아닌 계정**이 통째로 들어왔다 —
     //    독산청년(doksanyouth)·판교어린이집(pangyodaycare)·이비인후과(j.entclinic)·치과(baesebok_dental)가
     //    올린 행사·진료 일정이 「7090콘서트 : 인순이」·「무학중 학교시험 대비 특강」으로 후보에 떴다.
-    //    → 캡션에 **공구·공동구매가 있어야** 한다 (ig_feed_to_table 판정 ①과 같은 기준).
-    if (!/공구|공동구매/.test(cap)) continue;
+    //    🔴🔴 2026-10-01 사장님 지시로 **「공구 낱말이 있어야 한다」를 없앴다** —
+    //       *"공구라는 낱말 없으면 버리라는게 무슨 이상한 규칙이야 그딴 규칙 없애"*
+    //       셀러는 달력에 「10월 일정」만 쓰고 「공구」를 안 쓰는 경우가 흔하다.
+    //       → 낱말을 **요구하지 않고**, 공구 셀러가 아닌 업종을 **직접 막는다**(병원·학원·보육·공연 등).
+    //       명단으로도 막는다: scratchpad/calendar_not_sellers.txt (사람이 보고 한 줄 추가)
     const lines = cap.split('\n').map((x) => x.trim()).filter(Boolean);
     const dateLines = lines.filter((x) => DATE_LINE.test(x)).length;
     if (!(CAL_MARK.test(cap) && dateLines >= 2) && dateLines < 3) continue;
@@ -108,7 +116,7 @@ for (let d = 0; d < DAYS; d++) {
     if (o.code) { seen.add(o.code); codeOf.set(o.code, h); }   // 어느 셀러 게시물인지 기억 — 0건이면 seen 에서 뺀다
   }
 }
-log(`게시물 ${scanned}건 훑음 → 달력 글 ${picked}건 · 셀러 ${Object.keys(caps).length}명 (집계 ${skipAgg} · 제외셀러 ${skipExc} · 이미 뽑음 ${skipSeen})`);
+log(`게시물 ${scanned}건 훑음 → 달력 글 ${picked}건 · 셀러 ${Object.keys(caps).length}명 (집계 ${skipAgg} · 제외셀러·비셀러 ${skipExc} · 이미 뽑음 ${skipSeen})`);
 if (!picked) { log('달력 글 0건 — 끝'); process.exit(0); }
 
 const capF = path.join(DIR, `_cal_${today}_${stamp}.json`);
