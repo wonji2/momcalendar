@@ -35,3 +35,8 @@ language sql stable as $$
    where created_at > now() - (days || ' days')::interval
    group by 1 order by 1 desc;
 $$;
+
+-- 2026-09-28 보안 잠금으로 postgres 기본 권한이 회수됐다 → 명시 grant 가 없으면 Edge Function 도 404 를 받는다
+-- (메모리 supabase-security-baseline). 손님(anon)에겐 주지 않는다.
+grant select, insert, update on table caption_ai to service_role;
+grant execute on function caption_ai_spend(int) to service_role;
