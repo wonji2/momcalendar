@@ -59,7 +59,21 @@ jobs:
           else
             N=$(git diff --cached --name-only | wc -l)
             git commit -m "검색 노출 페이지 자동 갱신 ($(TZ=Asia/Seoul date '+%Y-%m-%d') · ${N}개 파일)"
-            git push
+            # 🔴 2026-10-01: 이 작업이 도는 1~2분 사이에 PC 예약작업(검색량 지도 등)이 main 으로 밀면
+            #   push 가 'fetch first' 로 거절되고, **다 만들어 둔 페이지를 통째로 버린다.**
+            #   9/30·10/1 이틀 연속 그래서 페이지가 9/29 에 굳었다(사장님이 로슬러 페이지에서 발견).
+            #   → 거절되면 원격을 끌어와 다시 얹고 다시 민다. 세 번까지.
+            pushed=0
+            for i in 1 2 3; do
+              if git push; then pushed=1; break; fi
+              echo "push 거절 — 원격을 끌어와 다시 얹는다 (${i}/3)"
+              git pull --rebase origin main || break   # 충돌이면 사람이 봐야 한다
+              sleep 5
+            done
+            if [ "$pushed" != "1" ]; then
+              echo "::error::push 를 세 번 다 실패했다 — 오늘 페이지가 안 올라갔다"
+              exit 1
+            fi
             echo "커밋 완료: ${N}개 파일"
             echo "changed=1" >> $GITHUB_ENV
           fi
