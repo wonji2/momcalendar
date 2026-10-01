@@ -141,15 +141,21 @@ async function load(){
   document.getElementById('st').textContent='불러오는 중…';
   window.__READY=false;
   try{
-    const since=new Date(new Date(day+'T00:00:00Z').getTime()-6*864e5).toISOString().slice(0,10);   // 최근 7일 안에 뜬 것만 — 가격이 낡지 않게
+    // 🔴🔴 2026-10-01 사장님 지적: *"9월1일 생성인데 왜 오늘자 핫딜 카드로 떠 카드는 오늘 올린 핫딜만 카드에 떠야지"*
+    //   전엔 `deal_day` 로 「오늘」을 갈랐다. 그런데 deal_day 는 딜을 되살릴 때 오늘로 밀어준다
+    //   (수기 update·evergreen 크론) → **9/1 에 올린 닥터노아·블랑키즐이 10/1 카드에 「오늘」로 떴다.**
+    //   → 기준을 **created_at(올린 날)** 로 바꾼다. 「오늘 올린 것」이 오늘 핫딜이다.
+    const since=new Date(new Date(day+'T00:00:00Z').getTime()-6*864e5).toISOString().slice(0,10);   // 최근 7일 안에 올린 것만 — 가격이 낡지 않게
     const nowIso=new Date().toISOString();
-    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&deal_day=gte.${since}&deal_day=lte.${day}&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=deal_day.desc,discount_rate.desc.nullslast,created_at.desc&limit=400`,{headers:H}).then(r=>r.json());
+    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
     const all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
     // 같은 상품명은 하나만 (여러 몰에서 같은 딜이 뜬다)
     const seen=new Set(); const uniq=all.filter(h=>{const k=h.name.toLowerCase().replace(/\s/g,'');if(seen.has(k))return false;seen.add(k);return true;});
     const byDc=(a,b)=>((b.discount_rate||0)-(a.discount_rate||0))||(String(b.created_at).localeCompare(String(a.created_at)));
-    const today=uniq.filter(h=>h.deal_day===day).sort(byDc);
-    const alive=uniq.filter(h=>h.deal_day<day).sort(byDc);
+    // 「오늘」 = **오늘 올린 것**(created_at). deal_day 는 되살릴 때 밀려서 못 믿는다(위 주석)
+    const kday=(h)=>new Date(new Date(h.created_at).getTime()+9*3600e3).toISOString().slice(0,10);
+    const today=uniq.filter(h=>kday(h)===day).sort(byDc);
+    const alive=uniq.filter(h=>kday(h)<day).sort(byDc);
     window.__DATA=[day,today,alive];
     // 글꼴이 로드되기 전에 줄 수를 세면 폭이 달라 한 줄 넘치거나 덜 찬다(검증 지적 2026-09-28) → 글꼴 준비 뒤에 그린다
     try{ await document.fonts.ready; }catch(_){}
