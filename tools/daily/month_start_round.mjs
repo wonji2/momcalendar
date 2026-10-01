@@ -13,9 +13,9 @@
  *   월초·월말 전수를 돌던 `momcal-month-sweep` 의 트리거가 **2026-09-27 일회성**이었다.
  *   반복 설정이 없어 9/27 에 한 번 돌고 끝. 메모리엔 "매월 24·27·30일" 로 적혀 있었다 —
  *   **적어놓은 것과 도는 것이 달라서** 사장님이 매월 같은 말씀을 하셔야 했다.
- *   이제 규칙은 `tools/daily/PARSING_RULES.md` 에, 도는 것은 이 파일 하나에 모았다.
+ *   이제 규칙은 `scratchpad/PARSING_RULES.md` 에, 도는 것은 이 파일 하나에 모았다.
  *
- * 규칙 원본: tools/daily/PARSING_RULES.md (A칸=사장님 확인 / B칸=내가 만든 것)
+ * 규칙 원본: scratchpad/PARSING_RULES.md (A칸=사장님 확인 / B칸=내가 만든 것)
  *   이 파일이 하는 일은 그 문서 C표와 **같아야 한다.** 다르면 이 파일이 틀린 것이다.
  *
  * 흐름 (하나가 실패해도 다음으로 간다 — 한 채널이 0건이어도 멈추지 않는다, 규칙 0-N)
@@ -112,7 +112,7 @@ const run = (script, args = []) =>
 const tail = (out, n = 2) => String(out || '').trim().split('\n').slice(-n).join(' | ').slice(0, 220);
 
 log(`════ 집중 회차 — 오늘 ${dayOfMonth}일 · 겨냥 ${thisMonth} ${dayOfMonth >= 24 ? '(월말: 다음 달 일정이 올라오는 때)' : '(월초)'} ════`);
-log(`   규칙 원본: tools/daily/PARSING_RULES.md · 창 24일~다음달 7일`);
+log(`   규칙 원본: scratchpad/PARSING_RULES.md · 창 24일~다음달 7일`);
 
 // ── 0. 그 달 일정이 DB에 없는 활동 셀러 — 물량이 여기 있다 (A3)
 step('gap-sellers', () => {
