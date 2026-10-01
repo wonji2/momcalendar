@@ -315,10 +315,26 @@ try {
       // SQL 이 크면 413 → 조각으로 나눠 넣는다(조각마다 중복검사가 살아 있는지 도구가 확인한다)
       run([SP('_split_insert.mjs'), insF, SP('_pn_ins_'), '120']);
       const parts = readdirSync(SP('.')).filter(f => /^_pn_ins_\d+\.sql$/.test(f)).sort();
+      // 🔴🔴 2026-10-01 실측: 조각 하나가 **일시적으로** 실패하자(바로 다시 돌리니 종료코드 0)
+      //    그 자리에서 예외가 터져 **남은 조각이 통째로 안 들어갔다** — 17건 중 1건만 등록됐다.
+      //    → 조각마다 한 번 더 해보고, 그래도 안 되면 **그 조각만 건너뛰고 계속 간다.**
+      //      (INSERT 문에 `where not exists` 가 있어 다시 돌려도 중복이 안 생긴다)
+      let partFail = 0;
       for (const p of parts) {
-        execFileSync(SB, ['db', 'query', '--linked', '--file', SP(p), '--output-format', 'json'],
-          { encoding: 'utf8', timeout: 900e3 });
+        let done = false;
+        for (let tryN = 1; tryN <= 2 && !done; tryN++) {
+          try {
+            execFileSync(SB, ['db', 'query', '--linked', '--file', SP(p), '--output-format', 'json'],
+              { encoding: 'utf8', timeout: 900e3 });
+            done = true;
+          } catch (pe) {
+            const msg = String(pe.stdout || pe.message || pe).replace(/\s+/g, ' ').slice(-140);
+            if (tryN === 2) { partFail++; log(`   🔴 조각 ${p} 등록 실패(2번 시도) — 건너뛴다: ${msg}`); }
+            else log(`   ⚠ 조각 ${p} 실패 — 다시 해본다: ${msg}`);
+          }
+        }
       }
+      if (partFail) log(`   🔴 조각 ${partFail}/${parts.length} 개가 안 들어갔다 — 다음 회차에 다시 시도된다(중복검사 있음)`);
       const after = readCnt();
       const done = (before >= 0 && after >= 0) ? after - before : -1;
       log(`⑥ 등록 ${done < 0 ? '?' : done}건 (DB ${before} → ${after})`);
