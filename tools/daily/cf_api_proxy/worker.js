@@ -18,10 +18,14 @@ const ANON = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 
 // 캐시 대상 = 손님 누구에게나 같은 공개 목록만. 표 이름 → 붙잡아 두는 초.
 // 핫딜은 expires_at 으로 시각에 따라 빠지므로 짧게, 공구·배너는 하루 한 번 바뀌므로 길게.
+// ⚠ 공구 15분·배너 3분 — 사장님이 손으로 넣고 바로 확인하신다. 30분은 "안 들어갔나" 하게 만든다(2026-10-01 우랩).
+//   공구는 3쪽 126KB 라 짧게 할수록 전송량이 는다: 30분 0.54GB/월 · 15분 0.8GB/월 · 10분 1.6GB/월 → 15분으로 잡았다.
+// ⚠ banners_public 만 3분이다 — 배너는 사장님이 손으로 켜고 끄고 바로 확인하신다(2026-10-01 우랩 배너가 15분 안 보였다).
+//   크기가 7KB 라 자주 채워도 월 10MB 수준이다.
 // 🔑 TTL 이 짧으면 손님이 아니라 **캐시를 다시 채우는 쪽**이 전송량을 먹는다. 계산: (1440/TTL분) × 지점 수(ICN·NRT·HKG 실측 3) × 그 URL 크기.
 //   5분이면 공구·핫딜만 월 3.3GB(한도 5GB 의 2/3). 실제 갱신 주기에 맞춰 늘렸다 — 공구는 밤 파싱이 3시간마다, 핫딜은 크론이 하루 몇 번이라
 //   30분·15분이어도 손님 화면이 늦어 보이지 않는다(월 1.1GB). 별칭은 거의 안 바뀌어 6시간. 급히 반영하려면 TTL 을 줄이고 배포한다.
-const CACHE_TTL = { hotdeals: 900, gonggu: 1800, banners_public: 900, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600 };
+const CACHE_TTL = { hotdeals: 900, gonggu: 900, banners_public: 180, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600 };
 const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block)(?:\?|$)/;
 // 공개 저장소 사진(배너·카드 이미지)은 파일 이름에 시각이 박혀 있어 내용이 바뀌지 않는다 → 하루 붙잡아 두고 브라우저에도 하루 물린다.
 // 활성 배너 3장이 600KB 인데 손님마다 새로 받아가면 월 2GB 다(2026-09-29 실측). 비공개(object/sign·authenticated)는 건드리지 않는다.
