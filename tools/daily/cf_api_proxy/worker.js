@@ -32,6 +32,10 @@ const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_ali
 const IMG_RE = /^\/storage\/v1\/object\/public\//;
 const IMG_TTL = 86400;
 
+// 배포 시각. cf_api_proxy.mjs 가 올릴 때마다 새 값으로 바꿔 넣는다.
+// 캐시 열쇠에 섞여 있어 **배포 = 캐시 비우기** 가 된다(배너·공구를 고치고 바로 보이게 하려고, 2026-10-01).
+const BUILD = '__BUILD__';
+
 function cors(req) {
   const h = new Headers();
   h.set('Access-Control-Allow-Origin', '*');
@@ -57,7 +61,7 @@ function cacheTtl(req, url) {
 }
 // 같은 URL 이라도 Range(페이지)·Prefer 가 다르면 다른 답 → 열쇠에 넣는다. Cache API 는 GET 요청 객체를 열쇠로 받는다
 function cacheKey(req, url) {
-  const parts = [url.pathname + url.search, req.headers.get('range') || '', req.headers.get('range-unit') || '', req.headers.get('prefer') || '', req.headers.get('accept') || ''];
+  const parts = [BUILD, url.pathname + url.search, req.headers.get('range') || '', req.headers.get('range-unit') || '', req.headers.get('prefer') || '', req.headers.get('accept') || ''];
   return new Request('https://api.momcalendar.com/__cache/' + encodeURIComponent(parts.join('|')), { method: 'GET' });
 }
 
@@ -68,7 +72,7 @@ export default {
     // 살아있나 확인용 — 사이트가 아니라 사람·도구가 본다
     if (url.pathname === '/__ping') {
       const h = cors(req); h.set('Content-Type', 'text/plain; charset=utf-8'); h.set('Cache-Control', 'no-store');
-      return new Response('ok momcal-api-proxy ' + (req.cf && req.cf.colo || ''), { headers: h });
+      return new Response('ok momcal-api-proxy ' + (req.cf && req.cf.colo || '') + ' build=' + BUILD, { headers: h });
     }
     if (!ALLOW.test(url.pathname)) return new Response('not found', { status: 404, headers: cors(req) });
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });

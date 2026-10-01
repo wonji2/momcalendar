@@ -57,7 +57,7 @@ function Mirror-Ex([string]$s0, [string]$d0, [string[]]$xd, [string[]]$xf) {
   robocopy @rc | Out-Null
 }
 # sns-automation 코드 (비밀키·브라우저 프로필·node_modules·daily 릴스·사진은 제외)
-Mirror-Ex "$src\sns-automation" "$repo\sns-automation" @('node_modules','browser-profile','browser-profile-cafe','browser-profile-inpock','browser-profile-scrape','browser-profile-srook','browser-profile-njob','browser-profile-blog1','browser-profile-blog3','daily','images') @('.env','*.png','*.jpg','*.mp4')
+Mirror-Ex "$src\sns-automation" "$repo\sns-automation" @('node_modules','browser-profile*','daily','images') @('.env','*.png','*.jpg','*.mp4')
 Mirror-Ex "$src\tools\daily\tasks" "$repo\tools-daily-tasks" @() @()
 # 블로그원고(지침·도구·원고)와 발행 폴더(예약 기록 published-blog.json) — 사진·html 은 뺀다
 $blogSrc = "$env:USERPROFILE\Desktop\블로그원고"

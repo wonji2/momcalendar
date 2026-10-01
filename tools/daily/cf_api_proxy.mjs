@@ -82,7 +82,10 @@ async function main() {
   if (mode === 'deploy') {
     if (!token) process.exit(1);
     // 1) Worker 올리기 (module 형식, multipart)
-    const src = fs.readFileSync(path.join(__dirname, 'cf_api_proxy', 'worker.js'), 'utf8');
+    // 올릴 때마다 BUILD 를 지금 시각으로 — 캐시 열쇠가 바뀌어 **옛 캐시는 버려진다**(2026-10-01)
+    const build = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    const src = fs.readFileSync(path.join(__dirname, 'cf_api_proxy', 'worker.js'), 'utf8').split('__BUILD__').join(build);
+    console.log('  build =', build, '(배포하면 옛 캐시는 버려진다)');
     const fd = new FormData();
     fd.append('metadata', new Blob([JSON.stringify({ main_module: 'worker.js', compatibility_date: '2025-09-01' })], { type: 'application/json' }));
     fd.append('worker.js', new Blob([src], { type: 'application/javascript+module' }), 'worker.js');
