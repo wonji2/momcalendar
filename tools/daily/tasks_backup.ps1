@@ -57,9 +57,13 @@ if ($Restore) {
   foreach ($f in $files) {
     $name = $f.BaseName
     $exists = schtasks /query /tn $name 2>$null
-    if ($?) { Write-Output "  건너뜀(이미 있다) $name"; $skip++; continue }
+    if ($LASTEXITCODE -eq 0) { Write-Output "  건너뜀(이미 있다) $name"; $skip++; continue }
     schtasks /create /tn $name /xml $f.FullName /f 2>&1 | Out-Null
-    if ($?) { Write-Output "  ✅ 복원 $name"; $ok++ } else { Write-Output "  🔴 실패 $name"; $fail++ }
+    # 🔴🔴 2026-10-01 검증자 지적: `$?` 는 **네이티브 종료코드가 아니다.** 파이프라인 뒤에선
+    #    마지막 cmdlet(Out-Null) 성공 여부에 가깝고, PS 5.1 은 네이티브 stderr 를 리다이렉트하면
+    #    종료코드 0 인데도 `$?` 가 $false 가 된다. 그래서 「복원 N개 · 실패 0개」를 **믿을 수 없었다**
+    #    (커밋 메시지에 「복원 리허설까지 통과」라고 적었는데 그 판정 근거가 이것이었다).
+    if ($LASTEXITCODE -eq 0) { Write-Output "  ✅ 복원 $name"; $ok++ } else { Write-Output "  🔴 실패 $name (종료코드 $LASTEXITCODE)"; $fail++ }
   }
   Write-Output ""
   Write-Output "복원 $ok 개 · 이미 있어 건너뜀 $skip 개 · 실패 $fail 개"
@@ -74,7 +78,7 @@ $ok = 0; $fail = 0
 foreach ($name in $live) {
   $out = Join-Path $dir "$name.xml"
   $xml = schtasks /query /tn $name /xml 2>$null
-  if (-not $?) { Write-Output "  🔴 읽기 실패 $name"; $fail++; continue }
+  if ($LASTEXITCODE -ne 0 -or -not $xml) { Write-Output "  🔴 읽기 실패 $name (종료코드 $LASTEXITCODE)"; $fail++; continue }
   # 🔴🔴 2026-10-01 복원 리허설에서 잡은 결함: `schtasks /query /xml` 은 선언에
   #    `encoding="UTF-16"` 을 박아 넣는다. 이걸 **utf8 로 저장하면 선언과 실제가 어긋나**
   #    복원 때 `(1,2):: 오류: 잘못된 문서 구문입니다` 로 거부당한다(66개 전부 복원 불가였다).

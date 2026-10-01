@@ -49,13 +49,20 @@ const save = (m) => {
 
 const AGG = /^(gonggu_|gongu_|gonggoo|ggonggu|momcal)/;
 // 파싱 제외 셀러는 명단에도 올리지 않는다
+// 🔴 2026-10-01 검증자 지적: 전엔 `parsing_excluded.txt` 만 읽어 **공구 셀러가 아닌 계정이 명단에
+//    올라 있었다**(f45suyu 헬스장 · eocene_math_edu 학원 · credia_official 공연기획사 ·
+//    better_earth_official). 그 중 credia_official 은 --gaps 에 올라 gap_hunt 가 **매일 바이오를
+//    긁고 있었다.** calendar_round.mjs 는 둘 다 읽는데 여기만 안 읽었다 — 둘 다 읽는다.
 const EXCLUDED = new Set();
-try {
-  for (const l of fs.readFileSync(path.join(ROOT, 'scratchpad', 'parsing_excluded.txt'), 'utf8').split(/\r?\n/)) {
-    const h = l.trim().split(/[\s|#(]/)[0];
-    if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h);
-  }
-} catch { }
+for (const f of ['parsing_excluded.txt', 'calendar_not_sellers.txt']) {
+  try {
+    for (const l of fs.readFileSync(path.join(ROOT, 'scratchpad', f), 'utf8').split(/\r?\n/)) {
+      if (l.trim().startsWith('#')) continue;
+      const h = l.trim().split(/[\s|#(]/)[0];
+      if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h);
+    }
+  } catch (e) { console.log(`🔴 제외 명단을 못 읽었다: ${f} (${e.code})`); process.exit(1); }
+}
 
 if (process.argv.includes('--add')) {
   const files = process.argv.slice(process.argv.indexOf('--add') + 1).filter((x) => !x.startsWith('--'));
@@ -93,11 +100,15 @@ if (process.argv.includes('--add')) {
   save(m);
   console.log(`명단 갱신 — 새 셀러 ${added}명 · 갱신 ${upd}건 · 집계·제외셀러 ${skipped}행 건너뜀`);
   console.log(`명단 총 ${m.size}명 → ${F}`);
-  const cur = [...m.values()].filter((v) => v.last === thisMonth).length;
+  const cur = [...m.values()].filter((v) => v.seen.has(thisMonth)).length;
   console.log(`  이번 달(${thisMonth}) 달력이 잡힌 셀러 ${cur}명 · 아직 없는 셀러 ${m.size - cur}명`);
 } else if (process.argv.includes('--gaps')) {
   const m = load();
-  const gaps = [...m.entries()].filter(([, v]) => v.last !== thisMonth)
+  // 🔴🔴 2026-10-01 검증자 실측: 전엔 `v.last !== thisMonth` 로 판정했다. 그런데 --add 는 두 달 뒤까지
+  //    담으므로 11·12월까지 올린 셀러는 last=2026-12 가 되어 **10월을 이미 잡았는데도 빈 셀러**로 나갔다
+  //    (75명 중 5명 오탐 — boa.mom_ 은 seen 에 2026-10 이 있는데도 나갔다).
+  //    `seen` 집합이 바로 옆에 있는데 `last` 만 본 탓이다 → **seen 에 이번 달이 있나**로 본다.
+  const gaps = [...m.entries()].filter(([, v]) => !v.seen.has(thisMonth))
     .sort((a, b) => b[1].seen.size - a[1].seen.size || (b[1].last || '').localeCompare(a[1].last || ''));
   console.log(`이번 달(${thisMonth}) 달력이 아직 없는 달력셀러 ${gaps.length}명 / 명단 ${m.size}명\n`);
   console.log('  ⚠ 「없다」가 아니라 「아직 못 잡았다」다 — 셀러 피드를 직접 봐야 한다 (규칙 0-P: 수확 0건은 내 도구를 의심한다)');
@@ -107,8 +118,16 @@ if (process.argv.includes('--add')) {
   const out = path.join(ROOT, 'scratchpad', `calendar_gaps_${thisMonth}.txt`);
   fs.writeFileSync(out, gaps.map(([h]) => h).join('\n') + '\n', 'utf8');
   console.log(`\n  명단 → ${out}  (피드 스윕·바이오 수확이 이 셀러들을 먼저 보게 쓴다)`);
+} else if (process.argv.includes('--prune')) {
+  // 이미 명단에 올라간 제외셀러·비셀러를 걷어낸다 (명단이 생기기 전에 들어간 것들)
+  const m = load();
+  const out = [...m.keys()].filter((h) => EXCLUDED.has(h) || AGG.test(h));
+  for (const h of out) m.delete(h);
+  save(m);
+  console.log(`명단에서 걷어냄 ${out.length}명: ${out.join(', ') || '(없음)'}`);
+  console.log(`명단 총 ${m.size}명`);
 } else {
   const m = load();
-  console.log(`달력 셀러 명단 ${m.size}명 · 이번 달(${thisMonth}) 잡힘 ${[...m.values()].filter((v) => v.last === thisMonth).length}명`);
-  console.log(`사용법: --add <파싱결과.tsv> [...]  |  --gaps`);
+  console.log(`달력 셀러 명단 ${m.size}명 · 이번 달(${thisMonth}) 잡힘 ${[...m.values()].filter((v) => v.seen.has(thisMonth)).length}명`);
+  console.log(`사용법: --add <파싱결과.tsv> [...]  |  --gaps  |  --prune`);
 }

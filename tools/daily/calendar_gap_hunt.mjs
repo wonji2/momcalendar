@@ -18,7 +18,10 @@
  *   node tools/daily/calendar_gap_hunt.mjs [--n 80] [--gap 2000] [--dry]
  * 상태: scratchpad/ig_bio/bios.jsonl (원문 보관 — 메모리 collect-everything-always)
  * 로그: scratchpad/calendar_gap_log.txt
- * 주기: 윈도우 예약작업 momcal-cal-gap — 매달 1~5일 09:40 (달력은 월초에 올라온다)
+ * 주기: 윈도우 예약작업 momcal-cal-gap — **매달 1일부터 5일간** 하루 1회 09:40, --n 40
+ *   (2026-10-01 검증자 지적: 처음엔 「매일」로 걸어놨는데 주석은 「매달 1~5일」이라 어긋났고,
+ *    달력을 안 올리는 같은 70여 명의 프로필을 1년 내내 매일 긁는 꼴이었다 — 계정·IP 위험.
+ *    달력은 월초에 몰리니 월초 5일만 돈다. 그 뒤에 올리는 셀러는 momcal-calendar 가 피드로 잡는다)
  */
 import fs from 'node:fs';
 import path from 'node:path';

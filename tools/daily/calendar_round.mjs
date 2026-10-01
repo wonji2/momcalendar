@@ -34,6 +34,18 @@ const today = KST().toISOString().slice(0, 10);
 const stamp = KST().toISOString().slice(11, 16).replace(':', '');
 const log = (s) => { const line = `[${today} ${KST().toISOString().slice(11, 16)}] ${s}`; console.log(line); try { fs.appendFileSync(LOG_F, line + '\n'); } catch { } };
 
+// 🔴🔴 2026-10-01 검증자 지적: 예약작업은 `wscript //B run_hidden.vbs` 로 돌아 **자식의 stderr 가
+//    어디에도 안 남는다**(run_hidden.vbs 에 리다이렉션이 없다). 전엔 전역 핸들러도 없어서
+//    터지면 로그가 「달력 파싱 N건」에서 **그냥 끊겼다** — 「exit 0 인데 아무 일도 안 한 회차」가
+//    로그상 정상으로 보였다. 메모리 scheduled-task-swallows-stderr.
+//    → 죽는 이유를 반드시 로그 파일에 남기고 **0 이 아닌 코드로** 끝낸다(예약작업 LastResult 로 보인다).
+for (const ev of ['uncaughtException', 'unhandledRejection']) {
+  process.on(ev, (e) => {
+    log(`🔴🔴 ${ev} — ${String(e && e.stack || e).split('\n').slice(0, 6).join(' | ')}`);
+    process.exit(1);
+  });
+}
+
 // ── 달력 글 판별
 //   ① 달력·일정 모음이라고 **스스로 말하는** 글
 const CAL_MARK = /(#?\s*\d{1,2}\s*월\s*공구\s*(달력|일정|라인업)|공구\s*(달력|일정|라인업)|월\s*(공구\s*)?(달력|일정|라인업)|일정\s*(모음|공유|안내)|공구\s*리스트|라인업\s*(공개|안내))/;
@@ -46,20 +58,28 @@ const EXCLUDED = new Set(['ggumi_geonhu', 'mimimiso_', 'avocado_ha_', 'kkang_twi
 // 두 명단을 읽는다:
 //   parsing_excluded.txt      — 사장님 지정 제외셀러
 //   calendar_not_sellers.txt  — 달력꼴 글을 올리지만 **공구 셀러가 아닌 계정**(헬스장·학원·공연기획사·어린이집 등, 내 실측분)
+// 🔴 2026-10-01 검증자 지적: 전엔 `catch { }` 라 **파일이 없으면 하드코딩 7명만 적용**되고
+//    `my.77l77l`·`dalkom__mom` 등 6명이 조용히 통과했다. 못 읽으면 회차를 세우고 로그에 남긴다.
 for (const f of ['parsing_excluded.txt', 'calendar_not_sellers.txt']) {
+  const p = path.join(ROOT, 'scratchpad', f);
   try {
-    for (const l of fs.readFileSync(path.join(ROOT, 'scratchpad', f), 'utf8').split(/\r?\n/)) {
+    const before = EXCLUDED.size;
+    for (const l of fs.readFileSync(p, 'utf8').split(/\r?\n/)) {
       if (l.trim().startsWith('#')) continue;
       const h = l.trim().split(/[\s|#(]/)[0];
       if (/^[a-z0-9._]{3,}$/.test(h)) EXCLUDED.add(h);
     }
-  } catch { }
+    if (EXCLUDED.size === before) { log(`🔴 ${f} 에서 아무 핸들도 못 읽었다 — 형식이 바뀌었나? 회차를 멈춘다`); process.exit(1); }
+  } catch (e) {
+    log(`🔴 제외셀러 명단을 못 읽었다: ${f} (${e.code}) — 제외 없이 돌면 제외셀러가 등록된다. 회차를 멈춘다`);
+    process.exit(1);
+  }
 }
 
 const seen = new Set(fs.existsSync(SEEN_F) ? fs.readFileSync(SEEN_F, 'utf8').split(/\r?\n/).filter(Boolean) : []);
 
 // ── 입력 모으기
-const caps = {}; let scanned = 0, picked = 0, skipAgg = 0, skipSeen = 0, skipExc = 0;
+const caps = {}; const codeOf = new Map(); let scanned = 0, picked = 0, skipAgg = 0, skipSeen = 0, skipExc = 0;
 for (let d = 0; d < DAYS; d++) {
   const day = new Date(KST().getTime() - d * 864e5).toISOString().slice(0, 10);
   const f = path.join(DIR, `${day}.jsonl`);
@@ -85,7 +105,7 @@ for (let d = 0; d < DAYS; d++) {
     picked++;
     // 같은 셀러 글이 여러 개면 이어 붙인다 (파서는 핸들 하나에 캡션 하나를 받는다)
     caps[h] = caps[h] ? caps[h] + '\n' + cap : cap;
-    if (o.code) seen.add(o.code);
+    if (o.code) { seen.add(o.code); codeOf.set(o.code, h); }   // 어느 셀러 게시물인지 기억 — 0건이면 seen 에서 뺀다
   }
 }
 log(`게시물 ${scanned}건 훑음 → 달력 글 ${picked}건 · 셀러 ${Object.keys(caps).length}명 (집계 ${skipAgg} · 제외셀러 ${skipExc} · 이미 뽑음 ${skipSeen})`);
@@ -97,12 +117,28 @@ fs.writeFileSync(capF, JSON.stringify(caps, null, 1), 'utf8');
 
 // ── 달력 파서 (기존 도구 — 여기서 로직을 베끼지 않는다)
 const out = execFileSync(NODE, [path.join(ROOT, 'scratchpad', '_calendar_parse.mjs'), capF, tsvF], { encoding: 'utf8', cwd: ROOT });
-const got = (out.match(/달력에서 뽑은 일정 (\d+)건/) || [, '0'])[1];
+// 🔴 2026-10-01 검증자 지적: 전엔 `|| [,'0']` 폴백이라 **파서 출력 문구가 바뀌면 got='0'** 이 되어
+//    「뽑힌 일정 0건 — 끝」이라고 정상처럼 적고 끝났다. 문구를 못 읽으면 **TSV 행 수로 다시 센다.**
+let got = (out.match(/달력에서 뽑은 일정 (\d+)건/) || [])[1];
+if (got === undefined) {
+  const rows = fs.existsSync(tsvF) ? fs.readFileSync(tsvF, 'utf8').split(/\r?\n/).filter((x) => x.trim()).length : 0;
+  log(`⚠ 파서 출력에서 건수를 못 읽었다 (문구가 바뀌었나?) — TSV 행 수로 센다: ${rows}건`);
+  got = String(rows);
+}
 log(`달력 파싱 ${got}건 → ${path.basename(tsvF)}`);
 for (const l of out.split('\n').filter((x) => /^\s{2}\d{4}-/.test(x)).slice(0, 12)) log('   ' + l.trim());
-if (!+got) { log('뽑힌 일정 0건 — 끝'); fs.writeFileSync(SEEN_F, [...seen].join('\n') + '\n'); process.exit(0); }
+// 🔴🔴 2026-10-01 검증자 실측: 전엔 **0건이어도 seen 에 박아** 그 게시물을 영원히 다시 안 봤다.
+//    91명 중 51명이 그렇게 묻혔고, 그 안에 파서 주석이 「월/일꼴만 써서 0건이었다」고 직접 지목한
+//    `kongal.pick`(콩알픽)이 있었다. **파서를 고쳐도 그 게시물은 다시 안 읽힌다.**
+//    규칙 0-P 「수확 0건 = 일정 없음이 아니다」가 코드에 반대로 박혀 있었다.
+//    → **일정이 나온 게시물만** seen 에 넣는다. 0건이면 다음 회차에 다시 본다.
+const gotHandles = new Set();
+if (+got) for (const l of fs.readFileSync(tsvF, 'utf8').split(/\r?\n/)) { const h = l.split('\t')[0]; if (h) gotHandles.add(h); }
+const keepSeen = [...seen].filter((c) => !codeOf.has(c) || gotHandles.has(codeOf.get(c)));
+if (!+got) { log(`뽑힌 일정 0건 — 끝 (이번에 본 게시물 ${picked}건은 seen 에 넣지 않는다 — 파서를 고치면 다시 본다)`); process.exit(0); }
 if (DRY) { log(`--dry — 여기서 멈춘다 (TSV: ${tsvF})`); process.exit(0); }
-fs.writeFileSync(SEEN_F, [...seen].join('\n') + '\n');
+log(`seen 저장 ${keepSeen.length}건 (일정이 나온 셀러 ${gotHandles.size}명분만 — 0건 셀러는 다시 본다)`);
+fs.writeFileSync(SEEN_F, keepSeen.join('\n') + '\n');
 
 // 📋 달력 셀러 명단 갱신 (사장님 지시 2026-10-01 — 달력 올리는 셀러를 기억해 매달 챈다)
 //    명단: scratchpad/calendar_sellers.tsv · 이번 달 빈 셀러: `--gaps`
@@ -112,7 +148,14 @@ try {
 } catch (e) { log('⚠ 명단 갱신 실패 — ' + String(e.message).split('\n')[0]); }
 
 // ── 기존 수확 파이프라인에 그대로 얹는다
-const run = (script, args) => execFileSync(NODE, [path.join(ROOT, script), ...args], { encoding: 'utf8', cwd: ROOT });
+// 자식이 죽으면 **무엇이 왜 죽었는지** 로그에 남기고 회차를 1 로 끝낸다 (조용히 넘어가지 않는다)
+const run = (script, args) => {
+  try { return execFileSync(NODE, [path.join(ROOT, script), ...args], { encoding: 'utf8', cwd: ROOT }); }
+  catch (e) {
+    log(`🔴 ${script} 실패 (코드 ${e.status}) — ${String(e.stderr || e.stdout || e.message).split('\n').slice(0, 4).join(' | ')}`);
+    process.exit(1);
+  }
+};
 run('scratchpad/harvest_clean.mjs', [tsvF, tsvF + '.clean']);
 run('scratchpad/harvest_to_table.mjs', [tsvF + '.clean', 'scratchpad/catvocab.json', tsvF + '.md', tsvF + '.uncat']);
 const mdRows = (fs.readFileSync(tsvF + '.md', 'utf8').match(/^\| \d+ \|/gm) || []).length;
