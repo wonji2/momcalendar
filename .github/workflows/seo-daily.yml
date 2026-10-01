@@ -32,6 +32,11 @@ jobs:
         shell: pwsh
         run: ./tools/seo/build.ps1
 
+      # 보존 페이지(다시 안 만들어지는 옛 브랜드 페이지)에 남은 깨진 내부링크를 걷어낸다.
+      # 생성기가 고칠 수 없는 자리라서 여기서 쓸어야 역검증이 통과한다 (2026-10-01).
+      - name: 깨진 내부링크 청소
+        run: node tools/seo/link_sweep.mjs
+
       - name: 역검증 (실패하면 커밋하지 않는다)
         shell: pwsh
         run: |

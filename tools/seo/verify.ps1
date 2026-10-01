@@ -107,15 +107,21 @@ foreach($p in $files){
 }
 Write-Output "sitemap 누락(고아): $orphan"
 
-# 4) 내부 링크 무결성 (표본 300개 파일)
+# 4) 내부 링크 무결성 (전수 — 2026-10-01 사장님 지시 "다 고쳐놔")
+#    🔴 여기는 표본 300장이었다. 깨진 링크 22건이 남아 있어도 **걸리는 날과 아닌 날이 갈렸고**(실측 22.7%),
+#       걸린 날은 그날 갱신이 통째로 막혔다(9/23·9/26·9/30). 사장님이 로슬러 페이지가 9/29 에 굳은 걸
+#       발견하실 때까지 아무도 몰랐다. 하루치 갱신을 주사위에 맡기지 않는다 → 전수로 본다.
+#    같은 주소는 한 번만 확인한다(링크가 60만 개라 매번 Test-Path 하면 느리다).
+$pathSeen = @{}
 $brokenL = 0; $checked = 0
-foreach($p in ($files | Get-Random -Count ([Math]::Min(300,$files.Count)))){
+foreach($p in $files){
   $t = [IO.File]::ReadAllText($p)
   foreach($m in [regex]::Matches($t,'href="/([^"#]+)"')){
     $h = [uri]::UnescapeDataString($m.Groups[1].Value)
     if($h -eq ''){ continue }
     $checked++
-    if(-not(Test-Path -LiteralPath (Join-Path $root $h))){
+    if(-not $pathSeen.ContainsKey($h)){ $pathSeen[$h] = (Test-Path -LiteralPath (Join-Path $root $h)) }
+    if(-not $pathSeen[$h]){
       $brokenL++
       if($brokenL -le 5){ Bad "깨진 내부링크: /$h  (in $(Split-Path $p -Leaf))" }
     }
