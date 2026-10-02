@@ -9,7 +9,13 @@
 #   · 2026-09-30 달력 회차에서도 **같은 단계**를 빼먹어 178건이 셀러 칸 빈 채로 나왔다.
 #   → 순서를 코드에 박는다. 사람이 기억해야 하는 단계는 결국 빠진다.
 #
-# 흐름 (ig_feed_pipeline.sh 와 같은 절차 · 다른 점은 ③.5 를 **분류 직후**에 둔 것)
+# 흐름 (ig_feed_pipeline.sh 와 같은 사상)
+#   ig_feed 와 다른 점 5가지 — 베낀 것으로 착각하면 다음 사람이 헤맨다
+#     ① ③.5(DB 최빈 한글명)를 **분류 직후**에 둔다 (ig_feed 는 SQL mode() 를 파이프라인 안에서 직접 돌린다)
+#     ② `slug_as_handle` 게이트를 본다 (공구톡톡은 인포크 슬러그를 핸들로 오인할 수 있는 채널이다. ig_feed 엔 없다)
+#     ③ DB중복 제거를 `gate_filter.sh` 로 한다 (ig_feed 는 `_chk_list_ig.sql` 로 행 단위)
+#     ④ 상태파일(`gongtok_round_done.txt`)로 같은 수확 TSV 를 두 번 돌지 않는다 (ig_feed 는 매번 새로 변환)
+#     ⑤ 셀러 한글명을 못 구한 행은 gen_insert **앞에서** 보류로 뺀다 → 서버측 mode() 폴백까지는 안 간다(더 엄격)
 #   gongtok_body.mjs 가 만든 6열 TSV → harvest_clean → harvest_to_table(분류)
 #   → fix_handles_names.mjs (③.3 핸들정정+브랜드차단 · ③.5 DB 최빈 한글명)
 #   → 남은 빈칸만 수확 사이드카(.names)로 채움 → 한글명 없는 행 보류
@@ -80,8 +86,10 @@ OUT=$(gate)
 EXC=$(echo "$OUT" | grep -o 'excluded: [0-9]*' | grep -o '[0-9]*'); OWN=$(echo "$OUT" | grep -o 'own_product: [0-9]*' | grep -o '[0-9]*')
 [ "${EXC:-1}" = 0 ] && [ "${OWN:-1}" = 0 ] || { log "🔴 게이트 차단 excluded=$EXC own=$OWN — 회차 중단"; cp "$f" "$HOLD.blocked_$TS.md"; exit 1; }
 # 🔴 슬러그가 핸들 칸에 들어온 행은 등록하지 않는다 (gongtok_body 가 표를 못 찾으면 이렇게 나온다)
-SLUG=$(echo "$OUT" | grep -o 'slug_as_handle: [0-9]*' | grep -o '[0-9]*')
-[ "${SLUG:-0}" = 0 ] || { log "🔴 슬러그가 핸들 칸 ${SLUG}건 — 회차 중단(seller_inpock 에 매핑을 넣고 다시 돌린다)"; cp "$f" "$HOLD.slug_$TS.md"; exit 1; }
+#   ⚠ 검사가 못 돌아 `-1` 이나 빈 값이 와도 멈춘다(fail-closed) — `:-0` 으로 두면 「검사 실패 = 0건」이 되어
+#     검사가 무력해진다(`_slug_as_handle_check.mjs` 가 2026-10-01 에 자기 안에서 고친 그 결함을 호출처에서 되풀이하지 않는다)
+SLUG=$(echo "$OUT" | grep -o 'slug_as_handle: -\?[0-9]*' | grep -o '\-\?[0-9]*$')
+[ "${SLUG:-1}" = 0 ] || { log "🔴 슬러그가 핸들 칸 ${SLUG:-검사실패}건 — 회차 중단(seller_inpock 에 매핑을 넣고 다시 돌린다)"; cp "$f" "$HOLD.slug_$TS.md"; exit 1; }
 # 핸들 갈림 → 그 핸들 행 보류 후 재게이트
 SPLIT=$(echo "$OUT" | grep -o '"승인표핸들": "[^"]*"' | sed 's/"승인표핸들": "//; s/"$//' | sort -u)
 if [ -n "$SPLIT" ]; then
@@ -98,7 +106,15 @@ if echo "$OUT" | grep -q '"already_in_db": [1-9]'; then
 fi
 TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
 if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then
-  log "🔴 최종 게이트 불일치 총=${TOT:-?} 신규=${NEW:-?} — 등록 안 함"; cp "$f" "$HOLD.gate_$TS.md"; exit 1
+  # 게이트와 등록 사이에 다른 세션이 같은 공구를 먼저 넣으면 여기서 회차 전체가 멈춘다
+  #   (ig_feed_pipeline.sh:76-84 과 같은 구제 — 한 번은 DB중복만 걷어내고 다시 잰다. 그래도 안 맞으면 멈춘다)
+  bash scratchpad/gate_filter.sh "$f" "$f.new" >/dev/null 2>&1 && [ -s "$f.new" ] && mv "$f.new" "$f"
+  grep -q '^| [0-9]' "$f" || { log "전부 DB 에 이미 있음(재검) — 끝"; echo "$(basename "$TSV")" >> "$DONE_F"; exit 0; }
+  OUT=$(gate); TOT=$(echo "$OUT" | grep -o '표 총 [0-9]*' | grep -o '[0-9]*'); NEW=$(echo "$OUT" | grep -o '"is_new": [0-9]*' | grep -o '[0-9]*')
+  if [ -z "$TOT" ] || [ "$TOT" != "$NEW" ] || [ "$TOT" = 0 ] || ! echo "$OUT" | grep -q 'handle_split: 0'; then
+    log "🔴 최종 게이트 불일치 총=${TOT:-?} 신규=${NEW:-?} — 등록 안 함"; cp "$f" "$HOLD.gate_$TS.md"; exit 1
+  fi
+  log "재검 통과(중복 걷어냄) 총=$TOT"
 fi
 
 mkdir -p scratchpad/승인대기_보관
@@ -121,6 +137,8 @@ cnt_all(){ "$SB" db query --linked --output-format json "select count(*) as n fr
 BEFORE=$(cnt_all)
 "$N" scratchpad/gen_insert_gonggu.mjs "$f" "$f.sql" --source gongtok >/dev/null 2>&1 \
   || { log "🔴 INSERT 생성 실패 — 보류: $f"; exit 1; }
+# ⚠ 앞 회차가 분할 중간에 죽었으면 그 조각이 남아 **남의 INSERT 를 같이 넣는다** → 먼저 지운다
+rm -f scratchpad/_gt_ins_*.sql
 "$N" scratchpad/_split_insert.mjs "$f.sql" scratchpad/_gt_ins_ 120 >/dev/null 2>&1 || true
 PARTS=$(ls scratchpad/_gt_ins_*.sql 2>/dev/null | sort)
 [ -n "$PARTS" ] || PARTS="$f.sql"
@@ -128,8 +146,17 @@ for p in $PARTS; do "$SB" db query --linked --file "$p" --output-format json >/d
 rm -f scratchpad/_gt_ins_*.sql
 AFTER=$(cnt_all)
 if [ -n "${BEFORE:-}" ] && [ -n "${AFTER:-}" ]; then DONE=$((AFTER-BEFORE)); else DONE=-1; fi
-log "✅ 등록 ${DONE}건 (게이트 통과 $TOT · DB ${BEFORE:-?} → ${AFTER:-?})"
-echo "$(basename "$TSV")" >> "$DONE_F"
+# 🔴🔴 **등록이 0건이면 「완료」로 찍지 않는다.** CLI 가 막히거나 SQL 이 깨져도 위 for 문은 조용히 지나가므로
+#   여기서 세어 확인해야 한다. 완료로 찍어버리면 그 TSV 는 다시는 안 돌아가고 게이트 통과분이 통째로 사라진다
+#   (메모리 scheduled-task-swallows-stderr · backup-stopped-silently — 종료코드 0 은 들어갔다는 뜻이 아니다).
+if [ "${DONE:-0}" -ge 1 ]; then
+  log "✅ 등록 ${DONE}건 (게이트 통과 $TOT · DB ${BEFORE:-?} → ${AFTER:-?})"
+  echo "$(basename "$TSV")" >> "$DONE_F"
+else
+  log "🔴 등록 0건인데 게이트는 $TOT 건 통과했다 — 완료로 찍지 않는다(다음 회차에 다시 돌린다). SQL: $f.sql"
+  cp "$f" "$HOLD.insert0_$TS.md"
+  exit 1
+fi
 
 "$N" tools/daily/cat_guard.mjs >/dev/null 2>&1 || true
 exit 0

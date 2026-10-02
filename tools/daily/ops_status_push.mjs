@@ -8,6 +8,8 @@
 //   parsing  밤샘 파싱 로그 마지막 줄·승인 대기 표 수·월말 전수 다음 시각
 //   guards   error_guard·inquiry 로그 마지막 줄·오늘 카드 알림줄(daily/_alert.txt)
 //   backups  work-backup·momcal-ops 마지막 실행
+//   disk     고정 드라이브별 여유·전체 용량 (2026-10-02 신설) — 🔴/⚠ 판정은 여기서 하지 않고 error_radar() 가 한다.
+//            ⚠ 디스크 수를 재는 곳은 **이 파일 한 곳뿐이다.** 두 군데서 재면 값이 어긋난다.
 // 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 는 서버에 안 올리고 화면에 찍는다(ops_status_last.json 은 갱신)
 // 상태: scratchpad/ops_status_last.json (마지막으로 올린 것) · 로그 scratchpad/ops_status_log.txt
 import fs from 'node:fs';
@@ -15,7 +17,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { setAlert, clearAlert, pushAlerts } from './alert.mjs';   // 디스크 여유 경보 ('disk' 키는 이 파일만 건드린다)
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SNS = path.join(REPO, 'sns-automation');
 const CLI = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -109,28 +110,53 @@ try {
   out.parsing = { pending_rows: rows, pending_at: mtime(pend), kw_targets: targets, seen_at: mtime(path.join(REPO, 'scratchpad', '_inpock_seen_auto.txt')) };
 } catch (e) { out.parsing = { error: String(e.message).slice(0, 160) }; }
 
-// ⑥ 디스크 여유 — 🔴 2026-10-02 사고: 아무도 모르는 사이에 C드라이브(233GB)가 여유 0바이트가 되어
-//    파일 쓰기가 ENOSPC 로 죽고 작업이 멈췄다. **신호를 내는 곳이 한 군데도 없었다.**
-//    서버쪽 error_radar() 는 이 PC 디스크를 볼 수 없다 → 30분마다 도는 이 푸셔가 제일 빠른 경보다.
-//    기준 아래로 떨어지면 오늘 카드 알림줄('disk' 키)에 올려 사장님 폰에 뜨게 한다.
-const DISK_MIN_GB = Number(process.env.DISK_MIN_GB || 10);
+// ⑥ playwright 임시폴더 수 — 2026-10-02 엔 3,912개(6.5GB)가 Temp 에 쌓여 C드라이브를 꽉 채웠다.
+//    디스크 **용량**은 아래 ⑦ 에서 한 곳에서만 재고(두 군데서 재면 값이 어긋난다), 여기선 **개수**만 센다.
+//    청소기: tools/daily/pw_tmp_clean.mjs (예약작업 momcal-pw-tmp-clean 매일 04:20)
 try {
-  const st = fs.statfsSync('C:\\');
-  const free = (Number(st.bavail) * Number(st.bsize)) / 1e9;
-  const total = (Number(st.blocks) * Number(st.bsize)) / 1e9;
-  // playwright 임시 프로필 수도 같이 본다 — 2026-10-02 엔 3,912개(6.5GB)였다 (청소기 tools/daily/pw_tmp_clean.mjs)
-  let pwTmp = 0;
-  try { pwTmp = fs.readdirSync(os.tmpdir()).filter((n) => /^(?:playwright[_-]|pw-)/i.test(n)).length; } catch {}
-  out.disk = { free_gb: +free.toFixed(1), total_gb: Math.round(total), min_gb: DISK_MIN_GB, pw_tmp: pwTmp, ok: free >= DISK_MIN_GB };
-  if (free < DISK_MIN_GB) setAlert('disk', `🔴 C드라이브 여유 ${free.toFixed(1)}GB (기준 ${DISK_MIN_GB}GB) · playwright 임시폴더 ${pwTmp}개 — 세션에서 node tools/daily/pw_tmp_clean.mjs`);
-  else clearAlert('disk');
-  const pushed = pushAlerts(free < DISK_MIN_GB ? `C드라이브 여유 ${free.toFixed(1)}GB` : '디스크 이상 없음');
-  if (!pushed.ok) out.disk.push_error = String(pushed.error).slice(0, 120);
-} catch (e) { out.disk = { error: String(e.message).slice(0, 160) }; }
+  out.pw_tmp = fs.readdirSync(os.tmpdir()).filter((n) => /^(?:playwright[_-]|pw-)/i.test(n)).length;
+} catch (e) { out.pw_tmp_error = String(e.message).slice(0, 120); }
 
-// ⑦ 알림줄·백업 (디스크 알림을 쓴 **뒤에** 읽는다 — 안 그러면 현황판이 한 회차 늦는다)
+// ⑦ 알림줄·백업
 out.alerts = tailLines(path.join(REPO, 'daily', '_alert.txt'), 10);
-out.backup = { work_backup_at: mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'FETCH_HEAD')) || mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'HEAD')), handoff_at: mtime(path.join(REPO, 'HANDOFF.md')), handoff_kb: sizeKb(path.join(REPO, 'HANDOFF.md')) };
+// 🔴 커밋 시각(.git/HEAD)은 **백업됐다는 뜻이 아니다.** 2026-10-02 에 100MB 파일 하나로 push 가
+//   pre-receive hook 에 거부돼 커밋만 40분 쌓였는데, 이 칸은 "방금 백업됨" 으로 보였다 — 거짓 안심이었다.
+//   그래서 **원격에 실제로 올라갔는지**(밀리지 않은 커밋 수)를 함께 본다. ahead>0 이면 오프사이트 백업이 없는 것이다.
+const WB = 'C:/Users/FAMILY/work-backup';
+const gitOut = (args, cwd) => { try { return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 60e3 }).trim(); } catch { return ''; } };
+out.backup = {
+  work_backup_at: mtime(path.join(WB, '.git', 'FETCH_HEAD')) || mtime(path.join(WB, '.git', 'HEAD')),
+  pushed_at: mtime(path.join(WB, '.git', 'refs', 'remotes', 'origin', 'main')),
+  ahead: Number(gitOut(['rev-list', '--count', '@{u}..HEAD'], WB) || 0),   // 0 이어야 정상
+  warn: tailLines(path.join(WB, 'BACKUP_WARNING.txt'), 1),
+  handoff_at: mtime(path.join(REPO, 'HANDOFF.md')),
+  handoff_kb: sizeKb(path.join(REPO, 'HANDOFF.md')),   // 🔴 statSync 를 감싸지 않으면 HANDOFF.md 가 없을 때 푸셔가 통째로 죽는다(위 sizeKb 주석)
+};
+// 밀린 커밋이 있으면 **사람이 알게** 남긴다 — 오류 레이더의 「다른감시기경보」가 health_alerts 를 센다.
+//   오늘 사고도 내가 우연히 발견했을 뿐, 아무 경보도 울리지 않았다.
+//   같은 내용을 6시간에 한 번만 넣는다(30분마다 도는 회차가 알림을 도배하지 않게).
+try {
+  if (out.backup.ahead > 0) {
+    const sql = `insert into public.health_alerts(kind, detail)
+ select '백업지연', 'work-backup 에 밀린 커밋 ${out.backup.ahead}건 — push 가 안 되고 있다(오프사이트 백업 없음). '
+        || '마지막 push ${out.backup.pushed_at || '알 수 없음'}. work-backup 에서 git push 를 직접 돌려 사유를 볼 것'
+  where not exists (select 1 from public.health_alerts
+                     where kind='백업지연' and created_at > now() - interval '6 hours');`;
+    const f = path.join(REPO, 'scratchpad', '_ops_backup_alert.sql');
+    fs.writeFileSync(f, sql, 'utf8');
+    execFileSync(CLI, ['db', 'query', '--linked', '--file', f], { encoding: 'utf8', timeout: 120e3 });
+  }
+} catch (e) { out.backup.alert_error = String(e.message).slice(0, 120); }
+
+// ⑦ 디스크 여유 — 2026-10-02 사고: C 여유가 **68KB** 까지 떨어져 npx·백업·캡처가 조용히 실패했는데 아무도 몰랐다.
+//    그날 10:23 bbhd 회차가 "여유 15MB" 를 제 로그에 적었지만 그 로그를 읽는 사람이 없었다.
+//    그래서 숫자만 여기서 올리고, 임계 판정과 경보는 error_radar() → run_error_watch() → 오늘 카드 알림줄에 맡긴다.
+try {
+  const ps = `Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { [pscustomobject]@{ drive=$_.DeviceID; free_gb=[math]::Round($_.FreeSpace/1GB,2); total_gb=[math]::Round($_.Size/1GB,2) } } | ConvertTo-Json -Compress`;
+  const raw = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 60e3 });
+  const arr = JSON.parse(raw.trim() || '[]');
+  out.disk = (Array.isArray(arr) ? arr : [arr]).filter((d) => d && d.drive).map((d) => ({ ...d, pct_free: d.total_gb ? Math.round((d.free_gb / d.total_gb) * 100) : null }));
+} catch (e) { out.disk_error = String(e.message).slice(0, 160); }
 
 fs.writeFileSync(path.join(REPO, 'scratchpad', 'ops_status_last.json'), JSON.stringify(out, null, 1), 'utf8');
 if (process.argv.includes('--print')) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }
@@ -148,7 +174,8 @@ for (let attempt = 1; attempt <= 2; attempt++) {
     if (msg.startsWith('✅')) break;
   } catch (e) { msg = '🔴 CLI 실패 ' + String(e.stderr || e.message).replace(/\s+/g, ' ').slice(0, 160); }
 }
-const line = `[${out.at}] ${msg} · 작업 ${(out.tasks || []).length}개 · 블로그 예약 ${(out.blog.markers || []).filter((m) => m.scheduled).length}/8 · 스레드 오늘 ${(out.threads.today || []).length}건`;
+const diskStr = (out.disk || []).map((d) => `${d.drive}${d.free_gb}GB`).join(' ') || (out.disk_error ? '측정실패' : '-');
+const line = `[${out.at}] ${msg} · 작업 ${(out.tasks || []).length}개 · 블로그 예약 ${(out.blog.markers || []).filter((m) => m.scheduled).length}/8 · 스레드 오늘 ${(out.threads.today || []).length}건 · 디스크 ${diskStr}`;
 fs.appendFileSync(path.join(REPO, 'scratchpad', 'ops_status_log.txt'), line + '\n');
 console.log(line);
 if (msg.startsWith('🔴')) process.exit(1);
