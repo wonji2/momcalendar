@@ -44,6 +44,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > -1 ? proce
 const N = +arg('--n', 40);
 const DAYS = +arg('--days', 2);
 const DRY = process.argv.includes('--dry');
+const DELAY = +arg('--delay', 1500);   // 글 사이 기본 간격(ms). 실제로는 DELAY~2×DELAY 로 흔든다
 
 const KST = () => new Date(Date.now() + 9 * 3600e3);
 const today = KST().toISOString().slice(0, 10);
@@ -85,7 +86,7 @@ const parseTitle = (t) => {
 const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 const rows = [], names = [];
-let read = 0, noSeller = 0, noDate = 0;
+let read = 0, noSeller = 0, noDate = 0, failStreak = 0;
 const ctx = await chromium.launchPersistentContext(PROFILE, { headless: true, channel: 'chrome', args: ['--no-sandbox'] });
 try {
   for (const id of ids.slice(0, N)) {
@@ -108,7 +109,8 @@ try {
         }).catch(() => null);
         if (got) break;
       }
-      if (!got) { log(`  ⚠ ${id} 본문 칸을 못 찾음`); continue; }
+      if (!got) { failStreak++; log(`  ⚠ ${id} 본문 칸을 못 찾음 (연속 ${failStreak})`); continue; }
+      failStreak = 0;
       read++;
       seen.add(id);
 
@@ -122,7 +124,13 @@ try {
         .replace(/Instagram/gi, '')
         .replace(/^.*?(?:공동구매\s*출처|공동구매\s*링크|🔗)\s*/u, '')   // 「🔗공동구매 출처 …」가 앞에 붙어 온다
         .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu, '')   // 이모지
-        .replace(/\s{2,}/g, ' ').trim();
+        // 🔴 2026-10-02 실측: 「A4cWw0aw== 토코맘 l 육아꿀팁…」 처럼 **페이지 토큰이 앞에 붙어** 온다.
+        //    한글이 들어 있는 이름이면 **첫 한글 앞은 다 버린다.**
+        .replace(/^[^가-힣]*(?=[가-힣])/u, '')
+        // 「토코맘 l 육아꿀팁…」·「멜맘ㅣ쉽게 만드는…」 뒤 소개문은 이름이 아니다.
+        //   ⚠ 구분자로 `ㅣ`(한글 모음)·`｜`(전각)도 쓴다 — 셋 다 본다
+        .replace(/\s*[|｜lIㅣ]\s*.*$/u, '')
+        .replace(/\s{2,}/g, ' ').trim().slice(0, 20);
 
       const { name, open } = parseTitle(got.title);
       if (!handle && !slug) { noSeller++; log(`  · ${id} 셀러 없음 — ${name.slice(0, 30)}`); continue; }
@@ -133,8 +141,14 @@ try {
       if (handle && kor) names.push(`${handle}|${kor}`);
       log(`  ✅ ${id}  ${name} (${open})  @${handle || '-'} / 인포크 ${slug || '-'}${kor ? ' · ' + kor : ''}`);
     } catch (e) {
-      log(`  🔴 ${id} 실패 — ${String(e.message || e).slice(0, 80)}`);
+      failStreak++;
+      log(`  🔴 ${id} 실패 (연속 ${failStreak}) — ${String(e.message || e).slice(0, 80)}`);
     } finally { await p.close().catch(() => { }); }
+    // 🔑 **막히지 않게 간격을 둔다** (사장님 2026-10-01 "알아서 안막히게 조절해서").
+    //    네이버 카페는 같은 세션이 쉼 없이 글을 열면 막는다. 고정 간격은 패턴이 되니 흔든다.
+    //    연속 실패가 3건이면 그 회차를 멈춘다 — 밀어붙이면 계정이 막힌다(메모리 blocked-escalate-immediately).
+    await new Promise((s) => setTimeout(s, DELAY + Math.floor(Math.random() * DELAY)));
+    if (failStreak >= 3) { log('🔴 연속 3건 실패 — 막혔을 수 있다. 이 회차를 멈춘다(다음 회차에 이어서 읽는다)'); break; }
   }
 } finally { await ctx.close().catch(() => { }); }
 
