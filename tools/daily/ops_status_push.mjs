@@ -8,6 +8,8 @@
 //   parsing  밤샘 파싱 로그 마지막 줄·승인 대기 표 수·월말 전수 다음 시각
 //   guards   error_guard·inquiry 로그 마지막 줄·오늘 카드 알림줄(daily/_alert.txt)
 //   backups  work-backup·momcal-ops 마지막 실행
+//   disk     고정 드라이브별 여유·전체 용량 (2026-10-02 신설) — 🔴/⚠ 판정은 여기서 하지 않고 error_radar() 가 한다.
+//            ⚠ 디스크 수를 재는 곳은 **이 파일 한 곳뿐이다.** 두 군데서 재면 값이 어긋난다.
 // 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 는 서버에 안 올리고 화면에 찍는다(ops_status_last.json 은 갱신)
 // 상태: scratchpad/ops_status_last.json (마지막으로 올린 것) · 로그 scratchpad/ops_status_log.txt
 import fs from 'node:fs';
@@ -106,6 +108,16 @@ try {
 out.alerts = tailLines(path.join(REPO, 'daily', '_alert.txt'), 10);
 out.backup = { work_backup_at: mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'FETCH_HEAD')) || mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'HEAD')), handoff_at: mtime(path.join(REPO, 'HANDOFF.md')), handoff_kb: Math.round((fs.statSync(path.join(REPO, 'HANDOFF.md')).size || 0) / 1024) };
 
+// ⑦ 디스크 여유 — 2026-10-02 사고: C 여유가 **68KB** 까지 떨어져 npx·백업·캡처가 조용히 실패했는데 아무도 몰랐다.
+//    그날 10:23 bbhd 회차가 "여유 15MB" 를 제 로그에 적었지만 그 로그를 읽는 사람이 없었다.
+//    그래서 숫자만 여기서 올리고, 임계 판정과 경보는 error_radar() → run_error_watch() → 오늘 카드 알림줄에 맡긴다.
+try {
+  const ps = `Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { [pscustomobject]@{ drive=$_.DeviceID; free_gb=[math]::Round($_.FreeSpace/1GB,2); total_gb=[math]::Round($_.Size/1GB,2) } } | ConvertTo-Json -Compress`;
+  const raw = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 60e3 });
+  const arr = JSON.parse(raw.trim() || '[]');
+  out.disk = (Array.isArray(arr) ? arr : [arr]).filter((d) => d && d.drive).map((d) => ({ ...d, pct_free: d.total_gb ? Math.round((d.free_gb / d.total_gb) * 100) : null }));
+} catch (e) { out.disk_error = String(e.message).slice(0, 160); }
+
 fs.writeFileSync(path.join(REPO, 'scratchpad', 'ops_status_last.json'), JSON.stringify(out, null, 1), 'utf8');
 if (process.argv.includes('--print')) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }
 // 올리기 — jsonb 는 달러 인용으로 감싸 따옴표 문제를 피한다
@@ -122,7 +134,8 @@ for (let attempt = 1; attempt <= 2; attempt++) {
     if (msg.startsWith('✅')) break;
   } catch (e) { msg = '🔴 CLI 실패 ' + String(e.stderr || e.message).replace(/\s+/g, ' ').slice(0, 160); }
 }
-const line = `[${out.at}] ${msg} · 작업 ${(out.tasks || []).length}개 · 블로그 예약 ${(out.blog.markers || []).filter((m) => m.scheduled).length}/8 · 스레드 오늘 ${(out.threads.today || []).length}건`;
+const diskStr = (out.disk || []).map((d) => `${d.drive}${d.free_gb}GB`).join(' ') || (out.disk_error ? '측정실패' : '-');
+const line = `[${out.at}] ${msg} · 작업 ${(out.tasks || []).length}개 · 블로그 예약 ${(out.blog.markers || []).filter((m) => m.scheduled).length}/8 · 스레드 오늘 ${(out.threads.today || []).length}건 · 디스크 ${diskStr}`;
 fs.appendFileSync(path.join(REPO, 'scratchpad', 'ops_status_log.txt'), line + '\n');
 console.log(line);
 if (msg.startsWith('🔴')) process.exit(1);
