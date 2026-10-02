@@ -345,9 +345,15 @@ if (has('--recat')) {
   // 🔴 대상을 좁힌다 — 남이 넣은 카드의 분류를 내 규칙으로 덮지 않는다.
   //   --ids=1,2,3 으로 직접 주거나, 없으면 그날 내가 이 도구로 넣은 것(manual·source=toss/coupang)만 본다.
   //   (2026-10-02: 전체에 걸었더니 "코멧 키친 고무장갑 : 주방용품 → 빈칸" 처럼 **더 나빠지는** 행이 나왔다)
-  const ids = (argv('--ids', '') || '').split(',').map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
-  const where = ids.length ? `id in (${ids.join(',')})`
-    : `deal_day = '${today}'::date and manual = true and source in ('toss','coupang')`;
+  //   --ids 를 안 주면 **그날 내가 이 회차에 넣은 것**(등록결과 파일)만 본다. 그 파일도 없으면 멈춘다 —
+  //   "오늘 manual 전부" 로 넓히면 같은 날 도는 다른 세션의 카드까지 내 규칙으로 덮는다.
+  let ids = (argv('--ids', '') || '').split(',').map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+  if (!ids.length) {
+    const f = join(DIR, `${today}_등록결과.json`);
+    if (existsSync(f)) ids = (JSON.parse(readFileSync(f, 'utf8')).registered || []).map((r) => String(r.id));
+  }
+  if (!ids.length) { log('고칠 대상이 없다 — --ids=1,2,3 으로 지정하거나 그날 등록결과 파일이 있어야 한다'); process.exit(1); }
+  const where = `id in (${ids.join(',')})`;
   const rows = q(`select id, title, major, minor from public.hotdeals where ${where} order by id;`);
   const fix = [];
   for (const r of rows) {
@@ -394,9 +400,15 @@ const deals = saved.deals || [];
 if (!deals.length) { log('등록 후보가 없다'); process.exit(0); }
 
 // 이미 올라간 것은 건너뛴다 (작업규칙 1-1·1-2 — 중복은 보내지도 않는다)
-const titles = deals.map((d) => lit(d.title)).join(',');
-const already = new Set(q(`select title from public.hotdeals
- where created_at > now() - interval '14 days' and title in (${titles});`).map((r) => r.title));
+// 🔴 상품명으로만 대조하면 샌다 — 등록할 땐 **토스 실측 표기**로 바꿔 넣는데(아래 rows.push),
+//   다음 회차엔 다시 카톡 표기로 대조하게 돼 영원히 안 맞는다
+//   ("모나리자 미용티슈, 300매, 12입" ↔ 저장된 "모나리자 에코 미용티슈, 300매, 12입, 1박스").
+//   (product_id, deal_day) 유일키는 날이 바뀌면 안 걸린다 → 2026-10-02 두유가 두 장 올라간 그 경로다.
+//   그래서 **상품번호(product_id)로도 대조**한다. 번호는 resolve 뒤에 알 수 있어 루프 안에서 한 번 더 본다.
+const recent = q(`select title, product_id from public.hotdeals
+ where created_at > now() - interval '14 days';`);
+const already = new Set(recent.map((r) => r.title));
+const alreadyPid = new Set(recent.map((r) => r.product_id).filter(Boolean));
 
 const rows = [], fails = [];
 for (const d of deals) {
@@ -407,6 +419,9 @@ for (const d of deals) {
       const r = await resolveToss(d.link);
       if (!r) { fails.push({ ...d, why: '토스 상품 번호를 못 찾았다' }); continue; }
       const it = await tossDetail(r.idKind, r.id);
+      if (it && alreadyPid.has(`toss_${it.tacaItemId ?? r.id}`)) {
+        fails.push({ ...d, why: '이미 등록돼 있다(14일 내 · 같은 상품번호)' }); continue;
+      }
       // 상품 정보를 못 받으면 사진도 가격 근거도 없다 → 올리지 않는다
       // (/핫딜 "등록 전 무조건 판매처 실측" · "사진 없으면 등록 보류").
       if (!it) { fails.push({ ...d, why: '토스 상품정보를 못 받았다(카탈로그에 없음) — 사진·실측가 없음' }); continue; }
@@ -428,6 +443,10 @@ for (const d of deals) {
       if (!CRON) { fails.push({ ...d, why: 'PUSH_CRON_SECRET 이 없어 쿠팡 딥링크를 못 만든다' }); continue; }
       const pid = await resolveCoupang(d.link);
       if (!pid) { fails.push({ ...d, why: '쿠팡 상품 번호를 못 찾았다' }); continue; }
+      const cpid = `${pid.productId}${pid.itemId ? '_' + pid.itemId : ''}`;
+      if (alreadyPid.has(cpid) || alreadyPid.has(`cp_${pid.productId}`)) {
+        fails.push({ ...d, why: '이미 등록돼 있다(14일 내 · 같은 상품번호)' }); continue;
+      }
       const rr = await fetch(`${SB_URL}/functions/v1/coupang-hotdeal?deeplink=${encodeURIComponent(pid.url)}`,
         { headers: { 'x-cron-secret': CRON } }).then((r) => r.json()).catch(() => null);
       const link = rr?.body?.data?.[0]?.shortenUrl || '';
