@@ -19,6 +19,7 @@
 //   node tools/daily/srook_detail.mjs <스룩주소> <내보낼폴더>
 //   결과: <내보낼폴더>/01.png, 02.png … (카페에 이 순서로 올리면 된다)
 import { chromium } from 'playwright';
+import { pwGuard } from './pw_guard.mjs';   // 2026-10-02: 예외·매달림에도 크롬과 임시프로필을 남기지 않는다
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -29,7 +30,9 @@ if (!url) { console.error('사용법: node tools/daily/srook_detail.mjs <스룩�
 const MAX_H = 12000;
 const JUNK = /loading|\.svg|star_none|top_bnr|imgur|module_default|\/contents\/module\//i;
 
+const guard = pwGuard('스룩 상세 이미지 받기', 10 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
+guard.use(browser);
 const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
 await page.waitForTimeout(3500);
@@ -106,5 +109,6 @@ for (let g = 0; g < groups.length; g++) {
 fs.rmSync(raw, { recursive: true, force: true });
 fs.rmSync(tmp, { force: true });
 await browser.close();
+guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
 console.log(`\n완성: ${outDir} 에 ${groups.length}장`);
 console.log('⚠ 올리기 전에 **눈으로 확인**할 것 — 가격표·배송안내가 섞이면 빼야 한다(2026-09-22 세 번 틀렸다).');

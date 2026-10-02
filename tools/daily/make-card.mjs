@@ -6,6 +6,7 @@
 //   node tools/daily/make-card.mjs          ← 오늘
 //   DAY=2026-08-10 node tools/daily/make-card.mjs
 import { chromium } from 'playwright';
+import { pwGuard } from './pw_guard.mjs';   // 2026-10-02: 예외·매달림에도 크롬과 임시프로필을 남기지 않는다
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';   // 인기 검색어 굽기(아래) — 아래쪽 동적 import 와 겹쳐도 무해
 
@@ -17,7 +18,9 @@ const day = process.env.DAY?.trim() || kstToday();
 //   Claude 앱은 MSIX 패키지라 앱 안에서 `playwright install` 한 브라우저는 AppData\Local 의
 //   앱 전용 가상 폴더(Packages\Claude_*\LocalCache\Local\ms-playwright)에만 있고
 //   윈도우 예약작업(앱 밖)에서는 "Executable doesn't exist" 로 죽는다 (2026-09-05·06 이틀 블로그 예약 실패).
+const guard = pwGuard('공구 카드 만들기', 5 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
+guard.use(browser);
 const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, deviceScaleFactor: 1 });
 
 const errors = [];
@@ -70,6 +73,7 @@ const pngDataUrl = await page.evaluate(async () => {
   return canvas.toDataURL('image/png');
 });
 await browser.close();
+guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
 
 if (!pngDataUrl) { console.error('카드를 못 그렸다'); process.exit(1); }
 if (errors.length) console.log('페이지 오류:', errors.slice(0, 3).join(' | '));

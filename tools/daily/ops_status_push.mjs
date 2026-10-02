@@ -11,9 +11,11 @@
 // 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 는 서버에 안 올리고 화면에 찍는다(ops_status_last.json 은 갱신)
 // 상태: scratchpad/ops_status_last.json (마지막으로 올린 것) · 로그 scratchpad/ops_status_log.txt
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { setAlert, clearAlert, pushAlerts } from './alert.mjs';   // 디스크 여유 경보 ('disk' 키는 이 파일만 건드린다)
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SNS = path.join(REPO, 'sns-automation');
 const CLI = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -23,6 +25,10 @@ const addD = (s, n) => ymd(new Date(new Date(s + 'T00:00:00Z').getTime() + n * 8
 const today = ymd(kst());
 const tailLines = (f, n = 1, head = false) => { try { const L = fs.readFileSync(f, 'utf8').split(/\r?\n/).filter(Boolean); return (head ? L.slice(0, n) : L.slice(-n)).map((l) => l.slice(0, 200)); } catch { return []; } };
 const mtime = (f) => { try { return new Date(fs.statSync(f).mtimeMs + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' '); } catch { return null; } };
+// 🔴 2026-10-02: HANDOFF.md 크기를 statSync 로 **감싸지 않고** 읽어서, 파일이 없으면 푸셔가 통째로 죽었다
+//    (worktree 에선 HANDOFF.md 가 체크아웃되지 않아 실제로 ENOENT 로 터졌다).
+//    푸셔가 죽으면 현황판이 조용히 낡는다 — 없는 파일은 null 로 넘긴다.
+const sizeKb = (f) => { try { return Math.round(fs.statSync(f).size / 1024); } catch { return null; } };
 const out = { at: kst().toISOString().slice(0, 19).replace('T', ' '), host: process.env.COMPUTERNAME || '' };
 
 // ① 예약작업
@@ -82,6 +88,7 @@ const LOGS = {
   pangpang: ['scratchpad/pangpang_leads_log.txt'],    // 집계 사이트 새 셀러 핸들 (하루 2회)
   ig_register: ['scratchpad/ig_feed_pipeline_log.txt'], // 그날 오픈 → 무인 등록 (매시간)
   live_audit: ['scratchpad/live_audit_log.txt'],       // 라이브 사후 감시 (매일 09:50) — 상한 대신 이걸로 거른다
+  pw_tmp_clean: ['scratchpad/pw_tmp_clean_log.txt'],   // playwright 임시프로필 청소 (매일 04:20) — 이게 멈추면 C드라이브가 찬다
 };
 out.logs = {};
 for (const [k, cands] of Object.entries(LOGS)) {
@@ -102,9 +109,28 @@ try {
   out.parsing = { pending_rows: rows, pending_at: mtime(pend), kw_targets: targets, seen_at: mtime(path.join(REPO, 'scratchpad', '_inpock_seen_auto.txt')) };
 } catch (e) { out.parsing = { error: String(e.message).slice(0, 160) }; }
 
-// ⑥ 알림줄·백업
+// ⑥ 디스크 여유 — 🔴 2026-10-02 사고: 아무도 모르는 사이에 C드라이브(233GB)가 여유 0바이트가 되어
+//    파일 쓰기가 ENOSPC 로 죽고 작업이 멈췄다. **신호를 내는 곳이 한 군데도 없었다.**
+//    서버쪽 error_radar() 는 이 PC 디스크를 볼 수 없다 → 30분마다 도는 이 푸셔가 제일 빠른 경보다.
+//    기준 아래로 떨어지면 오늘 카드 알림줄('disk' 키)에 올려 사장님 폰에 뜨게 한다.
+const DISK_MIN_GB = Number(process.env.DISK_MIN_GB || 10);
+try {
+  const st = fs.statfsSync('C:\\');
+  const free = (Number(st.bavail) * Number(st.bsize)) / 1e9;
+  const total = (Number(st.blocks) * Number(st.bsize)) / 1e9;
+  // playwright 임시 프로필 수도 같이 본다 — 2026-10-02 엔 3,912개(6.5GB)였다 (청소기 tools/daily/pw_tmp_clean.mjs)
+  let pwTmp = 0;
+  try { pwTmp = fs.readdirSync(os.tmpdir()).filter((n) => /^(?:playwright[_-]|pw-)/i.test(n)).length; } catch {}
+  out.disk = { free_gb: +free.toFixed(1), total_gb: Math.round(total), min_gb: DISK_MIN_GB, pw_tmp: pwTmp, ok: free >= DISK_MIN_GB };
+  if (free < DISK_MIN_GB) setAlert('disk', `🔴 C드라이브 여유 ${free.toFixed(1)}GB (기준 ${DISK_MIN_GB}GB) · playwright 임시폴더 ${pwTmp}개 — 세션에서 node tools/daily/pw_tmp_clean.mjs`);
+  else clearAlert('disk');
+  const pushed = pushAlerts(free < DISK_MIN_GB ? `C드라이브 여유 ${free.toFixed(1)}GB` : '디스크 이상 없음');
+  if (!pushed.ok) out.disk.push_error = String(pushed.error).slice(0, 120);
+} catch (e) { out.disk = { error: String(e.message).slice(0, 160) }; }
+
+// ⑦ 알림줄·백업 (디스크 알림을 쓴 **뒤에** 읽는다 — 안 그러면 현황판이 한 회차 늦는다)
 out.alerts = tailLines(path.join(REPO, 'daily', '_alert.txt'), 10);
-out.backup = { work_backup_at: mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'FETCH_HEAD')) || mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'HEAD')), handoff_at: mtime(path.join(REPO, 'HANDOFF.md')), handoff_kb: Math.round((fs.statSync(path.join(REPO, 'HANDOFF.md')).size || 0) / 1024) };
+out.backup = { work_backup_at: mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'FETCH_HEAD')) || mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'HEAD')), handoff_at: mtime(path.join(REPO, 'HANDOFF.md')), handoff_kb: sizeKb(path.join(REPO, 'HANDOFF.md')) };
 
 fs.writeFileSync(path.join(REPO, 'scratchpad', 'ops_status_last.json'), JSON.stringify(out, null, 1), 'utf8');
 if (process.argv.includes('--print')) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }

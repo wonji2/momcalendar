@@ -22,6 +22,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { pwGuard } from './pw_guard.mjs';   // 2026-10-02: 예외·매달림에도 크롬과 임시프로필을 남기지 않는다
 import { pathToFileURL } from 'node:url';
 import { parseRows } from './sb_query.mjs';
 
@@ -143,7 +144,9 @@ fs.writeFileSync(htmlFile, html, 'utf8');
 
 // ── ③ PNG 렌더 (#card 기준 1080×1920)
 const png = path.join(REPO, 'event', `${month}-winners.png`);
+const guard = pwGuard('당첨자 카드 만들기', 5 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
+guard.use(browser);
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
 await page.goto(pathToFileURL(htmlFile).href, { waitUntil: 'networkidle', timeout: 60000 });
 await page.evaluate(() => document.fonts.ready);
@@ -153,6 +156,7 @@ const imgOk = await page.evaluate(() => [...document.querySelectorAll('.pz-img i
 if (!imgOk) console.log('⚠ 경품 사진 중 안 뜬 게 있다 — prize/*.jpg 를 확인하세요');
 await page.locator('#card').screenshot({ path: png, type: 'png' });
 await browser.close();
+guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
 
 // ── ④ 공유 페이지 (그림엔 링크를 못 심으니 페이지를 한 겹 둔다)
 const utm = (m) => `https://momcalendar.com/?utm_source=event&utm_medium=${m}&utm_campaign=${month}-winners`;
