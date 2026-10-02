@@ -15,10 +15,10 @@
 #     ② `slug_as_handle` 게이트를 본다 (공구톡톡은 인포크 슬러그를 핸들로 오인할 수 있는 채널이다. ig_feed 엔 없다)
 #     ③ DB중복 제거를 `gate_filter.sh` 로 한다 (ig_feed 는 `_chk_list_ig.sql` 로 행 단위)
 #     ④ 상태파일(`gongtok_round_done.txt`)로 같은 수확 TSV 를 두 번 돌지 않는다 (ig_feed 는 매번 새로 변환)
-#     ⑤ 셀러 한글명을 못 구한 행은 gen_insert **앞에서** 보류로 뺀다 → 서버측 mode() 폴백까지는 안 간다(더 엄격)
+#     ⑤ (2026-10-02 없어짐) 한글명 못 구한 행을 보류로 빼던 단계 — 이제 두 채널 다 핸들로 등록한다
 #   gongtok_body.mjs 가 만든 6열 TSV → harvest_clean → harvest_to_table(분류)
 #   → fix_handles_names.mjs (③.3 핸들정정+브랜드차단 · ③.5 DB 최빈 한글명)
-#   → 남은 빈칸만 수확 사이드카(.names)로 채움 → 한글명 없는 행 보류
+#   → 남은 빈칸만 수확 사이드카(.names)로 채움 (한글명 못 구하면 핸들로 등록 — 사장님 2026-10-02)
 #   → drop_ended → pending_dedupe → pending_check(게이트) → 핸들갈림 보류 → DB중복 제거 → 재게이트
 #   → 상품명 위생(drop_badname) → gen_insert_gonggu(--source gongtok) → 등록 → cat_guard
 #
@@ -74,10 +74,12 @@ if [ -s "$TSV.names" ]; then
   log "사이드카 한글명 ${TSV##*/}.names: 쓸 수 있는 셀러 $(wc -l < "$TSV.names.use")명"
 fi
 
-# 한글명 못 채운 행 → 보류 (셀러 없으면 사이트에 안 띄운다)
-grep -E '^\| [0-9]+ \| *\|' "$f" | sed "s/^/| 한글명없음 $TS /" >> "$HOLD"
-sed -i -E '/^\| [0-9]+ \| *\|/d' "$f"
-grep -q '^| [0-9]' "$f" || { log "한글명 있는 행 0 — 끝 (보류 $HOLD)"; echo "$(basename "$TSV")" >> "$DONE_F"; exit 0; }
+# 🔴🔴 2026-10-02 사장님 지시 — **한글명을 못 구해도 보류하지 않는다. 핸들을 그대로 띄운다.**
+#   *"이름은 못구했는데 인스타핸들 맞고 공구셀러맞고 공구상품 맞으면 걍 인스타핸들 나오게 하면 되고"*
+#   셀러 칸이 빈 행은 `gen_insert_gonggu` 가 ①DB 최빈 한글명 →②없으면 핸들 순으로 채운다.
+#   핸들마저 없는 행만 거기서 빠진다. (ig_feed_pipeline.sh 도 같이 고쳤다)
+NONAME=$(grep -cE '^\| [0-9]+ \| *\|' "$f" || true)
+[ "${NONAME:-0}" = 0 ] || log "한글명 못 채운 ${NONAME}행 — 핸들로 등록한다(사장님 2026-10-02)"
 
 "$N" scratchpad/drop_ended.mjs "$f" >/dev/null 2>&1
 "$N" scratchpad/pending_dedupe.mjs "$f" >/dev/null 2>&1

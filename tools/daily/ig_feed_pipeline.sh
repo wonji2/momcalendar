@@ -43,11 +43,12 @@ H=$(grep -oE '\| [A-Za-z0-9._]+ \|$' "$f" | tr -d '| ' | sort -u | awk '{printf 
 "$SB" db query --linked --output-format json "select insta, mode() within group (order by influencer) as nm from gonggu where insta in ($H) and influencer<>'' and influencer<>insta group by 1;" 2>/dev/null | grep -o '"insta": "[^"]*"\|"nm": "[^"]*"' | sed 's/"[a-z]*": "//; s/"$//' | paste -d'|' - - > "$CONV.names.db"
 cat "$CONV.names.db" "$CONV.names" 2>/dev/null | awk -F'|' '!seen[$1]++' > "$CONV.names.all"
 awk 'BEGIN{FS="|"} FILENAME==ARGV[1]{nm[$1]=$2; next} {if($0 ~ /^\| [0-9]+ \| *\|/){n=split($0,c,"|"); h=c[n-1]; gsub(/ /,"",h); num=c[2]; gsub(/ /,"",num); if(nm[h]){sub(/^\| [0-9]+ \| *\|/, "| " num " | " nm[h] " |")}} print}' "$CONV.names.all" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-# 한글명 빈 행 → 보류 (셀러 칸이 공백뿐인 행)
-log "한글명 사전: DB $(wc -l < "$CONV.names.db") · 인스타 $(wc -l < "$CONV.names" 2>/dev/null || echo 0)"
-grep -E '^\| [0-9]+ \| *\|' "$f" | sed "s/^/| 한글명없음 $TS /" >> "$HOLD"
-sed -i -E '/^\| [0-9]+ \| *\|/d' "$f"
-grep -q '^| [0-9]' "$f" || { log "한글명 있는 행 0 — 끝 (보류 $HOLD)"; exit 0; }
+# 🔴🔴 2026-10-02 사장님 지시 — **한글명을 못 구한 행도 보류하지 않는다. 핸들을 그대로 띄운다.**
+#   *"이름은 못구했는데 인스타핸들 맞고 공구셀러맞고 공구상품 맞으면 걍 인스타핸들 나오게 하면 되고"*
+#   그래서 아래 「한글명없음 → 보류」 두 줄을 없앴다(09-08~10-02 사이 57행이 그렇게 쌓여 있었다).
+#   셀러 칸이 빈 행은 `gen_insert_gonggu` 가 ①DB 최빈 한글명 →②없으면 핸들 순으로 채운다.
+#   핸들마저 없는 행은 거기서 안 들어간다(no-seller-no-show 는 **빈칸**에 대한 규칙이라 그대로 유효).
+log "한글명 사전: DB $(wc -l < "$CONV.names.db") · 인스타 $(wc -l < "$CONV.names" 2>/dev/null || echo 0) · 못 채운 행 $(grep -cE '^\| [0-9]+ \| *\|' "$f" || true) 건은 핸들로 등록"
 
 "$N" scratchpad/drop_ended.mjs "$f" >/dev/null 2>&1
 "$N" scratchpad/pending_dedupe.mjs "$f" >/dev/null 2>&1
