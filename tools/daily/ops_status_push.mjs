@@ -106,7 +106,34 @@ try {
 
 // ⑥ 알림줄·백업
 out.alerts = tailLines(path.join(REPO, 'daily', '_alert.txt'), 10);
-out.backup = { work_backup_at: mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'FETCH_HEAD')) || mtime(path.join('C:/Users/FAMILY/work-backup', '.git', 'HEAD')), handoff_at: mtime(path.join(REPO, 'HANDOFF.md')), handoff_kb: Math.round((fs.statSync(path.join(REPO, 'HANDOFF.md')).size || 0) / 1024) };
+// 🔴 커밋 시각(.git/HEAD)은 **백업됐다는 뜻이 아니다.** 2026-10-02 에 100MB 파일 하나로 push 가
+//   pre-receive hook 에 거부돼 커밋만 40분 쌓였는데, 이 칸은 "방금 백업됨" 으로 보였다 — 거짓 안심이었다.
+//   그래서 **원격에 실제로 올라갔는지**(밀리지 않은 커밋 수)를 함께 본다. ahead>0 이면 오프사이트 백업이 없는 것이다.
+const WB = 'C:/Users/FAMILY/work-backup';
+const gitOut = (args, cwd) => { try { return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 60e3 }).trim(); } catch { return ''; } };
+out.backup = {
+  work_backup_at: mtime(path.join(WB, '.git', 'FETCH_HEAD')) || mtime(path.join(WB, '.git', 'HEAD')),
+  pushed_at: mtime(path.join(WB, '.git', 'refs', 'remotes', 'origin', 'main')),
+  ahead: Number(gitOut(['rev-list', '--count', '@{u}..HEAD'], WB) || 0),   // 0 이어야 정상
+  warn: tailLines(path.join(WB, 'BACKUP_WARNING.txt'), 1),
+  handoff_at: mtime(path.join(REPO, 'HANDOFF.md')),
+  handoff_kb: Math.round((fs.statSync(path.join(REPO, 'HANDOFF.md')).size || 0) / 1024),
+};
+// 밀린 커밋이 있으면 **사람이 알게** 남긴다 — 오류 레이더의 「다른감시기경보」가 health_alerts 를 센다.
+//   오늘 사고도 내가 우연히 발견했을 뿐, 아무 경보도 울리지 않았다.
+//   같은 내용을 6시간에 한 번만 넣는다(30분마다 도는 회차가 알림을 도배하지 않게).
+try {
+  if (out.backup.ahead > 0) {
+    const sql = `insert into public.health_alerts(kind, detail)
+ select '백업지연', 'work-backup 에 밀린 커밋 ${out.backup.ahead}건 — push 가 안 되고 있다(오프사이트 백업 없음). '
+        || '마지막 push ${out.backup.pushed_at || '알 수 없음'}. work-backup 에서 git push 를 직접 돌려 사유를 볼 것'
+  where not exists (select 1 from public.health_alerts
+                     where kind='백업지연' and created_at > now() - interval '6 hours');`;
+    const f = path.join(REPO, 'scratchpad', '_ops_backup_alert.sql');
+    fs.writeFileSync(f, sql, 'utf8');
+    execFileSync(CLI, ['db', 'query', '--linked', '--file', f], { encoding: 'utf8', timeout: 120e3 });
+  }
+} catch (e) { out.backup.alert_error = String(e.message).slice(0, 120); }
 
 // ⑦ 디스크 여유 — 2026-10-02 사고: C 여유가 **68KB** 까지 떨어져 npx·백업·캡처가 조용히 실패했는데 아무도 몰랐다.
 //    그날 10:23 bbhd 회차가 "여유 15MB" 를 제 로그에 적었지만 그 로그를 읽는 사람이 없었다.
