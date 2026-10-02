@@ -14,6 +14,7 @@
 //
 // ⚠ 가격은 화면에 여러 개 보인다(정가·판매가·배송비). 여기선 **후보를 그대로 넘긴다** — 고르는 건 쓰는 쪽 몫이다.
 import { chromium } from 'playwright';
+import { pwGuard } from './pw_guard.mjs';   // 2026-10-02: 예외·매달림에도 크롬과 임시프로필을 남기지 않는다
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -75,7 +76,9 @@ if (args.includes('--live')) {
 
 if (!targets.length) { console.error('주소가 없다. 사용법: node tools/daily/srook_product.mjs <스룩주소> | --live'); process.exit(1); }
 
+const guard = pwGuard('스룩 상품 긁기', 15 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
+guard.use(browser);
 const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
 const out = [];
 for (const u of targets) {
@@ -83,4 +86,5 @@ for (const u of targets) {
   catch (e) { console.error(`⚠ ${u} 실패: ${String(e.message).slice(0, 80)}`); }
 }
 await browser.close();
+guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
 console.log(JSON.stringify(out, null, 1));

@@ -20,6 +20,7 @@
 //
 // 주기: 아침 카드(make-card.mjs) 예약작업 바로 뒤에 같이 돈다.
 import { chromium } from 'playwright';
+import { pwGuard } from './pw_guard.mjs';   // 2026-10-02: 예외·매달림에도 크롬과 임시프로필을 남기지 않는다
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const SITE = process.env.SITE?.trim() || 'https://momcalendar.com';  // SITE=http://localhost:8099 로 로컬 검증
@@ -27,7 +28,9 @@ const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 
 const day = process.env.DAY?.trim() || kstToday();
 
 // 번들 headless → 없으면 설치된 Chrome 으로 폴백 (make-card.mjs 와 같은 이유·같은 패턴)
+const guard = pwGuard('오늘 카드 만들기', 5 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
+guard.use(browser);
 const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, deviceScaleFactor: 1 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
@@ -67,6 +70,7 @@ const pngDataUrl = await page.evaluate(async () => {
   return canvas.toDataURL('image/png');
 });
 await browser.close();
+guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
 
 if (!pngDataUrl) { console.error('카드를 못 그렸다'); process.exit(1); }
 if (errors.length) console.log('페이지 오류:', errors.slice(0, 3).join(' | '));

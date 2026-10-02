@@ -13,6 +13,7 @@
 // 실행: node tools/daily/ops_status_push.mjs        (예약작업 momcal-ops-status 30분마다)  · --print 는 서버에 안 올리고 화면에 찍는다(ops_status_last.json 은 갱신)
 // 상태: scratchpad/ops_status_last.json (마지막으로 올린 것) · 로그 scratchpad/ops_status_log.txt
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,10 @@ const addD = (s, n) => ymd(new Date(new Date(s + 'T00:00:00Z').getTime() + n * 8
 const today = ymd(kst());
 const tailLines = (f, n = 1, head = false) => { try { const L = fs.readFileSync(f, 'utf8').split(/\r?\n/).filter(Boolean); return (head ? L.slice(0, n) : L.slice(-n)).map((l) => l.slice(0, 200)); } catch { return []; } };
 const mtime = (f) => { try { return new Date(fs.statSync(f).mtimeMs + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' '); } catch { return null; } };
+// 🔴 2026-10-02: HANDOFF.md 크기를 statSync 로 **감싸지 않고** 읽어서, 파일이 없으면 푸셔가 통째로 죽었다
+//    (worktree 에선 HANDOFF.md 가 체크아웃되지 않아 실제로 ENOENT 로 터졌다).
+//    푸셔가 죽으면 현황판이 조용히 낡는다 — 없는 파일은 null 로 넘긴다.
+const sizeKb = (f) => { try { return Math.round(fs.statSync(f).size / 1024); } catch { return null; } };
 const out = { at: kst().toISOString().slice(0, 19).replace('T', ' '), host: process.env.COMPUTERNAME || '' };
 
 // ① 예약작업
@@ -84,6 +89,7 @@ const LOGS = {
   pangpang: ['scratchpad/pangpang_leads_log.txt'],    // 집계 사이트 새 셀러 핸들 (하루 2회)
   ig_register: ['scratchpad/ig_feed_pipeline_log.txt'], // 그날 오픈 → 무인 등록 (매시간)
   live_audit: ['scratchpad/live_audit_log.txt'],       // 라이브 사후 감시 (매일 09:50) — 상한 대신 이걸로 거른다
+  pw_tmp_clean: ['scratchpad/pw_tmp_clean_log.txt'],   // playwright 임시프로필 청소 (매일 04:20) — 이게 멈추면 C드라이브가 찬다
 };
 out.logs = {};
 for (const [k, cands] of Object.entries(LOGS)) {
@@ -104,7 +110,14 @@ try {
   out.parsing = { pending_rows: rows, pending_at: mtime(pend), kw_targets: targets, seen_at: mtime(path.join(REPO, 'scratchpad', '_inpock_seen_auto.txt')) };
 } catch (e) { out.parsing = { error: String(e.message).slice(0, 160) }; }
 
-// ⑥ 알림줄·백업
+// ⑥ playwright 임시폴더 수 — 2026-10-02 엔 3,912개(6.5GB)가 Temp 에 쌓여 C드라이브를 꽉 채웠다.
+//    디스크 **용량**은 아래 ⑦ 에서 한 곳에서만 재고(두 군데서 재면 값이 어긋난다), 여기선 **개수**만 센다.
+//    청소기: tools/daily/pw_tmp_clean.mjs (예약작업 momcal-pw-tmp-clean 매일 04:20)
+try {
+  out.pw_tmp = fs.readdirSync(os.tmpdir()).filter((n) => /^(?:playwright[_-]|pw-)/i.test(n)).length;
+} catch (e) { out.pw_tmp_error = String(e.message).slice(0, 120); }
+
+// ⑦ 알림줄·백업
 out.alerts = tailLines(path.join(REPO, 'daily', '_alert.txt'), 10);
 // 🔴 커밋 시각(.git/HEAD)은 **백업됐다는 뜻이 아니다.** 2026-10-02 에 100MB 파일 하나로 push 가
 //   pre-receive hook 에 거부돼 커밋만 40분 쌓였는데, 이 칸은 "방금 백업됨" 으로 보였다 — 거짓 안심이었다.
@@ -117,7 +130,7 @@ out.backup = {
   ahead: Number(gitOut(['rev-list', '--count', '@{u}..HEAD'], WB) || 0),   // 0 이어야 정상
   warn: tailLines(path.join(WB, 'BACKUP_WARNING.txt'), 1),
   handoff_at: mtime(path.join(REPO, 'HANDOFF.md')),
-  handoff_kb: Math.round((fs.statSync(path.join(REPO, 'HANDOFF.md')).size || 0) / 1024),
+  handoff_kb: sizeKb(path.join(REPO, 'HANDOFF.md')),   // 🔴 statSync 를 감싸지 않으면 HANDOFF.md 가 없을 때 푸셔가 통째로 죽는다(위 sizeKb 주석)
 };
 // 밀린 커밋이 있으면 **사람이 알게** 남긴다 — 오류 레이더의 「다른감시기경보」가 health_alerts 를 센다.
 //   오늘 사고도 내가 우연히 발견했을 뿐, 아무 경보도 울리지 않았다.
