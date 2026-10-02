@@ -327,6 +327,31 @@ Deno.serve(async (req) => {
   const today = seoulToday();
   const log: any = { today, dry, keywords: 0, scanned: 0, tracked: 0, deals: [], errors: [] };
 
+  // 🔴 실수로 회차 전체가 도는 것을 막는다 (사장님 지시 2026-10-02 "쿠팡 파트너스 정지되면 안돼 최대한 보수적으로").
+  //   `?kw=…` 는 `?test=search&kw=…` 와 **함께 써야** 사진 조회 1회로 끝난다. test 없이 kw 만 주면
+  //   위 분기를 못 타고 여기로 흘러와 **40회짜리 회차가 통째로 한 번 더 돈다**
+  //   (메모리 coupang-hotdeal-kw-is-a-full-round — 검색인 줄 알고 4번 불러 312건을 훑은 사고).
+  if (u.searchParams.get("kw") && !u.searchParams.get("test")) {
+    return Response.json({
+      error: "kw 만으로는 부르지 않는다 — 사진 조회는 ?test=search&kw=… 로. " +
+             "test 없이 kw 를 주면 40회짜리 수집 회차가 통째로 돈다.",
+    }, { status: 400 });
+  }
+
+  // 🔴 24시간 차단 중에는 **한 번도 때리지 않는다.**
+  //   쿠팡은 한도를 넘기면 24시간 차단하고, 그 경고가 3회 쌓이면 이용이 제한된다. 이미 정지 2회다.
+  //   차단 사실은 아래에서 health_alerts('쿠팡차단') 로 남긴다 → 그 기록이 24시간 안에 있으면 회차를 쉰다.
+  if (!dry) {
+    const blocked = await sb(
+      "health_alerts?select=created_at&kind=eq.%EC%BF%A0%ED%8C%A1%EC%B0%A8%EB%8B%A8" +
+      "&created_at=gt." + new Date(Date.now() - 24 * 3600e3).toISOString() + "&limit=1",
+    );
+    if (Array.isArray(blocked) && blocked.length) {
+      return Response.json({ ...log, skipped: "쿠팡차단 기록이 24시간 안에 있다 — 이번 회차는 쉰다",
+                             blockedAt: blocked[0].created_at });
+    }
+  }
+
   // 1) 키워드별 상품 수집
   // ⚠️ 쿠팡 검색 API는 시간당 호출 제한이 있고, 3회 초과하면 파트너스 이용이 제한된다.
   //    전체 키워드를 매번 돌리지 말고, 가장 오래 안 본 것부터 KW_PER_RUN 개씩 돌아가며 조회한다.
@@ -452,6 +477,21 @@ Deno.serve(async (req) => {
 
   log.scanned = found.size;
   log.rateLimited = rateLimited;   // true 면 쿠팡이 막은 것 — 키워드 수를 더 줄여야 한다
+  // 🔴 막혔으면 **반드시 남긴다.** 이 함수는 pg_cron 이 부르므로 응답을 읽는 사람이 없다 —
+  //   남기지 않으면 매일 조용히 다시 때리고 경고가 3회 쌓여 이용 제한으로 간다(이미 정지 2회).
+  //   이 기록은 위에서 24시간 쿨다운 판정에도 쓰이고, 오류 레이더·ops 현황판에도 뜬다.
+  if (rateLimited) {
+    await sb("health_alerts", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        kind: "쿠팡차단",
+        detail: "쿠팡 검색 API 가 403/429 로 막았다 — 24시간 쉰다. " +
+                "경고 3회면 파트너스 이용 제한(이미 정지 2회). " +
+                (log.errors.filter((e: any) => e.rateLimited).map((e: any) => e.kw).join(" · ") || ""),
+      }),
+    }).catch(() => {});
+  }
   if (!found.size) return Response.json({ ...log, note: "수집 0건 — 쿠팡 API 응답 확인 필요(?test=1)" });
 
   // 2) 오늘 가격 기록 + 감시목록 갱신
