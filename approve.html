@@ -111,6 +111,7 @@ function card(x){
     <div class="hd">
       <span class="chip">${esc(x.variant)}</span>
       <span class="st ${x.status}">${LABEL[x.status]||x.status}</span>
+      ${x.publish_kst&&x.status==='approved'?`<span class="chip">⏰ ${esc(x.publish_kst)} 예약</span>`:''}
       <span class="when">#${x.id} · ${esc(x.created)}</span>
     </div>
     ${x.reject_note?`<div class="note">🔴 적어주신 수정방향\n${esc(x.reject_note)}</div>`:''}
@@ -121,6 +122,9 @@ function card(x){
     <textarea id="r${x.id}" rows="3">${esc(x.reply_text||'')}</textarea>
     ${x.permalink?`<div class="lbl">올라간 글</div><a href="${esc(x.permalink)}" target="_blank" rel="noopener">${esc(x.permalink)}</a>`:''}
     ${x.status==='posted'?'':`
+    <div class="lbl">언제 올릴까요 <span style="font-weight:400;color:#8a8f98">— 비우면 승인하자마자 다음 차례에 나가요</span></div>
+    <input type="datetime-local" id="t${x.id}" value="${esc(x.publish_input||suggestAt())}" step="300"
+           style="width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff">
     <div class="btns">
       <button class="ghost" onclick="save(${x.id})">수정 저장</button>
       <button class="ok" onclick="approve(${x.id})">승인</button>
@@ -141,9 +145,17 @@ async function act(fn,msg){
   try{ await fn(); await boot(); }catch(e){ alert((msg?msg+'\n\n':'')+String(e.message||e).replace(/^\{.*?"message":"/,'').replace(/".*$/,'')); }
 }
 const save=id=>act(()=>rpc('threads_queue_save',{p_id:id,p_body:$('b'+id).value,p_image_url:null,p_reply:$('r'+id).value}),'저장이 안 됐어요');
+// 예약 기본값 — 지금부터 30분 뒤(5분 단위로 올림). 폰 시계가 한국이라 그대로 KST 로 들어간다.
+function suggestAt(){
+  const d=new Date(Date.now()+30*60000);
+  d.setMinutes(Math.ceil(d.getMinutes()/5)*5,0,0);
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 const approve=id=>act(async()=>{
   await rpc('threads_queue_save',{p_id:id,p_body:$('b'+id).value,p_image_url:null,p_reply:$('r'+id).value});
-  await rpc('threads_queue_approve',{p_id:id});
+  const at=($('t'+id)&&$('t'+id).value)||null;   // 비우면 즉시 발행 대상
+  await rpc('threads_queue_approve',{p_id:id,p_publish_at:at});
 },'승인이 안 됐어요');
 const reject=id=>act(()=>rpc('threads_queue_reject',{p_id:id,p_note:$('rn'+id).value}),'반려가 안 됐어요');
 
