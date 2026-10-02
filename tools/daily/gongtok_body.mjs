@@ -36,6 +36,20 @@ import { chromium } from 'playwright';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SP = (f) => path.join(ROOT, 'scratchpad', f);
+
+// 🔴🔴 2026-10-02 — 아래 `handle || slug` 가 **인포크 슬러그를 핸들 칸에 넣는다.**
+//   같은 꼴로 노출중 42건이 망가졌던 그 버그다(`eeodlf` 는 슬러그이고 실제 핸들은 `j_ujjjj`).
+//   슬러그가 핸들 칸에 들어가면 ① 사이트 셀러 링크가 빈 계정으로 가고
+//   ② 한글명 투표가 아무것도 못 찾아 `gen_insert_gonggu` 가 그 행을 **통째로 버린다**(09-30 규칙).
+//   → 표가 있으면 **진짜 핸들로 바꿔서** 내보낸다. 표는 DB `seller_inpock` 한 곳(메모리 inpock-slug-vs-insta-handle).
+let slugRes = { resolve: () => null, size: 0, source: '(안 읽음)' };
+try {
+  // ⚠ 윈도우에서 절대경로를 그대로 import 하면 「Only URLs with a scheme …」 로 죽는다 → file:// URL 로 준다
+  const { pathToFileURL } = await import('node:url');
+  const mod = await import(pathToFileURL(path.join(ROOT, 'scratchpad', '_slug_resolver.mjs')).href);
+  slugRes = mod.loadSlugResolver();
+  console.log(`슬러그 해석기: ${slugRes.source}`);
+} catch (e) { console.log(`⚠ 슬러그 해석기 실패(${String(e.message).slice(0, 70)}) — 슬러그가 핸들 칸에 들어갈 수 있다`); }
 const PROFILE = path.join(ROOT, 'sns-automation', 'browser-profile-gongtok');
 const SEEN_F = SP('gongtok_body_seen.txt');
 const LOG_F = SP('gongtok_body_log.txt');
@@ -136,10 +150,18 @@ try {
       if (!handle && !slug) { noSeller++; log(`  · ${id} 셀러 없음 — ${name.slice(0, 30)}`); continue; }
       if (!name || !open) { noDate++; log(`  · ${id} 제목에서 ${!name ? '상품명' : '오픈일'}을 못 읽음 — ${got.title.slice(0, 40)}`); continue; }
 
+      // 🔴 핸들이 없을 때 슬러그를 핸들 칸에 넣지 않는다 — 표에서 진짜 핸들을 찾아 쓴다
+      let outHandle = handle;
+      if (!outHandle && slug) {
+        const real = slugRes.resolve(slug);
+        if (real) { outHandle = real; log(`     ↳ 슬러그 ${slug} → 진짜 핸들 ${real} (seller_inpock)`); }
+        else { outHandle = slug; log(`     ⚠ 슬러그 ${slug} 의 핸들을 모른다 — 게이트가 잡는다(slug_as_handle)`); }
+      }
       // 6열: handle, slug, name, open, end, link   (마감은 오픈+3 — DB등록규칙 1)
-      rows.push([handle || slug, slug, name, open, addDays(open, 3), slug ? `https://link.inpock.co.kr/${slug}` : ''].join('\t'));
-      if (handle && kor) names.push(`${handle}|${kor}`);
-      log(`  ✅ ${id}  ${name} (${open})  @${handle || '-'} / 인포크 ${slug || '-'}${kor ? ' · ' + kor : ''}`);
+      rows.push([outHandle, slug, name, open, addDays(open, 3), slug ? `https://link.inpock.co.kr/${slug}` : ''].join('\t'));
+      // 한글명은 핸들이 있을 때만이 아니라 **핸들을 알아낸 모든 경우**에 남긴다
+      if (outHandle && kor) names.push(`${outHandle}|${kor}`);
+      log(`  ✅ ${id}  ${name} (${open})  @${outHandle || '-'} / 인포크 ${slug || '-'}${kor ? ' · ' + kor : ''}`);
     } catch (e) {
       failStreak++;
       log(`  🔴 ${id} 실패 (연속 ${failStreak}) — ${String(e.message || e).slice(0, 80)}`);
