@@ -37,7 +37,12 @@ const SB_CLI = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabas
 const SB_URL = process.env.SUPABASE_URL || 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 const PUB = process.env.TOSS_PUBLISHER_ID || '';
-const CRON = process.env.PUSH_CRON_SECRET || '';
+// 크론 비밀값은 환경변수가 없으면 이 PC 의 파일에서 읽는다 (~/.momcal_cron_secret — 2026-08-16 부터 여기 있다).
+// 이게 있으면 publisherId 가 없어도 edge 의 mode=link 로 우리 링크를 받을 수 있다(아래 tossLink 참고).
+const CRON = process.env.PUSH_CRON_SECRET || (() => {
+  try { return readFileSync(join(process.env.USERPROFILE || process.env.HOME || '.', '.momcal_cron_secret'), 'utf8').trim(); }
+  catch { return ''; }
+})();
 const DIR = join(ROOT, 'scratchpad', 'hotdeal_chat');
 const LOG = join(ROOT, 'scratchpad', 'hotdeal_chat_log.txt');
 const SQLF = join(ROOT, 'scratchpad', '_hotdeal_chat.sql');
@@ -63,22 +68,44 @@ const won = (n) => (n == null ? '-' : Number(n).toLocaleString('ko-KR') + '원')
 //   "네스카페 돌체구스토 커피머신" 은 커피(간식)보다 머신(가전)이 먼저여야 한다.
 //   "군고구마도나스" 는 고구마(신선)보다 도나스(간식)가 먼저여야 한다.  (둘 다 2026-10-01 실측 오분류)
 const CAT_RULES = [
-  ['육아', '기저귀·물티슈', /기저귀|물티슈|배변|아기띠|유모차|카시트|젖병|분유|이유식|쪽쪽이|턱받이/],
+  ['육아', '유모차카시트', /유모차|카시트/],
   ['육아', '장난감/놀이', /장난감|블럭|블록|교구|퍼즐|인형|놀이|사운드북|전집|그림책|색칠|보드게임/],
-  ['육아', '육아용품', /아기|유아|신생아|베이비|키즈|어린이|주니어|아동|웨건/],
-  ['가전', '디지털', /이어폰|헤드폰|스마트폰|갤럭시|galaxy|아이폰|iphone|태블릿|노트북|워치|폴드|fold|플립|flip|충전기|보조배터리/],
-  ['가전', '생활가전', /커피머신|구스토|청소기|세탁기|건조기|에어컨|선풍기|공기청정|제습|가습|믹서|블렌더|전기포트|밥솥|에어프라이/],
-  ['식품', '간식', /도나스|도넛|약과|스낵|과자|초코|사탕|젤리|견과/],
-  ['식품', '간편식', /밀키트|간편식|즉석|국물|탕|찌개|만두|볶음밥|도시락|반찬|삼계탕|곰탕|떡갈비|폭립|갈비|족발|어묵|장조림/],
-  ['식품', '신선', /한우|돼지|삼겹|닭|계란|달걀|우유|치즈|요거트|과일|사과|복숭아|토마토|수박|딸기|채소|쌀|김치|알밤|햇밤|고구마/],
-  ['식품', '음료', /음료|커피|아메리카노|주스|쥬스|과채|생수|탄산|차\b/],
-  ['생필품', '세제·위생', /세제|섬유유연제|주방세제|화장지|휴지|비누|샴푸|치약|칫솔|생리대|세정제|탈취|행주|살균/],
-  ['생필품', '주방', /냄비|프라이팬|후라이팬|밀폐용기|도마|수저|그릇|텀블러|보온병|주방/],
-  ['리빙', '수납·정리', /정리함|수납|선반|행거|옷걸이|바구니|트레이|리빙박스/],
-  ['리빙', '침구', /이불|베개|매트|패드|커튼|러그|카페트|침대/],
-  ['뷰티', '스킨케어', /크림|로션|에센스|세럼|앰플|토너|선크림|선스틱|마스크팩|클렌징|퍼퓸/],
-  ['리빙', '레저', /캠핑|텐트|돗자리|타프/],
-  ['식품', '간식', /빵|떡|아이스크림|오징어|장족|김\b/],
+  ['육아', '이유아식', /이유식|분유|유아식/],
+  ['육아', '육아용품', /기저귀|물티슈|배변|아기띠|젖병|쪽쪽이|턱받이|아기|유아|신생아|베이비|키즈|어린이|주니어|아동|웨건/],
+  ['가전', '취미/디지털기기', /이어폰|헤드폰|스마트폰|갤럭시|galaxy|아이폰|iphone|태블릿|노트북|워치|폴드|fold|플립|flip|충전기|보조배터리/],
+  ['가전', '주방가전', /커피머신|구스토|믹서|블렌더|전기포트|밥솥|에어프라이|인덕션/],
+  ['가전', '계절가전', /에어컨|선풍기|히터|온풍기|제습|가습/],
+  ['가전', '생활가전', /청소기|세탁기|건조기|세척기|공기청정/],
+  ['뷰티', '구강케어', /칫솔|치약|구강|가글/],
+  ['식품', '음료/차/즙', /음료|커피|아메리카노|주스|쥬스|과채|생수|탄산|스파클링|콜라|사이다|맥콜|제로슈거|두유|식혜|차\b/],
+  ['식품', '유제품', /우유|치즈|요거트|요구르트|버터/],
+  ['식품', '떡/베이커리', /베이글|빵|케이크|도나스|도넛|약과|떡\b/],
+  ['식품', '견과류', /견과|아몬드|호두|땅콩|캐슈/],
+  ['식품', '간식/구황작물', /스낵|과자|초코|사탕|젤리|뻥튀기|단백질바|아이스크림|고구마|감자|옥수수/],
+  ['식품', '간편식/밀키트', /밀키트|간편식|즉석|국물|탕|찌개|만두|볶음밥|도시락|삼계탕|곰탕|떡갈비|폭립|갈비|족발|어묵|장조림|돈까스|돈가스|순대|곱창|불고기|떡볶이|소시지|비엔나|햄\b/],
+  ['식품', '반찬', /반찬|김치|젓갈|나물/],
+  ['식품', '수산물/건해산', /오징어|새우|고등어|연어|미역|멸치|문어|낙지|전복|김\b/],
+  ['식품', '정육/계란', /한우|한돈|돼지|삼겹|소고기|닭|계란|달걀|잡육|목살|등심/],
+  ['식품', '과일/야채', /과일|사과|복숭아|토마토|수박|딸기|채소|감귤|귤\b|포도|참외|멜론|바나나/],
+  ['식품', '장류/오일/소스', /간장|고추장|된장|식용유|올리브유|소스|참기름|들기름/],
+  ['건강', '유산균', /유산균|프로바이오틱/],
+  ['건강', '비타민', /비타민|멀티비타/],
+  ['건강', '오메가', /오메가|루테인/],
+  ['건강', '홍삼/면역', /홍삼|산삼|녹용/],
+  ['건강', '건강기능성', /효소|콜라겐|영양제|밀크씨슬|마그네슘|프로폴리스|보충제/],
+  ['리빙', '청소/세제', /세제|섬유유연제|주방세제|화장지|휴지|티슈|비누|샴푸|바디워시|세정제|탈취|방향제|행주|살균|생리대/],
+  ['리빙', '주방용품', /냄비|프라이팬|후라이팬|밀폐용기|도마|수저|그릇|텀블러|보온병|주방|조리도구/],
+  ['리빙', '테이블웨어', /식기|컵\b|머그|접시/],
+  ['패션', '신발', /운동화|신발|슬리퍼|샌들|부츠|구두/],
+  ['패션', '가방', /가방|백팩|크로스백|지갑|파우치/],
+  ['패션', '이너웨어', /양말|내의|속옷|팬티|브라\b|수면바지/],
+  ['패션', '스포츠웨어', /트레이닝복|레깅스|요가복|등산복/],
+  ['패션', '의류', /자켓|재킷|점퍼|패딩|코트|티셔츠|맨투맨|후드|바지|원피스|니트|가디건|조끼/],
+  ['리빙', '침구/패브릭', /이불|베개|매트리스|침구|커튼|러그|카페트|극세사/],
+  ['뷰티', '스킨케어', /크림|로션|에센스|세럼|앰플|토너|선크림|선스틱|마스크팩|클렌징/],
+  ['뷰티', '헤어케어', /린스|트리트먼트|헤어/],
+  ['뷰티', '향수', /향수|퍼퓸/],
+  ['리빙', '생활용품', /정리함|수납|선반|행거|옷걸이|바구니|리빙박스|캠핑|텐트|돗자리|타프|건전지|전구/],
 ];
 const categorize = (name) => {
   const s = String(name || '').toLowerCase();
@@ -139,8 +166,10 @@ function parseChat(text) {
     // 가격줄 — "💰 199,800원 → 51,840원 (74%↓)" / "💰12,900원->7,800원 (43%↓)" / "↳ … 13,500원"
     const pm = line.match(/([\d,]+)\s*원\s*(?:→|->|⇒|~>)\s*([\d,]+)\s*원(?:\s*\(?\s*(\d{1,2})\s*%)?/);
     if (pm) { before = num(pm[1]); price = num(pm[2]); drop = pm[3] ? Number(pm[3]) : null; continue; }
-    const pm2 = line.match(/^[^\d]{0,24}?([\d,]{3,})\s*원\s*$/);          // 할인가만 적힌 줄(짠댕이)
-    if (pm2 && !/원가|정가/.test(line)) { price = num(pm2[1]); before = null; drop = null; continue; }
+    // 할인가만 적힌 줄(짠댕이) — "↳ 초대박 🚨 8,990원" · 뒤에 할인율이 붙기도 한다 "8,990원 (-83%)"
+    // 🔴 꼬리를 안 받으면 그 줄을 통째로 못 읽어 상품이 "가격을 못 읽었다"로 빠진다(2026-10-02 란센 렌즈세척기).
+    const pm2 = line.match(/^[^\d]{0,24}?([\d,]{3,})\s*원\s*(?:\(?\s*-?\s*(\d{1,2})\s*%\s*↓?\s*\)?)?\s*$/);
+    if (pm2 && !/원가|정가/.test(line)) { price = num(pm2[1]); before = null; drop = pm2[2] ? Number(pm2[2]) : null; continue; }
 
     // 링크줄 — 한 건을 끊는다
     const links = line.match(RE_LINK);
@@ -174,9 +203,13 @@ function parseChat(text) {
 function tidy(deals) {
   const keep = [], drop = [];
   const seenCode = new Set(), seenName = new Set();
+  // 🔴 앞 2낱말만 보면 **향·맛만 다른 별개 상품이 한 건으로 뭉개진다** —
+  //   2026-10-02 실측: "수뜰리에 퍼퓸 고체 탈취제 데이지향"(오늘 딜)이 "밤쉘향"(어제 딜)에 밀려 통째로 빠졌다.
+  //   이름 전체에서 수량·용량만 걷어내고 비교한다. 같은 상품을 두 채널이 다르게 적은 경우
+  //   (", 1개" 가 붙고 안 붙고)는 그 제거로 여전히 합쳐지고, 토스는 변환 뒤 product_id 로 한 번 더 합쳐진다.
   const baseKey = (s) => String(s || '').toLowerCase().replace(/\([^)]*\)/g, '')
     .replace(/[\d,.]+\s*(g|kg|ml|l|매|개|팩|구|봉|입|세트|박스|롤|m)\b/g, ' ')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').slice(0, 2).join(' ');
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
   for (const d of deals) {
     const why = (r) => { drop.push({ ...d, why: r }); };
@@ -235,6 +268,38 @@ async function tossCall(method, path, body) {
   throw new Error('토스 응답이 21초 안에 안 왔다');
 }
 
+// 상품 정보(이름·지금 가격·정가·사진·품절) — edge 가 토스에 물어본다.
+//   DB 브리지(tossCall)는 건당 최대 21초를 기다린다 → 50건이면 회차가 끝나지 않는다.
+//   edge 의 mode=detail 도 isAdmin 검사가 없다(2026-10-02 실측 200). 크론 비밀값이 없을 때만 브리지로 간다.
+async function tossDetail(idKind, id) {
+  if (CRON) {
+    const r = await fetch(`${SB_URL}/functions/v1/toss-sync?mode=detail&ids=${id}&item=${idKind === 'item' ? 1 : 0}`,
+      { headers: { 'x-cron-secret': CRON, apikey: ANON, Authorization: `Bearer ${ANON}` } })
+      .then((x) => x.json()).catch(() => null);
+    return r?.body?.success?.items?.[0] ?? null;
+  }
+  const key = idKind === 'item' ? 'tacaItemIds' : 'tacaIds';
+  const det = await tossCall('GET', `/products/detail?${key}=${id}`);
+  return det?.success?.items?.[0] ?? null;
+}
+
+// 우리 수익 링크 발급 — publisherId 가 이 PC 에 없으면 edge 함수가 대신 낸다.
+//   publisherId 는 Supabase 시크릿에만 있고 레포·.env 어디에도 없다(2026-10-02 실측).
+//   toss-sync 의 mode=link 는 isAdmin 검사가 없다(convert 만 막혀 있다) → 크론 비밀값으로 부른다.
+async function tossLink(idKind, id) {
+  if (PUB) {
+    const lr = await tossCall('POST', '/links', idKind === 'item'
+      ? { tacaItemId: Number(id), publisherId: PUB } : { tacaId: Number(id), publisherId: PUB });
+    return lr?.success?.shortUrl || '';
+  }
+  if (!CRON) return '';
+  const key = idKind === 'item' ? 'tacaItemId' : 'tacaId';
+  const r = await fetch(`${SB_URL}/functions/v1/toss-sync?mode=link&${key}=${id}`,
+    { headers: { 'x-cron-secret': CRON, apikey: ANON, Authorization: `Bearer ${ANON}` } })
+    .then((x) => x.json()).catch(() => null);
+  return r?.body?.success?.shortUrl || '';
+}
+
 // 쉐어링크를 따라가 상품 번호를 찾는다 (toss-sync 의 resolveOne 과 같은 규칙)
 async function resolveToss(url) {
   let u = url;
@@ -259,12 +324,12 @@ async function resolveCoupang(url) {
   let u = url;
   for (let hop = 0; hop < 3; hop++) {
     const m = u.match(/coupang\.com\/vp\/products\/(\d+)/);
-    if (m) { const it = u.match(/itemId=(\d+)/); return { productId: m[1], url: `https://www.coupang.com/vp/products/${m[1]}${it ? `?itemId=${it[1]}` : ''}` }; }
+    if (m) { const it = u.match(/itemId=(\d+)/); return { productId: m[1], itemId: it ? it[1] : '', url: `https://www.coupang.com/vp/products/${m[1]}${it ? `?itemId=${it[1]}` : ''}` }; }
     const r = await fetch(u, { headers: { 'User-Agent': UA }, redirect: 'follow' });
     if (r.url && r.url !== u) { u = r.url; continue; }
     const html = await r.text();
     const pm = html.match(/productId.{0,6}?(\d{6,})/);
-    if (pm) { const im = html.match(/itemId.{0,6}?(\d{6,})/); return { productId: pm[1], url: `https://www.coupang.com/vp/products/${pm[1]}${im ? `?itemId=${im[1]}` : ''}` }; }
+    if (pm) { const im = html.match(/itemId.{0,6}?(\d{6,})/); return { productId: pm[1], itemId: im ? im[1] : '', url: `https://www.coupang.com/vp/products/${pm[1]}${im ? `?itemId=${im[1]}` : ''}` }; }
     break;
   }
   return null;
@@ -272,6 +337,35 @@ async function resolveCoupang(url) {
 
 // ── 메인 ──
 const jsonPath = join(DIR, `${today}.json`);
+
+// --recat : 이미 등록된 그날 카드의 분류를 **지금 규칙으로** 다시 매긴다.
+//   분류 규칙을 고쳤을 때 쓴다. 규칙을 두 벌로 베끼지 않으려고 도구 안에 둔다
+//   (2026-10-02: minor 를 사이트의 CATS 표기에 맞추며 신설 — 표기가 어긋나면 손님이 소분류 칩으로 걸러도 안 잡힌다).
+if (has('--recat')) {
+  // 🔴 대상을 좁힌다 — 남이 넣은 카드의 분류를 내 규칙으로 덮지 않는다.
+  //   --ids=1,2,3 으로 직접 주거나, 없으면 그날 내가 이 도구로 넣은 것(manual·source=toss/coupang)만 본다.
+  //   (2026-10-02: 전체에 걸었더니 "코멧 키친 고무장갑 : 주방용품 → 빈칸" 처럼 **더 나빠지는** 행이 나왔다)
+  const ids = (argv('--ids', '') || '').split(',').map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+  const where = ids.length ? `id in (${ids.join(',')})`
+    : `deal_day = '${today}'::date and manual = true and source in ('toss','coupang')`;
+  const rows = q(`select id, title, major, minor from public.hotdeals where ${where} order by id;`);
+  const fix = [];
+  for (const r of rows) {
+    const [a, b] = categorize(r.title);
+    // 소분류가 빈칸이 되는 변경은 퇴보다 — 하지 않는다
+    if (!b && r.minor) continue;
+    if (a !== r.major || b !== (r.minor || '')) fix.push({ ...r, a, b });
+  }
+  console.log(`${today} 카드 ${rows.length}건 중 분류가 달라지는 것 ${fix.length}건`);
+  for (const f of fix) console.log(`  ${f.id} ${f.title.slice(0, 30)} : ${f.major}/${f.minor || '-'} → ${f.a}/${f.b || '-'}`);
+  if (!fix.length || !has('--go')) { log('미리보기만 했다(고치려면 --recat --go)'); process.exit(0); }
+  const vals = fix.map((f) => `(${f.id},${lit(f.a)},${lit(f.b)})`).join(',');
+  const n = q(`with v(id,major,minor) as (values ${vals})
+ update public.hotdeals h set major = v.major::text, minor = nullif(v.minor,'')::text
+   from v where h.id = v.id returning h.id;`);
+  log(`분류 고침 ${n.length}건`);
+  process.exit(0);
+}
 
 if (!has('--convert')) {
   // ① 파싱만 — 통신이 필요 없다
@@ -309,20 +403,27 @@ for (const d of deals) {
   if (already.has(d.title)) { fails.push({ ...d, why: '이미 등록돼 있다(14일 내)' }); continue; }
   try {
     if (d.mall === '토스쇼핑') {
-      if (!PUB) { fails.push({ ...d, why: 'TOSS_PUBLISHER_ID 가 없어 우리 링크를 못 만든다' }); continue; }
+      if (!PUB && !CRON) { fails.push({ ...d, why: 'TOSS_PUBLISHER_ID·크론 비밀값이 둘 다 없어 우리 링크를 못 만든다' }); continue; }
       const r = await resolveToss(d.link);
       if (!r) { fails.push({ ...d, why: '토스 상품 번호를 못 찾았다' }); continue; }
-      const key = r.idKind === 'item' ? 'tacaItemIds' : 'tacaIds';
-      const det = await tossCall('GET', `/products/detail?${key}=${r.id}`);
-      const it = det?.success?.items?.[0] ?? null;
-      if (it?.isSoldOut) { fails.push({ ...d, why: '품절' }); continue; }
-      const lr = await tossCall('POST', '/links', r.idKind === 'item'
-        ? { tacaItemId: Number(r.id), publisherId: PUB } : { tacaId: Number(r.id), publisherId: PUB });
-      const link = lr?.success?.shortUrl || '';
+      const it = await tossDetail(r.idKind, r.id);
+      // 상품 정보를 못 받으면 사진도 가격 근거도 없다 → 올리지 않는다
+      // (/핫딜 "등록 전 무조건 판매처 실측" · "사진 없으면 등록 보류").
+      if (!it) { fails.push({ ...d, why: '토스 상품정보를 못 받았다(카탈로그에 없음) — 사진·실측가 없음' }); continue; }
+      if (it.isSoldOut) { fails.push({ ...d, why: '품절' }); continue; }
+      // 🔴 실측가가 제보가보다 크게 올랐으면 그 딜은 끝난 것이다 (/핫딜 규칙 ③ "10%↑ 회복이면 스킵").
+      //   아래에서 price 를 displayPrice 로 덮어쓰기 때문에, 비교 없이 넣으면 **끝난 딜이 정상가로 등록된다**.
+      //   카톡 덤프엔 어제치와 오늘치가 섞여 온다 → 날짜가 아니라 지금 가격이 판정 근거다.
+      if (it?.displayPrice && d.price && it.displayPrice > d.price * 1.1) {
+        fails.push({ ...d, why: `가격 회복 ${won(d.price)} → ${won(it.displayPrice)} — 딜 종료` }); continue;
+      }
+      if (!it.thumbnailUrl) { fails.push({ ...d, why: '사진이 없다 — 등록 보류(임의 사진 금지)' }); continue; }
+      const link = await tossLink(r.idKind, r.id);
       if (!link) { fails.push({ ...d, why: '쉐어링크 발급 실패' }); continue; }
-      rows.push({ ...d, link, source: 'toss', product_id: `toss_${it?.tacaItemId ?? r.id}`,
-        img_url: it?.thumbnailUrl || '', price: it?.displayPrice ?? d.price,
-        price_before: it?.originalPrice ?? d.price_before, discount_rate: it?.discountRate ?? d.discount_rate });
+      // 상품명도 토스 실측 표기를 따른다 (/핫딜 "상품명도 실측 표기를 따른다" — 제보 오타를 그대로 내보내지 않는다)
+      rows.push({ ...d, link, source: 'toss', product_id: `toss_${it.tacaItemId ?? r.id}`,
+        title: it.displayName || d.title, img_url: it.thumbnailUrl, price: it.displayPrice ?? d.price,
+        price_before: it.originalPrice ?? d.price_before, discount_rate: it.discountRate ?? d.discount_rate });
     } else if (d.mall === '쿠팡') {
       if (!CRON) { fails.push({ ...d, why: 'PUSH_CRON_SECRET 이 없어 쿠팡 딥링크를 못 만든다' }); continue; }
       const pid = await resolveCoupang(d.link);
@@ -331,7 +432,11 @@ for (const d of deals) {
         { headers: { 'x-cron-secret': CRON } }).then((r) => r.json()).catch(() => null);
       const link = rr?.body?.data?.[0]?.shortenUrl || '';
       if (!link) { fails.push({ ...d, why: '쿠팡 딥링크 발급 실패' }); continue; }
-      rows.push({ ...d, link, source: 'coupang', product_id: `cp_${pid.productId}`, img_url: '' });
+      // 🔴 딥링크 발급은 사진을 주지 않는다. 사진 없는 카드는 올리지 않는다(/핫딜 "사진 없으면 등록 보류 — 임의 사진 금지").
+      //   쿠팡 검색 API 로 사진을 찾을 수는 있으나 **파트너스 정지 2회 상태라 호출을 늘리지 않는다** → 사장님께 넘긴다.
+      //   product_id 는 `상품번호_옵션번호` 형식이다(cp_ 접두사 금지 — 자멸 버그 전력).
+      fails.push({ ...d, why: '쿠팡 — 사진을 못 구했다(링크는 발급됨: ' + link + ')', link,
+        product_id: `${pid.productId}${pid.itemId ? '_' + pid.itemId : ''}` });
     } else {
       // 네이버는 우리 커넥트 링크를 자동 발급할 길이 없다 → 남의 링크를 올리지 않는다
       fails.push({ ...d, why: '네이버는 자동 변환 경로가 없다(사장님 결정 필요)' });
