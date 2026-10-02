@@ -3,6 +3,22 @@
 # 구 PC(FAMILY)·새 PC(안태인) 겸용 — 폴더 위치가 기계마다 달라 존재하는 첫 후보 경로를 쓴다 (2026-08-14)
 $ErrorActionPreference = 'Continue'
 $repo = "$env:USERPROFILE\momcal-ops"
+
+# 🔴🔴 2026-10-02 — work-backup 이 겪은 사고를 **이 파일이 그대로 안고 있었다**(형제 코드의 같은 결함).
+#   ①겹쳐 돌면 서로의 중간 상태를 커밋한다 ②`git status` 로 판단해 add 실패를 못 본다
+#   ③push 결과를 안 본다 ④100MB 파일이면 push 가 통째로 거부된다 — 넷 다 아래에서 막는다.
+# 동시 실행 잠금 — 세션종료 훅·예약작업·사람이 각각 부른다. 겹치면 비켜난다(어차피 같은 것을 담는다).
+$lockFile = Join-Path $repo '.backup.lock'
+if (Test-Path $repo) {
+  if (Test-Path $lockFile) {
+    $age = (Get-Date) - (Get-Item $lockFile).LastWriteTime
+    if ($age.TotalMinutes -lt 20) { Write-Host ("OPS BACKUP SKIP: 다른 회차가 {0:N1}분 전부터 돌고 있다" -f $age.TotalMinutes); exit 0 }
+    Write-Host "OPS BACKUP WARN: 20분 넘은 잠금을 걷어낸다(앞 회차가 죽은 듯)"
+  }
+  Set-Content -Path $lockFile -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding UTF8
+}
+$global:__opslock = $lockFile
+try {
 $src  = @("$env:USERPROFILE\MOMCALENDAR", "$env:USERPROFILE\Desktop\MOMCALENDAR") |
         Where-Object { Test-Path $_ } | Select-Object -First 1
 # 메모리 폴더는 기계마다 프로젝트 경로명이 다르다 → MOMCALENDAR 이름이 든 폴더 중 MEMORY.md 가 가장 최근인 것
@@ -92,9 +108,51 @@ if (Test-Path $parentClaude) { Copy-Item $parentClaude "$repo\CLAUDE-parent.md" 
 if (Test-Path $desktopClaude) { Copy-Item $desktopClaude "$repo\CLAUDE-desktop.md" -Force }
 
 Set-Location $repo
-git add -A
-$st = git status --porcelain
+# 긴 경로(서브에이전트 로그 등)가 있으면 git add -A 가 통째로 실패한다
+git config core.longpaths true
+git add -A --ignore-errors
+if ($LASTEXITCODE -ne 0) { Write-Host "OPS BACKUP WARN: git add -A exit $LASTEXITCODE (--ignore-errors) - 담긴 것만 커밋한다" }
+
+# 🔴 100MB 넘는 파일 하나가 push 를 통째로 거부시킨다(GitHub 한도). 커밋 직전에 인덱스에서 뺀다.
+$tooBig = @()
+foreach ($rel in (git diff --cached --name-only)) {
+  $full = Join-Path $repo $rel
+  if (Test-Path -LiteralPath $full) {
+    try { if ((Get-Item -LiteralPath $full).Length -gt 99MB) { $tooBig += $rel } } catch { }
+  }
+}
+foreach ($rel in $tooBig) {
+  git rm --cached --quiet -- $rel
+  $m = "OPS BACKUP WARN: 100MB 초과라 이번 백업에서 제외 - $rel"
+  Write-Host $m
+  Add-Content -Path "$repo\BACKUP_WARNING.txt" -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + " $m") -Encoding UTF8
+}
+if ($tooBig.Count) { git add -A --ignore-errors BACKUP_WARNING.txt }
+
+# 🔴 `git status` 가 아니라 **스테이지된 것**을 본다 — status 로 보면 add 가 실패해도 commit 을 시도해
+#   "no changes added to commit" 으로 조용히 끝난다(2026-10-01 에 백업이 하루 멈춘 그 경로다).
+$st = git diff --cached --name-only
 if ($st) {
   git commit -m ("backup " + (Get-Date -Format 'yyyy-MM-dd HH:mm'))
   git push
+  if ($LASTEXITCODE -ne 0) {
+    $m = "OPS BACKUP FAIL: push 거부됨 (exit $LASTEXITCODE) — 커밋은 로컬에만 있다. momcal-ops 에서 git push 를 직접 돌려 사유를 볼 것"
+    Write-Host $m
+    Add-Content -Path "$repo\BACKUP_WARNING.txt" -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + " $m") -Encoding UTF8
+  }
+}
+# 커밋할 게 없어도 앞 회차가 밀지 못하고 남긴 커밋이 있으면 밀어준다
+$ahead = (git rev-list --count '@{u}..HEAD' 2>$null)
+if ($ahead -and [int]$ahead -gt 0) {
+  Write-Host "OPS BACKUP: 밀리지 않은 커밋 $ahead 개 — 다시 push 한다"
+  git push
+  if ($LASTEXITCODE -ne 0) {
+    $m = "OPS BACKUP FAIL: 밀린 커밋 $ahead 개를 push 하지 못했다 (exit $LASTEXITCODE)"
+    Write-Host $m
+    Add-Content -Path "$repo\BACKUP_WARNING.txt" -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm') + " $m") -Encoding UTF8
+  }
+}
+} finally {
+  # 어떤 경로로 끝나든 잠금을 푼다
+  if ($global:__opslock -and (Test-Path $global:__opslock)) { Remove-Item $global:__opslock -Force -ErrorAction SilentlyContinue }
 }
