@@ -40,6 +40,20 @@ textarea{resize:vertical}
 img.shot{width:100%;max-width:260px;border-radius:10px;border:1px solid var(--line);display:block;margin-top:6px}
 .note{background:#FBE9E8;border-radius:9px;padding:9px 10px;font-size:13px;color:#8A302B;margin-top:9px;white-space:pre-wrap}
 .sec{font-size:13px;font-weight:800;color:var(--mute);margin:20px 0 8px;display:flex;gap:6px;align-items:center}
+/* 탭 — 승인 전 / 승인됨 / 발행완료 / 반려 (사장님 2026-10-02) */
+.tabs{display:flex;gap:6px;margin:12px 0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs .tab{flex:0 0 auto;padding:9px 13px;border:1px solid var(--line);background:#fff;border-radius:999px;
+  font:inherit;font-size:13px;font-weight:700;color:var(--mute);cursor:pointer;white-space:nowrap}
+.tabs .tab.on{background:var(--p-l);border-color:var(--p-d);color:var(--p-d)}
+.tabs .tcnt{display:inline-block;margin-left:4px;font-size:11px;opacity:.8}
+/* 여러 개 골라 한꺼번에 승인 + 랜덤 시간 (사장님 2026-10-02) */
+.bulk{position:sticky;top:0;z-index:9;background:#fff;border:1px solid var(--p-d);border-radius:12px;padding:11px;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.07)}
+.bulk .r{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.bulk input[type=datetime-local]{flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:9px;font:inherit}
+.bulk b{font-size:13px}
+.selbox{width:20px;height:20px;accent-color:var(--p-d);margin-right:2px}
+.pickrow{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.pickrow label{font-size:12px;color:var(--mute);font-weight:700}
 .foot{font-size:11.5px;color:var(--mute);line-height:1.6;margin-top:18px}
 a{color:var(--p-d)}
 .empty{background:#fff;border:1px dashed #D7CFE3;border-radius:12px;padding:22px;text-align:center;color:var(--mute);font-size:14px}
@@ -63,6 +77,8 @@ a{color:var(--p-d)}
     <button class="ghost" onclick="logout()">로그아웃</button>
     <span class="when" id="cnt"></span>
   </div>
+  <div id="tabs" class="tabs"></div>
+  <div id="bulk" class="bulk" hidden></div>
   <div id="list"></div>
   <div class="foot">· <b>수정 저장</b>을 누르면 고친 내용으로 다시 <b>승인 대기</b>가 돼요(바로 올라가지 않아요).<br>
     · <b>반려</b>하시면 적어주신 수정방향을 보고 다시 짜서 올려둘게요.<br>
@@ -114,6 +130,9 @@ function card(x){
       ${x.publish_kst&&x.status==='approved'?`<span class="chip">⏰ ${esc(x.publish_kst)} 예약</span>`:''}
       <span class="when">#${x.id} · ${esc(x.created)}</span>
     </div>
+    ${x.status==='posted'?'':`<div class="pickrow">
+      <input type="checkbox" class="selbox" id="s${x.id}" ${SEL.has(x.id)?'checked':''} onchange="toggleSel(${x.id},this.checked)">
+      <label for="s${x.id}">골라서 한꺼번에 승인하기</label></div>`}
     ${x.reject_note?`<div class="note">🔴 적어주신 수정방향\n${esc(x.reject_note)}</div>`:''}
     <div class="lbl">본문 (이대로 올라가요)</div>
     <textarea id="b${x.id}" rows="8">${esc(x.body)}</textarea>
@@ -166,11 +185,77 @@ async function boot(){
   try{ rows=await rpc('threads_queue_list'); }
   catch(e){ if(String(e.message).includes('forbidden')){ alert('관리자 계정이 아니에요'); logout(); return; } $('list').innerHTML=`<div class="empty">불러오지 못했어요<br><small>${esc(e.message)}</small></div>`; return; }
   rows=rows||[];
-  const by=s=>rows.filter(r=>r.status===s);
-  const sec=(t,s)=>by(s).length?`<div class="sec">${t} <span class="chip">${by(s).length}</span></div>`+by(s).map(card).join(''):'';
-  const html=sec('🕐 승인 기다리는 글','pending')+sec('🔴 반려한 글','rejected')+sec('✅ 승인됨 — 발행 대기','approved')+sec('📤 올라간 글','posted');
-  $('list').innerHTML=html||'<div class="empty">지금은 볼 글이 없어요 🙂</div>';
-  $('cnt').textContent=`대기 ${by('pending').length} · 승인 ${by('approved').length} · 반려 ${by('rejected').length}`;
+  ALL=rows;
+  render();
+}
+// 🔴 탭으로 나눠 본다 (사장님 2026-10-02 "승인 누르면 사라지는 거야? 승인 전·승인·발행완료 이렇게 다 보이게")
+//    승인해도 글은 그대로 있고 **승인 탭으로 옮겨갈 뿐**이다.
+let ALL=[]; let TAB='pending'; const SEL=new Set();
+function toggleSel(id,on){ on?SEL.add(id):SEL.delete(id); renderBulk(); }
+function selAll(on){ ALL.filter(r=>r.status===TAB&&r.status!=='posted').forEach(r=>on?SEL.add(r.id):SEL.delete(r.id)); render(); }
+const pad=n=>String(n).padStart(2,'0');
+const fmtLocal=ms=>{ const d=new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+// 고른 개수만큼 [시작~끝] 사이에 랜덤으로 뿌리되 **최소 25분 간격**은 둔다(연달아 나가면 묻힌다)
+function spreadTimes(n,startMs,endMs){
+  if(endMs<=startMs) endMs=startMs+n*30*60000;
+  const span=endMs-startMs, minGap=Math.min(25*60000, span/Math.max(n,1));
+  let t=Array.from({length:n},()=>startMs+Math.random()*span).sort((a,b)=>a-b);
+  for(let i=1;i<n;i++) if(t[i]-t[i-1]<minGap) t[i]=t[i-1]+minGap;
+  const over=t[n-1]-endMs; if(over>0) t=t.map(x=>x-over);
+  return t.map(x=>Math.max(x,Date.now()+3*60000));
+}
+function renderBulk(){
+  const box=$('bulk'); const ids=[...SEL];
+  if(!ids.length){ box.hidden=true; box.innerHTML=''; return; }
+  box.hidden=false;
+  if(!box.dataset.ready){
+    const s=fmtLocal(Date.now()+30*60000), e=fmtLocal(Date.now()+4*3600*1000);
+    box.innerHTML=`<b id="bcnt"></b>
+      <div class="r" style="margin-top:8px"><input type="datetime-local" id="bs" value="${s}" step="300">
+        <span style="color:var(--mute)">~</span><input type="datetime-local" id="be" value="${e}" step="300"></div>
+      <div class="r" style="margin-top:8px">
+        <button class="ok" style="flex:1" onclick="bulkApprove(true)">이 사이 랜덤 시간으로 승인</button>
+        <button class="ghost" onclick="bulkApprove(false)">시간 없이 승인</button>
+        <button class="ghost" onclick="SEL.clear();render()">선택 해제</button></div>`;
+    box.dataset.ready='1';
+  }
+  const c=document.getElementById('bcnt'); if(c) c.textContent=`${ids.length}개 선택됨`;
+}
+async function bulkApprove(random){
+  const ids=[...SEL]; if(!ids.length) return;
+  const times=random?spreadTimes(ids.length,new Date($('bs').value).getTime(),new Date($('be').value).getTime()):null;
+  const box=$('bulk'); box.style.opacity=.5;
+  const fail=[];
+  for(let i=0;i<ids.length;i++){
+    const id=ids[i];
+    try{
+      const b=$('b'+id), r=$('r'+id);
+      if(b) await rpc('threads_queue_save',{p_id:id,p_body:b.value,p_image_url:null,p_reply:r?r.value:null});
+      await rpc('threads_queue_approve',{p_id:id,p_publish_at:times?fmtLocal(times[i]):null});
+    }catch(e){ fail.push('#'+id+' '+String(e.message||e).replace(/^\{.*?"message":"/,'').replace(/".*$/,'')); }
+  }
+  box.style.opacity=1; SEL.clear();
+  if(fail.length) alert('일부가 안 됐어요\n\n'+fail.join('\n'));
+  await boot();
+}
+const TABS=[['pending','🕐 승인 전'],['approved','✅ 승인됨'],['posted','📤 발행완료'],['rejected','🔴 반려']];
+function setTab(t){ TAB=t; render(); window.scrollTo(0,0); }
+function render(){
+  const by=s=>ALL.filter(r=>r.status===s);
+  $('tabs').innerHTML=TABS.map(([s,label])=>
+    `<button class="tab${TAB===s?' on':''}" onclick="setTab('${s}')">${label} <span class="tcnt">${by(s).length}</span></button>`).join('');
+  renderBulk();
+  const list=by(TAB);
+  const hint={pending:'승인하면 「승인됨」 탭으로 옮겨가요. 사라지는 게 아니에요.',
+    approved:'예약 시각이 되면 자동으로 올라가요(10분마다 확인). 시각을 안 정했으면 곧 올라가요.',
+    posted:'이미 스레드에 올라간 글이에요. 링크를 눌러 확인할 수 있어요.',
+    rejected:'적어주신 수정방향대로 다시 짜서 올려둘게요.'}[TAB];
+  const selbar=(TAB!=='posted'&&list.length)?`<div class="r" style="display:flex;gap:8px;margin:0 0 10px">
+      <button class="ghost" onclick="selAll(true)">이 탭 전부 선택</button>
+      <button class="ghost" onclick="selAll(false)">전부 해제</button></div>`:'';
+  $('list').innerHTML=(list.length?`<div class="foot" style="margin:0 0 10px">${hint}</div>`+selbar+list.map(card).join('')
+    :`<div class="empty">이 탭엔 글이 없어요 🙂<br><small>${hint}</small></div>`);
+  $('cnt').textContent=`승인 전 ${by('pending').length} · 승인됨 ${by('approved').length} · 발행완료 ${by('posted').length} · 반려 ${by('rejected').length}`;
 }
 boot();
 </script>
