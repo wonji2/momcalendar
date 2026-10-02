@@ -176,7 +176,8 @@ if (!mdRows) { log('분류된 행 0 — 끝'); process.exit(0); }
 // 게이트는 표가 scratchpad/ 바로 아래 있어야 한다 (내부에서 basename 으로 경로를 다시 만든다)
 const pend = path.join(ROOT, 'scratchpad', `승인대기_달력_${today}_${stamp}.md`);
 fs.renameSync(tsvF + '.md', pend);
-// 🔴 핸들 정정 + **한글명 채움** — 빼먹으면 셀러 칸이 전부 비고, 등록기가 그 행을 전부 버린다
+// 🔴 핸들 정정 + **한글명 채움** — 빼먹으면 셀러 칸이 전부 비고, 등록기가 **핸들을 셀러명으로** 넣는다
+//   (2026-10-02 사장님 지시로 바뀐 것: 전엔 그 행을 통째로 버렸다. 지금은 들어가지만 손님은 한글명 대신 핸들을 본다)
 //    (2026-09-30 첫 회차에서 178건 모두 셀러 칸이 비어 나왔다. ig_feed_pipeline.sh 에는 이 단계가 있다)
 run('scratchpad/fix_handles_names.mjs', [pend]);
 run('scratchpad/drop_ended.mjs', [pend]);

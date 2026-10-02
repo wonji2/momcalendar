@@ -8,7 +8,7 @@
 # 무인 안전장치 (하나라도 걸리면 그 행은 등록 안 하고 보류 파일로)
 #   · 게이트 excluded/own_product 가 0 이 아니면 회차 전체 중단
 #   · 핸들 갈림(handle_split) 셀러의 행은 전부 보류 (사람이 프로필을 열어 판단 — 2026-09-08 오판 3건 교훈)
-#   · 한글명 못 채운 행 보류 · 분류 못 한 행은 harvest_to_table 이 미분류 파일로 뺀다
+#   · 한글명 못 구하면 핸들로 등록(사장님 2026-10-02) · 분류 못 한 행은 harvest_to_table 이 미분류 파일로 뺀다
 #   · INSERT 뒤 _q_dup 에 새 id 가 잡히면 그 새 행을 지운다(기존 행 우선)
 #
 # 실행: bash tools/daily/ig_feed_pipeline.sh      (예약작업 momcal-ig-register, 매시간 xx:25)
@@ -40,7 +40,14 @@ f="scratchpad/승인대기_igfeed_${DAY}_${TS}.md"
 mv "$CONV.md" "$f"
 # 한글명: DB 최빈 influencer → 없으면 스윕이 받은 full_name
 H=$(grep -oE '\| [A-Za-z0-9._]+ \|$' "$f" | tr -d '| ' | sort -u | awk '{printf "'"'"'%s'"'"',", $0}' | sed 's/,$//')
-"$SB" db query --linked --output-format json "select insta, mode() within group (order by influencer) as nm from gonggu where insta in ($H) and influencer<>'' and influencer<>insta group by 1;" 2>/dev/null | grep -o '"insta": "[^"]*"\|"nm": "[^"]*"' | sed 's/"[a-z]*": "//; s/"$//' | paste -d'|' - - > "$CONV.names.db"
+# 🔴🔴 2026-10-02 검증자 지적 — **이 투표식에 09-30 가드가 없었다.** `gen_insert_gonggu` 쪽에만 넣고 여기를 빼먹었다.
+#   실측으로 손님 화면에 남의 이름이 나갈 값들이 당선되고 있었다:
+#     cocobebe___ → `@cocobebe___`(6행이 @ 붙은 핸들) · ksystargram → `planatoc`(**다른 계정 핸들**)
+#     river___mom → `rivermom` · roa_0618 → `Roa` · d.nine.84 → `84`
+#   더 나쁜 건 이 값이 셀러 칸을 **먼저** 채워서, 등록기의 가드 있는 투표가 그 행에서 아예 안 돌았다는 것이다.
+#   → `gen_insert_gonggu` 와 **같은 식**으로 맞춘다: @ 떼고 · 소문자로 접어 핸들과 비교하고 · 핸들 꼴(한글 없는 영숫자) 제외.
+#     (메모리 same-flaw-in-sibling-code — 한 곳 고칠 때 형제를 같이 본다)
+"$SB" db query --linked --output-format json "select insta, mode() within group (order by btrim(ltrim(influencer,'@'))) as nm from gonggu where insta in ($H) and coalesce(influencer,'')<>'' and lower(btrim(ltrim(influencer,'@')))<>lower(insta) and (influencer ~ '[가-힣]' or influencer !~ '^@?[A-Za-z0-9._]+\$') group by 1;" 2>/dev/null | grep -o '"insta": "[^"]*"\|"nm": "[^"]*"' | sed 's/"[a-z]*": "//; s/"$//' | paste -d'|' - - > "$CONV.names.db"
 cat "$CONV.names.db" "$CONV.names" 2>/dev/null | awk -F'|' '!seen[$1]++' > "$CONV.names.all"
 awk 'BEGIN{FS="|"} FILENAME==ARGV[1]{nm[$1]=$2; next} {if($0 ~ /^\| [0-9]+ \| *\|/){n=split($0,c,"|"); h=c[n-1]; gsub(/ /,"",h); num=c[2]; gsub(/ /,"",num); if(nm[h]){sub(/^\| [0-9]+ \| *\|/, "| " num " | " nm[h] " |")}} print}' "$CONV.names.all" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 # 🔴🔴 2026-10-02 사장님 지시 — **한글명을 못 구한 행도 보류하지 않는다. 핸들을 그대로 띄운다.**
@@ -92,7 +99,8 @@ fi
 #   그래서 **게이트가 깨끗한 행은 무인 등록**한다. 09-17 에 전부 승인표로 되돌린 이유는
 #   「게이트가 못 믿을 것」이 아니라 **세션이 애매한 구제 건까지 승인 없이 넣어서**였다.
 #   여기까지 온 행은 게이트가 이것을 보장한다:
-#     excluded=0 · own_product=0 · handle_split=0 · 표 총=신규 (DB 중복 0) · 한글명 채움 · 분류 완료
+#     excluded=0 · own_product=0 · handle_split=0 · 표 총=신규 (DB 중복 0) · 분류 완료
+#     (한글명은 게이트가 보지 않는다 — 없으면 등록기가 핸들로 넣는다. 사장님 2026-10-02)
 #   애매한 것은 이미 위에서 전부 보류 파일로 빠져 있다.
 #
 #   ⚠ 안전장치
