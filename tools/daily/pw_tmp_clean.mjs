@@ -185,7 +185,7 @@ const killAndRemove = (dir, st, list, why) => {
   const mb = dirSizeMb(dir);
   const parents = st.mains.map((m) => `PID ${m.pid}${m.parent ? ` ← ${m.parent}(${m.ppid})` : ' ← 부모없음'}`).join(', ');
   log(`  ${why} ${path.basename(dir)} · ${st.ageH.toFixed(1)}시간 · ${mb.toFixed(1)}MB · 프로세스 ${list.length}개 · ${parents}`);
-  if (DRY) return { killed: st.mains.length, removed: 1, mb, failed: 0, fail: null };
+  if (DRY) return { killed: st.mains.length, removed: 1, mb, failed: 0, fail: null, zombie: 0 };
   let k = 0;
   for (const p of list) {
     try { execFileSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore', timeout: 30e3 }); k++; }
@@ -193,8 +193,22 @@ const killAndRemove = (dir, st, list, why) => {
   }
   // 크롬이 파일 핸들을 놓을 틈을 준다 (안 기다리면 EBUSY 로 지워지지 않는다)
   sleepSync(2000);
-  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); return { killed: k, removed: 1, mb, failed: 0, fail: null }; }
-  catch (e) { return { killed: k, removed: 0, mb: 0, failed: 1, fail: `${path.basename(dir)} — ${String(e.code || e.message).slice(0, 60)}` }; }
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); return { killed: k, removed: 1, mb, failed: 0, fail: null, zombie: 0 }; }
+  catch (e) {
+    // 🔴 2026-10-02 실측: **안 죽는 크롬이 있다.** 22~26시간 된 부모없는 크롬 4개가
+    //   `taskkill /T /F` 에 "ERROR: … could not be terminated. Reason: There is no running
+    //   instance of the task" 로 답하고, Stop-Process 는 성공했다는데도 Win32_Process 목록에 남았다.
+    //   이미 끝난 프로세스인데 커널이 핸들을 못 놓은 좀비다 — first_party_sets.db 를 계속 쥐고 있어
+    //   폴더가 EPERM 으로 안 지워진다. **재부팅 전까지는 누구도 못 지운다.**
+    //   ⚠ `process.kill(pid, 0)` 으로는 못 가린다 — 이 좀비들에 대해 node 는 ESRCH(없다)를 돌려준다(실측).
+    //      그래서 **잠긴 오류코드로 가른다.** 「무언가 아직 쥐고 있다」는 이 도구의 고장이 아니다.
+    //   이걸 '실패' 로 세면 예약작업이 **매일 빨간불**이 되고, 그러면 진짜 고장이 묻힌다(17MB 때문에).
+    const code = String(e.code || '');
+    if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY' || code === 'EACCES') {
+      return { killed: k, removed: 0, mb: 0, failed: 0, fail: null, zombie: 1, zinfo: `${path.basename(dir)} · ${mb.toFixed(1)}MB · ${code} · 쥐고 있던 PID ${list.map((p) => p.pid).join(',')}` };
+    }
+    return { killed: k, removed: 0, mb: 0, failed: 1, fail: `${path.basename(dir)} — ${code || String(e.message).slice(0, 60)}`, zombie: 0 };
+  }
 };
 
 // ── ② Temp 를 훑어 판정
@@ -206,10 +220,15 @@ const targets = entries.filter((e) => e.isDirectory() && isTmpProfile(e.name)).m
 const before = freeGb('C:\\');
 log(`Temp ${TMP} · 임시프로필 ${targets.length}개 · 기준 ${DAYS}일 / 부모없음 ${ORPHAN_H}시간 / 매달림 ${STUCK_H}시간${DRY ? ' · (--dry 판정만)' : ''}`);
 
-let removed = 0; let killed = 0; let skippedLive = 0; let skippedYoung = 0; let failed = 0; let freedMb = 0;
+let removed = 0; let killed = 0; let skippedLive = 0; let skippedYoung = 0; let failed = 0; let freedMb = 0; let zombies = 0;
 const fails = [];
+const zinfos = [];
 const stuckParents = [];
-const take = (r) => { killed += r.killed; removed += r.removed; freedMb += r.mb; failed += r.failed; if (r.fail) fails.push(r.fail); };
+const take = (r) => {
+  killed += r.killed; removed += r.removed; freedMb += r.mb; failed += r.failed; zombies += r.zombie || 0;
+  if (r.fail) fails.push(r.fail);
+  if (r.zinfo) zinfos.push(r.zinfo);
+};
 
 for (const dir of targets) {
   let ageD = 0;
@@ -224,7 +243,12 @@ for (const dir of targets) {
     log(`  빈폴더 ${path.basename(dir)} · ${ageD.toFixed(1)}일 · ${mb.toFixed(1)}MB`);
     if (DRY) { removed++; freedMb += mb; continue; }
     try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); removed++; freedMb += mb; }
-    catch (e) { failed++; fails.push(`${path.basename(dir)} — ${String(e.code || e.message).slice(0, 60)}`); }
+    catch (e) {
+      // 프로세스 목록에 없는데도 잠겨 있는 경우가 있다(목록에서 사라진 좀비) — 위와 같은 이유로 실패로 세지 않는다
+      const code = String(e.code || '');
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY' || code === 'EACCES') { zombies++; zinfos.push(`${path.basename(dir)} · ${mb.toFixed(1)}MB · ${code} · 쥐고 있는 프로세스는 목록에 없다`); }
+      else { failed++; fails.push(`${path.basename(dir)} — ${code || String(e.message).slice(0, 60)}`); }
+    }
     continue;
   }
 
@@ -247,8 +271,13 @@ for (const dir of targets) {
 }
 
 const after = DRY ? before : freeGb('C:\\');
-log(`${DRY ? '[판정]' : '[실행]'} 지움 ${removed}개 · 끈 크롬 ${killed}개 · 확보 ${freedMb.toFixed(0)}MB · 남김(돌고있음) ${skippedLive} · 남김(유예) ${skippedYoung} · 실패 ${failed}`);
+log(`${DRY ? '[판정]' : '[실행]'} 지움 ${removed}개 · 끈 크롬 ${killed}개 · 확보 ${freedMb.toFixed(0)}MB · 남김(돌고있음) ${skippedLive} · 남김(유예) ${skippedYoung} · 안죽는크롬 ${zombies} · 실패 ${failed}`);
 if (fails.length) { log(`⚠ 못 지운 것 ${fails.length}개 (다음 회차에 다시 시도):`); for (const f of fails.slice(0, 10)) log(`   ${f}`); }
+if (zinfos.length) {
+  // 실패가 아니다 — 우리가 할 수 있는 게 없다. 재부팅하면 사라진다
+  log(`ℹ 안 죽는 크롬이 쥐고 있어 못 지운 것 ${zinfos.length}개 — **재부팅하면 사라진다**(실패 아님):`);
+  for (const z of zinfos.slice(0, 8)) log(`   ${z}`);
+}
 if (stuckParents.length) {
   // 폴더는 치웠다. 매달린 node 는 끄지 않았으니 **왜 안 끝나는지**는 세션이 봐야 한다
   log(`⚠ ${STUCK_H}시간 넘게 안 끝난 회차 ${stuckParents.length}개 — node 는 끄지 않았다(세션에서 원인 볼 것):`);
@@ -263,5 +292,7 @@ if (before != null) log(`C드라이브 여유 ${before.toFixed(1)}GB → ${after
 if (after != null && after < MIN_FREE) log(`🔴 C드라이브 여유 ${after.toFixed(1)}GB — 기준 ${MIN_FREE}GB 미만. 알림줄은 ops_status_push.mjs 가 올린다`);
 
 flush();
-// 지울 게 있었는데 하나도 못 지웠다면 그 자체가 고장이다 — 예약작업에 빨간불로 보여야 한다
+// 지울 게 있었는데 하나도 못 지웠다면 그 자체가 고장이다 — 예약작업에 빨간불로 보여야 한다.
+// ⚠ 「안 죽는 크롬(zombies)」 은 여기서 세지 않는다 — 재부팅 전까지 아무도 못 지우는 것이라
+//   실패로 세면 예약작업이 **매일 빨간불**이 되고, 그러면 진짜 고장이 묻힌다 (2026-10-02 실측 4개/17MB).
 if (!DRY && failed > 0 && removed === 0) process.exit(1);
