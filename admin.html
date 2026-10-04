@@ -7494,12 +7494,18 @@ async function cvSave(){
     //   09-26 에 올린 「팽도리 패션밴드」(id 1028)가 계속 노출 중인데 10-03 에 같은 상품을 등록해
     //   손님 화면에 같은 카드가 두 장 떴다(health_alerts '핫딜중복노출' 이 잡아줬지만 아무도 안 내렸다).
     //   규칙: 같은 상품이면 싼 것 하나만 — 가격이 같거나 새 것이 싸므로 **옛 카드를 내린다**(DELETE 금지).
+    //   🔴 **오늘 것(deal_day=today)은 내리지 않는다.** 아래 upsert 는 on_conflict 가
+    //   (product_id, deal_day) 라 같은 날 재등록이면 **그 행에 머지**되는데, payload 에
+    //   expires_at 이 없어 방금 세운 만료가 그대로 남는다 → 등록은 성공했다고 뜨는데
+    //   손님 화면엔 안 보이는 카드가 된다(사진 누락건 재붙여넣기·가격 정정 때 바로 걸린다).
+    //   그래서 내리는 대상에서 오늘 것을 빼고, 아래 payload 에 expires_at:null 도 함께 싣는다.
     let lowered=0;
     const pids=[...new Set(rows.map(r=>r.product_id).filter(Boolean))];
     if(pids.length){
       const inList=pids.map(p=>'"'+String(p).replace(/"/g,'')+'"').join(',');
       const nowIso=new Date().toISOString();
       const lr=await fetch(HD_URL+`?select=id,title,price,product_id&product_id=in.(${inList})`
+        +`&deal_day=neq.${today}`
         +`&or=(expires_at.is.null,expires_at.gt.${nowIso})`,{headers:sbHeaders()});
       if(lr.ok){
         for(const old of await lr.json()){
@@ -7509,6 +7515,8 @@ async function cvSave(){
         }
       }
     }
+    // 같은 날 재등록이 과거에 만료된 행을 되살리도록 expires_at 을 명시해 보낸다(머지는 payload 칼럼만 덮는다)
+    rows.forEach(r=>{ r.expires_at=null; });
     const r=await fetch(HD_URL+'?on_conflict=product_id,deal_day',
       {method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)});
     if(!r.ok) throw new Error('HTTP '+r.status);
