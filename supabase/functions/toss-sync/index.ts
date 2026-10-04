@@ -163,10 +163,21 @@ async function collectDeals(token: string, dry: boolean) {
   const gg = await sb(`gonggu?select=name&approved=eq.true&open_date=gte.${today}`);
   const ggKeys = new Set((Array.isArray(gg) ? gg : []).map((g: any) => baseKey(g.name)));
   // 3) 최근에 올린 것과 겹치지 않게
+  //   🔴 "최근 7일 등록분" 만 보면 샌다 — 만료를 안 건 카드는 **7일이 지나도 계속 노출 중**인데
+  //   그때부터 이 검사에 안 걸려 같은 상품이 한 장 더 올라간다(2026-10-04 실측: 그런 카드가 33건 있었다).
+  //   그래서 **지금 노출 중인 것은 날짜와 무관하게 전부** 함께 본다 (momsholic-hotdeal.js 178행과 같은 기준).
   const recent = await sb(`hotdeals?select=product_id,title&deal_day=gte.${
     new Date(Date.now() + 9 * 3600e3 - 7 * 864e5).toISOString().slice(0, 10)}`);
-  const recentIds = new Set((Array.isArray(recent) ? recent : []).map((h: any) => h.product_id));
-  const recentKeys = new Set((Array.isArray(recent) ? recent : []).map((h: any) => baseKey(h.title)));
+  const live = await sb(
+    `hotdeals?select=product_id,title&or=(expires_at.is.null,expires_at.gt.${new Date().toISOString()})`,
+  );
+  // ⚠ 이름은 seen 을 쓰지 말 것 — 141행에 같은 이름이 이미 있다(중복 선언이면 함수가 통째로 부팅 실패한다)
+  const dedupRows = [
+    ...(Array.isArray(recent) ? recent : []),
+    ...(Array.isArray(live) ? live : []),
+  ];
+  const recentIds = new Set(dedupRows.map((h: any) => h.product_id));
+  const recentKeys = new Set(dedupRows.map((h: any) => baseKey(h.title)));
 
   const picks: any[] = [];
   for (const c of cands) {
