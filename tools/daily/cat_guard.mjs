@@ -54,19 +54,26 @@ function readCats() {
 }
 
 const CATS = readCats();
-const rows = runSql(`select id, major, minor, name, influencer from gonggu
+// 🔴 공구만 보고 있었다 — 핫딜은 감시 밖이라 CATS 밖 14건이 조용히 흘렀다(2026-10-04 검증 지적).
+//   같은 기준으로 둘 다 본다. 핫딜은 만료 안 된 것이 "노출중" 이다.
+const rows = [
+  ...runSql(`select id, major, minor, name, influencer from gonggu
  where approved = true
    and end_date >= to_char(now() at time zone 'Asia/Seoul','YYYY-MM-DD')
- order by id desc;`);
+ order by id desc;`).map((r) => ({ ...r, _kind: '공구' })),
+  ...runSql(`select id, major, minor, title as name, mall as influencer from public.hotdeals
+ where expires_at is null or expires_at > now()
+ order by id desc;`).map((r) => ({ ...r, _kind: '핫딜' })),
+];
 if (!rows.length) { console.log('조회 0건 — DB 접근 실패 의심'); process.exit(1); }
 
 const bad = rows.filter(r => !CATS[r.major] || !CATS[r.major].includes(r.minor));
 const stamp = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const head = `[${stamp}] 노출 ${rows.length}건 검사 → 필터 밖 ${bad.length}건`;
 console.log(head);
-bad.forEach(r => console.log('  id' + r.id + '  ' + r.major + '/' + r.minor + '  ' + String(r.name).slice(0, 32) + '  ' + (r.influencer || '')));
+bad.forEach(r => console.log('  ' + r._kind + ' id' + r.id + '  ' + r.major + '/' + r.minor + '  ' + String(r.name).slice(0, 32) + '  ' + (r.influencer || '')));
 
-const body = head + (bad.length ? '\n' + bad.map(r => `  id${r.id} ${r.major}/${r.minor} ${r.name}`).join('\n') : '') + '\n';
+const body = head + (bad.length ? '\n' + bad.map(r => `  ${r._kind} id${r.id} ${r.major}/${r.minor} ${r.name}`).join('\n') : '') + '\n';
 try { appendFileSync(LOG, body); } catch (_) {}
 // 최신이 맨 위로 (파일이 커지면 300줄만 남긴다)
 try {
@@ -75,8 +82,9 @@ try {
 } catch (_) {}
 
 if (bad.length && !DRY) {
-  const detail = `노출 중인데 소분류가 사이트 필터(CATS)에 없어 어떤 칩으로도 안 잡히는 공구 ${bad.length}건: ` +
-    bad.slice(0, 8).map(r => `id${r.id} ${r.major}/${r.minor}`).join(', ') + (bad.length > 8 ? ' 외' : '');
+  const cnt = ['공구', '핫딜'].map(k => `${k} ${bad.filter(r => r._kind === k).length}건`).join(' · ');
+  const detail = `노출 중인데 소분류가 사이트 필터(CATS)에 없어 어떤 칩으로도 안 잡히는 것 ${bad.length}건(${cnt}): ` +
+    bad.slice(0, 8).map(r => `${r._kind} id${r.id} ${r.major}/${r.minor}`).join(', ') + (bad.length > 8 ? ' 외' : '');
   runSql(`insert into public.health_alerts(kind, detail) values ('소분류필터이탈', '${detail.split("'").join("''")}');`);
   console.log('🔴 health_alerts 에 경보 적재');
 } else if (!bad.length) {
