@@ -413,7 +413,15 @@ function cp(id,label){
 }
 </script></body></html>`;
 writeFileSync(`daily/${day}.html`, html, 'utf8');
-writeFileSync('daily/index.html',
-  `<!DOCTYPE html><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=./${day}.html">`, 'utf8');
+// 🔴 index.html 은 daily 폴더의 대문이다 — **오늘 것보다 미래를 가리키면 안 된다.**
+//   DAY= 로 앞날 카드를 미리 만들면(주간 선생성) 대문이 그 미래 날짜로 덮여,
+//   오늘 들어온 사람이 일주일 뒤 카드를 보게 된다. 2026-10-04 에는 그 덮어쓰기가
+//   머지 충돌(10-03 ↔ 10-11)로 남아 daily 폴더 커밋을 통째로 막고 있었다.
+if (day <= kstToday()) {
+  writeFileSync('daily/index.html',
+    `<!DOCTYPE html><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=./${day}.html">`, 'utf8');
+} else {
+  console.log(`(index.html 은 그대로 둔다 — ${day} 는 앞날 카드다)`);
+}
 
 console.log(`카드 생성 완료: ${day} · 캡션 ${info.cap.length}자 · ${info.st}`);
