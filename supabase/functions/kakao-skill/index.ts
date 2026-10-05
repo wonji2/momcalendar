@@ -339,6 +339,10 @@ const TAILS: RegExp[] = [
   /(뭐|머|모)\s*(있|잇|읻)(어요|어|엉|음|나요|나|니|냐고|냐)?$/,   // 오타 잇어 포함 (실제 손님)
   /(있|잇|읻)(어요|어|엉|음|나요|나|니|냐고|냐|는지)?$/,
   /(없|업)(어요|어|엉|음|나요|나|니)?$/,
+  // 「…있을까」「…없을까」 (2026-10-05 실손님: "생선 판매하는곳이 있을까" → '생선 판매 있을까' 로 남아 못 찾았다. '있을까요' 만 있었다)
+  /(있|잇|읻|없|업)을까(요|용|나)?$/,
+  // 「생선 파는데 없을까」 — 아래 '는데' 규칙이 먼저 먹으면 '생선 파' 가 남는다. **띄어 쓴 경우만**(「생선파는언니」는 브랜드다).
+  /\s(파는|사는)\s*(데|곳)(가|이|는|은)?$/,
   /알려\s*(주세요|주라|줄래|줘|죠|줭)?$/,
   /보여\s*(주세요|주라|줘|죠|줭)?$/,
   /말해\s*(봐|바|줘)?$/,
@@ -407,6 +411,10 @@ function keyword(u: string) {
     .replace(/핫한|인기\s*있는|인기|괜찮은|새로운|저렴한/g, " ")
     .replace(/마지막\s*날|막날|마감|끝나는|끝나|종료|임박|오픈/g, " ")
     .replace(/바부야|바보야|아니고|아니라|말고|그리고|근데|좀/g, " ")
+    // 「판매하는곳·판매처·판매」 (2026-10-05 실손님 "생선 판매하는곳이 있을까" / "생선판매하는곳이있을까")
+    //   ⚠ '파는' 은 넣지 말 것 — 「생선파는언니」「생선파는며느리」가 브랜드다. '판매' 는 상품명에 2건뿐이고 둘 다 판촉 문장이다(실측).
+    //   ⚠ 홀로 선 '판매' 는 **낱말 끝에서만** 지운다 — 뒤에 글자가 붙으면(판매왕) 브랜드일 수 있다.
+    .replace(/판매\s*하는\s*(곳|데)|판매\s*처|판매\s*중인|판매\s*중|판매\s*하(?=\s|$)|판매(?=\s|$)/g, " ")
     .replace(/하는\s*곳|파는\s*곳|사는\s*곳|어디서|어디에|어디/g, " ")   // "공구하는곳 있어?" (실제 손님)
     .replace(/[?？!！.,~·\-_/]/g, " ")
     .replace(/\s+/g, " ").trim();
@@ -1079,8 +1087,36 @@ async function handle(req: Request): Promise<Response> {
     return reply([text("일시적으로 조회가 안 되고 있어요. 잠시 뒤 다시 물어봐 주세요!")]);
   }
 }
+// 🛟 답장 마감 지킴이 (2026-10-05)
+//   카카오는 스킬 응답을 **5초**만 기다린다. 넘기면 손님에겐 아무 말도 안 가고(또는 폴백 블록) 관리자센터에
+//   「스킬 서버 연결 오류」가 뜬다. 그런데 우리 쪽엔 **기록이 한 줄도 안 남았다** — handle() 이 끝나야 로그를 쓰기 때문이다.
+//   실측 2026-10-05 22:05 「생선판매하는곳이있을까」: 규칙 검색 실패 → AI → 다시 검색으로 길어져 응답 기록 0건·손님 무응답.
+//   → 4.2초 안에 답이 안 만들어지면 **"한 번만 더 보내주세요"** 를 먼저 보내고 `kakao_bot_timeout` 으로 남긴다.
+//     handle() 은 끊지 않는다(백그라운드로 끝까지) — AI 해석이 사전에 남아 다시 물으면 바로 나온다.
+//   ⚠ 4.2초는 handle 시작 기준이다. 콜드스타트(부팅 0.3~1초)는 여기서 못 본다 — 배포 직후엔 한 번 쳐서 덥혀 둘 것.
+const REPLY_GUARD_MS = Number(Deno.env.get("BOT_REPLY_GUARD_MS") || 4200);
 Deno.serve(async (req) => {
-  const res = await handle(req);
+  let peekU = "", peekId = "?", guardTest = false;
+  try {
+    const b = await req.clone().json();
+    peekU = String(b?.userRequest?.utterance ?? "").trim().slice(0, 40);
+    peekId = String(b?.userRequest?.user?.id ?? "?").slice(0, 6);
+    guardTest = b?.guardtest === true && /^BOT[A-Z]/.test(peekId);   // 우리 로봇만: 지킴이가 실제로 도는지 재는 시험(마감 1ms)
+  } catch (_) { /* 본문을 못 읽어도 handle 이 처리한다 */ }
+  const hp = handle(req);
+  let timer: number | undefined;
+  const guard = new Promise<null>((r) => { timer = setTimeout(() => r(null), guardTest ? 1 : REPLY_GUARD_MS); });
+  const first = await Promise.race([hp, guard]);
+  clearTimeout(timer);
+  if (first === null) {
+    keepAlive(hp.catch(() => null));
+    logEv("kakao_bot_timeout", `${peekU} | uid=${peekId} | ${guardTest ? "시험" : REPLY_GUARD_MS + "ms 넘김"} → 다시 보내달라 안내`);
+    logEv("kakao_bot", `${peekU} | uid=${peekId}:guard | timeout`);
+    return new Response(JSON.stringify({ version: "2.0", template: { outputs: [{ simpleText: {
+      text: `'${peekU.slice(0, 30)}' 찾는 데 조금 오래 걸리고 있어요 🙏\n같은 말을 한 번만 더 보내주시면 바로 알려드릴게요!` } }] } }),
+      { headers: { "Content-Type": "application/json" } });
+  }
+  const res = first;
   const line = REPLY_LOG.get(res);
   if (line) {
     try {
