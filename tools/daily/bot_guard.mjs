@@ -308,6 +308,24 @@ try {
   } else say('⑧ 실손님 AI 지연·오류 없음 (직전 35분)');
 } catch (e) { bad++; qfail++; say('⑧ 조회 실패: ' + String(e.message || e).slice(0, 80)); }
 
+// ⑨ 답장이 5초 마감에 걸렸나 (2026-10-05 신설)
+//    카카오는 5초를 넘기면 손님에게 아무 말도 안 보내고 관리자센터에 「스킬 서버 연결 오류」만 띄운다.
+//    전엔 우리 쪽 기록이 0건이라 사장님 캡처로만 알았다. 이제 kakao-skill 이 4.2초에 "다시 보내주세요"를 먼저 보내고
+//    `kakao_bot_timeout` 을 남긴다 → 그걸 여기서 읽는다. 로봇 시험(uid=BOT…)은 뺀다.
+try {
+  const to = sql(`
+    select to_char(visited_at at time zone 'Asia/Seoul','HH24:MI') t, split_part(event_data,' | ',1) u
+      from events
+     where event_type='kakao_bot_timeout' and visited_at > now() - interval '35 minutes' and event_data not like '%uid=BOT%'
+     order by visited_at desc limit 20;`);
+  if (to.length) {
+    bad++;
+    say('⑨ 🔴 답장이 4.2초를 넘겨 "다시 보내주세요"가 나갔다 ' + to.length + '건 (직전 35분)');
+    to.forEach((r) => say('   🔴 ' + r.t + ' "' + r.u + '"'));
+    alert('챗봇답장지연', to.map((r) => r.t + ' ' + r.u).join(' · ').slice(0, 380));
+  } else say('⑨ 답장 마감 넘김 없음 (직전 35분)');
+} catch (e) { bad++; qfail++; say('⑨ 조회 실패: ' + String(e.message || e).slice(0, 80)); }
+
 say(bad ? `🔴 이상 ${bad}건 — health_alerts 확인` : '이상 없음');
 const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
 fs.writeFileSync(LOG, out.join('\n') + '\n\n' + prev.split('\n').slice(0, 600).join('\n'));
