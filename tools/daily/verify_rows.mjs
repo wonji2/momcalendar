@@ -29,6 +29,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } 
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { harvest } from '../../scratchpad/inpock_harvest.mjs';
+import { toks, STOP, dayGap, judgeInpock } from './verify_judge.mjs';   // 판정 기준은 한 곳 — 관리자 화면(inpock-lookup)과 같은 것을 쓴다
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', '..');
 const SP = (f) => path.join(ROOT, 'scratchpad', f);
@@ -41,33 +42,6 @@ const KST = () => new Date(Date.now() + 9 * 3600e3);
 const log = (s) => {
   const l = `[${KST().toISOString().slice(0, 16).replace('T', ' ')}] ${s}`;
   console.log(l); try { appendFileSync(LOG, l + '\n'); } catch { }
-};
-
-// ── 이름 대조 — 완전일치로 걸지 않는다 ────────────────────────────────
-const norm = (s) => String(s || '').toLowerCase().replace(/[^가-힣a-z0-9]/g, '');
-const toks = (s) => String(s || '').toLowerCase()
-  .split(/[^가-힣a-z0-9]+/).filter((w) => w.length >= 2);
-const STOP = new Set(['모음전', '골라담기', '세트', '신상', '공구', '특가', '단독', '앵콜', '모음', '기획전', '차수']);
-
-/** 두 상품명이 같은 것을 가리키나 — 0(아님) · 1(비슷) · 2(거의 같음) */
-function nameMatch(a, b) {
-  const na = norm(a), nb = norm(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 2;
-  if (na.length >= 4 && nb.includes(na)) return 2;
-  if (nb.length >= 4 && na.includes(nb)) return 2;
-  const ta = toks(a).filter((w) => !STOP.has(w));
-  const tb = toks(b).filter((w) => !STOP.has(w));
-  if (!ta.length || !tb.length) return 0;
-  const shared = ta.filter((w) => tb.includes(w));
-  if (!shared.length) return 0;
-  // 브랜드로 쓰이는 첫 낱말이 겹치면 더 믿는다
-  if (shared.includes(ta[0]) && shared.includes(tb[0])) return 2;
-  return shared.some((w) => w.length >= 3) ? 1 : 0;
-}
-const dayGap = (a, b) => {
-  const pa = Date.parse(String(a) + 'T00:00:00Z'), pb = Date.parse(String(b) + 'T00:00:00Z');
-  return (isNaN(pa) || isNaN(pb)) ? 99 : Math.round(Math.abs(pa - pb) / 864e5);
 };
 
 // ── DB ────────────────────────────────────────────────────────────────
@@ -126,6 +100,13 @@ if (!rows.length) { log('검사할 행이 없다 — 끝'); process.exit(0); }
 const handles = [...new Set(rows.map((r) => String(r.insta).toLowerCase()))];
 log(`시작 — 행 ${rows.length}건 · 셀러 ${handles.length}명 (source=${SRC || '전체'})`);
 
+// 🔑 관리자 화면(Edge Function inpock-lookup)은 이 도구와 **같은 원본을 묶어** 쓴다. 원본을 고치고 다시 안 올렸으면 여기서 알린다.
+try {
+  const { checkCore } = await import('./build_inpock_lookup.mjs');
+  const c = checkCore();
+  if (!c.ok) log(`🔴 관리자 화면 대조(inpock-lookup)가 옛 기준이다 — ${c.why}`);
+} catch (e) { log(`⚠ inpock-lookup 묶음 검사 실패(${String(e.message).slice(0, 60)})`); }
+
 // 슬러그 표 (있으면 인포크 조회가 한 번에 맞는다)
 let slugOf = new Map();
 try {
@@ -153,11 +134,8 @@ let ok = 0, dateDiff = 0, nameDiff = 0, unknown = 0;
 for (const r of rows) {
   const h = String(r.insta).toLowerCase();
   const ip = inpockOf.get(h) || [];
-  let best = null, bestScore = 0;
-  for (const c of ip) {
-    const s = nameMatch(r.name, c.name);
-    if (s > bestScore) { bestScore = s; best = c; }
-  }
+  const j = judgeInpock(r, ip, today);   // ① 인포크 판정 (verify_judge.mjs)
+  const best = j.best;
   // ② 피드 — 캡션에 상품 낱말이 있고 게시일이 오픈일 근처인가
   const posts = feed.get(h) || [];
   const wantTok = toks(r.name).filter((w) => !STOP.has(w) && w.length >= 2);
@@ -168,14 +146,9 @@ for (const r of rows) {
   });
 
   let verdict, detail = '';
-  if (best && bestScore >= 1) {
-    const gOpen = dayGap(r.open_date, best.open), gEnd = dayGap(r.end_date, best.end);
-    if (gOpen <= 1 && gEnd <= 1) { verdict = '✅ 일치'; ok++; }
-    else if (best.end < today && r.end_date >= today) {
-      // 🔴 인포크 쪽이 **이미 마감**이고 우리 것은 진행 중이면 **재공구**다 (메모리 gonggu-dup-definition
-      //   "날짜 다르면 재공구다"). 셀러가 인포크를 안 지웠을 뿐이다 —
-      //   여기서 인포크 날짜로 덮으면 **진행 중인 공구가 과거가 되어 손님 화면에서 사라진다.**
-      //   2026-10-05 실측: 「마카오 여행」 인포크 10-01~04(마감) vs 우리 10-05~08(진행중).
+  if (j.code !== 'none') {
+    if (j.code === 'ok') { verdict = '✅ 일치'; ok++; }
+    else if (j.code === 'regong') {
       verdict = '🔁 재공구'; ok++;
       detail = `인포크엔 지난 회차만 있다(${best.open}~${best.end}) — 우리 것이 새 회차로 보인다. **고치지 않는다**`;
     }
@@ -184,7 +157,7 @@ for (const r of rows) {
       detail = `인포크 ${best.open}~${best.end} (우리 ${r.open_date}~${r.end_date})`;
       fixes.push(`update gonggu set open_date='${best.open}', end_date='${best.end}' where id=${r.id};  -- ${r.name} / 인포크 원본`);
     }
-    if (bestScore === 1) { detail += (detail ? ' · ' : '') + `이름 비슷함: 인포크 「${best.name}」`; if (verdict === '✅ 일치') { verdict = '⚠ 이름확인'; ok--; nameDiff++; } }
+    if (j.nameLoose) { detail += (detail ? ' · ' : '') + `이름 비슷함: 인포크 「${best.name}」`; if (verdict === '✅ 일치') { verdict = '⚠ 이름확인'; ok--; nameDiff++; } }
   } else if (feedHit) {
     verdict = '✅ 피드확인'; ok++;
     detail = `셀러 게시물 ${feedHit.t} 캡션에 상품 낱말 있음`;
