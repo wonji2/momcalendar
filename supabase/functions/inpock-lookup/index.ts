@@ -65,7 +65,9 @@ Deno.serve(async (req) => {
     const handle = String(body?.handle ?? "").trim().replace(/^@/, "");
     if (!HANDLE_RE.test(handle)) return json({ ok: false, reason: "핸들 형식이 아니다" }, 400);
     const rows = (Array.isArray(body?.rows) ? body.rows : []).slice(0, 80)
-      .filter((r: any) => r && typeof r.name === "string" && DATE_RE.test(String(r.open_date ?? "")))
+      // 형식만 맞는 가짜 날짜(2026-13-45)는 뺀다 — 아래 오픈+3 계산이 RangeError 로 요청 전체를 500 으로 만든다(검증자 2026-10-05)
+      .filter((r: any) => r && typeof r.name === "string" && DATE_RE.test(String(r.open_date ?? ""))
+        && !isNaN(Date.parse(String(r.open_date) + "T00:00:00Z")))
       .map((r: any) => ({
         k: r.k,
         name: String(r.name).slice(0, 120),

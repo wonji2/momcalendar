@@ -35,8 +35,10 @@ export function nameMatch(a, b) {
   if (!ta.length || !tb.length) return 0;
   const shared = ta.filter((w) => tb.includes(w));
   if (!shared.length) return 0;
-  // 브랜드로 쓰이는 첫 낱말이 겹치면 더 믿는다
-  if (shared.includes(ta[0]) && shared.includes(tb[0])) return 2;
+  // 브랜드로 쓰이는 첫 낱말이 겹치면 더 믿는다 — 단 **브랜드 하나만** 겹친 것은 「비슷함」(1)이다.
+  // 🔴 2026-10-05 검증자: 첫 낱말만 같아도 2점을 줘서 「룰라러브 천연해면스펀지」↔「룰라러브 바디워시」,
+  //    「한우 선물세트」↔「한우 사골곰탕」이 같은 상품이 됐다 → 남의 상품 날짜로 교정 SQL 이 만들어진다.
+  if (shared.includes(ta[0]) && shared.includes(tb[0])) return shared.length >= 2 ? 2 : 1;
   return shared.some((w) => w.length >= 3) ? 1 : 0;
 }
 
@@ -56,12 +58,17 @@ export function judgeInpock(r, ip, today) {
   let best = null, bestScore = 0;
   for (const c of (ip || [])) {
     const s = nameMatch(r.name, c.name);
-    if (s > bestScore) { bestScore = s; best = c; }
+    // 점수가 같으면 **오픈일이 우리 것과 가까운 쪽**을 고른다. 전엔 먼저 나온 것이 이겨서, 같은 이름의
+    // [지난 회차, 이번 회차] 순서에 따라 판정이 재공구↔일치로 뒤집혔다(검증자 2026-10-05).
+    if (s > bestScore || (s === bestScore && s > 0 && dayGap(r.open_date, c.open) < dayGap(r.open_date, best.open))) { bestScore = s; best = c; }
   }
   if (!best || bestScore < 1) return { code: 'none', nameLoose: false, best: null };
   const gOpen = dayGap(r.open_date, best.open), gEnd = dayGap(r.end_date, best.end);
   let code;
   if (gOpen <= 1 && gEnd <= 1) code = 'ok';
+  // ⚠ 재공구는 **오픈일이 3일 넘게 벌어졌을 때만**이다. 오픈일이 같은데 마감만 다르면 같은 회차다 —
+  //   인포크 10-03~04(끝남) vs 우리 10-03~06 을 재공구로 보면 끝난 공구를 「그대로 두라」고 하게 된다(검증자).
+  else if (gOpen <= 3) code = 'date';
   // 🔴 인포크 쪽이 **이미 마감**이고 우리 것은 진행 중이면 **재공구**다 (메모리 gonggu-dup-definition
   //   "날짜 다르면 재공구다"). 셀러가 인포크를 안 지웠을 뿐이다 —
   //   여기서 인포크 날짜로 덮으면 **진행 중인 공구가 과거가 되어 손님 화면에서 사라진다.**

@@ -155,7 +155,8 @@ for (const r of rows) {
     else {
       verdict = '⚠ 기간다름'; dateDiff++;
       detail = `인포크 ${best.open}~${best.end} (우리 ${r.open_date}~${r.end_date})`;
-      fixes.push(`update gonggu set open_date='${best.open}', end_date='${best.end}' where id=${r.id};  -- ${r.name} / 인포크 원본`);
+      // 이름이 「비슷함」 수준이면 교정 SQL 을 만들지 않는다 — 같은 브랜드의 다른 상품 날짜일 수 있다(검증자 2026-10-05)
+      if (!j.nameLoose) fixes.push(`update gonggu set open_date='${best.open}', end_date='${best.end}' where id=${r.id};  -- ${r.name} ← 인포크 「${best.name}」`);
     }
     if (j.nameLoose) { detail += (detail ? ' · ' : '') + `이름 비슷함: 인포크 「${best.name}」`; if (verdict === '✅ 일치') { verdict = '⚠ 이름확인'; ok--; nameDiff++; } }
   } else if (feedHit) {
