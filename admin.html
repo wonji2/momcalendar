@@ -2309,10 +2309,25 @@ function crawlPairDup(a, b){
   const aInfl=(a.influencer||'').trim(), bInfl=(b.influencer||'').trim();
   let sameSeller, sellerKnown=false;
   if(aIns&&bIns){ sameSeller=(aIns===bIns); sellerKnown=true; }
-  else if(aInfl&&bInfl){ sameSeller=(aInfl===bInfl); sellerKnown=true; }
+  // 🔴 2026-10-05: 여기서 한글명을 **완전일치**로 보고 있었다. 공구팡팡·공구모아는 셀러를 한글명으로만 주는데
+  //   표기가 흔들린다(다니맘 / 다니 맘 / 다니·맘) → 같은 셀러인데 다른 사람으로 보고 중복을 놓쳤다.
+  //   바로 아래 crawlAutoFillHandles 가 쓰는 crawlNameKey(공백·점·가운뎃점 제거)를 **그대로 재사용**한다.
+  //   ⚠ 정규화하면 빈 문자열이 되는 이름('-'·'.')은 셀러를 모르는 것으로 친다(둘 다 '' 라 같은 셀러로 묶이지 않게).
+  else if(aInfl&&bInfl&&crawlNameKey(aInfl)&&crawlNameKey(bInfl)){ sameSeller=(crawlNameKey(aInfl)===crawlNameKey(bInfl)); sellerKnown=true; }
   else sameSeller=true;
   if(!sameSeller) return false;
-  if(sellerKnown){                             // 셀러 확인됨: 같은 셀러 + 비슷한 이름이면 중복
+  if(sellerKnown){                             // 셀러 확인됨: 같은 셀러 + 비슷한 이름 + **같은 오픈일**이면 중복
+    // 🔴 2026-10-05 사장님: "날짜까지 같을때만 중복이지 날짜 다르면 재공구지"
+    //   전엔 같은 셀러·비슷한 이름이면 날짜가 달라도 중복의심으로 체크를 풀어, 재공구가 등록에서 빠질 수 있었다.
+    //   🔴 단 **오픈일이 3일 안쪽으로 어긋난 것은 같은 공구**로 본다(검증자 지적 2026-10-05):
+    //   집계처는 같은 공구를 하루 이틀 다르게 적는다(DB 10-05 ↔ 공구팡팡 10-06). 문자 그대로 같은 날만 보면
+    //   그게 「신규」로 새어 등록된다 — CLAUDE.md 기술 함정 12 가 세 번 재발한 그 구멍이다.
+    //   공구는 3일 이상 가므로 **진짜 재공구가 3일 안에 다시 열리는 일은 없다** → 재공구는 그대로 살아난다.
+    //   등록 SQL 의 중복검사(insta + 오픈일±3)와 같은 창이다.
+    if(a.open_date && b.open_date && a.open_date!==b.open_date){
+      const gap=Math.abs(Date.parse(a.open_date+'T00:00:00Z')-Date.parse(b.open_date+'T00:00:00Z'))/864e5;
+      if(!(gap<=3)) return false;              // 날짜를 못 읽으면(NaN) 다른 공구로 본다
+    }
     if(dupNameMatch(a.name,b.name)) return true;
     if((a.open_date||'')===(b.open_date||'') && relName(a.name,b.name)) return true;
     return false;
@@ -2325,6 +2340,27 @@ function crawlDbDup(existingData, name, insta, influencer, openDate){
   const cand={name, insta, influencer, open_date:openDate};
   for(const d of existingData){ if(crawlPairDup(cand, d)) return true; }
   return false;
+}
+// 🔴 2026-10-05 신설 — **핸들·상품명을 정리한 뒤에 중복을 다시 본다**
+//   파싱 시점엔 공구팡팡이 핸들을 안 줘서 insta 가 비어 있고(한글명으로만 대조), 상품명도 아직 안 다듬어진 상태다.
+//   그 뒤 applyNameClean 이 이름을 고치고 crawlAutoFillHandles 가 핸들을 채우는데, **그 결과로 다시 보지 않았다**
+//   → 셀러가 확정되고 이름이 정리된 뒤에야 드러나는 중복이 그대로 「신규」로 남아 등록됐다.
+//   같은 묶음 안 중복도 함께 본다(앞 행 기준, 이미 중복인 행은 짝으로 세지 않는다).
+function recheckCrawlDup(existing){
+  if(!Array.isArray(crawlParsedData)) return 0;
+  let add = 0;
+  crawlParsedData.forEach((it, i) => {
+    if(it._dup) return;
+    const dbHit = crawlDbDup(existing, it.name, it.insta, it.influencer, it.open_date);
+    const batchHit = !dbHit && crawlParsedData.some((o, j) => j < i && !o._dup && crawlPairDup(it, o));
+    if(dbHit || batchHit){
+      it._dup = true;
+      it._dupReason = dbHit ? '이미 DB에 등록됨 (핸들·이름 정리 뒤 확인)' : '같은 묶음 내 중복 (핸들·이름 정리 뒤 확인)';
+      it._checked = false;
+      add++;
+    }
+  });
+  return add;
 }
 // 카페 글 번호를 제목으로 대조해 찾아 붙인다 (2026-08-10)
 //
@@ -3484,7 +3520,7 @@ async function crawlParse(){
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let existing=[];
   if(Array.isArray(allData) && allData.length){
-    existing=allData;   // 메모리의 전체 DB로 중복 비교(등록 중복란과 동일 기준·날짜 무관)
+    existing=allData;   // 메모리의 전체 DB로 중복 비교(등록 중복란과 동일 기준 — 2026-10-05 부터 오픈일이 3일 안쪽일 때만 중복, 그보다 벌어지면 재공구)
   } else {
     try{
       existing=await fetchAllRows(`gonggu?select=name,insta,influencer,open_date&approved=eq.true`);
@@ -3520,6 +3556,12 @@ async function crawlParse(){
     return;
   }
   crawlAutoFillHandles(true);   // 셀러 한글명 → DB 핸들 자동 채움 (사장님 지시 2026-09-01)
+  // 🔴 핸들·상품명이 정리된 **뒤에** 중복을 한 번 더 본다 (2026-10-05 — 이 단계가 없어 중복이 새어 등록됐다)
+  const reDupN = recheckCrawlDup(existing);
+  if(reDupN){
+    const el = document.getElementById('crawlStatus');
+    if(el) el.textContent += ` · 🔁 정리 후 중복 ${reDupN}건 추가로 걸러냄`;
+  }
   renderCrawlCards();
   document.getElementById('crawlResultArea').style.display='block';
 }
