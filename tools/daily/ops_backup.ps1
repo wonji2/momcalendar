@@ -35,14 +35,7 @@ function Count-Files([string]$p) {
   (Get-ChildItem $p -Recurse -File -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch '\\\.git\\|\\node_modules\\' } | Measure-Object).Count
 }
-# $xf: 백업에서 뺄 파일 이름·패턴 (2026-10-05 추가 — 재생성 가능한 큰 파생물)
-#   왜: scratchpad\_feed_sweep.json 이 77.9MB 까지 커져 push 에 GitHub 경고가 떴다.
-#   100MB 를 넘으면 push 가 거부돼 **백업이 통째로 멈춘다**(2026-10-01 에 겪은 사고).
-#   이 파일은 feed_sweep_to_harvest.mjs 가 scratchpad\ig_feed\*.jsonl 에서 다시 만들어내는 파생물이고
-#   그 원본 28개(136MB)는 백업에 그대로 있다 → 빼도 잃는 것이 없다.
-#   ⚠ /XF 는 「그 파일을 아예 보지 않는다」라 **대상에 이미 있는 것은 /MIR 가 지우지 않는다** →
-#     한 번은 손으로 지우고 커밋해야 한다(.gitignore 에도 넣어 재유입을 막았다).
-function Safe-Mirror([string]$s0, [string]$d0, [string]$label, [string[]]$xf = @()) {
+function Safe-Mirror([string]$s0, [string]$d0, [string]$label) {
   if (Test-Path $d0) {
     $s = Count-Files $s0; $d = Count-Files $d0
     $flag = "$repo\ALLOW_SHRINK.txt"
@@ -58,9 +51,7 @@ function Safe-Mirror([string]$s0, [string]$d0, [string]$label, [string[]]$xf = @
       }
     }
   }
-  $rcArgs = @($s0, $d0, '/MIR', '/NFL', '/NDL', '/NJH', '/NJS')
-  if ($xf) { $rcArgs += '/XF'; $rcArgs += $xf }
-  robocopy @rcArgs | Out-Null
+  robocopy $s0 $d0 /MIR /NFL /NDL /NJH /NJS | Out-Null
 }
 
 # 네이버 SERP 일일 실측 → serp_log.tsv 가 같이 백업된다.
@@ -104,7 +95,7 @@ git config user.email 'noreply@momcalendar.com'
 git pull --no-rebase -X ours origin main 2>$null
 if ($LASTEXITCODE -ne 0) { git merge --abort 2>$null }
 
-Safe-Mirror "$src\scratchpad" "$repo\scratchpad" 'scratchpad' @('_feed_sweep.json')
+Safe-Mirror "$src\scratchpad" "$repo\scratchpad" 'scratchpad'
 Safe-Mirror "$src\.claude\commands" "$repo\claude-commands" 'claude-commands'
 Safe-Mirror "$src\.claude\agents" "$repo\claude-agents" 'claude-agents'
 Safe-Mirror $mem "$repo\memory" 'memory'
