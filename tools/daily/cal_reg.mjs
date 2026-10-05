@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { sbArgs, parseRows } from './sb_query.mjs';   // CLI 출력은 환경마다 세 가지다 — 공용 파서
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CLI = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';
@@ -60,6 +61,82 @@ const EXC = (() => {
     .map((l) => l.split(/\t|\s{2,}/)[0].trim().toLowerCase()).filter(Boolean));
 })();
 
+/** 🔴 **사장님이 차단한 브랜드**를 읽어 온다 (`brand_block` 표)
+ *  서버 트리거 `brand_block_gonggu` 가 INSERT 를 **조용히 떨어뜨린다** — 오류도 안 난다.
+ *  2026-10-05 실측: 「이젠 가습기」가 그렇게 사라졌고, 나는 「누락」인 줄 알고 한참 뒤졌다.
+ *  여기서 먼저 걸러 **왜 안 들어갔는지 화면에 남긴다.** (메모리 brand-block-removal) */
+function loadBlocked() {
+  const f = join(ROOT, 'scratchpad', '_cal_block.sql');
+  writeFileSync(f, 'select pattern from public.brand_block;', 'utf8');
+  try {
+    const got = parseRows(execFileSync(CLI, sbArgs(f), { encoding: 'utf8', timeout: 120e3, cwd: ROOT, maxBuffer: 16 * 1024 * 1024 }));
+    if (!got.ok) { console.log('⚠ brand_block 을 못 읽었다 — 차단 브랜드가 조용히 떨어질 수 있다'); return []; }
+    return got.rows.map((r) => { try { return new RegExp(r.pattern, 'i'); } catch (_) { return null; } }).filter(Boolean);
+  } catch (_) { console.log('⚠ brand_block 조회 실패'); return []; }
+}
+const BLOCKED = loadBlocked();
+
+/** 🔴 **규칙 0-M** — 사장님 공구의 창(오픈−14일 ~ 마감) 안에서는 같은 상품을 넣지 않는다
+ *  CLAUDE.md 는 「등록 게이트(파싱·카페크롤·인포크 수확 전부)」에 걸라고 하는데
+ *  이 도구엔 없었다(2026-10-05 검증자 지적). 완전일치만 보면 「천연해면스펀지 vs 천연해면」이
+ *  새므로 **브랜드 토큰(첫 낱말)**으로도 본다. */
+function loadMine() {
+  const f = join(ROOT, 'scratchpad', '_cal_mine.sql');
+  writeFileSync(f, `select name, open_date, end_date from public.gonggu
+ where insta = 'momcal_' and approved and end_date >= '${addDays(today, -1)}';`, 'utf8');
+  try {
+    const got = parseRows(execFileSync(CLI, sbArgs(f), { encoding: 'utf8', timeout: 120e3, cwd: ROOT, maxBuffer: 16 * 1024 * 1024 }));
+    if (!got.ok) { console.log('⚠ 내 공구를 못 읽었다 — 규칙 0-M 검사를 못 한다'); return []; }
+    return got.rows.map((r) => ({ ...r, from: addDays(r.open_date, -14), brand: String(r.name).trim().split(/\s+/)[0] }));
+  } catch (_) { console.log('⚠ 내 공구 조회 실패 — 규칙 0-M 검사를 못 한다'); return []; }
+}
+const MINE = loadMine();
+/** 창 안이고 같은 상품이면 그 내 공구를 돌려준다 */
+function myWindowHit(name, open) {
+  const n = norm2(name);
+  for (const m of MINE) {
+    if (open < m.from || open > m.end_date) continue;
+    if (dice2(n, norm2(m.name)) >= 0.55) return m;
+    if (m.brand.length >= 3 && name.toLowerCase().startsWith(m.brand.toLowerCase())) return m;
+  }
+  return null;
+}
+
+/** 셀러의 **이미 노출 중인** 공구를 읽어 온다 (중복 판정용) */
+function seedExisting(handle) {
+  const f = join(ROOT, 'scratchpad', '_cal_exist.sql');
+  writeFileSync(f, `select id, name, open_date from public.gonggu
+ where insta = ${q(handle)} and approved and open_date >= '${addDays(today, -40)}';`, 'utf8');
+  try {
+    const out = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', timeout: 180e3, cwd: ROOT, maxBuffer: 32 * 1024 * 1024 });
+    const got = parseRows(out);
+    // 🔴 못 읽은 것과 0건을 구분한다 — 못 읽었는데 0건으로 보면 중복검사가 통째로 꺼진다
+    if (!got.ok) { console.log(`🔴 @${handle} 기존 행을 못 읽었다 — 이 셀러는 건너뛴다(중복 위험)`); return null; }
+    return got.rows;
+  } catch (e) { console.log(`🔴 @${handle} 기존 행 조회 실패 — 건너뛴다`); return null; }
+}
+/** bigram Dice 유사도. 완전일치 말고 **닮은 것**을 잡는다 */
+const norm2 = (s) => String(s || '').toLowerCase().replace(/[^가-힣a-z0-9]/g, '');
+const big2 = (s) => { const o = new Set(); for (let i = 0; i < s.length - 1; i++) o.add(s.slice(i, i + 2)); return o; };
+function dice2(a, b) {
+  if (!a || !b) return 0; if (a === b) return 1;
+  const A = big2(a), B = big2(b); if (!A.size || !B.size) return 0;
+  let hit = 0; for (const x of A) if (B.has(x)) hit++;
+  return (2 * hit) / (A.size + B.size);
+}
+const gapDays = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 864e5);
+/** 오픈일 ±3일 안에 유사도 0.55 이상인 기존 행이 있으면 그 행을 돌려준다 */
+function nearDup(existing, name, open) {
+  if (!existing) return null;
+  const n = norm2(name);
+  for (const r of existing) {
+    if (gapDays(r.open_date, open) > 3) continue;
+    const sim = dice2(n, norm2(r.name));
+    if (sim >= 0.55) return { ...r, sim };
+  }
+  return null;
+}
+
 const input = JSON.parse(readFileSync(file, 'utf8'));
 const blocks = Array.isArray(input) ? input : [input];
 let total = 0;
@@ -69,8 +146,14 @@ for (const b of blocks) {
     appendFileSync(READ, JSON.stringify({ h: b.h, read: true, result: 'skip:excluded' }) + NL, 'utf8');
     continue;
   }
+  /** 🔴 **이미 있는 비슷한 공구**를 먼저 읽어 둔다 (2026-10-05 검증자 불통과 ①)
+   *  아래 SQL 의 `not exists` 는 「완전히 같은 날짜 + 완전히 같은 이름」만 막는다.
+   *  그 바람에 1,084건 중 **164쌍이 이미 있던 행과 같은 공구**로 들어가 손님 화면에 두 번 떴다
+   *  (「퓌레/퓨레」·「네블/네뷸」 오타 · 어순 바뀜 · 낱말 하나 추가 · 오픈일 ±1~3일).
+   *  메모리 `dup-check-three-holes` 가 말한 구멍 그대로다. 이제 **여기서** 막는다. */
+  const existing = seedExisting(b.h);
   const rows = [];
-  let capped = 0, old = 0, bad = 0;
+  let capped = 0, old = 0, bad = 0, dup = 0, blocked = 0, mine = 0;
   for (const it of b.items) {
     let e = it.e || addDays(it.d, 3);
     const max = addDays(it.d, 13);
@@ -79,12 +162,29 @@ for (const b of blocks) {
       console.log(`🔴 @${b.h} 「${it.n}」 분류가 CATS_LIST 밖이다 — ${it.mj}/${it.mi}`); bad++; continue;
     }
     if (e < today) { old++; continue; }                 // 이미 끝난 것은 넣지 않는다
+    const blk = BLOCKED.find((re) => re.test(it.n));
+    if (blk) {
+      console.log(`  ⛔ @${b.h} 「${it.n}」 — 사장님이 차단한 브랜드다 (brand_block: ${blk.source})`);
+      blocked++; continue;
+    }
+    const my = myWindowHit(it.n, it.d);
+    if (my) {
+      console.log(`  🚫 @${b.h} 「${it.n}」(${it.d}) — 규칙 0-M: 내 공구 「${my.name}」(${my.open_date}~${my.end_date}) 창 안이다`);
+      mine++; continue;
+    }
+    const hit = nearDup(existing, it.n, it.d);
+    if (hit) {
+      console.log(`  ↩ @${b.h} 「${it.n}」(${it.d}) — 이미 있다: id${hit.id} 「${hit.name}」(${hit.open_date}) 닮음 ${hit.sim.toFixed(2)}`);
+      dup++; continue;
+    }
     rows.push(`(${q(it.n)},${q(it.d)},${q(e)},${q(it.mj)},${q(it.mi)})`);
   }
   if (bad) { console.log(`🔴 @${b.h} 분류가 틀린 ${bad}건은 넣지 않았다 — 고쳐서 다시 돌릴 것`); }
   if (!rows.length) {
-    console.log(`@${b.h} — 넣을 것이 없다 (지난 일정 ${old}건)`);
-    appendFileSync(READ, JSON.stringify({ h: b.h, kr: b.kr, read: true, result: 'reg:0', why: `지난 일정만 ${old}건` }) + NL, 'utf8');
+    const why = [old ? `지난 일정 ${old}건` : '', dup ? `이미 있는 것 ${dup}건` : '',
+      blocked ? `차단 브랜드 ${blocked}건` : '', mine ? `규칙0-M ${mine}건` : '', bad ? `분류 틀림 ${bad}건` : ''].filter(Boolean).join(' · ') || '넣을 것 없음';
+    console.log(`@${b.h} — 넣을 것이 없다 (${why})`);
+    appendFileSync(READ, JSON.stringify({ h: b.h, kr: b.kr, read: true, result: 'reg:0', why }) + NL, 'utf8');
     continue;
   }
   const sql = `insert into public.gonggu (name, insta, influencer, open_date, end_date, major, minor, approved, cat_manual, source)
@@ -104,10 +204,15 @@ returning id, name, open_date, end_date;${NL}`;
   if (DRY) { console.log(sql); continue; }
   let n = 0, err = '';
   try {
-    const out = execFileSync(CLI, ['db', 'query', '--linked', '--file', SQLF], { encoding: 'utf8', timeout: 300e3, cwd: ROOT });
-    n = (out.match(/"id"/g) || []).length;
+    // 🔴 `reg:N` 은 **진짜 들어간 행 수**여야 한다 — 진행표(calendar_read.jsonl)가 재개 근거라
+    //    과다 집계면 다음 사람이 안 한 일을 했다고 보고 건너뛴다(2026-10-05 13건 어긋남).
+    //    returning 한 행만 세도록 공용 파서로 읽는다.
+    const out = execFileSync(CLI, sbArgs(SQLF), { encoding: 'utf8', timeout: 300e3, cwd: ROOT, maxBuffer: 32 * 1024 * 1024 });
+    const got = parseRows(out);
+    if (!got.ok) throw new Error('CLI 출력을 못 읽었다 — 들어갔는지 알 수 없다');
+    n = got.rows.length;
   } catch (e) { err = String(e.stdout || e.message || '').replace(/\s+/g, ' ').slice(0, 160); }
-  const note = [capped ? `14일상한 ${capped}건` : '', old ? `지난것 ${old}건 뺌` : ''].filter(Boolean).join(' · ');
+  const note = [capped ? `14일상한 ${capped}건` : '', old ? `지난것 ${old}건 뺌` : '', dup ? `이미 있어 뺀 것 ${dup}건` : '', blocked ? `차단 브랜드 ${blocked}건` : '', mine ? `규칙0-M ${mine}건` : ''].filter(Boolean).join(' · ');
   console.log(err ? `🔴 @${b.h} 실패 — ${err}` : `✅ @${b.h} ${n}건 등록 (표 ${rows.length}건)${note ? ' · ' + note : ''}`);
   appendFileSync(READ, JSON.stringify({ h: b.h, kr: b.kr, read: true, result: err ? 'fail' : `reg:${n}`, of: rows.length, why: err || note || undefined }) + NL, 'utf8');
   total += n;
