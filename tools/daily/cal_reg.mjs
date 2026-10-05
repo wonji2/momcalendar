@@ -14,7 +14,7 @@
  * 실행: node tools/daily/cal_reg.mjs scratchpad/_cal_in.json [--dry]
  * 진행기록: scratchpad/calendar_read.jsonl 에 한 줄 덧붙인다
  */
-import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -49,10 +49,26 @@ const CATS = {
   '반려동물': ['강아지','고양이','사료','간식'],
 };
 
+/** 🔴 **제외 셀러는 여기서 막는다** (사장님이 지정한 명단 — scratchpad/parsing_excluded.txt)
+ *  2026-10-05: 달력 캡션을 읽다가 제외 셀러(끼끼맘)의 일정을 등록할 뻔했다.
+ *  「내가 기억하고 있으니 괜찮다」가 아니라 **도구가 막아야** 다음 회차에서도 안 샌다. */
+const EXC = (() => {
+  const f = join(ROOT, 'scratchpad', 'parsing_excluded.txt');
+  if (!existsSync(f)) return new Set();
+  return new Set(readFileSync(f, 'utf8').split(/\r?\n/)
+    .filter((l) => l.trim() && !l.trim().startsWith('#'))
+    .map((l) => l.split(/\t|\s{2,}/)[0].trim().toLowerCase()).filter(Boolean));
+})();
+
 const input = JSON.parse(readFileSync(file, 'utf8'));
 const blocks = Array.isArray(input) ? input : [input];
 let total = 0;
 for (const b of blocks) {
+  if (EXC.has(String(b.h).toLowerCase())) {
+    console.log(`⛔ @${b.h} 제외 셀러다 — 등록하지 않는다 (scratchpad/parsing_excluded.txt)`);
+    appendFileSync(READ, JSON.stringify({ h: b.h, read: true, result: 'skip:excluded' }) + NL, 'utf8');
+    continue;
+  }
   const rows = [];
   let capped = 0, old = 0, bad = 0;
   for (const it of b.items) {

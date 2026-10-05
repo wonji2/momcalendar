@@ -32,6 +32,11 @@ const done = new Set(existsSync(READ)
   ? readFileSync(READ, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l).h) : []);
 
 // 캡션 원문 — 같은 shortcode 가 여러 날 jsonl 에 있으면 **가장 긴 것**을 쓴다(잘린 판이 섞여 있다)
+/** 🔴 **올해 10월 글인지 반드시 본다** (2026-10-05 실측)
+ *  캡션 정규식만 보면 **2018·2022·2024년 10월 달력**까지 걸려 든다(sweetpekoe 는 2022-09-30 글이었다).
+ *  게시일(t)이 한 달 반보다 오래됐으면 지난해 것이다 — 뽑지 않는다. */
+const OLD_BEFORE = new Date(Date.now() + 9 * 3600e3 - 45 * 864e5).toISOString().slice(0, 10);
+const posted = new Map();
 const cap = new Map();
 for (const f of readdirSync(FEED).filter((x) => x.endsWith('.jsonl'))) {
   for (const l of readFileSync(join(FEED, f), 'utf8').split(/\r?\n/)) {
@@ -40,6 +45,7 @@ for (const f of readdirSync(FEED).filter((x) => x.endsWith('.jsonl'))) {
     if (!want.has(o.code)) continue;
     const c = o.cap || '';
     if (c.length > (cap.get(o.code) || '').length) cap.set(o.code, c);
+    if (o.t && (!posted.has(o.code) || o.t > posted.get(o.code))) posted.set(o.code, o.t);
   }
 }
 // 「10/5」 「10.5」 「10월 5일」 — 상품명이 붙은 줄만 세려고 날짜 토큰 수로 가늠한다
@@ -48,7 +54,8 @@ const rows = [];
 for (const it of list) {
   const c = cap.get(it.code) || '';
   const n = (c.match(DATE) || []).length;
-  rows.push({ u: it.u, code: it.code, n, len: c.length, cap: c, done: done.has(it.u) });
+  const t = posted.get(it.code) || '';
+  rows.push({ u: it.u, code: it.code, n, len: c.length, cap: c, t, done: done.has(it.u) || (t && t < OLD_BEFORE) });
 }
 rows.sort((a, b) => b.n - a.n);
 const hit = rows.filter((r) => r.n >= MIN && !r.done);
