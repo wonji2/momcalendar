@@ -102,11 +102,17 @@ function myWindowHit(name, open) {
   return null;
 }
 
-/** 셀러의 **이미 노출 중인** 공구를 읽어 온다 (중복 판정용) */
+/**
+ * 셀러의 **이미 DB 에 있는** 공구를 읽어 온다 (중복 판정용)
+ * 🔴 2026-10-06: 전엔 `and approved` 가 붙어 있었다. 그래서 **내려간 행(approved=false)이 안 보였고**,
+ *   이름이 한 글자만 달라도 다음 회차에 같은 공구가 새 행으로 또 들어갔다.
+ *   규칙 0-M 트리거가 그걸 또 내리니 같은 공구의 approved=false 행이 회차마다 쌓이는 구조였다.
+ *   중복 판정에는 **내려간 행도 보여야 한다** — 내려갔다는 건 「이미 있다」는 뜻이지 「없다」가 아니다.
+ */
 function seedExisting(handle) {
   const f = join(ROOT, 'scratchpad', '_cal_exist.sql');
-  writeFileSync(f, `select id, name, open_date from public.gonggu
- where insta = ${q(handle)} and approved and open_date >= '${addDays(today, -40)}';`, 'utf8');
+  writeFileSync(f, `select id, name, open_date, approved from public.gonggu
+ where insta = ${q(handle)} and open_date >= '${addDays(today, -40)}';`, 'utf8');
   try {
     const out = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', timeout: 180e3, cwd: ROOT, maxBuffer: 32 * 1024 * 1024 });
     const got = parseRows(out);
