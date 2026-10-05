@@ -34,6 +34,9 @@ const thumbOf = (u: unknown) => {
 };
 const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 냄비, 기저귀)"].join("\n");
 const MAX_SHOW = 20;   // 캐러셀 5장 × 4건 (카카오 최대치)
+// 사장님 본인 공구를 「내 것만」으로 안내하기 시작하는 시점 (사장님 2026-10-05 "2주전부터")
+//   카페 답글봇 sns-automation/src/cafe-answer.js 의 NOTICE_DAYS 와 같은 값을 쓴다 — 한쪽만 바꾸면 두 채널 답이 갈린다.
+const OWN_NOTICE_DAYS = 14;
 
 const kst = () => new Date(Date.now() + 9 * 3600e3);
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -279,9 +282,20 @@ async function partnerHandles(): Promise<string[]> {
   for (const r of rows as any[]) { const h = norm(r.insta); if (h) set.add(h); }
   return [...set];
 }
-async function pick(cond: string, order: string, ph: string[]) {
+async function pick(cond: string, order: string, ph: string[], ownOnlyIfNear = false) {
   const inList = `(${ph.map((h) => `"${h}"`).join(",")})`;
   const partner = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&insta=in.${inList}&${order}&limit=15`);
+  // 🔑 사장님 본인 공구(momcal_)가 **오픈 14일 안**이거나 진행 중이면 **그것만** 보여준다 — 다른 셀러를 섞지 않는다.
+  //   사장님 2026-10-05: *"챗봇에서도 내 공구 있는거는 2주전부터 내 공구로만 알려줘"*
+  //   카페 답글봇(sns-automation/src/cafe-answer.js)의 NOTICE_DAYS 와 **같은 기준**으로 맞췄다.
+  //   ⚠ 브랜드·품목 질문에만 건다(호출부 4곳). 「오늘 공구」·「주말 공구」 같은 목록 요청은 전체를 보여줘야 하므로 걸지 않는다.
+  if (ownOnlyIfNear) {
+    const t0 = Date.parse(ymd(kst()) + "T00:00:00Z");
+    const near = (partner as any[]).filter((g) =>
+      MOMCAL.includes(norm(g.insta)) &&
+      Math.round((Date.parse(String(g.open_date) + "T00:00:00Z") - t0) / 864e5) <= OWN_NOTICE_DAYS);
+    if (near.length) return near.slice(0, MAX_SHOW).map((g) => ({ ...g, __p: true }));
+  }
   const rest = await q(`gonggu?select=${COLS}&approved=eq.true&${cond}&${order}&limit=30`);
   const seen = new Set((partner as any[]).map((g) => g.id));
   const out = [...(partner as any[]).map((g) => ({ ...g, __p: true }))];
@@ -739,7 +753,7 @@ async function handle(req: Request): Promise<Response> {
             //   셀러명·핸들을 보면 손님이 안 찾은 상품이 섞인다.
             cond = `end_date=gte.${today}&name=ilike.${enc}`;
           }
-          let rows = await pick(cond, "order=open_date.asc", ph);
+          let rows = await pick(cond, "order=open_date.asc", ph, true);
           // 줄임말 결과는 규칙에 맞는 것만 남긴다 (낱말 안 건너뛰기 차단)
           if (t.startsWith("__ABBR__")) {
             const kwx = t.slice(8);
@@ -752,7 +766,7 @@ async function handle(req: Request): Promise<Response> {
           //    ⚠ 글자를 깎는 게 아니다 — 손님 말은 그대로고 DB 쪽 공백만 무시한다.
           if (!rows.length && ws.length <= 1 && !t.startsWith("__ABBR__") && !/\s/.test(t) && t.length >= 4) {
             const ns = encodeURIComponent("%" + t.toLowerCase() + "%");
-            rows = await pick(`end_date=gte.${today}&name_ns=ilike.${ns}`, "order=open_date.asc", ph);
+            rows = await pick(`end_date=gte.${today}&name_ns=ilike.${ns}`, "order=open_date.asc", ph, true);
           }
           // 🔴 **DB 에 아예 없는 낱말은 조건에서 뺀다** (사장님 승인 2026-09-04)
           //   실사고: "루솔 도라지배즙" 은 '루솔' 9건이 진행중인데 '도라지배즙' 이
@@ -773,7 +787,7 @@ async function handle(req: Request): Promise<Response> {
                 const e2 = encodeURIComponent("%" + w + "%");
                 return `name.ilike.${e2}`;
               }).join(",");
-              rows = await pick(`end_date=gte.${today}&and=(${c2})`, "order=open_date.asc", ph);
+              rows = await pick(`end_date=gte.${today}&and=(${c2})`, "order=open_date.asc", ph, true);
             }
           }
           // ⚠ 여기 있던 "낱말 하나씩이라도 찾는다" 는 주석은 사실과 달라 지웠다 (2026-09-04 검증).
@@ -823,7 +837,7 @@ async function handle(req: Request): Promise<Response> {
             for (const { w } of scored) {
               if (Date.now() - t0 > 1700) break;
               const e = encodeURIComponent("%" + w + "%");
-              const r2 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph);
+              const r2 = await pick(`end_date=gte.${today}&name=ilike.${e}`, "order=open_date.asc", ph, true);
               for (const r of r2) { if (!mseen.has(r.id)) { mseen.add(r.id); merged.push(r); } }
               if (merged.length >= MAX_SHOW) break;
             }
