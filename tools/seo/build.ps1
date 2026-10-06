@@ -77,6 +77,35 @@ try{
   $BlockPats = @(([Text.Encoding]::UTF8.GetString($bkr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { "$($_.pattern)" } | Where-Object { $_ })
   Write-Output "브랜드 차단 패턴 $($BlockPats.Count)개"
 }catch{ Write-Output "brand_block 조회 실패(차단 없이 진행): $($_.Exception.Message)" }
+
+# ── 내려놓은 공구(gonggu_hold)의 건별 페이지는 보존하지 않는다 (2026-10-06) ──
+# 🔴 왜: 중복이라 내린 행의 페이지가 /gg/뉴욕-프리미엄-텀블러-1006.html 로 **200** 이고
+#    sitemap 에도 남아 있었다. 같은 공구가 구글에 두 URL 로 뜬다(내린 것 + 남긴 것).
+#    아래 KeptUrls() 의 보존 원칙은 **지난 공구**를 남기려는 것이지, 중복이라 내린 행까지 남기려는 게 아니다.
+# 🔑 뷰 gonggu_hold_public 은 슬러그에 필요한 name·open_date 만 내준다(사유는 안 내준다).
+#    표 자체는 anon 에게 닫혀 있다 — supabase/sql/gonggu_hold_public_79.sql
+$HeldGg = @{}
+try{
+  $hr = Invoke-WebRequest -Uri 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/gonggu_hold_public?select=name,open_date' -TimeoutSec 30 `
+        -Headers @{ apikey=$key; Authorization="Bearer $key" }
+  foreach($h in ([Text.Encoding]::UTF8.GetString($hr.RawContentStream.ToArray()) | ConvertFrom-Json)){
+    $hb = SlugOf "$($h.name)" $null '-gg'
+    if([string]::IsNullOrWhiteSpace($hb)){ continue }
+    # gg 슬러그 = 상품명 + '-' + 오픈일 MMDD (아래 건별 페이지 생성과 같은 규칙)
+    $HeldGg[("$hb-" + "$($h.open_date)".Replace('-','').Substring(4)).ToLower()] = 1
+  }
+  Write-Output "내려놓은 공구 슬러그 $($HeldGg.Count)개 — 건별 페이지를 보존하지 않는다"
+}catch{ Write-Output "gonggu_hold_public 조회 실패(보존 그대로 진행): $($_.Exception.Message)" }
+$HeldRemoved = 0
+# 같은 이름·같은 날 공구가 둘이면 뒤엣것에 -2, -3 이 붙는다. 그 꼬리를 떼고 본다.
+function IsHeldGg([string]$base){
+  if($HeldGg.Count -eq 0 -or [string]::IsNullOrWhiteSpace($base)){ return $false }
+  $b = $base.ToLower()
+  if($HeldGg.ContainsKey($b)){ return $true }
+  if($b -match '^(.*)-\d+$'){ return $HeldGg.ContainsKey($Matches[1]) }
+  return $false
+}
+
 function IsBlocked([string]$t){
   if([string]::IsNullOrWhiteSpace($t)){ return $false }
   foreach($p in $BlockPats){ if($t -imatch $p){ return $true } }
@@ -849,6 +878,9 @@ function KeptUrls([string]$dir2, $todayUrls){
     foreach($f in (Get-ChildItem $dp -Filter *.html -File | Sort-Object Name)){
       # 🚫 차단 브랜드의 보존 페이지는 지운다 — 보존 원칙의 유일한 예외 (파일명에 브랜드가 들어간다: g/브랜드 · gg/상품명-MMDD · p/브랜드-제품)
       if(IsBlocked $f.BaseName){ Remove-Item $f.FullName -Force; $script:BlockedRemoved++; continue }
+      # 🚫 중복이라 내려놓은 공구(gonggu_hold)의 건별 페이지 — 보존 원칙의 두 번째 예외 (2026-10-06)
+      #    gg/ 에만 적용한다. g(브랜드)·p(제품)·s(셀러) 집계 페이지는 행 하나가 빠져도 살아 있어야 한다.
+      if($dir2 -eq 'gg' -and (IsHeldGg $f.BaseName)){ Remove-Item $f.FullName -Force; $script:HeldRemoved++; continue }
       $rel = "$dir2/$($f.Name)"
       if(-not $have.ContainsKey($rel)){ $extra += "$dir2/$(Enc $f.BaseName).html" }
     }
