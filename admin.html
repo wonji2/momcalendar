@@ -171,6 +171,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="hd-logo" onclick="window.location.href='https://momcalendar.com'" style="cursor:pointer">맘캘린더 <span>관리자</span></div>
     <div class="hd-right">
       <button class="hd-csv" onclick="openVendor()">🏢 원츠비</button>
+      <button class="hd-csv" onclick="openRevenue()">💰 수익</button>
       <button class="hd-csv" onclick="openCashRcpt()">🧾 현금영수증</button>
       <button class="hd-csv" onclick="openCatFix()">🧹 분류정리</button>
       <button class="hd-csv" onclick="exportCSV()">📥 CSV</button>
@@ -569,6 +570,35 @@ details summary::-webkit-details-marker{display:none}
       <div id="vdBody" style="flex:1;overflow-y:auto;padding:12px;background:#FAFAFC"></div>
       <div style="padding:11px 16px;border-top:1px solid #eee;display:flex;justify-content:flex-end">
         <button onclick="closeVendor()" style="padding:9px 16px;background:#fff;color:#777;border:1.5px solid #EBEBEB;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 💰 수익링크 종류별 수익·클릭 (사장님 지시 2026-10-06
+       "내 수익링크 종류(쿠팡, 네이버, 링크프라이스 등) 나열해서 수익 얼만지 합계보이게")
+       자료: RPC revenue_by_source(일수)
+         · 등록·노출중 = hotdeals 표
+         · 클릭        = events.event_type='hotdeal_open' (event_data 안에 종류가 들어 있다)
+         · 수익·거래액  = revenue_daily 표 ← coupang-revenue 엣지함수가 매일 09:00 쿠팡 파트너스에서 받아 쌓는다
+       ⚠ 쿠팡 말고는 수익이 0 으로 나온다 — 링크프라이스·토스는 리포트 키가 아직 없다. 키가 생기면
+         같은 표(revenue_daily)에 source 만 다르게 쌓으면 이 화면은 그대로 둬도 된다. -->
+  <div id="revModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px;border-bottom:1px solid #eee">
+        <div style="font-size:16px;font-weight:800;color:#191919">💰 수익링크 종류별 수익</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;line-height:1.5">쿠팡 수익은 매일 아침 9시에 파트너스에서 자동으로 받아와요. 취소·반품으로 금액이 바뀔 수 있어 최근 7일은 매일 다시 받아요.</div>
+      </div>
+      <div style="display:flex;gap:6px;padding:10px 14px 0">
+        <button class="revd" data-d="7"  onclick="revLoad(7)"  style="flex:1;padding:8px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">최근 7일</button>
+        <button class="revd" data-d="30" onclick="revLoad(30)" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">최근 30일</button>
+        <button class="revd" data-d="90" onclick="revLoad(90)" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">최근 90일</button>
+      </div>
+      <div id="revBody" style="flex:1;overflow-y:auto;padding:14px">
+        <div style="font-size:12.5px;color:#888">불러오는 중…</div>
+      </div>
+      <div style="padding:12px 14px;border-top:1px solid #eee;display:flex;gap:8px">
+        <button onclick="revRefetch()" id="revRefetchBtn" style="flex:1;padding:10px;background:#F4F1FF;color:#4A35A0;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🔄 쿠팡에서 지금 다시 받기</button>
+        <button onclick="document.getElementById('revModal').style.display='none'" style="padding:10px 18px;background:#7B68EE;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">닫기</button>
       </div>
     </div>
   </div>
@@ -3126,6 +3156,78 @@ let catFixProposals=[], _cfVia='', _cfMajor='', _cfSearch='', _cfBulkMajor='', _
 //   자료는 벤더 운영시트가 30분마다 밀어 넣는 vendor_todo(payload JSON 배열)를 RPC 로 읽는다.
 //   한 줄의 뜻: open 오픈일 · close 마감일 · settle 정산일 · sample 샘플(미발송/완료) · share 링크공유(미완료/빈칸)
 //              stage 일정확정 · paid 정산소통 · type 정산유형 · todo 시트가 적어준 할 일 · urgent 지연표시
+/* ── 💰 수익링크 종류별 (2026-10-06) ──────────────────────────────
+   RPC revenue_by_source(일수) 한 번으로 등록·노출중·클릭·수익·거래액을 받는다.
+   ⚠ 쿠팡 외 종류는 수익이 0 이다 — 리포트 키가 아직 쿠팡 것뿐이다. 0 을 숨기지 않고 그대로 보여준다
+     (숨기면 "왜 링크프라이스가 없지?" 를 매번 다시 묻게 된다). */
+let REV_DAYS = 30;
+const revWon = (n) => Number(n || 0).toLocaleString('ko-KR') + '원';
+function openRevenue(){ document.getElementById('revModal').style.display = 'flex'; revLoad(REV_DAYS); }
+async function revLoad(days){
+  REV_DAYS = days;
+  document.querySelectorAll('.revd').forEach((b) => {
+    const on = Number(b.dataset.d) === days;
+    b.style.background = on ? '#7B68EE' : '#F4F1FF';
+    b.style.color = on ? '#fff' : '#4A35A0';
+  });
+  const box = document.getElementById('revBody');
+  box.innerHTML = '<div style="font-size:12.5px;color:#888">불러오는 중…</div>';
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/rpc/revenue_by_source', {
+      method:'POST', headers: sbHeaders(), body: JSON.stringify({ p_days: days })
+    });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    if(!rows || !rows.length){ box.innerHTML = '<div style="font-size:12.5px;color:#888">아직 자료가 없어요.</div>'; return; }
+    const sum = rows.reduce((a,x)=>({ 등록:a.등록+ +x.등록, 클릭:a.클릭+ +x.클릭, 수익:a.수익+ +x.수익, 거래액:a.거래액+ +x.거래액 }),
+                            { 등록:0, 클릭:0, 수익:0, 거래액:0 });
+    const td = 'padding:7px 6px;font-size:12.5px;border-bottom:1px solid #F2F2F2';
+    box.innerHTML =
+      `<div style="background:#F4F1FF;border-radius:11px;padding:13px 14px;margin-bottom:12px">
+         <div style="font-size:11.5px;color:#6B5BBF;font-weight:700">최근 ${days}일 수익 합계</div>
+         <div style="font-size:26px;font-weight:800;color:#4A35A0;margin-top:2px">${revWon(sum.수익)}</div>
+         <div style="font-size:11.5px;color:#8A7FC4;margin-top:3px">거래액 ${revWon(sum.거래액)} · 클릭 ${sum.클릭.toLocaleString('ko-KR')}회 · 등록 ${sum.등록.toLocaleString('ko-KR')}건</div>
+       </div>
+       <table style="width:100%;border-collapse:collapse">
+         <tr style="background:#FAFAFA">
+           <th style="${td};text-align:left">종류</th><th style="${td};text-align:right">등록</th>
+           <th style="${td};text-align:right">클릭</th><th style="${td};text-align:right">수익</th>
+           <th style="${td};text-align:right">거래액</th></tr>
+         ${rows.map((x)=>{
+            const no = Number(x.수익) === 0;
+            return `<tr${no?' style="opacity:.55"':''}>
+              <td style="${td};font-weight:700">${x.종류}</td>
+              <td style="${td};text-align:right">${Number(x.등록).toLocaleString('ko-KR')}</td>
+              <td style="${td};text-align:right">${Number(x.클릭).toLocaleString('ko-KR')}</td>
+              <td style="${td};text-align:right;font-weight:${no?'400':'800'};color:${no?'#BBB':'#191919'}">${no?'—':revWon(x.수익)}</td>
+              <td style="${td};text-align:right;color:#888">${no?'—':revWon(x.거래액)}</td></tr>`;
+          }).join('')}
+       </table>
+       <div style="font-size:11px;color:#999;margin-top:10px;line-height:1.6">
+         흐리게 보이는 줄은 <b>수익 리포트 키가 아직 없는 곳</b>이에요(클릭은 우리가 직접 세니까 나옵니다).<br>
+         링크프라이스·토스 리포트 계정을 주시면 같은 자리에 금액이 채워져요.</div>`;
+  }catch(e){
+    box.innerHTML = `<div style="font-size:12.5px;color:#D33">못 불러왔어요: ${String(e.message || e)}</div>`;
+  }
+}
+async function revRefetch(){
+  const b = document.getElementById('revRefetchBtn');
+  const old = b.textContent; b.textContent = '받는 중…'; b.disabled = true;
+  try{
+    // 🔑 엣지함수는 cron secret 을 요구한다 — 관리자 화면은 그 값을 모른다.
+    //    그래서 서버 RPC 를 거친다(없으면 안내만 한다).
+    const r = await fetch(SB_URL + '/rest/v1/rpc/coupang_revenue_refetch', {
+      method:'POST', headers: sbHeaders(), body: '{}'
+    });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    await revLoad(REV_DAYS);
+    b.textContent = '✅ 받았어요';
+  }catch(e){
+    b.textContent = '🔴 실패 — 내일 9시에 자동으로 받아와요';
+  }
+  setTimeout(()=>{ b.textContent = old; b.disabled = false; }, 3000);
+}
+
 let VD_ROWS = null, VD_AT = '', VD_RCPT = [];   // VD_RCPT = 저장된 현금영수증 발급 내역(cash_receipt) — 「영수증」 갈래에 ✅ 를 띄우는 근거
 // 시트의 셀러 칸은 셀러원장에 없는 셀러를 「이름+인스타핸들」로 붙여 온다("이현맘ihyeon_mom_251125" · "리로네3__meow" · "정원이네 won2_mompick").
 //   뒤에 붙은 영문·숫자·밑줄·점 꼬리를 떼면 이름만 남는다. "3미니맘"처럼 한글로 끝나는 건 그대로.
