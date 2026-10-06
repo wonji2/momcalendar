@@ -510,12 +510,14 @@ function fitNames(){
     //      (2026-10-06 실측: 96% 로 줬더니 그 줄만 눈에 띄게 작아졌다). **px 로 1px 씩만** 줄인다.
     el.style.fontSize='';
     //   ⚠ 변수 이름을 `base` 로 썼다가 아래 낱말 줄이기의 `base` 와 겹쳐 카드가 통째로 안 그려졌다(같은 날 실측).
+    //   ⚠ 처음엔 4px 까지 줄였는데 **줄마다 글자가 들쭉날쭉해졌다**(사장님 지적 2026-10-06).
+    //     실측: 51줄 중 30px 47줄 · 29px 2줄 · 28px 1줄 · **26px 1줄**(닥터라인 철분/아연/칼슘/비타민D).
+    //     26px 은 30px 대비 13% 라 눈에 띈다. **1px 만** 허용한다 — 30·29 두 가지면 티가 안 난다.
+    //     1px 로 안 들어가는 긴 이름은 아래 낱말 줄이기로 간다(브랜드는 지켜진다).
     const fsBase=Math.round(parseFloat(getComputedStyle(el).fontSize)||30);
-    for(let px=fsBase-1; px>=fsBase-4; px--){
-      el.style.fontSize=px+'px';
-      if(el.scrollWidth<=el.clientWidth) return;            // 다 들어갔다 — 이름을 안 버렸다
-    }
-    el.style.fontSize='';                                    // 4px 줄여도 안 되면 원래 크기로 두고 아래 규칙대로 줄인다
+    el.style.fontSize=(fsBase-1)+'px';
+    if(el.scrollWidth<=el.clientWidth) return;              // 1px 로 들어갔다 — 이름을 안 버렸다
+    el.style.fontSize='';                                    // 안 되면 원래 크기로 두고 아래 규칙대로 줄인다
     // ⓪ 괄호 안 보조설명을 통째로 먼저 뺀다.
     //    앞 단어부터 지우면 "뉴이 클라우드 부스터(휴대용 하이체어)" 가 "하이체어)" 로 끝났다.
     //    (사장님 지적 2026-08-05 "대괄호 같은건 다 지워야지")
