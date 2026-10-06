@@ -90,6 +90,10 @@ body{background:#3A3145;font-family:var(--f-b);padding:225px 0 60px;color:#fff}
 .hcrop.r{right:0;border-left:3px dashed rgba(255,90,90,.6)}
 body.clean .safe,body.clean .gcrop,body.clean .hcrop{display:none}
 
+/* ⚠ 2026-10-06: 이 간격을 5px 로, 셀러명을 19px 로 줄이면 「티니핑 멀티비타민저당젤리」가
+   100% 크기로 들어간다(실측 312/312). 하지만 **기존 폼이 달라진다** —
+   사장님 "기존폼 그걸 안 해치는 선에서 최대한 키우라는거야"(2026-10-06). 그래서 11px 그대로 둔다.
+   대신 아래 fitNames 가 **px 단위로 1px 씩만** 줄여 들어가는 최대 크기를 찾는다. */
 .gap{display:inline-block;width:11px}
 
 /* ── 헤더 ── 상단 256px 비움: 인스타 UI(200) + 그리드커버(240) 둘 다 회피 */
@@ -488,10 +492,30 @@ function cleanParen(s){
 }
 function fitNames(){
   document.querySelectorAll('.it-nm').forEach(function(el){
+    // 🔴 2026-10-06: **먼저 원래 크기로 되돌리고** 재야 한다.
+    //   시안(vA/vB/vC)을 바꿔 다시 그릴 때 지난번에 박아 둔 px 가 남아 있어,
+    //   그 작은 글자로 "안 넘친다"고 판정하고 그대로 둬서 **줄마다 글자 크기가 들쭉날쭉**했다(실측).
+    if(el.style.fontSize) el.style.fontSize='';
+    if(el.dataset.full && el.textContent !== el.dataset.full) el.textContent = el.dataset.full;
     if(el.scrollWidth<=el.clientWidth) return;              // 안 잘리면 그대로
     const full=el.dataset.full||el.textContent;
     el.dataset.full=full;
     el.title=full;
+    // 🔴 2026-10-06 사장님 "티니핑 멀티비타민저당젤리 라고 해"
+    //   낱말을 버리기 **전에 글자를 먼저 줄인다.** 조금만 줄이면 이름이 통째로 들어가는 경우가 많은데
+    //   그동안은 바로 낱말을 버려서 「티니핑 멀티비타민저당젤리」가 「멀티비타민저당젤리」가 됐다
+    //   (두 낱말 승부에서 짧은 쪽을 버리는 규칙 — 티니핑은 이 상품의 후킹인데 사라진다).
+    //   한 줄만 작아지는 것은 거의 티가 안 난다. 낱말이 통째로 없어지는 쪽이 훨씬 나쁘다.
+    //   🔴 % 로 주면 안 된다 — `.it-nm` 의 % 는 **부모(.it, 16px) 기준**이라 30px 짜리가 15px 로 확 줄어든다
+    //      (2026-10-06 실측: 96% 로 줬더니 그 줄만 눈에 띄게 작아졌다). **px 로 1px 씩만** 줄인다.
+    el.style.fontSize='';
+    //   ⚠ 변수 이름을 `base` 로 썼다가 아래 낱말 줄이기의 `base` 와 겹쳐 카드가 통째로 안 그려졌다(같은 날 실측).
+    const fsBase=Math.round(parseFloat(getComputedStyle(el).fontSize)||30);
+    for(let px=fsBase-1; px>=fsBase-4; px--){
+      el.style.fontSize=px+'px';
+      if(el.scrollWidth<=el.clientWidth) return;            // 다 들어갔다 — 이름을 안 버렸다
+    }
+    el.style.fontSize='';                                    // 4px 줄여도 안 되면 원래 크기로 두고 아래 규칙대로 줄인다
     // ⓪ 괄호 안 보조설명을 통째로 먼저 뺀다.
     //    앞 단어부터 지우면 "뉴이 클라우드 부스터(휴대용 하이체어)" 가 "하이체어)" 로 끝났다.
     //    (사장님 지적 2026-08-05 "대괄호 같은건 다 지워야지")
