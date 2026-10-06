@@ -514,8 +514,11 @@ function fitNames(){
     //     실측: 51줄 중 30px 47줄 · 29px 2줄 · 28px 1줄 · **26px 1줄**(닥터라인 철분/아연/칼슘/비타민D).
     //     26px 은 30px 대비 13% 라 눈에 띈다. **1px 만** 허용한다 — 30·29 두 가지면 티가 안 난다.
     //     1px 로 안 들어가는 긴 이름은 아래 낱말 줄이기로 간다(브랜드는 지켜진다).
-    const fsBase=Math.round(parseFloat(getComputedStyle(el).fontSize)||30);
-    el.style.fontSize=(fsBase-1)+'px';
+    //   🔴 px 를 **고정으로 박으면 안 된다.** 카드는 시안(vA 30px → vB 27px → vC…)을 바꿔 가며
+    //     다 들어갈 때까지 다시 그리는데, px 로 박힌 줄만 그 변화를 안 따라가 **혼자 커 보인다**
+    //     (2026-10-06 사장님 "지금도 들쭉날쭉해" — 「가로세로 슬라이딩 선반 4차」가 그랬다).
+    //     calc 로 주면 --fs-item 이 바뀔 때 같이 줄어든다.
+    el.style.fontSize='calc(var(--fs-item) - 1px)';
     if(el.scrollWidth<=el.clientWidth) return;              // 1px 로 들어갔다 — 이름을 안 버렸다
     el.style.fontSize='';                                    // 안 되면 원래 크기로 두고 아래 규칙대로 줄인다
     // ⓪ 괄호 안 보조설명을 통째로 먼저 뺀다.
