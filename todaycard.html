@@ -851,6 +851,18 @@ function trimToFit(doc){
     const orphan = list.querySelector('.in-more');
     if(orphan && !list.querySelector('.spill-hd')) orphan.remove();
   });
+  // 🔴 2026-10-07 사장님 *"옆에 자리가 저만큼이나 많이 남아서 굳이 ...안쓰고 상품명 다 써도 칸 남겠구만"*
+  //   화면에서는 … 뒤에 2px 밖에 안 남는데(실측) **저장된 PNG 에서는 빈칸이 크게 남았다.**
+  //   html2canvas 는 복제본을 따로 그리는데 거기선 글자 폭이 달라진다(메모리 screen-pass-is-not-png-pass).
+  //   → 원본에서 자른 … 를 그대로 쓰지 말고, **실제로 그려질 이 복제본에서 다시 맞춘다.**
+  //   ⚠ mini(transform:scale .30)는 레이아웃 폭을 안 바꾼다 — 그쪽은 원인이 아니었다.
+  doc.querySelectorAll('.it-nm').forEach(function(el){
+    const full = el.dataset.full; if(!full) return;
+    el.textContent = full;                                  // 원문으로 되돌리고 이 판에서 다시 잰다
+    if(el.scrollWidth <= el.clientWidth) return;             // 다 들어가면 그대로 — … 가 안 붙는다
+    let s = full;
+    while(s.length > 4 && el.scrollWidth > el.clientWidth){ s = s.slice(0,-1); el.textContent = s.trimEnd()+'…'; }
+  });
 }
 
 async function savePng(quiet){
