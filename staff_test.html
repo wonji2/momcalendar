@@ -99,8 +99,10 @@
         <button onclick="todoLoad(1)" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer;font-family:inherit">새로고침</button>
       </div>
       <div style="font-size:11px;color:#999;margin-top:6px">
-        벤더 운영시트(마스터)에서 30분마다 받아옵니다. 고치는 곳은 시트입니다.
+        벤더 운영시트와 이어져 있습니다. <b>여기서 누른 완료/미완료는 시트에 자동으로 반영됩니다.</b>
+        금액·날짜는 시트에서만 고칩니다.
       </div>
+      <div id="todoFilters" style="margin-top:10px"></div>
     </div>
     <div id="todoBody" style="margin-top:10px"><div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div></div>
   </div>
@@ -435,124 +437,168 @@ function mountReelCard(){
 }
 
 
-// ───────── 📋 오늘 할 일 (벤더 운영시트 → Supabase → 여기) ─────────
-//  시트의 「할 일」 칸을 그대로 가져온다. 여기서 일을 다시 판단하지 않는다.
-//  날짜만 이 화면에서 따진다 — 어느 줄이 어제·오늘·내일에 걸리는지.
-//  ⚠ 날짜는 전부 'YYYY-MM-DD' 글자로 비교한다 (서울 기준. 시차로 하루 밀리지 않게)
-function tdToday(){
-  const d=new Date(Date.now()+9*3600*1000);      // UTC+9 = 서울
-  return d.toISOString().slice(0,10);
+// ───────── 📋 오늘 할 일 (벤더 운영시트 ↔ 사이트, 양방향) ─────────
+//  사장님 지시 2026-10-07:
+//   "오늘 공구 진행중인 셀러 / 앞으로 예정인 셀러 / 링크 전달 완료했는지 /
+//    오늘 정산해야되는 셀러 / 정산 미완료인지 — 심플하게 색이랑 필터로만,
+//    완료 미완료 이렇게 처리 가능하고 최대한 자동화"
+//
+//  읽기 : 시트 → Supabase(vendor_todo) → vendor_todo_read()
+//  쓰기 : 여기서 누르면 vendor_mark_set() → 시트가 30분마다·고칠 때마다 가져가 적용
+//         누른 즉시 화면은 바뀌고, 시트 반영은 다음 전송 때 맞춰진다.
+//  ⚠ 바꿀 수 있는 건 넷뿐: 링크공유·샘플·①정산·단계. 금액·날짜는 시트에서만.
+function tdToday() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);      // UTC+9 = 서울
+  return d.toISOString().slice(0, 10);
 }
-function tdAdd(ymd,n){
-  if(!ymd) return '';
-  const p=ymd.split('-').map(Number), dt=new Date(Date.UTC(p[0],p[1]-1,p[2]+n));
-  return dt.toISOString().slice(0,10);
-}
-// 원천세 신고기한 = 지급한 달의 다음달 10일
-function tdFiling(paid){
-  if(!paid) return '';
-  const p=paid.split('-').map(Number), dt=new Date(Date.UTC(p[0],p[1],10));
-  return dt.toISOString().slice(0,10);
-}
-function tdEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function tdWon(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+function tdEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tdWon(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
+function tdMD(s) { return s ? String(s).slice(5).replace('-', '/') : ''; }
 
-// 한 줄에서 「무슨 일이 언제」를 뽑는다. 날짜가 없는 항목은 빼고.
-function tdMarks(r){
-  const m=[];
-  const done = r.stage==='지급완료' || r.stage==='신고완료';
-  if(r.open && r.share!=='완료')                 m.push({d:tdAdd(r.open,-7), t:'판매링크 공유'});
-  if(r.open && r.sample!=='완료')                m.push({d:tdAdd(r.open,-3), t:'샘플 확인'});
-  if(r.open)                                     m.push({d:r.open,  t:'공구 오픈'});
-  if(r.close)                                    m.push({d:r.close, t:'공구 마감'});
-  if(r.settle && !done)                          m.push({d:r.settle,t:'정산 지급'});
-  if(r.paid && r.type==='개인' && r.stage==='지급완료')
-                                                 m.push({d:tdFiling(r.paid), t:'원천세 신고'});
-  return m.filter(x=>x.d);
-}
+let TODO_ROWS = [], TODO_AT = '', TODO_DENIED = false, TODO_FILTER = 'all', TODO_BUSY = {};
 
-let TODO_ROWS=[], TODO_AT='', TODO_DENIED=false;
-async function todoLoad(force){
-  const box=document.getElementById('todoBody');
-  if(TODO_ROWS.length && !force){ todoRender(); return; }
-  box.innerHTML='<div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div>';
-  try{
-    const res=await fetch(SB_URL+'/rest/v1/rpc/vendor_todo_read',
-      {method:'POST',headers:sbHeaders(),body:'{}'});
-    const j=await res.json();
-    if(!res.ok){ const e=new Error((j&&j.message)||('HTTP '+res.status)); e.denied=res.status===400||res.status===403; throw e; }
-    if(!Array.isArray(j)||!j.length){
-      box.innerHTML='<div class="card" style="color:#888;font-size:13px">아직 받은 내용이 없습니다.<br><span style="font-size:11px;color:#aaa">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 해 주세요.</span></div>';
+async function todoLoad(force) {
+  const box = document.getElementById('todoBody');
+  if (TODO_ROWS.length && !force) { todoRender(); return; }
+  box.innerHTML = '<div style="color:#aaa;font-size:12px;padding:14px">불러오는 중...</div>';
+  try {
+    const res = await fetch(SB_URL + '/rest/v1/rpc/vendor_todo_read',
+      { method:'POST', headers: sbHeaders(), body:'{}' });
+    const j = await res.json();
+    if (!res.ok) { const e = new Error((j && j.message) || ('HTTP ' + res.status)); e.denied = res.status === 400 || res.status === 403; throw e; }
+    if (!Array.isArray(j) || !j.length) {
+      box.innerHTML = '<div class="card" style="color:#888;font-size:13px">아직 받은 내용이 없습니다.<br><span style="font-size:11px;color:#aaa">벤더 운영시트에서 「벤더운영 → 스탭 페이지 연결」을 한 번 해 주세요.</span></div>';
       return;
     }
     TODO_ROWS = Array.isArray(j[0].payload) ? j[0].payload : [];
-    TODO_AT   = j[0].updated_at||'';
-  }catch(e){
-    if(e.denied){                       // 볼 수 있는 명단에 없는 계정 — 탭째로 감춘다
-      TODO_DENIED=true;
-      const tb=document.getElementById('t-todo'); if(tb) tb.style.display='none';
-      const vw=document.getElementById('v-todo'); if(vw) vw.style.display='none';
-      if(document.getElementById('t-exp')) showTab('exp');
+    TODO_AT = j[0].updated_at || '';
+  } catch (e) {
+    if (e.denied) {
+      TODO_DENIED = true;
+      const tb = document.getElementById('t-todo'); if (tb) tb.style.display = 'none';
+      const vw = document.getElementById('v-todo'); if (vw) vw.style.display = 'none';
+      if (document.getElementById('t-exp')) showTab('exp');
       return;
     }
-    box.innerHTML='<div class="card" style="color:#C62828;font-size:13px">불러오지 못했습니다 — '+tdEsc(e.message)+'</div>';
+    box.innerHTML = '<div class="card" style="color:#C62828;font-size:13px">불러오지 못했습니다 — ' + tdEsc(e.message) + '</div>';
     return;
   }
   todoRender();
 }
 
-function todoRender(){
-  const T=tdToday(), Y=tdAdd(T,-1), N=tdAdd(T,1);
-  document.getElementById('todoToday').textContent=T.slice(5).replace('-','/')+' 기준 · 어제~내일 3일';
-  const st=document.getElementById('todoStamp');
-  if(st) st.textContent = TODO_AT ? '시트 기준 '+new Date(TODO_AT).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-  document.getElementById('todoBody').innerHTML = todoHtml(TODO_ROWS, T);
+//  ── 줄 하나가 어느 묶음에 드는가 ──
+//   한 줄이 두 묶음에 들 수 있다(예: 오늘 진행중이면서 링크 미전달). 그게 맞다.
+function tdGroups(r, T) {
+  const g = [];
+  const open = r.open || '', close = r.close || '', settle = r.settle || '';
+  const 끝난정산 = r.stage === '지급완료' || r.stage === '신고완료' || r.stage === '지난정산 처리';
+  if (open && close && open <= T && T <= close) g.push('진행중');
+  if (open && open > T) g.push('예정');
+  if (settle && settle === T && !끝난정산) g.push('오늘정산');
+  if (settle && settle < T && !끝난정산) g.push('정산밀림');
+  return g;
 }
 
-// ⚠ 순수 함수 — 화면·로그인 없이도 그대로 시험할 수 있다
-function todoHtml(rows, T){
-  const Y=tdAdd(T,-1), N=tdAdd(T,1), win={}; win[Y]='어제'; win[T]='오늘'; win[N]='내일';
-  const G={'🔴 밀린 일':[], '어제':[], '오늘':[], '내일':[], '그 밖에 처리 대기':[]};
-  (rows||[]).forEach(r=>{
-    const hit=tdMarks(r).filter(m=>win[m.d]);
-    if(hit.length){
-      const day=hit.some(m=>m.d===T)?'오늘':(hit.some(m=>m.d===Y)?'어제':'내일');
-      G[day].push({r:r, marks:hit.map(m=>m.t)});
-    }else{
-      //  3일 창 밖이어도 버리지 않는다. 시트가 「할 일」을 띄워 둔 줄은 반드시 어딘가에 보여야 한다.
-      //  (마감~정산 사이 11일처럼, 기한 마크가 없는 기간이 길다)
-      //  기한이 지났거나 시트가 🔴 로 잡은 건 위로, 나머지는 맨 아래 묶음으로.
-      const late=tdMarks(r).filter(m=>m.d<Y);
-      const hot=String(r.urgent||'').indexOf('🔴')===0;
-      if(hot||late.length) G['🔴 밀린 일'].push({r:r, marks:late.map(m=>m.t+' '+m.d.slice(5)+' 지남')});
-      else                 G['그 밖에 처리 대기'].push({r:r, marks:[]});
-    }
+const TD_GROUPS = [
+  { key:'진행중',   name:'🟢 오늘 진행중', tone:'#0F6E56' },
+  { key:'예정',     name:'📅 앞으로 예정', tone:'#1967d2' },
+  { key:'오늘정산', name:'💰 오늘 정산',   tone:'#b06000' },
+  { key:'정산밀림', name:'🔴 정산 밀림',   tone:'#C62828' }
+];
+
+function todoRender() {
+  const T = tdToday();
+  const el = document.getElementById('todoToday');
+  if (el) el.textContent = T.slice(5).replace('-', '/') + ' 기준';
+  const st = document.getElementById('todoStamp');
+  if (st) st.textContent = TODO_AT ? '시트 기준 ' + new Date(TODO_AT).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+
+  const bucket = {}; TD_GROUPS.forEach(g => bucket[g.key] = []);
+  (TODO_ROWS || []).forEach(r => tdGroups(r, T).forEach(k => bucket[k].push(r)));
+
+  // 필터 단추
+  const fb = document.getElementById('todoFilters');
+  if (fb) {
+    fb.innerHTML = [{ key:'all', name:'전체', tone:'#333' }].concat(TD_GROUPS).map(g => {
+      const cnt = g.key === 'all' ? (TODO_ROWS || []).length : bucket[g.key].length;
+      const on = TODO_FILTER === g.key;
+      return '<button onclick="todoSetFilter(\'' + g.key + '\')" style="padding:6px 12px;margin:0 6px 6px 0;border-radius:999px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid ' + (on ? g.tone : '#e3e3e3') + ';background:' + (on ? g.tone : '#fff') + ';color:' + (on ? '#fff' : '#555') + '">' + tdEsc(g.name) + ' ' + cnt + '</button>';
+    }).join('');
+  }
+
+  let html = '';
+  TD_GROUPS.forEach(g => {
+    if (TODO_FILTER !== 'all' && TODO_FILTER !== g.key) return;
+    const list = bucket[g.key];
+    if (!list.length) return;
+    list.sort((a, b) => String(a.open || '').localeCompare(String(b.open || '')));
+    html += '<div style="margin:16px 2px 8px;font-size:13px;font-weight:800;color:' + g.tone + '">'
+          + tdEsc(g.name) + ' <span style="font-weight:600;color:#bbb">' + list.length + '</span></div>';
+    list.forEach(r => { html += todoCard(r, g.key); });
   });
-  let html='', any=0;
-  ['🔴 밀린 일','어제','오늘','내일','그 밖에 처리 대기'].forEach(g=>{
-    const list=G[g]; if(!list.length) return; any+=list.length;
-    list.sort((a,b)=>(String(b.r.urgent||'').indexOf('🔴')===0?1:0)-(String(a.r.urgent||'').indexOf('🔴')===0?1:0));
-    const tone = g==='오늘' ? '#0F6E56' : (g==='🔴 밀린 일' ? '#C62828' : '#888');
-    html+='<div style="margin:14px 2px 6px;font-size:13px;font-weight:800;color:'+tone+'">'+tdEsc(g)+' <span style="font-weight:600;color:#bbb">'+list.length+'</span></div>';
-    list.forEach(x=>{ html+=todoCard(x.r,x.marks); });
-  });
-  if(!any) html='<div class="card" style="color:#888;font-size:13px">어제·오늘·내일 할 일이 없습니다 👍</div>';
-  return html;
+  if (!html) html = '<div class="card" style="color:#888;font-size:13px">해당하는 공구가 없습니다 👍</div>';
+  document.getElementById('todoBody').innerHTML = html;
+}
+function todoSetFilter(k) { TODO_FILTER = k; todoRender(); }
+
+//  완료/미완료 단추 하나
+function tdChip(r, field, label, doneWord, todoWord) {
+  const cur = String(r[field] || '');
+  const done = cur === doneWord;
+  const next = done ? todoWord : doneWord;
+  const busy = TODO_BUSY[r.key + '|' + field];
+  const bg = busy ? '#eee' : (done ? '#e6f4ea' : '#fce8e6');
+  const fg = busy ? '#999' : (done ? '#137333' : '#c5221f');
+  return '<button ' + (busy ? 'disabled ' : '') + 'onclick="todoMark(this,\'' + encodeURIComponent(r.key) + '\',\'' + field + '\',\'' + next + '\')" '
+    + 'style="padding:5px 10px;margin:4px 6px 0 0;border:1.5px solid ' + fg + '33;border-radius:999px;background:' + bg + ';color:' + fg
+    + ';font-size:12px;font-weight:700;cursor:' + (busy ? 'default' : 'pointer') + ';font-family:inherit">'
+    + tdEsc(label) + ' ' + tdEsc(busy ? '보내는 중…' : (cur || todoWord)) + '</button>';
 }
 
-function todoCard(r,marks){
-  const hot=String(r.urgent||'').indexOf('🔴')===0;
-  const chips=marks.map(t=>'<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#EEF3FF;color:#1967d2;font-size:11px;font-weight:700;margin-right:4px">'+tdEsc(t)+'</span>').join('');
-  return '<div class="card" style="padding:12px 13px;margin-bottom:8px;'+(hot?'border-left:4px solid #C62828':'border-left:4px solid #E8E8E8')+'">'
-    +'<div style="font-size:11px;color:#999;margin-bottom:3px">'+chips+(r.urgent?'<span style="color:#C62828;font-weight:700">'+tdEsc(r.urgent)+'</span>':'')+'</div>'
-    +'<div style="font-size:14px;font-weight:800;line-height:1.45">'+tdEsc(r.todo||marks.join(' · ')||'확인')+'</div>'
-    +'<div style="font-size:12px;color:#666;margin-top:5px">'
-      +tdEsc(r.seller)+' · '+tdEsc(r.prod)
-      +(r.open?'<br><span style="color:#999">공구 '+tdEsc(r.open.slice(5))+' ~ '+tdEsc((r.close||'').slice(5))+'</span>':'')
-      +(r.settle?'<span style="color:#999"> · 정산 '+tdEsc(r.settle.slice(5))+(r.pay?' · '+tdWon(r.pay)+'원':'')+'</span>':'')
-    +'</div>'
-    +(r.srook?'<div style="font-size:11px;color:#aaa;margin-top:4px">스룩 검색어: '+tdEsc(r.srook)+'</div>':'')
-    +'</div>';
+function todoCard(r, group) {
+  const hot = group === '정산밀림';
+  const warn = group === '예정' && r.share !== '완료';
+  const edge = hot ? '#C62828' : warn ? '#f29900' : '#E8E8E8';
+  let chips = '';
+  if (group === '예정' || group === '진행중') {
+    chips += tdChip(r, 'share', '링크전달', '완료', '미완료');
+    chips += tdChip(r, 'sample', '샘플', '완료', '미발송');
+  }
+  if (group === '오늘정산' || group === '정산밀림') {
+    chips += tdChip(r, 'stage', '셀러 지급', '지급완료', '');
+    chips += tdChip(r, 'inbound', '공급사 입금', '완료', '미완료');
+  }
+  return '<div class="card" style="padding:12px 13px;margin-bottom:8px;border-left:4px solid ' + edge + '">'
+    + '<div style="font-size:15px;font-weight:800;line-height:1.4">' + tdEsc(r.seller || '') + '</div>'
+    + '<div style="font-size:12px;color:#666;margin-top:3px">' + tdEsc(r.prod || '')
+      + (r.open ? ' <span style="color:#999">· 공구 ' + tdMD(r.open) + '~' + tdMD(r.close) + '</span>' : '')
+      + (r.settle ? ' <span style="color:#999">· 정산 ' + tdMD(r.settle) + (r.pay ? ' ' + tdWon(r.pay) + '원' : '') + '</span>' : '')
+    + '</div>'
+    + (chips ? '<div>' + chips + '</div>' : '')
+    + (r.todo ? '<div style="font-size:11px;color:#999;margin-top:6px">' + tdEsc(r.todo) + '</div>' : '')
+    + '</div>';
+}
+
+//  누르면 바로 서버에 보내고, 화면은 그 자리에서 바꾼다
+async function todoMark(btn, keyEnc, field, value) {
+  const key = decodeURIComponent(keyEnc);
+  const bk = key + '|' + field;
+  if (TODO_BUSY[bk]) return;
+  TODO_BUSY[bk] = true; todoRender();
+  try {
+    const res = await fetch(SB_URL + '/rest/v1/rpc/vendor_mark_set', {
+      method:'POST', headers: sbHeaders(),
+      body: JSON.stringify({ p_key: key, p_field: field, p_value: value })
+    });
+    const j = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
+    const row = (TODO_ROWS || []).find(x => x.key === key);
+    if (row) row[field] = value;
+  } catch (e) {
+    alert('보내지 못했습니다 — ' + (e && e.message || e));
+  } finally {
+    delete TODO_BUSY[bk]; todoRender();
+  }
 }
 
 // ───────── 권한 ─────────
