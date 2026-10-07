@@ -113,4 +113,4 @@ ${alertLine}
 <p>매일 아침 자동으로 새로 그려집니다 · <a href="https://momcalendar.com">맘캘린더</a></p>
 </body></html>`, 'utf8');
 
-console.log(`오늘 카드 완성: daily/today.png (${(buf.length / 1024).toFixed(0)}KB) · 보관본 daily/${day}_today.png`);
+console.log(`오늘 카드 완성: daily/today${SUF}.png (${(buf.length / 1024).toFixed(0)}KB) · 보관본 daily/${day}_today${SUF}.png`);
