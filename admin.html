@@ -1441,6 +1441,10 @@ const CAT_COLORS={'육아':'#4CAF50','리빙':'#2196F3','인테리어':'#FF9800'
   '뷰티':'#9C27B0','패션':'#00BCD4','여행':'#FF5722','반려동물':'#795548','가전':'#607D8B'};
 
 let allData=[], curTab='all', delTargetId=null, delBulkIds=null;
+// ⛔ 내려둔 공구(gonggu_hold) id — 승인 대기가 **아니다** (2026-10-07 사장님 "승인이 보통 한두건인데 오늘 몇백건이 떴었어")
+//   파싱 쪽에서 중복·사장님상품·날짜오류로 내린 행(approved=false)이 전부 「대기중」 탭에 섞여 보였고,
+//   일괄 승인에 쓸려 되살아났다(롤팬 4차·크레용맘 4건·오메가젤리). 잠금된 행은 대기중에서 빼고 승인도 막는다.
+let heldIds=new Set();
 let onlyNoInsta=false; // '인스타 미연결만' 필터
 let dupIdSet=new Set(); // 중복의심 id 캐시 (데이터 변경 시 1회 계산)
 let _dupGroups=[];      // 현재 화면의 중복 그룹 목록 (각 그룹=[남길것, 중복...])
@@ -6777,6 +6781,12 @@ async function loadData(){
       if(page.length<PAGE) break;   // 마지막 페이지
       document.getElementById('cardList').innerHTML=`<div class="loading">불러오는 중... ${allData.length}건 ⏳</div>`;
     }
+    // ⛔ 내려둔 공구 id (RPC held_gonggu_ids — 관리자 로그인에서만 읽힌다). 못 읽으면 빈 집합(전부 대기중으로 보인다 — 숨기는 쪽이 아니라 보이는 쪽으로)
+    heldIds=new Set();
+    try{
+      const hr=await fetch(`${SB_URL}/rest/v1/rpc/held_gonggu_ids`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},body:'{}'});
+      const hj=await hr.json(); if(Array.isArray(hj)) hj.forEach(x=>{ const n=Number(x&&typeof x==='object'?x.id:x); if(n) heldIds.add(n); });
+    }catch(_){ /* 못 읽어도 화면은 뜬다 */ }
     // 인플 매핑 자동 적용
     allData=allData.map(d=>{
       if(d.insta && inflMapping[d.insta] && (!d.influencer || d.influencer.startsWith('@'))){
@@ -7282,11 +7292,11 @@ function updateStats(){
   // 탭 개수 표시 (DB와 작업 개수 맞추기 편하게)
   const setTab=(id,n)=>{const e=document.getElementById(id);if(e)e.textContent='('+n+')';};
   setTab('tabcnt-all', allData.length);
-  setTab('tabcnt-pending', allData.filter(d=>!d.approved).length);
+  setTab('tabcnt-pending', allData.filter(d=>!d.approved&&!heldIds.has(d.id)).length);
   setTab('tabcnt-approved', allData.filter(d=>d.approved).length);
   setTab('tabcnt-dup', dups.length);
   // 빨간 알림 배지 (처리 필요한 항목)
-  setBadge('badge-pending', allData.filter(d=>!d.approved).length);
+  setBadge('badge-pending', allData.filter(d=>!d.approved&&!heldIds.has(d.id)).length);
   setBadge('badge-dup', dups.length);
 }
 // 빨간 배지 표시/숨김 (0이면 숨김)
@@ -8328,7 +8338,7 @@ function getFilteredData(){
   const dateTo=document.getElementById('dateTo').value;
   const inflF=(document.getElementById('inflFilter')||{}).value||'';
   return allData.filter(d=>{
-    if(curTab==='pending'&&d.approved)return false;
+    if(curTab==='pending'&&(d.approved||heldIds.has(d.id)))return false;   // 내려둔(잠금) 행은 대기중이 아니다
     if(curTab==='approved'&&!d.approved)return false;
     if(curTab==='dup'&&!isDup(d))return false;
     if(onlyNoInsta && hasLink(d))return false;
@@ -8521,7 +8531,7 @@ function renderDupCard(d){
     <input type="checkbox" class="card-cb" data-id="${d.id}" ${checkedIds.has(d.id)?'checked':''} onchange="toggleCheck(${d.id},this.checked)" style="margin-top:3px;width:16px;height:16px;accent-color:#4A35A0;flex-shrink:0">
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-        <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:${d.approved?'#E8F5E9':'#FFF9E6'};color:${d.approved?'#2E7D32':'#E6A817'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
+        <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:${d.approved?'#E8F5E9':'#FFF9E6'};color:${d.approved?'#2E7D32':'#E6A817'}">${d.approved?'✅ 승인됨':(heldIds.has(d.id)?'⛔ 내려둠(잠금)':'⏳ 대기중')}</span>
         <span style="font-size:12px;font-weight:700;color:#191919">${inflName}</span>
       </div>
       <div style="font-size:14px;font-weight:700;color:#191919;margin-bottom:4px">${d.name}</div>
@@ -8585,7 +8595,7 @@ function renderCard(d){
   return`<div class="card" id="card-${d.id}">
     <div class="card-hd">
       <input type="checkbox" class="card-cb" data-id="${d.id}" ${checked?'checked':''} onchange="toggleCheck(${d.id},this.checked)">
-      <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':'⏳ 대기중'}</span>
+      <span class="card-status ${d.approved?'s-approved':'s-pending'}">${d.approved?'✅ 승인됨':(heldIds.has(d.id)?'⛔ 내려둠(잠금)':'⏳ 대기중')}</span>
       ${dup?`<span class="card-status s-dup">⚠️ 중복의심</span>`:''}
       ${noInsta?`<span class="card-status" style="background:#FFEBEE;color:#C62828">🔗 인스타 미연결</span>`:''}
       <div style="flex:1">
@@ -8759,7 +8769,10 @@ function selectInfluencer(key){
 // ── 일괄 승인 ──
 async function bulkApprove(){
   if(!checkedIds.size){alert('승인할 항목을 선택해주세요!');return;}
-  const ids=[...checkedIds];
+  const held=[...checkedIds].filter(id=>heldIds.has(id));
+  if(held.length) alert(`⛔ ${held.length}건은 내려둔 공구(잠금)라 승인하지 않아요. 되살리려면 잠금(gonggu_hold)을 먼저 풀어야 해요.`);
+  const ids=[...checkedIds].filter(id=>!heldIds.has(id));
+  if(!ids.length) return;
   if(!confirm(`선택한 ${ids.length}건을 승인하시겠어요?`))return;
   await Promise.all(ids.map(id=>
     fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
@@ -8903,6 +8916,7 @@ function bulkDelete(){
 
 // ── 승인 ──
 async function toggleApprove(id,approved){
+  if(approved&&heldIds.has(id)){ alert('⛔ 내려둔 공구(잠금)라 승인할 수 없어요. 되살리려면 잠금(gonggu_hold)을 먼저 풀어야 해요.'); return; }
   await fetch(`${SB_URL}/rest/v1/gonggu?id=eq.${id}`,{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},
