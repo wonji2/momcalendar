@@ -89,7 +89,8 @@ const LOGS = {
   pangpang: ['scratchpad/pangpang_leads_log.txt'],    // 집계 사이트 새 셀러 핸들 (하루 2회)
   ig_register: ['scratchpad/ig_feed_pipeline_log.txt'], // 그날 오픈 → 무인 등록 (매시간)
   live_audit: ['scratchpad/live_audit_log.txt'],       // 라이브 사후 감시 (매일 09:50) — 상한 대신 이걸로 거른다
-  pw_tmp_clean: ['scratchpad/pw_tmp_clean_log.txt'],   // playwright 임시프로필 청소 (매일 04:20) — 이게 멈추면 C드라이브가 찬다
+  pw_tmp_clean: ['scratchpad/pw_tmp_clean_log.txt'],
+  aggregator: ['scratchpad/aggregator_log.txt'],       // 집계 사이트(공구모아·공구팡팡) 누락분 무인 등록 (07:05·19:05) — 사장님 2026-10-07 "전부 미리 갖고 있어야"   // playwright 임시프로필 청소 (매일 04:20) — 이게 멈추면 C드라이브가 찬다
 };
 out.logs = {};
 for (const [k, cands] of Object.entries(LOGS)) {
