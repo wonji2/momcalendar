@@ -509,6 +509,14 @@ function fitNames(){
     el.title=full;                  // 마우스를 올리면 전체 이름이 보인다
     if(el.textContent!==full) el.textContent=full;
     el.style.fontSize='';           // 지난 회차에 박힌 크기가 남아 있으면 지운다
+    //   ⚠ CSS 의 text-overflow:ellipsis 에만 맡기면 **… 가 안 보일 때가 있다.**
+    //     2026-10-07 실측: 「팀브레인즈 리슨앤매치 잉글리시 러닝패드」가 「…러닝패ㄷ」 로 그냥 잘렸다
+    //     (… 를 넣을 자리조차 없으면 브라우저는 그대로 자른다). 사장님이 바란 건 **…** 다 —
+    //     그래서 한 글자씩 줄이며 직접 … 를 붙여 들어갈 때까지 맞춘다. 앞은 안 건드리니 브랜드는 그대로다.
+    if(el.scrollWidth>el.clientWidth){
+      let s=full;
+      while(s.length>4 && el.scrollWidth>el.clientWidth){ s=s.slice(0,-1); el.textContent=s.trimEnd()+'…'; }
+    }
     return;                         // ⬇ 아래 줄이기 규칙은 쓰지 않는다 (되살릴 일이 있을까 봐 남겨둠)
     // 🔴 2026-10-06 사장님 "티니핑 멀티비타민저당젤리 라고 해"
     //   낱말을 버리기 **전에 글자를 먼저 줄인다.** 조금만 줄이면 이름이 통째로 들어가는 경우가 많은데

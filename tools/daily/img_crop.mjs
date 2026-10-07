@@ -27,6 +27,10 @@ const top = Number(arg('top', 0));
 
 const b = readFileSync(src);
 let W = 0, H = 0, i = 2;
+// PNG 는 머리 8바이트 뒤 IHDR 에 크기가 있다 (2026-10-07 — 카드 PNG 를 확대해 보려다 못 읽어서 추가)
+if (b.length > 24 && b[0] === 0x89 && b.toString('latin1', 1, 4) === 'PNG') {
+  W = b.readUInt32BE(16); H = b.readUInt32BE(20); i = b.length;
+}
 while (i < b.length) {                                   // JPEG 크기 읽기
   if (b[i] !== 0xFF) { i++; continue; }
   const m = b[i + 1];
