@@ -1195,6 +1195,26 @@ async function load(){
     document.getElementById('st').innerHTML=`<b>${TNAME[tpl]}</b> · ${Object.entries(r).map(([k,v])=>k+' '+v).join(' · ')}`;
   }catch(e){ document.getElementById('st').textContent='실패: '+e.message; }
 }
+// 🔴 html2canvas 는 CSS 의 text-overflow:ellipsis 를 **그려주지 않는다** — 긴 이름이 … 없이
+//   글자 한가운데서 뚝 잘린다(2026-09-28 핫딜 카드에서 실측돼 그쪽은 playwright 로 옮겼다).
+//   게다가 복제본은 글자 폭이 원본과 미세하게 달라, 원본 기준으로 자르면 빈칸이 남는다
+//   (2026-10-07 공구 카드에서 사장님이 잡아내심 — 메모리 screen-pass-is-not-png-pass).
+//   → **실제로 그려질 복제본에서** 직접 … 를 붙여 맞춘다. 앞은 안 건드리니 브랜드는 그대로다.
+//   ⚠ 한 줄짜리(nowrap+ellipsis)만 손댄다. 여러 줄 허용 칸은 잘릴 일이 없으므로 건드리지 않는다.
+//   지금 쓰는 이름들은 칸이 넓어 안 걸린다(10/7 실측) — 더 긴 이름이 왔을 때를 위한 안전장치다.
+function fitCloneNames(doc){
+  const win = doc.defaultView || window;
+  doc.querySelectorAll('[class*="-nm"]').forEach(function(el){
+    const cs = win.getComputedStyle(el);
+    if(cs.whiteSpace !== 'nowrap' || cs.textOverflow !== 'ellipsis') return;
+    const full = el.textContent;
+    if(!full || el.scrollWidth <= el.clientWidth) return;
+    let s = full;
+    while(s.length > 4 && el.scrollWidth > el.clientWidth){ s = s.slice(0,-1); el.textContent = s.trimEnd()+'…'; }
+  });
+}
+window.fitCloneNames = fitCloneNames;   // make-card.mjs 캡처 경로가 onclone 으로 쓴다
+
 async function renderPng(){
   const card=document.getElementById('card');
   const wasMini=document.body.classList.contains('mini');
@@ -1203,7 +1223,8 @@ async function renderPng(){
   await document.fonts.ready;
   await new Promise(r=>setTimeout(r,350));
   const canvas=await html2canvas(card,{width:1080,height:1920,scale:1,
-    backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:1080,windowHeight:1920});
+    backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:1080,windowHeight:1920,
+    onclone:fitCloneNames});
   if(wasMini) document.body.classList.add('mini');
   document.body.classList.remove('clean');
   return canvas.toDataURL('image/png');

@@ -69,6 +69,8 @@ const pngDataUrl = await page.evaluate(async () => {
     width: 1080, height: 1920, scale: 1,
     backgroundColor: '#ffffff', useCORS: true, logging: false,
     windowWidth: 1080, windowHeight: 1920,
+    // 🔴 복제본에서 긴 이름을 … 로 맞춘다 (정의는 instastudio.html 의 fitCloneNames 한 곳)
+    onclone: window.fitCloneNames,
   });
   return canvas.toDataURL('image/png');
 });
