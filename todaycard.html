@@ -492,15 +492,24 @@ function cleanParen(s){
 }
 function fitNames(){
   document.querySelectorAll('.it-nm').forEach(function(el){
-    // 🔴 2026-10-06: **먼저 원래 크기로 되돌리고** 재야 한다.
-    //   시안(vA/vB/vC)을 바꿔 다시 그릴 때 지난번에 박아 둔 px 가 남아 있어,
-    //   그 작은 글자로 "안 넘친다"고 판정하고 그대로 둬서 **줄마다 글자 크기가 들쭉날쭉**했다(실측).
-    if(el.style.fontSize) el.style.fontSize='';
-    if(el.dataset.full && el.textContent !== el.dataset.full) el.textContent = el.dataset.full;
-    if(el.scrollWidth<=el.clientWidth) return;              // 안 잘리면 그대로
+    // 🔴🔴 2026-10-06 사장님 최종 지시
+    //   *"닥터라인은 살려야지 그냥 글씨크기도 들쑥날쑥말고 브랜드도 살리고 그대로하고 짤리면 잘리는대로 ...하고 축약해"*
+    //
+    //   **아무것도 줄이지 않는다.** 이름을 원문 그대로 두고, 자리에 안 맞으면
+    //   CSS 가 알아서 … 로 자른다(.it-nm 에 text-overflow:ellipsis 가 있다).
+    //   → 글자 크기는 전부 같고, 앞에서부터 쓰니 **브랜드(첫 낱말)는 언제나 살아남는다.**
+    //
+    //   왜 이게 답인가 — 2026-10-06 하루 동안 셋 다 해보고 사장님이 셋 다 퇴짜를 놓으셨다:
+    //     ① 낱말 버리기 → 「닥터라인 철분/아연/칼슘/비타민D」가 「철분/아연/…」 이 되어 **브랜드가 날아갔다**
+    //     ② 글자 줄이기 → 그 줄만 작아져 **들쭉날쭉**해 보였다
+    //     ③ 셀러명·간격 줄이기 → **기존 폼이 달라졌다**
+    //   잘린 꼬리는 손님이 사이트에서 보면 된다. 브랜드와 균일함이 먼저다.
     const full=el.dataset.full||el.textContent;
     el.dataset.full=full;
-    el.title=full;
+    el.title=full;                  // 마우스를 올리면 전체 이름이 보인다
+    if(el.textContent!==full) el.textContent=full;
+    el.style.fontSize='';           // 지난 회차에 박힌 크기가 남아 있으면 지운다
+    return;                         // ⬇ 아래 줄이기 규칙은 쓰지 않는다 (되살릴 일이 있을까 봐 남겨둠)
     // 🔴 2026-10-06 사장님 "티니핑 멀티비타민저당젤리 라고 해"
     //   낱말을 버리기 **전에 글자를 먼저 줄인다.** 조금만 줄이면 이름이 통째로 들어가는 경우가 많은데
     //   그동안은 바로 낱말을 버려서 「티니핑 멀티비타민저당젤리」가 「멀티비타민저당젤리」가 됐다
