@@ -147,7 +147,9 @@ async function load(){
     //   → 기준을 **created_at(올린 날)** 로 바꾼다. 「오늘 올린 것」이 오늘 핫딜이다.
     // 🔴 2026-10-07 사장님: *"오늘등록분으로만해"* — 지난 날 올린 딜은 카드에 싣지 않는다(온열안대가 가격 오른 채 이틀 뒤 카드에 실린 사고).
     //   alive 는 비워 두되 변수는 남긴다(__DATA·threads-listcard 가 세 자리를 읽는다).
-    const since=day;   // 오늘 올린 것만
+    //   2026-10-07 16:3x 사장님 "오늘자 핫딜카드 9개 다 채워서 다시 보내" → 오늘 것이 9칸(3×3)에 못 미치면 **모자란 칸만** 최근 7일 살아있는 딜로 채운다(배지 없음).
+    const GRID=9;
+    const since=new Date(new Date(day+'T00:00:00Z').getTime()-6*864e5).toISOString().slice(0,10);
     const nowIso=new Date().toISOString();
     const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
     const all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
@@ -157,7 +159,7 @@ async function load(){
     // 「오늘」 = **오늘 올린 것**(created_at). deal_day 는 되살릴 때 밀려서 못 믿는다(위 주석)
     const kday=(h)=>new Date(new Date(h.created_at).getTime()+9*3600e3).toISOString().slice(0,10);
     const today=uniq.filter(h=>kday(h)===day).sort(byDc);
-    const alive=[];   // 2026-10-07 사장님 지시 — 진행중(지난 날 등록) 딜은 카드에서 뺀다
+    const alive=uniq.filter(h=>kday(h)<day).sort(byDc).slice(0, Math.max(0, GRID-today.length));   // 모자란 칸만 채운다 (오늘이 9건 이상이면 0)
     window.__DATA=[day,today,alive];
     // 글꼴이 로드되기 전에 줄 수를 세면 폭이 달라 한 줄 넘치거나 덜 찬다(검증 지적 2026-09-28) → 글꼴 준비 뒤에 그린다
     try{ await document.fonts.ready; }catch(_){}
@@ -190,7 +192,7 @@ function render(day,today,alive){
       <div class="hd-main"><div class="title"><span class="t-d">${tdate}</span> 오늘 핫딜 모음</div></div>
     </div>
     <div class="cols">
-      <div class="col"><div class="col-hd"><span class="col-t">할인율 높은 순</span><span class="col-n">오늘 올라온 핫딜 ${today.length}건</span></div>
+      <div class="col"><div class="col-hd"><span class="col-t">할인율 높은 순</span><span class="col-n">오늘 올라온 핫딜 ${today.length}건${alive.length?` · 진행중 ${alive.length}건`:''}</span></div>
         <div class="list" id="L1"></div><div class="more" id="M1"></div></div>
     </div>
     <div class="cta">
@@ -239,7 +241,7 @@ window.trimToFit=trimToFit;
 function makeCaption(day,today,alive){
   const d=new Date(day+'T00:00:00');
   const top=today.slice(0,5).map(h=>`· ${h.name} ${won(h.price)}${h.discount_rate?` (${h.discount_rate}%↓)`:''} — ${h.mall||''}`);
-  const txt=[`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) 오늘 핫딜 모음 🔥`,``,`오늘 새로 뜬 핫딜 ${today.length}건`,...top,``,`구매 링크는 프로필 링크 → 맘캘린더 핫딜 탭`,`#맘캘린더 #핫딜 #육아핫딜 #오늘의핫딜 #할인정보 #육아템 #살림템 #특가`].join('\n');
+  const txt=[`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) 오늘 핫딜 모음 🔥`,``,`오늘 새로 뜬 핫딜 ${today.length}건${alive.length?` · 진행중 ${alive.length}건`:''}`,...top,``,`구매 링크는 프로필 링크 → 맘캘린더 핫딜 탭`,`#맘캘린더 #핫딜 #육아핫딜 #오늘의핫딜 #할인정보 #육아템 #살림템 #특가`].join('\n');
   document.getElementById('captxt').value=txt;
 }
 async function savePng(){
