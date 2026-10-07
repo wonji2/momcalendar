@@ -26,6 +26,9 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 const SITE = process.env.SITE?.trim() || 'https://momcalendar.com';  // SITE=http://localhost:8099 로 로컬 검증
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const day = process.env.DAY?.trim() || kstToday();
+// PAGE=2 → 2쪽 카드(1쪽에 들어가고 남은 항목). 산출물은 today-p2.png / <날짜>_today-p2.png 로 따로 (사장님 2026-10-07 "2페이지로 내용 더")
+const PAGE = Math.max(1, parseInt(process.env.PAGE || '1', 10) || 1);
+const SUF = PAGE > 1 ? '-p' + PAGE : '';
 
 // 번들 headless → 없으면 설치된 Chrome 으로 폴백 (make-card.mjs 와 같은 이유·같은 패턴)
 const guard = pwGuard('오늘 카드 만들기', 5 * 60e3);
@@ -35,7 +38,7 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, de
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
 
-await page.goto(`${SITE}/todaycard.html?d=${day}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+await page.goto(`${SITE}/todaycard.html?d=${day}&p=${PAGE}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
 
 // 데이터가 다 들어왔는지(캡션이 채워지는 것으로 판단) 기다린다
 await page.waitForFunction(() => {
@@ -77,8 +80,8 @@ if (errors.length) console.log('페이지 오류:', errors.slice(0, 3).join(' | 
 
 mkdirSync('daily', { recursive: true });
 const buf = Buffer.from(pngDataUrl.split(',')[1], 'base64');
-writeFileSync('daily/today.png', buf);
-writeFileSync(`daily/${day}_today.png`, buf);
+writeFileSync(`daily/today${SUF}.png`, buf);
+writeFileSync(`daily/${day}_today${SUF}.png`, buf);
 
 const d = new Date(day + 'T00:00:00');
 const label = `${d.getMonth() + 1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`;
@@ -94,7 +97,7 @@ try {
     .map((a) => `<p style="margin:0;padding:10px 14px;background:#FFE9E9;color:#B3261E;font-size:13px;font-weight:700;line-height:1.5">⚠ ${a}</p>`)
     .join('');
 } catch { /* 없으면 정상 */ }
-writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
+if (PAGE === 1) writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>${label} 오늘 공구 캘린더</title>
