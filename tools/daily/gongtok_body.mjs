@@ -83,6 +83,56 @@ for (let d = 0; d < DAYS; d++) {
 log(`단서 ${ids.length}건 (이미 본 글 ${seen.size}건 제외) — 이번에 ${Math.min(ids.length, N)}건 읽는다`);
 if (!ids.length) { log('읽을 글 0건 — 끝'); process.exit(0); }
 
+// ── 세션 점검·복구 (2026-10-08) ─────────────────────────────────────────
+//   사고: 10-07 21:11 부터 세 회차 연속 「읽음 0건」. 원인은 카페 화면 변경이 아니라 **전용 프로필(browser-profile-gongtok)의
+//   네이버 로그인이 풀린 것**이었다 — 글을 열면 「죄송합니다. 이 카페는 회원만 가입할 수 있습니다」 + 「카페 가입하기」 가 뜬다.
+//   그런데 도구는 「본문 칸을 못 찾음」 이라고만 적어서 한 번도 원인이 드러나지 않았다(실패를 삼킨 것).
+//   → ① 먼저 로그인 상태를 본다 ② 풀렸으면 njob 프로필(사장님 계정, 같은 로그인)의 쿠키·Local State 를 복사해 되살린다
+//   ③ njob 프로필을 다른 작업(njob-blog 등)이 쓰는 중이면 쿠키 파일이 잠겨 복사가 안 된다 → 그 사실을 로그에 남기고 끝낸다(다음 회차에 다시).
+const NJOB = path.join(ROOT, 'sns-automation', 'browser-profile-njob');
+async function loggedIn(probeId) {
+  const c = await chromium.launchPersistentContext(PROFILE, { headless: true, channel: 'chrome', args: ['--no-sandbox'] });
+  try {
+    const p = await c.newPage();
+    await p.goto(`https://cafe.naver.com/gongz/${probeId}`, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => { });
+    await p.waitForTimeout(2500);
+    const t = await p.evaluate(() => document.body.innerText).catch(() => '');
+    return !/카페 가입하기|회원만 가입할 수 있습니다/.test(t);
+  } finally { await c.close().catch(() => { }); }
+}
+function refreshFromNjob() {
+  const pairs = [['Default/Network/Cookies'], ['Default/Network/Cookies-journal'], ['Local State']];
+  try {
+    for (const [rel] of pairs) {
+      const from = path.join(NJOB, rel), to = path.join(PROFILE, rel);
+      if (!fs.existsSync(from)) { if (/journal/.test(rel)) continue; return { ok: false, why: `${rel} 이 njob 프로필에 없다` }; }
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      if (fs.existsSync(to) && !fs.existsSync(to + '.bak')) fs.copyFileSync(to, to + '.bak');
+      fs.copyFileSync(from, to);
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, why: String(e.code || e.message).slice(0, 60) + ' — njob 프로필을 다른 작업이 쓰는 중이면 쿠키 파일이 잠겨 있다' }; }
+}
+if (!DRY) {
+  let okLogin = await loggedIn(ids[0]);
+  if (!okLogin) {
+    log('🔴 공구톡톡 전용 프로필의 네이버 로그인이 풀려 있다(「카페 가입하기」 화면) — njob 프로필 쿠키로 복구를 시도한다');
+    // njob 프로필은 엔잡방장 블로그 작업(`timeout 1500 node src/njob-blog.js`, 다른 채팅이 반복 실행)이 25분씩 잡고 있어
+    // 쿠키 파일이 EBUSY 로 잠긴다(2026-10-08 실측). 작업 사이 틈에 복사가 되도록 **기다리며 다시 시도**한다(--wait-njob 분, 기본 20).
+    const WAIT_MIN = +arg('--wait-njob', 20);
+    let r = refreshFromNjob();
+    for (let k = 0; !r.ok && /EBUSY|EPERM|EACCES/.test(r.why) && k < WAIT_MIN * 6; k++) {
+      if (k === 0) log(`   njob 프로필이 사용 중(EBUSY) — 최대 ${WAIT_MIN}분 기다리며 10초마다 다시 시도`);
+      await new Promise((res) => setTimeout(res, 10000));
+      r = refreshFromNjob();
+    }
+    if (!r.ok) { log(`🔴🔴 복구 실패: ${r.why} — 이번 회차는 끝낸다(수확 0). 사장님 몫: 전용 프로필 재로그인 \`node sns-automation/src/inpock-browser.js\` 류가 아니라 gongtok 프로필을 --show 로 열어 로그인`); process.exit(1); }
+    okLogin = await loggedIn(ids[0]);
+    if (!okLogin) { log('🔴🔴 njob 프로필 쿠키로도 로그인이 안 된다 — njob 쪽 로그인도 풀렸다. 사장님이 한 번 로그인해 주셔야 한다'); process.exit(1); }
+    log('✅ 세션 복구됨 (njob 프로필 쿠키)');
+  }
+}
+
 // 제목에서 상품명·오픈일: 「[말머리] 상품명 (10월30일 open)」
 const parseTitle = (t) => {
   let s = String(t || '').replace(/^\s*\[[^\]]{1,20}\]\s*/, '').trim();
