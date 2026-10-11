@@ -63,7 +63,7 @@ const EXC = (() => {
 
 /** 🔴 **사장님이 차단한 브랜드**를 읽어 온다 (`brand_block` 표)
  *  서버 트리거 `brand_block_gonggu` 가 INSERT 를 **조용히 떨어뜨린다** — 오류도 안 난다.
- *  2026-10-05 실측: 「이젠 가습기」가 그렇게 사라졌고, 나는 「누락」인 줄 알고 한참 뒤졌다.
+ *  2026-10-05 실측: 「차단 브랜드 상품」가 그렇게 사라졌고, 나는 「누락」인 줄 알고 한참 뒤졌다.
  *  여기서 먼저 걸러 **왜 안 들어갔는지 화면에 남긴다.** (메모리 brand-block-removal) */
 function loadBlocked() {
   const f = join(ROOT, 'scratchpad', '_cal_block.sql');

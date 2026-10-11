@@ -106,7 +106,7 @@ try {
   const rows = existsSync(tableF) ? readFileSync(tableF, 'utf8').split('\n').filter(l => l.startsWith('|') && !/^\|\s*[-#]/.test(l)).length : 0;
   log(`③ 자동분류 ${rows}행`);
 
-  // ③.3 핸들 정정 + 브랜드차단 필터 (2026-09-21: labu.bear/mo.jji.kom/이젠가습기가 밤샘 회차마다
+  // ③.3 핸들 정정 + 브랜드차단 필터 (2026-09-21: labu.bear/mo.jji.kom/차단 브랜드 상품이 밤샘 회차마다
   //   계속 재발해 매번 손으로 고쳤다 — 인포크 슬러그가 실제 인스타 핸들과 달라서 생기는 문제.
   //   scratchpad/handle_corrections.txt 로 알려진 것만 정정하고, brand_block 패턴에 걸리는 행은 미리 버린다)
   if (existsSync(tableF)) {
