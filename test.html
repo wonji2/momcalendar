@@ -936,6 +936,26 @@ body.sheet-open{ overscroll-behavior-y: none; }
 //    열리지 않으면 같은 창으로라도 반드시 보낸다. 링크가 안 열리는 건 곧 매출 손실이다.
 window.openLink=function(url){
   if(!url) return;
+  // 🔴 2026-10-12 사장님: 요거트 배너(naver.me)를 누르면 안드로이드 「열기」 선택창(Chrome·삼성 브라우저·NAVER)이 뜬다 — "선택 안 하고 바로 화면으로".
+  //    홈화면 앱·카톡/인스타 인앱이 바깥 주소를 OS 에 넘기면 처리할 앱을 묻는데, 네이버 주소는 네이버 앱도 후보라 선택창이 뜬다.
+  //    → 네이버 주소는 네이버 앱을 **명시**한 intent 로 던진다(명시하면 선택창이 없다). 앱이 없거나 안 넘어가면 원래 주소로.
+  //    iframe 안에서 던진다 — location.href 로 주면 intent 를 모르는 웹뷰가 오류 페이지로 화면을 덮는다(메모리 cafe-link-login-wall).
+  try{
+    var _ua=navigator.userAgent||'';
+    var _sa=false; try{ _sa=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }catch(_){}
+    var _wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(_ua) && !/NAVER\(inapp/i.test(_ua);
+    var _h=''; try{ _h=new URL(url, location.href).hostname; }catch(_){}
+    if((_sa || _wv) && /Android/i.test(_ua) && /(^|\.)naver\.(me|com)$/i.test(_h) && document.body){
+      try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){}
+      var _f=document.createElement('iframe'); _f.style.display='none';
+      _f.src='intent://'+String(url).replace(/^https?:\/\//i,'')+'#Intent;scheme=https;package=com.nhn.android.search;S.browser_fallback_url='+encodeURIComponent(url)+';end';
+      document.body.appendChild(_f);
+      setTimeout(function(){ try{ _f.parentNode.removeChild(_f); }catch(_){} },1500);
+      // 안전망: 앱으로 안 넘어가 화면이 그대로면(앱 없음) 원래 방식으로 — 손님은 반드시 도착한다
+      setTimeout(function(){ var hid=false; try{ hid=document.hidden; }catch(_){} if(hid) return; try{ var w=window.open(url,'_blank'); if(!w) window.location.href=url; }catch(_){ try{ window.location.href=url; }catch(__){} } },1300);
+      return;
+    }
+  }catch(_){}
   // 인앱은 새 웹뷰를 띄웠다 닫으면서 화면이 다시 그려져 스크롤이 조금씩 밀린다.
   // (사장님 실측 2026-08-05 "누르는 순간 리스트가 약간 밑으로 내려가져서 돌아옴")
   // 누르는 그 순간의 위치를 붙잡아두고, 돌아왔을 때 그 자리로 되돌린다.
