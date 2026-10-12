@@ -5,10 +5,21 @@
 #   그래서 ios/ 네이티브 폴더를 레포에 두지 않고, 러너가 매번 `cap add ios` 로 새로 만든다.
 #   → 윈도우에서 절대 안 깨지고, 결과가 항상 재현된다.
 #
-# 지금 하는 일: 애플 개발자 계정 없이도 **컴파일이 되는지** 검증한다(서명 없이).
-#   계정(D-U-N-S → Apple Developer Program)이 나오면 아래 release 잡을 켜서 TestFlight 로 올린다.
+# 두 가지 모드
+#   unsigned : 애플 계정 없이 **컴파일이 되는지**만 본다 (서명 없음). 아무 시크릿도 필요 없다.
+#   release  : 서명해서 .ipa 를 만들고 **TestFlight(App Store Connect)** 에 올린다.
+#              아래 시크릿 7개가 있어야 한다 (Settings → Secrets and variables → Actions):
+#                APPLE_TEAM_ID         팀 ID 10자 (developer.apple.com → Membership)
+#                APPLE_CERT_P12        배포 인증서(Apple Distribution) .p12 를 base64 로
+#                APPLE_CERT_PASSWORD   그 .p12 의 비밀번호
+#                APPLE_PROFILE         App Store 용 프로비저닝 프로파일(.mobileprovision) base64 — App ID 에 Push Notifications 켜고 만든 것
+#                APPLE_API_KEY_P8      App Store Connect API 키(.p8) base64 (역할: App Manager 이상)
+#                APPLE_API_KEY_ID      그 키의 Key ID (10자)
+#                APPLE_API_ISSUER_ID   Issuer ID (UUID)
+#              base64 만들기(윈도우 PowerShell):  [Convert]::ToBase64String([IO.File]::ReadAllBytes("파일경로")) | Set-Clipboard
 #
 # 실행: Actions 탭 → "iOS 앱 빌드" → Run workflow  (자동 실행 안 함 — 맥 러너는 분당 과금 단위가 크다)
+#   version 칸 = 스토어에 보이는 버전(1.0.0). 빌드 번호는 실행 번호(run_number)로 자동 — 같은 버전을 다시 올려도 번호가 겹치지 않는다.
 
 name: iOS 앱 빌드
 
@@ -21,6 +32,11 @@ on:
         default: unsigned
         type: choice
         options: [unsigned, release]
+      version:
+        description: "앱 버전 (스토어 표시용, 예 1.0.0) — release 때만 쓴다"
+        required: false
+        default: "1.0.0"
+        type: string
 
 concurrency:
   group: ios-build
@@ -28,8 +44,14 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-14
-    timeout-minutes: 40
+    # macos-15 기본 Xcode 16.4 — Capacitor 7 은 Xcode 16 이상이면 된다. (macos-14 는 기본 Xcode 15 라 빠졌다)
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    env:
+      MODE: ${{ inputs.mode }}
+      APP_VERSION: ${{ inputs.version || '1.0.0' }}
+      BUILD_NUMBER: ${{ github.run_number }}
 
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +59,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: 도구 버전
+        run: |
+          xcodebuild -version
+          pod --version
+          node -v
 
       - name: 의존성 설치
         working-directory: ios-app
@@ -48,6 +76,14 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
+      - name: 앱 아이콘·스플래시 생성 (resources/ → ios/App/App/Assets.xcassets)
+        working-directory: ios-app
+        run: |
+          # Capacitor 기본 템플릿 아이콘(파란 번개)이 그대로 스토어에 올라가면 안 된다.
+          npm run assets
+          ls ios/App/App/Assets.xcassets/AppIcon.appiconset | head -5
+          test -f ios/App/App/Assets.xcassets/AppIcon.appiconset/Contents.json && echo "✅ 아이콘 세트" || (echo "🔴 아이콘 생성 실패"; exit 1)
+
       - name: 설정이 실제로 들어갔는지 확인
         working-directory: ios-app
         run: |
@@ -57,19 +93,68 @@ jobs:
           test -f ios/App/App/capacitor.config.json && echo "OK" || (echo "🔴 설정 누락"; exit 1)
           echo "--- 푸시 플러그인이 붙었나 ---"
           grep -q "PushNotifications" ios/App/Podfile && echo "OK" || (echo "🔴 푸시 플러그인 없음"; exit 1)
+
+      - name: Info.plist 보강 (심사용 키)
+        working-directory: ios-app/ios/App/App
+        run: |
+          PB=/usr/libexec/PlistBuddy
+          # 암호화 수출 규정 질문 생략 — HTTPS 만 쓰는 앱은 면제. 없으면 TestFlight 올릴 때마다 질문이 뜬다
+          $PB -c "Add :ITSAppUsesNonExemptEncryption bool false" Info.plist 2>/dev/null || $PB -c "Set :ITSAppUsesNonExemptEncryption false" Info.plist
+          # 한국어 앱 — 권한 안내창·시스템 문구가 한국어로
+          $PB -c "Set :CFBundleDevelopmentRegion ko" Info.plist 2>/dev/null || $PB -c "Add :CFBundleDevelopmentRegion string ko" Info.plist
+          $PB -c "Add :CFBundleLocalizations array" Info.plist 2>/dev/null || true
+          $PB -c "Add :CFBundleLocalizations:0 string ko" Info.plist 2>/dev/null || true
+          # 세로 고정 (사이트가 세로 전용 · manifest.json 과 동일)
+          $PB -c "Delete :UISupportedInterfaceOrientations" Info.plist 2>/dev/null || true
+          $PB -c "Add :UISupportedInterfaceOrientations array" Info.plist
+          $PB -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" Info.plist
+          $PB -c "Delete :UISupportedInterfaceOrientations~ipad" Info.plist 2>/dev/null || true
+          $PB -c "Add :UISupportedInterfaceOrientations~ipad array" Info.plist
+          $PB -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" Info.plist
+          $PB -c "Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown" Info.plist
+          $PB -c "Print" Info.plist | sed -n 1,60p
+
+      - name: AppDelegate 에 APNs 토큰 전달 코드 확인
+        working-directory: ios-app/ios/App/App
+        run: |
+          # 푸시 플러그인은 AppDelegate 가 didRegisterForRemoteNotifications 를 받아 NotificationCenter 로 넘겨줘야 토큰이 JS 로 온다.
+          # Capacitor 템플릿에 보통 들어 있지만, 없으면 넣는다 (없으면 'registration' 이벤트가 영영 안 온다).
+          if grep -q "capacitorDidRegisterForRemoteNotifications" AppDelegate.swift; then
+            echo "✅ 이미 있음"
+          else
+            python3 - <<'PY'
+          p='AppDelegate.swift'; s=open(p,encoding='utf-8').read()
+          add='''
+              func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+                  NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+              }
+
+              func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+                  NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+              }
+          '''
+          i=s.rfind('}')
+          s=s[:i]+add+s[i:]
+          open(p,'w',encoding='utf-8').write(s); print('추가함')
+          PY
+          fi
+          grep -c "capacitorDid" AppDelegate.swift
+
       - name: 푸시 권한(entitlements) 심고 프로젝트에 연결
         working-directory: ios-app/ios/App
         run: |
           # Capacitor 기본 템플릿엔 APNs entitlement 가 없다.
           # ⚠ 파일만 만들어두면 Xcode 가 안 읽는다 — project.pbxproj 의
           #    CODE_SIGN_ENTITLEMENTS 까지 걸어야 실제로 붙는다.
-          cat > App/App.entitlements <<'PLIST'
+          # unsigned = development(샌드박스) / release = production (스토어·TestFlight 는 production APNs 서버)
+          APS=development; [ "$MODE" = "release" ] && APS=production
+          cat > App/App.entitlements <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>aps-environment</key>
-            <string>development</string>
+            <string>$APS</string>
           </dict>
           </plist>
           PLIST
@@ -96,7 +181,7 @@ jobs:
             && echo "✅ entitlements 연결 확인" \
             || (echo "🔴 연결 실패"; exit 1)
           grep -q "aps-environment" App/App.entitlements \
-            && echo "✅ APNs 권한 확인" \
+            && echo "✅ APNs 권한 확인 ($APS)" \
             || (echo "🔴 entitlements 내용 없음"; exit 1)
 
       - name: 서명 없이 컴파일 검증
@@ -113,23 +198,149 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build | tail -40
 
+      # ══════════════ release: 서명 → 아카이브 → TestFlight ══════════════
+      - name: (release) 시크릿이 다 있는지 먼저 확인
+        if: ${{ inputs.mode == 'release' }}
+        env:
+          T: ${{ secrets.APPLE_TEAM_ID }}
+          C: ${{ secrets.APPLE_CERT_P12 }}
+          CP: ${{ secrets.APPLE_CERT_PASSWORD }}
+          P: ${{ secrets.APPLE_PROFILE }}
+          K: ${{ secrets.APPLE_API_KEY_P8 }}
+          KI: ${{ secrets.APPLE_API_KEY_ID }}
+          KS: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          miss=""
+          [ -z "$T" ]  && miss="$miss APPLE_TEAM_ID"
+          [ -z "$C" ]  && miss="$miss APPLE_CERT_P12"
+          [ -z "$CP" ] && miss="$miss APPLE_CERT_PASSWORD"
+          [ -z "$P" ]  && miss="$miss APPLE_PROFILE"
+          [ -z "$K" ]  && miss="$miss APPLE_API_KEY_P8"
+          [ -z "$KI" ] && miss="$miss APPLE_API_KEY_ID"
+          [ -z "$KS" ] && miss="$miss APPLE_API_ISSUER_ID"
+          if [ -n "$miss" ]; then echo "🔴 빠진 시크릿:$miss  → ios-app/출시_체크리스트.md 참조"; exit 1; fi
+          echo "✅ 시크릿 7개 확인"
+
+      - name: (release) 인증서·프로파일 설치
+        if: ${{ inputs.mode == 'release' }}
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
+        run: |
+          set -e
+          KEYCHAIN=$RUNNER_TEMP/momcal.keychain-db
+          KPASS=$(openssl rand -hex 16)
+          echo "$APPLE_CERT_P12" | base64 --decode > $RUNNER_TEMP/dist.p12
+          echo "$APPLE_PROFILE"  | base64 --decode > $RUNNER_TEMP/app.mobileprovision
+
+          # 러너 전용 임시 키체인 (작업 끝나면 러너째 사라진다)
+          security create-keychain -p "$KPASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPASS" "$KEYCHAIN"
+          security import $RUNNER_TEMP/dist.p12 -P "$APPLE_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KPASS" "$KEYCHAIN" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          echo "--- 서명 ID ---"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+          # 프로파일: UUID 이름으로 넣어야 Xcode 가 찾는다
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          security cms -D -i $RUNNER_TEMP/app.mobileprovision > $RUNNER_TEMP/profile.plist
+          UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" $RUNNER_TEMP/profile.plist)
+          PNAME=$(/usr/libexec/PlistBuddy -c "Print :Name" $RUNNER_TEMP/profile.plist)
+          PAPPID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" $RUNNER_TEMP/profile.plist)
+          PAPS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" $RUNNER_TEMP/profile.plist 2>/dev/null || echo "(없음)")
+          cp $RUNNER_TEMP/app.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          echo "프로파일: $PNAME / $PAPPID / aps=$PAPS"
+          case "$PAPPID" in *com.wontsbe.momcalendar) ;; *) echo "🔴 프로파일의 App ID 가 com.wontsbe.momcalendar 가 아니다"; exit 1;; esac
+          [ "$PAPS" = "production" ] || { echo "🔴 프로파일에 Push Notifications(aps-environment=production) 가 없다 — App ID 에서 Push 켜고 프로파일을 다시 만들어야 한다"; exit 1; }
+          echo "PROFILE_NAME=$PNAME" >> $GITHUB_ENV
+
+      - name: (release) 프로젝트에 수동 서명 설정 (App 타깃만)
+        if: ${{ inputs.mode == 'release' }}
+        working-directory: ios-app/ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # 명령줄 CODE_SIGN_IDENTITY= 로 덮으면 Pods 프레임워크까지 서명하려다 깨진다 → App 타깃 빌드설정에만 써 넣는다
+          python3 - <<'PY'
+          import os, sys
+          p='App.xcodeproj/project.pbxproj'; s=open(p,encoding='utf-8').read()
+          team=os.environ['APPLE_TEAM_ID']; prof=os.environ['PROFILE_NAME']
+          anchor='CODE_SIGN_ENTITLEMENTS = App/App.entitlements;'
+          n=s.count(anchor)
+          if n==0: print('🔴 앵커 없음'); sys.exit(1)
+          ins=('CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t' % (team, prof))
+          s=s.replace(anchor, ins+anchor)
+          open(p,'w',encoding='utf-8').write(s); print('서명 설정 %d 곳' % n)
+          PY
+          grep -c "PROVISIONING_PROFILE_SPECIFIER" App.xcodeproj/project.pbxproj
+
+      - name: (release) 아카이브
+        if: ${{ inputs.mode == 'release' }}
+        working-directory: ios-app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            archive | tail -60
+          test -d $RUNNER_TEMP/App.xcarchive && echo "✅ 아카이브 $APP_VERSION ($BUILD_NUMBER)"
+
+      - name: (release) 내보내기 + App Store Connect(TestFlight) 업로드
+        if: ${{ inputs.mode == 'release' }}
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APPLE_API_KEY_P8" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8
+          cat > $RUNNER_TEMP/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict><key>com.wontsbe.momcalendar</key><string>$PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          # destination=upload → 내보내면서 바로 App Store Connect 로 올린다 (altool 불필요). 처리 후 TestFlight 에 뜬다(몇 분~수십 분)
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8 \
+            -authenticationKeyID "$APPLE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" \
+            -allowProvisioningUpdates | tail -40
+          echo "✅ 업로드 요청 완료 — App Store Connect → TestFlight 에서 처리 상태를 확인하세요 (버전 $APP_VERSION, 빌드 $BUILD_NUMBER)"
+
+      - name: (release) 흔적 지우기
+        if: ${{ always() && inputs.mode == 'release' }}
+        run: |
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_*.p8 $RUNNER_TEMP/dist.p12 $RUNNER_TEMP/app.mobileprovision 2>/dev/null || true
+          security delete-keychain $RUNNER_TEMP/momcal.keychain-db 2>/dev/null || true
+
       - name: 실패하면 화면을 남긴다
         if: failure()
         working-directory: ios-app
         run: |
           echo "=== 생성된 파일 목록 ==="
           ls -R ios 2>/dev/null | head -60
-
-      # ── 아래는 애플 개발자 계정이 나온 뒤에 켠다 ───────────────────────
-      # 필요한 GitHub Secrets (Settings > Secrets and variables > Actions):
-      #   APPLE_CERT_P12       배포 인증서 (base64)
-      #   APPLE_CERT_PASSWORD  그 인증서 비밀번호
-      #   APPLE_PROFILE        프로비저닝 프로파일 (base64)
-      #   APPLE_API_KEY_P8     App Store Connect API 키 (base64)
-      #   APPLE_API_KEY_ID / APPLE_API_ISSUER_ID
-      - name: TestFlight 업로드
-        if: ${{ inputs.mode == 'release' }}
-        run: |
-          echo "🔴 아직 준비 안 됨 — 애플 개발자 계정과 시크릿 6종이 있어야 한다."
-          echo "   README 의 '사장님이 하셔야 하는 것' 참조."
-          exit 1

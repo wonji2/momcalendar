@@ -395,6 +395,21 @@ body.srch-suggest #searchDrop{display:block}
 .ev-여행{background:#F7DDD3;color:#BF4422}.ev-반려동물{background:#E7DACF;color:#6B4A38}
 .ev-가전{background:#DCE6EC;color:#3C5563}.ev-건강{background:#CFE9E4;color:#0A5D52}
 .ev-etc{background:#F1EFF7;color:#5B4BA8}
+/* 🏷️ 브랜드 세일 (캘린더 위에 겹쳐 보이는 세일 기간 — 사장님 2026-10-12) */
+.cev.csev{font-weight:800;border:1px solid}
+.csales{display:flex;flex-direction:column;gap:1px;margin:0 1px 1px}
+.csale{display:block;height:3px;border-radius:2px}
+.bs-card{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #F0E2BE;border-radius:12px;padding:10px 12px;margin-bottom:7px;cursor:pointer;position:relative}
+.bs-card:active{opacity:.85}
+.bs-brand{flex-shrink:0;min-width:44px;padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:900;text-align:center;letter-spacing:-.02em;white-space:nowrap}
+.bs-title{font-size:13.5px;font-weight:800;color:#2A2233;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-period{font-size:11.5px;color:#7A7286;margin-top:2px;line-height:1.45;word-break:keep-all}
+.bs-st{white-space:nowrap}
+.bs-st{font-weight:800;margin-left:4px}
+.bs-box{background:#FFFBF0;border:1px solid #F0DFAE;border-radius:14px;padding:12px;margin-top:10px}
+.bs-box-ttl{font-size:14px;font-weight:800;color:#6B4A00;margin-bottom:3px}
+.bs-box-sub{font-size:11px;color:#A48A4A;line-height:1.55;margin-bottom:10px}
+.bs-box-note{font-size:10.5px;color:#B8A574;text-align:center;margin-top:6px;line-height:1.5}
 .sel-box{background:#fff;border-radius:14px;margin-top:10px;padding:14px;border:0.5px solid #eee}
 .sel-title{font-size:14px;font-weight:700;margin-bottom:10px;color:var(--t1)}
 
@@ -829,7 +844,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
   var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=15000, SECOND_TIMEOUT=15000;
   // 🪣 손님용 목록(GET·anon 키·공개 표)은 캐시 우회로부터 간다 — Supabase 무료 플랜 전송량 월 5GB 대응 (2026-09-29). Worker 가 5분~1시간 붙잡아 두어
   //    Supabase 는 캐시가 빌 때만 응답한다. 우회로가 죽거나 한도(1027)면 8초 안에 직행으로 넘어가 손님은 모른다. 표 목록은 Worker 의 CACHE_RE 와 같아야 한다
-  var CACHE_RE=/^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block)(?:\?|$)/, CACHE_TIMEOUT=8000;
+  var CACHE_RE=/^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block|brand_sales)(?:\?|$)/, CACHE_TIMEOUT=8000;
   function cacheable(rest, init){ try{ if(init && init.method && String(init.method).toUpperCase()!=='GET') return false; if(!CACHE_RE.test(rest)) return false; var h=init&&init.headers; var a=''; if(h){ a=(typeof h.get==='function')?(h.get('Authorization')||h.get('authorization')||''):(h.Authorization||h.authorization||''); } return !a || a==='Bearer sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; }catch(_){ return false; } }
   var _fetch=window.fetch && window.fetch.bind(window);
   if(!_fetch) return;   // 아주 옛 브라우저는 원래대로
@@ -1058,6 +1073,14 @@ window.slimAdClick=function(id){
     <button class="chip" data-cat="여행" onclick="setCalCat('여행',this)">여행</button>
     <button class="chip" data-cat="반려동물" onclick="setCalCat('반려동물',this)">반려동물</button>
   </div>
+  <!-- 🏷️ 브랜드 세일: 올영데이·무신사 블프·유니클로 감사제 같은 브랜드 세일 기간을 공구 캘린더 위에 겹쳐 보여준다 (사장님 2026-10-12 인스타 캡처) -->
+  <div id="bsBar" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;padding:9px 12px;background:#FFF8E8;border:1px solid #F0D9A0;border-radius:12px">
+    <div style="min-width:0">
+      <div style="font-size:12.5px;font-weight:800;color:#8A5A00">🏷️ 브랜드 세일도 함께 보기</div>
+      <div id="bsBarSub" style="font-size:10.5px;color:#B08A3E;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">올영데이 · 무신사 블프 · 유니클로 감사제…</div>
+    </div>
+    <button id="bsTg" onclick="toggleBrandSales()" style="flex-shrink:0;border:none;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;background:#D99A1E;color:#fff">켜짐</button>
+  </div>
   <div class="cal-box">
     <div class="cal-head">
       <button class="cal-nav" onclick="moveMonth(-1)">◀</button>
@@ -1066,6 +1089,8 @@ window.slimAdClick=function(id){
     </div>
     <div class="cgrid" id="calGrid"></div>
   </div>
+  <!-- 🏷️ 보고 있는 달의 브랜드 세일 일정 (인스타 '10월 할인' 카드처럼 한눈에) -->
+  <div id="bsMonth" style="display:none"></div>
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
   <div id="icsBar" style="display:none;margin:10px 12px 0">
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#602090;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
@@ -2787,7 +2812,9 @@ function buildCalendar(){
     // 마감 표시는 '내 찜만' 모드에서만. 전체 모드에선 매일 마감이 있어서 표시가 무의미해짐
     const ends=calMine?calPool().filter(item=>realEnd(item)===ds):[];
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
-    let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
+    // 🏷️ 브랜드 세일: 시작일엔 브랜드 칩, 그 뒤 날들엔 얇은 띠 (기간이 한눈에 이어져 보이게)
+    let evHtml=bsCellHtml(ds);
+    evHtml+=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
     // 마감일에도 '무엇이' 끝나는지 보이게 상품명을 붙인다 ("마감 1"만 뜨면 뭐가 끝나는지 알 수 없음)
     evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F">~${ev.name.slice(0,5)}</div>`).join('');
@@ -2796,6 +2823,9 @@ function buildCalendar(){
   }
   const rem=(7-(first+last)%7)%7;
   for(let d=1;d<=rem;d++) grid.innerHTML+=`<div class="ccell oth"><div class="cnum">${d}</div></div>`;
+  renderBsMonth();
+  // 세일 데이터가 아직 안 왔으면 받아 온 뒤 한 번 더 그린다 (실패해도 [] 로 끝나 다시 안 부른다)
+  if(_bsOn && !_bsData && !_bsLoading) loadBrandSales().then(()=>{ if(document.getElementById('calView').classList.contains('on')) buildCalendar(); });
 }
 
 function pickCalDay(ds){
@@ -2809,11 +2839,143 @@ function pickCalDay(ds){
     ? evs.map(item=>renderCard(item,ds)).join('')
     : `<div class="empty" style="padding:16px 0">이 날은 ${calMine?'찜한 공구 오픈이':'공구 일정이'} 없어요</div>`;
   if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + ends.map(item=>renderCard(item,ds)).join('');
+  // 🏷️ 그 날 진행 중인 브랜드 세일은 공구 위에 (시작하는 날이 먼저)
+  const sales=bsOnDay(ds);
+  if(sales.length) h = `<div class="wish-sec" style="color:#8A5A00;padding-top:0">🏷️ 이 날 진행 중인 브랜드 세일 ${sales.length}건</div>` + sales.map(sl=>bsCardHtml(sl,ds)).join('') + `<div class="wish-sec">📅 공구</div>` + h;
   document.getElementById('selCards').innerHTML=h;
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 }
 function setCalCat(v,el){fCalCat=v;document.querySelectorAll('#calCatRow .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');paintCatChips();buildCalendar();}
+
+// ══ 🏷️ 브랜드 세일 (사장님 2026-10-12 "인스타 10~12월 브랜드별 세일 일정 같은 걸 캘린더로 보게") ═══════════════
+//  · 데이터: Supabase brand_sales 표(active=true) → 표가 없거나 비면 /brand-sales.json 기본값. 둘 다 안 되면 조용히 [] (캘린더는 그대로 돈다)
+//  · 캘린더 칸: 시작일엔 브랜드 칩(🏷️올리브영), 이어지는 날엔 브랜드색 얇은 띠. 날짜를 누르면 그 날 진행 중인 세일 카드가 공구 위에 뜬다
+//  · 캘린더 아래: 보고 있는 달의 세일을 인스타 '10월 할인' 카드처럼 목록으로
+//  · 종료일 미정(end_date null, "10/06~")은 시작일부터 BS_OPEN_DAYS 동안만 보여준다 — 영원히 띠가 깔리면 안 된다
+//  · 끄기: 토글(기억됨 mc_bs_on). '내 찜만' 모드와 캘린더 카테고리 칩(뷰티·패션)도 그대로 따른다
+let _bsData=null, _bsLoading=false, _bsOn=true;
+try{ _bsOn = localStorage.getItem('mc_bs_on')!=='0'; }catch(_){}
+const BS_OPEN_DAYS=14;
+const BS_PALETTE=[  // [칩 배경, 글자/띠, 테두리]
+  ['#E3F3DA','#2E7D32','#BFE0B0'],['#FDE7E7','#C62828','#F3BBBB'],['#E6E9F7','#2F3E9E','#C3CAEC'],['#FFF1D6','#B5650E','#F2D39C'],
+  ['#EFE6F7','#5B3FB0','#D5C4EC'],['#DDF1F4','#0A6B75','#B5DEE4'],['#FBE4EE','#B23A66','#F1C0D5'],['#EEEDEA','#3B3B3B','#D6D3CC'],
+  ['#E0F2EE','#0A5D52','#B5DDD3'],['#F4E8DD','#6B4A38','#E0C8B5']];
+// 자주 나오는 브랜드는 색을 고정한다 (해시로 고르면 에이블리·유니클로가 둘 다 보라로 나와 헷갈렸다 — 2026-10-12 실측). 모르는 브랜드는 해시
+const BS_FIXED={oliveyoung:0, musinsa:7, topten:2, ably:6, zara:9, zigzag:4, uniqlo:1, '8seconds':5};
+function bsKey(sl){ return String(sl.brand_key||sl.brand||'').toLowerCase(); }
+function bsColor(sl){ const k=bsKey(sl); if(BS_FIXED[k]!==undefined){ const f=BS_PALETTE[BS_FIXED[k]]; return {bg:f[0],fg:f[1],bd:f[2]}; } let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(k.length-1-i))>>>0; const c=BS_PALETTE[h%BS_PALETTE.length]; return {bg:c[0],fg:c[1],bd:c[2]}; }
+function bsEndEff(sl){ return sl.end_date || dOffFrom(sl.start_date, BS_OPEN_DAYS); }   // 화면용 종료일 (미정이면 시작+14일)
+function bsExpired(sl){ return bsEndEff(sl) < todayStr; }
+function bsVisible(sl){
+  if(!_bsOn || calMine) return false;
+  if(bsExpired(sl)) return false;
+  if(fCalCat!=='전체' && sl.major && sl.major!==fCalCat) return false;   // 카테고리 칩을 고르면 그 분류 세일만 (분류 없는 건 항상)
+  return true;
+}
+function bsOnDay(ds){
+  return (_bsData||[]).filter(sl=>bsVisible(sl) && sl.start_date<=ds && ds<=bsEndEff(sl))
+    .sort((a,b)=>(a.start_date===ds?0:1)-(b.start_date===ds?0:1) || a.start_date.localeCompare(b.start_date) || a.title.localeCompare(b.title));
+}
+function bsCellHtml(ds){
+  const sales=bsOnDay(ds); if(!sales.length) return '';
+  const starts=sales.filter(sl=>sl.start_date===ds), cont=sales.filter(sl=>sl.start_date!==ds);
+  let h=starts.slice(0,3).map(sl=>{ const c=bsColor(sl); return `<div class="cev csev" style="background:${c.bg};color:${c.fg};border-color:${c.bd}">🏷️${hcEsc(sl.brand).slice(0,4)}</div>`; }).join('');
+  if(starts.length>3) h+=`<div class="cmore" style="color:#8A5A00">+${starts.length-3}</div>`;
+  if(cont.length) h+=`<div class="csales">${cont.slice(0,6).map(sl=>`<i class="csale" style="background:${bsColor(sl).fg}" title="${hcEsc(sl.title)}"></i>`).join('')}</div>`;
+  return h;
+}
+function bsDisp(ds){ if(!ds) return ''; const d=strToDate(ds); return `${d.getMonth()+1}/${d.getDate()}(${DAYS[d.getDay()]})`; }
+function bsDays(a,b){ return Math.round((strToDate(b)-strToDate(a))/86400000); }
+// 상태 문구: 기준일(캘린더에서 고른 날 또는 오늘) 기준
+function bsStatus(sl, base){
+  base=base||todayStr;
+  const end=sl.end_date;
+  if(sl.start_date>base) return {t:`D-${bsDays(base,sl.start_date)}`, c:'#E65100'};
+  if(end && end<base) return {t:'종료', c:'#999'};
+  if(sl.start_date===base) return {t:'오늘 시작', c:'#C0392B'};
+  if(end && end===base) return {t:'오늘 마감', c:'#B8860B'};
+  if(end){ const left=bsDays(base,end); return {t:`진행중 · ${left}일 남음`, c:'#2E7D32'}; }
+  return {t:'진행중', c:'#2E7D32'};
+}
+function bsCardHtml(sl, base){
+  const c=bsColor(sl), st=bsStatus(sl, base);
+  const period = sl.end_date
+    ? `${bsDisp(sl.start_date)} ~ ${bsDisp(sl.end_date)} · ${bsDays(sl.start_date,sl.end_date)+1}일간`
+    : `${bsDisp(sl.start_date)} ~ · 종료일 미정`;
+  const link=/^https?:\/\//i.test(sl.link||'')?sl.link:'';
+  const oc=link?`goBrandSale(${JSON.stringify(String(sl.id||sl.title)).replace(/"/g,'&quot;')},'${link.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`:'';
+  return `<div class="bs-card" ${oc?`onclick="${oc}"`:''}>
+    <div class="bs-brand" style="background:${c.bg};color:${c.fg}">${hcEsc(sl.brand)}</div>
+    <div style="min-width:0;flex:1">
+      <div class="bs-title">${hcEsc(sl.title)}</div>
+      <div class="bs-period">${period}<span class="bs-st" style="color:${st.c}">${st.t}</span></div>
+    </div>
+    ${link?'<span class="card-go">›</span>':''}
+  </div>`;
+}
+function goBrandSale(id, url){
+  try{ trackEvent('brand_sale_click', String(id).slice(0,80)); }catch(_){}
+  setTimeout(function(){ try{ window.location.href=url; }catch(_){} }, 0);   // 공구 카드(goCard)와 같은 방식 — 인앱 웹뷰에서 window.open 은 막혀 있다
+}
+// 보고 있는 달에 걸치는 세일 목록 (캘린더 아래)
+function renderBsMonth(){
+  const box=document.getElementById('bsMonth'); if(!box) return;
+  const y=calMonth.getFullYear(), m=calMonth.getMonth();
+  const mFirst=`${y}-${pad(m+1)}-01`, mLast=`${y}-${pad(m+1)}-${pad(new Date(y,m+1,0).getDate())}`;
+  const list=(_bsData||[]).filter(sl=>bsVisible(sl) && sl.start_date<=mLast && bsEndEff(sl)>=mFirst)
+    .sort((a,b)=>a.start_date.localeCompare(b.start_date) || a.title.localeCompare(b.title));
+  if(!list.length){ box.style.display='none'; box.innerHTML=''; return; }
+  const asOf=(_bsData && _bsData._asOf)?` · ${_bsData._asOf.slice(5).replace('-','/')} 기준`:'';
+  box.style.display='block';
+  box.innerHTML=`<div class="bs-box">
+    <div class="bs-box-ttl">🏷️ ${m+1}월 브랜드 세일 일정 <span style="font-size:11px;color:#B08A3E;font-weight:700">${list.length}건</span></div>
+    <div class="bs-box-sub">올영데이·블프처럼 브랜드가 정한 세일 기간이에요. 사고 싶은 게 있으면 날짜를 눌러 공구와 같이 보세요</div>
+    ${list.map(sl=>bsCardHtml(sl)).join('')}
+    <div class="bs-box-note">일정은 브랜드 사정에 따라 바뀔 수 있어요${asOf} · 결제 전에 공식 앱 공지를 한 번 더 확인하세요</div>
+  </div>`;
+}
+function toggleBrandSales(){
+  _bsOn=!_bsOn;
+  try{ localStorage.setItem('mc_bs_on', _bsOn?'1':'0'); }catch(_){}
+  paintBsToggle();
+  try{ trackEvent('brand_sale_toggle', _bsOn?'on':'off'); }catch(_){}
+  buildCalendar();
+  if(selCalDate) pickCalDay(selCalDate);
+}
+function paintBsToggle(){
+  const b=document.getElementById('bsTg'); if(!b) return;
+  b.textContent=_bsOn?'켜짐':'꺼짐';
+  b.style.background=_bsOn?'#D99A1E':'#E8E2D2'; b.style.color=_bsOn?'#fff':'#8A7A55';
+}
+function _bsNorm(r){
+  const sd=String(r.start_date||'').slice(0,10), ed=r.end_date?String(r.end_date).slice(0,10):'';
+  if(!r.title || !/^\d{4}-\d{2}-\d{2}$/.test(sd)) return null;
+  if(ed && !/^\d{4}-\d{2}-\d{2}$/.test(ed)) return null;
+  return {id:r.id||'', brand:String(r.brand||r.title).trim(), brand_key:String(r.brand_key||'').trim(), title:String(r.title).trim(),
+          start_date:sd, end_date:ed||'', link:String(r.link||'').trim(), major:String(r.major||'').trim()};
+}
+async function loadBrandSales(){
+  if(_bsData) return _bsData;
+  if(_bsLoading) return null;
+  _bsLoading=true;
+  let rows=null, src='db', asOf='';
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/brand_sales?select=id,brand,brand_key,title,start_date,end_date,link,major&active=is.true&order=start_date.asc&limit=300`,
+      {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+    if(r.ok){ const j=await r.json(); if(Array.isArray(j) && j.length) rows=j; }
+  }catch(_){}
+  if(!rows){   // 표가 아직 없거나(404) 비었거나 서버가 안 되면 → 사이트에 둔 기본값
+    try{ const r=await fetch('brand-sales.json',{cache:'no-cache'}); if(r.ok){ const j=await r.json(); rows=(j&&j.sales)||[]; asOf=(j&&j.as_of)||''; src='json'; } }catch(_){}
+  }
+  _bsData=(rows||[]).map(_bsNorm).filter(Boolean);
+  _bsData._asOf=asOf; _bsData._src=src;
+  _bsLoading=false;
+  const sub=document.getElementById('bsBarSub');
+  if(sub){ const live=_bsData.filter(sl=>!bsExpired(sl)); const names=[]; live.forEach(sl=>{ if(names.indexOf(sl.brand)<0) names.push(sl.brand); }); if(names.length) sub.textContent=names.slice(0,6).join(' · ')+(names.length>6?' …':''); }
+  return _bsData;
+}
+document.addEventListener('DOMContentLoaded', paintBsToggle);
 
 // ── 회원 RPC 공통 (토큰은 서버에서 검증) ────────────────
 function mcToken(){ var m=(typeof memberGet==='function')?memberGet():null; return (m&&m.token)||''; }
@@ -3243,6 +3405,7 @@ function setCalMine(v){
   document.getElementById('calTgMine').style.cssText = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:#602090;color:#fff':'background:none;color:#8A8395');
   document.getElementById('calCatRow').style.display = v?'none':'';      // 내 찜만 볼 땐 카테고리 줄은 군더더기
   document.getElementById('icsBar').style.display    = v?'block':'none';
+  document.getElementById('bsBar').style.display     = v?'none':'flex';   // 내 찜만 = 내 공구만. 브랜드 세일은 전체 모드에서만
   if(v) fetchWishExtra();                                                 // 찜했는데 지금 목록에 없는 것까지 끌어옴
   selCalDate=null; document.getElementById('selBox').style.display='none';
   buildCalendar();

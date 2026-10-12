@@ -188,6 +188,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
     <div class="tab" onclick="switchTab('hotdeal',this)">🔥 핫딜 <span id="badge-hotdeal" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('exp',this)">🎁 체험단 <span id="badge-exp" class="tab-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('bsale',this)">🏷️ 브랜드세일</div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너 <span id="badge-banner" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 이웃셀러</div>
     <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
@@ -244,6 +245,29 @@ details summary::-webkit-details-marker{display:none}
     </div>
     <div style="font-size:13px;font-weight:800;color:#222;margin:22px 0 10px">등록된 체험단</div>
     <div id="exAdminList"></div>
+  </div>
+
+  <!-- 🏷️ 브랜드 세일 등록 탭 — 올영데이·무신사 블프처럼 브랜드가 정한 세일 기간. 손님 캘린더(전체 모드)에 공구와 겹쳐 보인다 (사장님 2026-10-12) -->
+  <div id="bsaleView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="background:#FFF8E8;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#8A5A00;line-height:1.7">
+      브랜드·세일명·기간을 넣으세요. <b>종료일을 비우면 "종료일 미정(~)"</b>으로 표시되고 시작일부터 2주만 캘린더에 깔려요.<br>
+      링크는 세일 페이지(없으면 브랜드 메인). 지난 세일은 손님 화면에서 자동으로 빠지니 지우지 않아도 돼요(내년 참고용).
+    </div>
+    <div style="background:#fff;border:1.5px solid #F0DFAE;border-radius:12px;padding:11px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:#8A5A00;margin-bottom:6px">📋 여러 줄 붙여넣기 <span style="font-size:11px;color:#aaa;font-weight:400">(한 줄에 하나 · 「브랜드 | 세일명 | 10/25 | 10/27 | 링크」 순, 구분은 | 또는 탭)</span></div>
+      <textarea id="bsBulk" rows="6" placeholder="올리브영 | 올리브영 올영데이 | 10/25 | 10/27 | https://www.oliveyoung.co.kr/&#10;자라 | 자라 미드시즌 세일 | 10/06 |  | https://www.zara.com/kr/" style="width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+      <button onclick="bsBulkParse()" style="width:100%;margin-top:7px;padding:10px;background:#B07A10;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">⬇️ 붙여넣은 만큼 행 만들기</button>
+    </div>
+    <div id="bsRows"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="addBsRow()" style="flex:1;padding:11px;background:#fff;color:#B07A10;border:1.5px solid #B07A10;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">＋ 줄 추가</button>
+      <button onclick="saveBsRows()" style="flex:2;padding:11px;background:#B07A10;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🏷️ 전체 등록</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px">
+      <div style="font-size:13px;font-weight:800;color:#222">등록된 브랜드 세일</div>
+      <label style="font-size:11.5px;color:#888;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="bsShowPast" onchange="loadBsAdmin()"> 지난 것도 보기</label>
+    </div>
+    <div id="bsAdminList"></div>
   </div>
 
   <!-- 크롤링 탭 (반자동) -->
@@ -7850,6 +7874,134 @@ async function delExp(id){
   if(!confirm('이 체험단을 삭제할까요?'))return;
   try{ await fetch(`${EX_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); loadExpAdmin(); }catch(e){alert('삭제 실패');}
 }
+// ══ 🏷️ 브랜드 세일 (brand_sales 표 · supabase/sql/brand_sales_86.sql) ═══════════════════════
+//  손님 화면: test.html → index.html 캘린더 '브랜드 세일도 함께 보기'. 표가 비면 /brand-sales.json 기본값이 대신 보인다.
+const BS_URL=SB_URL+'/rest/v1/brand_sales';
+let _bsAdminCache=[];
+const _bsInp='width:100%;box-sizing:border-box;padding:9px;border:1.5px solid #EBEBEB;border-radius:8px;font-size:13px;font-family:inherit';
+function _bsRowHtml(v){
+  v=v||{};
+  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+  return `
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+      <input class="ct-brand" type="text" value="${esc(v.brand)}" placeholder="브랜드 (올리브영)" style="${_bsInp};flex:0 0 38%">
+      <input class="ct-title" type="text" value="${esc(v.title)}" placeholder="세일명 (올리브영 올영데이)" style="${_bsInp};flex:1">
+      <button onclick="this.closest('.ct-row').remove()" style="flex-shrink:0;width:32px;height:32px;background:#FFF3D6;color:#8A5A00;border:none;border-radius:8px;font-size:15px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:7px">
+      <input class="ct-start" type="date" value="${esc(v.start_date)}" style="${_bsInp}" title="시작일">
+      <input class="ct-end" type="date" value="${esc(v.end_date)}" style="${_bsInp}" title="종료일 (비우면 미정)">
+      <select class="ct-major" style="${_bsInp}"><option value="">분류 없음</option>${Object.keys(CATS_LIST).map(c=>`<option value="${c}"${c===v.major?' selected':''}>${c}</option>`).join('')}</select>
+    </div>
+    <input class="ct-link" type="url" value="${esc(v.link)}" placeholder="세일 페이지 링크 (없으면 브랜드 메인)" style="${_bsInp}">`;
+}
+function addBsRow(v){
+  const div=document.createElement('div');
+  div.className='ct-row';
+  div.style.cssText='background:#fff;border:1px solid #EBEBEB;border-radius:12px;padding:11px;margin-bottom:8px';
+  div.innerHTML=_bsRowHtml(v);
+  document.getElementById('bsRows').appendChild(div);
+}
+// "10/25" · "2026-10-25" · "10.25" · "10월 25일" → YYYY-MM-DD. 연도 없으면 올해(이미 지난 달이면 내년)
+function _bsDate(t){
+  t=String(t||'').trim(); if(!t) return '';
+  let m=t.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/); if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m=t.match(/^(\d{1,2})\s*[-./월]\s*(\d{1,2})/); if(!m) return '';
+  const now=new Date(); let y=now.getFullYear(); const mo=+m[1], d=+m[2];
+  if(mo < now.getMonth()+1-2) y+=1;   // 두 달 넘게 지난 달이면 내년 일정으로 본다
+  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function bsBulkParse(){
+  const lines=(document.getElementById('bsBulk').value||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){ alert('붙여넣은 줄이 없어요.'); return; }
+  let n=0;
+  lines.forEach(l=>{
+    const p=l.split(/\s*[|\t]\s*/);
+    if(p.length<3) return;
+    addBsRow({brand:p[0], title:p[1], start_date:_bsDate(p[2]), end_date:_bsDate(p[3]), link:(p[4]||'').trim()}); n++;
+  });
+  if(!n) alert('「브랜드 | 세일명 | 시작 | 종료 | 링크」 꼴로 적어 주세요 (종료·링크는 비워도 돼요).');
+  else document.getElementById('bsBulk').value='';
+}
+function _bsCollect(sel){
+  return [...document.querySelectorAll(sel+' .ct-row')].map(r=>({
+    brand:r.querySelector('.ct-brand').value.trim(),
+    title:r.querySelector('.ct-title').value.trim(),
+    start_date:r.querySelector('.ct-start').value||null,
+    end_date:r.querySelector('.ct-end').value||null,
+    major:r.querySelector('.ct-major').value||null,
+    link:r.querySelector('.ct-link').value.trim()||null
+  }));
+}
+async function saveBsRows(){
+  const rows=_bsCollect('#bsRows').filter(x=>x.brand||x.title);
+  if(!rows.length){ alert('브랜드·세일명을 입력한 줄이 없어요.'); return; }
+  const bad=rows.find(x=>!x.brand||!x.title||!x.start_date);
+  if(bad){ alert(`브랜드·세일명·시작일은 꼭 넣어야 해요: ${bad.brand||bad.title||'(빈 줄)'}`); return; }
+  const wrong=rows.find(x=>x.end_date && x.end_date<x.start_date);
+  if(wrong){ alert(`종료일이 시작일보다 앞서요: ${wrong.title}`); return; }
+  try{
+    const r=await fetch(BS_URL,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(rows)});
+    if(!r.ok) throw 0;
+    document.getElementById('bsRows').innerHTML=''; addBsRow();
+    alert(`브랜드 세일 ${rows.length}건 등록 완료! 🏷️`); loadBsAdmin();
+  }catch(e){ alert('등록 실패. brand_sales 표가 생성됐는지(supabase/sql/brand_sales_86.sql) 확인해주세요.'); }
+}
+async function loadBsAdmin(){
+  const el=document.getElementById('bsAdminList');
+  el.innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
+  try{
+    const r=await fetch(`${BS_URL}?select=*&order=start_date.asc&limit=500`,{headers:sbHeaders()});
+    if(!r.ok) throw 0;
+    let rows=await r.json();
+    _bsAdminCache=rows;
+    const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);   // KST
+    const showPast=document.getElementById('bsShowPast').checked;
+    const ended=e=>(e.end_date||e.start_date)<today;
+    if(!showPast) rows=rows.filter(e=>!ended(e));
+    if(!rows.length){ el.innerHTML='<div style="color:#aaa;font-size:12px">등록된 브랜드 세일이 없어요. (사이트는 brand-sales.json 기본값을 보여주는 중)</div>'; return; }
+    el.innerHTML=rows.map(e=>{
+      const past=ended(e), upcoming=e.start_date>today;
+      const stat=!e.active?'숨김':(past?'종료':(upcoming?'예정':'진행중'));
+      const statC=!e.active?'#999':(past?'#999':(upcoming?'#E65100':'#2E7D32'));
+      return `<div id="bsrow-${e.id}" style="background:${(past||!e.active)?'#F7F7F7':'#fff'};border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:${(past||!e.active)?'#999':'#222'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:#8A5A00">${e.brand}</span> · ${e.title} <span style="font-size:10px;color:${statC}">[${stat}]</span></div>
+        <div style="font-size:10px;color:#999">${e.start_date} ~ ${e.end_date||'미정'}${e.major?' · '+e.major:''}${e.link?' · 🔗':''}</div></div>
+        <div style="flex-shrink:0;display:flex;gap:5px">
+          <button onclick="editBs(${e.id})" style="background:#FFF3D6;color:#8A5A00;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">수정</button>
+          <button onclick="toggleBs(${e.id},${e.active?'false':'true'})" style="background:#EEE;color:#555;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${e.active?'숨김':'보이기'}</button>
+          <button onclick="delBs(${e.id})" style="background:#FFEBEE;color:#C62828;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="color:#aaa;font-size:12px">brand_sales 표를 먼저 생성해주세요 (supabase/sql/brand_sales_86.sql).</div>'; }
+}
+async function toggleBs(id, active){
+  try{ const r=await fetch(`${BS_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify({active})}); if(!r.ok) throw 0; loadBsAdmin(); }catch(e){ alert('변경 실패'); }
+}
+async function delBs(id){
+  if(!confirm('이 브랜드 세일을 삭제할까요? (지난 세일은 "숨김"으로 두면 내년 참고가 돼요)')) return;
+  try{ const r=await fetch(`${BS_URL}?id=eq.${id}`,{method:'DELETE',headers:sbHeaders()}); if(!r.ok) throw 0; loadBsAdmin(); }catch(e){ alert('삭제 실패'); }
+}
+function editBs(id){
+  const e=(_bsAdminCache||[]).find(x=>x.id===id); if(!e) return;
+  const row=document.getElementById('bsrow-'+id); if(!row) return;
+  row.style.display='block';
+  row.innerHTML=`<div style="font-size:11px;font-weight:700;color:#8A5A00;margin-bottom:7px">🏷️ 브랜드 세일 수정</div>
+    <div class="ct-row" id="bsedit-${id}">${_bsRowHtml(e)}</div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="saveBsEdit(${id})" style="flex:2;padding:9px;background:#B07A10;color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit">저장</button>
+      <button onclick="loadBsAdmin()" style="flex:1;padding:9px;background:#EEE;color:#555;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">취소</button>
+    </div>`;
+  row.querySelector('#bsedit-'+id+' button').style.display='none';   // 수정 칸의 ✕(줄 삭제)는 여기선 쓰지 않는다
+}
+async function saveBsEdit(id){
+  const v=_bsCollect('#bsedit-'+id)[0]; if(!v) return;
+  if(!v.brand||!v.title||!v.start_date){ alert('브랜드·세일명·시작일은 꼭 넣어야 해요'); return; }
+  if(v.end_date && v.end_date<v.start_date){ alert('종료일이 시작일보다 앞서요'); return; }
+  try{ const r=await fetch(`${BS_URL}?id=eq.${id}`,{method:'PATCH',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(v)}); if(!r.ok) throw 0; loadBsAdmin(); }catch(e){ alert('저장 실패'); }
+}
+
 function editExp(id){
   const e=(_expAdminCache||[]).find(x=>x.id===id); if(!e) return;
   const row=document.getElementById('exrow-'+id); if(!row) return;
@@ -8260,7 +8412,7 @@ function switchTab(tab,el){
   checkedIds.clear();
   updateBulkBar();
   // 모든 뷰 숨기기
-  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView',
+  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView','bsaleView',
    'inqView','memberView','adperfView','attendView','vendorView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
@@ -8295,6 +8447,10 @@ function switchTab(tab,el){
       document.getElementById('expView').style.display='block';
       if(!document.querySelector('#exRows .ct-row')) addExRow();
       loadExpAdmin();
+    } else if(tab==='bsale'){
+      document.getElementById('bsaleView').style.display='block';
+      if(!document.querySelector('#bsRows .ct-row')) addBsRow();
+      loadBsAdmin();
     } else if(tab==='crawl'){
       document.getElementById('crawlView').style.display='block';
       { const _md=document.getElementById('crawlMinDate'); if(_md&&!_md.value){ const t=new Date(); t.setDate(t.getDate()+1); _md.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } }
