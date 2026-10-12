@@ -273,6 +273,29 @@ Deno.serve(async (req) => {
 
     // 4) 등록
     if (picks.length) {
+      // 롯데온 피드의 상품명엔 브랜드가 빠져 있다(2026-10-13 사장님 "블루독 자켓인데 블루독베이비 브랜드명이 빠졌어").
+      // 상품 상세 API 의 brdNm 을 앞에(조건 대괄호 뒤) 붙인다. 못 읽으면 그대로 — 등록은 막지 않는다.
+      for (const p of picks) {
+        if (String(p.mall).toLowerCase() !== "lotteon") continue;
+        try {
+          const code = String(p.id).replace(/^lp_lotteon_/, "");
+          const r = await fetch(`https://pbf.lotteon.com/product/v2/detail/search/base/pd/${code}?pdNo=${code}&mall_no=1`,
+            { headers: { "user-agent": "Mozilla/5.0 (Linux; Android 13) Chrome/120 Mobile Safari/537.36" } });
+          let brand = ((await r.text()).match(/"brdNm":"([^"]*)"/) || [])[1]?.trim() ?? "";
+          if (!brand || /^(기타|상세|없음|브랜드없음|노브랜드)/.test(brand)) continue;
+          if (/^[가-힣\s]+$/.test(brand)) brand = brand.replace(/\s+/g, "");
+          if (/(유통|상사|무역|물산|에프앤비|F&B|컴퍼니|코리아|주식회사)$/i.test(brand)) continue;   // 상호는 브랜드가 아니다
+          const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+          const nb = norm(brand), nt = norm(String(p.name));
+          let dup = false;
+          for (let k = 0; k + 3 <= nb.length; k++) if (nt.includes(nb.slice(k, k + 3))) { dup = true; break; }
+          if (nb.length < 3 && nt.includes(nb)) dup = true;
+          if (dup) continue;
+          const m = String(p.name).match(/^((?:\[[^\]]*\]\s*)*)([\s\S]*)$/);
+          p.name = `${m ? m[1] : ""}${brand} ${m ? m[2] : p.name}`.replace(/\s+/g, " ").trim();
+          log.brand_added = (log.brand_added ?? 0) + 1;
+        } catch { /* 브랜드를 못 읽어도 등록은 계속 */ }
+      }
       const expires = new Date(Date.now() + 3 * 864e5).toISOString();
       await sb("hotdeals?on_conflict=product_id,deal_day", {
         method: "POST",
