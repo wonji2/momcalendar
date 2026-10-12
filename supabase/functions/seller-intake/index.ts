@@ -23,6 +23,8 @@ const CONSENT_VER  = "2026-09-18";
 const OK_ORIGIN = [
   "https://momcalendar.com", "https://www.momcalendar.com",
   "http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:8000", "http://127.0.0.1:8000",
+  // 내부 업무 사이트 주소는 코드에 적지 않고 시크릿 EXTRA_ORIGINS(쉼표 구분)로만 넣는다 (2026-10-12)
+  ...(Deno.env.get("EXTRA_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 ];
 function cors(origin: string | null) {
   const o = origin && OK_ORIGIN.includes(origin) ? origin : "https://momcalendar.com";
