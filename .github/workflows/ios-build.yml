@@ -48,6 +48,15 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
+      - name: 앱 아이콘(1024) 교체
+        working-directory: ios-app
+        run: |
+          # 애플 요건: 1024x1024 · 알파 없음 · 모서리 둥글림 없음(시스템이 깎는다). Capacitor 템플릿은 단일 1024 아이콘을 쓴다.
+          ICON_DIR=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          test -d "$ICON_DIR" || (echo "🔴 AppIcon.appiconset 없음"; exit 1)
+          cp assets/AppIcon-1024.png "$ICON_DIR/AppIcon-512@2x.png"
+          echo "✅ 아이콘 교체"; ls -la "$ICON_DIR"
+
       - name: 설정이 실제로 들어갔는지 확인
         working-directory: ios-app
         run: |
