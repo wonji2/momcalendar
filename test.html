@@ -486,7 +486,7 @@ body.srch-suggest #searchDrop{display:block}
 .sale-h2{font-size:11.5px;color:#7A8794;margin-top:2px}
 .sale-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .sale-chips::-webkit-scrollbar{display:none}
-.sale-chip{flex:0 0 auto;border:1px solid #D5E3F2;background:#fff;color:#185FA5;border-radius:16px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.sale-chip{flex:0 0 auto;border:1px solid #D5E3F2;background:#fff;color:#185FA5;border-radius:18px;min-height:38px;padding:0 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .sale-chip.on{background:#185FA5;border-color:#185FA5;color:#fff}
 .sale-sec{font-size:12.5px;font-weight:800;color:#2B3A4A;margin:14px 2px 7px;display:flex;align-items:center;gap:6px}
 .sale-sec i{font-style:normal;font-size:11px;font-weight:600;color:#7A8794}
@@ -507,6 +507,10 @@ body.srch-suggest #searchDrop{display:block}
 .sale-d.later{background:#F1F3F6;color:#5B6773}
 .sale-foot{font-size:10.5px;color:#A5ADB6;text-align:center;line-height:1.6;margin:16px 4px 6px}
 .sale-empty{text-align:center;color:#9AA3AD;font-size:13px;padding:30px 10px}
+.sale-act{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.sale-ab{border:1px solid #D5E3F2;background:#fff;color:#4A5B6C;border-radius:19px;min-height:38px;padding:0 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
+.sale-ab.on{background:#E3F0FF;border-color:#9CC4EE;color:#185FA5}
+.sale-ab:active{transform:scale(.97)}
 .hd-card,.ex-card{background:#fff;border:1px solid #ECECEC;border-radius:14px;padding:13px 14px;margin-bottom:9px;position:relative;cursor:pointer;display:block;text-decoration:none}
 .hd-card:active,.ex-card:active{transform:scale(.99)}
 .ex-card.ended{opacity:.55;background:#F7F7F7;border-color:#E8E8E8;cursor:default}
@@ -832,7 +836,6 @@ body.sheet-open{ overscroll-behavior-y: none; }
 <div class="content-seg" id="contentSeg">
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
   <button class="cseg" data-ct="hotdeal" onclick="switchContent('hotdeal')">🔥 핫딜</button>
-  <button class="cseg" data-ct="exp" onclick="switchContent('exp')">🎁 체험단</button>
   <button class="cseg" data-ct="sale" onclick="switchContent('sale')">🛍 세일</button>
 </div>
 
@@ -2345,19 +2348,50 @@ function switchContent(ct){
   trackEvent('content_tab', ct);
 }
 // ───── 세일 일정 (sale_events · 공구 일정과 별개) ─────
-let _saleData=null, _saleBrand='';
-const SALE_FALLBACK={ topten:['탑텐','#1A1A1A'], '8seconds':['8S','#B3202A'] };
+//  · 카드: 로고 · 행사명 · 기간 · D-day · ♡ 찜 · 🔔 시작일 아침 알림
+//  · 누르면 브랜드 공식 페이지(aff_merchant 가 있으면 링크프라이스 수익링크)로 — 기록: sale_go
+//  · 찜·알림은 이 기기(localStorage)에 즉시 반영, 서버(sale_wish_set)에도 저장 → 시작일 09:05 푸시(send-sale-push)
+let _saleData=null, _saleBrand='', SALEW={};
+const SALE_FALLBACK={};   // 로고 파일이 없는 브랜드만 글자 타일로 (2026-10-13: 8곳 모두 공식 로고 확보 → 비움)
+const SALE_AFF_ID='A100706561';   // 링크프라이스 제휴사 ID(공개 식별자 — 클릭 URL 에 그대로 노출됨)
 function _saleDay(s){ return Math.round((Date.parse(s+'T00:00:00Z')-Date.parse(todayStr+'T00:00:00Z'))/864e5); }
 function _saleMD(s){ const p=String(s).split('-'); return Number(p[1])+'/'+Number(p[2]); }
+function _saleUrl(e){
+  if(e.aff_merchant) return 'https://click.linkprice.com/click.php?m='+encodeURIComponent(e.aff_merchant)+'&a='+SALE_AFF_ID+'&l=9999&l_cd1=3&l_cd2=0&tu='+encodeURIComponent(e.url);
+  return e.url;
+}
+function _saleWLoad(){ try{ const o=JSON.parse(localStorage.getItem('mc_sale_w')||'{}'); SALEW=(o&&typeof o==='object')?o:{}; }catch(_){ SALEW={}; } }
+function _saleWSave(){ try{ localStorage.setItem('mc_sale_w', JSON.stringify(SALEW)); }catch(_){} }
+function _saleWPush(id){
+  const s=SALEW[id]||{};
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/sale_wish_set`,{method:'POST',keepalive:true,
+    headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
+    body:JSON.stringify({p_device:deviceId(), p_sale:Number(id), p_wish:!!s.w, p_bell:!!s.b})}).catch(()=>{});
+}
+async function saleWSync(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/sale_wish_list`,{method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({p_device:deviceId()})});
+    if(!r.ok) return;
+    const rows=await r.json(); const m={};
+    rows.forEach(x=>{ m[x.sale_id]={w:x.wish?1:0,b:x.bell?1:0}; });
+    // 서버에 없는데 이 기기에만 있는 표시(전송 실패분)는 살려서 다시 올린다
+    Object.keys(SALEW).forEach(k=>{ if(!m[k] && (SALEW[k].w||SALEW[k].b)){ m[k]=SALEW[k]; setTimeout(()=>{ SALEW[k]=m[k]; _saleWPush(k); },0); } });
+    SALEW=m; _saleWSave(); renderSale();
+  }catch(_){}
+}
 async function loadSale(){
   if(_saleData){ renderSale(); return; }
+  _saleWLoad();
   const box=document.getElementById('saleList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/sale_events?select=id,brand,slug,title,tag,start_date,end_date,url&order=start_date.asc&limit=200`,
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/sale_events?select=id,brand,slug,title,tag,start_date,end_date,url,aff_merchant&order=start_date.asc&limit=200`,
       {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
     _saleData=r.ok?await r.json():[];
   }catch(_){ _saleData=[]; }
   renderSale();
+  saleWSync();
 }
 function saleFilter(b){ _saleBrand=b||''; renderSale(); trackEvent('sale_filter', b||'전체'); }
 function _saleLogo(e){
@@ -2370,12 +2404,21 @@ function renderSale(){
   const list=document.getElementById('saleList'), chips=document.getElementById('saleChips');
   if(!list) return;
   const all=(_saleData||[]).filter(e=>!e.end_date||e.end_date>=todayStr);   // 끝난 행사는 숨김
+  const wishN=all.filter(e=>{ const s=SALEW[e.id]; return s&&(s.w||s.b); }).length;
   if(chips){
     const brands=[...new Set(all.map(e=>e.brand))];
-    chips.innerHTML=['',...brands].map(b=>`<button class="sale-chip${_saleBrand===b?' on':''}" onclick="saleFilter('${b}')">${b||'전체'}</button>`).join('');
+    const names=['',...(wishN?['__wish']:[]),...brands];
+    chips.innerHTML=names.map(b=>{
+      const lab=b===''?'전체':b==='__wish'?`♥ 내 찜 ${wishN}`:b;
+      return `<button class="sale-chip${_saleBrand===b?' on':''}" onclick="saleFilter('${b}')">${lab}</button>`;
+    }).join('');
   }
-  const rows=all.filter(e=>!_saleBrand||e.brand===_saleBrand);
-  if(!rows.length){ list.innerHTML='<div class="sale-empty">예정된 세일이 아직 없어요</div>'; return; }
+  const rows=all.filter(e=>{
+    if(!_saleBrand) return true;
+    if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return s&&(s.w||s.b); }
+    return e.brand===_saleBrand;
+  });
+  if(!rows.length){ list.innerHTML='<div class="sale-empty">'+(_saleBrand==='__wish'?'♡ 를 눌러 담아 두면 여기 모여요':'예정된 세일이 아직 없어요')+'</div>'; return; }
   const ing=[], soon=[], later=[];
   rows.forEach(e=>{ const d=_saleDay(e.start_date); (d<=0?ing:d<=7?soon:later).push(e); });
   const card=(e,kind)=>{
@@ -2387,7 +2430,10 @@ function renderSale(){
       if(de!==null){ const tot=Math.max(1,_saleDay(e.end_date)-ds), done=Math.min(tot,Math.max(0,-ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
     }else pill=`<div class="sale-d ${kind}">D-${ds}<small>시작</small></div>`;
     const tag=e.tag?`<em>${e.tag}</em>`:'';
-    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${e.brand} ${e.title}${tag}</div><div class="sale-m">${range}</div>${bar}</div>${pill}</div>`;
+    const s=SALEW[e.id]||{};
+    const heart=`<button class="sale-ab${s.w?' on':''}" aria-label="찜" aria-pressed="${s.w?'true':'false'}" onclick="saleWish(${e.id},event)">${s.w?'♥':'♡'} 찜</button>`;
+    const bell=ds>0?`<button class="sale-ab${s.b?' on':''}" aria-label="시작일 알림" aria-pressed="${s.b?'true':'false'}" onclick="saleBell(${e.id},event)">${s.b?'🔔 알림 ON':'🔔 알림'}</button>`:'';
+    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${e.brand} ${e.title}${tag}</div><div class="sale-m">${range}</div>${bar}<div class="sale-act">${heart}${bell}</div></div>${pill}</div>`;
   };
   let h='';
   if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
@@ -2397,8 +2443,42 @@ function renderSale(){
 }
 function saleGo(id){
   const e=(_saleData||[]).find(x=>x.id===id); if(!e) return;
-  trackEvent('sale_go', e.brand+'|'+e.title);
-  openLink(e.url);
+  trackEvent('sale_go', e.brand+'|'+e.title+(e.aff_merchant?'|aff':''));
+  openLink(_saleUrl(e));
+}
+function saleWish(id,ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const s=SALEW[id]||(SALEW[id]={w:0,b:0});
+  s.w=s.w?0:1;
+  if(!s.w && !s.b) delete SALEW[id];
+  _saleWSave(); _saleWPush(id); renderSale();
+  try{ trackEvent(s.w?'sale_wish_add':'sale_wish_del', String(id)); }catch(_){}
+  if(s.w) mcToast('찜했어요 💜 상단 「내 찜」에서 모아볼 수 있어요');
+}
+async function saleBell(id,ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const cur=SALEW[id]||{w:0,b:0};
+  if(cur.b){   // 끄기
+    cur.b=0; SALEW[id]=cur; if(!cur.w) delete SALEW[id];
+    _saleWSave(); _saleWPush(id); renderSale();
+    try{ trackEvent('sale_bell_del', String(id)); }catch(_){}
+    mcToast('알림을 껐어요');
+    return;
+  }
+  // 켜기 — 이 기기에서 푸시 알림이 아직 안 켜져 있으면 먼저 켠다(기존 공구 알림과 같은 길)
+  try{
+    if(iosNeedsInstall()){ mcToast('아이폰은 홈 화면에 추가해야 알림을 받을 수 있어요'); try{ pwaStripAdd(); }catch(_){} return; }
+    if(!pushSupported()){ mcToast('이 브라우저는 알림을 지원하지 않아요'); return; }
+    if(!notiGranted()){
+      const ok=await enablePush();
+      if(!ok){ mcToast('알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용해 주세요'); return; }
+    }
+  }catch(_){ mcToast('알림을 켜지 못했어요'); return; }
+  const s=SALEW[id]||(SALEW[id]={w:0,b:0});
+  s.b=1; s.w=1;   // 알림을 켜면 찜도 함께
+  _saleWSave(); _saleWPush(id); renderSale();
+  try{ trackEvent('sale_bell_add', String(id)); }catch(_){}
+  mcToast('🔔 시작하는 날 아침 9시에 알려드려요');
 }
 // 세일 탭 바로 열기: momcalendar.com/#sale
 document.addEventListener('DOMContentLoaded', function(){
