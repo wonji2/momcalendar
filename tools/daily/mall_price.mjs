@@ -17,6 +17,9 @@
 //   🟢 지마켓 — **2026-10-13 되살림.** playwright 가 직접 띄운 크롬은 막히지만, 자동화 표식 없는 「그냥 크롬」+CDP(real_chrome.mjs)는 열린다.
 //              (2026-10-08 의 「되살리지 말 것」은 이 방식을 몰랐을 때의 결론이었다)
 //   🟢 11번가·롯데온 — JSON-LD / DOM 으로 읽힌다
+import { chromium } from 'playwright';
+import path from 'node:path';
+import os from 'node:os';
 import { openRealChrome } from './real_chrome.mjs';
 
 const argv = process.argv.slice(2);
@@ -31,9 +34,32 @@ const mallOf = (u) => /auction\.co\.kr/.test(u) ? '옥션'
   : /coupang/.test(u) ? '쿠팡'
   : /ohou\.se/.test(u) ? '오늘의집' : '기타';
 
-// 자동화 표식 없는 실제 크롬(프로필은 디스크에 남아 로그인이 유지된다) — 창은 화면 밖
-const rc = await openRealChrome({ visible: false });
-const ctx = rc.ctx;
+// 🔑 몰마다 되는 브라우저가 다르다 (2026-10-13 실측)
+//   지마켓 — 자동화 표식 없는 「그냥 크롬」+CDP(real_chrome.mjs)만 읽힌다. playwright 직접 실행은 봇체크에서 막힌다.
+//   쿠팡·11번가·롯데온·옥션 — 그냥 크롬(CDP)은 「쿠팡!」 차단 페이지가 나오고, playwright 직접 실행(예전 방식)은 읽힌다.
+//   → 주소의 몰을 보고 엔진을 고른다. 둘 다 창은 화면 밖.
+let _rc = null, _pw = null;
+async function ctxFor(url) {
+  if (/gmarket.co.kr/.test(url)) {
+    if (!_rc) _rc = await openRealChrome({ visible: false });
+    return _rc.ctx;
+  }
+  if (!_pw) {
+    const dir = path.join(os.homedir(), '.momcal-mallprice');
+    try {
+      _pw = await chromium.launchPersistentContext(dir, {
+        headless: HEADLESS, channel: 'chrome', viewport: { width: 1280, height: 900 },
+        args: ['--disable-blink-features=AutomationControlled', '--window-position=-3000,-3000', '--window-size=1280,900'],
+      });
+    } catch {
+      _pw = await chromium.launchPersistentContext(dir, {
+        headless: HEADLESS, viewport: { width: 1280, height: 900 },
+        args: ['--disable-blink-features=AutomationControlled', '--window-position=-3000,-3000'],
+      });
+    }
+  }
+  return _pw;
+}
 
 let _n = 0;
 for (const url of urls) {
@@ -41,6 +67,7 @@ for (const url of urls) {
   if (_n++ > 0 && /gmarket/.test(url)) await new Promise((r) => setTimeout(r, 9000));
   const mall = mallOf(url);
   const out = { ok: false, url, mall, name: null, price: null, before: null, img: null, soldout: false, note: '' };
+  const ctx = await ctxFor(url);
   const pg = await ctx.newPage();
   try {
     await pg.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -105,4 +132,5 @@ for (const url of urls) {
   await pg.close().catch(() => {});
   console.log(JSON.stringify(out));
 }
-await rc.close();
+if (_rc) await _rc.close();
+if (_pw) await _pw.close().catch(() => {});
