@@ -36,16 +36,17 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body, null, 2), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
 }
 
-type Target = { device_id: string; endpoint: string; p256dh: string; auth: string; sale_id: number; brand: string; title: string };
-type Group = { device_id: string; endpoint: string; p256dh: string; auth: string; items: { id: number; label: string }[] };
+type Target = { device_id: string; endpoint: string; p256dh: string; auth: string; sale_id: number; brand: string; title: string; kind: string };
+type Group = { device_id: string; endpoint: string; p256dh: string; auth: string; items: { id: number; label: string; kind: string }[] };
 
 // 링크는 반드시 맘캘린더 세일 탭(#sale)을 거치게 한다 — 사이트 방문이 사라지지 않게(공구 알림과 같은 원칙)
 function buildPayload(g: Group, today: string) {
   const n = g.items.length;
   if (n === 1) {
-    return { title: "🛍 내가 알림 켠 세일 오늘 시작", body: g.items[0].label, url: `${SITE}#sale`, tag: `mc-sale-${today}` };
+    const end = g.items[0].kind === "end";
+    return { title: end ? "🛍 내가 알림 켠 세일 내일 마감" : "🛍 내가 알림 켠 세일 오늘 시작", body: g.items[0].label, url: `${SITE}#sale`, tag: `mc-sale-${today}` };
   }
-  return { title: `🛍 내가 알림 켠 세일 ${n}건 오늘 시작`, body: `${g.items[0].label} 외 ${n - 1}건 눌러서 확인하세요`, url: `${SITE}#sale`, tag: `mc-sale-${today}` };
+  return { title: `🛍 내가 알림 켠 세일 ${n}건 소식`, body: `${g.items[0].label} 외 ${n - 1}건 눌러서 확인하세요`, url: `${SITE}#sale`, tag: `mc-sale-${today}` };
 }
 
 Deno.serve(async (req) => {
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
     for (const t of targets) {
       let g = groups.get(t.device_id);
       if (!g) { g = { device_id: t.device_id, endpoint: t.endpoint, p256dh: t.p256dh, auth: t.auth, items: [] }; groups.set(t.device_id, g); }
-      if (!g.items.some((i) => i.id === t.sale_id)) g.items.push({ id: t.sale_id, label: `${t.brand} ${t.title}` });
+      if (!g.items.some((i) => i.id === t.sale_id)) g.items.push({ id: t.sale_id, label: `${t.brand} ${t.title}`, kind: t.kind || "start" });
     }
     const list = [...groups.values()];
     if (dry) {
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
             { TTL: 6 * 60 * 60 },
           );
           const res = await fetch(d.endpoint, { method: d.method, headers: d.headers as Record<string, string>, body: d.body as BodyInit });
-          if (res.ok) for (const it of g.items) okLog.push({ device_id: g.device_id, sale_id: it.id, kind: "start" });
+          if (res.ok) for (const it of g.items) okLog.push({ device_id: g.device_id, sale_id: it.id, kind: it.kind });
           else if (res.status === 404 || res.status === 410) dead.push(g.device_id);
           else errors.push({ device_id: g.device_id, status: res.status, msg: (await res.text()).slice(0, 200) });
         } catch (e) { errors.push({ device_id: g.device_id, msg: String(e).slice(0, 200) }); }
