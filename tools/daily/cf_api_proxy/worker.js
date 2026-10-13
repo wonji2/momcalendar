@@ -24,7 +24,8 @@ const ANON = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 //   크기가 7KB 라 자주 채워도 월 10MB 수준이다.
 // 🔑 TTL 이 짧으면 손님이 아니라 **캐시를 다시 채우는 쪽**이 전송량을 먹는다. 계산: (1440/TTL분) × 지점 수(ICN·NRT·HKG 실측 3) × 그 URL 크기.
 //   5분이면 공구·핫딜만 월 3.3GB(한도 5GB 의 2/3). 실제 갱신 주기에 맞춰 늘렸다 — 공구는 밤 파싱이 3시간마다, 핫딜은 크론이 하루 몇 번이라
-//   30분·15분이어도 손님 화면이 늦어 보이지 않는다(월 1.1GB). 별칭은 거의 안 바뀌어 6시간. 급히 반영하려면 TTL 을 줄이고 배포한다.
+//   30분·15분이어도 손님 화면이 늦어 보이지 않는다(월 1.1GB). 별칭은 거의 안 바뀌어 6시간.
+//   🔑 급히 반영하려면 **node tools/daily/cf_api_proxy.mjs purge** (2026-10-14 신설). 배포만으로는 아래 공유 캐시단이 안 비워진다.
 const CACHE_TTL = { hotdeals: 900, gonggu: 900, banners_public: 180, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600 };
 const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block)(?:\?|$)/;
 // 공개 저장소 사진(배너·카드 이미지)은 파일 이름에 시각이 박혀 있어 내용이 바뀌지 않는다 → 하루 붙잡아 두고 브라우저에도 하루 물린다.
@@ -102,7 +103,11 @@ export default {
     //   Cloudflare 자체 캐시에 올라가고, Tiered Cache 가 켜져 있으면 아랫단이 윗단에서 받아 간다.
     //   ⚠ 🔴 **Range·Prefer 가 붙은 요청엔 절대 걸지 않는다.** Cloudflare 캐시는 **URL 로만** 구분하고
     //      사용자 지정 캐시 키는 Enterprise 전용이다 → 공구 목록처럼 **URL 이 같고 Range 로 쪽을 나누는** 요청에
-    //      걸면 1쪽 자리에 2쪽이 나간다. (공구를 여기 태우려면 먼저 limit/offset 을 URL 로 옮겨야 한다)
+    //      걸면 1쪽 자리에 2쪽이 나간다.
+//      ✅ 2026-10-14: 공구는 index.html 이 **limit/offset 을 URL 로** 옮겨 쪽마다 주소가 달라졌다 → 이제 여기 탄다.
+//         (Range 로 오는 옛 손님·도구는 그대로 shareable=false 로 빠진다)
+//   🔴 이 캐시는 **배포해도 안 비워진다** — 열쇠가 원서버 URL 이라 BUILD 가 안 들어간다.
+//      비우려면 node tools/daily/cf_api_proxy.mjs purge (deploy 끝에서도 자동으로 부른다).
     //   ⚠ 오류 응답은 캐시하지 않는다(4xx·5xx TTL 0).
     const shareable = ttl && !req.headers.get('range') && !req.headers.get('prefer');
     const cfOpt = shareable

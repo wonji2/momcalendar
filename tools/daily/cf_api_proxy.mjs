@@ -61,6 +61,32 @@ async function dnsHttps(host) {
   } catch (e) { return 'DoH 조회 실패 ' + e; }
 }
 
+// 🪣 캐시 비우기 (2026-10-14 신설)
+//   왜 필요한가: 캐시가 **두 겹**이다.
+//     ① caches.default  — cacheKey() 에 BUILD 가 들어 있어 **배포하면 저절로 버려진다**
+//     ② fetch 의 cf:{cacheEverything} — 지점끼리 나눠 쓰는 캐시. 열쇠가 **원서버 URL** 이라
+//        BUILD 가 안 들어간다 → **배포해도 TTL(공구·핫딜 900초)까지 옛 답을 들고 있다.**
+//   ②에 BUILD 를 넣을 방법이 없다 — URL 에 파라미터를 더하면 PostgREST 가 그걸 **칸 이름으로 알고 400** 을 내고,
+//   cf.cacheKey 로 열쇠를 따로 주는 건 Enterprise 전용이다. 그래서 **지우는 쪽**으로 푼다.
+//   ⚠ zone 전체를 비운다 — momcalendar.com 정적 파일도 같이 비워지지만 GitHub Pages 가 다시 주므로 해가 없다.
+async function purgeCache(token, zoneId) {
+  const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ purge_everything: true }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (j && j.success) { console.log('  ✅ Cloudflare 캐시 비움 (zone 전체)'); return true; }
+  const e = (j.errors || [])[0] || {};
+  console.log(`  🔴 캐시 비우기 실패 ${e.code || r.status}: ${e.message || '알 수 없음'}`);
+  if (String(e.code) === '10000') {
+    console.log('     → 토큰에 **Zone › Cache Purge › Purge** 권한이 없다.');
+    console.log('     → Cloudflare 대시보드 > 내 프로필 > API 토큰 > 그 토큰 편집 > 권한에 Zone·Cache Purge·Purge 추가');
+    console.log('     → 권한을 켜기 전까지는 공구·핫딜이 최대 900초(15분) 옛 답을 보일 수 있다.');
+  }
+  return false;
+}
+
 async function main() {
   const mode = process.argv[2] || 'check';
   const token = loadToken();
@@ -82,10 +108,11 @@ async function main() {
   if (mode === 'deploy') {
     if (!token) process.exit(1);
     // 1) Worker 올리기 (module 형식, multipart)
-    // 올릴 때마다 BUILD 를 지금 시각으로 — 캐시 열쇠가 바뀌어 **옛 캐시는 버려진다**(2026-10-01)
+    // 올릴 때마다 BUILD 를 지금 시각으로 — caches.default 의 열쇠가 바뀌어 그쪽 옛 캐시는 버려진다(2026-10-01).
+    // ⚠ 공유 캐시단(cf:cacheEverything)은 BUILD 가 안 들어간다 → 배포 끝에 purgeCache() 로 따로 비운다(2026-10-14).
     const build = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
     const src = fs.readFileSync(path.join(__dirname, 'cf_api_proxy', 'worker.js'), 'utf8').split('__BUILD__').join(build);
-    console.log('  build =', build, '(배포하면 옛 캐시는 버려진다)');
+    console.log('  build =', build, '(caches.default 는 이걸로 버려진다 · 공유 캐시단은 끝에서 purge)');
     const fd = new FormData();
     fd.append('metadata', new Blob([JSON.stringify({ main_module: 'worker.js', compatibility_date: '2025-09-01' })], { type: 'application/json' }));
     fd.append('worker.js', new Blob([src], { type: 'application/javascript+module' }), 'worker.js');
@@ -108,6 +135,17 @@ async function main() {
     const bct = await cf(token, 'GET', `/zones/${zone.id}/settings/browser_cache_ttl`).catch(() => null);
     if (bct && Number(bct.value) !== 0) { await cf(token, 'PATCH', `/zones/${zone.id}/settings/browser_cache_ttl`, { value: 0 }); console.log(`  ✅ zone 브라우저 캐시 ${bct.value}초 → 머리말 존중(0)`); }
     else console.log(`  ✅ zone ECH ${ech ? ech.value : '(설정 조회 불가 — 아래 HTTPS 레코드로 확인)'}`);
+
+    // 4) 🪣 공유 캐시단 비우기 — BUILD 로는 안 버려진다(purgeCache 주석 참고). 실패해도 배포는 성공이다.
+    await purgeCache(token, zone.id);
+  }
+
+  // 캐시만 비우기:  node tools/daily/cf_api_proxy.mjs purge
+  //   사장님이 DB 를 고치고 바로 확인하실 때. 배포 없이 손님 화면을 즉시 최신으로 만든다.
+  if (mode === 'purge') {
+    if (!token) process.exit(1);
+    const ok = await purgeCache(token, zone.id);
+    process.exit(ok ? 0 : 1);
   }
 
   // 4) 상태 점검 (토큰 유무와 무관하게 실제 응답으로 본다)

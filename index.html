@@ -1451,23 +1451,39 @@ async function loadData() {
     // 진행중(마감일이 오늘 이후)인 공구는 오픈일이 오래됐어도 모두 가져오기 + 예정/최근 공구
     // (마감일 없는 공구는 클라이언트에서 오픈+3일로 만료 판정 → 최근 3일치 오픈만 있으면 충분)
     const fromDate = dOff(-3);
-    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
-    // Supabase는 한 번에 최대 1000건만 반환 → Range 헤더로 끝까지 페이지네이션
+    // 🪣 쪽나누기는 **URL 의 limit·offset** 으로 한다 (2026-10-13). 전엔 Range 헤더를 썼는데
+    //   그러면 4쪽의 **URL 이 모두 같아** Cloudflare 의 지점 간 공유 캐시에 못 태운다 —
+    //   그 캐시는 **URL 로만** 구분하고 사용자 지정 캐시 키는 Enterprise 전용이다.
+    //   URL 로 옮기면 쪽마다 주소가 달라져 태울 수 있다(엣지 28곳이 각각 받아오던 것이 합쳐진다).
+    //   ⚠ `order` 에 **id 를 더한다** — open_date 만으론 같은 날짜 행의 앞뒤가 고정되지 않아
+    //     **한 번의 조회 안에서도** 쪽 경계가 어긋난다. id 는 PK 라 (open_date,id) 가 완전순서가 된다.
+    //     🔴 이것은 **한 스냅샷 안**의 불안정만 없앤다. 쪽마다 받아온 **시각이 다른** 문제는 못 막는다
+    //        → 그건 아래 `seen` 중복제거가 맡는다. 두 가지를 섞어 설명하면 안 된다.
+    //     **desc 인 이유**: 화면 순서 규칙(파트너→마감임박→오픈일)은 비교함수에 이미 있고, JS sort 가
+    //        안정정렬이라 **그 규칙으로도 안 갈리는 동률 칸**은 여기 DB 순서가 그대로 비친다.
+    //        asc 로 두면 **새로 파싱해 넣은 공구가 그 날짜 그룹 맨 아래로 깔린다**(실측 상위 200칸 중 171칸 변동).
+    //        desc = 새로 등록된 것이 위. ⚠ 동률 칸 순서는 원래 **정해진 규칙이 아니었다**(라이브는 임의 순서였다)
+    //        — 어느 쪽도 라이브를 그대로 재현하지 않는다. 바꾸려면 비교함수가 아니라 **여기**를 고친다.
+    //   ⚠ limit/offset 응답은 **200** 이다(Range 는 206 이었다).
+    //   실측 2026-10-13: 1000+1000+1000+706 = 3,706행 · 중복 0개.
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
     let rows = [];
-    const PAGE = 1000;
+    const seen = new Set();   // 쪽 경계 중복 거르개 (아래 설명)
+    const PAGE = 1000;   // Supabase 한 번에 최대 1000건
     for (let from = 0; ; from += PAGE) {
-      const to = from + PAGE - 1;
-      const res = await fetch(baseUrl, {
+      const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, {
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Range-Unit': 'items',
-          'Range': `${from}-${to}`
+          'Authorization': `Bearer ${SUPABASE_KEY}`
         }
       });
-      if (!res.ok && res.status !== 206) throw new Error('Supabase 오류 ' + res.status);
+      if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
       const page = await res.json();
-      rows = rows.concat(page);
+      // 🔴 id 로 거른다 — 쪽마다 **받아온 시각이 다르다**(쪽별로 캐시 항목·시계가 따로다).
+      //   그 사이 공구가 하나 들어오면 경계가 밀려 **같은 공구가 두 번** 오고, 하나 빠지면 **한 건이 조용히 사라진다.**
+      //   파싱이 3시간마다 넣고 규칙 0-M 이 내리므로 하루에 몇 번씩 그 창이 열린다(2026-10-13 검증 중 실제로 4건 들어왔다).
+      //   ⚠ 유실 쪽은 이걸로 못 막는다 — 다음 회차에 들어온다. 중복만 막는다.
+      for (const r of page) { if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); } }
       if (page.length < PAGE) break; // 마지막 페이지
       if (from > 50000) break; // 안전장치
     }
