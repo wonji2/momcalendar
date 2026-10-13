@@ -36,8 +36,8 @@ const BRANDS: Brand[] = [
   { name: "11번가", slug: "11st", alias: ["11번가"], url: "https://www.11st.co.kr/", aff: "11st" },
   { name: "G마켓", slug: "gmarket", alias: ["G마켓", "지마켓"], url: "https://www.gmarket.co.kr/", aff: "gmarket" },
   { name: "옥션", slug: "auction", alias: ["옥션"], url: "https://www.auction.co.kr/", aff: "auction" },
-  { name: "SSG닷컴", slug: "ssg", alias: ["SSG닷컴", "SSG.COM", "쓱닷컴", "신세계"], url: "https://www.ssg.com/" },
-  { name: "쿠팡", slug: "coupang", alias: ["쿠팡"], url: "https://www.coupang.com/" },
+  { name: "SSG닷컴", slug: "ssg", alias: ["SSG닷컴", "SSG.COM", "쓱닷컴", "신세계"], url: "https://www.ssg.com/", aff: "emart" },
+  { name: "쿠팡", slug: "coupang", alias: ["쿠팡"], url: "https://link.coupang.com/a/hOxW0BO2c8" },   // 쿠팡 홈 파트너스 링크(lptag AF9014060). 기획전 개별 링크는 coupang-hotdeal?deeplink= 로 발급
   { name: "컬리", slug: "kurly", alias: ["컬리", "마켓컬리"], url: "https://www.kurly.com/" },
   { name: "이마트", slug: "emart", alias: ["이마트", "이마트몰"], url: "https://www.emart.com/" },
   { name: "홈플러스", slug: "homeplus", alias: ["홈플러스"], url: "https://www.homeplus.co.kr/" },
@@ -47,6 +47,10 @@ const BRANDS: Brand[] = [
   { name: "스파오", slug: "spao", alias: ["스파오"], url: "https://spao.com/" },
   { name: "아디다스", slug: "adidas", alias: ["아디다스"], url: "https://www.adidas.co.kr/" },
   { name: "나이키", slug: "nike", alias: ["나이키"], url: "https://www.nike.com/kr/" },
+  { name: "W컨셉", slug: "wconcept", alias: ["W컨셉", "더블유컨셉"], url: "https://www.wconcept.co.kr/", aff: "wconcept" },
+  { name: "현대Hmall", slug: "hmall", alias: ["현대Hmall", "현대홈쇼핑", "H몰"], url: "https://www.hmall.com/", aff: "hmall" },
+  { name: "하이마트", slug: "himart", alias: ["하이마트", "롯데하이마트"], url: "https://www.e-himart.co.kr/", aff: "himart" },
+  { name: "풀무원", slug: "pulmuone", alias: ["풀무원샵", "풀무원"], url: "https://shop.pulmuone.co.kr/", aff: "pulmuone" },
   { name: "네이버쇼핑", slug: "naver", alias: ["네이버쇼핑", "네이버 쇼핑", "네이버플러스 스토어"], url: "https://shopping.naver.com/" },
 ];
 // 기사에서 행사 이름·성격을 알아보는 낱말
@@ -76,7 +80,13 @@ const decodeEnt = (s: string) =>
 type Item = { title: string; link: string; pub: string; source: string };
 async function rss(q: string, days: number): Promise<Item[]> {
   const u = `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${days}d`)}&hl=ko&gl=KR&ceid=KR:ko`;
-  const r = await fetch(u, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(10000) });
+  // 구글뉴스가 서버 IP 에 503 을 주는 일이 잦다(2026-10-13 묶음 1) — 3번까지 간격을 늘려 다시 시도한다
+  let r!: Response;
+  for (let i = 0; i < 3; i++) {
+    r = await fetch(u, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(10000) });
+    if (r.ok || (r.status !== 503 && r.status !== 429)) break;
+    await new Promise((res) => setTimeout(res, 2500 * (i + 1)));
+  }
   if (!r.ok) throw new Error("rss " + r.status);
   const x = await r.text();
   return [...x.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => {
