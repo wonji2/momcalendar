@@ -32,6 +32,8 @@ select 'sale_go', case when event_data like '%|aff' then 'aff' else 'plain' end,
 union all
 select 'one', event_type, count(*)::text from public.events where event_type in ('sale_band_click','sale_bell_add','sale_bell_del') and ${since} group by 2
 union all
+select 'trip_go', split_part(event_data,'|',1) || '|' || split_part(event_data,'|',2), count(*)::text from public.events where event_type='trip_go' and ${since} group by 2
+union all
 select 'search', case when event_data ~ '^\\s*\\{' and (event_data::jsonb->>'n')::int = 0 then 'zero' else 'hit' end, count(*)::text from public.events where event_type='search' and ${since} group by 2
 union all
 select 'tabs', event_data, count(*)::text from public.events where event_type='content_tab' and ${since} group by 2
@@ -59,7 +61,10 @@ const impMall = (imp.mall_block || 0) + (imp.mall_block_empty || 0);
 out.push(`  쇼핑몰 최저가 블록    ${String(impMall).padStart(6)} ${String(mallTotal).padStart(6)}  ${pct(mallTotal, impMall)}  (결과 없음 노출 ${imp.mall_block_empty || 0})`);
 out.push(`  홈 세일 띠            ${String(imp.sale_band || 0).padStart(6)} ${String(one.sale_band_click || 0).padStart(6)}  ${pct(one.sale_band_click || 0, imp.sale_band || 0)}`);
 out.push('');
+const tripGo = g('trip_go'), tripTotal = tripGo.reduce((s, [, n]) => s + n, 0), impTrip = (imp.trip_home || 0) + (imp.trip_sale || 0);
+out.splice(out.length - 1, 0, `  나들이 특가 블록      ${String(impTrip).padStart(6)} ${String(tripTotal).padStart(6)}  ${pct(tripTotal, impTrip)}  (홈 ${imp.trip_home || 0} · 세일탭 ${imp.trip_sale || 0})`);
 out.push('스트립 클릭 소스: ' + (stripClicks.map(([s, n]) => `${s} ${n}`).join(' · ') || '(없음)'));
+out.push('나들이 클릭(머천트|키워드): ' + (tripGo.map(([s, n]) => `${s} ${n}`).join(' · ') || '(없음)'));
 out.push('쇼핑몰 클릭: ' + (mallGo.map(([s, n]) => `${s} ${n}`).join(' · ') || '(없음)'));
 out.push(`세일탭 카드 클릭: 수익링크 ${sale.aff || 0} · 일반 ${sale.plain || 0} · 알림 켬 ${one.sale_bell_add || 0}`);
 out.push(`탭 이동: 공구 ${tabs.gonggu || 0} · 핫딜 ${tabs.hotdeal || 0} · 세일 ${tabs.sale || 0}`);

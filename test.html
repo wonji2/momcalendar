@@ -537,6 +537,17 @@ body.srch-suggest #searchDrop{display:block}
 .ms-b{border:1px solid #9CC4EE;background:#fff;color:#185FA5;border-radius:20px;min-height:40px;padding:0 16px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
 .ms-b:active{background:#E3F0FF}
 .ms-note{font-size:10px;color:#9AA7B4;margin-top:9px}
+.trip-box{margin:10px 12px 4px;padding:13px 12px 10px;background:#F1FAF4;border:1px solid #CFE8D8;border-radius:14px}
+.trip-h{font-size:14.5px;font-weight:800;color:#1F6B3A}
+.trip-s{font-size:12px;color:#5C7A67;margin-top:3px}
+.trip-chips{display:flex;gap:7px;overflow-x:auto;margin-top:10px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.trip-chips::-webkit-scrollbar{display:none}
+.trip-chip{flex:0 0 auto;min-height:40px;padding:0 15px;border:1px solid #9FD2B3;background:#fff;color:#1F6B3A;border-radius:20px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+.trip-chip:active{background:#DDF1E4}
+.trip-brands{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.trip-brand{flex:1 1 0;min-width:0;min-height:40px;padding:0 4px;border:1px solid #D6E4DB;background:#FAFFFB;color:#3B5A47;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.trip-brand:active{background:#E6F4EB}
+.trip-note{font-size:10px;color:#8AA395;margin-top:9px;text-align:center}
 .hs-left{position:absolute;left:0;right:0;bottom:0;background:rgba(31,41,51,.82);color:#fff;font-size:10.5px;font-weight:700;text-align:center;padding:3px 0}
 .sale-cd{color:#D85A30;font-weight:700;font-variant-numeric:tabular-nums}
 .sale-band{display:none;align-items:center;gap:8px;margin:10px 12px 0;padding:11px 12px;background:#E6F1FB;border:1px solid #C6DDF4;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1104,6 +1115,7 @@ window.slimAdClick=function(id){
   <div class="hs-row" id="hotStripRow"></div>
   <div class="hs-note">일부 링크는 제휴 활동으로 일정액의 수수료를 받습니다</div>
 </div>
+<div id="tripBlockHome"></div>
 <!-- 상태 탭 -->
 <div class="status-tabs" id="statusTabs">
   <button class="stab on-all" id="stab-all" data-st="all" onclick="toggleStab('all',this)">전체</button>
@@ -1234,6 +1246,7 @@ window.slimAdClick=function(id){
   <div class="hs-row" id="hotStripRow2"></div>
   <div class="hs-note">일부 링크는 제휴 활동으로 일정액의 수수료를 받습니다</div>
 </div>
+  <div id="tripBlockSale"></div>
   <div class="sale-foot">일정은 각 브랜드 공지 기준이며 변동될 수 있어요.<br>카드를 누르면 브랜드 공식 페이지로 이동해요.</div>
 </div>
 <!-- ===== /세일 일정 영역 ===== -->
@@ -2434,6 +2447,49 @@ function mallSearchGo(i){
 }
 
 // 지금 뜬 핫딜 스트립
+// ───── 🎡 나들이 특가 (2026-10-13 키즈노트 「어디가지」 참고 · 테스트) ─────
+//  링크프라이스 열린 머천트(2026-10-13 실측): 클룩·야놀자·마이리얼트립·아고다. 클룩 검색은 6개 키워드 모두 한국 티켓이 상위(서울랜드 6건·롯데월드 53·에버랜드 15·레고랜드 82…).
+//  키즈카페는 검색 상위가 대만·일본이라 뺐다. 끊김 점검: node tools/daily/aff_service_probe.mjs
+const MC_TRIP_KW=['레고랜드','서울랜드','롯데월드','에버랜드','아쿠아리움','워터파크'];
+const MC_TRIP_BRANDS=[
+  {m:'yanolja',    n:'🏨 야놀자',   u:'https://www.yanolja.com/'},
+  {m:'myrealtrip', n:'✈️ 마이리얼트립', u:'https://www.myrealtrip.com/'},
+  {m:'agoda',      n:'🛎 아고다',   u:'https://www.agoda.com/ko-kr/'}
+];
+function tripBlockHtml(surface){
+  var chips=MC_TRIP_KW.map(function(k,i){
+    return '<button type="button" class="trip-chip" onclick="tripGo(\'kw\','+i+',\''+surface+'\')">'+escHtml(k)+'</button>';
+  }).join('');
+  var brands=MC_TRIP_BRANDS.map(function(b,i){
+    return '<button type="button" class="trip-brand" onclick="tripGo(\'brand\','+i+',\''+surface+'\')">'+b.n+'</button>';
+  }).join('');
+  return '<div class="trip-box"><div class="trip-h">🎡 이번 주말 어디 갈까?</div>'
+    +'<div class="trip-s">입장권·이용권을 클룩에서 바로 비교해 보세요</div>'
+    +'<div class="trip-chips">'+chips+'</div>'
+    +'<div class="trip-brands">'+brands+'</div>'
+    +'<div class="trip-note">일부 링크는 제휴 활동으로 일정액의 수수료를 받습니다 · 가격은 각 사이트에서 확인하세요</div></div>';
+}
+function tripGo(kind,i,surface){
+  var url='', tag='';
+  if(kind==='kw'){
+    var kw=MC_TRIP_KW[i]; if(!kw) return;
+    url=mcLpUrl('klook','https://www.klook.com/ko/search/result/?query='+encodeURIComponent(kw));
+    tag='klook|'+kw;
+  }else{
+    var b=MC_TRIP_BRANDS[i]; if(!b) return;
+    url=mcLpUrl(b.m,b.u); tag=b.m+'|-';
+  }
+  try{ trackEvent('trip_go', tag+'|'+surface); }catch(_){}
+  openLink(url);
+}
+function tripBlockPaint(){
+  [['tripBlockHome','trip_home'],['tripBlockSale','trip_sale']].forEach(function(p){
+    var el=document.getElementById(p[0]); if(!el) return;
+    el.innerHTML=tripBlockHtml(p[1]);
+    try{ mcImpObserve('#'+p[0]+' .trip-box',p[1]); }catch(_){}
+  });
+}
+
 // 노출 기록: 면(surface)이 화면에 절반 이상 보였을 때 하루 1번만(events 표 용량 보호)
 function mcImpObserve(sel,surface){
   try{
@@ -2541,7 +2597,7 @@ function mcSaleBandGo(){
   try{ trackEvent('sale_band_click',''); }catch(_){}
   try{ switchContent('sale'); const s=document.getElementById('contentSeg'); if(s) s.scrollIntoView({block:'start',behavior:'smooth'}); }catch(_){}
 }
-document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ try{ mcHotStripLoad(); mcSaleBandLoad(); }catch(_){} },1200); });
+document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ try{ mcHotStripLoad(); mcSaleBandLoad(); tripBlockPaint(); }catch(_){} },1200); });
 
 // ───── 세일 일정 (sale_events · 공구 일정과 별개) ─────
 //  · 카드: 로고 · 행사명 · 기간 · D-day · ♡ 찜 · 🔔 시작일 아침 알림
