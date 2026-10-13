@@ -1,4 +1,4 @@
-# 핫이슈 감시 → 터졌으면 바로 한 편 쓰고 올린다 (2026-10-02 사용자 지시)
+﻿# 핫이슈 감시 → 터졌으면 바로 한 편 쓰고 올린다 (2026-10-02 사용자 지시)
 #   "내가 명령을 안해도 니가 1시간에 한번씩이든 핫이슈 터진거 있는지 보고 있으면 바로 글 올리는거 자동화해"
 # 한 시간에 한 번 윈도우 작업이 이것을 부른다.
 #   1) njob-hot-watch.mjs 로 지금 터진 것이 있는지 본다 (종료코드 10 = 있다)
@@ -87,8 +87,17 @@ $prompt = @"
 $promptFile = Join-Path $env:TEMP ("njob_hot_prompt_{0}.txt" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
 Set-Content -Path $promptFile -Value $prompt -Encoding utf8
 
+# 2026-10-13 고침 3가지 — 이 작업은 2026-10-02 지시 이후 11일간 한 번도 안 돌았다(예약작업 미등록).
+#  (1) PS 5.1 은 네이티브 exe 인자 안의 큰따옴표를 이스케이프하지 않는다 -> 프롬프트가 첫 따옴표
+#      (node ... "--only=...") 에서 끊겨 2,508자 중 1,274자만 claude 에 닿았다. bbhd_auto.ps1 과 같은 뿌리.
+#      실측 검증법: & $node -e "const a=process.argv.slice(1); console.log(a.length, a[0].length)" $promptArg
+#      -> 앞 숫자가 1 이어야 한다. 2 이상이면 그만큼 잘린 것이다.
+#  (2) --model 이 없어 기본 모델(Opus)로 돌 뻔했다 -> 사용량 규칙(예약작업은 sonnet 고정)대로 sonnet 을 박았다.
+#  (3) 이 파일은 반드시 **UTF-8 BOM** 으로 저장한다. BOM 이 없으면 PS 5.1 이 CP949 로 읽어
+#      프롬프트의 한글이 전부 깨지고, $j.제목 같은 한글 속성 이름도 못 찾아 빈 값이 된다.
 Say 'claude 를 불러 원고를 씁니다 (최대 40분)'
-$out = & $claude -p "$prompt" --permission-mode bypassPermissions --add-dir $draft --add-dir $sns 2>&1
+$promptArg = $prompt -replace '"', '\"'
+$out = & $claude -p $promptArg --model sonnet --permission-mode bypassPermissions --add-dir $draft --add-dir $sns 2>&1
 $tail = ($out | Select-Object -Last 20) -join "`n"
 Say "claude 끝 — $tail"
 Remove-Item $promptFile -Force -ErrorAction SilentlyContinue

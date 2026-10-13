@@ -1,4 +1,4 @@
-# 캡처 찌꺼기 청소 — 2026-10-02 신설
+﻿# 캡처 찌꺼기 청소 — 2026-10-02 신설
 # 사고: 10/2 오전 C 드라이브 여유가 0.3GB 까지 떨어져 원고 저장이 여러 번 실패했다.
 #       범인은 %TEMP%\playwright_chromiumdev_profile-* 고아 폴더 8.3GB.
 #       yt-capture·web-capture·ig-capture 가 돌 때마다 쌓이는데 아무도 치우지 않았다.
