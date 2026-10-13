@@ -537,6 +537,16 @@ body.srch-suggest #searchDrop{display:block}
 .ms-b{border:1px solid #9CC4EE;background:#fff;color:#185FA5;border-radius:20px;min-height:40px;padding:0 16px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
 .ms-b:active{background:#E3F0FF}
 .ms-note{font-size:10px;color:#9AA7B4;margin-top:9px}
+.hs-left{position:absolute;left:0;right:0;bottom:0;background:rgba(31,41,51,.82);color:#fff;font-size:10.5px;font-weight:700;text-align:center;padding:3px 0}
+.sale-cd{color:#D85A30;font-weight:700;font-variant-numeric:tabular-nums}
+.sale-band{display:none;align-items:center;gap:8px;margin:10px 12px 0;padding:11px 12px;background:#E6F1FB;border:1px solid #C6DDF4;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sale-band:active{background:#D5E7F8}
+.sb-ico{font-size:16px}
+.sb-txt{flex:1;min-width:0;font-size:13px;color:#2B3A4A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-txt b{font-weight:800;color:#185FA5}
+.sb-txt i{font-style:normal;font-weight:800;color:#D85A30;margin-left:4px}
+.sb-txt em{font-style:normal;color:#7A8794;font-size:12px}
+.sb-go{font-size:18px;color:#185FA5;font-weight:800}
 .hd-card,.ex-card{background:#fff;border:1px solid #ECECEC;border-radius:14px;padding:13px 14px;margin-bottom:9px;position:relative;cursor:pointer;display:block;text-decoration:none}
 .hd-card:active,.ex-card:active{transform:scale(.99)}
 .ex-card.ended{opacity:.55;background:#F7F7F7;border-color:#E8E8E8;cursor:default}
@@ -858,6 +868,10 @@ body.sheet-open{ overscroll-behavior-y: none; }
   <div class="sub-row" id="subRow"></div>
 </div>
 
+<!-- 🛍 지금 진행 중 세일 띠 (2026-10-13 키즈노트 참고·테스트) -->
+<div class="sale-band" id="saleBand" style="display:none" onclick="mcSaleBandGo()" role="button">
+  <span class="sb-ico">🛍</span><span class="sb-txt" id="saleBandTxt"></span><span class="sb-go">›</span>
+</div>
 <!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 -->
 <div class="content-seg" id="contentSeg">
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
@@ -2074,6 +2088,7 @@ async function renderSearchAll(){
       <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
     </div><div id="pastWrap"></div>`) + mallSearchHtml((fSearch||'').trim(), !html) + backHome;
   paintHearts();
+  try{ mcImpObserve('#searchAllView .ms-box', html?'mall_block':'mall_block_empty'); }catch(_){}
   // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
   if(!html) showPastResults((fSearch||'').trim());
 }
@@ -2138,6 +2153,7 @@ function applySearchMode(){
   if(!on && !wasOn) return;          // 검색 중도 아니고 켜져있지도 않았으면 아무것도 건드리지 않음
   sa.style.display = on?'block':'none';
   if(seg) seg.style.display = on?'none':'';
+  { const sb=document.getElementById('saleBand'); if(sb && on) sb.style.display='none'; else if(sb && !on && document.getElementById('saleBandTxt').innerHTML) sb.style.display='flex'; }
   if(on){
     document.getElementById('gongguWrap').style.display='none';
     document.getElementById('hotdealView').style.display='none';
@@ -2418,6 +2434,25 @@ function mallSearchGo(i){
 }
 
 // 지금 뜬 핫딜 스트립
+// 노출 기록: 면(surface)이 화면에 절반 이상 보였을 때 하루 1번만(events 표 용량 보호)
+function mcImpObserve(sel,surface){
+  try{
+    const el=document.querySelector(sel); if(!el) return;
+    const key='mc_imp_'+surface, day=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem(key)===day) return;
+    if(!('IntersectionObserver' in window)) return;
+    const io=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting && e.intersectionRatio>=0.5){
+          io.disconnect();
+          try{ localStorage.setItem(key,day); }catch(_){}
+          try{ trackEvent('imp', surface); }catch(_){}
+        }
+      });
+    },{threshold:[0.5]});
+    io.observe(el);
+  }catch(_){}
+}
 let _hsData=null, _hsLoading=false;
 function _hsPick(rows){
   const now=Date.now();
@@ -2425,13 +2460,14 @@ function _hsPick(rows){
   const score=h=>{
     const d=Math.min(Number(h.discount_rate)||0,60);
     const age=(now-new Date(h.created_at).getTime())/36e5;
-    return (h.is_lowest?20:0)+d+(age<30?10:0)-Math.min(age/12,10);
+    return (h.is_lowest?20:0)+d+(age<30?10:0)-Math.min(age/12,10)+((h.source==='coupang'||h.source==='goldbox')?25:0);
   };
   ok.sort((a,b)=>score(b)-score(a));
   const per={}, out=[];
   for(const h of ok){
     const s=h.source||'etc';
-    if((per[s]||0)>=3) continue;
+    const cap=(s==='coupang'||s==='goldbox')?4:2;
+    if((per[s]||0)>=cap) continue;
     per[s]=(per[s]||0)+1; out.push(h);
     if(out.length>=8) break;
   }
@@ -2448,14 +2484,21 @@ function mcHotStripPaint(){
       const mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
       const rate=(h.discount_rate&&h.discount_rate<=65)?`<span class="hs-rate">${h.discount_rate}%</span>`:'';
       const low=h.is_lowest?'<span class="hs-low">최저</span>':'';
+      let left='';
+      if(h.expires_at){
+        const ms=new Date(h.expires_at).getTime()-Date.now();
+        if(ms>0 && ms<24*36e5) left='<span class="hs-left">⏰ '+(ms<36e5?Math.max(1,Math.round(ms/6e4))+'분':Math.floor(ms/36e5)+'시간')+' 남음</span>';
+      }
       return `<a class="hs-c" role="button" onclick="mcHotStripGo(${h.id})">
-        <div class="hs-img"><img src="${hcEsc(src)}" alt="" loading="lazy" width="112" height="112" onerror="this.parentNode.classList.add('ph');this.remove()">${low}</div>
+        <div class="hs-img"><img src="${hcEsc(src)}" alt="" loading="lazy" width="112" height="112" onerror="this.parentNode.classList.add('ph');this.remove()">${low}${left}</div>
         <div class="hs-p">${rate}<b>${Number(h.price).toLocaleString('ko-KR')}원</b></div>
         <div class="hs-n">${hcEsc(h.title)}</div>
         <div class="hs-m">${hcEsc(mall)}</div></a>`;
     }).join('');
     if(wrap) wrap.style.display='block';
   });
+  mcImpObserve('#gongguWrap .hs-wrap','strip_home');
+  mcImpObserve('#saleView .hs-wrap','strip_sale');
 }
 async function mcHotStripLoad(){
   if(_hsData){ mcHotStripPaint(); return; }
@@ -2473,7 +2516,32 @@ function mcHotStripGo(id){
   try{ trackEvent('hotdeal_open', JSON.stringify({id:h.id, s:h.source||'', n:(h.title||'').slice(0,40), p:h.price||0, from:'strip'})); }catch(_){}
   openLink(h.link);
 }
-document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ try{ mcHotStripLoad(); }catch(_){} },1200); });
+// 세일 띠: 진행 중 중 마감이 가장 가까운 것(수익링크 우선), 없으면 가장 가까운 예정
+async function mcSaleBandLoad(){
+  try{
+    if(!_saleData){
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/sale_events?select=id,brand,slug,title,tag,start_date,end_date,url,aff_merchant&order=start_date.asc&limit=200`,
+        {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+      _saleData=r.ok?await r.json():[];
+    }
+    const all=(_saleData||[]).filter(e=>!e.end_date||e.end_date>=todayStr);
+    const ing=all.filter(e=>_saleDay(e.start_date)<=0 && e.end_date);
+    ing.sort((a,b)=>(a.end_date.localeCompare(b.end_date))||((b.aff_merchant?1:0)-(a.aff_merchant?1:0)));
+    const pick=ing[0]||all.filter(e=>_saleDay(e.start_date)>0)[0];
+    const band=document.getElementById('saleBand'), txt=document.getElementById('saleBandTxt');
+    if(!band||!txt||!pick) return;
+    const ds=_saleDay(pick.start_date), de=pick.end_date?_saleDay(pick.end_date):null;
+    const tail=ds>0?('D-'+ds+' 시작'):(de===0?'오늘 마감':(de!==null?('D-'+de+' 종료'):'진행중'));
+    txt.innerHTML='<b>'+escHtml(pick.brand)+' '+escHtml(pick.title)+'</b> <i>'+tail+'</i>'+(ing.length>1?' <em>외 '+(ing.length-1)+'건</em>':'');
+    band.style.display='flex';
+    try{ mcImpObserve('#saleBand','sale_band'); }catch(_){}
+  }catch(_){}
+}
+function mcSaleBandGo(){
+  try{ trackEvent('sale_band_click',''); }catch(_){}
+  try{ switchContent('sale'); const s=document.getElementById('contentSeg'); if(s) s.scrollIntoView({block:'start',behavior:'smooth'}); }catch(_){}
+}
+document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ try{ mcHotStripLoad(); mcSaleBandLoad(); }catch(_){} },1200); });
 
 // ───── 세일 일정 (sale_events · 공구 일정과 별개) ─────
 //  · 카드: 로고 · 행사명 · 기간 · D-day · ♡ 찜 · 🔔 시작일 아침 알림
@@ -2558,19 +2626,34 @@ function renderSale(){
       if(de!==null){ const tot=Math.max(1,_saleDay(e.end_date)-ds), done=Math.min(tot,Math.max(0,-ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
     }else pill=`<div class="sale-d ${kind}">D-${ds}<small>시작</small></div>`;
     const tag=e.tag?`<em>${e.tag}</em>`:'';
+    const cd=(kind==='ing' && de!==null && de<=1)?`<span class="sale-cd" data-end="${e.end_date}"></span>`:'';
     const s=SALEW[e.id]||{};
     // 알림: 시작 전 = 시작일 아침 9시 / 시작 후 = 마감 하루 전 아침 9시(종료일이 있고 아직 이틀 이상 남은 것만)
     const canBell=ds>0 || (de!==null && de>=2);
     const bell=canBell?`<button class="sale-ab${s.b?' on':''}" aria-label="${ds>0?'시작일 알림':'마감 알림'}" aria-pressed="${s.b?'true':'false'}" onclick="saleBell(${e.id},event)">${s.b?'🔔 알림 ON':'🔔 알림 받기'}</button>`:'';
-    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${e.brand} ${e.title}${tag}</div><div class="sale-m">${range}</div>${bar}${bell?'<div class="sale-act">'+bell+'</div>':''}</div>${pill}</div>`;
+    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${e.brand} ${e.title}${tag}</div><div class="sale-m">${range}${cd}</div>${bar}${bell?'<div class="sale-act">'+bell+'</div>':''}</div>${pill}</div>`;
   };
   let h='';
   if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
   if(soon.length) h+=`<div class="sale-sec">🟠 이번 주 시작 <i>${soon.length}</i></div>`+soon.map(e=>card(e,'soon')).join('');
   if(later.length) h+=`<div class="sale-sec">⚪ 이후 예정 <i>${later.length}</i></div>`+later.map(e=>card(e,'later')).join('');
   list.innerHTML=h;
+  try{ saleTickStart(); }catch(_){}
   try{ mcHotStripLoad(); }catch(_){}
 }
+// 마감 카운트다운 — 종료일 23:59:59(KST) 까지. 세일 탭이 보일 때만 1초마다 갱신
+let _saleTick=null;
+function saleTick(){
+  const els=document.querySelectorAll('#saleView .sale-cd');
+  if(!els.length){ if(_saleTick){ clearInterval(_saleTick); _saleTick=null; } return; }
+  els.forEach(el=>{
+    const ms=Date.parse(el.getAttribute('data-end')+'T23:59:59+09:00')-Date.now();
+    if(ms<=0){ el.textContent=''; return; }
+    const s=Math.floor(ms/1000), p=n=>String(n).padStart(2,'0');
+    el.textContent=' · ⏰ '+p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60)+' 남음';
+  });
+}
+function saleTickStart(){ saleTick(); if(!_saleTick) _saleTick=setInterval(function(){ const v=document.getElementById('saleView'); if(v && v.style.display!=='none') saleTick(); },1000); }
 function saleGo(id){
   const e=(_saleData||[]).find(x=>x.id===id); if(!e) return;
   trackEvent('sale_go', e.brand+'|'+e.title+(e.aff_merchant?'|aff':''));
