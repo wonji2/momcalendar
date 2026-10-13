@@ -495,7 +495,7 @@ body.srch-suggest #searchDrop{display:block}
 .sale-logo{flex:0 0 42px;width:42px;height:42px;border-radius:11px;border:1px solid #EEF1F5;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
 .sale-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .sale-body{flex:1;min-width:0}
-.sale-t{font-size:14px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all}
+.sale-t{font-size:14px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
 .sale-t em{font-style:normal;font-size:10.5px;font-weight:700;color:#D85A30;background:#FBEAE7;border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:1px}
 .sale-m{font-size:11.5px;color:#7A8794;margin-top:3px}
 .sale-bar{height:4px;border-radius:2px;background:#E6EEF7;margin-top:7px;overflow:hidden}
@@ -2471,7 +2471,7 @@ async function saleBell(id,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const cur=SALEW[id]||{w:0,b:0};
   if(cur.b){   // 끄기
-    cur.b=0; SALEW[id]=cur; if(!cur.w) delete SALEW[id];
+    cur.b=0; cur.w=0; delete SALEW[id];   // 찜 버튼이 없으니 알림만 끄면 항목 자체를 지운다(서버 행 삭제)
     _saleWSave(); _saleWPush(id); renderSale();
     try{ trackEvent('sale_bell_del', String(id)); }catch(_){}
     mcToast('알림을 껐어요');
@@ -2491,7 +2491,7 @@ async function saleBell(id,ev){
   _saleWSave(); _saleWPush(id); renderSale();
   try{ trackEvent('sale_bell_add', String(id)); }catch(_){}
   const sev=(_saleData||[]).find(x=>x.id===id);
-  mcToast(sev && _saleDay(sev.start_date)>0 ? '🔔 시작하는 날 아침 9시에 알려드려요' : '🔔 마감 하루 전 아침 9시에 알려드려요');
+  mcToast(sev && _saleDay(sev.start_date)>0 ? '🔔 시작하는 날과 마감 하루 전, 아침 9시에 알려드려요' : '🔔 마감 하루 전 아침 9시에 알려드려요');
 }
 // 세일 탭 바로 열기: momcalendar.com/#sale
 document.addEventListener('DOMContentLoaded', function(){
@@ -2500,6 +2500,17 @@ document.addEventListener('DOMContentLoaded', function(){
     switchContent('sale');
     var seg=document.getElementById('contentSeg');
     if(seg) setTimeout(function(){ try{ seg.scrollIntoView({block:'start'}); }catch(_){} }, 400);
+  }catch(_){}
+});
+
+// 이미 열려 있는 창에 알림이 #sale 로 이동시키면 DOMContentLoaded 는 다시 안 온다 → 해시 변경도 듣는다
+window.addEventListener('hashchange', function(){
+  try{
+    var t = location.hash==='#sale' ? 'sale' : location.hash==='#hotdeal' ? 'hotdeal' : '';
+    if(!t) return;
+    switchContent(t);
+    var seg=document.getElementById('contentSeg');
+    if(seg) setTimeout(function(){ try{ seg.scrollIntoView({block:'start'}); }catch(_){} }, 300);
   }catch(_){}
 });
 
