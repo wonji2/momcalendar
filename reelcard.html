@@ -495,7 +495,13 @@ const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace(
       const oi=new Set(opens.map(r=>r.id));
       ends=ends.filter(r=>!oi.has(r.id));   // 같은 건이 두 칼럼에 뜨지 않게
     }else{
-      opens=rows.filter(r=>(r.open_date===day || ourLive(r)) && keep(r)).sort(sortFn);
+      // 🔴 사장님 지시 2026-10-13: *"바겐슈타이거 우리별피자 무무키토 이런거 다 오늘 오픈은 아니자나 · 이제 진짜 오늘 오픈한것만 올려"*
+      //    → 「오늘 오픈」 칸은 open_date===오늘 뿐. 09-22 의 "우리 것은 진행중이면 싣는다" 는 평일 카드에서 폐기.
+      //    (겹치는 남의 공구를 내리는 clash 규칙은 그대로다 — 싣는 것만 멈춘다.)
+      //    예외는 사장님이 이름으로 찍어 주신 본인 공구뿐: *"내가 파는 요거트는 오늘 카드 올려"* → CARD_PIN_OWN. 마감일이 지나면 저절로 빠진다.
+      const CARD_PIN_OWN=[/요거쪽쪽/];
+      const pinnedOwn=r=>r.own && ourLive(r) && CARD_PIN_OWN.some(re=>re.test(String(r.name||'')));
+      opens=rows.filter(r=>(r.open_date===day || pinnedOwn(r)) && keep(r)).sort(sortFn);
       const openIds=new Set(opens.map(r=>r.id));
       //    ⚠ 우리 것이 오늘 마감이면 위 opens 에 이미 들어갔다 → 마감 칼럼에 또 넣지 않는다(카드에 두 번 뜬다).
       ends =rows.filter(r=>r.end_date===day && keep(r) && !openIds.has(r.id)).sort(sortFn);

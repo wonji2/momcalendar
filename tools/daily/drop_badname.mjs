@@ -63,6 +63,11 @@ export const badReason = (name) => {
   if (!s) return null;
   const hit = BAD.find(([re]) => re.test(s));
   if (hit) return hit[1];
+  // 🔴 2026-10-13 「세이펜 되었습니다 .ᐟ」 가 일주일 라이브에 있었다 — 문장 끝에 붙은 기호(.ᐟ · !! · ~ · 이모지) 때문에
+  //    어미 검사의 `$` 가 빗나갔다. 꼬리 기호를 뗀 꼴로 **문장형만** 한 번 더 본다(닫는 괄호·+·% 는 이름의 일부라 안 뗀다).
+  //    ⚠ `\p{L}` 로 보면 안 된다 — `ᐟ`(U+141F) 는 캐나다 음절문자라 "글자"로 잡힌다. 한글·영문·숫자만 이름으로 친다.
+  const bare = s.replace(/[^가-힣A-Za-z0-9)\]+%]+$/u, '');
+  if (bare && bare !== s) { const h2 = BAD.find(([re, why]) => String(why).startsWith('문장형') && re.test(bare)); if (h2) return h2[1]; }
   // 깨진 표기(따옴표·시각조각·머리번호·꺾쇠·꼬리기호)는 **버리지 않고 고친다**
   if (cleanJunkProbe(s)) return '군더더기';
   return null;

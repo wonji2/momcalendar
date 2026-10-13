@@ -241,6 +241,8 @@ const normalizeName = (s) => {
 };
 const goodName = (s) => {
   if (!s || s.length > 24 || TEASER.test(s) || SENTENCE.test(s) || SENTENCE2.test(s) || ENDING.test(s)) return false;
+  // 2026-10-13 「세이펜 되었습니다 .ᐟ」 — 꼬리 기호(.ᐟ · !! · 이모지)가 어미 검사를 가렸다. 기호를 뗀 꼴이 「…니다/…요」 문장이면 버린다.
+  { const bare = s.replace(/[^가-힣A-Za-z0-9)\]+%]+$/u, ''); if (bare !== s && /(니다|세요|어요|아요|해요|예요|이에요|네요|죠|잖아요)$/.test(bare)) return false; }
   if (/\s그\s|^그\s|그런|이런|저런|이거|요거/.test(s)) return false;
   const toks = s.split(/[\s&+·,\/]+/).filter(Boolean);
   if (!toks.length || !isBrand(toks[0])) return false;
