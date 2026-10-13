@@ -504,7 +504,7 @@ body.srch-suggest #searchDrop{display:block}
 .sale-d{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;width:56px;height:42px;text-align:center;border-radius:9px;padding:0;font-size:13px;font-weight:800;line-height:1.25}
 .sale-d small{display:block;font-size:10px;font-weight:600;opacity:.85}
 .sale-d.on{background:#E3F0FF;color:#185FA5}
-.sale-d.one{white-space:nowrap}
+.sale-d.one{white-space:nowrap;font-size:11px;font-weight:700}
 .sale-d.soon{background:#FFF1E0;color:#C25A00}
 .sale-d.later{background:#F1F3F6;color:#5B6773}
 .sale-foot{font-size:10.5px;color:#A5ADB6;text-align:center;line-height:1.6;margin:16px 4px 6px}
@@ -514,8 +514,8 @@ body.srch-suggest #searchDrop{display:block}
 .sale-ab.on{background:#E3F0FF;border-color:#9CC4EE;color:#185FA5}
 .sale-ab:active{transform:scale(.97)}
 .sale-bell{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-sizing:border-box;width:46px;height:42px;border:1px solid #D5E3F2;background:#fff;color:#4A5B6C;border-radius:9px;padding:0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.1;-webkit-tap-highlight-color:transparent}
-.sale-bell i{font-style:normal;font-size:15px;line-height:1}
-.sale-bell.on{background:#185FA5;border-color:#185FA5;color:#fff}
+.sale-bell svg{width:22px;height:22px;display:block}
+.sale-bell.on{background:#E3F0FF;border-color:#9CC4EE}
 .sale-bell:active{transform:scale(.96)}
 .hd-card,.ex-card{background:#fff;border:1px solid #ECECEC;border-radius:14px;padding:13px 14px;margin-bottom:9px;position:relative;cursor:pointer;display:block;text-decoration:none}
 .hd-card:active,.ex-card:active{transform:scale(.99)}
@@ -2406,6 +2406,11 @@ function _saleLogo(e){
   const alt=String(e.brand).replace(/"/g,'');
   return `<div class="sale-logo"><img src="sale/logos/${e.slug}.png" alt="${alt}" loading="lazy" onerror="this.parentNode.style.background='#185FA5';this.parentNode.textContent='${alt.slice(0,2)}'"></div>`;
 }
+function bellSvg(on){
+  return on
+   ? '<svg viewBox="0 0 24 24" fill="#185FA5" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>'
+   : '<svg viewBox="0 0 24 24" fill="none" stroke="#8FB4DD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+}
 function renderSale(){
   const list=document.getElementById('saleList'), chips=document.getElementById('saleChips');
   if(!list) return;
@@ -2439,7 +2444,7 @@ function renderSale(){
     const s=SALEW[e.id]||{};
     // 알림: 시작 전 = 시작일 아침 9시 / 시작 후 = 마감 하루 전 아침 9시(종료일이 있고 아직 이틀 이상 남은 것만)
     const canBell=ds>0 || (de!==null && de>=2);
-    const bell=canBell?`<button class="sale-bell${s.b?' on':''}" aria-label="${ds>0?'시작일 알림':'마감 알림'}" aria-pressed="${s.b?'true':'false'}" onclick="saleBell(${e.id},event)"><i>🔔</i>알림</button>`:'';
+    const bell=canBell?`<button class="sale-bell${s.b?' on':''}" aria-label="${ds>0?'시작일 알림':'마감 알림'}" aria-pressed="${s.b?'true':'false'}" onclick="saleBell(${e.id},event)">${bellSvg(!!s.b)}</button>`:'';
     return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${e.brand} ${e.title}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${bell}${pill}</div></div>`;
   };
   let h='';
