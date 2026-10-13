@@ -105,10 +105,14 @@ const breakable = (str, tail) => {                                              
   memo.set(k, ok); return ok;
 };
 const glued = (b, a) => { const p = b.indexOf(a), L = b.slice(0, p), R = b.slice(p + a.length); return (L || R) && breakable(L, false) && breakable(R, true); };
+// ⓪ 사람 판정 장부 — 가장 먼저 따른다. 세션이 REVIEW 를 볼 때마다 tools/daily/alias_collide_labels.json 에 쌓는다
+const LAB = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'daily', 'alias_collide_labels.json'), 'utf8'));
+const lab = (k, a, b) => (LAB[k][a] || []).some((e) => b.includes(e.toLowerCase()));
 const out = [];
 for (const [a, A] of T) {
-  if (A.n < 3 || A.first < 2) continue;                 // 브랜드 자리(첫 낱말)에 2번 이상 온 말만
-  if (generic(A)) continue;
+  const labeled = !!(LAB.deny[a] || LAB.same[a]);
+  if (!labeled && (A.n < 3 || A.first < 2)) continue;                 // 브랜드 자리(첫 낱말)에 2번 이상 온 말만
+  if (!labeled && generic(A)) continue;
   for (const [b, B] of T) {
     if (b === a || !b.includes(a)) continue;
     const together = B.rows.filter((i) => rows[i]._t.has(a)).length / B.n;          // ②
@@ -117,7 +121,9 @@ for (const [a, A] of T) {
     const oMj = overlap(A.mj, B.mj), oMn = overlap(A.mn, B.mn), js = jacc(A.sel, B.sel);
     const skip = new Set([a, b]), ctx = cos(ctxOf(A, skip), ctxOf(B, skip));
     let verdict, why;
-    if (together >= 0.3) { verdict = 'SAME'; why = '함께 쓰임'; }
+    if (lab('same', a, b)) { verdict = 'SAME'; why = '사람 판정'; }
+    else if (lab('deny', a, b)) { verdict = 'AUTO'; why = '사람 판정'; }
+    else if (together >= 0.3) { verdict = 'SAME'; why = '함께 쓰임'; }
     else if (b.startsWith(a) && JOSA.has(rest)) { verdict = 'SAME'; why = '조사·꼬리(' + rest + ')'; }
     else if (b.startsWith(a) && compound && oMn > 0) { verdict = 'SAME'; why = '합성어(' + rest + ')'; }
     else if (ctx >= 0.15) { verdict = 'SAME'; why = '문맥 낱말 겹침'; }
@@ -140,8 +146,7 @@ const fresh = auto.filter((x) => !have.has(x.a + '\u0001' + x.b));
 
 if (EVAL) {
   // 사람이 2026-10-13 에 판정한 쌍(scratchpad/_alias_deny_1013.mjs 의 M)과 견준다 — expand 는 부분문자열이라 b.includes(expand) 로 맞춘다
-  const src = fs.readFileSync(path.join(ROOT, 'scratchpad', '_alias_deny_1013.mjs'), 'utf8');
-  const M = eval('(' + src.slice(src.indexOf('const M=') + 8, src.indexOf('};', src.indexOf('const M=')) + 1) + ')'); M['헤라'] = ['헤라스'];
+  const M = LAB.deny;
   const isPos = (x) => (M[x.a] || []).some((e) => x.b.includes(e));
   const dom = out.filter((x) => M[x.a]);                // 사람이 본 낱말만
   const tp = dom.filter((x) => x.verdict === 'AUTO' && isPos(x)).length, fp = dom.filter((x) => x.verdict === 'AUTO' && !isPos(x));
@@ -151,6 +156,8 @@ if (EVAL) {
   console.log('\n[사람은 뺐는데 AUTO 아님] ' + fn.map((x) => `${x.a}⊄${x.b}→${x.verdict}:${x.why}(소${x.oMn},문맥${x.ctx})`).join(' · '));
 }
 
+// 전체 판정을 파일로도 남긴다(세션이 REVIEW 를 낱말별로 훑을 때 쓴다)
+fs.writeFileSync(path.join(ROOT, 'scratchpad', 'alias_collide_all.json'), JSON.stringify(out.map(({ a, b, verdict, why, an, bn, acat, bcat, dem, ex }) => ({ a, b, verdict, why, an, bn, acat, bcat, dem, ex }))));
 const line = (x) => `${x.a}(${x.an}·${x.acat}) ⊄ ${x.b}(${x.bn}·${x.bcat})  검색${x.dem} 대${x.oMj} 소${x.oMn} 문맥${x.ctx} [${x.why}]  예:${x.ex}`;
 const stamp = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 let applied = 0;
