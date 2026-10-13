@@ -62,7 +62,8 @@ export async function openRealChrome({ profile = REAL_PROFILE, port = 9341, visi
       const args = [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
         '--disable-features=Translate', '--lang=ko-KR'];
       if (!visible) args.push('--window-position=-3000,-3000', '--window-size=1280,900');
-      else args.push('--window-size=1100,900');
+      // 프로필에 화면 밖(-3000,-3000) 위치가 저장돼 있어 위치를 안 주면 창이 안 보인다(2026-10-13 사장님 '크롬창이 눈에 안 보여') — 항상 명시한다
+      else args.push('--window-position=80,40', '--window-size=1100,900');
       args.push(startUrl);
       child = spawn(exe, args, { detached: false, stdio: 'ignore' });
       child.on('error', () => {});
