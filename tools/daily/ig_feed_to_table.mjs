@@ -242,6 +242,7 @@ const normalizeName = (s) => {
 const goodName = (s) => {
   if (!s || s.length > 24 || TEASER.test(s) || SENTENCE.test(s) || SENTENCE2.test(s) || ENDING.test(s)) return false;
   // 2026-10-13 「세이펜 되었습니다 .ᐟ」 — 꼬리 기호(.ᐟ · !! · 이모지)가 어미 검사를 가렸다. 기호를 뗀 꼴이 「…니다/…요」 문장이면 버린다.
+  if (/\s(입니|합니|됩니|옵니|왔어|왔습|되었|됐어|됐습|했어|했습|오픈합|오픈했|시작합|시작했|열렸|엽니다|드립니다|드려요)/.test(s)) return false;   // 2026-10-13 「라꽁비에뜨 입니댜아아」 — 비튼 어미는 끝 글자로 못 잡는다. 뒤쪽 낱말의 서술어 줄기로 본다
   { const bare = s.replace(/[^가-힣A-Za-z0-9)\]+%]+$/u, ''); if (bare !== s && /(니다|세요|어요|아요|해요|예요|이에요|네요|죠|잖아요)$/.test(bare)) return false; }
   if (/\s그\s|^그\s|그런|이런|저런|이거|요거/.test(s)) return false;
   const toks = s.split(/[\s&+·,\/]+/).filter(Boolean);

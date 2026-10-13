@@ -670,7 +670,8 @@ function fitNames(){
     if(el.scrollWidth<=el.clientWidth) return;
     // 가운뎃점·+ 도 단어 구분으로 본다. "옴모크레용 6색·12색·스케치북" 처럼 한 덩어리로 붙어 있으면
     // 중간을 못 덜어내고 브랜드(옴모크레용)가 통째로 날아간다. (사장님 지적 2026-08-05)
-    let w=base.split(/[\s·・]+|\s*\+\s*/).filter(Boolean);
+    //    ⚠ 숫자 사이의 + 는 가르지 않는다 — 「수딩젤 1+1」이 「수딩젤 1 1」로 나갔다(2026-10-13 사장님 지적 카드).
+    let w=base.split(/[\s·・]+|\s*(?<![0-9])\+\s*|\s*\+\s*(?![0-9])/).filter(Boolean);
     // ① 끝에 붙은 판매 문구부터 턴다("… 공동구매 단독구성"). 앞을 먼저 지우면 이것만 남는다.
     while(w.length>1 && NAME_TAIL.test(w[w.length-1]) && el.scrollWidth>el.clientWidth){
       w.pop(); el.textContent=w.join(' ');
