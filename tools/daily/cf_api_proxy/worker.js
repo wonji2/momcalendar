@@ -96,10 +96,23 @@ export default {
     h.delete('host');                       // 원서버 이름은 fetch 가 알아서 넣는다
     h.set('X-Momcal-Proxy', '1');
     const hasBody = !(req.method === 'GET' || req.method === 'HEAD');
+    // 🪣 2026-10-13 — **지점끼리 나눠 쓰는 캐시**를 하나 더 건다.
+    //   caches.default(위) 는 Cloudflare 문서대로 **그 데이터센터 안에서만** 산다. 실측 10/12 엣지가 **28곳**이라
+    //   같은 목록을 28번 Supabase 까지 받아왔다(미스 5,400건 · 하루 241MB). fetch 에 cf 옵션을 주면
+    //   Cloudflare 자체 캐시에 올라가고, Tiered Cache 가 켜져 있으면 아랫단이 윗단에서 받아 간다.
+    //   ⚠ 🔴 **Range·Prefer 가 붙은 요청엔 절대 걸지 않는다.** Cloudflare 캐시는 **URL 로만** 구분하고
+    //      사용자 지정 캐시 키는 Enterprise 전용이다 → 공구 목록처럼 **URL 이 같고 Range 로 쪽을 나누는** 요청에
+    //      걸면 1쪽 자리에 2쪽이 나간다. (공구를 여기 태우려면 먼저 limit/offset 을 URL 로 옮겨야 한다)
+    //   ⚠ 오류 응답은 캐시하지 않는다(4xx·5xx TTL 0).
+    const shareable = ttl && !req.headers.get('range') && !req.headers.get('prefer');
+    const cfOpt = shareable
+      ? { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '300-399': 0, '400-499': 0, '500-599': 0 } } }
+      : {};
     let res;
     try {
       res = await fetch(ORIGIN + url.pathname + url.search, {
         method: req.method, headers: h, body: hasBody ? req.body : undefined, redirect: 'manual',
+        ...cfOpt,
       });
     } catch (e) {
       const eh = cors(req); eh.set('Content-Type', 'application/json');
