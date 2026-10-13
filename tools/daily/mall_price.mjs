@@ -14,11 +14,10 @@
 //
 // 몰별 실측 (2026-10-08):
 //   🟢 옥션  — 창 모드면 읽힌다 (가격 7,920원 확인)
-//   🔴 지마켓 — 창 모드로도 「잠시만 기다리십시오…」에서 막힌다. JSON 경로는 전부 403. **되살리려 하지 말 것**
+//   🟢 지마켓 — **2026-10-13 되살림.** playwright 가 직접 띄운 크롬은 막히지만, 자동화 표식 없는 「그냥 크롬」+CDP(real_chrome.mjs)는 열린다.
+//              (2026-10-08 의 「되살리지 말 것」은 이 방식을 몰랐을 때의 결론이었다)
 //   🟢 11번가·롯데온 — JSON-LD / DOM 으로 읽힌다
-import { chromium } from 'playwright';
-import path from 'node:path';
-import os from 'node:os';
+import { openRealChrome } from './real_chrome.mjs';
 
 const argv = process.argv.slice(2);
 const urls = argv.reduce((a, v, i) => (v === '--url' && argv[i + 1] ? [...a, argv[i + 1]] : a), []);
@@ -32,21 +31,14 @@ const mallOf = (u) => /auction\.co\.kr/.test(u) ? '옥션'
   : /coupang/.test(u) ? '쿠팡'
   : /ohou\.se/.test(u) ? '오늘의집' : '기타';
 
-const dir = path.join(os.homedir(), '.momcal-mallprice');
-let ctx;
-try {
-  ctx = await chromium.launchPersistentContext(dir, {
-    headless: HEADLESS, channel: 'chrome', viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled', '--window-position=-3000,-3000', '--window-size=1280,900'],
-  });
-} catch {
-  ctx = await chromium.launchPersistentContext(dir, {
-    headless: HEADLESS, viewport: { width: 1280, height: 900 },
-    args: ['--disable-blink-features=AutomationControlled', '--window-position=-3000,-3000'],
-  });
-}
+// 자동화 표식 없는 실제 크롬(프로필은 디스크에 남아 로그인이 유지된다) — 창은 화면 밖
+const rc = await openRealChrome({ visible: false });
+const ctx = rc.ctx;
 
+let _n = 0;
 for (const url of urls) {
+  // 지마켓은 같은 세션에서 연달아 열면 두 번째부터 봇체크에 걸린다(2026-10-13 실측) — 간격을 둔다
+  if (_n++ > 0 && /gmarket/.test(url)) await new Promise((r) => setTimeout(r, 9000));
   const mall = mallOf(url);
   const out = { ok: false, url, mall, name: null, price: null, before: null, img: null, soldout: false, note: '' };
   const pg = await ctx.newPage();
@@ -82,16 +74,27 @@ for (const url of urls) {
       const txt = (s) => { const e = document.querySelector(s); return e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : null; };
       const num = (s) => { const v = txt(s); if (!v) return null; const m = v.replace(/,/g, '').match(/\d{3,8}/); return m ? Number(m[0]) : null; };
       const fromBody = (re) => { const m = body.replace(/,/g, '').match(re); return m ? Number(m[1]) : null; };
+      // 지마켓: 본문에 「기존가 55,000원 … 39,090원 쿠폰가」 순서로 나온다
+      const flat = body.replace(/,/g, '').replace(/\s+/g, ' ');
+      const gmCoupon = (flat.match(/(\d{3,8})\s*원\s*쿠폰가/) || [])[1];
+      const gmSale = (flat.match(/(\d{3,8})\s*원\s*(?:판매가|할인가|즉시할인가)/) || [])[1];
+      const gmBefore = (flat.match(/기존가\s*(\d{3,8})\s*원/) || [])[1];
+      const gmIdx = flat.indexOf('기존가');
+      const gmLines = gmIdx >= 0 ? flat.slice(gmIdx, gmIdx + 420) : null;
       // 가격 — 몰별 셀렉터를 넓게 훑고, 없으면 본문에서 「판매가 … 원」
-      const price = num('.price_real') ?? num('strong.price_real') ?? num('.price_innerwrap .price_real')
+      const price = (location.hostname.includes('gmarket') && (gmCoupon || gmSale) ? Number(gmCoupon || gmSale) : null)
+        ?? num('.price_real') ?? num('strong.price_real') ?? num('.price_innerwrap .price_real')
         ?? num('[class*="price"] strong') ?? num('.sell_price') ?? num('.item_price')
         ?? fromBody(/판매가[^\d]{0,24}(\d{3,8})\s*원/) ?? fromBody(/(\d{3,8})\s*원/);
-      const before = num('.price_original') ?? num('del') ?? num('.price_before') ?? fromBody(/정상가[^\d]{0,20}(\d{3,8})/);
+      const before = (location.hostname.includes('gmarket') && gmBefore ? Number(gmBefore) : null)
+        ?? num('.price_original') ?? num('del') ?? num('.price_before') ?? fromBody(/정상가[^\d]{0,20}(\d{3,8})/);
       return {
         name: meta('og:title') || txt('h1') || txt('.itemtit') || txt('[class*="item_name"]') || document.title.replace(/\s*[-–|]\s*(옥션|G마켓|11번가|롯데ON).*$/, '').trim() || null,
         price, before: before && price && before > price ? before : null,
         img: meta('og:image') || (document.querySelector('[class*="item"] img, #mainImage img, .viewer_image img') || {}).src || null,
         soldout: /품절|판매중지|판매종료|일시품절/.test(body.slice(0, 5000)),
+        priceKind: location.hostname.includes('gmarket') ? (gmCoupon ? '쿠폰가' : gmSale ? '판매가' : null) : null,
+        lines: gmLines,
       };
     }));
     out.ok = !!(out.name && out.price);
@@ -102,4 +105,4 @@ for (const url of urls) {
   await pg.close().catch(() => {});
   console.log(JSON.stringify(out));
 }
-await ctx.close().catch(() => {});
+await rc.close();
