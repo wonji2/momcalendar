@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { pushOneFile } from './git_push_one.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 process.chdir(ROOT);
@@ -43,7 +44,7 @@ function sql(text) {
 
 // ── ① DB ──
 say(`\n■ 패턴 ${PAT}  (${DRY ? 'DRY' : '실행'})`);
-const TABLES = { gonggu: 'name,brand,item,caption', gonggu_archive: 'name,brand,item', hotdeals: 'title', experiences: 'title' };
+const TABLES = { gonggu: 'name,brand,item', gonggu_archive: 'name,brand,item', hotdeals: 'title', experiences: 'title' };
 const hits = {};
 for (const [t, cols] of Object.entries(TABLES)) {
   const cond = cols.split(',').map((c) => `coalesce(${c}::text,'') ~* ${q(PAT)}`).join(' or ');
@@ -95,12 +96,19 @@ if (DRY) { say('\n--dry: 여기까지. 실제로 하려면 --dry 를 빼고 다�
 for (const f of removed) fs.rmSync(f, { force: true });
 
 // ── ③ 커밋·푸시·라이브 ──
+// 🔒 **이 작업이 건드린 파일만** 올린다 (사장님 지시 2026-10-14, 2번안).
+//   전엔 `push origin main` 이라 main 전체가 나갔다 — 검토 중인 커밋이 있으면 그것까지 **지시 없이 배포**됐다.
+//   이제 git_push_one 이 origin/main 위에 **이 목록만 바꾼 커밋을 빚어** 그것만 민다. 자세한 건 그 파일 머리말.
+//   ⚠ 로컬 커밋은 그대로 남긴다(기록). 로컬 main 은 그만큼 뒤처지고 다음 pull --rebase 가 따라붙는다.
 const git = (...a) => spawnSync('git', a, { encoding: 'utf8' });
 git('add', '-A', '--', 'g', 'gg', 'p', 's', '공구브랜드.html', '공구제품.html', ...fs.readdirSync('.').filter((x) => /^sitemap-.*\.xml$/.test(x)));
 git('commit', '-q', '-m', `브랜드 삭제 요청 처리 — ${names.join('·') || slug}: 페이지 ${removed.length}장·사이트맵 ${smRemoved}·언급 ${scrubbed.length}파일 (brand_remove.mjs)\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`);
 if (!NOPUSH) {
-  const pl = git('pull', '-q', '--rebase', '--autostash', 'origin', 'main'); if (pl.status) say('  ⚠ pull: ' + pl.stderr.slice(0, 200));
-  const ps = git('push', '-q', 'origin', 'main'); say(ps.status ? '  🔴 push 실패: ' + ps.stderr.slice(0, 200) : '  커밋·푸시 완료');
+  const touched = [...new Set([...removed, ...scrubbed, ...fs.readdirSync('.').filter((x) => /^sitemap-.*\.xml$/.test(x))])]
+    .map((f) => String(f).split(path.sep).join('/'));
+  const msg = `브랜드 삭제 요청 처리 — ${names.join('·') || slug}: 페이지 ${removed.length}장·사이트맵 ${smRemoved}·언급 ${scrubbed.length}파일 (brand_remove.mjs)`;
+  const r = pushOneFile(touched, msg);
+  say(r.ok ? `  올림 완료 (${r.skipped || r.commit} · 파일 ${touched.length}개) — main 의 다른 커밋은 안 나갔다` : '  🔴 올리기 실패: ' + r.error);
 }
 const urls = removed.map((f) => `${SITE}/${f.split('/')[0]}/${encodeURIComponent(path.basename(f))}`);
 if (!NOPUSH && urls.length) {
