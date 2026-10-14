@@ -500,10 +500,12 @@ const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace(
       //    (겹치는 남의 공구를 내리는 clash 규칙은 그대로다 — 싣는 것만 멈춘다.)
       //    예외는 사장님이 이름으로 찍어 주신 본인 공구뿐: *"내가 파는 요거트는 오늘 카드 올려"* → CARD_PIN_OWN. 마감일이 지나면 저절로 빠진다.
       const CARD_PIN_OWN=[/요거쪽쪽/];
-      const pinnedOwn=r=>r.own && ourLive(r) && CARD_PIN_OWN.some(re=>re.test(String(r.name||'')));
+      //    🔴 2026-10-14 사장님 지적 *"요거쪽쪽 요거트 오늘 마감인데 왜 오늘 오픈에 있어"* → 찍어 둔 본인 공구라도
+      //       **오늘 마감이면 「오늘 마감」 칸**에 싣는다(아래 ends). 「오늘 오픈」 칸엔 오늘 오픈한 것 + 아직 진행 중인 찍힌 공구만.
+      const pinnedOwn=r=>r.own && ourLive(r) && CARD_PIN_OWN.some(re=>re.test(String(r.name||''))) && r.end_date!==day;
       opens=rows.filter(r=>(r.open_date===day || pinnedOwn(r)) && keep(r)).sort(sortFn);
       const openIds=new Set(opens.map(r=>r.id));
-      //    ⚠ 우리 것이 오늘 마감이면 위 opens 에 이미 들어갔다 → 마감 칼럼에 또 넣지 않는다(카드에 두 번 뜬다).
+      //    ⚠ 같은 건이 두 칼럼에 두 번 뜨지 않게 opens 에 든 것은 마감 칼럼에서 뺀다(오늘 마감인 찍힌 공구는 위에서 opens 에 안 들어가므로 여기 마감 칼럼에 실린다).
       ends =rows.filter(r=>r.end_date===day && keep(r) && !openIds.has(r.id)).sort(sortFn);
     }
     window.__TITLES=titles;
