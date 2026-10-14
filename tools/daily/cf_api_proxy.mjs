@@ -70,12 +70,19 @@ async function dnsHttps(host) {
 //   cf.cacheKey 로 열쇠를 따로 주는 건 Enterprise 전용이다. 그래서 **지우는 쪽**으로 푼다.
 //   ⚠ zone 전체를 비운다 — momcalendar.com 정적 파일도 같이 비워지지만 GitHub Pages 가 다시 주므로 해가 없다.
 async function purgeCache(token, zoneId) {
-  const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ purge_everything: true }),
-  });
-  const j = await r.json().catch(() => ({}));
+  // ⚠ 망 오류까지 여기서 삼킨다 — 캐시를 못 비운 것이 **배포 실패**로 보이면 안 된다(Worker 는 이미 올라갔다).
+  let r, j;
+  try {
+    r = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purge_everything: true }),
+    });
+    j = await r.json().catch(() => ({}));
+  } catch (e) {
+    console.log(`  🔴 캐시 비우기 실패(망): ${String(e).slice(0, 120)} — 배포 자체는 끝났다. 나중에 purge 만 다시 돌릴 것`);
+    return false;
+  }
   if (j && j.success) { console.log('  ✅ Cloudflare 캐시 비움 (zone 전체)'); return true; }
   const e = (j.errors || [])[0] || {};
   console.log(`  🔴 캐시 비우기 실패 ${e.code || r.status}: ${e.message || '알 수 없음'}`);
