@@ -76,6 +76,7 @@ cat <<'FTR'
 FTR
 } > daily/week.html
 printf '<!DOCTYPE html><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=./%s.html">' "$TODAY" > daily/index.html
-git add daily/week.html daily/index.html
-git diff --cached --quiet || { git commit -q -m "주간 블로그 세트 갱신 ($TODAY)"; git push -q; }
+# 🔒 이 두 파일만 올린다 — 전엔 `git push -q` 가 main 전체를 밀어, 검토 중인 커밋이 있으면
+#    주간 회차가 **지시 없이 그걸 배포**했다(사장님 지시 2026-10-14, 2번안). 자세한 건 git_push_one.mjs 머리말.
+node tools/daily/git_push_one.mjs daily/week.html daily/index.html "주간 블로그 세트 갱신 ($TODAY)" 
 echo WEEK_DONE

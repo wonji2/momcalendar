@@ -48,19 +48,53 @@ export function clearAlert(key) {
 //   Actions 러너는 이 PC 파일을 못 본다 → daily/_alert.txt 가 레포에 있어야 읽힌다.
 //   daily/ 는 원래 봇이 매일 커밋하는 폴더라 여기에 한 줄 더 얹는 것뿐이다.
 //   ⚠ 커밋 경로를 daily/_alert.txt 하나로 못박는다 — 이 레포는 공개 사이트라 add -A 를 쓰지 않는다.
+// 🔴🔴 알림은 **자기 파일 하나만** 올린다 — main 에 얹혀 가지 않는다 (사장님 지시 2026-10-14, 2번안)
+//
+//   사고: 전에는 `add daily/_alert.txt` → `commit` → **`push origin main`** 이었다.
+//   add 는 알림 파일 하나지만 **push 는 main 전체**라, main 에 검토 중인 커밋이 있으면
+//   다음 알림 회차(수시로 돈다)가 **지시 없이 그걸 라이브로 내보낸다.**
+//   2026-10-14 실측: 08:54 커밋이 09:05 알림 회차에 실려 **검증 전에 배포됐다.**
+//   규칙 0-A("배포해 라고 하실 때만")가 구조적으로 안 지켜지고 있었다.
+//
+//   그래서 git 배관(plumbing)으로 **origin/main 위에 알림 커밋을 따로 빚어 그것만** 민다.
+//     ① origin/main 의 트리를 임시 인덱스로 읽고  ② 알림 파일 한 칸만 바꿔  ③ write-tree
+//     ④ commit-tree 로 origin/main 을 부모로 커밋  ⑤ push <그 커밋>:main
+//   → **작업트리·로컬 main 을 건드리지 않는다.** 검토 중인 커밋은 절대 안 나간다.
+//     checkout·stash·rebase 가 없어 다른 세션이 파일을 고치고 있어도 안전하다
+//     (2026-09-27 에 pull --rebase 가 거부돼 알림이 3일간 26회 전부 실패한 사고도 같이 사라진다).
+//   ⚠ 로컬 main 은 이 커밋만큼 뒤처진다. 다음 pull --rebase 가 알아서 따라붙는다(파일 내용은 이미 같다).
 export function pushAlerts(note = '알림 갱신') {
-  const run = (args) => execFileSync('git', args, { cwd: REPO, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const run = (args, env) => execFileSync('git', args, {
+    cwd: REPO, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...(env || {}) },
+  }).trim();
+  const IDX = path.join(REPO, '.git', 'alert_index.tmp');
   try {
-    const changed = run(['status', '--porcelain', '--', 'daily/_alert.txt']).trim();
-    if (!changed) return { ok: true, skipped: '바뀐 것 없음' };
-    run(['add', 'daily/_alert.txt']);
-    run(['commit', '-m', `사장님 알림: ${note}`]);
-    // ⚠ 2026-09-27 사고: 다른 세션의 미커밋 파일이 있으면 pull --rebase 가 거부돼 push 가 3일간(26회) 전부 실패했다 → 알림이 사장님 카드에 안 올라갔다.
-    //    --autostash 로 미커밋을 잠시 치웠다 되돌린다. 그래도 실패하면 로그에 남아야 한다(호출부가 ⚠ 를 찍는다).
-    try { run(['pull', '--rebase', '--autostash', '-q']); } catch (e) { return { ok: false, error: 'pull 실패: ' + String(e.stderr || e.message).slice(0, 140) }; }
-    run(['push', '-q', 'origin', 'main']);
-    return { ok: true };
+    run(['fetch', '-q', 'origin', 'main']);
+    const base = run(['rev-parse', 'origin/main']);
+    // origin/main 에 들어 있는 알림 파일과 지금 파일이 같으면 할 일이 없다
+    let remote = null;
+    try { remote = run(['show', `${base}:daily/_alert.txt`]); } catch { remote = null; }
+    let local = null;
+    try { local = fs.readFileSync(FILE, 'utf8').trim(); } catch { local = null; }
+    if ((remote === null ? '' : remote.trim()) === (local === null ? '' : local)) return { ok: true, skipped: '바뀐 것 없음' };
+
+    try { fs.unlinkSync(IDX); } catch {}
+    const env = { GIT_INDEX_FILE: IDX };
+    run(['read-tree', base], env);
+    if (local === null) {
+      run(['update-index', '--force-remove', 'daily/_alert.txt'], env);   // 알림이 다 지워져 파일이 없다
+    } else {
+      const blob = run(['hash-object', '-w', '--', FILE]);
+      run(['update-index', '--add', '--cacheinfo', `100644,${blob},daily/_alert.txt`], env);
+    }
+    const tree = run(['write-tree'], env);
+    const commit = run(['commit-tree', tree, '-p', base, '-m', `사장님 알림: ${note}`]);
+    run(['push', '-q', 'origin', `${commit}:main`]);
+    return { ok: true, commit: commit.slice(0, 10) };
   } catch (e) {
     return { ok: false, error: String(e.stderr || e.message).slice(0, 160) };
+  } finally {
+    try { fs.unlinkSync(IDX); } catch {}
   }
 }
