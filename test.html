@@ -240,6 +240,38 @@ body.srch-suggest #searchDrop{display:block}
 .cat-count-bar{padding:0 16px 10px;background:#fff;font-size:12px;color:var(--t2)}
 .cat-count-bar b{color:var(--t1);font-weight:700}
 
+/* 🦧 기대되는 다음 공구 일정 (A안 2026-10-15) */
+.next-zone{padding:4px 16px 2px}
+.nx-head{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 8px}
+.nx-title{font-size:16px;font-weight:900;color:var(--t1);letter-spacing:-.02em}
+.nx-more{background:none;border:none;color:var(--t3);font:inherit;font-size:12px;cursor:pointer;padding:0}
+.nx-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.nx-scroll::-webkit-scrollbar{display:none}
+.nx-card{border:1px solid #E6EBF1;border-radius:16px;overflow:hidden;background:#fff;cursor:pointer}
+.nx-card.wide{flex:0 0 82%;scroll-snap-align:start}
+.nx-thumb{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#EFEAF5,#D9CCEB);display:flex;align-items:center;justify-content:center;color:#602090;font-weight:900;font-size:22px;overflow:hidden}
+.nx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.nx-pill{position:absolute;left:10px;top:10px;background:#FDE7EE;color:#E8336D;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;line-height:1.2}
+.nx-body{padding:10px 12px 12px}
+.nx-t{font-size:15px;font-weight:900;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nx-s{font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:9px}
+.nx-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nx-meta{font-size:11px;color:var(--t3);white-space:nowrap}
+.nx-heart{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #602090;background:#fff;color:#602090;border-radius:999px;padding:5px 10px 5px 8px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.nx-heart em{font-style:normal}
+.nx-heart svg{width:16px;height:16px}
+.nx-sheet{position:fixed;inset:0;z-index:1200;display:none}
+.nx-sheet.open{display:block}
+.nx-sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.nx-sheet-pnl{position:absolute;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:0;max-height:88%;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.nx-sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.nx-x{border:none;background:#F4F1FA;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:var(--t1)}
+.nx-wk{display:grid;grid-template-columns:48px 1fr;gap:10px;margin-top:14px}
+.nx-wl{font-size:11px;color:var(--t3);line-height:1.1;padding-top:4px}
+.nx-wl b{display:block;font-size:20px;color:var(--t1)}
+.nx-wk .nx-card{margin-bottom:10px}
+.nx-empty{text-align:center;color:var(--t3);padding:30px 0}
+body.srch-mode .next-zone{display:none!important}
 /* ⭐ 이웃셀러존 */
 .seller-zone{background:#fff;padding:14px 0 14px}
 /* 🎁 기획전·제휴 존 */
@@ -826,6 +858,17 @@ body.sheet-open{ overscroll-behavior-y: none; }
   </div>
   <div class="main-dots" id="mainDots"></div>
 </div>
+
+<!-- 🦧 기대되는 다음 공구 일정 (A안 · 사장님 2026-10-15 "A로 하고 … 이미 진행중인건 안넣고") -->
+<!--    momcal_ 의 **예정** 공구만(오픈일 > 오늘). 진행 중은 위 메인배너가 이미 보여준다.
+        「찜」= 기존 찜 그대로(누르면 오픈 알림 시트 → 오픈 아침 푸시). 알림받기라는 별도 개념을 만들지 않는다(사장님 "찜하면 알람 받을거냐고 뜨잖아").
+        사진은 banners(link=결제링크 또는 제목이 첫 낱말로 시작)에서, 없으면 이름 두 글자 자리표시. 전체일정 = 주차별 시트. 렌더 renderNextGonggu() -->
+<div class="next-zone" id="nextZone" style="display:none">
+  <div class="nx-head"><div class="nx-title">기대되는 다음 공구 일정🦧</div><button class="nx-more" onclick="openNextSheet()">전체일정 ›</button></div>
+  <div class="nx-scroll" id="nextScroll"></div>
+</div>
+<div class="nx-sheet" id="nextSheet" aria-hidden="true"><div class="nx-sheet-bg" onclick="closeNextSheet()"></div>
+  <div class="nx-sheet-pnl"><div class="nx-sheet-h"><div class="nx-title">기대되는 다음 공구 일정🦧</div><button class="nx-x" onclick="closeNextSheet()" aria-label="닫기">✕</button></div><div id="nextSheetBody"></div></div></div>
 
 <!-- ⭐ 맘캘린더 이웃셀러 (메인배너 아래, 흰 배경) -->
 <div class="seller-zone" id="sellerZone" style="display:none">
@@ -1454,6 +1497,7 @@ function bootView(){
     }catch(e){ try{ console.warn("deeplink fail", e); }catch(_){} }
   }
   if(!restoreViewState()) renderList();
+  try{ renderNextGonggu(); }catch(_){}   // 🦧 다음 공구 띠
 }
 let _loadTry=0, _loadBusy=false;   // 🔁 목록 자동 재시도 횟수(성공하면 0, 9 = online 복귀로 받은 것) · 진행 중 표시 (2026-09-24)
 async function loadData() {
@@ -3856,8 +3900,10 @@ function heartSvg(on){
    : '<svg viewBox="0 0 24 24" fill="none" stroke="#C9A8E8" stroke-width="2"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>';
 }
 function paintHearts(){
-  document.querySelectorAll('.wbtn[data-wid]').forEach(b=>{
-    b.innerHTML=heartSvg(isWished(b.getAttribute('data-wid')));
+  document.querySelectorAll('.wbtn[data-wid],.nx-heart[data-wid]').forEach(b=>{
+    const on=isWished(b.getAttribute('data-wid'));
+    if(b.classList.contains('nx-heart')){ const svg=b.querySelector('svg'); if(svg) svg.outerHTML=heartSvg(on); }
+    else b.innerHTML=heartSvg(on);
   });
 }
 function updateWishBadge(){
@@ -3872,7 +3918,8 @@ function toggleWish(id, btn, ev){
   if(on) WISH.add(id); else WISH.delete(id);
   saveWishLocal(); updateWishBadge();
   if(btn){
-    btn.innerHTML=heartSvg(on);
+    if(btn.classList.contains('nx-heart')){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=heartSvg(on); }   // 🦧 띠 버튼은 하트만 바꾼다(글자 보존)
+    else btn.innerHTML=heartSvg(on);
     btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop');
   } else paintHearts();
 
@@ -5090,6 +5137,7 @@ const DEFAULT_BANNERS=[
 async function loadBanners(){
   try{
     const _all=await window._mcBanners();
+    window._mcAllBanners=_all;   // 🦧 다음 공구 띠가 예정 공구 사진(show_from 미래 배너 포함)을 찾을 때 쓴다
     const rows=window._mcBannersOf(_all,'main');
     const now=new Date();
     const visible=(rows||[]).filter(b=>{
@@ -5102,8 +5150,44 @@ async function loadBanners(){
     MAIN_BANNERS=DEFAULT_BANNERS;
   }
   buildMainSlider();
+  try{ renderNextGonggu(); }catch(_){}   // 🦧 배너 사진이 도착한 뒤 다시 그린다
 }
 loadBanners();
+
+// 🦧 기대되는 다음 공구 일정 — A안 (사장님 2026-10-15). momcal_ 의 예정 공구만. 찜 = 기존 toggleWish(오픈 아침 알림).
+function _nxEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function _nxMD(d){ if(!d) return ''; const p=d.split('-'); return `${+p[1]}월 ${+p[2]}일`; }
+function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
+function _nxBanner(it){ const all=window._mcAllBanners||[]; const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
+function _nxCard(it, wide){
+  const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
+  const _pay=(it.payLink||'').trim(); const goUrl=/^https?:\/\//i.test(_pay)?_pay:`https://www.instagram.com/${it.insta}/`;
+  const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`;
+  const wc=(_wishCounts&&_wishCounts[it.id])||0;
+  return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
+    <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏰ ${_nxMD(it.openDate)} 오픈</span></div>
+    <div class="nx-body"><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
+    <div class="nx-row"><span class="nx-meta">${_nxMD(it.openDate)}~${_nxMD(it.endDate)}${wc?` · ♥ ${wc}`:''}</span>
+    <button class="nx-heart" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="찜하기">${heartSvg(isWished(it.id))}<em>찜하면 오픈 알림</em></button></div></div></div>`;
+}
+function renderNextGonggu(){
+  const zone=document.getElementById('nextZone'); if(!zone) return;
+  const items=_nxItems();
+  if(!items.length){ zone.style.display='none'; return; }
+  document.getElementById('nextScroll').innerHTML=items.map(it=>_nxCard(it,true)).join('');
+  zone.style.display='';
+}
+function openNextSheet(){
+  const items=_nxItems(); const body=document.getElementById('nextSheetBody'); if(!body) return;
+  const wk=d=>{ const [y,m,dd]=d.split('-').map(Number); const first=new Date(y,m-1,1).getDay(); return {m, w:Math.ceil((dd+first)/7)}; };
+  let html='', last='';
+  for(const it of items){ const w=wk(it.openDate), k=w.m+'-'+w.w; if(k!==last){ if(last) html+='</div></div>'; html+=`<div class="nx-wk"><div class="nx-wl">${w.m}월<b>${w.w}주</b></div><div>`; last=k; } html+=_nxCard(it,false); }
+  if(last) html+='</div></div>';
+  body.innerHTML=html||'<div class="nx-empty">예정된 공구가 아직 없어요</div>';
+  document.getElementById('nextSheet').classList.add('open'); document.body.style.overflow='hidden';
+  try{ trackEvent('next_sheet_open',''); }catch(_){}
+}
+function closeNextSheet(){ document.getElementById('nextSheet').classList.remove('open'); document.body.style.overflow=''; }
 
 // 🎁 기획전·제휴 존 (banners type=promo). 없으면 존 자체를 숨김.
 function _promoEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
