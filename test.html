@@ -245,19 +245,29 @@ body.srch-suggest #searchDrop{display:block}
 .nx-head{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 8px}
 .nx-title{font-size:16px;font-weight:900;color:var(--t1);letter-spacing:-.02em}
 .nx-more{background:none;border:none;color:var(--t3);font:inherit;font-size:12px;cursor:pointer;padding:0}
-.nx-scroll{display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;padding:2px 0 6px}   /* 2분할 (사장님 2026-10-15) */
+.nx-scroll{display:flex;align-items:stretch;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:2px 16px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}   /* 한 장씩 가로 캐러셀(맘맘 「두근두근 다음 핫딜 일정」 참고) — 손으로 밀 때만 넘어간다, 자동 넘김 없음 (사장님 2026-10-15) */
 .nx-scroll::-webkit-scrollbar{display:none}
-.nx-card{border:1px solid #E6EBF1;border-radius:16px;overflow:hidden;background:#fff;cursor:pointer}
-.nx-card.wide{min-width:0}
-.nx-thumb{position:relative;aspect-ratio:1/1;background:linear-gradient(135deg,#EFEAF5,#D9CCEB);display:flex;align-items:center;justify-content:center;color:#602090;font-weight:900;font-size:22px;overflow:hidden}
+.nx-card{display:flex;gap:12px;align-items:stretch;border:none;border-radius:0;overflow:visible;background:none;cursor:pointer}
+.nx-card.wide{flex:0 0 86%;scroll-snap-align:start;min-width:0}
+.nx-thumb{position:relative;flex:0 0 44%;align-self:stretch;min-height:0;border-radius:16px;background:linear-gradient(135deg,#EFEAF5,#D9CCEB);display:flex;align-items:center;justify-content:center;color:#602090;font-weight:900;font-size:22px;overflow:hidden}
 .nx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .nx-pill{position:absolute;left:8px;top:8px;background:rgba(20,18,24,.66);color:#fff;border-radius:8px;padding:4px 8px;font-size:12px;font-weight:900;line-height:1.2;letter-spacing:.01em;font-variant-numeric:tabular-nums}
-.nx-body{padding:9px 10px 10px}
-.nx-t{font-size:13.5px;font-weight:900;color:var(--t1);margin-bottom:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em;word-break:keep-all}   /* 2분할이라 2줄까지 (브랜드+품목이 잘리지 않게) */
-.nx-s{font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
-.nx-row{display:flex;flex-direction:column;align-items:stretch;gap:7px}
-.nx-meta{font-size:12px;font-weight:800;color:#602090;white-space:nowrap}
-.nx-heart{display:inline-flex;align-items:center;justify-content:center;width:100%;gap:5px;border:none;background:#EFEAF5;color:#602090;border-radius:999px;padding:8px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.nx-body{flex:1;min-width:0;padding:2px 0 0;display:flex;flex-direction:column;gap:6px}
+.nx-when{font-size:13px;font-weight:700;color:var(--t3);padding-bottom:6px;border-bottom:1px solid #E6EBF1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nx-t{font-size:15px;font-weight:900;color:var(--t1);line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.nx-s{font-size:12px;color:var(--t2);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.nx-row{display:flex;align-items:center;gap:8px;min-width:0;margin-top:auto}
+.nx-meta{display:none}
+.nx-heart{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;background:#EFEAF5;color:#602090;border-radius:999px;padding:8px 14px 8px 11px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s}
+.nx-g{margin-top:2px}
+.nx-g .lab{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums}
+.nx-g .lab b{color:var(--t1)}
+.nx-g .bar{height:6px;border-radius:999px;background:#EFEAF5;overflow:hidden;margin-top:4px}
+.nx-g .bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#7B3FB5,#602090);width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.nx-hot{color:#E8336D}
+.nx-dots{display:flex;gap:5px;justify-content:center;margin:6px 0 2px}
+.nx-dots i{width:6px;height:6px;border-radius:50%;background:#E6EBF1}
+.nx-dots i.on{background:#602090}
 .nx-heart.on{background:#602090;color:#fff}
 .nx-heart em{font-style:normal}
 .nx-heart svg{width:16px;height:16px}
@@ -270,7 +280,8 @@ body.srch-suggest #searchDrop{display:block}
 .nx-wk{display:grid;grid-template-columns:48px 1fr;gap:10px;margin-top:14px}
 .nx-wl{font-size:11px;color:var(--t3);line-height:1.1;padding-top:4px}
 .nx-wl b{display:block;font-size:20px;color:var(--t1)}
-.nx-wk .nx-card{margin-bottom:10px}
+.nx-wk .nx-card{margin-bottom:14px}
+.nx-thumb img{object-position:center}
 .nx-empty{text-align:center;color:var(--t3);padding:30px 0}
 body.srch-mode .next-zone{display:none!important}
 /* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
@@ -884,11 +895,12 @@ body.sheet-open{ overscroll-behavior-y: none; }
         「찜」= 기존 찜 그대로(누르면 오픈 알림 시트 → 오픈 아침 푸시). 알림받기라는 별도 개념을 만들지 않는다(사장님 "찜하면 알람 받을거냐고 뜨잖아").
         사진은 banners(link=결제링크 또는 제목이 첫 낱말로 시작)에서, 없으면 이름 두 글자 자리표시. 전체일정 = 주차별 시트. 렌더 renderNextGonggu() -->
 <div class="next-zone" id="nextZone" style="display:none">
-  <div class="nx-head"><div class="nx-title">기대되는 다음 공구 일정🦧</div><button class="nx-more" onclick="openNextSheet()">전체일정 ›</button></div>
+  <div class="nx-head"><div class="nx-title">기대되는 다음 공구 일정🔔</div><button class="nx-more" onclick="openNextSheet()">전체일정 ›</button></div>
   <div class="nx-scroll" id="nextScroll"></div>
+  <div class="nx-dots" id="nextDots"></div>
 </div>
 <div class="nx-sheet" id="nextSheet" aria-hidden="true"><div class="nx-sheet-bg" onclick="closeNextSheet()"></div>
-  <div class="nx-sheet-pnl"><div class="nx-sheet-h"><div class="nx-title">기대되는 다음 공구 일정🦧</div><button class="nx-x" onclick="closeNextSheet()" aria-label="닫기">✕</button></div><div id="nextSheetBody"></div></div></div>
+  <div class="nx-sheet-pnl"><div class="nx-sheet-h"><div class="nx-title">기대되는 다음 공구 일정🔔</div><button class="nx-x" onclick="closeNextSheet()" aria-label="닫기">✕</button></div><div id="nextSheetBody"></div></div></div>
 
 <!-- ⭐ 맘캘린더 이웃셀러 (메인배너 아래, 흰 배경) -->
 <div class="seller-zone" id="sellerZone" style="display:none">
@@ -5228,25 +5240,34 @@ function _nxDday(d){ const a=new Date(todayStr+'T00:00:00'), b=new Date(d+'T00:0
 function _nxHeart(on){ return on
    ? '<svg viewBox="0 0 24 24" fill="#ffffff"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'
    : '<svg viewBox="0 0 24 24" fill="none" stroke="#7B3FB5" stroke-width="2"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'; }
-function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=_nxHeart(on); btn.classList.toggle('on',!!on); const em=btn.querySelector('em'); if(em) em.textContent=on?'알림 받는 중':'찜하고 알림받기'; btn.setAttribute('aria-label',on?'알림 받는 중 (누르면 찜 해제)':'찜하고 알림받기'); }
+function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=_nxHeart(on); btn.classList.toggle('on',!!on); btn.setAttribute('aria-label',on?'찜 해제':'찜하고 오픈 알림 받기');
+  // 찜 수 그래프도 같이 ±1 (서버 wish_counts 는 다음 로드 때 맞춰진다)
+  const g=btn.closest('.nx-card')?.querySelector('.nx-g'); if(g && g.dataset.on!==String(!!on)){ g.dataset.on=String(!!on); g.dataset.n=Math.max(0,(Number(g.dataset.n)||0)+(on?1:-1)); } _nxGraphRefresh(); }
+// 💜 찜 N명 + 얇은 바 — 바 길이는 띠 안에서 가장 많은 공구를 100% 로 둔 비율, 20명↑ 🔥 (사장님 2026-10-15 1안)
+function _nxGraph(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; const on=isWished(it.id); const n=base+((on&&!base)?1:0); return `<div class="nx-g" data-n="${n}" data-on="${on}"><div class="lab"></div><div class="bar"><i></i></div></div>`; }
+function _nxGraphRefresh(){ const gs=[...document.querySelectorAll('.nx-g')]; if(!gs.length) return; const max=Math.max(1,...gs.map(g=>Number(g.dataset.n)||0)); gs.forEach(g=>{ const n=Number(g.dataset.n)||0; const hot=n>=20; g.querySelector('.lab').innerHTML=`${hot?'<span class="nx-hot">🔥</span>':'💜'} 찜 <b>${n}명</b>`; const i=g.querySelector('.bar i'); if(i) i.style.width=Math.max(n?8:0,Math.round(n/max*100))+'%'; }); }
 function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=window._mcAllBanners||[]; const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
 function _nxCard(it, wide){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
-  const _pay=(it.payLink||'').trim(); const goUrl=/^https?:\/\//i.test(_pay)?_pay:`https://www.instagram.com/${it.insta}/`;
+  // 오픈 전엔 무조건 셀러 인스타(예고글·팔로우), 오픈일부터 판매링크 (사장님 2026-10-15 "누르면 내 인스타로 오게")
+  const _pay=(it.payLink||'').trim(); const goUrl=(it.openDate>todayStr || !/^https?:\/\//i.test(_pay))?`https://www.instagram.com/${it.insta}/`:_pay;
   const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`;
   const on=isWished(it.id);
   return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
     <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏳ D-${_nxDday(it.openDate)}</span></div>
-    <div class="nx-body"><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
-    <div class="nx-row"><span class="nx-meta">${_nxMDs(it.openDate)} 오픈 예정</span>
-    <button class="nx-heart${on?' on':''}" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="찜하고 알림받기">${_nxHeart(on)}<em>${on?'알림 받는 중':'찜하고 알림받기'}</em></button></div></div></div>`;
+    <div class="nx-body"><div class="nx-when">🕐 ${_nxMDs(it.openDate)} 오픈</div><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
+    <div class="nx-row"><button class="nx-heart${on?' on':''}" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="${on?'찜 해제':'찜하고 오픈 알림 받기'}">${_nxHeart(on)}<em>찜</em></button></div>
+    ${_nxGraph(it)}</div></div>`;
 }
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
   if(!items.length){ zone.style.display='none'; return; }
-  document.getElementById('nextScroll').innerHTML=items.map(it=>_nxCard(it,true)).join('');
+  const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCard(it,true)).join(''); sc.scrollLeft=x;
+  const pages=items.length; document.getElementById('nextDots').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i${i===0?' class="on"':''}></i>`).join(''):'';
+  if(!sc._nxDots){ sc._nxDots=true; sc.addEventListener('scroll',function(){ const w=this.querySelector('.nx-card'); if(!w) return; const page=Math.round(this.scrollLeft/(w.offsetWidth+12)); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===page)); },{passive:true}); }
+  setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
 }
 function openNextSheet(){
@@ -5255,7 +5276,7 @@ function openNextSheet(){
   let html='', last='';
   for(const it of items){ const w=wk(it.openDate), k=w.m+'-'+w.w; if(k!==last){ if(last) html+='</div></div>'; html+=`<div class="nx-wk"><div class="nx-wl">${w.m}월<b>${w.w}주</b></div><div>`; last=k; } html+=_nxCard(it,false); }
   if(last) html+='</div></div>';
-  body.innerHTML=html||'<div class="nx-empty">예정된 공구가 아직 없어요</div>';
+  body.innerHTML=html||'<div class="nx-empty">예정된 공구가 아직 없어요</div>'; setTimeout(_nxGraphRefresh,40);
   document.getElementById('nextSheet').classList.add('open'); document.body.style.overflow='hidden';
   try{ trackEvent('next_sheet_open',''); }catch(_){}
 }
