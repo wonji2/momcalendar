@@ -36,7 +36,9 @@ export function pushOneFile(files, message, opts = {}) {
   const list = Array.isArray(files) ? files : [files];
   const repo = opts.repo || REPO;
   const branch = opts.branch || 'main';
-  const idx = path.join(repo, '.git', `push_one_${process.pid}.idx`);
+  // 워크트리에선 .git 이 폴더가 아니라 파일이라 .git/ 밑에 못 쓴다(2026-10-15 실측: 'Unable to create .git/push_one_N.idx.lock') → 실제 git dir 을 묻는다
+  const gitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], { cwd: repo, encoding: 'utf8' }).trim();
+  const idx = path.join(gitDir, `push_one_${process.pid}.idx`);
   const run = (args, env) => execFileSync('git', args, {
     cwd: repo, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(env || {}) },
