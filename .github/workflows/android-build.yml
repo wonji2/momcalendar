@@ -51,6 +51,14 @@ jobs:
           echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
           cat ~/.bubblewrap/config.json
           ls "$ANDROID_HOME" | head -20
+          # 🔴 Bubblewrap 은 <SDK>/tools/bin/sdkmanager (없으면 <SDK>/bin/sdkmanager) 를 찾고, 없으면
+          #    "The provided androidSdk isn't correct." 로 멈춘다(2026-10-15 1회차 실패). 러너 SDK 는 cmdline-tools/latest 뿐이라 링크로 잇는다.
+          #    sdkmanager 는 --sdk_root 를 받으므로 위치가 달라도 build-tools 36.1.0 을 $ANDROID_HOME 에 제대로 깐다.
+          if [ ! -e "$ANDROID_HOME/tools" ]; then
+            sudo ln -sfn "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools" || ln -sfn "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
+          fi
+          ls -la "$ANDROID_HOME/tools/bin/sdkmanager"
+          yes | "$ANDROID_HOME/tools/bin/sdkmanager" --licenses --sdk_root="$ANDROID_HOME" >/dev/null 2>&1 || true
 
       - name: 업로드 키 복원 (시크릿 → 파일)
         working-directory: android-app
