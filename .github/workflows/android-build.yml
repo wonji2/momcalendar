@@ -70,6 +70,8 @@ jobs:
       - name: versionCode 반영
         working-directory: android-app
         run: |
+          # 검증자 지적(2026-10-15): 빈값→0, 글자→NaN 이 그대로 들어갔다. 양의 정수만 받는다.
+          [[ "${{ inputs.versionCode }}" =~ ^[1-9][0-9]*$ ]] || { echo "🔴 versionCode 는 1 이상의 정수여야 한다: '${{ inputs.versionCode }}'"; exit 1; }
           node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));m.appVersionCode=Number('${{ inputs.versionCode }}');m.appVersion='1.0.'+m.appVersionCode;m.appVersionName=m.appVersion;fs.writeFileSync('twa-manifest.json',JSON.stringify(m,null,2));console.log('version',m.appVersion,m.appVersionCode)"
 
       - name: 안드로이드 프로젝트 생성 (bubblewrap update)
@@ -90,8 +92,8 @@ jobs:
         with:
           name: momcalendar-android-v${{ inputs.versionCode }}
           path: |
-            android-app/*.aab
-            android-app/*.apk
+            android-app/app-release-bundle.aab
+            android-app/app-release-signed.apk
             android-app/twa-manifest.json
           retention-days: 30
           if-no-files-found: error
