@@ -539,6 +539,7 @@ body.srch-mode .next-zone{display:none!important}
 .content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
 /* 📱 앱 모드 (기획서 사업문서/앱_화면기획서_2026-10-15.md · ?app=1 / TWA / 네이티브) — 세그먼트는 CSS 로만 숨긴다(applySearchMode 가 인라인을 비우므로 인라인 금지), DOM 은 switchContent 가 참조하니 지우지 않는다 */
 body.app-mode #contentSeg{display:none!important}
+body:not(.app-mode) #notiCard,body:not(.app-mode) #promoCard{display:none!important}   /* 앱 모드 전용 (웹은 그대로) */
 body.app-mode{font-family:"Tossface",'Noto Sans KR',sans-serif}   /* 이모지만 토스 스타일(OFL) — 글자는 그대로 Noto Sans KR */
 body.app-mode{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 body.app-mode .chat-fab-wrap{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
@@ -590,7 +591,7 @@ body.srch-mode .app-tabbar{display:none!important}
 .sale-wish{flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:40px;height:42px;border:1px solid #E6D9F2;background:#fff;border-radius:11px;font-size:18px;color:#C9A8E8;cursor:pointer;font-family:inherit}
 .sale-wish.on{background:#602090;border-color:#602090;color:#fff}
 .sale-share{display:flex;gap:8px;margin:0 0 12px}
-.sbtn{flex:1;border:none;border-radius:16px;height:52px;padding:0 12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;transition:transform .08s}
+.sbtn{flex:1;border:none;border-radius:16px;height:56px;padding:0 12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;transition:transform .08s}
 .sbtn:active{transform:scale(.96)}.sbtn.weak{background:#EFEAF5;color:#602090}.sbtn.primary{background:#602090;color:#fff}
 .cal-share-row{padding:8px 12px 0}
 /* 👤 내정보 */
@@ -2366,6 +2367,7 @@ function applySearchMode(){
     document.getElementById('hotdealView').style.display='none';
     document.getElementById('expView').style.display='none';
     { const sv=document.getElementById('saleView'); if(sv) sv.style.display='none'; }
+    { const mv=document.getElementById('meView'); if(mv) mv.style.display='none'; }   // 👤 앱 모드 내정보도 숨긴다 (검증자 2026-10-16)
     renderSearchAll();
   }else{
     switchContent(_ctPrev||'gonggu');
@@ -2731,6 +2733,8 @@ function appModeInit(){
   try{ loadPromoCard(); }catch(_){}
   // ?sale=YYYY-MM → 세일 탭 그 달 (공유 링크)
   try{ const s=new URLSearchParams(location.search).get('sale'); if(s&&/^\d{4}-\d{2}$/.test(s)){ SALE_YM=s; setTimeout(()=>switchContent('sale'),300); } }catch(_){}
+  // ?week=YYYY-MM-DD → 공구 탭 캘린더에서 그 날을 연다 (공구 달력 공유 링크). DATA 가 오기 전이면 잠시 기다린다
+  try{ const w=new URLSearchParams(location.search).get('week'); if(w&&/^\d{4}-\d{2}-\d{2}$/.test(w)){ let n=0; const go=()=>{ if(typeof DATA==='undefined'||!DATA.length){ if(n++<40) return setTimeout(go,250); return; } try{ switchContent('gonggu'); const [y,m]=w.split('-').map(Number); calMonth=new Date(y,m-1,1); switchTab('cal'); pickCalDay(w); }catch(e){ console.error('week route',e); } }; setTimeout(go,300); } }catch(_){}
 }
 document.addEventListener('DOMContentLoaded', appModeInit);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{ renderNotiCard(); }catch(_){} } });
@@ -2816,7 +2820,7 @@ function renderMe(){
   <div class="me-stats"><button onclick="goCalMine()"><b>${wishN}</b><small>찜한 공구</small></button><button onclick="openWnSheet()"><b>${noti?'켜짐':'꺼짐'}</b><small>오픈 알림</small></button><button onclick="openAttendSheet()"><b>💜</b><small>출석 체크</small></button></div>
   <a class="me-cafe" href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener"><div class="pic">☕</div><div><small>네이버 카페 17,000명</small><b>맘캘 카페 가입하고 출석 이벤트 참여</b></div></a>
   <div class="me-rows"><div class="h">내 활동</div>
-    <button onclick="switchContent('gonggu');setTimeout(()=>{const b=document.querySelector('.stab[data-v=wish],#statusTabs [data-v=wish]');if(b)b.click();},50)"><span>💜 내 찜 목록</span><span class="chev">›</span></button>
+    <button onclick="switchContent('gonggu');switchTab('list');setTimeout(()=>{const b=document.getElementById('stab-wish');if(b)b.click();},50)"><span>💜 내 찜 목록</span><span class="chev">›</span></button>
     <button onclick="goCalMine()"><span>📅 내 공구 캘린더</span><span class="chev">›</span></button>
     <button onclick="exportWishIcs()"><span>📤 내 폰 캘린더 저장</span><span class="chev">›</span></button>
     <button onclick="openWnSheet()"><span>🔔 오픈 알림 설정</span><span class="chev">${noti?'켜짐 ›':'꺼짐 ›'}</span></button>
