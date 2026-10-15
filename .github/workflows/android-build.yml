@@ -1,0 +1,89 @@
+# 맘캘린더 안드로이드 앱 빌드 (TWA, 이 PC 에 자바·안드로이드 SDK 없이 — 깃허브 리눅스 러너가 빌드한다)
+#
+# 왜 이렇게 하나
+#   사장님 PC 에는 JDK 도 Android SDK 도 없다. 사이트는 이미 PWA(manifest·service worker·푸시)라
+#   네이티브 코드를 새로 짤 이유가 없다 → Bubblewrap 이 사이트를 감싼 Trusted Web Activity 를 만든다.
+#   결과물 = Play Console 에 올리는 .aab 와 폰에 바로 깔아 보는 .apk (Actions 산출물로 내려받는다).
+#
+# 준비물 (2026-10-15)
+#   · android-app/twa-manifest.json  — 패키지 com.wantsb.momcalendar, 알림 위임 켬, 서명키 별칭 momcal
+#   · .well-known/assetlinks.json     — 업로드 키 지문(SHA-256). Play 앱 서명 키 지문은 콘솔 생성 뒤 추가
+#   · 시크릿 ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_PASSWORD
+#     (원본 키 = work-backup/secrets/android-upload.p12 · 비공개 백업에만 있다. 잃으면 업데이트 불가)
+#
+# 실행: Actions 탭 → "안드로이드 앱 빌드" → Run workflow → versionCode 를 지난번보다 1 크게.
+
+name: 안드로이드 앱 빌드
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionCode:
+        description: "versionCode (정수 · 올릴 때마다 1씩 키운다 · Play 는 같은 값을 두 번 안 받는다)"
+        required: true
+        default: "1"
+
+concurrency:
+  group: android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Bubblewrap 설치와 JDK·SDK 경로 설정
+        run: |
+          npm i -g @bubblewrap/cli@1.23.0
+          mkdir -p ~/.bubblewrap
+          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
+          cat ~/.bubblewrap/config.json
+          ls "$ANDROID_HOME" | head -20
+
+      - name: 업로드 키 복원 (시크릿 → 파일)
+        working-directory: android-app
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > android-upload.p12
+          test -s android-upload.p12 || (echo "🔴 키스토어 시크릿이 비어 있다"; exit 1)
+          keytool -list -keystore android-upload.p12 -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | head -5
+
+      - name: versionCode 반영
+        working-directory: android-app
+        run: |
+          node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('twa-manifest.json','utf8'));m.appVersionCode=Number('${{ inputs.versionCode }}');m.appVersion='1.0.'+m.appVersionCode;m.appVersionName=m.appVersion;fs.writeFileSync('twa-manifest.json',JSON.stringify(m,null,2));console.log('version',m.appVersion,m.appVersionCode)"
+
+      - name: 안드로이드 프로젝트 생성 (bubblewrap update)
+        working-directory: android-app
+        run: bubblewrap update --skipVersionUpgrade
+
+      - name: 빌드와 서명 (aab · apk)
+        working-directory: android-app
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          bubblewrap build --skipPwaValidation
+          ls -la *.aab *.apk
+
+      - name: 산출물 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: momcalendar-android-v${{ inputs.versionCode }}
+          path: |
+            android-app/*.aab
+            android-app/*.apk
+            android-app/twa-manifest.json
+          retention-days: 30
+          if-no-files-found: error
