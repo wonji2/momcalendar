@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/toss/tossface@main/dist/tossface.css" media="print" onload="this.media='all'"><!-- Tossface 이모지 서체 (OFL 1.1, 상업 이용 가능) — unicode-range 로 이모지 글자에만 적용. 앱 모드 body 에서 스택 맨 앞 -->
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="robots" content="noindex, nofollow">
@@ -536,6 +537,116 @@ body.srch-mode .next-zone{display:none!important}
   75%{opacity:1;transform:translate(-50%,-50%) scale(1)}
   100%{opacity:0;transform:translate(-50%,-90%) scale(.95)}}
 .content-seg{display:flex;gap:4px;background:#EFEAF5;border-radius:11px;padding:4px;margin:10px 12px 0}
+/* 📱 앱 모드 (기획서 사업문서/앱_화면기획서_2026-10-15.md · ?app=1 / TWA / 네이티브) — 세그먼트는 CSS 로만 숨긴다(applySearchMode 가 인라인을 비우므로 인라인 금지), DOM 은 switchContent 가 참조하니 지우지 않는다 */
+body.app-mode #contentSeg{display:none!important}
+body.app-mode{font-family:"Tossface",'Noto Sans KR',sans-serif}   /* 이모지만 토스 스타일(OFL) — 글자는 그대로 Noto Sans KR */
+body.app-mode{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+body.app-mode .chat-fab-wrap{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+body.app-mode .totop-fab{bottom:calc(86px + env(safe-area-inset-bottom,0px))!important}   /* 맨 위로 버튼도 탭바 위로 */
+body.app-mode:not([data-ct=gonggu]) .main-banner-section,body.app-mode:not([data-ct=gonggu]) .next-zone,body.app-mode:not([data-ct=gonggu]) #sellerZone,body.app-mode:not([data-ct=gonggu]) #subZone,body.app-mode:not([data-ct=gonggu]) #notiCard,body.app-mode:not([data-ct=gonggu]) #promoCard,body.app-mode:not([data-ct=gonggu]) #slimAdSlot{display:none!important}
+.app-tabbar{display:none;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #E6EBF1;padding:6px 4px calc(8px + env(safe-area-inset-bottom,0px));z-index:290}
+body.app-mode .app-tabbar{display:flex}
+body.srch-mode .app-tabbar{display:none!important}
+.app-tab{flex:1;background:none;border:none;font-family:inherit;font-size:10.5px;font-weight:700;color:#8d8798;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;cursor:pointer}
+.app-tab span{display:flex;line-height:1}
+.app-tab.on svg{stroke-width:2.3}
+.app-tab.on{color:#602090}
+/* 🔔 알림 유도 카드 — 중간 자리(셀러배너존 아래), 알림 미허용일 때만 */
+.noti-card{display:none;margin:12px 12px 0;background:#FDE7EE;border-radius:18px;padding:16px;position:relative;align-items:center;gap:10px}
+.noti-card.show{display:flex}
+.noti-card b{font-size:15px;line-height:1.3;display:block;margin-bottom:8px;color:var(--t1)}
+.noti-card button.ok{background:#191F28;color:#fff;border:none;border-radius:999px;padding:9px 14px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.noti-card .bell{margin-left:auto;font-size:44px;line-height:1;flex-shrink:0}
+.noti-card .x{position:absolute;right:12px;top:8px;color:#8d8798;font-size:15px;cursor:pointer;background:none;border:none;font-family:inherit}
+/* 🎯 프로모션 카드 (banners type=promo_card · 광고 B) */
+.promo-card{display:none;margin:12px 12px 0;background:#FFF1B8;border-radius:18px;padding:16px;align-items:center;gap:14px;min-height:92px;cursor:pointer}
+.promo-card.show{display:flex}
+.promo-card .pic{width:56px;height:56px;border-radius:12px;flex-shrink:0;overflow:hidden;background:rgba(255,255,255,.6)}
+.promo-card .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.promo-card small{display:block;font-size:12px;color:#4E5968;margin-bottom:3px}
+.promo-card b{font-size:16px;font-weight:900;line-height:1.25;color:#191F28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 🛍 세일 월 달력(브랜드 띠) */
+.scal{background:#F2F4F6;border-radius:16px;padding:12px 8px 8px;margin-bottom:10px}
+.scal .mon{display:flex;align-items:center;justify-content:space-between;margin:0 6px 6px}
+.scal .mon b{font-size:16px;font-weight:800;color:var(--t1)}
+.scal .mon button{border:none;background:#fff;color:var(--t1);width:32px;height:32px;border-radius:50%;font-family:inherit;font-size:15px;cursor:pointer}
+.scal .wd{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;color:#8B95A1;margin-bottom:4px}
+.scal .wd span:first-child{color:#F04452}
+.scal .wk{position:relative;padding-bottom:4px}
+.scal .dn{display:grid;grid-template-columns:repeat(7,1fr)}
+.scal .dn .d{display:flex;justify-content:center;padding:3px 0 2px;cursor:pointer}
+.scal .dn .d span{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--t1)}
+.scal .dn .d.off span{color:#E5E8EB}.scal .dn .d.sun span{color:#F04452}.scal .dn .d.sun.off span{color:#E5E8EB}
+.scal .dn .d.today span{background:#602090;color:#fff;font-weight:800}
+.scal .dn .d.sel span{box-shadow:0 0 0 2px #7B3FB5 inset}
+.scal .lanes{position:relative;margin:0 2px}
+.scal .sb{position:absolute;height:22px;border-radius:6px;background:#E9E0F3;color:#4A1A72;font-size:12px;font-weight:800;display:flex;align-items:center;gap:4px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer}
+.scal .sb img{width:16px;height:16px;border-radius:3px;background:#fff;object-fit:contain;flex-shrink:0}
+.scal .sb.cont{border-top-left-radius:0;border-bottom-left-radius:0}.scal .sb.more{border-top-right-radius:0;border-bottom-right-radius:0}
+.scal .sb.on{background:#602090;color:#fff}.scal .sb.dim{opacity:.35}.scal .sb.past{opacity:.45}
+.scal .plus{position:absolute;font-size:11px;color:#8B95A1;font-weight:700;padding-left:4px}
+.scal .daytag{display:inline-flex;align-items:center;gap:6px;background:#fff;border-radius:999px;padding:4px 10px;font-size:12px;color:#4E5968;margin:6px 4px 0}
+.scal .daytag button{border:none;background:none;font-family:inherit;color:#8B95A1;cursor:pointer;padding:0}
+.sale-wish{flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:40px;height:42px;border:1px solid #E6D9F2;background:#fff;border-radius:11px;font-size:18px;color:#C9A8E8;cursor:pointer;font-family:inherit}
+.sale-wish.on{background:#602090;border-color:#602090;color:#fff}
+.sale-share{display:flex;gap:8px;margin:0 0 12px}
+.sbtn{flex:1;border:none;border-radius:16px;height:52px;padding:0 12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;transition:transform .08s}
+.sbtn:active{transform:scale(.96)}.sbtn.weak{background:#EFEAF5;color:#602090}.sbtn.primary{background:#602090;color:#fff}
+.cal-share-row{padding:8px 12px 0}
+/* 👤 내정보 */
+.me-head{display:flex;align-items:center;gap:12px;padding:6px 2px 12px}
+.me-head .av{width:52px;height:52px;border-radius:50%;background:#EFEAF5;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.me-head b{font-size:16px;display:block;color:var(--t1)}.me-head small{color:#4E5968;font-size:12.5px}
+.me-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.me-stats button{border:1px solid #E6EBF1;background:#fff;border-radius:14px;padding:12px 8px;text-align:center;font-family:inherit;cursor:pointer}
+.me-stats b{display:block;font-size:18px;color:var(--t1);font-variant-numeric:tabular-nums}.me-stats small{color:#8B95A1;font-size:11.5px}
+.me-cafe{display:flex;align-items:center;gap:14px;background:#0E3340;color:#fff;border-radius:18px;padding:16px;margin-bottom:12px;cursor:pointer;text-decoration:none}
+.me-cafe .pic{width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.me-cafe small{display:block;font-size:12px;opacity:.75;margin-bottom:3px}.me-cafe b{font-size:16px;font-weight:900;line-height:1.25}
+.me-rows{border:1px solid #E6EBF1;border-radius:18px;overflow:hidden;margin-bottom:12px}
+.me-rows .h{background:#F2F4F6;font-size:11.5px;color:#8B95A1;font-weight:800;padding:8px 14px}
+.me-rows a,.me-rows button{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 14px;border:none;border-bottom:1px solid #E6EBF1;background:#fff;font-family:inherit;font-size:14px;color:var(--t1);text-decoration:none;cursor:pointer;text-align:left}
+.me-rows a:last-child,.me-rows button:last-child{border-bottom:none}
+.me-rows .chev{color:#8B95A1;font-size:13px}
+/* 📤 공유 카드 시트 */
+.share-sheet{position:fixed;inset:0;z-index:1350;display:none}
+.share-sheet.open{display:block}
+.share-sheet .bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.share-sheet .pnl{position:absolute;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:0;max-height:92%;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.share-sheet h3{margin:0 0 2px;font-size:17px;font-weight:800;color:var(--t1)}
+.share-sheet p{margin:0 0 12px;color:#8B95A1;font-size:13px}
+.share-wrap{width:100%;aspect-ratio:1080/1350;position:relative;overflow:hidden;border-radius:14px;border:1px solid #E6EBF1;background:#fff}
+.share-wrap .sc{transform-origin:0 0;position:absolute;left:0;top:0}
+.share-x{position:absolute;right:14px;top:12px;border:none;background:#F4F1FA;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:var(--t1)}
+#shareHost{position:fixed;left:-3000px;top:0;width:1080px;height:1350px;pointer-events:none}
+.sc{width:1080px;height:1350px;background:#fff;color:#191F28;padding:64px;display:flex;flex-direction:column;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif}
+.sc .hd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px}
+.sc .hd b{font-size:64px;font-weight:900;letter-spacing:-.03em;line-height:1.1}
+.sc .hd small{font-size:28px;color:#8B95A1}
+.sc .lg{font-size:30px;font-weight:900;color:#602090}
+.sc .grid{background:#F2F4F6;border-radius:32px;padding:28px 20px 20px;flex:1}
+.sc .wd{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:24px;color:#8B95A1;margin-bottom:8px}
+.sc .wd span:first-child{color:#F04452}
+.sc .wk{position:relative;margin-bottom:8px}
+.sc .dn{display:grid;grid-template-columns:repeat(7,1fr)}
+.sc .dn div{text-align:center;font-size:30px;font-weight:600;padding:6px 0 4px}
+.sc .dn div.off{color:#E5E8EB}.sc .dn div.sun{color:#F04452}.sc .dn div.sun.off{color:#E5E8EB}
+.sc .dn div.today span{background:#602090;color:#fff;border-radius:50%;padding:4px 14px}
+.sc .lanes{position:relative;margin:0 4px}
+.sc .sb{position:absolute;height:44px;border-radius:12px;background:#E9E0F3;color:#4A1A72;font-size:26px;font-weight:800;display:flex;align-items:center;gap:10px;padding:0 14px;overflow:hidden;white-space:nowrap}
+.sc .sb img{width:32px;height:32px;border-radius:6px;background:#fff;object-fit:contain}
+.sc .ft{display:flex;justify-content:space-between;align-items:center;margin-top:28px;font-size:26px;color:#8B95A1}
+.sc .ft b{color:#602090;font-weight:900}
+.sc .list{display:flex;flex-direction:column;gap:18px;flex:1}
+.sc .it{display:flex;align-items:center;gap:22px;background:#F2F4F6;border-radius:28px;padding:22px 26px}
+.sc .it .d{width:170px;font-size:30px;font-weight:900;color:#602090;flex-shrink:0}
+.sc .it .n{font-size:34px;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc .it .s{font-size:26px;color:#8B95A1;flex-shrink:0}
+.sc .it img,.sc .it .ph{width:96px;height:96px;border-radius:20px;object-fit:cover;flex-shrink:0;background:#E9E0F3}
+.share-full{position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+.share-full.open{display:flex}
+.share-full img{max-width:100%;max-height:78vh;border-radius:12px}
+.share-full p{color:#fff;font-size:14px;margin:0;text-align:center}
 .content-seg .cseg{flex:1;text-align:center;border-radius:8px;padding:9px 0;font-size:13px;font-weight:600;color:#999;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit}
 .content-seg .cseg.on{color:#fff;font-weight:700}
 @media (max-width:359px){.content-seg .cseg{font-size:12px}}
@@ -902,6 +1013,9 @@ body.sheet-open{ overscroll-behavior-y: none; }
 <div class="nx-sheet" id="nextSheet" aria-hidden="true"><div class="nx-sheet-bg" onclick="closeNextSheet()"></div>
   <div class="nx-sheet-pnl"><div class="nx-sheet-h"><div class="nx-title">기대되는 다음 공구 일정🔔</div><button class="nx-x" onclick="closeNextSheet()" aria-label="닫기">✕</button></div><div id="nextSheetBody"></div></div></div>
 
+<!-- 🎯 프로모션 카드 (광고 자리 B · banners type=promo_card · 없으면 숨김) -->
+<div class="promo-card" id="promoCard"></div>
+
 <!-- ⭐ 맘캘린더 이웃셀러 (메인배너 아래, 흰 배경) -->
 <div class="seller-zone" id="sellerZone" style="display:none">
   <div class="seller-title">⭐ 맘캘린더 이웃셀러</div>
@@ -912,6 +1026,9 @@ body.sheet-open{ overscroll-behavior-y: none; }
 <div class="sub-zone" id="subZone" style="display:none">
   <div class="sub-row" id="subRow"></div>
 </div>
+
+<!-- 🔔 알림 유도 카드 (광고 자리 A · 우리 것) — 알림 미허용일 때만, 중간 자리 (사장님 2026-10-15 "맨 위는 아니고 중간쯤") -->
+<div class="noti-card" id="notiCard"><div><b>찜한 공구가 오픈하면<br>바로 알려드릴까요?</b><button class="ok" onclick="trackEvent('noti_card','ok');openWnSheet()">네, 알려주세요</button></div><div class="bell">🔔</div><button class="x" onclick="notiCardDismiss()" aria-label="닫기">✕</button></div>
 
 <!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 / 세일 (4개, 2026-10-15) -->
 <div class="content-seg" id="contentSeg">
@@ -1020,7 +1137,7 @@ window._mcBanners=(function(){
   return function(){
     if(!p){
       var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller)&select=*&order=sort_order.asc.nullslast',
+      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller,promo_card,sponsor,quick,promo_hot,promo_sale)&select=*&order=sort_order.asc.nullslast',
               {headers:{apikey:K,Authorization:'Bearer '+K}})
         .then(function(r){ return r.ok?r.json():null; })
         .catch(function(){ return null; });
@@ -1239,6 +1356,7 @@ window.slimAdClick=function(id){
       <div class="cal-navs"><button class="cal-tod" onclick="jumpToday()">오늘</button><button class="cal-nav" onclick="moveMonth(1)">▶</button></div>
     </div>
     <div class="cgrid" id="calGrid"></div>
+    <div class="cal-share-row"><button class="sbtn weak" style="width:100%" onclick="openShareCard('gonggu','share')">📤 이번 주 공구 달력 저장·공유</button></div>
   </div>
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
   <div id="icsBar" style="display:none;margin:10px 12px 0">
@@ -1285,11 +1403,32 @@ window.slimAdClick=function(id){
     <div class="sale-h1">🛍 세일·행사 일정</div>
     <div class="sale-h2">올리브영·무신사·자라 등 브랜드 공식 세일을 한눈에</div>
   </div>
+  <div class="scal" id="saleCal"></div>
+  <div class="sale-share"><button class="sbtn weak" onclick="openShareCard('sale','save')">이미지 저장</button><button class="sbtn primary" onclick="openShareCard('sale','share')">친구에게 공유</button></div>
   <div class="sale-chips" id="saleChips"></div>
   <div id="saleList"></div>
   <div class="sale-foot">일정은 각 브랜드 공지 기준이며 변동될 수 있어요.<br>카드를 누르면 브랜드 공식 페이지로 이동해요.</div>
 </div>
 <!-- ===== /세일 일정 영역 ===== -->
+<!-- 👤 내정보 (앱 모드 탭 · 사이드 메뉴 항목 재배치 · 기획서 6절) -->
+<div id="meView" style="display:none;padding:12px;min-height:120vh"></div>
+<!-- 📱 앱 모드 하단 탭바 (기획서 1절) -->
+<nav class="app-tabbar" id="appTabbar" aria-label="메인 탭">
+  <button class="app-tab on" data-ct="gonggu" onclick="switchContent('gonggu');goHome&&goHome()"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4" /> <path d="M16 2v4" /> <rect width="18" height="18" x="3" y="4" rx="2" /> <path d="M3 10h18" /></svg></span>공구</button>
+  <button class="app-tab" data-ct="hotdeal" onclick="switchContent('hotdeal')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg></span>핫딜</button>
+  <button class="app-tab" data-ct="sale" onclick="switchContent('sale')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10a4 4 0 0 1-8 0" /> <path d="M3.103 6.034h17.794" /> <path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z" /></svg></span>세일</button>
+  <button class="app-tab" data-ct="exp" onclick="switchContent('exp')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1" /> <path d="M12 8v13" /> <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" /> <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" /></svg></span>체험단</button>
+  <button class="app-tab" data-ct="me" onclick="switchContent('me')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg></span>내정보</button>
+</nav>
+<!-- 📤 공유 카드 (기획서 10절) — 1080×1350 전용 카드를 화면 밖에 그려 html2canvas 로 저장·공유 -->
+<div id="shareHost" aria-hidden="true"></div>
+<div class="share-sheet" id="shareSheet" aria-hidden="true"><div class="bg" onclick="closeShareCard()"></div>
+  <div class="pnl"><button class="share-x" onclick="closeShareCard()" aria-label="닫기">✕</button><h3 id="shareTitle">공유 카드</h3><p>이 모양 그대로 저장·공유돼요 (카톡·인스타에서 안 잘림)</p>
+    <div class="share-wrap" id="shareWrap"></div>
+    <div class="sale-share" style="margin:12px 0 0"><button class="sbtn weak" onclick="shareCardSave()">⬇ 폰에 저장</button><button class="sbtn primary" onclick="shareCardShare()">💬 카톡으로 공유</button></div>
+    <p class="sale-foot" id="shareNote" style="margin-top:8px"></p>
+  </div></div>
+<div class="share-full" id="shareFull" onclick="this.classList.remove('open')"><img id="shareFullImg" alt="공유 카드"><p>사진을 길게 눌러 「이미지 저장」 하세요</p></div>
 
 <!-- ===== 통합검색 결과 (검색어 입력 시 공구·핫딜·체험단 한 화면) ===== -->
 <div id="searchAllView" style="display:none;padding:12px;min-height:60vh"></div>
@@ -2446,7 +2585,7 @@ function scrollToResults(){
 // ── 탭 전환 ──
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
-const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5']};
+const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5'],me:['#EFEAF5','#602090']};   // me = 앱 모드 내정보 탭(2026-10-15)
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
@@ -2463,6 +2602,10 @@ function switchContent(ct){
   document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
   document.getElementById('expView').style.display = ct==='exp'?'block':'none';
   { const sv=document.getElementById('saleView'); if(sv) sv.style.display = ct==='sale'?'block':'none'; }
+  { const mv=document.getElementById('meView'); if(mv) mv.style.display = ct==='me'?'block':'none'; if(ct==='me'){ try{ renderMe(); }catch(e){ console.error(e); } } }   // 👤 앱 모드 내정보
+  document.body.dataset.ct=ct; document.querySelectorAll('.app-tab').forEach(b=>b.classList.toggle('on',b.dataset.ct===ct));
+  try{ renderNotiCard(); }catch(_){}
+  if(ct==='me'){ window.scrollTo(0,0); }
   if(ct==='sale') loadSale();
   if(ct==='hotdeal') loadHotdeals();
   if(ct==='exp') loadExperiences();
@@ -2539,7 +2682,9 @@ function renderSale(){
       return `<button class="sale-chip${_saleBrand===b?' on':''}" data-b="${escHtml(b)}" onclick="saleFilter(this.dataset.b)">${escHtml(lab)}</button>`;
     }).join('');
   }
+  try{ renderSaleCal(); }catch(e){ console.error('saleCal',e); }
   const rows=all.filter(e=>{
+    if(SALE_DAY && !(e.start_date<=SALE_DAY && (!e.end_date||e.end_date>=SALE_DAY))) return false;   // 달력에서 날짜를 고르면 그날 진행 중만
     if(!_saleBrand) return true;
     if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return s&&s.b; }
     return e.brand===_saleBrand;
@@ -2561,13 +2706,192 @@ function renderSale(){
     // 사장님 2026-10-14 "오픈 첫날만 알림 · 지금 진행중인건 알림 없애" → 시작 전인 세일에만 종 버튼. 서버도 시작일 아침 한 번만 보낸다(sale_wish_89.sql)
     const canBell=ds>0;
     const bell=canBell?`<button class="sale-bell${s.b?' on':''}" aria-label="${ds>0?'시작일 알림':'마감 알림'}" aria-pressed="${s.b?'true':'false'}" onclick="saleBell(${e.id},event)">${bellSvg(!!s.b)}</button>`:'';
-    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${bell}${pill}</div></div>`;
+    const wishBtn=`<button class="sale-wish${s.w?' on':''}" aria-label="찜" aria-pressed="${s.w?'true':'false'}" onclick="saleWish(${e.id},event)">${s.w?'♥':'♡'}</button>`;   // ♡ 찜 (2026-10-15 사장님 "세일 찜하거나 알림받는 기능은 안 보여")
+    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${bell}${pill}</div></div>`;
   };
   let h='';
   if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
   if(soon.length) h+=`<div class="sale-sec">🟠 이번 주 시작 <i>${soon.length}</i></div>`+soon.map(e=>card(e,'soon')).join('');
   if(later.length) h+=`<div class="sale-sec">⚪ 이후 예정 <i>${later.length}</i></div>`+later.map(e=>card(e,'later')).join('');
   list.innerHTML=h;
+}
+
+// ═══════════ 📱 앱 모드 · 세일 달력 · 내정보 · 공유 카드 (기획서 v2 2026-10-15) ═══════════
+// 앱 모드: ?app=1 로 켜고(저장) ?app=0 으로 끈다. TWA·네이티브는 자동. 세그먼트는 CSS 로만 숨긴다.
+let APP_MODE=false;
+function appModeInit(){
+  try{
+    const q=new URLSearchParams(location.search).get('app');
+    if(q==='1') localStorage.setItem('mc_app_mode','1'); else if(q==='0') localStorage.removeItem('mc_app_mode');
+    APP_MODE = localStorage.getItem('mc_app_mode')==='1' || _isTwa() || (typeof _isNativeApp==='function' && _isNativeApp());
+  }catch(_){ APP_MODE=false; }
+  document.body.classList.toggle('app-mode',APP_MODE);
+  if(!document.body.dataset.ct) document.body.dataset.ct='gonggu';
+  try{ renderNotiCard(); }catch(_){}
+  try{ loadPromoCard(); }catch(_){}
+  // ?sale=YYYY-MM → 세일 탭 그 달 (공유 링크)
+  try{ const s=new URLSearchParams(location.search).get('sale'); if(s&&/^\d{4}-\d{2}$/.test(s)){ SALE_YM=s; setTimeout(()=>switchContent('sale'),300); } }catch(_){}
+}
+document.addEventListener('DOMContentLoaded', appModeInit);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{ renderNotiCard(); }catch(_){} } });
+
+// 🔔 알림 유도 카드 — 알림 미허용 + 7일 안 닫음 일 때만. 허용되면 매 렌더에서 사라진다.
+function renderNotiCard(){
+  const el=document.getElementById('notiCard'); if(!el) return;
+  let hide=false;
+  try{ if(notiGranted()) hide=true; }catch(_){}
+  try{ if(!hide && Number(localStorage.getItem('mc_noti_card_until')||0)>Date.now()) hide=true; }catch(_){}
+  el.classList.toggle('show',!hide);
+}
+function notiCardDismiss(){ try{ localStorage.setItem('mc_noti_card_until', String(Date.now()+7*864e5)); }catch(_){} renderNotiCard(); try{ trackEvent('noti_card','dismiss'); }catch(_){} }
+
+// 🎯 프로모션 카드 (광고 B · banners type=promo_card). 없으면 숨김.
+async function loadPromoCard(){
+  const el=document.getElementById('promoCard'); if(!el) return;
+  try{
+    const all=await window._mcBanners(); if(!all){ el.classList.remove('show'); return; }
+    const now=new Date();
+    const rows=window._mcBannersOf(all,'promo_card').filter(b=>!(b.show_from&&new Date(b.show_from)>now)&&!(b.show_until&&new Date(b.show_until)<now));
+    if(!rows.length){ el.classList.remove('show'); return; }
+    const b=rows[0];
+    el.innerHTML=`<div class="pic">${b.img_url?`<img src="${escHtml(mcApiSrc?mcApiSrc(b.img_url):b.img_url)}" alt="">`:''}</div><div><small>${escHtml(b.subtitle||'')}</small><b>${escHtml(b.title||'')}</b></div>`;
+    el.onclick=()=>goPromo(b.id, b.link);
+    el.classList.add('show');
+  }catch(e){ el.classList.remove('show'); }
+}
+
+// 🛍 세일 월 달력 — 브랜드 띠 (사장님 2026-10-15 확정). 데이터는 _saleData 원본(끝난 세일은 흐리게), 목록 필터는 renderSale 그대로.
+let SALE_YM='', SALE_DAY='', SALE_HL=null;
+function _ymd(y,m,d){ return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function _saleMonthCells(y,m){
+  const first=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate(), prev=new Date(y,m-1,0).getDate();
+  const cells=[]; for(let i=first-1;i>=0;i--) cells.push({off:true,n:prev-i}); for(let d=1;d<=days;d++) cells.push({off:false,n:d,date:_ymd(y,m,d)}); let k=1; while(cells.length%7) cells.push({off:true,n:k++});
+  return cells;
+}
+function _saleWeekSegs(evs, dates){
+  const wS=dates.find(Boolean), wE=[...dates].reverse().find(Boolean); const segs=[]; if(!wS) return {segs,lanes:[]};
+  const endOf=ev=>ev.end_date||'9999-12-31';
+  for(const ev of evs){ if(ev.start_date>wE||endOf(ev)<wS) continue; let c0=dates.findIndex(d=>d&&d>=ev.start_date); if(c0<0) c0=0; let c1=6; for(let i=6;i>=0;i--){ if(dates[i]&&dates[i]<=endOf(ev)){ c1=i; break; } } segs.push({ev,c0,c1,cont:ev.start_date<wS,more:endOf(ev)>wE}); }
+  segs.sort((a,b)=>a.c0-b.c0||a.ev.start_date.localeCompare(b.ev.start_date));
+  const lanes=[]; for(const s of segs){ let L=lanes.findIndex(l=>l.every(x=>x.c1<s.c0||x.c0>s.c1)); if(L<0){ lanes.push([]); L=lanes.length-1; } lanes[L].push(s); s.lane=L; }
+  return {segs,lanes};
+}
+function _saleCalHtml(y,m,big){
+  const mS=_ymd(y,m,1), mE=_ymd(y,m,new Date(y,m,0).getDate());
+  const evs=(_saleData||[]).filter(ev=>ev.start_date<=mE && (ev.end_date||'9999-12-31')>=mS);
+  const cells=_saleMonthCells(y,m); const LANE=big?50:24, H=big?44:22, MAXL=3;
+  let html=`<div class="wd"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>`;
+  for(let w=0;w<cells.length/7;w++){ const wk=cells.slice(w*7,w*7+7); const dates=wk.map(c=>c.date||null);
+    html+='<div class="wk"><div class="dn">'+wk.map((c,i)=>{
+      if(big) return `<div class="${c.off?'off':''}${i===0?' sun':''}${c.date===todayStr?' today':''}"><span>${c.n}</span></div>`;
+      return c.off?`<div class="d off${i===0?' sun':''}"><span>${c.n}</span></div>`:`<div class="d${i===0?' sun':''}${c.date===todayStr?' today':''}${SALE_DAY===c.date?' sel':''}" onclick="saleDay('${c.date}')"><span>${c.n}</span></div>`; }).join('')+'</div>';
+    const {segs,lanes}=_saleWeekSegs(evs,dates); const shown=segs.filter(s=>s.lane<MAXL); const hidden=segs.length-shown.length;
+    html+=`<div class="lanes" style="height:${Math.min(lanes.length,MAXL)*LANE+(hidden&&!big?16:0)}px">`+shown.map(s=>{
+      const past=!!(s.ev.end_date&&s.ev.end_date<todayStr); const cls=big?'sb':`sb${s.cont?' cont':''}${s.more?' more':''}${SALE_HL===s.ev.id?' on':(SALE_HL?' dim':'')}${past?' past':''}`;
+      const logo=_saleLogoSrc(s.ev); return `<div class="${cls}" style="left:${s.c0/7*100}%;width:calc(${(s.c1-s.c0+1)/7*100}% - ${big?6:2}px);top:${s.lane*LANE}px;height:${H}px" ${big?'':`onclick="saleFocus(${s.ev.id})"`}>${logo?`<img src="${logo}" alt="">`:''}${escHtml(s.ev.brand)}</div>`; }).join('')
+      +(hidden&&!big?`<span class="plus" style="top:${MAXL*LANE-2}px" onclick="saleDay('${dates.find(Boolean)}')">+${hidden}개 더</span>`:'')+'</div></div>';
+  }
+  return {html, evs};
+}
+function _saleLogoSrc(e){ try{ const h=_saleLogo(e); const m=h&&h.match(/src="([^"]+)"/); return m?m[1]:''; }catch(_){ return ''; } }
+function renderSaleCal(){
+  const box=document.getElementById('saleCal'); if(!box) return;
+  if(!SALE_YM) SALE_YM=todayStr.slice(0,7);
+  const [y,m]=SALE_YM.split('-').map(Number);
+  const {html}=_saleCalHtml(y,m,false);
+  box.innerHTML=`<div class="mon"><button onclick="saleMonth(-1)" aria-label="지난달">‹</button><b>${y}년 ${m}월 세일 달력</b><button onclick="saleMonth(1)" aria-label="다음달">›</button></div>${html}`+(SALE_DAY?`<span class="daytag">${_saleMD(SALE_DAY)} 진행 중만 보는 중 <button onclick="saleDay('')" aria-label="해제">✕</button></span>`:'');
+}
+function saleMonth(d){ let [y,m]=(SALE_YM||todayStr.slice(0,7)).split('-').map(Number); m+=d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} SALE_YM=_ymd(y,m,1).slice(0,7); SALE_DAY=''; SALE_HL=null; renderSale(); try{ trackEvent('sale_month',SALE_YM); }catch(_){} }
+function saleDay(date){ SALE_DAY=(SALE_DAY===date)?'':date; SALE_HL=null; renderSale(); }
+function saleFocus(id){ SALE_HL=(SALE_HL===id)?null:id; renderSale(); try{ const c=[...document.querySelectorAll('#saleList .sale-card')].find(x=>(x.getAttribute('onclick')||'').includes('saleGo('+id+')')); if(c&&SALE_HL) c.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} }
+
+// 👤 내정보 — 전부 기존 기능의 입구 (기획서 6절)
+function renderMe(){
+  const v=document.getElementById('meView'); if(!v) return;
+  const m=(typeof memberGet==='function')?memberGet():null; const logged=!!(m&&m.kakao_id);
+  let noti=false; try{ noti=notiGranted(); }catch(_){}
+  const wishN=(typeof WISH!=='undefined'&&WISH)?WISH.size:0;
+  v.innerHTML=`
+  <div class="me-head" onclick="${logged?'openSettings()':'startKakaoLogin()'}"><div class="av">${logged?'💜':'👤'}</div><div><b>${logged?escHtml(m.nickname||'회원')+'님':'카카오로 로그인'}</b><small>${logged?'카카오 로그인 · 닉네임·회원번호만 받아요':'찜 목록을 폰을 바꿔도 이어 써요'}</small></div></div>
+  <div class="me-stats"><button onclick="goCalMine()"><b>${wishN}</b><small>찜한 공구</small></button><button onclick="openWnSheet()"><b>${noti?'켜짐':'꺼짐'}</b><small>오픈 알림</small></button><button onclick="openAttendSheet()"><b>💜</b><small>출석 체크</small></button></div>
+  <a class="me-cafe" href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener"><div class="pic">☕</div><div><small>네이버 카페 17,000명</small><b>맘캘 카페 가입하고 출석 이벤트 참여</b></div></a>
+  <div class="me-rows"><div class="h">내 활동</div>
+    <button onclick="switchContent('gonggu');setTimeout(()=>{const b=document.querySelector('.stab[data-v=wish],#statusTabs [data-v=wish]');if(b)b.click();},50)"><span>💜 내 찜 목록</span><span class="chev">›</span></button>
+    <button onclick="goCalMine()"><span>📅 내 공구 캘린더</span><span class="chev">›</span></button>
+    <button onclick="exportWishIcs()"><span>📤 내 폰 캘린더 저장</span><span class="chev">›</span></button>
+    <button onclick="openWnSheet()"><span>🔔 오픈 알림 설정</span><span class="chev">${noti?'켜짐 ›':'꺼짐 ›'}</span></button>
+    <button onclick="openAttendSheet()"><span>💜 출석 체크</span><span class="chev">›</span></button></div>
+  <div class="me-rows"><div class="h">도움</div>
+    <button onclick="openInqSheet()"><span>🛠 오류 · 건의하기</span><span class="chev">›</span></button>
+    <a href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener"><span>💬 카카오톡 문의</span><span class="chev">›</span></a>
+    <button onclick="openPartnerModal()"><span>📩 제휴 · 입점 문의</span><span class="chev">›</span></button>
+    <button onclick="openHowSheet()"><span>📖 이용 방법</span><span class="chev">›</span></button>
+    <button onclick="openAboutSheet()"><span>💜 맘캘린더 소개</span><span class="chev">›</span></button></div>
+  <div class="me-rows"><div class="h">정보</div>
+    <a href="terms.html" target="_blank" rel="noopener"><span>📄 이용약관</span><span class="chev">›</span></a>
+    <a href="privacy.html" target="_blank" rel="noopener"><span>🔒 개인정보처리방침</span><span class="chev">›</span></a>
+    <button onclick="openSettings()"><span>⚙️ 설정 · 회원 탈퇴</span><span class="chev">›</span></button>
+    <button style="cursor:default"><span>🏷 버전</span><span class="chev">${typeof APP_VERSION!=='undefined'?APP_VERSION:''}${_isTwa()?' · 안드로이드 앱':' · 웹'}</span></button></div>`;
+}
+
+// 📤 공유 카드 — 1080×1350 전용 카드. 화면 캡처가 아니라 따로 그린다(기획서 10절). html2canvas 는 필요할 때만 로드.
+let _shareKind='', _sharePng=null;
+function _loadH2C(){ return new Promise((res,rej)=>{ if(window.html2canvas) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+function _shareCardHtml(kind){
+  if(kind==='sale'){
+    const [y,m]=(SALE_YM||todayStr.slice(0,7)).split('-').map(Number); const {html,evs}=_saleCalHtml(y,m,true);
+    return {title:`${m}월 세일 달력`, url:`https://momcalendar.com/?sale=${_ymd(y,m,1).slice(0,7)}`, text:`${m}월 브랜드 세일 일정 모아봤어요`,
+      html:`<div class="sc"><div class="hd"><div><b>${m}월 세일 달력</b><br><small>${escHtml([...new Set(evs.map(e=>e.brand))].slice(0,8).join(' · '))}</small></div><div class="lg">맘캘린더</div></div><div class="grid">${html}</div><div class="ft"><span>브랜드 세일 일정은 매일 갱신돼요</span><b>momcalendar.com</b></div></div>`};
+  }
+  // 공구: 이번 주(오늘부터 7일) 오픈·마감 + 내 찜(앞으로 것) — 최대 7줄
+  const d0=new Date(todayStr+'T00:00:00'); const end=new Date(d0.getTime()+6*864e5); const endS=_ymd(end.getFullYear(),end.getMonth()+1,end.getDate());
+  const wk=['일','월','화','수','목','금','토'];
+  const md2=s=>{ const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()} (${wk[d.getDay()]})`; };
+  let items=(typeof DATA!=='undefined'?DATA:[]).filter(it=>it.openDate && ((it.openDate>=todayStr && it.openDate<=endS) || (typeof isWished==='function' && isWished(it.id) && (it.endDate||it.openDate)>=todayStr)));
+  items.sort((a,b)=>(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0)); items=items.slice(0,7);
+  const rows=items.map(it=>{ const b=(typeof _nxBanner==='function')?_nxBanner(it):null; const img=b&&b.img_url?(mcApiSrc?mcApiSrc(b.img_url):b.img_url):''; const st=it.openDate>todayStr?`D-${Math.round((new Date(it.openDate+'T00:00:00')-d0)/864e5)}`:(it.openDate===todayStr?'오늘 오픈':'진행중');
+    return `<div class="it">${img?`<img src="${escHtml(img)}" alt="">`:'<div class="ph"></div>'}<div class="d">${md2(it.openDate)}</div><div class="n">${escHtml(it.name)}</div><div class="s">${st}</div></div>`; }).join('');
+  return {title:'이번 주 공구 달력', url:`https://momcalendar.com/?week=${todayStr}`, text:'이번 주 공구 일정 모아봤어요',
+    html:`<div class="sc"><div class="hd"><div><b>이번 주 공구 달력</b><br><small>${md2(todayStr)} ~ ${md2(endS)} · 내 찜 포함</small></div><div class="lg">맘캘린더</div></div><div class="list">${rows||'<div class="it"><div class="n">이번 주 예정 공구가 없어요</div></div>'}</div><div class="ft"><span>찜한 공구는 오픈 아침에 알려드려요</span><b>momcalendar.com</b></div></div>`};
+}
+function openShareCard(kind, mode){
+  _shareKind=kind; _sharePng=null;
+  const c=_shareCardHtml(kind);
+  document.getElementById('shareHost').innerHTML=c.html;
+  const wrap=document.getElementById('shareWrap'); wrap.innerHTML=`<div class="sc" style="transform:scale(${wrap.clientWidth/1080||0.3})">${c.html.replace(/^<div class="sc">/,'').replace(/<\/div>$/,'')}</div>`;
+  document.getElementById('shareTitle').textContent=c.title+' 카드';
+  document.getElementById('shareNote').textContent=`공유 메시지: 「${c.title} | 맘캘린더」 + 카드 이미지 + ${c.url.replace('https://','')}`;
+  document.getElementById('shareSheet').classList.add('open'); document.body.style.overflow='hidden';
+  setTimeout(()=>{ const w=document.getElementById('shareWrap'); const inner=w.querySelector('.sc'); if(inner) inner.style.transform=`scale(${w.clientWidth/1080})`; },30);
+  try{ trackEvent('share_open', kind+'|'+(mode||'')); }catch(_){}
+}
+function closeShareCard(){ document.getElementById('shareSheet').classList.remove('open'); document.body.style.overflow=''; }
+async function _renderSharePng(){
+  if(_sharePng) return _sharePng;
+  await _loadH2C();
+  const el=document.querySelector('#shareHost .sc'); if(!el) throw new Error('no card');
+  const canvas=await html2canvas(el,{scale:1,backgroundColor:'#ffffff',useCORS:true,logging:false,width:1080,height:1350});
+  _sharePng=await new Promise(r=>canvas.toBlob(r,'image/png'));
+  return _sharePng;
+}
+async function shareCardSave(){
+  try{
+    mcToast('카드를 만드는 중…');
+    const png=await _renderSharePng(); const url=URL.createObjectURL(png);
+    const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(ios || (typeof _isInApp==='function' && _isInApp())){ const f=document.getElementById('shareFull'); document.getElementById('shareFullImg').src=url; f.classList.add('open'); }
+    else { const a=document.createElement('a'); a.href=url; a.download=`momcal_${_shareKind}_${todayStr}.png`; document.body.appendChild(a); a.click(); a.remove(); mcToast('저장했어요 📥 갤러리에서 확인하세요'); }
+    try{ trackEvent('save_card', _shareKind); }catch(_){}
+  }catch(e){ console.error(e); mcToast('카드를 만들지 못했어요. 다시 눌러 주세요'); }
+}
+async function shareCardShare(){
+  const c=_shareCardHtml(_shareKind); const data={title:`${c.title} | 맘캘린더`, text:c.text, url:c.url};
+  try{
+    const png=await _renderSharePng(); const file=new File([png], `momcal_${_shareKind}.png`, {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({...data, files:[file]}); try{ trackEvent('share_card', _shareKind+'|file'); }catch(_){} return; }
+  }catch(e){ if(e && e.name==='AbortError') return; }
+  try{ if(navigator.share){ await navigator.share(data); try{ trackEvent('share_card', _shareKind+'|url'); }catch(_){} return; } }catch(e){ if(e && e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(data.url); mcToast('링크를 복사했어요. 카톡에 붙여넣기 하세요'); }catch(_){ mcToast('링크: '+data.url); }
 }
 function saleGo(id){
   const e=(_saleData||[]).find(x=>x.id===id); if(!e) return;
@@ -2581,13 +2905,13 @@ function saleWish(id,ev){
   if(!s.w && !s.b) delete SALEW[id];
   _saleWSave(); _saleWPush(id); renderSale();
   try{ trackEvent(s.w?'sale_wish_add':'sale_wish_del', String(id)); }catch(_){}
-  if(s.w) mcToast('찜했어요 💜 상단 「내 찜」에서 모아볼 수 있어요');
+  if(s.w) mcToast('찜했어요 💜');
 }
 async function saleBell(id,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const cur=SALEW[id]||{w:0,b:0};
   if(cur.b){   // 끄기
-    cur.b=0; cur.w=0; delete SALEW[id];   // 찜 버튼이 없으니 알림만 끄면 항목 자체를 지운다(서버 행 삭제)
+    cur.b=0; if(!cur.w) delete SALEW[id]; else SALEW[id]=cur;   // ♡ 찜은 그대로 둔다 — 찜이 없을 때만 항목 삭제 (2026-10-15 ♡ 버튼 추가)
     _saleWSave(); _saleWPush(id); renderSale();
     try{ trackEvent('sale_bell_del', String(id)); }catch(_){}
     mcToast('알림을 껐어요');
@@ -2603,7 +2927,7 @@ async function saleBell(id,ev){
     }
   }catch(_){ mcToast('알림을 켜지 못했어요'); return; }
   const s=SALEW[id]||(SALEW[id]={w:0,b:0});
-  s.b=1; s.w=1;   // 알림 목록(내 알림)은 서버에서 wish 와 함께 저장한다
+  s.b=1;   // 알림만 켠다 — 찜은 ♡ 로 따로 (2026-10-15). 서버 sale_wish_set 은 w·b 를 각각 받는다
   _saleWSave(); _saleWPush(id); renderSale();
   try{ trackEvent('sale_bell_add', String(id)); }catch(_){}
   const sev=(_saleData||[]).find(x=>x.id===id);
@@ -5247,7 +5571,7 @@ function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outer
 function _nxGraph(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; const on=isWished(it.id); const n=base+((on&&!base)?1:0); return `<div class="nx-g" data-n="${n}" data-on="${on}"><div class="lab"></div><div class="bar"><i></i></div></div>`; }
 function _nxGraphRefresh(){ const gs=[...document.querySelectorAll('.nx-g')]; if(!gs.length) return; const max=Math.max(1,...gs.map(g=>Number(g.dataset.n)||0)); gs.forEach(g=>{ const n=Number(g.dataset.n)||0; const hot=n>=20; g.querySelector('.lab').innerHTML=`${hot?'<span class="nx-hot">🔥</span>':'💜'} 찜 <b>${n}명</b>`; const i=g.querySelector('.bar i'); if(i) i.style.width=Math.max(n?8:0,Math.round(n/max*100))+'%'; }); }
 function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
-function _nxBanner(it){ const all=window._mcAllBanners||[]; const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
+function _nxBanner(it){ const all=(window._mcAllBanners||[]).filter(x=>x&&(x.type==='main'||x.type==='seller')); /* 판매 배너(promo_card 등)가 썸네일로 잡히지 않게 (2026-10-15) */ const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
 function _nxCard(it, wide){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
   // 오픈 전엔 무조건 셀러 인스타(예고글·팔로우), 오픈일부터 판매링크 (사장님 2026-10-15 "누르면 내 인스타로 오게")
