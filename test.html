@@ -272,6 +272,21 @@ body.srch-suggest #searchDrop{display:block}
 .nx-wk .nx-card{margin-bottom:10px}
 .nx-empty{text-align:center;color:var(--t3);padding:30px 0}
 body.srch-mode .next-zone{display:none!important}
+/* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
+.set-sheet{position:fixed;inset:0;z-index:1300;display:none}
+.set-sheet.open{display:block}
+.set-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.set-pnl{position:absolute;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:0;max-height:88%;overflow:auto;background:#fff;border-radius:22px 22px 0 0;padding:14px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+.set-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:16px}
+.set-x{border:none;background:#F4F1FA;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:var(--t1)}
+.set-sec{font-size:11.5px;color:var(--t3);font-weight:800;margin:16px 0 2px;letter-spacing:.02em}
+.set-row{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:12px 2px;border:none;border-bottom:1px solid #F0EDF5;background:none;font:inherit;font-size:14px;color:var(--t1);text-align:left;cursor:pointer;text-decoration:none}
+.set-row div{min-width:0}
+.set-row small{display:block;color:var(--t3);font-size:11.5px;margin-top:2px;line-height:1.35}
+.set-row .chev{color:#C9C2D6;flex-shrink:0}
+.set-row.danger{color:#C62828}
+.set-note{font-size:12.5px;color:var(--t2);line-height:1.6;padding:6px 0 2px}
+.set-btn{width:100%;margin-top:14px;background:#602090;color:#fff;border:none;border-radius:13px;padding:13px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 /* ⭐ 이웃셀러존 */
 .seller-zone{background:#fff;padding:14px 0 14px}
 /* 🎁 기획전·제휴 존 */
@@ -692,7 +707,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
   </button>
   </div>
   <button onclick="kkoLater()" style="width:100%;background:none;border:1px solid #EDE7F5;border-radius:13px;color:#8A8194;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:12px;min-height:44px">나중에 할게요</button>
-  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
+  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">카카오 닉네임과 회원번호만 받아요. 로그인 안 해도 찜은 계속 쓸 수 있어요<br><a href="privacy.html" target="_blank" rel="noopener" style="color:#9a8fb0">개인정보처리방침</a> / <a href="terms.html" target="_blank" rel="noopener" style="color:#9a8fb0">이용약관</a></div>
 </div>
 
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
@@ -702,6 +717,9 @@ body.sheet-open{ overscroll-behavior-y: none; }
   <div id="hdSheetBody"></div>
 </div>
 
+<!-- ⚙ 설정 · 내 정보 시트 (2026-10-15) — 앱 심사(계정 삭제·약관·개인정보 링크)와 개인정보보호법(접근권한 안내·알림 성격 고지)을 한곳에. 맘맘·더에르고 설정 화면 구성을 참고 -->
+<div class="set-sheet" id="setSheet" aria-hidden="true"><div class="set-bg" onclick="closeSettings()"></div>
+  <div class="set-pnl"><div class="set-hd"><b id="setTitle">설정 · 내 정보</b><button class="set-x" onclick="closeSettings()" aria-label="닫기">✕</button></div><div id="setBody"></div></div></div>
 <!-- 찜 알림 권한 요청 바텀시트 -->
 <div id="wnSheetBg" onclick="wnLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9990"></div>
 <div id="wnSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));z-index:9991;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
@@ -811,6 +829,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
     <button class="side-link" onclick="closeSide();goCalMine()"><span class="side-link-ico">📅</span>내 공구 캘린더</button>
     <button class="side-link" onclick="closeSide();exportWishIcs()"><span class="side-link-ico">📤</span>내 폰 캘린더 저장</button>
     <button class="side-link" onclick="closeSide();openWnSheet()"><span class="side-link-ico">🔔</span>오픈 알림 설정</button>
+    <button class="side-link" onclick="closeSide();openSettings()"><span class="side-link-ico">⚙️</span>설정 · 내 정보</button>
     <button class="side-link" onclick="closeSide();mcShare()"><span class="side-link-ico">🔗</span>친구에게 공유</button>
     <!-- 회원 탈퇴: 로그인한 사람에게만 보인다 (paintMemberUI 가 표시를 켜고 끈다) -->
     <button class="side-link" id="sideWithdraw" style="display:none;color:#B4B0BE" onclick="closeSide();openWithdraw()"><span class="side-link-ico">🗑</span>회원 탈퇴</button>
@@ -4816,7 +4835,50 @@ function _isStandalone(){
 }
 function _isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
 function _isSamsung(){ return /SamsungBrowser/i.test(navigator.userAgent); }  // 삼성 인터넷 브라우저
+const APP_VERSION='2026.10.15';   // 설정 화면에 보이는 사이트·앱 버전 (배포 때 올린다)
+// ⚙ 설정 · 내 정보 (2026-10-15) — 로그인 상태·알림·고객센터·약관·개인정보·접근권한·버전·탈퇴. 새 기능이 아니라 있는 기능의 입구를 한곳에 모은 것.
+function _setRow(h, icon, title, sub, danger){ return `<${h.href?'a':'button'} class="set-row${danger?' danger':''}" ${h.href?`href="${h.href}" target="_blank" rel="noopener"`:`onclick="${h.onclick}"`}><div><span>${icon} ${title}</span>${sub?`<small>${sub}</small>`:''}</div><span class="chev">›</span></${h.href?'a':'button'}>`; }
+function openSettings(){
+  const m=(typeof memberGet==='function')?memberGet():null; const logged=!!(m&&m.kakao_id);
+  let h='';
+  h+='<div class="set-sec">계정</div>';
+  h+=logged?_setRow({onclick:'closeSettings();kkoLogout()'},'💜',`${escHtml(m.nickname||'회원')}님 (카카오)`,'받은 정보: 카카오 닉네임, 회원번호. 누르면 로그아웃'):_setRow({onclick:'closeSettings();startKakaoLogin()'},'💬','카카오로 로그인','찜 목록을 폰을 바꿔도 이어 써요. 닉네임과 회원번호만 받아요');
+  h+='<div class="set-sec">알림</div>';
+  h+=_setRow({onclick:'closeSettings();openWnSheet()'},'🔔','찜한 공구 오픈 알림','오픈일 아침 9시에 한 번. 광고성 알림은 따로 동의 없이는 보내지 않아요');
+  h+=_setRow({onclick:'permGuide(true)'},'📱','앱 접근권한 안내','필수 권한 없음. 선택: 알림');
+  h+='<div class="set-sec">고객센터</div>';
+  h+=_setRow({onclick:'closeSettings();openInqSheet()'},'🛠','오류 · 건의하기','');
+  h+=_setRow({href:'https://pf.kakao.com/_zGfxnX/chat'},'💬','카카오톡 문의','');
+  h+=_setRow({href:'https://cafe.naver.com/momcal/'},'☕','공지사항 (네이버 카페)','');
+  h+='<div class="set-sec">정보</div>';
+  h+=_setRow({href:'terms.html'},'📄','이용약관','');
+  h+=_setRow({href:'privacy.html'},'🔒','개인정보처리방침','');
+  h+=`<div class="set-row" style="cursor:default"><div><span>ℹ️ 사업자 정보</span><small>원츠비 · 대표 원지선 · 사업자등록번호 390-58-00826 · 통신판매업 제2024-용인수지-2336호 · momcal@kakao.com</small></div></div>`;
+  h+=`<div class="set-row" style="cursor:default"><div><span>🏷 버전</span><small>${APP_VERSION}${_isTwa()?' · 안드로이드 앱':(_isNativeApp()?' · 아이폰 앱':' · 웹')}</small></div></div>`;
+  if(logged){ h+='<div class="set-sec">계정 삭제</div>'; h+=_setRow({onclick:'closeSettings();openWithdraw()'},'🗑','회원 탈퇴','회원정보·출석·로그인 세션을 즉시 삭제해요. 이 기기의 찜도 함께 지울지 고를 수 있어요',true); }
+  document.getElementById('setTitle').textContent='설정 · 내 정보'; document.getElementById('setBody').innerHTML=h;
+  document.getElementById('setSheet').classList.add('open'); document.body.style.overflow='hidden';
+  try{ trackEvent('settings_open', logged?'member':'guest'); }catch(_){}
+}
+function closeSettings(){ document.getElementById('setSheet').classList.remove('open'); document.body.style.overflow=''; }
+// 📱 앱 접근권한 안내 — 정보통신망법 제22조의2(앱 접근권한 고지). 우리 앱은 필수 권한이 없고 알림만 선택이다. 앱(TWA)에서 첫 실행 때 한 번, 설정에서 언제든.
+function permGuide(force){
+  try{ if(!force && (!_isTwa() || localStorage.getItem('mc_perm_guided')==='1')) return; }catch(_){ if(!force) return; }
+  const h=`<div class="set-note">맘캘린더 앱이 쓰는 접근권한을 안내드려요.</div>
+    <div class="set-row" style="cursor:default"><div><span>🔔 알림 <b style="color:#602090">(선택)</b></span><small>찜한 공구가 오픈하는 날 아침에 알려드릴 때만 써요. 허용하지 않아도 모든 기능을 쓸 수 있어요.</small></div></div>
+    <div class="set-row" style="cursor:default"><div><span>필수 접근권한</span><small>없음. 연락처·사진·위치·마이크 등은 요청하지 않아요.</small></div></div>
+    <div class="set-note">권한은 폰 설정 › 앱 › 맘캘린더에서 언제든 바꿀 수 있어요.</div>
+    <button class="set-btn" onclick="permGuideOk()">확인</button>`;
+  document.getElementById('setTitle').textContent='앱 접근권한 안내'; document.getElementById('setBody').innerHTML=h;
+  document.getElementById('setSheet').classList.add('open'); document.body.style.overflow='hidden';
+}
+function permGuideOk(){ try{ localStorage.setItem('mc_perm_guided','1'); }catch(_){} closeSettings(); }
+(function(){ const go=()=>setTimeout(()=>{ try{ permGuide(false); }catch(_){} },1200); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); })();
+// 🤖 우리 안드로이드 앱(TWA, com.wantsb.momcalendar) 감지 (2026-10-15) — 첫 진입 referrer 가 android-app://… 로 오고 그 뒤 페이지 이동에선 사라지므로 한 번 보면 저장한다.
+//    _isInApp() 이 이걸 인앱 웹뷰로 오인하면 카카오 로그인이 "웹으로만 인증·안내 띄우기" 길로 빠진다. 앱은 크롬 그 자체라 정상 경로(throughTalk)로 가야 한다.
+function _isTwa(){ try{ if(localStorage.getItem('mc_twa')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ localStorage.setItem('mc_twa','1'); return true; } }catch(_){} return false; }
 function _isInApp(){ // 인스타·카톡·네이버·페북·라인 등 인앱 웹뷰
+  if(_isTwa()) return false;   // 우리 앱은 인앱 웹뷰가 아니다
   return /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|; wv\)/i.test(navigator.userAgent||'');
 }
 function _isMobile(){ // 모바일/태블릿에서만 PWA 유도(모바일 퍼스트) — PC엔 안 띄움
