@@ -24,7 +24,8 @@ const SB = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.ex
 const FN = 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1';
 const only = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1] || '';
 const APPLY = process.argv.includes('--apply');
-const kst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+// 내일 카드를 보낼 때는 PF_DAY=2026-10-16 처럼 날짜를 준다(그날 오픈·마감 행을 대조)
+const kst = process.env.PF_DAY || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const out = [`# 카드 보내기 전 검증 — ${kst}`, ''];
 
 function sql(q) {
