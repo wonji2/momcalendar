@@ -684,15 +684,6 @@ details summary::-webkit-details-marker{display:none}
 
   <!-- 👤 셀러승인 탭 (register.html 가입 셀러 관리) -->
   <div id="sellerAuthView" style="display:none;padding:14px;padding-bottom:80px">
-    <!-- 🔑 비밀번호 찾기 요청 (셀러가 인스타 DM 으로 코드를 보내면 여기서 승인) -->
-    <div id="pwReqBox" style="background:#FFF3E0;border-radius:12px;padding:13px;margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div style="font-size:13px;font-weight:800;color:#B35900">🔑 비밀번호 찾기 요청 <span id="pwReqCnt" style="font-weight:700"></span></div>
-        <button onclick="loadPwRequests()" style="padding:5px 10px;background:#fff;border:1.5px solid #FFB74D;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#B35900">새로고침</button>
-      </div>
-      <div style="font-size:11px;color:#8A5A1A;margin-bottom:8px;line-height:1.6">셀러가 <b>자기 인스타 계정으로 @momcal_ 에 DM</b> 을 보내면 → 보낸 아이디와 코드가 아래와 같은지 확인하고 <b>승인</b>. (승인 후 30분 안에 셀러가 새 비밀번호를 정해요)</div>
-      <div id="pwReqList" style="font-size:12px;color:#999">불러오는 중…</div>
-    </div>
     <!-- 셀러 계정 직접 발급 -->
     <div style="background:#F0E6FA;border-radius:12px;padding:13px;margin-bottom:14px">
       <div style="font-size:13px;font-weight:800;color:#4A1A78;margin-bottom:4px">🔑 셀러 계정 직접 발급</div>
@@ -4724,7 +4715,6 @@ let sellerAuthData=[];
 let sellerAuthLoadError='';
 async function loadSellerAuth(){
   sellerAuthLoadError='';
-  try{ loadPwRequests(); }catch(_){}
   try{
     const res=await fetch(`${SB_URL}/rest/v1/sellers?login_insta=not.is.null&order=created_at.desc`,{
       headers:{'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`}
@@ -4816,48 +4806,6 @@ async function toggleSellerLogin(id,cur){
   });
   await loadSellerAuth();
 }
-// ── 비밀번호 찾기 요청 (인스타 DM 코드) ──
-async function loadPwRequests(){
-  const box=document.getElementById('pwReqList'); if(!box) return;
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/rpc/admin_pw_requests`,{method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},body:'{}'});
-    const d=await r.json();
-    if(!r.ok||!d.ok){ box.innerHTML='<span style="color:#C62828">불러오기 실패 — 로그인이 만료됐으면 새로고침해주세요.</span>'; return; }
-    const now=Date.now();
-    const rows=(d.items||[]).map(x=>{
-      const exp=new Date(x.expires_at).getTime();
-      let st=x.status;
-      if(st==='pending'&&exp<now) st='expired';
-      return Object.assign({},x,{st});
-    });
-    const pend=rows.filter(x=>x.st==='pending');
-    const cnt=document.getElementById('pwReqCnt'); if(cnt) cnt.textContent=pend.length?`(${pend.length}건 대기)`:'';
-    if(!rows.length){ box.innerHTML='최근 24시간 요청이 없어요.'; return; }
-    const lab={pending:'<span style="color:#E65100;font-weight:800">승인 대기</span>',approved:'<span style="color:#1565C0;font-weight:800">승인함 · 셀러 입력 대기</span>',used:'<span style="color:#2E7D32;font-weight:800">변경 완료</span>',expired:'<span style="color:#999">만료</span>'};
-    box.innerHTML=rows.slice(0,15).map(x=>{
-      const t=new Date(x.created_at).toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit',month:'numeric',day:'numeric'});
-      return `<div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px;padding:9px 11px;margin-bottom:6px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:800;color:#222">@${x.insta}</div>
-          <div style="font-size:11px;color:#777;margin-top:2px">코드 <b style="font-size:14px;letter-spacing:2px;color:#602090">${x.code}</b> · ${t} · ${lab[x.st]||x.st}</div>
-        </div>
-        ${x.st==='pending'?`<button onclick="approvePwReq(${x.id},'${x.insta}')" style="padding:8px 14px;background:#602090;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">승인</button>`:''}
-      </div>`;
-    }).join('');
-  }catch(e){ box.innerHTML='<span style="color:#C62828">오류: '+e.message+'</span>'; }
-}
-async function approvePwReq(id,insta){
-  if(!confirm(`@${insta} 님이 인스타 DM 으로 보낸 코드를 확인하셨나요?\n(보낸 아이디와 코드가 같을 때만 승인하세요)`)) return;
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/rpc/admin_pw_approve`,{method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`},body:JSON.stringify({p_id:id})});
-    const d=await r.json();
-    if(!r.ok||!d.ok){ alert('승인 실패: '+(d.msg||JSON.stringify(d))); }
-  }catch(e){ alert('오류: '+e.message); }
-  loadPwRequests();
-}
-
 // 방장이 셀러 비밀번호 재설정 (기존 비번 없이 새로 지정)
 async function resetSellerPw(loginInsta,name){
   if(!loginInsta){alert('로그인 아이디가 없는 셀러예요.');return;}
