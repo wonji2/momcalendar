@@ -3941,6 +3941,8 @@ function toggleWish(id, btn, ev){
     if(btn.classList.contains('nx-heart')){ _nxPaint(btn,on); }   // 🦧 띠 버튼은 하트·색·문구만 바꾼다
     else btn.innerHTML=heartSvg(on);
     btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop');
+    // 🦧 같은 공구의 다른 하트(띠↔목록)도 맞춘다 — 검증자 2026-10-15: 띠에서 찜하면 목록 하트가 빈 채였고, 목록에서 풀면 띠가 「알림 받는 중」으로 남았다
+    document.querySelectorAll(`.wbtn[data-wid="${id}"],.nx-heart[data-wid="${id}"]`).forEach(b=>{ if(b===btn) return; if(b.classList.contains('nx-heart')) _nxPaint(b,on); else b.innerHTML=heartSvg(on); });
   } else paintHearts();
 
   // 서버 반영 (실패해도 로컬은 유지)
@@ -5225,7 +5227,7 @@ function _nxDday(d){ const a=new Date(todayStr+'T00:00:00'), b=new Date(d+'T00:0
 function _nxHeart(on){ return on
    ? '<svg viewBox="0 0 24 24" fill="#ffffff"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'
    : '<svg viewBox="0 0 24 24" fill="none" stroke="#7B3FB5" stroke-width="2"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'; }
-function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=_nxHeart(on); btn.classList.toggle('on',!!on); const em=btn.querySelector('em'); if(em) em.textContent=on?'알림 받는 중':'찜하고 알림받기'; }
+function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=_nxHeart(on); btn.classList.toggle('on',!!on); const em=btn.querySelector('em'); if(em) em.textContent=on?'알림 받는 중':'찜하고 알림받기'; btn.setAttribute('aria-label',on?'알림 받는 중 (누르면 찜 해제)':'찜하고 알림받기'); }
 function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=window._mcAllBanners||[]; const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
 function _nxCard(it, wide){
