@@ -251,13 +251,14 @@ body.srch-suggest #searchDrop{display:block}
 .nx-card.wide{flex:0 0 82%;scroll-snap-align:start}
 .nx-thumb{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#EFEAF5,#D9CCEB);display:flex;align-items:center;justify-content:center;color:#602090;font-weight:900;font-size:22px;overflow:hidden}
 .nx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.nx-pill{position:absolute;left:10px;top:10px;background:#FDE7EE;color:#E8336D;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;line-height:1.2}
+.nx-pill{position:absolute;left:10px;top:10px;background:rgba(20,18,24,.62);color:#fff;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:800;line-height:1.2;letter-spacing:.01em}
 .nx-body{padding:10px 12px 12px}
 .nx-t{font-size:15px;font-weight:900;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nx-s{font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:9px}
 .nx-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .nx-meta{font-size:11px;color:var(--t3);white-space:nowrap}
-.nx-heart{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #602090;background:#fff;color:#602090;border-radius:999px;padding:5px 10px 5px 8px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.nx-heart{display:inline-flex;align-items:center;gap:5px;border:none;background:#EFEAF5;color:#602090;border-radius:999px;padding:7px 12px 7px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.nx-heart.on{background:#602090;color:#fff}
 .nx-heart em{font-style:normal}
 .nx-heart svg{width:16px;height:16px}
 .nx-sheet{position:fixed;inset:0;z-index:1200;display:none}
@@ -3921,7 +3922,7 @@ function heartSvg(on){
 function paintHearts(){
   document.querySelectorAll('.wbtn[data-wid],.nx-heart[data-wid]').forEach(b=>{
     const on=isWished(b.getAttribute('data-wid'));
-    if(b.classList.contains('nx-heart')){ const svg=b.querySelector('svg'); if(svg) svg.outerHTML=heartSvg(on); }
+    if(b.classList.contains('nx-heart')){ _nxPaint(b,on); }
     else b.innerHTML=heartSvg(on);
   });
 }
@@ -3937,7 +3938,7 @@ function toggleWish(id, btn, ev){
   if(on) WISH.add(id); else WISH.delete(id);
   saveWishLocal(); updateWishBadge();
   if(btn){
-    if(btn.classList.contains('nx-heart')){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=heartSvg(on); }   // 🦧 띠 버튼은 하트만 바꾼다(글자 보존)
+    if(btn.classList.contains('nx-heart')){ _nxPaint(btn,on); }   // 🦧 띠 버튼은 하트·색·문구만 바꾼다
     else btn.innerHTML=heartSvg(on);
     btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop');
   } else paintHearts();
@@ -5219,18 +5220,24 @@ loadBanners();
 // 🦧 기대되는 다음 공구 일정 — A안 (사장님 2026-10-15). momcal_ 의 예정 공구만. 찜 = 기존 toggleWish(오픈 아침 알림).
 function _nxEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function _nxMD(d){ if(!d) return ''; const p=d.split('-'); return `${+p[1]}월 ${+p[2]}일`; }
+function _nxDday(d){ const a=new Date(todayStr+'T00:00:00'), b=new Date(d+'T00:00:00'); return Math.round((b-a)/86400000); }
+// 띠 버튼 전용 하트 — 꺼짐: 보라 테두리(연보라 알약 위), 켜짐: 흰 하트(보라 알약 위). 전역 heartSvg 는 목록 .wbtn 용이라 안 건드린다.
+function _nxHeart(on){ return on
+   ? '<svg viewBox="0 0 24 24" fill="#ffffff"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'
+   : '<svg viewBox="0 0 24 24" fill="none" stroke="#7B3FB5" stroke-width="2"><path d="M12 20.5l-1.4-1.3C5.6 14.9 2.5 12.1 2.5 8.7 2.5 6 4.7 3.9 7.4 3.9c1.5 0 3 .7 3.9 1.9l.7.9.7-.9c.9-1.2 2.4-1.9 3.9-1.9 2.7 0 4.9 2.1 4.9 4.8 0 3.4-3.1 6.2-8.1 10.5L12 20.5z"/></svg>'; }
+function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outerHTML=_nxHeart(on); btn.classList.toggle('on',!!on); const em=btn.querySelector('em'); if(em) em.textContent=on?'알림 받는 중':'찜하고 알림받기'; }
 function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=window._mcAllBanners||[]; const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
 function _nxCard(it, wide){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
   const _pay=(it.payLink||'').trim(); const goUrl=/^https?:\/\//i.test(_pay)?_pay:`https://www.instagram.com/${it.insta}/`;
   const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`;
-  const wc=(_wishCounts&&_wishCounts[it.id])||0;
+  const on=isWished(it.id);
   return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
-    <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏰ ${_nxMD(it.openDate)} 오픈</span></div>
+    <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">D-${_nxDday(it.openDate)} · ${_nxMD(it.openDate)} 오픈</span></div>
     <div class="nx-body"><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
-    <div class="nx-row"><span class="nx-meta">${_nxMD(it.openDate)}~${_nxMD(it.endDate)}${wc?` · ♥ ${wc}`:''}</span>
-    <button class="nx-heart" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="찜하기">${heartSvg(isWished(it.id))}<em>찜하면 오픈 알림</em></button></div></div></div>`;
+    <div class="nx-row"><span class="nx-meta">${_nxMD(it.openDate)} ~ ${_nxMD(it.endDate)}</span>
+    <button class="nx-heart${on?' on':''}" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="찜하고 알림받기">${_nxHeart(on)}<em>${on?'알림 받는 중':'찜하고 알림받기'}</em></button></div></div></div>`;
 }
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
