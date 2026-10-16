@@ -415,6 +415,7 @@ details summary::-webkit-details-marker{display:none}
     <div id="atWinners" style="margin-bottom:14px"></div>
     <div style="font-size:12.5px;font-weight:800;color:#4A35A0;margin:16px 0 8px">출석 20일 이상 명단</div>
     <div id="atList"></div>
+    <div id="atAll"></div>
   </div>
 
   <!-- 👥 회원 탭 -->
@@ -6287,6 +6288,8 @@ function computeDupSet(){
   allData.forEach(d=>{
     const sk=sellerKey(d);
     if(!sk||!d.open_date) return;          // 셀러·날짜 둘 다 있어야 비교
+    // 🔴 2026-10-16: 이미 내린 행(gonggu_hold)까지 비교해 「중복의심 38」 중 30건이 이미 정리된 쌍이었다 → 내린 행은 빼고 본다
+    if(typeof heldIds!=='undefined' && heldIds.has(d.id)) return;
     const k=sk+'|'+d.open_date;
     (groups[k]=groups[k]||[]).push(d);
   });
@@ -7337,6 +7340,16 @@ function copyAttendDay(){
 }
 async function loadAttend(){
   const m=atMonthVal();
+  // 🔴 2026-10-16 사장님 "9월 눌러도 9월 내용이 안뜨는데" — 맨 위 「일자별 명단·이달 누적·TOP 20」 은 날짜칸(atDay)을 따라가는데
+  //   달을 바꿔도 날짜칸은 오늘(10월)에 그대로였다. → 달을 바꾸면 날짜칸을 그 달 마지막 날(이번 달이면 오늘)로 옮겨 같이 다시 읽는다.
+  const dayEl=document.getElementById('atDay');
+  if(dayEl){
+    const td=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+    const [yy,mm]=m.split('-').map(Number);
+    const last=new Date(Date.UTC(yy,mm,0)).toISOString().slice(0,10);
+    const want=td.slice(0,7)===m.slice(0,7)?td:last;
+    if(dayEl.value.slice(0,7)!==m.slice(0,7)){ dayEl.value=want; loadAttendDay(); }
+  }
   document.getElementById('atStats').innerHTML='<div style="color:#999;font-size:13px;padding:14px">불러오는 중...</div>';
   try{
     const d=await admRpc('admin_attendance_stats',{p_month:m});
@@ -7375,10 +7388,26 @@ async function loadAttend(){
           ${x.won?`<span style="font-size:10px;font-weight:800;color:#fff;background:#C2417A;padding:3px 8px;border-radius:20px">${esc2(x.won)}</span>`:''}
         </div>`).join('')
       : '<div style="color:#B0AABD;font-size:12.5px;padding:16px 2px">20일 이상 출석한 사람이 아직 없어요</div>';
+    // 📋 그 달 출석자 전체(일수 많은 순) — 20일 미만도 본다 (2026-10-16 사장님 "출석자명단 관리자에서 어캐 봐야해")
+    const all=d.all||[]; window._atAll={month:m.slice(0,7),all};
+    document.getElementById('atAll').innerHTML = all.length
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px">
+           <div style="font-size:12.5px;font-weight:800;color:#4A35A0">📋 ${m.slice(0,7)} 출석자 전체 ${all.length}명</div>
+           <button onclick="copyAttendAll()" style="padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">명단 복사</button>
+         </div>`+all.map((x,i)=>`<div style="display:flex;gap:8px;padding:6px 10px;background:#fff;border:1px solid #EFEDF5;border-radius:9px;margin-bottom:4px">
+           <div style="width:22px;font-size:11px;color:#9A93A8">${i+1}</div>
+           <div style="flex:1;font-size:12.5px;color:#2A1D6E">${esc2(x.nickname)}</div>
+           <div style="font-size:12px;font-weight:800;color:#4A35A0">${x.days}일</div></div>`).join('')
+      : '';
     loadWinners();
   }catch(e){
     document.getElementById('atStats').innerHTML=`<div style="color:#C62828;font-size:12.5px;padding:12px">불러오기 실패: ${esc2(e.message)}</div>`;
   }
+}
+function copyAttendAll(){
+  const a=window._atAll; if(!a) return;
+  const txt=[a.month+' 출석자 전체 '+a.all.length+'명',['순위','닉네임','출석일수'].join('\t'),...a.all.map((x,i)=>[i+1,x.nickname,x.days].join('\t'))].join('\n');
+  navigator.clipboard.writeText(txt).then(()=>alert('복사됐어요!')).catch(()=>window.prompt('아래를 복사하세요', txt));
 }
 async function drawAttend(tier){
   const m=atMonthVal();
