@@ -154,7 +154,14 @@ async function load(){
     const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
     const all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
     // 같은 상품명은 하나만 (여러 몰에서 같은 딜이 뜬다)
-    const seen=new Set(); const uniq=all.filter(h=>{const k=h.name.toLowerCase().replace(/\s/g,'');if(seen.has(k))return false;seen.add(k);return true;});
+    // 🔴 2026-10-16 사장님 "압타밀 두개니까 안겹치는거로" — 「압타밀 프로푸트라 … 4개」·「압타밀 프로푸투라 … 5개」가 나란히 실렸다.
+    //   글자가 완전히 같을 때만 묶어서, 수량·옵션이 다르거나 표기가 한 글자 다르면 빠져나갔다.
+    //   → 첫 쉼표 뒤(수량·용량 옵션)와 숫자+단위를 떼고, **같은 브랜드(첫 낱말)** 이면서 두 글자 묶음이 많이 겹치면 같은 상품으로 본다.
+    const coreOf=(n)=>String(n).toLowerCase().replace(/\[[^\]]*\]/g,'').split(/[,，]/)[0].replace(/\d+(\.\d+)?\s*(개입|개|팩|입|매|롤|g|kg|ml|l|구|봉|박스|세트|단계)/g,'').replace(/[^0-9a-z가-힣]/g,'');
+    const brandOf=(n)=>String(n).toLowerCase().replace(/^\[[^\]]*\]\s*/g,'').split(/\s+/)[0];
+    const grams=(s)=>{const g=new Set();for(let i=0;i<s.length-1;i++)g.add(s.slice(i,i+2));return g;};
+    const sameItem=(a,b)=>{if(brandOf(a.name)!==brandOf(b.name))return false;const x=grams(coreOf(a.name)),y=grams(coreOf(b.name));if(!x.size||!y.size)return coreOf(a.name)===coreOf(b.name);let n=0;for(const t of x)if(y.has(t))n++;return 2*n/(x.size+y.size)>=0.6;};
+    const uniq=[]; for(const h of all){ if(!uniq.some(u=>sameItem(u,h))) uniq.push(h); }
     const byDc=(a,b)=>((b.discount_rate||0)-(a.discount_rate||0))||(String(b.created_at).localeCompare(String(a.created_at)));
     // 「오늘」 = **오늘 올린 것**(created_at). deal_day 는 되살릴 때 밀려서 못 믿는다(위 주석)
     const kday=(h)=>new Date(new Date(h.created_at).getTime()+9*3600e3).toISOString().slice(0,10);
