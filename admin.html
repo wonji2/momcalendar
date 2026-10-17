@@ -404,6 +404,10 @@ details summary::-webkit-details-marker{display:none}
         <button onclick="loadAttend()" style="padding:8px 13px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">↻</button>
       </div>
     </div>
+    <!-- 📅 월별 추첨 현황 — 사장님 지시 2026-10-17 "월별로 당첨자 뽑았는지 누구한테 갔는지 볼수있게" -->
+    <div style="font-size:12.5px;font-weight:800;color:#4A35A0;margin:2px 0 8px">📅 월별 추첨 현황</div>
+    <div id="atHistory" style="margin-bottom:18px"></div>
+    <div style="font-size:11px;color:#9A93A8;margin:-8px 0 14px">아래는 위에서 고른 달(또는 「이 달 자세히」)의 상세예요</div>
     <!-- 📋 오늘(또는 선택일) 출석 명단 — 사장님 지시 2026-08-18 "출석한사람 오늘자 명단도 볼 수 있어야" -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px">
       <div style="font-size:12.5px;font-weight:800;color:#4A35A0">📋 일자별 출석 명단</div>
@@ -7365,14 +7369,14 @@ async function loadAttend(){
     document.getElementById('atDrawBox').innerHTML=`
       <div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:13px">
         <div style="font-size:12.5px;font-weight:800;color:#2A1D6E;margin-bottom:9px">추첨하기</div>
-        ${AT_TIERS.map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        ${[...AT_TIERS].reverse().map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <div style="flex:1;font-size:12px;color:#4C4459">${x.name} · <b>${x.prize}</b></div>
             <input id="atN${x.t}" type="number" value="${x.t===3?'':x.count}" placeholder="전원" min="1"
               style="width:62px;padding:6px 8px;border:1.5px solid #DCD2FB;border-radius:8px;font-size:12px;font-family:inherit;text-align:center">
             <button onclick="drawAttend(${x.t})" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">뽑기</button>
           </div>`).join('')}
         <div style="font-size:10.5px;color:#9A93A6;line-height:1.6;margin-top:6px">
-          이미 당첨된 사람은 자동으로 빼고 뽑아요 · 개근은 인원을 비우면 전원
+          <b>개근 → 25일 → 20일 순서로</b> 뽑아요(이미 당첨된 사람은 다음 등급에서 빠져요) · 매월 1일 자동 추첨은 개근 1명 · 25일↑ 3명 · 20일↑ 5명 · 개근 인원을 비우면 전원
         </div>
       </div>`;
     // 명단
@@ -7399,7 +7403,7 @@ async function loadAttend(){
            <div style="flex:1;font-size:12.5px;color:#2A1D6E">${esc2(x.nickname)}</div>
            <div style="font-size:12px;font-weight:800;color:#4A35A0">${x.days}일</div></div>`).join('')
       : '';
-    loadWinners();
+    loadWinners(); loadAttendHistory();
   }catch(e){
     document.getElementById('atStats').innerHTML=`<div style="color:#C62828;font-size:12.5px;padding:12px">불러오기 실패: ${esc2(e.message)}</div>`;
   }
@@ -7481,8 +7485,51 @@ function copyTxt(t){
   else prompt('복사하세요', t);
 }
 async function markSent(id, sent){
-  if(sent && !confirm('발송 완료로 표시할까요?\n(연락처는 개인정보라 이때 자동으로 지워집니다)')) { loadWinners(); return; }
+  if(sent && !confirm('발송 완료로 표시할까요?\n(연락처는 개인정보라 이때 자동으로 지워집니다)')) { loadWinners(); loadAttendHistory(); return; }
   try{ await admRpc('admin_winner_sent',{p_id:id,p_sent:sent}); }catch(e){ alert('실패: '+e.message); }
+  loadWinners(); loadAttendHistory();
+}
+// 📅 월별 추첨 현황 (admin_attendance_history RPC — supabase/sql/attendance_history_92.sql)
+//   달마다: 출석자·20일↑·개근 수 → 추첨했는지 → 누구에게 무엇이 → 승인(안내)·발송 상태
+async function loadAttendHistory(){
+  const box=document.getElementById('atHistory'); if(!box) return;
+  box.innerHTML='<div style="color:#999;font-size:12.5px;padding:8px">불러오는 중...</div>';
+  try{
+    const H=await admRpc('admin_attendance_history',{});
+    const cur=new Date(Date.now()+9*3600e3).toISOString().slice(0,7);
+    box.innerHTML=(H||[]).map(h=>{
+      const w=h.winners||[], sent=w.filter(x=>x.sent).length, appr=w.filter(x=>x.approved).length;
+      const st = h.month===cur ? ['진행 중 (월말 뒤 추첨)','#6B6480','#F2EFFA']
+        : !w.length ? (h.eligible? ['🔴 추첨 안 함','#C62828','#FFEBEE'] : ['대상자 없음','#9A93A8','#F5F4F8'])
+        : appr<w.length ? ['🟠 추첨됨 · 승인 대기 (안내 안 나감)','#A86100','#FFF7E6']
+        : sent<w.length ? [`🟡 발송 ${sent}/${w.length}`,'#8A6D00','#FFF8DC']
+        : ['✅ 발송 완료','#0F6E56','#E8F5EF'];
+      const rows=w.map(x=>{
+        const warn = (x.days>=h.last_day && x.tier<3) ? `<span style="font-size:10px;color:#B5651D;font-weight:700;margin-left:4px">개근 (개근 경품 1명 추첨에서 빠짐)</span>` : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #F2EFFA">
+          <span style="font-size:13px">${x.tier===3?'🍗':(x.tier===2?'🎀':'☕')}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:700;color:#232326">${esc2(x.nickname)} <span style="font-size:10.5px;color:#9A93A6;font-weight:600">${x.days}일</span>${warn}</div>
+            <div style="font-size:10.5px;color:#8A8395">${esc2(x.prize)}${x.contact?` · 📱 ${esc2(x.contact)}`:''}</div>
+          </div>
+          <span style="font-size:10.5px;font-weight:700;color:${x.sent?'#0F6E56':(x.approved?'#8A6D00':'#A86100')}">${x.sent?'발송 '+(x.sent_at||''):(x.approved?'안내 중':'승인 전')}</span>
+          <input type="checkbox" title="발송 완료" ${x.sent?'checked':''} onchange="markSent(${x.id},this.checked)">
+        </div>`;}).join('');
+      return `<div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="font-size:14px;font-weight:900;color:#2A1D6E">${h.month.replace('-','년 ')}월</div>
+          <span style="font-size:11px;font-weight:800;color:${st[1]};background:${st[2]};border-radius:6px;padding:3px 8px">${st[0]}</span>
+          <button onclick="openAttendMonth('${h.month}')" style="margin-left:auto;padding:5px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">이 달 자세히 ▾</button>
+        </div>
+        <div style="font-size:11px;color:#6B6480;margin-top:5px">출석 ${h.attendees}명 · 20일↑ ${h.eligible}명 · 개근 ${h.perfect}명${w.length?` · 당첨 ${w.length}명${w[0].drawn_at?` (${w[0].drawn_at} 추첨)`:''}`:''}</div>
+        ${rows?`<div style="margin-top:6px">${rows}</div>`:''}
+      </div>`;}).join('') || '<div style="color:#9A93A8;font-size:12px">출석 기록이 아직 없어요</div>';
+  }catch(e){ box.innerHTML='<div style="color:#C2417A;font-size:12.5px;padding:8px">불러오기 실패: '+esc2(e&&e.message?e.message:String(e))+'</div>'; }
+}
+function openAttendMonth(m){
+  const el=document.getElementById('atMonth'); if(el) el.value=m;
+  loadAttend();
+  setTimeout(()=>{ const t=document.getElementById('atStats'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); },300);
 }
 async function resetWinners(){
   if(!confirm('이 달 당첨자를 모두 지우고 다시 뽑을 수 있게 할까요?')) return;
