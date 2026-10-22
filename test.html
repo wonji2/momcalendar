@@ -285,6 +285,18 @@ body.srch-suggest #searchDrop{display:block}
 .nx-thumb img{object-position:center}
 .nx-empty{text-align:center;color:var(--t3);padding:30px 0}
 body.srch-mode .next-zone{display:none!important}
+/* 🟣 D안 (사장님 2026-10-22 "d로해봐 · 알람을 가운데로 · 처음엔 비어있다가 누르면 알림 드릴까요? 하고 유색으로 · 사진이랑 큰 dday존이랑 5:5") */
+.nxd{flex:0 0 calc(100% - 28px);scroll-snap-align:start;min-width:0;display:flex;height:132px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#7B3FB5,#602090);color:#fff;cursor:pointer;position:relative}
+.nxd:only-child{flex-basis:100%}
+.nxd-l{flex:0 0 50%;min-width:0;padding:12px 10px 10px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center}
+.nxd-dd{font-size:32px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.nxd-nm{font-size:13.5px;font-weight:800;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.96}
+.nxd-od{font-size:11px;opacity:.8;margin-top:-2px}
+.nxd-r{flex:0 0 50%;min-width:0;background:#EFEAF5}
+.nxd-r img{width:100%;height:100%;object-fit:cover;display:block}
+.nxd-bell{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:999px;border:1.5px solid rgba(255,255,255,.75);background:transparent;color:#fff;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.nxd-bell.on{background:#FFD43B;border-color:#FFD43B;color:#3A2600}
+.nxd-bell.ask{background:#fff;border-color:#fff;color:#602090}
 /* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
 .set-sheet{position:fixed;inset:0;z-index:1300;display:none}
 .set-sheet.open{display:block}
@@ -5583,8 +5595,10 @@ function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outer
   // 찜 수 그래프도 같이 ±1 (서버 wish_counts 는 다음 로드 때 맞춰진다)
   const g=btn.closest('.nx-card')?.querySelector('.nx-g'); if(g && g.dataset.on!==String(!!on)){ g.dataset.on=String(!!on); g.dataset.n=Math.max(0,(Number(g.dataset.n)||0)+(on?1:-1)); } _nxGraphRefresh(); }
 // 💜 찜 N명 + 얇은 바 — 바 길이는 띠 안에서 가장 많은 공구를 100% 로 둔 비율, 20명↑ 🔥 (사장님 2026-10-15 1안)
-const _NX_BASE=12;   // 찜 기본 12명에서 시작 (사장님 2026-10-22 "찜은 기본으로 12명 정도는 눌러놓는걸로 시작해봐")
-function _nxGraph(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; const on=isWished(it.id); const n=_NX_BASE+base+((on&&!base)?1:0); return `<div class="nx-g" data-n="${n}" data-on="${on}"><div class="lab"></div><div class="bar"><i></i></div></div>`; }
+// 찜(알림) 바탕 숫자 — 상품마다 7~13 중 하나 + 실제 누적 찜 (사장님 2026-10-22 "기본 알람은 7~13 숫자중 랜덤 · 그 이후는 진짜 누적 숫자로")
+//   상품 id 로 정해서 같은 상품은 날마다 같은 값이다(날짜로 흔들면 다음 날 숫자가 줄어들 수 있다).
+function _nxBase(id){ let h=2166136261; const t='momcal'+String(id); for(let i=0;i<t.length;i++){ h^=t.charCodeAt(i); h=Math.imul(h,16777619); } return 7+((h>>>0)%7); }
+function _nxGraph(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; const on=isWished(it.id); const n=_nxBase(it.id)+base+((on&&!base)?1:0); return `<div class="nx-g" data-n="${n}" data-on="${on}"><div class="lab"></div><div class="bar"><i></i></div></div>`; }
 function _nxGraphRefresh(){ const gs=[...document.querySelectorAll('.nx-g')]; if(!gs.length) return; const max=Math.max(1,...gs.map(g=>Number(g.dataset.n)||0)); gs.forEach(g=>{ const n=Number(g.dataset.n)||0; const hot=n>=20; g.querySelector('.lab').innerHTML=`${hot?'<span class="nx-hot">🔥</span>':'💜'} 찜 <b>${n}명</b>`; const i=g.querySelector('.bar i'); if(i) i.style.width=Math.max(n?8:0,Math.round(n/max*100))+'%'; }); }
 function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=(window._mcAllBanners||[]).filter(x=>x&&(x.type==='main'||x.type==='seller')); /* 판매 배너(promo_card 등)가 썸네일로 잡히지 않게 (2026-10-15) */ const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
@@ -5600,13 +5614,32 @@ function _nxCard(it, wide){
     <div class="nx-row"><button class="nx-heart${on?' on':''}" data-wid="${it.id}" onclick="toggleWish(${it.id},this,event)" aria-label="${on?'찜 해제':'찜하고 오픈 알림 받기'}">${_nxHeart(on)}<em>찜</em></button></div>
     ${_nxGraph(it)}</div></div>`;
 }
+function _nxCardD(it){
+  const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):'';
+  const _pay=(it.payLink||'').trim(); const goUrl=(it.openDate>todayStr || !/^https?:\/\//i.test(_pay))?`https://www.instagram.com/${it.insta}/`:_pay;
+  const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\'").replace(/"/g,'&quot;')}')`;
+  const on=isWished(it.id); const base=(_wishCounts&&_wishCounts[it.id])||0; const n=_nxBase(it.id)+base+((on&&!base)?1:0);
+  return `<div class="nxd" onclick="${oc}">
+    <div class="nxd-l"><div class="nxd-dd">D-${_nxDday(it.openDate)}</div>
+      <div style="max-width:100%"><div class="nxd-nm">${_nxEsc(it.name)}</div><div class="nxd-od">${_nxMDs(it.openDate)} 오픈</div></div>
+      <button class="nxd-bell${on?' on':''}" data-nxd="${it.id}" onclick="nxdBell(${it.id},this,event)" aria-label="${on?'알림 끄기':'오픈 알림 받기'}">🔔 ${n}</button></div>
+    <div class="nxd-r">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:''}</div></div>`;
+}
+// 🔔 처음엔 빈 테두리 → 한 번 누르면 「알림 드릴까요?」 → 한 번 더 누르면 노랑(=찜, 오픈 아침 알림). 켜진 걸 누르면 끈다.
+function nxdBell(id,btn,ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  if(isWished(id)){ toggleWish(id,null); renderNextGonggu(); return; }
+  if(!btn.classList.contains('ask')){ btn.classList.add('ask'); btn.textContent='알림 드릴까요?'; clearTimeout(btn._t); btn._t=setTimeout(()=>{ if(btn.isConnected){ renderNextGonggu(); } },4000); return; }
+  toggleWish(id,null); try{ trackEvent('next_bell_on',String(id)); }catch(_){}
+  renderNextGonggu();
+}
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
   if(!items.length){ zone.style.display='none'; return; }
-  const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCard(it,true)).join(''); sc.scrollLeft=x;
+  const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); sc.scrollLeft=x;
   const pages=items.length; document.getElementById('nextDots').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i${i===0?' class="on"':''}></i>`).join(''):'';
-  if(!sc._nxDots){ sc._nxDots=true; sc.addEventListener('scroll',function(){ const w=this.querySelector('.nx-card'); if(!w) return; const page=Math.round(this.scrollLeft/(w.offsetWidth+12)); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===page)); },{passive:true}); }
+  if(!sc._nxDots){ sc._nxDots=true; sc.addEventListener('scroll',function(){ const w=this.querySelector('.nxd, .nx-card'); if(!w) return; const page=Math.round(this.scrollLeft/(w.offsetWidth+12)); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===page)); },{passive:true}); }
   setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
 }
