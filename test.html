@@ -1641,9 +1641,18 @@ function cmpDatePartner(a,b){
   return (effPartner(b)?1:0)-(effPartner(a)?1:0);
 }
 // 진행중 전용: 이웃셀러(파트너) 최상단 → 그다음 마감 임박 순(오늘 마감 먼저) → 동률이면 오픈일 빠른 순
+// 🔢 맘캘린더 카드는 메인 배너 순서를 따른다 (사장님 2026-10-22 "카드 순서는 마인크래프트 자석블럭 그 밑에 마이키즈")
+//   배너(관리자에서 순서 조정)와 판매링크가 같은 카드 = 그 배너 자리. 배너가 없는 카드는 그 뒤(마감 임박순).
+function _bannerRank(item){
+  if(!isMomcal(item) || typeof MAIN_BANNERS==='undefined' || !MAIN_BANNERS) return 999;
+  const pay=(item.payLink||'').trim(); if(!pay) return 999;
+  const i=MAIN_BANNERS.findIndex(b=>b && b.link && b.link.trim()===pay);
+  return i<0?999:i;
+}
 function cmpPartnerFirst(a,b){
   const pa=effPartner(a)?0:1, pb=effPartner(b)?0:1;
   if(pa!==pb) return pa-pb;                      // 파트너 먼저
+  if(pa===0){ const ra=_bannerRank(a), rb=_bannerRank(b); if(ra!==rb) return ra-rb; }   // 맘캘린더는 배너 순서대로
   const e=realEnd(a).localeCompare(realEnd(b));
   if(e!==0) return e;                            // 마감 임박 순(오늘 마감이 맨 위)
   return a.openDate.localeCompare(b.openDate);   // 동률이면 오픈일 빠른 순
@@ -5555,6 +5564,7 @@ async function loadBanners(){
     MAIN_BANNERS=DEFAULT_BANNERS;
   }
   buildMainSlider();
+  try{ if(typeof renderList==='function' && typeof DATA!=='undefined' && DATA.length) renderList(); }catch(_){}   // 카드 순서가 배너 순서를 따르므로 배너 도착 뒤 다시 그린다
   try{ renderNextGonggu(); }catch(_){}   // 🦧 배너 사진이 도착한 뒤 다시 그린다
 }
 loadBanners();
