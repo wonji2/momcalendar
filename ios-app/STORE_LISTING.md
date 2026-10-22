@@ -58,7 +58,8 @@
 ## 출시 전 체크
 - [ ] test → index 앱 다리 배포 (2026-10-12 완료)
 - [x] 1024 아이콘 (`assets/AppIcon-1024.png`, 알파 없음)
-- [ ] Apple Developer Program 등록 + D-U-N-S
+- [x] D-U-N-S (2026-10-23 나옴)
+- [ ] Apple Developer Program 등록(조직, 연 $99) → App ID·앱 레코드 → API 키·APNs 키·Team ID (README 2~5번)
 - [ ] APNs 키(.p8) → Supabase 시크릿 `APNS_KEY_P8`·`APNS_KEY_ID`·`APNS_TEAM_ID`
 - [ ] pg_cron `send-open-push-ios` 등록 (키가 나온 뒤)
 - [ ] TestFlight 내부 테스트 → 심사 제출
