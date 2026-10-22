@@ -267,7 +267,7 @@ body.srch-suggest #searchDrop{display:block}
 .nx-g .bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#7B3FB5,#602090);width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
 .nx-hot{color:#E8336D}
 .nx-dots{display:flex;gap:5px;justify-content:center;margin:6px 0 2px}
-.nx-dots i{width:6px;height:6px;border-radius:50%;background:#E6EBF1}
+.nx-dots i{width:6px;height:6px;border-radius:50%;background:#E6EBF1;cursor:pointer;box-sizing:content-box;padding:6px 3px;background-clip:content-box}
 .nx-dots i.on{background:#602090}
 .nx-heart.on{background:#602090;color:#fff}
 .nx-heart em{font-style:normal}
@@ -287,17 +287,24 @@ body.srch-suggest #searchDrop{display:block}
 body.srch-mode .next-zone{display:none!important}
 .nx-scroll{scroll-padding:0 16px}   /* 첫 카드가 왼쪽 끝에 붙지 않게(스냅 기준 16px) */
 /* 🟣 D안 (사장님 2026-10-22 "d로해봐 · 알람을 가운데로 · 처음엔 비어있다가 누르면 알림 드릴까요? 하고 유색으로 · 사진이랑 큰 dday존이랑 5:5") */
-.nxd{flex:0 0 calc(100% - 28px);scroll-snap-align:start;min-width:0;display:flex;height:132px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#7B3FB5,#602090);color:#fff;cursor:pointer;position:relative}
+.nxd{flex:0 0 calc(100% - 28px);scroll-snap-align:start;min-width:0;display:flex;height:140px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#7B3FB5,#602090);color:#fff;cursor:pointer;position:relative}
 .nxd:only-child{flex-basis:100%}
 .nxd-l{flex:0 0 50%;min-width:0;padding:12px 10px 10px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center}
 .nxd-dd{font-size:32px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.nxd-nm{font-size:13.5px;font-weight:800;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.96}
+.nxd-nm{font-size:13px;font-weight:800;max-width:100%;line-height:1.25;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;opacity:.96}   /* 두 줄까지 — 「JVR 모노아이 트라이탄 물병」 안 잘림 (사장님 2026-10-22) */
 .nxd-od{font-size:11px;opacity:.8;margin-top:-2px}
 .nxd-r{flex:0 0 50%;min-width:0;background:#EFEAF5}
 .nxd-r img{width:100%;height:100%;object-fit:cover;display:block}
 .nxd-bell{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:999px;border:1.5px solid rgba(255,255,255,.75);background:transparent;color:#fff;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
 .nxd-bell.on{background:#FFD43B;border-color:#FFD43B;color:#3A2600}
 .nxd-bell.ask{background:#fff;border-color:#fff;color:#602090}
+#nxdAsk{position:fixed;inset:0;z-index:1400;display:none}#nxdAsk.open{display:block}
+#nxdAsk .nxa-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+#nxdAsk .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
+#nxdAsk .nxa-ico{font-size:30px}#nxdAsk .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
+#nxdAsk .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
+#nxdAsk .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+#nxdAsk .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes{background:#602090;color:#fff}
 /* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
 .set-sheet{position:fixed;inset:0;z-index:1300;display:none}
 .set-sheet.open{display:block}
@@ -1021,7 +1028,7 @@ body.sheet-open{ overscroll-behavior-y: none; }
         「찜」= 기존 찜 그대로(누르면 오픈 알림 시트 → 오픈 아침 푸시). 알림받기라는 별도 개념을 만들지 않는다(사장님 "찜하면 알람 받을거냐고 뜨잖아").
         사진은 banners(link=결제링크 또는 제목이 첫 낱말로 시작)에서, 없으면 이름 두 글자 자리표시. 전체일정 = 주차별 시트. 렌더 renderNextGonggu() -->
 <div class="next-zone" id="nextZone" style="display:none">
-  <div class="nx-head"><div class="nx-title">기대되는 다음 공구 일정🔔</div><button class="nx-more" onclick="openNextSheet()">전체일정 ›</button></div>
+  <div class="nx-head"><div class="nx-title">🔔 곧 열릴 공구 스포</div><button class="nx-more" onclick="openNextSheet()">전체일정 ›</button></div>
   <div class="nx-scroll" id="nextScroll"></div>
   <div class="nx-dots" id="nextDots"></div>
 </div>
@@ -5630,16 +5637,36 @@ function _nxCardD(it){
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   if(isWished(id)){ toggleWish(id,null); renderNextGonggu(); return; }
-  if(!btn.classList.contains('ask')){ btn.classList.add('ask'); btn.textContent='알림 드릴까요?'; clearTimeout(btn._t); btn._t=setTimeout(()=>{ if(btn.isConnected){ renderNextGonggu(); } },4000); return; }
-  toggleWish(id,null); try{ trackEvent('next_bell_on',String(id)); }catch(_){}
-  renderNextGonggu();
+  // 🔔 누르면 바로 팝업 (사장님 2026-10-22 "알림 누르면 바로 찜 알림 받으시겠습니까 팝업 띄워")
+  const it=(typeof DATA!=='undefined'?DATA:[]).find(x=>Number(x.id)===Number(id))||{};
+  let m=document.getElementById('nxdAsk');
+  if(!m){ m=document.createElement('div'); m.id='nxdAsk';
+    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s">찜해 두면 오픈하는 날 아침에 알려드려요</div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
+    document.body.appendChild(m);
+    m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
+  }
+  m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'찜 알림 받으시겠어요?';
+  m.querySelector('.nxa-yes').onclick=function(){ m.classList.remove('open'); if(!isWished(id)) toggleWish(id,null); try{ trackEvent('next_bell_on',String(id)); }catch(_){}; renderNextGonggu(); };
+  m.classList.add('open');
 }
+function _nxPage(){ const sc=document.getElementById('nextScroll'); const w=sc&&sc.querySelector('.nxd, .nx-card'); return w?Math.round(sc.scrollLeft/(w.offsetWidth+12)):0; }
+function _nxGo(k){ const sc=document.getElementById('nextScroll'); if(!sc) return; const cards=sc.querySelectorAll('.nxd, .nx-card'); if(!cards.length) return; k=Math.max(0,Math.min(cards.length-1,k)); const L=cards[k].offsetLeft-cards[0].offsetLeft; try{ sc.scrollTo({left:L,behavior:'smooth'}); }catch(_){ sc.scrollLeft=L; } setTimeout(()=>{ if(Math.abs(sc.scrollLeft-L)>4) sc.scrollLeft=L; },450); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===k)); }   // 부드럽게 안 움직이는 기기는 바로 옮긴다
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
   if(!items.length){ zone.style.display='none'; return; }
   const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); sc.scrollLeft=x;
   const pages=items.length; document.getElementById('nextDots').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i${i===0?' class="on"':''}></i>`).join(''):'';
+  if(!sc._nxSwipe){ sc._nxSwipe=true;
+    // 🔴 2026-10-22 사장님 "안밀려 · 아래 동그라미 눌러도 옆으로 안넘어가" — 동그라미 클릭 이동 + 손가락 밀기 보조
+    document.getElementById('nextDots').addEventListener('click',function(e){ const d=e.target.closest('i'); if(!d) return; const k=[...this.children].indexOf(d); _nxGo(k); });
+    let x0=null,y0=null,sl0=0;
+    sc.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; y0=e.touches[0].clientY; sl0=sc.scrollLeft; },{passive:true});
+    sc.addEventListener('touchend',function(e){ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0; x0=null;
+      if(Math.abs(dx)<35||Math.abs(dx)<Math.abs(dy)) return;
+      if(Math.abs(sc.scrollLeft-sl0)>20) return;   // 기본 스크롤이 이미 움직였으면 그대로 둔다
+      _nxGo(_nxPage()+(dx<0?1:-1)); },{passive:true});
+  }
   if(!sc._nxDots){ sc._nxDots=true; sc.addEventListener('scroll',function(){ const w=this.querySelector('.nxd, .nx-card'); if(!w) return; const page=Math.round(this.scrollLeft/(w.offsetWidth+12)); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===page)); },{passive:true}); }
   setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
