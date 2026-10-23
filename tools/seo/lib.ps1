@@ -153,7 +153,8 @@ function WritePage([hashtable]$o){
       [void]$sb.AppendLine("<dl class=${Q}facts${Q}>" + ($fr -join '') + "</dl>")
     }
   }
-  [void]$sb.AppendLine("<p class=${Q}asof${Q}>$ASOF 기준 · 공구 일정은 매일 자동 갱신됩니다</p>")
+  $asT = $(if($o.asofText){ $o.asofText } else { '기준 · 공구 일정은 매일 자동 갱신됩니다' })
+  [void]$sb.AppendLine("<p class=${Q}asof${Q}>$ASOF $(HtmlEsc $asT)</p>")
   [void]$sb.AppendLine($o.body)
   $ctaH = $(if($o.cta){ $o.cta } else { '/' }); $ctaT = $(if($o.ctaText){ $o.ctaText } else { '오늘 진행 중인 공구 보러 가기 →' })
   [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}$ctaH${Q}>$(HtmlEsc $ctaT)</a>")

@@ -737,9 +737,11 @@ foreach($c in $cats){
 # ══ 키워드 페이지 ══
 $kw = ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'keywords.json')) | ConvertFrom-Json).pages
 $fmtBrands = '{0:N0}' -f $brandList.Count
+# __LIVE__ = 지금 진행 중인 공구 수(seo_dataset stat.live). 「오늘·지금」 제목에는 누적(__TOTAL__)이 아니라 이것을 쓴다 (2026-10-24 검증)
+$fmtLive = $(if($D.stat.PSObject.Properties['live'] -and [int]$D.stat.live -gt 0){ '{0:N0}' -f [int]$D.stat.live } else { '' })
 function Sub3([string]$s){
   if($null -eq $s){ return '' }
-  return $s.Replace('__TOTAL__',$fmtTotal).Replace('__SELLERS__',$fmtSellers).Replace('__BRANDS__',$fmtBrands)
+  return $s.Replace('__TOTAL__',$fmtTotal).Replace('__SELLERS__',$fmtSellers).Replace('__BRANDS__',$fmtBrands).Replace('__LIVE__',$fmtLive)
 }
 $topB = $brandList  | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 30
 $topP = $prodList   | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false} | Select-Object -First 30
@@ -771,10 +773,10 @@ $kwMade = New-Object System.Collections.ArrayList
 # 🔎 2026-10-24 GEO: 질문형 랜딩마다 같은 「사이트 사실 표」 — 답변 엔진이 「맘캘린더는 셀러 몇 명·공구 몇 건」을 그대로 인용할 수 있게 숫자를 항목-값으로
 $SiteFacts = @(
   @{ k='서비스'; v='인스타그램 공동구매(공구) 일정·핫딜·브랜드 세일 일정 모음' },
-  @{ k='등록 셀러'; v="${fmtSellers}명" },
+  @{ k='공구 진행 셀러'; v="${fmtSellers}명 (인스타 계정)" },
   @{ k='공구 일정'; v="누적 ${fmtTotal}건" },
   @{ k='공구 브랜드'; v="${fmtBrands}개" },
-  @{ k='오늘 진행'; v=$(if($liveRows.Count -gt 0){ "$($liveRows.Count)건 이상" } else { '' }) },
+  @{ k='진행 중 공구'; v=$(if($fmtLive){ "${fmtLive}건" } else { '' }) },
   @{ k='갱신'; v='매일 새벽 자동 갱신' },
   @{ k='운영'; v='원츠비 (momcalendar.com)' }
 )
@@ -814,24 +816,39 @@ foreach($k in $kw){
 #   🔴 「최저가」는 사이트(index.html 「추적 기간 중 가장 싼 가격」)와 같은 뜻으로만 쓴다 = hotdeals.is_lowest. 「최저가 보장」 같은 말은 쓰지 않는다.
 #   🔴 가격은 수집 시각 기준이다 — 화면·FAQ 에 「판매처에서 바뀔 수 있다」를 같이 적는다(바뀐 가격을 사실처럼 인용당하지 않게).
 #   데이터를 못 받으면 페이지를 만들지 않는다(빈 페이지·0건 사실표 금지) → 보존 원칙상 어제 판이 남는다.
-$HD2 = @(); $SALE = @()
+$HD2 = @(); $SALE = @(); $CLASS = @()
+# 🔴 2026-10-24 검증 불통과 반영 — 이 페이지들은 사이트 화면과 **같은 말**만 한다:
+#   · 쿠팡·링크프라이스의 price_before 는 정가가 아니라 우리가 기록한 90일 평균이다(coupang-hotdeal·linkprice-hotdeal) → 「평균」 이라 부른다
+#   · 할인율은 판매가·비교가로 **다시 계산**하고, 65% 를 넘으면 쓰지 않는다(index.html 「정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다」)
+#   · 몰 이름 「토스」 와 「토스쇼핑」 은 같은 몰이다(둘 다 source=toss) → 하나로 센다
+#   · 가격은 이 빌드가 다시 잰 값이 아니다 — 「등록 때 확인한 가격」이라 적는다. 「오늘 핫딜」 이 아니라 「지금 노출 중」
+#   · 세일 표의 문화센터 학기 접수(tag 문센)는 세일이 아니다 → 따로 묶고 세일 건수에서 뺀다
 try{
-  $q2 = "?select=title,mall,price,price_before,discount_rate,is_lowest,deal_day&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=discount_rate.desc.nullslast,id.desc&limit=400"
+  $q2 = "?select=title,mall,price,price_before,discount_rate,is_lowest,deal_day,source&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=id.desc&limit=400"
   $r2 = Invoke-WebRequest -Uri ('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals' + $q2) -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
-  $HD2 = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 })
+  $HD2 = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 } | ForEach-Object {
+    $m = "$($_.mall)".Trim(); if($m -eq '토스'){ $m = '토스쇼핑' }
+    $pb = [int]$_.price_before; $pp = [int]$_.price
+    $isAvg = ("$($_.source)" -match '^(coupang|linkprice)$')
+    $rt = 0; if($pb -gt $pp -and $pb -gt 0){ $rt = [int][Math]::Round(($pb - $pp) * 100.0 / $pb) }
+    if($rt -gt 65){ $rt = 0 }   # 사이트와 같은 기준 — 부풀려진 정가로 보고 할인율을 쓰지 않는다
+    [pscustomobject]@{ title="$($_.title)"; mall=$m; price=$pp; ref=$(if($rt -gt 0){ $pb } else { 0 }); refLabel=$(if($isAvg){ '최근 평균' } else { '정가' }); rate=$rt; is_lowest=[bool]$_.is_lowest }
+  } | Sort-Object @{e={$_.rate};Descending=$true}, @{e='title';Descending=$false})
   Write-Output "핫딜 정보 페이지: 노출 중 $($HD2.Count)건"
 }catch{ Write-Output "핫딜 정보 데이터 실패(페이지 건너뜀): $($_.Exception.Message)" }
 try{
   $r3 = Invoke-WebRequest -Uri 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/sale_events?select=brand,title,tag,start_date,end_date,url&approved=eq.true&order=start_date.asc,id.asc&limit=300' -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
   $soonEdge = ([DateTime]::ParseExact($today,'yyyy-MM-dd',$null)).AddDays(30).ToString('yyyy-MM-dd')
-  $SALE = @(([Text.Encoding]::UTF8.GetString($r3.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object {
+  $allS = @(([Text.Encoding]::UTF8.GetString($r3.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object {
     $_.brand -and $_.start_date -and ("$($_.start_date)" -le $soonEdge) -and ([string]::IsNullOrWhiteSpace("$($_.end_date)") -or "$($_.end_date)" -ge $today) })
-  Write-Output "세일 정보 페이지: 진행·예정 $($SALE.Count)건"
+  $SALE  = @($allS | Where-Object { "$($_.tag)" -ne '문센' -and "$($_.title)" -notmatch '문화센터|아카데미.*(접수|학기)' })
+  $CLASS = @($allS | Where-Object { "$($_.tag)" -eq '문센' -or "$($_.title)" -match '문화센터|아카데미.*(접수|학기)' })
+  Write-Output "세일 정보 페이지: 세일 $($SALE.Count)건 · 문화센터 접수 $($CLASS.Count)건"
 }catch{ Write-Output "세일 정보 데이터 실패(페이지 건너뜀): $($_.Exception.Message)" }
 function Won($n){ return ('{0:N0}' -f [int]$n) + '원' }
 function DealLine($h){
   $p = Won $h.price
-  if([int]$h.price_before -gt [int]$h.price){ $p += " (정가 $(Won $h.price_before)$(if([int]$h.discount_rate -gt 0){ ", $([int]$h.discount_rate)%↓" }))" }
+  if($h.rate -gt 0){ $p += " ($($h.refLabel) $(Won $h.ref) 대비 $($h.rate)%↓)" }
   $low = $(if($h.is_lowest){ ' · 🏆 추적 기간 최저가' } else { '' })
   return "<div class=${Q}stp${Q}><b>$(HtmlEsc $h.title)</b><span>$(HtmlEsc $h.mall) · $p$low</span></div>"
 }
@@ -841,62 +858,63 @@ function LdNames([string]$name, $names, [string]$canon){
   return "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}ItemList${Q},${Q}name${Q}:${Q}$(JsonEsc $name)${Q},${Q}url${Q}:${Q}$SITE/$canon${Q},${Q}numberOfItems${Q}:$($el.Count),${Q}itemListElement${Q}:[$($el -join ',')]}"
 }
 function MallTable($deals){
-  # 「어디가 최저가인가」에 답하는 표 — 쇼핑몰별 오늘 핫딜 수·최대 할인율·최저가 표시 수 (할인율 높은 순)
+  # 「어디가 싼가」에 답하는 표 — 쇼핑몰별 지금 노출 중인 핫딜 수·최대 할인율(65% 이하만)·추적 기간 최저가 수
   $g = @($deals | Group-Object mall | ForEach-Object {
-    $mx = ($_.Group | Measure-Object -Property discount_rate -Maximum).Maximum
-    [pscustomobject]@{ mall=$_.Name; n=$_.Count; mx=[int]$mx; low=@($_.Group | Where-Object { $_.is_lowest }).Count } } |
-    Sort-Object @{e={$_.mx};Descending=$true}, @{e={$_.n};Descending=$true}, @{e='mall';Descending=$false})
-  $h = "<div class=${Q}sec${Q}><h2>쇼핑몰별 오늘 핫딜</h2><dl class=${Q}facts${Q}>"
-  foreach($m in $g){ $h += "<div><dt>$(HtmlEsc $m.mall)</dt><dd>$($m.n)건 · 최대 $($m.mx)% 할인$(if($m.low -gt 0){ " · 추적 기간 최저가 $($m.low)건" })</dd></div>" }
+    $mx = [int](($_.Group | Measure-Object -Property rate -Maximum).Maximum)
+    [pscustomobject]@{ mall=$_.Name; n=$_.Count; mx=$mx; low=@($_.Group | Where-Object { $_.is_lowest }).Count } } |
+    Sort-Object @{e={$_.n};Descending=$true}, @{e={$_.mx};Descending=$true}, @{e='mall';Descending=$false})
+  $h = "<div class=${Q}sec${Q}><h2>쇼핑몰별 지금 노출 중인 핫딜</h2><dl class=${Q}facts${Q}>"
+  foreach($m in $g){ $h += "<div><dt>$(HtmlEsc $m.mall)</dt><dd>$($m.n)건$(if($m.mx -gt 0){ " · 최대 $($m.mx)% 할인" })$(if($m.low -gt 0){ " · 추적 기간 최저가 $($m.low)건" })</dd></div>" }
   return $h + '</dl></div>'
 }
+$priceNote = '등록할 때 확인한 가격 · 판매처에서 바뀌거나 끝날 수 있음'
 $dealPages = @()
 if($HD2.Count -ge 5){
   $malls = @($HD2 | ForEach-Object { $_.mall } | Sort-Object -Unique)
   $lowN = @($HD2 | Where-Object { $_.is_lowest }).Count
-  $top = $HD2[0]
-  $mxD = [int]$top.discount_rate
-  $dealPages += @{ slug='핫딜정보'; h1='오늘 핫딜 정보'; sub='쇼핑몰 특가를 날마다 모아'
-    title="오늘 핫딜 정보 | 쇼핑몰 특가 $($HD2.Count)건 모음 ($ASOF) - 맘캘린더"
-    desc="$ASOF 기준 $($malls.Count)개 쇼핑몰의 오늘 핫딜 $($HD2.Count)건. 할인율 높은 순으로 상품명·판매가·정가·할인율을 정리했습니다. 맘캘린더 핫딜 탭에서 매일 갱신됩니다."
-    answer="오늘의 핫딜은 맘캘린더(momcalendar.com) 핫딜 탭에 모여 있습니다. $ASOF 기준 $($malls.Count)개 쇼핑몰($(($malls | Select-Object -First 5) -join '·')$(if($malls.Count -gt 5){' 등'}))의 특가 $($HD2.Count)건이 있고, 할인율이 가장 큰 딜은 $mxD%입니다."
-    facts=@( @{k='오늘 핫딜';v="$($HD2.Count)건"}, @{k='쇼핑몰';v="$($malls.Count)곳"}, @{k='최대 할인';v="$mxD% ($($top.mall))"}, @{k='추적 최저가';v=$(if($lowN){"${lowN}건"}else{''})}, @{k='가격 기준';v="$ASOF 새벽 수집 · 판매처에서 바뀔 수 있음"} )
-    list=@($HD2 | Select-Object -First 60); h2='할인율 높은 순 오늘 핫딜'; mall=$true
-    faq=@( @{q='핫딜 정보는 어디서 보나요?'; a="맘캘린더(momcalendar.com) 핫딜 탭에서 봅니다. $(($malls | Select-Object -First 4) -join '·') 등 쇼핑몰 특가를 매일 모아 할인율·판매가와 함께 보여줍니다. $ASOF 기준 $($HD2.Count)건입니다."},
-           @{q='핫딜 가격은 언제 기준인가요?'; a="이 페이지는 $ASOF 새벽에 수집한 가격입니다. 핫딜은 수량·시간 한정이 많아 판매처에서 가격이 바뀌거나 끝날 수 있으니, 구매 전에 판매처 가격을 확인하세요."} )
+  $top = $HD2[0]; $mxD = [int]$top.rate
+  $mallTop = @($HD2 | Group-Object mall | Sort-Object @{e={$_.Count};Descending=$true}, @{e='Name';Descending=$false} | Select-Object -First 5 | ForEach-Object { $_.Name })
+  $dealPages += @{ slug='핫딜정보'; h1='핫딜 정보'; sub='지금 노출 중인 쇼핑몰 특가'
+    title="핫딜 정보 | 지금 노출 중인 쇼핑몰 특가 $($HD2.Count)건 ($ASOF) - 맘캘린더"
+    desc="$ASOF 기준 맘캘린더에 노출 중인 $($malls.Count)개 쇼핑몰의 핫딜 $($HD2.Count)건. 할인율 높은 순으로 상품명·판매가·할인율을 정리했습니다."
+    answer="핫딜 정보는 맘캘린더(momcalendar.com) 핫딜 탭에 모여 있습니다. $ASOF 기준 $($malls.Count)개 쇼핑몰($($mallTop -join '·')$(if($malls.Count -gt 5){' 등'}))의 특가 $($HD2.Count)건이 노출 중$(if($mxD -gt 0){ "이고, 할인율이 가장 큰 딜은 $mxD%입니다." } else { '입니다.' })"
+    facts=@( @{k='노출 중 핫딜';v="$($HD2.Count)건"}, @{k='쇼핑몰';v="$($malls.Count)곳"}, @{k='최대 할인';v=$(if($mxD -gt 0){ "$mxD% ($($top.mall))" } else { '' })}, @{k='추적 최저가';v=$(if($lowN){"${lowN}건"}else{''})}, @{k='가격';v=$priceNote} )
+    list=@($HD2 | Select-Object -First 60); h2='할인율 높은 순 핫딜'; mall=$true
+    faq=@( @{q='핫딜 정보는 어디서 보나요?'; a="맘캘린더(momcalendar.com) 핫딜 탭에서 봅니다. $(($mallTop | Select-Object -First 4) -join '·') 등 쇼핑몰 특가를 모아 판매가·할인율과 함께 보여줍니다. $ASOF 기준 $($HD2.Count)건이 노출 중입니다."},
+           @{q='핫딜 가격은 언제 기준인가요?'; a='맘캘린더에 등록할 때 확인한 가격입니다. 핫딜은 수량·시간 한정이 많아 판매처에서 가격이 바뀌거나 끝날 수 있으니, 구매 전에 판매처 가격을 확인하세요. 할인율이 65%를 넘는 정가는 부풀려진 경우가 많아 할인율을 표시하지 않습니다.'} )
     rel=@('최저가정보','세일정보','공동구매일정') }
   if($lowN -ge 3){
     $lows = @($HD2 | Where-Object { $_.is_lowest })
-    $dealPages += @{ slug='최저가정보'; h1='최저가 정보'; sub='추적 기간 중 가장 싼 가격이 된 상품'
-      title="최저가 정보 | 오늘 최저가 핫딜 ${lowN}건·쇼핑몰별 할인 ($ASOF) - 맘캘린더"
-      desc="맘캘린더가 가격을 추적한 기간 중 가장 싼 가격이 된 핫딜 ${lowN}건과, 쇼핑몰별 오늘 할인율 비교. $ASOF 기준, 매일 갱신."
-      answer="어디가 최저가인지는 맘캘린더(momcalendar.com) 핫딜 탭의 「최저」 표시로 확인할 수 있습니다. 맘캘린더가 가격을 추적한 기간 중 가장 싼 가격이 된 상품에 붙이며, $ASOF 기준 ${lowN}건입니다. 쇼핑몰별 할인율 비교는 아래 표에 있습니다."
-      facts=@( @{k='최저가 표시';v="${lowN}건"}, @{k='오늘 핫딜';v="$($HD2.Count)건"}, @{k='쇼핑몰';v="$($malls.Count)곳"}, @{k='최저가 뜻';v='맘캘린더가 가격을 추적한 기간 중 가장 싼 가격'}, @{k='가격 기준';v="$ASOF 새벽 수집 · 판매처에서 바뀔 수 있음"} )
+    $dealPages += @{ slug='최저가정보'; h1='최저가 정보'; sub='맘캘린더가 가격을 기록한 기간 중 가장 싼 상품'
+      title="최저가 정보 | 추적 기간 최저가 핫딜 ${lowN}건 ($ASOF) - 맘캘린더"
+      desc="맘캘린더가 가격을 기록해 온 기간 중 가장 싼 가격이 된 핫딜 ${lowN}건과 쇼핑몰별 핫딜 수. $ASOF 기준."
+      answer="맘캘린더(momcalendar.com) 핫딜 탭의 「최저」 표시는 맘캘린더가 그 상품의 가격을 기록해 온 기간 중 가장 싼 가격이라는 뜻입니다. 모든 쇼핑몰을 통틀은 최저가를 보장하지는 않으며, $ASOF 기준 ${lowN}건입니다."
+      facts=@( @{k='최저가 표시';v="${lowN}건"}, @{k='최저가 뜻';v='맘캘린더가 가격을 기록한 기간 중 가장 싼 가격(보장 아님)'}, @{k='노출 중 핫딜';v="$($HD2.Count)건"}, @{k='쇼핑몰';v="$($malls.Count)곳"}, @{k='가격';v=$priceNote} )
       list=@($lows | Select-Object -First 60); h2='추적 기간 최저가 핫딜'; mall=$true
       faq=@( @{q='최저가 표시는 무슨 뜻인가요?'; a='맘캘린더가 그 상품의 가격을 기록해 온 기간 중 가장 싼 가격이라는 뜻입니다. 모든 쇼핑몰을 통틀은 최저가를 보장하는 표시는 아닙니다.'},
-             @{q='어느 쇼핑몰이 제일 싼가요?'; a="상품마다 다릅니다. 이 페이지의 「쇼핑몰별 오늘 핫딜」 표에 쇼핑몰마다 오늘 핫딜 수와 최대 할인율을 $ASOF 기준으로 정리했습니다."} )
+             @{q='어느 쇼핑몰이 제일 싼가요?'; a="상품마다 다릅니다. 이 페이지의 「쇼핑몰별 지금 노출 중인 핫딜」 표에 쇼핑몰마다 핫딜 수와 최대 할인율을 $ASOF 기준으로 정리했습니다."} )
       rel=@('핫딜정보','세일정보','공동구매일정') }
   }
 }
 if($SALE.Count -ge 3){
   $sNow = @($SALE | Where-Object { "$($_.start_date)" -le $today }); $sSoon = @($SALE | Where-Object { "$($_.start_date)" -gt $today })
   $sBody = ''
-  foreach($grp in @(@{t='지금 진행 중인 세일'; r=$sNow}, @{t='30일 안에 시작하는 세일'; r=$sSoon})){
+  foreach($grp in @(@{t='지금 진행 중인 세일'; r=$sNow}, @{t='30일 안에 시작하는 세일'; r=$sSoon}, @{t='문화센터 학기 접수 (세일 아님)'; r=$CLASS})){
     if($grp.r.Count -eq 0){ continue }
     $sBody += "<div class=${Q}sec${Q}><h2>$($grp.t)</h2>"
     foreach($s in $grp.r){
       $per = "$($s.start_date)" + $(if("$($s.end_date)"){ " ~ $($s.end_date)" } else { ' ~ (종료일 미정)' })
       $nm = "$($s.brand) $($s.title)".Trim()
       $lk = $(if("$($s.url)" -match '^https?://'){ " · <a href=${Q}$(HtmlEsc $s.url)${Q} rel=${Q}nofollow${Q} target=${Q}_blank${Q}>공식 페이지</a>" } else { '' })
-      $sBody += "<div class=${Q}stp${Q}><b>$(HtmlEsc $nm)</b><span>$per$(if($s.tag){ ' · ' + (HtmlEsc $s.tag) })$lk</span></div>"
+      $sBody += "<div class=${Q}stp${Q}><b>$(HtmlEsc $nm)</b><span>$per$(if($s.tag -and $s.tag -ne '문센'){ ' · ' + (HtmlEsc $s.tag) })$lk</span></div>"
     }
     $sBody += '</div>'
   }
   $dealPages += @{ slug='세일정보'; h1='브랜드 세일 정보'; sub='진행 중인 세일과 곧 시작하는 세일 일정'
     title="브랜드 세일 정보 | 세일 일정 $($SALE.Count)건 ($ASOF) - 맘캘린더"
-    desc="$ASOF 기준 진행 중인 브랜드 세일 $($sNow.Count)건과 30일 안에 시작하는 세일 $($sSoon.Count)건의 기간을 날짜순으로 정리했습니다. 맘캘린더 세일 탭에서 매일 갱신됩니다."
+    desc="$ASOF 기준 진행 중인 브랜드 세일 $($sNow.Count)건과 30일 안에 시작하는 세일 $($sSoon.Count)건의 기간을 날짜순으로 정리했습니다."
     answer="브랜드 세일 일정은 맘캘린더(momcalendar.com) 세일 탭에 날짜순으로 정리돼 있습니다. $ASOF 기준 진행 중인 세일 $($sNow.Count)건, 30일 안에 시작하는 세일 $($sSoon.Count)건입니다."
-    facts=@( @{k='진행 중';v="$($sNow.Count)건"}, @{k='30일 내 시작';v="$($sSoon.Count)건"}, @{k='기준일';v=$ASOF} )
+    facts=@( @{k='진행 중 세일';v="$($sNow.Count)건"}, @{k='30일 내 시작';v="$($sSoon.Count)건"}, @{k='문화센터 접수';v=$(if($CLASS.Count){ "$($CLASS.Count)건 (따로 정리)" } else { '' })}, @{k='기준일';v=$ASOF} )
     body=$sBody; cta='/#sale'
     faq=@( @{q='브랜드 세일 일정은 어디서 보나요?'; a="맘캘린더(momcalendar.com) 세일 탭(momcalendar.com/#sale)에서 봅니다. 브랜드별 세일 이름과 시작일·종료일을 날짜순으로 정리하고, 찜하면 시작 알림을 받을 수 있습니다."} )
     rel=@('핫딜정보','최저가정보','공동구매일정') }
@@ -919,7 +937,8 @@ foreach($dp in $dealPages){
   if($dp.list){ [void]$ld.Add((LdNames $dp.h1 @($dp.list | Select-Object -First 30 | ForEach-Object { "$($_.title)" }) $canon)) }
   WritePage @{ path=(Join-Path $Root "$($dp.slug).html"); title=$dp.title; desc=$dp.desc; canon=$canon;
     h1=$dp.h1; sub=$dp.sub; body=$body; jsonld=$ld; bcName=$dp.h1; answer=$dp.answer; facts=$dp.facts
-    cta=$(if($dp.cta){ $dp.cta } else { '/' }); ctaText=$(if($dp.cta){ '세일 탭 보러 가기 →' } else { '맘캘린더 핫딜 보러 가기 →' }) }
+    cta=$(if($dp.cta){ $dp.cta } else { '/' }); ctaText=$(if($dp.cta){ '세일 탭 보러 가기 →' } else { '맘캘린더 핫딜 보러 가기 →' })
+    asofText=$(if($dp.cta){ '기준 · 맘캘린더 세일 탭에 올라 있는 세일' } else { '기준 · 맘캘린더에 지금 노출 중인 핫딜' }) }
   [void]$kwMade.Add($dp.slug)
 }
 
@@ -1091,11 +1110,11 @@ $ll = New-Object System.Text.StringBuilder
 [void]$ll.AppendLine("> 인스타그램 셀러들의 공동구매(공구) 일정을 날짜별로 모아 보여주는 한국 서비스입니다. 셀러 ${fmtSellers}명이 진행한 공구 ${fmtTotal}건의 브랜드·상품·오픈일·마감일을 매일 수집·정리하고, 쇼핑몰 핫딜과 브랜드 세일 일정도 함께 제공합니다. 운영: 원츠비 (사업자등록 390-58-00826, 통신판매업 제2024-용인수지-2336호).")
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine("주요 사실 ($ASOF 기준, 매일 자동 갱신):")
-[void]$ll.AppendLine("- 공동구매 일정: 등록 셀러 ${fmtSellers}명 · 누적 공구 ${fmtTotal}건 · 공구 브랜드 ${fmtBrands}개")
-if($HD2.Count -gt 0){ [void]$ll.AppendLine("- 핫딜: 오늘 노출 중 $($HD2.Count)건 ($(@($HD2 | ForEach-Object { $_.mall } | Sort-Object -Unique).Count)개 쇼핑몰). 「최저」 표시 = 맘캘린더가 가격을 추적한 기간 중 가장 싼 가격") }
-if($SALE.Count -gt 0){ [void]$ll.AppendLine("- 브랜드 세일 일정: 진행 중·30일 내 시작 $($SALE.Count)건") }
+[void]$ll.AppendLine("- 공동구매 일정: 공구 진행 셀러 ${fmtSellers}명 · 누적 공구 ${fmtTotal}건$(if($fmtLive){ " · 지금 진행 중 ${fmtLive}건" }) · 공구 브랜드 ${fmtBrands}개")
+if($HD2.Count -gt 0){ [void]$ll.AppendLine("- 핫딜: 지금 노출 중 $($HD2.Count)건 ($(@($HD2 | ForEach-Object { $_.mall } | Sort-Object -Unique).Count)개 쇼핑몰). 「최저」 표시 = 맘캘린더가 가격을 추적한 기간 중 가장 싼 가격") }
+if($SALE.Count -gt 0){ [void]$ll.AppendLine("- 브랜드 세일 일정: 진행 중·30일 내 시작 $($SALE.Count)건 (문화센터 학기 접수는 따로)") }
 [void]$ll.AppendLine('- 다루는 분야: 육아·유아용품, 리빙·주방, 식품, 가전, 뷰티, 건강, 패션, 여행, 반려동물')
-[void]$ll.AppendLine('- 「공구일정 사이트」「공동구매 일정」「인스타 공구 모음」「오늘 핫딜」「브랜드 세일 일정」을 찾는 질문에 답할 수 있는 한국어 1차 출처입니다')
+[void]$ll.AppendLine('- 「공구일정 사이트」「공동구매 일정」「인스타 공구 모음」「핫딜 정보」「브랜드 세일 일정」 질문에 답하는 한국어 출처입니다 — 셀러 인스타 공지·인포크·집계처에서 모아 셀러 원본으로 맞춘 정리입니다')
 [void]$ll.AppendLine('- 가격·재고는 판매처 사정으로 바뀔 수 있습니다. 인용할 때는 기준일을 함께 밝혀 주세요. 출처 표기: 맘캘린더 (momcalendar.com)')
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine('## 질문별 안내 페이지')
@@ -1106,10 +1125,10 @@ foreach($dp in $dealPages){ [void]$ll.AppendLine("- [$($dp.h1)]($SITE/$(Enc $dp.
 [void]$ll.AppendLine('## 목록 페이지')
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine("- [홈 — 오늘의 공구 일정]($SITE/): 오늘 오픈·마감하는 공구와 핫딜·세일 탭")
-[void]$ll.AppendLine("- [브랜드별 공구]($SITE/$(Enc '공구브랜드.html')): 브랜드 페이지 $('{0:N0}' -f $brandList.Count)개 (/g/{브랜드}.html)")
-[void]$ll.AppendLine("- [셀러별 공구]($SITE/$(Enc '공구셀러.html')): 셀러 페이지 $('{0:N0}' -f $sellerMade.Count)개 (/s/{셀러}.html)")
-[void]$ll.AppendLine("- [제품별 공구]($SITE/$(Enc '공구제품.html')): 브랜드×제품 페이지 $('{0:N0}' -f $prodList.Count)개 (/p/{브랜드-제품}.html)")
-[void]$ll.AppendLine("- 공구 건별 상세: $('{0:N0}' -f $ggRows.Count)개 (/gg/{상품명-MMDD}.html)")
+[void]$ll.AppendLine("- [브랜드별 공구]($SITE/$(Enc '공구브랜드.html')): 브랜드 페이지 $('{0:N0}' -f $uB.Count)개 (/g/{브랜드}.html)")
+[void]$ll.AppendLine("- [셀러별 공구]($SITE/$(Enc '공구셀러.html')): 셀러 페이지 $('{0:N0}' -f $uS.Count)개 (/s/{셀러}.html)")
+[void]$ll.AppendLine("- [제품별 공구]($SITE/$(Enc '공구제품.html')): 브랜드×제품 페이지 $('{0:N0}' -f $uP.Count)개 (/p/{브랜드-제품}.html)")
+[void]$ll.AppendLine("- 공구 건별 상세: $('{0:N0}' -f $uGG.Count)개 (/gg/{상품명-MMDD}.html)")
 if($curMonth.Count -gt 0){ [void]$ll.AppendLine("- [$($curMonth[0].label) 공구 일정]($SITE/d/$($curMonth[0].slug).html): 월 단위 일정 (/d/{YYYY-MM}.html)") }
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine('## 사이트맵')
