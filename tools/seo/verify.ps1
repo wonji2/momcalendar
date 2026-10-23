@@ -25,6 +25,8 @@ foreach($p in $files){
   # PowerShell 은 한글도 변수명으로 받는다. "$yy년" 처럼 쓰면 통째로 빈 값이 되어
   # 제목에 구멍이 뚫린다(실제로 당했다). 값이 빠진 흔적을 전수로 잡는다.
   if($t -match '<title>\s|목록\s+개|목록\s+명|<title>[^<]*\s{2,}'){ Bad "제목에 빈 값이 있다(변수 보간 실패 의심): $(Split-Path $p -Leaf)" }
+  # 2026-10-24: 숫자가 빠지고 단위만 남은 자리 — 「누적 건」「최저가 핫딜 건·」(같은 함정: "$lowN건" 이 변수 「lowN건」 이 됐다)
+  if($t -match '<dd>\s*(누적\s*)?(건|명|개|곳)</dd>|<title>[^<]*[가-힣] (건|명|개|곳)[·,)]'){ Bad "숫자가 빠진 단위가 있다(변수 보간 실패 의심): $(Split-Path $p -Leaf)" }
   if($t -match '<h1>\s*</h1>|<h1>\s'){ Bad "h1 이 비었다: $(Split-Path $p -Leaf)" }
   if($t -notmatch '<title>(.+?)</title>'){ Bad "title 없음: $(Split-Path $p -Leaf)" }
   else {

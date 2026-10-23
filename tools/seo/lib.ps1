@@ -5,6 +5,12 @@ $SITE = 'https://momcalendar.com'
 # 기준일 (KST) — 네이버 AI 브리핑은 **신선도**와 **기준일이 박힌 사실**을 인용한다 (2026-09-23 NEO 작업).
 # 페이지마다 "언제 기준 데이터인가"가 없으면 기계가 최신성을 판단할 근거가 없다.
 $ASOF = [DateTime]::UtcNow.AddHours(9).ToString('yyyy-MM-dd')
+# 🔎 2026-10-24 GEO: 「맘캘린더」를 하나의 조직(엔터티)으로 알리는 자리 — AI 답변이 「공구일정 사이트」 질문에 이름을 붙여 인용하려면
+#   이름·별칭·로고·공식 채널(sameAs)이 페이지마다 같아야 한다. sameAs 는 실제로 열리는 공식 채널만(2026-10-24 curl 200 확인). 앱은 스토어 공개 뒤에 넣는다
+$ORG_LD = "{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}맘캘린더${Q},${Q}alternateName${Q}:[${Q}MomCalendar${Q},${Q}맘캘${Q}],${Q}url${Q}:${Q}$SITE/${Q}," +
+          "${Q}logo${Q}:${Q}$SITE/momcal-appicon.png${Q}," +
+          "${Q}sameAs${Q}:[${Q}https://www.instagram.com/momcal_/${Q},${Q}https://www.threads.com/@momcal_official${Q},${Q}https://cafe.naver.com/momcal${Q},${Q}https://blog.naver.com/momcal${Q}]," +
+          "${Q}parentOrganization${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}원츠비${Q}}}"
 
 function HtmlEsc([string]$s){
   if($null -eq $s){ return '' }
@@ -71,6 +77,7 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .rel{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .rel a{font-size:12.5px;background:#fff;border:1px solid #E3DCEF;border-radius:20px;padding:6px 12px;color:#5B3A8C;text-decoration:none}
 .asof{font-size:11.5px;color:#8E85A0;margin-top:12px}
+.ans{font-size:15.5px;line-height:1.65;color:#2F2840;font-weight:600;margin:14px 0 4px}
 .facts{background:#fff;border:1px solid #ECE7F3;border-radius:12px;padding:4px 15px;margin:13px 0}
 .facts div{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F4F0F9;font-size:13.5px}
 .facts div:last-child{border-bottom:0}
@@ -115,8 +122,8 @@ function WritePage([hashtable]$o){
   $wp = "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}WebPage${Q}," +
         "${Q}name${Q}:${Q}$(JsonEsc $o.title)${Q},${Q}url${Q}:${Q}$SITE/$($o.canon)${Q}," +
         "${Q}inLanguage${Q}:${Q}ko-KR${Q},${Q}dateModified${Q}:${Q}$ASOF${Q}," +
-        "${Q}isPartOf${Q}:{${Q}@type${Q}:${Q}WebSite${Q},${Q}name${Q}:${Q}맘캘린더${Q},${Q}url${Q}:${Q}$SITE/${Q}}," +
-        "${Q}publisher${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}원츠비${Q},${Q}url${Q}:${Q}$SITE/${Q}}}"
+        "${Q}isPartOf${Q}:{${Q}@type${Q}:${Q}WebSite${Q},${Q}name${Q}:${Q}맘캘린더${Q},${Q}alternateName${Q}:[${Q}MomCalendar${Q},${Q}맘캘${Q}],${Q}url${Q}:${Q}$SITE/${Q}}," +
+        "${Q}publisher${Q}:$ORG_LD}"
   [void]$sb.AppendLine("<script type=${Q}application/ld+json${Q}>$wp</script>")
   if($o.jsonld){
     foreach($j in $o.jsonld){
@@ -133,6 +140,8 @@ function WritePage([hashtable]$o){
   # 🔎 라벨-값 사실 표 (NEO/AI 브리핑) — 네이버 AI 브리핑은 산문 덩어리가 아니라
   #   **항목-값 구조**를 인용한다. 카드 목록만 있던 페이지에 기계가 읽을 요약을 하나 둔다.
   #   ⚠ 값이 없는 항목은 아예 그리지 않는다 — 빈칸이 보이면 사실이 아닌 것을 말하는 셈이다.
+  # 🔎 직답 문단 (AEO/GEO, 2026-10-24) — 답변 엔진은 질문 바로 아래 **첫 문장**을 인용한다. 배경 설명보다 결론을 먼저 둔다
+  if($o.answer){ [void]$sb.AppendLine("<p class=${Q}ans${Q}>$(HtmlEsc $o.answer)</p>") }
   if($o.facts){
     $fr = @()
     foreach($f in $o.facts){
@@ -146,7 +155,8 @@ function WritePage([hashtable]$o){
   }
   [void]$sb.AppendLine("<p class=${Q}asof${Q}>$ASOF 기준 · 공구 일정은 매일 자동 갱신됩니다</p>")
   [void]$sb.AppendLine($o.body)
-  [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}/${Q}>오늘 진행 중인 공구 보러 가기 →</a>")
+  $ctaH = $(if($o.cta){ $o.cta } else { '/' }); $ctaT = $(if($o.ctaText){ $o.ctaText } else { '오늘 진행 중인 공구 보러 가기 →' })
+  [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}$ctaH${Q}>$(HtmlEsc $ctaT)</a>")
   [void]$sb.AppendLine("<div class=${Q}foot${Q}>맘캘린더는 인스타그램 공동구매 일정을 모아 보여주는 무료 서비스입니다.<br>")
   [void]$sb.AppendLine("공구 일정은 매일 갱신됩니다.<br>")
   [void]$sb.AppendLine("<a href=${Q}/${Q}>momcalendar.com</a> · <a href=${Q}/$(Enc('공구브랜드.html'))${Q}>브랜드</a> · <a href=${Q}/$(Enc('공구셀러.html'))${Q}>셀러</a> · <a href=${Q}/$(Enc('공구제품.html'))${Q}>제품</a><br>")
