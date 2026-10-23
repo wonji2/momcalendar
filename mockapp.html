@@ -42,6 +42,21 @@ p{margin:0 0 8px;max-width:68ch}
 .intro .dots i{width:6px;height:6px;border-radius:50%;background:var(--line2);transition:width .2s}
 .intro .dots i.on{width:18px;border-radius:3px;background:var(--fg)}
 .intro .acts{display:flex;flex-direction:column;gap:8px;padding:8px 20px 20px}
+/* ⑧ 공유 캘린더 — 플래닛 톤: 큰 달 제목, 연한 바, 흰 카드. 출처 표시는 격자 안(잘라낼 수 없는 자리) */
+.mcal{background:var(--card);border-radius:20px;padding:14px 12px 10px;position:relative;overflow:hidden}
+.mcal .mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 4px 8px}
+.mcal .mh b{font-size:26px;font-weight:900;letter-spacing:-.02em}
+.mcal .mh small{font-size:12px;color:var(--muted)}
+.mcal .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:12px;color:var(--muted);text-align:center;padding-bottom:4px}
+.mcal .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;position:relative;padding:6px 0 8px;border-top:1px solid var(--line)}
+.mcal .dn{text-align:center;font-size:14px;font-weight:500;padding:2px 0 4px}
+.mcal .dn.su{color:#E8445A}.mcal .dn.sa{color:#3182F6}.mcal .dn.out{color:#C9CDD2}
+.mcal .bar{font-size:10.5px;line-height:1;padding:5px 6px;border-radius:5px;margin:2px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid}
+.mcal .wm{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-weight:900;font-size:34px;color:rgba(96,32,144,.06);transform:rotate(-18deg);letter-spacing:.06em}
+.mcal .brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:6px 4px 0}
+.mcal .brand span{font-size:10.5px;font-weight:800;color:var(--main);background:var(--main-pale);border-radius:999px;padding:3px 8px}
+.share{display:flex;gap:8px}
+.share .btn{flex:1}
 /* 게시판 탭 — 글자만, 밑줄, 오른쪽 끝 흐림으로 넘김 표시 */
 .tabs{position:relative;margin:0 -20px}
 .tabs .sc{display:flex;gap:18px;overflow-x:auto;padding:4px 20px 0;scrollbar-width:none;border-bottom:1px solid var(--line)}
@@ -264,6 +279,20 @@ body{padding:0;background:var(--card)}
     </div>
   </div>
 
+  <!-- ⑧ 공유 캘린더 -->
+  <div class="phone" id="p-cal">
+    <div class="cap"><span>⑧ 내 찜 캘린더 · 세일 캘린더</span><b>플래닛 톤 · 친구에게 공유 · 격자 안 출처</b></div>
+    <div class="top"><div class="logo">내 캘린더</div><div class="ic"><span>🔔</span><span>👤</span></div></div>
+    <div class="body">
+      <div class="chips" id="calChips"><button class="chip on" data-k="wish" type="button">찜한 공구</button><button class="chip" data-k="sale" type="button">세일 일정</button></div>
+      <div class="mcal" id="mcal"></div>
+      <div class="share"><button class="btn o" type="button">이미지 저장</button><button class="btn" type="button">친구에게 공유</button></div>
+    </div>
+    <div class="nav">
+      <button class="on"><span class="i">📅</span>공구</button><button><span class="i">🔥</span>핫딜</button><button><span class="i">🏷️</span>세일</button><button><span class="i">💬</span>커뮤니티</button><button><span class="i">👤</span>내정보</button>
+    </div>
+  </div>
+
   <!-- ⑥ 첫 실행 관심사 -->
   <div class="phone" id="p-onb">
     <div class="cap"><span>⑥ 첫 실행 · 관심사 선택</span><b>고른 카테고리가 공구 탭에 먼저</b></div>
@@ -334,6 +363,34 @@ document.getElementById('sortChips').addEventListener('click',e=>{const c=e.targ
 document.querySelectorAll('.sw').forEach(b=>b.addEventListener('click',()=>{b.classList.toggle('on');b.setAttribute('aria-pressed',b.classList.contains('on'));}));
 document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;s.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}));
 document.querySelectorAll('.cat .chip').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+// ⑧ 공유 캘린더 — 2026년 11월(1일 = 일요일). 찜 = 사장님 플래닛에 적힌 우리 공구, 세일 = sale_events
+(function(){
+  const EV={
+    wish:[{n:'JVR 트라이탄 물병',s:2,e:5,c:'#ECE6FA|#9B6FD4'},{n:'룰라러브 해면스펀지',s:5,e:8,c:'#FBE4EA|#E8637E'},{n:'우랩 소고기',s:9,e:15,c:'#E3ECFB|#5B8DEF'},{n:'슈메르 미끄럼방지양말',s:12,e:17,c:'#FFF4D6|#E9B949'},{n:'비비무 아기마스크',s:17,e:22,c:'#FBE4EA|#E8637E'},{n:'앙금가래떡&콩찰떡',s:25,e:29,c:'#EEF1F4|#8B95A1'}],
+    sale:[{n:'무신사 겨울 블랙프라이데이',s:16,e:26,c:'#EEF1F4|#191F28'},{n:'지그재그 블랙프라이데이',s:17,e:30,c:'#FBE4F6|#E24BB8'},{n:'에이블리 블랙프라이데이',s:17,e:30,c:'#E3ECFB|#5B8DEF'},{n:'유니클로 겨울 감사제',s:20,e:26,c:'#FBE4EA|#E8445A'},{n:'올리브영 올영세일',s:1,e:7,c:'#E7F5E9|#3DB36B'}]
+  };
+  const box=document.getElementById('mcal'); if(!box) return;
+  const firstDow=0, days=30; // 2026-11-01 일요일
+  function render(k){
+    const ev=EV[k]; const wd=['일','월','화','수','목','금','토'];
+    let h=`<div class="mh"><b>11월</b><small>2026 · ${k==='wish'?'내가 찜한 공구':'브랜드 세일'}</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+    let d=1-firstDow; let last=false;
+    while(d<=days){
+      const ws=d, we=d+6;
+      h+='<div class="wk">';
+      for(let i=0;i<7;i++){const x=ws+i; const out=x<1||x>days; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${out?(x<1?30+x: x-days):x}</div>`;}
+      ev.filter(e=>e.e>=ws&&e.s<=we).forEach(e=>{const a=Math.max(e.s,ws)-ws+1, b=Math.min(e.e,we)-ws+1; const [bg,bd]=e.c.split('|'); h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${bg};border-color:${bd}">${e.n}</div>`;});
+      last = we>=days;
+      if(last) h+='<div class="brand"><span>맘캘린더 · momcalendar.com</span></div>';
+      h+='</div>'; d+=7;
+    }
+    h+='<div class="wm">맘캘린더</div>';
+    box.innerHTML=h;
+  }
+  render('wish');
+  document.getElementById('calChips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;document.querySelectorAll('#calChips .chip').forEach(x=>x.classList.toggle('on',x===c));render(c.dataset.k);});
+})();
+
 // ⓪ 인트로: 2.8초마다 자동 넘김(transform), 손으로 밀면 멈춤
 (function(){
   const tr=document.getElementById('introTrack'), rail=document.getElementById('introRail'); if(!tr) return;
@@ -350,7 +407,7 @@ document.querySelectorAll('.cat .chip').forEach(b=>b.addEventListener('click',()
 <script>
 const PH=[...document.querySelectorAll('.phone')];
 function go(id){PH.forEach(p=>p.classList.toggle('on',p.id===id));window.scrollTo(0,0);}
-const NAVMAP=['p-sort','p-sort','p-sort','p-comm','p-my'];
+const NAVMAP=['p-sort','p-sort','p-cal','p-comm','p-my'];
 document.querySelectorAll('.nav').forEach(nav=>[...nav.querySelectorAll('button')].forEach((b,i)=>b.addEventListener('click',()=>{go(NAVMAP[i]);document.querySelectorAll('.nav').forEach(n=>[...n.querySelectorAll('button')].forEach((x,j)=>x.classList.toggle('on',j===i)));})));
 document.querySelectorAll('.top .ic span').forEach(s=>s.addEventListener('click',()=>{const c=s.textContent;go(c==='🔔'?'p-alert':(c==='👤'||c==='⚙️')?'p-my':'p-search');}));
 document.querySelectorAll('.search').forEach(s=>s.addEventListener('click',()=>go('p-search')));
