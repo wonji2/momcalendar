@@ -1178,8 +1178,8 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
   <button class="cseg" data-ct="hotdeal" onclick="switchContent('hotdeal')">🔥 핫딜</button>
   <!-- 🎁 체험단: 2026-10-13 세일 탭으로 바꾸며 내렸다가 사장님 2026-10-15 "체험단탭도 살려서 탭 4개로" → 되살림 (expView·loadExperiences 는 그대로 있었다) -->
-  <button class="cseg" data-ct="exp" onclick="switchContent('exp')">🎁 체험단</button>
   <button class="cseg" data-ct="sale" onclick="switchContent('sale')">🛍 세일</button>
+  <button class="cseg" data-ct="community" onclick="switchContent('community')">💬 커뮤니티</button>
 </div>
 
 <!-- 광고 슬림 배너 (banners type=slim · 게시기간 자동 노출/종료 · 공구·핫딜·체험단 공통) -->
@@ -1554,13 +1554,14 @@ window.slimAdClick=function(id){
 </div>
 <!-- ===== /세일 일정 영역 ===== -->
 <!-- 👤 내정보 (앱 모드 탭 · 사이드 메뉴 항목 재배치 · 기획서 6절) -->
+<div id="commView" style="display:none;padding:12px;min-height:120vh"></div>
 <div id="meView" style="display:none;padding:12px;min-height:120vh"></div>
 <!-- 📱 앱 모드 하단 탭바 (기획서 1절) -->
 <nav class="app-tabbar" id="appTabbar" aria-label="메인 탭">
   <button class="app-tab on" data-ct="gonggu" onclick="switchContent('gonggu');goHome&&goHome()"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4" /> <path d="M16 2v4" /> <rect width="18" height="18" x="3" y="4" rx="2" /> <path d="M3 10h18" /></svg></span>공구</button>
   <button class="app-tab" data-ct="hotdeal" onclick="switchContent('hotdeal')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg></span>핫딜</button>
   <button class="app-tab" data-ct="sale" onclick="switchContent('sale')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10a4 4 0 0 1-8 0" /> <path d="M3.103 6.034h17.794" /> <path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z" /></svg></span>세일</button>
-  <button class="app-tab" data-ct="exp" onclick="switchContent('exp')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1" /> <path d="M12 8v13" /> <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" /> <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" /></svg></span>체험단</button>
+  <button class="app-tab" data-ct="community" onclick="switchContent('community')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>커뮤니티</button>
   <button class="app-tab" data-ct="me" onclick="switchContent('me')"><span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg></span>내정보</button>
 </nav>
 <!-- 📤 공유 카드 (기획서 10절) — 1080×1350 전용 카드를 화면 밖에 그려 html2canvas 로 저장·공유 -->
@@ -2738,7 +2739,7 @@ function scrollToResults(){
 // ── 탭 전환 ──
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
-const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5'],me:['#EFEAF5','#602090']};   // me = 앱 모드 내정보 탭(2026-10-15)
+const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5'],community:['#EFEAF5','#602090'],me:['#EFEAF5','#602090']};   // me = 앱 모드 내정보 탭(2026-10-15)
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
@@ -2755,6 +2756,7 @@ function switchContent(ct){
   document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
   document.getElementById('expView').style.display = ct==='exp'?'block':'none';
   { const sv=document.getElementById('saleView'); if(sv) sv.style.display = ct==='sale'?'block':'none'; }
+  { const cv=document.getElementById('commView'); if(cv) cv.style.display = ct==='community'?'block':'none'; if(ct==='community'){ try{ loadCommunity(); }catch(e){ console.error(e); } } }   // 💬 커뮤니티(카페 글)
   { const mv=document.getElementById('meView'); if(mv) mv.style.display = ct==='me'?'block':'none'; if(ct==='me'){ try{ renderMe(); }catch(e){ console.error(e); } } }   // 👤 앱 모드 내정보
   document.body.dataset.ct=ct; document.querySelectorAll('.app-tab').forEach(b=>b.classList.toggle('on',b.dataset.ct===ct));
   try{ renderNotiCard(); }catch(_){}
@@ -5230,7 +5232,7 @@ async function renderSearchDrop(){
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
     : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
-    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>`;
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
   const list=await loadTrendingQ();
   const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
   tl.innerHTML = list.length
@@ -6461,5 +6463,88 @@ function closeChatMenu(){
     ⓒ 원츠비(맘캘린더). 사이트 내 모든 콘텐츠(공구 일정 데이터베이스·문구·UI·디자인 등)는 원츠비의 자산입니다. 무단 복제·배포·전송·크롤링·스크래핑 및 이를 이용한 유사 서비스 제작을 금지하며, 위반 시 저작권법·부정경쟁방지법 등 관련 법령에 따라 민·형사상 책임을 질 수 있습니다.
   </div>
 </div>
+<!-- 💬 커뮤니티 탭 + 검색창 채널 (사장님 2026-10-23 앱 디벨롭 결정: 체험단 탭 → 커뮤니티(카페 게시판, 글 많은 순·제목+댓글수·봇 표시 없음·글번호 없음·버튼 「글쓰기」) ·
+     검색 누르면 TOP10 → 챗봇 배너 → 방장 인스타 → 공식 인스타 → 네이버 카페 → 단톡 공지방 → 육아 수다방) -->
+<style id="mc-community">
+.comm-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.comm-chips::-webkit-scrollbar{display:none}
+.comm-chip{flex:0 0 auto;border:1px solid #E0D8EA;background:#fff;color:#602090;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
+.comm-chip.on{background:#602090;border-color:#602090;color:#fff}
+.comm-head{display:flex;align-items:center;justify-content:space-between;margin:2px 0 8px}
+.comm-head h3{font-size:15px;font-weight:800;margin:0}
+.comm-write{background:#602090;color:#fff;border:none;border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:800;font-family:inherit;text-decoration:none}
+.comm-item{display:block;padding:12px 2px;border-bottom:1px solid #F0ECF4;color:inherit;text-decoration:none}
+.comm-item .ct{font-size:14px;font-weight:700;line-height:1.35;color:#232326;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.comm-item .cm{margin-top:5px;font-size:11.5px;color:#9A94A5;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.comm-item .cm b{color:#602090;font-weight:700}
+.comm-item .cm .bd{background:#F3EEF8;color:#602090;border-radius:6px;padding:1px 6px;font-weight:700}
+.comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
+.comm-more{display:block;width:100%;margin:12px 0 0;background:#F3EEF8;color:#602090;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer}
+/* 검색창 아래 채널 */
+.sch-banner{display:flex;align-items:center;gap:10px;margin:14px 0 6px;background:linear-gradient(135deg,#FFE9F1,#F3E8FF);border-radius:14px;padding:12px 14px;text-decoration:none;color:#232326}
+.sch-banner b{display:block;font-size:14px;font-weight:800}
+.sch-banner small{display:block;font-size:11.5px;color:#7A6A8E;margin-top:1px}
+.sch-banner .cta{margin-left:auto;font-size:12px;font-weight:700;background:#fff;color:#E8336D;border-radius:999px;padding:6px 11px;flex:none;white-space:nowrap}
+.sch-row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid #F0ECF4;text-decoration:none;color:inherit}
+.sch-row:last-child{border-bottom:0}
+.sch-row .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;flex:none;font-size:15px}
+.sch-row .nm{font-size:14.5px;font-weight:700;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-row svg{width:26px;height:26px;flex:none}
+</style>
+<script>
+// ── 검색창 아래 채널 (TOP10 아래) ─────────────────────────────
+const SCH_CHANNELS=[
+  {k:'chatbot', banner:true, href:'https://pf.kakao.com/_zGfxnX/chat', t:'맘캘린더 챗봇', s:'공구 일정을 바로 찾아줘요', cta:'물어보기', ico:'💬'},
+  {k:'ig_me',  href:'https://www.instagram.com/momcal_', t:'맘캘린더 방장 인스타', av:'방', bg:'#4A1A78', brand:'ig'},
+  {k:'ig_off', href:'https://www.instagram.com/momcal_official', t:'맘캘린더 공식 인스타', av:'맘', bg:'linear-gradient(135deg,#9B6FD4,#F0E6FA)', brand:'ig'},
+  {k:'cafe',   href:'https://cafe.naver.com/momcal/', t:'맘캘린더 네이버 카페', av:'N', bg:'#03C75A', brand:'naver'},
+  {k:'talk1',  href:'https://open.kakao.com/o/gJ3NIKCh', t:'단톡 공지방', av:'📢', bg:'#FEE500', brand:'kakao'},
+  {k:'talk2',  href:'https://open.kakao.com/o/gr2kJhCh', t:'육아 수다방', av:'💬', bg:'#FEE500', brand:'kakao'},
+];
+const _SCH_ICO={
+  ig:'<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="schig" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#F58529"/><stop offset=".5" stop-color="#DD2A7B"/><stop offset="1" stop-color="#8134AF"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="6" fill="url(#schig)"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.3" cy="6.7" r="1.2" fill="#fff"/></svg>',
+  naver:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#03C75A"/><path d="M7 7h3.2l3.6 5.4V7H17v10h-3.2l-3.6-5.4V17H7z" fill="#fff"/></svg>',
+  kakao:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#FEE500"/><path d="M12 6.5c-3.6 0-6.5 2.3-6.5 5.1 0 1.8 1.2 3.4 3 4.3l-.7 2.7 3.1-2c.4.1.7.1 1.1.1 3.6 0 6.5-2.3 6.5-5.1S15.6 6.5 12 6.5z" fill="#3C1E1E"/></svg>'
+};
+function schChannelsHtml(){
+  return SCH_CHANNELS.map(c=>{
+    const oc=`onclick="try{trackEvent('search_channel','${c.k}')}catch(_){}"`;
+    if(c.banner) return `<a class="sch-banner" href="${c.href}" target="_blank" rel="noopener" ${oc}><span style="font-size:22px">${c.ico}</span><div><b>${c.t}</b><small>${c.s}</small></div><span class="cta">${c.cta}</span></a>`;
+    return `<a class="sch-row" href="${c.href}" target="_blank" rel="noopener" ${oc}><div class="av" style="background:${c.bg}${c.brand==='kakao'?';border-radius:12px;font-size:18px':''}">${c.av}</div><div class="nm">${c.t}</div>${_SCH_ICO[c.brand]}</a>`;
+  }).join('');
+}
+// ── 커뮤니티 탭 ────────────────────────────────────────────────
+const COMM_CLUB=31499187;
+let _commData=null, _commBoard=0, _commShown=30;
+async function loadCommunity(force){
+  const v=document.getElementById('commView'); if(!v) return;
+  if(_commData && !force){ renderCommunity(); return; }
+  v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
+  try{
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    _commData=r.ok?await r.json():[];
+  }catch(_){ _commData=[]; }
+  renderCommunity();
+}
+function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
+function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
+function commMore(){ _commShown+=30; renderCommunity(); }
+function renderCommunity(){
+  const v=document.getElementById('commView'); if(!v) return;
+  const all=_commData||[];
+  // 게시판 칩: 최근 30일 글 수 많은 순 (사장님 2026-10-23)
+  const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
+  const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
+  const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
+  const writeUrl=_commBoard?`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/menus/${_commBoard}/articles/write`:`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/articles/write`;
+  let h=`<div class="comm-head"><h3>💬 커뮤니티</h3><a class="comm-write" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){}">글쓰기</a></div>`;
+  h+=`<div class="comm-chips"><button class="comm-chip${_commBoard?'':' on'}" onclick="commPick(0)">전체</button>${boards.map(b=>`<button class="comm-chip${_commBoard===b.id?' on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div>`;
+  if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; v.innerHTML=h; return; }
+  h+=rows.slice(0,_commShown).map(p=>`<a class="comm-item" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){}"><div class="ct">${escHtml(p.title)}${p.has_image?' 📷':''}</div><div class="cm">${_commBoard?'':`<span class="bd">${escHtml(p.board)}</span>`}<span>${escHtml(p.nick||'')}</span><span>·</span><span>${_commAgo(p.posted_at)}</span>${p.comments?`<span>·</span><b>💬 ${p.comments}</b>`:''}</div></a>`).join('');
+  if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
+  v.innerHTML=h;
+}
+</script>
 </body>
 </html>
