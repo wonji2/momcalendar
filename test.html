@@ -813,6 +813,7 @@ h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{
 .nxa-s,.app-pop-s,.empty span{text-wrap-style:pretty}
 </style>
 <style id="mc-sort-chips">.sort-chips{display:flex;gap:6px;padding:2px 2px 10px;overflow-x:auto;scrollbar-width:none}.sort-chips::-webkit-scrollbar{display:none}.sort-chip{flex:0 0 auto;border:1px solid #E0D8EA;background:#fff;color:#6B6478;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}.sort-chip.on{background:#602090;border-color:#602090;color:#fff}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500&display=swap">
 </head>
 <body>
 <!-- 📲 앱 설치 유도 (사장님 2026-10-23 승인, 시안 v5: ① 제목 위 띠 ② 공구 카드 중간 배너 ③ 앱 전용 기능 팝업 ④ 첫 방문 시트 ⑤ 설정 줄)
@@ -1480,6 +1481,7 @@ window.slimAdClick=function(id){
     <button id="calTgAll" onclick="setCalMine(false)" style="flex:1;border:none;background:#602090;color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">전체</button>
     <button id="calTgMine" onclick="setCalMine(true)" style="flex:1;border:none;background:none;color:#8A8395;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">💜 내 찜만</button>
   </div>
+  <div class="cal-share-row"><button class="w" onclick="openShareCard('wishcal','save')">📅 내 찜 달력 저장</button><button class="p" onclick="openShareCard('wishcal','share')">친구에게 공유</button></div>
   <div class="cal-catrow" id="calCatRow">
     <button class="chip on" data-cat="전체" onclick="setCalCat('전체',this)">전체</button>
     <button class="chip" data-cat="육아" onclick="setCalCat('육아',this)">육아</button>
@@ -1549,6 +1551,7 @@ window.slimAdClick=function(id){
   </div>
   <div class="scal" id="saleCal"></div>
   <div class="sale-share"><button class="sbtn weak" onclick="openShareCard('sale','save')">이미지 저장</button><button class="sbtn primary" onclick="openShareCard('sale','share')">친구에게 공유</button></div>
+  <div class="cal-share-row" style="margin-top:8px"><button class="w" onclick="openShareCard('salecal','save')">📅 세일 달력 저장</button><button class="p" onclick="openShareCard('salecal','share')">세일 달력 친구에게 공유</button></div>
   <div class="sale-chips" id="saleChips"></div>
   <div id="saleList"></div>
   <div class="sale-foot">일정은 각 브랜드 공지 기준이며 변동될 수 있어요.<br>카드를 누르면 브랜드 공식 페이지로 이동해요.</div>
@@ -3017,6 +3020,7 @@ function renderMe(){
 let _shareKind='', _sharePng=null;
 function _loadH2C(){ return new Promise((res,rej)=>{ if(window.html2canvas) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
 function _shareCardHtml(kind){
+  if(kind==='wishcal'||kind==='salecal') return _calCardHtml(kind);   // 📅 달력 공유 카드 (사장님 2026-10-23)
   if(kind==='sale'){
     // 「2026 연말 세일 총정리」 V2 (사장님 2026-10-23 확정) — 보라 바탕 2열 티켓 · 오른쪽 위 로고+맘캘린더 · 아래 「세일 정보는 맘캘린더」
     //  브랜드당 한 줄(블프가 있으면 블프, 없으면 가장 이른 행사) · 끝난 것·해외 행사·문센 제외 · 시작일 순 최대 12줄
@@ -6665,6 +6669,76 @@ function applyPrefCats(){
   try{ if(typeof fMajor!=='undefined' && fMajor==='전체'){ const b=row.querySelector('.cchip[data-cat="'+cats[0]+'"]'); if(b) pickCat(cats[0], b); } }catch(_){}
 }
 document.addEventListener('DOMContentLoaded', function(){ if(onbShouldShow()) onbOpen(); else applyPrefCats(); });
+</script>
+<!-- 📅 내 찜 달력 · 세일 달력 공유 카드 (사장님 2026-10-23 확정: 플래닛 톤 · B 글씨체 IBM Plex Sans KR · A 연한 파스텔 10색 · 숫자 검정(일 빨강·토 파랑) · 원톤 바 가운데 글씨 ·
+     헤더 「공구 핫딜은 맘캘린더에서」 · 로고 워터마크 격자 가운데(L3 흑백 작게, 잘라낼 수 없음) · 친구에게 공유 · 유료는 워터마크 제거만(나중)) -->
+<style id="mc-calshare">
+.cs{font-family:"IBM Plex Sans KR",system-ui,sans-serif;color:#1E1A24;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.cs .mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px 22px}
+.cs .mh b{font-size:76px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.cs .mh small{font-size:28px;color:#8B95A1;font-weight:400}
+.cs .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:26px;color:#8B95A1;text-align:center;padding-bottom:14px}
+.cs .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:16px 0 20px;border-top:2px solid #F2F4F6;position:relative}
+.cs .dn{text-align:center;font-size:34px;font-weight:500;padding:4px 0 10px;color:#1E1A24}
+.cs .dn.su{color:#E8445A}.cs .dn.sa{color:#3182F6}.cs .dn.out{color:#D5D8DD}
+.cs .bar{font-size:24px;line-height:1;padding:14px 16px;border-radius:14px;margin:5px 5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#3A3342;text-align:center}
+.cs .more{grid-column:span 7;text-align:right;font-size:22px;color:#8B95A1;padding:8px 10px 0}
+.cs .brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:14px 8px 0}
+.cs .brand span{font-size:22px;font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:8px 20px}
+.cs .wm{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+.cs .wm img{width:300px;opacity:.09;filter:grayscale(1);display:block}
+.cs .empty{padding:120px 40px;text-align:center;color:#8B95A1;font-size:30px;line-height:1.6}
+.cal-share-row{display:flex;gap:8px;margin:0 12px 10px}
+.cal-share-row button{flex:1;border:none;border-radius:10px;padding:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.cal-share-row .w{background:#F3EEF8;color:#602090}
+.cal-share-row .p{background:#602090;color:#fff}
+</style>
+<script>
+// ── 달력 공유 카드 ──────────────────────────────────────────
+const CS_PAL=['#FFE8DC','#FFE1E7','#EFE3F9','#E2EAFB','#DDF1F4','#E3F5E9','#FFF4D6','#F3E8DF','#E9E6FB','#DDF3EE'];
+function _csMonthPick(items){
+  // 이번 달·다음 달 중 담긴 항목이 더 많은 달 (둘 다 0이면 이번 달)
+  const y=Number(todayStr.slice(0,4)), m=Number(todayStr.slice(5,7));
+  const cnt=(yy,mm)=>{ const a=_ymd(yy,mm,1), b=_ymd(yy,mm,new Date(yy,mm,0).getDate()); return items.filter(it=>it.s<=b && it.e>=a).length; };
+  const ny=m===12?y+1:y, nm=m===12?1:m+1;
+  return cnt(ny,nm)>cnt(y,m)?[ny,nm]:[y,m];
+}
+function _csItems(kind){
+  if(kind==='salecal'){
+    const all=(_saleData||[]).filter(e=>e.start_date && (e.end_date||e.start_date)>=todayStr);
+    const mine=all.filter(e=>{ const s=SALEW[e.id]; return s&&(s.w||s.b); });
+    const src=mine.length?mine:all;   // 찜한 세일이 없으면 예정 세일 전체
+    return { wished:mine.length>0, items:src.map(e=>({n:e.brand+' '+(e.title||''), s:e.start_date, e:e.end_date||e.start_date})) };
+  }
+  const pool=(typeof DATA!=='undefined'?DATA:[]).concat((typeof _wishExtra!=='undefined'?_wishExtra:[]).filter(x=>!DATA.some(d=>d.id===x.id)));
+  const mine=pool.filter(it=>isWished(it.id) && it.openDate);
+  return { wished:mine.length>0, items:mine.map(it=>({n:it.name, s:it.openDate, e:(typeof realEnd==='function'?realEnd(it):it.endDate)||it.openDate})) };
+}
+function _calCardHtml(kind){
+  const {wished,items}=_csItems(kind);
+  const [y,m]=_csMonthPick(items);
+  const days=new Date(y,m,0).getDate(), first=new Date(y,m-1,1).getDay();
+  const mk=(d)=>_ymd(y,m,d);
+  const inMonth=items.filter(it=>it.s<=mk(days) && it.e>=mk(1)).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0).map((it,i)=>({...it, c:CS_PAL[i%CS_PAL.length], sd:it.s<mk(1)?1:Number(it.s.slice(8,10)), ed:it.e>mk(days)?days:Number(it.e.slice(8,10))}));
+  const wd=['일','월','화','수','목','금','토'];
+  const title=kind==='salecal'?'세일 달력':'내가 찜한 공구';
+  let h=`<div class="mh"><b>${m}월</b><small>공구 핫딜은 맘캘린더에서</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+  let d=1-first;
+  while(d<=days){
+    const ws=d, we=d+6; h+='<div class="wk">';
+    for(let i=0;i<7;i++){ const x=ws+i; const out=x<1||x>days; const show=out?(x<1?new Date(y,m-1,x).getDate():x-days):x; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${show}</div>`; }
+    let n=0, hidden=0;
+    inMonth.forEach(it=>{ if(it.ed<ws||it.sd>we) return; if(n>=5){ hidden++; return; } n++; const a=Math.max(it.sd,ws)-ws+1, b=Math.min(it.ed,we)-ws+1; h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${it.c}">${escHtml(it.n)}</div>`; });
+    if(hidden) h+=`<div class="more">+${hidden}</div>`;
+    if(we>=days) h+='<div class="brand"><span>맘캘린더 · momcalendar.com</span></div>';
+    h+='</div>'; d+=7;
+  }
+  if(!inMonth.length) h+=`<div class="empty">${kind==='salecal'?'이 달에 예정된 세일이 없어요':'찜한 공구가 없어요<br>하트를 눌러 담아 보세요'}</div>`;
+  h+='<div class="wm"><img src="intro/logo.png" alt=""></div>';
+  const sub=kind==='salecal'?(wished?'내가 찜한 세일':'예정 세일 전체'):'찜한 공구 '+inMonth.length+'개';
+  return {title:`${m}월 ${title}`, url:kind==='salecal'?`https://momcalendar.com/#sale`:`https://momcalendar.com/`, text:`${m}월 ${title} 달력이에요 · 공구 핫딜은 맘캘린더에서`,
+    html:`<div class="sc"><div class="cs" style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#fff;padding:64px 44px 40px">${h}</div></div>`, sub};
+}
 </script>
 </body>
 </html>
