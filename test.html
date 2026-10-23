@@ -814,6 +814,112 @@ h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.pwa-strip-
 </style>
 </head>
 <body>
+<!-- 📲 앱 설치 유도 (사장님 2026-10-23 승인, 시안 v5: ① 제목 위 띠 ② 공구 카드 중간 배너 ③ 앱 전용 기능 팝업 ④ 첫 방문 시트 ⑤ 설정 줄)
+     · 닫기 없음(①②) · 앱 안(body.native-app)에선 전부 숨김 · APP_LINKS.enabled 로 한 번에 켜고 끈다(스토어 승인 날 켠다)
+     · 배지는 임시 그림(SVG). 승인 뒤 애플·구글 공식 배지 파일로 교체 -->
+<style id="mc-app-install">
+.app-strip{display:flex;align-items:center;gap:6px;background:#1b1b1f;color:#fff;padding:7px 12px;min-width:0}
+.app-strip-ic{width:28px;height:28px;border-radius:7px;overflow:hidden;flex:none;background:#602090}
+.app-strip-ic img{width:100%;height:100%;display:block}
+.app-strip-t{font-size:12.5px;font-weight:800;flex:1;white-space:nowrap;min-width:0}
+.app-badge{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#000;color:#fff;border:1px solid #777;border-radius:9px;padding:7px 10px;text-decoration:none;min-width:0;overflow:hidden;font-family:inherit;cursor:pointer}
+.app-badge svg{width:20px;height:20px;flex:none}
+.app-badge small{display:block;font-size:9px;line-height:1;opacity:.85;font-weight:500}
+.app-badge b{display:block;font-size:13.5px;font-weight:700;line-height:1.15;white-space:nowrap}
+.app-strip .app-badge{flex:none;padding:4px 8px;gap:4px;border-radius:7px;background:#fff;color:#111;border:none}
+.app-strip .app-badge svg{width:14px;height:14px}
+.app-strip .app-badge small{display:none}
+.app-strip .app-badge b{font-size:10.5px}
+.app-badges{display:flex;gap:8px}
+.app-badges .app-badge{flex:1}
+.app-mid{margin:10px 12px;background:linear-gradient(135deg,#4B1577,#7B3FB5);color:#fff;border-radius:16px;padding:14px 14px 12px}
+.app-mid-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.app-mid-ic{width:46px;height:46px;border-radius:12px;overflow:hidden;flex:none;box-shadow:0 4px 12px rgba(0,0,0,.25);background:#fff}
+.app-mid-ic img{width:100%;height:100%;display:block}
+.app-mid-t{font-size:15px;font-weight:800;line-height:1.3}
+.app-mid-t small{display:block;font-size:11.5px;font-weight:500;opacity:.9;margin-top:2px}
+.app-pop{position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(20,10,30,.55)}
+.app-pop.open{display:flex}
+.app-pop-box{background:#fff;border-radius:20px;padding:22px 18px 14px;text-align:center;width:100%;max-width:320px;box-shadow:0 10px 30px rgba(60,30,90,.25);color:#232326}
+.app-pop-ic{width:64px;height:64px;border-radius:16px;overflow:hidden;margin:0 auto 10px;box-shadow:0 4px 14px rgba(96,32,144,.35)}
+.app-pop-ic img{width:100%;height:100%;display:block}
+.app-pop-t{font-size:16.5px;font-weight:800;margin-bottom:4px}
+.app-pop-s{font-size:12.5px;color:#888;line-height:1.6;margin-bottom:14px}
+.app-pop-x{display:block;width:100%;background:none;border:none;color:#888;font-size:12.5px;padding:10px 6px 2px;font-weight:600;font-family:inherit;cursor:pointer}
+.app-sheet{position:fixed;inset:0;z-index:99998;display:none;align-items:flex-end;justify-content:center;background:rgba(20,10,30,.55)}
+.app-sheet.open{display:flex}
+.app-sheet-box{background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;text-align:center;color:#232326}
+.app-sheet-bene{display:flex;flex-direction:column;gap:7px;margin:0 0 14px;text-align:left}
+.app-sheet-bene div{display:flex;gap:8px;align-items:center;font-size:12.5px;color:#444;background:#F7F3FB;border-radius:10px;padding:8px 10px}
+.app-sheet-bene span{width:24px;height:24px;border-radius:7px;background:#602090;color:#fff;display:grid;place-items:center;font-size:12px;flex:none}
+body.native-app #appStrip,body.native-app .app-mid,body.native-app #appGoPop,body.native-app #appSheet{display:none!important}
+body.app-strip-on #pwaStrip{display:none!important}
+</style>
+<div id="appStrip" class="app-strip" style="display:none"></div>
+<div id="appGoPop" class="app-pop" aria-hidden="true"><div class="app-pop-box"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-pop-t">앱으로 오세요</div><div class="app-pop-s" id="appGoPopSub">알림은 앱에서만 받을 수 있어요</div><div class="app-badges" id="appGoPopBadges"></div><button class="app-pop-x" onclick="appGoPopClose()">닫기</button></div></div>
+<div id="appSheet" class="app-sheet" aria-hidden="true"><div class="app-sheet-box"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-pop-t">앱으로 더 편하게</div><div class="app-pop-s">아이폰 · 갤럭시 앱이 나왔어요</div><div class="app-sheet-bene"><div><span>🔔</span>찜한 공구 오픈·마감 알림</div><div><span>📅</span>내 찜 달력 저장하고 친구에게 공유</div><div><span>⚡</span>홈 화면에서 바로 열기</div></div><div class="app-badges" id="appSheetBadges"></div><button class="app-pop-x" onclick="appSheetClose()">웹으로 볼게요</button></div></div>
+<script>
+// ── 📲 앱 설치 유도 — 한 곳(APP_LINKS)에서 켜고 끈다. 스토어 승인이 나는 날 enabled 를 true 로.
+const APP_LINKS={ enabled:true,
+  ios:'https://apps.apple.com/kr/app/id6826126083',
+  android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
+const _APP_SVG={
+  ios:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.3 1.3-2.6 1.3-2.7 0 0-2.6-1-2.6-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.9-1 2.9 1.1.1 2.1-.5 2.8-1.4z"/></svg>',
+  android:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#34A853" d="M3.6 2.3l10.1 10.1-10.1 10.1c-.3-.2-.5-.6-.5-1V3.3c0-.4.2-.8.5-1z"/><path fill="#FBBC04" d="M17.1 8.9l-3.4 3.5L3.6 2.3c.3-.2.7-.2 1.1 0l12.4 6.6z"/><path fill="#EA4335" d="M17.1 15.9L4.7 22.5c-.4.2-.8.2-1.1 0l10.1-10.1 3.4 3.5z"/><path fill="#4285F4" d="M17.1 8.9l3.2 1.7c1 .5 1 1.3 0 1.8l-3.2 1.7-3.4-3.5 3.4-1.7z"/></svg>' };
+function appBadge(store, where){
+  const ios=store==='ios';
+  return `<a class="app-badge" href="${ios?APP_LINKS.ios:APP_LINKS.android}" target="_blank" rel="noopener" onclick="appGo('${store}','${where}')" aria-label="${ios?'App Store에서 받기':'Google Play에서 받기'}">${_APP_SVG[store]}<span><small>${ios?'Download on the':'GET IT ON'}</small><b>${ios?'App Store':'Google Play'}</b></span></a>`;
+}
+function appBadges(where){ return appBadge('ios',where)+appBadge('android',where); }
+function appGo(store, where){ try{ trackEvent('app_install_click', store+'|'+where); }catch(_){} }
+function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app')); }
+// ① 제목 위 띠
+function appInitStrip(){
+  const s=document.getElementById('appStrip'); if(!s||!_appOn()) return;
+  s.innerHTML=`<span class="app-strip-ic"><img src="momcal-appicon.png" alt=""></span><span class="app-strip-t">앱 설치하기</span>${appBadges('strip')}`;
+  s.style.display='flex'; document.body.classList.add('app-strip-on');
+}
+// ② 공구 카드 중간 배너 — 5장 뒤 한 장, 그 뒤 50장마다
+function appMidBanner(){ return `<div class="app-mid"><div class="app-mid-row"><div class="app-mid-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-mid-t">맘캘린더 앱 출시 💜<small>더 많은 기능은 앱에서만 사용 가능해요</small></div></div><div class="app-badges">${appBadges('mid')}</div></div>`; }
+function _appJoin(cards){
+  if(!_appOn() || !cards.length) return cards.join('');
+  const b=appMidBanner(); let out='';
+  cards.forEach((c,i)=>{ out+=c; if(i===4 || (i>4 && (i-4)%50===0)) out+=b; });
+  if(cards.length<5) out+=b;   // 카드가 5장도 안 되면 맨 아래에
+  return out;
+}
+// ③ 앱 전용 기능 팝업 — 앱에서만 되는 기능을 웹에서 누르면 무조건 (사장님 2026-10-23)
+function appGoPopup(where, sub){
+  if(!_appOn()){ return false; }
+  const p=document.getElementById('appGoPop'); if(!p) return false;
+  document.getElementById('appGoPopSub').textContent=sub||'알림은 앱에서만 받을 수 있어요';
+  document.getElementById('appGoPopBadges').innerHTML=appBadges('pop_'+(where||''));
+  p.classList.add('open'); p.setAttribute('aria-hidden','false');
+  try{ trackEvent('app_popup', String(where||'')); }catch(_){}
+  return true;
+}
+function appGoPopClose(){ const p=document.getElementById('appGoPop'); if(p){ p.classList.remove('open'); p.setAttribute('aria-hidden','true'); } }
+// ④ 첫 방문 시트 — 첫 방문 때 한 번, 닫으면 7일 뒤 (지금 「홈 화면에 추가」 팝업 자리)
+function maybeShowAppSheet(){
+  try{
+    if(!_appOn()) return false;
+    if(typeof _isStandalone==='function' && _isStandalone()) return false;
+    const next=localStorage.getItem('mc_app_sheet_next')||''; const today=(typeof todayStr==='string')?todayStr:new Date().toISOString().slice(0,10);
+    if(next && next>today) return false;
+    const s=document.getElementById('appSheet'); if(!s) return false;
+    document.getElementById('appSheetBadges').innerHTML=appBadges('sheet');
+    s.classList.add('open'); s.setAttribute('aria-hidden','false');
+    try{ trackEvent('app_sheet','show'); }catch(_){}
+    return true;
+  }catch(_){ return false; }
+}
+function appSheetClose(){
+  const s=document.getElementById('appSheet'); if(s){ s.classList.remove('open'); s.setAttribute('aria-hidden','true'); }
+  try{ const d=new Date(); d.setDate(d.getDate()+7); localStorage.setItem('mc_app_sheet_next', d.toISOString().slice(0,10)); }catch(_){}
+}
+document.addEventListener('DOMContentLoaded', appInitStrip);
+document.addEventListener('click', function(e){ if(e.target && (e.target.id==='appGoPop')) appGoPopClose(); if(e.target && e.target.id==='appSheet') appSheetClose(); });
+</script>
 
 <!-- 🔎 페이지 제목 (h1) — 화면에는 로고 이미지가 그 자리를 대신하지만,
      로고는 PNG 라 크롤러에게는 글자가 아니다. title·설명·화면 내용과 **같은 말**을 h1 으로 둔다.
@@ -2179,7 +2285,7 @@ function renderList(){
       return item.openDate===dayFilter; // 그날 오픈만
     }).sort(cmpDatePartner);
     el.innerHTML=arr.length
-      ?arr.map(item=>renderCard(item,dayFilter)).join('')
+      ?_appJoin(arr.map(item=>renderCard(item,dayFilter)))
       :`<div class="empty">이 날 오픈하는 공구가 없어요 🙅</div>`;
     return;
   }
@@ -2219,7 +2325,7 @@ function renderList(){
     const gone=mine.filter(item=>isExpired(item))
       .sort((a,b)=>(realEnd(b)||'').localeCompare(realEnd(a)||''));    // 최근 마감 먼저
     let h=banner2;
-    if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+live.map(item=>renderCard(item)).join('');
+    if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+_appJoin(live.map(item=>renderCard(item)));
     if(gone.length) h+=`<div class="wish-sec">마감됨</div>`+gone.map(item=>renderEndedWish(item)).join('');
     if(!live.length && !gone.length) h+=`<div class="empty">찜한 공구를 불러오는 중이에요…</div>`;
     el.innerHTML=h;
@@ -2229,7 +2335,7 @@ function renderList(){
   // 모든 탭(전체 TOP100 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
   const arr=getFiltered(selWeekDate);
   el.innerHTML=arr.length
-    ?arr.map(item=>renderCard(item)).join('')
+    ?_appJoin(arr.map(item=>renderCard(item)))
     :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
 }
 
@@ -3558,9 +3664,9 @@ function pickCalDay(ds){
   document.getElementById('selTitle').textContent=`${+mo}월 ${+dy}일 공구 목록`;
   // 캘린더 날짜 기준으로 D-day 계산
   let h = evs.length
-    ? evs.map(item=>renderCard(item,ds)).join('')
+    ? _appJoin(evs.map(item=>renderCard(item,ds)))
     : `<div class="empty" style="padding:16px 0">이 날은 ${calMine?'찜한 공구 오픈이':'공구 일정이'} 없어요</div>`;
-  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + ends.map(item=>renderCard(item,ds)).join('');
+  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + _appJoin(ends.map(item=>renderCard(item,ds)));
   document.getElementById('selCards').innerHTML=h;
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
@@ -5247,6 +5353,7 @@ function openSettings(){
   h+=_setRow({onclick:'closeSettings();openWnSheet()'},'🔔','찜한 공구 오픈 알림','오픈일 아침 9시에 한 번. 광고성 알림은 따로 동의 없이는 보내지 않아요');
   h+=_setRow({onclick:'permGuide(true)'},'📱','앱 접근권한 안내','필수 권한 없음. 선택: 알림');
   h+='<div class="set-sec">고객센터</div>';
+  if(typeof _appOn==='function' && _appOn()) h+=_setRow({onclick:"closeSettings();appGoPopup('settings','더 많은 기능은 앱에서만 사용 가능해요')"},'📱','맘캘린더 앱 설치','');
   h+=_setRow({onclick:'closeSettings();openInqSheet()'},'🛠','오류 · 건의하기','');
   h+=_setRow({href:'https://pf.kakao.com/_zGfxnX/chat'},'💬','카카오톡 문의','');
   h+=_setRow({href:'https://cafe.naver.com/momcal/'},'☕','공지사항 (네이버 카페)','');
@@ -5559,7 +5666,7 @@ try{
   var _vn=parseInt(localStorage.getItem('mc_visit_n')||'0',10)+1;
   localStorage.setItem('mc_visit_n', String(_vn));
 }catch(_){}
-setTimeout(maybeShowPwa, 8000);   // 3초는 화면을 훑기도 전이라 8초로
+setTimeout(function(){ if(!(typeof maybeShowAppSheet==='function' && maybeShowAppSheet())) maybeShowPwa(); }, 8000);   // 3초는 화면을 훑기도 전이라 8초로
 
 // 뒤로가기(bfcache) 복원 대응: 카드 눌러 나갔다 돌아오면 페이지가 '이동중' 상태로 굳어
 // 다른 카드가 안 눌리는 문제 방지. 복원 감지 시 상태를 다시 그려 정상화한다.
@@ -5698,11 +5805,11 @@ function nxdBell(id,btn,ev){
   }
   m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'오픈 알림 받으시겠어요?';
   const _inApp=(typeof _isInApp==='function' && _isInApp());
-  m.querySelector('.nxa-s').textContent=_inApp?`오픈 날(${md}) 아침 9시 알림은 ${_isIOS()?'사파리':'크롬'}에서 받을 수 있어요 · 눌러서 바로 옮겨 드릴게요`:`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
-  m.querySelector('.nxa-yes').textContent=_inApp?(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기'):'알림 받을게요';
+  m.querySelector('.nxa-s').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?`오픈 날(${md}) 아침 9시 알림은 맘캘린더 앱에서 받을 수 있어요`:`오픈 날(${md}) 아침 9시 알림은 ${_isIOS()?'사파리':'크롬'}에서 받을 수 있어요 · 눌러서 바로 옮겨 드릴게요`):`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
+  m.querySelector('.nxa-yes').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?'앱으로 오세요':(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기')):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
-    if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
+    if(_inApp){ _nxOn(id); if(!appGoPopup('next_bell')) _nxOutside(id); return; }   // 앱 유도가 꺼져 있을 때만 옛 방식(크롬·사파리로)   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
     _nxOn(id);
     try{
       if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }        // 아이폰 웹: 홈 화면 추가 안내
