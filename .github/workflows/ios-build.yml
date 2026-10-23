@@ -155,8 +155,9 @@ jobs:
           done
           mkdir -p ~/.appstoreconnect/private_keys
           KEY=~/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+          # 시크릿에 키 앞뒤로 다른 글자가 섞여 들어가도(붙여넣기 사고) BEGIN~END 블록만 골라 쓴다
           printf '%s
-' "$APPLE_API_KEY_P8" > "$KEY"; chmod 600 "$KEY"
+' "$APPLE_API_KEY_P8" | tr -d '' | awk '/-----BEGIN PRIVATE KEY-----/{f=1} f{print} /-----END PRIVATE KEY-----/{f=0}' > "$KEY"; chmod 600 "$KEY"
           head -1 "$KEY" | grep -q "BEGIN PRIVATE KEY" || { echo "🔴 APPLE_API_KEY_P8 가 .p8 원문이 아니다"; exit 1; }
           # 빌드 번호·마케팅 버전
           BUILD=${{ github.run_number }}
