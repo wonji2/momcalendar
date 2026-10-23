@@ -2997,7 +2997,7 @@ function renderMe(){
     <button onclick="switchContent('gonggu');switchTab('list');setTimeout(()=>{const b=document.getElementById('stab-wish');if(b)b.click();},50)"><span>💜 내 찜 목록</span><span class="chev">›</span></button>
     <button onclick="goCalMine()"><span>📅 내 공구 캘린더</span><span class="chev">›</span></button>
     <button onclick="exportWishIcs()"><span>📤 내 폰 캘린더 저장</span><span class="chev">›</span></button>
-    <button onclick="openWnSheet()"><span>🔔 오픈 알림 설정</span><span class="chev">${noti?'켜짐 ›':'꺼짐 ›'}</span></button>
+    <button onclick="openNotiPrefs()"><span>🔔 알림 설정</span><span class="chev">${noti?'켜짐 ›':'꺼짐 ›'}</span></button>
     <button onclick="openAttendSheet()"><span>💜 출석 체크</span><span class="chev">›</span></button></div>
   <div class="me-rows"><div class="h">도움</div>
     <a href="mailto:app@momcalendar.com?subject=%5B%EB%AC%B8%EC%9D%98%ED%95%98%EA%B8%B0%5D" onclick="try{trackEvent('me_mail','inquiry')}catch(_){}"><span>✉️ 문의하기</span><span class="chev">›</span></a>
@@ -5374,7 +5374,7 @@ function openSettings(){
   h+='<div class="set-sec">계정</div>';
   h+=logged?_setRow({onclick:'closeSettings();kkoLogout()'},'💜',`${escHtml(m.nickname||'회원')}님 (카카오)`,'받은 정보: 카카오 닉네임, 회원번호. 누르면 로그아웃'):_setRow({onclick:'closeSettings();startKakaoLogin()'},'💬','카카오로 로그인','찜 목록을 폰을 바꿔도 이어 써요. 닉네임과 회원번호만 받아요');
   h+='<div class="set-sec">알림</div>';
-  h+=_setRow({onclick:'closeSettings();openWnSheet()'},'🔔','찜한 공구 오픈 알림','오픈일 아침 9시에 한 번. 광고성 알림은 따로 동의 없이는 보내지 않아요');
+  h+=_setRow({onclick:'closeSettings();openNotiPrefs()'},'🔔','알림 설정','공구 · 핫딜 · 세일 · 이벤트 따로 켜고 끄기. 찜한 것만, 아침 9시 한 번');
   h+=_setRow({onclick:'permGuide(true)'},'📱','앱 접근권한 안내','필수 권한 없음. 선택: 알림');
   h+='<div class="set-sec">고객센터</div>';
   if(typeof _appOn==='function' && _appOn()) h+=_setRow({onclick:"closeSettings();appGoPopup('settings','더 많은 기능은 앱에서만 사용 가능해요')"},'📱','맘캘린더 앱 설치','');
@@ -6739,6 +6739,61 @@ function _calCardHtml(kind){
   return {title:`${m}월 ${title}`, url:kind==='salecal'?`https://momcalendar.com/#sale`:`https://momcalendar.com/`, text:`${m}월 ${title} 달력이에요 · 공구 핫딜은 맘캘린더에서`,
     html:`<div class="sc"><div class="cs" style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#fff;padding:64px 44px 40px">${h}</div></div>`, sub};
 }
+</script>
+<!-- 🔔 알림 설정 세분화 (사장님 2026-10-23 결정: 알림은 찜만 · 전체 알림 → 공구/핫딜/세일/이벤트 켜고 끄기 · 문구 [오늘 오픈]/[오늘 마감] 은 서버 send-open-push)
+     저장: localStorage mc_push_prefs + 서버 push_set_prefs(device_id, prefs) — supabase/sql/push_prefs_91.sql -->
+<style id="mc-notiprefs">
+.np-sheet{position:fixed;inset:0;z-index:99996;display:none;align-items:flex-end;justify-content:center;background:rgba(20,10,30,.55)}
+.np-sheet.open{display:flex}
+.np-box{background:#fff;border-radius:22px 22px 0 0;padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;color:#232326}
+.np-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.np-h b{font-size:17px;font-weight:800}
+.np-h button{border:0;background:none;font-size:18px;color:#999;cursor:pointer;padding:4px 6px}
+.np-s{font-size:12.5px;color:#888;margin:0 0 12px;line-height:1.5}
+.np-row{display:flex;align-items:center;justify-content:space-between;padding:13px 2px;border-bottom:1px solid #F0ECF4}
+.np-row:last-of-type{border-bottom:0}
+.np-row .t{font-size:14.5px;font-weight:700}
+.np-row .t small{display:block;font-size:11.5px;color:#999;font-weight:500;margin-top:2px}
+.np-sw{width:46px;height:26px;border-radius:999px;background:#E0D8EA;border:0;position:relative;cursor:pointer;flex:none;transition:background .15s}
+.np-sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
+.np-sw.on{background:#602090}.np-sw.on::after{left:23px}
+.np-all{display:flex;align-items:center;justify-content:space-between;background:#F7F3FB;border-radius:12px;padding:12px 12px;margin-bottom:6px}
+.np-all b{font-size:14.5px}
+.np-note{font-size:11.5px;color:#aaa;margin-top:10px;line-height:1.5}
+</style>
+<div id="npSheet" class="np-sheet" aria-hidden="true" onclick="if(event.target===this) closeNotiPrefs()"><div class="np-box">
+  <div class="np-h"><b>🔔 알림 설정</b><button onclick="closeNotiPrefs()" aria-label="닫기">✕</button></div>
+  <p class="np-s">알림은 <b>찜한 것</b>만 보내요. 오픈·마감하는 날 아침 9시에 한 번씩.</p>
+  <div class="np-all"><b>전체 알림</b><button class="np-sw" id="npAll" onclick="notiPrefAll()" aria-label="전체 알림"></button></div>
+  <div class="np-row"><div class="t">공구 알림<small>찜한 공구 [오늘 오픈] [오늘 마감]</small></div><button class="np-sw" data-k="gonggu" onclick="notiPrefToggle('gonggu')" aria-label="공구 알림"></button></div>
+  <div class="np-row"><div class="t">핫딜 알림<small>찜한 핫딜 가격이 더 내려갔을 때</small></div><button class="np-sw" data-k="hotdeal" onclick="notiPrefToggle('hotdeal')" aria-label="핫딜 알림"></button></div>
+  <div class="np-row"><div class="t">세일 알림<small>찜한 세일 시작하는 날 아침</small></div><button class="np-sw" data-k="sale" onclick="notiPrefToggle('sale')" aria-label="세일 알림"></button></div>
+  <div class="np-row"><div class="t">이벤트 알림<small>선착순 체험단 같은 이벤트</small></div><button class="np-sw" data-k="event" onclick="notiPrefToggle('event')" aria-label="이벤트 알림"></button></div>
+  <p class="np-note" id="npNote"></p>
+</div></div>
+<script>
+const NP_KEYS=['gonggu','hotdeal','sale','event'];
+function notiPrefs(){ try{ const o=JSON.parse(localStorage.getItem('mc_push_prefs')||'null'); if(o&&typeof o==='object') return {gonggu:o.gonggu!==false,hotdeal:o.hotdeal!==false,sale:o.sale!==false,event:o.event!==false}; }catch(_){} return {gonggu:true,hotdeal:true,sale:true,event:true}; }
+function _npPaint(){
+  const p=notiPrefs(); NP_KEYS.forEach(k=>{ const b=document.querySelector('.np-sw[data-k="'+k+'"]'); if(b) b.classList.toggle('on',!!p[k]); });
+  const all=document.getElementById('npAll'); if(all) all.classList.toggle('on', NP_KEYS.every(k=>p[k]));
+  const n=document.getElementById('npNote'); if(n){ let on=false; try{ on=typeof notiGranted==='function'&&notiGranted(); }catch(_){} n.textContent=on?'이 기기는 알림이 켜져 있어요.':'이 기기는 아직 알림을 켜지 않았어요. 켜려면 찜한 공구의 🔔 을 눌러 주세요.'; }
+}
+let _npSaveT=null;
+function _npSave(p){
+  try{ localStorage.setItem('mc_push_prefs', JSON.stringify(p)); }catch(_){}
+  clearTimeout(_npSaveT);
+  _npSaveT=setTimeout(async()=>{   // 서버: 자기 기기 행만 (push_set_prefs)
+    try{ const did=(typeof deviceId==='function')?deviceId():null; if(!did) return;
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_set_prefs`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({p_device:did,p_prefs:p})});
+      try{ trackEvent('noti_prefs', NP_KEYS.filter(k=>p[k]).join(',')||'none'); }catch(_){}
+    }catch(_){}
+  },600);
+}
+function notiPrefToggle(k){ const p=notiPrefs(); p[k]=!p[k]; _npSave(p); _npPaint(); }
+function notiPrefAll(){ const p=notiPrefs(); const on=!NP_KEYS.every(k=>p[k]); NP_KEYS.forEach(k=>p[k]=on); _npSave(p); _npPaint(); }
+function openNotiPrefs(){ const s=document.getElementById('npSheet'); if(!s) return; _npPaint(); s.classList.add('open'); s.setAttribute('aria-hidden','false'); try{ trackEvent('noti_prefs_open',''); }catch(_){} }
+function closeNotiPrefs(){ const s=document.getElementById('npSheet'); if(s){ s.classList.remove('open'); s.setAttribute('aria-hidden','true'); } }
 </script>
 </body>
 </html>
