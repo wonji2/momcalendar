@@ -1,81 +1,99 @@
 <!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
 <title>맘캘린더 공유 달력 시안</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@300;400;500&family=Nanum+Gothic:wght@400;700&family=Noto+Sans+KR:wght@300;400;500&family=Gothic+A1:wght@300;400;500&family=Sunflower:wght@300;500&family=Nanum+Myeongjo:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=Gowun+Dodum&family=Gowun+Batang&family=Nanum+Gothic:wght@400;700&family=Noto+Sans+KR:wght@300;400;500&family=Gothic+A1:wght@300;400;500&family=Sunflower:wght@300;500&family=Nanum+Myeongjo:wght@400;700&family=Hahmlet:wght@300;400;500&family=Gaegu:wght@400;700&family=Hi+Melody&family=Dongle:wght@400;700&family=Jua&family=Do+Hyeon&family=Poor+Story&family=Gamja+Flower&family=Nanum+Pen+Script&family=Single+Day&family=Song+Myung&family=Stylish&family=Cute+Font&family=Diphylleia&family=Orbit&family=Grandiflora+One&family=Moirai+One&family=Yeon+Sung&family=Kirang+Haerang&display=swap">
 <style>
-/* 레이아웃: 시안 6장을 폰 폭 카드로 나란히(좁으면 세로). 글씨는 전부 300~500, 파스텔. 출처는 격자 안 */
-:root{--bg:#F6F5F8;--fg:#3F4650;--muted:#9AA0A8;--card:#fff;--line:#EEF0F3;--accent:#8E7CC3}
+/* 레이아웃: ① 기본안(B 글씨체 · A 연한 파스텔) → ② 워터마크 시안 6 → ③ 글씨체 갤러리(상업용 무료) → ④ 색상 10. 숫자는 검정, 일 빨강, 토 파랑 */
+:root{--bg:#F6F5F8;--fg:#3F4650;--muted:#9AA0A8;--card:#fff;--line:#EEF0F3}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--bg:#17161B;--fg:#E6E3EC;--muted:#8C8A94;--card:#211F27;--line:#2E2C35;color-scheme:dark} }
 :root[data-theme="dark"]{--bg:#17161B;--fg:#E6E3EC;--muted:#8C8A94;--card:#211F27;--line:#2E2C35;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans KR",system-ui,sans-serif;font-weight:300;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-h1{font-size:20px;font-weight:500;margin:0 0 4px;letter-spacing:-.01em}
-.lead{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:68ch}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-weight:400;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:20px;font-weight:500;margin:0 0 4px}
+h2{font-size:16px;font-weight:500;margin:34px 0 10px}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 14px;max-width:68ch;line-height:1.6}
 .grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
 .v{width:360px;max-width:100%}
-.v .tag{font-size:12px;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between}
+.v .tag{font-size:12.5px;color:var(--muted);margin:0 0 8px}
 .v .tag b{font-weight:500;color:var(--fg)}
-.cal{border-radius:22px;padding:18px 14px 12px;position:relative;overflow:hidden;background:var(--c-card,#fff);color:var(--c-fg,#4E5968)}
+/* 달력 카드(흰색 고정 — 저장 이미지라 테마와 무관) */
+.cal{border-radius:22px;padding:18px 14px 12px;position:relative;overflow:hidden;background:#fff;color:#1E1A24;font-family:var(--f,"IBM Plex Sans KR"),sans-serif}
 .cal .mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 6px 10px}
-.cal .mh b{font-size:28px;font-weight:var(--w-title,500);letter-spacing:-.02em}
-.cal .mh small{font-size:12px;color:var(--c-muted,#A1A7B0);font-weight:300}
-.cal .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11.5px;color:var(--c-muted,#A1A7B0);text-align:center;padding-bottom:6px;font-weight:300}
-.cal .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:7px 0 9px;border-top:1px solid var(--c-line,#F1F2F5)}
-.cal .dn{text-align:center;font-size:13.5px;font-weight:var(--w-num,400);padding:2px 0 5px}
-.cal .dn.su{color:var(--c-sun,#E58B9B)}.cal .dn.sa{color:var(--c-sat,#8FAEDF)}.cal .dn.out{color:#D5D8DD}
-.cal .bar{font-size:10.5px;line-height:1;padding:6px 8px;border-radius:var(--r-bar,7px);margin:2px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:var(--w-bar,400);color:var(--c-bartext,#4E5968)}
-.cal .wm{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-weight:500;font-size:32px;color:var(--c-wm,rgba(142,124,195,.07));transform:rotate(-18deg);letter-spacing:.08em}
+.cal .mh b{font-size:28px;font-weight:500;letter-spacing:-.02em}
+.cal .mh small{font-size:12px;color:#8B95A1;font-weight:400}
+.cal .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11.5px;color:#8B95A1;text-align:center;padding-bottom:6px}
+.cal .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:7px 0 9px;border-top:1px solid #F2F4F6;position:relative}
+.cal .dn{text-align:center;font-size:14px;font-weight:500;padding:2px 0 5px;color:#1E1A24}
+.cal .dn.su{color:#E8445A}.cal .dn.sa{color:#3182F6}.cal .dn.out{color:#D5D8DD}
+.cal .bar{font-size:10.5px;line-height:1;padding:6px 8px;border-radius:7px;margin:2px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#3A3342}
 .cal .brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:6px 4px 0}
-.cal .brand span{font-size:10px;font-weight:400;color:var(--c-brand,#8E7CC3);background:var(--c-brandbg,#F1EDF9);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
-/* A 고운돋움 · 나이스데이 파스텔 */
-.vA .cal{font-family:"Gowun Dodum",sans-serif;--c-card:#FFFDFB;--c-fg:#5B5563;--c-muted:#B3ADB9;--c-line:#F4F0F2;--c-sun:#E9A2AE;--c-sat:#9FB6E3;--w-title:400;--w-num:400;--r-bar:9px;--c-brand:#B38CC7;--c-brandbg:#F6EEF9;--c-wm:rgba(179,140,199,.08)}
-/* B IBM Plex 300 · 블루 라벤더 */
-.vB .cal{font-family:"IBM Plex Sans KR",sans-serif;--c-card:#FBFBFE;--c-fg:#4B5570;--c-muted:#A8B0C4;--c-line:#EEF1F8;--c-sun:#D99AA8;--c-sat:#8DA7DC;--w-title:300;--w-num:300;--w-bar:400;--r-bar:6px;--c-brand:#7E8FD1;--c-brandbg:#EEF1FB;--c-wm:rgba(126,143,209,.08)}
-/* C 나눔고딕 · 크림 웜 */
-.vC .cal{font-family:"Nanum Gothic",sans-serif;--c-card:#FFFBF5;--c-fg:#6B5E55;--c-muted:#C0B2A5;--c-line:#F5EDE4;--c-sun:#E5A08F;--c-sat:#A3B4C9;--w-title:400;--w-num:400;--r-bar:999px;--c-brand:#D08A6E;--c-brandbg:#FBEEE6;--c-wm:rgba(208,138,110,.08)}
-/* D 노토 300 · 라일락 단색 */
-.vD .cal{font-family:"Noto Sans KR",sans-serif;--c-card:#FCFBFE;--c-fg:#5E5870;--c-muted:#B6B0C4;--c-line:#F2EFF7;--c-sun:#D9A3B8;--c-sat:#A9A3D6;--w-title:300;--w-num:300;--w-bar:300;--r-bar:5px;--c-brand:#9A86C9;--c-brandbg:#F2EEFA;--c-wm:rgba(154,134,201,.08)}
-/* E 고딕 A1 300 · 파스텔 레인보우(앞에 점) */
-.vE .cal{font-family:"Gothic A1",sans-serif;--c-card:#FFFFFF;--c-fg:#555B66;--c-muted:#AEB4BD;--c-line:#F0F2F5;--c-sun:#E9A0A9;--c-sat:#95B4E6;--w-title:300;--w-num:300;--w-bar:400;--r-bar:8px;--c-brand:#8FA8D9;--c-brandbg:#EEF3FB;--c-wm:rgba(143,168,217,.08)}
-.vE .cal .bar::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dot);margin-right:6px;vertical-align:0}
-/* F 해바라기 300 · 세이지 그린 */
-.vF .cal{font-family:"Sunflower",sans-serif;--c-card:#FBFDFB;--c-fg:#55665C;--c-muted:#A7B5AC;--c-line:#ECF2EE;--c-sun:#E0A0A0;--c-sat:#8FB5A8;--w-title:300;--w-num:300;--w-bar:300;--r-bar:7px;--c-brand:#7FAF98;--c-brandbg:#EAF4EE;--c-wm:rgba(127,175,152,.09)}
-.note{font-size:12.5px;color:var(--muted);margin-top:18px;max-width:70ch;line-height:1.7}
+.cal .brand span{font-size:10px;font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:3px 9px}
+/* 워터마크 시안 */
+.cal .wm{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+.wm1{font-family:"IBM Plex Sans KR";font-weight:300;font-size:30px;letter-spacing:.14em;color:rgba(96,32,144,.07);transform:rotate(-18deg)}
+.wm2{font-family:"Nanum Myeongjo",serif;font-weight:400;font-size:34px;letter-spacing:.06em;color:rgba(30,26,36,.06);transform:rotate(-14deg)}
+.wm3{font-family:"IBM Plex Sans KR";font-weight:500;font-size:16px;letter-spacing:.3em;color:rgba(96,32,144,.08);text-transform:lowercase;transform:rotate(-90deg);justify-self:end;margin-right:-30px}
+.wm4{font-family:"Gowun Batang",serif;font-weight:400;font-size:13px;color:rgba(30,26,36,.07);letter-spacing:.2em;display:grid;grid-template-columns:repeat(3,1fr);gap:70px 40px;transform:rotate(-20deg) scale(1.3)}
+.wm5{font-family:"IBM Plex Sans KR";font-weight:300;font-size:56px;color:transparent;-webkit-text-stroke:1px rgba(96,32,144,.10);letter-spacing:.04em;transform:rotate(-16deg)}
+.wm6{width:150px;height:150px;border-radius:50%;border:1.5px solid rgba(96,32,144,.08);display:grid;place-items:center;font-family:"IBM Plex Sans KR";font-weight:300;font-size:13px;letter-spacing:.25em;color:rgba(96,32,144,.10)}
+/* 글씨체 갤러리 */
+.fonts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.fb{background:#fff;color:#1E1A24;border-radius:16px;padding:14px 14px 12px;border:1px solid var(--line)}
+.fb .n{font-size:11.5px;color:#8B95A1;margin-bottom:6px;font-family:"IBM Plex Sans KR"}
+.fb .n b{color:#8E7CC3;font-weight:500}
+.fb .m{font-size:24px;line-height:1.2}
+.fb .s{font-size:12.5px;margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.fb .s span{background:#EFE3F9;border-radius:7px;padding:5px 8px;color:#3A3342}
+/* 색상 */
+.pal{display:flex;flex-wrap:wrap;gap:8px}
+.pal div{width:88px;border-radius:12px;padding:10px 8px;font-size:11.5px;color:#3A3342;font-weight:500}
+.note{font-size:12.5px;color:var(--muted);margin-top:14px;max-width:70ch;line-height:1.7}
 </style>
 </head><body>
 
 
-<h1>공유 달력 시안 6가지</h1>
-<p class="lead">같은 11월 찜 일정으로 글씨체·굵기·파스텔 톤만 다르게 뽑았습니다. 출처 표시는 전부 격자 안(마지막 주 알약 + 옅은 워터마크)입니다. 마음에 드는 글자(A~F)만 말씀해 주세요. 섞어도 됩니다(예: B 글씨체에 A 색).</p>
-<div class="grid" id="grid"></div>
-<p class="note">A 고운돋움 · 나이스 데이 파스텔(복숭아·분홍·라일락·하늘·민트·버터) / B IBM Plex 300 · 블루 라벤더 / C 나눔고딕 · 크림 웜(알약 바) / D 노토 300 · 라일락 단색 / E 고딕 A1 300 · 파스텔 레인보우 + 앞에 점 / F 해바라기 300 · 세이지 그린. 모두 굵기 300~400, 검정 글자 없음.</p>
+<h1>공유 달력 시안 v2</h1>
+<p class="lead">글씨체 B(IBM Plex Sans KR) · 색 A를 더 연한 파스텔 10색으로 · 숫자는 검정(일요일 빨강, 토요일 파랑) · 바는 원톤 · 헤더에 「공구 핫딜 정보 맘캘린더」. 날짜는 사장님 확정값(룰라러브 11/4~8 · 우랩 11/9~15 · 슈메르 11/12~17 · 비비무 11/17~22).</p>
+
+<h2>① 기본안</h2>
+<div class="grid"><div class="v"><p class="tag"><b>B 글씨체 · A 연한 파스텔</b> · 워터마크 1번</p><div class="cal" data-wm="1"></div></div></div>
+
+<h2>② 워터마크 시안 6 (가운데 「맘캘린더」 대신)</h2>
+<p class="lead">전부 격자 위에 겹쳐 있어 잘라낼 수 없습니다. 마지막 주의 알약은 공통.</p>
+<div class="grid" id="wmGrid"></div>
+
+<h2>③ 글씨체 (전부 상업적 사용 무료 · Google Fonts OFL)</h2>
+<p class="lead">기본 저장은 B 하나. 아래 꾸밈 글씨체는 플래닛처럼 유료 꾸미기에 넣을 후보입니다. 숫자와 상품 바에 어떻게 보이는지 같이 뒀습니다.</p>
+<div class="fonts" id="fonts"></div>
+
+<h2>④ 색상 10 (A 파스텔, 연하게)</h2>
+<div class="pal" id="pal"></div>
+<p class="note">겹치는 공구가 6개까지는 다른 색이 나오고, 7번째부터 처음 색으로 돌아갑니다. 글씨는 500 굵기 짙은 보라회색(#3A3342)이라 연한 바 위에서도 읽힙니다.</p>
 
 <script>
-const EV=[{n:'JVR 트라이탄 물병',s:2,e:5},{n:'룰라러브 해면스펀지',s:5,e:8},{n:'우랩 소고기',s:9,e:15},{n:'슈메르 미끄럼방지양말',s:12,e:17},{n:'비비무 아기마스크',s:17,e:22},{n:'앙금가래떡&콩찰떡',s:25,e:29}];
-const PAL={
-  A:['#FCE4D6','#FAD4DC','#E6D6F2','#D9E2F7','#D4ECEF','#D9F0E3'],
-  B:['#DCE6F7','#E3E7FA','#D6E4F5','#E8E6F6','#D8ECF4','#E2E9F6'],
-  C:['#FBE3D6','#FBDDE0','#F6E6D0','#EEE7D9','#F5E0D4','#F2E8DE'],
-  D:['#ECE6F7','#E5DDF3','#DED4EF','#E9E3F6','#E2DAF2','#EFEAF9'],
-  E:['#FCE4E1','#FFF0D6','#E3F2E6','#DCE9FB','#E8E0F7','#FBE2EE'],
-  F:['#DDEFE4','#E6F2EA','#D7EAE0','#EAF3EC','#E0EEE7','#F0F6F1']
-};
-const DOT={E:['#F08C85','#F2B84B','#6CC08B','#6A9BEA','#A08CE0','#EE86B5']};
-const NAME={A:'A · 고운돋움 · 나이스 데이',B:'B · IBM Plex 300 · 블루 라벤더',C:'C · 나눔고딕 · 크림 웜',D:'D · 노토 300 · 라일락',E:'E · 고딕 A1 300 · 레인보우 점',F:'F · 해바라기 300 · 세이지'};
-function cal(k){
-  const wd=['일','월','화','수','목','금','토'], days=30, firstDow=0; const pal=PAL[k];
-  let h=`<div class="mh"><b>11월</b><small>2026 · 내가 찜한 공구</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
-  let d=1-firstDow;
-  while(d<=days){
-    const ws=d, we=d+6; h+='<div class="wk">';
-    for(let i=0;i<7;i++){const x=ws+i; const out=x<1||x>days; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${out?(x<1?30+x:x-days):x}</div>`;}
-    EV.forEach((e,idx)=>{ if(e.e<ws||e.s>we) return; const a=Math.max(e.s,ws)-ws+1, b=Math.min(e.e,we)-ws+1; const dot=DOT[k]?`--dot:${DOT[k][idx%6]};`:''; h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${pal[idx%pal.length]};${dot}">${e.n}</div>`; });
+const PAL=['#FFE8DC','#FFE1E7','#EFE3F9','#E2EAFB','#DDF1F4','#E3F5E9','#FFF4D6','#F3E8DF','#E9E6FB','#DDF3EE'];
+const PALN=['복숭아','벚꽃','라일락','하늘','물빛','민트','버터','모래','연보라','세이지'];
+const EV=[{n:'JVR 트라이탄 물병',s:2,e:5},{n:'룰라러브 해면스펀지',s:4,e:8},{n:'우랩 아기 한우',s:9,e:15},{n:'슈메르 미끄럼방지양말',s:12,e:17},{n:'비비무 아기마스크',s:17,e:22},{n:'앙금가래떡&콩찰떡',s:25,e:29}];
+const WM={1:'<div class="wm"><span class="wm1">맘캘린더</span></div>',2:'<div class="wm"><span class="wm2">맘캘린더</span></div>',3:'<div class="wm"><span class="wm3">momcalendar</span></div>',
+ 4:'<div class="wm"><div class="wm4"><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span><span>맘캘린더</span></div></div>',
+ 5:'<div class="wm"><span class="wm5">맘캘린더</span></div>',6:'<div class="wm"><div class="wm6">MOMCAL</div></div>'};
+const WMN={1:'1 · 얇은 고딕, 자간 넓게',2:'2 · 명조',3:'3 · 영문 세로 momcalendar',4:'4 · 작은 글자 반복 패턴',5:'5 · 테두리만 있는 큰 글자',6:'6 · 동그라미 안 MOMCAL'};
+function cal(wm){
+  const wd=['일','월','화','수','목','금','토'], days=30;
+  let h=`<div class="mh"><b>11월</b><small>공구 핫딜 정보 맘캘린더</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+  let d=1;
+  while(d<=days){ const ws=d, we=d+6; h+='<div class="wk">';
+    for(let i=0;i<7;i++){const x=ws+i; const out=x>days; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${out?x-days:x}</div>`;}
+    EV.forEach((e,idx)=>{ if(e.e<ws||e.s>we) return; const a=Math.max(e.s,ws)-ws+1, b=Math.min(e.e,we)-ws+1; h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${PAL[idx%PAL.length]}">${e.n}</div>`; });
     if(we>=days) h+='<div class="brand"><span>맘캘린더 · momcalendar.com</span></div>';
-    h+='</div>'; d+=7;
-  }
-  return h+'<div class="wm">맘캘린더</div>';
+    h+='</div>'; d+=7; }
+  return h+(WM[wm]||'');
 }
-document.getElementById('grid').innerHTML=Object.keys(NAME).map(k=>`<div class="v v${k}"><p class="tag"><b>${NAME[k]}</b></p><div class="cal">${cal(k)}</div></div>`).join('');
+document.querySelectorAll('.cal[data-wm]').forEach(c=>c.innerHTML=cal(c.dataset.wm));
+document.getElementById('wmGrid').innerHTML=Object.keys(WM).map(k=>`<div class="v"><p class="tag"><b>${WMN[k]}</b></p><div class="cal">${cal(k)}</div></div>`).join('');
+const FONTS=[['IBM Plex Sans KR','기본 B'],['Gowun Dodum','고운돋움'],['Gowun Batang','고운바탕'],['Nanum Gothic','나눔고딕'],['Noto Sans KR','노토'],['Gothic A1','고딕 A1'],['Sunflower','해바라기'],['Nanum Myeongjo','나눔명조'],['Hahmlet','함렛'],['Song Myung','송명'],['Diphylleia','디필리아'],['Orbit','오빗'],['Gaegu','개구'],['Hi Melody','하이멜로디'],['Dongle','동글'],['Jua','주아'],['Do Hyeon','도현'],['Poor Story','푸어스토리'],['Gamja Flower','감자꽃'],['Nanum Pen Script','나눔손글씨 펜'],['Single Day','싱글데이'],['Stylish','스타일리시'],['Cute Font','큐트'],['Grandiflora One','그란디플로라'],['Moirai One','모이라이'],['Yeon Sung','연성'],['Kirang Haerang','기랑해랑']];
+document.getElementById('fonts').innerHTML=FONTS.map(([f,k],i)=>`<div class="fb" style="font-family:'${f}'"><div class="n">${i===0?'<b>기본 · 무료 저장</b>':'꾸미기 · 유료'} · ${k}</div><div class="m">11월 <span style="color:#E8445A">1</span> 2 3 <span style="color:#3182F6">7</span></div><div class="s"><span>JVR 트라이탄 물병</span><span style="background:#DDF1F4">우랩 아기 한우</span></div></div>`).join('');
+document.getElementById('pal').innerHTML=PAL.map((c,i)=>`<div style="background:${c}">${PALN[i]}<br><small style="color:#8B95A1">${c}</small></div>`).join('');
 </script>
 
 </body></html>
