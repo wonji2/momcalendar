@@ -47,7 +47,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{
 <div id="card" style="width:1080px;height:1350px;box-sizing:border-box;background:#7B3FB5;color:#fff;display:flex;flex-direction:column">
 <div style="padding:52px 56px 26px;display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:52px;font-weight:800;opacity:.9">${top}</div><div style="font-size:120px;font-weight:900;letter-spacing:-5px;line-height:1">세일 총정리</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:10px"><div style="width:132px;height:132px;border-radius:32px;background:linear-gradient(135deg,#B57BE0,#7B3FB5);display:flex;align-items:center;justify-content:center"><img src="${fileUrl('momcal-appicon.png')}" style="width:82%;height:82%;border-radius:26px"></div><div style="font-size:30px;font-weight:900;letter-spacing:-.5px">맘캘린더</div></div></div>
 <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px;padding:0 46px 22px">${tk}</div>
-<div style="padding:0 56px 30px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:30px;font-weight:900;letter-spacing:-.5px">세일 정보는 맘캘린더</b><span style="font-size:19px;opacity:.75">출처: 각 브랜드 공식 공지</span></div></div></body></html>`;
+<div style="padding:0 56px 30px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:30px;font-weight:900;letter-spacing:-.5px">공동구매 · 핫딜 · 세일 정보 맘캘린더</b><span style="font-size:19px;opacity:.75">출처: 각 브랜드 공식 공지</span></div></div></body></html>`;
 
 const tmp = path.join(os.tmpdir(), 'momcal_salecard_tmp.html');   // CI 체크아웃엔 scratchpad 가 없다
 fs.writeFileSync(tmp, html, 'utf8');
