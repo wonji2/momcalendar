@@ -609,6 +609,9 @@ body.srch-mode .app-tabbar{display:none!important}
 .scal .dn .d.off span{color:#E5E8EB}.scal .dn .d.sun span{color:#F04452}.scal .dn .d.sun.off span{color:#E5E8EB}
 .scal .dn .d.today span{background:#602090;color:#fff;font-weight:800}
 .scal .dn .d.sel span{box-shadow:0 0 0 2px #7B3FB5 inset}
+.scal .dn .d{flex-direction:column;align-items:center}
+.scal .dn .d i.mc,.sc .dn div i.mc{font-style:normal;font-weight:800;color:#1B64DA;background:#E8F3FF;border-radius:4px;font-size:9px;line-height:13px;padding:0 3px;margin-top:1px;white-space:nowrap}
+.sc .dn div i.mc{display:block;width:max-content;margin:4px auto 0;font-size:18px;line-height:26px;padding:0 8px;border-radius:8px}
 .scal .lanes{position:relative;margin:0 2px}
 .scal .sb{position:absolute;height:22px;border-radius:6px;background:#E9E0F3;color:#4A1A72;font-size:12px;font-weight:800;display:flex;align-items:center;gap:4px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer}
 .scal .sb img{width:16px;height:16px;border-radius:3px;background:#fff;object-fit:contain;flex-shrink:0}
@@ -2821,17 +2824,20 @@ function _saleWeekSegs(evs, dates){
 function _saleCalHtml(y,m,big){
   const mS=_ymd(y,m,1), mE=_ymd(y,m,new Date(y,m,0).getDate());
   // 🎓 문센(tag 문센)은 달력에선 **신청 시작일 하루**만 — 접수 기간 전체(40일)를 띠로 그리면 한 주 3줄을 차지해 다른 세일을 밀어낸다(사장님 2026-10-23 "문센 신청일 테스트에 넣어놔봐"). 목록 카드는 기간 그대로.
-  const evs=(_saleData||[]).map(ev=>ev.tag==='문센'?{...ev,end_date:ev.start_date,_mc:1}:ev).filter(ev=>ev.start_date<=mE && (ev.end_date||'9999-12-31')>=mS);
+  //    띠로 그리면 브랜드 세일과 3줄을 다퉈 둘 중 하나가 「+N개 더」에 묻힌다 → **날짜 칸 아래 작은 「문센」 표시**로 한다(줄을 안 쓴다). 칸을 누르면 그날 목록에 문센 카드가 다 나온다.
+  const _mcDay={}; for(const ev of (_saleData||[])){ if(ev.tag!=='문센'||!ev.start_date) continue; (_mcDay[ev.start_date]=_mcDay[ev.start_date]||[]).push(String(ev.brand).replace(/\s*(문화센터|문화아카데미|아카데미)$/,'')); }
+  const _mcTag=d=>_mcDay[d]?`<i class="mc" title="${escHtml(_mcDay[d].join('·'))} 문센 신청 시작">문센</i>`:'';
+  const evs=(_saleData||[]).filter(ev=>ev.tag!=='문센' && ev.start_date<=mE && (ev.end_date||'9999-12-31')>=mS);
   const cells=_saleMonthCells(y,m); const LANE=big?50:24, H=big?44:22, MAXL=3;
   let html=`<div class="wd"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>`;
   for(let w=0;w<cells.length/7;w++){ const wk=cells.slice(w*7,w*7+7); const dates=wk.map(c=>c.date||null);
     html+='<div class="wk"><div class="dn">'+wk.map((c,i)=>{
-      if(big) return `<div class="${c.off?'off':''}${i===0?' sun':''}${c.date===todayStr?' today':''}"><span>${c.n}</span></div>`;
-      return c.off?`<div class="d off${i===0?' sun':''}"><span>${c.n}</span></div>`:`<div class="d${i===0?' sun':''}${c.date===todayStr?' today':''}${SALE_DAY===c.date?' sel':''}" onclick="saleDay('${c.date}')"><span>${c.n}</span></div>`; }).join('')+'</div>';
+      if(big) return `<div class="${c.off?'off':''}${i===0?' sun':''}${c.date===todayStr?' today':''}"><span>${c.n}</span>${c.off?'':_mcTag(c.date)}</div>`;
+      return c.off?`<div class="d off${i===0?' sun':''}"><span>${c.n}</span></div>`:`<div class="d${i===0?' sun':''}${c.date===todayStr?' today':''}${SALE_DAY===c.date?' sel':''}" onclick="saleDay('${c.date}')"><span>${c.n}</span>${_mcTag(c.date)}</div>`; }).join('')+'</div>';
     const {segs,lanes}=_saleWeekSegs(evs,dates); const shown=segs.filter(s=>s.lane<MAXL); const hidden=segs.length-shown.length;
     html+=`<div class="lanes" style="height:${Math.min(lanes.length,MAXL)*LANE+(hidden&&!big?16:0)}px">`+shown.map(s=>{
       const past=!!(s.ev.end_date&&s.ev.end_date<todayStr); const cls=big?'sb':`sb${s.cont?' cont':''}${s.more?' more':''}${SALE_HL===s.ev.id?' on':(SALE_HL?' dim':'')}${past?' past':''}`;
-      const logo=_saleLogoSrc(s.ev); return `<div class="${cls}" style="left:${s.c0/7*100}%;width:calc(${(s.c1-s.c0+1)/7*100}% - ${big?6:2}px);top:${s.lane*LANE}px;height:${H}px" ${big?'':`onclick="saleFocus(${s.ev.id})"`}>${logo?`<img src="${logo}" alt="">`:''}${escHtml(s.ev._mc?String(s.ev.brand).replace(/s*(문화센터|문화아카데미|아카데미)$/,'')+' 문센 신청':s.ev.brand)}</div>`; }).join('')
+      const logo=_saleLogoSrc(s.ev); return `<div class="${cls}" style="left:${s.c0/7*100}%;width:calc(${(s.c1-s.c0+1)/7*100}% - ${big?6:2}px);top:${s.lane*LANE}px;height:${H}px" ${big?'':`onclick="saleFocus(${s.ev.id})"`}>${logo?`<img src="${logo}" alt="">`:''}${escHtml(s.ev.brand)}</div>`; }).join('')
       +(hidden&&!big?`<span class="plus" style="top:${MAXL*LANE-2}px" onclick="saleDay('${dates.find(Boolean)}')">+${hidden}개 더</span>`:'')+'</div></div>';
   }
   return {html, evs};
