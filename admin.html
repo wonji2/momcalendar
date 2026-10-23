@@ -6307,6 +6307,8 @@ function computeDupSet(){
     }
   });
 }
+// 대기중 = 셀러가 register.html 로 등록·수정해 승인을 기다리는 행(source='seller', seller_source_98.sql). 내려둔 행은 빼고
+function isSellerReq(d){ return !d.approved && d.source==='seller' && !(typeof heldIds!=='undefined' && heldIds.has(d.id)); }
 function isDup(item){ return dupIdSet.has(item.id); }
 
 function getDupReason(item){
@@ -6648,11 +6650,11 @@ function updateStats(){
   // 탭 개수 표시 (DB와 작업 개수 맞추기 편하게)
   const setTab=(id,n)=>{const e=document.getElementById(id);if(e)e.textContent='('+n+')';};
   setTab('tabcnt-all', allData.length);
-  setTab('tabcnt-pending', allData.filter(d=>!d.approved&&!heldIds.has(d.id)).length);
+  setTab('tabcnt-pending', allData.filter(isSellerReq).length);
   setTab('tabcnt-approved', allData.filter(d=>d.approved).length);
   setTab('tabcnt-dup', dups.length);
   // 빨간 알림 배지 (처리 필요한 항목)
-  setBadge('badge-pending', allData.filter(d=>!d.approved&&!heldIds.has(d.id)).length);
+  setBadge('badge-pending', allData.filter(isSellerReq).length);
   setBadge('badge-dup', dups.length);
 }
 // 빨간 배지 표시/숨김 (0이면 숨김)
@@ -7759,7 +7761,7 @@ function getFilteredData(){
   const dateTo=document.getElementById('dateTo').value;
   const inflF=(document.getElementById('inflFilter')||{}).value||'';
   return allData.filter(d=>{
-    if(curTab==='pending'&&(d.approved||heldIds.has(d.id)))return false;   // 내려둔(잠금) 행은 대기중이 아니다
+    if(curTab==='pending'&&!isSellerReq(d))return false;   // 대기중 = 가입 셀러가 등록·수정 요청한 행만 (사장님 2026-10-23). 나머지 미승인(0-M·이름검사)은 자동 처리 몫
     if(curTab==='approved'&&!d.approved)return false;
     if(curTab==='dup'&&!isDup(d))return false;
     if(onlyNoInsta && hasLink(d))return false;
