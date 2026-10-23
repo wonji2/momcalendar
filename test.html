@@ -2803,7 +2803,7 @@ async function loadPromoCard(){
     const rows=window._mcBannersOf(all,'promo_card').filter(b=>!(b.show_from&&new Date(b.show_from)>now)&&!(b.show_until&&new Date(b.show_until)<now));
     if(!rows.length){ el.classList.remove('show'); return; }
     const b=rows[0];
-    el.innerHTML=`<div class="pic">${b.img_url?`<img src="${escHtml(mcApiSrc?mcApiSrc(b.img_url):b.img_url)}" alt="">`:''}</div><div><small>${escHtml(b.subtitle||'')}</small><b>${escHtml(b.title||'')}</b></div>`;
+    el.innerHTML=`<div class="pic">${b.img_url?`<img src="${escHtml(mcApiSrc?mcApiSrc(b.img_url):b.img_url)}" alt="">`:''}</div><div><small>${mcDot(escHtml(b.subtitle||''))}</small><b>${escHtml(b.title||'')}</b></div>`;
     el.onclick=()=>goPromo(b.id, b.link);
     el.classList.add('show');
   }catch(e){ el.classList.remove('show'); }
@@ -4242,13 +4242,15 @@ function mcShare(){
   }
 }
 function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
+// 「A · B」 캡션의 가운데 점이 줄 머리에 오지 않게 — 점 앞을 붙임표로 묶는다 (사장님 2026-10-23 "줄바꿈 애매")
+function mcDot(s){ return String(s==null?'':s).replace(/\s*·\s*/g,'\u00a0· '); }
 function mcToast(msg){
   try{
     var t=document.createElement('div');
     t.textContent=msg;
     // 길면 오래 보여 준다(글자당 45ms, 3~5.5초) · \n 으로 줄을 나눈다 · 낱말 중간에서 안 끊는다 (사장님 2026-10-23 "지속시간 너무 짧아 · 줄바꿈 애매")
     var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
-    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;max-width:calc(100% - 40px);white-space:pre-line;text-align:center;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
+    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;width:max-content;max-width:calc(100vw - 40px);white-space:pre-line;text-align:center;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
     document.body.appendChild(t);
     setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, _ms);
   }catch(_){}
@@ -5656,7 +5658,7 @@ function _nxCard(it, wide){
   const on=isWished(it.id);
   return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
     <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏳ D-${_nxDday(it.openDate)}</span></div>
-    <div class="nx-body"><div class="nx-when">🕐 ${_nxMDs(it.openDate)} 오픈</div><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
+    <div class="nx-body"><div class="nx-when">🕐 ${_nxMDs(it.openDate)} 오픈</div><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${mcDot(_nxEsc(sub))}</div>
     <div class="nx-row"><button class="nx-bell${on?' on':''}" onclick="nxdBell(${it.id},this,event)" aria-label="${on?'알림 끄기':'오픈 알림 받기'}">${on?_NXB1:_NXB0} ${_nxN(it)}</button></div>
     </div></div>`;   // 🔔 띠와 같은 버튼·같은 숫자 (사장님 2026-10-23 "전체일정 누르면 알림이 아니고 찜 · 해제했다 다시 누르면 안돼 · 명수가 안줄어")
 }
@@ -5938,7 +5940,7 @@ function buildMainSlider(){
       </div>
       <div class="main-slide-txt">
         <div class="main-slide-t1">${b.title||''}</div>
-        <div class="main-slide-t2">${b.subtitle||''}</div>
+        <div class="main-slide-t2">${mcDot(b.subtitle||'')}</div>
       </div>
     </div>`;
   }).join('');
