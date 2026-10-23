@@ -6674,20 +6674,20 @@ document.addEventListener('DOMContentLoaded', function(){ if(onbShouldShow()) on
      헤더 「공구 핫딜은 맘캘린더에서」 · 로고 워터마크 격자 가운데(L3 흑백 작게, 잘라낼 수 없음) · 친구에게 공유 · 유료는 워터마크 제거만(나중)) -->
 <style id="mc-calshare">
 .cs{font-family:"IBM Plex Sans KR",system-ui,sans-serif;color:#1E1A24;position:relative;overflow:hidden;display:flex;flex-direction:column}
-.cs .mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px 22px}
-.cs .mh b{font-size:76px;font-weight:500;letter-spacing:-.02em;line-height:1}
-.cs .mh small{font-size:28px;color:#8B95A1;font-weight:400}
-.cs .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:26px;color:#8B95A1;text-align:center;padding-bottom:14px}
-.cs .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:16px 0 20px;border-top:2px solid #F2F4F6;position:relative}
-.cs .dn{text-align:center;font-size:34px;font-weight:500;padding:4px 0 10px;color:#1E1A24}
-.cs .dn.su{color:#E8445A}.cs .dn.sa{color:#3182F6}.cs .dn.out{color:#D5D8DD}
-.cs .bar{font-size:24px;line-height:1;padding:14px 16px;border-radius:14px;margin:5px 5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#3A3342;text-align:center}
-.cs .more{grid-column:span 7;text-align:right;font-size:22px;color:#8B95A1;padding:8px 10px 0}
-.cs .brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:14px 8px 0}
-.cs .brand span{font-size:22px;font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:8px 20px}
-.cs .wm{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
-.cs .wm img{width:300px;opacity:.09;filter:grayscale(1);display:block}
-.cs .empty{padding:120px 40px;text-align:center;color:#8B95A1;font-size:30px;line-height:1.6}
+.cs .cs-mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px 22px}
+.cs .cs-mh b{font-size:76px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.cs .cs-mh small{font-size:28px;color:#8B95A1;font-weight:400}
+.cs .cs-wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:26px;color:#8B95A1;text-align:center;padding-bottom:14px}
+.cs .cs-wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:16px 0 20px;border-top:2px solid #F2F4F6;position:relative}
+.cs .cs-dn{text-align:center;font-size:34px;font-weight:500;padding:4px 0 10px;color:#1E1A24}
+.cs .cs-dn.su{color:#E8445A}.cs .cs-dn.sa{color:#3182F6}.cs .cs-dn.out{color:#D5D8DD}
+.cs .cs-bar{font-size:24px;line-height:1;padding:14px 16px;border-radius:14px;margin:5px 5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:#3A3342;text-align:center}
+.cs .cs-more{grid-column:span 7;text-align:right;font-size:22px;color:#8B95A1;padding:8px 10px 0}
+.cs .cs-brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:14px 8px 0}
+.cs .cs-brand span{font-size:22px;font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:8px 20px}
+.cs .cs-wm{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+.cs .cs-wm img{width:300px;opacity:.09;filter:grayscale(1);display:block}
+.cs .cs-empty{padding:120px 40px;text-align:center;color:#8B95A1;font-size:30px;line-height:1.6}
 .cal-share-row{display:flex;gap:8px;margin:0 12px 10px}
 .cal-share-row button{flex:1;border:none;border-radius:10px;padding:10px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
 .cal-share-row .w{background:#F3EEF8;color:#602090}
@@ -6722,19 +6722,19 @@ function _calCardHtml(kind){
   const inMonth=items.filter(it=>it.s<=mk(days) && it.e>=mk(1)).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0).map((it,i)=>({...it, c:CS_PAL[i%CS_PAL.length], sd:it.s<mk(1)?1:Number(it.s.slice(8,10)), ed:it.e>mk(days)?days:Number(it.e.slice(8,10))}));
   const wd=['일','월','화','수','목','금','토'];
   const title=kind==='salecal'?'세일 달력':'내가 찜한 공구';
-  let h=`<div class="mh"><b>${m}월</b><small>공구 핫딜은 맘캘린더에서</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+  let h=`<div class="cs-mh"><b>${m}월</b><small>공구 핫딜은 맘캘린더에서</small></div><div class="cs-wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
   let d=1-first;
   while(d<=days){
-    const ws=d, we=d+6; h+='<div class="wk">';
-    for(let i=0;i<7;i++){ const x=ws+i; const out=x<1||x>days; const show=out?(x<1?new Date(y,m-1,x).getDate():x-days):x; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${show}</div>`; }
+    const ws=d, we=d+6; h+='<div class="cs-wk">';
+    for(let i=0;i<7;i++){ const x=ws+i; const out=x<1||x>days; const show=out?(x<1?new Date(y,m-1,x).getDate():x-days):x; h+=`<div class="cs-dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${show}</div>`; }
     let n=0, hidden=0;
-    inMonth.forEach(it=>{ if(it.ed<ws||it.sd>we) return; if(n>=5){ hidden++; return; } n++; const a=Math.max(it.sd,ws)-ws+1, b=Math.min(it.ed,we)-ws+1; h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${it.c}">${escHtml(it.n)}</div>`; });
-    if(hidden) h+=`<div class="more">+${hidden}</div>`;
-    if(we>=days) h+='<div class="brand"><span>맘캘린더 · momcalendar.com</span></div>';
+    inMonth.forEach(it=>{ if(it.ed<ws||it.sd>we) return; if(n>=5){ hidden++; return; } n++; const a=Math.max(it.sd,ws)-ws+1, b=Math.min(it.ed,we)-ws+1; h+=`<div class="cs-bar" style="grid-column:${a}/${b+1};background:${it.c}">${escHtml(it.n)}</div>`; });
+    if(hidden) h+=`<div class="cs-more">+${hidden}</div>`;
+    if(we>=days) h+='<div class="cs-brand"><span>맘캘린더 · momcalendar.com</span></div>';
     h+='</div>'; d+=7;
   }
-  if(!inMonth.length) h+=`<div class="empty">${kind==='salecal'?'이 달에 예정된 세일이 없어요':'찜한 공구가 없어요<br>하트를 눌러 담아 보세요'}</div>`;
-  h+='<div class="wm"><img src="intro/logo.png" alt=""></div>';
+  if(!inMonth.length) h+=`<div class="cs-empty">${kind==='salecal'?'이 달에 예정된 세일이 없어요':'찜한 공구가 없어요<br>하트를 눌러 담아 보세요'}</div>`;
+  h+='<div class="cs-wm"><img src="intro/logo.png" alt=""></div>';
   const sub=kind==='salecal'?(wished?'내가 찜한 세일':'예정 세일 전체'):'찜한 공구 '+inMonth.length+'개';
   return {title:`${m}월 ${title}`, url:kind==='salecal'?`https://momcalendar.com/#sale`:`https://momcalendar.com/`, text:`${m}월 ${title} 달력이에요 · 공구 핫딜은 맘캘린더에서`,
     html:`<div class="sc"><div class="cs" style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#fff;padding:64px 44px 40px">${h}</div></div>`, sub};

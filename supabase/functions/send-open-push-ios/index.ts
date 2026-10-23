@@ -69,16 +69,16 @@ type Target = {
 };
 
 /** 웹푸시와 완전히 같은 문구 규칙 */
-function message(items: { id: number; name: string }[]) {
+function message(items: { id: number; name: string; kind?: string }[]) {
+  // 2026-10-23 사장님 앱 디벨롭 결정: [오늘 오픈]/[오늘 마감] 배지 — 웹푸시(send-open-push)와 같은 문구
+  const badge = (k?: string) => k === "end_ios" ? "[오늘 마감]" : "[오늘 오픈]";
   const n = items.length;
+  const opens = items.filter((i) => i.kind !== "end_ios").length, ends = n - opens;
   if (n === 1) {
-    return { title: "내가 찜한 공구 오늘 오픈", body: items[0].name, url: `${SITE}?g=${items[0].id}` };
+    return { title: "내가 찜한 공구", body: `${badge(items[0].kind)} ${items[0].name}`, url: `${SITE}?g=${items[0].id}` };
   }
-  return {
-    title: `내가 찜한 공구 ${n}건 오늘 오픈`,
-    body: `${items[0].name} 외 ${n - 1}건 눌러서 확인하세요`,
-    url: SITE,
-  };
+  const head = [opens ? `오늘 오픈 ${opens}건` : "", ends ? `오늘 마감 ${ends}건` : ""].filter(Boolean).join(" · ");
+  return { title: `내가 찜한 공구 ${head}`, body: `${badge(items[0].kind)} ${items[0].name} 외 ${n - 1}건 눌러서 확인하세요`, url: SITE };
 }
 
 async function sbFetch(path: string, init: RequestInit) {
@@ -132,11 +132,11 @@ Deno.serve(async (req) => {
   const rows: Target[] = await r.json();
 
   // 한 사람당 알림 1건으로 묶는다 (5개 찜했다고 5번 울리면 안 된다)
-  const byDevice = new Map<string, { token: string; env: string; items: { id: number; name: string }[] }>();
+  const byDevice = new Map<string, { token: string; env: string; items: { id: number; name: string; kind?: string }[] }>();
   for (const t of rows) {
     let g = byDevice.get(t.device_id);
     if (!g) { g = { token: t.apns_token, env: t.env === "dev" ? "dev" : "prod", items: [] }; byDevice.set(t.device_id, g); }
-    g.items.push({ id: t.gonggu_id, name: t.gonggu_name });
+    g.items.push({ id: t.gonggu_id, name: t.gonggu_name, kind: (t as { kind?: string }).kind === "end_ios" ? "end_ios" : "open_ios" });
   }
 
   if (dry) {
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
       });
       if (res.ok) {
         sent++;
-        for (const it of g.items) okLog.push({ device_id: device, gonggu_id: it.id, kind: "open_ios" });
+        for (const it of g.items) okLog.push({ device_id: device, gonggu_id: it.id, kind: it.kind || "open_ios" });
       } else {
         failed++;
         // 410 Unregistered / 400 BadDeviceToken = 죽은 토큰

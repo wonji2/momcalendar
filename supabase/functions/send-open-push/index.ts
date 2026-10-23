@@ -58,6 +58,7 @@ type Target = {
   gonggu_id: number;
   gonggu_name: string;
   seller: string | null;
+  kind: string;            // open(오늘 오픈) | end(오늘 마감) — push_prefs_91.sql
 };
 
 type Group = {
@@ -65,25 +66,29 @@ type Group = {
   endpoint: string;
   p256dh: string;
   auth: string;
-  items: { id: number; name: string }[];
+  items: { id: number; name: string; kind: string }[];
 };
 
 // ── 발송 문구 (확정 — 함부로 바꾸지 말 것) ──
 //  ⚠ 링크는 반드시 맘캘린더를 거치게 한다. 셀러 인스타·결제링크로 직행시키지 말 것.
 //    (2026-07-23 사장님 지시: 알림에서 바로 인스타로 빠지면 사이트 방문이 사라짐)
+// 2026-10-23 사장님 앱 디벨롭 결정: 상품명 앞에 [오늘 오픈]/[오늘 마감] 배지, 마감 알림도 같은 아침 알림으로
+const badge = (k: string) => k === "end" ? "[오늘 마감]" : "[오늘 오픈]";
 function buildPayload(g: Group, today: string) {
   const n = g.items.length;
+  const opens = g.items.filter((i) => i.kind !== "end").length, ends = n - opens;
   if (n === 1) {
     return {
-      title: "내가 찜한 공구 오늘 오픈",
-      body: g.items[0].name,
+      title: "내가 찜한 공구",
+      body: `${badge(g.items[0].kind)} ${g.items[0].name}`,
       url: `${SITE}?g=${g.items[0].id}`,   // 사이트로 보내되 어떤 공구인지 표시
       tag: `mc-open-${today}`,
     };
   }
+  const head = [opens ? `오늘 오픈 ${opens}건` : "", ends ? `오늘 마감 ${ends}건` : ""].filter(Boolean).join(" · ");
   return {
-    title: `내가 찜한 공구 ${n}건 오늘 오픈`,
-    body: `${g.items[0].name} 외 ${n - 1}건 눌러서 확인하세요`,
+    title: `내가 찜한 공구 ${head}`,
+    body: `${badge(g.items[0].kind)} ${g.items[0].name} 외 ${n - 1}건 눌러서 확인하세요`,
     url: SITE,
     tag: `mc-open-${today}`,
   };
@@ -141,7 +146,7 @@ Deno.serve(async (req) => {
         groups.set(t.device_id, g);
       }
       if (!g.items.some((i) => i.id === t.gonggu_id)) {
-        g.items.push({ id: t.gonggu_id, name: t.gonggu_name });
+        g.items.push({ id: t.gonggu_id, name: t.gonggu_name, kind: t.kind === "end" ? "end" : "open" });
       }
     }
 
@@ -174,7 +179,7 @@ Deno.serve(async (req) => {
             body: d.body as BodyInit,
           });
           if (res.ok) {
-            for (const it of g.items) okLog.push({ device_id: g.device_id, gonggu_id: it.id, kind: "open" });
+            for (const it of g.items) okLog.push({ device_id: g.device_id, gonggu_id: it.id, kind: it.kind });
           } else if (res.status === 404 || res.status === 410) {
             deadDevices.push(g.device_id);   // 구독 만료·삭제
           } else {
