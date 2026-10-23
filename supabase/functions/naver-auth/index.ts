@@ -1,5 +1,5 @@
 // 맘캘린더 네이버 로그인 처리 Edge Function (kakao-auth 를 그대로 본뜸 · 2026-10-24)
-// 프론트에서 받은 인가코드(code)+state 를 토큰으로 교환 → 별명 조회 → members 에 저장(kakao_id = 'naver:'+id, provider='naver')
+// 프론트에서 받은 인가코드(code)+state 를 토큰으로 교환 → 별명(+동의 시 성별·연령대) 조회 → members 에 저장(kakao_id = 'naver:'+id, provider='naver')
 // Client ID/Secret 은 서버 시크릿(NAVER_CLIENT_ID / NAVER_CLIENT_SECRET)에서만 쓴다.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -38,12 +38,18 @@ Deno.serve(async (req) => {
     const nid = String(me?.response?.id || '')
     const nickname = me?.response?.nickname || me?.response?.name || ''
     if (!nid) return json({ error: '사용자 정보 조회 실패', detail: me }, 400)
+    // 추가(선택) 동의 항목 — 손님이 동의했을 때만 온다. 안 오면 null 로 둔다(이전 값은 지우지 않는다)
+    const g = me?.response?.gender
+    const gender = (g === 'F' || g === 'M' || g === 'U') ? g : null
+    const a = me?.response?.age
+    const age_range = (typeof a === 'string' && /^[0-9]{1,2}-[0-9]{1,3}$/.test(a)) ? a : null
     const memberId = 'naver:' + nid   // members.kakao_id 가 회원 키 — 카카오 숫자 id 와 절대 겹치지 않게 접두어
 
     // 3) members 저장(service_role)
     const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const { error } = await sb.from('members').upsert(
-      { kakao_id: memberId, nickname, provider: 'naver', device_id: device_id || null, updated_at: new Date().toISOString() },
+      { kakao_id: memberId, nickname, provider: 'naver', device_id: device_id || null, updated_at: new Date().toISOString(),
+        ...(gender ? { gender } : {}), ...(age_range ? { age_range } : {}) },
       { onConflict: 'kakao_id' },
     )
     if (error) return json({ error: 'DB 저장 실패', detail: error.message }, 500)
