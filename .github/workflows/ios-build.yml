@@ -158,6 +158,7 @@ jobs:
           # 시크릿에 키 앞뒤로 다른 글자가 섞여 들어가도(붙여넣기 사고) BEGIN~END 블록만 골라 쓴다
           printf '%s\n' "$APPLE_API_KEY_P8" | tr -d '\r' | awk '/-----BEGIN PRIVATE KEY-----/{f=1} f{print} /-----END PRIVATE KEY-----/{f=0}' > "$KEY"; chmod 600 "$KEY"
           head -1 "$KEY" | grep -q "BEGIN PRIVATE KEY" || { echo "🔴 APPLE_API_KEY_P8 가 .p8 원문이 아니다"; exit 1; }
+          # 서명: 개발용(기기 필요) 말고 배포용(Apple Distribution) 프로파일을 클라우드에서 만들게 한다 — run #50 「no devices」 오류
           # 빌드 번호·마케팅 버전
           BUILD=${{ github.run_number }}
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" App/Info.plist 2>/dev/null || true
@@ -173,7 +174,7 @@ jobs:
             <key>manageAppVersionAndBuildNumber</key><true/>
           </dict></plist>
           PL
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos             -destination 'generic/platform=iOS' -archivePath "$PWD/build/App.xcarchive" archive             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$BUILD"             -allowProvisioningUpdates -allowProvisioningDeviceRegistration             -authenticationKeyPath "$KEY" -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -60
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos             -destination 'generic/platform=iOS' -archivePath "$PWD/build/App.xcarchive" archive             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" CURRENT_PROJECT_VERSION="$BUILD"             -allowProvisioningUpdates -allowProvisioningDeviceRegistration             -authenticationKeyPath "$KEY" -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -60
           xcodebuild -exportArchive -archivePath "$PWD/build/App.xcarchive" -exportOptionsPlist ExportOptions.plist -exportPath "$PWD/build/export"             -allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -40
           echo "✅ App Store Connect 업로드 요청 끝 — TestFlight 처리까지 5~15분, App Store Connect 에서 확인"
           rm -f "$KEY"
