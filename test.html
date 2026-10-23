@@ -2881,10 +2881,10 @@ function _loadH2C(){ return new Promise((res,rej)=>{ if(window.html2canvas) retu
 function _shareCardHtml(kind){
   if(kind==='sale'){
     // 「2026 연말 세일 총정리」 V2 (사장님 2026-10-23 확정) — 보라 바탕 2열 티켓 · 오른쪽 위 로고+맘캘린더 · 아래 「세일 정보는 맘캘린더」
-    //  브랜드당 한 줄(블프가 있으면 블프, 없으면 가장 이른 행사) · 끝난 것·해외 행사(링크 없음) 제외 · 시작일 순 최대 12줄
+    //  브랜드당 한 줄(블프가 있으면 블프, 없으면 가장 이른 행사) · 끝난 것·해외 행사·문센 제외 · 시작일 순 최대 12줄
     const y=Number(todayStr.slice(0,4)), mo=Number(todayStr.slice(5,7));
     const by=new Map();
-    (_saleData||[]).forEach(e=>{ if(!e.start_date||e.tag==='해외'||!String(e.url||'').trim()) return; if((e.end_date||e.start_date)<todayStr) return;
+    (_saleData||[]).forEach(e=>{ if(!e.start_date||e.tag==='해외'||e.tag==='문센') return; if((e.end_date||e.start_date)<todayStr) return;
       const c=by.get(e.slug); if(!c || (e.tag==='블프' && c.tag!=='블프') || (c.tag!=='블프' && e.tag!=='블프' && e.start_date<c.start_date)) by.set(e.slug,e); });
     const L=[...by.values()].sort((a,b)=>a.start_date<b.start_date?-1:a.start_date>b.start_date?1:0).slice(0,12);
     const TILE={'29cm':['29','#111'],gmarket:['G','#00A650'],ssg:['SSG','#E2231A'],spao:['SPAO','#E30613'],hm:['H&amp;M','#E50010'],koreasalefesta:['코세페','#1E64C8']};
