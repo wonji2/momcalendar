@@ -967,15 +967,17 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
   <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구, 안전하게 보관할까요?</div>
   <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.7;margin-bottom:18px">
     지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>
-    카카오로 시작하면 폰을 바꿔도 찜이 그대로예요
+    카카오·네이버로 시작하면 폰을 바꿔도 찜이 그대로예요
   </div>
+  <style>#kkoBtns>button{height:52px;box-sizing:border-box}</style>
   <div id="kkoBtns">
   <button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
     <span style="font-size:17px">💬</span> 카카오로 3초 만에 시작
   </button>
+  <button data-nv-main onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:15px;font-weight:900;font-family:Arial,sans-serif;line-height:1">N</span> 네이버로 3초 만에 시작</button>
   </div>
   <button onclick="kkoLater()" style="width:100%;background:none;border:1px solid #EDE7F5;border-radius:13px;color:#8A8194;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:12px;min-height:44px">나중에 할게요</button>
-  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">카카오 닉네임과 회원번호만 받아요. 로그인 안 해도 찜은 계속 쓸 수 있어요<br><a href="privacy.html" target="_blank" rel="noopener" style="color:#9a8fb0">개인정보처리방침</a> / <a href="terms.html" target="_blank" rel="noopener" style="color:#9a8fb0">이용약관</a></div>
+  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">카카오·네이버 별명과 회원번호만 받아요. 로그인 안 해도 찜은 계속 쓸 수 있어요<br><a href="privacy.html" target="_blank" rel="noopener" style="color:#9a8fb0">개인정보처리방침</a> / <a href="terms.html" target="_blank" rel="noopener" style="color:#9a8fb0">이용약관</a></div>
 </div>
 
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
@@ -2990,7 +2992,7 @@ function renderMe(){
   let noti=false; try{ noti=notiGranted(); }catch(_){}
   const wishN=(typeof WISH!=='undefined'&&WISH)?WISH.size:0;
   v.innerHTML=`
-  <div class="me-head" onclick="${logged?'openSettings()':'startKakaoLogin()'}"><div class="av">${logged?'💜':'👤'}</div><div><b>${logged?escHtml(m.nickname||'회원')+'님':'카카오로 로그인'}</b><small>${logged?'카카오 로그인 · 닉네임·회원번호만 받아요':'찜 목록을 폰을 바꿔도 이어 써요'}</small></div></div>
+  <div class="me-head" onclick="${logged?'openSettings()':'openLoginSheet()'}"><div class="av">${logged?'💜':'👤'}</div><div><b>${logged?escHtml(m.nickname||'회원')+'님':'로그인'}</b><small>${logged?((m&&m.provider==='naver')?'네이버':'카카오')+' 로그인 · 별명·회원번호만 받아요':'카카오·네이버로 3초 · 찜 목록을 폰을 바꿔도 이어 써요'}</small></div></div>
   <div class="me-stats"><button onclick="goCalMine()"><b>${wishN}</b><small>찜한 공구</small></button><button onclick="openWnSheet()"><b>${noti?'켜짐':'꺼짐'}</b><small>오픈 알림</small></button><button onclick="openAttendSheet()"><b>💜</b><small>출석 체크</small></button></div>
   <a class="me-cafe" href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener"><div class="pic">☕</div><div><small>네이버 카페 17,000명</small><b>맘캘 카페 가입하고 출석 이벤트 참여</b></div></a>
   <div class="me-rows"><div class="h">내 활동</div>
@@ -4493,6 +4495,8 @@ function removeWish(id, ev){
 // ══ 💛 카카오 로그인 (소프트 게이트 — 찜은 로그인 없이도 되고, 로그인하면 기기 바뀌어도 유지) ══
 var KKO_JS_KEY='04a73b2b11a54e8c11be73309e1b217c';
 var KKO_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
+var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';   // 🟢 네이버 로그인 (2026-10-24)
+var NV_CLIENT_ID='b7KajUAIzrC4cfBxr6zO';   // OAuth client_id 는 공개값 (시크릿은 서버 naver-auth 에만)
 // ⚠ PWA(홈 화면 앱)는 manifest start_url 이 /index.html 이라 pathname 이 '/'가 아니다.
 //    카카오에 등록된 리다이렉트 URI는 'https://momcalendar.com/' 뿐이라 그대로 보내면 KOE006이 난다.
 //    → index.html 계열은 항상 루트('/')로 맞춰서 보낸다. (test.html 은 자기 경로 그대로)
@@ -4518,7 +4522,7 @@ function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(K
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
 var KKO_DEFAULT_T='찜한 공구, 안전하게 보관할까요?';
-var KKO_DEFAULT_S='지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>카카오로 시작하면 폰을 바꿔도 찜이 그대로예요';
+var KKO_DEFAULT_S='지금은 <b style="color:#7B3FB5">이 기기에만</b> 저장돼요<br>카카오·네이버로 시작하면 폰을 바꿔도 찜이 그대로예요';
 var KKO_DEFAULT_F='닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요';
 function openLoginSheet(title, sub, fine, intent){
   window.__loginIntent = intent || '';        // 로그인 끝나고 돌아왔을 때 이어서 할 일
@@ -4534,7 +4538,7 @@ function openLoginSheet(title, sub, fine, intent){
   //    안 그러면 출석체크 시트에 "크롬으로 열어서 로그인" 이 뜬다 (2026-09-02 검증자 지적)
   try{ var _bx=document.getElementById("kkoBtns");
     if(_bx && !_bx.querySelector("[data-kko-main]")) _bx.innerHTML =
-      '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 3초 만에 시작</button>';
+      '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 3초 만에 시작</button>' + '<button data-nv-main onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:15px;font-weight:900;font-family:Arial,sans-serif;line-height:1">N</span> 네이버로 3초 만에 시작</button>';
   }catch(_){}
   bg.style.display='block'; m.style.bottom='0';
   if(!wasOpen) lockScroll();
@@ -4630,6 +4634,16 @@ function startKakaoLogin(){
     throughTalk: !_isInApp()
   });
 }
+// 🟢 네이버 로그인 — 카카오와 같은 흔적(mc_login_from·intent·try)을 남기고 nid.naver.com 으로 보낸다. 돌아오면 아래 ?code 처리에서 state 'nv_' 로 가른다
+function startNaverLogin(){
+  try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
+  try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
+  try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname, v:'naver'})); }catch(_){}
+  try{ trackEvent('naver_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+  var st='nv_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+  try{ localStorage.setItem('mc_nv_state', st); }catch(_){}
+  location.href='https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id='+encodeURIComponent(NV_CLIENT_ID)+'&redirect_uri='+encodeURIComponent(kkoRedirect())+'&state='+st;
+}
 // 찜한 뒤 로그인 권유 (하루 1회 이하, 찜 2개 이상부터)
 // 로그인 권유: 찜 2개째에 시트를 딱 한 번만 띄우고,
 // 그 뒤로는 시트를 다시 띄우지 않고 '내 찜' 화면의 조용한 띠로만 권한다.
@@ -4672,7 +4686,17 @@ function hideLoginStrip(){
   try{
     var p=new URLSearchParams(location.search);
     var code=p.get('code');
+    var _st=p.get('state')||'';
+    var _nv=_st.indexOf('nv_')===0;   // 🟢 네이버에서 돌아옴
+    if(_nv && !code){   // 손님이 네이버 동의 화면에서 취소하면 ?error=access_denied&state=nv_… 로 돌아온다
+      try{ history.replaceState({},'', location.pathname); }catch(_){}
+      try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_nv_state'); }catch(_){}
+      try{ trackEvent('naver_login_cancel', String(p.get('error')||'').slice(0,30)); }catch(_){}
+      return;
+    }
     if(!code) return;
+    if(_nv){ var _want=null; try{ _want=localStorage.getItem('mc_nv_state'); localStorage.removeItem('mc_nv_state'); }catch(_){}
+      if(_want && _want!==_st){ try{ history.replaceState({},'', location.pathname); }catch(_){} try{ trackEvent('naver_login_fail','state_mismatch'); }catch(_){} return; } }
     // ⚠️ 카카오 인가코드는 **한 번만** 쓸 수 있다.
     //    응답을 기다리는 사이에 손님이 새로고침하면 같은 코드로 또 요청해 반드시 실패한다.
     //    (인앱은 렌더가 느려 이 사이가 길다) → 요청을 보내기 전에 주소에서 먼저 지운다.
@@ -4680,22 +4704,22 @@ function hideLoginStrip(){
     // ⚠ 카카오에서 돌아온 시점에 시도 흔적을 지운다 — 안 지우면 성공한 회차까지 '추정 실패' 로 집계된다
     //    (2026-09-02 검증자 지적: code 가 이미 URL 에서 지워져 checkLoginFail 의 가드가 무용지물이었다)
     window.__kkoReturning = true;   // 카카오에서 돌아와 처리 중 — checkLoginFail 이 '추정' 으로 세지 않게
-    fetch(KKO_FN,{ method:'POST',
+    fetch(_nv?NV_FN:KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-      body:JSON.stringify({ code:code, redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
+      body:JSON.stringify({ code:code, state:(_nv?_st:undefined), redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
     }).then(function(r){ try{ window.__kkoHttp = r.status; }catch(_){}   // 실패 진단용 — status 를 버리면 원인을 못 찾는다
       return r.json().catch(function(){ return null; });
     }).then(function(d){
       if(d && d.ok){
         // token = 회원 세션. 출석·캘린더 내보내기를 서버에서 검증할 때 쓴다.
-        try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||''})); }catch(_){}
+        try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:d.provider||'kakao'})); }catch(_){}
         // 무사히 돌아왔으니 실패 흔적을 지운다 (안 지우면 '실패'로 잘못 기록됨)
         try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); }catch(_){}
         if(typeof reloginStripHide==='function') reloginStripHide();
         // 성공했으니 '안내 봤음' 표시를 지운다 — 나중에 진짜 실패하면 다시 안내가 뜬다
         //   (2026-09-02: 이걸 안 지워서 한 번이라도 성공한 기기는 영영 안내를 못 받고 있었다)
         try{ localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}   // 로그인에 성공했으면 더는 탈퇴 상태가 아니다(재가입자 안내 차단 방지)
-        try{ trackEvent('kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+        try{ trackEvent(_nv?'naver_login_done':'kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
         try{ history.replaceState({},'', back || location.pathname); }catch(_){}
@@ -5372,7 +5396,7 @@ function openSettings(){
   const m=(typeof memberGet==='function')?memberGet():null; const logged=!!(m&&m.kakao_id);
   let h='';
   h+='<div class="set-sec">계정</div>';
-  h+=logged?_setRow({onclick:'closeSettings();kkoLogout()'},'💜',`${escHtml(m.nickname||'회원')}님 (카카오)`,'받은 정보: 카카오 닉네임, 회원번호. 누르면 로그아웃'):_setRow({onclick:'closeSettings();startKakaoLogin()'},'💬','카카오로 로그인','찜 목록을 폰을 바꿔도 이어 써요. 닉네임과 회원번호만 받아요');
+  h+=logged?_setRow({onclick:'closeSettings();kkoLogout()'},'💜',`${escHtml(m.nickname||'회원')}님 (${(m&&m.provider==='naver')?'네이버':'카카오'})`,`받은 정보: ${(m&&m.provider==='naver')?'네이버':'카카오'} 별명, 회원번호. 누르면 로그아웃`):_setRow({onclick:'closeSettings();openLoginSheet()'},'💬','로그인','카카오·네이버로 3초. 찜 목록을 폰을 바꿔도 이어 써요. 별명과 회원번호만 받아요');
   h+='<div class="set-sec">알림</div>';
   h+=_setRow({onclick:'closeSettings();openNotiPrefs()'},'🔔','알림 설정','공구 · 핫딜 · 세일 · 이벤트 따로 켜고 끄기. 찜한 것만, 아침 9시 한 번');
   h+=_setRow({onclick:'permGuide(true)'},'📱','앱 접근권한 안내','필수 권한 없음. 선택: 알림');
