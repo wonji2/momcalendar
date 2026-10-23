@@ -806,6 +806,12 @@ body.sheet-open{ overscroll-behavior-y: none; }
   ]
 }
 </script>
+<style id="mc-wrap-keepall">
+/* 한국어 줄바꿈: 낱말 중간에서 끊지 않는다(토스 방식). 링크·긴 상품명처럼 띄어쓰기 없는 긴 낱말만 넘칠 때 끊는다 (사장님 2026-10-23) */
+body,button,input,textarea,select{word-break:keep-all;overflow-wrap:anywhere}
+h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.pwa-strip-txt,[class*="-t"]:not(.nx-t):not(.sale-t){text-wrap:balance}
+[class*="-s"]:not(.nx-s),[class*="sub"],[class*="desc"],.empty span{text-wrap:pretty}
+</style>
 </head>
 <body>
 
@@ -2974,16 +2980,16 @@ async function saleWish(id,ev,btn){
   try{ trackEvent(on?'sale_wish_add':'sale_wish_del', String(id)); }catch(_){}
   setTimeout(renderSale, on?360:0);   // 하트가 뛰는 걸 보여 준 뒤 칩 숫자·「내 찜」 목록을 맞춘다
   if(!on) return;
-  if(!before){ mcToast('💜 찜했어요'); return; }
-  let msg='💜 찜했어요 · 시작하는 날 아침 9시에 알려드려요';
+  if(!before){ mcToast('찜했어요 💜'); return; }
+  let msg='찜했어요 💜\n시작하는 날 아침 9시에 알려드릴게요';
   try{
     if(!notiGranted()){
-      if(iosNeedsInstall()){ msg='💜 찜했어요 · 아이폰은 홈 화면에 추가해야 시작 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
-      else if(!pushSupported()){ msg='💜 찜했어요 · 이 화면에선 알림을 못 받아요(크롬·사파리로 열면 받을 수 있어요)'; }
-      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='💜 찜했어요 · 알림이 꺼져 있어요. 브라우저 설정에서 알림을 허용해 주세요'; }
-      else { const ok=await enablePush(); if(!ok) msg='💜 찜했어요 · 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용해 주세요'; }
+      if(iosNeedsInstall()){ msg='찜했어요 💜\n아이폰은 홈 화면에 추가해야\n시작 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요 💜\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요 💜\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요 💜\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
     }
-  }catch(_){ msg='💜 찜했어요'; }
+  }catch(_){ msg='찜했어요 💜'; }
   mcToast(msg);
 }
 // 세일 탭 바로 열기: momcalendar.com/#sale
@@ -4240,9 +4246,11 @@ function mcToast(msg){
   try{
     var t=document.createElement('div');
     t.textContent=msg;
-    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
+    // 길면 오래 보여 준다(글자당 45ms, 3~5.5초) · \n 으로 줄을 나눈다 · 낱말 중간에서 안 끊는다 (사장님 2026-10-23 "지속시간 너무 짧아 · 줄바꿈 애매")
+    var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
+    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;max-width:calc(100% - 40px);white-space:pre-line;text-align:center;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
     document.body.appendChild(t);
-    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, 2200);
+    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, _ms);
   }catch(_){}
 }
 
@@ -4860,7 +4868,7 @@ function wnLater(){
     localStorage.setItem('mc_wn_next', _dstrPlus(days));    // 날짜 기준(YYYY-MM-DD)
   }catch(_){}
   closeWnSheet();
-  mcToast('찜했어요 💜 (알림 안내는 '+days+'일 뒤에 다시 여쭤볼게요)');
+  mcToast('찜했어요 💜\n알림 안내는 '+days+'일 뒤에 다시 여쭤볼게요');
 }
 async function wnAllow(){
   const ok=document.getElementById('wnOk');
