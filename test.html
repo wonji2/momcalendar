@@ -2937,6 +2937,7 @@ async function shareCardShare(){
 }
 function saleGo(id){
   const e=(_saleData||[]).find(x=>x.id===id); if(!e) return;
+  if(!String(e.url||'').trim()) return;   // 해외 행사(광군제·블프·사이버먼데이)는 날짜만 알려 준다 — 눌러도 이동 없음 (사장님 2026-10-23)
   trackEvent('sale_go', e.brand+'|'+e.title+(e.aff_merchant?'|aff':''));
   openLink(_saleUrl(e));
 }
