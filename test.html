@@ -4811,6 +4811,7 @@ function markSheetShown(){ try{ localStorage.setItem('mc_sheet_day', _dstr()); }
 
 function maybeAskNoti(){
   try{
+    if(window._nxNoAsk) return;   // 오픈 예정 스포 🔔 가 알림 켜기를 직접 처리한다
     if(notiGranted()) return;
     if(Notification.permission==='denied') return;          // 브라우저에서 이미 차단 → 물어봐야 소용없음
     if(sheetShownToday()) return;                            // 오늘 이미 뭔가 띄웠으면 쉬어감
@@ -5652,19 +5653,37 @@ function _nxN(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; return Math.
 function _nxRefresh(){ try{ renderNextGonggu(); }catch(_){} const sh=document.getElementById('nextSheet'); if(sh&&sh.classList.contains('open')){ try{ _nxSheetBody(); }catch(_){} } }
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
-  if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); return; }
-  // 🔔 누르면 바로 팝업 (사장님 2026-10-22 "알림 누르면 바로 찜 알림 받으시겠습니까 팝업 띄워")
   const it=(typeof DATA!=='undefined'?DATA:[]).find(x=>Number(x.id)===Number(id))||{};
+  const md=it.openDate?_nxMDs(it.openDate):'오픈';
+  if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); try{ mcToast('알림을 껐어요'); }catch(_){} return; }
+  // 🔔 알림이 이미 켜진 기기 → 묻지 않고 바로 찜 + 안내만 (사장님 2026-10-23 "이미 알람 받게 설정된 사람한테는 그냥 9시에 알람 보내준다고만")
+  if(typeof notiGranted==='function' && notiGranted()){ _nxOn(id); try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){} return; }
+  // 아직 알림이 안 켜진 기기 → 한 번 누르면 바로 팝업, 「알림 받을게요」 = 찜 + 휴대폰 알림 켜기까지 한 번에
   let m=document.getElementById('nxdAsk');
   if(!m){ m=document.createElement('div'); m.id='nxdAsk';
-    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s">찜해 두면 오픈하는 날 아침에 알려드려요</div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
+    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
     document.body.appendChild(m);
     m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
   }
-  m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'찜 알림 받으시겠어요?';
-  m.querySelector('.nxa-yes').onclick=function(){ m.classList.remove('open'); if(!isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)+1; } try{ trackEvent('next_bell_on',String(id)); }catch(_){}; _nxRefresh(); };
+  m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'오픈 알림 받으시겠어요?';
+  m.querySelector('.nxa-s').textContent=`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
+  m.querySelector('.nxa-yes').onclick=async function(){
+    m.classList.remove('open');
+    _nxOn(id);
+    try{
+      if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }        // 아이폰 웹: 홈 화면 추가 안내
+      if(typeof pushSupported==='function' && pushSupported() && !(window.Notification && Notification.permission==='denied')){
+        const ok=await enablePush();                                                               // 브라우저 알림 허용 창
+        mcToast(ok?`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`:'알림 권한이 꺼져 있어요 · 찜은 해 두었어요');
+      } else {
+        mcToast(window.Notification && Notification.permission==='denied' ? '이 브라우저는 알림이 차단돼 있어요 · 찜은 해 두었어요' : '찜해 두었어요 · 이 화면에선 알림을 받을 수 없어요');
+      }
+    }catch(_){}
+  };
   m.classList.add('open');
 }
+// 찜 켜기 + 숫자 + 다시 그리기 (toggleWish 안의 「알림 설정」 시트는 여기선 띄우지 않는다 — 위에서 바로 켠다)
+function _nxOn(id){ if(isWished(id)) return; window._nxNoAsk=true; try{ toggleWish(id,null); }finally{ window._nxNoAsk=false; } _NXD[id]=(_NXD[id]||0)+1; try{ trackEvent('next_bell_on',String(id)); }catch(_){} _nxRefresh(); }
 function _nxPage(){ const sc=document.getElementById('nextScroll'); const w=sc&&sc.querySelector('.nxd, .nx-card'); return w?Math.round(sc.scrollLeft/(w.offsetWidth+12)):0; }
 function _nxGo(k){ const sc=document.getElementById('nextScroll'); if(!sc) return; const cards=sc.querySelectorAll('.nxd, .nx-card'); if(!cards.length) return; k=Math.max(0,Math.min(cards.length-1,k)); const L=cards[k].offsetLeft-cards[0].offsetLeft; try{ sc.scrollTo({left:L,behavior:'smooth'}); }catch(_){ sc.scrollLeft=L; } setTimeout(()=>{ if(Math.abs(sc.scrollLeft-L)>4) sc.scrollLeft=L; },450); document.querySelectorAll('#nextDots i').forEach((d,j)=>d.classList.toggle('on',j===k)); }   // 부드럽게 안 움직이는 기기는 바로 옮긴다
 function renderNextGonggu(){
