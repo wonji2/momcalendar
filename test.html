@@ -2880,9 +2880,25 @@ let _shareKind='', _sharePng=null;
 function _loadH2C(){ return new Promise((res,rej)=>{ if(window.html2canvas) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
 function _shareCardHtml(kind){
   if(kind==='sale'){
-    const [y,m]=(SALE_YM||todayStr.slice(0,7)).split('-').map(Number); const {html,evs}=_saleCalHtml(y,m,true);
-    return {title:`${m}월 세일 달력`, url:`https://momcalendar.com/?sale=${_ymd(y,m,1).slice(0,7)}`, text:`${m}월 브랜드 세일 일정 모아봤어요`,
-      html:`<div class="sc"><div class="hd"><div><b>${m}월 세일 달력</b><br><small>${escHtml([...new Set(evs.map(e=>e.brand))].slice(0,8).join(' · '))}</small></div><div class="lg">맘캘린더</div></div><div class="grid">${html}</div><div class="ft"><span>브랜드 세일 일정은 매일 갱신돼요</span><b>momcalendar.com</b></div></div>`};
+    // 「2026 연말 세일 총정리」 V2 (사장님 2026-10-23 확정) — 보라 바탕 2열 티켓 · 오른쪽 위 로고+맘캘린더 · 아래 「세일 정보는 맘캘린더」
+    //  브랜드당 한 줄(블프가 있으면 블프, 없으면 가장 이른 행사) · 끝난 것·해외 행사(링크 없음) 제외 · 시작일 순 최대 12줄
+    const y=Number(todayStr.slice(0,4)), mo=Number(todayStr.slice(5,7));
+    const by=new Map();
+    (_saleData||[]).forEach(e=>{ if(!e.start_date||e.tag==='해외'||!String(e.url||'').trim()) return; if((e.end_date||e.start_date)<todayStr) return;
+      const c=by.get(e.slug); if(!c || (e.tag==='블프' && c.tag!=='블프') || (c.tag!=='블프' && e.tag!=='블프' && e.start_date<c.start_date)) by.set(e.slug,e); });
+    const L=[...by.values()].sort((a,b)=>a.start_date<b.start_date?-1:a.start_date>b.start_date?1:0).slice(0,12);
+    const TILE={'29cm':['29','#111'],gmarket:['G','#00A650'],ssg:['SSG','#E2231A'],spao:['SPAO','#E30613'],hm:['H&amp;M','#E50010'],koreasalefesta:['코세페','#1E64C8']};
+    const wd=s=>'일월화수목금토'[new Date(s+'T00:00:00').getDay()];
+    const lg=e=>{ const t=TILE[e.slug]; const st='width:74px;height:74px;border-radius:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;font-weight:900;font-size:22px;';
+      if(t) return `<div style="${st}background:${t[1]}">${t[0]}</div>`;
+      const src=_saleLogoSrc(e); return src?`<div style="${st}background:#fff"><img src="${escHtml(src)}" style="width:100%;height:100%;object-fit:contain" alt=""></div>`:`<div style="${st}background:#7B3FB5">${escHtml(String(e.brand).slice(0,2))}</div>`; };
+    const tk=L.map(e=>`<div style="background:#fff;color:#1E1B26;border-radius:22px;display:flex;align-items:center;gap:16px;padding:0 20px;position:relative">${lg(e)}<div style="flex:1;min-width:0"><div style="font-size:27px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.brand)}</div><div style="font-size:23px;font-weight:700;color:#7B3FB5">${_saleMD(e.start_date)}(${wd(e.start_date)})${e.end_date?' ~ '+_saleMD(e.end_date):''}</div></div><div style="position:absolute;right:-12px;top:50%;width:24px;height:24px;border-radius:50%;background:#7B3FB5;transform:translateY(-50%)"></div></div>`).join('');
+    const top=mo>=10?`${y} 연말`:`${y}`;
+    return {title:`${top} 세일 총정리`, url:`https://momcalendar.com/?sale=${todayStr.slice(0,7)}`, text:`${top} 브랜드 세일 일정 총정리`,
+      html:`<div class="sc"><div style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#7B3FB5;color:#fff;display:flex;flex-direction:column">
+  <div style="padding:52px 56px 26px;display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:52px;font-weight:800;opacity:.9">${top}</div><div style="font-size:120px;font-weight:900;letter-spacing:-5px;line-height:1">세일 총정리</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:10px"><div style="width:132px;height:132px;border-radius:32px;background:linear-gradient(135deg,#B57BE0,#7B3FB5);display:flex;align-items:center;justify-content:center"><img src="momcal-appicon.png" style="width:82%;height:82%;border-radius:26px" alt=""></div><div style="font-size:30px;font-weight:900;letter-spacing:-.5px">맘캘린더</div></div></div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px;padding:0 46px 22px">${tk||'<div style="background:#fff;color:#1E1B26;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;grid-column:1/3">예정된 세일이 아직 없어요</div>'}</div>
+  <div style="padding:0 56px 30px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:30px;font-weight:900;letter-spacing:-.5px">세일 정보는 맘캘린더</b><span style="font-size:19px;opacity:.75">출처: 각 브랜드 공식 공지</span></div></div></div>`};
   }
   // 공구: 이번 주(오늘부터 7일) 오픈·마감 + 내 찜(앞으로 것) — 최대 7줄
   const d0=new Date(todayStr+'T00:00:00'); const end=new Date(d0.getTime()+6*864e5); const endS=_ymd(end.getFullYear(),end.getMonth()+1,end.getDate());
