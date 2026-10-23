@@ -497,7 +497,7 @@ function squashAmp(s){
   return String(s||'').replace(/(\S+)\s*&\s*(\S+)/g, function(m,a,b){
     let k=0;
     while(k<a.length-1 && k<b.length-1 && a[a.length-1-k]===b[b.length-1-k]) k++;
-    return k>=2 ? a.slice(0,a.length-k)+'&'+b : m;
+    return (k>=2 && a.length-k>=2) ? a.slice(0,a.length-k)+'&'+b : m;   // 「like&like」→「l&like」 방지(2026-10-23)
   });
 }
 // 잘린 끝에 남는 짝 없는 괄호·기호를 턴다. "…하이체어)" 같은 찌꺼기 방지.
