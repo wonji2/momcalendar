@@ -812,6 +812,7 @@ body,button,input,textarea,select{word-break:keep-all;overflow-wrap:anywhere}
 h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{text-wrap-style:balance}
 .nxa-s,.app-pop-s,.empty span{text-wrap-style:pretty}
 </style>
+<style id="mc-sort-chips">.sort-chips{display:flex;gap:6px;padding:2px 2px 10px;overflow-x:auto;scrollbar-width:none}.sort-chips::-webkit-scrollbar{display:none}.sort-chip{flex:0 0 auto;border:1px solid #E0D8EA;background:#fff;color:#6B6478;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}.sort-chip.on{background:#602090;border-color:#602090;color:#fff}</style>
 </head>
 <body>
 <!-- 📲 앱 설치 유도 (사장님 2026-10-23 승인, 시안 v5: ① 제목 위 띠 ② 공구 카드 중간 배너 ③ 앱 전용 기능 팝업 ④ 첫 방문 시트 ⑤ 설정 줄)
@@ -2334,10 +2335,23 @@ function renderList(){
   }
 
   // 모든 탭(전체 TOP100 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
-  const arr=getFiltered(selWeekDate);
-  el.innerHTML=arr.length
+  const arr=_applyListSort(getFiltered(selWeekDate));
+  el.innerHTML=_sortChipsHtml()+(arr.length
     ?_appJoin(arr.map(item=>renderCard(item)))
-    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
+    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`);
+}
+// ── 목록 정렬 (사장님 2026-10-23 앱 디벨롭: 인기순·방금 오픈순·마감임박순) — 기본은 지금 순서(오픈일순·파트너 우선)
+let _listSort='open';
+function setListSort(k){ if(_listSort===k) return; _listSort=k; if(k==='pop') ensureViewCounts(); renderList(); try{ trackEvent('list_sort',k); }catch(_){} }
+function _applyListSort(arr){
+  if(_listSort==='pop'){ const vc=window.__viewCounts||{}; return arr.slice().sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0))); }
+  if(_listSort==='new'){ return arr.slice().sort((a,b)=>a.openDate<b.openDate?1:a.openDate>b.openDate?-1:b.id-a.id); }
+  if(_listSort==='end'){ return arr.slice().sort((a,b)=>{ const ea=realEnd(a)||'9999', eb=realEnd(b)||'9999'; return ea<eb?-1:ea>eb?1:(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0); }); }
+  return arr;
+}
+function _sortChipsHtml(){
+  const o=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감임박순']];
+  return `<div class="sort-chips">${o.map(([k,t])=>`<button class="sort-chip${_listSort===k?' on':''}" onclick="setListSort('${k}')">${t}</button>`).join('')}</div>`;
 }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
@@ -2983,7 +2997,9 @@ function renderMe(){
     <button onclick="openWnSheet()"><span>🔔 오픈 알림 설정</span><span class="chev">${noti?'켜짐 ›':'꺼짐 ›'}</span></button>
     <button onclick="openAttendSheet()"><span>💜 출석 체크</span><span class="chev">›</span></button></div>
   <div class="me-rows"><div class="h">도움</div>
-    <button onclick="openInqSheet()"><span>🛠 오류 · 건의하기</span><span class="chev">›</span></button>
+    <a href="mailto:app@momcalendar.com?subject=%5B%EB%AC%B8%EC%9D%98%ED%95%98%EA%B8%B0%5D" onclick="try{trackEvent('me_mail','inquiry')}catch(_){}"><span>✉️ 문의하기</span><span class="chev">›</span></a>
+    <a href="mailto:app@momcalendar.com?subject=%5B%EC%98%A4%EB%A5%98%EC%A0%9C%EB%B3%B4%5D" onclick="try{trackEvent('me_mail','bug')}catch(_){}"><span>🐞 오류제보</span><span class="chev">›</span></a>
+    <button onclick="openInqSheet()"><span>🛠 건의하기 (앱 안에서)</span><span class="chev">›</span></button>
     <a href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener"><span>💬 카카오톡 문의</span><span class="chev">›</span></a>
     <button onclick="openPartnerModal()"><span>📩 제휴 · 입점 문의</span><span class="chev">›</span></button>
     <button onclick="openHowSheet()"><span>📖 이용 방법</span><span class="chev">›</span></button>
@@ -2991,7 +3007,9 @@ function renderMe(){
   <div class="me-rows"><div class="h">정보</div>
     <a href="terms.html" target="_blank" rel="noopener"><span>📄 이용약관</span><span class="chev">›</span></a>
     <a href="privacy.html" target="_blank" rel="noopener"><span>🔒 개인정보처리방침</span><span class="chev">›</span></a>
-    <button onclick="openSettings()"><span>⚙️ 설정 · 회원 탈퇴</span><span class="chev">›</span></button>
+    <button onclick="openSettings()"><span>⚙️ 설정</span><span class="chev">›</span></button>
+    ${logged?`<button onclick="kkoLogout()"><span>🚪 로그아웃</span><span class="chev">›</span></button>`:``}
+    ${logged?`<button onclick="openWithdraw()" style="color:#C0392B"><span>🗑 회원탈퇴</span><span class="chev">›</span></button>`:``}
     <button style="cursor:default"><span>🏷 버전</span><span class="chev">${typeof APP_VERSION!=='undefined'?APP_VERSION:''}${_isTwa()?' · 안드로이드 앱':' · 웹'}</span></button></div>`;
 }
 
