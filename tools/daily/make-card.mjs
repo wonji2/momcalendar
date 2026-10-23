@@ -311,7 +311,7 @@ const blogBody = [
   ``,
   ``,
   ``,
-  `맘캘린더 채널 한눈에`,
+  `맘캘린더 채널 모음`,
   ``,
   `· 전체 공구 일정 실시간 검색`,
   `https://momcalendar.com`,
@@ -337,7 +337,7 @@ const blogBody = [
   rot(SUBS, 3),
   // 오늘 오픈 브랜드를 한 줄로 (2026-09-28 사장님 지시: 브랜드+공구 검색 유입이 전체의 대부분 → 본문에 브랜드를 많이 실을수록 걸린다).
   //   순서 = 사이트 검색량 순(allBrands). 건수·셀러 수 같은 집계 수치는 넣지 않는다(2026-08-11 지시).
-  ...(allBrands.length ? [``, `오늘 공구 브랜드 한눈에: ${allBrands.slice(0, 40).join(' · ')}`] : []),
+  ...(allBrands.length ? [``, `오늘 공구 브랜드: ${allBrands.slice(0, 40).join(' · ')}`] : []),
   ``,
   // (사진 안내 문장 제거 — 사장님 지시 2026-08-27 "복사해서 그대로 붙여넣게". 사진 넣는 순서는 페이지 하단 안내문에만 남긴다)
   ...(closeFirst ? [...closeBlock, ``, ...openBlock] : [...openBlock, ``, ...closeBlock]),

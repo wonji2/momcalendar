@@ -733,7 +733,7 @@ details summary::-webkit-details-marker{display:none}
 <!-- ══ 통계 대시보드 (2026-07-23 신설) — 무거운 집계는 admin_* RPC 가 서버에서 처리 ══ -->
 <div id="dashWrap" style="margin:12px 12px 0">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div style="font-size:15px;font-weight:800;color:#2A1D6E">📊 한눈에 보기</div>
+    <div style="font-size:15px;font-weight:800;color:#2A1D6E">📊 요약 보기</div>
     <div style="display:flex;gap:4px">
       <button onclick="setDashPeriod(7,this)" class="dashPBtn">7일</button>
       <button onclick="setDashPeriod(14,this)" class="dashPBtn dashPOn">14일</button>
@@ -5464,7 +5464,7 @@ async function loadEventStats(){
       ]);
       const rowsT=(Array.isArray(top)?top:[]).map((r,i)=>`<div class="dashRow"><span class="dashRank">${i+1}</span><span class="dashName" title="${dashEsc(r.name)}">${dashEsc(r.name)} <span style="font-size:10px;color:#A99BC4">${dashEsc(r.seller||'')}</span></span><span class="dashVal">💜${dashNum(r.wish_cnt)}</span></div>`).join('')||'<div style="color:#bbb">아직 찜 데이터가 적어요</div>';
       const rowsS=(Array.isArray(sel)?sel:[]).map((r,i)=>`<div class="dashRow"><span class="dashRank">${i+1}</span><span class="dashName" title="${dashEsc(r.seller)}">${dashEsc(r.seller)} <span style="font-size:10px;color:#A99BC4">공구 ${dashNum(r.gonggu_cnt)}</span></span><span class="dashVal">💜${dashNum(r.wish_cnt)}</span></div>`).join('')||'<div style="color:#bbb">아직 찜 데이터가 적어요</div>';
-      if(el)el.innerHTML=`<div style="font-size:11px;color:#9B6FD4;margin-bottom:8px">실제 찜 기준 · 기간 무관(현재 찜 상태). 상단 <b>📊 한눈에 보기</b>에도 있어요.</div>
+      if(el)el.innerHTML=`<div style="font-size:11px;color:#9B6FD4;margin-bottom:8px">실제 찜 기준 · 기간 무관(현재 찜 상태). 상단 <b>📊 요약 보기</b>에도 있어요.</div>
         <div style="font-size:12px;font-weight:700;color:#602090;margin:6px 0 4px">💜 찜 많은 공구</div>${rowsT}
         <div style="font-size:12px;font-weight:700;color:#602090;margin:14px 0 4px">👤 셀러별 찜</div>${rowsS}`;
     }catch(e){ if(el)el.innerHTML='<div style="color:#C62828;font-size:12px">찜 통계를 불러오지 못했어요. ('+dashEsc(e.message)+')</div>'; }
@@ -8065,7 +8065,7 @@ function cafePostText(d){
 🗓 공구기간 : ${period}`+(seller?`\n👤 셀러 : ${seller}`:'')+`
 🔗 바로가기 : ${link||'(링크를 넣어주세요)'}
 
-📅 진행중·예정 공구 일정 한눈에 → 맘캘린더
+📅 진행중·예정 공구 일정 →  맘캘린더
 https://momcalendar.com`;
   return {title, body};
 }
