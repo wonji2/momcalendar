@@ -30,6 +30,31 @@ p{margin:0 0 8px;max-width:68ch}
 .top .ic{display:flex;gap:14px;font-size:19px}
 .search{margin:8px 20px 4px;background:var(--surf);color:var(--muted);border-radius:12px;padding:11px 14px;font-size:14px;display:flex;gap:8px;align-items:center}
 .body{padding:8px 20px 16px;display:flex;flex-direction:column;gap:10px}
+/* ⓪ 인트로 슬라이드 — 토스식: 큰 제목 두 줄 + 한 줄 설명 + 단순 그림, 자동 넘김 */
+.intro{position:relative;display:flex;flex-direction:column;flex:1;min-height:560px}
+.intro .track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;flex:1}
+.intro .track::-webkit-scrollbar{display:none}
+.intro .sl{flex:none;width:100%;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:28px 28px 10px;text-align:center}
+.intro .art{width:200px;height:200px;border-radius:32px;background:var(--surf);display:grid;place-items:center;position:relative;overflow:hidden}
+.intro h3{font-size:24px;font-weight:900;margin:0;letter-spacing:-.02em;line-height:1.3;text-wrap:balance}
+.intro p{font-size:15px;color:var(--muted);margin:0;line-height:1.6}
+.intro .dots{display:flex;gap:6px;justify-content:center;padding:8px 0 4px}
+.intro .dots i{width:6px;height:6px;border-radius:50%;background:var(--line2);transition:width .2s}
+.intro .dots i.on{width:18px;border-radius:3px;background:var(--fg)}
+.intro .acts{display:flex;flex-direction:column;gap:8px;padding:8px 20px 20px}
+/* 그림 */
+.art .cal{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.art .cal i{width:24px;height:24px;border-radius:7px;background:var(--card);display:block}
+.art .cal i.d{background:var(--main)}
+.art .cal i.p{background:#C9B3EA}
+.art .bell{width:150px;background:var(--card);border-radius:14px;padding:10px 12px;text-align:left;box-shadow:0 6px 18px rgba(25,31,40,.10)}
+.art .bell b{font-size:12px;display:block}.art .bell small{font-size:11px;color:var(--muted)}
+.art .tag{background:var(--card);border-radius:14px;padding:12px 16px;box-shadow:0 6px 18px rgba(25,31,40,.10);text-align:left}
+.art .tag em{font-style:normal;color:var(--red);font-weight:900;font-size:20px}
+.art .tag s{color:var(--muted);font-size:12px}
+.art .tag b{font-size:18px;display:block}
+.art .bub{position:absolute;background:var(--card);border-radius:14px 14px 14px 4px;padding:8px 12px;font-size:12px;box-shadow:0 6px 18px rgba(25,31,40,.10)}
+.art .bub.r{border-radius:14px 14px 4px 14px;background:var(--main);color:#fff}
 /* 게시판 탭 — 글자만, 밑줄, 오른쪽 끝 흐림으로 넘김 표시 */
 .tabs{position:relative;margin:0 -20px}
 .tabs .sc{display:flex;gap:18px;overflow-x:auto;padding:4px 20px 0;scrollbar-width:none;border-bottom:1px solid var(--line)}
@@ -118,6 +143,7 @@ html,body{height:100%}
 body{padding:0;background:var(--card)}
 .phones{display:block;margin:0;gap:0}
 .phone{display:none;width:100%;max-width:none;border:0;border-radius:0;box-shadow:none;min-height:100dvh}
+#p-intro .intro{min-height:calc(100dvh - 20px)}
 .phone.on{display:flex}
 .phone .cap{display:none}
 .nav{position:sticky;bottom:0;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
@@ -236,6 +262,21 @@ body{padding:0;background:var(--card)}
     </div>
   </div>
 
+  <!-- ⓪ 인트로 -->
+  <div class="phone" id="p-intro">
+    <div class="cap"><span>⓪ 첫 실행 · 소개</span><b>자동으로 넘어가요 · 토스식</b></div>
+    <div class="intro">
+      <div class="track" id="introTrack">
+        <div class="sl"><div class="art"><div class="cal"><i></i><i class="p"></i><i></i><i class="d"></i><i></i><i class="p"></i><i></i><i class="d"></i><i></i><i></i><i class="d"></i><i></i><i class="p"></i><i></i><i class="d"></i></div></div><h3>오늘 열리는 공구,<br>한눈에</h3><p>인스타 셀러들의 공구 일정을<br>날짜별로 모았어요</p></div>
+        <div class="sl"><div class="art"><div class="bell"><b>🔔 파스퇴르 우유 오늘 오픈</b><small>찜한 공구 · 아침 8시</small></div></div><h3>찜하면<br>잊지 않아요</h3><p>오픈하는 날 아침, 마감하는 날 아침에<br>알려드려요</p></div>
+        <div class="sl"><div class="art"><div class="tag"><em>19%</em> <s>13,600원</s><b>11,040원</b></div></div><h3>핫딜과 세일도<br>매일</h3><p>가격이 떨어진 상품과<br>브랜드 세일 일정까지</p></div>
+        <div class="sl"><div class="art"><span class="bub" style="left:22px;top:48px">아기 전집 뭐가 좋아요?</span><span class="bub r" style="right:22px;top:98px">블루래빗 써봤는데 좋아요</span><span class="bub" style="left:34px;top:146px">살까 말까 🤔</span></div><h3>1만 7천 엄마들과<br>함께</h3><p>맘카페 이야기가<br>커뮤니티로 바로 들어와요</p></div>
+      </div>
+      <div class="dots" id="introDots"><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="acts"><button class="btn" type="button" id="introNext">다음</button><button class="btn o" type="button" id="introSkip">건너뛰기</button></div>
+    </div>
+  </div>
+
   <!-- ⑥ 첫 실행 관심사 -->
   <div class="phone" id="p-onb">
     <div class="cap"><span>⑥ 첫 실행 · 관심사 선택</span><b>고른 카테고리가 공구 탭에 먼저</b></div>
@@ -306,6 +347,18 @@ document.getElementById('sortChips').addEventListener('click',e=>{const c=e.targ
 document.querySelectorAll('.sw').forEach(b=>b.addEventListener('click',()=>{b.classList.toggle('on');b.setAttribute('aria-pressed',b.classList.contains('on'));}));
 document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;s.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}));
 document.querySelectorAll('.cat .chip').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+// ⓪ 인트로: 2.8초마다 자동 넘김, 손대면 멈춤
+(function(){
+  const tr=document.getElementById('introTrack'); if(!tr) return;
+  const dots=[...document.querySelectorAll('#introDots i')], next=document.getElementById('introNext'), n=4; let i=0, auto=true;
+  function show(k){ i=(k+n)%n; tr.scrollTo({left:tr.clientWidth*i,behavior:'smooth'}); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); next.textContent = i===n-1 ? '시작하기' : '다음'; }
+  const timer=setInterval(()=>{ if(auto) show(i+1); },2800);
+  tr.addEventListener('scroll',()=>{ const k=Math.round(tr.scrollLeft/tr.clientWidth); if(k!==i){ i=k; dots.forEach((d,j)=>d.classList.toggle('on',j===i)); next.textContent = i===n-1 ? '시작하기' : '다음'; } },{passive:true});
+  tr.addEventListener('pointerdown',()=>{auto=false;},{passive:true});
+  next.addEventListener('click',()=>{ auto=false; if(i===n-1){ window.introDone && window.introDone(); } else show(i+1); });
+  document.getElementById('introSkip').addEventListener('click',()=>{ auto=false; window.introDone && window.introDone(); });
+})();
+
 </script>
 <script>
 const PH=[...document.querySelectorAll('.phone')];
@@ -316,6 +369,7 @@ document.querySelectorAll('.top .ic span').forEach(s=>s.addEventListener('click'
 document.querySelectorAll('.search').forEach(s=>s.addEventListener('click',()=>go('p-search')));
 document.querySelectorAll('#p-onb .btn').forEach(b=>b.addEventListener('click',()=>{const baby=[...document.querySelectorAll('#p-onb .cat .chip')].some(c=>c.classList.contains('on')&&c.textContent.includes('육아'));go(b.textContent.trim()==='다음'&&baby?'p-kid':'p-sort');}));
 document.querySelectorAll('#p-kid .btn').forEach(b=>b.addEventListener('click',()=>{if(b.textContent.includes('추가'))return;go('p-sort');}));
-go('p-onb');
+window.introDone=()=>go('p-onb');
+go('p-intro');
 </script>
 </body></html>
