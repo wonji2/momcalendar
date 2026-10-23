@@ -5175,7 +5175,20 @@ function _nxPaint(btn,on){ const svg=btn.querySelector('svg'); if(svg) svg.outer
 function _nxBase(id){ let h=2166136261; const t='momcal'+String(id); for(let i=0;i<t.length;i++){ h^=t.charCodeAt(i); h=Math.imul(h,16777619); } return 7+((h>>>0)%7); }
 function _nxGraph(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; const on=isWished(it.id); const n=_nxBase(it.id)+base+((on&&!base)?1:0); return `<div class="nx-g" data-n="${n}" data-on="${on}"><div class="lab"></div><div class="bar"><i></i></div></div>`; }
 function _nxGraphRefresh(){ const gs=[...document.querySelectorAll('.nx-g')]; if(!gs.length) return; const max=Math.max(1,...gs.map(g=>Number(g.dataset.n)||0)); gs.forEach(g=>{ const n=Number(g.dataset.n)||0; const hot=n>=20; g.querySelector('.lab').innerHTML=`${hot?'<span class="nx-hot">🔥</span>':'💜'} 찜 <b>${n}명</b>`; const i=g.querySelector('.bar i'); if(i) i.style.width=Math.max(n?8:0,Math.round(n/max*100))+'%'; }); }
-function _nxItems(){ return DATA.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
+// ⚡ 오픈 예정 스포 띠 빨리 띄우기 (사장님 2026-10-23 "테스트페이지 들어가면 오픈예정스포 배너만 늦게 떠")
+//   원인: 띠는 DATA(공구 전체 약 2,600건 · 4쪽)를 다 받은 뒤 renderNextGonggu() 가 처음 불렸다. 메인배너는 banners 표만 받아 먼저 뜬다.
+//   → momcal_ 예정 공구만 따로 먼저 받아(수십 행, 우회로·캐시 그대로 탐) 띠를 그리고, 전체 DATA 가 오면 같은 id 로 다시 그린다(찜·숫자 그대로).
+let _NX_EARLY=null;
+async function _nxEarlyLoad(){
+  try{
+    const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
+    const r=await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
+    if(!r.ok) return; const rows=await r.json(); if(!Array.isArray(rows)) return;
+    _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
+    if(!(typeof DATA!=='undefined' && DATA && DATA.length)) renderNextGonggu();   // 전체가 이미 왔으면 그쪽이 그린다
+  }catch(_){}
+}
+function _nxItems(){ const _src=(typeof DATA!=='undefined'&&DATA&&DATA.length)?DATA:(_NX_EARLY||[]); return _src.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=(window._mcAllBanners||[]).filter(x=>x&&(x.type==='main'||x.type==='seller')); /* 판매 배너(promo_card 등)가 썸네일로 잡히지 않게 (2026-10-15) */ const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
 function _nxCard(it, wide){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
@@ -5324,6 +5337,7 @@ function renderNextGonggu(){
   zone.style.display='';
   try{ _nxArrive(); }catch(_){}
 }
+try{ _nxEarlyLoad(); }catch(_){}   // ⚡ 띠 먼저 그리기 — 전체 DATA 를 기다리지 않는다
 function openNextSheet(){
   if(!_nxSheetBody()) return;
   document.getElementById('nextSheet').classList.add('open'); document.body.style.overflow='hidden';
