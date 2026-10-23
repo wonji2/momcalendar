@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
+<title>맘캘린더 공유 달력 시안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@300;400;500&family=Nanum+Gothic:wght@400;700&family=Noto+Sans+KR:wght@300;400;500&family=Gothic+A1:wght@300;400;500&family=Sunflower:wght@300;500&family=Nanum+Myeongjo:wght@400;700&display=swap">
+<style>
+/* 레이아웃: 시안 6장을 폰 폭 카드로 나란히(좁으면 세로). 글씨는 전부 300~500, 파스텔. 출처는 격자 안 */
+:root{--bg:#F6F5F8;--fg:#3F4650;--muted:#9AA0A8;--card:#fff;--line:#EEF0F3;--accent:#8E7CC3}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--bg:#17161B;--fg:#E6E3EC;--muted:#8C8A94;--card:#211F27;--line:#2E2C35;color-scheme:dark} }
+:root[data-theme="dark"]{--bg:#17161B;--fg:#E6E3EC;--muted:#8C8A94;--card:#211F27;--line:#2E2C35;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans KR",system-ui,sans-serif;font-weight:300;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:20px;font-weight:500;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:68ch}
+.grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.v{width:360px;max-width:100%}
+.v .tag{font-size:12px;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between}
+.v .tag b{font-weight:500;color:var(--fg)}
+.cal{border-radius:22px;padding:18px 14px 12px;position:relative;overflow:hidden;background:var(--c-card,#fff);color:var(--c-fg,#4E5968)}
+.cal .mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 6px 10px}
+.cal .mh b{font-size:28px;font-weight:var(--w-title,500);letter-spacing:-.02em}
+.cal .mh small{font-size:12px;color:var(--c-muted,#A1A7B0);font-weight:300}
+.cal .wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11.5px;color:var(--c-muted,#A1A7B0);text-align:center;padding-bottom:6px;font-weight:300}
+.cal .wk{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:min-content;padding:7px 0 9px;border-top:1px solid var(--c-line,#F1F2F5)}
+.cal .dn{text-align:center;font-size:13.5px;font-weight:var(--w-num,400);padding:2px 0 5px}
+.cal .dn.su{color:var(--c-sun,#E58B9B)}.cal .dn.sa{color:var(--c-sat,#8FAEDF)}.cal .dn.out{color:#D5D8DD}
+.cal .bar{font-size:10.5px;line-height:1;padding:6px 8px;border-radius:var(--r-bar,7px);margin:2px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:var(--w-bar,400);color:var(--c-bartext,#4E5968)}
+.cal .wm{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-weight:500;font-size:32px;color:var(--c-wm,rgba(142,124,195,.07));transform:rotate(-18deg);letter-spacing:.08em}
+.cal .brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:6px 4px 0}
+.cal .brand span{font-size:10px;font-weight:400;color:var(--c-brand,#8E7CC3);background:var(--c-brandbg,#F1EDF9);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
+/* A 고운돋움 · 나이스데이 파스텔 */
+.vA .cal{font-family:"Gowun Dodum",sans-serif;--c-card:#FFFDFB;--c-fg:#5B5563;--c-muted:#B3ADB9;--c-line:#F4F0F2;--c-sun:#E9A2AE;--c-sat:#9FB6E3;--w-title:400;--w-num:400;--r-bar:9px;--c-brand:#B38CC7;--c-brandbg:#F6EEF9;--c-wm:rgba(179,140,199,.08)}
+/* B IBM Plex 300 · 블루 라벤더 */
+.vB .cal{font-family:"IBM Plex Sans KR",sans-serif;--c-card:#FBFBFE;--c-fg:#4B5570;--c-muted:#A8B0C4;--c-line:#EEF1F8;--c-sun:#D99AA8;--c-sat:#8DA7DC;--w-title:300;--w-num:300;--w-bar:400;--r-bar:6px;--c-brand:#7E8FD1;--c-brandbg:#EEF1FB;--c-wm:rgba(126,143,209,.08)}
+/* C 나눔고딕 · 크림 웜 */
+.vC .cal{font-family:"Nanum Gothic",sans-serif;--c-card:#FFFBF5;--c-fg:#6B5E55;--c-muted:#C0B2A5;--c-line:#F5EDE4;--c-sun:#E5A08F;--c-sat:#A3B4C9;--w-title:400;--w-num:400;--r-bar:999px;--c-brand:#D08A6E;--c-brandbg:#FBEEE6;--c-wm:rgba(208,138,110,.08)}
+/* D 노토 300 · 라일락 단색 */
+.vD .cal{font-family:"Noto Sans KR",sans-serif;--c-card:#FCFBFE;--c-fg:#5E5870;--c-muted:#B6B0C4;--c-line:#F2EFF7;--c-sun:#D9A3B8;--c-sat:#A9A3D6;--w-title:300;--w-num:300;--w-bar:300;--r-bar:5px;--c-brand:#9A86C9;--c-brandbg:#F2EEFA;--c-wm:rgba(154,134,201,.08)}
+/* E 고딕 A1 300 · 파스텔 레인보우(앞에 점) */
+.vE .cal{font-family:"Gothic A1",sans-serif;--c-card:#FFFFFF;--c-fg:#555B66;--c-muted:#AEB4BD;--c-line:#F0F2F5;--c-sun:#E9A0A9;--c-sat:#95B4E6;--w-title:300;--w-num:300;--w-bar:400;--r-bar:8px;--c-brand:#8FA8D9;--c-brandbg:#EEF3FB;--c-wm:rgba(143,168,217,.08)}
+.vE .cal .bar::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dot);margin-right:6px;vertical-align:0}
+/* F 해바라기 300 · 세이지 그린 */
+.vF .cal{font-family:"Sunflower",sans-serif;--c-card:#FBFDFB;--c-fg:#55665C;--c-muted:#A7B5AC;--c-line:#ECF2EE;--c-sun:#E0A0A0;--c-sat:#8FB5A8;--w-title:300;--w-num:300;--w-bar:300;--r-bar:7px;--c-brand:#7FAF98;--c-brandbg:#EAF4EE;--c-wm:rgba(127,175,152,.09)}
+.note{font-size:12.5px;color:var(--muted);margin-top:18px;max-width:70ch;line-height:1.7}
+</style>
+</head><body>
+
+
+<h1>공유 달력 시안 6가지</h1>
+<p class="lead">같은 11월 찜 일정으로 글씨체·굵기·파스텔 톤만 다르게 뽑았습니다. 출처 표시는 전부 격자 안(마지막 주 알약 + 옅은 워터마크)입니다. 마음에 드는 글자(A~F)만 말씀해 주세요. 섞어도 됩니다(예: B 글씨체에 A 색).</p>
+<div class="grid" id="grid"></div>
+<p class="note">A 고운돋움 · 나이스 데이 파스텔(복숭아·분홍·라일락·하늘·민트·버터) / B IBM Plex 300 · 블루 라벤더 / C 나눔고딕 · 크림 웜(알약 바) / D 노토 300 · 라일락 단색 / E 고딕 A1 300 · 파스텔 레인보우 + 앞에 점 / F 해바라기 300 · 세이지 그린. 모두 굵기 300~400, 검정 글자 없음.</p>
+
+<script>
+const EV=[{n:'JVR 트라이탄 물병',s:2,e:5},{n:'룰라러브 해면스펀지',s:5,e:8},{n:'우랩 소고기',s:9,e:15},{n:'슈메르 미끄럼방지양말',s:12,e:17},{n:'비비무 아기마스크',s:17,e:22},{n:'앙금가래떡&콩찰떡',s:25,e:29}];
+const PAL={
+  A:['#FCE4D6','#FAD4DC','#E6D6F2','#D9E2F7','#D4ECEF','#D9F0E3'],
+  B:['#DCE6F7','#E3E7FA','#D6E4F5','#E8E6F6','#D8ECF4','#E2E9F6'],
+  C:['#FBE3D6','#FBDDE0','#F6E6D0','#EEE7D9','#F5E0D4','#F2E8DE'],
+  D:['#ECE6F7','#E5DDF3','#DED4EF','#E9E3F6','#E2DAF2','#EFEAF9'],
+  E:['#FCE4E1','#FFF0D6','#E3F2E6','#DCE9FB','#E8E0F7','#FBE2EE'],
+  F:['#DDEFE4','#E6F2EA','#D7EAE0','#EAF3EC','#E0EEE7','#F0F6F1']
+};
+const DOT={E:['#F08C85','#F2B84B','#6CC08B','#6A9BEA','#A08CE0','#EE86B5']};
+const NAME={A:'A · 고운돋움 · 나이스 데이',B:'B · IBM Plex 300 · 블루 라벤더',C:'C · 나눔고딕 · 크림 웜',D:'D · 노토 300 · 라일락',E:'E · 고딕 A1 300 · 레인보우 점',F:'F · 해바라기 300 · 세이지'};
+function cal(k){
+  const wd=['일','월','화','수','목','금','토'], days=30, firstDow=0; const pal=PAL[k];
+  let h=`<div class="mh"><b>11월</b><small>2026 · 내가 찜한 공구</small></div><div class="wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+  let d=1-firstDow;
+  while(d<=days){
+    const ws=d, we=d+6; h+='<div class="wk">';
+    for(let i=0;i<7;i++){const x=ws+i; const out=x<1||x>days; h+=`<div class="dn ${i===0?'su':i===6?'sa':''} ${out?'out':''}">${out?(x<1?30+x:x-days):x}</div>`;}
+    EV.forEach((e,idx)=>{ if(e.e<ws||e.s>we) return; const a=Math.max(e.s,ws)-ws+1, b=Math.min(e.e,we)-ws+1; const dot=DOT[k]?`--dot:${DOT[k][idx%6]};`:''; h+=`<div class="bar" style="grid-column:${a}/${b+1};background:${pal[idx%pal.length]};${dot}">${e.n}</div>`; });
+    if(we>=days) h+='<div class="brand"><span>맘캘린더 · momcalendar.com</span></div>';
+    h+='</div>'; d+=7;
+  }
+  return h+'<div class="wm">맘캘린더</div>';
+}
+document.getElementById('grid').innerHTML=Object.keys(NAME).map(k=>`<div class="v v${k}"><p class="tag"><b>${NAME[k]}</b></p><div class="cal">${cal(k)}</div></div>`).join('');
+</script>
+
+</body></html>
