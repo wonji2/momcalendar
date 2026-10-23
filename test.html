@@ -306,13 +306,13 @@ body.srch-mode .next-zone{display:none!important}
 .nx-bell{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 13px;border-radius:999px;border:1.5px solid #C9B8E8;background:#fff;color:#602090;font:inherit;font-size:13px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
 .nx-bell svg{width:14px;height:14px}
 .nx-bell.on{background:#602090;border-color:#602090;color:#fff}
-#nxdAsk{position:fixed;inset:0;z-index:1400;display:none}#nxdAsk.open{display:block}
-#nxdAsk .nxa-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-#nxdAsk .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
-#nxdAsk .nxa-ico{font-size:30px}#nxdAsk .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
-#nxdAsk .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
-#nxdAsk .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
-#nxdAsk .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes{background:#602090;color:#fff}
+#nxdAsk,#nxdGuide{position:fixed;inset:0;z-index:1400;display:none}#nxdAsk.open,#nxdGuide.open{display:block}
+#nxdAsk .nxa-bg,#nxdGuide .nxa-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+#nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
+#nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:30px}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
+#nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
+#nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+#nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#602090;color:#fff}
 /* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
 .set-sheet{position:fixed;inset:0;z-index:1300;display:none}
 .set-sheet.open{display:block}
@@ -5666,9 +5666,12 @@ function nxdBell(id,btn,ev){
     m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
   }
   m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'오픈 알림 받으시겠어요?';
-  m.querySelector('.nxa-s').textContent=`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
+  const _inApp=(typeof _isInApp==='function' && _isInApp());
+  m.querySelector('.nxa-s').textContent=_inApp?`오픈 날(${md}) 아침 9시 알림은 ${_isIOS()?'사파리':'크롬'}에서 받을 수 있어요 · 눌러서 바로 옮겨 드릴게요`:`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
+  m.querySelector('.nxa-yes').textContent=_inApp?(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기'):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
+    if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
     _nxOn(id);
     try{
       if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }        // 아이폰 웹: 홈 화면 추가 안내
@@ -5681,6 +5684,45 @@ function nxdBell(id,btn,ev){
     }catch(_){}
   };
   m.classList.add('open');
+}
+// 🚪 인앱 → 크롬(안드로이드)·사파리(아이폰)로 옮긴다. 찜은 **도착한 브라우저에서** 한다(인앱 기기와 따로 세지 않게).
+//    주소에 ?nxbell=<공구id> 를 달아 보내면 도착한 쪽이 그 공구 🔔 팝업을 바로 띄운다(_nxArrive). 사장님 2026-10-23
+//    "카톡이나 스레드 인스타 인포크링크 타고 인앱으로 오는 사람이 절반 이상인데 밖으로 나와서 잘 설정되고 알림도 받을 수 있게"
+function _nxOutside(id){
+  const ua=navigator.userAgent||''; const url=location.origin+'/?nxbell='+id;
+  try{ trackEvent('next_bell_out',(typeof _appName==='function'?_appName(ua):'inapp')+(_isIOS()?'_ios':'_and')); }catch(_){}
+  const fallback=()=>{ _nxOn(id); _nxGuide(url,ua); };   // 못 나가면: 여기서라도 찜 + 주소 복사·여는 위치 안내
+  if(_isIOS()){
+    if(/KAKAOTALK/i.test(ua)){ try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); }catch(_){}; setTimeout(()=>{ if(!document.hidden) fallback(); },1800); return; }
+    fallback(); return;   // 인스타·스레드·네이버 등 아이폰 인앱은 밖으로 강제로 못 연다
+  }
+  try{ location.href='intent://'+location.host+'/?nxbell='+id+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(url)+';end'; }catch(_){}
+  setTimeout(()=>{ if(!document.hidden) fallback(); },1800);   // intent 를 막는 웹뷰면 화면이 그대로 남는다
+}
+function _nxGuide(url,ua){
+  const go=(ok)=>{
+    let g=document.getElementById('nxdGuide');
+    if(!g){ g=document.createElement('div'); g.id='nxdGuide'; g.className='nxa-wrap';
+      g.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t">찜은 해 두었어요</div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-yes">확인</button></div></div>';
+      document.body.appendChild(g); g.querySelector('.nxa-bg').onclick=g.querySelector('.nxa-yes').onclick=function(){ g.classList.remove('open'); }; }
+    const where=_isIOS()&&typeof _appGuide==='function'?_appGuide(ua):'<b>우측 위 ⋮</b> → <b>다른 브라우저로 열기</b>';
+    g.querySelector('.nxa-s').innerHTML='알림은 '+(_isIOS()?'사파리':'크롬')+'에서 받을 수 있어요<br>'+(ok?'<b style="color:#602090">주소를 복사했어요.</b> ':'')+where;
+    g.classList.add('open');
+  };
+  try{ typeof _copyUrlThen==='function'?_copyUrlThen(url,go):go(false); }catch(_){ go(false); }
+}
+// 밖으로 나와 도착(?nxbell=id) → 그 공구 🔔 팝업을 바로 (권한 창은 손님이 「알림 받을게요」를 누른 순간 뜬다)
+let _nxArrived=false;
+function _nxArrive(){
+  if(_nxArrived) return; let id=null;
+  try{ id=Number(new URLSearchParams(location.search).get('nxbell'))||null; }catch(_){}
+  if(!id) return; _nxArrived=true;
+  try{ history.replaceState({},'',location.pathname); }catch(_){}
+  if(!(_nxItems()||[]).some(x=>Number(x.id)===id)) return;   // 이미 오픈했거나 없는 공구
+  try{ trackEvent('next_bell_arrive',String(id)); }catch(_){}
+  const z=document.getElementById('nextZone'); try{ z&&z.scrollIntoView({block:'center'}); }catch(_){}
+  if(isWished(id)){ try{ mcToast('이미 알림 신청돼 있어요 🔔'); }catch(_){} return; }
+  setTimeout(()=>nxdBell(id,null,null),350);
 }
 // 찜 켜기 + 숫자 + 다시 그리기 (toggleWish 안의 「알림 설정」 시트는 여기선 띄우지 않는다 — 위에서 바로 켠다)
 function _nxOn(id){ if(isWished(id)) return; window._nxNoAsk=true; try{ toggleWish(id,null); }finally{ window._nxNoAsk=false; } _NXD[id]=(_NXD[id]||0)+1; try{ trackEvent('next_bell_on',String(id)); }catch(_){} _nxRefresh(); }
@@ -5722,6 +5764,7 @@ function renderNextGonggu(){
   if(!sc._nxAuto){ sc._nxAuto=true; _nxAutoStart(sc); }
   setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
+  try{ _nxArrive(); }catch(_){}
 }
 function openNextSheet(){
   if(!_nxSheetBody()) return;
