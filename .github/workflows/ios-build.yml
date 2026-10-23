@@ -158,41 +158,8 @@ jobs:
           # 시크릿에 키 앞뒤로 다른 글자가 섞여 들어가도(붙여넣기 사고) BEGIN~END 블록만 골라 쓴다
           printf '%s\n' "$APPLE_API_KEY_P8" | tr -d '\r' | awk '/-----BEGIN PRIVATE KEY-----/{f=1} f{print} /-----END PRIVATE KEY-----/{f=0}' > "$KEY"; chmod 600 "$KEY"
           head -1 "$KEY" | grep -q "BEGIN PRIVATE KEY" || { echo "🔴 APPLE_API_KEY_P8 가 .p8 원문이 아니다"; exit 1; }
-          # 서명: 개발용(기기 필요) 말고 배포용(Apple Distribution) 프로파일을 클라우드에서 만들게 한다 — run #50 「no devices」 오류
-          # ⚠ xcodebuild 명령줄의 CODE_SIGN_IDENTITY 는 Pods 타깃에도 먹어 「Capacitor has conflicting provisioning settings」로 죽는다(run #51)
-          #    → App 타깃의 빌드 설정(project.pbxproj)에만 심는다. 앵커 못 찾으면 넣지 않고 실패.
-          python3 - <<'PY'
-          import os, re, sys
-          p = 'App.xcodeproj/project.pbxproj'
-          s = open(p, encoding='utf-8').read()
-          anchor = 'PRODUCT_BUNDLE_IDENTIFIER = '
-          n = s.count(anchor)
-          if n == 0:
-              print('🔴 앵커(PRODUCT_BUNDLE_IDENTIFIER)를 못 찾음'); sys.exit(1)
-          # 템플릿에 이미 있는 같은 키는 지우고 넣는다(한 설정에 키 둘이면 먼저/나중이 이긴다)
-          s = re.sub(r'^\s*(CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM)(\[sdk=[^\]]*\])? = [^;]*;\n', '', s, flags=re.M)
-          ins = 'CODE_SIGN_STYLE = Automatic;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t' % os.environ['APPLE_TEAM_ID']
-          s = s.replace(anchor, ins + anchor)
-          open(p, 'w', encoding='utf-8').write(s)
-          print('App 타깃 서명 설정 심음: %d 곳' % n)
-          PY
-          grep -c 'CODE_SIGN_IDENTITY = "Apple Distribution"' App.xcodeproj/project.pbxproj
-          # 빌드 번호·마케팅 버전
-          BUILD=${{ github.run_number }}
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" App/Info.plist 2>/dev/null || true
-          cat > ExportOptions.plist <<PL
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
-            <key>uploadSymbols</key><true/>
-            <key>manageAppVersionAndBuildNumber</key><true/>
-          </dict></plist>
-          PL
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos             -destination 'generic/platform=iOS' -archivePath "$PWD/build/App.xcarchive" archive             CURRENT_PROJECT_VERSION="$BUILD"             -allowProvisioningUpdates -allowProvisioningDeviceRegistration             -authenticationKeyPath "$KEY" -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -60
-          xcodebuild -exportArchive -archivePath "$PWD/build/App.xcarchive" -exportOptionsPlist ExportOptions.plist -exportPath "$PWD/build/export"             -allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -40
-          echo "✅ App Store Connect 업로드 요청 끝 — TestFlight 처리까지 5~15분, App Store Connect 에서 확인"
+          # 서명·아카이브·업로드는 ios-app/ci/testflight.sh — 회차마다 배포 인증서·프로파일을 API 로 만들고 끝나면 지운다
+          #   (자동 서명은 등록 기기 0대라 불가 run #50, 자동+Distribution 은 충돌 run #51·#52)
+          export APPLE_API_KEY_PATH="$KEY" BUILD=${{ github.run_number }}
+          bash ../../ci/testflight.sh
           rm -f "$KEY"
