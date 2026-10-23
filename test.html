@@ -3664,9 +3664,9 @@ function pickCalDay(ds){
   document.getElementById('selTitle').textContent=`${+mo}월 ${+dy}일 공구 목록`;
   // 캘린더 날짜 기준으로 D-day 계산
   let h = evs.length
-    ? _appJoin(evs.map(item=>renderCard(item,ds)))
+    ? evs.map(item=>renderCard(item,ds)).join('')
     : `<div class="empty" style="padding:16px 0">이 날은 ${calMine?'찜한 공구 오픈이':'공구 일정이'} 없어요</div>`;
-  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + _appJoin(ends.map(item=>renderCard(item,ds)));
+  if(ends.length) h += `<div class="wish-sec" style="color:#C0361F">오늘 마감</div>` + ends.map(item=>renderCard(item,ds)).join('');
   document.getElementById('selCards').innerHTML=h;
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
