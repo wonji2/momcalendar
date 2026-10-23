@@ -2820,7 +2820,8 @@ function _saleWeekSegs(evs, dates){
 }
 function _saleCalHtml(y,m,big){
   const mS=_ymd(y,m,1), mE=_ymd(y,m,new Date(y,m,0).getDate());
-  const evs=(_saleData||[]).filter(ev=>ev.start_date<=mE && (ev.end_date||'9999-12-31')>=mS);
+  // 🎓 문센(tag 문센)은 달력에선 **신청 시작일 하루**만 — 접수 기간 전체(40일)를 띠로 그리면 한 주 3줄을 차지해 다른 세일을 밀어낸다(사장님 2026-10-23 "문센 신청일 테스트에 넣어놔봐"). 목록 카드는 기간 그대로.
+  const evs=(_saleData||[]).map(ev=>ev.tag==='문센'?{...ev,end_date:ev.start_date,_mc:1}:ev).filter(ev=>ev.start_date<=mE && (ev.end_date||'9999-12-31')>=mS);
   const cells=_saleMonthCells(y,m); const LANE=big?50:24, H=big?44:22, MAXL=3;
   let html=`<div class="wd"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>`;
   for(let w=0;w<cells.length/7;w++){ const wk=cells.slice(w*7,w*7+7); const dates=wk.map(c=>c.date||null);
@@ -2830,7 +2831,7 @@ function _saleCalHtml(y,m,big){
     const {segs,lanes}=_saleWeekSegs(evs,dates); const shown=segs.filter(s=>s.lane<MAXL); const hidden=segs.length-shown.length;
     html+=`<div class="lanes" style="height:${Math.min(lanes.length,MAXL)*LANE+(hidden&&!big?16:0)}px">`+shown.map(s=>{
       const past=!!(s.ev.end_date&&s.ev.end_date<todayStr); const cls=big?'sb':`sb${s.cont?' cont':''}${s.more?' more':''}${SALE_HL===s.ev.id?' on':(SALE_HL?' dim':'')}${past?' past':''}`;
-      const logo=_saleLogoSrc(s.ev); return `<div class="${cls}" style="left:${s.c0/7*100}%;width:calc(${(s.c1-s.c0+1)/7*100}% - ${big?6:2}px);top:${s.lane*LANE}px;height:${H}px" ${big?'':`onclick="saleFocus(${s.ev.id})"`}>${logo?`<img src="${logo}" alt="">`:''}${escHtml(s.ev.brand)}</div>`; }).join('')
+      const logo=_saleLogoSrc(s.ev); return `<div class="${cls}" style="left:${s.c0/7*100}%;width:calc(${(s.c1-s.c0+1)/7*100}% - ${big?6:2}px);top:${s.lane*LANE}px;height:${H}px" ${big?'':`onclick="saleFocus(${s.ev.id})"`}>${logo?`<img src="${logo}" alt="">`:''}${escHtml(s.ev._mc?String(s.ev.brand).replace(/s*(문화센터|문화아카데미|아카데미)$/,'')+' 문센 신청':s.ev.brand)}</div>`; }).join('')
       +(hidden&&!big?`<span class="plus" style="top:${MAXL*LANE-2}px" onclick="saleDay('${dates.find(Boolean)}')">+${hidden}개 더</span>`:'')+'</div></div>';
   }
   return {html, evs};
