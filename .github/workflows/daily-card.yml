@@ -58,6 +58,13 @@ jobs:
           DAY: ${{ github.event.inputs.day }}
         run: node tools/daily/make-hotdeal-card.mjs
 
+      # 사장님 지시 2026-10-23 "내일 인스타랑 스레드 카드뽑을때 같이 뽑히게" — 「2026 연말 세일 총정리」 V2. daily/sale.png 에 덮어쓴다.
+      - name: 사장님용 세일 카드 (daily/sale.png)
+        continue-on-error: true
+        env:
+          DAY: ${{ github.event.inputs.day }}
+        run: node tools/daily/make-sale-card.mjs
+
       - name: 커밋
         run: |
           git config user.name  "momcal-bot"
