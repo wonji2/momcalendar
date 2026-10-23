@@ -6564,5 +6564,107 @@ function renderCommunity(){
   v.innerHTML=h;
 }
 </script>
+<!-- 🎬 첫 실행 — 소개 슬라이드(건너뛰기 없음, 끝까지 넘겨야 시작하기) → 관심 카테고리(여러 개) → 육아를 골랐으면 아이 정보(숫자·개월/세·여아/남아, 여러 명, 이름 없음)
+     (사장님 2026-10-23 앱 디벨롭 결정 · 시안 mockapp.html p-intro/p-onb/p-kid 그대로) · 한 번 끝내면 다시 안 뜬다(mc_onb_done) · 고른 카테고리가 공구 탭 칩 맨 앞 -->
+<style id="mc-onb">
+.onb{position:fixed;inset:0;z-index:99997;background:#fff;color:#191F28;display:none;flex-direction:column;font-family:inherit}
+.onb.open{display:flex}
+.onb-step{display:none;flex:1;flex-direction:column;min-height:0}
+.onb-step.on{display:flex}
+.onb-track{flex:1;overflow:hidden;touch-action:pan-y;min-height:0}
+.onb-rail{display:flex;height:100%;transition:transform .38s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.onb-sl{flex:0 0 100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding:calc(26px + env(safe-area-inset-top,0px)) 24px 0;text-align:center;overflow:hidden}
+.onb-sl img{width:230px;max-width:70%;max-height:46vh;border-radius:22px;border:1px solid rgba(25,31,40,.06);box-shadow:0 14px 34px rgba(25,31,40,.12);display:block;aspect-ratio:330/486;object-fit:cover;object-position:top;background:#fff}
+.onb-sl h3{font-size:22px;font-weight:800;line-height:1.3;margin:6px 0 0;letter-spacing:-.3px;word-break:keep-all}
+.onb-sl p{font-size:14px;color:#6B7684;line-height:1.55;margin:0;word-break:keep-all}
+.onb-dots{display:flex;gap:6px;justify-content:center;padding:10px 0 4px}
+.onb-dots i{width:6px;height:6px;border-radius:50%;background:#E5E8EB;transition:width .2s}
+.onb-dots i.on{width:18px;border-radius:3px;background:#191F28}
+.onb-acts{display:flex;flex-direction:column;gap:8px;padding:8px 20px calc(20px + env(safe-area-inset-bottom,0px))}
+.onb-btn{border:0;background:#602090;color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.onb-btn.o{background:#F2F4F6;color:#191F28}
+.onb-link{background:none;border:0;color:#8B95A1;font-size:13px;padding:8px;font-family:inherit;cursor:pointer}
+.onb-top{padding:calc(28px + env(safe-area-inset-top,0px)) 22px 6px}
+.onb-top h2{font-size:21px;font-weight:800;margin:0;line-height:1.35;word-break:keep-all}
+.onb-top small{display:block;font-size:13.5px;color:#6B7684;margin-top:6px}
+.onb-body{flex:1;overflow:auto;padding:10px 22px}
+.onb-cat{display:flex;flex-wrap:wrap;gap:8px}
+.onb-chip{border:0;background:#F2F4F6;color:#191F28;border-radius:999px;padding:11px 15px;font-size:14.5px;font-family:inherit;cursor:pointer;font-weight:500}
+.onb-chip.on{background:#602090;color:#fff}
+.onb-kid{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.onb-kid input{min-width:0;width:64px;border:1px solid #E5E8EB;border-radius:12px;padding:12px 10px;font-size:15px;font-family:inherit;background:#fff;color:#191F28;text-align:center}
+.onb-seg{display:flex;background:#F2F4F6;border-radius:10px;padding:3px;flex:1}
+.onb-seg button{flex:1;border:0;background:transparent;color:#6B7684;padding:7px 6px;font-size:13px;font-family:inherit;cursor:pointer;border-radius:8px;font-weight:600;white-space:nowrap}
+.onb-seg button.on{background:#fff;color:#191F28;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.onb-kid .x{border:0;background:none;color:#B0B8C1;font-size:16px;cursor:pointer;padding:4px;flex:none}
+</style>
+<div id="onbWrap" class="onb" aria-hidden="true">
+  <div class="onb-step on" id="onbIntro">
+    <div class="onb-track" id="onbTrack"><div class="onb-rail" id="onbRail">
+      <div class="onb-sl"><img src="intro/s1.jpg" alt=""><h3>오늘 열리는 공구를<br>날짜별로</h3><p>인스타 셀러들의 공구 일정을<br>매일 모아요</p></div>
+      <div class="onb-sl"><img src="intro/s2.jpg" alt=""><h3>찜하면<br>잊지 않아요</h3><p>오픈하는 날 아침, 마감하는 날 아침에<br>알려드려요</p></div>
+      <div class="onb-sl"><img src="intro/s3.jpg" alt=""><h3>핫딜과 세일도<br>매일</h3><p>가격이 떨어진 상품과<br>브랜드 세일 일정까지</p></div>
+      <div class="onb-sl"><img src="intro/s4.jpg" alt=""><h3>2만 엄마들과<br>함께</h3><p>맘카페 이야기가<br>커뮤니티로 바로 들어와요</p></div>
+    </div></div>
+    <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i></div>
+    <div class="onb-acts"><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
+  </div>
+  <div class="onb-step" id="onbCat">
+    <div class="onb-top"><h2>어떤 공구를 먼저 볼까요?</h2><small>여러 개 골라도 돼요</small></div>
+    <div class="onb-body"><div class="onb-cat" id="onbCatChips"></div></div>
+    <div class="onb-acts"><button class="onb-btn" type="button" onclick="onbCatDone()">다음</button><button class="onb-link" type="button" onclick="onbFinish('skip_cat')">나중에 할게요</button></div>
+  </div>
+  <div class="onb-step" id="onbKid">
+    <div class="onb-top"><h2>아이 정보를 입력하시면<br>유용한 맞춤 정보를 보여드릴게요</h2><small>개월수 또는 나이, 성별만 받아요</small></div>
+    <div class="onb-body"><div id="onbKids"></div><button class="onb-btn o" type="button" onclick="onbKidAdd()">+ 아이 추가</button></div>
+    <div class="onb-acts"><button class="onb-btn" type="button" onclick="onbKidDone()">시작하기</button><button class="onb-link" type="button" onclick="onbFinish('skip_kid')">나중에 할게요</button></div>
+  </div>
+</div>
+<script>
+// ── 첫 실행 온보딩 ──────────────────────────────────────────
+const ONB_CATS=[['👶','육아'],['🥗','식품'],['🏠','리빙'],['💊','건강'],['🛋️','인테리어'],['🔌','가전'],['💄','뷰티'],['👗','패션'],['✈️','여행'],['🐶','반려동물']];
+let _onbI=0, _onbAuto=true, _onbTimer=null;
+function onbShouldShow(){ try{ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('onb=1')>=0) return true; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
+function onbOpen(){
+  const w=document.getElementById('onbWrap'); if(!w) return;
+  w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
+  try{ trackEvent('onb','show'); }catch(_){}
+  _onbShow(0); _onbTimer=setInterval(()=>{ if(_onbAuto) _onbShow((_onbI+1)%4); },2800);
+  const tr=document.getElementById('onbTrack'); let x0=null;
+  tr.addEventListener('pointerdown',e=>{ x0=e.clientX; _onbAuto=false; },{passive:true});
+  tr.addEventListener('pointerup',e=>{ if(x0===null) return; const dx=e.clientX-x0; x0=null; if(dx<-40) _onbShow(_onbI+1); else if(dx>40) _onbShow(_onbI-1); },{passive:true});
+}
+function _onbShow(k){ _onbI=Math.max(0,Math.min(3,k)); document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===3?'시작하기':'다음'; }
+function onbNext(){ _onbAuto=false; if(_onbI<3){ _onbShow(_onbI+1); return; } clearInterval(_onbTimer); _onbStep('onbCat'); }
+function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
+function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
+function onbCatDone(){
+  const cats=[...document.querySelectorAll('#onbCatChips .onb-chip.on')].map(b=>b.dataset.c);
+  try{ localStorage.setItem('mc_pref_cats', JSON.stringify(cats)); trackEvent('onb_cats', cats.join(',')); }catch(_){}
+  if(cats.includes('육아')) _onbStep('onbKid'); else onbFinish('cats');
+}
+function onbKidAdd(){ const el=document.getElementById('onbKids'); const d=document.createElement('div'); d.className='onb-kid'; d.innerHTML='<input type="text" inputmode="numeric" placeholder="숫자" aria-label="숫자"><div class="onb-seg" role="group"><button type="button" class="on" data-u="m">개월</button><button type="button" data-u="y">세</button></div><div class="onb-seg" role="group"><button type="button" class="on" data-g="f">여아</button><button type="button" data-g="m">남아</button></div><button type="button" class="x" aria-label="삭제" onclick="this.parentNode.remove()">✕</button>'; d.querySelectorAll('.onb-seg button').forEach(b=>b.addEventListener('click',function(){ [...this.parentNode.children].forEach(x=>x.classList.remove('on')); this.classList.add('on'); })); el.appendChild(d); }
+function onbKidDone(){
+  const kids=[...document.querySelectorAll('#onbKids .onb-kid')].map(r=>({n:Number((r.querySelector('input').value||'').replace(/\D/g,''))||null, u:(r.querySelector('[data-u].on')||{}).dataset?.u||'m', g:(r.querySelector('[data-g].on')||{}).dataset?.g||'f'})).filter(k=>k.n);
+  try{ localStorage.setItem('mc_kids', JSON.stringify(kids)); trackEvent('onb_kids', String(kids.length)); }catch(_){}
+  onbFinish('kids');
+}
+function onbFinish(how){
+  clearInterval(_onbTimer);
+  const w=document.getElementById('onbWrap'); if(w){ w.classList.remove('open'); w.setAttribute('aria-hidden','true'); } document.body.style.overflow='';
+  try{ localStorage.setItem('mc_onb_done', new Date().toISOString().slice(0,10)); trackEvent('onb_done', how||''); }catch(_){}
+  applyPrefCats();
+}
+// 고른 카테고리를 공구 탭 칩 맨 앞으로 + 첫 번째를 바로 선택 (사장님 "고른 카테고리가 공구 탭에 먼저")
+function applyPrefCats(){
+  let cats=[]; try{ cats=JSON.parse(localStorage.getItem('mc_pref_cats')||'[]'); }catch(_){}
+  if(!cats.length) return;
+  const row=document.getElementById('catChipRow'); if(!row) return;
+  const all=row.querySelector('.cchip[data-cat="전체"]');
+  cats.slice().reverse().forEach(c=>{ const b=row.querySelector('.cchip[data-cat="'+c+'"]'); if(b && all) all.insertAdjacentElement('afterend', b); });
+  try{ if(typeof fMajor!=='undefined' && fMajor==='전체'){ const b=row.querySelector('.cchip[data-cat="'+cats[0]+'"]'); if(b) pickCat(cats[0], b); } }catch(_){}
+}
+document.addEventListener('DOMContentLoaded', function(){ if(onbShouldShow()) onbOpen(); else applyPrefCats(); });
+</script>
 </body>
 </html>
