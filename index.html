@@ -1601,7 +1601,7 @@ async function loadData() {
     //        — 어느 쪽도 라이브를 그대로 재현하지 않는다. 바꾸려면 비교함수가 아니라 **여기**를 고친다.
     //   ⚠ limit/offset 응답은 **200** 이다(Range 는 206 이었다).
     //   실측 2026-10-13: 1000+1000+1000+706 = 3,706행 · 중복 0개.
-    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
+    const baseUrl = `${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${todayStr},open_date.gte.${fromDate})&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`;
     let rows = [];
     const seen = new Set();   // 쪽 경계 중복 거르개 (아래 설명)
     const PAGE = 1000;   // Supabase 한 번에 최대 1000건
@@ -1633,6 +1633,7 @@ async function loadData() {
       endDate: r.end_date || '',
       payLink: (r.pay_link || '').trim(),
       vendorId: r.vendor_id || null,   // 입점 공급사 건이면 값이 있다 (핫 키워드 우선 노출용)
+      always: r.always === true,       // 상시 공구(맘캘) — 기간 자리에 「상시」, 오늘오픈·오늘마감으로 세지 않는다 (사장님 2026-10-24)
     })).filter(d => d.name && d.openDate)
     // ⚠️ 갈 곳이 없는 카드는 아예 안 보여준다. (사장님 지적 2026-08-10)
     //    핸들도 결제·카페 링크도 없으면 눌러봐야 인스타 메인만 열린다.
@@ -1770,8 +1771,8 @@ function isExpired(item){
   }
   return false;
 }
-function isOpenToday(item){return item.openDate===todayStr;}
-function isEndToday(item){return realEnd(item)===todayStr;}
+function isOpenToday(item){return !item.always&&item.openDate===todayStr;}
+function isEndToday(item){return !item.always&&realEnd(item)===todayStr;}
 function isUpcoming(item){return item.openDate>todayStr;}
 function isOngoing(item){return item.openDate<todayStr&&!isExpired(item)&&!isEndToday(item);}
 function ongoingDiff(item){return Math.round((_t-new Date(item.openDate))/86400000);}
@@ -1957,7 +1958,8 @@ function renderCard(item){
   const c=cc(item.major);
   // 상태: 오늘오픈 / 오늘마감 / 진행중 / 예정
   let stTxt='', stColor='';
-  if(isOpenToday(item)){ stTxt='오늘오픈'; stColor='#C0392B'; }
+  if(item.always && item.openDate<=todayStr){ stTxt='상시'; stColor='#602090'; }
+  else if(isOpenToday(item)){ stTxt='오늘오픈'; stColor='#C0392B'; }
   else if(isEndToday(item)){ stTxt='오늘마감'; stColor='#B8860B'; }
   else if(isOngoing(item)){ stTxt='진행중'; stColor='#2E7D32'; }
   else if(isUpcoming(item)){ stTxt='예정'; stColor='#E65100'; }
@@ -1977,7 +1979,7 @@ function renderCard(item){
     : 'https://cafe.naver.com/momcal';
   // 셀러명: 한글명 있으면 한글명, 없으면 아이디(@ 제거)
   const seller = (item.influencer && !item.influencer.startsWith('@')) ? item.influencer : normHandle(item.insta);
-  const period = `${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
+  const period = (item.always && item.openDate<=todayStr) ? '기간 상시' : `${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
   const partner = effPartner(item);
   const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#602090"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const sb = partner ? badgeSvg : '';
@@ -3977,6 +3979,34 @@ function wishHeaders(){
   return {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
 }
 
+// ── 홈화면 위젯 ↔ 내 찜 연결 (사장님 2026-10-24 "찜연결도 다 해놔") ──
+//   위젯은 자기 번호만 안다 → 위젯에서 앱을 열 때 ?wdid=<위젯번호> 가 붙어 온다. 앱(TWA) 안에서 열렸을 때만
+//   서버 widget_bind(위젯번호, 이 기기 mc_did) 로 짝을 지어 둔다 → 위젯이 widget_feed(위젯번호) 로 내 찜을 받는다.
+//   🔴 referrer 가 우리 앱이 아니면 무시한다 — 남이 보낸 링크(?wdid=남의번호)로 내 찜이 남의 위젯에 가지 않게.
+(function widgetBind(){
+  try{
+    const u=new URL(location.href), w=u.searchParams.get('wdid');
+    if(!w) return;
+    u.searchParams.delete('wdid'); const back=u.searchParams.get('wlink'); u.searchParams.delete('wlink');
+    history.replaceState(null,'',u.pathname+(u.search||'')+u.hash);
+    if(!/^w[A-Za-z0-9]{15,40}$/.test(w)) return;
+    if(!String(document.referrer||'').startsWith('android-app://com.wantsb.momcalendar')) return;
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/widget_bind`,{method:'POST',headers:wishHeaders(),
+      body:JSON.stringify({p_widget:w,p_device:deviceId()})})
+      .then(r=>r.ok?r.json():false).then(ok=>{
+        if(ok!==true) return;
+        try{ localStorage.setItem('mc_wdid',w); }catch(_){}
+        if(back){   // 위젯의 「내 찜 연결하기」로 온 경우 — 알려 드리고 본 화면으로
+          const t=document.createElement('div');
+          t.textContent='위젯에 내 찜이 연결됐어요';
+          t.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#2E2A27;color:#fff;padding:11px 18px;border-radius:22px;font-size:14px;font-weight:700;z-index:99999';
+          document.body.appendChild(t);
+          setTimeout(()=>{ location.replace('/'); },1600);
+        }
+      }).catch(()=>{});
+  }catch(_){}
+})();
+
 // ── 로컬 캐시 → 즉시 반영, 서버 → 최신으로 동기화 ──
 function loadWishLocal(){
   try{ const a=JSON.parse(localStorage.getItem('mc_wish')||'[]'); if(Array.isArray(a)) WISH=new Set(a); }catch(_){}
@@ -4702,13 +4732,13 @@ async function fetchWishExtra(){
     const have=new Set(DATA.map(d=>d.id));
     const miss=[...WISH].filter(id=>!have.has(id) && !_wishExtra.some(x=>x.id===id));
     if(!miss.length) return;
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`,{headers:wishHeaders()});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`,{headers:wishHeaders()});
     if(!r.ok) return;
     const rows=await r.json();
     _wishExtra=_wishExtra.concat(rows.map(x=>({
       id:x.id, influencer:x.influencer||'', insta:(x.insta||'').replace('@','').trim(),
       major:x.major||'', minor:x.minor||'', name:x.name||'',
-      openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim()
+      openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim(), always:x.always===true
     })));
     if(fSt==='wish') renderList();
   }catch(_){}
@@ -5293,7 +5323,7 @@ function _nxGraphRefresh(){ const gs=[...document.querySelectorAll('.nx-g')]; if
 let _NX_EARLY=null;
 async function _nxEarlyLoad(){
   try{
-    const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id`;
+    const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`;
     const r=await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
     if(!r.ok) return; const rows=await r.json(); if(!Array.isArray(rows)) return;
     _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
