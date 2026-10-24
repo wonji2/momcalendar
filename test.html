@@ -538,19 +538,8 @@ body.srch-mode .next-zone{display:none!important}
 /* align-items 기본값(stretch)이면 모든 버튼이 가장 긴 것 폭으로 늘어난다 → flex-end 로 각자 글자만큼만 */
 .chat-menu{display:flex;flex-direction:column;align-items:flex-end;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
 .chat-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
-/* 맘캘봇(카톡 채널) 시트 — 2026-10-24 */
+/* 맘캘봇(카톡 채널 친구 추가로 바로) — 2026-10-24 */
 .chat-menu-item.mcb-item{background:#FEE500;border-color:#F0D800;color:#191600}
-.mcb-sheet{position:fixed;left:50%;transform:translate(-50%,110%);bottom:0;width:min(480px,100%);background:#fff;border-radius:20px 20px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom));z-index:9991;transition:transform .22s ease;box-shadow:0 -6px 24px rgba(40,20,60,.16)}
-.mcb-sheet.open{transform:translate(-50%,0)}
-.mcb-grab{width:38px;height:4px;border-radius:2px;background:#E2DCEA;margin:0 auto 12px}
-.mcb-h{font-size:16px;font-weight:800;color:#2B2433;margin-bottom:6px}
-.mcb-p{font-size:13px;color:#5B5267;line-height:1.6;margin:0 0 10px}
-.mcb-ex{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-.mcb-ex span{font-size:12px;color:#5B3A8C;background:#F4EEFA;border-radius:14px;padding:4px 10px}
-.mcb-btn{display:flex;align-items:center;justify-content:center;width:100%;height:48px;border-radius:12px;font-weight:800;font-size:15px;text-decoration:none;margin-bottom:8px;box-sizing:border-box}
-.mcb-y{background:#FEE500;color:#191600}
-.mcb-w{background:#fff;color:#2B2433;border:1px solid #DDD6E6}
-.mcb-close{display:block;width:100%;border:none;background:none;color:#8A8395;font-size:13px;padding:6px 0 0;font-family:inherit;cursor:pointer}
 /* 항목마다 글자 수가 달라 폭이 들쭉날쭉하던 것 → 폭 고정.
    흰 배경 위 흰 버튼이라 잘 안 보이던 것 → 테두리 + 그림자 강화 */
 /* 글자 길이에 맞춰 버튼이 줄어들도록 폭을 고정하지 않는다.
@@ -6564,34 +6553,8 @@ function closeChatMenu(){
   document.getElementById('chatFab').classList.remove('open');
   document.getElementById('chatMenu').classList.remove('open');
 }
-// 맘캘봇 = 카카오톡 채널 챗봇 (2026-10-24 사장님 「맘캘봇이랑 상담하려면 카톡친구채널추가한다음 하게」)
-//   친구 추가 → 채널 채팅방에서 공구·핫딜 묻기 + 건의·질문·오류 제보·삭제 요청. 사이트 안 챗봇은 만들지 않는다
-function openMcBot(){
-  const bg=document.getElementById('mcbBg'), sh=document.getElementById('mcbSheet');
-  if(!bg||!sh) return;
-  bg.style.display='block'; requestAnimationFrame(()=>{ sh.classList.add('open'); });
-  try{ trackEvent('mcbot_open',''); }catch(_){}
-}
-function closeMcBot(){
-  const bg=document.getElementById('mcbBg'), sh=document.getElementById('mcbSheet');
-  if(sh) sh.classList.remove('open'); if(bg) setTimeout(()=>{ bg.style.display='none'; },200);
-}
-function mcBotGo(kind){
-  try{ trackEvent('mcbot_'+kind,''); }catch(_){}
-  closeMcBot();
-}
 </script>
-<!-- 맘캘봇 시트 -->
-<div id="mcbBg" onclick="closeMcBot()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.42);z-index:9990"></div>
-<div id="mcbSheet" class="mcb-sheet" role="dialog" aria-label="맘캘봇에게 물어보기">
-  <div class="mcb-grab"></div>
-  <div class="mcb-h">💬 맘캘봇에게 물어보기</div>
-  <p class="mcb-p">카카오톡 채널을 친구 추가하면 채팅으로 공구·핫딜을 물어보고, 건의·질문·오류 제보·삭제 요청도 보낼 수 있어요.</p>
-  <div class="mcb-ex"><span>오늘 오픈하는 공구</span><span>곧 마감되는 공구</span><span>이유식 공구 있어?</span></div>
-  <a class="mcb-btn mcb-y" href="https://pf.kakao.com/_zGfxnX/friend" target="_blank" rel="noopener" onclick="mcBotGo('friend')">＋ 채널 친구 추가</a>
-  <a class="mcb-btn mcb-w" href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener" onclick="mcBotGo('chat')">💬 바로 채팅하기</a>
-  <button class="mcb-close" onclick="closeMcBot()">닫기</button>
-</div>
+
 
 <!-- 떠다니는 카톡 채팅방 버튼 -->
 <button class="totop-fab" id="toTopFab" onclick="scrollToTop()" aria-label="맨 위로">
@@ -6603,7 +6566,8 @@ function mcBotGo(kind){
          단톡 공지방·수다방·카페·인스타·친구에게 공유는 사이드메뉴에 이미 있고, 「내 폰 캘린더 저장」은 사이드메뉴로 옮겼다.
          맘캘봇 = 카톡 채널 챗봇(kakao-skill). 사이트 안 챗봇은 만들지 않는다(앱 설치·채널 친구 추가 유도 — scratchpad/momcalbot_spec.md) -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
-    <button class="chat-menu-item mcb-item" onclick="closeChatMenu&&closeChatMenu();openMcBot()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico mcb-ico">💬</span>맘캘봇에게 물어보기</button>
+    <!-- 2026-10-24 사장님 「맘캘봇 이라고만 띄우고 그거 누르면 바로 친구추가 후 상담 가능하게해」 — 시트 없이 채널 친구 추가로 바로 간다(추가 화면에서 곧바로 채팅) -->
+    <a class="chat-menu-item mcb-item" href="https://pf.kakao.com/_zGfxnX/friend" target="_blank" rel="noopener" onclick="closeChatMenu&&closeChatMenu();try{trackEvent('mcbot_friend','')}catch(_){}"><span class="chat-menu-ico mcb-ico">💬</span>맘캘봇</a>
   </div>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="출석 체크·맘캘봇 메뉴">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
