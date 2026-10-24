@@ -2449,7 +2449,9 @@ let _listSort='open';
 function setListSort(k){ if(_listSort===k) return; _listSort=k; if(k==='pop') ensureViewCounts(); renderList(); try{ trackEvent('list_sort',k); }catch(_){} }
 function _applyListSort(arr){
   if(_listSort==='pop'){ const vc=window.__viewCounts||{}; return arr.slice().sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0))); }
-  if(_listSort==='new'){ return arr.slice().sort((a,b)=>a.openDate<b.openDate?1:a.openDate>b.openDate?-1:b.id-a.id); }
+  if(_listSort==='new'){ const td=todayStr; return arr.slice().sort((a,b)=>{ const fa=a.openDate>td, fb=b.openDate>td; if(fa!==fb) return fa?1:-1;   // 이미 연 공구 먼저, 아직 안 연 것은 뒤로
+    if(fa) return a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id;   // 예정: 가까운 날 먼저
+    return a.openDate<b.openDate?1:a.openDate>b.openDate?-1:b.id-a.id; }); }
   if(_listSort==='end'){ return arr.slice().sort((a,b)=>{ const ea=realEnd(a)||'9999', eb=realEnd(b)||'9999'; return ea<eb?-1:ea>eb?1:(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0); }); }
   return arr;
 }

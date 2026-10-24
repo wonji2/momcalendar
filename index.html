@@ -103,6 +103,10 @@ body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{
 /* 앱으로 들어온 사람에게 "앱으로 추가하세요" 안내는 무의미하다 */
 body.native-app #pwaStrip,body.native-app #reloginStrip{display:none!important}
 /* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
+.sdrop-tags{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-right:-16px;padding-right:16px}   /* 토스형 회색 알약 한 줄 · 옆으로 넘기기 (사장님 2026-10-24) */
+.sdrop-tags::-webkit-scrollbar{display:none}
+.sdrop-tag{flex:0 0 auto;white-space:nowrap;border:0;background:#F2F4F6;color:#191F28;border-radius:100px;padding:8px 13px;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.sdrop-tag b{color:#602090;margin-right:2px}
 .hot-tag-row{display:flex;gap:7px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none}
 .hot-tag-row::-webkit-scrollbar{display:none}
 .hot-tag{flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 12px;border-radius:100px;background:#F3ECFA;color:#602090;border:none;font-family:inherit;cursor:pointer;white-space:nowrap}
@@ -506,6 +510,10 @@ body.srch-suggest #searchDrop{display:block}
 .live-day small{font-size:12.5px;font-weight:600;color:#8B95A1;margin-left:6px}
 /* 라방 = 토스형 (사장님 2026-10-24 시안 1안 확정): 맨 위 큰 무대 한 장 + 상자 없는 줄 목록. 위계는 글자 크기·굵기로만, 강조색은 LIVE 빨강 하나
    네이버는 남의 페이지 안에 방송 화면을 못 띄우게 막고(「접근이 불가한 환경」) 예정 방송엔 미리보기 영상이 없다 → 사진 확대·교체로 움직임 */
+.lv-days{display:flex;gap:18px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-bottom:1px solid #E5E8EB;margin:2px 0 12px;padding:0 2px}
+.lv-days::-webkit-scrollbar{display:none}
+.lv-days button{flex:0 0 auto;border:none;background:none;font-family:inherit;cursor:pointer;padding:9px 0 10px;font-size:14.5px;font-weight:700;color:#8B95A1;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.lv-days button.on{color:#191F28;border-bottom-color:#191F28}
 .lv-stage{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/5;background:#222;margin:12px 0 4px;touch-action:pan-y}
 .lv-sl{position:absolute;inset:0;opacity:0;transition:opacity .8s;display:block;color:#fff;text-decoration:none;pointer-events:none}
 .lv-sl.on{opacity:1;pointer-events:auto}
@@ -533,6 +541,10 @@ body.srch-suggest #searchDrop{display:block}
 .lv-row .im{flex:0 0 76px;height:96px;border-radius:10px;overflow:hidden;background:#F2F4F6;position:relative}
 .lv-row .im img{width:100%;height:100%;object-fit:cover;display:block}
 .lv-row .im .live-badge{position:absolute;left:5px;top:5px}
+.lv-row .sale-wish{align-self:center;margin-right:-4px}
+.lv-sl .wish{position:absolute;right:12px;top:12px;z-index:3;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;border:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lv-sl .wish svg{width:20px;height:20px;display:block}
+.lv-sl .wish.pop svg{animation:wpop .34s}
 .lv-row .bd2{flex:1;min-width:0}
 .lv-row .t{font-size:15px;font-weight:700;color:#191F28;line-height:1.4;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .lv-row .ch{font-size:12.5px;color:#8B95A1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -553,7 +565,7 @@ body.srch-suggest #searchDrop{display:block}
 .sale-logo{flex:0 0 42px;width:42px;height:42px;border-radius:11px;border:1px solid #EEF1F5;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
 .sale-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .sale-body{flex:1;min-width:0}
-.sale-t{font-size:14px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
+.sale-t{font-size:13px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
 .sale-t em{font-style:normal;font-size:10.5px;font-weight:700;color:#D85A30;background:#FBEAE7;border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:1px}
 .sale-m{font-size:11.5px;color:#7A8794;margin-top:3px}
 .sale-bar{height:4px;border-radius:2px;background:#E6EEF7;margin-top:7px;overflow:hidden}
@@ -734,6 +746,18 @@ body.srch-mode .next-zone{display:none!important}
   ]
 }
 </script>
+<style id="mc-sort-sheet">
+.sort-bar{display:flex;justify-content:flex-end;padding:0 2px 8px}
+.sort-btn{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;padding:6px 4px}
+.sort-btn svg{color:#8B95A1}
+.srt-sheet{position:fixed;inset:0;z-index:99990;display:none;align-items:flex-end;justify-content:center;background:rgba(20,10,30,.45)}
+.srt-sheet.open{display:flex}
+.srt-box{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:560px;padding:10px 20px calc(18px + env(safe-area-inset-bottom,0px))}
+.srt-h{font-size:17px;font-weight:800;color:#191F28;padding:12px 0 6px}
+.srt-it{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;font-family:inherit;font-size:16px;color:#333D4B;padding:15px 2px;cursor:pointer;text-align:left}
+.srt-it.on{color:#191F28;font-weight:700}
+.srt-it.on svg{color:#602090}
+</style>
 </head>
 <body>
 
@@ -1258,7 +1282,7 @@ window.slimAdClick=function(id){
     </div>
     <div class="subcat-chip-row" id="subCatRow" style="display:none"></div>
     <!-- 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — 대분류 칩 아래 한 줄, 이모지 없이 (사장님 지시). 탭하면 그 검색결과로 -->
-    <div class="hot-tag-row" id="hotTagRow" style="display:none"></div>
+    <div class="hot-tag-row" id="hotTagRow" style="display:none!important" hidden></div>   <!-- 메인에선 안 보임 — 검색창 TOP10 아래 「이런 공구 찾으세요?」로 옮김(사장님 2026-10-24) -->
   </div>
   <!-- 🎁 기획전·제휴 존 (카페·인스타 버튼 자리 → 카페·인스타는 우측 플로팅으로 이동) -->
   <div class="promo-zone" style="display:none">
@@ -1347,18 +1371,12 @@ window.slimAdClick=function(id){
     <button class="sl-tg" data-m="live" onclick="setSlMode('live')" role="tab">라방</button>
   </div>
   <div id="saleBox">
-    <div class="sale-head">
-      <div class="sale-h1">🛍 세일·행사 일정</div>
-      <div class="sale-h2">올리브영·무신사·자라 등 브랜드 공식 세일 모아보기</div>
-    </div>
     <div class="sale-chips" id="saleChips"></div>
     <div id="saleList"></div>
     <div class="sale-foot">일정은 각 브랜드 공지 기준이며 변동될 수 있어요.<br>카드를 누르면 브랜드 공식 페이지로 이동해요.</div>
   </div>
   <div id="liveBox" style="display:none">
-    <div class="sale-head">
-      <div class="sale-h1">라방 일정</div>
-    </div>
+    <div class="lv-days" id="liveDays" role="tablist"></div>
     <div class="sale-chips" id="liveChips"></div>
     <div id="liveList"></div>
     <div class="sale-foot">편성은 방송사 사정으로 바뀔 수 있어요. 하루 4번 새로 모아요.<br>카드를 누르면 네이버 쇼핑라이브로 이동해요.</div>
@@ -1730,7 +1748,8 @@ try{ window.addEventListener('online', function(){ if(!DATA.length && !_loadBusy
 // 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — **브랜드 기준**으로 뽑는다 (사장님 지적 "소분류는 대분류랑 뭐가 달라").
 //    진행중~7일 안 오픈 공구의 상품명 첫 낱말(=브랜드) 빈도 상위 8개. 탭하면 그 브랜드 검색결과로.
 //    ⚠ HOT_TAG_STOP: 브랜드가 아닌 일반 낱말은 칩으로 내보내지 않는다 (블로그 BRAND_STOP 과 같은 취지).
-const HOT_TAG_STOP=new Set(['유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
+const HOT_TAG_STOP=new Set(['호주','무항생제','올리브오일','올스텐','무타공','돌잡이','몬테소리',   // 2026-10-24 40개로 늘리며 보인 품목·꾸밈말
+  '유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
 let _hotTags=[];   // buildHotTags 가 계산해 보관 — 검색결과 상단 칩(hotTagChipsHtml)도 같은 목록을 쓴다
 function buildHotTags(){
   const el=document.getElementById('hotTagRow'); if(!el) return;
@@ -1753,10 +1772,10 @@ function buildHotTags(){
     const vTags=Object.entries(vcnt).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m])=>m);
     const rest=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).map(([m])=>m)
       .filter(m=>!vTags.includes(m));
-    _hotTags=[...vTags, ...rest].slice(0,8);
+    _hotTags=[...vTags, ...rest].slice(0,40);   // 검색창 「이런 공구 찾으세요?」 한 줄에 40개(사장님 2026-10-24 「가능한 더 늘려도 됨」 — 3건 이상 브랜드가 150개쯤이라 기준은 그대로)
     if(_hotTags.length<3){ el.style.display='none'; return; }
     el.innerHTML=_hotTags.map(m=>`<button class="hot-tag" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
-    el.style.display='flex';
+    // 메인에선 안 보인다(사장님 2026-10-24) — 목록(_hotTags)만 만들어 두고 검색창이 쓴다
   }catch(_){ el.style.display='none'; }
 }
 // 검색결과 화면 상단(카드 위)에도 같은 칩 줄 — 결과 보다가 딴 브랜드도 생각 없이 눌러보게 (사장님 제안 2026-08-31)
@@ -2117,11 +2136,35 @@ function renderList(){
   }
 
   // 모든 탭(전체 TOP100 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
-  const arr=getFiltered(selWeekDate);
-  el.innerHTML=arr.length
+  const arr=_applyListSort(getFiltered(selWeekDate));
+  el.innerHTML=_sortChipsHtml()+(arr.length
     ?arr.map(item=>renderCard(item)).join('')
-    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`;
+    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`);
 }
+// ── 목록 정렬 (사장님 2026-10-23 앱 디벨롭: 인기순·방금 오픈순·마감임박순) — 기본은 지금 순서(오픈일순·파트너 우선)
+let _listSort='open';
+function setListSort(k){ if(_listSort===k) return; _listSort=k; if(k==='pop') ensureViewCounts(); renderList(); try{ trackEvent('list_sort',k); }catch(_){} }
+function _applyListSort(arr){
+  if(_listSort==='pop'){ const vc=window.__viewCounts||{}; return arr.slice().sort((a,b)=>((vc[b.id]||0)+(_wishCounts[b.id]||0))-((vc[a.id]||0)+(_wishCounts[a.id]||0))); }
+  if(_listSort==='new'){ const td=todayStr; return arr.slice().sort((a,b)=>{ const fa=a.openDate>td, fb=b.openDate>td; if(fa!==fb) return fa?1:-1;   // 이미 연 공구 먼저, 아직 안 연 것은 뒤로
+    if(fa) return a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id;   // 예정: 가까운 날 먼저
+    return a.openDate<b.openDate?1:a.openDate>b.openDate?-1:b.id-a.id; }); }
+  if(_listSort==='end'){ return arr.slice().sort((a,b)=>{ const ea=realEnd(a)||'9999', eb=realEnd(b)||'9999'; return ea<eb?-1:ea>eb?1:(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0); }); }
+  return arr;
+}
+const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
+// 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
+function _sortChipsHtml(){
+  const cur=(SORT_OPTS.find(o=>o[0]===_listSort)||SORT_OPTS[0])[1];
+  return `<div class="sort-bar"><button class="sort-btn" type="button" onclick="openSortSheet()" aria-haspopup="dialog" aria-label="정렬 바꾸기, 지금 ${cur}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg>${cur}</button></div>`;
+}
+function openSortSheet(){
+  let sh=document.getElementById('sortSheet');
+  if(!sh){ sh=document.createElement('div'); sh.id='sortSheet'; sh.className='srt-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','정렬'); sh.onclick=e=>{ if(e.target===sh) closeSortSheet(); }; document.body.appendChild(sh); }
+  sh.innerHTML=`<div class="srt-box"><div class="srt-h">정렬</div>${SORT_OPTS.map(([k,t])=>`<button type="button" class="srt-it${_listSort===k?' on':''}" onclick="closeSortSheet();setListSort('${k}')"><span>${t}</span>${_listSort===k?'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>`).join('')}</div>`;
+  sh.classList.add('open'); try{ trackEvent('sort_sheet','open'); }catch(_){}
+}
+function closeSortSheet(){ const sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 // 검색결과는 접지 않고 전부 바로 보여준다 (사장님 지시 2026-08-31 "몇 건 되지도 않는데 한번에 다 뜨게")
@@ -2594,6 +2637,7 @@ function setSlMode(m){
   try{ trackEvent('sl_mode',_slMode); }catch(_){}
 }
 async function loadLive(){
+  _liveWLoad();
   if(_liveData){ renderLive(); return; }
   const box=document.getElementById('liveList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
   try{
@@ -2605,10 +2649,63 @@ async function loadLive(){
     if(r.ok) _liveData=await r.json();
   }catch(_){}
   // 실패를 빈 목록으로 기억하면 새로고침 전까지 「예정된 라방이 없어요」 거짓 안내가 남는다 → 안 담고 다시 시도 버튼
+  if(_liveData) liveWSync();
   if(!_liveData){ if(box) box.innerHTML='<div class="sale-empty">라방 일정을 불러오지 못했어요<br><button class="sale-chip" style="margin-top:10px" onclick="loadLive()">다시 시도</button></div>'; return; }
   renderLive();
 }
-function liveFilter(c){ _liveCat=c||''; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
+// 💜 라방 하트 = 찜 + 방송 10분 전 알림(서버 live_wishes → pg_cron live-push → send-live-push) · supabase/sql/live_wish_103.sql
+let LIVEW={};
+function _liveWLoad(){ try{ const o=JSON.parse(localStorage.getItem('mc_live_w')||'{}'); LIVEW=(o&&typeof o==='object')?o:{}; }catch(_){ LIVEW={}; } }
+function _liveWSave(){ try{ localStorage.setItem('mc_live_w', JSON.stringify(LIVEW)); }catch(_){} }
+function _liveWPush(id,on){
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_set`,{method:'POST',keepalive:true,
+    headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
+    body:JSON.stringify({p_device:deviceId(), p_show:Number(id), p_on:!!on})}).catch(()=>{});
+}
+async function liveWSync(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_list`,{method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}, body:JSON.stringify({p_device:deviceId()})});
+    if(!r.ok) return;
+    const m={}; (await r.json()).forEach(x=>{ m[x.show_id]=1; });
+    // 서버에 없는데 이 기기에만 있는 것: 아직 안 끝난 방송이면 다시 올리고(전송 실패분), 지난 방송·목록에 없는 번호는 이 기기에서도 지운다
+    //  (전엔 지난 찜이 영원히 남아 라방을 열 때마다 다시 보냈다 — 검증자 2026-10-24)
+    const alive=new Set((_liveData||[]).filter(x=>new Date(x.start_at).getTime()+3600e3>Date.now()).map(x=>String(x.id)));
+    Object.keys(LIVEW).forEach(k=>{ if(!m[k] && alive.has(String(k))){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
+    LIVEW=m; _liveWSave(); if(_slMode==='live') renderLive();
+  }catch(_){}
+}
+const _lvHeart=(id,cls,st)=>{ if(st!==undefined && new Date(st).getTime()<=Date.now()) return cls==='wish'?'':'<span class="sale-wish" aria-hidden="true"></span>';   // 시작한 방송은 찜 안 함(알림이 없다)
+  const on=!!LIVEW[id]; return `<button class="${cls}" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="liveWish(${id},event,this)">${heartSvg(on)}</button>`; };
+async function liveWish(id,ev,btn){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const on=!LIVEW[id];
+  if(on) LIVEW[id]=1; else delete LIVEW[id];
+  _liveWSave(); _liveWPush(id,on);
+  if(btn){ btn.innerHTML=heartSvg(on); btn.setAttribute('aria-pressed',on?'true':'false'); btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop'); }
+  try{ trackEvent(on?'live_wish_add':'live_wish_del', String(id)); }catch(_){}
+  setTimeout(renderLive, on?360:0);   // 하트가 뛰는 걸 보여 준 뒤 「내 찜」 숫자를 맞춘다
+  if(!on) return;
+  const x=(_liveData||[]).find(y=>y.id===id); const future=!!(x && new Date(x.start_at).getTime()-Date.now()>10*60e3);
+  if(!future){ mcToast('찜했어요'); return; }
+  // 「알려드려요」 는 이 기기가 실제로 받을 수 있을 때만 말한다(세일 찜과 같은 기준)
+  let msg='찜했어요\n방송 10분 전에 알려드릴게요';
+  // 라방 알림은 웹 알림으로만 간다 — 아이폰 앱(앱 알림)엔 아직 안 가고, 「세일 알림」을 꺼 두면 안 간다(서버 live_push_targets 와 같은 기준)
+  try{ if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); return; } }catch(_){}
+  try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요\n세일·라방 알림이 꺼져 있어요\n내정보에서 켤 수 있어요'); return; } }catch(_){}
+  try{
+    if(!notiGranted()){
+      if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n방송 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+    }
+  }catch(_){ msg='찜했어요'; }
+  mcToast(msg);
+}
+let _liveDay='';   // '' = 전체, 'YYYY-MM-DD' = 그날만
+function liveDay(d){ _liveDay=d||''; _lvStI=0; renderLive(); try{ window.scrollTo(0, document.getElementById('liveDays').getBoundingClientRect().top+scrollY-70); }catch(_){} try{ trackEvent('live_day', d||'전체'); }catch(_){} }
+function liveFilter(c){ _liveCat=c||''; _lvStI=0; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
 function _liveWhen(iso){
   const d=new Date(iso), k=new Date(d.getTime()+9*3600e3);
   const ds=k.toISOString().slice(0,10), h=k.getUTCHours(), mi=k.getUTCMinutes();
@@ -2622,15 +2719,15 @@ function _liveDayLabel(ds){
   const w='일월화수목금토'[new Date(ds+'T12:00:00+09:00').getUTCDay()];
   return (diff===1?'내일 · ':'')+`${+ds.slice(5,7)}.${+ds.slice(8,10)}(${w})`;
 }
-let _lvStT=null;
+let _lvStT=null, _lvStI=0;   // _lvStI = 무대에서 보고 있던 방송 순번(하트를 눌러 다시 그려도 그대로)
 function _lvStageStop(){ if(_lvStT){ clearInterval(_lvStT); _lvStT=null; } }
 // 맨 위 무대: 4초마다 다음 방송 · 밀면 넘어감 · 손대면 8초 쉼 · 화면에 없으면 멈춤
 function _lvStageStart(){
   _lvStageStop();
   const st=document.getElementById('lvStage'); if(!st) return;
   const sl=st.querySelectorAll('.lv-sl'), dt=st.querySelectorAll('.lv-dots i'); if(sl.length<2) return;
-  let i=0, hold=0, x0=null;
-  const go=n=>{ sl[i].classList.remove('on'); dt[i]&&dt[i].classList.remove('on'); i=(n+sl.length)%sl.length; sl[i].classList.add('on'); dt[i]&&dt[i].classList.add('on'); };
+  let i=Math.max(0,[...sl].findIndex(e=>e.classList.contains('on'))), hold=0, x0=null;
+  const go=n=>{ sl[i].classList.remove('on'); dt[i]&&dt[i].classList.remove('on'); i=(n+sl.length)%sl.length; _lvStI=i; sl[i].classList.add('on'); dt[i]&&dt[i].classList.add('on'); };
   st.addEventListener('touchstart',e=>{ hold=Date.now()+8000; x0=e.touches[0].clientX; },{passive:true});
   st.addEventListener('touchend',e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>40){ go(i+(dx<0?1:-1)); st.dataset.sw='1'; setTimeout(()=>{ delete st.dataset.sw; },400); } },{passive:true});
   st.addEventListener('click',e=>{ if(st.dataset.sw){ e.preventDefault(); e.stopPropagation(); } },true);   // 밀어서 넘긴 손가락이 링크를 누른 것으로 치지 않게
@@ -2653,22 +2750,33 @@ function renderLive(){
   if(chips){
     const cnt={}; all.forEach(x=>{ if(x.category) cnt[x.category]=(cnt[x.category]||0)+1; });
     const cats=Object.keys(cnt).sort((a,b)=>(a==='키즈'?-1:b==='키즈'?1:cnt[b]-cnt[a]));   // 키즈를 앞에
-    chips.innerHTML=['',...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:`${c} ${cnt[c]}`)}</button>`).join('');
+    const _lvCanWish=x=>new Date(x.start_at).getTime()>Date.now();
+    const wishN=all.filter(x=>LIVEW[x.id]&&_lvCanWish(x)).length; if(_liveCat==='__wish' && !wishN) _liveCat='';
+    chips.innerHTML=['',...(wishN?['__wish']:[]),...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:c==='__wish'?`내 찜 ${wishN}`:`${c} ${cnt[c]}`)}</button>`).join('');
   }
-  const rows=all.filter(x=>!_liveCat||x.category===_liveCat);
+  const catRows=all.filter(x=>!_liveCat||(_liveCat==='__wish'?(!!LIVEW[x.id]&&new Date(x.start_at).getTime()>Date.now()):x.category===_liveCat));
+  // 날짜 탭: 고른 분류에 방송이 있는 날만. 고른 날에 방송이 없어지면 전체로
+  const dayOf=x=>_liveWhen(x.start_at).day, days=[...new Set(catRows.map(dayOf))];
+  if(_liveDay && !days.includes(_liveDay)) _liveDay='';
+  const dEl=document.getElementById('liveDays');
+  if(dEl){ dEl.innerHTML=['',...days].map(d=>{ const lab=d===''?'전체':d===todayStr?'오늘':/^내일/.test(_liveDayLabel(d))?'내일':`${+d.slice(5,7)}.${+d.slice(8,10)} ${'일월화수목금토'[new Date(d+'T12:00:00+09:00').getUTCDay()]}`;
+    return `<button role="tab" class="${_liveDay===d?'on':''}" aria-selected="${_liveDay===d?'true':'false'}" onclick="liveDay('${d}')">${lab}</button>`; }).join('');
+    const on=dEl.querySelector('.on'); if(on && on.offsetLeft+on.offsetWidth>dEl.clientWidth) dEl.scrollLeft=on.offsetLeft-16; }
+  const rows=catRows.filter(x=>!_liveDay||dayOf(x)===_liveDay);
   _lvStageStop();
   if(!rows.length){ list.innerHTML='<div class="sale-empty">예정된 라방이 없어요</div>'; return; }
   const now=Date.now();
   // 무대 = 가장 가까운 방송 6개(방송 중 먼저 — 목록이 시작 시각 순이다) · 아래 목록엔 다시 안 넣는다
   const hero=rows.slice(0,6), heroId=new Set(hero.map(x=>x.id));
+  const si=_lvStI<hero.length?_lvStI:0;
   let html=`<div class="lv-stage" id="lvStage">${hero.map((x,i)=>{ const w=_liveWhen(x.start_at); const tm=(w.day===todayStr?'':_liveDayLabel(w.day).replace(/^내일 · .*/,'내일')+' ')+w.time;
-    return `<a class="lv-sl${i?'':' on'}" ${_lvA(x)}>${_lvImg(x,i<2)}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join(''):''}</div></div>`;
+    return `<a class="lv-sl${i===si?' on':''}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish',x.start_at)}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i===si?'on':''}"></i>`).join(''):''}</div></div>`;
   let lastDay='';
   for(const x of rows){
     if(heroId.has(x.id)) continue;
     const w=_liveWhen(x.start_at);
     if(w.day!==lastDay){ const lab=_liveDayLabel(w.day); const m=lab.match(/^(오늘|내일)/); html+=`<div class="live-day">${m?m[1]:escHtml(lab)}${m?`<small>${+w.day.slice(5,7)}.${+w.day.slice(8,10)} ${'일월화수목금토'[new Date(w.day+'T12:00:00+09:00').getUTCDay()]}</small>`:''}</div>`; lastDay=w.day; }
-    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div></a>`;
+    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div>${_lvHeart(x.id,'sale-wish',x.start_at)}</a>`;
   }
   list.innerHTML=html;
   _lvStageStart();
@@ -2698,7 +2806,9 @@ function renderSale(){
   const list=document.getElementById('saleList'), chips=document.getElementById('saleChips');
   if(!list) return;
   const all=(_saleData||[]).filter(e=>!e.end_date||e.end_date>=todayStr);   // 끝난 행사는 숨김
-  const wishN=all.filter(e=>{ const s=SALEW[e.id]; return s&&(s.w||s.b); }).length;   // 찜·알림은 하트 하나(2026-10-23) — 옛 기기에 b 만 남은 것도 찜으로 본다
+  // 이미 시작한 세일은 찜하지 않는다 — 찜 = 시작일 아침 알림인데, 시작한 건 알림이 없다(사장님 2026-10-24 「이미 오픈 시작한 거는 찜 못 하게」)
+  const _saleCanWish=e=>_saleDay(e.start_date)>0;
+  const wishN=all.filter(e=>{ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }).length;   // 찜·알림은 하트 하나(2026-10-23) — 옛 기기에 b 만 남은 것도 찜으로 본다
   if(chips){
     // 분류 칩: 문센 행은 「문화센터」 하나로, 해외(미국·중국) 행은 「해외 세일」 하나로 묶는다 (사장님 2026-10-23)
     const isMun=e=>e.tag==='문센', isOvs=e=>e.tag==='해외';
@@ -2711,7 +2821,7 @@ function renderSale(){
   }
   const rows=all.filter(e=>{
     if(!_saleBrand) return true;
-    if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return s&&(s.w||s.b); }
+    if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }
     if(_saleBrand==='__munsen') return e.tag==='문센';
     if(_saleBrand==='__overseas') return e.tag==='해외';
     return e.brand===_saleBrand;
@@ -2734,7 +2844,7 @@ function renderSale(){
     // 💜 찜·알림은 하트 하나 — 공구 카드 찜(heartSvg)과 같은 꼴 (사장님 2026-10-23 "찜이랑 알림 1개로 통일 · 공구카드 찜이랑 똑같이")
     //    시작 전 세일을 찜하면 시작일 아침 9시 알림도 같이 켜진다(b). 서버는 시작일 아침 한 번만 보낸다(sale_wish_89.sql)
     const on=!!(s.w||s.b);
-    const wishBtn=`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`;
+    const wishBtn=_saleCanWish(e)?`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`:'<span class="sale-wish" aria-hidden="true"></span>';   // 시작한 건 빈 자리(알약 줄 맞춤)
     return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
   };
   let h='';
@@ -2755,22 +2865,23 @@ async function saleWish(id,ev,btn){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const cur=SALEW[id]||{}; const on=!(cur.w||cur.b);
   const sev=(_saleData||[]).find(x=>x.id===id); const before=!!(sev && _saleDay(sev.start_date)>0);
+  if(sev && !before && !(cur.w||cur.b)){ mcToast('이미 시작한 세일은 찜할 수 없어요'); return; }   // 시작한 것은 새로 찜하지 않는다(지우는 건 된다)
   if(on) SALEW[id]={w:1,b:before?1:0}; else delete SALEW[id];
   _saleWSave(); _saleWPush(id);   // 지운 뒤 보내면 wish·bell 둘 다 false 로 간다
   if(btn){ btn.innerHTML=heartSvg(on); btn.setAttribute('aria-pressed',on?'true':'false'); btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop'); }
   try{ trackEvent(on?'sale_wish_add':'sale_wish_del', String(id)); }catch(_){}
   setTimeout(renderSale, on?360:0);   // 하트가 뛰는 걸 보여 준 뒤 칩 숫자·「내 찜」 목록을 맞춘다
   if(!on) return;
-  if(!before){ mcToast('💜 찜했어요'); return; }
-  let msg='💜 찜했어요 · 시작하는 날 아침 9시에 알려드려요';
+  if(!before){ mcToast('찜했어요 💜'); return; }
+  let msg='찜했어요 💜\n시작하는 날 아침 9시에 알려드릴게요';
   try{
     if(!notiGranted()){
-      if(iosNeedsInstall()){ msg='💜 찜했어요 · 아이폰은 홈 화면에 추가해야 시작 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
-      else if(!pushSupported()){ msg='💜 찜했어요 · 이 화면에선 알림을 못 받아요(크롬·사파리로 열면 받을 수 있어요)'; }
-      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='💜 찜했어요 · 알림이 꺼져 있어요. 브라우저 설정에서 알림을 허용해 주세요'; }
-      else { const ok=await enablePush(); if(!ok) msg='💜 찜했어요 · 알림을 켜지 못했어요. 브라우저 설정에서 알림을 허용해 주세요'; }
+      if(iosNeedsInstall()){ msg='찜했어요 💜\n아이폰은 홈 화면에 추가해야\n시작 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요 💜\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요 💜\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요 💜\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
     }
-  }catch(_){ msg='💜 찜했어요'; }
+  }catch(_){ msg='찜했어요 💜'; }
   mcToast(msg);
 }
 // 세일 탭 바로 열기: momcalendar.com/#sale
@@ -2783,6 +2894,10 @@ document.addEventListener('DOMContentLoaded', function(){
   }catch(_){}
 });
 
+// 라방 바로 열기: momcalendar.com/#live (찜한 라방 알림 — send-live-push)
+function _openLiveHash(){ try{ if(location.hash!=='#live') return; _slMode='live'; try{ localStorage.setItem('mc_sl_mode','live'); }catch(_){} switchContent('sale'); setSlMode('live'); var seg=document.getElementById('contentSeg'); if(seg) setTimeout(function(){ try{ seg.scrollIntoView({block:'start'}); }catch(_){} }, 400); }catch(_){} }
+document.addEventListener('DOMContentLoaded', _openLiveHash);
+window.addEventListener('hashchange', _openLiveHash);
 // 이미 열려 있는 창에 알림이 #sale 로 이동시키면 DOMContentLoaded 는 다시 안 온다 → 해시 변경도 듣는다
 window.addEventListener('hashchange', function(){
   try{
@@ -4011,11 +4126,25 @@ function mcShare(){
 function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
 function mcToast(msg){
   try{
-    var t=document.createElement('div');
-    t.textContent=msg;
-    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
+    // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
+    var prev=document.getElementById('mcToastBox'); if(prev){ try{prev.remove();}catch(_){} }
+    var lines=String(msg==null?'':msg).split('\n').map(function(x){return x.trim();}).filter(Boolean);
+    var t=document.createElement('div'); t.id='mcToastBox'; t.setAttribute('role','status'); t.setAttribute('aria-live','polite');
+    var h=document.createElement('div'); h.textContent=lines[0]||''; h.style.cssText='font-size:15px;font-weight:700;line-height:1.4';
+    t.appendChild(h);
+    if(lines.length>1){ var d=document.createElement('div'); d.textContent=lines.slice(1).join(' '); d.style.cssText='font-size:13.5px;font-weight:500;line-height:1.45;color:rgba(255,255,255,.72);margin-top:2px'; t.appendChild(d); }
+    // 바닥에서 띄울 높이: 떠 있는 ＋ 버튼·앱 하단 탭바 중 더 높은 것 위로 12px
+    var b=16;
+    //  (화면에 고정된 요소는 offsetParent 가 늘 null 이라 크기·표시로 판정한다 · ＋ 는 메뉴 묶음이 아니라 버튼 자체 위치)
+    var _vis=function(el){ if(!el) return null; var cs=getComputedStyle(el); if(cs.display==='none'||cs.visibility==='hidden') return null; var r=el.getBoundingClientRect(); return (r.width&&r.height&&r.top<window.innerHeight)?r:null; };
+    try{ var rf=_vis(document.getElementById('chatFab')); if(rf && _vis(document.querySelector('.chat-fab-wrap'))) b=Math.max(b, window.innerHeight-rf.top+12); }catch(_){}
+    try{ var rt=_vis(document.getElementById('appTabbar')); if(rt) b=Math.max(b, window.innerHeight-rt.top+12); }catch(_){}
+    t.style.cssText='position:fixed;left:50%;bottom:'+b+'px;transform:translate(-50%,8px);opacity:0;width:calc(100% - 32px);max-width:448px;box-sizing:border-box;background:#333D4B;color:#fff;padding:14px 18px;border-radius:12px;z-index:99999;text-align:left;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s ease,transform .2s ease;pointer-events:none';
     document.body.appendChild(t);
-    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, 2200);
+    requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translate(-50%,0)'; });
+    // 길면 오래 보여 준다(글자당 45ms, 3~5.5초)
+    var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
+    setTimeout(function(){ t.style.opacity='0'; t.style.transform='translate(-50%,8px)'; setTimeout(function(){ try{t.remove();}catch(_){} }, 250); }, _ms);
   }catch(_){}
 }
 
@@ -4657,7 +4786,7 @@ function wnLater(){
     localStorage.setItem('mc_wn_next', _dstrPlus(days));    // 날짜 기준(YYYY-MM-DD)
   }catch(_){}
   closeWnSheet();
-  mcToast('찜했어요 💜 (알림 안내는 '+days+'일 뒤에 다시 여쭤볼게요)');
+  mcToast('찜했어요 💜\n알림 안내는 '+days+'일 뒤에 다시 여쭤볼게요');
 }
 async function wnAllow(){
   const ok=document.getElementById('wnOk');
@@ -4932,7 +5061,7 @@ async function renderSearchDrop(){
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
     : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
-    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>이런 공구 찾으세요?</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="sdrop-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)"><b>#</b>${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
   const list=await loadTrendingQ();
   const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
   tl.innerHTML = list.length
