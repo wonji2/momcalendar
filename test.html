@@ -778,7 +778,7 @@ body.srch-mode .app-tabbar{display:none!important}
 .sale-logo{flex:0 0 42px;width:42px;height:42px;border-radius:11px;border:1px solid #EEF1F5;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
 .sale-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .sale-body{flex:1;min-width:0}
-.sale-t{font-size:14px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
+.sale-t{font-size:13px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
 .sale-t em{font-style:normal;font-size:10.5px;font-weight:700;color:#D85A30;background:#FBEAE7;border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:1px}
 .sale-m{font-size:11.5px;color:#7A8794;margin-top:3px}
 .sale-bar{height:4px;border-radius:2px;background:#E6EEF7;margin-top:7px;overflow:hidden}
@@ -4671,13 +4671,25 @@ function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 �
 function mcDot(s){ return String(s==null?'':s).replace(/\s*·\s*/g,'\u00a0· '); }
 function mcToast(msg){
   try{
-    var t=document.createElement('div');
-    t.textContent=msg;
-    // 길면 오래 보여 준다(글자당 45ms, 3~5.5초) · \n 으로 줄을 나눈다 · 낱말 중간에서 안 끊는다 (사장님 2026-10-23 "지속시간 너무 짧아 · 줄바꿈 애매")
-    var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
-    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:rgba(40,20,60,.94);color:#fff;font-size:12.5px;font-weight:700;padding:11px 18px;border-radius:22px;z-index:99999;width:max-content;max-width:calc(100vw - 40px);white-space:pre-line;text-align:center;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:82%;text-align:center;line-height:1.4';
+    // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
+    var prev=document.getElementById('mcToastBox'); if(prev){ try{prev.remove();}catch(_){} }
+    var lines=String(msg==null?'':msg).split('\n').map(function(x){return x.trim();}).filter(Boolean);
+    var t=document.createElement('div'); t.id='mcToastBox'; t.setAttribute('role','status'); t.setAttribute('aria-live','polite');
+    var h=document.createElement('div'); h.textContent=lines[0]||''; h.style.cssText='font-size:15px;font-weight:700;line-height:1.4';
+    t.appendChild(h);
+    if(lines.length>1){ var d=document.createElement('div'); d.textContent=lines.slice(1).join(' '); d.style.cssText='font-size:13.5px;font-weight:500;line-height:1.45;color:rgba(255,255,255,.72);margin-top:2px'; t.appendChild(d); }
+    // 바닥에서 띄울 높이: 떠 있는 ＋ 버튼·앱 하단 탭바 중 더 높은 것 위로 12px
+    var b=16;
+    //  (화면에 고정된 요소는 offsetParent 가 늘 null 이라 크기·표시로 판정한다 · ＋ 는 메뉴 묶음이 아니라 버튼 자체 위치)
+    var _vis=function(el){ if(!el) return null; var cs=getComputedStyle(el); if(cs.display==='none'||cs.visibility==='hidden') return null; var r=el.getBoundingClientRect(); return (r.width&&r.height&&r.top<window.innerHeight)?r:null; };
+    try{ var rf=_vis(document.getElementById('chatFab')); if(rf && _vis(document.querySelector('.chat-fab-wrap'))) b=Math.max(b, window.innerHeight-rf.top+12); }catch(_){}
+    try{ var rt=_vis(document.getElementById('appTabbar')); if(rt) b=Math.max(b, window.innerHeight-rt.top+12); }catch(_){}
+    t.style.cssText='position:fixed;left:50%;bottom:'+b+'px;transform:translate(-50%,8px);opacity:0;width:calc(100% - 32px);max-width:448px;box-sizing:border-box;background:#333D4B;color:#fff;padding:14px 18px;border-radius:12px;z-index:99999;text-align:left;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s ease,transform .2s ease;pointer-events:none';
     document.body.appendChild(t);
-    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ try{t.remove();}catch(_){} }, 400); }, _ms);
+    requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translate(-50%,0)'; });
+    // 길면 오래 보여 준다(글자당 45ms, 3~5.5초)
+    var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
+    setTimeout(function(){ t.style.opacity='0'; t.style.transform='translate(-50%,8px)'; setTimeout(function(){ try{t.remove();}catch(_){} }, 250); }, _ms);
   }catch(_){}
 }
 
