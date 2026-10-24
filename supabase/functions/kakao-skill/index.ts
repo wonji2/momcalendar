@@ -32,7 +32,23 @@ const thumbOf = (u: unknown) => {
   //    webp 를 .jpg 로 바꾸면 오히려 404 가 되는 경로가 있다(2026-09-02 실측으로 4건 깨뜨렸다).
   return s;
 };
-const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 냄비, 기저귀)"].join("\n");
+const HELP = ["맘캘린더예요! 공구 일정을 알려드려요", "", "· 오늘 공구 뭐있어?", "· 오늘 마감 공구 알려줘", "· 이번주 공구", "· 브랜드 이름 (예: 냄비, 기저귀)", "· 건의·오류 제보는 「문의하기」"].join("\n");
+// 📮 문의 갈래 (2026-10-24 사장님 「맘캘봇 고도화」 — 설계 scratchpad/momcalbot_spec.md)
+//   ⓐ 결제·배송·교환·환불 = 우리가 파는 게 아니다 → 고정 안내(사장님 확정 문구) · ⓑ 셀러 입점 = 등록 페이지 · ⓒ 건의·질문·오류 제보·삭제 요청 = 메일 카드
+//   메일 카드는 contact.html(주소·말머리 제목·본문 양식 + 복사 버튼 — 카톡 인앱은 mailto 가 안 열릴 수 있다)을 연다
+const CS_PAY_MSG = "맘캘린더는 공동구매·핫딜·세일 등 유용한 정보를 모아 공유드리는 곳이에요.\n결제·배송·교환·환불은 구매하신 셀러 계정(인스타 DM·공지)이나 판매처 고객센터로 문의해 주세요.";
+const CS_PAY = /(배송|택배|배달).{0,6}(언제|안\s*와|안와|늦|지연|조회|확인|문의|출발)|교환|환불|반품|주문\s*(취소|확인|조회|변경)|결제\s*(취소|오류|안\s*돼|안돼|문의|확인)|입금\s*(확인|했)|송장/;
+const CS_SELLER = /입점|셀러\s*(등록|가입|신청)|공구\s*(등록|올리|올려|신청).{0,8}(하고|싶|방법|어떻게)|등록\s*(하고\s*싶|방법|어떻게)|광고\s*문의|제휴\s*문의/;
+const CS_MAIL = /^(메일로\s*문의하기|문의하기|문의|건의하기|건의사항|오류\s*제보|삭제\s*요청)[\s!?.~]*$|건의|제안할|오류|버그|에러|안\s*열려|먹통|삭제\s*요청|지워\s*주|내려\s*주|문의\s*(하고|드리|할게|드려)/;
+const CONTACT = "https://momcalendar.com/contact.html";
+const REGISTER = "https://momcalendar.com/register.html";
+const mailCard = (said: string) => ({ listCard: {
+  header: { title: "💬 맘캘봇 문의 보내기" },
+  items: ([["건의", "좋아졌으면 하는 점"], ["질문", "궁금한 점"], ["오류 제보", "안 되는 화면·버튼"], ["삭제 요청", "내려야 할 페이지·상품"]] as [string, string][])
+    .map(([t, d]) => ({ title: `[${t}]`, description: `${d} → app@momcalendar.com`, link: { web: `${CONTACT}?t=${encodeURIComponent(t)}&q=${encodeURIComponent(said.slice(0, 200))}` } })),
+  buttons: [{ action: "webLink", label: "셀러 입점 신청", webLinkUrl: REGISTER }],
+} });
+const sellerCard = () => ({ textCard: { text: "셀러 입점은 아래 「셀러 등록」에서 신청할 수 있어요.\n등록하시면 공구 일정이 맘캘린더에 올라가요.", buttons: [{ action: "webLink", label: "셀러 등록", webLinkUrl: REGISTER }] } });
 const MAX_SHOW = 20;   // 캐러셀 5장 × 4건 (카카오 최대치)
 // 사장님 본인 공구를 「내 것만」으로 안내하기 시작하는 시점 (사장님 2026-10-05 "2주전부터")
 //   카페 답글봇 sns-automation/src/cafe-answer.js 의 NOTICE_DAYS 와 같은 값을 쓴다 — 한쪽만 바꾸면 두 채널 답이 갈린다.
@@ -480,6 +496,17 @@ async function handle(req: Request): Promise<Response> {
     const w1 = u.split(/\s+/)[0] || "";
     const brandFirst = greetLike && w1.length >= 3 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + w1 + "%")}&limit=1`)) > 0;
     if (greetLike && !brandFirst) return reply([text(HELP)]);
+
+    // 📮 문의 갈래 — 공구 검색보다 먼저. 단 그 말이 상품명에 통째로 있으면(브랜드와 겹치면) 검색으로 둔다(땡스소윤 사고와 같은 원리)
+    if (CS_PAY.test(u) || CS_SELLER.test(u) || CS_MAIL.test(u)) {
+      const kw0 = keyword(u);
+      const inName = kw0.length >= 2 && (await countOf(`gonggu?select=id&name=ilike.${encodeURIComponent("%" + kw0 + "%")}&limit=1`)) > 0;
+      if (!inName) {
+        if (CS_PAY.test(u)) return reply([text(CS_PAY_MSG)], ["문의하기"]);
+        if (CS_SELLER.test(u)) return reply([sellerCard()]);
+        return reply([mailCard(/^(메일로\s*문의하기|문의하기|문의)[\s!?.~]*$/.test(u) ? "" : u)]);
+      }
+    }
 
     // 「아무거나」= 오늘 공구 (사장님 확정 2026-09-07). 사전·AI 보다 앞 — 검색어로 보면 "'아무거나' 없어요" 가 나간다(실손님)
     const wantAny = /^(아무거나|아무거|아무꺼나|암거나|아무말|아무것|추천|추천해줘|추천좀|뭐든)[\s!?~.]*$/.test(u);
@@ -991,8 +1018,11 @@ async function handle(req: Request): Promise<Response> {
         }
       } catch (_) { /* 버튼은 덤이다 — 실패해도 안내는 나간다 */ }
       const tail = picks.length ? `\n\n대신 아래에서 낱말 하나씩 골라 보실 수 있어요 👇` : ``;
+      // 📮 「없어요」로 끝내지 않는다 — 원하는 게 없으면 메일로 알려 달라는 버튼을 단다(사장님 2026-10-24 「모르는건 모르겠어요가 아니고 … 메일 보낼 수 있게」)
       return reply([text(`'${say}' 공구는 지금 진행 중이거나 예정인 게 없어요.
-아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}${tail}`)], picks);
+아래 버튼으로 전체 일정에서 찾아보실 수 있어요!${hint}${tail}
+
+찾으시는 게 없거나 궁금한 점은 「메일로 문의하기」로 알려주세요.`)], [...picks, "메일로 문의하기"]);
 
     };
 

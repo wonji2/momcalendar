@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 문의 보내기</title>
+<!-- 맘캘봇(카톡 채널 챗봇)이 여는 메일 작성 페이지 (2026-10-24 사장님 「건의 질문 오류제보 삭제요청 … app@momcalendar.com 우리 메일로 제목 양식 달아서」)
+     주소 ?t=건의|질문|오류 제보|삭제 요청 &q=손님이 봇에 쓴 말 → 받는 주소·말머리 제목·본문 양식을 채운 메일을 연다.
+     카톡 인앱 브라우저는 mailto 가 안 열릴 수 있어 주소·제목·내용 복사 버튼을 같이 둔다. 결제·배송·교환·환불은 여기서 받지 않는다(봇이 셀러·판매처로 안내) -->
+<style>
+:root{--ink:#2B2433;--sub:#6B6478;--line:#ECE7F3;--bg:#FAF8FD;--pink:#C2417A}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;padding:20px 16px 40px;-webkit-text-size-adjust:100%}
+.wrap{max-width:480px;margin:0 auto}
+h1{font-size:19px;margin-bottom:4px}
+.sub{font-size:13px;color:var(--sub);margin-bottom:16px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.tabs button{border:1px solid #DDD6E6;background:#fff;color:var(--ink);border-radius:18px;padding:7px 13px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.lab{font-size:11.5px;color:var(--sub);font-weight:700;margin-bottom:4px}
+.val{font-size:14px;word-break:break-all;white-space:pre-wrap}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;height:48px;border-radius:12px;font-weight:800;font-size:15px;text-decoration:none;border:none;font-family:inherit;cursor:pointer;margin-bottom:8px}
+.go{background:var(--pink);color:#fff}
+.cp{background:#fff;color:var(--ink);border:1px solid #DDD6E6}
+.note{font-size:12px;color:var(--sub);margin-top:8px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(30,20,40,.88);color:#fff;font-size:13px;padding:9px 14px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💬 맘캘봇 문의 보내기</h1>
+  <p class="sub">app@momcalendar.com 으로 메일을 보내요. 제목에 말머리가 자동으로 들어가요.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="box"><div class="lab">받는 주소</div><div class="val" id="to">app@momcalendar.com</div></div>
+  <div class="box"><div class="lab">제목</div><div class="val" id="subj"></div></div>
+  <div class="box"><div class="lab">내용 (메일에서 채워 주세요)</div><div class="val" id="body"></div></div>
+  <a class="btn go" id="go" href="#">메일 앱으로 보내기</a>
+  <button class="btn cp" onclick="cp('app@momcalendar.com','주소를 복사했어요')">주소 복사</button>
+  <button class="btn cp" onclick="cp(S.subj+'\n\n'+S.body,'제목·내용을 복사했어요')">제목·내용 복사</button>
+  <p class="note">메일 앱이 열리지 않으면 주소와 제목·내용을 복사해 쓰시는 메일에 붙여 넣어 주세요.<br>결제·배송·교환·환불은 구매하신 셀러 계정(인스타 DM·공지)이나 판매처 고객센터로 문의해 주세요.<br>셀러 입점은 <a href="https://momcalendar.com/register.html" style="color:var(--pink)">셀러 등록 페이지</a>에서 할 수 있어요.</p>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var TYPES={
+  '건의':['건의 내용:','','연락받을 방법(선택):'],
+  '질문':['궁금한 점:','','사용 기기(안드로이드·아이폰·PC):','앱·브라우저(맘캘린더 앱·카톡·크롬·사파리):'],
+  '오류 제보':['어느 화면에서:','무엇을 눌렀을 때:','어떻게 됐는지:','사용 기기·앱·브라우저:','(가능하면 화면 캡처를 첨부해 주세요)'],
+  '삭제 요청':['지울 페이지 주소 또는 상품·브랜드 이름:','요청하시는 분(셀러·브랜드 담당·본인):','사유:']
+};
+var p=new URLSearchParams(location.search), S={};
+var q=(p.get('q')||'').replace(/[\r\n]+/g,' ').trim().slice(0,200);
+function render(t){
+  if(!TYPES[t]) t='질문';
+  var head=q?q.slice(0,30):'';
+  S.subj='['+t+'] '+head;
+  S.body=(q?'맘캘봇에 남긴 말: '+q+'\n\n':'')+TYPES[t].join('\n');
+  document.getElementById('subj').textContent=S.subj;
+  document.getElementById('body').textContent=S.body;
+  document.getElementById('go').href='mailto:app@momcalendar.com?subject='+encodeURIComponent(S.subj)+'&body='+encodeURIComponent(S.body);
+  document.getElementById('tabs').innerHTML=Object.keys(TYPES).map(function(k){return '<button class="'+(k===t?'on':'')+'" onclick="render(\''+k+'\')">'+k+'</button>';}).join('');
+}
+function cp(s,msg){
+  var done=function(){var e=document.getElementById('toast');e.textContent=msg;e.classList.add('on');setTimeout(function(){e.classList.remove('on')},1600);};
+  try{ navigator.clipboard.writeText(s).then(done,function(){fb(s);done();}); }catch(_){ fb(s); done(); }
+}
+function fb(s){ var ta=document.createElement('textarea'); ta.value=s; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy')}catch(_){} ta.remove(); }
+render(p.get('t')||'질문');
+</script>
+</body>
+</html>
