@@ -697,6 +697,10 @@ body.srch-mode .app-tabbar{display:none!important}
 .live-day small{font-size:12.5px;font-weight:600;color:#8B95A1;margin-left:6px}
 /* 라방 = 토스형 (사장님 2026-10-24 시안 1안 확정): 맨 위 큰 무대 한 장 + 상자 없는 줄 목록. 위계는 글자 크기·굵기로만, 강조색은 LIVE 빨강 하나
    네이버는 남의 페이지 안에 방송 화면을 못 띄우게 막고(「접근이 불가한 환경」) 예정 방송엔 미리보기 영상이 없다 → 사진 확대·교체로 움직임 */
+.lv-days{display:flex;gap:18px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-bottom:1px solid #E5E8EB;margin:2px 0 12px;padding:0 2px}
+.lv-days::-webkit-scrollbar{display:none}
+.lv-days button{flex:0 0 auto;border:none;background:none;font-family:inherit;cursor:pointer;padding:9px 0 10px;font-size:14.5px;font-weight:700;color:#8B95A1;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.lv-days button.on{color:#191F28;border-bottom-color:#191F28}
 .lv-stage{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/5;background:#222;margin:12px 0 4px;touch-action:pan-y}
 .lv-sl{position:absolute;inset:0;opacity:0;transition:opacity .8s;display:block;color:#fff;text-decoration:none;pointer-events:none}
 .lv-sl.on{opacity:1;pointer-events:auto}
@@ -1609,6 +1613,7 @@ window.slimAdClick=function(id){
     <div class="sale-head">
       <div class="sale-h1">라방 일정</div>
     </div>
+    <div class="lv-days" id="liveDays" role="tablist"></div>
     <div class="sale-chips" id="liveChips"></div>
     <div id="liveList"></div>
     <div class="sale-foot">편성은 방송사 사정으로 바뀔 수 있어요. 하루 4번 새로 모아요.<br>카드를 누르면 네이버 쇼핑라이브로 이동해요.</div>
@@ -2908,6 +2913,8 @@ async function loadLive(){
   if(!_liveData){ if(box) box.innerHTML='<div class="sale-empty">라방 일정을 불러오지 못했어요<br><button class="sale-chip" style="margin-top:10px" onclick="loadLive()">다시 시도</button></div>'; return; }
   renderLive();
 }
+let _liveDay='';   // '' = 전체, 'YYYY-MM-DD' = 그날만
+function liveDay(d){ _liveDay=d||''; renderLive(); try{ window.scrollTo(0, document.getElementById('liveDays').getBoundingClientRect().top+scrollY-70); }catch(_){} try{ trackEvent('live_day', d||'전체'); }catch(_){} }
 function liveFilter(c){ _liveCat=c||''; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
 function _liveWhen(iso){
   const d=new Date(iso), k=new Date(d.getTime()+9*3600e3);
@@ -2955,7 +2962,15 @@ function renderLive(){
     const cats=Object.keys(cnt).sort((a,b)=>(a==='키즈'?-1:b==='키즈'?1:cnt[b]-cnt[a]));   // 키즈를 앞에
     chips.innerHTML=['',...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:`${c} ${cnt[c]}`)}</button>`).join('');
   }
-  const rows=all.filter(x=>!_liveCat||x.category===_liveCat);
+  const catRows=all.filter(x=>!_liveCat||x.category===_liveCat);
+  // 날짜 탭: 고른 분류에 방송이 있는 날만. 고른 날에 방송이 없어지면 전체로
+  const dayOf=x=>_liveWhen(x.start_at).day, days=[...new Set(catRows.map(dayOf))];
+  if(_liveDay && !days.includes(_liveDay)) _liveDay='';
+  const dEl=document.getElementById('liveDays');
+  if(dEl){ dEl.innerHTML=['',...days].map(d=>{ const lab=d===''?'전체':d===todayStr?'오늘':/^내일/.test(_liveDayLabel(d))?'내일':`${+d.slice(5,7)}.${+d.slice(8,10)} ${'일월화수목금토'[new Date(d+'T12:00:00+09:00').getUTCDay()]}`;
+    return `<button role="tab" class="${_liveDay===d?'on':''}" aria-selected="${_liveDay===d?'true':'false'}" onclick="liveDay('${d}')">${lab}</button>`; }).join('');
+    const on=dEl.querySelector('.on'); if(on && on.offsetLeft+on.offsetWidth>dEl.clientWidth) dEl.scrollLeft=on.offsetLeft-16; }
+  const rows=catRows.filter(x=>!_liveDay||dayOf(x)===_liveDay);
   _lvStageStop();
   if(!rows.length){ list.innerHTML='<div class="sale-empty">예정된 라방이 없어요</div>'; return; }
   const now=Date.now();
