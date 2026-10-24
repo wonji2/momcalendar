@@ -2918,7 +2918,7 @@ function setSlMode(m){
   try{ trackEvent('sl_mode',_slMode); }catch(_){}
 }
 async function loadLive(){
-  _liveWLoad(); liveWSync();
+  _liveWLoad();
   if(_liveData){ renderLive(); return; }
   const box=document.getElementById('liveList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
   try{
@@ -2930,6 +2930,7 @@ async function loadLive(){
     if(r.ok) _liveData=await r.json();
   }catch(_){}
   // 실패를 빈 목록으로 기억하면 새로고침 전까지 「예정된 라방이 없어요」 거짓 안내가 남는다 → 안 담고 다시 시도 버튼
+  if(_liveData) liveWSync();
   if(!_liveData){ if(box) box.innerHTML='<div class="sale-empty">라방 일정을 불러오지 못했어요<br><button class="sale-chip" style="margin-top:10px" onclick="loadLive()">다시 시도</button></div>'; return; }
   renderLive();
 }
@@ -2948,8 +2949,10 @@ async function liveWSync(){
       headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}, body:JSON.stringify({p_device:deviceId()})});
     if(!r.ok) return;
     const m={}; (await r.json()).forEach(x=>{ m[x.show_id]=1; });
-    // 서버에 없는데 이 기기에만 있는 것(전송 실패분)은 다시 올린다
-    Object.keys(LIVEW).forEach(k=>{ if(!m[k]){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
+    // 서버에 없는데 이 기기에만 있는 것: 아직 안 끝난 방송이면 다시 올리고(전송 실패분), 지난 방송·목록에 없는 번호는 이 기기에서도 지운다
+    //  (전엔 지난 찜이 영원히 남아 라방을 열 때마다 다시 보냈다 — 검증자 2026-10-24)
+    const alive=new Set((_liveData||[]).filter(x=>new Date(x.start_at).getTime()+3600e3>Date.now()).map(x=>String(x.id)));
+    Object.keys(LIVEW).forEach(k=>{ if(!m[k] && alive.has(String(k))){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
     LIVEW=m; _liveWSave(); if(_slMode==='live') renderLive();
   }catch(_){}
 }
@@ -2967,6 +2970,9 @@ async function liveWish(id,ev,btn){
   if(!future){ mcToast('찜했어요'); return; }
   // 「알려드려요」 는 이 기기가 실제로 받을 수 있을 때만 말한다(세일 찜과 같은 기준)
   let msg='찜했어요\n방송 10분 전에 알려드릴게요';
+  // 라방 알림은 웹 알림으로만 간다 — 아이폰 앱(앱 알림)엔 아직 안 가고, 「세일 알림」을 꺼 두면 안 간다(서버 live_push_targets 와 같은 기준)
+  try{ if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); return; } }catch(_){}
+  try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요\n세일·라방 알림이 꺼져 있어요\n내정보에서 켤 수 있어요'); return; } }catch(_){}
   try{
     if(!notiGranted()){
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n방송 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
@@ -2978,8 +2984,8 @@ async function liveWish(id,ev,btn){
   mcToast(msg);
 }
 let _liveDay='';   // '' = 전체, 'YYYY-MM-DD' = 그날만
-function liveDay(d){ _liveDay=d||''; renderLive(); try{ window.scrollTo(0, document.getElementById('liveDays').getBoundingClientRect().top+scrollY-70); }catch(_){} try{ trackEvent('live_day', d||'전체'); }catch(_){} }
-function liveFilter(c){ _liveCat=c||''; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
+function liveDay(d){ _liveDay=d||''; _lvStI=0; renderLive(); try{ window.scrollTo(0, document.getElementById('liveDays').getBoundingClientRect().top+scrollY-70); }catch(_){} try{ trackEvent('live_day', d||'전체'); }catch(_){} }
+function liveFilter(c){ _liveCat=c||''; _lvStI=0; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
 function _liveWhen(iso){
   const d=new Date(iso), k=new Date(d.getTime()+9*3600e3);
   const ds=k.toISOString().slice(0,10), h=k.getUTCHours(), mi=k.getUTCMinutes();
@@ -2993,15 +2999,15 @@ function _liveDayLabel(ds){
   const w='일월화수목금토'[new Date(ds+'T12:00:00+09:00').getUTCDay()];
   return (diff===1?'내일 · ':'')+`${+ds.slice(5,7)}.${+ds.slice(8,10)}(${w})`;
 }
-let _lvStT=null;
+let _lvStT=null, _lvStI=0;   // _lvStI = 무대에서 보고 있던 방송 순번(하트를 눌러 다시 그려도 그대로)
 function _lvStageStop(){ if(_lvStT){ clearInterval(_lvStT); _lvStT=null; } }
 // 맨 위 무대: 4초마다 다음 방송 · 밀면 넘어감 · 손대면 8초 쉼 · 화면에 없으면 멈춤
 function _lvStageStart(){
   _lvStageStop();
   const st=document.getElementById('lvStage'); if(!st) return;
   const sl=st.querySelectorAll('.lv-sl'), dt=st.querySelectorAll('.lv-dots i'); if(sl.length<2) return;
-  let i=0, hold=0, x0=null;
-  const go=n=>{ sl[i].classList.remove('on'); dt[i]&&dt[i].classList.remove('on'); i=(n+sl.length)%sl.length; sl[i].classList.add('on'); dt[i]&&dt[i].classList.add('on'); };
+  let i=Math.max(0,[...sl].findIndex(e=>e.classList.contains('on'))), hold=0, x0=null;
+  const go=n=>{ sl[i].classList.remove('on'); dt[i]&&dt[i].classList.remove('on'); i=(n+sl.length)%sl.length; _lvStI=i; sl[i].classList.add('on'); dt[i]&&dt[i].classList.add('on'); };
   st.addEventListener('touchstart',e=>{ hold=Date.now()+8000; x0=e.touches[0].clientX; },{passive:true});
   st.addEventListener('touchend',e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>40){ go(i+(dx<0?1:-1)); st.dataset.sw='1'; setTimeout(()=>{ delete st.dataset.sw; },400); } },{passive:true});
   st.addEventListener('click',e=>{ if(st.dataset.sw){ e.preventDefault(); e.stopPropagation(); } },true);   // 밀어서 넘긴 손가락이 링크를 누른 것으로 치지 않게
@@ -3041,8 +3047,9 @@ function renderLive(){
   const now=Date.now();
   // 무대 = 가장 가까운 방송 6개(방송 중 먼저 — 목록이 시작 시각 순이다) · 아래 목록엔 다시 안 넣는다
   const hero=rows.slice(0,6), heroId=new Set(hero.map(x=>x.id));
+  const si=_lvStI<hero.length?_lvStI:0;
   let html=`<div class="lv-stage" id="lvStage">${hero.map((x,i)=>{ const w=_liveWhen(x.start_at); const tm=(w.day===todayStr?'':_liveDayLabel(w.day).replace(/^내일 · .*/,'내일')+' ')+w.time;
-    return `<a class="lv-sl${i?'':' on'}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish')}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join(''):''}</div></div>`;
+    return `<a class="lv-sl${i===si?' on':''}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish')}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i===si?'on':''}"></i>`).join(''):''}</div></div>`;
   let lastDay='';
   for(const x of rows){
     if(heroId.has(x.id)) continue;
@@ -3255,8 +3262,10 @@ function renderMe(){
   <div class="me-foot"><a href="terms.html" target="_blank" rel="noopener">이용약관</a><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a><span>버전 ${typeof APP_VERSION!=='undefined'?APP_VERSION:''}${_isTwa()?' · 안드로이드 앱':' · 웹'}</span></div>`;
 }
 // 관심 카테고리 다시 고르기 — 첫 실행의 카테고리 화면을 다시 연다(고른 것은 켜진 채로)
+let _onbRepick=false;   // 내정보에서 관심 카테고리만 다시 고르는 중 — 아이 화면으로 안 넘어가고 첫 실행 통계도 안 센다
 function mePickCats(){
   const w=document.getElementById('onbWrap'); if(!w) return;
+  _onbRepick=true;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
   _onbStep('onbCat');
   let cats=[]; try{ cats=JSON.parse(localStorage.getItem('mc_pref_cats')||'[]'); }catch(_){}
@@ -3265,7 +3274,7 @@ function mePickCats(){
 }
 // 시작 탭 — 앱을 열면 처음 보이는 탭(공구/핫딜). 주소에 #·?q 가 있으면 그쪽이 먼저
 function meStartTab(t){ try{ localStorage.setItem('mc_start_tab', t==='hotdeal'?'hotdeal':'gonggu'); }catch(_){} renderMe(); try{ trackEvent('me_start_tab',t); }catch(_){} }
-document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try{ if(location.hash || /[?&]q=/.test(location.search)) return; if(localStorage.getItem('mc_start_tab')==='hotdeal') switchContent('hotdeal'); }catch(_){} }, 0); });
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try{ const _p=new URLSearchParams(location.search); ['app','v','reset','utm_source','utm_medium','utm_campaign'].forEach(k=>_p.delete(k)); if(location.hash || [..._p.keys()].length) return; if(localStorage.getItem('mc_start_tab')==='hotdeal') switchContent('hotdeal'); }catch(_){} }, 0); });
 
 // 📤 공유 카드 — 1080×1350 전용 카드. 화면 캡처가 아니라 따로 그린다(기획서 10절). html2canvas 는 필요할 때만 로드.
 let _shareKind='', _sharePng=null;
@@ -6935,7 +6944,7 @@ function renderCommunity(){
   </div>
   <div class="onb-step" id="onbCat">
     <div class="onb-top"><h2>어떤 공구를 먼저 볼까요?</h2><small>여러 개 골라도 돼요</small></div>
-    <div class="onb-body"><div class="onb-cat" id="onbCatChips"></div><button class="onb-btn" type="button" style="margin-top:8px" onclick="onbCatDone()">다음</button><button class="onb-btn o" type="button" onclick="onbFinish('skip_cat')">건너뛰기</button></div>
+    <div class="onb-body"><div class="onb-cat" id="onbCatChips"></div><button class="onb-btn" type="button" style="margin-top:8px" onclick="onbCatDone()">다음</button><button class="onb-btn o" type="button" onclick="if(_onbRepick){_onbRepick=false;const w=document.getElementById('onbWrap');if(w){w.classList.remove('open');w.setAttribute('aria-hidden','true');}document.body.style.overflow='';}else onbFinish('skip_cat')">건너뛰기</button></div>
   </div>
   <div class="onb-step" id="onbKid">
     <div class="onb-top"><h2>아이 정보를 입력하시면<br>유용한 맞춤 정보를 보여드릴게요</h2></div>
@@ -6963,6 +6972,7 @@ function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(e
 function onbCatDone(){
   const cats=[...document.querySelectorAll('#onbCatChips .onb-chip.on')].map(b=>b.dataset.c);
   try{ localStorage.setItem('mc_pref_cats', JSON.stringify(cats)); trackEvent('onb_cats', cats.join(',')); }catch(_){}
+  if(_onbRepick){ _onbRepick=false; const w=document.getElementById('onbWrap'); if(w){ w.classList.remove('open'); w.setAttribute('aria-hidden','true'); } document.body.style.overflow=''; applyPrefCats(); try{ renderMe(); }catch(_){} return; }
   if(cats.includes('육아')) _onbStep('onbKid'); else onbFinish('cats');
 }
 function onbKidAdd(){ const el=document.getElementById('onbKids'); const d=document.createElement('div'); d.className='onb-kid'; d.innerHTML='<input type="text" inputmode="numeric" placeholder="숫자" aria-label="숫자"><div class="onb-seg" role="group"><button type="button" class="on" data-u="m">개월</button><button type="button" data-u="y">세</button></div><div class="onb-seg" role="group"><button type="button" class="on" data-g="f">여아</button><button type="button" data-g="m">남아</button></div><button type="button" class="x" aria-label="삭제" onclick="this.parentNode.remove()">✕</button>'; d.querySelectorAll('.onb-seg button').forEach(b=>b.addEventListener('click',function(){ [...this.parentNode.children].forEach(x=>x.classList.remove('on')); this.classList.add('on'); })); el.appendChild(d); }

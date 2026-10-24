@@ -22,12 +22,11 @@ const CLUB = 31499187;
 const BOARDS: Record<number, string> = { 14: "자유수다", 127: "살까말까", 21: "육아수다", 85: "이유식·유아식", 126: "책육아", 70: "임신수다", 92: "뷰티·다욧", 91: "리빙·인테리어", 118: "초중고딩", 122: "가십·유머", 123: "여행·문화", 124: "반려동물", 120: "축하·위로", 20: "오늘의 식탁" };
 const LIST = (menuid: number, per: number, vt: "L" | "I") =>
   `https://apis.naver.com/cafe-web/cafe-boardlist-api/v1/cafes/${CLUB}/menus/${menuid}/articles?page=1&pageSize=${per}&sortBy=TIME&viewType=${vt}`;
-// 본문 앞부분: 카페 자동 꼬리 줄을 자르고 공백을 한 칸으로
+// 본문 앞부분: 「-----」 줄로 나뉜 조각 중 카페 자동 꼬리(「▪ 맘캘린더[…]」)를 빼고, 남은 것 중 **마지막 조각**(게시판 안내 머리글 뒤의 실제 본문)을 쓴다
+//   (검증자 2026-10-24: 첫 「-----」 에서 자르면 「잠깐! 질문글 올리기 전…」 머리글만 남고 본문이 버려졌다 — 글 42488)
 const cleanSummary = (s: unknown) => {
-  let t = String(s || "");
-  const cut = t.search(/\n\s*-{5,}|▪\s*맘캘린더\s*\[/);
-  if (cut >= 0) t = t.slice(0, cut);
-  return t.replace(/\s+/g, " ").trim().slice(0, 200) || null;
+  const parts = String(s || "").split(/\n\s*-{5,}\s*(?:\n|$)/).map((p) => p.replace(/▪\s*맘캘린더\s*\[[\s\S]*$/, "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  return (parts[parts.length - 1] || "").slice(0, 200) || null;
 };
 
 Deno.serve(async (req) => {

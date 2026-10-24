@@ -16,6 +16,8 @@ const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE")!;
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:momcal@kakao.com";
 const CRON_SECRET = Deno.env.get("PUSH_CRON_SECRET") || "";
 const SITE = "https://momcalendar.com/";
+// ⚠ 라방 하트는 아직 test.html 에만 있다(라이브 index 는 사장님 허락 대기) → 알림도 test 의 라방으로 연다. index 배포 때 LIVE_URL = `${SITE}#live` 로 바꾼다
+const LIVE_URL = `${SITE}test.html#live`;
 const BATCH = 20;
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
@@ -32,8 +34,8 @@ function buildPayload(g: Group) {
   const a = g.items[0], n = g.items.length;
   const head = `${hm(a.start_at)} ${a.channel_name ? a.channel_name + " · " : ""}${a.title}`.slice(0, 120);
   return n === 1
-    ? { title: "찜한 라방이 곧 시작해요", body: head, url: `${SITE}#live`, tag: `mc-live-${a.show_id}` }
-    : { title: `찜한 라방 ${n}개가 곧 시작해요`, body: `${head} 외 ${n - 1}개`, url: `${SITE}#live`, tag: `mc-live-${a.show_id}` };
+    ? { title: "찜한 라방이 곧 시작해요", body: head, url: LIVE_URL, tag: `mc-live-${a.show_id}` }
+    : { title: `찜한 라방 ${n}개가 곧 시작해요`, body: `${head} 외 ${n - 1}개`, url: LIVE_URL, tag: `mc-live-${a.show_id}` };
 }
 
 Deno.serve(async (req) => {
