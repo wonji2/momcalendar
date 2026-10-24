@@ -1,9 +1,10 @@
-// 위젯을 Bubblewrap 이 만든 안드로이드 프로젝트에 넣는다 (깃허브 빌드에서 `bubblewrap update` 바로 뒤에 돈다)
+// 위젯 v5(나만의 캘린더)를 Bubblewrap 이 만든 안드로이드 프로젝트에 넣는다 (깃허브 빌드에서 `bubblewrap update` 바로 뒤에 돈다)
 //   node android-app/widgets/install_widgets.mjs   (작업 폴더 = android-app)
 //   1) java/*.java → app/src/main/java/com/wantsb/momcalendar/widget/
 //   2) 레이아웃·모양·위젯 정보 XML 을 여기서 만들어 app/src/main/res/ 에
-//   3) AndroidManifest.xml 의 </application> 앞에 위젯 리시버 5개
+//   3) AndroidManifest.xml 의 </application> 앞에 위젯 2개(크게·중간) + 목록 서비스 + 누르기 받는 투명 화면
 // 디자인 값(색·글자·간격·모서리)은 아래 T 한 곳 — references/THREADS_REFERENCES.md 디자인 원칙(값 단계화)
+// 시안: scratchpad/mockups/widget_v5_tabs.html (사장님 2026-10-24 — 옆 탭 유지·나만의 캘린더·내 찜/전체 토글)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,107 +16,73 @@ const W = (p, s) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.wri
 
 // 1) 자바
 const jdir = path.join(APP, 'java', 'com', 'wantsb', 'momcalendar', 'widget');
+fs.rmSync(jdir, { recursive: true, force: true });   // 옛 위젯(v3) 클래스가 남지 않게
 for (const f of fs.readdirSync(path.join(HERE, 'java'))) W(path.join(jdir, f), fs.readFileSync(path.join(HERE, 'java', f)));
 
 // 2) 리소스
-const T = { paper: '#F6F0E8', pink: '#F7E6EC', ink: '#2E2A27', ink2: '#6F6760', ink3: '#A79F97', acc: '#E58FA6', grn: '#B9D3A1',
-  chipB: '#EFE7DC', chipP: '#F0D9E2', track: '#EAD9CF', trackP: '#F1C3CF',
-  tab: { pink: '#F2C9CF', yel: '#F3E3A8', sky: '#CFDDE8', mint: '#D5E4C8', sand: '#E9DCC6' } };
+const T = { paper: '#F6F0E8', ink: '#2E2A27', ink2: '#6F6760', ink3: '#A79F97', grn: '#B9D3A1',
+  tab: { sand: '#E9DCC6', pink: '#F2C9CF', peach: '#F6D9BF', sky: '#CFDDE8', mint: '#D5E4C8' },
+  tag: { op: '#F8DCD8', en: '#F5E9C4', ing: '#DCEBD5', up: '#F8E1CF' } };
 const R = (n, s) => W(path.join(APP, 'res', n), `<?xml version="1.0" encoding="utf-8"?>\n${s}\n`);
 const A = 'xmlns:android="http://schemas.android.com/apk/res/android"';
 const shape = (color, r, extra = '') => `<shape ${A} android:shape="rectangle"><solid android:color="${color}"/><corners android:radius="${r}dp"/>${extra}</shape>`;
 R('drawable/w_bg_beige.xml', shape(T.paper, 24));
-R('drawable/w_bg_pink.xml', shape(T.pink, 24));
 R('drawable/w_panel.xml', shape('#8CFFFFFF', 14));
-R('drawable/w_try.xml', shape('#0A000000', 14));
-R('drawable/w_chip_b.xml', shape(T.chipB, 20));
-R('drawable/w_chip_p.xml', shape(T.chipP, 20));
-R('drawable/w_box.xml', shape('#99FFFFFF', 14, `<stroke android:width="1dp" android:color="#14000000"/>`));
+R('drawable/w_seg_bg.xml', shape('#0F000000', 20));
+R('drawable/w_seg_on.xml', shape('#FFFFFF', 20));
+for (const [k, c] of Object.entries(T.tag)) R(`drawable/w_tag_${k}.xml`, shape(c, 20));
 R('drawable/w_ck.xml', `<shape ${A} android:shape="oval"><stroke android:width="1.6dp" android:color="#B9AFA6"/><size android:width="17dp" android:height="17dp"/></shape>`);
 R('drawable/w_ck_on.xml', `<shape ${A} android:shape="oval"><solid android:color="${T.grn}"/><size android:width="17dp" android:height="17dp"/></shape>`);
 for (const [k, c] of Object.entries(T.tab)) R(`drawable/w_tab_${k}.xml`, `<shape ${A} android:shape="rectangle"><solid android:color="${c}"/><corners android:topLeftRadius="10dp" android:bottomLeftRadius="10dp" android:topRightRadius="2dp" android:bottomRightRadius="2dp"/></shape>`);
-const prog = (track) => `<layer-list ${A}><item android:id="@android:id/background"><shape><corners android:radius="2dp"/><solid android:color="${track}"/></shape></item><item android:id="@android:id/progress"><clip><shape><corners android:radius="2dp"/><solid android:color="${T.grn}"/></shape></clip></item></layer-list>`;
-R('drawable/w_prog_b.xml', prog(T.track));
-R('drawable/w_prog_p.xml', prog(T.trackP));
 
 const tv = (id, size, color, extra = '') => `<TextView android:id="@+id/${id}" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="${size}sp" android:textColor="${color}" android:maxLines="1" android:ellipsize="end" ${extra}/>`;
-const progBar = (bg) => `<ProgressBar android:id="@+id/w_prog" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="8dp" android:layout_marginBottom="6dp" android:max="100" android:progress="30" android:progressDrawable="@drawable/w_prog_${bg}"/>`;
-const header = (title, bg) => `<LinearLayout android:id="@+id/w_head" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-  ${tv('w_dot', 9, T.acc, 'android:text="●" android:layout_marginEnd="6dp"')}
-  ${tv('w_title', 14, T.ink, `android:text="${title}" android:textStyle="bold"`)}
-  <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
-  ${tv('w_cnt', 12, T.ink3, 'android:textStyle="bold"')}
-</LinearLayout>${progBar(bg)}`;
 
-// 한 줄(종 / 동그라미)
-const rowXml = (lead) => `<LinearLayout ${A} android:id="@+id/w_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
-  ${lead}
-  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="9dp">
-    ${tv('w_meta', 10.5, T.ink3)}
-    ${tv('w_name', 14, T.ink, 'android:textStyle="bold"')}
-  </LinearLayout>
-  ${tv('w_dd', 12, T.acc, 'android:textStyle="bold" android:layout_marginStart="6dp"')}
-</LinearLayout>`;
-R('layout/w_row_bell.xml', rowXml(`<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔔" android:textSize="11sp" android:alpha="0.6"/>`));
-R('layout/w_row_check.xml', rowXml(`<TextView android:id="@+id/w_ck" android:layout_width="18dp" android:layout_height="18dp" android:background="@drawable/w_ck"/>`));
-R('layout/w_sec.xml', `<TextView ${A} android:id="@+id/w_sec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10.5sp" android:textColor="${T.ink3}" android:textStyle="bold" android:layout_marginTop="6dp"/>`);
-R('layout/w_lk.xml', `<LinearLayout ${A} android:id="@+id/w_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="5dp" android:paddingBottom="5dp">
+// 한 줄: [동그라미] [색 점] 이름/작은 줄 [표시]
+R('layout/w_item.xml', `<LinearLayout ${A} android:id="@+id/w_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+  <TextView android:id="@+id/w_ck" android:layout_width="18dp" android:layout_height="18dp" android:layout_marginEnd="8dp" android:background="@drawable/w_ck" android:visibility="gone"/>
+  ${tv('w_dot', 8, T.ink3, 'android:text="●" android:layout_marginEnd="6dp" android:visibility="gone"')}
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-    ${tv('w_meta', 10.5, T.ink3)}
     ${tv('w_name', 13, T.ink, 'android:textStyle="bold"')}
+    ${tv('w_meta', 10.5, T.ink3)}
   </LinearLayout>
-  ${tv('w_dd', 11.5, T.ink3, 'android:textStyle="bold" android:layout_marginStart="6dp" android:maxWidth="90dp"')}
+  ${tv('w_tag', 10.5, T.ink2, 'android:textStyle="bold" android:layout_marginStart="6dp" android:paddingStart="7dp" android:paddingEnd="7dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:visibility="gone"')}
 </LinearLayout>`);
+R('layout/w_grp.xml', `<TextView ${A} android:id="@+id/w_grp" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="10.5sp" android:textColor="${T.ink2}" android:textStyle="bold" android:paddingTop="7dp" android:paddingBottom="1dp"/>`);
 
-const rows = `<LinearLayout android:id="@+id/w_rows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>`;
-R('layout/w_upnext_a.xml', `<LinearLayout ${A} android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_bg_beige" android:padding="14dp">
-${header('다음 오픈', 'b')}
-${rows}
-</LinearLayout>`);
-R('layout/w_upnext_b.xml', `<LinearLayout ${A} android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:background="@drawable/w_bg_pink" android:padding="14dp">
- <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
-  ${header('다음 오픈', 'p')}
-  ${rows}
+// 머리: 제목(누르면 이번 주 ↔ 이번 달) + 내 찜 / 전체
+const head = `<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+   ${tv('w_title', 14, T.ink, 'android:textStyle="bold" android:text="이번 주 일정"')}
+   <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+   <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/w_seg_bg" android:padding="2dp">
+    ${tv('w_seg_mine', 11, T.ink, 'android:text="내 찜" android:textStyle="bold" android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="3dp" android:paddingBottom="3dp"')}
+    ${tv('w_seg_all', 11, T.ink3, 'android:text="전체" android:textStyle="bold" android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="3dp" android:paddingBottom="3dp"')}
+   </LinearLayout>
+  </LinearLayout>`;
+// 옆 탭 — 사장님 2026-10-24 "옆에 이건 꼭 살려야지 트레이드마큰데". 세일 아이콘은 🛍️(VS16 붙여야 컬러로 나온다)
+//   줄바꿈은 XML 속성 안에서 공백으로 바뀌므로 글자 그대로의 \n(역슬래시+n)을 써 넣는다 — 안드로이드가 줄바꿈으로 읽는다
+const NL = '\\n';
+const TABS = [['w_t0', '📋', '전' + NL + '체', 'sand'], ['w_t1', '💗', '공' + NL + '구', 'pink'], ['w_t2', '🔥', '핫' + NL + '딜', 'peach'], ['w_t3', '📺', '라' + NL + '방', 'sky'], ['w_t4', '🛍️', '세' + NL + '일', 'mint']];
+const side = (iconOnly) => `<LinearLayout android:layout_width="${iconOnly ? 28 : 34}dp" android:layout_height="match_parent" android:orientation="vertical">
+  ${TABS.map(([id, e, t, c]) => `<TextView android:id="@+id/${id}" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="4dp" android:background="@drawable/w_tab_${c}" android:gravity="center" android:text="${iconOnly ? e : e + NL + t}" android:textSize="${iconOnly ? 11 : 10.5}sp" android:textStyle="bold" android:lineSpacingMultiplier="0.92" android:textColor="${T.ink}"/>`).join('\n  ')}
  </LinearLayout>
- <LinearLayout android:id="@+id/w_box" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:layout_marginStart="12dp">
-  <FrameLayout android:layout_width="74dp" android:layout_height="74dp" android:background="@drawable/w_box"><ImageView android:layout_width="44dp" android:layout_height="44dp" android:layout_gravity="center" android:src="@mipmap/ic_launcher"/></FrameLayout>
-  ${tv('w_big', 22, T.acc, 'android:textStyle="bold" android:layout_marginTop="6dp"')}
- </LinearLayout>
-</LinearLayout>`);
-const chips = (bg) => `<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="2dp">
-  ${['w_chip1', 'w_chip2', 'w_chip3'].map((id) => tv(id, 11.5, T.ink2, `android:textStyle="bold" android:background="@drawable/w_chip_${bg}" android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="3dp" android:paddingBottom="3dp" android:layout_marginEnd="6dp"`)).join('\n  ')}
-</LinearLayout>`;
-R('layout/w_upnext_c.xml', `<LinearLayout ${A} android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/w_bg_beige" android:padding="15dp">
-${header('다음 오픈 · 맘캘린더', 'b')}
-${chips('b')}
-${rows}
-</LinearLayout>`);
-const tabsXml = (bg, chip, prg) => `<LinearLayout ${A} android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:background="@drawable/w_bg_${bg}" android:paddingTop="10dp" android:paddingBottom="10dp" android:paddingStart="6dp" android:paddingEnd="9dp">
- <LinearLayout android:layout_width="34dp" android:layout_height="match_parent" android:orientation="vertical">
-  ${[['w_t0', '📅\n공\n구', 'pink'], ['w_t1', '💜\n찜', 'yel'], ['w_t2', '🔥\n핫\n딜', 'sky'], ['w_t3', '🛍\n세\n일', 'mint'], ['w_t4', '✅\n출\n석', 'sand']].map(([id, t, c]) =>
-    `<TextView android:id="@+id/${id}" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="4dp" android:background="@drawable/w_tab_${c}" android:gravity="center" android:text="${t}" android:textSize="10.5sp" android:textStyle="bold" android:lineSpacingMultiplier="0.92" android:textColor="${T.ink}"/>`).join('\n  ')}
- </LinearLayout>
- <View android:id="@+id/w_edge" android:layout_width="3dp" android:layout_height="match_parent" android:background="@drawable/w_tab_pink"/>
+ <View android:id="@+id/w_edge" android:layout_width="3dp" android:layout_height="match_parent" android:background="@drawable/w_tab_sand"/>`;
+const frame = (iconOnly, body) => `<LinearLayout ${A} android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:background="@drawable/w_bg_beige" android:paddingTop="10dp" android:paddingBottom="10dp" android:paddingStart="6dp" android:paddingEnd="9dp">
+ ${side(iconOnly)}
  <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:background="@drawable/w_panel" android:padding="11dp">
-  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/w_try" android:paddingStart="11dp" android:paddingEnd="11dp" android:paddingTop="9dp" android:paddingBottom="4dp">
-   ${header('오늘 열린 공구', prg)}
-  </LinearLayout>
-  <View android:layout_width="1dp" android:layout_height="8dp"/>
-  ${chips(chip)}
-  ${tv('w_secl', 10.5, T.ink3, 'android:textStyle="bold" android:layout_marginTop="6dp"')}
-  ${rows}
+  ${head}
+  ${body}
  </LinearLayout>
 </LinearLayout>`;
-R('layout/w_tabs_beige.xml', tabsXml('beige', 'b', 'b'));
-R('layout/w_tabs_pink.xml', tabsXml('pink', 'p', 'p'));
+R('layout/w_cal_l.xml', frame(false, `<FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="4dp">
+   <ListView android:id="@+id/w_list" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@null" android:dividerHeight="0dp" android:scrollbarSize="3dp" android:fadingEdgeLength="24dp" android:requiresFadingEdge="vertical"/>
+   ${tv('w_empty', 12, T.ink3, 'android:layout_gravity="center" android:text="불러오는 중…"')}
+  </FrameLayout>`));
+R('layout/w_cal_m.xml', frame(true, `<LinearLayout android:id="@+id/w_rows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="4dp"/>`));
 
 const info = (layout, w, h, cw, ch, desc) => `<appwidget-provider ${A} android:minWidth="${w}dp" android:minHeight="${h}dp" android:targetCellWidth="${cw}" android:targetCellHeight="${ch}" android:updatePeriodMillis="1800000" android:initialLayout="@layout/${layout}" android:previewLayout="@layout/${layout}" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen" android:description="@string/${desc}"/>`;
 const WIDGETS = [
-  ['UpNextA', 'w_upnext_a', 250, 110, 4, 2, '맘캘 다음 오픈 A (베이지)'],
-  ['UpNextB', 'w_upnext_b', 250, 110, 4, 2, '맘캘 다음 오픈 B (분홍)'],
-  ['UpNextC', 'w_upnext_c', 250, 250, 4, 4, '맘캘 다음 오픈 C (크게)'],
-  ['SideTabsBeige', 'w_tabs_beige', 250, 250, 4, 4, '맘캘 옆 탭 (베이지)'],
-  ['SideTabsPink', 'w_tabs_pink', 250, 250, 4, 4, '맘캘 옆 탭 (분홍)'],
+  ['CalLarge', 'w_cal_l', 250, 250, 4, 4, '맘캘 나만의 캘린더 (크게)'],
+  ['CalMedium', 'w_cal_m', 250, 110, 4, 2, '맘캘 나만의 캘린더 (중간)'],
 ];
 const strings = [];
 for (const [cls, layout, w, h, cw, ch, label] of WIDGETS) {
@@ -128,18 +95,20 @@ R('values/w_strings.xml', `<resources>\n${strings.join('\n')}\n</resources>`);
 // 3) 매니페스트
 const mf = path.join(APP, 'AndroidManifest.xml');
 let m = fs.readFileSync(mf, 'utf8');
-if (!m.includes('widget.UpNextA')) {
+if (!m.includes('widget.CalLarge')) {
   const recv = WIDGETS.map(([cls]) => `
         <receiver android:name="com.wantsb.momcalendar.widget.${cls}" android:exported="true" android:label="@string/w_label_${cls.toLowerCase()}">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_info_${cls.toLowerCase()}"/>
-        </receiver>`).join('');
+        </receiver>`).join('') + `
+        <service android:name="com.wantsb.momcalendar.widget.CalListService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false"/>
+        <activity android:name="com.wantsb.momcalendar.widget.WidgetAction" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:taskAffinity="" android:launchMode="singleInstance"/>`;
   const i = m.lastIndexOf('</application>');
   if (i < 0) { console.error('🔴 </application> 못 찾음'); process.exit(1); }
   m = m.slice(0, i) + recv + '\n    ' + m.slice(i);
   if (!m.includes('android.permission.INTERNET')) m = m.replace(/<application/, '<uses-permission android:name="android.permission.INTERNET"/>\n    <application');
   fs.writeFileSync(mf, m);
 }
-console.log('✔ 위젯 5개 설치:', WIDGETS.map((w) => w[0]).join(', '));
+console.log('✔ 위젯 설치:', WIDGETS.map((w) => w[0]).join(', '), '+ CalListService + WidgetAction');
