@@ -2913,7 +2913,7 @@ function renderLive(){
   for(const x of rows){
     const w=_liveWhen(x.start_at), st=new Date(x.start_at).getTime();
     if(w.day!==lastDay){ html+=`<div class="live-day">${escHtml(_liveDayLabel(w.day))}</div>`; lastDay=w.day; }
-    const badge = (now>=st && now<st+2*3600e3) ? '<span class="live-badge">LIVE</span>' : (st>now && st-now<3600e3) ? '<span class="live-badge soon">곧 시작</span>' : '';
+    const badge = (now>=st && now<st+3600e3) ? '<span class="live-badge">LIVE</span>' : (st>now && st-now<3600e3) ? '<span class="live-badge soon">곧 시작</span>' : '';
     // 가격을 상품명 앞 줄에 둔다 — 상품명 뒤에 붙이면 말줄임에 잘려 375px 에서 329장 중 315장 가격이 안 보였다(2026-10-24 검증)
     const pl = x.prod_price ? `<div class="live-p">${x.prod_rate?`<b>${x.prod_rate}%</b> `:''}${Number(x.prod_price).toLocaleString()}원</div>` : '';
     const pn = x.prod_name ? `<div class="live-pn">${escHtml(x.prod_name)}</div>` : '';
