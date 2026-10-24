@@ -6004,7 +6004,8 @@ try{
   var _vn=parseInt(localStorage.getItem('mc_visit_n')||'0',10)+1;
   localStorage.setItem('mc_visit_n', String(_vn));
 }catch(_){}
-setTimeout(function(){ if(!(typeof maybeShowAppSheet==='function' && maybeShowAppSheet())) maybeShowPwa(); }, 8000);   // 3초는 화면을 훑기도 전이라 8초로
+// 아래에서 올라오는 「앱으로 더 편하게」 시트·「홈 화면 추가」 팝업은 끈다 — 그 내용은 첫 실행 소개 첫 장으로 옮겼다(사장님 2026-10-24)
+// setTimeout(function(){ if(!(typeof maybeShowAppSheet==='function' && maybeShowAppSheet())) maybeShowPwa(); }, 8000);   // 3초는 화면을 훑기도 전이라 8초로
 
 // 뒤로가기(bfcache) 복원 대응: 카드 눌러 나갔다 돌아오면 페이지가 '이동중' 상태로 굳어
 // 다른 카드가 안 눌리는 문제 방지. 복원 감지 시 상태를 다시 그려 정상화한다.
@@ -6881,7 +6882,8 @@ function renderCommunity(){
   const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
   const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
   const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
-  const writeUrl=_commBoard?`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/menus/${_commBoard}/articles/write`:`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/articles/write`;
+  // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
+  const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
   let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
@@ -6890,7 +6892,7 @@ function renderCommunity(){
     return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){}"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
-  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){}">✏️ 글쓰기</a>`;
+  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} if(typeof openLink==='function'){ event.preventDefault(); openLink(this.href); }">✏️ 글쓰기</a>`;
   v.innerHTML=h;
   const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }
@@ -6908,6 +6910,16 @@ function renderCommunity(){
 .onb-sl img{width:230px;max-width:70%;max-height:46vh;border-radius:22px;border:1px solid rgba(25,31,40,.06);box-shadow:0 14px 34px rgba(25,31,40,.12);display:block;aspect-ratio:330/486;object-fit:cover;object-position:top;background:#fff}
 .onb-sl h3{font-size:23px;font-weight:900;line-height:1.3;margin:6px 0 0;letter-spacing:-.3px;word-break:keep-all}
 .onb-sl p{font-size:14.5px;color:#8B95A1;line-height:1.55;margin:0;word-break:keep-all}
+/* 소개 첫 장 = 앱 안내(전에 아래에서 올라오던 시트 내용) · 2~6장 = 움직이는 장면 클립(사장님 2026-10-24) */
+.onb-app{justify-content:center;gap:10px;padding-bottom:10px}
+.onb-app .app-pop-ic img{width:84px;height:84px;border-radius:22px;display:block}
+.onb-app h3{margin:4px 0 0}
+.onb-bene{display:flex;flex-direction:column;gap:8px;width:100%;max-width:340px;margin:8px 0 6px;text-align:left}
+.onb-bene div{display:flex;gap:10px;align-items:center;font-size:14px;color:#333D4B;background:#F7F3FB;border-radius:12px;padding:11px 12px}
+.onb-bene span{width:28px;height:28px;border-radius:8px;background:#602090;color:#fff;display:grid;place-items:center;font-size:14px;flex:none}
+.onb-app .app-badges{width:100%;max-width:340px}
+.onb-vid{padding:calc(10px + env(safe-area-inset-top,0px)) 0 0;justify-content:center}
+.onb-vid video{height:100%;max-height:calc(100vh - 150px);width:auto;max-width:100%;aspect-ratio:9/16;object-fit:contain;display:block;background:#fff}
 .onb-dots{display:flex;gap:6px;justify-content:center;padding:10px 0 4px}
 .onb-dots i{width:6px;height:6px;border-radius:50%;background:#E5E8EB;transition:width .2s}
 .onb-dots i.on{width:18px;border-radius:3px;background:#191F28}
@@ -6934,12 +6946,16 @@ function renderCommunity(){
 <div id="onbWrap" class="onb" aria-hidden="true">
   <div class="onb-step on" id="onbIntro">
     <div class="onb-track" id="onbTrack"><div class="onb-rail" id="onbRail">
-      <div class="onb-sl"><img src="intro/s1.jpg" alt=""><h3>오늘 열리는 공구를<br>날짜별로</h3><p>인스타 셀러들의 공구 일정을<br>매일 모아요</p></div>
-      <div class="onb-sl"><img src="intro/s2.jpg" alt=""><h3>찜하면<br>잊지 않아요</h3><p>오픈하는 날 아침, 마감하는 날 아침에<br>알려드려요</p></div>
-      <div class="onb-sl"><img src="intro/s3.jpg" alt=""><h3>핫딜과 세일도<br>매일</h3><p>가격이 떨어진 상품과<br>브랜드 세일 일정까지</p></div>
-      <div class="onb-sl"><img src="intro/s4.jpg" alt=""><h3>2만 엄마들과<br>함께</h3><p>맘카페 이야기가<br>커뮤니티로 바로 들어와요</p></div>
+      <div class="onb-sl onb-app"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><h3>앱으로 더 편하게</h3><p>아이폰 · 갤럭시 앱이 나왔어요</p>
+        <div class="onb-bene"><div><span>🔔</span>찜한 공구 오픈·마감 알림</div><div><span>📅</span>내 찜 달력 저장하고 친구에게 공유</div><div><span>⚡</span>홈 화면에서 바로 열기</div></div>
+        <div class="app-badges" id="onbBadges"></div></div>
+      <div class="onb-sl onb-vid"><video src="intro/v0.mp4" poster="intro/v0.jpg" muted playsinline loop preload="metadata"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v1.mp4" poster="intro/v1.jpg" muted playsinline loop preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v2.mp4" poster="intro/v2.jpg" muted playsinline loop preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v3.mp4" poster="intro/v3.jpg" muted playsinline loop preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v4.mp4" poster="intro/v4.jpg" muted playsinline loop preload="none"></video></div>
     </div></div>
-    <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i></div>
+    <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="onb-acts"><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
   </div>
   <div class="onb-step" id="onbCat">
@@ -6960,13 +6976,15 @@ function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
   try{ trackEvent('onb','show'); }catch(_){}
-  _onbShow(0); _onbTimer=setInterval(()=>{ if(_onbAuto) _onbShow((_onbI+1)%4); },2800);
+  try{ const b=document.getElementById('onbBadges'); if(b){ if(typeof _appOn==='function' && _appOn() && typeof appBadges==='function') b.innerHTML=appBadges('onb'); else b.style.display='none'; } }catch(_){}
+  _onbShow(0); _onbTimer=setInterval(()=>{ if(_onbAuto && _onbI<_onbN()-1) _onbShow(_onbI+1); },4300);   // 영상이 4초 안팎 — 마지막 장에서 멈춘다
   const tr=document.getElementById('onbTrack'); let x0=null;
   tr.addEventListener('pointerdown',e=>{ x0=e.clientX; _onbAuto=false; },{passive:true});
   tr.addEventListener('pointerup',e=>{ if(x0===null) return; const dx=e.clientX-x0; x0=null; if(dx<-40) _onbShow(_onbI+1); else if(dx>40) _onbShow(_onbI-1); },{passive:true});
 }
-function _onbShow(k){ _onbI=Math.max(0,Math.min(3,k)); document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===3?'시작하기':'다음'; }
-function onbNext(){ _onbAuto=false; if(_onbI<3){ _onbShow(_onbI+1); return; } clearInterval(_onbTimer); _onbStep('onbCat'); }
+function _onbN(){ const r=document.getElementById('onbRail'); return r?r.children.length:4; }
+function _onbShow(k){ const N=_onbN(); _onbI=Math.max(0,Math.min(N-1,k)); try{ document.querySelectorAll('#onbRail .onb-sl').forEach((sl,j)=>{ const v=sl.querySelector('video'); if(!v) return; if(j===_onbI){ v.currentTime=0; const p=v.play(); if(p&&p.catch) p.catch(()=>{}); } else v.pause(); }); }catch(_){} document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음'; }
+function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearInterval(_onbTimer); _onbStep('onbCat'); }
 function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
 function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
 function onbCatDone(){
