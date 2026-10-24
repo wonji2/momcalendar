@@ -99,7 +99,10 @@ body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{
 /* 앱으로 들어온 사람에게 "앱으로 추가하세요" 안내는 무의미하다 */
 body.native-app #pwaStrip,body.native-app #reloginStrip{display:none!important}
 /* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
-.sdrop-tags{display:flex;flex-wrap:wrap;gap:7px}
+.sdrop-tags{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-right:-16px;padding-right:16px}   /* 토스형 회색 알약 한 줄 · 옆으로 넘기기 (사장님 2026-10-24 시안 1안) */
+.sdrop-tags::-webkit-scrollbar{display:none}
+.sdrop-tag{flex:0 0 auto;white-space:nowrap;border:0;background:#F2F4F6;color:#191F28;border-radius:100px;padding:8px 13px;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.sdrop-tag b{color:#602090;margin-right:2px}
 .hot-tag-row{display:flex;gap:7px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none}
 .hot-tag-row::-webkit-scrollbar{display:none}
 .hot-tag{flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 12px;border-radius:100px;background:#F3ECFA;color:#602090;border:none;font-family:inherit;cursor:pointer;white-space:nowrap}
@@ -2046,7 +2049,8 @@ try{ window.addEventListener('online', function(){ if(!DATA.length && !_loadBusy
 // 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — **브랜드 기준**으로 뽑는다 (사장님 지적 "소분류는 대분류랑 뭐가 달라").
 //    진행중~7일 안 오픈 공구의 상품명 첫 낱말(=브랜드) 빈도 상위 8개. 탭하면 그 브랜드 검색결과로.
 //    ⚠ HOT_TAG_STOP: 브랜드가 아닌 일반 낱말은 칩으로 내보내지 않는다 (블로그 BRAND_STOP 과 같은 취지).
-const HOT_TAG_STOP=new Set(['유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
+const HOT_TAG_STOP=new Set(['호주','무항생제','올리브오일','올스텐','무타공','돌잡이','몬테소리',   // 2026-10-24 40개로 늘리며 보인 품목·꾸밈말
+  '유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
 let _hotTags=[];   // buildHotTags 가 계산해 보관 — 검색결과 상단 칩(hotTagChipsHtml)도 같은 목록을 쓴다
 function buildHotTags(){
   const el=document.getElementById('hotTagRow'); if(!el) return;
@@ -2069,7 +2073,7 @@ function buildHotTags(){
     const vTags=Object.entries(vcnt).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m])=>m);
     const rest=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).map(([m])=>m)
       .filter(m=>!vTags.includes(m));
-    _hotTags=[...vTags, ...rest].slice(0,8);
+    _hotTags=[...vTags, ...rest].slice(0,40);   // 검색창 「이런 공구 찾으세요?」 한 줄에 40개(사장님 2026-10-24 「가능한 더 늘려도 됨」 — 3건 이상 브랜드가 150개쯤이라 기준은 그대로)
     if(_hotTags.length<3){ el.style.display='none'; return; }
     el.innerHTML=_hotTags.map(m=>`<button class="hot-tag" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
     // 메인에선 안 보인다(사장님 2026-10-24) — 목록(_hotTags)만 만들어 두고 검색창이 쓴다
@@ -5595,7 +5599,7 @@ async function renderSearchDrop(){
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
     : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
-    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>이런 공구 찾으세요?</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="hot-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)">#${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>이런 공구 찾으세요?</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="sdrop-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)"><b>#</b>${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
   const list=await loadTrendingQ();
   const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
   tl.innerHTML = list.length
