@@ -116,6 +116,13 @@ function IsBlocked([string]$t){
   return $false
 }
 $BlockedRemoved = 0
+# 🧹 브랜드가 아닌 브랜드 페이지(상품명 오류 잔해 — 「1만원대」「건조기」「매일쓰는」) — tools/seo/junk_brands.txt (2026-10-24 사장님 「정리해야지」)
+#   그 이름의 g 페이지는 만들지 않고, 보존 페이지로 남아 있으면 지운다(KeptUrls). brand_block 과 달리 DB·다른 화면은 건드리지 않는다
+$JunkBrands = @{}
+$jf = Join-Path $PSScriptRoot 'junk_brands.txt'
+if(Test-Path $jf){ foreach($l in [IO.File]::ReadAllLines($jf)){ $t = $l.Trim(); if($t -and -not $t.StartsWith('#')){ $JunkBrands[$t.ToLower()] = 1 } } }
+Write-Output "브랜드 아님 목록: $($JunkBrands.Count)개"
+$JunkRemoved = 0
 
 # ── 네이버 월간 검색량 (2026-08-31, momcal-kw-daily 스윕 산출) ──
 # 내부 링크 자리는 한정 자원이다. '등록 건수' 가 아니라 '실제 검색량' 큰 브랜드에
@@ -233,12 +240,14 @@ $seenB = @{}; $brandList = New-Object System.Collections.ArrayList
 $seenBName = @{}
 foreach($x in $D.brands){
   if(IsBlocked "$($x.brand)"){ continue }   # 🚫 차단 브랜드 — 페이지·링크 전부 안 만든다
+  if($JunkBrands.ContainsKey(("$($x.brand)").Trim().ToLower())){ continue }   # 🧹 브랜드가 아닌 이름(junk_brands.txt)
   # NON-GMO vs Non-gmo 처럼 케이스만 다른 같은 브랜드는 하나만 남긴다
   $nk = ("$($x.brand)").ToLower()
   if($seenBName.ContainsKey($nk)){ continue }
   $seenBName[$nk] = 1
   $slug = CanonCase (SlugOf $x.brand $seenB '-g') 'g'
   if([string]::IsNullOrWhiteSpace($slug)){ continue }
+  if($JunkBrands.ContainsKey($slug.ToLower())){ continue }   # 🧹 목록은 파일 이름 꼴(「F/W」→ F-W)이라 슬러그로도 본다 (2026-10-24 검증: 이름으로만 보면 만들고 지워 sitemap 에 남았다)
   [void]$brandList.Add([pscustomobject]@{ slug=$slug; brand=$x.brand; cnt=[int]$x.cnt; sellers=[int]$x.sellers;
        major=$x.major; first=$x.first_open; last=$x.last_open; topprods=$x.topprods; raw=$x.rows })
 }
@@ -1025,6 +1034,7 @@ function KeptUrls([string]$dir2, $todayUrls){
     foreach($f in (Get-ChildItem $dp -Filter *.html -File | Sort-Object Name)){
       # 🚫 차단 브랜드의 보존 페이지는 지운다 — 보존 원칙의 유일한 예외 (파일명에 브랜드가 들어간다: g/브랜드 · gg/상품명-MMDD · p/브랜드-제품)
       if(IsBlocked $f.BaseName){ Remove-Item $f.FullName -Force; $script:BlockedRemoved++; continue }
+      if($dir2 -eq 'g' -and $JunkBrands.ContainsKey(([uri]::UnescapeDataString($f.BaseName)).ToLower())){ Remove-Item $f.FullName -Force; $script:JunkRemoved++; continue }
       # 🚫 중복이라 내려놓은 공구(gonggu_hold)의 건별 페이지 — 보존 원칙의 두 번째 예외 (2026-10-06)
       #    gg/ 에만 적용한다. g(브랜드)·p(제품)·s(셀러) 집계 페이지는 행 하나가 빠져도 살아 있어야 한다.
       #    🔴 2026-10-24: **오늘 만든 페이지는 지우지 않는다** — 중복 쌍에서 남긴 행도 이름·오픈일이 같아 슬러그가 같다.
@@ -1151,5 +1161,6 @@ foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html'))
 
 $total = $uMain.Count + $uB.Count + $uP.Count + $uS.Count + $uGG.Count
 Write-Output "브랜드 $($brandList.Count) · 제품 $($prodList.Count) · 셀러 $($sellerMade.Count) · 소분류 $($minorMade.Count) · 월별 $($monthMade.Count) · 카테고리 $($catMade.Count) · 키워드 $($kwMade.Count) · 허브 3"
-if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 삭제: $BlockedRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
+if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 삭제: $BlockedRemoved 개" }
+if($JunkRemoved -gt 0){ Write-Output "🧹 브랜드 아닌 보존 페이지 삭제: $JunkRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
 Write-Output "sitemap URL 합계 = $total"
