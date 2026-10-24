@@ -2880,8 +2880,10 @@ async function loadLive(){
     // 화면용 가벼운 칸만 읽는다(products·benefits 전체 = 144KB/회 → 전송량)
     const r=await fetch(`${SUPABASE_URL}/rest/v1/live_shows?select=id,title,channel_name,category,start_at,image_url,link_url,prod_name,prod_price,prod_rate,benefit&start_at=gte.${encodeURIComponent(from)}&order=start_at.asc,id.asc&limit=1500`,
       {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
-    _liveData=r.ok?await r.json():[];
-  }catch(_){ _liveData=[]; }
+    if(r.ok) _liveData=await r.json();
+  }catch(_){}
+  // 실패를 빈 목록으로 기억하면 새로고침 전까지 「예정된 라방이 없어요」 거짓 안내가 남는다 → 안 담고 다시 시도 버튼
+  if(!_liveData){ if(box) box.innerHTML='<div class="sale-empty">라방 일정을 불러오지 못했어요<br><button class="sale-chip" style="margin-top:10px" onclick="loadLive()">다시 시도</button></div>'; return; }
   renderLive();
 }
 function liveFilter(c){ _liveCat=c||''; renderLive(); try{ trackEvent('live_filter', c||'전체'); }catch(_){} }
