@@ -2956,7 +2956,8 @@ async function liveWSync(){
     LIVEW=m; _liveWSave(); if(_slMode==='live') renderLive();
   }catch(_){}
 }
-const _lvHeart=(id,cls)=>{ const on=!!LIVEW[id]; return `<button class="${cls}" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="liveWish(${id},event,this)">${heartSvg(on)}</button>`; };
+const _lvHeart=(id,cls,st)=>{ if(st!==undefined && new Date(st).getTime()<=Date.now()) return cls==='wish'?'':'<span class="sale-wish" aria-hidden="true"></span>';   // 시작한 방송은 찜 안 함(알림이 없다)
+  const on=!!LIVEW[id]; return `<button class="${cls}" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="liveWish(${id},event,this)">${heartSvg(on)}</button>`; };
 async function liveWish(id,ev,btn){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const on=!LIVEW[id];
@@ -3030,10 +3031,11 @@ function renderLive(){
   if(chips){
     const cnt={}; all.forEach(x=>{ if(x.category) cnt[x.category]=(cnt[x.category]||0)+1; });
     const cats=Object.keys(cnt).sort((a,b)=>(a==='키즈'?-1:b==='키즈'?1:cnt[b]-cnt[a]));   // 키즈를 앞에
-    const wishN=all.filter(x=>LIVEW[x.id]).length; if(_liveCat==='__wish' && !wishN) _liveCat='';
+    const _lvCanWish=x=>new Date(x.start_at).getTime()>Date.now();
+    const wishN=all.filter(x=>LIVEW[x.id]&&_lvCanWish(x)).length; if(_liveCat==='__wish' && !wishN) _liveCat='';
     chips.innerHTML=['',...(wishN?['__wish']:[]),...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:c==='__wish'?`내 찜 ${wishN}`:`${c} ${cnt[c]}`)}</button>`).join('');
   }
-  const catRows=all.filter(x=>!_liveCat||(_liveCat==='__wish'?!!LIVEW[x.id]:x.category===_liveCat));
+  const catRows=all.filter(x=>!_liveCat||(_liveCat==='__wish'?(!!LIVEW[x.id]&&new Date(x.start_at).getTime()>Date.now()):x.category===_liveCat));
   // 날짜 탭: 고른 분류에 방송이 있는 날만. 고른 날에 방송이 없어지면 전체로
   const dayOf=x=>_liveWhen(x.start_at).day, days=[...new Set(catRows.map(dayOf))];
   if(_liveDay && !days.includes(_liveDay)) _liveDay='';
@@ -3049,13 +3051,13 @@ function renderLive(){
   const hero=rows.slice(0,6), heroId=new Set(hero.map(x=>x.id));
   const si=_lvStI<hero.length?_lvStI:0;
   let html=`<div class="lv-stage" id="lvStage">${hero.map((x,i)=>{ const w=_liveWhen(x.start_at); const tm=(w.day===todayStr?'':_liveDayLabel(w.day).replace(/^내일 · .*/,'내일')+' ')+w.time;
-    return `<a class="lv-sl${i===si?' on':''}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish')}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i===si?'on':''}"></i>`).join(''):''}</div></div>`;
+    return `<a class="lv-sl${i===si?' on':''}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish',x.start_at)}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i===si?'on':''}"></i>`).join(''):''}</div></div>`;
   let lastDay='';
   for(const x of rows){
     if(heroId.has(x.id)) continue;
     const w=_liveWhen(x.start_at);
     if(w.day!==lastDay){ const lab=_liveDayLabel(w.day); const m=lab.match(/^(오늘|내일)/); html+=`<div class="live-day">${m?m[1]:escHtml(lab)}${m?`<small>${+w.day.slice(5,7)}.${+w.day.slice(8,10)} ${'일월화수목금토'[new Date(w.day+'T12:00:00+09:00').getUTCDay()]}</small>`:''}</div>`; lastDay=w.day; }
-    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div>${_lvHeart(x.id,'sale-wish')}</a>`;
+    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div>${_lvHeart(x.id,'sale-wish',x.start_at)}</a>`;
   }
   list.innerHTML=html;
   _lvStageStart();
@@ -3085,7 +3087,9 @@ function renderSale(){
   const list=document.getElementById('saleList'), chips=document.getElementById('saleChips');
   if(!list) return;
   const all=(_saleData||[]).filter(e=>!e.end_date||e.end_date>=todayStr);   // 끝난 행사는 숨김
-  const wishN=all.filter(e=>{ const s=SALEW[e.id]; return s&&(s.w||s.b); }).length;   // 찜·알림은 하트 하나(2026-10-23) — 옛 기기에 b 만 남은 것도 찜으로 본다
+  // 이미 시작한 세일은 찜하지 않는다 — 찜 = 시작일 아침 알림인데, 시작한 건 알림이 없다(사장님 2026-10-24 「이미 오픈 시작한 거는 찜 못 하게」)
+  const _saleCanWish=e=>_saleDay(e.start_date)>0;
+  const wishN=all.filter(e=>{ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }).length;   // 찜·알림은 하트 하나(2026-10-23) — 옛 기기에 b 만 남은 것도 찜으로 본다
   if(chips){
     // 분류 칩: 문센 행은 「문화센터」 하나로, 해외(미국·중국) 행은 「해외 세일」 하나로 묶는다 (사장님 2026-10-23)
     const isMun=e=>e.tag==='문센', isOvs=e=>e.tag==='해외';
@@ -3100,7 +3104,7 @@ function renderSale(){
   const rows=all.filter(e=>{
     if(SALE_DAY && !(e.start_date<=SALE_DAY && (!e.end_date||e.end_date>=SALE_DAY))) return false;   // 달력에서 날짜를 고르면 그날 진행 중만
     if(!_saleBrand) return true;
-    if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return s&&(s.w||s.b); }
+    if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }
     if(_saleBrand==='__munsen') return e.tag==='문센';
     if(_saleBrand==='__overseas') return e.tag==='해외';
     return e.brand===_saleBrand;
@@ -3123,7 +3127,7 @@ function renderSale(){
     // 💜 찜·알림은 하트 하나 — 공구 카드 찜(heartSvg)과 같은 꼴 (사장님 2026-10-23 "찜이랑 알림 1개로 통일 · 공구카드 찜이랑 똑같이")
     //    시작 전 세일을 찜하면 시작일 아침 9시 알림도 같이 켜진다(b). 서버는 시작일 아침 한 번만 보낸다(sale_wish_89.sql)
     const on=!!(s.w||s.b);
-    const wishBtn=`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`;
+    const wishBtn=_saleCanWish(e)?`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`:'<span class="sale-wish" aria-hidden="true"></span>';   // 시작한 건 빈 자리(알약 줄 맞춤)
     return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
   };
   let h='';
@@ -3364,6 +3368,7 @@ async function saleWish(id,ev,btn){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const cur=SALEW[id]||{}; const on=!(cur.w||cur.b);
   const sev=(_saleData||[]).find(x=>x.id===id); const before=!!(sev && _saleDay(sev.start_date)>0);
+  if(sev && !before && !(cur.w||cur.b)){ mcToast('이미 시작한 세일은 찜할 수 없어요'); return; }   // 시작한 것은 새로 찜하지 않는다(지우는 건 된다)
   if(on) SALEW[id]={w:1,b:before?1:0}; else delete SALEW[id];
   _saleWSave(); _saleWPush(id);   // 지운 뒤 보내면 wish·bell 둘 다 false 로 간다
   if(btn){ btn.innerHTML=heartSvg(on); btn.setAttribute('aria-pressed',on?'true':'false'); btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop'); }
@@ -6912,7 +6917,8 @@ function renderCommunity(){
 .onb-sl p{font-size:14.5px;color:#8B95A1;line-height:1.55;margin:0;word-break:keep-all}
 /* 소개 첫 장 = 앱 안내(전에 아래에서 올라오던 시트 내용) · 2~6장 = 움직이는 장면 클립(사장님 2026-10-24) */
 .onb-app{justify-content:center;gap:10px;padding-bottom:10px}
-.onb-app .app-pop-ic img{width:84px;height:84px;border-radius:22px;display:block}
+.onb-app .app-pop-ic{width:84px;height:84px;border-radius:22px}
+.onb-app .app-pop-ic img{width:100%;height:100%;max-width:none;max-height:none;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;object-fit:cover}   /* 소개 장 사진 규칙(.onb-sl img 세로 비율·그림자)이 로고까지 찌그러뜨렸다 */
 .onb-app h3{margin:4px 0 0}
 .onb-bene{display:flex;flex-direction:column;gap:8px;width:100%;max-width:340px;margin:8px 0 6px;text-align:left}
 .onb-bene div{display:flex;gap:10px;align-items:center;font-size:14px;color:#333D4B;background:#F7F3FB;border-radius:12px;padding:11px 12px}
@@ -6980,7 +6986,7 @@ function onbOpen(){
   _onbShow(0); _onbTimer=setInterval(()=>{ if(_onbAuto && _onbI<_onbN()-1) _onbShow(_onbI+1); },4300);   // 영상이 4초 안팎 — 마지막 장에서 멈춘다
   const tr=document.getElementById('onbTrack'); let x0=null;
   tr.addEventListener('pointerdown',e=>{ x0=e.clientX; _onbAuto=false; },{passive:true});
-  tr.addEventListener('pointerup',e=>{ if(x0===null) return; const dx=e.clientX-x0; x0=null; if(dx<-40) _onbShow(_onbI+1); else if(dx>40) _onbShow(_onbI-1); },{passive:true});
+  tr.addEventListener('pointerup',e=>{ if(x0===null) return; const dx=e.clientX-x0; x0=null; if(dx<-40){ if(typeof _onbN==='function' && _onbI>=_onbN()-1) onbNext(); else _onbShow(_onbI+1); } else if(dx>40) _onbShow(_onbI-1); },{passive:true});
 }
 function _onbN(){ const r=document.getElementById('onbRail'); return r?r.children.length:4; }
 function _onbShow(k){ const N=_onbN(); _onbI=Math.max(0,Math.min(N-1,k)); try{ document.querySelectorAll('#onbRail .onb-sl').forEach((sl,j)=>{ const v=sl.querySelector('video'); if(!v) return; if(j===_onbI){ v.currentTime=0; const p=v.play(); if(p&&p.catch) p.catch(()=>{}); } else v.pause(); }); }catch(_){} document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음'; }
