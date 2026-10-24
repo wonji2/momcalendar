@@ -92,6 +92,29 @@ for (const [cls, layout, w, h, cw, ch, label] of WIDGETS) {
 }
 R('values/w_strings.xml', `<resources>\n${strings.join('\n')}\n</resources>`);
 
+// 2-b) 앱을 켤 때마다 위젯 번호를 사이트 주소에 붙인다 — 「연결하기」 버튼 없이 자동 연결 (사장님 2026-10-24 "불편한 방법말고")
+//   다른 앱들은 위젯과 앱이 같은 저장소를 쓴다. 우리 앱은 사이트(TWA)라 저장소가 크롬 안에 있어,
+//   앱을 열 때 주소로 위젯 번호를 넘기고 사이트가 서버에 짝을 지어 두는 게 같은 효과다(사이트는 받자마자 주소에서 지운다).
+{
+  const la = path.join(APP, 'java', 'com', 'wantsb', 'momcalendar', 'LauncherActivity.java');
+  if (!fs.existsSync(la)) { console.error('🔴 LauncherActivity.java 없음'); process.exit(1); }
+  let s = fs.readFileSync(la, 'utf8');
+  if (!s.includes('WidgetBase.wid(')) {
+    const NL = String.fromCharCode(10);
+    const add = 'try { if (uri != null && uri.getQueryParameter("wdid") == null) uri = uri.buildUpon().appendQueryParameter("wdid", com.wantsb.momcalendar.widget.WidgetBase.wid(this)).build(); com.wantsb.momcalendar.widget.WidgetBase.refreshSoon(this); } catch (Exception ignored) { }' + NL + '        ';
+    const m = s.match(/getLaunchingUrl\(\)\s*\{[\s\S]*?(return uri;)/);
+    if (m) {
+      const at = s.indexOf(m[0]) + m[0].length - 'return uri;'.length;
+      s = s.slice(0, at) + add + s.slice(at);
+    } else {
+      if (!/import android\.net\.Uri;/.test(s)) s = s.replace(/(package [^;]+;)/, (p) => p + NL + 'import android.net.Uri;');
+      const end = s.lastIndexOf('}');
+      s = s.slice(0, end) + '    @Override' + NL + '    protected Uri getLaunchingUrl() {' + NL + '        Uri uri = super.getLaunchingUrl();' + NL + '        ' + add + 'return uri;' + NL + '    }' + NL + s.slice(end);
+    }
+    fs.writeFileSync(la, s);
+  }
+}
+
 // 3) 매니페스트
 const mf = path.join(APP, 'AndroidManifest.xml');
 let m = fs.readFileSync(mf, 'utf8');

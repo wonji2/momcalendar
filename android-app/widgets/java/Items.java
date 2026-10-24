@@ -88,10 +88,10 @@ final class Items {
         if (start.equals(t)) { r.tag = "오늘 시작"; r.tagKind = T_OP; return; }
         if (end == null || end.isEmpty()) { r.tag = "진행중"; r.tagKind = T_ING; return; }
         int n = dd(end);
-        if (n < 0) { r.tag = "끝"; r.tagKind = T_EN; return; }
-        if (n == 0) { r.tag = "오늘 끝"; r.tagKind = T_EN; return; }
-        if (n == 1) { r.tag = "내일 끝"; r.tagKind = T_EN; return; }
-        if (n <= 3) { r.tag = "끝 D-" + n; r.tagKind = T_EN; return; }
+        if (n < 0) { r.tag = "마감"; r.tagKind = T_EN; return; }
+        if (n == 0) { r.tag = "오늘마감"; r.tagKind = T_EN; return; }
+        if (n == 1) { r.tag = "내일마감"; r.tagKind = T_EN; return; }
+        if (n <= 3) { r.tag = "마감 D-" + n; r.tagKind = T_EN; return; }
         r.tag = "진행중"; r.tagKind = T_ING;
     }
 
@@ -160,8 +160,9 @@ final class Items {
         JSONArray wish = arr(f, "wish"), swish = arr(f, "sale_wish"), feed = arr(f, "feed"), hot = arr(f, "hot"), sale = arr(f, "sale");
 
         if (mine && !f.optBoolean("linked")) {
-            rows.add(note("💜 눌러서 내 찜 연결하기", WidgetBase.linkUrl(ctx)));
-            rows.get(0).meta = "앱이 열리면 끝 — 한 번만 하면 돼요";
+            // 앱을 켜면 자동으로 연결된다(LauncherActivity 가 주소에 위젯 번호를 붙임) — 이 줄은 그 전에 한 번만 보인다
+            rows.add(note("💜 앱을 한 번 열면 내 찜이 연결돼요", WidgetBase.linkUrl(ctx)));
+            rows.get(0).meta = "눌러서 앱 열기";
             return rows;
         }
         switch (tab) {

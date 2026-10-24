@@ -50,7 +50,7 @@ public abstract class WidgetBase extends AppWidgetProvider {
     }
 
     /** 이 폰 위젯 번호 — 처음 한 번 만들고 계속 쓴다 */
-    static String wid(Context ctx) {
+    public static String wid(Context ctx) {
         SharedPreferences sp = sp(ctx);
         String w = sp.getString("wid", null);
         if (w == null) {
@@ -149,7 +149,7 @@ public abstract class WidgetBase extends AppWidgetProvider {
     }
 
     /** 앱을 연 뒤 30초·3분에 다시 받는다 — 앱에서 찜하거나 방금 연결한 게 위젯에 바로 오게 */
-    static void refreshSoon(Context ctx) {
+    public static void refreshSoon(Context ctx) {
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
         long now = System.currentTimeMillis();
