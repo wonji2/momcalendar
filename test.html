@@ -6971,7 +6971,7 @@ function renderCommunity(){
 // ── 첫 실행 온보딩 ──────────────────────────────────────────
 const ONB_CATS=[['👶','육아'],['🥗','식품'],['🏠','리빙'],['💊','건강'],['🛋️','인테리어'],['🔌','가전'],['💄','뷰티'],['👗','패션'],['✈️','여행'],['🐶','반려동물']];
 let _onbI=0, _onbAuto=true, _onbTimer=null;
-function onbShouldShow(){ try{ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('onb=1')>=0) return true; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
+function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
 function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
