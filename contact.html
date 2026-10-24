@@ -53,13 +53,13 @@ var TYPES={
 var p=new URLSearchParams(location.search), S={};
 var q=(p.get('q')||'').replace(/[\r\n]+/g,' ').trim().slice(0,200);
 function render(t){
-  if(!TYPES[t]) t='질문';
+  if(!Object.prototype.hasOwnProperty.call(TYPES,t)) t='질문';   // ?t=constructor 같은 값이 뚫지 않게
   var head=q?q.slice(0,30):'';
   S.subj='['+t+'] '+head;
   S.body=(q?'맘캘봇에 남긴 말: '+q+'\n\n':'')+TYPES[t].join('\n');
   document.getElementById('subj').textContent=S.subj;
   document.getElementById('body').textContent=S.body;
-  document.getElementById('go').href='mailto:app@momcalendar.com?subject='+encodeURIComponent(S.subj)+'&body='+encodeURIComponent(S.body);
+  document.getElementById('go').href='mailto:app@momcalendar.com?subject='+encodeURIComponent(S.subj)+'&body='+encodeURIComponent(S.body.replace(/\n/g,'\r\n'));   // 메일 앱 줄바꿈은 CRLF(RFC 6068)
   document.getElementById('tabs').innerHTML=Object.keys(TYPES).map(function(k){return '<button class="'+(k===t?'on':'')+'" onclick="render(\''+k+'\')">'+k+'</button>';}).join('');
 }
 function cp(s,msg){

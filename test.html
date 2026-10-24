@@ -2888,7 +2888,7 @@ function liveFilter(c){ _liveCat=c||''; renderLive(); try{ trackEvent('live_filt
 function _liveWhen(iso){
   const d=new Date(iso), k=new Date(d.getTime()+9*3600e3);
   const ds=k.toISOString().slice(0,10), h=k.getUTCHours(), mi=k.getUTCMinutes();
-  const ap=h<12?'오전':'오후', hh=h%12===0?12:h%12;
+  const ap=h===0?'밤':h<12?'오전':'오후', hh=h%12===0?12:h%12;   // 0시를 「오전 12시」로 쓰면 낮 12시로 읽힌다
   return {day:ds, time:`${ap} ${hh}시${mi?` ${mi}분`:''}`};
 }
 function _liveDayLabel(ds){
@@ -2901,7 +2901,8 @@ function _liveDayLabel(ds){
 function renderLive(){
   const list=document.getElementById('liveList'), chips=document.getElementById('liveChips');
   if(!list) return;
-  const all=_liveData||[];
+  // 끝난 방송(시작 후 1시간 지남)은 뺀다 — 2시간 전부터 받아 오므로 그냥 두면 「오늘」 맨 위에 끝난 방송이 쌓인다
+  const all=(_liveData||[]).filter(x=>new Date(x.start_at).getTime()+3600e3>Date.now());
   if(chips){
     const cnt={}; all.forEach(x=>{ if(x.category) cnt[x.category]=(cnt[x.category]||0)+1; });
     const cats=Object.keys(cnt).sort((a,b)=>(a==='키즈'?-1:b==='키즈'?1:cnt[b]-cnt[a]));   // 키즈를 앞에
