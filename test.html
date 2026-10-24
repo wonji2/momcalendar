@@ -7029,7 +7029,7 @@ function renderCommunity(){
 <script>
 // ── 첫 실행 온보딩 ──────────────────────────────────────────
 const ONB_CATS=[['👶','육아'],['🥗','식품'],['🏠','리빙'],['💊','건강'],['🛋️','인테리어'],['🔌','가전'],['💄','뷰티'],['👗','패션'],['✈️','여행'],['🐶','반려동물']];
-let _onbI=0, _onbAuto=true, _onbTimer=null;
+let _onbI=0, _onbAuto=true, _onbTimer=null, _onbPlayT=null, _onbRewT=null;
 const ONB_HOLD=1000, ONB_APP_MS=4500, ONB_SLIDE_MS=480;   // 영상 끝 → 1초 멈춤 → 다음 장 · 앱 안내 장 4.5초 · 넘김 시간(.onb-rail transition 과 같게)
 function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
 function onbOpen(){
@@ -7047,7 +7047,8 @@ function onbOpen(){
   tr.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0;
     if(!drag){ if(Math.abs(dx)<8) return; if(Math.abs(e.clientY-y0)>Math.abs(dx)){ x0=null; dx=0; return; } drag=true; rail.classList.add('drag'); }
     const d=((_onbI===0&&dx>0)||(_onbI===_onbN()-1&&dx<0))?dx*0.35:dx; rail.style.transform='translateX(calc(-'+(_onbI*100)+'% + '+d+'px))'; },{passive:true});
-  const end=()=>{ if(x0===null) return; x0=null; rail.classList.remove('drag'); const th=Math.min(60,(tr.clientWidth||300)*0.16);
+  const end=(e)=>{ if(x0===null) return; x0=null; rail.classList.remove('drag'); const th=Math.min(60,(tr.clientWidth||300)*0.16);
+    if(e && e.type==='pointercancel') dx=0;   // 손을 뗀 게 아니라 취소된 것 — 넘기지 않고 제자리로
     if(dx<-th){ if(_onbI>=_onbN()-1){ _onbShow(_onbI); onbNext(); } else _onbShow(_onbI+1); }   // 마지막 장에서 한 번 더 밀면 시작하기(그대로 둠)
     else if(dx>th) _onbShow(_onbI-1); else _onbShow(_onbI); dx=0; };
   tr.addEventListener('pointerup',end,{passive:true}); tr.addEventListener('pointercancel',end,{passive:true});
@@ -7057,14 +7058,19 @@ function _onbVid(k){ const sl=document.querySelectorAll('#onbRail .onb-sl')[k==n
 function _onbShow(k){ const N=_onbN(), prev=_onbI; _onbI=Math.max(0,Math.min(N-1,k));
   document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음';
   if(prev===_onbI) return;   // 덜 밀어 제자리로 돌아온 것 — 보던 영상은 그대로
-  clearTimeout(_onbTimer); const me=_onbI, v=_onbVid(), nx=_onbVid(_onbI+1);
-  document.querySelectorAll('#onbRail video').forEach(o=>{ if(o!==v){ o.pause(); try{ if(o.readyState) o.currentTime=0; }catch(_){} } });   // 지나간 장은 첫 그림(=포스터)으로 돌려 둔다
+  clearTimeout(_onbTimer); clearTimeout(_onbPlayT); clearTimeout(_onbRewT); const me=_onbI, v=_onbVid(), nx=_onbVid(_onbI+1);
+  document.querySelectorAll('#onbRail video').forEach(o=>{ if(o!==v) o.pause(); });
+  // 지나간 장은 첫 그림(=포스터)으로 돌려 두되, 다 밀려 나간 뒤에 — 나가는 동안 되감으면 보던 그림이 맨 위 그림으로 휙 바뀐다(검증 10-25)
+  _onbRewT=setTimeout(()=>{ document.querySelectorAll('#onbRail video').forEach(o=>{ if(o!==_onbVid()){ try{ if(o.readyState) o.currentTime=0; }catch(_){} } }); },ONB_SLIDE_MS+60);
   if(v) v.preload='auto'; if(nx) nx.preload='auto';   // 다음 장 영상을 미리 받아 둔다(카톡 인앱에서 넘어간 뒤 빈 화면·끊김 방지)
   if(!v){ if(_onbAuto && me<N-1) _onbTimer=setTimeout(()=>{ if(_onbI===me) _onbShow(me+1); },ONB_APP_MS); return; }
   // 장이 다 넘어온 뒤 재생 — 넘어오는 동안은 0번 그림(포스터)이 가만히 있다(넘김과 영상 속 움직임이 겹치면 눈이 아프다)
-  _onbTimer=setTimeout(()=>{ if(_onbI!==me) return; try{ v.currentTime=0; }catch(_){} const p=v.play(); if(p&&p.catch) p.catch(()=>{ if(_onbAuto && _onbI===me && me<N-1) _onbTimer=setTimeout(()=>_onbShow(me+1),ONB_APP_MS); }); },ONB_SLIDE_MS);
+  // 재생 타이머는 자동 넘김 타이머(_onbTimer)와 따로 둔다 — 넘긴 직후 화면을 건드리면 재생까지 지워져 멈춘 그림으로 남았다(검증 10-25)
+  _onbPlayT=setTimeout(()=>{ if(_onbI!==me) return; try{ v.currentTime=0; }catch(_){} const p=v.play(); if(p&&p.catch) p.catch(()=>{ if(_onbAuto && _onbI===me && me<N-1) _onbTimer=setTimeout(()=>_onbShow(me+1),ONB_APP_MS); });
+    // 재생이 시작도 안 되고 매달리면(느린 인앱·저전력) 자동 넘김이 영영 멈춘다 → 4초 안에 안 움직이면 다음 장으로
+    _onbTimer=setTimeout(()=>{ if(_onbAuto && _onbI===me && me<N-1 && v.currentTime<0.1) _onbShow(me+1); },4000); },ONB_SLIDE_MS);
 }
-function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); _onbStep('onbCat'); }
+function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); clearTimeout(_onbPlayT); document.querySelectorAll('#onbRail video').forEach(o=>o.pause()); _onbStep('onbCat'); }
 function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
 function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
 function onbCatDone(){
