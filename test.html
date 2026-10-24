@@ -6709,20 +6709,28 @@ function closeChatMenu(){
 <!-- 💬 커뮤니티 탭 + 검색창 채널 (사장님 2026-10-23 앱 디벨롭 결정: 체험단 탭 → 커뮤니티(카페 게시판, 글 많은 순·제목+댓글수·봇 표시 없음·글번호 없음·버튼 「글쓰기」) ·
      검색 누르면 TOP10 → 챗봇 배너 → 방장 인스타 → 공식 인스타 → 네이버 카페 → 단톡 공지방 → 육아 수다방) -->
 <style id="mc-community">
-.comm-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.comm-chips::-webkit-scrollbar{display:none}
-.comm-chip{flex:0 0 auto;border:1px solid #E0D8EA;background:#fff;color:#602090;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
-.comm-chip.on{background:#602090;border-color:#602090;color:#fff}
-.comm-head{display:flex;align-items:center;justify-content:space-between;margin:2px 0 8px}
-.comm-head h3{font-size:15px;font-weight:800;margin:0}
-.comm-write{background:#602090;color:#fff;border:none;border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:800;font-family:inherit;text-decoration:none}
-.comm-item{display:block;padding:12px 2px;border-bottom:1px solid #F0ECF4;color:inherit;text-decoration:none}
-.comm-item .ct{font-size:14px;font-weight:700;line-height:1.35;color:#232326;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.comm-item .cm{margin-top:5px;font-size:11.5px;color:#9A94A5;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.comm-item .cm b{color:#602090;font-weight:700}
-.comm-item .cm .bd{background:#F3EEF8;color:#602090;border-radius:6px;padding:1px 6px;font-weight:700}
+/* 커뮤니티 = 앱 시안(mockapp.html p-comm) 그대로 (사장님 2026-10-24 「앱 짜놓은대로 테스트에도 올려」) */
+.comm-tabs{position:relative;margin:0 -12px 2px}
+.comm-tabs .comm-sc{display:flex;gap:18px;overflow-x:auto;padding:4px 14px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-bottom:1px solid #F2F4F6}
+.comm-tabs .comm-sc::-webkit-scrollbar{display:none}
+.comm-tabs button{flex:none;border:0;background:none;color:#8B95A1;font-family:inherit;font-size:14.5px;font-weight:500;padding:8px 0 10px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.comm-tabs button.on{color:#191F28;font-weight:700;border-bottom-color:#191F28}
+.comm-tabs::after{content:"";position:absolute;right:0;top:0;bottom:1px;width:44px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff);pointer-events:none}
+.comm-post{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F2F4F6;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.comm-post:active{opacity:.7}
+.comm-post .bx{min-width:0;flex:1}
+.comm-post .t{font-size:15px;font-weight:700;margin:0;display:flex;gap:6px;align-items:baseline;letter-spacing:-.01em;color:#191F28;line-height:1.4}
+.comm-post .t span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comm-post .t .n{color:#FF7043;font-weight:700;font-size:13px;flex:none}
+.comm-post .p{font-size:13.5px;color:#4E5968;margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+.comm-post .m{font-size:12px;color:#8B95A1;display:flex;gap:6px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.comm-post .m span+span::before{content:"·";margin-right:6px}
+.comm-thumb{width:64px;height:64px;border-radius:12px;flex:none;background:#F2F4F6;object-fit:cover}
 .comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
-.comm-more{display:block;width:100%;margin:12px 0 0;background:#F3EEF8;color:#602090;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer}
+.comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
+@media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
+#commView{padding-bottom:96px!important}   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
 /* 검색창 아래 채널 */
 .sch-banner{display:flex;align-items:center;gap:10px;margin:14px 0 6px;background:linear-gradient(135deg,#FFE9F1,#F3E8FF);border-radius:14px;padding:12px 14px;text-decoration:none;color:#232326}
 .sch-banner b{display:block;font-size:14px;font-weight:800}
@@ -6765,7 +6773,7 @@ async function loadCommunity(force){
   v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
   try{
     const since=new Date(Date.now()-30*86400000).toISOString();
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
     _commData=r.ok?await r.json():[];
   }catch(_){ _commData=[]; }
   renderCommunity();
@@ -6773,20 +6781,26 @@ async function loadCommunity(force){
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
 function commMore(){ _commShown+=30; renderCommunity(); }
+function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
   const all=_commData||[];
-  // 게시판 칩: 최근 30일 글 수 많은 순 (사장님 2026-10-23)
+  // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
   const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
   const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
   const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
   const writeUrl=_commBoard?`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/menus/${_commBoard}/articles/write`:`https://cafe.naver.com/ca-fe/cafes/${COMM_CLUB}/articles/write`;
-  let h=`<div class="comm-head"><h3>💬 커뮤니티</h3><a class="comm-write" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){}">글쓰기</a></div>`;
-  h+=`<div class="comm-chips"><button class="comm-chip${_commBoard?'':' on'}" onclick="commPick(0)">전체</button>${boards.map(b=>`<button class="comm-chip${_commBoard===b.id?' on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div>`;
-  if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; v.innerHTML=h; return; }
-  h+=rows.slice(0,_commShown).map(p=>`<a class="comm-item" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){}"><div class="ct">${escHtml(p.title)}${p.has_image?' 📷':''}</div><div class="cm">${_commBoard?'':`<span class="bd">${escHtml(p.board)}</span>`}<span>${escHtml(p.nick||'')}</span><span>·</span><span>${_commAgo(p.posted_at)}</span>${p.comments?`<span>·</span><b>💬 ${p.comments}</b>`:''}</div></a>`).join('');
+  let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
+  else h+=rows.slice(0,_commShown).map(p=>{
+    // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
+    const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){}"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+  }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
+  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){}">✏️ 글쓰기</a>`;
   v.innerHTML=h;
+  const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }
 </script>
 <!-- 🎬 첫 실행 — 소개 슬라이드(건너뛰기 없음, 끝까지 넘겨야 시작하기) → 관심 카테고리(여러 개) → 육아를 골랐으면 아이 정보(숫자·개월/세·여아/남아, 여러 명, 이름 없음)
