@@ -563,12 +563,12 @@ body.srch-suggest #searchDrop{display:block}
 .sale-chip.on{background:#185FA5;border-color:#185FA5;color:#fff}
 .sale-sec{font-size:12.5px;font-weight:800;color:#2B3A4A;margin:14px 2px 7px;display:flex;align-items:center;gap:6px}
 .sale-sec i{font-style:normal;font-size:11px;font-weight:600;color:#7A8794}
-.sale-card{display:flex;gap:11px;align-items:center;background:#fff;border:1px solid #E6EBF1;border-radius:13px;padding:11px 12px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sale-card{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #E6EBF1;border-radius:13px;padding:11px 11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sale-card:active{background:#F4F8FC}
 .sale-logo{flex:0 0 42px;width:42px;height:42px;border-radius:11px;border:1px solid #EEF1F5;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
 .sale-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .sale-body{flex:1;min-width:0}
-.sale-t{font-size:13px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}
+.sale-t{font-size:13px;font-weight:700;color:#1F2933;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}   /* 최대 두 줄 */
 .sale-t em{font-style:normal;font-size:10.5px;font-weight:700;color:#D85A30;background:#FBEAE7;border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:1px}
 .sale-m{font-size:11.5px;color:#7A8794;margin-top:3px}
 .sale-bar{height:4px;border-radius:2px;background:#E6EEF7;margin-top:7px;overflow:hidden}
@@ -2847,7 +2847,7 @@ function renderSale(){
     // 💜 찜·알림은 하트 하나 — 공구 카드 찜(heartSvg)과 같은 꼴 (사장님 2026-10-23 "찜이랑 알림 1개로 통일 · 공구카드 찜이랑 똑같이")
     //    시작 전 세일을 찜하면 시작일 아침 9시 알림도 같이 켜진다(b). 서버는 시작일 아침 한 번만 보낸다(sale_wish_89.sql)
     const on=!!(s.w||s.b);
-    const wishBtn=_saleCanWish(e)?`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`:'<span class="sale-wish" aria-hidden="true"></span>';   // 시작한 건 빈 자리(알약 줄 맞춤)
+    const wishBtn=_saleCanWish(e)?`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`:'';   // 시작한 건 하트 자리도 비우지 않는다 — 제목이 옆까지 쓰게(2026-10-25)
     return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
   };
   let h='';
