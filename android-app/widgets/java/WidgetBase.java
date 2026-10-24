@@ -32,8 +32,8 @@ public abstract class WidgetBase extends AppWidgetProvider {
     static final String FEED = "https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/rpc/widget_feed";
     static final String KEY = "sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE";
     static final String SITE = "https://momcalendar.com/";
-    // 사이트 연결 코드는 지금 test.html 에만 있다(라이브는 「배포해」 뒤). 같은 주소(origin)라 mc_did 가 같다.
-    static final String LINK_PAGE = "https://momcalendar.com/test.html";
+    // 사이트 연결 코드(widgetBind)는 라이브 index.html 에 있다(2026-10-24 배포).
+    static final String LINK_PAGE = "https://momcalendar.com/";
     static final String PREF = "momcal_widget";
     static final String A_TAB = "com.wantsb.momcalendar.widget.TAB";
     static final String A_MODE = "com.wantsb.momcalendar.widget.MODE";
