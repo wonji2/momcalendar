@@ -2933,7 +2933,7 @@ function _lvStageStart(){
   const go=n=>{ sl[i].classList.remove('on'); dt[i]&&dt[i].classList.remove('on'); i=(n+sl.length)%sl.length; sl[i].classList.add('on'); dt[i]&&dt[i].classList.add('on'); };
   st.addEventListener('touchstart',e=>{ hold=Date.now()+8000; x0=e.touches[0].clientX; },{passive:true});
   st.addEventListener('touchend',e=>{ if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(Math.abs(dx)>40){ go(i+(dx<0?1:-1)); st.dataset.sw='1'; setTimeout(()=>{ delete st.dataset.sw; },400); } },{passive:true});
-  st.addEventListener('click',e=>{ if(st.dataset.sw){ e.preventDefault(); } },true);   // 밀어서 넘긴 손가락이 링크를 누른 것으로 치지 않게
+  st.addEventListener('click',e=>{ if(st.dataset.sw){ e.preventDefault(); e.stopPropagation(); } },true);   // 밀어서 넘긴 손가락이 링크를 누른 것으로 치지 않게
   _lvStT=setInterval(()=>{
     if(!document.body.contains(st)){ _lvStageStop(); return; }
     if(Date.now()<hold || st.offsetParent===null || document.hidden) return;
