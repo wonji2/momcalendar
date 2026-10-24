@@ -113,7 +113,9 @@ body.srch-suggest #searchDrop{display:block}
 .sdrop-head h4{font-size:13.5px;margin:0;color:var(--t1);font-weight:800}
 .sdrop-clear{font-size:11.5px;color:#b3aabb;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
 .sdrop-empty{font-size:12px;color:#b3aabb}
-.recent-chips{display:flex;gap:7px;flex-wrap:wrap}
+.recent-chips{display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-right:-16px;padding-right:16px}   /* 한 줄 · 옆으로 넘기기 (사장님 2026-10-24) */
+.recent-chips::-webkit-scrollbar{display:none}
+.recent-chips .recent-chip{flex:0 0 auto;white-space:nowrap}
 .recent-chip{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:100px;padding:6px 8px 6px 12px;font-size:12px;color:var(--t1);cursor:pointer}
 .recent-chip .x{color:#c7bfcf;font-size:11px;padding:2px 4px}
 /* 2분할 세로쓰기: 왼쪽 1~5위 · 오른쪽 6~10위 — 키보드가 올라와도 10개가 다 보인다 (사장님 지시 2026-08-31) */
@@ -692,21 +694,38 @@ body.srch-mode .app-tabbar{display:none!important}
 .sl-toggle{display:flex;gap:4px;background:#F1EEF5;border-radius:11px;padding:4px;margin:0 0 12px}
 .sl-tg{flex:1;border:none;background:transparent;border-radius:8px;padding:9px 0;font-size:13px;font-weight:700;color:#8A8395;cursor:pointer;font-family:inherit}
 .sl-tg.on{background:#fff;color:#2B2433;box-shadow:0 1px 4px rgba(40,20,60,.12)}
-.live-day{font-size:12.5px;font-weight:800;color:#2B2433;margin:14px 2px 7px}
-.live-card{display:flex;gap:11px;background:#fff;border:1px solid #F0E6EE;border-radius:13px;padding:10px 11px;margin-bottom:8px;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
-.live-card:active{background:#FCF6F9}
-.live-th{flex:0 0 64px;width:64px;height:84px;border-radius:10px;overflow:hidden;background:#F6EEF3;position:relative}
-.live-th img{width:100%;height:100%;object-fit:cover;display:block}
-.live-badge{position:absolute;left:4px;top:4px;font-size:10px;font-weight:800;color:#fff;background:#E8436B;border-radius:5px;padding:1px 5px}
+.live-day{font-size:13px;font-weight:800;color:#2B2433;margin:18px 2px 8px}
+/* 라방 큰 포스터 카드 (2026-10-24 사장님 「공구베이비처럼 큰 라방 움직이는 화면처럼」) — 네이버는 남의 페이지 안에 방송 화면을 못 띄우게 막고(「접근이 불가한 환경」), 예정 방송엔 미리보기 영상이 없다(19건 중 0) → 큰 사진 + 천천히 확대 + 맨 위 자동 넘김 */
+.lv-hero-h{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#E8436B;margin:2px 2px 8px}
+.lv-hero{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.lv-hero::-webkit-scrollbar{display:none}
+.lv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px}
+.lv-card{display:block;min-width:0;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
+.lv-card:active{opacity:.85}
+.lv-th{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#F6EEF3}
+.lv-th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.lv-card.hero{flex:0 0 80%;scroll-snap-align:start}
+.lv-card.hero .lv-th{aspect-ratio:4/5}
+.lv-card.hero .lv-th::after{content:'';position:absolute;left:0;right:0;bottom:0;height:58%;background:linear-gradient(rgba(20,10,30,0),rgba(20,10,30,.8))}
+.lv-card.hero img,.lv-card.on img{animation:lvKen 9s ease-in-out infinite alternate;will-change:transform}
+@keyframes lvKen{from{transform:scale(1) translate(0,0)}to{transform:scale(1.15) translate(-3%,-2%)}}
+@media (prefers-reduced-motion:reduce){.lv-card img{animation:none!important}}
+.lv-ov{position:absolute;left:12px;right:12px;bottom:11px;z-index:1}
+.lv-ov .lv-t{color:#fff;font-size:15px}
+.lv-ov .lv-ch{color:rgba(255,255,255,.82)}
+.lv-ov .lv-p{color:#fff}
+.lv-ov .lv-p b{color:#FFB8C8}
+.live-badge{position:absolute;left:8px;top:8px;z-index:2;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#fff;background:#E8436B;border-radius:6px;padding:2px 7px}
+.live-badge i{width:6px;height:6px;border-radius:50%;background:#fff;animation:lvDot 1s ease-in-out infinite}
+@keyframes lvDot{50%{opacity:.2}}
 .live-badge.soon{background:#7A5BC4}
-.live-body{flex:1;min-width:0}
-.live-time{font-size:12px;font-weight:800;color:#C2417A}
-.live-t{font-size:13.5px;font-weight:700;color:#1F2933;line-height:1.35;margin-top:2px;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.live-ch{font-size:11.5px;color:#7A8794;margin-top:3px}
-.live-p{font-size:13px;font-weight:800;color:#1F2933;margin-top:4px}
-.live-p b{color:#E0533D}
-.live-pn{font-size:11px;color:#6B6478;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.live-ben{font-size:11px;color:#8A6E7C;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-time{position:absolute;right:8px;top:8px;z-index:2;font-size:11px;font-weight:800;color:#fff;background:rgba(20,10,30,.55);border-radius:6px;padding:2px 7px}
+.lv-b{padding:7px 2px 0}
+.lv-t{font-size:13px;font-weight:700;color:#1F2933;line-height:1.35;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lv-ch{font-size:11px;color:#7A8794;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-p{font-size:13px;font-weight:800;color:#1F2933;margin-top:3px}
+.lv-p b{color:#E0533D}
+.lv-ben{font-size:11px;color:#8A6E7C;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sale-head{margin:2px 2px 10px}
 .sale-h1{font-size:15px;font-weight:800;color:#185FA5}
 .sale-h2{font-size:11.5px;color:#7A8794;margin-top:2px}
@@ -1585,7 +1604,6 @@ window.slimAdClick=function(id){
   <div id="liveBox" style="display:none">
     <div class="sale-head">
       <div class="sale-h1" style="color:#C2417A">📺 라방 일정</div>
-      <div class="sale-h2">네이버 쇼핑라이브 방송 시간표 모아보기 · 방송 혜택은 라이브 중에만 적용돼요</div>
     </div>
     <div class="sale-chips" id="liveChips"></div>
     <div id="liveList"></div>
@@ -2900,6 +2918,40 @@ function _liveDayLabel(ds){
   const w='일월화수목금토'[new Date(ds+'T12:00:00+09:00').getUTCDay()];
   return (diff===1?'내일 · ':'')+`${+ds.slice(5,7)}.${+ds.slice(8,10)}(${w})`;
 }
+let _lvHeroT=null;
+function _lvHeroStop(){ if(_lvHeroT){ clearInterval(_lvHeroT); _lvHeroT=null; } }
+// 맨 위 큰 카드는 3.5초마다 옆으로 넘어간다 — 손님이 손대면 8초 쉰다, 화면에 없으면 안 움직인다
+// scrollTo({behavior:'smooth'}) 는 일부 브라우저·웹뷰에서 안 움직인다(2026-10-24 실측) → 직접 0.45초. 도중엔 스냅을 끈다
+function _lvSlide(h,to){
+  const from=h.scrollLeft, t0=performance.now(); h.style.scrollSnapType='none';
+  const end=()=>{ h.scrollLeft=to; h.style.scrollSnapType=''; };
+  const step=t=>{ const k=Math.min(1,(t-t0)/450); h.scrollLeft=from+(to-from)*(1-Math.pow(1-k,3)); if(k<1) requestAnimationFrame(step); else end(); };
+  requestAnimationFrame(step); setTimeout(()=>{ if(h.style.scrollSnapType==='none') end(); },900);
+}
+function _lvHeroStart(){
+  _lvHeroStop();
+  const h=document.getElementById('lvHero'); if(!h||h.children.length<2) return;
+  let hold=0; const pause=()=>{ hold=Date.now()+8000; };
+  h.addEventListener('touchstart',pause,{passive:true}); h.addEventListener('pointerdown',pause); h.addEventListener('wheel',pause,{passive:true});
+  _lvHeroT=setInterval(()=>{
+    if(!document.body.contains(h)){ _lvHeroStop(); return; }
+    if(Date.now()<hold || h.offsetParent===null || document.hidden) return;
+    const w=h.children[0].getBoundingClientRect().width+10, atEnd=h.scrollLeft+h.clientWidth>=h.scrollWidth-4;
+    _lvSlide(h, atEnd?0:h.scrollLeft+w);
+  },3500);
+}
+function _lvCard(x,hero,now){
+  const w=_liveWhen(x.start_at), st=new Date(x.start_at).getTime();
+  const on=now>=st && now<st+3600e3, soon=st>now && st-now<3600e3;
+  const badge=on?'<span class="live-badge"><i></i>LIVE</span>':soon?'<span class="live-badge soon">곧 시작</span>':'';
+  const tm=(hero && w.day!==todayStr?'내일 ':'')+w.time;
+  const pl=x.prod_price?`<div class="lv-p">${x.prod_rate?`<b>${x.prod_rate}%</b> `:''}${Number(x.prod_price).toLocaleString()}원</div>`:'';
+  const bl=(!hero && x.benefit)?`<div class="lv-ben">🎁 ${escHtml(x.benefit)}</div>`:'';
+  const img=x.image_url?`<img src="${escHtml(x.image_url)}" alt="" loading="${hero?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+  const txt=`<div class="lv-t">${escHtml(x.title)}</div><div class="lv-ch">${escHtml(x.channel_name||'')}${x.category?` · ${escHtml(x.category)}`:''}</div>${pl}${bl}`;
+  return `<a class="lv-card${hero?' hero':''}${on?' on':''}" href="${escHtml(x.link_url||'https://shoppinglive.naver.com/')}" target="_blank" rel="noopener" onclick="try{trackEvent('live_click','${x.id}')}catch(_){}">
+      <div class="lv-th">${img}${badge}<span class="lv-time">${escHtml(tm)}</span>${hero?`<div class="lv-ov">${txt}</div>`:''}</div>${hero?'':`<div class="lv-b">${txt}</div>`}</a>`;
+}
 function renderLive(){
   const list=document.getElementById('liveList'), chips=document.getElementById('liveChips');
   if(!list) return;
@@ -2911,22 +2963,22 @@ function renderLive(){
     chips.innerHTML=['',...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:`${c} ${cnt[c]}`)}</button>`).join('');
   }
   const rows=all.filter(x=>!_liveCat||x.category===_liveCat);
+  _lvHeroStop();
   if(!rows.length){ list.innerHTML='<div class="sale-empty">예정된 라방이 없어요</div>'; return; }
-  const now=Date.now(); let html='', lastDay='';
+  const now=Date.now();
+  // 맨 위 = 방송 중 + 3시간 안에 시작(최대 8) · 아래 목록엔 다시 안 넣는다
+  const hero=rows.filter(x=>new Date(x.start_at).getTime()-now<3*3600e3).slice(0,8), heroId=new Set(hero.map(x=>x.id));
+  let html=hero.length?`<div class="lv-hero-h">🔴 지금 · 곧 시작</div><div class="lv-hero" id="lvHero">${hero.map(x=>_lvCard(x,true,now)).join('')}</div>`:'';
+  let lastDay='', open=false;
   for(const x of rows){
-    const w=_liveWhen(x.start_at), st=new Date(x.start_at).getTime();
-    if(w.day!==lastDay){ html+=`<div class="live-day">${escHtml(_liveDayLabel(w.day))}</div>`; lastDay=w.day; }
-    const badge = (now>=st && now<st+3600e3) ? '<span class="live-badge">LIVE</span>' : (st>now && st-now<3600e3) ? '<span class="live-badge soon">곧 시작</span>' : '';
-    // 가격을 상품명 앞 줄에 둔다 — 상품명 뒤에 붙이면 말줄임에 잘려 375px 에서 329장 중 315장 가격이 안 보였다(2026-10-24 검증)
-    const pl = x.prod_price ? `<div class="live-p">${x.prod_rate?`<b>${x.prod_rate}%</b> `:''}${Number(x.prod_price).toLocaleString()}원</div>` : '';
-    const pn = x.prod_name ? `<div class="live-pn">${escHtml(x.prod_name)}</div>` : '';
-    const bl = x.benefit ? `<div class="live-ben">🎁 ${escHtml(x.benefit)}</div>` : '';
-    const img = x.image_url ? `<img src="${escHtml(x.image_url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
-    html+=`<a class="live-card" href="${escHtml(x.link_url||'https://shoppinglive.naver.com/')}" target="_blank" rel="noopener" onclick="try{trackEvent('live_click','${x.id}')}catch(_){}">
-      <div class="live-th">${img}${badge}</div>
-      <div class="live-body"><div class="live-time">${escHtml(w.time)}</div><div class="live-t">${escHtml(x.title)}</div><div class="live-ch">${escHtml(x.channel_name||'')}${x.category?` · ${escHtml(x.category)}`:''}</div>${pl}${pn}${bl}</div></a>`;
+    if(heroId.has(x.id)) continue;
+    const d=_liveWhen(x.start_at).day;
+    if(d!==lastDay){ if(open) html+='</div>'; html+=`<div class="live-day">${escHtml(_liveDayLabel(d))}</div><div class="lv-grid">`; lastDay=d; open=true; }
+    html+=_lvCard(x,false,now);
   }
+  if(open) html+='</div>';
   list.innerHTML=html;
+  _lvHeroStart();
 }
 async function loadSale(){
   _slApply();
@@ -6677,7 +6729,7 @@ function closeChatMenu(){
 <script>
 // ── 검색창 아래 채널 (TOP10 아래) ─────────────────────────────
 const SCH_CHANNELS=[
-  {k:'chatbot', banner:true, href:'https://pf.kakao.com/_zGfxnX/chat', t:'맘캘린더 챗봇', s:'공구 일정을 바로 찾아줘요', cta:'물어보기', ico:'💬'},
+  {k:'chatbot', banner:true, href:'https://pf.kakao.com/_zGfxnX/friend', t:'맘캘봇', s:'친구 추가하고 바로 물어보세요', cta:'물어보기', ico:'💬'},   // 「+」 의 맘캘봇과 같이 친구 추가로 (사장님 2026-10-24)
   {k:'ig_me',  href:'https://www.instagram.com/momcal_', t:'맘캘린더 방장 인스타', av:'방', bg:'#4A1A78', brand:'ig'},
   {k:'ig_off', href:'https://www.instagram.com/momcal_official', t:'맘캘린더 공식 인스타', av:'맘', bg:'linear-gradient(135deg,#9B6FD4,#F0E6FA)', brand:'ig'},
   {k:'cafe',   href:'https://cafe.naver.com/momcal/', t:'맘캘린더 네이버 카페', av:'N', bg:'#03C75A', brand:'naver'},
