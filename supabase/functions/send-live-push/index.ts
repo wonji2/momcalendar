@@ -16,8 +16,8 @@ const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE")!;
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:momcal@kakao.com";
 const CRON_SECRET = Deno.env.get("PUSH_CRON_SECRET") || "";
 const SITE = "https://momcalendar.com/";
-// ⚠ 라방 하트는 아직 test.html 에만 있다(라이브 index 는 사장님 허락 대기) → 알림도 test 의 라방으로 연다. index 배포 때 LIVE_URL = `${SITE}#live` 로 바꾼다
-const LIVE_URL = `${SITE}test.html#live`;
+// 라방 하트가 라이브(index)에 올라갔다(2026-10-25 c60f30ec07) → 알림은 라이브 라방(#live)으로 연다
+const LIVE_URL = `${SITE}#live`;
 const BATCH = 20;
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
