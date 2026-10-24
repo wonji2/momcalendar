@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 시안 · 라방 · 검색창 · 문센</title>
+<!-- 2026-10-24 사장님 「디자인 밤티스럽지 않게 … 토스 당근 맘맘 레퍼런스 참고」 「나한테 허락받고 라이브 올리게 목업 여러버전 짜」
+     세 화면 × 3안. 실제 데이터(live_shows · sale_events)를 그대로 불러와 그린다. 고르시면 그 안으로 test → 검증 → 라이브.
+     원칙(references/THREADS_REFERENCES.md): 둥근 상자 줄이기 · 여백과 글자 굵기로 위계 · 강조색은 한 화면에 하나 · 토스 토큰(#191F28 · #6B7684 · #F2F4F6) · 「한눈에」 금지 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{--fg:#191F28;--sub:#6B7684;--mute:#8B95A1;--line:#E5E8EB;--surf:#F2F4F6;--bg:#fff;--brand:#602090;--live:#F04452;--carrot:#FF6F0F}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff}
+body{font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--fg);-webkit-text-size-adjust:100%;letter-spacing:-.01em}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+.top{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+.top h1{font-size:15px;font-weight:800;padding:12px 16px 2px}
+.top p{font-size:12px;color:var(--sub);padding:0 16px 8px}
+.scr{display:flex;gap:0;padding:0 8px;overflow-x:auto;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.scr button{flex:0 0 auto;padding:10px 10px 11px;font-size:14px;font-weight:700;color:var(--mute);border-bottom:2px solid transparent}
+.scr button.on{color:var(--fg);border-color:var(--fg)}
+.vers{display:flex;gap:6px;padding:10px 16px 12px;overflow-x:auto;scrollbar-width:none}
+.vers button{flex:0 0 auto;padding:7px 13px;border-radius:999px;background:var(--surf);font-size:13px;font-weight:700;color:var(--sub)}
+.vers button.on{background:var(--fg);color:#fff}
+.note{margin:14px 16px 0;padding:11px 13px;background:#F9FAFB;border-radius:10px;font-size:12.5px;line-height:1.55;color:var(--sub)}
+.note b{color:var(--fg)}
+.stage{max-width:480px;margin:0 auto;padding-bottom:80px}
+.empty{padding:40px 16px;text-align:center;color:var(--mute);font-size:13px}
+/* 공통 — 사이트 머리(세일/라방 토글) 흉내 */
+.seg{display:flex;margin:14px 16px 4px;background:var(--surf);border-radius:10px;padding:3px}
+.seg span{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:700;color:var(--mute);border-radius:8px}
+.seg span.on{background:#fff;color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.h{font-size:20px;font-weight:800;padding:18px 16px 4px;letter-spacing:-.02em}
+.chips{display:flex;gap:6px;padding:10px 16px 2px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips span{flex:0 0 auto;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--sub);background:var(--surf)}
+.chips span.on{background:var(--fg);color:#fff}
+.day{font-size:15px;font-weight:800;padding:22px 16px 8px}
+.day small{font-size:12.5px;font-weight:600;color:var(--mute);margin-left:6px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#fff;background:var(--live);border-radius:5px;padding:2px 6px;line-height:1.3}
+.badge i{width:5px;height:5px;border-radius:50%;background:#fff;animation:dot 1s infinite}
+.badge.soon{background:var(--fg)}
+@keyframes dot{50%{opacity:.2}}
+@keyframes ken{from{transform:scale(1)}to{transform:scale(1.13) translate(-2%,-2%)}}
+.ken{animation:ken 8s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){.ken{animation:none}}
+.price{font-size:14px;font-weight:800;margin-top:4px}
+.price b{color:var(--live);margin-right:3px}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── 라방 A · 토스: 무대 한 장 + 목록 줄 ─────────────── */
+.A-stage{position:relative;margin:10px 16px 0;border-radius:16px;overflow:hidden;aspect-ratio:4/5;background:#222}
+.A-stage .sl{position:absolute;inset:0;opacity:0;transition:opacity .8s}
+.A-stage .sl.on{opacity:1}
+.A-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.A-stage .sl::after{content:'';position:absolute;inset:auto 0 0;height:60%;background:linear-gradient(transparent,rgba(0,0,0,.72))}
+.A-stage .tx{position:absolute;left:18px;right:18px;bottom:30px;z-index:1;color:#fff}
+.A-stage .tx .t{font-size:19px;font-weight:800;line-height:1.35}
+.A-stage .tx .m{font-size:13px;opacity:.85;margin-top:6px}
+.A-stage .tx .price{color:#fff}
+.A-stage .tx .price b{color:#FF8A95}
+.A-stage .bd{position:absolute;left:16px;top:16px;z-index:1}
+.A-dots{position:absolute;left:0;right:0;bottom:12px;z-index:1;display:flex;justify-content:center;gap:5px}
+.A-dots i{width:5px;height:5px;border-radius:3px;background:rgba(255,255,255,.45);transition:width .3s}
+.A-dots i.on{width:16px;background:#fff}
+.A-row{display:flex;gap:14px;padding:12px 16px;align-items:flex-start}
+.A-row .tm{flex:0 0 52px;font-size:14px;font-weight:800;padding-top:2px}
+.A-row .tm small{display:block;font-size:11px;font-weight:600;color:var(--mute);margin-top:2px}
+.A-row .im{flex:0 0 76px;height:96px;border-radius:10px;overflow:hidden;background:var(--surf);position:relative}
+.A-row .im img{width:100%;height:100%;object-fit:cover}
+.A-row .im .badge{position:absolute;left:5px;top:5px}
+.A-row .bd2{flex:1;min-width:0}
+.A-row .t{font-size:15px;font-weight:700;line-height:1.4}
+.A-row .ch{font-size:12.5px;color:var(--mute);margin-top:3px}
+
+/* ── 라방 B · 카카오: 노랑 강조 하나 · 정사각 사진 · 알림 버튼 ─────────────── */
+.K-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:4px 16px 0}
+.K-row::-webkit-scrollbar{display:none}
+.K-row a{flex:0 0 140px}
+.K-row .im{position:relative;width:140px;height:140px;border-radius:12px;overflow:hidden;background:var(--surf)}
+.K-row .im img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.K-row .im .badge{position:absolute;left:7px;top:7px}
+.K-row .t{font-size:13.5px;font-weight:600;line-height:1.4;margin-top:8px}
+.K-row .m{font-size:12px;color:var(--mute);margin-top:2px}
+.K-it{display:flex;gap:12px;padding:12px 16px;align-items:center}
+.K-it .im{flex:0 0 88px;height:88px;border-radius:12px;overflow:hidden;background:var(--surf);position:relative}
+.K-it .im img{width:100%;height:100%;object-fit:cover}
+.K-it .im .badge{position:absolute;left:5px;top:5px}
+.K-it .tx{flex:1;min-width:0}
+.K-it .tm{font-size:12.5px;font-weight:700;color:var(--sub)}
+.K-it .t{font-size:14.5px;font-weight:600;line-height:1.4;margin-top:2px}
+.K-it .ch{font-size:12px;color:var(--mute);margin-top:2px}
+.K-it .al{flex:none;align-self:center;font-size:12px;font-weight:700;background:#FEE500;color:#191919;border-radius:8px;padding:7px 10px}
+.K-it .al.off{background:var(--surf);color:var(--sub)}
+.K-tabs{display:flex;gap:6px;padding:12px 16px 0}
+.K-tabs span{padding:7px 13px;border-radius:999px;font-size:13px;font-weight:700;background:var(--surf);color:var(--sub)}
+.K-tabs span.on{background:#191919;color:#fff}
+
+/* ── 라방 C · 당근: 날짜 탭 + 시간표 ─────────────── */
+.C-days{display:flex;gap:18px;padding:10px 16px 0;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line)}
+.C-days::-webkit-scrollbar{display:none}
+.C-days button{flex:0 0 auto;padding:8px 0 10px;font-size:14.5px;font-weight:700;color:var(--mute);border-bottom:2px solid transparent}
+.C-days button.on{color:var(--fg);border-color:var(--carrot)}
+.C-now{margin:16px 16px 4px;display:flex;gap:14px;align-items:center;overflow:hidden}
+.C-now .im{flex:0 0 132px;height:176px;border-radius:12px;overflow:hidden;position:relative;background:var(--surf)}
+.C-now .im img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.C-now .im .badge{position:absolute;left:8px;top:8px}
+.C-now .k{font-size:12px;font-weight:800;color:var(--carrot)}
+.C-now .t{font-size:17px;font-weight:800;line-height:1.38;margin-top:4px}
+.C-now .m{font-size:12.5px;color:var(--mute);margin-top:5px}
+.C-now .fade{transition:opacity .5s}
+.C-slot{display:flex;gap:12px;padding:0 16px}
+.C-slot .tl{flex:0 0 46px;position:relative;font-size:13px;font-weight:800;padding-top:14px}
+.C-slot .tl::after{content:'';position:absolute;left:52px;top:0;bottom:0;width:1px;background:var(--line)}
+.C-slot .its{flex:1;min-width:0;padding-left:14px}
+.C-it{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #F2F4F6}
+.C-it .im{flex:0 0 64px;height:64px;border-radius:10px;overflow:hidden;background:var(--surf)}
+.C-it .im img{width:100%;height:100%;object-fit:cover}
+.C-it .t{font-size:14.5px;font-weight:600;line-height:1.38}
+.C-it .ch{font-size:12px;color:var(--mute);margin-top:3px}
+.C-it .price{font-size:13.5px}
+.C-it.on{background:#FFF4EC;margin:0 -8px;padding:12px 8px;border-radius:10px;border-bottom:0}
+
+/* ── 검색창 공통 ── */
+.sbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--brand)}
+.sbar .in{flex:1;background:#fff;border-radius:10px;padding:10px 12px;font-size:14px;color:var(--mute)}
+.sbar .bk{color:#fff;font-size:20px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;padding:20px 16px 10px}
+.sh h3{font-size:16px;font-weight:800}
+.sh button{font-size:12.5px;color:var(--mute)}
+.rec{display:flex;gap:6px;overflow-x:auto;padding:0 16px;scrollbar-width:none}
+.rec::-webkit-scrollbar{display:none}
+/* S1 */
+.S1 .rec span{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:8px 10px 8px 13px;border-radius:999px;background:var(--surf);font-size:13.5px;font-weight:600}
+.S1 .rec span i{font-style:normal;color:var(--mute);font-size:11px}
+.S1 .rank{display:grid;grid-template-columns:1fr 1fr;padding:0 16px;column-gap:16px}
+.S1 .rank div{display:flex;gap:12px;padding:10px 0;font-size:15px;font-weight:600}
+.S1 .rank b{width:16px;color:var(--mute);font-weight:700}
+.S1 .rank div:nth-child(-n+3) b{color:var(--brand)}
+.S1 .ch{display:flex;align-items:center;gap:12px;padding:11px 16px}
+.S1 .ch .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:16px;font-weight:900;color:#fff;flex:none}
+.S1 .ch .nm{flex:1;font-size:15px;font-weight:600}
+.S1 .ch .nm small{display:block;font-size:12px;color:var(--mute);font-weight:500;margin-top:1px}
+.S1 .ch .go{font-size:13px;font-weight:700;color:var(--brand)}
+.S1 .ch .go.g{color:var(--mute);font-weight:500}
+.div{height:8px;background:#F9FAFB;margin-top:14px}
+/* S2 */
+.S2 .rec span{flex:0 0 auto;font-size:14px;color:var(--fg);padding:4px 0;margin-right:12px;display:inline-flex;gap:5px;align-items:center}
+.S2 .rec span i{font-style:normal;color:#C4C9CF;font-size:12px}
+.S2 .rank div{display:flex;gap:14px;padding:11px 16px;font-size:15.5px;align-items:center}
+.S2 .rank b{width:18px;font-weight:800;color:var(--fg)}
+.S2 .rank div:nth-child(-n+3) b{color:var(--carrot)}
+.S2 .rank small{margin-left:auto;font-size:11px;color:var(--mute)}
+.S2 .sc{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 0;padding:6px 8px 4px}
+.S2 .sc a{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--fg);text-align:center}
+.S2 .sc .ic{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff}
+/* S3 */
+.S3{background:#FBF8FD;min-height:100vh}
+.S3 .rec span{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;background:#fff;font-size:13px;font-weight:600;color:#5B4A6E;box-shadow:0 0 0 1px #EDE6F4 inset}
+.S3 .rec span i{font-style:normal;color:#B9AECB;font-size:10.5px}
+.S3 .rank{margin:0 16px;background:#fff;border-radius:16px;padding:6px 14px}
+.S3 .rank div{display:flex;gap:12px;padding:9px 0;font-size:14.5px;font-weight:600;border-bottom:1px solid #F5F1F9}
+.S3 .rank div:last-child{border:0}
+.S3 .rank b{width:22px;height:22px;border-radius:50%;background:#F3ECFA;color:var(--brand);font-size:12px;display:grid;place-items:center}
+.S3 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
+.S3 .grid a{border-radius:14px;padding:13px 13px 12px;font-size:13.5px;font-weight:700;line-height:1.35;min-height:76px;display:flex;flex-direction:column;justify-content:space-between}
+.S3 .grid a small{font-size:11px;font-weight:600;opacity:.7}
+.S3 .grid a.w{grid-column:1/3;flex-direction:row;align-items:center;min-height:0}
+
+/* ── 문센 ── */
+.M-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #F2F4F6}
+.M-row .lg{width:42px;height:42px;border-radius:12px;background:var(--surf);display:grid;place-items:center;font-size:13px;font-weight:800;color:var(--sub);flex:none}
+.M-row .tx{flex:1;min-width:0}
+.M-row .t{font-size:15px;font-weight:700}
+.M-row .m{font-size:12.5px;color:var(--mute);margin-top:2px}
+.M-row .d{font-size:13px;font-weight:800;color:var(--brand);text-align:right;flex:none}
+.M-row .d small{display:block;font-size:11px;color:var(--mute);font-weight:600}
+.M2-row{display:flex;gap:14px;padding:14px 16px;align-items:center}
+.M2-row .dt{flex:0 0 54px;text-align:center}
+.M2-row .dt b{display:block;font-size:24px;font-weight:800;line-height:1}
+.M2-row .dt small{font-size:11.5px;color:var(--mute);font-weight:600}
+.M2-row .tx{flex:1;min-width:0;padding-left:14px;border-left:1px solid var(--line)}
+.M2-row .t{font-size:15px;font-weight:700}
+.M2-row .m{font-size:12.5px;color:var(--mute);margin-top:2px}
+.M2-row .tag{font-size:11.5px;font-weight:700;color:var(--brand);background:#F3ECFA;border-radius:6px;padding:2px 7px;flex:none}
+.M3-head{margin:12px 16px 0;padding:16px;border-radius:16px;background:#F7F3FB}
+.M3-head .k{font-size:12px;font-weight:800;color:var(--brand)}
+.M3-head .t{font-size:17px;font-weight:800;margin-top:4px}
+.M3-head .m{font-size:12.5px;color:var(--sub);margin-top:4px;line-height:1.5}
+.M3-tb{margin:6px 16px 0}
+.M3-tb div{display:flex;padding:13px 2px;border-bottom:1px solid #F2F4F6;font-size:14.5px}
+.M3-tb div span:first-child{flex:1;font-weight:600}
+.M3-tb div span:last-child{font-weight:800}
+.M3-tb div.past span:last-child{color:var(--mute);font-weight:600}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>맘캘린더 시안 — 고르시면 그 안으로 올립니다</h1>
+  <p>화면을 고르고 1·2·3안을 넘겨 보세요. 라방·문센은 지금 실제 데이터예요.</p>
+  <div class="scr" id="scr"><button data-s="live" class="on">📺 라방</button><button data-s="search">🔍 검색창</button><button data-s="mun">🎓 문센</button></div>
+  <div class="vers" id="vers"></div>
+</div>
+<div class="stage" id="stage"><div class="empty">불러오는 중…</div></div>
+
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co', KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const kst=d=>new Date(new Date(d).getTime()+9*3600e3);
+const today=kst(Date.now()).toISOString().slice(0,10);
+const W='일월화수목금토';
+const tm=iso=>{const k=kst(iso),h=k.getUTCHours(),m=k.getUTCMinutes();return `${h===0?'밤':h<12?'오전':'오후'} ${h%12||12}시${m?` ${m}분`:''}`;};
+const tmShort=iso=>{const k=kst(iso),h=k.getUTCHours(),m=k.getUTCMinutes();return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;};
+const dayOf=iso=>kst(iso).toISOString().slice(0,10);
+const dayLab=ds=>{const d=Math.round((Date.parse(ds)-Date.parse(today))/864e5);const w=W[new Date(ds+'T12:00:00+09:00').getUTCDay()];return d===0?'오늘':d===1?'내일':`${+ds.slice(5,7)}.${+ds.slice(8,10)}`;};
+const dayLabW=ds=>`${+ds.slice(5,7)}.${+ds.slice(8,10)} ${W[new Date(ds+'T12:00:00+09:00').getUTCDay()]}`;
+const dayHead=d=>{const l=dayLab(d);return /^(오늘|내일)$/.test(l)?`${l}<small>${dayLabW(d)}</small>`:dayLabW(d);};
+const priceH=x=>x.prod_price?`<div class="price">${x.prod_rate?`<b>${x.prod_rate}%</b>`:''}${Number(x.prod_price).toLocaleString()}원</div>`:'';
+const badgeH=x=>{const st=Date.parse(x.start_at),n=Date.now();return n>=st&&n<st+3600e3?'<span class="badge"><i></i>LIVE</span>':st>n&&st-n<3600e3?'<span class="badge soon">곧 시작</span>':'';};
+const imgH=(x,cls='')=>x.image_url?`<img class="${cls}" src="${esc(x.image_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'';
+const link=x=>esc(x.link_url||'https://shoppinglive.naver.com/');
+
+let LIVE=[], MUN=[];
+const timers=[]; const clearT=()=>{while(timers.length) clearInterval(timers.pop());};
+async function load(){
+  const from=new Date(Math.floor((Date.now()-2*3600e3)/3600e3)*3600e3).toISOString().replace('.000Z','Z');
+  const q=`/rest/v1/live_shows?select=id,title,channel_name,category,start_at,image_url,link_url,prod_name,prod_price,prod_rate,benefit&start_at=gte.${encodeURIComponent(from)}&order=start_at.asc,id.asc&limit=1500`;
+  try{ let r=await fetch('https://api.momcalendar.com'+q,{headers:H}); if(!r.ok) r=await fetch(SB+q,{headers:H}); LIVE=(await r.json()).filter(x=>Date.parse(x.start_at)+3600e3>Date.now()); }catch(_){ LIVE=[]; }
+  try{ const r=await fetch(SB+'/rest/v1/sale_events?select=id,brand,title,tag,start_date,end_date,url&tag=eq.%EB%AC%B8%EC%84%BC&order=start_date.asc',{headers:H}); MUN=await r.json(); }catch(_){ MUN=[]; }
+}
+const kids=()=>{const k=LIVE.filter(x=>x.category==='키즈');return k.length>=6?k:LIVE;};
+const chipsH=on=>{const c={};LIVE.forEach(x=>c[x.category]=(c[x.category]||0)+1);const cats=Object.keys(c).sort((a,b)=>a==='키즈'?-1:b==='키즈'?1:c[b]-c[a]);return `<div class="chips"><span>전체</span>${cats.map(k=>`<span class="${k===on?'on':''}">${esc(k)}</span>`).join('')}</div>`;};
+const head=(on='live')=>`<div class="seg"><span class="${on==='sale'?'on':''}">세일</span><span class="${on==='live'?'on':''}">라방</span></div>`;
+
+// ── 라방 A · 토스 무대
+function liveA(){
+  const rows=kids(), hero=rows.slice(0,6), hid=new Set(hero.map(x=>x.id));
+  let h=head()+`<div class="h">라방 일정</div>`+chipsH('키즈');
+  if(hero.length) h+=`<div class="A-stage" id="Ast">${hero.map((x,i)=>`<a class="sl${i?'':' on'}" href="${link(x)}" target="_blank" rel="noopener">${imgH(x,'ken')}<div class="bd">${badgeH(x)||`<span class="badge soon">${tm(x.start_at)}</span>`}</div><div class="tx"><div class="t clamp2">${esc(x.title)}</div><div class="m">${esc(x.channel_name)} · ${tm(x.start_at)}</div>${priceH(x)}</div></a>`).join('')}<div class="A-dots">${hero.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div></div>`;
+  let last='';
+  for(const x of rows.filter(x=>!hid.has(x.id)).slice(0,60)){
+    const d=dayOf(x.start_at); if(d!==last){ h+=`<div class="day">${dayHead(d)}</div>`; last=d; }
+    h+=`<a class="A-row" href="${link(x)}" target="_blank" rel="noopener"><div class="tm">${tmShort(x.start_at)}</div><div class="im">${imgH(x)}${badgeH(x)}</div><div class="bd2"><div class="t clamp2">${esc(x.title)}</div><div class="ch ell">${esc(x.channel_name)}</div>${priceH(x)}</div></a>`;
+  }
+  return {html:h, note:'<b>1안 · 토스</b> 맨 위 큰 무대 한 장이 4초마다 다음 방송으로 바뀌고(사진은 천천히 확대), 아래는 상자 없이 「시간 · 사진 · 제목」 줄. 글자 크기·굵기로만 나눴어요.', after(){ const st=document.getElementById('Ast'); if(!st) return; let i=0; const sl=st.querySelectorAll('.sl'), dt=st.querySelectorAll('.A-dots i'); if(sl.length<2) return; timers.push(setInterval(()=>{ sl[i].classList.remove('on'); dt[i].classList.remove('on'); i=(i+1)%sl.length; sl[i].classList.add('on'); dt[i].classList.add('on'); },4000)); }};
+}
+// ── 라방 B · 카카오
+function liveB(){
+  const rows=kids(), hero=rows.slice(0,10), hid=new Set(hero.map(x=>x.id));
+  let h=head()+`<div class="h">라방 일정</div>`+chipsH('키즈');
+  if(hero.length) h+=`<div class="day">지금 · 다음 방송</div><div class="K-row" id="Kr">${hero.map(x=>`<a href="${link(x)}" target="_blank" rel="noopener"><div class="im">${imgH(x,'ken')}${badgeH(x)}</div><div class="t clamp2">${esc(x.title)}</div><div class="m ell">${tm(x.start_at)} · ${esc(x.channel_name)}</div></a>`).join('')}</div>`;
+  let last='';
+  for(const x of rows.filter(x=>!hid.has(x.id)).slice(0,50)){
+    const d=dayOf(x.start_at); if(d!==last){ h+=`<div class="day">${dayHead(d)}</div>`; last=d; }
+    h+=`<div class="K-it"><a class="im" href="${link(x)}" target="_blank" rel="noopener">${imgH(x)}${badgeH(x)}</a><a class="tx" href="${link(x)}" target="_blank" rel="noopener"><div class="tm">${tm(x.start_at)}</div><div class="t clamp2">${esc(x.title)}</div><div class="ch ell">${esc(x.channel_name)}</div>${priceH(x)}</a><button class="al" onclick="this.classList.toggle('off');this.textContent=this.classList.contains('off')?'알림 받는 중':'🔔 알림'">🔔 알림</button></div>`;
+  }
+  return {html:h, note:'<b>2안 · 카카오</b> 정사각 사진 줄이 옆으로 자동으로 흐르고(사진은 천천히 확대), 아래 목록엔 노란 「🔔 알림」 버튼 하나만 강조. 방송 알림은 찜처럼 붙일 수 있어요(목업에선 눌러지기만 해요).', after(){ const b=document.getElementById('Kr'); if(!b||b.children.length<3) return; let hold=0; b.addEventListener('touchstart',()=>hold=Date.now()+8000,{passive:true}); timers.push(setInterval(()=>{ if(Date.now()<hold) return; const end=b.scrollLeft+b.clientWidth>=b.scrollWidth-4; slide(b,end?0:b.scrollLeft+150); },3000)); }};
+}
+// ── 라방 C · 당근 시간표
+let Cday=today;
+function liveC(){
+  const rows=kids(); const days=[...new Set(rows.map(x=>dayOf(x.start_at)))].slice(0,7); if(!days.includes(Cday)) Cday=days[0];
+  const dr=rows.filter(x=>dayOf(x.start_at)===Cday), now=dr.slice(0,5);
+  let h=head()+`<div class="h">라방 일정</div><div class="C-days">${days.map(d=>`<button class="${d===Cday?'on':''}" onclick="Cday='${d}';show()">${dayLab(d)}${dayLab(d)==='오늘'||dayLab(d)==='내일'?'':` ${W[new Date(d+'T12:00:00+09:00').getUTCDay()]}`}</button>`).join('')}</div>`+chipsH('키즈');
+  if(now.length) h+=`<a class="C-now" id="Cn" href="${link(now[0])}" target="_blank" rel="noopener"><div class="im">${imgH(now[0],'ken')}${badgeH(now[0])}</div><div class="fade"><div class="k">${Date.parse(now[0].start_at)<=Date.now()?'지금 방송 중':'곧 시작해요'}</div><div class="t clamp2">${esc(now[0].title)}</div><div class="m">${esc(now[0].channel_name)} · ${tm(now[0].start_at)}</div>${priceH(now[0])}</div></a>`;
+  const byH={}; dr.forEach(x=>{ const k=tmShort(x.start_at).slice(0,2); (byH[k]=byH[k]||[]).push(x); });
+  for(const k of Object.keys(byH)){
+    h+=`<div class="C-slot"><div class="tl">${+k}시</div><div class="its">${byH[k].map(x=>`<a class="C-it${badgeH(x).includes('LIVE')?' on':''}" href="${link(x)}" target="_blank" rel="noopener"><div class="im">${imgH(x)}</div><div style="flex:1;min-width:0"><div class="t clamp2">${badgeH(x)?badgeH(x)+' ':''}${esc(x.title)}</div><div class="ch ell">${esc(x.channel_name)} · ${tmShort(x.start_at)}</div>${priceH(x)}</div></a>`).join('')}</div></div>`;
+  }
+  return {html:h, note:'<b>3안 · 당근형 시간표</b> 위에 날짜 탭(오늘·내일·요일), 「지금 방송 중」 한 칸이 4초마다 바뀌고, 아래는 시각별 줄. 방송 중인 줄만 연한 주황.', after(){ const c=document.getElementById('Cn'); if(!c||now.length<2) return; let i=0; timers.push(setInterval(()=>{ i=(i+1)%now.length; const x=now[i]; c.href=x.link_url; c.querySelector('.im').innerHTML=imgH(x,'ken')+badgeH(x); c.querySelector('.fade').innerHTML=`<div class="k">${Date.parse(x.start_at)<=Date.now()?'지금 방송 중':'곧 시작해요'}</div><div class="t clamp2">${esc(x.title)}</div><div class="m">${esc(x.channel_name)} · ${tm(x.start_at)}</div>${priceH(x)}`; },4000)); }};
+}
+function slide(h,to){ const f=h.scrollLeft,t0=performance.now(); h.style.scrollSnapType='none'; const end=()=>{h.scrollLeft=to;h.style.scrollSnapType='';}; const st=t=>{const k=Math.min(1,(t-t0)/450); h.scrollLeft=f+(to-f)*(1-Math.pow(1-k,3)); if(k<1) requestAnimationFrame(st); else end();}; requestAnimationFrame(st); setTimeout(()=>{ if(h.style.scrollSnapType==='none') end(); },900); }
+
+// ── 검색창
+const RECENT=['지원이','미니두두','생선','소고기칩','야물야물','슈메르','로슬러','샤워핸들','탁가온','스노우키즈'];
+const TREND=['미니두두','스트라이더','탁가온','가습기','블루래빗','맘노코','크렛','화이트랩스','주니','퍼기'];
+const CH=[
+  {t:'맘캘봇',s:'카톡 친구 추가하고 바로 물어보기',ic:'💬',bg:'#FEE500',fg:'#3C1E1E',go:'친구 추가',href:'https://pf.kakao.com/_zGfxnX/friend',main:1},
+  {t:'방장 인스타',s:'@momcal_',ic:'방',bg:'#602090',go:'보기',href:'https://www.instagram.com/momcal_'},
+  {t:'공식 인스타',s:'@momcal_official',ic:'맘',bg:'#9B6FD4',go:'보기',href:'https://www.instagram.com/momcal_official'},
+  {t:'네이버 카페',s:'회원 17,000명',ic:'N',bg:'#03C75A',go:'가입',href:'https://cafe.naver.com/momcal/'},
+  {t:'단톡 공지방',s:'오늘 공구 알림',ic:'📢',bg:'#FEE500',fg:'#3C1E1E',go:'입장',href:'https://open.kakao.com/o/gJ3NIKCh'},
+  {t:'육아 수다방',s:'엄마들 수다',ic:'💬',bg:'#FEE500',fg:'#3C1E1E',go:'입장',href:'https://open.kakao.com/o/gr2kJhCh'},
+];
+const sbar=`<div class="sbar"><span class="bk">‹</span><div class="in">브랜드, 상품명 검색</div></div>`;
+function S1(){ return {html:`<div class="S1">${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div>
+  <div class="sh"><h3>지금 뜨는 검색어</h3></div><div class="rank">${[0,5,1,6,2,7,3,8,4,9].map(i=>`<div><b>${i+1}</b>${TREND[i]}</div>`).join('')}</div>
+  <div class="div"></div><div class="sh"><h3>맘캘린더 채널</h3></div>${CH.map(c=>`<a class="ch" href="${c.href}" target="_blank" rel="noopener"><div class="ic" style="background:${c.bg};color:${c.fg||'#fff'}">${c.ic}</div><div class="nm">${c.t}<small>${c.s}</small></div><span class="go${c.main?'':' g'}">${c.go} ›</span></a>`).join('')}</div>`,
+  note:'<b>1안 · 토스</b> 최근 검색어는 회색 알약 한 줄(옆으로 밀기). 뜨는 검색어 1~3위만 보라. 채널은 상자 없이 줄 — 맘캘봇만 보라 글씨로 강조.'}; }
+function S2(){ return {html:`<div class="S2">${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div>
+  <div class="sh"><h3>지금 뜨는 검색어</h3><button>오늘 기준</button></div><div class="rank">${TREND.map((q,i)=>`<div><b>${i+1}</b>${q}</div>`).join('')}</div>
+  <div class="div"></div><div class="sh"><h3>맘캘린더 채널</h3></div><div class="sc">${CH.map(c=>`<a href="${c.href}" target="_blank" rel="noopener"><div class="ic" style="background:${c.bg};color:${c.fg||'#fff'}">${c.ic}</div>${c.t}</a>`).join('')}</div></div>`,
+  note:'<b>2안 · 당근</b> 최근 검색어는 글자만 한 줄. 뜨는 검색어는 한 줄씩 1~10위(1~3위 주황 숫자). 채널은 아이콘 6개 바로가기 칸.'}; }
+function S3(){ const pal=['#FFF4C2','#EDE4FA','#E6F0FF','#E3F6EA','#FFE9EF','#FFF0E0']; return {html:`<div class="S3">${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div>
+  <div class="sh"><h3>지금 뜨는 검색어</h3></div><div class="rank">${TREND.map((q,i)=>`<div><b>${i+1}</b>${q}</div>`).join('')}</div>
+  <div class="sh"><h3>맘캘린더 채널</h3></div><div class="grid">${CH.map((c,i)=>`<a class="${c.main?'w':''}" href="${c.href}" target="_blank" rel="noopener" style="background:${pal[i]}"><span>${c.ic} ${c.t}</span><small>${c.s}${c.main?' ›':''}</small></a>`).join('')}</div></div>`,
+  note:'<b>3안 · 맘맘 파스텔</b> 연보라 바탕, 뜨는 검색어는 흰 판 하나, 채널은 파스텔 타일(맘캘봇은 한 줄 크게).'}; }
+
+// ── 문센
+const short=b=>String(b).replace(/\s*(문화센터|문화아카데미|아카데미)$/,'');
+const mdW=ds=>`${+ds.slice(5,7)}/${+ds.slice(8,10)}(${W[new Date(ds+'T12:00:00+09:00').getUTCDay()]})`;
+const saleHead=`<div class="seg"><span class="on">세일</span><span>라방</span></div><div class="h">세일·행사 일정</div><div class="chips"><span>전체</span><span class="on">문화센터</span><span>해외 세일</span><span>자라</span><span>무신사</span><span>올리브영</span></div>`;
+function M1(){ return {html:saleHead+(MUN.length?MUN.map(e=>`<a class="M-row" href="${esc(e.url||'#')}" target="_blank" rel="noopener"><div class="lg">${esc(short(e.brand).slice(0,2))}</div><div class="tx"><div class="t ell">${esc(e.brand)}</div><div class="m ell">${esc(e.title)}</div></div><div class="d">${mdW(e.start_date)}<small>신청일</small></div></a>`).join(''):'<div class="empty">문센 일정이 없어요</div>'),
+  note:'<b>1안 · 줄 목록</b> 「문화센터」 칩 하나에 전부. 오른쪽엔 기간 대신 <b>신청일 하루</b>만.'}; }
+function M2(){ return {html:saleHead+(MUN.map(e=>`<a class="M2-row" href="${esc(e.url||'#')}" target="_blank" rel="noopener"><div class="dt"><b>${+e.start_date.slice(8,10)}</b><small>${+e.start_date.slice(5,7)}월 ${W[new Date(e.start_date+'T12:00:00+09:00').getUTCDay()]}</small></div><div class="tx"><div class="t ell">${esc(e.brand)}</div><div class="m ell">${esc(e.title)}</div></div><span class="tag">신청</span></a>`).join('')||'<div class="empty">문센 일정이 없어요</div>'),
+  note:'<b>2안 · 달력 날짜</b> 왼쪽에 신청일 숫자를 크게(달력처럼), 오른쪽에 센터 이름.'}; }
+function M3(){ return {html:saleHead+`<div class="M3-head"><div class="k">🎓 문화센터</div><div class="t">겨울학기 신청일</div><div class="m">백화점·마트 문화센터 접수 시작일이에요. 누르면 신청 페이지로 가요.</div></div><div class="M3-tb">${MUN.map(e=>`<a href="${esc(e.url||'#')}" target="_blank" rel="noopener"><div class="${e.start_date<today?'past':''}"><span>${esc(short(e.brand))}</span><span>${mdW(e.start_date)}</span></div></a>`).join('')}</div>`,
+  note:'<b>3안 · 표 한 장</b> 연보라 머리 하나 + 「센터 — 신청일」 표. 지난 신청일은 흐리게.'}; }
+
+const SCR={live:[['1안 토스',liveA],['2안 카카오',liveB],['3안 당근',liveC]],search:[['1안 토스',S1],['2안 당근',S2],['3안 파스텔',S3]],mun:[['1안 줄',M1],['2안 날짜',M2],['3안 표',M3]]};
+let cur='live', vi=0;
+function show(){
+  clearT();
+  const v=SCR[cur][vi][1](); const st=document.getElementById('stage');
+  st.innerHTML=`<div class="note">${v.note}</div>`+v.html; v.after&&v.after();
+  document.getElementById('vers').innerHTML=SCR[cur].map((x,i)=>`<button class="${i===vi?'on':''}" onclick="vi=${i};show();scrollTo(0,0)">${x[0]}</button>`).join('');
+}
+document.getElementById('scr').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; cur=b.dataset.s; vi=0; document.querySelectorAll('#scr button').forEach(x=>x.classList.toggle('on',x===b)); show(); scrollTo(0,0); });
+load().then(show);
+</script>
+</body>
+</html>
