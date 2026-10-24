@@ -141,7 +141,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .S1 .rank{display:grid;grid-template-columns:1fr 1fr;padding:0 16px;column-gap:16px}
 .S1 .rank div{display:flex;gap:12px;padding:10px 0;font-size:15px;font-weight:600}
 .S1 .rank b{width:16px;color:var(--mute);font-weight:700}
-.S1 .rank div:nth-child(-n+3) b{color:var(--brand)}
+.S1 .rank div.t3 b{color:var(--brand)}   /* 2열로 순서를 섞어 그려서 nth-child 로 칠하면 1·6·2 가 보라가 됐다(사장님 지적) */
 .S1 .ch{display:flex;align-items:center;gap:12px;padding:11px 16px}
 .S1 .ch .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:16px;font-weight:900;color:#fff;flex:none}
 .S1 .ch .nm{flex:1;font-size:15px;font-weight:600}
@@ -171,6 +171,23 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 .S3 .grid a{border-radius:14px;padding:13px 13px 12px;font-size:13.5px;font-weight:700;line-height:1.35;min-height:76px;display:flex;flex-direction:column;justify-content:space-between}
 .S3 .grid a small{font-size:11px;font-weight:600;opacity:.7}
 .S3 .grid a.w{grid-column:1/3;flex-direction:row;align-items:center;min-height:0}
+
+/* ── 브랜드(이런 공구 찾으세요?) ── */
+.T-h{display:flex;justify-content:space-between;align-items:baseline;padding:22px 16px 10px}
+.T-h h3{font-size:16px;font-weight:800}
+.T-h small{font-size:12px;color:var(--mute)}
+.T-row{display:flex;gap:6px;overflow-x:auto;padding:0 16px;scrollbar-width:none}
+.T-row::-webkit-scrollbar,.T-grid::-webkit-scrollbar,.T-av::-webkit-scrollbar{display:none}
+.T1 .T-row span{flex:0 0 auto;padding:8px 13px;border-radius:999px;background:var(--surf);font-size:13.5px;font-weight:600;white-space:nowrap}
+.T1 .T-row span b{color:var(--brand);margin-right:2px}
+.T-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:max-content;gap:8px;overflow-x:auto;padding:0 16px 2px;scrollbar-width:none}
+.T-grid span{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border-radius:12px;border:1px solid var(--line);font-size:14px;font-weight:600;white-space:nowrap;background:#fff}
+.T-grid span i{font-style:normal;font-size:11.5px;color:var(--carrot);font-weight:700}
+.T-av{display:flex;gap:14px;overflow-x:auto;padding:2px 16px 4px;scrollbar-width:none}
+.T-av a{flex:0 0 64px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.T-av .c{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:800;color:#3B2A55;position:relative}
+.T-av .c i{position:absolute;right:-2px;top:-2px;background:#191F28;color:#fff;font-style:normal;font-size:10px;font-weight:700;border-radius:999px;padding:1px 5px}
+.T-av .nm{font-size:12px;font-weight:600;width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── 문센 ── */
 .M-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #F2F4F6}
@@ -203,7 +220,7 @@ button{font-family:inherit;border:none;background:none;cursor:pointer;color:inhe
 <div class="top">
   <h1>맘캘린더 시안 — 고르시면 그 안으로 올립니다</h1>
   <p>화면을 고르고 1·2·3안을 넘겨 보세요. 라방·문센은 지금 실제 데이터예요.</p>
-  <div class="scr" id="scr"><button data-s="live" class="on">📺 라방</button><button data-s="search">🔍 검색창</button><button data-s="mun">🎓 문센</button></div>
+  <div class="scr" id="scr"><button data-s="live" class="on">📺 라방</button><button data-s="search">🔍 검색창</button><button data-s="mun">🎓 문센</button><button data-s="tags"># 브랜드</button></div>
   <div class="vers" id="vers"></div>
 </div>
 <div class="stage" id="stage"><div class="empty">불러오는 중…</div></div>
@@ -226,7 +243,17 @@ const badgeH=x=>{const st=Date.parse(x.start_at),n=Date.now();return n>=st&&n<st
 const imgH=(x,cls='')=>x.image_url?`<img class="${cls}" src="${esc(x.image_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'';
 const link=x=>esc(x.link_url||'https://shoppinglive.naver.com/');
 
-let LIVE=[], MUN=[];
+let LIVE=[], MUN=[], TAGS=[];
+const HOT_TAG_STOP=new Set(['유기농','프리미엄','난각번호','국산','국내산','수입','신상','정품','공식','한정','특가','무료','친환경','무농약','수제','아기','유아','키즈','여름','가을','겨울','신학기','대용량','살림','먹거리','생활','오늘','단하루','당일','베스트','인기','추석','설날','명절']);
+async function loadTags(){
+  try{
+    const t=new Date(Date.now()+9*3600e3), from=new Date(t.getTime()-14*864e5).toISOString().slice(0,10), lim=new Date(t.getTime()+7*864e5).toISOString().slice(0,10), today=t.toISOString().slice(0,10);
+    const q=`/rest/v1/gonggu?approved=eq.true&or=(end_date.gte.${today},open_date.gte.${from})&select=id,name,open_date,end_date&order=open_date.asc,id.desc&limit=1000`;
+    let rows=[]; for(let off=0;off<4000;off+=1000){ let r=await fetch('https://api.momcalendar.com'+q+'&offset='+off,{headers:H}); if(!r.ok) r=await fetch(SB+q+'&offset='+off,{headers:H}); const a=await r.json(); rows=rows.concat(a); if(a.length<1000) break; }
+    const cnt={}; rows.forEach(it=>{ if(it.end_date && it.end_date<today) return; if(it.open_date>lim) return; const w=(it.name||'').trim().split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9]/g,''); if(w.length<2||HOT_TAG_STOP.has(w)) return; cnt[w]=(cnt[w]||0)+1; });
+    TAGS=Object.entries(cnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  }catch(_){ TAGS=[]; }
+}
 const timers=[]; const clearT=()=>{while(timers.length) clearInterval(timers.pop());};
 async function load(){
   const from=new Date(Math.floor((Date.now()-2*3600e3)/3600e3)*3600e3).toISOString().replace('.000Z','Z');
@@ -290,7 +317,7 @@ const CH=[
 ];
 const sbar=`<div class="sbar"><span class="bk">‹</span><div class="in">브랜드, 상품명 검색</div></div>`;
 function S1(){ return {html:`<div class="S1">${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div>
-  <div class="sh"><h3>지금 뜨는 검색어</h3></div><div class="rank">${[0,5,1,6,2,7,3,8,4,9].map(i=>`<div><b>${i+1}</b>${TREND[i]}</div>`).join('')}</div>
+  <div class="sh"><h3>지금 뜨는 검색어</h3></div><div class="rank">${[0,5,1,6,2,7,3,8,4,9].map(i=>`<div class="${i<3?'t3':''}"><b>${i+1}</b>${TREND[i]}</div>`).join('')}</div>
   <div class="div"></div><div class="sh"><h3>맘캘린더 채널</h3></div>${CH.map(c=>`<a class="ch" href="${c.href}" target="_blank" rel="noopener"><div class="ic" style="background:${c.bg};color:${c.fg||'#fff'}">${c.ic}</div><div class="nm">${c.t}<small>${c.s}</small></div><span class="go${c.main?'':' g'}">${c.go} ›</span></a>`).join('')}</div>`,
   note:'<b>1안 · 토스</b> 최근 검색어는 회색 알약 한 줄(옆으로 밀기). 뜨는 검색어 1~3위만 보라. 채널은 상자 없이 줄 — 맘캘봇만 보라 글씨로 강조.'}; }
 function S2(){ return {html:`<div class="S2">${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div>
@@ -313,7 +340,15 @@ function M2(){ return {html:saleHead+(MUN.map(e=>`<a class="M2-row" href="${esc(
 function M3(){ return {html:saleHead+`<div class="M3-head"><div class="k">🎓 문화센터</div><div class="t">겨울학기 신청일</div><div class="m">백화점·마트 문화센터 접수 시작일이에요. 누르면 신청 페이지로 가요.</div></div><div class="M3-tb">${MUN.map(e=>`<a href="${esc(e.url||'#')}" target="_blank" rel="noopener"><div class="${e.start_date<today?'past':''}"><span>${esc(short(e.brand))}</span><span>${mdW(e.start_date)}</span></div></a>`).join('')}</div>`,
   note:'<b>3안 · 표 한 장</b> 연보라 머리 하나 + 「센터 — 신청일」 표. 지난 신청일은 흐리게.'}; }
 
-const SCR={live:[['1안 토스',liveA],['2안 카카오',liveB],['3안 당근',liveC]],search:[['1안 토스',S1],['2안 당근',S2],['3안 파스텔',S3]],mun:[['1안 줄',M1],['2안 날짜',M2],['3안 표',M3]]};
+const tagTop=()=>`${sbar}<div class="sh"><h3>최근 검색어</h3><button>전체삭제</button></div><div class="S1"><div class="rec">${RECENT.map(q=>`<span>${q}<i>✕</i></span>`).join('')}</div><div class="sh"><h3>지금 뜨는 검색어</h3></div><div class="rank">${[0,5,1,6,2,7,3,8,4,9].map(i=>`<div class="${i<3?'t3':''}"><b>${i+1}</b>${TREND[i]}</div>`).join('')}</div></div>`;
+const PAST=['#FFF4C2','#EDE4FA','#E6F0FF','#E3F6EA','#FFE9EF','#FFF0E0'];
+function T1(){ return {html:tagTop()+`<div class="T1"><div class="T-h"><h3>이런 공구 찾으세요?</h3><small>옆으로 넘겨 보세요</small></div><div class="T-row">${TAGS.map(([m])=>`<span><b>#</b>${esc(m)}</span>`).join('')}</div></div>`,
+  note:'<b>1안 · 토스</b> 회색 알약 한 줄을 옆으로 넘깁니다. 최근 검색어와 같은 모양이라 가장 조용해요.'}; }
+function T2(){ return {html:tagTop()+`<div class="T-h"><h3>이런 공구 찾으세요?</h3><small>공구 많은 순</small></div><div class="T-grid">${TAGS.map(([m,n])=>`<span>${esc(m)}<i>${n}</i></span>`).join('')}</div>`,
+  note:'<b>2안 · 당근</b> 두 줄로 쭉 늘어놓고 옆으로 넘깁니다. 오른쪽 주황 숫자 = 지금 열린 공구 수.'}; }
+function T3(){ return {html:tagTop()+`<div class="T-h"><h3>이런 공구 찾으세요?</h3><small>옆으로 넘겨 보세요</small></div><div class="T-av">${TAGS.map(([m,n],i)=>`<a><div class="c" style="background:${PAST[i%PAST.length]}">${esc(m.slice(0,2))}<i>${n}</i></div><div class="nm">${esc(m)}</div></a>`).join('')}</div>`,
+  note:'<b>3안 · 카카오</b> 동그라미 + 이름(카톡 쇼핑 브랜드 줄 느낌). 공구 표엔 상품 사진 칸이 없어서 첫 두 글자 + 파스텔색으로 했어요.'}; }
+const SCR={live:[['1안 토스',liveA],['2안 카카오',liveB],['3안 당근',liveC]],search:[['1안 토스',S1],['2안 당근',S2],['3안 파스텔',S3]],mun:[['1안 줄',M1],['2안 날짜',M2],['3안 표',M3]],tags:[['1안 토스',T1],['2안 당근',T2],['3안 카카오',T3]]};
 let cur='live', vi=0;
 function show(){
   clearT();
@@ -322,7 +357,7 @@ function show(){
   document.getElementById('vers').innerHTML=SCR[cur].map((x,i)=>`<button class="${i===vi?'on':''}" onclick="vi=${i};show();scrollTo(0,0)">${x[0]}</button>`).join('');
 }
 document.getElementById('scr').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; cur=b.dataset.s; vi=0; document.querySelectorAll('#scr button').forEach(x=>x.classList.toggle('on',x===b)); show(); scrollTo(0,0); });
-load().then(show);
+Promise.all([load(), loadTags()]).then(show);
 </script>
 </body>
 </html>
