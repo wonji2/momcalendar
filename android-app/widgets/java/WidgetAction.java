@@ -22,7 +22,7 @@ public class WidgetAction extends Activity {
             } else if ("open".equals(kind)) {
                 String url = in.getStringExtra("url");
                 if (url == null || !url.startsWith("https://momcalendar.com/")) url = WidgetBase.SITE;
-                if (!url.contains("wdid=")) url = WidgetBase.withWid(this, url);
+                // 위젯 번호(wdid)는 「내 찜 연결하기」 주소(linkUrl)에만 실린다 — 번호가 곧 찜 열쇠라 일반 주소에 남기지 않는다(검증자 지적)
                 Intent go = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 go.setClassName(this, "com.wantsb.momcalendar.LauncherActivity");
                 go.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

@@ -77,6 +77,7 @@ final class Items {
         if (end.equals(t)) { r.tag = "오늘마감"; r.tagKind = T_EN; return; }
         if (open.compareTo(t) > 0) { r.tag = "오픈 D-" + dd(open); r.tagKind = T_UP; return; }
         int n = dd(end);
+        if (n < 0) { r.tag = "마감"; r.tagKind = T_EN; return; }   // 오래된 데이터(오프라인) 보호
         if (n == 1) { r.tag = "내일마감"; r.tagKind = T_EN; return; }
         if (n <= 3) { r.tag = "마감 D-" + n; r.tagKind = T_EN; return; }
         r.tag = "진행중"; r.tagKind = T_ING;
@@ -87,6 +88,7 @@ final class Items {
         if (start.equals(t)) { r.tag = "오늘 시작"; r.tagKind = T_OP; return; }
         if (end == null || end.isEmpty()) { r.tag = "진행중"; r.tagKind = T_ING; return; }
         int n = dd(end);
+        if (n < 0) { r.tag = "끝"; r.tagKind = T_EN; return; }
         if (n == 0) { r.tag = "오늘 끝"; r.tagKind = T_EN; return; }
         if (n == 1) { r.tag = "내일 끝"; r.tagKind = T_EN; return; }
         if (n <= 3) { r.tag = "끝 D-" + n; r.tagKind = T_EN; return; }

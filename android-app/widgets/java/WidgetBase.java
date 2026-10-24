@@ -4,7 +4,7 @@ package com.wantsb.momcalendar.widget;
 //   "내찜보기 위젯 이어야지 나만의 캘린더 만드는거니까" · "옆에 이건 꼭 살려야지 트레이드마큰데" · "찜연결도 다 해놔"
 //   · 옆 탭(전체·공구·핫딜·라방·세일) = 무엇을 / 위 단추(내 찜·전체) = 누구 것 — 고른 값은 폰에 저장(껐다 켜도 그대로)
 //   · 데이터: Supabase RPC widget_feed(p_widget) 한 번 → SharedPreferences. 30분마다 + 앱을 연 뒤 30초·3분에 다시 받는다.
-//   · 내 찜 연결: 위젯 번호(wid)를 앱 주소에 ?wdid= 로 붙여 연다 → 사이트가 widget_bind(wid, mc_did) (supabase/sql/widget_feed_101.sql)
+//   · 내 찜 연결: 「내 찜 연결하기」 줄만 위젯 번호(wid)를 ?wdid= 로 붙여 연다 → 사이트가 widget_bind(wid, mc_did) (supabase/sql/widget_feed_101.sql)
 //   · 상시 공구는 서버에서 빠져 온다(gonggu.always). 핫딜은 할인율 표시 없이 많이 눌린 순.
 import android.app.AlarmManager;
 import android.app.PendingIntent;
