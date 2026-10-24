@@ -5595,7 +5595,7 @@ async function renderSearchDrop(){
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
     : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
-    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>브랜드로 보기</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="hot-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)">#${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>이런 공구 찾으세요?</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="hot-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)">#${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
   const list=await loadTrendingQ();
   const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
   tl.innerHTML = list.length
