@@ -130,6 +130,9 @@ body.srch-suggest #searchDrop{display:block}
 .sch-row .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;flex:none;font-size:15px}
 .sch-row .nm{font-size:14.5px;font-weight:700;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sch-row svg{width:26px;height:26px;flex:none}
+.sch-row .av-logo{width:40px;height:40px;flex:none;display:block}   /* 채널 로고(2026-10-25) */
+.sch-row .av-logo svg{width:40px;height:40px;display:block}
+.sch-row svg.chev{width:16px;height:16px;color:#B0B8C1}
 .sdrop-empty{font-size:12px;color:#b3aabb}
 .recent-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-right:-16px;padding-right:16px}   /* 토스형 회색 알약 한 줄 · 옆으로 넘기기 (사장님 2026-10-24) */
 .recent-chips::-webkit-scrollbar{display:none}
@@ -4139,7 +4142,7 @@ function mcToast(msg){
     var _vis=function(el){ if(!el) return null; var cs=getComputedStyle(el); if(cs.display==='none'||cs.visibility==='hidden') return null; var r=el.getBoundingClientRect(); return (r.width&&r.height&&r.top<window.innerHeight)?r:null; };
     try{ var rf=_vis(document.getElementById('chatFab')); if(rf && _vis(document.querySelector('.chat-fab-wrap'))) b=Math.max(b, window.innerHeight-rf.top+12); }catch(_){}
     try{ var rt=_vis(document.getElementById('appTabbar')); if(rt) b=Math.max(b, window.innerHeight-rt.top+12); }catch(_){}
-    t.style.cssText='position:fixed;left:50%;bottom:'+b+'px;transform:translate(-50%,8px);opacity:0;width:calc(100% - 32px);max-width:448px;box-sizing:border-box;background:#333D4B;color:#fff;padding:14px 18px;border-radius:12px;z-index:99999;text-align:left;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s ease,transform .2s ease;pointer-events:none';
+    t.style.cssText='position:fixed;left:50%;bottom:'+b+'px;transform:translate(-50%,8px);opacity:0;width:max-content;max-width:min(448px, calc(100% - 32px));box-sizing:border-box;background:#333D4B;color:#fff;padding:14px 18px;border-radius:12px;z-index:99999;text-align:left;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s ease,transform .2s ease;pointer-events:none';
     document.body.appendChild(t);
     requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translate(-50%,0)'; });
     // 길면 오래 보여 준다(글자당 45ms, 3~5.5초)
@@ -5048,7 +5051,7 @@ function schChannelsHtml(){
   return SCH_CHANNELS.map(c=>{
     const oc=`onclick="try{trackEvent('search_channel','${c.k}')}catch(_){}"`;
     if(c.banner) return `<a class="sch-banner" href="${c.href}" target="_blank" rel="noopener" ${oc}><span style="font-size:22px">${c.ico}</span><div><b>${c.t}</b><small>${c.s}</small></div><span class="cta">${c.cta}</span></a>`;
-    return `<a class="sch-row" href="${c.href}" target="_blank" rel="noopener" ${oc}><div class="av" style="background:${c.bg}${c.brand==='kakao'?';border-radius:12px;font-size:18px':''}">${c.av}</div><div class="nm">${c.t}</div>${_SCH_ICO[c.brand]}</a>`;
+    return `<a class="sch-row" href="${c.href}" target="_blank" rel="noopener" ${oc}><span class="av-logo">${_SCH_ICO[c.brand]}</span><div class="nm">${c.t}</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>`;
   }).join('');
 }
 async function renderSearchDrop(){
