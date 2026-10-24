@@ -99,6 +99,7 @@ body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{
 /* 앱으로 들어온 사람에게 "앱으로 추가하세요" 안내는 무의미하다 */
 body.native-app #pwaStrip,body.native-app #reloginStrip{display:none!important}
 /* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
+.sdrop-tags{display:flex;flex-wrap:wrap;gap:7px}
 .hot-tag-row{display:flex;gap:7px;padding:8px 16px 4px;overflow-x:auto;scrollbar-width:none}
 .hot-tag-row::-webkit-scrollbar{display:none}
 .hot-tag{flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 12px;border-radius:100px;background:#F3ECFA;color:#602090;border:none;font-family:inherit;cursor:pointer;white-space:nowrap}
@@ -886,6 +887,18 @@ body,button,input,textarea,select{word-break:keep-all;overflow-wrap:anywhere}
 h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{text-wrap-style:balance}
 .nxa-s,.app-pop-s,.empty span{text-wrap-style:pretty}
 </style>
+<style id="mc-sort-sheet">
+.sort-bar{display:flex;justify-content:flex-end;padding:0 2px 8px}
+.sort-btn{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;padding:6px 4px}
+.sort-btn svg{color:#8B95A1}
+.srt-sheet{position:fixed;inset:0;z-index:99990;display:none;align-items:flex-end;justify-content:center;background:rgba(20,10,30,.45)}
+.srt-sheet.open{display:flex}
+.srt-box{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:560px;padding:10px 20px calc(18px + env(safe-area-inset-bottom,0px))}
+.srt-h{font-size:17px;font-weight:800;color:#191F28;padding:12px 0 6px}
+.srt-it{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;font-family:inherit;font-size:16px;color:#333D4B;padding:15px 2px;cursor:pointer;text-align:left}
+.srt-it.on{color:#191F28;font-weight:700}
+.srt-it.on svg{color:#602090}
+</style>
 <style id="mc-sort-chips">.sort-chips{display:flex;gap:6px;padding:2px 2px 10px;overflow-x:auto;scrollbar-width:none}.sort-chips::-webkit-scrollbar{display:none}.sort-chip{flex:0 0 auto;border:0;background:#F2F4F6;color:#191F28;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;white-space:nowrap}.sort-chip.on{background:#191F28;color:#fff}</style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500&display=swap">
 </head>
@@ -1536,7 +1549,7 @@ window.slimAdClick=function(id){
     </div>
     <div class="subcat-chip-row" id="subCatRow" style="display:none"></div>
     <!-- 지금 핫한 키워드 (검색 스펙 6번, 2026-08-31) — 대분류 칩 아래 한 줄, 이모지 없이 (사장님 지시). 탭하면 그 검색결과로 -->
-    <div class="hot-tag-row" id="hotTagRow" style="display:none"></div>
+    <div class="hot-tag-row" id="hotTagRow" style="display:none!important" hidden></div>   <!-- 메인에선 안 보임 — 검색창 TOP10 아래 「브랜드로 보기」로 옮김(사장님 2026-10-24) -->
   </div>
   <!-- 🎁 기획전·제휴 존 (카페·인스타 버튼 자리 → 카페·인스타는 우측 플로팅으로 이동) -->
   <div class="promo-zone" style="display:none">
@@ -2059,7 +2072,7 @@ function buildHotTags(){
     _hotTags=[...vTags, ...rest].slice(0,8);
     if(_hotTags.length<3){ el.style.display='none'; return; }
     el.innerHTML=_hotTags.map(m=>`<button class="hot-tag" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('');
-    el.style.display='flex';
+    // 메인에선 안 보인다(사장님 2026-10-24) — 목록(_hotTags)만 만들어 두고 검색창이 쓴다
   }catch(_){ el.style.display='none'; }
 }
 // 검색결과 화면 상단(카드 위)에도 같은 칩 줄 — 결과 보다가 딴 브랜드도 생각 없이 눌러보게 (사장님 제안 2026-08-31)
@@ -2436,10 +2449,19 @@ function _applyListSort(arr){
   if(_listSort==='end'){ return arr.slice().sort((a,b)=>{ const ea=realEnd(a)||'9999', eb=realEnd(b)||'9999'; return ea<eb?-1:ea>eb?1:(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0); }); }
   return arr;
 }
+const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
+// 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
 function _sortChipsHtml(){
-  const o=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
-  return `<div class="sort-chips">${o.map(([k,t])=>`<button class="sort-chip${_listSort===k?' on':''}" onclick="setListSort('${k}')">${t}</button>`).join('')}</div>`;
+  const cur=(SORT_OPTS.find(o=>o[0]===_listSort)||SORT_OPTS[0])[1];
+  return `<div class="sort-bar"><button class="sort-btn" type="button" onclick="openSortSheet()" aria-haspopup="dialog" aria-label="정렬 바꾸기, 지금 ${cur}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg>${cur}</button></div>`;
 }
+function openSortSheet(){
+  let sh=document.getElementById('sortSheet');
+  if(!sh){ sh=document.createElement('div'); sh.id='sortSheet'; sh.className='srt-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','정렬'); sh.onclick=e=>{ if(e.target===sh) closeSortSheet(); }; document.body.appendChild(sh); }
+  sh.innerHTML=`<div class="srt-box"><div class="srt-h">정렬</div>${SORT_OPTS.map(([k,t])=>`<button type="button" class="srt-it${_listSort===k?' on':''}" onclick="closeSortSheet();setListSort('${k}')"><span>${t}</span>${_listSort===k?'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>`).join('')}</div>`;
+  sh.classList.add('open'); try{ trackEvent('sort_sheet','open'); }catch(_){}
+}
+function closeSortSheet(){ const sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 // 검색결과는 접지 않고 전부 바로 보여준다 (사장님 지시 2026-08-31 "몇 건 되지도 않는데 한번에 다 뜨게")
@@ -5573,7 +5595,7 @@ async function renderSearchDrop(){
           `<div class="recent-chip" onclick="pickRecentQ(${i})">${_escH(q)} <span class="x" onclick="event.stopPropagation();delRecentQ(${i})">✕</span></div>`).join('')}</div></div>`
     : ``;
   el.innerHTML = recHtml + `<div class="sdrop-sec"><div class="sdrop-head"><h4>🔥 지금 뜨는 검색어</h4></div>
-    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
+    <div class="rank-list" id="trendList"><div class="sdrop-empty">불러오는 중...</div></div></div>` + ((_hotTags||[]).length>=3?`<div class="sdrop-sec"><div class="sdrop-head"><h4>브랜드로 보기</h4></div><div class="sdrop-tags">${_hotTags.map(m=>`<button class="hot-tag" data-m="${_escH(m)}" onclick="runSearch(this.dataset.m)">#${_escH(m)}</button>`).join('')}</div></div>`:'') + (typeof schChannelsHtml==='function'?`<div class="sdrop-sec">${schChannelsHtml()}</div>`:'');
   const list=await loadTrendingQ();
   const tl=document.getElementById('trendList'); if(!tl) return;   // 그 사이 화면이 바뀌었으면 버림
   tl.innerHTML = list.length
