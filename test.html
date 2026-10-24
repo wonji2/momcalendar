@@ -6961,7 +6961,9 @@ function renderCommunity(){
 .onb-step{display:none;flex:1;flex-direction:column;min-height:0}
 .onb-step.on{display:flex}
 .onb-track{flex:1;overflow:hidden;touch-action:pan-y;min-height:0}
-.onb-rail{display:flex;height:100%;transition:transform .38s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.onb-rail{display:flex;height:100%;transition:transform .48s cubic-bezier(.22,1,.36,1);will-change:transform}   /* 넘김 = 빠르게 출발해 부드럽게 멈춤(토스형, 넘침 없음) · 손가락을 따라오는 동안엔 .drag 로 전환 끔 (사장님 2026-10-25 「끊기고 어색」) */
+.onb-rail.drag{transition:none}
+@media (prefers-reduced-motion:reduce){.onb-rail{transition-duration:.01s}}
 .onb-sl{flex:0 0 100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding:calc(26px + env(safe-area-inset-top,0px)) 24px 0;text-align:center;overflow:hidden}
 .onb-sl img{width:230px;max-width:70%;max-height:46vh;border-radius:22px;border:1px solid rgba(25,31,40,.06);box-shadow:0 14px 34px rgba(25,31,40,.12);display:block;aspect-ratio:330/486;object-fit:cover;object-position:top;background:#fff}
 .onb-sl h3{font-size:23px;font-weight:900;line-height:1.3;margin:6px 0 0;letter-spacing:-.3px;word-break:keep-all}
@@ -6978,8 +6980,8 @@ function renderCommunity(){
 .onb-vid{padding:calc(10px + env(safe-area-inset-top,0px)) 0 0;justify-content:center}
 .onb-vid video{height:100%;max-height:calc(100vh - 150px);width:auto;max-width:100%;aspect-ratio:9/16;object-fit:contain;display:block;background:#fff}
 .onb-dots{display:flex;gap:6px;justify-content:center;padding:10px 0 4px}
-.onb-dots i{width:6px;height:6px;border-radius:50%;background:#E5E8EB;transition:width .2s}
-.onb-dots i.on{width:18px;border-radius:3px;background:#191F28}
+.onb-dots i{width:6px;height:6px;border-radius:3px;background:#E5E8EB;transition:width .48s cubic-bezier(.22,1,.36,1),background-color .48s}
+.onb-dots i.on{width:18px;background:#191F28}
 .onb-acts{display:flex;flex-direction:column;gap:8px;padding:8px 20px calc(20px + env(safe-area-inset-bottom,0px))}
 .onb-btn{border:0;background:#602090;color:#fff;border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer}
 .onb-btn.o{background:#F2F4F6;color:#191F28}
@@ -7006,11 +7008,11 @@ function renderCommunity(){
       <div class="onb-sl onb-app"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><h3>앱으로 더 편하게</h3><p>아이폰 · 갤럭시 앱이 나왔어요</p>
         <div class="onb-bene"><div><span>🔔</span>찜한 공구 오픈·마감 알림</div><div><span>📅</span>내 찜 달력 저장하고 친구에게 공유</div><div><span>⚡</span>홈 화면에서 바로 열기</div></div>
         <div class="app-badges" id="onbBadges"></div></div>
-      <div class="onb-sl onb-vid"><video src="intro/v0.mp4" poster="intro/v0.jpg" muted playsinline loop preload="metadata"></video></div>
-      <div class="onb-sl onb-vid"><video src="intro/v1.mp4" poster="intro/v1.jpg" muted playsinline loop preload="none"></video></div>
-      <div class="onb-sl onb-vid"><video src="intro/v2.mp4" poster="intro/v2.jpg" muted playsinline loop preload="none"></video></div>
-      <div class="onb-sl onb-vid"><video src="intro/v3.mp4" poster="intro/v3.jpg" muted playsinline loop preload="none"></video></div>
-      <div class="onb-sl onb-vid"><video src="intro/v4.mp4" poster="intro/v4.jpg" muted playsinline loop preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v0.mp4" poster="intro/v0.jpg" muted playsinline preload="metadata"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v1.mp4" poster="intro/v1.jpg" muted playsinline preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v2.mp4" poster="intro/v2.jpg" muted playsinline preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v3.mp4" poster="intro/v3.jpg" muted playsinline preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v4.mp4" poster="intro/v4.jpg" muted playsinline preload="none"></video></div>
     </div></div>
     <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="onb-acts"><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
@@ -7028,20 +7030,41 @@ function renderCommunity(){
 // ── 첫 실행 온보딩 ──────────────────────────────────────────
 const ONB_CATS=[['👶','육아'],['🥗','식품'],['🏠','리빙'],['💊','건강'],['🛋️','인테리어'],['🔌','가전'],['💄','뷰티'],['👗','패션'],['✈️','여행'],['🐶','반려동물']];
 let _onbI=0, _onbAuto=true, _onbTimer=null;
+const ONB_HOLD=1000, ONB_APP_MS=4500, ONB_SLIDE_MS=480;   // 영상 끝 → 1초 멈춤 → 다음 장 · 앱 안내 장 4.5초 · 넘김 시간(.onb-rail transition 과 같게)
 function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
 function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
   try{ trackEvent('onb','show'); }catch(_){}
   try{ const b=document.getElementById('onbBadges'); if(b){ if(typeof _appOn==='function' && _appOn() && typeof appBadges==='function') b.innerHTML=appBadges('onb'); else b.style.display='none'; } }catch(_){}
-  _onbShow(0); _onbTimer=setInterval(()=>{ if(_onbAuto && _onbI<_onbN()-1) _onbShow(_onbI+1); },4300);   // 영상이 4초 안팎 — 마지막 장에서 멈춘다
-  const tr=document.getElementById('onbTrack'); let x0=null;
-  tr.addEventListener('pointerdown',e=>{ x0=e.clientX; _onbAuto=false; },{passive:true});
-  tr.addEventListener('pointerup',e=>{ if(x0===null) return; const dx=e.clientX-x0; x0=null; if(dx<-40){ if(typeof _onbN==='function' && _onbI>=_onbN()-1) onbNext(); else _onbShow(_onbI+1); } else if(dx>40) _onbShow(_onbI-1); },{passive:true});
+  const tr=document.getElementById('onbTrack'), rail=document.getElementById('onbRail');
+  // 자동 넘김 = 장면 영상이 끝나고 잠깐 멈춘 뒤(전엔 4.3초 고정 타이머라 영상 도중에 잘리거나 처음으로 튀었다)
+  rail.querySelectorAll('video').forEach(v=>v.addEventListener('ended',()=>{ if(_onbAuto && v===_onbVid() && _onbI<_onbN()-1){ clearTimeout(_onbTimer); _onbTimer=setTimeout(()=>_onbShow(_onbI+1),ONB_HOLD); } }));
+  _onbI=-1; _onbShow(0);
+  // 손가락을 따라 움직이고(전엔 손을 뗄 때 한 번에 휙 넘어갔다), 처음·마지막 장 바깥으로는 덜 끌린다
+  let x0=null, y0=0, dx=0, drag=false;
+  tr.addEventListener('pointerdown',e=>{ x0=e.clientX; y0=e.clientY; dx=0; drag=false; _onbAuto=false; clearTimeout(_onbTimer); },{passive:true});
+  tr.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0;
+    if(!drag){ if(Math.abs(dx)<8) return; if(Math.abs(e.clientY-y0)>Math.abs(dx)){ x0=null; dx=0; return; } drag=true; rail.classList.add('drag'); }
+    const d=((_onbI===0&&dx>0)||(_onbI===_onbN()-1&&dx<0))?dx*0.35:dx; rail.style.transform='translateX(calc(-'+(_onbI*100)+'% + '+d+'px))'; },{passive:true});
+  const end=()=>{ if(x0===null) return; x0=null; rail.classList.remove('drag'); const th=Math.min(60,(tr.clientWidth||300)*0.16);
+    if(dx<-th){ if(_onbI>=_onbN()-1){ _onbShow(_onbI); onbNext(); } else _onbShow(_onbI+1); }   // 마지막 장에서 한 번 더 밀면 시작하기(그대로 둠)
+    else if(dx>th) _onbShow(_onbI-1); else _onbShow(_onbI); dx=0; };
+  tr.addEventListener('pointerup',end,{passive:true}); tr.addEventListener('pointercancel',end,{passive:true});
 }
 function _onbN(){ const r=document.getElementById('onbRail'); return r?r.children.length:4; }
-function _onbShow(k){ const N=_onbN(); _onbI=Math.max(0,Math.min(N-1,k)); try{ document.querySelectorAll('#onbRail .onb-sl').forEach((sl,j)=>{ const v=sl.querySelector('video'); if(!v) return; if(j===_onbI){ v.currentTime=0; const p=v.play(); if(p&&p.catch) p.catch(()=>{}); } else v.pause(); }); }catch(_){} document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음'; }
-function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearInterval(_onbTimer); _onbStep('onbCat'); }
+function _onbVid(k){ const sl=document.querySelectorAll('#onbRail .onb-sl')[k==null?_onbI:k]; return sl?sl.querySelector('video'):null; }
+function _onbShow(k){ const N=_onbN(), prev=_onbI; _onbI=Math.max(0,Math.min(N-1,k));
+  document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음';
+  if(prev===_onbI) return;   // 덜 밀어 제자리로 돌아온 것 — 보던 영상은 그대로
+  clearTimeout(_onbTimer); const me=_onbI, v=_onbVid(), nx=_onbVid(_onbI+1);
+  document.querySelectorAll('#onbRail video').forEach(o=>{ if(o!==v){ o.pause(); try{ if(o.readyState) o.currentTime=0; }catch(_){} } });   // 지나간 장은 첫 그림(=포스터)으로 돌려 둔다
+  if(v) v.preload='auto'; if(nx) nx.preload='auto';   // 다음 장 영상을 미리 받아 둔다(카톡 인앱에서 넘어간 뒤 빈 화면·끊김 방지)
+  if(!v){ if(_onbAuto && me<N-1) _onbTimer=setTimeout(()=>{ if(_onbI===me) _onbShow(me+1); },ONB_APP_MS); return; }
+  // 장이 다 넘어온 뒤 재생 — 넘어오는 동안은 0번 그림(포스터)이 가만히 있다(넘김과 영상 속 움직임이 겹치면 눈이 아프다)
+  _onbTimer=setTimeout(()=>{ if(_onbI!==me) return; try{ v.currentTime=0; }catch(_){} const p=v.play(); if(p&&p.catch) p.catch(()=>{ if(_onbAuto && _onbI===me && me<N-1) _onbTimer=setTimeout(()=>_onbShow(me+1),ONB_APP_MS); }); },ONB_SLIDE_MS);
+}
+function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); _onbStep('onbCat'); }
 function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
 function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
 function onbCatDone(){
