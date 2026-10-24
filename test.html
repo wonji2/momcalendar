@@ -728,6 +728,10 @@ body.srch-mode .app-tabbar{display:none!important}
 .lv-row .im{flex:0 0 76px;height:96px;border-radius:10px;overflow:hidden;background:#F2F4F6;position:relative}
 .lv-row .im img{width:100%;height:100%;object-fit:cover;display:block}
 .lv-row .im .live-badge{position:absolute;left:5px;top:5px}
+.lv-row .sale-wish{align-self:center;margin-right:-4px}
+.lv-sl .wish{position:absolute;right:12px;top:12px;z-index:3;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;border:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lv-sl .wish svg{width:20px;height:20px;display:block}
+.lv-sl .wish.pop svg{animation:wpop .34s}
 .lv-row .bd2{flex:1;min-width:0}
 .lv-row .t{font-size:15px;font-weight:700;color:#191F28;line-height:1.4;word-break:keep-all;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .lv-row .ch{font-size:12.5px;color:#8B95A1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1601,18 +1605,11 @@ window.slimAdClick=function(id){
     <button class="sl-tg" data-m="live" onclick="setSlMode('live')" role="tab">라방</button>
   </div>
   <div id="saleBox">
-    <div class="sale-head">
-      <div class="sale-h1">🛍 세일·행사 일정</div>
-      <div class="sale-h2">올리브영·무신사·자라 등 브랜드 공식 세일 모아보기</div>
-    </div>
     <div class="sale-chips" id="saleChips"></div>
     <div id="saleList"></div>
     <div class="sale-foot">일정은 각 브랜드 공지 기준이며 변동될 수 있어요.<br>카드를 누르면 브랜드 공식 페이지로 이동해요.</div>
   </div>
   <div id="liveBox" style="display:none">
-    <div class="sale-head">
-      <div class="sale-h1">라방 일정</div>
-    </div>
     <div class="lv-days" id="liveDays" role="tablist"></div>
     <div class="sale-chips" id="liveChips"></div>
     <div id="liveList"></div>
@@ -2899,6 +2896,7 @@ function setSlMode(m){
   try{ trackEvent('sl_mode',_slMode); }catch(_){}
 }
 async function loadLive(){
+  _liveWLoad(); liveWSync();
   if(_liveData){ renderLive(); return; }
   const box=document.getElementById('liveList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
   try{
@@ -2912,6 +2910,50 @@ async function loadLive(){
   // 실패를 빈 목록으로 기억하면 새로고침 전까지 「예정된 라방이 없어요」 거짓 안내가 남는다 → 안 담고 다시 시도 버튼
   if(!_liveData){ if(box) box.innerHTML='<div class="sale-empty">라방 일정을 불러오지 못했어요<br><button class="sale-chip" style="margin-top:10px" onclick="loadLive()">다시 시도</button></div>'; return; }
   renderLive();
+}
+// 💜 라방 하트 = 찜 + 방송 10분 전 알림(서버 live_wishes → pg_cron live-push → send-live-push) · supabase/sql/live_wish_103.sql
+let LIVEW={};
+function _liveWLoad(){ try{ const o=JSON.parse(localStorage.getItem('mc_live_w')||'{}'); LIVEW=(o&&typeof o==='object')?o:{}; }catch(_){ LIVEW={}; } }
+function _liveWSave(){ try{ localStorage.setItem('mc_live_w', JSON.stringify(LIVEW)); }catch(_){} }
+function _liveWPush(id,on){
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_set`,{method:'POST',keepalive:true,
+    headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
+    body:JSON.stringify({p_device:deviceId(), p_show:Number(id), p_on:!!on})}).catch(()=>{});
+}
+async function liveWSync(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_list`,{method:'POST',
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}, body:JSON.stringify({p_device:deviceId()})});
+    if(!r.ok) return;
+    const m={}; (await r.json()).forEach(x=>{ m[x.show_id]=1; });
+    // 서버에 없는데 이 기기에만 있는 것(전송 실패분)은 다시 올린다
+    Object.keys(LIVEW).forEach(k=>{ if(!m[k]){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
+    LIVEW=m; _liveWSave(); if(_slMode==='live') renderLive();
+  }catch(_){}
+}
+const _lvHeart=(id,cls)=>{ const on=!!LIVEW[id]; return `<button class="${cls}" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="liveWish(${id},event,this)">${heartSvg(on)}</button>`; };
+async function liveWish(id,ev,btn){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const on=!LIVEW[id];
+  if(on) LIVEW[id]=1; else delete LIVEW[id];
+  _liveWSave(); _liveWPush(id,on);
+  if(btn){ btn.innerHTML=heartSvg(on); btn.setAttribute('aria-pressed',on?'true':'false'); btn.classList.remove('pop'); void btn.offsetWidth; if(on) btn.classList.add('pop'); }
+  try{ trackEvent(on?'live_wish_add':'live_wish_del', String(id)); }catch(_){}
+  setTimeout(renderLive, on?360:0);   // 하트가 뛰는 걸 보여 준 뒤 「내 찜」 숫자를 맞춘다
+  if(!on) return;
+  const x=(_liveData||[]).find(y=>y.id===id); const future=!!(x && new Date(x.start_at).getTime()-Date.now()>10*60e3);
+  if(!future){ mcToast('찜했어요'); return; }
+  // 「알려드려요」 는 이 기기가 실제로 받을 수 있을 때만 말한다(세일 찜과 같은 기준)
+  let msg='찜했어요\n방송 10분 전에 알려드릴게요';
+  try{
+    if(!notiGranted()){
+      if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n방송 알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+    }
+  }catch(_){ msg='찜했어요'; }
+  mcToast(msg);
 }
 let _liveDay='';   // '' = 전체, 'YYYY-MM-DD' = 그날만
 function liveDay(d){ _liveDay=d||''; renderLive(); try{ window.scrollTo(0, document.getElementById('liveDays').getBoundingClientRect().top+scrollY-70); }catch(_){} try{ trackEvent('live_day', d||'전체'); }catch(_){} }
@@ -2960,9 +3002,10 @@ function renderLive(){
   if(chips){
     const cnt={}; all.forEach(x=>{ if(x.category) cnt[x.category]=(cnt[x.category]||0)+1; });
     const cats=Object.keys(cnt).sort((a,b)=>(a==='키즈'?-1:b==='키즈'?1:cnt[b]-cnt[a]));   // 키즈를 앞에
-    chips.innerHTML=['',...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:`${c} ${cnt[c]}`)}</button>`).join('');
+    const wishN=all.filter(x=>LIVEW[x.id]).length; if(_liveCat==='__wish' && !wishN) _liveCat='';
+    chips.innerHTML=['',...(wishN?['__wish']:[]),...cats].map(c=>`<button class="sale-chip${_liveCat===c?' on':''}" data-c="${escHtml(c)}" onclick="liveFilter(this.dataset.c)">${escHtml(c===''?`전체 ${all.length}`:c==='__wish'?`내 찜 ${wishN}`:`${c} ${cnt[c]}`)}</button>`).join('');
   }
-  const catRows=all.filter(x=>!_liveCat||x.category===_liveCat);
+  const catRows=all.filter(x=>!_liveCat||(_liveCat==='__wish'?!!LIVEW[x.id]:x.category===_liveCat));
   // 날짜 탭: 고른 분류에 방송이 있는 날만. 고른 날에 방송이 없어지면 전체로
   const dayOf=x=>_liveWhen(x.start_at).day, days=[...new Set(catRows.map(dayOf))];
   if(_liveDay && !days.includes(_liveDay)) _liveDay='';
@@ -2977,13 +3020,13 @@ function renderLive(){
   // 무대 = 가장 가까운 방송 6개(방송 중 먼저 — 목록이 시작 시각 순이다) · 아래 목록엔 다시 안 넣는다
   const hero=rows.slice(0,6), heroId=new Set(hero.map(x=>x.id));
   let html=`<div class="lv-stage" id="lvStage">${hero.map((x,i)=>{ const w=_liveWhen(x.start_at); const tm=(w.day===todayStr?'':_liveDayLabel(w.day).replace(/^내일 · .*/,'내일')+' ')+w.time;
-    return `<a class="lv-sl${i?'':' on'}" ${_lvA(x)}>${_lvImg(x,i<2)}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join(''):''}</div></div>`;
+    return `<a class="lv-sl${i?'':' on'}" ${_lvA(x)}>${_lvImg(x,i<2)}${_lvHeart(x.id,'wish')}<div class="bd">${_lvBadge(x,now)||`<span class="live-badge soon">${escHtml(tm)}</span>`}</div><div class="tx"><div class="t">${escHtml(x.title)}</div><div class="m">${escHtml(x.channel_name||'')} · ${escHtml(tm)}</div>${_lvPrice(x)}</div></a>`; }).join('')}<div class="lv-dots">${hero.length>1?hero.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join(''):''}</div></div>`;
   let lastDay='';
   for(const x of rows){
     if(heroId.has(x.id)) continue;
     const w=_liveWhen(x.start_at);
     if(w.day!==lastDay){ const lab=_liveDayLabel(w.day); const m=lab.match(/^(오늘|내일)/); html+=`<div class="live-day">${m?m[1]:escHtml(lab)}${m?`<small>${+w.day.slice(5,7)}.${+w.day.slice(8,10)} ${'일월화수목금토'[new Date(w.day+'T12:00:00+09:00').getUTCDay()]}</small>`:''}</div>`; lastDay=w.day; }
-    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div></a>`;
+    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div>${_lvHeart(x.id,'sale-wish')}</a>`;
   }
   list.innerHTML=html;
   _lvStageStart();
@@ -3305,6 +3348,10 @@ document.addEventListener('DOMContentLoaded', function(){
   }catch(_){}
 });
 
+// 라방 바로 열기: momcalendar.com/#live (찜한 라방 알림 — send-live-push)
+function _openLiveHash(){ try{ if(location.hash!=='#live') return; _slMode='live'; try{ localStorage.setItem('mc_sl_mode','live'); }catch(_){} switchContent('sale'); setSlMode('live'); var seg=document.getElementById('contentSeg'); if(seg) setTimeout(function(){ try{ seg.scrollIntoView({block:'start'}); }catch(_){} }, 400); }catch(_){} }
+document.addEventListener('DOMContentLoaded', _openLiveHash);
+window.addEventListener('hashchange', _openLiveHash);
 // 이미 열려 있는 창에 알림이 #sale 로 이동시키면 DOMContentLoaded 는 다시 안 온다 → 해시 변경도 듣는다
 window.addEventListener('hashchange', function(){
   try{
@@ -6730,7 +6777,8 @@ function closeChatMenu(){
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
 @media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
-#commView{padding-bottom:96px!important}   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
+#commView{padding-bottom:96px!important}
+body:has(#commView[style*="display: block"]) .chat-fab-wrap,body:has(#commView[style*="display:block"]) .chat-fab-wrap{display:none}   /* 커뮤니티는 시안처럼 글쓰기 하나만 — ＋ 가 글쓰기를 반쯤 가렸다(앱 모드 실측) */   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
 /* 검색창 아래 채널 */
 .sch-banner{display:flex;align-items:center;gap:10px;margin:14px 0 6px;background:linear-gradient(135deg,#FFE9F1,#F3E8FF);border-radius:14px;padding:12px 14px;text-decoration:none;color:#232326}
 .sch-banner b{display:block;font-size:14px;font-weight:800}
