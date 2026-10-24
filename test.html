@@ -1593,8 +1593,8 @@ window.slimAdClick=function(id){
 <div id="saleView" style="display:none;padding:12px;min-height:120vh">
   <!-- 2026-10-24 사장님 「세일/라방 이렇게 바꾸고 그 안에 토글에 라방 일정도 따로 보게」 — 세일 | 라방 토글. 라방 = live_shows(네이버 쇼핑라이브 편성표, live-collect 6시간마다) -->
   <div class="sl-toggle" id="slToggle" role="tablist">
-    <button class="sl-tg on" data-m="sale" onclick="setSlMode('sale')" role="tab">🛍 세일</button>
-    <button class="sl-tg" data-m="live" onclick="setSlMode('live')" role="tab">📺 라방</button>
+    <button class="sl-tg on" data-m="sale" onclick="setSlMode('sale')" role="tab">세일</button>
+    <button class="sl-tg" data-m="live" onclick="setSlMode('live')" role="tab">라방</button>
   </div>
   <div id="saleBox">
     <div class="sale-head">
@@ -1607,7 +1607,7 @@ window.slimAdClick=function(id){
   </div>
   <div id="liveBox" style="display:none">
     <div class="sale-head">
-      <div class="sale-h1" style="color:#C2417A">📺 라방 일정</div>
+      <div class="sale-h1">라방 일정</div>
     </div>
     <div class="sale-chips" id="liveChips"></div>
     <div id="liveList"></div>
@@ -2968,7 +2968,7 @@ function renderLive(){
     if(heroId.has(x.id)) continue;
     const w=_liveWhen(x.start_at);
     if(w.day!==lastDay){ const lab=_liveDayLabel(w.day); const m=lab.match(/^(오늘|내일)/); html+=`<div class="live-day">${m?m[1]:escHtml(lab)}${m?`<small>${+w.day.slice(5,7)}.${+w.day.slice(8,10)} ${'일월화수목금토'[new Date(w.day+'T12:00:00+09:00').getUTCDay()]}</small>`:''}</div>`; lastDay=w.day; }
-    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">🎁 ${escHtml(x.benefit)}</div>`:''}</div></a>`;
+    html+=`<a class="lv-row" ${_lvA(x)}><div class="tm">${_lvHM(x.start_at)}</div><div class="im">${_lvImg(x)}${_lvBadge(x,now)}</div><div class="bd2"><div class="t">${escHtml(x.title)}</div><div class="ch">${escHtml(x.channel_name||'')}</div>${_lvPrice(x)}${x.benefit?`<div class="lv-ben">${escHtml(x.benefit)}</div>`:''}</div></a>`;
   }
   list.innerHTML=html;
   _lvStageStart();
