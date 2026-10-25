@@ -1214,7 +1214,7 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
 
 <!-- 한 줄 소개 띠 -->
 <div class="intro-strip">
-  <span class="intro-emph">공구 일정 &amp; 핫딜 정보 커뮤니티</span> 쏟아지는 이벤트와 체험단 정보까지 🔥
+  <span class="intro-emph">공구 핫딜 정보 공유 커뮤니티 맘캘린더</span>
 </div>
 
 <!-- 재로그인 안내 띠 — 로그인이 중간에 끊긴 기기에만 한 번 뜬다 (2026-08-04) -->
@@ -1277,7 +1277,7 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
     <div id="sideCats" style="display:none"></div>
 
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:10.5px;color:#A99CC0;line-height:1.7">
-      SNS 공구·핫딜·체험단 일정을 한곳에 모아보는 서비스예요.<br>
+      공구 핫딜 정보 공유 커뮤니티 맘캘린더<br>
       본 사이트는 각 셀러·쇼핑몰과 무관하며, 공개된 일정 정보를 모아 안내합니다.<br>
       문의 <b style="color:#8A8395">momcal@kakao.com</b>
     </div>
@@ -3446,7 +3446,7 @@ function _shareCardHtml(kind){
       html:`<div class="sc"><div style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#7B3FB5;color:#fff;display:flex;flex-direction:column">
   <div style="padding:52px 56px 26px;display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:52px;font-weight:800;opacity:.9">${top}</div><div style="font-size:120px;font-weight:900;letter-spacing:-5px;line-height:1">세일 총정리</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:10px"><div style="width:132px;height:132px;border-radius:32px;background:linear-gradient(135deg,#B57BE0,#7B3FB5);display:flex;align-items:center;justify-content:center"><img src="momcal-appicon.png" style="width:82%;height:82%;border-radius:26px" alt=""></div><div style="font-size:30px;font-weight:900;letter-spacing:-.5px">맘캘린더</div></div></div>
   <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px;padding:0 46px 22px">${tk||'<div style="background:#fff;color:#1E1B26;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;grid-column:1/3">예정된 세일이 아직 없어요</div>'}</div>
-  <div style="padding:0 56px 30px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:30px;font-weight:900;letter-spacing:-.5px">공동구매 · 핫딜 · 세일 정보 맘캘린더</b><span style="font-size:19px;opacity:.75">출처: 각 브랜드 공식 공지</span></div></div></div>`};
+  <div style="padding:0 56px 30px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:30px;font-weight:900;letter-spacing:-.5px">공구 핫딜 정보 공유 커뮤니티 맘캘린더</b><span style="font-size:19px;opacity:.75">출처: 각 브랜드 공식 공지</span></div></div></div>`};
   }
   // 공구: 이번 주(오늘부터 7일) 오픈·마감 + 내 찜(앞으로 것) — 최대 7줄
   const d0=new Date(todayStr+'T00:00:00'); const end=new Date(d0.getTime()+6*864e5); const endS=_ymd(end.getFullYear(),end.getMonth()+1,end.getDate());
@@ -4757,7 +4757,7 @@ function closeAdModal(){ document.getElementById('partnerModal').classList.remov
 // ── 친구에게 공유 (앱 모드엔 주소창이 없어 링크 공유가 어려움 → 네이티브 공유 시트) ──
 function mcShare(){
   var url='https://momcalendar.com/';
-  var data={ title:'맘캘린더', text:'공구·핫딜·체험단 일정 모아보기 · 맘캘린더 📅', url:url };
+  var data={ title:'맘캘린더', text:'공구 핫딜 정보 공유 커뮤니티 맘캘린더', url:url };
   try{ trackEvent('share_click',''); }catch(_){}
 
   // 🔴 카톡 인앱에는 navigator.share 가 아예 없다 (사장님 지적 2026-08-20)
@@ -4770,7 +4770,7 @@ function mcShare(){
         objectType:'feed',
         content:{
           title:'맘캘린더 📅',
-          description:'공구·핫딜·체험단 일정 모아보기',
+          description:'공구 핫딜 정보 공유 커뮤니티 맘캘린더',
           imageUrl:'https://momcalendar.com/momcal-appicon.png',
           link:{ mobileWebUrl:url, webUrl:url }
         },
@@ -7304,7 +7304,7 @@ function _calCardHtml(kind){
   const inMonth=items.filter(it=>it.s<=mk(days) && it.e>=mk(1)).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0).map((it,i)=>({...it, c:CS_PAL[i%CS_PAL.length], sd:it.s<mk(1)?1:Number(it.s.slice(8,10)), ed:it.e>mk(days)?days:Number(it.e.slice(8,10))}));
   const wd=['일','월','화','수','목','금','토'];
   const title=kind==='salecal'?'세일 달력':'내가 찜한 공구';
-  let h=`<div class="cs-mh"><b>${m}월</b><small>공구 핫딜은 맘캘린더에서</small></div><div class="cs-wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
+  let h=`<div class="cs-mh"><b>${m}월</b><small>공구 핫딜 정보 공유 커뮤니티 맘캘린더</small></div><div class="cs-wd">${wd.map(w=>`<span>${w}</span>`).join('')}</div>`;
   let d=1-first;
   while(d<=days){
     const ws=d, we=d+6; h+='<div class="cs-wk">';
@@ -7318,7 +7318,7 @@ function _calCardHtml(kind){
   if(!inMonth.length) h+=`<div class="cs-empty">${kind==='salecal'?'이 달에 예정된 세일이 없어요':'찜한 공구가 없어요<br>하트를 눌러 담아 보세요'}</div>`;
   h+='<div class="cs-wm"><img src="intro/logo.png" alt=""></div>';
   const sub=kind==='salecal'?(wished?'내가 찜한 세일':'예정 세일 전체'):'찜한 공구 '+inMonth.length+'개';
-  return {title:`${m}월 ${title}`, url:kind==='salecal'?`https://momcalendar.com/#sale`:`https://momcalendar.com/`, text:`${m}월 ${title} 달력이에요 · 공구 핫딜은 맘캘린더에서`,
+  return {title:`${m}월 ${title}`, url:kind==='salecal'?`https://momcalendar.com/#sale`:`https://momcalendar.com/`, text:`${m}월 ${kind==='salecal'?'세일':'내가 찜한 공구'} 달력이에요 · 공구 핫딜 정보 공유 커뮤니티 맘캘린더`,
     html:`<div class="sc"><div class="cs" style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#fff;padding:64px 44px 40px">${h}</div></div>`, sub};
 }
 </script>

@@ -361,6 +361,8 @@ body.srch-suggest #searchDrop{display:block}
 .noti-banner.on .nb-txt{color:#166B45}
 .noti-banner.on button{background:#CFE8DA;color:#166B45}
 .wish-sec{font-size:11px;font-weight:800;color:#8878a8;padding:10px 4px 6px}
+.wish-sec-row{display:flex;align-items:center;justify-content:space-between}   /* 마감됨 + 모두 지우기 (2026-10-25) */
+.wish-clear{border:0;background:none;color:#8B95A1;font-size:12px;font-weight:700;font-family:inherit;padding:11px 4px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .card.wended{background:#F5F4F7!important;border:1px solid #E8E8EC!important;opacity:.78;padding-right:64px}
 .card.wended .card-name{color:#8b8b95;text-decoration:line-through}
 .wdel{position:absolute;top:50%;right:12px;transform:translateY(-50%);background:#EFEDF2;border:none;color:#999;font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;font-family:inherit;cursor:pointer;z-index:4}
@@ -894,7 +896,7 @@ body.srch-mode .next-zone{display:none!important}
 
 <!-- 한 줄 소개 띠 -->
 <div class="intro-strip">
-  <span class="intro-emph">공구 일정 &amp; 핫딜 정보 커뮤니티</span> 쏟아지는 이벤트와 체험단 정보까지 🔥
+  <span class="intro-emph">공구 핫딜 정보 공유 커뮤니티 맘캘린더</span>
 </div>
 
 <!-- 재로그인 안내 띠 — 로그인이 중간에 끊긴 기기에만 한 번 뜬다 (2026-08-04) -->
@@ -956,7 +958,7 @@ body.srch-mode .next-zone{display:none!important}
     <div id="sideCats" style="display:none"></div>
 
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:10.5px;color:#A99CC0;line-height:1.7">
-      SNS 공구·핫딜·체험단 일정을 한곳에 모아보는 서비스예요.<br>
+      공구 핫딜 정보 공유 커뮤니티 맘캘린더<br>
       본 사이트는 각 셀러·쇼핑몰과 무관하며, 공개된 일정 정보를 모아 안내합니다.<br>
       문의 <b style="color:#8A8395">momcal@kakao.com</b>
     </div>
@@ -2134,7 +2136,7 @@ function renderList(){
       .sort((a,b)=>(realEnd(b)||'').localeCompare(realEnd(a)||''));    // 최근 마감 먼저
     let h=banner2;
     if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+live.map(item=>renderCard(item)).join('');
-    if(gone.length) h+=`<div class="wish-sec">마감됨</div>`+gone.map(item=>renderEndedWish(item)).join('');
+    if(gone.length) h+=`<div class="wish-sec wish-sec-row"><span>마감됨 ${gone.length}</span>${gone.length>=2?'<button type="button" class="wish-clear" onclick="removeEndedWishes()">모두 지우기</button>':''}</div>`+gone.map(item=>renderEndedWish(item)).join('');
     if(!live.length && !gone.length) h+=`<div class="empty">찜한 공구를 불러오는 중이에요…</div>`;
     el.innerHTML=h;
     return;
@@ -4102,7 +4104,7 @@ function closeAdModal(){ document.getElementById('partnerModal').classList.remov
 // ── 친구에게 공유 (앱 모드엔 주소창이 없어 링크 공유가 어려움 → 네이티브 공유 시트) ──
 function mcShare(){
   var url='https://momcalendar.com/';
-  var data={ title:'맘캘린더', text:'공구·핫딜·체험단 일정 모아보기 · 맘캘린더 📅', url:url };
+  var data={ title:'맘캘린더', text:'공구 핫딜 정보 공유 커뮤니티 맘캘린더', url:url };
   try{ trackEvent('share_click',''); }catch(_){}
 
   // 🔴 카톡 인앱에는 navigator.share 가 아예 없다 (사장님 지적 2026-08-20)
@@ -4115,7 +4117,7 @@ function mcShare(){
         objectType:'feed',
         content:{
           title:'맘캘린더 📅',
-          description:'공구·핫딜·체험단 일정 모아보기',
+          description:'공구 핫딜 정보 공유 커뮤니티 맘캘린더',
           imageUrl:'https://momcalendar.com/momcal-appicon.png',
           link:{ mobileWebUrl:url, webUrl:url }
         },
@@ -4288,6 +4290,18 @@ function toggleWish(id, btn, ev){
 function removeWish(id, ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   toggleWish(id,null); renderList();
+}
+// 마감된 찜 한꺼번에 지우기 (사장님 2026-10-25) — 한 번 묻고, 서버에도 하나씩 해제를 보낸다(실패해도 기기에선 지운다)
+function removeEndedWishes(){
+  const pool=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+  const ids=pool.filter(it=>isWished(it.id)&&isExpired(it)).map(it=>Number(it.id));
+  if(!ids.length) return;
+  if(!confirm(`마감된 찜 ${ids.length}개를 모두 지울까요?`)) return;
+  ids.forEach(id=>WISH.delete(id)); saveWishLocal(); updateWishBadge(); paintHearts();
+  const did=deviceId();
+  ids.forEach(id=>{ fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:id, p_on:false, p_token:_wishTok()})}).catch(()=>{}); });
+  try{ trackEvent('wish_del_ended', String(ids.length)); }catch(_){}
+  renderList(); try{ mcToast(`마감된 찜 ${ids.length}개를 지웠어요`); }catch(_){}
 }
 
 // ══ 💛 카카오 로그인 (소프트 게이트 — 찜은 로그인 없이도 되고, 로그인하면 기기 바뀌어도 유지) ══
