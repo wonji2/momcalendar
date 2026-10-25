@@ -908,7 +908,7 @@ h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500&display=swap">
 <style id="mc-fastload">
 /* ⚡ 메인 한번에 (사장님 2026-10-25) — scratchpad/_patch_fastload.py */
-#cardList > .card{content-visibility:auto;contain-intrinsic-size:auto 56px}   /* 카드 70px = 내용 56 + 위아래 여백 14. 화면 밖 카드는 배치 계산을 미룬다 */
+#cardList > .card{content-visibility:auto;contain-intrinsic-size:auto var(--mc-ch,53.6px)}   /* 화면 밖 카드는 배치 계산을 미룬다. 자리 높이 = 카드 69.6px - 여백 14 - 테두리 2 = 53.6. 기기마다 글꼴이 달라 _mcCardCal 이 실제 한 장을 재서 --mc-ch 로 맞춘다(검증자 2026-10-25: 어림값 56 이 2.4px 커서 뒤로가기 복원이 몇 장씩 어긋났다) */
 #mainSlider,#mainDots,#nextZone>*,#sellerZone>*,#subZone>*{transition:opacity .25s ease}
 .main-dots:empty{min-height:6px}   /* 점이 늦게 생기며 아래를 6px 밀던 것 — 빈 칸도 점 높이만큼 잡아 둔다 */
 body.mc-top-wait #mainSlider,body.mc-top-wait #mainDots,body.mc-top-wait #nextZone>*,body.mc-top-wait #sellerZone>*,body.mc-top-wait #subZone>*{opacity:0}
@@ -989,8 +989,8 @@ function appBadges(where){
   return appBadge('ios',where)+appBadge('android',where);
 }
 function appGo(store, where){ try{ trackEvent('app_install_click', store+'|'+where); }catch(_){} }
-function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app') && !document.body.classList.contains('app-mode') && !_appCtxEarly()); }   // 앱 안(아이폰·안드로이드 TWA·?app=1)에선 설치 유도를 안 한다 (2026-10-25: 안드로이드 앱 안에서도 띠가 떴다)
-function _appCtxEarly(){ try{ if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()) return true; if(localStorage.getItem('mc_app_mode')==='1'||localStorage.getItem('mc_twa')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')) return true; if(new URLSearchParams(location.search).get('app')==='1') return true; }catch(_){} return false; }
+function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app') && !_appCtxEarly()); }   // 앱 안(아이폰·안드로이드 TWA·?app=1)에선 설치 유도를 안 한다 (2026-10-25: 안드로이드 앱 안에서도 띠가 떴다)
+function _appCtxEarly(){ try{ const q=new URLSearchParams(location.search).get('app'); if(q==='0') return false; if(q==='1') return true; if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()) return true; if(localStorage.getItem('mc_app_mode')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ try{ sessionStorage.setItem('mc_twa_s','1'); }catch(_){} return true; } try{ if(sessionStorage.getItem('mc_twa_s')==='1') return true; }catch(_){} }catch(_){} return false; }   // TWA 는 일반 크롬과 저장소를 같이 쓴다 → 앱으로 열린 그 탭 안(sessionStorage)에서만 기억 (검증자 2026-10-25)
 // ① 제목 위 띠
 function appInitStrip(){
   const s=document.getElementById('appStrip'); if(!s) return;
@@ -1363,6 +1363,21 @@ function _mcTopReveal(why){
   // 다음 방문 자리 잡기용 높이는 한참 뒤에 잰다 — 보이는 순간 재면 문서 전체 배치를 강제로 다시 계산시켜 0.3초를 먹었다(2026-10-25 실측)
   setTimeout(()=>{ try{ const h={}; _MC_TOP.forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; h[k]=getComputedStyle(el).display==='none'?0:Math.round(el.getBoundingClientRect().height); }); localStorage.setItem(_MC_TOP_KEY, JSON.stringify(h)); }catch(_){} },6000);
 }
+// 카드 자리 높이 맞추기 — content-visibility 로 안 그린 카드는 --mc-ch 높이로 자리만 잡는다. 이 값이 실제와 다르면 쌓여서
+//   뒤로가기 복원(scrollY 숫자로 맞춤)이 다른 카드에서 열리고, 다시 그릴 때 목록이 튄다(검증자 2026-10-25 재현). → 이 기기에서 실제 카드를 재서 맞춘다
+const _MC_CH_KEY='mc_card_ch_'+Math.round(Math.min(innerWidth||390,480)/10);
+try{ const v=parseFloat(localStorage.getItem(_MC_CH_KEY)); if(v>20&&v<200) document.documentElement.style.setProperty('--mc-ch',v+'px'); }catch(_){}
+function _mcCardCal(){
+  const cards=[...document.querySelectorAll('#cardList > .card')].slice(0,7); if(!cards.length) return false;
+  const hs=cards.map(c=>{ const prev=c.style.contentVisibility; c.style.contentVisibility='visible'; const cs=getComputedStyle(c); const h=c.getBoundingClientRect().height-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-parseFloat(cs.borderTopWidth)-parseFloat(cs.borderBottomWidth); c.style.contentVisibility=prev; return Math.round(h*1000)/1000; });   // 셋째 자리까지 — 둘째 자리 반올림도 카드 500장이면 7px 쌓였다
+  const cnt={}; hs.forEach(h=>cnt[h]=(cnt[h]||0)+1); const v=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];   // 가장 흔한 값
+  if(!(v>20&&v<200)) return true;
+  const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mc-ch'))||0;
+  if(Math.abs(cur-v)>0.0005) document.documentElement.style.setProperty('--mc-ch',v+'px');
+  try{ localStorage.setItem(_MC_CH_KEY,String(v)); }catch(_){}
+  return true;
+}
+(function(){ let n=0; (function poll(){ let ok=false; try{ ok=_mcCardCal(); }catch(_){ ok=true; } if(!ok && ++n<80) setTimeout(poll,250); })(); })();
 // 카드 목록 다시 그리기를 한 번으로 합친다 — 배너·이웃셀러가 도착할 때마다 카드 3,000장을 처음부터 다시 그렸다
 let _mcRrT=null;
 function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ if(typeof renderList==='function' && typeof DATA!=='undefined' && DATA && DATA.length) renderList(); }catch(_){} },80); }
@@ -2069,8 +2084,9 @@ async function loadData() {
     // ⚡ 4쪽을 동시에 받는다 (2026-10-25) — 전엔 한 쪽씩 차례로 받아 왕복이 네 번 쌓였다. 주소(limit·offset)는 그대로라 Worker 캐시·전송량은 같다.
     //   넷째 쪽이 꽉 차 있으면(4,000건↑) 그다음부터 한 쪽씩 더 받는다. 쪽 순서대로 합치고 아래 seen 으로 중복을 거른다.
     const _getPage = async (from) => { const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }); if (!res.ok) throw new Error('Supabase 오류 ' + res.status); return res.json(); };
-    const _pages = await Promise.all([0, 1, 2, 3].map(i => _getPage(i * PAGE)));
-    for (let from = 4 * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
+    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(4, Math.ceil((n + 300) / PAGE))) : 4; } catch (_) { return 4; } })();   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
+    const _pages = await Promise.all(Array.from({ length: _np }, (_, i) => _getPage(i * PAGE)));
+    for (let from = _np * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
     for (const page of _pages) {
       // 🔴 id 로 거른다 — 쪽마다 **받아온 시각이 다르다**(쪽별로 캐시 항목·시계가 따로다).
       //   그 사이 공구가 하나 들어오면 경계가 밀려 **같은 공구가 두 번** 오고, 하나 빠지면 **한 건이 조용히 사라진다.**
@@ -6420,7 +6436,7 @@ function renderNextGonggu(){
   if(!items.length){ if(_NX_EARLY===null && !(typeof DATA!=='undefined'&&DATA&&DATA.length) && typeof _mcTopDone!=='undefined' && !_mcTopDone) return; zone.style.display='none'; return; }
   const sc=document.getElementById('nextScroll');
   // ⚡ 같은 내용이면 다시 그리지 않는다 (2026-10-25) — 빠른 길·배너 도착·전체 DATA 도착마다 새로 그리며 카드 3,000장 배치까지 다시 계산시켰다
-  const _sig=items.map(it=>it.id+':'+(isWished(it.id)?1:0)+':'+_nxN(it)+':'+((_nxBanner(it)||{}).img_url||'')).join(',');
+  const _sig=items.map(it=>it.id+':'+it.name+':'+it.openDate+':'+(isWished(it.id)?1:0)+':'+_nxN(it)+':'+((_nxBanner(it)||{}).img_url||'')).join('|');   // 상품명·오픈일도 본다(DB 에서 고친 값이 띠에만 낡게 남지 않게)
   if(_sig===sc._nxSig && sc.children.length){ zone.style.display=''; try{ _nxArrive(); }catch(_){} return; }
   sc._nxSig=_sig;
   const x=sc.children.length?sc.scrollLeft:0; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); if(x) sc.scrollLeft=x;
