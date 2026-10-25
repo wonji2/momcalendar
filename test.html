@@ -7110,6 +7110,7 @@ const COMM_CLUB=31499187;
 let _commData=null, _commBoard=0, _commShown=30;
 async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
+  try{ _goRulesLoad(); }catch(_){}
   if(_commData && !force){ renderCommunity(); return; }
   v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
   try{
@@ -7129,44 +7130,58 @@ function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d
 //   · 아이폰 카톡: 사파리로 내보낸다 — 카톡 안 웹뷰엔 네이버 로그인이 없다. 사파리에선 네이버 카페 앱이 깔려 있으면 그 앱이 받는다
 //   · 그 밖(아이폰 사파리·네이버 앱 안·PC): 그냥 새 창(기본 동작)
 //   ⚠ 사이트의 다른 네이버 링크(핫딜·배너)는 바꾸지 않는다 — 커뮤니티에만 쓴다
-function _commGoLog(way){
-  try{
-    const ua=navigator.userAgent||''; let sa=false; try{ sa=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(_){}
-    const br=/SamsungBrowser\/[\d.]+/i.test(ua)?'samsung'+(ua.match(/SamsungBrowser\/(\d+)/i)||[])[1]:/; wv\)/.test(ua)?'wv':/KAKAOTALK/i.test(ua)?'kakao':/Instagram/i.test(ua)?'insta':/CriOS/i.test(ua)?'ios-chrome':/iPhone|iPad/i.test(ua)?'ios':/Chrome\/(\d+)/.test(ua)?'chrome'+(ua.match(/Chrome\/(\d+)/)||[])[1]:'etc';
-    const tag=way+'|'+(sa?'sa':'tab')+'|'+br+'|'+((ua.match(/Android (\d+)/)||[])[1]||'');
-    trackEvent('community_go', tag);
-    setTimeout(()=>{ try{ if(!document.hidden) trackEvent('community_stay', tag); }catch(_){} },3000);
-  }catch(_){}
+// ── 바깥 링크 「여는 길」 자가학습 (2026-10-25) — 원본 scratchpad/_patch_link_learn.py · 서버 supabase/sql/link_route_learn_108.sql ──
+const _GO_LS='mc_go_learn', _GO_RULES='mc_go_rules';
+function _goEnv(){
+  const ua=navigator.userAgent||''; let sa=false; try{ sa=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(_){}
+  const plat=/Android/i.test(ua)?'a':/iPhone|iPad|iPod/i.test(ua)?'i':'o';
+  const br=/NAVER\(inapp/i.test(ua)?'naver':/KAKAOTALK/i.test(ua)?'kakao':/Instagram/i.test(ua)?'insta':/FBAN|FBAV|FB_IAB/i.test(ua)?'fb':/Line\//i.test(ua)?'line':/SamsungBrowser/i.test(ua)?'samsung':/; wv\)/i.test(ua)?'wv':/CriOS/i.test(ua)?'crios':plat==='i'?'safari':/Chrome\//.test(ua)?'chrome':'etc';
+  return plat+'|'+(sa?'sa':'tab')+'|'+br;
+}
+function _goCands(env){
+  const a=env.split('|'), plat=a[0], br=a[2];
+  if(br==='naver') return ['plain'];
+  if(plat==='a') return ['kakao','insta','fb','line','wv'].includes(br) ? ['wvopen','cafeapp','naverapp','plain'] : ['cafeapp','naverapp','plain'];
+  if(plat==='i') return br==='kakao' ? ['safari_ext','plain'] : ['plain'];
+  return ['plain'];
+}
+function _goLocal(){ try{ return JSON.parse(localStorage.getItem(_GO_LS)||'{}')||{}; }catch(_){ return {}; } }
+function _goLocalSet(s,ok){ try{ const L=_goLocal(); const x=L[s]||{ok:0,bad:0}; if(ok) x.ok++; else x.bad++; x.t=Date.now(); L[s]=x; localStorage.setItem(_GO_LS, JSON.stringify(L)); }catch(_){} }
+function _goRules(){ try{ const c=JSON.parse(localStorage.getItem(_GO_RULES)||'null'); return (c&&c.d)||{}; }catch(_){ return {}; } }
+function _goRulesLoad(){
+  try{ const c=JSON.parse(localStorage.getItem(_GO_RULES)||'null'); if(c && Date.now()-c.t<3*3600e3) return; }catch(_){}
+  const env=_goEnv();
+  fetch(`${SUPABASE_URL}/rest/v1/link_rules?env=eq.${encodeURIComponent(env)}&select=env,strategy_order,stats`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}})
+    .then(r=>r.ok?r.json():[]).then(a=>{ const d={}; (a||[]).forEach(x=>{ d[x.env]=x; }); try{ localStorage.setItem(_GO_RULES, JSON.stringify({t:Date.now(), d:d})); }catch(_){} }).catch(()=>{});
+}
+function _goPick(env){
+  const cands=_goCands(env), R=_goRules()[env], L=_goLocal();
+  const score=s=>{ const st=R&&R.stats&&R.stats[s]; let v=st?((Number(st.ok)+1)/(Number(st.ok)+Number(st.bad)+2)):0.5; const l=L[s]; if(l){ if(l.ok) v+=0.25; else if(l.bad) v-=0.45; } return v; };
+  return cands.map((s,i)=>({s:s, v:score(s)-i*0.001})).sort((a,b)=>b.v-a.v)[0].s;
+}
+function _goRun(s,url,env,id){
+  const u=new URL(url, location.href), enc=encodeURIComponent(u.href);
+  try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
+  const bridge=k=>location.origin+'/cafego.html?u='+enc+'&e='+encodeURIComponent(env)+'&s='+k+'&n='+id;
+  if(s==='cafeapp'){ location.href='intent://'+u.host+u.pathname+u.search+'#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.navercafe;S.browser_fallback_url='+encodeURIComponent(bridge('cafeapp'))+';end'; return; }
+  if(s==='naverapp'){ location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+encodeURIComponent(bridge('naverapp')+'&last=1')+';end'; return; }
+  if(s==='wvopen' && typeof openLink==='function'){ openLink(u.href); return; }
+  if(s==='safari_ext'){ location.href='kakaotalk://web/openExternal?url='+enc; return; }
+  try{ const w=window.open(u.href,'_blank'); if(!w) location.href=u.href; }catch(_){ location.href=u.href; }
 }
 function commGo(url, ev){
-  try{
-    const ua=navigator.userAgent||'';
-    if(/NAVER\(inapp/i.test(ua)){ _commGoLog('naverapp'); return true; }   // 이미 네이버 앱 안
-    if(/Android/i.test(ua)){
-      const wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);   // 인앱 웹뷰(카톡·인스타 등)만 openLink(웹뷰 오류 화면을 피하는 iframe 방식)
-      if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ _commGoLog('wv-openlink'); if(ev) ev.preventDefault(); openLink(url); return false; }
-      // 크롬·홈화면 앱·우리 앱: 네이버 앱 intent 하나만 — 앱이 없으면 그 안의 browser_fallback_url 로 브라우저. 타이머로 일반 주소를 또 열지 않는다(「Chrome / NAVER」 고르는 창이 떴다)
-      const _u=new URL(url, location.href);
-      const enc=encodeURIComponent(_u.href);
-      // 카페 앱 1순위 (사장님 2026-10-25 「카페앱 있으면 그게 1위」) — 앱이 없거나 그 주소를 못 받으면 우리 중간 화면(cafego.html)이 네이버 앱 → 브라우저로 잇는다
-      if(/(^|\.)cafe\.naver\.com$/i.test(_u.hostname)){
-        _commGoLog('cafeapp');
-        if(ev) ev.preventDefault();
-        try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
-        const bridge=location.origin+'/cafego.html?u='+enc;
-        location.href='intent://'+_u.host+_u.pathname+_u.search+'#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.navercafe;S.browser_fallback_url='+encodeURIComponent(bridge)+';end';
-        return false;
-      }
-      _commGoLog('intent');
-      if(ev) ev.preventDefault();
-      try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
-      location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
-      return false;
-    }
-    if(/iPhone|iPad|iPod/i.test(ua) && /KAKAOTALK/i.test(ua)){ _commGoLog('ios-kakao-safari'); if(ev) ev.preventDefault(); location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); return false; }
-  }catch(_){}
-  _commGoLog('default');
-  return true;
+  if(ev) ev.preventDefault();
+  let env='o|tab|etc', s='plain';
+  try{ env=_goEnv(); s=_goPick(env); }catch(_){}
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6), tag=env+'|'+s+'|'+id;
+  try{ trackEvent('link_try', tag); }catch(_){}
+  let done=false;
+  const ok=()=>{ if(done) return; done=true; _goLocalSet(s,true); try{ trackEvent('link_ok', tag); }catch(_){} };
+  const onVis=()=>{ if(document.hidden) ok(); };
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('pagehide', ok);
+  setTimeout(()=>{ if(!done){ done=true; _goLocalSet(s,false); try{ trackEvent('link_stay', tag); }catch(_){} } document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', ok); },2500);
+  _goRun(s,url,env,id);
+  return false;
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;

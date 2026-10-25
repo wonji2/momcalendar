@@ -4,49 +4,54 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>카페로 이동 중 · 맘캘린더</title>
-<!-- 커뮤니티 「카페에서 댓글 쓰기·글쓰기」 중간 화면 (2026-10-25)
-     흐름: 사이트가 먼저 카페 앱에 주소를 넘긴다 → 카페 앱이 없으면 크롬이 이 화면을 연다(browser_fallback_url)
-           → 여기서 네이버 앱(로그인 살아 있음)으로 넘긴다 → 그것도 없으면 이 브라우저로 카페 모바일 웹
-     ?u= 는 cafe.naver.com 주소만 받는다(다른 주소로 튀는 통로가 되지 않게) -->
+<title>카페로 이동 · 맘캘린더</title>
+<!-- 커뮤니티 「카페에서 댓글 쓰기·보기·글쓰기」 중간 화면 (2026-10-25) — 사이트의 commGo 가 고른 길이 실패하면 크롬이 이 화면을 연다(browser_fallback_url)
+     · ?u= cafe.naver.com 주소만 받는다(다른 주소로 튀는 통로가 되지 않게) · ?e=환경 ?s=실패한 길 ?n=시도 번호
+     · 실패를 기록한다: events link_fb(서버 학습이 실패로 친다) + 이 기기 mc_go_learn 에서 그 길을 실패로 고친다(원래 화면이 ok 로 적었어도)
+     · s=naverapp(마지막 단계)이면 바로 카페 웹으로. s=cafeapp 이면 버튼 두 개 — 손님이 누르지 않은 앱 열기는 크롬이 막고 바로 웹으로 새서(사장님 폰 실측 2026-10-25) 자동으로 부르지 않는다 -->
 <style>
-:root{--bg:#fff;--fg:#191F28;--sub:#8B95A1;--line:#F2F4F6;--dark:#191F28}
+:root{--bg:#fff;--fg:#191F28;--sub:#8B95A1;--line:#F2F4F6}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
-.w{max-width:420px;margin:0 auto;padding:max(48px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left));text-align:center}
+.w{max-width:420px;margin:0 auto;padding:max(56px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left));text-align:center}
 .ic{width:56px;height:56px;border-radius:16px;display:block;margin:0 auto 16px}
 h1{font-size:18px;font-weight:800;margin:0 0 6px}
 p{font-size:14px;color:var(--sub);margin:0 0 24px;line-height:1.6}
-a.b{display:block;text-decoration:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin:0 0 10px}
+a.b{display:block;text-decoration:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;margin:0 0 10px}
 a.n{background:#03C75A;color:#fff}
 a.g{background:var(--line);color:#4E5968}
-#btns{display:none}
 </style>
 </head>
 <body>
 <div class="w">
   <img class="ic" src="momcal-appicon.png" alt="">
-  <h1>카페로 이동하고 있어요</h1>
-  <p id="msg">잠시만 기다려 주세요</p>
-  <div id="btns">
-    <a class="b n" id="toNaver" href="#">네이버 앱으로 열기</a>
-    <a class="b g" id="toWeb" href="#">이 브라우저로 열기</a>
-  </div>
+  <h1>어디서 열까요?</h1>
+  <p>네이버 앱은 로그인이 유지돼서<br>바로 댓글·글쓰기를 할 수 있어요</p>
+  <a class="b n" id="toNaver" href="#">네이버 앱으로 열기</a>
+  <a class="b g" id="toWeb" href="#">이 브라우저로 열기</a>
 </div>
 <script>
 (function(){
-  var u='';
-  try{ u=new URLSearchParams(location.search).get('u')||''; var x=new URL(u); if(x.protocol!=='https:' || !/(^|\.)cafe\.naver\.com$/i.test(x.hostname)) u=''; else u=x.href; }catch(_){ u=''; }
+  var q=new URLSearchParams(location.search), u='';
+  try{ var x=new URL(q.get('u')||''); if(x.protocol==='https:' && /(^|\.)cafe\.naver\.com$/i.test(x.hostname)) u=x.href; }catch(_){}
   if(!u){ location.replace('/'); return; }
-  var ua=navigator.userAgent||'';
-  var web=document.getElementById('toWeb'); web.href=u;
-  if(!/Android/i.test(ua) || /NAVER\(inapp/i.test(ua)){ location.replace(u); return; }
+  var env=(q.get('e')||'').slice(0,40), s=(q.get('s')||'').replace(/[^a-z_]/g,'').slice(0,20), n=(q.get('n')||'').replace(/[^a-z0-9]/gi,'').slice(0,20);
+  var K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+  function ev(type,data){ try{ fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/events',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:K,Prefer:'return=minimal'},body:JSON.stringify({event_type:type,event_data:data})}).catch(function(){}); }catch(_){} }
+  if(env && s && n){
+    ev('link_fb', env+'|'+s+'|'+n);
+    try{ var L=JSON.parse(localStorage.getItem('mc_go_learn')||'{}')||{}; var o=L[s]||{ok:0,bad:0}; if(o.ok>0) o.ok--; o.bad++; o.t=Date.now(); L[s]=o; localStorage.setItem('mc_go_learn', JSON.stringify(L)); }catch(_){}
+  }
+  if(q.get('last')==='1'){ location.replace(u); return; }   // 네이버 앱도 없으면 바로 카페 웹
   var enc=encodeURIComponent(u);
-  var naver='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
-  document.getElementById('toNaver').href=naver;
-  // 바로 한 번 시도 — 손짓 없이 막는 브라우저가 있으면 1.2초 뒤 버튼을 보여 손님이 한 번 누르게
-  try{ location.href=naver; }catch(_){}
-  setTimeout(function(){ if(document.hidden) return; document.getElementById('msg').textContent='아래에서 골라 주세요'; document.getElementById('btns').style.display='block'; },1200);
-  document.addEventListener('visibilitychange',function(){ if(!document.hidden){ document.getElementById('msg').textContent='돌아오셨네요. 다시 여시려면 아래를 눌러 주세요'; document.getElementById('btns').style.display='block'; } });
+  document.getElementById('toWeb').href=u;
+  var nav=document.getElementById('toNaver');
+  if(!/Android/i.test(navigator.userAgent||'')){ nav.style.display='none'; return; }
+  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  nav.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+encodeURIComponent(location.origin+'/cafego.html?u='+enc+'&e='+encodeURIComponent(env)+'&s=naverapp&n='+id+'&last=1')+';end';
+  nav.addEventListener('click',function(){ if(env) ev('link_try', env+'|naverapp|'+id); var done=false; var ok=function(){ if(done) return; done=true; if(env) ev('link_ok', env+'|naverapp|'+id); try{ var L=JSON.parse(localStorage.getItem('mc_go_learn')||'{}')||{}; var o=L.naverapp||{ok:0,bad:0}; o.ok++; o.t=Date.now(); L.naverapp=o; localStorage.setItem('mc_go_learn', JSON.stringify(L)); }catch(_){} };
+    document.addEventListener('visibilitychange',function(){ if(document.hidden) ok(); }); window.addEventListener('pagehide',ok);
+    setTimeout(function(){ if(done) return; done=true; if(env) ev('link_stay', env+'|naverapp|'+id); try{ var L=JSON.parse(localStorage.getItem('mc_go_learn')||'{}')||{}; var o=L.naverapp||{ok:0,bad:0}; o.bad++; o.t=Date.now(); L.naverapp=o; localStorage.setItem('mc_go_learn', JSON.stringify(L)); }catch(_){} },2500);
+  });
 })();
 </script>
 </body>
