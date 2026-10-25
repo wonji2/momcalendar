@@ -925,6 +925,7 @@ h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{
 .app-strip .app-badge small{display:none}
 .app-strip .app-badge b{font-size:10.5px}
 .app-badges{display:flex;gap:8px}
+.app-one{display:block;width:100%;background:#602090;color:#fff;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
 .app-badges .app-badge{flex:1}
 .app-mid{margin:10px 12px;background:linear-gradient(135deg,#4B1577,#7B3FB5);color:#fff;border-radius:16px;padding:14px 14px 12px}
 .app-mid-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
@@ -951,7 +952,7 @@ body.app-strip-on #pwaStrip{display:none!important}
 </style>
 <div id="appStrip" class="app-strip" style="display:none"></div>
 <div id="appGoPop" class="app-pop" aria-hidden="true"><div class="app-pop-box"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-pop-t">앱으로 오세요</div><div class="app-pop-s" id="appGoPopSub">알림은 앱에서만 받을 수 있어요</div><div class="app-badges" id="appGoPopBadges"></div><button class="app-pop-x" onclick="appGoPopClose()">닫기</button></div></div>
-<div id="appSheet" class="app-sheet" aria-hidden="true"><div class="app-sheet-box"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-pop-t">앱으로 더 편하게</div><div class="app-pop-s">아이폰 · 갤럭시 앱이 나왔어요</div><div class="app-sheet-bene"><div><span>🔔</span>찜한 공구 오픈·마감 알림</div><div><span>📅</span>내 찜 달력 저장하고 친구에게 공유</div><div><span>⚡</span>홈 화면에서 바로 열기</div></div><div class="app-badges" id="appSheetBadges"></div><button class="app-pop-x" onclick="appSheetClose()">웹으로 볼게요</button></div></div>
+<div id="appSheet" class="app-sheet" aria-hidden="true"><div class="app-sheet-box"><div class="app-pop-ic"><img src="momcal-appicon.png" alt=""></div><div class="app-pop-t">앱으로 더 편하게</div><div class="app-pop-s">아이폰 · 갤럭시 앱이 나왔어요</div><div class="app-sheet-bene"><div><span>🔔</span>찜한 공구 오픈·마감 알림</div><div><span>📅</span>내 찜 달력 저장하고 친구에게 공유</div><div><span>⚡</span>홈 화면에서 바로 열기</div></div><div class="app-badges" id="appSheetBadges"></div><button class="app-pop-x" onclick="appSheetClose()">그냥 이 화면에서 볼게요</button></div></div>
 <script>
 // ── 📲 앱 설치 유도 — 한 곳(APP_LINKS)에서 켜고 끈다. 스토어 승인이 나는 날 enabled 를 true 로.
 const APP_LINKS={ enabled:true,
@@ -964,7 +965,11 @@ function appBadge(store, where){
   const ios=store==='ios';
   return `<a class="app-badge" href="${ios?APP_LINKS.ios:APP_LINKS.android}" target="_blank" rel="noopener" onclick="appGo('${store}','${where}')" aria-label="${ios?'App Store에서 받기':'Google Play에서 받기'}">${_APP_SVG[store]}<span><small>${ios?'Download on the':'GET IT ON'}</small><b>${ios?'App Store':'Google Play'}</b></span></a>`;
 }
-function appBadges(where){ return appBadge('ios',where)+appBadge('android',where); }
+function appBadges(where){
+  if(typeof _isInApp==='function' && _isInApp() && !(typeof _isIOS==='function' && _isIOS()))
+    return '<a class="app-badge" href="javascript:void 0" onclick="appOpen(\''+where+'\',\'\');return false" aria-label="맘캘린더 앱으로 열기">'+_APP_SVG.android+'<span><small>맘캘린더</small><b>앱으로 열기</b></span></a>';
+  return appBadge('ios',where)+appBadge('android',where);
+}
 function appGo(store, where){ try{ trackEvent('app_install_click', store+'|'+where); }catch(_){} }
 function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app')); }
 // ① 제목 위 띠
@@ -983,11 +988,30 @@ function _appJoin(cards){
   return out;
 }
 // ③ 앱 전용 기능 팝업 — 앱에서만 되는 기능을 웹에서 누르면 무조건 (사장님 2026-10-23)
-function appGoPopup(where, sub){
+// 🚪 앱으로 열기 — 안드로이드는 앱 패키지 지정 intent(앱 있으면 앱, 없으면 플레이스토어), 아이폰은 앱스토어.
+//    act = 도착한 앱이 이어서 할 일(예: wish=123 · nxbell=123). 주소에 실어 보내고 도착하면 지운다(_appArrive).
+function appOpenUrl(act){
+  if(typeof _isIOS==='function' && _isIOS()) return APP_LINKS.ios;
+  const q=new URLSearchParams(location.search); ['wdid','wlink','flowtest','from','v'].forEach(k=>q.delete(k));
+  if(act){ const [k,v]=String(act).split('='); if(k) q.set(k, v||'1'); }
+  const qs=q.toString();
+  return 'intent://'+location.host+location.pathname+(qs?'?'+qs:'')+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent(APP_LINKS.android)+';end';
+}
+function appOpen(where, act){
+  try{ trackEvent('app_open_tap', String(where||'')+'|'+(act||'')+'|'+((typeof _isInApp==='function'&&_isInApp())?'inapp':'web')); }catch(_){}
+  location.href=appOpenUrl(act);
+}
+// 안드로이드 인앱이면 배지 두 개 대신 버튼 하나(실측으로 한 번에 열린다). 아이폰은 앱스토어 배지.
+function appOneButton(where, act, label){
+  if(typeof _isIOS==='function' && _isIOS()) return appBadge('ios', where);
+  return '<button class="app-one" onclick="appOpen(\''+where+'\',\''+String(act||'').replace(/[^\w=]/g,'')+'\')">'+(label||'맘캘린더 앱으로 열기')+'</button>';
+}
+function _appInAppAndroid(){ return (typeof _isInApp==='function' && _isInApp()); }
+function appGoPopup(where, sub, act){
   if(!_appOn()){ return false; }
   const p=document.getElementById('appGoPop'); if(!p) return false;
   document.getElementById('appGoPopSub').textContent=sub||'알림은 앱에서만 받을 수 있어요';
-  document.getElementById('appGoPopBadges').innerHTML=appBadges('pop_'+(where||''));
+  document.getElementById('appGoPopBadges').innerHTML=_appInAppAndroid()?appOneButton('pop_'+(where||''), act):appBadges('pop_'+(where||''));
   p.classList.add('open'); p.setAttribute('aria-hidden','false');
   try{ trackEvent('app_popup', String(where||'')); }catch(_){}
   return true;
@@ -1001,7 +1025,7 @@ function maybeShowAppSheet(){
     const next=localStorage.getItem('mc_app_sheet_next')||''; const today=(typeof todayStr==='string')?todayStr:new Date().toISOString().slice(0,10);
     if(next && next>today) return false;
     const s=document.getElementById('appSheet'); if(!s) return false;
-    document.getElementById('appSheetBadges').innerHTML=appBadges('sheet');
+    document.getElementById('appSheetBadges').innerHTML=_appInAppAndroid()?appOneButton('sheet_inapp',''):appBadges('sheet');
     s.classList.add('open'); s.setAttribute('aria-hidden','false');
     try{ trackEvent('app_sheet','show'); }catch(_){}
     return true;
@@ -1009,8 +1033,26 @@ function maybeShowAppSheet(){
 }
 function appSheetClose(){
   const s=document.getElementById('appSheet'); if(s){ s.classList.remove('open'); s.setAttribute('aria-hidden','true'); }
-  try{ const d=new Date(); d.setDate(d.getDate()+7); localStorage.setItem('mc_app_sheet_next', d.toISOString().slice(0,10)); }catch(_){}
+  // 인앱은 하루 뒤 다시(대부분 인앱으로 들어온다 — 사장님 2026-10-25), 그 밖은 7일 뒤
+  try{ const d=new Date(); d.setDate(d.getDate()+(_appInAppAndroid()?1:7)); localStorage.setItem('mc_app_sheet_next', d.toISOString().slice(0,10)); }catch(_){}
 }
+// 인앱으로 들어오면 첫 화면에 시트 하나 — 인앱 안에서는 알림·로그인을 묻지 않고 앱으로 보낸다
+setTimeout(function(){ try{ if(_appInAppAndroid() && !document.body.classList.contains('native-app')) maybeShowAppSheet(); }catch(_){} }, 1500);
+// 앱에 도착해서 이어서 할 일 — ?wish=<공구id> 면 찜까지 해 둔다(인앱에서 누른 찜을 들고 온 것)
+function _appArrive(){
+  try{
+    const q=new URLSearchParams(location.search), w=Number(q.get('wish'))||0;
+    if(!w) return;
+    q.delete('wish'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);
+    // 서버 찜 목록을 받아 온 뒤에 찜한다(먼저 찜하면 늦게 도착한 목록이 덮어써 사라진다 — 시험에서 실측)
+    Promise.resolve(typeof syncWishFromServer==='function' ? syncWishFromServer() : null).catch(()=>{}).then(function(){
+      if(typeof isWished==='function' && !isWished(w) && typeof toggleWish==='function') toggleWish(w, null);
+      if(typeof mcToast==='function') mcToast('찜한 공구 가져왔어요 💜');
+    });
+    try{ trackEvent('app_arrive','wish'); }catch(_){}
+  }catch(_){}
+}
+setTimeout(_appArrive, 1800);
 document.addEventListener('DOMContentLoaded', appInitStrip);
 document.addEventListener('click', function(e){ if(e.target && (e.target.id==='appGoPop')) appGoPopClose(); if(e.target && e.target.id==='appSheet') appSheetClose(); });
 </script>
@@ -4834,6 +4876,10 @@ function toggleWish(id, btn, ev){
     body:JSON.stringify({p_device:did, p_gonggu:id, p_on:on, p_token:_wishTok()})}).catch(()=>{});
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
+  if(on && _appInAppAndroid() && typeof _appOn==='function' && _appOn()){
+    appGoPopup('wish','찜한 공구 오픈날 아침 알림은 앱에서 받아요 · 찜한 것도 그대로 가져가요','wish='+id);
+    return;
+  }
   if(on){
     // 하트 한 번에 바로 시트가 뜨면 부담스러움 → 찜 2개째부터, 그것도 하루에 하나만.
     if(WISH.size >= 2){
@@ -6227,7 +6273,7 @@ function nxdBell(id,btn,ev){
   m.querySelector('.nxa-yes').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?'앱으로 오세요':(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기')):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
-    if(_inApp){ _nxOn(id); if(!appGoPopup('next_bell')) _nxOutside(id); return; }   // 앱 유도가 꺼져 있을 때만 옛 방식(크롬·사파리로)   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
+    if(_inApp){ _nxOn(id); if(!appGoPopup('next_bell', undefined, 'nxbell='+id)) _nxOutside(id); return; }   // 앱 유도가 꺼져 있을 때만 옛 방식(크롬·사파리로)   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
     _nxOn(id);
     try{
       if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }        // 아이폰 웹: 홈 화면 추가 안내
@@ -7062,7 +7108,7 @@ const ONB_HOLD=400, ONB_APP_MS=4300, ONB_SLIDE_MS=480;   // 영상 끝 → 0.4�
 //   (사장님 2026-10-25 「앱 최초로 깔았을 때는 또 뜨게」. 아이폰 앱은 원래 저장소가 따로라 처음 열면 뜬다)
 function _onbKey(){ try{ if((typeof _isTwa==='function' && _isTwa()) || (typeof _isNativeApp==='function' && _isNativeApp())) return 'mc_onb_done_app'; }catch(_){} return 'mc_onb_done'; }
 function _onbMarkDone(){ try{ if(!localStorage.getItem(_onbKey())) localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); }catch(_){} }
-function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem(_onbKey())) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
+function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true; if(typeof _isInApp==='function' && _isInApp() && typeof _appOn==='function' && _appOn()) return false;   /* 인앱은 소개 대신 「앱으로 열기」 시트 하나(사장님 2026-10-25) */   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem(_onbKey())) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
 function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
