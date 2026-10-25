@@ -2922,18 +2922,18 @@ function _saleWPush(id){
   const s=SALEW[id]||{};
   fetch(`${SUPABASE_URL}/rest/v1/rpc/sale_wish_set`,{method:'POST',keepalive:true,
     headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
-    body:JSON.stringify({p_device:deviceId(), p_sale:Number(id), p_wish:!!s.w, p_bell:!!s.b})}).catch(()=>{});
+    body:JSON.stringify({p_device:deviceId(), p_sale:Number(id), p_wish:!!s.w, p_bell:!!s.b, p_token:_wishTok()})}).catch(()=>{});
 }
 async function saleWSync(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/sale_wish_list`,{method:'POST',
       headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
-      body:JSON.stringify({p_device:deviceId()})});
+      body:JSON.stringify({p_device:deviceId(), p_token:_wishTok()})});
     if(!r.ok) return;
     const rows=await r.json(); const m={};
     rows.forEach(x=>{ m[x.sale_id]={w:x.wish?1:0,b:x.bell?1:0}; });
     // 서버에 없는데 이 기기에만 있는 표시(전송 실패분)는 살려서 다시 올린다
-    Object.keys(SALEW).forEach(k=>{ if(!m[k] && (SALEW[k].w||SALEW[k].b)){ m[k]=SALEW[k]; setTimeout(()=>{ SALEW[k]=m[k]; _saleWPush(k); },0); } });
+    if(!_wishTok()) Object.keys(SALEW).forEach(k=>{ if(!m[k] && (SALEW[k].w||SALEW[k].b)){ m[k]=SALEW[k]; setTimeout(()=>{ SALEW[k]=m[k]; _saleWPush(k); },0); } });
     SALEW=m; _saleWSave(); renderSale();
   }catch(_){}
 }
@@ -2977,18 +2977,18 @@ function _liveWSave(){ try{ localStorage.setItem('mc_live_w', JSON.stringify(LIV
 function _liveWPush(id,on){
   fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_set`,{method:'POST',keepalive:true,
     headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
-    body:JSON.stringify({p_device:deviceId(), p_show:Number(id), p_on:!!on})}).catch(()=>{});
+    body:JSON.stringify({p_device:deviceId(), p_show:Number(id), p_on:!!on, p_token:_wishTok()})}).catch(()=>{});
 }
 async function liveWSync(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/live_wish_list`,{method:'POST',
-      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}, body:JSON.stringify({p_device:deviceId()})});
+      headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}, body:JSON.stringify({p_device:deviceId(), p_token:_wishTok()})});
     if(!r.ok) return;
     const m={}; (await r.json()).forEach(x=>{ m[x.show_id]=1; });
     // 서버에 없는데 이 기기에만 있는 것: 아직 안 끝난 방송이면 다시 올리고(전송 실패분), 지난 방송·목록에 없는 번호는 이 기기에서도 지운다
     //  (전엔 지난 찜이 영원히 남아 라방을 열 때마다 다시 보냈다 — 검증자 2026-10-24)
     const alive=new Set((_liveData||[]).filter(x=>new Date(x.start_at).getTime()+3600e3>Date.now()).map(x=>String(x.id)));
-    Object.keys(LIVEW).forEach(k=>{ if(!m[k] && alive.has(String(k))){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
+    if(!_wishTok()) Object.keys(LIVEW).forEach(k=>{ if(!m[k] && alive.has(String(k))){ m[k]=1; setTimeout(()=>_liveWPush(k,true),0); } });
     LIVEW=m; _liveWSave(); if(_slMode==='live') renderLive();
   }catch(_){}
 }
@@ -4720,6 +4720,9 @@ function deviceId(){
   }
   return d;
 }
+// 로그인 토큰(없으면 null) — 찜을 계정으로 합칠 때만 쓴다 (사장님 2026-10-25 "로그인도 한번하면 어디서 접속하든")
+//   로그인 안 한 손님은 전과 똑같이 이 기기 찜만. 계정에 묶인 다른 기기에서 지운 찜은 여기서 되살리지 않는다.
+function _wishTok(){ try{ const m=JSON.parse(localStorage.getItem('mc_member')||'null'); return (m&&m.token)||null; }catch(_){ return null; } }
 function wishHeaders(){
   return {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
 }
@@ -4763,7 +4766,7 @@ async function syncWishFromServer(){
   try{
     // wishes 테이블 직접 접근은 차단돼 있음 → 항상 내 기기 것만 주는 함수로 조회
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_list`,{method:'POST',headers:wishHeaders(),
-      body:JSON.stringify({p_device:deviceId()})});
+      body:JSON.stringify({p_device:deviceId(), p_token:_wishTok()})});
     if(!r.ok) return;
     const rows=await r.json();
     WISH=new Set(rows.map(x=>Number(x.gonggu_id)));
@@ -4819,7 +4822,7 @@ function toggleWish(id, btn, ev){
   // 서버 반영 (실패해도 로컬은 유지)
   const did=deviceId();
   fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),
-    body:JSON.stringify({p_device:did, p_gonggu:id, p_on:on})}).catch(()=>{});
+    body:JSON.stringify({p_device:did, p_gonggu:id, p_on:on, p_token:_wishTok()})}).catch(()=>{});
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on){
@@ -5064,6 +5067,8 @@ function hideLoginStrip(){
         try{ localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}   // 로그인에 성공했으면 더는 탈퇴 상태가 아니다(재가입자 안내 차단 방지)
         try{ trackEvent(_nv?'naver_login_done':'kakao_login_done','' + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
         if(typeof paintMemberUI==='function') paintMemberUI();
+        // 로그인하자마자 이 계정의 다른 기기 찜(크롬·삼성·앱)을 합쳐 온다
+        try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){}
         var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
         try{ history.replaceState({},'', back || location.pathname); }catch(_){}
         var t=document.createElement('div');
