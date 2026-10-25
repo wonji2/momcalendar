@@ -7663,7 +7663,7 @@ function commOpenPost(id, ev){
   body.innerHTML='<div class="cp-t">'+_cpEsc(row.title||'')+'</div><div class="cp-sk" style="width:40%"></div><div class="cp-sk"></div><div class="cp-sk"></div><div class="cp-sk" style="width:70%"></div>';
   s.classList.add('open'); s.setAttribute('aria-hidden','false'); _cpOpen=true;
   try{ if(typeof lockScroll==='function') lockScroll(); }catch(_){}
-  try{ history.pushState({mcPost:id},'',location.href); _cpHist=true; }catch(_){}
+  try{ if(window._cxReuseHist){ window._cxReuseHist=false; history.replaceState({mcPost:id},'',location.href); } else history.pushState({mcPost:id},'',location.href); _cpHist=true; }catch(_){}
   const draw=d=>{ if(!_cpOpen) return; body.innerHTML=_cpHtml(d,row,url); };
   if(_cpCache[id]){ draw(_cpCache[id]); return false; }
   fetch(`${SUPABASE_URL}/functions/v1/cafe-article?id=${encodeURIComponent(id)}`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}})
@@ -7768,7 +7768,7 @@ function _grCard(){
 <style id="mc-cx">
 /* 커뮤니티 맨 위 아이콘 4개 (2026-10-25) — 마미톡·토스 톤: 둥근 색 타일 + 이름 */
 .cx-ic{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0 12px}
-.cx-ic button{border:0;background:none;padding:4px 0;font:600 12.5px inherit;color:#333D4B;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:inherit}
+.cx-ic button{border:0;background:none;padding:4px 0;font-size:12.5px;font-weight:600;color:#333D4B;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:inherit}
 .cx-ic i{width:52px;height:52px;border-radius:18px;display:grid;place-items:center}
 .cx-ic svg{width:28px;height:28px}
 .cx-ic .j i{background:#FFE8F1;color:#FF5C93}.cx-ic .a i{background:#EAF2FF;color:#3182F6}.cx-ic .v i{background:#E6F7EE;color:#14A05B}.cx-ic .n i{background:#FFF3DC;color:#F29D0B}
@@ -7784,18 +7784,18 @@ function _grCard(){
 .cx-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #F2F4F6;font-size:14.5px}
 .cx-row span{color:#8B95A1;font-size:13.5px;font-variant-numeric:tabular-nums}
 .cx-row b{color:#FF5C93;font-weight:800}
-.cx-btn{display:block;text-align:center;text-decoration:none;border:0;border-radius:14px;padding:15px;font:700 15px inherit;font-family:inherit;margin-top:14px;cursor:pointer;width:100%}
+.cx-btn{display:block;text-align:center;text-decoration:none;border:0;border-radius:14px;padding:15px;font-size:15px;font-weight:700;font-family:inherit;margin-top:14px;cursor:pointer;width:100%}
 .cx-btn.cx-cp{background:#191F28;color:#fff}
 .cx-btn.cx-w{background:#F2F4F6;color:#4E5968}
 .cx-poll{border:1px solid #F2F4F6;border-radius:16px;padding:14px;margin-bottom:10px}
 .cx-poll b{display:block;font-size:15.5px;margin-bottom:10px;line-height:1.4}
-.cx-poll button{display:block;width:100%;text-align:left;border:0;background:#F2F4F6;border-radius:12px;padding:13px 14px;margin:6px 0;font:600 14px inherit;font-family:inherit;color:#191F28;cursor:pointer;position:relative;overflow:hidden}
+.cx-poll button{display:block;width:100%;text-align:left;border:0;background:#F2F4F6;border-radius:12px;padding:13px 14px;margin:6px 0;font-size:14px;font-weight:600;font-family:inherit;color:#191F28;cursor:pointer;position:relative;overflow:hidden}
 .cx-poll button i{position:absolute;left:0;top:0;bottom:0;background:#E3D6F4;transition:width .4s}
 .cx-poll button span,.cx-poll button em{position:relative}
 .cx-poll button em{float:right;font-style:normal;color:#602090;font-weight:800;font-variant-numeric:tabular-nums}
 .cx-poll button.me{box-shadow:inset 0 0 0 2px #602090}
 .cx-poll small{font-size:12.5px;color:#8B95A1}
-.cx-nt{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:14px 0;border-bottom:1px solid #F2F4F6;font:600 14.5px inherit;font-family:inherit;color:#191F28;cursor:pointer}
+.cx-nt{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:14px 0;border-bottom:1px solid #F2F4F6;font-size:14.5px;font-weight:600;font-family:inherit;color:#191F28;cursor:pointer}
 .cx-nt em{font-style:normal;font-size:11px;font-weight:800;color:#fff;background:#F29D0B;border-radius:6px;padding:2px 6px;flex:none}
 .cx-nt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cx-empty{padding:30px 0;text-align:center;color:#8B95A1;font-size:14px}
@@ -7823,20 +7823,25 @@ function cxOpen(k){
   const s=document.getElementById('cxSheet'); if(!s) return;
   document.getElementById('cxTitle').textContent={jelly:'내 젤리',poll:'투표',notice:'공지'}[k]||'';
   const b=document.getElementById('cxBody'); b.innerHTML='<div class="cx-empty">…</div>';
+  if(!s.classList.contains('open') && !_cxHist){ try{ history.pushState({mcCx:k},'',location.href); _cxHist=true; }catch(_){} }
   s.classList.add('open'); s.setAttribute('aria-hidden','false');
   try{ if(typeof lockScroll==='function') lockScroll(); }catch(_){}
   if(k==='jelly') _cxJelly(b); else if(k==='poll') _cxPolls(b); else if(k==='notice') _cxNotice(b);
 }
-function cxClose(){ const s=document.getElementById('cxSheet'); if(!s||!s.classList.contains('open')) return; s.classList.remove('open'); s.setAttribute('aria-hidden','true'); try{ if(typeof unlockScroll==='function') unlockScroll(); }catch(_){} }
+let _cxHist=false;
+// how: 'pop' = 뒤로가기로 닫힘(기록 그대로) · 'swap' = 글 리더가 이 기록 칸을 이어 씀 · 없음 = ✕·바탕 → 기록 한 칸 되돌림
+function cxClose(how){ const s=document.getElementById('cxSheet'); if(!s||!s.classList.contains('open')) return; s.classList.remove('open'); s.setAttribute('aria-hidden','true'); try{ if(typeof unlockScroll==='function') unlockScroll(); }catch(_){}
+  if(_cxHist){ _cxHist=false; if(how==='swap') window._cxReuseHist=true; else if(how!=='pop'){ try{ history.back(); }catch(_){} } } }
 function _cxJelly(b){
   _cxRpc('jelly_get').then(d=>{
-    d=d||{}; const n=Number(d.balance)||0;
+    if(!d||!d.ok){ b.innerHTML='<div class="cx-empty">잠시 후 다시 열어 주세요</div>'; return; }
+    const n=Number(d.balance)||0;
     const login=d.member?'':'<div class="cx-row">출석 젤리<span>로그인 필요</span></div>';
     b.innerHTML='<div class="cx-big">'+n.toLocaleString()+'<small>젤리</small></div>'
       +(d.member?'<div class="cx-row">출석 '+(d.attend_days||0)+'일<b>+'+((d.attend_days||0)*10)+'</b></div>':login)
       +'<div class="cx-row">투표 '+(d.votes||0)+'회<b>+'+((d.votes||0)*5)+'</b></div>'
       +'<div class="cx-row">적립<span>출석 +10 · 투표 +5</span></div>'
-      +'<a class="cx-btn cx-cp" href="'+_CX_COUPANG+'" target="_blank" rel="noopener sponsored" onclick="try{trackEvent(\'community_coupang\',\'jelly\')}catch(_){}">쿠팡 가기</a>'
+      +'<a class="cx-btn cx-cp" href="'+_CX_COUPANG+'" target="_blank" rel="noopener sponsored" onclick="try{trackEvent(\'community_coupang\',\'jelly\')}catch(_){};if(typeof openLink===\'function\'){event.preventDefault();openLink(this.href)}">쿠팡 가기</a>'
       +(d.member?'':'<button class="cx-btn cx-w" onclick="cxClose();if(typeof openLoginSheet===\'function\')openLoginSheet()">로그인</button>');
   });
 }
@@ -7850,20 +7855,24 @@ function _cxPollsHtml(list){
   }).join('');
 }
 function _cxPolls(b){ _cxRpc('poll_list').then(list=>{ b.innerHTML=_cxPollsHtml(list); }); }
+let _cxVoting=false;
 function cxVote(id,i){
+  if(_cxVoting) return; _cxVoting=true;
   const b=document.getElementById('cxBody');
   _cxRpc('poll_vote',{p_poll:id,p_opt:i}).then(d=>{
+    _cxVoting=false;
     if(!d||!d.ok){ try{ mcToast('잠시 후 다시 눌러 주세요'); }catch(_){} return; }
-    b.innerHTML=_cxPollsHtml(d.polls); try{ mcToast('+5 젤리'); }catch(_){} try{ trackEvent('community_vote', String(id)); }catch(_){}
+    b.innerHTML=_cxPollsHtml(d.polls);
+    if(d.new!==false){ try{ mcToast('+5 젤리'); }catch(_){} try{ trackEvent('community_vote', String(id)); }catch(_){} }
   });
 }
 function _cxNotice(b){
   fetch(`${SUPABASE_URL}/functions/v1/cafe-article?notices=1`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.json()).then(d=>{
     const l=(d&&d.notices)||[];
-    b.innerHTML=l.length?l.map(x=>'<button class="cx-nt" onclick="cxClose();commOpenPost('+x.id+',null)">'+(x.isNew?'<em>N</em>':'')+'<span>'+escHtml(x.title)+'</span></button>').join(''):'<div class="cx-empty">공지가 없어요</div>';
+    b.innerHTML=l.length?l.map(x=>'<button class="cx-nt" onclick="cxClose(\'swap\');commOpenPost('+x.id+',null)">'+(x.isNew?'<em>N</em>':'')+'<span>'+escHtml(x.title)+'</span></button>').join(''):'<div class="cx-empty">공지가 없어요</div>';
   }).catch(()=>{ b.innerHTML='<div class="cx-empty">잠시 후 다시 열어 주세요</div>'; });
 }
-window.addEventListener('popstate',()=>{ try{ cxClose(); }catch(_){} });
+window.addEventListener('popstate',()=>{ try{ cxClose('pop'); }catch(_){} });
 </script>
 </body>
 </html>
