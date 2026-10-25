@@ -5,8 +5,11 @@
 --    우리 파트너스 계정에서 구매 보상을 주면 파트너스 정지 위험이 있다(사장님 판단 사항). 쓰는 곳(쿠폰 교환)도 돈이 들어 사장님 판단 사항
 alter table if exists public.jelly_ledger rename to kkakka_ledger;
 drop function if exists public.jelly_get(text, text);
+-- 화면 _cxRpc 가 늘 p_device 를 같이 보낸다 → 받는 자리가 없으면 PostgREST 404(PGRST202). 받기만 하고 쓰지 않는다(회원만 적립)
+drop function if exists public.kkakka_get(text);
+drop function if exists public.kkakka_mission(text, text);
 
-create or replace function public.kkakka_get(p_token text default null)
+create or replace function public.kkakka_get(p_token text default null, p_device text default null)
 returns jsonb language plpgsql stable security definer set search_path to 'public','extensions' as $$
 declare me text; today date := (now() at time zone 'Asia/Seoul')::date; att int; vot int; ext int;
 begin
@@ -23,7 +26,7 @@ begin
                     and not exists(select 1 from poll_votes x where x.poll_id = p.id and x.voter = me)));
 end $$;
 
-create or replace function public.kkakka_mission(p_token text, p_kind text)
+create or replace function public.kkakka_mission(p_token text default null, p_kind text default null, p_device text default null)
 returns jsonb language plpgsql security definer set search_path to 'public','extensions' as $$
 declare me text; added int := 0; ref text := to_char((now() at time zone 'Asia/Seoul')::date, 'YYYY-MM-DD');
 begin
@@ -35,6 +38,6 @@ begin
   return jsonb_build_object('ok', true, 'new', added > 0);
 end $$;
 
-grant execute on function public.kkakka_get(text) to anon, authenticated;
-grant execute on function public.kkakka_mission(text, text) to anon, authenticated;
+grant execute on function public.kkakka_get(text, text) to anon, authenticated;
+grant execute on function public.kkakka_mission(text, text, text) to anon, authenticated;
 select 'ok' as done;
