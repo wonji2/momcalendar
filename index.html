@@ -6404,7 +6404,17 @@ function commGo(url, ev){
       const wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);   // 인앱 웹뷰(카톡·인스타 등)만 openLink(웹뷰 오류 화면을 피하는 iframe 방식)
       if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ _commGoLog('wv-openlink'); if(ev) ev.preventDefault(); openLink(url); return false; }
       // 크롬·홈화면 앱·우리 앱: 네이버 앱 intent 하나만 — 앱이 없으면 그 안의 browser_fallback_url 로 브라우저. 타이머로 일반 주소를 또 열지 않는다(「Chrome / NAVER」 고르는 창이 떴다)
-      const enc=encodeURIComponent(new URL(url, location.href).href);
+      const _u=new URL(url, location.href);
+      const enc=encodeURIComponent(_u.href);
+      // 카페 앱 1순위 (사장님 2026-10-25 「카페앱 있으면 그게 1위」) — 앱이 없거나 그 주소를 못 받으면 우리 중간 화면(cafego.html)이 네이버 앱 → 브라우저로 잇는다
+      if(/(^|\.)cafe\.naver\.com$/i.test(_u.hostname)){
+        _commGoLog('cafeapp');
+        if(ev) ev.preventDefault();
+        try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
+        const bridge=location.origin+'/cafego.html?u='+enc;
+        location.href='intent://'+_u.host+_u.pathname+_u.search+'#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.navercafe;S.browser_fallback_url='+encodeURIComponent(bridge)+';end';
+        return false;
+      }
       _commGoLog('intent');
       if(ev) ev.preventDefault();
       try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
@@ -6430,13 +6440,118 @@ function renderCommunity(){
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
     const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commGo(this.href,event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
   v.innerHTML=h;
   const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }
+</script>
+<style id="mc-cpost">
+/* 💬 커뮤니티 글 읽기 화면 (2026-10-25) — 앱 시안 톤(토스풍): 흰 바탕·검정 글자·회색 메타 */
+.cp{position:fixed;inset:0;z-index:99990;display:none;background:rgba(20,10,30,.35)}
+.cp.open{display:block}
+.cp-pnl{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;display:flex;flex-direction:column}
+.cp-h{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 8px 8px;border-bottom:1px solid #F2F4F6;flex:none}
+.cp-h button{border:0;background:none;font-size:22px;line-height:1;color:#191F28;padding:6px 10px;cursor:pointer;font-family:inherit}
+.cp-h b{font-size:15px;font-weight:700;color:#191F28;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 18px 24px;overscroll-behavior:contain}
+.cp-t{font-size:19px;font-weight:800;line-height:1.4;color:#191F28;margin:0 0 8px;letter-spacing:-.01em;word-break:keep-all;overflow-wrap:anywhere}
+.cp-m{font-size:12.5px;color:#8B95A1;display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.cp-m span+span::before{content:"·";margin-right:6px}
+.cp-badge{display:inline-block;font-size:10.5px;font-weight:800;color:#602090;background:#F3EEF8;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:1px}
+.cp-p{font-size:15.5px;line-height:1.75;color:#333D4B;margin:0 0 12px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.cp-q{border-left:3px solid #E5E8EB;padding:2px 0 2px 12px;color:#4E5968}
+.cp-img{display:block;width:100%;height:auto;border-radius:12px;margin:0 0 12px;background:#F2F4F6}
+.cp-link{display:block;border:1px solid #E5E8EB;border-radius:12px;padding:12px 14px;margin:0 0 12px;color:#191F28;text-decoration:none;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.cp-link small{display:block;color:#8B95A1;font-weight:400;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-vid{display:block;width:100%;border:0;border-radius:12px;background:#F2F4F6;color:#4E5968;font-size:13.5px;font-weight:700;padding:16px;margin:0 0 12px;cursor:pointer;font-family:inherit}
+.cp-hr{border:0;border-top:1px solid #F2F4F6;margin:16px 0}
+.cp-ch{font-size:15px;font-weight:800;color:#191F28;margin:22px 0 4px;padding-top:18px;border-top:8px solid #F7F8FA;margin-left:-18px;margin-right:-18px;padding-left:18px}
+.cp-c{padding:12px 0;border-bottom:1px solid #F2F4F6}
+.cp-c.r{padding-left:22px;position:relative}
+.cp-c.r::before{content:"ㄴ";position:absolute;left:4px;top:12px;color:#B0B8C1;font-size:12px}
+.cp-c b{font-size:13.5px;color:#191F28}
+.cp-c p{font-size:14.5px;line-height:1.6;color:#333D4B;margin:4px 0 0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.cp-c img{display:block;max-width:140px;border-radius:10px;margin-top:6px}
+.cp-c small{display:block;font-size:12px;color:#8B95A1;margin-top:4px}
+.cp-c.del p{color:#B0B8C1}
+.cp-empty{padding:28px 0;text-align:center;color:#8B95A1;font-size:13.5px}
+.cp-foot{flex:none;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #F2F4F6;display:flex;gap:8px;background:#fff}
+.cp-foot a{flex:1;display:block;text-align:center;text-decoration:none;border-radius:12px;padding:13px 8px;font-size:14.5px;font-weight:700}
+.cp-foot .w{background:#F2F4F6;color:#4E5968;flex:0 0 auto;padding-left:16px;padding-right:16px}
+.cp-foot .p{background:#191F28;color:#fff}
+.cp-sk{height:14px;border-radius:7px;background:#F2F4F6;margin:0 0 10px}
+</style>
+<div id="cpSheet" class="cp" aria-hidden="true"><div class="cp-pnl">
+  <div class="cp-h"><button onclick="cpClose()" aria-label="닫기">‹</button><b id="cpBoard">커뮤니티</b></div>
+  <div class="cp-body" id="cpBody"></div>
+  <div class="cp-foot"><a class="w" id="cpCafe" href="#" target="_blank" rel="noopener">카페에서 보기</a><a class="p" id="cpCmt" href="#" target="_blank" rel="noopener">카페에서 댓글 쓰기</a></div>
+</div></div>
+<script>
+// ── 💬 커뮤니티 글 읽기 (2026-10-25) — 데이터는 Edge cafe-article(네이버 카페 공개 API). 본문은 서버가 안전한 블록(p·img·link·quote·video·hr)으로 바꿔 준다 ──
+const _cpCache={};
+let _cpOpen=false, _cpHist=false;
+function _cpEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _cpWhen(t){ if(!t) return ''; const d=new Date(t+9*3600e3); const now=new Date(Date.now()+9*3600e3); const hm=String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); return (d.getUTCFullYear()===now.getUTCFullYear()?'':d.getUTCFullYear()+'.')+(d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0')+' '+hm; }
+function commOpenPost(id, ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  const s=document.getElementById('cpSheet'); if(!s){ return true; }
+  const row=(typeof _commData!=='undefined'&&_commData||[]).find(x=>Number(x.article_id)===Number(id))||{};
+  const url='https://m.cafe.naver.com/ca-fe/web/cafes/'+COMM_CLUB+'/articles/'+id;
+  document.getElementById('cpBoard').textContent=row.board||'커뮤니티';
+  const cafe=document.getElementById('cpCafe'), cmt=document.getElementById('cpCmt');
+  cafe.href=url; cmt.href=url;
+  cafe.onclick=function(e){ try{ trackEvent('community_post_cafe',String(id)); }catch(_){} return commGo(url,e); };
+  cmt.onclick=function(e){ try{ trackEvent('community_post_comment',String(id)); }catch(_){} return commGo(url,e); };
+  const body=document.getElementById('cpBody');
+  body.scrollTop=0;
+  body.innerHTML='<div class="cp-t">'+_cpEsc(row.title||'')+'</div><div class="cp-sk" style="width:40%"></div><div class="cp-sk"></div><div class="cp-sk"></div><div class="cp-sk" style="width:70%"></div>';
+  s.classList.add('open'); s.setAttribute('aria-hidden','false'); _cpOpen=true;
+  try{ if(typeof lockScroll==='function') lockScroll(); }catch(_){}
+  try{ history.pushState({mcPost:id},'',location.href); _cpHist=true; }catch(_){}
+  const draw=d=>{ if(!_cpOpen) return; body.innerHTML=_cpHtml(d,row,url); };
+  if(_cpCache[id]){ draw(_cpCache[id]); return false; }
+  fetch(`${SUPABASE_URL}/functions/v1/cafe-article?id=${encodeURIComponent(id)}`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}})
+    .then(r=>r.json()).then(d=>{ if(d&&d.ok) _cpCache[id]=d; draw(d||{}); })
+    .catch(()=>draw({ok:false,error:'글을 불러오지 못했어요'}));
+  return false;
+}
+function _cpHtml(d,row,url){
+  if(!d || !d.ok){
+    return '<div class="cp-t">'+_cpEsc(row.title||'')+'</div><div class="cp-empty">'+_cpEsc((d&&d.error)||'글을 불러오지 못했어요')+'<br>아래 「카페에서 보기」로 열어 주세요</div>';
+  }
+  let h='<h2 class="cp-t">'+_cpEsc(d.subject)+'</h2>';
+  h+='<div class="cp-m"><span>'+_cpEsc(d.nick)+(d.host?'<em class="cp-badge">방장</em>':'')+'</span><span>'+_cpWhen(d.at)+'</span><span>조회 '+(d.read||0)+'</span></div>';
+  (d.blocks||[]).forEach(b=>{
+    if(b.t==='p') h+='<p class="cp-p">'+_cpEsc(b.text)+'</p>';
+    else if(b.t==='quote') h+='<p class="cp-p cp-q">'+_cpEsc(b.text)+'</p>';
+    else if(b.t==='img') h+='<img class="cp-img" src="'+_cpEsc(b.src)+'?type=w800" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">';
+    else if(b.t==='link') h+='<a class="cp-link" href="'+_cpEsc(b.url)+'" target="_blank" rel="noopener nofollow">'+_cpEsc(b.title||b.url)+'<small>'+_cpEsc(b.url)+'</small></a>';
+    else if(b.t==='video') h+='<button class="cp-vid" onclick="return commGo(\''+url+'\',event)">▶ 동영상은 카페에서 볼 수 있어요</button>';
+    else if(b.t==='hr') h+='<hr class="cp-hr">';
+  });
+  if(!(d.blocks||[]).length) h+='<div class="cp-empty">본문이 비어 있어요</div>';
+  const cs=d.comments||[];
+  h+='<div class="cp-ch">댓글 '+(d.commentCount||cs.length)+'</div>';
+  if(!cs.length) h+='<div class="cp-empty">아직 댓글이 없어요. 첫 댓글은 카페에서 남겨 주세요</div>';
+  cs.forEach(c=>{
+    h+='<div class="cp-c'+(c.reply?' r':'')+(c.deleted?' del':'')+'"><b>'+_cpEsc(c.nick||'')+(c.host?'<em class="cp-badge">방장</em>':'')+'</b>'
+      +'<p>'+(c.deleted?'삭제된 댓글이에요':_cpEsc(c.text||''))+'</p>'
+      +(c.image?'<img src="'+_cpEsc(c.image)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')
+      +'<small>'+_cpWhen(c.at)+'</small></div>';
+  });
+  if(d.more) h+='<div class="cp-empty">댓글이 더 있어요 — 「카페에서 보기」</div>';
+  return h;
+}
+function cpClose(fromPop){
+  const s=document.getElementById('cpSheet'); if(!s || !_cpOpen) return;
+  _cpOpen=false; s.classList.remove('open'); s.setAttribute('aria-hidden','true');
+  try{ if(typeof unlockScroll==='function') unlockScroll(); }catch(_){}
+  if(_cpHist && !fromPop){ _cpHist=false; try{ history.back(); }catch(_){} } else _cpHist=false;
+}
+window.addEventListener('popstate',()=>{ if(_cpOpen) cpClose(true); });   // 휴대폰 뒤로가기 = 읽기 화면 닫기
 </script>
 </body>
 </html>

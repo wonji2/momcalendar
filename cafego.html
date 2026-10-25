@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>카페로 이동 중 · 맘캘린더</title>
+<!-- 커뮤니티 「카페에서 댓글 쓰기·글쓰기」 중간 화면 (2026-10-25)
+     흐름: 사이트가 먼저 카페 앱에 주소를 넘긴다 → 카페 앱이 없으면 크롬이 이 화면을 연다(browser_fallback_url)
+           → 여기서 네이버 앱(로그인 살아 있음)으로 넘긴다 → 그것도 없으면 이 브라우저로 카페 모바일 웹
+     ?u= 는 cafe.naver.com 주소만 받는다(다른 주소로 튀는 통로가 되지 않게) -->
+<style>
+:root{--bg:#fff;--fg:#191F28;--sub:#8B95A1;--line:#F2F4F6;--dark:#191F28}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+.w{max-width:420px;margin:0 auto;padding:max(48px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 40px max(20px,env(safe-area-inset-left));text-align:center}
+.ic{width:56px;height:56px;border-radius:16px;display:block;margin:0 auto 16px}
+h1{font-size:18px;font-weight:800;margin:0 0 6px}
+p{font-size:14px;color:var(--sub);margin:0 0 24px;line-height:1.6}
+a.b{display:block;text-decoration:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin:0 0 10px}
+a.n{background:#03C75A;color:#fff}
+a.g{background:var(--line);color:#4E5968}
+#btns{display:none}
+</style>
+</head>
+<body>
+<div class="w">
+  <img class="ic" src="momcal-appicon.png" alt="">
+  <h1>카페로 이동하고 있어요</h1>
+  <p id="msg">잠시만 기다려 주세요</p>
+  <div id="btns">
+    <a class="b n" id="toNaver" href="#">네이버 앱으로 열기</a>
+    <a class="b g" id="toWeb" href="#">이 브라우저로 열기</a>
+  </div>
+</div>
+<script>
+(function(){
+  var u='';
+  try{ u=new URLSearchParams(location.search).get('u')||''; var x=new URL(u); if(x.protocol!=='https:' || !/(^|\.)cafe\.naver\.com$/i.test(x.hostname)) u=''; else u=x.href; }catch(_){ u=''; }
+  if(!u){ location.replace('/'); return; }
+  var ua=navigator.userAgent||'';
+  var web=document.getElementById('toWeb'); web.href=u;
+  if(!/Android/i.test(ua) || /NAVER\(inapp/i.test(ua)){ location.replace(u); return; }
+  var enc=encodeURIComponent(u);
+  var naver='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
+  document.getElementById('toNaver').href=naver;
+  // 바로 한 번 시도 — 손짓 없이 막는 브라우저가 있으면 1.2초 뒤 버튼을 보여 손님이 한 번 누르게
+  try{ location.href=naver; }catch(_){}
+  setTimeout(function(){ if(document.hidden) return; document.getElementById('msg').textContent='아래에서 골라 주세요'; document.getElementById('btns').style.display='block'; },1200);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden){ document.getElementById('msg').textContent='돌아오셨네요. 다시 여시려면 아래를 눌러 주세요'; document.getElementById('btns').style.display='block'; } });
+})();
+</script>
+</body>
+</html>
