@@ -684,7 +684,7 @@ body.srch-mode .app-tabbar{display:none!important}
 .share-x{position:absolute;right:14px;top:12px;border:none;background:#F4F1FA;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:var(--t1)}
 #shareHost{position:fixed;left:-3000px;top:0;width:1080px;height:1350px;pointer-events:none}
 .sc{width:1080px;height:1350px;background:#fff;color:#191F28;padding:64px;display:flex;flex-direction:column;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif}
-.sc .hd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px}
+.sc .hd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px;background:none;padding:0;position:static;box-shadow:none;z-index:auto}   /* 사이트 머리 띠 .hd 가 먹지 않게 (2026-10-25) */
 .sc .hd b{font-size:64px;font-weight:900;letter-spacing:-.03em;line-height:1.1}
 .sc .hd small{font-size:28px;color:#8B95A1}
 .sc .lg{font-size:30px;font-weight:900;color:#602090}
@@ -3347,9 +3347,16 @@ function _shareCardHtml(kind){
   const wk=['일','월','화','수','목','금','토'];
   const md2=s=>{ const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()} (${wk[d.getDay()]})`; };
   let items=(typeof DATA!=='undefined'?DATA:[]).filter(it=>it.openDate && ((it.openDate>=todayStr && it.openDate<=endS) || (typeof isWished==='function' && isWished(it.id) && (it.endDate||it.openDate)>=todayStr)));
-  items.sort((a,b)=>(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0)); items=items.slice(0,7);
+  { // 내 찜 먼저 → 나머지는 요일마다 한 개씩 돌아가며(맘캘·이웃셀러 먼저) — 7줄이 다 오늘 것이 되지 않게 (2026-10-25)
+    const byD=(a,b)=>(a.openDate<b.openDate?-1:a.openDate>b.openDate?1:0);
+    const pin=it=>(typeof effPartner==='function'&&effPartner(it))?0:1;
+    const w=items.filter(it=>typeof isWished==='function'&&isWished(it.id)).sort(byD).slice(0,7);
+    const days={}; items.filter(it=>!w.includes(it)&&it.openDate>=todayStr).sort((a,b)=>pin(a)-pin(b)||byD(a,b)).forEach(it=>{ (days[it.openDate]=days[it.openDate]||[]).push(it); });
+    const ks=Object.keys(days).sort(); const pick=[...w];
+    while(pick.length<7 && ks.some(k=>days[k].length)){ for(const k of ks){ if(pick.length>=7) break; const x=days[k].shift(); if(x) pick.push(x); } }
+    items=pick.sort(byD); }
   const rows=items.map(it=>{ const b=(typeof _nxBanner==='function')?_nxBanner(it):null; const img=b&&b.img_url?(mcApiSrc?mcApiSrc(b.img_url):b.img_url):''; const st=it.openDate>todayStr?`D-${Math.round((new Date(it.openDate+'T00:00:00')-d0)/864e5)}`:(it.openDate===todayStr?'오늘 오픈':'진행중');
-    return `<div class="it">${img?`<img src="${escHtml(img)}" alt="">`:'<div class="ph"></div>'}<div class="d">${md2(it.openDate)}</div><div class="n">${escHtml(it.name)}</div><div class="s">${st}</div></div>`; }).join('');
+    return `<div class="it"><div class="d">${md2(it.openDate)}</div><div class="n">${escHtml(it.name)}</div><div class="s">${st}</div></div>`; }).join('');
   return {title:'이번 주 공구 달력', url:`https://momcalendar.com/?week=${todayStr}`, text:'이번 주 공구 일정 모아봤어요',
     html:`<div class="sc"><div class="hd"><div><b>이번 주 공구 달력</b><br><small>${md2(todayStr)} ~ ${md2(endS)} · 내 찜 포함</small></div><div class="lg">맘캘린더</div></div><div class="list">${rows||'<div class="it"><div class="n">이번 주 예정 공구가 없어요</div></div>'}</div><div class="ft"><span>찜한 공구는 오픈 아침에 알려드려요</span><b>momcalendar.com</b></div></div>`};
 }
