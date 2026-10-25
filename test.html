@@ -906,6 +906,24 @@ h1,h2,h3,.nxa-t,.sale-sec,.empty,.sale-empty,.nx-title,.seller-title,.app-pop-t{
 </style>
 <style id="mc-sort-chips">.sort-chips{display:flex;gap:6px;padding:2px 2px 10px;overflow-x:auto;scrollbar-width:none}.sort-chips::-webkit-scrollbar{display:none}.sort-chip{flex:0 0 auto;border:0;background:#F2F4F6;color:#191F28;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;white-space:nowrap}.sort-chip.on{background:#191F28;color:#fff}</style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500&display=swap">
+<style id="mc-fastload">
+/* ⚡ 메인 한번에 (사장님 2026-10-25) — scratchpad/_patch_fastload.py */
+#cardList > .card{content-visibility:auto;contain-intrinsic-size:auto 56px}   /* 카드 70px = 내용 56 + 위아래 여백 14. 화면 밖 카드는 배치 계산을 미룬다 */
+#mainSlider,#mainDots,#nextZone>*,#sellerZone>*,#subZone>*{transition:opacity .25s ease}
+.main-dots:empty{min-height:6px}   /* 점이 늦게 생기며 아래를 6px 밀던 것 — 빈 칸도 점 높이만큼 잡아 둔다 */
+body.mc-top-wait #mainSlider,body.mc-top-wait #mainDots,body.mc-top-wait #nextZone>*,body.mc-top-wait #sellerZone>*,body.mc-top-wait #subZone>*{opacity:0}
+body.mc-top-wait .main-slider-wrap{min-height:calc((min(100vw,480px) - 41px) / 2 + 41px)}
+body.mc-top-wait #nextZone,body.mc-top-wait #sellerZone,body.mc-top-wait #subZone{position:relative}
+body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after{content:"";position:absolute;top:0;width:calc((100% - 41px) / 2);aspect-ratio:1/1;border-radius:14px}
+body.mc-top-wait .main-slider-wrap::before{left:16px}
+body.mc-top-wait .main-slider-wrap::after{right:16px}
+body.mc-top-wait #nextZone::before{content:"";position:absolute;left:16px;right:16px;top:36px;height:140px;border-radius:16px}
+body.mc-top-wait #sellerZone::before{content:"";position:absolute;left:16px;right:16px;top:44px;height:64px;border-radius:14px}
+body.mc-top-wait #subZone::before{content:"";position:absolute;left:16px;right:16px;top:4px;bottom:8px;border-radius:14px}
+body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{background:linear-gradient(90deg,#F3EFF8 25%,#EAE3F3 37%,#F3EFF8 63%);background-size:400% 100%;animation:mcSk 1.3s ease infinite}
+@keyframes mcSk{0%{background-position:100% 0}100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{animation:none}}
+</style>
 </head>
 <body>
 <!-- 📲 앱 설치 유도 (사장님 2026-10-23 승인, 시안 v5: ① 제목 위 띠 ② 공구 카드 중간 배너 ③ 앱 전용 기능 팝업 ④ 첫 방문 시트 ⑤ 설정 줄)
@@ -971,10 +989,13 @@ function appBadges(where){
   return appBadge('ios',where)+appBadge('android',where);
 }
 function appGo(store, where){ try{ trackEvent('app_install_click', store+'|'+where); }catch(_){} }
-function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app')); }
+function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app') && !document.body.classList.contains('app-mode') && !_appCtxEarly()); }   // 앱 안(아이폰·안드로이드 TWA·?app=1)에선 설치 유도를 안 한다 (2026-10-25: 안드로이드 앱 안에서도 띠가 떴다)
+function _appCtxEarly(){ try{ if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()) return true; if(localStorage.getItem('mc_app_mode')==='1'||localStorage.getItem('mc_twa')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')) return true; if(new URLSearchParams(location.search).get('app')==='1') return true; }catch(_){} return false; }
 // ① 제목 위 띠
 function appInitStrip(){
-  const s=document.getElementById('appStrip'); if(!s||!_appOn()) return;
+  const s=document.getElementById('appStrip'); if(!s) return;
+  if(!_appOn()){ s.style.display='none'; document.body.classList.remove('app-strip-on'); return; }
+  if(s.dataset.on) return; s.dataset.on='1';
   s.innerHTML=`<span class="app-strip-ic"><img src="momcal-appicon.png" alt=""></span><span class="app-strip-t">앱 설치하기</span>${appBadges('strip')}`;
   s.style.display='flex'; document.body.classList.add('app-strip-on');
 }
@@ -1053,7 +1074,8 @@ function _appArrive(){
   }catch(_){}
 }
 setTimeout(_appArrive, 1800);
-document.addEventListener('DOMContentLoaded', appInitStrip);
+try{ appInitStrip(); }catch(_){}   // ⚡ 띠는 처음부터 자리를 잡는다 (2026-10-25) — 큰 문서라 DOMContentLoaded 가 1.3~1.7초라 그때 끼우면 화면 전체가 42px 밀렸다
+document.addEventListener('DOMContentLoaded', appInitStrip);   // 앱 안으로 판정이 늦게 나면 여기서 거둔다
 document.addEventListener('click', function(e){ if(e.target && (e.target.id==='appGoPop')) appGoPopClose(); if(e.target && e.target.id==='appSheet') appSheetClose(); });
 </script>
 
@@ -1307,6 +1329,44 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
 <div class="sub-zone" id="subZone" style="display:none">
   <div class="sub-row" id="subRow"></div>
 </div>
+<script>
+// ⚡ 메인 윗부분 「한번에」 (사장님 2026-10-25) — scratchpad/_patch_fastload.py
+//   ① 자리 먼저: 메인배너·스포·이웃셀러·셀러배너 칸을 지난번 높이(처음이면 기본값)로 미리 잡는다 → 늦게 온 칸이 아래를 밀지 않는다
+//   ② 같이 보이기: 네 칸이 다 그려지고 첫 사진이 내려오면(사진은 최대 0.7초 기다림) 한꺼번에 나타난다. 3.5초가 지나면 더 기다리지 않는다
+//   ③ 검색 딥링크(?q=)는 기다리지 않는다. 신호: _mcTopReady('banner'|'next'|'seller'|'sub') — 각 로더 끝에서 부른다
+const _MC_TOP=['banner','next','seller','sub'];
+const _MC_TOP_EL={banner:'.main-slider-wrap',next:'#nextZone',seller:'#sellerZone',sub:'#subZone'};
+const _MC_TOP_DEF={next:221,seller:131,sub:205};   // 390px 폭 실측(2026-10-25). 메인배너는 CSS calc 로 잡는다
+const _mcTopSeen={}; let _mcTopDone=false;
+const _MC_TOP_KEY='mc_top_h_'+Math.round(Math.min(innerWidth||390,480)/10);   // 폭(10px 단위)마다 따로 — 문서 앞부분에서 한 번만 읽는다
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('q')){ _mcTopDone=true; return; }
+    let h=null; try{ h=JSON.parse(localStorage.getItem(_MC_TOP_KEY)||'null'); }catch(_){}
+    document.body.classList.add('mc-top-wait');
+    ['next','seller','sub'].forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; const v=(h&&typeof h[k]==='number')?h[k]:_MC_TOP_DEF[k]; if(v>0){ el.style.display='block'; el.style.minHeight=v+'px'; } });
+    if(h&&h.banner>0){ const el=document.querySelector('.main-slider-wrap'); if(el) el.style.minHeight=h.banner+'px'; }
+    setTimeout(()=>_mcTopReveal('cap'),3500);
+  }catch(_){ _mcTopDone=true; try{ document.body.classList.remove('mc-top-wait'); }catch(__){} }
+})();
+function _mcTopReady(k){
+  if(_mcTopDone) return; _mcTopSeen[k]=1;
+  // 사진은 기다리지 않는다 — 카드 목록을 그리는 동안 화면이 바빠 0.7초 기다림이 1.5~2.6초로 늘었다(2026-10-25 실측). 사진 칸은 자리·바탕색이 이미 있다
+  if(_MC_TOP.every(x=>_mcTopSeen[x])) _mcTopReveal('ready');
+}
+function _mcTopReveal(why){
+  if(_mcTopDone) return; _mcTopDone=true;
+  try{ const sc=document.getElementById('nextScroll'); if(sc&&!sc.children.length) document.getElementById('nextZone').style.display='none'; }catch(_){}   // 빠른 길이 실패해 띠가 비었으면 자리째 접는다
+  _MC_TOP.forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; el.style.minHeight=''; });
+  document.body.classList.remove('mc-top-wait');
+  window._mcTopWhy=why;
+  // 다음 방문 자리 잡기용 높이는 한참 뒤에 잰다 — 보이는 순간 재면 문서 전체 배치를 강제로 다시 계산시켜 0.3초를 먹었다(2026-10-25 실측)
+  setTimeout(()=>{ try{ const h={}; _MC_TOP.forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; h[k]=getComputedStyle(el).display==='none'?0:Math.round(el.getBoundingClientRect().height); }); localStorage.setItem(_MC_TOP_KEY, JSON.stringify(h)); }catch(_){} },6000);
+}
+// 카드 목록 다시 그리기를 한 번으로 합친다 — 배너·이웃셀러가 도착할 때마다 카드 3,000장을 처음부터 다시 그렸다
+let _mcRrT=null;
+function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ if(typeof renderList==='function' && typeof DATA!=='undefined' && DATA && DATA.length) renderList(); }catch(_){} },80); }
+</script>
 
 <!-- 🔔 알림 유도 카드 (광고 자리 A · 우리 것) — 알림 미허용일 때만, 중간 자리 (사장님 2026-10-15 "맨 위는 아니고 중간쯤") -->
 <div class="noti-card" id="notiCard"><div><b>찜한 공구가 오픈하면<br>바로 알려드릴까요?</b><button class="ok" onclick="trackEvent('noti_card','ok');openWnSheet()">네, 알려주세요</button></div><div class="bell">🔔</div><button class="x" onclick="notiCardDismiss()" aria-label="닫기">✕</button></div>
@@ -1427,6 +1487,10 @@ window._mcBanners=(function(){
   };
 })();
 window._mcBannersOf=function(list,t){ return (list||[]).filter(function(x){ return x && x.type===t; }); };
+// ⚡ 오픈 예정 스포(momcal_ 예정 공구) 요청도 여기서 먼저 출발 (2026-10-25) — _nxEarlyLoad 가 이 약속을 받아 쓴다. 주소는 _nxEarlyLoad 와 똑같다(Worker 캐시 같은 항목)
+window._mcNxEarly=(function(){ var p=null; return function(){ if(!p){ var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; var d=new Date(); var t=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); window._mcNxEarlyDay=t;
+  p=fetch(U+'/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.'+t+'&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always',{headers:{apikey:K,Authorization:'Bearer '+K}}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); } return p; }; })();
+try{ window._mcNxEarly(); }catch(_){}
 </script>
 <script>
 (async function(){
@@ -2002,22 +2066,17 @@ async function loadData() {
     let rows = [];
     const seen = new Set();   // 쪽 경계 중복 거르개 (아래 설명)
     const PAGE = 1000;   // Supabase 한 번에 최대 1000건
-    for (let from = 0; ; from += PAGE) {
-      const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
-      const page = await res.json();
+    // ⚡ 4쪽을 동시에 받는다 (2026-10-25) — 전엔 한 쪽씩 차례로 받아 왕복이 네 번 쌓였다. 주소(limit·offset)는 그대로라 Worker 캐시·전송량은 같다.
+    //   넷째 쪽이 꽉 차 있으면(4,000건↑) 그다음부터 한 쪽씩 더 받는다. 쪽 순서대로 합치고 아래 seen 으로 중복을 거른다.
+    const _getPage = async (from) => { const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }); if (!res.ok) throw new Error('Supabase 오류 ' + res.status); return res.json(); };
+    const _pages = await Promise.all([0, 1, 2, 3].map(i => _getPage(i * PAGE)));
+    for (let from = 4 * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
+    for (const page of _pages) {
       // 🔴 id 로 거른다 — 쪽마다 **받아온 시각이 다르다**(쪽별로 캐시 항목·시계가 따로다).
       //   그 사이 공구가 하나 들어오면 경계가 밀려 **같은 공구가 두 번** 오고, 하나 빠지면 **한 건이 조용히 사라진다.**
       //   파싱이 3시간마다 넣고 규칙 0-M 이 내리므로 하루에 몇 번씩 그 창이 열린다(2026-10-13 검증 중 실제로 4건 들어왔다).
       //   ⚠ 유실 쪽은 이걸로 못 막는다 — 다음 회차에 들어온다. 중복만 막는다.
       for (const r of page) { if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); } }
-      if (page.length < PAGE) break; // 마지막 페이지
-      if (from > 50000) break; // 안전장치
     }
     DATA = rows.map(r => ({
       id: r.id,
@@ -2708,8 +2767,11 @@ function applySearchMode(){
 }
 
 // 날짜탭 건수 - 오픈일 기준
+let _cntMap=null,_cntSrc=null,_cntLen=-1;
 function getCntForDate(ds){
-  return DATA.filter(item=>!isExpired(item)&&item.openDate===ds).length;
+  // ⚡ 한 번만 센다 (2026-10-25) — 날짜 탭 62개마다 DATA 전체를 훑어 0.5~0.7초 걸렸다. DATA 가 바뀌면(참조·길이) 다시 센다
+  if(_cntSrc!==DATA || _cntLen!==DATA.length){ _cntSrc=DATA; _cntLen=DATA.length; _cntMap={}; for(const item of DATA){ if(item.openDate && !isExpired(item)) _cntMap[item.openDate]=(_cntMap[item.openDate]||0)+1; } }
+  return _cntMap[ds]||0;
 }
 
 // 날짜 필터 해제 → 전체 보기
@@ -4833,6 +4895,7 @@ async function loadWishCounts(){
     const rows=await r.json(); const m={};
     rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
     _wishCounts=m;
+    try{ if(typeof renderNextGonggu==='function') renderNextGonggu(); }catch(_){}   // ⚡ 스포 띠 🔔 숫자 = 바탕값 + 실제 찜 수 (2026-10-25)
     if(fSt==='top100') renderList();
     if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
   }catch(_){}
@@ -6183,7 +6246,8 @@ async function loadBanners(){
     MAIN_BANNERS=DEFAULT_BANNERS;
   }
   buildMainSlider();
-  try{ if(typeof renderList==='function' && typeof DATA!=='undefined' && DATA.length) renderList(); }catch(_){}   // 카드 순서가 배너 순서를 따르므로 배너 도착 뒤 다시 그린다
+  try{ _mcTopReady('banner'); }catch(_){}
+  _mcReRenderSoon();   // 카드 순서가 배너 순서를 따르므로 배너 도착 뒤 다시 그린다 (⚡ 이웃셀러 도착과 겹치면 한 번으로 합친다 2026-10-25)
   try{ renderNextGonggu(); }catch(_){}   // 🦧 배너 사진이 도착한 뒤 다시 그린다
 }
 loadBanners();
@@ -6213,11 +6277,12 @@ let _NX_EARLY=null;
 async function _nxEarlyLoad(){
   try{
     const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`;
-    const r=await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
-    if(!r.ok) return; const rows=await r.json(); if(!Array.isArray(rows)) return;
+    const rows=(window._mcNxEarly && window._mcNxEarlyDay===todayStr) ? await window._mcNxEarly() : await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.ok?r.json():null);   // ⚡ 위에서 먼저 출발한 요청을 받아 쓴다 (2026-10-25)
+    if(!Array.isArray(rows)) return;
     _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
     if(!(typeof DATA!=='undefined' && DATA && DATA.length)) renderNextGonggu();   // 전체가 이미 왔으면 그쪽이 그린다
   }catch(_){}
+  finally{ try{ _mcTopReady('next'); }catch(_){} }
 }
 function _nxItems(){ const _src=(typeof DATA!=='undefined'&&DATA&&DATA.length)?DATA:(_NX_EARLY||[]); return _src.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=(window._mcAllBanners||[]).filter(x=>x&&(x.type==='main'||x.type==='seller')); /* 판매 배너(promo_card 등)가 썸네일로 잡히지 않게 (2026-10-15) */ const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
@@ -6349,8 +6414,13 @@ function _nxAutoStart(sc){
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
-  if(!items.length){ zone.style.display='none'; return; }
-  const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); sc.scrollLeft=x;
+  if(!items.length){ if(_NX_EARLY===null && !(typeof DATA!=='undefined'&&DATA&&DATA.length) && typeof _mcTopDone!=='undefined' && !_mcTopDone) return; zone.style.display='none'; return; }
+  const sc=document.getElementById('nextScroll');
+  // ⚡ 같은 내용이면 다시 그리지 않는다 (2026-10-25) — 빠른 길·배너 도착·전체 DATA 도착마다 새로 그리며 카드 3,000장 배치까지 다시 계산시켰다
+  const _sig=items.map(it=>it.id+':'+(isWished(it.id)?1:0)+':'+_nxN(it)+':'+((_nxBanner(it)||{}).img_url||'')).join(',');
+  if(_sig===sc._nxSig && sc.children.length){ zone.style.display=''; try{ _nxArrive(); }catch(_){} return; }
+  sc._nxSig=_sig;
+  const x=sc.children.length?sc.scrollLeft:0; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); if(x) sc.scrollLeft=x;
   const pages=items.length; document.getElementById('nextDots').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i${i===0?' class="on"':''}></i>`).join(''):'';
   if(!sc._nxSwipe){ sc._nxSwipe=true;
     // 🔴 2026-10-22 사장님 "안밀려 · 아래 동그라미 눌러도 옆으로 안넘어가" — 동그라미 클릭 이동 + 손가락 밀기 보조
@@ -6461,8 +6531,9 @@ async function loadSellers(){
   // 파트너(이웃셀러) 집합 채우기 — 카드 우선노출/뱃지 판별용
   PARTNER_SET = new Set(rows.map(s=>normHandle(s.insta)).filter(Boolean));
   renderSellers(rows);
-  // 셀러가 데이터보다 늦게 와도 카드에 파트너 표시 반영
-  if(DATA && DATA.length) renderList();
+  try{ _mcTopReady('seller'); }catch(_){}
+  // 셀러가 데이터보다 늦게 와도 카드에 파트너 표시 반영 (⚡ 배너 도착과 겹치면 한 번으로 합친다 2026-10-25)
+  _mcReRenderSoon();
 }
 function renderSellers(rows){
   const zone=document.getElementById('sellerZone');
@@ -6567,6 +6638,7 @@ async function loadSellerBanners(){
     return true;
   });
   renderSellerBanners();
+  try{ _mcTopReady('sub'); }catch(_){}
 }
 
 function renderSellerBanners(){
