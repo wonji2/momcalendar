@@ -7228,5 +7228,51 @@ function notiPrefAll(){ const p=notiPrefs(); const on=!NP_KEYS.every(k=>p[k]); N
 function openNotiPrefs(){ const s=document.getElementById('npSheet'); if(!s) return; _npPaint(); s.classList.add('open'); s.setAttribute('aria-hidden','false'); try{ trackEvent('noti_prefs_open',''); }catch(_){} }
 function closeNotiPrefs(){ const s=document.getElementById('npSheet'); if(s){ s.classList.remove('open'); s.setAttribute('aria-hidden','true'); } }
 </script>
+<!-- 🧪 흐름 시험판 (test.html 전용 · ?flowtest=1 일 때만 보인다) — 사장님 2026-10-25
+     "너무 많은 단계와 실패를 거치지 않게해 테스트를 해보고 출시해야지"
+     갤럭시에서만 알 수 있는 것 3가지를 사장님 폰으로 잰다: (가) 카톡에서 「앱으로 열기」가 깔린 홈 화면 앱(PWA)을 여나
+     (나) 앱(APK) 없을 때 대신 갈 주소가 카톡 안에서 어떻게 되나 (다) 앱·PWA·크롬이 찜(mc_did)을 같이 쓰나.
+     누를 때마다·열릴 때마다 events 에 flowtest 로 남긴다 → 결과는 서버에서 읽는다(캡처 불필요). -->
+<script>
+(function flowTest(){
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.get('flowtest')!=='1') return;
+    const ua=navigator.userAgent||'';
+    const twa=/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'');
+    const standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+    const where=twa?'앱(APK)':standalone?'홈화면 앱(PWA)':/KAKAOTALK/i.test(ua)?'카톡 인앱':/Instagram/i.test(ua)?'인스타 인앱':/SamsungBrowser/i.test(ua)?'삼성 인터넷':/; wv\)/i.test(ua)?'기타 인앱':/Chrome\//.test(ua)?'크롬':'기타';
+    let perm='없음'; try{ perm=(typeof Notification!=='undefined')?Notification.permission:'없음'; }catch(_){}
+    let did='',wish=0,login=false; try{ did=(localStorage.getItem('mc_did')||'').slice(0,8); wish=JSON.parse(localStorage.getItem('mc_wish')||'[]').length; login=!!(typeof isLoggedIn==='function'&&isLoggedIn()); }catch(_){}
+    const from=q.get('from')||'';
+    const state={where,from,perm,did,wish,login,ref:(document.referrer||'').slice(0,40)};
+    const log=(k,extra)=>{ try{ trackEvent('flowtest', JSON.stringify(Object.assign({k},state,extra||{}))); }catch(_){} };
+    log('arrive');
+    const base=location.host+location.pathname;
+    const go=(tag,url)=>{ log('tap',{tag}); setTimeout(()=>{ location.href=url; },150); };
+    const self=(tag)=>base+'?flowtest=1&from='+tag;
+    const actions=[
+      ['가','앱으로 열기(패키지 지정 없음) — 홈화면 앱이 열리면 성공', ()=>'intent://'+self('가')+'#Intent;scheme=https;end'],
+      ['나','맘캘린더 앱(APK)으로 열기 — 없으면 대신 갈 주소', ()=>'intent://'+self('나')+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent('https://'+self('나_대신'))+';end'],
+      ['다','크롬으로 열기', ()=>'intent://'+self('다')+'#Intent;scheme=https;package=com.android.chrome;end'],
+    ];
+    const box=document.createElement('div');
+    box.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:#fff;border:2px solid #602090;border-radius:14px;padding:12px;font:13px/1.5 sans-serif;color:#222;box-shadow:0 6px 24px rgba(0,0,0,.25)';
+    box.innerHTML='<b style="color:#602090">🧪 흐름 시험</b> · 지금 연 곳: <b>'+where+'</b>'+(from?' (버튼 '+from+' 으로 옴)':'')
+      +'<br>알림 권한: <b>'+perm+'</b> · 기기번호 <b>'+(did||'없음')+'</b> · 찜 '+wish+'개 · 로그인 '+(login?'됨':'안 됨')
+      +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">'
+      +actions.map(a=>'<button data-k="'+a[0]+'" style="text-align:left;border:0;border-radius:10px;background:#F2EAF8;padding:9px 10px;font:600 13px sans-serif;color:#3a1a5a">('+a[0]+') '+a[1]+'</button>').join('')
+      +'<button data-x="1" style="border:0;background:none;color:#999;font:12px sans-serif;padding:4px">닫기</button></div>';
+    document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(box));
+    if(document.body) document.body.appendChild(box);
+    box.addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      if(b.dataset.x){ box.remove(); return; }
+      const a=actions.find(x=>x[0]===b.dataset.k); if(a) go(a[0],a[2]());
+    });
+  }catch(_){}
+})();
+</script>
+
 </body>
 </html>
