@@ -80,7 +80,14 @@ function blocksFromHtml(html: string): Block[] {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const id = Number(new URL(req.url).searchParams.get('id') || '')
+    const q = new URL(req.url).searchParams
+    // 카페 필독 공지 목록 (커뮤니티 맨 위 「공지」 아이콘, 2026-10-25) — ArticleListV2dot1 의 requiredNoticeList
+    if (q.get('notices') === '1') {
+      const d = await getJson(`https://apis.naver.com/cafe-web/cafe2/ArticleListV2dot1.json?search.clubid=${CLUB}&search.queryType=lastArticle&search.page=1&search.perPage=5`)
+      const list = (d?.message?.result?.requiredNoticeList || []).slice(0, 20).map((x: any) => ({ id: Number(x.articleId) || 0, title: String(x.title || ''), isNew: x.isNewNotice === true })).filter((x: any) => x.id)
+      return json({ ok: true, notices: list }, 200, 300)
+    }
+    const id = Number(q.get('id') || '')
     if (!Number.isInteger(id) || id <= 0 || id > 1e10) return json({ ok: false, error: 'id 필요' }, 400)
     const base = `https://apis.naver.com/cafe-web/cafe-articleapi`
     const [a, c] = await Promise.allSettled([

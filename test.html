@@ -7192,7 +7192,7 @@ function renderCommunity(){
   const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
   const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
-  let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  let h=_cxIcons()+`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(!_commBoard) h+=_grCard();   // 🏅 등급 사다리 (2026-10-25 「글쓰고싶게」)
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
@@ -7707,64 +7707,163 @@ function cpClose(fromPop){
 window.addEventListener('popstate',()=>{ if(_cpOpen) cpClose(true); });   // 휴대폰 뒤로가기 = 읽기 화면 닫기
 </script>
 <style id="mc-grade">
-/* 🏅 카페 회원 등급 배지 (2026-10-25) — 높을수록 화려하게: 새싹·신입(담백) → 성실(파랑) → 열심(불꽃) → VIP(금·빛) / 맘캘이웃·스탭·방장(특별) */
-.lv{display:inline-flex;align-items:center;gap:2px;height:17px;padding:0 6px 0 4px;border-radius:999px;font-size:10.5px;font-weight:800;line-height:1;letter-spacing:-.01em;vertical-align:1px;margin-left:4px;white-space:nowrap;position:relative;overflow:hidden;flex:none}
-.lv svg{width:11px;height:11px;flex:none}
-.lv-1{background:#EAF7EE;color:#2E9E5B}
-.lv-110{background:#F2F4F6;color:#6B7684}
-.lv-120{background:#E8F1FF;color:#2F6FDB}
-.lv-130{background:linear-gradient(135deg,#FFE08A,#F0B429 55%,#D99A0B);color:#5C3B00;box-shadow:0 1px 5px rgba(217,154,11,.45)}
-.lv-130::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.8),transparent);animation:lvShine 2.6s ease-in-out infinite}
-.lv-140{background:#1F2A44;color:#E6ECF8}
-.lv-150{background:linear-gradient(135deg,#9B6FD4,#602090);color:#fff;box-shadow:0 1px 5px rgba(96,32,144,.35)}
-.lv-888{background:linear-gradient(135deg,#2DD4BF,#0EA5E9);color:#fff;box-shadow:0 1px 5px rgba(14,165,233,.35)}
-.lv-999{background:linear-gradient(135deg,#602090,#E8336D);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.4) inset,0 1px 7px rgba(232,51,109,.45)}
-.lv-999::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:lvShine 3.2s ease-in-out infinite}
+/* 🏅 커뮤니티 등급 배지 v5 씨앗→새싹→잎새→꽃→열매 (v4 금속 등급은 사장님 「게임은 쫌」으로 버림) (사장님 2026-10-25: 맘 빼고 통용 등급 · 등급마다 확실히 다르게 · VIP=일반 회원 최고, 맘캘이웃=입점 · 설명 문장 빼고 조건만 · 마미톡·토스 톤)
+   씨앗(갈색 단색) → 새싹(연두) → 잎새(초록·테두리) → 꽃(분홍·빛) → 열매(빨강·금 흐름·빛·반짝이) / 입점·운영진·방장 */
+.lv{display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 7px 0 5px;border-radius:999px;font-size:10.5px;font-weight:800;line-height:1;vertical-align:1px;margin-left:4px;white-space:nowrap;position:relative;overflow:hidden;flex:none}
+.lv svg{width:11px;height:11px;flex:none;position:relative;z-index:1}
+.lv b{position:relative;z-index:1;font-weight:800}
+.lv-1{background:#F1E6DA;color:#8A5A2B}
+.lv-110{background:#E6F6E0;color:#3D8B2F}
+.lv-120{background:linear-gradient(180deg,#5CC46A,#2E9E4F);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)}
+.lv-130{background:linear-gradient(135deg,#FFC2D8,#FF7BAA 55%,#E8336D);color:#fff;text-shadow:0 1px 2px rgba(150,20,60,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 1px 6px rgba(232,51,109,.4)}
+.lv-140{background:linear-gradient(120deg,#FF6B6B,#E8336D,#FFB547,#FF6B6B);background-size:300% 100%;color:#fff;text-shadow:0 1px 2px rgba(120,20,20,.45);box-shadow:inset 0 0 0 1px rgba(255,236,170,.8),0 2px 9px rgba(232,51,109,.5);animation:lvFlow 4s linear infinite}
+.lv-140::before{content:"✦";position:absolute;right:2px;top:-2px;font-size:7px;color:#fff;z-index:2;animation:lvTwinkle 1.6s ease-in-out infinite}
+.lv-130::after,.lv-140::after{content:"";position:absolute;top:0;bottom:0;width:35%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.85),transparent);animation:lvShine 3s ease-in-out infinite}
+.lv-150{background:#1F2A44;color:#E6ECF8}
+.lv-888{background:linear-gradient(135deg,#2DD4BF,#0EA5E9);color:#fff}
+.lv-999{background:linear-gradient(135deg,#2A0F45,#602090);color:#FFD66B;box-shadow:inset 0 0 0 1px rgba(255,214,107,.6)}
 @keyframes lvShine{0%{left:-60%}60%,100%{left:130%}}
-@media (prefers-reduced-motion:reduce){.lv-130::after,.lv-999::after{animation:none}}
-/* 등급 사다리 카드 */
-.lvc{margin:12px 0 4px;border-radius:16px;background:linear-gradient(135deg,#F7F2FC,#FFF6EC);padding:14px 14px 12px}
-.lvc-t{font-size:14.5px;font-weight:800;color:#191F28;margin:0 0 2px}
-.lvc-s{font-size:12.5px;color:#6B7684;margin:0 0 10px;line-height:1.5}
-.lvc-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.lvc-row .lv{margin-left:0}
-.lvc-row i{font-style:normal;color:#C9C2D3;font-size:11px}
-.lvc-d{margin:10px 0 0;padding:10px 0 0;border-top:1px dashed #E4DAF0;display:none}
-.lvc.open .lvc-d{display:block}
-.lvc-d div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#4E5968;padding:4px 0}
-.lvc-d div .lv{margin-left:0;min-width:56px;justify-content:center}
-.lvc-b{display:flex;gap:8px;margin-top:10px}
-.lvc-b button,.lvc-b a{flex:1;border:0;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;font-family:inherit;text-align:center;text-decoration:none;cursor:pointer}
-.lvc-b button{background:#fff;color:#4E5968}
-.lvc-b a{background:#191F28;color:#fff}
+@keyframes lvFlow{0%{background-position:0 0}100%{background-position:300% 0}}
+@keyframes lvTwinkle{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1.15)}}
+/* 등급 카드 — 메달 5개 · 이름 · 조건만 */
+.lvc{margin:12px 0 4px;border:1px solid #F2F4F6;border-radius:16px;background:#fff;padding:14px 10px 12px}
+.lvc-t{font-size:15px;font-weight:800;color:#191F28;margin:0 4px 12px}
+.lvc-ms{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.lvc-m{text-align:center;min-width:0}
+.lvc-m .md{width:42px;height:42px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;position:relative;overflow:hidden}
+.lvc-m .md svg{width:21px;height:21px;position:relative;z-index:1}
+.lvc-m b{display:block;font-size:12px;font-weight:800;color:#191F28;white-space:nowrap}
+.lvc-m small{display:block;font-size:10.5px;color:#8B95A1;line-height:1.35;margin-top:2px}
+.md-1{background:linear-gradient(145deg,#E9D2BA,#B07A4A);color:#FFF6EC}
+.md-110{background:linear-gradient(145deg,#E9F9E2,#9FDC8C);color:#3D8B2F;box-shadow:inset 0 0 0 2px #fff}
+.md-120{background:linear-gradient(145deg,#8FE09A,#2E9E4F);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.6),0 2px 8px rgba(46,158,79,.35)}
+.md-130{background:linear-gradient(145deg,#FFD6E5,#FF7BAA 50%,#E8336D);color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.8),0 3px 10px rgba(232,51,109,.4)}
+.md-140{background:linear-gradient(120deg,#FF6B6B,#E8336D,#FFB547,#FF6B6B);background-size:300% 100%;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,236,170,.9),0 4px 14px rgba(232,51,109,.5);animation:lvFlow 4s linear infinite}
+.md-130::after,.md-140::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.85),transparent);animation:lvShine 2.8s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.lv-120::after,.lv-130::after,.lv-140,.lv-140::after,.lv-140::before,.md-120::after,.md-130::after,.md-140,.md-140::after{animation:none}}
 </style>
 <script>
-// 🏅 등급 배지 — 카페 등급 번호 → 배지 HTML (모르는 번호면 빈칸)
+// 🏅 등급 배지 v4 — 카페 등급 번호 → 사이트 이름 (카페 안 이름은 그대로)
+//   1 씨앗 · 110 새싹 · 120 잎새 · 130 꽃 · 140 열매(=VIP, 일반 회원 최고) · 150 입점(=맘캘이웃) · 888 운영진 · 999 방장 (사장님 2026-10-25 「게임은 쫌」 → 씨앗→열매 선택)
+// (v4 메달 모양은 안 쓴다)
+const _GR_MEDAL='<circle cx="12" cy="14" r="7" fill="currentColor"/><path d="M8 2h3l1 5H9zM16 2h-3l-1 5h3z" fill="currentColor" opacity=".75"/>';
+const _GR_STAR='<path d="M12 10.4l1.05 2.2 2.4.3-1.75 1.65.45 2.4-2.15-1.15-2.15 1.15.45-2.4-1.75-1.65 2.4-.3z" fill="#fff"/>';
 const _GR={
-  1:{n:'새싹맘',i:'<path d="M12 21V11"/><path d="M12 11C12 7 9 5 5 5c0 4 3 6 7 6z" fill="currentColor"/><path d="M12 13c0-3 2.5-5 6-5 0 3.5-2.5 5-6 5z" fill="currentColor"/>'},
-  110:{n:'단골맘',i:'<path d="M12 20s-6.5-4-8.2-8C2.6 9 4.6 5.5 7.8 5.5c1.7 0 3.1.9 4.2 2.5 1.1-1.6 2.5-2.5 4.2-2.5 3.2 0 5.2 3.5 4 6.5C18.5 16 12 20 12 20z" fill="currentColor"/>'},
-  120:{n:'꿀팁맘',i:'<circle cx="9" cy="9" r="3.6" fill="currentColor"/><circle cx="15" cy="9" r="3.6" fill="currentColor"/><circle cx="9" cy="15" r="3.6" fill="currentColor"/><circle cx="15" cy="15" r="3.6" fill="currentColor"/>'},
-  130:{n:'공구요정',i:'<path d=\"M4 20L14 10\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" fill=\"none\"/><path d=\"M16 2l1.2 3.3L20.5 6.5 17.2 7.7 16 11l-1.2-3.3L11.5 6.5l3.3-1.2z\" fill=\"currentColor\"/><circle cx=\"20\" cy=\"14\" r=\"1.6\" fill=\"currentColor\"/>'},
-  140:{n:'입점',i:'<path d="M6 3h12l4 6-10 12L2 9z" fill="currentColor"/><path d="M2 9h20M9 3l3 18 3-18" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>'},
-  150:{n:'이웃셀러',i:'<path d="M12 21s-7.5-4.6-9.5-9.2C1 8.3 3.3 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.7 0 6 3.8 4.5 7.3C19.5 16.4 12 21 12 21z" fill="currentColor"/>'},
+  1:{n:'씨앗',i:'<ellipse cx="12" cy="13" rx="5" ry="7" transform="rotate(-25 12 13)" fill="currentColor"/><path d="M10 9c1.5 1.5 2.5 4 2.5 7" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/>',c:'가입<br>&nbsp;'},
+  110:{n:'새싹',i:'<path d="M12 21V12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M12 12C12 8 9 6 5 6c0 4 3 6 7 6z" fill="currentColor"/><path d="M12 13c0-3 2.5-5.5 6.5-5.5 0 3.5-2.5 5.5-6.5 5.5z" fill="currentColor"/>',c:'글 2<br>댓글 5'},
+  120:{n:'잎새',i:'<path d="M4 20C4 10 10 4 20 4c0 10-6 16-16 16z" fill="currentColor"/><path d="M5 19L15 9M9 15h4M11 13V9" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none" stroke-linecap="round"/>',c:'글 10<br>댓글 30'},
+  130:{n:'꽃',i:'<g fill="currentColor"><circle cx="12" cy="6.5" r="3.6"/><circle cx="17.2" cy="10.3" r="3.6"/><circle cx="15.2" cy="16.5" r="3.6"/><circle cx="8.8" cy="16.5" r="3.6"/><circle cx="6.8" cy="10.3" r="3.6"/></g><circle cx="12" cy="12" r="2.6" fill="#FFE27A"/>',c:'글 100<br>댓글 300'},
+  140:{n:'열매',i:'<path d="M12 8c-2-2-7-2-8 3-1 5 3 10 6 10 1 0 1.5-.5 2-.5s1 .5 2 .5c3 0 7-5 6-10-1-5-6-5-8-3z" fill="currentColor"/><path d="M12 8c0-2 1-4 3-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M13 5c2-1 4-.5 5 1-2 1-4 .5-5-1z" fill="#7BD389"/><path d="M8 11c-.8 1.5-.8 3 0 4.5" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" fill="none" stroke-linecap="round"/>',c:'글 500<br>댓글 1,000'},
+  150:{n:'입점',i:'<path d="M3 9l2-5h14l2 5M4 9v11h16V9M9 20v-6h6v6" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>'},
   888:{n:'운영진',i:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill="currentColor"/>'},
   999:{n:'방장',i:'<path d="M3 8l4.5 4L12 4l4.5 8L21 8l-2 11H5z" fill="currentColor"/>'}
 };
-function _grBadge(lv){ lv=Number(lv)||0; const x=_GR[lv]; if(!x) return ''; return '<span class="lv lv-'+lv+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+x.i+'</svg>'+x.n+'</span>'; }
+function _grBadge(lv){ lv=Number(lv)||0; const x=_GR[lv]; if(!x) return ''; return '<span class="lv lv-'+lv+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+x.i+'</svg><b>'+x.n+'</b></span>'; }
 function _grCard(){
-  const steps=[1,110,120,130].map(l=>_grBadge(l)).join('<i>›</i>');   // VIP(140)는 입점업체 등급이라 사다리에 안 넣는다 (사장님 2026-10-25)
-  const write='https://m.cafe.naver.com/ca-fe/web/cafes/'+COMM_CLUB+'/articles/write?boardType=L';
-  return '<div class="lvc" id="lvCard"><p class="lvc-t">글·댓글을 쓰면 등급이 올라가요</p><p class="lvc-s">꿀팁맘부터 체험단 신청, 공구요정은 선정 확률 UP</p>'
-    +'<div class="lvc-row">'+steps+'</div>'
-    +'<div class="lvc-d">'
-    +'<div>'+_grBadge(1)+'가입하면 시작 · 글 2·댓글 5개면 단골맘</div>'
-    +'<div>'+_grBadge(110)+'공구 일정 확인 · 글 10·댓글 30개면 꿀팁맘</div>'
-    +'<div>'+_grBadge(120)+'체험단 신청 · 글 100·댓글 300개면 공구요정</div>'
-    +'<div>'+_grBadge(130)+'체험단 선정 확률 UP</div>'
-    +'<div>'+_grBadge(150)+'맘캘린더 이웃 인플루언서</div>'
-    +'</div>'
-    +'<div class="lvc-b"><button onclick="document.getElementById(\'lvCard\').classList.toggle(\'open\');try{trackEvent(\'community_grade_info\',\'\')}catch(_){}">등급 혜택 보기</button><a href="'+write+'" onclick="try{trackEvent(\'community_write\',\'grade\')}catch(_){} return commGo(this.href,event)">글쓰고 등업하기</a></div></div>';
+  return '<div class="lvc"><p class="lvc-t">등급</p><div class="lvc-ms">'
+    +[1,110,120,130,140].map(lv=>'<div class="lvc-m"><div class="md md-'+lv+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+_GR[lv].i+'</svg></div><b>'+_GR[lv].n+'</b><small>'+_GR[lv].c+'</small></div>').join('')
+    +'</div></div>';
 }
+</script>
+<style id="mc-cx">
+/* 커뮤니티 맨 위 아이콘 4개 (2026-10-25) — 마미톡·토스 톤: 둥근 색 타일 + 이름 */
+.cx-ic{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0 12px}
+.cx-ic button{border:0;background:none;padding:4px 0;font:600 12.5px inherit;color:#333D4B;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:inherit}
+.cx-ic i{width:52px;height:52px;border-radius:18px;display:grid;place-items:center}
+.cx-ic svg{width:28px;height:28px}
+.cx-ic .j i{background:#FFE8F1;color:#FF5C93}.cx-ic .a i{background:#EAF2FF;color:#3182F6}.cx-ic .v i{background:#E6F7EE;color:#14A05B}.cx-ic .n i{background:#FFF3DC;color:#F29D0B}
+.cx-ic button:active i{transform:scale(.94)}
+.cx{position:fixed;inset:0;z-index:99994;display:none;background:rgba(20,10,30,.5)}
+.cx.open{display:block}
+.cx-box{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:480px;max-height:82vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));color:#191F28}
+.cx-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cx-h b{font-size:18px;font-weight:800}
+.cx-h button{border:0;background:none;font-size:20px;color:#8B95A1;cursor:pointer;padding:4px 6px}
+.cx-big{font-size:40px;font-weight:800;letter-spacing:-.02em;margin:4px 0 14px;font-variant-numeric:tabular-nums}
+.cx-big small{font-size:16px;color:#8B95A1;font-weight:700;margin-left:4px}
+.cx-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #F2F4F6;font-size:14.5px}
+.cx-row span{color:#8B95A1;font-size:13.5px;font-variant-numeric:tabular-nums}
+.cx-row b{color:#FF5C93;font-weight:800}
+.cx-btn{display:block;text-align:center;text-decoration:none;border:0;border-radius:14px;padding:15px;font:700 15px inherit;font-family:inherit;margin-top:14px;cursor:pointer;width:100%}
+.cx-btn.cx-cp{background:#191F28;color:#fff}
+.cx-btn.cx-w{background:#F2F4F6;color:#4E5968}
+.cx-poll{border:1px solid #F2F4F6;border-radius:16px;padding:14px;margin-bottom:10px}
+.cx-poll b{display:block;font-size:15.5px;margin-bottom:10px;line-height:1.4}
+.cx-poll button{display:block;width:100%;text-align:left;border:0;background:#F2F4F6;border-radius:12px;padding:13px 14px;margin:6px 0;font:600 14px inherit;font-family:inherit;color:#191F28;cursor:pointer;position:relative;overflow:hidden}
+.cx-poll button i{position:absolute;left:0;top:0;bottom:0;background:#E3D6F4;transition:width .4s}
+.cx-poll button span,.cx-poll button em{position:relative}
+.cx-poll button em{float:right;font-style:normal;color:#602090;font-weight:800;font-variant-numeric:tabular-nums}
+.cx-poll button.me{box-shadow:inset 0 0 0 2px #602090}
+.cx-poll small{font-size:12.5px;color:#8B95A1}
+.cx-nt{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:14px 0;border-bottom:1px solid #F2F4F6;font:600 14.5px inherit;font-family:inherit;color:#191F28;cursor:pointer}
+.cx-nt em{font-style:normal;font-size:11px;font-weight:800;color:#fff;background:#F29D0B;border-radius:6px;padding:2px 6px;flex:none}
+.cx-nt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cx-empty{padding:30px 0;text-align:center;color:#8B95A1;font-size:14px}
+@media (prefers-reduced-motion:reduce){.cx-poll button i{transition:none}}
+</style>
+<div id="cxSheet" class="cx" aria-hidden="true" onclick="if(event.target===this) cxClose()"><div class="cx-box"><div class="cx-h"><b id="cxTitle"></b><button onclick="cxClose()" aria-label="닫기">✕</button></div><div id="cxBody"></div></div></div>
+<script>
+// ── 커뮤니티 맨 위 아이콘 4개 (2026-10-25) — 원본 scratchpad/_patch_comm_icons.py ──
+const _CX_COUPANG='https://link.coupang.com/a/hOxW0BO2c8';   // 우리 쿠팡 파트너스 링크(sale-collect 와 같은 것)
+const _CX_SVG={
+  j:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3c3.3 0 6 2.6 6 6.2 0 1.7-.8 3-1 4.6l.6 4.4a1.6 1.6 0 0 1-1.6 1.8H8a1.6 1.6 0 0 1-1.6-1.8l.6-4.4C6.8 12.2 6 10.9 6 9.2 6 5.6 8.7 3 12 3z"/><circle cx="7" cy="5.5" r="2.2"/><circle cx="17" cy="5.5" r="2.2"/><circle cx="10" cy="9.5" r="1" fill="#fff"/><circle cx="14" cy="9.5" r="1" fill="#fff"/></svg>',
+  a:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3.5" fill="currentColor"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 13l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  v:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="12" width="4" height="8" rx="1.5"/><rect x="10" y="7" width="4" height="13" rx="1.5"/><rect x="16" y="4" width="4" height="16" rx="1.5"/></svg>',
+  n:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 10v4a2 2 0 0 0 2 2h1l2 4h2l-1.4-4H10l7 3V5l-7 3H6a2 2 0 0 0-2 2z"/><path d="M19.5 9.5a3.5 3.5 0 0 1 0 5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>'
+};
+function _cxIcons(){
+  const it=[['j','jelly','젤리'],['a','attend','출석'],['v','poll','투표'],['n','notice','공지']];
+  return '<div class="cx-ic">'+it.map(x=>'<button class="'+x[0]+'" onclick="cxOpen(\''+x[1]+'\')"><i>'+_CX_SVG[x[0]]+'</i>'+x[2]+'</button>').join('')+'</div>';
+}
+function _cxWho(){ let t='', d=''; try{ t=(typeof mcToken==='function'&&mcToken())||''; }catch(_){} try{ d=(typeof deviceId==='function'&&deviceId())||''; }catch(_){} return {p_token:t||null, p_device:d||null}; }
+function _cxRpc(fn, body){ return fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(Object.assign(_cxWho(), body||{}))}).then(r=>r.ok?r.json():null).catch(()=>null); }
+function cxOpen(k){
+  try{ trackEvent('community_icon', k); }catch(_){}
+  if(k==='attend'){ if(typeof openAttendSheet==='function') openAttendSheet(); return; }
+  const s=document.getElementById('cxSheet'); if(!s) return;
+  document.getElementById('cxTitle').textContent={jelly:'내 젤리',poll:'투표',notice:'공지'}[k]||'';
+  const b=document.getElementById('cxBody'); b.innerHTML='<div class="cx-empty">…</div>';
+  s.classList.add('open'); s.setAttribute('aria-hidden','false');
+  try{ if(typeof lockScroll==='function') lockScroll(); }catch(_){}
+  if(k==='jelly') _cxJelly(b); else if(k==='poll') _cxPolls(b); else if(k==='notice') _cxNotice(b);
+}
+function cxClose(){ const s=document.getElementById('cxSheet'); if(!s||!s.classList.contains('open')) return; s.classList.remove('open'); s.setAttribute('aria-hidden','true'); try{ if(typeof unlockScroll==='function') unlockScroll(); }catch(_){} }
+function _cxJelly(b){
+  _cxRpc('jelly_get').then(d=>{
+    d=d||{}; const n=Number(d.balance)||0;
+    const login=d.member?'':'<div class="cx-row">출석 젤리<span>로그인 필요</span></div>';
+    b.innerHTML='<div class="cx-big">'+n.toLocaleString()+'<small>젤리</small></div>'
+      +(d.member?'<div class="cx-row">출석 '+(d.attend_days||0)+'일<b>+'+((d.attend_days||0)*10)+'</b></div>':login)
+      +'<div class="cx-row">투표 '+(d.votes||0)+'회<b>+'+((d.votes||0)*5)+'</b></div>'
+      +'<div class="cx-row">적립<span>출석 +10 · 투표 +5</span></div>'
+      +'<a class="cx-btn cx-cp" href="'+_CX_COUPANG+'" target="_blank" rel="noopener sponsored" onclick="try{trackEvent(\'community_coupang\',\'jelly\')}catch(_){}">쿠팡 가기</a>'
+      +(d.member?'':'<button class="cx-btn cx-w" onclick="cxClose();if(typeof openLoginSheet===\'function\')openLoginSheet()">로그인</button>');
+  });
+}
+function _cxPollsHtml(list){
+  if(!list||!list.length) return '<div class="cx-empty">진행 중인 투표가 없어요</div>';
+  return list.map(p=>{
+    const tot=Number(p.total)||0, my=(p.my===null||p.my===undefined)?-1:Number(p.my), done=my>=0;
+    return '<div class="cx-poll"><b>'+escHtml(p.title)+'</b>'+(p.options||[]).map((o,i)=>{ const c=Number((p.counts||[])[i])||0, pc=tot?Math.round(c*100/tot):0;
+      return '<button class="'+(my===i?'me':'')+'" onclick="cxVote('+p.id+','+i+')"'+(done?' disabled':'')+'><i style="width:'+(done?pc:0)+'%"></i><span>'+escHtml(o)+'</span>'+(done?'<em>'+pc+'%</em>':'')+'</button>'; }).join('')
+      +'<small>'+tot.toLocaleString()+'명</small></div>';
+  }).join('');
+}
+function _cxPolls(b){ _cxRpc('poll_list').then(list=>{ b.innerHTML=_cxPollsHtml(list); }); }
+function cxVote(id,i){
+  const b=document.getElementById('cxBody');
+  _cxRpc('poll_vote',{p_poll:id,p_opt:i}).then(d=>{
+    if(!d||!d.ok){ try{ mcToast('잠시 후 다시 눌러 주세요'); }catch(_){} return; }
+    b.innerHTML=_cxPollsHtml(d.polls); try{ mcToast('+5 젤리'); }catch(_){} try{ trackEvent('community_vote', String(id)); }catch(_){}
+  });
+}
+function _cxNotice(b){
+  fetch(`${SUPABASE_URL}/functions/v1/cafe-article?notices=1`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.json()).then(d=>{
+    const l=(d&&d.notices)||[];
+    b.innerHTML=l.length?l.map(x=>'<button class="cx-nt" onclick="cxClose();commOpenPost('+x.id+',null)">'+(x.isNew?'<em>N</em>':'')+'<span>'+escHtml(x.title)+'</span></button>').join(''):'<div class="cx-empty">공지가 없어요</div>';
+  }).catch(()=>{ b.innerHTML='<div class="cx-empty">잠시 후 다시 열어 주세요</div>'; });
+}
+window.addEventListener('popstate',()=>{ try{ cxClose(); }catch(_){} });
 </script>
 </body>
 </html>
