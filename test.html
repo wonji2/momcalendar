@@ -3460,7 +3460,8 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){
 let _shareKind='', _sharePng=null;
 function _loadH2C(){ return new Promise((res,rej)=>{ if(window.html2canvas) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
 function _shareCardHtml(kind){
-  if(kind==='wishcal'||kind==='salecal') return _calCardHtml(kind);   // 📅 달력 공유 카드 (사장님 2026-10-23)
+  if(kind==='wishcal') return _wishDotCardHtml();   // 📅 내 찜 달력 = 오픈일 점 + 다가오는 오픈 2단 (사장님 2026-10-25 1안)
+  if(kind==='salecal') return _calCardHtml(kind);   // 📅 달력 공유 카드 (사장님 2026-10-23)
   if(kind==='sale'){
     // 「2026 연말 세일 총정리」 V2 (사장님 2026-10-23 확정) — 보라 바탕 2열 티켓 · 오른쪽 위 로고+맘캘린더 · 아래 「세일 정보는 맘캘린더」
     //  브랜드당 한 줄(블프가 있으면 블프, 없으면 가장 이른 행사) · 끝난 것·해외 행사·문센 제외 · 시작일 순 최대 12줄
@@ -7341,6 +7342,24 @@ document.addEventListener('DOMContentLoaded', function(){
 .cs .cs-more{grid-column:span 7;text-align:right;font-size:22px;color:#8B95A1;padding:8px 10px 0}
 .cs .cs-brand{grid-column:span 7;display:flex;justify-content:flex-end;padding:14px 8px 0}
 .cs .cs-brand span{font-size:22px;font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:8px 20px}
+.cs .wc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}   /* 내 찜 달력 점 (2026-10-25) */
+.cs .wc-c{text-align:center;border-bottom:2px solid #F2F4F6;min-width:0;overflow:hidden}
+.cs .wc-n{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;margin-top:10px;font-size:32px;font-weight:500;color:#1E1A24}
+.cs .wc-c.su .wc-n{color:#E8445A}.cs .wc-c.sa .wc-n{color:#3182F6}.cs .wc-c.past .wc-n{color:#C9CDD3}
+.cs .wc-c.today .wc-n{border:3px solid #1E1A24;box-sizing:border-box}   /* inset 그림자는 PNG(html2canvas)에서 검게 칠해진다 — 테두리로 */
+.cs .wc-n.wc-mo{width:auto;padding:0 10px;border-radius:29px;font-size:27px;font-weight:600;color:#602090}
+.cs .wc-dots{display:flex;justify-content:center;align-items:center;gap:7px;height:26px;margin-top:4px}
+.cs .wc-dots i{width:14px;height:14px;border-radius:50%;display:block}
+.cs .wc-dots em{font-style:normal;font-size:20px;font-weight:600;color:#8B95A1;margin-left:2px}
+.cs .wc-lh{display:flex;justify-content:space-between;font-size:26px;font-weight:600;color:#8B95A1;padding:26px 14px 8px}
+.cs .wc-list{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;grid-auto-flow:column;grid-template-rows:repeat(6,auto)}
+.cs .wc-li{display:flex;align-items:center;gap:12px;padding:11px 10px;font-size:27px;min-width:0}
+.cs .wc-li i{width:14px;height:14px;border-radius:50%;flex:none}
+.cs .wc-li .d{flex:none;width:108px;font-weight:600;color:#602090}
+.cs .wc-li .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs .wc-li .k{flex:none;font-size:23px;font-weight:600;color:#8B95A1}
+.cs .wc-ft{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding:16px 14px 0;font-size:22px;color:#8B95A1}
+.cs .wc-ft b{font-weight:500;color:#8E7CC3;background:#F3EFFA;border-radius:999px;padding:8px 20px}
 .cs .cs-wm{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
 .cs .cs-wm img{width:300px;opacity:.09;filter:grayscale(1);display:block}
 .cs .cs-empty{padding:120px 40px;text-align:center;color:#8B95A1;font-size:30px;line-height:1.6}
@@ -7369,6 +7388,41 @@ function _csItems(kind){
   const pool=(typeof DATA!=='undefined'?DATA:[]).concat((typeof _wishExtra!=='undefined'?_wishExtra:[]).filter(x=>!DATA.some(d=>d.id===x.id)));
   const mine=pool.filter(it=>isWished(it.id) && it.openDate && !it.always && !(typeof isExpired==='function' && isExpired(it)));   // 상시 공구도 뺀다 — 기간이 몇 달이라 매주 칸을 다 먹는다(2026-10-25)   // 마감된 찜은 달력에 안 싣는다(2026-10-25)
   return { wished:mine.length>0, items:mine.map(it=>({n:it.name, s:it.openDate, e:(typeof realEnd==='function'?realEnd(it):it.endDate)||it.openDate})) };
+}
+// 📅 내 찜 달력 — 오픈일 점 + 다가오는 오픈 2단 (사장님 2026-10-25 「1안 · 밑에 날짜 상품명 2단으로 2배」)
+//   달은 「오늘 이후 오픈」이 더 많은 쪽(이번 달·다음 달) · 점 3개까지 +N · 지난 날 흐리게 · 오늘 테두리
+const WC_DOT=['#FF8A80','#F48FB1','#CE93D8','#9FA8DA','#80CBC4','#A5D6A7','#FFCC80','#BCAAA4','#90CAF9','#E6EE9C'];
+function _wishDotCardHtml(){
+  const {items}=_csItems('wishcal');
+  const all=items.map((it,i)=>({n:it.n, d:it.s, c:WC_DOT[i%WC_DOT.length]})).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  // 이번 주 일요일부터 5주(35일) — 아래 목록과 같은 날짜 범위
+  const t0=new Date(todayStr+'T00:00:00'); const st=new Date(t0.getTime()-t0.getDay()*864e5);
+  const ds35=[]; for(let i=0;i<35;i++){ const t=new Date(st.getFullYear(),st.getMonth(),st.getDate()+i); ds35.push(_ymd(t.getFullYear(),t.getMonth()+1,t.getDate())); }
+  const m1=Number(ds35[0].slice(5,7)), m2=Number(ds35[34].slice(5,7));
+  const byD={}; all.forEach(x=>{ (byD[x.d]=byD[x.d]||[]).push(x); });
+  const ch=104;
+  const wd=['일','월','화','수','목','금','토'];
+  let h='<div class="cs-mh"><b>'+(m1===m2?m1+'월':m1+'–'+m2+'월')+'</b><small>내가 찜한 공구 '+all.filter(x=>x.d>=todayStr).length+'개 · 오픈일</small></div><div class="cs-wd">'+wd.map(w=>'<span>'+w+'</span>').join('')+'</div><div class="wc-grid">';
+  ds35.forEach((ds,i)=>{
+    const a=byD[ds]||[], dd=Number(ds.slice(8,10));
+    const cl='wc-c'+(ds<todayStr?' past':'')+(ds===todayStr?' today':'')+(i%7===0?' su':i%7===6?' sa':'');
+    const dots=a.slice(0,3).map(x=>'<i style="background:'+x.c+'"></i>').join('')+(a.length>3?'<em>+'+(a.length-3)+'</em>':'');
+    const lb=(dd===1||i===0)?'<span class="wc-n wc-mo">'+Number(ds.slice(5,7))+'/'+dd+'</span>':'<span class="wc-n">'+dd+'</span>';
+    h+='<div class="'+cl+'" style="height:'+ch+'px">'+lb+'<div class="wc-dots">'+(ds<todayStr?'':dots)+'</div></div>';
+  });
+  h+='</div>';
+  // 다가오는 오픈 — 날짜별 한 줄, 2단 × 6줄
+  const up=Object.keys(byD).filter(d=>d>=todayStr).sort();
+  const md=s=>{ const t=new Date(s+'T00:00:00'); return (t.getMonth()+1)+'/'+t.getDate()+' '+wd[t.getDay()]; };
+  if(up.length){
+    const show=up.slice(0,12), rest=up.slice(12).reduce((t,d)=>t+byD[d].length,0);   // 목록에 안 실린 공구 수
+    h+='<div class="wc-lh"><span>다가오는 오픈</span>'+(rest>0?'<span>그 밖에 '+rest+'개 더</span>':'')+'</div><div class="wc-list">';
+    show.forEach(d=>{ const a=byD[d]; h+='<div class="wc-li"><i style="background:'+a[0].c+'"></i><span class="d">'+md(d)+'</span><span class="t">'+escHtml(a[0].n)+'</span>'+(a.length>1?'<span class="k">+'+(a.length-1)+'</span>':'')+'</div>'; });
+    h+='</div>';
+  } else h+='<div class="cs-empty">앞으로 열리는 찜한 공구가 없어요<br>하트를 눌러 담아 보세요</div>';
+  h+='<div class="wc-ft"><span>공구 핫딜 정보 공유 커뮤니티 맘캘린더</span><b>momcalendar.com</b></div><div class="cs-wm"><img src="intro/logo.png" alt=""></div>';
+  return {title:'내가 찜한 공구 달력', url:'https://momcalendar.com/', text:'내가 찜한 공구 달력이에요 · 공구 핫딜 정보 공유 커뮤니티 맘캘린더',
+    html:'<div class="sc"><div class="cs" style="margin:-64px;width:1080px;height:1350px;flex-shrink:0;box-sizing:border-box;background:#fff;padding:64px 44px 40px">'+h+'</div></div>', sub:'찜한 공구 '+up.length+'일'};
 }
 function _calCardHtml(kind){
   const {wished,items}=_csItems(kind);
