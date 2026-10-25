@@ -763,6 +763,24 @@ body.srch-mode .next-zone{display:none!important}
 .srt-it.on{color:#191F28;font-weight:700}
 .srt-it.on svg{color:#602090}
 </style>
+<style id="mc-fastload">
+/* ⚡ 메인 한번에 (사장님 2026-10-25) — scratchpad/_patch_fastload.py */
+#cardList > .card{content-visibility:auto;contain-intrinsic-size:auto var(--mc-ch,53.6px)}   /* 화면 밖 카드는 배치 계산을 미룬다. 자리 높이 = 카드 69.6px - 여백 14 - 테두리 2 = 53.6. 기기마다 글꼴이 달라 _mcCardCal 이 실제 한 장을 재서 --mc-ch 로 맞춘다(검증자 2026-10-25: 어림값 56 이 2.4px 커서 뒤로가기 복원이 몇 장씩 어긋났다) */
+#mainSlider,#mainDots,#nextZone>*,#sellerZone>*,#subZone>*{transition:opacity .25s ease}
+.main-dots:empty{min-height:6px}   /* 점이 늦게 생기며 아래를 6px 밀던 것 — 빈 칸도 점 높이만큼 잡아 둔다 */
+body.mc-top-wait #mainSlider,body.mc-top-wait #mainDots,body.mc-top-wait #nextZone>*,body.mc-top-wait #sellerZone>*,body.mc-top-wait #subZone>*{opacity:0}
+body.mc-top-wait .main-slider-wrap{min-height:calc((min(100vw,480px) - 41px) / 2 + 41px)}
+body.mc-top-wait #nextZone,body.mc-top-wait #sellerZone,body.mc-top-wait #subZone{position:relative}
+body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after{content:"";position:absolute;top:0;width:calc((100% - 41px) / 2);aspect-ratio:1/1;border-radius:14px}
+body.mc-top-wait .main-slider-wrap::before{left:16px}
+body.mc-top-wait .main-slider-wrap::after{right:16px}
+body.mc-top-wait #nextZone::before{content:"";position:absolute;left:16px;right:16px;top:36px;height:140px;border-radius:16px}
+body.mc-top-wait #sellerZone::before{content:"";position:absolute;left:16px;right:16px;top:44px;height:64px;border-radius:14px}
+body.mc-top-wait #subZone::before{content:"";position:absolute;left:16px;right:16px;top:4px;bottom:8px;border-radius:14px}
+body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{background:linear-gradient(90deg,#F3EFF8 25%,#EAE3F3 37%,#F3EFF8 63%);background-size:400% 100%;animation:mcSk 1.3s ease infinite}
+@keyframes mcSk{0%{background-position:100% 0}100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{animation:none}}
+</style>
 </head>
 <body>
 
@@ -1007,6 +1025,77 @@ body.srch-mode .next-zone{display:none!important}
 <div class="sub-zone" id="subZone" style="display:none">
   <div class="sub-row" id="subRow"></div>
 </div>
+<script>
+// ⚡ 메인 윗부분 「한번에」 (사장님 2026-10-25) — scratchpad/_patch_fastload.py
+//   ① 자리 먼저: 메인배너·스포·이웃셀러·셀러배너 칸을 지난번 높이(처음이면 기본값)로 미리 잡는다 → 늦게 온 칸이 아래를 밀지 않는다
+//   ② 같이 보이기: 네 칸이 다 그려지고 첫 사진이 내려오면(사진은 최대 0.7초 기다림) 한꺼번에 나타난다. 3.5초가 지나면 더 기다리지 않는다
+//   ③ 검색 딥링크(?q=)는 기다리지 않는다. 신호: _mcTopReady('banner'|'next'|'seller'|'sub') — 각 로더 끝에서 부른다
+const _MC_TOP=['banner','next','seller','sub'];
+const _MC_TOP_EL={banner:'.main-slider-wrap',next:'#nextZone',seller:'#sellerZone',sub:'#subZone'};
+const _MC_TOP_DEF={next:221,seller:131,sub:205};   // 390px 폭 실측(2026-10-25). 메인배너는 CSS calc 로 잡는다
+const _mcTopSeen={}; let _mcTopDone=false;
+const _MC_TOP_KEY='mc_top_h_'+Math.round(Math.min(innerWidth||390,480)/10);   // 폭(10px 단위)마다 따로 — 문서 앞부분에서 한 번만 읽는다
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('q')){ _mcTopDone=true; return; }
+    let h=null; try{ h=JSON.parse(localStorage.getItem(_MC_TOP_KEY)||'null'); }catch(_){}
+    document.body.classList.add('mc-top-wait');
+    ['next','seller','sub'].forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; const v=(h&&typeof h[k]==='number')?h[k]:_MC_TOP_DEF[k]; if(v>0){ el.style.display='block'; el.style.minHeight=v+'px'; } });
+    if(h&&h.banner>0){ const el=document.querySelector('.main-slider-wrap'); if(el) el.style.minHeight=h.banner+'px'; }
+    setTimeout(()=>_mcTopReveal('cap'),3500);
+  }catch(_){ _mcTopDone=true; try{ document.body.classList.remove('mc-top-wait'); }catch(__){} }
+})();
+function _mcTopReady(k){
+  if(_mcTopDone) return; _mcTopSeen[k]=1;
+  // 사진은 기다리지 않는다 — 카드 목록을 그리는 동안 화면이 바빠 0.7초 기다림이 1.5~2.6초로 늘었다(2026-10-25 실측). 사진 칸은 자리·바탕색이 이미 있다
+  if(_MC_TOP.every(x=>_mcTopSeen[x])) _mcTopReveal('ready');
+}
+function _mcTopReveal(why){
+  if(_mcTopDone) return; _mcTopDone=true;
+  try{ const sc=document.getElementById('nextScroll'); if(sc&&!sc.children.length) document.getElementById('nextZone').style.display='none'; }catch(_){}   // 빠른 길이 실패해 띠가 비었으면 자리째 접는다
+  _MC_TOP.forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; el.style.minHeight=''; });
+  document.body.classList.remove('mc-top-wait');
+  window._mcTopWhy=why;
+  // 다음 방문 자리 잡기용 높이는 한참 뒤에 잰다 — 보이는 순간 재면 문서 전체 배치를 강제로 다시 계산시켜 0.3초를 먹었다(2026-10-25 실측)
+  setTimeout(()=>{ try{ const h={}; _MC_TOP.forEach(k=>{ const el=document.querySelector(_MC_TOP_EL[k]); if(!el) return; h[k]=getComputedStyle(el).display==='none'?0:Math.round(el.getBoundingClientRect().height); }); localStorage.setItem(_MC_TOP_KEY, JSON.stringify(h)); }catch(_){} },6000);
+}
+// 카드 자리 높이 맞추기 — content-visibility 로 안 그린 카드는 --mc-ch 높이로 자리만 잡는다. 이 값이 실제와 다르면 쌓여서
+//   뒤로가기 복원(scrollY 숫자로 맞춤)이 다른 카드에서 열리고, 다시 그릴 때 목록이 튄다(검증자 2026-10-25 재현). → 이 기기에서 실제 카드를 재서 맞춘다
+const _MC_CH_KEY='mc_card_ch_'+Math.round(Math.min(innerWidth||390,480)/10);
+try{ const v=parseFloat(localStorage.getItem(_MC_CH_KEY)); if(v>20&&v<200) document.documentElement.style.setProperty('--mc-ch',v+'px'); }catch(_){}
+function _mcCardCal(){
+  // 이미 그려진 카드(화면 근처)가 있으면 그대로 잰다 — 배치를 새로 시키지 않는다. 없을 때만 한 장을 잠깐 그려서 잰다
+  //   (재검증 2026-10-25: 7장을 하나씩 바꿔 그리면 한 번에 150ms — 측정은 한 장이면 된다. 3,025장 모두 같은 높이였다)
+  const all=document.querySelectorAll('#cardList > .card:not(.wended)'); if(!all.length) return false;   // 마감된 찜 카드는 꼴이 달라 뺀다
+  const pick=[];
+  if(all[0].firstElementChild && all[0].firstElementChild.checkVisibility){   // 카드 자체는 늘 true — 그려졌는지는 안쪽 요소로 본다(4차 재검증)
+   const vh=innerHeight||800; for(const x of all){ const r=x.getBoundingClientRect(); if(r.top>vh*2) break; const k=x.firstElementChild; if(r.bottom>-vh && k && k.checkVisibility({contentVisibilityAuto:true})){ pick.push(x); if(pick.length>=5) break; } } }
+  const forced=!pick.length; if(forced) pick.push(all[0]);
+  const hs=pick.map(c=>{ const prev=c.style.contentVisibility; if(forced) c.style.contentVisibility='visible';
+    const cs=getComputedStyle(c); const h=c.getBoundingClientRect().height-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-parseFloat(cs.borderTopWidth)-parseFloat(cs.borderBottomWidth);
+    if(forced) c.style.contentVisibility=prev; return Math.round(h*1000)/1000; });   // 셋째 자리까지 — 둘째 자리 반올림도 카드 500장이면 7px 쌓였다
+  const cnt={}; hs.forEach(h=>cnt[h]=(cnt[h]||0)+1); const v=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];   // 이미 그려진 카드 최대 5장 중 가장 흔한 값 (한 장만 재면 꼴이 다른 카드를 잡을 수 있다)
+  if(!(v>20&&v<200)) return false;   // 목록이 숨겨져 있으면(검색 딥링크 등) 값이 안 나온다 → 못 잰 것으로 보고 다음에 다시
+  const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mc-ch'))||0;
+  if(Math.abs(cur-v)>0.0005) document.documentElement.style.setProperty('--mc-ch',v+'px');
+  try{ localStorage.setItem(_MC_CH_KEY,String(v)); }catch(_){}
+  return true;
+}
+// 언제 재나 (재검증 2026-10-25 두 번 반영):
+//   ① 처음 제대로 잴 때까지만 목록 크기를 지켜본다(첫 그리기·검색 딥링크에서 나옴). 재고 나면 지켜보기를 끈다 — 탭 바꿀 때마다 재면 그때마다 느려진다
+//   ② 글꼴이 새로 붙으면(웹폰트가 늦게 옴 → 글자 높이가 바뀜) 다시 잰다 — 처음 한 번만 재면 대체 글꼴 값이 굳었다
+(function(){ let q=0, ro=null;
+  const run=()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; let ok=false; try{ ok=_mcCardCal(); }catch(_){} if(ok && ro){ try{ ro.disconnect(); }catch(_){} ro=null; } }); };
+  const start=()=>{ const el=document.getElementById('cardList'); if(!el) return; if(window.ResizeObserver){ try{ ro=new ResizeObserver(run); ro.observe(el); }catch(_){} } else { let n=0; (function poll(){ let ok=false; try{ ok=_mcCardCal(); }catch(_){ ok=true; } if(!ok && ++n<80) setTimeout(poll,250); })(); } };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+  const again=()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; try{ _mcCardCal(); }catch(_){} }); };
+  try{ addEventListener('resize',()=>{ clearTimeout(window._mcChRz); window._mcChRz=setTimeout(again,300); }); }catch(_){}   // 화면 돌리기·글자 크기 바꿈
+  try{ document.fonts && document.fonts.addEventListener && document.fonts.addEventListener('loadingdone',()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; try{ _mcCardCal(); }catch(_){} }); }); }catch(_){}
+})();
+// 카드 목록 다시 그리기를 한 번으로 합친다 — 배너·이웃셀러가 도착할 때마다 카드 3,000장을 처음부터 다시 그렸다
+let _mcRrT=null;
+function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ if(typeof renderList==='function' && typeof DATA!=='undefined' && DATA && DATA.length) renderList(); }catch(_){} },80); }
+</script>
 
 <!-- 콘텐츠 탭: 공구 / 핫딜 / 체험단 -->
 <div class="content-seg" id="contentSeg">
@@ -1122,6 +1211,13 @@ window._mcBanners=(function(){
   };
 })();
 window._mcBannersOf=function(list,t){ return (list||[]).filter(function(x){ return x && x.type===t; }); };
+// ⚡ 찜 수(wish_counts)도 여기서 먼저 출발 (2026-10-25) — 스포 띠 🔔 숫자가 바탕값으로 먼저 그려졌다가 튀지 않게, 띠는 찜 수가 온 뒤 한 번에 그린다
+window._mcWcEarly=(function(){ var p=null; return function(){ if(!p){ var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; p=fetch(U+'/rest/v1/rpc/wish_counts',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K},body:'{}'}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); } return p; }; })();
+try{ window._mcWcEarly(); }catch(_){}
+// ⚡ 오픈 예정 스포(momcal_ 예정 공구) 요청도 여기서 먼저 출발 (2026-10-25) — _nxEarlyLoad 가 이 약속을 받아 쓴다. 주소는 _nxEarlyLoad 와 똑같다(Worker 캐시 같은 항목)
+window._mcNxEarly=(function(){ var p=null; return function(){ if(!p){ var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; var d=new Date(); var t=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); window._mcNxEarlyDay=t;
+  p=fetch(U+'/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.'+t+'&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always',{headers:{apikey:K,Authorization:'Bearer '+K}}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); } return p; }; })();
+try{ window._mcNxEarly(); }catch(_){}
 </script>
 <script>
 (async function(){
@@ -1664,22 +1760,18 @@ async function loadData() {
     let rows = [];
     const seen = new Set();   // 쪽 경계 중복 거르개 (아래 설명)
     const PAGE = 1000;   // Supabase 한 번에 최대 1000건
-    for (let from = 0; ; from += PAGE) {
-      const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      if (!res.ok) throw new Error('Supabase 오류 ' + res.status);
-      const page = await res.json();
+    // ⚡ 4쪽을 동시에 받는다 (2026-10-25) — 전엔 한 쪽씩 차례로 받아 왕복이 네 번 쌓였다. 주소(limit·offset)는 그대로라 Worker 캐시·전송량은 같다.
+    //   넷째 쪽이 꽉 차 있으면(4,000건↑) 그다음부터 한 쪽씩 더 받는다. 쪽 순서대로 합치고 아래 seen 으로 중복을 거른다.
+    const _getPage = async (from) => { const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }); if (!res.ok) throw new Error('Supabase 오류 ' + res.status); return res.json(); };
+    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(4, Math.ceil((n + 300) / PAGE))) : 4; } catch (_) { return 4; } })();   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
+    const _pages = await Promise.all(Array.from({ length: _np }, (_, i) => _getPage(i * PAGE)));
+    for (let from = _np * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
+    for (const page of _pages) {
       // 🔴 id 로 거른다 — 쪽마다 **받아온 시각이 다르다**(쪽별로 캐시 항목·시계가 따로다).
       //   그 사이 공구가 하나 들어오면 경계가 밀려 **같은 공구가 두 번** 오고, 하나 빠지면 **한 건이 조용히 사라진다.**
       //   파싱이 3시간마다 넣고 규칙 0-M 이 내리므로 하루에 몇 번씩 그 창이 열린다(2026-10-13 검증 중 실제로 4건 들어왔다).
       //   ⚠ 유실 쪽은 이걸로 못 막는다 — 다음 회차에 들어온다. 중복만 막는다.
       for (const r of page) { if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); } }
-      if (page.length < PAGE) break; // 마지막 페이지
-      if (from > 50000) break; // 안전장치
     }
     DATA = rows.map(r => ({
       id: r.id,
@@ -2367,8 +2459,11 @@ function applySearchMode(){
 }
 
 // 날짜탭 건수 - 오픈일 기준
+let _cntMap=null,_cntSrc=null,_cntLen=-1;
 function getCntForDate(ds){
-  return DATA.filter(item=>!isExpired(item)&&item.openDate===ds).length;
+  // ⚡ 한 번만 센다 (2026-10-25) — 날짜 탭 62개마다 DATA 전체를 훑어 0.5~0.7초 걸렸다. DATA 가 바뀌면(참조·길이) 다시 센다
+  if(_cntSrc!==DATA || _cntLen!==DATA.length){ _cntSrc=DATA; _cntLen=DATA.length; _cntMap={}; for(const item of DATA){ if(item.openDate && !isExpired(item)) _cntMap[item.openDate]=(_cntMap[item.openDate]||0)+1; } }
+  return _cntMap[ds]||0;
 }
 
 // 날짜 필터 해제 → 전체 보기
@@ -4170,6 +4265,12 @@ function mcToast(msg){
 const VAPID_PUB='BKCAlmHioBfl2K70UhGHfFo5X9CPaoVVeoX8DcD8pKVJxQ06c_HILhpIzzXgtVLk_7qpGvpN5HGrEhhjeM5oE1c';
 let WISH=new Set();            // 찜한 공구 id
 let _wishCounts={};            // 공구별 찜 수(TOP100 정렬 보조)
+let _wishCountsReady=false;    // 찜 수가 왔나 — 오기 전엔 스포 띠를 그리지 않는다(바탕값만 보였다가 30 으로 튀었다, 2026-10-25)
+let _wcEarlyUsed=false;
+function _applyWishCounts(rows){ const m={}; (rows||[]).forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; }); _wishCounts=m; _wishCountsReady=true; }
+function _nxDrawWhenReady(n){ if(typeof renderNextGonggu==='function'){ try{ renderNextGonggu(); }catch(_){} return; } if((n||0)<200) setTimeout(()=>_nxDrawWhenReady((n||0)+1),30); }   // 띠 그리는 코드가 아직 안 읽혔으면 읽힐 때까지 기다렸다 그린다(재방문 땐 찜 수가 먼저 와서 그리기를 놓쳤다)
+try{ (window._mcWcEarly?window._mcWcEarly():Promise.resolve(null)).then(rows=>{ if(Array.isArray(rows) && !_wishCountsReady){ _applyWishCounts(rows); _nxDrawWhenReady(0); } }); }catch(_){}
+setTimeout(()=>{ if(_wishCountsReady) return; _wishCountsReady=true; _nxDrawWhenReady(0); },3000);   // 3초 안에 못 받으면 바탕값으로라도 띠를 보인다
 
 // 기기 식별자 (로그인 없이 찜 유지. 카카오 로그인 붙으면 계정과 연결)
 function deviceId(){
@@ -4238,11 +4339,10 @@ async function syncWishFromServer(){
 // 찜 수 집계 (TOP100 정렬에 합산)
 async function loadWishCounts(){
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'});
-    if(!r.ok) return;
-    const rows=await r.json(); const m={};
-    rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
-    _wishCounts=m;
+    let rows=null;
+    if(!_wcEarlyUsed && window._mcWcEarly){ _wcEarlyUsed=true; rows=await window._mcWcEarly(); }   // 첫 번째는 먼저 출발한 요청을 받아 쓴다(같은 요청 두 번 안 보냄)
+    if(!Array.isArray(rows)){ const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'}); if(!r.ok) return; rows=await r.json(); }
+    _applyWishCounts(rows);
     try{ renderNextGonggu(); }catch(_){}   // 🔔 찜 수가 오면 스포 숫자도 다시
     if(fSt==='top100') renderList();
     if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
@@ -5539,6 +5639,7 @@ async function loadBanners(){
     MAIN_BANNERS=DEFAULT_BANNERS;
   }
   buildMainSlider();
+  try{ _mcTopReady('banner'); }catch(_){}
   try{ renderNextGonggu(); }catch(_){}   // 🔔 배너 사진이 도착한 뒤 다시 그린다
 }
 loadBanners();
@@ -5568,8 +5669,8 @@ let _NX_EARLY=null;
 async function _nxEarlyLoad(){
   try{
     const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`;
-    const r=await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
-    if(!r.ok) return; const rows=await r.json(); if(!Array.isArray(rows)) return;
+    const rows=(window._mcNxEarly && window._mcNxEarlyDay===todayStr) ? await window._mcNxEarly() : await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.ok?r.json():null);   // ⚡ 위에서 먼저 출발한 요청을 받아 쓴다 (2026-10-25)
+    if(!Array.isArray(rows)) return;
     _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
     if(!(typeof DATA!=='undefined' && DATA && DATA.length)) renderNextGonggu();   // 전체가 이미 왔으면 그쪽이 그린다
   }catch(_){}
@@ -5704,8 +5805,14 @@ function _nxAutoStart(sc){
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
-  if(!items.length){ zone.style.display='none'; return; }
-  const sc=document.getElementById('nextScroll'); const x=sc.scrollLeft; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); sc.scrollLeft=x;
+  if(!items.length){ if(_NX_EARLY===null && !(typeof DATA!=='undefined'&&DATA&&DATA.length) && typeof _mcTopDone!=='undefined' && !_mcTopDone) return; zone.style.display='none'; try{ if(typeof _mcTopReady==='function') _mcTopReady('next'); }catch(_){} return; }
+  if(!_wishCountsReady) return;   // ⚡ 찜 수가 온 뒤 한 번에 (2026-10-25)
+  const sc=document.getElementById('nextScroll');
+  // ⚡ 같은 내용이면 다시 그리지 않는다 (2026-10-25) — 빠른 길·배너 도착·전체 DATA 도착마다 새로 그리며 카드 3,000장 배치까지 다시 계산시켰다
+  const _sig=items.map(it=>it.id+':'+it.name+':'+it.openDate+':'+(isWished(it.id)?1:0)+':'+_nxN(it)+':'+((_nxBanner(it)||{}).img_url||'')).join('|');   // 상품명·오픈일도 본다(DB 에서 고친 값이 띠에만 낡게 남지 않게)
+  if(_sig===sc._nxSig && sc.children.length){ zone.style.display=''; try{ _nxArrive(); }catch(_){} return; }
+  sc._nxSig=_sig;
+  const x=sc.children.length?sc.scrollLeft:0; sc.innerHTML=items.map(it=>_nxCardD(it)).join(''); if(x) sc.scrollLeft=x;
   const pages=items.length; document.getElementById('nextDots').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<i${i===0?' class="on"':''}></i>`).join(''):'';
   if(!sc._nxSwipe){ sc._nxSwipe=true;
     // 🔴 2026-10-22 사장님 "안밀려 · 아래 동그라미 눌러도 옆으로 안넘어가" — 동그라미 클릭 이동 + 손가락 밀기 보조
@@ -5721,6 +5828,7 @@ function renderNextGonggu(){
   if(!sc._nxAuto){ sc._nxAuto=true; _nxAutoStart(sc); }
   setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
+  try{ if(typeof _mcTopReady==='function') _mcTopReady('next'); }catch(_){}   // test 「한번에 보이기」 — 띠를 실제로 그린 때 신호
   try{ _nxArrive(); }catch(_){}
 }
 try{ _nxEarlyLoad(); }catch(_){}   // ⚡ 띠 먼저 그리기 — 전체 DATA 를 기다리지 않는다
@@ -5817,8 +5925,9 @@ async function loadSellers(){
   // 파트너(이웃셀러) 집합 채우기 — 카드 우선노출/뱃지 판별용
   PARTNER_SET = new Set(rows.map(s=>normHandle(s.insta)).filter(Boolean));
   renderSellers(rows);
-  // 셀러가 데이터보다 늦게 와도 카드에 파트너 표시 반영
-  if(DATA && DATA.length) renderList();
+  try{ _mcTopReady('seller'); }catch(_){}
+  // 셀러가 데이터보다 늦게 와도 카드에 파트너 표시 반영 (⚡ 배너 도착과 겹치면 한 번으로 합친다 2026-10-25)
+  _mcReRenderSoon();
 }
 function renderSellers(rows){
   const zone=document.getElementById('sellerZone');
@@ -5923,6 +6032,7 @@ async function loadSellerBanners(){
     return true;
   });
   renderSellerBanners();
+  try{ _mcTopReady('sub'); }catch(_){}
 }
 
 function renderSellerBanners(){
@@ -6281,7 +6391,9 @@ function commGo(url, ev){
     const ua=navigator.userAgent||'';
     if(/NAVER\(inapp/i.test(ua)) return true;   // 이미 네이버 앱 안
     if(/Android/i.test(ua)){
-      if(window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      const wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);   // 인앱 웹뷰(카톡·인스타 등)만 openLink(웹뷰 오류 화면을 피하는 iframe 방식)
+      if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      // 크롬·홈화면 앱·우리 앱: 네이버 앱 intent 하나만 — 앱이 없으면 그 안의 browser_fallback_url 로 브라우저. 타이머로 일반 주소를 또 열지 않는다(「Chrome / NAVER」 고르는 창이 떴다)
       const enc=encodeURIComponent(new URL(url, location.href).href);
       if(ev) ev.preventDefault();
       try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}

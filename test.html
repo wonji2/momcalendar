@@ -1520,6 +1520,9 @@ window._mcBanners=(function(){
   };
 })();
 window._mcBannersOf=function(list,t){ return (list||[]).filter(function(x){ return x && x.type===t; }); };
+// ⚡ 찜 수(wish_counts)도 여기서 먼저 출발 (2026-10-25) — 스포 띠 🔔 숫자가 바탕값으로 먼저 그려졌다가 튀지 않게, 띠는 찜 수가 온 뒤 한 번에 그린다
+window._mcWcEarly=(function(){ var p=null; return function(){ if(!p){ var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; p=fetch(U+'/rest/v1/rpc/wish_counts',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K},body:'{}'}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); } return p; }; })();
+try{ window._mcWcEarly(); }catch(_){}
 // ⚡ 오픈 예정 스포(momcal_ 예정 공구) 요청도 여기서 먼저 출발 (2026-10-25) — _nxEarlyLoad 가 이 약속을 받아 쓴다. 주소는 _nxEarlyLoad 와 똑같다(Worker 캐시 같은 항목)
 window._mcNxEarly=(function(){ var p=null; return function(){ if(!p){ var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'; var d=new Date(); var t=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); window._mcNxEarlyDay=t;
   p=fetch(U+'/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.'+t+'&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always',{headers:{apikey:K,Authorization:'Bearer '+K}}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); } return p; }; })();
@@ -4857,6 +4860,12 @@ function mcToast(msg){
 const VAPID_PUB='BKCAlmHioBfl2K70UhGHfFo5X9CPaoVVeoX8DcD8pKVJxQ06c_HILhpIzzXgtVLk_7qpGvpN5HGrEhhjeM5oE1c';
 let WISH=new Set();            // 찜한 공구 id
 let _wishCounts={};            // 공구별 찜 수(TOP100 정렬 보조)
+let _wishCountsReady=false;    // 찜 수가 왔나 — 오기 전엔 스포 띠를 그리지 않는다(바탕값만 보였다가 30 으로 튀었다, 2026-10-25)
+let _wcEarlyUsed=false;
+function _applyWishCounts(rows){ const m={}; (rows||[]).forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; }); _wishCounts=m; _wishCountsReady=true; }
+function _nxDrawWhenReady(n){ if(typeof renderNextGonggu==='function'){ try{ renderNextGonggu(); }catch(_){} return; } if((n||0)<200) setTimeout(()=>_nxDrawWhenReady((n||0)+1),30); }   // 띠 그리는 코드가 아직 안 읽혔으면 읽힐 때까지 기다렸다 그린다(재방문 땐 찜 수가 먼저 와서 그리기를 놓쳤다)
+try{ (window._mcWcEarly?window._mcWcEarly():Promise.resolve(null)).then(rows=>{ if(Array.isArray(rows) && !_wishCountsReady){ _applyWishCounts(rows); _nxDrawWhenReady(0); } }); }catch(_){}
+setTimeout(()=>{ if(_wishCountsReady) return; _wishCountsReady=true; _nxDrawWhenReady(0); },3000);   // 3초 안에 못 받으면 바탕값으로라도 띠를 보인다
 
 // 기기 식별자 (로그인 없이 찜 유지. 카카오 로그인 붙으면 계정과 연결)
 function deviceId(){
@@ -4925,11 +4934,10 @@ async function syncWishFromServer(){
 // 찜 수 집계 (TOP100 정렬에 합산)
 async function loadWishCounts(){
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'});
-    if(!r.ok) return;
-    const rows=await r.json(); const m={};
-    rows.forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; });
-    _wishCounts=m;
+    let rows=null;
+    if(!_wcEarlyUsed && window._mcWcEarly){ _wcEarlyUsed=true; rows=await window._mcWcEarly(); }   // 첫 번째는 먼저 출발한 요청을 받아 쓴다(같은 요청 두 번 안 보냄)
+    if(!Array.isArray(rows)){ const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'}); if(!r.ok) return; rows=await r.json(); }
+    _applyWishCounts(rows);
     try{ if(typeof renderNextGonggu==='function') renderNextGonggu(); }catch(_){}   // ⚡ 스포 띠 🔔 숫자 = 바탕값 + 실제 찜 수 (2026-10-25)
     if(fSt==='top100') renderList();
     if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
@@ -6320,7 +6328,6 @@ async function _nxEarlyLoad(){
     _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
     if(!(typeof DATA!=='undefined' && DATA && DATA.length)) renderNextGonggu();   // 전체가 이미 왔으면 그쪽이 그린다
   }catch(_){}
-  finally{ try{ _mcTopReady('next'); }catch(_){} }
 }
 function _nxItems(){ const _src=(typeof DATA!=='undefined'&&DATA&&DATA.length)?DATA:(_NX_EARLY||[]); return _src.filter(it=>it.insta==='momcal_' && it.openDate>todayStr).sort((a,b)=>a.openDate<b.openDate?-1:a.openDate>b.openDate?1:a.id-b.id); }
 function _nxBanner(it){ const all=(window._mcAllBanners||[]).filter(x=>x&&(x.type==='main'||x.type==='seller')); /* 판매 배너(promo_card 등)가 썸네일로 잡히지 않게 (2026-10-15) */ const pay=(it.payLink||'').trim(); const head=(it.name||'').split(' ')[0]; let b=null; if(pay) b=all.find(x=>x&&x.link===pay&&x.img_url); if(!b&&head) b=all.find(x=>x&&x.img_url&&typeof x.title==='string'&&x.title.indexOf(head)===0); return b||null; }
@@ -6452,7 +6459,8 @@ function _nxAutoStart(sc){
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
   const items=_nxItems();
-  if(!items.length){ if(_NX_EARLY===null && !(typeof DATA!=='undefined'&&DATA&&DATA.length) && typeof _mcTopDone!=='undefined' && !_mcTopDone) return; zone.style.display='none'; return; }
+  if(!items.length){ if(_NX_EARLY===null && !(typeof DATA!=='undefined'&&DATA&&DATA.length) && typeof _mcTopDone!=='undefined' && !_mcTopDone) return; zone.style.display='none'; try{ if(typeof _mcTopReady==='function') _mcTopReady('next'); }catch(_){} return; }
+  if(!_wishCountsReady) return;   // ⚡ 찜 수가 온 뒤 한 번에 (2026-10-25)
   const sc=document.getElementById('nextScroll');
   // ⚡ 같은 내용이면 다시 그리지 않는다 (2026-10-25) — 빠른 길·배너 도착·전체 DATA 도착마다 새로 그리며 카드 3,000장 배치까지 다시 계산시켰다
   const _sig=items.map(it=>it.id+':'+it.name+':'+it.openDate+':'+(isWished(it.id)?1:0)+':'+_nxN(it)+':'+((_nxBanner(it)||{}).img_url||'')).join('|');   // 상품명·오픈일도 본다(DB 에서 고친 값이 띠에만 낡게 남지 않게)
@@ -6474,6 +6482,7 @@ function renderNextGonggu(){
   if(!sc._nxAuto){ sc._nxAuto=true; _nxAutoStart(sc); }
   setTimeout(_nxGraphRefresh,40);   // rAF 는 안 보이는 탭에서 안 돈다
   zone.style.display='';
+  try{ if(typeof _mcTopReady==='function') _mcTopReady('next'); }catch(_){}   // test 「한번에 보이기」 — 띠를 실제로 그린 때 신호
   try{ _nxArrive(); }catch(_){}
 }
 try{ _nxEarlyLoad(); }catch(_){}   // ⚡ 띠 먼저 그리기 — 전체 DATA 를 기다리지 않는다
@@ -7124,7 +7133,9 @@ function commGo(url, ev){
     const ua=navigator.userAgent||'';
     if(/NAVER\(inapp/i.test(ua)) return true;   // 이미 네이버 앱 안
     if(/Android/i.test(ua)){
-      if(window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      const wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);   // 인앱 웹뷰(카톡·인스타 등)만 openLink(웹뷰 오류 화면을 피하는 iframe 방식)
+      if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      // 크롬·홈화면 앱·우리 앱: 네이버 앱 intent 하나만 — 앱이 없으면 그 안의 browser_fallback_url 로 브라우저. 타이머로 일반 주소를 또 열지 않는다(「Chrome / NAVER」 고르는 창이 떴다)
       const enc=encodeURIComponent(new URL(url, location.href).href);
       if(ev) ev.preventDefault();
       try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
