@@ -1368,20 +1368,30 @@ function _mcTopReveal(why){
 const _MC_CH_KEY='mc_card_ch_'+Math.round(Math.min(innerWidth||390,480)/10);
 try{ const v=parseFloat(localStorage.getItem(_MC_CH_KEY)); if(v>20&&v<200) document.documentElement.style.setProperty('--mc-ch',v+'px'); }catch(_){}
 function _mcCardCal(){
-  const cards=[...document.querySelectorAll('#cardList > .card:not(.wended)')].slice(0,7); if(!cards.length) return false;   // 마감된 찜 카드는 꼴이 달라 뺀다
-  const hs=cards.map(c=>{ const prev=c.style.contentVisibility; c.style.contentVisibility='visible'; const cs=getComputedStyle(c); const h=c.getBoundingClientRect().height-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-parseFloat(cs.borderTopWidth)-parseFloat(cs.borderBottomWidth); c.style.contentVisibility=prev; return Math.round(h*1000)/1000; });   // 셋째 자리까지 — 둘째 자리 반올림도 카드 500장이면 7px 쌓였다
-  const cnt={}; hs.forEach(h=>cnt[h]=(cnt[h]||0)+1); const v=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];   // 가장 흔한 값
+  // 이미 그려진 카드(화면 근처)가 있으면 그대로 잰다 — 배치를 새로 시키지 않는다. 없을 때만 한 장을 잠깐 그려서 잰다
+  //   (재검증 2026-10-25: 7장을 하나씩 바꿔 그리면 한 번에 150ms — 측정은 한 장이면 된다. 3,025장 모두 같은 높이였다)
+  const all=document.querySelectorAll('#cardList > .card:not(.wended)'); if(!all.length) return false;   // 마감된 찜 카드는 꼴이 달라 뺀다
+  const pick=[];
+  if(all[0].checkVisibility){ const vh=innerHeight||800; for(const x of all){ const r=x.getBoundingClientRect(); if(r.top>vh*2) break; if(r.bottom>-vh && x.checkVisibility({contentVisibilityAuto:true})){ pick.push(x); if(pick.length>=5) break; } } }
+  const forced=!pick.length; if(forced) pick.push(all[0]);
+  const hs=pick.map(c=>{ const prev=c.style.contentVisibility; if(forced) c.style.contentVisibility='visible';
+    const cs=getComputedStyle(c); const h=c.getBoundingClientRect().height-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-parseFloat(cs.borderTopWidth)-parseFloat(cs.borderBottomWidth);
+    if(forced) c.style.contentVisibility=prev; return Math.round(h*1000)/1000; });   // 셋째 자리까지 — 둘째 자리 반올림도 카드 500장이면 7px 쌓였다
+  const cnt={}; hs.forEach(h=>cnt[h]=(cnt[h]||0)+1); const v=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];   // 이미 그려진 카드 최대 5장 중 가장 흔한 값 (한 장만 재면 꼴이 다른 카드를 잡을 수 있다)
   if(!(v>20&&v<200)) return false;   // 목록이 숨겨져 있으면(검색 딥링크 등) 값이 안 나온다 → 못 잰 것으로 보고 다음에 다시
   const cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mc-ch'))||0;
   if(Math.abs(cur-v)>0.0005) document.documentElement.style.setProperty('--mc-ch',v+'px');
   try{ localStorage.setItem(_MC_CH_KEY,String(v)); }catch(_){}
   return true;
 }
-// 언제 재나: 목록 크기가 바뀔 때마다(첫 그리기·다시 그리기·검색에서 나옴·웹폰트가 붙어 글자 높이가 바뀜) — 재검증 2026-10-25: 처음 한 번만 재면 대체 글꼴 값이 굳었다
-(function(){ let q=0; const run=()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; try{ _mcCardCal(); }catch(_){} }); };
-  const start=()=>{ const el=document.getElementById('cardList'); if(!el) return; if(window.ResizeObserver){ try{ new ResizeObserver(run).observe(el); }catch(_){} } else { let n=0; (function poll(){ let ok=false; try{ ok=_mcCardCal(); }catch(_){ ok=true; } if(!ok && ++n<80) setTimeout(poll,250); })(); } };
+// 언제 재나 (재검증 2026-10-25 두 번 반영):
+//   ① 처음 제대로 잴 때까지만 목록 크기를 지켜본다(첫 그리기·검색 딥링크에서 나옴). 재고 나면 지켜보기를 끈다 — 탭 바꿀 때마다 재면 그때마다 느려진다
+//   ② 글꼴이 새로 붙으면(웹폰트가 늦게 옴 → 글자 높이가 바뀜) 다시 잰다 — 처음 한 번만 재면 대체 글꼴 값이 굳었다
+(function(){ let q=0, ro=null;
+  const run=()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; let ok=false; try{ ok=_mcCardCal(); }catch(_){} if(ok && ro){ try{ ro.disconnect(); }catch(_){} ro=null; } }); };
+  const start=()=>{ const el=document.getElementById('cardList'); if(!el) return; if(window.ResizeObserver){ try{ ro=new ResizeObserver(run); ro.observe(el); }catch(_){} } else { let n=0; (function poll(){ let ok=false; try{ ok=_mcCardCal(); }catch(_){ ok=true; } if(!ok && ++n<80) setTimeout(poll,250); })(); } };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
-  try{ document.fonts && document.fonts.addEventListener && document.fonts.addEventListener('loadingdone',run); }catch(_){}
+  try{ document.fonts && document.fonts.addEventListener && document.fonts.addEventListener('loadingdone',()=>{ if(q) return; q=requestAnimationFrame(()=>{ q=0; try{ _mcCardCal(); }catch(_){} }); }); }catch(_){}
 })();
 // 카드 목록 다시 그리기를 한 번으로 합친다 — 배너·이웃셀러가 도착할 때마다 카드 3,000장을 처음부터 다시 그렸다
 let _mcRrT=null;
