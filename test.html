@@ -7129,22 +7129,33 @@ function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d
 //   · 아이폰 카톡: 사파리로 내보낸다 — 카톡 안 웹뷰엔 네이버 로그인이 없다. 사파리에선 네이버 카페 앱이 깔려 있으면 그 앱이 받는다
 //   · 그 밖(아이폰 사파리·네이버 앱 안·PC): 그냥 새 창(기본 동작)
 //   ⚠ 사이트의 다른 네이버 링크(핫딜·배너)는 바꾸지 않는다 — 커뮤니티에만 쓴다
+function _commGoLog(way){
+  try{
+    const ua=navigator.userAgent||''; let sa=false; try{ sa=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(_){}
+    const br=/SamsungBrowser\/[\d.]+/i.test(ua)?'samsung'+(ua.match(/SamsungBrowser\/(\d+)/i)||[])[1]:/; wv\)/.test(ua)?'wv':/KAKAOTALK/i.test(ua)?'kakao':/Instagram/i.test(ua)?'insta':/CriOS/i.test(ua)?'ios-chrome':/iPhone|iPad/i.test(ua)?'ios':/Chrome\/(\d+)/.test(ua)?'chrome'+(ua.match(/Chrome\/(\d+)/)||[])[1]:'etc';
+    const tag=way+'|'+(sa?'sa':'tab')+'|'+br+'|'+((ua.match(/Android (\d+)/)||[])[1]||'');
+    trackEvent('community_go', tag);
+    setTimeout(()=>{ try{ if(!document.hidden) trackEvent('community_stay', tag); }catch(_){} },3000);
+  }catch(_){}
+}
 function commGo(url, ev){
   try{
     const ua=navigator.userAgent||'';
-    if(/NAVER\(inapp/i.test(ua)) return true;   // 이미 네이버 앱 안
+    if(/NAVER\(inapp/i.test(ua)){ _commGoLog('naverapp'); return true; }   // 이미 네이버 앱 안
     if(/Android/i.test(ua)){
       const wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);   // 인앱 웹뷰(카톡·인스타 등)만 openLink(웹뷰 오류 화면을 피하는 iframe 방식)
-      if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      if(wv && window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ _commGoLog('wv-openlink'); if(ev) ev.preventDefault(); openLink(url); return false; }
       // 크롬·홈화면 앱·우리 앱: 네이버 앱 intent 하나만 — 앱이 없으면 그 안의 browser_fallback_url 로 브라우저. 타이머로 일반 주소를 또 열지 않는다(「Chrome / NAVER」 고르는 창이 떴다)
       const enc=encodeURIComponent(new URL(url, location.href).href);
+      _commGoLog('intent');
       if(ev) ev.preventDefault();
       try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
       location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
       return false;
     }
-    if(/iPhone|iPad|iPod/i.test(ua) && /KAKAOTALK/i.test(ua)){ if(ev) ev.preventDefault(); location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); return false; }
+    if(/iPhone|iPad|iPod/i.test(ua) && /KAKAOTALK/i.test(ua)){ _commGoLog('ios-kakao-safari'); if(ev) ev.preventDefault(); location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); return false; }
   }catch(_){}
+  _commGoLog('default');
   return true;
 }
 function renderCommunity(){
