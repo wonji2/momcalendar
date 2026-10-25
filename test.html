@@ -7112,6 +7112,28 @@ function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60)
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
 function commMore(){ _commShown+=30; renderCommunity(); }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }
+// 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
+//   · 안드로이드(크롬·카톡/인스타 인앱·홈화면 앱·우리 앱): 네이버 앱(로그인 살아 있음) 인앱브라우저로. 앱이 없으면 S.browser_fallback_url 로 기본 브라우저(카페 모바일 웹)
+//       인앱·홈화면 앱은 openLink 가 같은 일을 이미 한다(_mcNaverApp · 이중 열림 막기 포함) → 그걸 그대로 쓴다. 일반 크롬만 여기서 intent 를 직접 던진다
+//   · 아이폰 카톡: 사파리로 내보낸다 — 카톡 안 웹뷰엔 네이버 로그인이 없다. 사파리에선 네이버 카페 앱이 깔려 있으면 그 앱이 받는다
+//   · 그 밖(아이폰 사파리·네이버 앱 안·PC): 그냥 새 창(기본 동작)
+//   ⚠ 사이트의 다른 네이버 링크(핫딜·배너)는 바꾸지 않는다 — 커뮤니티에만 쓴다
+function commGo(url, ev){
+  try{
+    const ua=navigator.userAgent||'';
+    if(/NAVER\(inapp/i.test(ua)) return true;   // 이미 네이버 앱 안
+    if(/Android/i.test(ua)){
+      if(window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      const enc=encodeURIComponent(new URL(url, location.href).href);
+      if(ev) ev.preventDefault();
+      try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
+      location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
+      return false;
+    }
+    if(/iPhone|iPad|iPod/i.test(ua) && /KAKAOTALK/i.test(ua)){ if(ev) ev.preventDefault(); location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); return false; }
+  }catch(_){}
+  return true;
+}
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
   const all=_commData||[];
@@ -7126,10 +7148,10 @@ function renderCommunity(){
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
     const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){}"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commGo(this.href,event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
-  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} if(typeof openLink==='function'){ event.preventDefault(); openLink(this.href); }">✏️ 글쓰기</a>`;
+  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
   v.innerHTML=h;
   const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }

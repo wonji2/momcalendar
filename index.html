@@ -1013,6 +1013,7 @@ body.srch-mode .next-zone{display:none!important}
   <button class="cseg on" data-ct="gonggu" onclick="switchContent('gonggu')" style="background:#602090;color:#fff">📅 공구</button>
   <button class="cseg" data-ct="hotdeal" onclick="switchContent('hotdeal')">🔥 핫딜</button>
   <button class="cseg" data-ct="sale" onclick="switchContent('sale')">🛍 세일/라방</button>
+  <button class="cseg" data-ct="community" onclick="switchContent('community')">💬 커뮤니티</button>
 </div>
 
 <!-- 광고 슬림 배너 (banners type=slim · 게시기간 자동 노출/종료 · 공구·핫딜·체험단 공통) -->
@@ -1388,6 +1389,7 @@ window.slimAdClick=function(id){
   </div>
 </div>
 <!-- ===== /세일 일정 영역 ===== -->
+<div id="commView" style="display:none;padding:12px;min-height:120vh"></div>
 
 <!-- ===== 통합검색 결과 (검색어 입력 시 공구·핫딜·체험단 한 화면) ===== -->
 <div id="searchAllView" style="display:none;padding:12px;min-height:60vh"></div>
@@ -2577,7 +2579,7 @@ function scrollToResults(){
 // ── 탭 전환 ──
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
-const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5']};
+const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5'],community:['#EFEAF5','#602090']};
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
@@ -2594,6 +2596,7 @@ function switchContent(ct){
   document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
   document.getElementById('expView').style.display = ct==='exp'?'block':'none';
   { const sv=document.getElementById('saleView'); if(sv) sv.style.display = ct==='sale'?'block':'none'; }
+  { const cv=document.getElementById('commView'); if(cv) cv.style.display = ct==='community'?'block':'none'; if(ct==='community'){ try{ loadCommunity(); }catch(e){ console.error(e); } } }   // 💬 커뮤니티(카페 글)
   if(ct==='sale') loadSale();
   if(ct==='hotdeal') loadHotdeals();
   if(ct==='exp') loadExperiences();
@@ -6223,5 +6226,93 @@ function closeChatMenu(){
     ⓒ 원츠비(맘캘린더). 사이트 내 모든 콘텐츠(공구 일정 데이터베이스·문구·UI·디자인 등)는 원츠비의 자산입니다. 무단 복제·배포·전송·크롤링·스크래핑 및 이를 이용한 유사 서비스 제작을 금지하며, 위반 시 저작권법·부정경쟁방지법 등 관련 법령에 따라 민·형사상 책임을 질 수 있습니다.
   </div>
 </div>
+<!-- 💬 커뮤니티 탭 (test.html 에서 옮김 · 사장님 2026-10-25 「테스트에 있는 커뮤니티 기능도 라이브에 넣어놔」) — 원본은 test.html 의 mc-community 블록 -->
+<style id="mc-community">
+.comm-tabs{position:relative;margin:0 -12px 2px}
+.comm-tabs .comm-sc{display:flex;gap:18px;overflow-x:auto;padding:4px 14px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-bottom:1px solid #F2F4F6}
+.comm-tabs .comm-sc::-webkit-scrollbar{display:none}
+.comm-tabs button{flex:none;border:0;background:none;color:#8B95A1;font-family:inherit;font-size:14.5px;font-weight:500;padding:8px 0 10px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.comm-tabs button.on{color:#191F28;font-weight:700;border-bottom-color:#191F28}
+.comm-tabs::after{content:"";position:absolute;right:0;top:0;bottom:1px;width:44px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff);pointer-events:none}
+.comm-post{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F2F4F6;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.comm-post:active{opacity:.7}
+.comm-post .bx{min-width:0;flex:1}
+.comm-post .t{font-size:15px;font-weight:700;margin:0;display:flex;gap:6px;align-items:baseline;letter-spacing:-.01em;color:#191F28;line-height:1.4}
+.comm-post .t span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comm-post .t .n{color:#FF7043;font-weight:700;font-size:13px;flex:none}
+.comm-post .p{font-size:13.5px;color:#4E5968;margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+.comm-post .m{font-size:12px;color:#8B95A1;display:flex;gap:6px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.comm-post .m span+span::before{content:"·";margin-right:6px}
+.comm-thumb{width:64px;height:64px;border-radius:12px;flex:none;background:#F2F4F6;object-fit:cover}
+.comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
+.comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
+@media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
+#commView{padding-bottom:96px!important}
+body:has(#commView[style*="display: block"]) .chat-fab-wrap,body:has(#commView[style*="display:block"]) .chat-fab-wrap{display:none}   /* 커뮤니티는 시안처럼 글쓰기 하나만 — ＋ 가 글쓰기를 반쯤 가렸다(앱 모드 실측) */   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
+</style>
+<script>
+// ── 커뮤니티 탭 ────────────────────────────────────────────────
+const COMM_CLUB=31499187;
+let _commData=null, _commBoard=0, _commShown=30;
+async function loadCommunity(force){
+  const v=document.getElementById('commView'); if(!v) return;
+  if(_commData && !force){ renderCommunity(); return; }
+  v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
+  try{
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    _commData=r.ok?await r.json():[];
+  }catch(_){ _commData=[]; }
+  renderCommunity();
+}
+function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
+function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
+function commMore(){ _commShown+=30; renderCommunity(); }
+function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }
+// 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
+//   · 안드로이드(크롬·카톡/인스타 인앱·홈화면 앱·우리 앱): 네이버 앱(로그인 살아 있음) 인앱브라우저로. 앱이 없으면 S.browser_fallback_url 로 기본 브라우저(카페 모바일 웹)
+//       인앱·홈화면 앱은 openLink 가 같은 일을 이미 한다(_mcNaverApp · 이중 열림 막기 포함) → 그걸 그대로 쓴다. 일반 크롬만 여기서 intent 를 직접 던진다
+//   · 아이폰 카톡: 사파리로 내보낸다 — 카톡 안 웹뷰엔 네이버 로그인이 없다. 사파리에선 네이버 카페 앱이 깔려 있으면 그 앱이 받는다
+//   · 그 밖(아이폰 사파리·네이버 앱 안·PC): 그냥 새 창(기본 동작)
+//   ⚠ 사이트의 다른 네이버 링크(핫딜·배너)는 바꾸지 않는다 — 커뮤니티에만 쓴다
+function commGo(url, ev){
+  try{
+    const ua=navigator.userAgent||'';
+    if(/NAVER\(inapp/i.test(ua)) return true;   // 이미 네이버 앱 안
+    if(/Android/i.test(ua)){
+      if(window._mcNaverApp && window._mcNaverApp(url) && typeof openLink==='function'){ if(ev) ev.preventDefault(); openLink(url); return false; }
+      const enc=encodeURIComponent(new URL(url, location.href).href);
+      if(ev) ev.preventDefault();
+      try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||0, t: Date.now()})); }catch(_){}
+      location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end';
+      return false;
+    }
+    if(/iPhone|iPad|iPod/i.test(ua) && /KAKAOTALK/i.test(ua)){ if(ev) ev.preventDefault(); location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); return false; }
+  }catch(_){}
+  return true;
+}
+function renderCommunity(){
+  const v=document.getElementById('commView'); if(!v) return;
+  const all=_commData||[];
+  // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
+  const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
+  const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
+  const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
+  // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
+  const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
+  let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
+  else h+=rows.slice(0,_commShown).map(p=>{
+    // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
+    const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commGo(this.href,event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+  }).join('');
+  if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
+  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
+  v.innerHTML=h;
+  const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
+}
+</script>
 </body>
 </html>
