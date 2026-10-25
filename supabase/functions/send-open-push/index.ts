@@ -67,6 +67,7 @@ type Group = {
   p256dh: string;
   auth: string;
   items: { id: number; name: string; kind: string }[];
+  direct?: string;        // 맘캘 공구 판매 링크 — 있으면 누르면 바로 그리로 (2026-10-25)
 };
 
 // ── 발송 문구 (확정 — 함부로 바꾸지 말 것) ──
@@ -76,6 +77,9 @@ type Group = {
 const badge = (k: string) => k === "end" ? "[오늘 마감]" : "[오늘 오픈]";
 function buildPayload(g: Group, today: string) {
   const n = g.items.length;
+  if (g.direct) {   // 맘캘 공구 한 건 — 누르면 바로 우리 판매 링크
+    return { title: "내가 찜한 공구", body: `${badge(g.items[0].kind)} ${g.items[0].name}`, url: g.direct, tag: `mc-open-${today}-${g.items[0].id}` };
+  }
   const opens = g.items.filter((i) => i.kind !== "end").length, ends = n - opens;
   if (n === 1) {
     return {
@@ -150,7 +154,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    const list = [...groups.values()];
+    // ── 2-1) 맘캘린더 공구는 따로 떼서 한 건씩, 링크는 판매 링크로 (2026-10-25) ──
+    const ids = [...new Set(targets.map((t) => t.gonggu_id))];
+    const meta = new Map<number, { insta: string | null; pay_link: string | null }>();
+    if (ids.length) {
+      const mr = await sbFetch(`gonggu?id=in.(${ids.join(",")})&select=id,insta,pay_link`);
+      if (mr.ok) for (const m of await mr.json()) meta.set(m.id, m);
+    }
+    const isOwn = (id: number) => (meta.get(id)?.insta || "") === "momcal_";
+    const payOf = (id: number) => { const p = (meta.get(id)?.pay_link || "").trim(); return /^https?:\/\//i.test(p) ? p : ""; };
+    const list: Group[] = [];
+    for (const g of groups.values()) {
+      const own = g.items.filter((i) => isOwn(i.id) && i.kind !== "end" && payOf(i.id));   // 오늘 오픈 + 판매 링크가 열린 것만
+      const rest = g.items.filter((i) => !own.includes(i));
+      for (const it of own) list.push({ ...g, items: [it], direct: payOf(it.id) });
+      if (rest.length) list.push({ ...g, items: rest });
+    }
     if (dry) {
       return json({
         ok: true, dry: true, today, targets: targets.length, devices: list.length,

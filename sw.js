@@ -5,7 +5,7 @@
 
 // 아이콘 파일을 바꾸면 이 버전을 반드시 올릴 것.
 // 안 올리면 이미 앱을 설치한 사람은 예전 아이콘을 계속 보게 된다.
-const CACHE = 'momcal-v6';
+const CACHE = 'momcal-v7';   // 2026-10-25 알림 외부 링크 새 창
 const ASSETS = [
   '/momcal-badge.png',
   '/momcal-appicon.png',
@@ -86,6 +86,8 @@ self.addEventListener('push', function(e){
 self.addEventListener('notificationclick', function(e){
   e.notification.close();
   var target = (e.notification.data && e.notification.data.url) || '/';
+  // 맘캘 공구 알림은 판매 링크(다른 사이트)로 바로 간다(2026-10-25) — 열린 창을 옮기지 말고 새 창으로 연다
+  if (/^https?:\/\//i.test(target) && target.indexOf(self.location.origin) !== 0) { e.waitUntil(clients.openWindow ? clients.openWindow(target) : Promise.resolve()); return; }
 
   e.waitUntil(
     clients.matchAll({ type:'window', includeUncontrolled:true }).then(function(list){
