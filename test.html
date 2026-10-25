@@ -6069,11 +6069,12 @@ function _autoPromptFromChrome(tries){
     if(location.search.indexOf('pwa=1')<0) return;
     if(_isStandalone()) return;
     if(_pwaDeferred){
-      _pwaDeferred.prompt();
-      _pwaDeferred.userChoice.then(function(c){
-        if(c && c.outcome==='accepted') localStorage.setItem('mc_pwa_installed','1');
-      }).catch(function(){});
-      _pwaDeferred=null;
+      // 크롬은 손님이 누르지 않은 상태의 설치창을 막는다(NotAllowedError, 2026-10-23~25 31건) → 막히면 설치 띠를 보여 한 번 누르게. 이벤트는 버리지 않는다(pwaInstall 이 다시 씀)
+      var _d=_pwaDeferred, _p=null; try{ _p=_d.prompt(); }catch(e){ _p=Promise.reject(e); }
+      Promise.resolve(_p).then(function(){
+        _d.userChoice.then(function(c){ if(c && c.outcome==='accepted') localStorage.setItem('mc_pwa_installed','1'); }).catch(function(){});
+        _pwaDeferred=null;
+      }).catch(function(){ window._pwaAutoRejected=true; try{ var st=document.getElementById('pwaStrip'); if(st && !document.body.classList.contains('app-strip-on')) st.style.display='flex'; }catch(_){} });
       return;
     }
     if(tries<8) setTimeout(function(){ _autoPromptFromChrome(tries+1); }, 700);
