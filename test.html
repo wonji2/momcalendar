@@ -7060,7 +7060,7 @@ function closeChatMenu(){
 .comm-post .t span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .comm-post .t .n{color:#FF7043;font-weight:700;font-size:13px;flex:none}
 .comm-post .p{font-size:13.5px;color:#4E5968;margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
-.comm-post .m{font-size:12px;color:#8B95A1;display:flex;gap:6px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.comm-post .m{font-size:12px;color:#8B95A1;display:flex;gap:6px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;align-items:center}
 .comm-post .m span+span::before{content:"·";margin-right:6px}
 .comm-thumb{width:64px;height:64px;border-radius:12px;flex:none;background:#F2F4F6;object-fit:cover}
 .comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
@@ -7115,7 +7115,7 @@ async function loadCommunity(force){
   v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
   try{
     const since=new Date(Date.now()-30*86400000).toISOString();
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,writer_level,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
     _commData=r.ok?await r.json():[];
   }catch(_){ _commData=[]; }
   renderCommunity();
@@ -7193,11 +7193,12 @@ function renderCommunity(){
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
   const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
   let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  if(!_commBoard) h+=_grCard();   // 🏅 등급 사다리 (2026-10-25 「글쓰고싶게」)
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
     const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}${_grBadge(p.writer_level)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
@@ -7675,7 +7676,7 @@ function _cpHtml(d,row,url){
     return '<div class="cp-t">'+_cpEsc(row.title||'')+'</div><div class="cp-empty">'+_cpEsc((d&&d.error)||'글을 불러오지 못했어요')+'<br>아래 「카페에서 보기」로 열어 주세요</div>';
   }
   let h='<h2 class="cp-t">'+_cpEsc(d.subject)+'</h2>';
-  h+='<div class="cp-m"><span>'+_cpEsc(d.nick)+(d.host?'<em class="cp-badge">방장</em>':'')+'</span><span>'+_cpWhen(d.at)+'</span><span>조회 '+(d.read||0)+'</span></div>';
+  h+='<div class="cp-m"><span>'+_cpEsc(d.nick)+_grBadge(d.lv||(d.host?999:0))+'</span><span>'+_cpWhen(d.at)+'</span><span>조회 '+(d.read||0)+'</span></div>';
   (d.blocks||[]).forEach(b=>{
     if(b.t==='p') h+='<p class="cp-p">'+_cpEsc(b.text)+'</p>';
     else if(b.t==='quote') h+='<p class="cp-p cp-q">'+_cpEsc(b.text)+'</p>';
@@ -7689,7 +7690,7 @@ function _cpHtml(d,row,url){
   h+='<div class="cp-ch">댓글 '+(d.commentCount||cs.length)+'</div>';
   if(!cs.length) h+='<div class="cp-empty">아직 댓글이 없어요. 첫 댓글은 카페에서 남겨 주세요</div>';
   cs.forEach(c=>{
-    h+='<div class="cp-c'+(c.reply?' r':'')+(c.deleted?' del':'')+'"><b>'+_cpEsc(c.nick||'')+(c.host?'<em class="cp-badge">방장</em>':'')+'</b>'
+    h+='<div class="cp-c'+(c.reply?' r':'')+(c.deleted?' del':'')+'"><b>'+_cpEsc(c.nick||'')+_grBadge(c.lv||(c.host?999:0))+'</b>'
       +'<p>'+(c.deleted?'삭제된 댓글이에요':_cpEsc(c.text||''))+'</p>'
       +(c.image?'<img src="'+_cpEsc(c.image)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')
       +'<small>'+_cpWhen(c.at)+'</small></div>';
@@ -7704,6 +7705,67 @@ function cpClose(fromPop){
   if(_cpHist && !fromPop){ _cpHist=false; try{ history.back(); }catch(_){} } else _cpHist=false;
 }
 window.addEventListener('popstate',()=>{ if(_cpOpen) cpClose(true); });   // 휴대폰 뒤로가기 = 읽기 화면 닫기
+</script>
+<style id="mc-grade">
+/* 🏅 카페 회원 등급 배지 (2026-10-25) — 높을수록 화려하게: 새싹·신입(담백) → 성실(파랑) → 열심(불꽃) → VIP(금·빛) / 맘캘이웃·스탭·방장(특별) */
+.lv{display:inline-flex;align-items:center;gap:2px;height:17px;padding:0 6px 0 4px;border-radius:999px;font-size:10.5px;font-weight:800;line-height:1;letter-spacing:-.01em;vertical-align:1px;margin-left:4px;white-space:nowrap;position:relative;overflow:hidden;flex:none}
+.lv svg{width:11px;height:11px;flex:none}
+.lv-1{background:#EAF7EE;color:#2E9E5B}
+.lv-110{background:#F2F4F6;color:#6B7684}
+.lv-120{background:#E8F1FF;color:#2F6FDB}
+.lv-130{background:linear-gradient(135deg,#FFB547,#FF6B4A);color:#fff;box-shadow:0 1px 4px rgba(255,107,74,.35)}
+.lv-140{background:linear-gradient(135deg,#FFE08A,#F0B429 55%,#D99A0B);color:#5C3B00;box-shadow:0 1px 5px rgba(217,154,11,.45)}
+.lv-140::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.8),transparent);animation:lvShine 2.6s ease-in-out infinite}
+.lv-150{background:linear-gradient(135deg,#9B6FD4,#602090);color:#fff;box-shadow:0 1px 5px rgba(96,32,144,.35)}
+.lv-888{background:linear-gradient(135deg,#2DD4BF,#0EA5E9);color:#fff;box-shadow:0 1px 5px rgba(14,165,233,.35)}
+.lv-999{background:linear-gradient(135deg,#602090,#E8336D);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.4) inset,0 1px 7px rgba(232,51,109,.45)}
+.lv-999::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:lvShine 3.2s ease-in-out infinite}
+@keyframes lvShine{0%{left:-60%}60%,100%{left:130%}}
+@media (prefers-reduced-motion:reduce){.lv-140::after,.lv-999::after{animation:none}}
+/* 등급 사다리 카드 */
+.lvc{margin:12px 0 4px;border-radius:16px;background:linear-gradient(135deg,#F7F2FC,#FFF6EC);padding:14px 14px 12px}
+.lvc-t{font-size:14.5px;font-weight:800;color:#191F28;margin:0 0 2px}
+.lvc-s{font-size:12.5px;color:#6B7684;margin:0 0 10px;line-height:1.5}
+.lvc-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.lvc-row .lv{margin-left:0}
+.lvc-row i{font-style:normal;color:#C9C2D3;font-size:11px}
+.lvc-d{margin:10px 0 0;padding:10px 0 0;border-top:1px dashed #E4DAF0;display:none}
+.lvc.open .lvc-d{display:block}
+.lvc-d div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#4E5968;padding:4px 0}
+.lvc-d div .lv{margin-left:0;min-width:56px;justify-content:center}
+.lvc-b{display:flex;gap:8px;margin-top:10px}
+.lvc-b button,.lvc-b a{flex:1;border:0;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:700;font-family:inherit;text-align:center;text-decoration:none;cursor:pointer}
+.lvc-b button{background:#fff;color:#4E5968}
+.lvc-b a{background:#191F28;color:#fff}
+</style>
+<script>
+// 🏅 등급 배지 — 카페 등급 번호 → 배지 HTML (모르는 번호면 빈칸)
+const _GR={
+  1:{n:'새싹',i:'<path d="M12 21V11"/><path d="M12 11C12 7 9 5 5 5c0 4 3 6 7 6z" fill="currentColor"/><path d="M12 13c0-3 2.5-5 6-5 0 3.5-2.5 5-6 5z" fill="currentColor"/>'},
+  110:{n:'신입',i:'<circle cx="12" cy="12" r="5" fill="currentColor"/>'},
+  120:{n:'성실',i:'<circle cx="9" cy="9" r="3.6" fill="currentColor"/><circle cx="15" cy="9" r="3.6" fill="currentColor"/><circle cx="9" cy="15" r="3.6" fill="currentColor"/><circle cx="15" cy="15" r="3.6" fill="currentColor"/>'},
+  130:{n:'열심',i:'<path d="M12 2c1 4 5 5.5 5 11a5 5 0 0 1-10 0c0-2.5 1.3-4 2.5-5 .2 2 1.2 3 2.5 3 0-3-1-6 0-9z" fill="currentColor"/>'},
+  140:{n:'VIP',i:'<path d="M6 3h12l4 6-10 12L2 9z" fill="currentColor"/><path d="M2 9h20M9 3l3 18 3-18" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>'},
+  150:{n:'맘캘이웃',i:'<path d="M12 21s-7.5-4.6-9.5-9.2C1 8.3 3.3 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.7 0 6 3.8 4.5 7.3C19.5 16.4 12 21 12 21z" fill="currentColor"/>'},
+  888:{n:'스탭',i:'<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill="currentColor"/>'},
+  999:{n:'방장',i:'<path d="M3 8l4.5 4L12 4l4.5 8L21 8l-2 11H5z" fill="currentColor"/>'}
+};
+function _grBadge(lv){ lv=Number(lv)||0; const x=_GR[lv]; if(!x) return ''; return '<span class="lv lv-'+lv+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+x.i+'</svg>'+x.n+'</span>'; }
+function _grCard(){
+  const steps=[1,110,120,130,140].map(l=>_grBadge(l)).join('<i>›</i>');
+  const write='https://m.cafe.naver.com/ca-fe/web/cafes/'+COMM_CLUB+'/articles/write?boardType=L';
+  return '<div class="lvc" id="lvCard"><p class="lvc-t">글·댓글을 쓰면 등급이 올라가요</p><p class="lvc-s">성실부터 체험단 신청, VIP는 체험단 무조건 선정이에요</p>'
+    +'<div class="lvc-row">'+steps+'</div>'
+    +'<div class="lvc-d">'
+    +'<div>'+_grBadge(1)+'가입하면 시작 · 글 2·댓글 5개면 등업</div>'
+    +'<div>'+_grBadge(110)+'공구 일정 확인 · 글 10·댓글 30개면 성실</div>'
+    +'<div>'+_grBadge(120)+'체험단 신청 · 글 100·댓글 300개면 열심</div>'
+    +'<div>'+_grBadge(130)+'체험단 선정 UP · 글 500·댓글 1,000개면 VIP</div>'
+    +'<div>'+_grBadge(140)+'준스텝 · 체험단 무조건 선정</div>'
+    +'<div>'+_grBadge(150)+'맘캘린더 이웃 인플루언서·업체</div>'
+    +'</div>'
+    +'<div class="lvc-b"><button onclick="document.getElementById(\'lvCard\').classList.toggle(\'open\');try{trackEvent(\'community_grade_info\',\'\')}catch(_){}">등급 혜택 보기</button><a href="'+write+'" onclick="try{trackEvent(\'community_write\',\'grade\')}catch(_){} return commGo(this.href,event)">글쓰고 등업하기</a></div></div>';
+}
 </script>
 </body>
 </html>

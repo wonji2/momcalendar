@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         if (a.blindArticle === true || a.openArticle === false) continue;   // 블라인드·비공개 글은 안 담는다
         rows.push({
           cafe_id: CLUB, article_id: aid, board_id: menuid, board: BOARDS[menuid] || String(a.menuName || menuid),
-          title: String(a.subject || "").slice(0, 200), nick: String(a.writerInfo?.nickName || "").slice(0, 40),
+          title: String(a.subject || "").slice(0, 200), nick: String(a.writerInfo?.nickName || "").slice(0, 40), writer_level: Number(a.writerInfo?.memberLevel) || null,   // 카페 회원 등급(1 새싹·110 신입·120 성실·130 열심·140 VIP·150 맘캘이웃·999 방장) — 닉네임 옆 등급 아이콘 (2026-10-25)
           comments: Number(a.commentCount || 0), views: Number(a.readCount || 0), likes: Number(a.likeCount || 0),
           has_image: a.hasImage === true || !!img[aid], is_notice: a.popular === true,
           summary: cleanSummary(a.summary), image_url: img[aid] || null,
