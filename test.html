@@ -7013,8 +7013,9 @@ function renderCommunity(){
       <div class="onb-sl onb-vid"><video src="intro/v2.mp4" poster="intro/v2.jpg" muted playsinline preload="none"></video></div>
       <div class="onb-sl onb-vid"><video src="intro/v3.mp4" poster="intro/v3.jpg" muted playsinline preload="none"></video></div>
       <div class="onb-sl onb-vid"><video src="intro/v4.mp4" poster="intro/v4.jpg" muted playsinline preload="none"></video></div>
+      <div class="onb-sl onb-vid"><video src="intro/v5.mp4" poster="intro/v5.jpg" muted playsinline preload="none"></video></div><!-- 마지막 장: 문화센터 신청일·특가 라방 알림까지 (사장님 2026-10-25) -->
     </div></div>
-    <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="onb-acts"><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
   </div>
   <div class="onb-step" id="onbCat">
@@ -7031,7 +7032,11 @@ function renderCommunity(){
 const ONB_CATS=[['👶','육아'],['🥗','식품'],['🏠','리빙'],['💊','건강'],['🛋️','인테리어'],['🔌','가전'],['💄','뷰티'],['👗','패션'],['✈️','여행'],['🐶','반려동물']];
 let _onbI=0, _onbAuto=true, _onbTimer=null, _onbPlayT=null, _onbRewT=null;
 const ONB_HOLD=400, ONB_APP_MS=4300, ONB_SLIDE_MS=480;   // 영상 끝 → 0.4초 → 다음 장 · 앱 안내 장 4.3초(사장님 10-25 「속도는 빠르게」) · 넘김 시간(.onb-rail transition 과 같게)
-function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem('mc_onb_done')) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
+// 「봤음」 표시는 웹과 앱을 따로 센다 — 안드로이드 앱(TWA)은 크롬과 저장소를 같이 써서, 크롬에서 본 사람은 앱을 처음 깔아도 안 떴다
+//   (사장님 2026-10-25 「앱 최초로 깔았을 때는 또 뜨게」. 아이폰 앱은 원래 저장소가 따로라 처음 열면 뜬다)
+function _onbKey(){ try{ if((typeof _isTwa==='function' && _isTwa()) || (typeof _isNativeApp==='function' && _isNativeApp())) return 'mc_onb_done_app'; }catch(_){} return 'mc_onb_done'; }
+function _onbMarkDone(){ try{ if(!localStorage.getItem(_onbKey())) localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); }catch(_){} }
+function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true;   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem(_onbKey())) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
 function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
@@ -7070,7 +7075,7 @@ function _onbShow(k){ const N=_onbN(), prev=_onbI; _onbI=Math.max(0,Math.min(N-1
     // 재생이 시작도 안 되고 매달리면(느린 인앱·저전력) 자동 넘김이 영영 멈춘다 → 4초 안에 안 움직이면 다음 장으로
     _onbTimer=setTimeout(()=>{ if(_onbAuto && _onbI===me && me<N-1 && v.currentTime<0.1) _onbShow(me+1); },4000); },ONB_SLIDE_MS);
 }
-function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); clearTimeout(_onbPlayT); document.querySelectorAll('#onbRail video').forEach(o=>o.pause()); _onbStep('onbCat'); }
+function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); clearTimeout(_onbPlayT); document.querySelectorAll('#onbRail video').forEach(o=>o.pause()); _onbMarkDone(); _onbStep('onbCat'); }   // 「시작하기」를 누르면(밀어도) 그때 봤음 — 카테고리 화면에서 앱을 닫아도 다시 안 뜬다(전엔 카테고리·아이 정보까지 끝내야 저장돼 또 떴다)
 function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
 function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
 function onbCatDone(){
@@ -7088,7 +7093,7 @@ function onbKidDone(){
 function onbFinish(how){
   clearInterval(_onbTimer);
   const w=document.getElementById('onbWrap'); if(w){ w.classList.remove('open'); w.setAttribute('aria-hidden','true'); } document.body.style.overflow='';
-  try{ localStorage.setItem('mc_onb_done', new Date().toISOString().slice(0,10)); trackEvent('onb_done', how||''); }catch(_){}
+  _onbMarkDone(); try{ trackEvent('onb_done', how||''); }catch(_){}
   applyPrefCats();
   try{ renderMe(); }catch(_){}
 }
