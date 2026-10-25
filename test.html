@@ -1625,9 +1625,15 @@ window.openLink=function(url){
       }else{
         // 홈화면 앱(PWA)·크롬: 사용자 탭 직후의 최상위 이동. 앱이 없으면 크롬이 browser_fallback_url(원래 주소)로 보낸다 — 크롬 임시 탭은
         // 크롬과 쿠키를 같이 써서, 크롬에 네이버 로그인이 있으면 그대로 로그인돼 열린다. JS 타이머로 따로 열지 않아 이중 열림이 없다
-        try{ window.location.href=_n.https; }catch(_){ _arrive(); return; }   // 2026-10-26 전용 스킴(_n.intent) → https+패키지
-        // 안전망: 이동이 조용히 무시돼(제스처 만료 등) 화면이 그대로면 2초 뒤 원래 주소로
-        setTimeout(function(){ if(_hidden()) return; _nlog('naver_fallback'); _arrive(); },2000);
+        // 2026-10-26 실기기: location.href=intent 는 홈화면 앱에서 조용히 무시됐다 → 방법을 차례로(각 단계 기록)
+        var _step=function(k){ try{ if(typeof trackEvent==='function') trackEvent('naver_step', String(k)); }catch(_){} };
+        var _ifr=function(src){ try{ var f=document.createElement('iframe'); f.style.display='none'; f.src=src; document.body.appendChild(f); setTimeout(function(){ try{ f.parentNode.removeChild(f); }catch(_){} },1500); }catch(_){} };
+        _step(1); try{ var _a=document.createElement('a'); _a.href=_n.https; _a.style.display='none'; document.body.appendChild(_a); _a.click(); setTimeout(function(){ try{ _a.parentNode.removeChild(_a); }catch(_){} },1500); }catch(_){}
+        setTimeout(function(){ if(_hidden()) return; _step(2); _ifr(_n.intent);
+          setTimeout(function(){ if(_hidden()) return; _step(3); _ifr(_n.https);
+            setTimeout(function(){ if(_hidden()) return; _nlog('naver_fallback'); _arrive(); },1200);
+          },1200);
+        },1200);
       }
       return;
     }
