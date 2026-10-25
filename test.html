@@ -5189,6 +5189,9 @@ function hideLoginStrip(){
       if(d && d.ok){
         // token = 회원 세션. 출석·캘린더 내보내기를 서버에서 검증할 때 쓴다.
         try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:d.provider||'kakao'})); }catch(_){}
+        try{ if(typeof _onbSyncAccount==='function') _onbSyncAccount(); }catch(_){}   // 로그인 전에 이 브라우저에서 소개를 봤으면 계정에도 남긴다 → 다른 브라우저에서 안 뜸
+        // 로그인하고 돌아온 순간 소개가 떠 있는데 계정엔 이미 봤음이 있으면 닫는다(소개 확인이 로그인 응답보다 먼저 돌아서 못 거른 경우 — 검증 10-25)
+        try{ const ow=document.getElementById('onbWrap'); if(ow && ow.classList.contains('open') && typeof _onbAccountSeen==='function' && !_onbRepick && document.getElementById('onbIntro').classList.contains('on')) _onbAccountSeen().then(seen=>{ if(!seen || !ow.classList.contains('open')) return; try{ localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); }catch(_){} clearTimeout(_onbTimer); clearTimeout(_onbPlayT); document.querySelectorAll('#onbRail video').forEach(o=>o.pause()); ow.classList.remove('open'); ow.setAttribute('aria-hidden','true'); document.body.style.overflow=''; applyPrefCats(); }); }catch(_){}
         // 무사히 돌아왔으니 실패 흔적을 지운다 (안 지우면 '실패'로 잘못 기록됨)
         try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); }catch(_){}
         if(typeof reloginStripHide==='function') reloginStripHide();
@@ -7179,8 +7182,18 @@ const ONB_HOLD=400, ONB_APP_MS=4300, ONB_SLIDE_MS=480;   // 영상 끝 → 0.4�
 // 「봤음」 표시는 웹과 앱을 따로 센다 — 안드로이드 앱(TWA)은 크롬과 저장소를 같이 써서, 크롬에서 본 사람은 앱을 처음 깔아도 안 떴다
 //   (사장님 2026-10-25 「앱 최초로 깔았을 때는 또 뜨게」. 아이폰 앱은 원래 저장소가 따로라 처음 열면 뜬다)
 function _onbKey(){ try{ if((typeof _isTwa==='function' && _isTwa()) || (typeof _isNativeApp==='function' && _isNativeApp())) return 'mc_onb_done_app'; }catch(_){} return 'mc_onb_done'; }
-function _onbMarkDone(){ try{ if(!localStorage.getItem(_onbKey())) localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); }catch(_){} }
 function onbShouldShow(){ try{ if(location.search.indexOf('onb=1')>=0) return true; if(typeof _isInApp==='function' && _isInApp() && typeof _appOn==='function' && _appOn()) return false;   /* 인앱은 소개 대신 「앱으로 열기」 시트 하나(사장님 2026-10-25) */   /* ?onb=1 은 이미 본 기기에서도 다시 보기(전엔 「이미 봤음」 확인이 먼저라 안 먹었다) */ if(localStorage.getItem(_onbKey())) return false; if(location.search.indexOf('reset=1')>=0) return false; return true; }catch(_){ return false; } }
+function _onbMarkDone(){ try{ if(!localStorage.getItem(_onbKey())){ localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); _onbSyncAccount(); } }catch(_){} }
+// 로그인한 회원은 계정에도 「봤음」을 남긴다 → 다른 브라우저(카톡 인앱·사파리·크롬)에서 로그인한 채 들어오면 안 뜬다 (사장님 2026-10-25)
+//   서버: member_flag_set/member_flag_list (supabase/sql/member_flags_106.sql). 웹은 onb_web, 앱은 onb_app 따로(앱은 처음 깔면 또 보여 준다)
+function _onbFlag(){ return _onbKey()==='mc_onb_done_app'?'onb_app':'onb_web'; }
+function _onbSyncAccount(){ try{ if(typeof isLoggedIn!=='function' || !isLoggedIn() || !localStorage.getItem(_onbKey())) return; fetch(`${SUPABASE_URL}/rest/v1/rpc/member_flag_set`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({p_token:memberGet().token,p_flag:_onbFlag()})}).catch(()=>{}); }catch(_){} }
+function _onbAccountSeen(){   // 계정에 봤음이 있으면 true — 1.5초 안에 답이 없으면 false(소개를 그냥 보여 준다)
+  try{ if(typeof isLoggedIn!=='function' || !isLoggedIn()) return Promise.resolve(false); }catch(_){ return Promise.resolve(false); }
+  const ask=fetch(`${SUPABASE_URL}/rest/v1/rpc/member_flag_list`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({p_token:memberGet().token})})
+    .then(r=>r.json()).then(d=>!!(d && d.ok && Array.isArray(d.flags) && d.flags.includes(_onbFlag()))).catch(()=>false);
+  return Promise.race([ask, new Promise(ok=>setTimeout(()=>ok(false),1500))]);
+}
 function onbOpen(){
   const w=document.getElementById('onbWrap'); if(!w) return;
   w.classList.add('open'); w.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
@@ -7250,7 +7263,12 @@ function applyPrefCats(){
   cats.slice().reverse().forEach(c=>{ const b=row.querySelector('.cchip[data-cat="'+c+'"]'); if(b && all) all.insertAdjacentElement('afterend', b); });
   try{ if(typeof fMajor!=='undefined' && fMajor==='전체'){ const b=row.querySelector('.cchip[data-cat="'+cats[0]+'"]'); if(b) pickCat(cats[0], b); } }catch(_){}
 }
-document.addEventListener('DOMContentLoaded', function(){ if(onbShouldShow()) onbOpen(); else applyPrefCats(); });
+document.addEventListener('DOMContentLoaded', function(){
+  if(!onbShouldShow()){ applyPrefCats(); return; }
+  if(location.search.indexOf('onb=1')>=0) { onbOpen(); return; }
+  // 이 브라우저에선 처음이지만 로그인한 회원이면 계정부터 본다 — 다른 브라우저에서 이미 봤으면 띄우지 않고 이 브라우저에도 봤음을 적는다
+  _onbAccountSeen().then(seen=>{ if(seen){ try{ localStorage.setItem(_onbKey(), new Date().toISOString().slice(0,10)); }catch(_){} applyPrefCats(); } else onbOpen(); });
+});
 </script>
 <!-- 📅 내 찜 달력 · 세일 달력 공유 카드 (사장님 2026-10-23 확정: 플래닛 톤 · B 글씨체 IBM Plex Sans KR · A 연한 파스텔 10색 · 숫자 검정(일 빨강·토 파랑) · 원톤 바 가운데 글씨 ·
      헤더 「공구 핫딜은 맘캘린더에서」 · 로고 워터마크 격자 가운데(L3 흑백 작게, 잘라낼 수 없음) · 친구에게 공유 · 유료는 워터마크 제거만(나중)) -->
