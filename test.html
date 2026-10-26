@@ -2341,7 +2341,7 @@ function renderList(){
   const m=document.getElementById('cardMore');
   _listIO=new IntersectionObserver(function(es){ if(_gen!==_listGen) return; if(es.some(e=>e.isIntersecting)) _listMore(_gen); },{rootMargin:'2000px 0px'});
   _listIO.observe(m);
-  setTimeout(function(){ if(_gen===_listGen) _listMore(_gen); }, 600);   // 빨리 튕겨 내려도 바닥이 덜 보이게 한 덩어리 미리
+  window.addEventListener('scroll', function(){ if(_gen===_listGen) _listMore(_gen); }, { once:true, passive:true });   // 처음 내리는 순간 한 덩어리 미리(빨리 튕겨도 바닥이 덜 보이게). 타이머로 미리 그리면 첫 화면이 다시 무거워져 앱 시험 도구가 화면을 못 읽었다(4.3MB>4MB, 2026-10-27)
 }
 // ── 나눠 그리기 도우미 (되돌리기: LIST_CHUNK=Infinity) ──
 var LIST_CHUNK=120, LIST_STEP=200;   // var: renderList 가 이 줄보다 먼저 불려도 TDZ 오류가 안 나게
