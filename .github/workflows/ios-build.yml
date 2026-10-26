@@ -47,6 +47,9 @@ jobs:
         run: |
           npx cap add ios
           npx cap sync ios
+          # 애플 ITMS-90068(2026-10-26 build 56): 최소 iOS 13.0 → 2027-04 부터 15.0 이상만 받는다. Capacitor 6 기본값이 13 이라 여기서 올린다
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-4].[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -c "IPHONEOS_DEPLOYMENT_TARGET = 15.0" ios/App/App.xcodeproj/project.pbxproj
 
       - name: 앱 아이콘(1024) 교체
         working-directory: ios-app
