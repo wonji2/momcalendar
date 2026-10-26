@@ -7204,7 +7204,7 @@ function commShowNew(scroll){ renderCommunity();
   if(scroll){ const v=document.getElementById('commView'); if(v) window.scrollTo({top:v.getBoundingClientRect().top+scrollY-70,behavior:'smooth'}); } }
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(isNaN(d)) return ''; if(d<1) return '방금'; if(d<60) return Math.floor(d)+'분 전'; if(d<1440) return Math.floor(d/60)+'시간 전'; if(d<10080) return Math.floor(d/1440)+'일 전'; return _commMD(t); }   // 7일까지는 「N분·시간·일 전」, 넘으면 「10.18」 (2026-10-26)
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
-function commMore(){ _commShown+=30; renderCommunity(); }
+function commMore(){ _commShown+=30; window._commKeepNew=true; try{ renderCommunity(); } finally{ window._commKeepNew=false; } if(typeof _commNew!=='undefined' && _commNew.length) _commPill(); }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }
 // 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
 //   · 안드로이드(크롬·카톡/인스타 인앱·홈화면 앱·우리 앱): 네이버 앱(로그인 살아 있음) 인앱브라우저로. 앱이 없으면 S.browser_fallback_url 로 기본 브라우저(카페 모바일 웹)
@@ -7271,8 +7271,8 @@ function commGo(url, ev){
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
-  if(typeof _commNew!=='undefined' && _commNew.length){ const have=new Set((_commData||[]).map(x=>x.article_id)); _commData=_commNew.filter(x=>!have.has(x.article_id)).concat(_commData||[]); _commNew=[]; }
-  { const nb=document.getElementById('commNewPill'); if(nb) nb.hidden=true; }
+  if(!window._commKeepNew && typeof _commNew!=='undefined' && _commNew.length){ const have=new Set((_commData||[]).map(x=>x.article_id)); _commData=_commNew.filter(x=>!have.has(x.article_id)).concat(_commData||[]); _commNew=[]; }
+  if(!window._commKeepNew){ const nb=document.getElementById('commNewPill'); if(nb) nb.hidden=true; }
   const all=_commData||[];
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
   const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
