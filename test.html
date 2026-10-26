@@ -5811,6 +5811,7 @@ function nxdBell(id,btn,ev){
   if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); try{ mcToast('알림을 껐어요'); }catch(_){} return; }
   // 🔔 알림이 이미 켜진 기기 → 묻지 않고 바로 찜 + 안내만 (사장님 2026-10-23 "이미 알람 받게 설정된 사람한테는 그냥 9시에 알람 보내준다고만")
   if(typeof notiGranted==='function' && notiGranted()){ _nxOn(id); try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){} return; }
+  if(_appOnlyBell('nx')){ _nxOn(id); return; }   // 앱 출시 뒤: 묻는 창 없이 바로 「알림은 앱에서 받아요」
   // 아직 알림이 안 켜진 기기 → 한 번 누르면 바로 팝업, 「알림 받을게요」 = 찜 + 휴대폰 알림 켜기까지 한 번에
   let m=document.getElementById('nxdAsk');
   if(!m){ m=document.createElement('div'); m.id='nxdAsk';
@@ -5824,7 +5825,6 @@ function nxdBell(id,btn,ev){
   m.querySelector('.nxa-yes').textContent=_inApp?(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기'):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
-    if(_appOnlyBell('nx')){ _nxOn(id); return; }
     if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
     _nxOn(id);
     try{
