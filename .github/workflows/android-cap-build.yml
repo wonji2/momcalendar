@@ -171,10 +171,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           # 각 줄은 따로 실행된다(emulator-runner). Maestro 화면 시험(.maestro/)은 처음엔 결과만 남기고 출시를 막지 않는다
           script: |
-            node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk || touch e2e-run-failed
+            # Maestro 를 먼저 — 시험 서버의 가상 폰이 run.mjs 도중 사라지면 뒤 순서인 Maestro 가 한 번도 못 돌았다(2026-10-26 세 판). 끝나면 지우고 run.mjs 는 「처음 켤 때」부터
             mkdir -p e2e-out/maestro
             curl -Ls "https://get.maestro.mobile.dev" | bash || touch e2e-out/maestro_failed.txt
+            adb install -r out/momcalendar-e2e.apk
             $HOME/.maestro/bin/maestro test --env APP_ID=com.wantsb.momcalendar --test-output-dir e2e-out/maestro --format junit --output e2e-out/maestro.xml .maestro/ || touch e2e-out/maestro_failed.txt
+            adb uninstall com.wantsb.momcalendar || true
+            node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk || touch e2e-run-failed
             test ! -f e2e-run-failed
       - uses: actions/upload-artifact@v4
         if: always()
