@@ -256,7 +256,7 @@ try {
       // 🔑 **게이트가 이름을 대준 데이터 문제**와 **도구가 죽은 것**을 가른다.
       //   숫자를 못 읽었다는 것만으로 판단하면 안 된다 — 게이트는 핸들갈림을 찾으면 숫자를 찍기 전에 끊기도 한다
       //   (2026-09-29: 그래서 도구 실패로 오판해 행을 안 뺐고, 회차가 또 0건이었다).
-      const named = /승인표핸들|\s+→\s+/.test(gate);                       // 어느 핸들이 문제인지 게이트가 말했다
+      const named = /승인표핸들|\s+→\s+|←\s*내 공구/.test(gate);          // 어느 핸들·행이 문제인지 게이트가 말했다(「← 내 공구」 = 0-M 행 — 검증자 2026-10-27: 이게 빠져 「오타의심 →」 줄이 있을 때만 우연히 돌았다)
       const toolFail = /실행 실패|SyntaxError|at file:\/\/\//.test(gate);   // 도구가 죽었다
       if (toolFail && !named) {
         log(`   🔴 게이트 도구가 죽었다 — **행을 빼지 않는다.** 전문을 볼 것: ${GATEOUT}`);
@@ -289,6 +289,18 @@ try {
     }
 
     const newCnt = num('is_new');
+    // 🔴 연속으로 막히면 사장님 알림줄에 올린다 — 2026-10-26 11:42~10-27 01:14 15회차 넘게 등록 0건이었는데 아무도 몰랐다
+    //    (게이트 도구가 숫자를 못 냄 → 그다음엔 사장님 상품 7~8행을 안 빼서 회차 통째로 멈춤). 3회차 연속이면 알린다
+    try {
+      const stF = SP('_pn_block_state.json');
+      const st = existsSync(stF) ? JSON.parse(readFileSync(stF, 'utf8')) : { streak: 0 };
+      st.streak = okToRegister ? 0 : (st.streak || 0) + 1;
+      st.at = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16);
+      writeFileSync(stF, JSON.stringify(st), 'utf8');
+      const { setAlert, clearAlert, pushAlerts } = await import('./alert.mjs');
+      if (st.streak >= 3) { setAlert('parsing', `인포크 파싱 등록이 ${st.streak}회차 연속 막힘(마지막 ${st.at}) — scratchpad/parsing_nightly_log.txt · _pn_gate_out.txt`); pushAlerts(`파싱 ${st.streak}회차 연속 막힘`); }
+      else if (okToRegister) { clearAlert('parsing'); pushAlerts('파싱 다시 등록됨'); }
+    } catch (_) {}
     if (!okToRegister) {
       // 게이트에 막혔다 — 수확·승인표는 남아 있다
     } else if (newCnt <= 0) {
@@ -363,6 +375,14 @@ try {
     }
   } catch (e) {
     log(`🔴 등록 단계 실패(수확·승인표는 남았다): ${String(e.message || e).slice(0, 160)}`);
+    // 예외로 끝난 회차도 「막힌 회차」 로 센다(게이트 출력이 비어 throw 하면 위 streak 줄까지 못 간다 — 검증자 2026-10-27)
+    try {
+      const stF = SP('_pn_block_state.json');
+      const st = existsSync(stF) ? JSON.parse(readFileSync(stF, 'utf8')) : { streak: 0 };
+      st.streak = (st.streak || 0) + 1; st.at = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16);
+      writeFileSync(stF, JSON.stringify(st), 'utf8');
+      if (st.streak >= 3) { const { setAlert, pushAlerts } = await import('./alert.mjs'); setAlert('parsing', `인포크 파싱 등록이 ${st.streak}회차 연속 막힘(마지막 ${st.at}, 등록 단계 오류) — scratchpad/parsing_nightly_log.txt`); pushAlerts(`파싱 ${st.streak}회차 연속 막힘`); }
+    } catch (_) {}
   }
   log(`✅ 회차 끝.`);
 } catch (e) {

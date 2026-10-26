@@ -171,7 +171,7 @@ for (const [src, tag] of [['gonggumoa', 'gm'], ['pangpang', 'pp']]) {
   const num = (k) => { const m = gate.match(new RegExp(k + '"?:\\s*"?(\\d+)')); return m ? +m[1] : -1; };
   const blocked = () => ['excluded', 'own_product', 'slug_as_handle', 'handle_split'].filter((k) => num(k) > 0);
   const toolFail = /실행 실패|SyntaxError|at file:\/\/\//.test(gate);
-  if (blocked().length && /승인표핸들|\s+→\s+/.test(gate) && existsSync(SP('_drop_gate_blockers.mjs'))) {
+  if (blocked().length && /승인표핸들|\s+→\s+|←\s*내 공구/.test(gate) && existsSync(SP('_drop_gate_blockers.mjs'))) {   // 「← 내 공구」 = 0-M 행도 그 행만 뺀다(2026-10-27)
     run([SP('_drop_gate_blockers.mjs'), tableF, GATEOUT]);
     gate = run([SP('pending_check.sh'), tableF], 900e3, BASH); writeFileSync(GATEOUT, gate);
   }
