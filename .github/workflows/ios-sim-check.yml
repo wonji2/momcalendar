@@ -30,7 +30,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           # 앱 안 자체 시험: 사이트를 ?e2e=selftest 로 띄워 사이트가 스스로 보고 앱 기록에 E2E|항목|1/0 을 적게 한다(손님용 설정은 안 바뀐다 — 이 러너 안에서만)
-          python3 -c "import json;p='capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/?e2e=selftest';c.setdefault('ios',{})['loggingBehavior']='debug';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          python3 -c "import json;p='capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/?e2e=selftest';c['loggingBehavior']='debug';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
           npx cap add ios
           npx cap sync ios
           python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
@@ -52,13 +52,17 @@ jobs:
           xcrun simctl install "$UDID" "$APP_PATH"
           BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist"); echo "BID=$BID" >> "$GITHUB_ENV"
           mkdir -p sim-out
-          xcrun simctl launch --stdout="$PWD/sim-out/app_stdout.txt" --stderr="$PWD/sim-out/app_stderr.txt" "$UDID" "$BID" | tee sim-out/launch.txt
+          # --console-pty: 앱의 print(카패시터가 사이트 console.log 를 옮겨 적는 곳)를 줄 단위로 바로 받는다 — 파일로 돌리면 버퍼에 갇혀 0바이트였다(2026-10-26)
+          SIMCTL_CHILD_NSUnbufferedIO=YES xcrun simctl launch --console-pty "$UDID" "$BID" > sim-out/app_console.txt 2>&1 &
+          CPID=$!
+          sleep 2; head -c 300 sim-out/app_console.txt > sim-out/launch.txt || true
           sleep 8
           xcrun simctl io "$UDID" screenshot sim-out/01_home.png
           sleep 12
           xcrun simctl io "$UDID" screenshot sim-out/02_after20s.png
           sleep 25   # 자체 시험(9초 뒤 시작, 마지막에 바깥 링크로 사파리가 앞에 온다)
           xcrun simctl io "$UDID" screenshot sim-out/03_after_selftest.png
+          kill $CPID 2>/dev/null || true
       - name: 판정
         run: |
           pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
@@ -85,7 +89,7 @@ jobs:
           rows.append(f"| ℹ️ | 앱 기록의 자바스크립트 오류 줄 | {jserr}건(자세한 건 app_log.txt) |")
           # 앱 안 자체 시험 결과(E2E|항목|1/0|메모) — 사이트가 앱 화면 안에서 스스로 본 것
           out=''
-          for fn in ('sim-out/app_stdout.txt','sim-out/app_stderr.txt','sim-out/app_log.txt'):
+          for fn in ('sim-out/app_console.txt','sim-out/app_log.txt'):
               try: out+=open(fn,encoding='utf-8',errors='ignore').read()+chr(10)
               except Exception: pass
           seen={}
