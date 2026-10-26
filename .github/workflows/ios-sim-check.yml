@@ -1,0 +1,90 @@
+# 아이폰 앱 시뮬레이터 자동 점검 (사장님 2026-10-26 「앱 버그 스스로 검증」 — 스레드 댓글 「클로드로 시뮬레이터 조작 가능」)
+#   맥 러너에서 아이폰 앱(Capacitor)을 시뮬레이터용으로 만들어 깔고 켠 뒤 확인:
+#     ① 앱이 켜진 채로 살아 있나(60초)  ② 화면이 사이트(보라 머리)인가 — 오프라인 대기 화면(연회색)이면 실패
+#     ③ 앱 기록(log)에 강제 종료·자바스크립트 오류가 있나 — 기록 파일은 산출물로 남긴다
+#   매일 KST 04:10 + 손으로(Actions → 이 워크플로 → Run workflow). 공개 저장소라 맥 러너 비용 없음.
+#   한계: 시뮬레이터엔 카카오톡·푸시가 없다 → 로그인 앱 전환·알림 도착은 실기기 몫(TestFlight).
+
+name: 아이폰 앱 시뮬레이터 점검
+
+on:
+  schedule:
+    - cron: '10 19 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-sim-check
+  cancel-in-progress: true
+
+jobs:
+  sim:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: iOS 프로젝트 만들기
+        working-directory: ios-app
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add ios
+          npx cap sync ios
+          python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
+      - name: 시뮬레이터용 빌드
+        working-directory: ios-app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build | tail -5
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products" -name 'App.app' -maxdepth 3 | head -1)
+          test -d "$APP" || (echo "🔴 App.app 없음"; exit 1)
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+      - name: 시뮬레이터 켜고 앱 실행
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')];print(c[-1]['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP_PATH"
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist"); echo "BID=$BID" >> "$GITHUB_ENV"
+          mkdir -p sim-out
+          xcrun simctl launch "$UDID" "$BID" | tee sim-out/launch.txt
+          sleep 30
+          xcrun simctl io "$UDID" screenshot sim-out/01_home.png
+          sleep 30
+          xcrun simctl io "$UDID" screenshot sim-out/02_after60s.png
+      - name: 판정
+        run: |
+          pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
+          export PID_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
+          xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "App"' > sim-out/app_log.txt 2>/dev/null || true
+          python3 - <<'PY'
+          import os, re
+          from PIL import Image
+          rows=[]; fail=0
+          def rec(name, ok, note=''):
+              global fail
+              rows.append(f"| {'✅' if ok else '❌'} | {name} | {note} |"); fail += (not ok)
+          alive=int(os.environ.get('PID_ALIVE','0') or 0)
+          rec('앱이 60초 뒤에도 살아 있다', alive>0, f'launchctl {alive}')
+          im=Image.open('sim-out/02_after60s.png').convert('RGB'); w,h=im.size
+          # 사이트 머리(보라 #602090)가 화면 위쪽 12% 안에 있는가 — 오프라인 대기 화면은 연회색(#FAF9FC)
+          band=[im.getpixel((x, y)) for y in range(int(h*0.06), int(h*0.12), 6) for x in range(20, w-20, 40)]
+          purple=sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200)
+          rec('화면 위쪽에 사이트 머리(보라)가 보인다', purple > len(band)*0.4, f'보라 {purple}/{len(band)} · {w}x{h}')
+          log=open('sim-out/app_log.txt',encoding='utf-8',errors='ignore').read()
+          crash=len(re.findall(r'Terminating app|EXC_|SIGABRT|fatal error', log))
+          jserr=len(re.findall(r'(?i)(\[error\]|TypeError|ReferenceError|SyntaxError)', log))
+          rec('앱 기록에 강제 종료 없음', crash==0, f'{crash}건')
+          rows.append(f"| ℹ️ | 앱 기록의 자바스크립트 오류 줄 | {jserr}건(자세한 건 app_log.txt) |")
+          md='# 아이폰 앱 시뮬레이터 점검\n\n| 결과 | 항목 | 메모 |\n|---|---|---|\n'+'\n'.join(rows)+f'\n\n실패 {fail}개\n'
+          open('sim-out/report.md','w',encoding='utf-8').write(md); print(md)
+          raise SystemExit(1 if fail else 0)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-sim-report
+          path: sim-out/
+          retention-days: 14

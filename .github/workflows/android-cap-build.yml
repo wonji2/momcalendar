@@ -17,6 +17,11 @@
 name: 안드로이드 앱 빌드 (웹뷰)
 
 on:
+  # 매일 밤 자동 점검(사장님 2026-10-26 「앱 버그 스스로 검증」) — KST 03:40, 라이브 사이트를 띄운 시험용 앱을 에뮬레이터에서 돌린다.
+  #   사이트를 고치다 앱에서만 깨지는 것을 다음 날 아침 전에 잡는다. 실패하면 GitHub 가 메일을 보내고,
+  #   PC 의 tools/daily/app_e2e_watch.mjs 가 사장님 알림줄(health_alerts)에 올린다. 출시용 산출물은 만들지만 Play 에는 안 올린다.
+  schedule:
+    - cron: '40 18 * * *'
   workflow_dispatch:
     inputs:
       versionCode:
@@ -77,10 +82,10 @@ jobs:
       - name: 맘캘린더 코드 끼우기 (시험용 — 웹뷰 디버깅 켬)
         working-directory: android-app/cap
         env:
-          VERSION_CODE: ${{ inputs.versionCode }}
+          VERSION_CODE: ${{ inputs.versionCode || github.run_number }}
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           E2E: '1'
-          E2E_URL: ${{ inputs.e2eUrl }}
+          E2E_URL: ${{ inputs.e2eUrl || 'https://momcalendar.com/' }}
         run: node install_native.mjs
 
       - name: 업로드 키 복원
@@ -112,22 +117,22 @@ jobs:
           node -e "const f='android/app/src/main/assets/capacitor.config.json';const fs=require('fs');const c=JSON.parse(fs.readFileSync(f,'utf8'));c.android={...(c.android||{}),webContentsDebuggingEnabled:false};c.server={...(c.server||{}),url:'https://momcalendar.com'};fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('debug',c.android.webContentsDebuggingEnabled,c.server.url)"
           cd android
           ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
-          cp app/build/outputs/apk/release/app-release.apk ../../../out/momcalendar-v${{ inputs.versionCode }}.apk
-          cp app/build/outputs/bundle/release/app-release.aab ../../../out/momcalendar-v${{ inputs.versionCode }}.aab
+          cp app/build/outputs/apk/release/app-release.apk ../../../out/momcalendar-v${{ inputs.versionCode || github.run_number }}.apk
+          cp app/build/outputs/bundle/release/app-release.aab ../../../out/momcalendar-v${{ inputs.versionCode || github.run_number }}.aab
           ls -la ../../../out
           # 서명 확인 — 업로드 키 지문이 assetlinks 와 같아야 앱 링크(카카오 로그인 뒤 돌아오기)가 된다
-          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs ../../../out/momcalendar-v${{ inputs.versionCode }}.apk | grep -i "SHA-256"
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs ../../../out/momcalendar-v${{ inputs.versionCode || github.run_number }}.apk | grep -i "SHA-256"
 
       # 시험용(test.html·웹뷰 디버깅 켬)과 출시용을 따로 — 출시용은 e2e 를 통과해야 publish 잡이 정식 이름으로 올린다(검증자 지적)
       - uses: actions/upload-artifact@v4
         with:
-          name: e2e-apk-v${{ inputs.versionCode }}
+          name: e2e-apk-v${{ inputs.versionCode || github.run_number }}
           path: out-e2e/
           retention-days: 3
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: unverified-release-v${{ inputs.versionCode }}
+          name: unverified-release-v${{ inputs.versionCode || github.run_number }}
           path: out/
           retention-days: 3
           if-no-files-found: error
@@ -136,8 +141,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     env:
-      E2E_URL: ${{ inputs.e2eUrl }}
-      E2E_PUSH: ${{ inputs.pushTest }}
+      E2E_URL: ${{ inputs.e2eUrl || 'https://momcalendar.com/' }}
+      E2E_PUSH: ${{ inputs.pushTest || '0' }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -146,7 +151,7 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v4
         with:
-          name: e2e-apk-v${{ inputs.versionCode }}
+          name: e2e-apk-v${{ inputs.versionCode || github.run_number }}
           path: out
       - name: KVM 켜기 (에뮬레이터 가속 — android-emulator-runner 안내)
         run: |
@@ -168,7 +173,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-report-v${{ inputs.versionCode }}
+          name: e2e-report-v${{ inputs.versionCode || github.run_number }}
           path: e2e-out/
           retention-days: 30
 
@@ -178,11 +183,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: unverified-release-v${{ inputs.versionCode }}
+          name: unverified-release-v${{ inputs.versionCode || github.run_number }}
           path: out
       - uses: actions/upload-artifact@v4
         with:
-          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          name: momcalendar-android-webview-v${{ inputs.versionCode || github.run_number }}
           path: out/
           retention-days: 30
           if-no-files-found: error
