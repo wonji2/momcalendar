@@ -64,6 +64,7 @@ async function chromeFre() {
   sh('shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://example.com/', 'com.android.chrome');
   for (let k = 0; k < 14; k++) {
     await sleep(2500);
+    await dismissAnr();
     const x = screenText();
     if (/Example Domain/.test(x) && !/firstrun/i.test(top())) return true;
     const m = [...x.matchAll(/<node [^>]*text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)]
@@ -73,7 +74,19 @@ async function chromeFre() {
   return false;
 }
 async function back() { sh('shell', 'input', 'keyevent', 'KEYCODE_BACK'); await sleep(1800); }
+// 에뮬레이터 자체의 「…isn't responding」 창(앱과 상관없는 시스템 창)이 뜨면 「Wait」 를 눌러 닫는다 — 10-26 v14 회차가 이 창 뒤에 에뮬레이터가 꺼졌다
+async function dismissAnr() {
+  const x = screenText();
+  if (!/isn.t responding|응답하지 않/.test(x)) return false;
+  const m = [...x.matchAll(/<node [^>]*text="(Wait|대기)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)][0];
+  if (m) sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1));
+  else sh('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  info('시스템 창 닫음', 'isn\'t responding');
+  await sleep(1500);
+  return true;
+}
 async function launch() {
+  await dismissAnr();
   reset();
   sh('shell', 'am', 'force-stop', PKG);
   sh('shell', 'monkey', '-p', PKG, '-c', 'android.intent.category.LAUNCHER', '1');
@@ -86,6 +99,7 @@ async function toApp() {
 }
 // 누르고 나서 「선택창 없이, 브라우저 화면에, 그 주소가」 열렸는지
 async function expectTab(name, url, run) {
+  await dismissAnr();
   await run();
   await sleep(5000);
   const t = top();
@@ -116,6 +130,7 @@ async function expectTab(name, url, run) {
   rec('목록이 그려짐(카드 수·본문 높이)', /^\d+\|\d+$/.test(h || '') && +h.split('|')[1] > 1500, h);
   shot('02_home_loaded');
   // 상태바·아래 막대 자리가 보라(#602090)인가 — 화면 원본 픽셀(screencap 원시 형식: 머리 + RGBA)
+  await dismissAnr();
   {
     let note = '';
     let ok = false;
