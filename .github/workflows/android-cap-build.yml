@@ -168,7 +168,8 @@ jobs:
           ram-size: 4096M
           cores: 4
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # -gpu guest: swiftshader_indirect 에서 「bad color buffer handle」 뒤 가상 폰이 사라졌다(2026-10-26 여러 판)
+          emulator-options: -no-window -gpu guest -no-snapshot -noaudio -no-boot-anim
           # 각 줄은 따로 실행된다(emulator-runner). Maestro 화면 시험(.maestro/)은 처음엔 결과만 남기고 출시를 막지 않는다
           script: |
             # Maestro 를 먼저 — 시험 서버의 가상 폰이 run.mjs 도중 사라지면 뒤 순서인 Maestro 가 한 번도 못 돌았다(2026-10-26 세 판). 끝나면 지우고 run.mjs 는 「처음 켤 때」부터
