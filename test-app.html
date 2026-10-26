@@ -887,6 +887,20 @@ body.sheet-open{ overscroll-behavior-y: none; }
 .ip-m small{font-size:13px;color:#8B95A1;margin-top:2px}
 .ip-go{margin-top:14px;border:0;border-radius:14px;background:#602090;color:#fff;font-size:16px;font-weight:700;font-family:inherit;padding:15px;cursor:pointer}
 .ip-go:disabled{background:#E5E8EB;color:#8B95A1}
+.pm-sheet{position:fixed;inset:0;z-index:99997;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.pm-sheet.open{opacity:1;pointer-events:auto}
+.pm-box{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(16px);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.pm-sheet.open .pm-box{transform:none}
+.pm-t{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em;color:#191F28}
+.pm-k{margin:24px 0 4px;font-size:14px;font-weight:500;color:#8B95A1}
+.pm-row{display:flex;align-items:center;gap:12px;padding:14px 0;cursor:pointer}
+.pm-row input{position:absolute;opacity:0;pointer-events:none}
+.pm-row i{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid #D1D6DB;box-sizing:border-box;display:grid;place-items:center}
+.pm-row input:checked+i{background:#602090;border-color:#602090}
+.pm-row input:checked+i::after{content:"";width:10px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.pm-ic{flex:none;width:44px;height:44px;border-radius:14px;background:#F3EDFA;color:#602090;display:grid;place-items:center}
+.pm-n{font-size:17px;font-weight:600;color:#191F28}
+.pm-go{display:block;width:100%;height:52px;margin-top:20px;border:0;border-radius:14px;background:#602090;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -6055,16 +6069,25 @@ function openSettings(){
 function closeSettings(){ document.getElementById('setSheet').classList.remove('open'); document.body.style.overflow=''; }
 // 📱 앱 접근권한 안내 — 정보통신망법 제22조의2(앱 접근권한 고지). 우리 앱은 필수 권한이 없고 알림만 선택이다. 앱(TWA)에서 첫 실행 때 한 번, 설정에서 언제든.
 function permGuide(force){
-  try{ if(!force && (!_isTwa() || localStorage.getItem('mc_perm_guided')==='1')) return; }catch(_){ if(!force) return; }
-  const h=`<div class="set-note">맘캘린더 앱이 쓰는 접근권한을 안내드려요.</div>
-    <div class="set-row" style="cursor:default"><div><span>🔔 알림 <b style="color:#602090">(선택)</b></span><small>찜한 공구가 오픈하는 날 아침에 알려드릴 때만 써요. 허용하지 않아도 모든 기능을 쓸 수 있어요.</small></div></div>
-    <div class="set-row" style="cursor:default"><div><span>필수 접근권한</span><small>없음. 연락처·사진·위치·마이크 등은 요청하지 않아요.</small></div></div>
-    <div class="set-note">권한은 폰 설정 › 앱 › 맘캘린더에서 언제든 바꿀 수 있어요.</div>
-    <button class="set-btn" onclick="permGuideOk()">확인</button>`;
-  document.getElementById('setTitle').textContent='앱 접근권한 안내'; document.getElementById('setBody').innerHTML=h;
-  document.getElementById('setSheet').classList.add('open'); document.body.style.overflow='hidden';
+  try{ const app=(typeof _isNativeApp==='function'&&_isNativeApp())||_isTwa(); if(!force && (!app || localStorage.getItem('mc_perm_guided')==='1')) return; }catch(_){ if(!force) return; }
+  let el=document.getElementById('permSheet');
+  if(!el){ el=document.createElement('div'); el.id='permSheet'; el.className='pm-sheet'; document.body.appendChild(el); }
+  el.innerHTML='<div class="pm-box"><b class="pm-t">앱 접근 권한</b><p class="pm-k">선택</p>'
+    +'<label class="pm-row"><input type="checkbox" checked><i></i><span class="pm-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="pm-n">찜한 공구 오픈 알림</span></label>'
+    +'<button class="pm-go" type="button">확인</button></div>';
+  el.querySelector('.pm-go').onclick=permGuideOk;
+  requestAnimationFrame(()=>el.classList.add('open'));
+  try{ trackEvent('app_perm_notice','show'); }catch(_){}
 }
-function permGuideOk(){ try{ localStorage.setItem('mc_perm_guided','1'); }catch(_){} closeSettings(); }
+async function permGuideOk(){
+  const el=document.getElementById('permSheet'); const on=!!(el && el.querySelector('.pm-row input').checked);
+  try{ localStorage.setItem('mc_perm_guided','1'); }catch(_){}
+  if(el) el.classList.remove('open');
+  if(!on){ try{ trackEvent('app_perm_notice','skip'); }catch(_){} return; }
+  let ok=false; try{ ok=await enablePush(); }catch(_){}   // 폰의 「알림 허용」 창 — 손님이 거기서 허용해야 켜진다
+  try{ trackEvent('app_perm_notice', ok?'on':'off'); }catch(_){}
+  if(ok) try{ mcToast('🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){}
+}
 (function(){ const go=()=>setTimeout(()=>{ try{ permGuide(false); }catch(_){} },1200); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); })();
 // 🤖 우리 안드로이드 앱(TWA, com.wantsb.momcalendar) 감지 (2026-10-15) — 첫 진입 referrer 가 android-app://… 로 오고 그 뒤 페이지 이동에선 사라지므로 한 번 보면 저장한다.
 //    _isInApp() 이 이걸 인앱 웹뷰로 오인하면 카카오 로그인이 "웹으로만 인증·안내 띄우기" 길로 빠진다. 앱은 크롬 그 자체라 정상 경로(throughTalk)로 가야 한다.
