@@ -7201,7 +7201,7 @@ function renderCommunity(){
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
   const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
   let h=_cxIcons()+`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
-  if(!_commBoard) h+=_grCard();   // 🏅 등급 사다리 (2026-10-25 「글쓰고싶게」)
+  h+='<div class="lv-q"><button onclick="cxOpen(\'grade\')">등급<i>?</i></button></div>';   // 🏅 등급은 작은 버튼 → 시트 (2026-10-26)
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
@@ -7799,6 +7799,11 @@ function _grCard(){
 .cx-ms button{border:0;border-radius:999px;background:#F2F4F6;color:#191F28;font-size:13.5px;font-weight:700;font-family:inherit;padding:8px 14px;cursor:pointer;flex:none}
 .cx-ms em{font-style:normal;font-size:13.5px;font-weight:700;color:#B0B8C1;padding:8px 6px;flex:none}
 .cx-top{margin:4px 0 6px}
+.lv-q{display:flex;justify-content:flex-end;margin:6px 0 -4px}
+.lv-q button{border:0;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#8B95A1;display:inline-flex;align-items:center;gap:4px;padding:6px 2px;cursor:pointer}
+.lv-q i{font-style:normal;width:15px;height:15px;border-radius:50%;border:1.5px solid #B0B8C1;display:inline-grid;place-items:center;font-size:10px;font-weight:800;line-height:1}
+#cxBody .lvc{border:0;padding:6px 0 4px;margin:0}
+#cxBody .lvc-t{display:none}
 .cx-btn{display:block;text-align:center;text-decoration:none;border:0;border-radius:14px;padding:15px;font-size:15px;font-weight:700;font-family:inherit;margin-top:14px;cursor:pointer;width:100%}
 .cx-btn.cx-cp{background:#191F28;color:#fff}
 .cx-btn.cx-w{background:#F2F4F6;color:#4E5968}
@@ -7836,12 +7841,12 @@ function cxOpen(k){
   try{ trackEvent('community_icon', k); }catch(_){}
   if(k==='attend'){ if(typeof openAttendSheet==='function') openAttendSheet(); return; }
   const s=document.getElementById('cxSheet'); if(!s) return;
-  document.getElementById('cxTitle').textContent={kkakka:'까까',poll:'투표',notice:'공지'}[k]||'';
+  document.getElementById('cxTitle').textContent={kkakka:'까까',poll:'투표',notice:'공지',grade:'등급'}[k]||'';
   const b=document.getElementById('cxBody'); b.innerHTML='<div class="cx-empty">…</div>';
   if(!s.classList.contains('open') && !_cxHist){ try{ history.pushState({mcCx:k},'',location.href); _cxHist=true; }catch(_){} }
   s.classList.add('open'); s.setAttribute('aria-hidden','false');
   try{ if(typeof lockScroll==='function') lockScroll(); }catch(_){}
-  if(k==='kkakka') _cxKkakka(b); else if(k==='poll') _cxPolls(b); else if(k==='notice') _cxNotice(b);
+  if(k==='grade') b.innerHTML=_grCard(); else if(k==='kkakka') _cxKkakka(b); else if(k==='poll') _cxPolls(b); else if(k==='notice') _cxNotice(b);
 }
 let _cxHist=false;
 // how: 'pop' = 뒤로가기로 닫힘(기록 그대로) · 'swap' = 글 리더가 이 기록 칸을 이어 씀 · 없음 = ✕·바탕 → 기록 한 칸 되돌림
@@ -7855,7 +7860,6 @@ function _cxKkakka(b){
     b.innerHTML=(m?'<div class="cx-big">'+(Number(d.balance)||0).toLocaleString()+'<small>까까</small></div>'
                   :'<button class="cx-btn cx-cp cx-top" onclick="'+L+'">로그인하고 까까 모으기</button>')
       +'<p class="cx-lb">매일 참여하고 모으기</p>'
-      +row('출석 체크',10,m&&d.attend_today,'출석','cxClose();cxOpen(\'attend\')')
       +row('투표 참여',5,m&&!d.poll_left,'투표','cxOpen(\'poll\')')
       +row('오늘 핫딜 구경',10,m&&d.browse_today,'구경','cxBrowse()')
       +row('쿠팡 쇼핑',0,false,'가기','try{trackEvent(\'community_coupang\',\'kkakka\')}catch(_){};if(typeof openLink===\'function\')openLink(_CX_COUPANG);else window.open(_CX_COUPANG,\'_blank\')');
