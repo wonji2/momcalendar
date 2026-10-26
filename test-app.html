@@ -6069,6 +6069,8 @@ function openSettings(){
 function closeSettings(){ document.getElementById('setSheet').classList.remove('open'); document.body.style.overflow=''; }
 // 📱 앱 접근권한 안내 — 정보통신망법 제22조의2(앱 접근권한 고지). 우리 앱은 필수 권한이 없고 알림만 선택이다. 앱(TWA)에서 첫 실행 때 한 번, 설정에서 언제든.
 function permGuide(force){
+  { const ow=document.getElementById('onbWrap'); if(ow && ow.classList.contains('open')){ window._permAfterOnb=force?2:1; return; } }   // 첫 실행 소개가 떠 있으면 끝난 뒤에(겹치지 않게)
+  if(!force && location.search.indexOf('perm=1')>=0) force=true;   // 다시 보기: 주소 끝 ?perm=1 (사장님 2026-10-26 「첫 팝업부터 다시보고싶은데」)
   try{ const app=(typeof _isNativeApp==='function'&&_isNativeApp())||_isTwa(); if(!force && (!app || localStorage.getItem('mc_perm_guided')==='1')) return; }catch(_){ if(!force) return; }
   let el=document.getElementById('permSheet');
   if(!el){ el=document.createElement('div'); el.id='permSheet'; el.className='pm-sheet'; document.body.appendChild(el); }
@@ -7540,6 +7542,7 @@ function onbFinish(how){
   _onbMarkDone(); try{ trackEvent('onb_done', how||''); }catch(_){}
   applyPrefCats();
   try{ renderMe(); }catch(_){}
+  if(window._permAfterOnb){ const f=window._permAfterOnb===2; window._permAfterOnb=0; setTimeout(()=>{ try{ permGuide(f); }catch(_){} },400); }   // 소개 끝 → 앱 접근 권한 창
 }
 // 고른 카테고리를 공구 탭 칩 맨 앞으로 + 첫 번째를 바로 선택 (사장님 "고른 카테고리가 공구 탭에 먼저")
 function applyPrefCats(){
