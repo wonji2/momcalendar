@@ -21,6 +21,10 @@ on:
         default: unsigned
         type: choice
         options: [unsigned, release]
+      version:
+        description: "보이는 버전(예 1.0.1). 비우면 그대로 — 1.0 이 승인된 뒤 다음 업로드부터는 올려야 한다(같은 번호 거절)"
+        required: false
+        default: ""
 
 concurrency:
   group: ios-build
@@ -60,6 +64,18 @@ jobs:
           cp assets/AppIcon-1024.png "$ICON_DIR/AppIcon-512@2x.png"
           echo "✅ 아이콘 교체"; ls -la "$ICON_DIR"
 
+      - name: 사진 저장 권한 문구 · 보이는 버전 (선기획 2026-10-27 A3·A4)
+        working-directory: ios-app
+        env:
+          VER: ${{ inputs.version }}
+        run: |
+          # 이미지 길게 눌러 「사진에 추가」·공유 시트 「이미지 저장」 때 문구가 없으면 앱이 꺼진다(심사 거절 사유)
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryAddUsageDescription" "$P" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 공구 카드와 캘린더 이미지를 사진첩에 저장할 때 사용해요." "$P"
+          /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryAddUsageDescription" "$P"
+          if [ -n "$VER" ]; then /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VER" "$P"; fi
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$P"
       - name: 설정이 실제로 들어갔는지 확인
         working-directory: ios-app
         run: |
