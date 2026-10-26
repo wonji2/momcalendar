@@ -32,10 +32,13 @@ const cleanSummary = (s: unknown) => {
 Deno.serve(async (req) => {
   if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
   const u = new URL(req.url);
-  const per = Math.min(50, Number(u.searchParams.get("per") || 30));
+  const per = Math.min(50, Number(u.searchParams.get("per") || (u.searchParams.get("latest") === "1" ? 50 : 30)));
   const dry = u.searchParams.get("dry") === "1";
   const only = (u.searchParams.get("boards") || "").split(",").map((x) => Number(x)).filter(Boolean);
-  const ids = only.length ? only : Object.keys(BOARDS).map(Number);
+  // ?latest=1 : 전체글 목록(menus/0) 한 번 = 요청 2개로 새 글만 빠르게 (1분 크론 cafe-feed-latest, 사장님 2026-10-26 「30분마다 말고 실시간으로」)
+  //              우리 커뮤니티 게시판(BOARDS)만 담는다 — 공구 일정 게시판 글은 빼고. 댓글·조회수 갱신은 30분 전체 회차가 한다
+  const latest = u.searchParams.get("latest") === "1";
+  const ids = latest ? [0] : only.length ? only : Object.keys(BOARDS).map(Number);
   const rows: Record<string, unknown>[] = [];
   const errors: string[] = [];
   const get = async (url: string) => {
@@ -53,9 +56,11 @@ Deno.serve(async (req) => {
       catch (e) { errors.push(`${menuid} 사진: ${String(e).slice(0, 60)}`); }
       for (const a of list) {
         const aid = Number(a.articleId); if (!aid) continue;
+        const bid = menuid === 0 ? Number(a.menuId) : menuid;
+        if (menuid === 0 && !BOARDS[bid]) continue;
         if (a.blindArticle === true || a.openArticle === false) continue;   // 블라인드·비공개 글은 안 담는다
         rows.push({
-          cafe_id: CLUB, article_id: aid, board_id: menuid, board: BOARDS[menuid] || String(a.menuName || menuid),
+          cafe_id: CLUB, article_id: aid, board_id: bid, board: BOARDS[bid] || String(a.menuName || bid),
           title: String(a.subject || "").slice(0, 200), nick: String(a.writerInfo?.nickName || "").slice(0, 40), writer_level: Number(a.writerInfo?.memberLevel) || null,   // 카페 회원 등급(1 새싹·110 신입·120 성실·130 열심·140 VIP·150 맘캘이웃·999 방장) — 닉네임 옆 등급 아이콘 (2026-10-25)
           comments: Number(a.commentCount || 0), views: Number(a.readCount || 0), likes: Number(a.likeCount || 0),
           has_image: a.hasImage === true || !!img[aid], is_notice: a.popular === true,
