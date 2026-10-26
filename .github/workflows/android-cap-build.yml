@@ -153,6 +153,10 @@ jobs:
         with:
           name: e2e-apk-v${{ inputs.versionCode || github.run_number }}
           path: out
+      # Maestro 설치는 가상 폰을 켜기 전에 — 켠 뒤에 받으니(JVM·압축 풀기) 그 직후 가상 폰이 사라지는 판이 이어졌다(2026-10-27, 넣기 전 판들은 통과)
+      - name: Maestro 설치
+        continue-on-error: true
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
       - name: KVM 켜기 (에뮬레이터 가속 — android-emulator-runner 안내)
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -176,7 +180,6 @@ jobs:
           script: |
             # Maestro 를 먼저 — 시험 서버의 가상 폰이 run.mjs 도중 사라지면 뒤 순서인 Maestro 가 한 번도 못 돌았다(2026-10-26 세 판). 끝나면 지우고 run.mjs 는 「처음 켤 때」부터
             mkdir -p e2e-out/maestro
-            curl -Ls "https://get.maestro.mobile.dev" | bash || touch e2e-out/maestro_failed.txt
             adb install -r out/momcalendar-e2e.apk
             $HOME/.maestro/bin/maestro test --env APP_ID=com.wantsb.momcalendar --test-output-dir e2e-out/maestro --format junit --output e2e-out/maestro.xml .maestro/ || touch e2e-out/maestro_failed.txt
             adb uninstall com.wantsb.momcalendar || true
@@ -201,7 +204,6 @@ jobs:
             rm -f e2e-run-failed e2e-out/maestro_failed.txt
             # Maestro 를 먼저 — 시험 서버의 가상 폰이 run.mjs 도중 사라지면 뒤 순서인 Maestro 가 한 번도 못 돌았다(2026-10-26 세 판). 끝나면 지우고 run.mjs 는 「처음 켤 때」부터
             mkdir -p e2e-out/maestro
-            curl -Ls "https://get.maestro.mobile.dev" | bash || touch e2e-out/maestro_failed.txt
             adb install -r out/momcalendar-e2e.apk
             $HOME/.maestro/bin/maestro test --env APP_ID=com.wantsb.momcalendar --test-output-dir e2e-out/maestro --format junit --output e2e-out/maestro.xml .maestro/ || touch e2e-out/maestro_failed.txt
             adb uninstall com.wantsb.momcalendar || true
