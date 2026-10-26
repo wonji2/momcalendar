@@ -822,6 +822,7 @@ body.native-app .side-menu{padding-bottom:env(safe-area-inset-bottom,0px)}
 body.native-app .totop-fab{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 </style>
+<style id="mc-app-perm">#appPerm{position:fixed;inset:0;z-index:1450;display:none}#appPerm.open{display:block}#appPerm .ap-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}#appPerm .ap-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 40px));background:#fff;border-radius:18px;padding:22px 18px 16px}#appPerm .ap-t{font-size:16px;font-weight:900;color:#191919;white-space:nowrap}#appPerm .ap-s{margin-top:4px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-k{margin-top:16px;font-size:12px;font-weight:800;color:#8E8799}#appPerm .ap-row{display:flex;align-items:center;gap:12px;margin-top:8px}#appPerm .ap-ico{width:40px;height:40px;border-radius:12px;background:#F4EEFA;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}#appPerm .ap-n{font-size:14px;font-weight:800;color:#191919}#appPerm .ap-d{margin-top:2px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-f{margin-top:14px;font-size:11.5px;color:#A39CAE}#appPerm button{margin-top:16px;width:100%;height:46px;border:none;border-radius:12px;background:#602090;color:#fff;font:inherit;font-size:15px;font-weight:800}</style>
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}</style>
 </head>
 <body>
@@ -4987,6 +4988,7 @@ function maybeAskNoti(){
   try{
     if(window._nxNoAsk) return;   // 오픈 예정 스포 🔔 가 알림 켜기를 직접 처리한다
     if(notiGranted()) return;
+    if(typeof _isNativeApp==='function' && _isNativeApp()){ _appPushAsk(false); return; }   // 앱엔 웹 Notification 이 없다(전엔 여기서 오류로 끝났다)
     if(Notification.permission==='denied') return;          // 브라우저에서 이미 차단 → 물어봐야 소용없음
     if(sheetShownToday()) return;                            // 오늘 이미 뭔가 띄웠으면 쉬어감
     const next=localStorage.getItem('mc_wn_next')||'';
@@ -5161,6 +5163,8 @@ function nativeBoot(){
     try{ P.checkPermissions().then(function(st){ try{ trackEvent('push_perm', _plat+'|'+(st&&st.receive)+'|on='+(localStorage.getItem('mc_push_on')||'')); }catch(_){}
       // 권한이 없는데 켜짐으로 남아 있으면 끔으로 — 알림 켜기 버튼이 다시 보이게(설정에서 껐거나 앱을 새로 깐 경우)
       try{ if(st && st.receive!=='granted' && localStorage.getItem('mc_push_on')==='1'){ localStorage.setItem('mc_push_on','0'); } }catch(_){}
+      if(st && /^prompt/.test(String(st.receive)) && !localStorage.getItem('mc_perm_notice')){ setTimeout(_appPermNotice, 900); }
+      else if(st && st.receive!=='granted'){ var _ask=function(){ try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){} return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
     }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
@@ -5859,10 +5863,65 @@ const _NXD={};   // 이번 방문에서 🔔 로 켠/끈 수 (서버 찜 수는 
 function _nxN(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; return Math.max(0,_nxBase(it.id)+base+(_NXD[it.id]||0)); }   // 서버 찜 수 + 이번 방문에서 누른 만큼
 // 띠와 전체일정 시트를 같이 다시 그린다(시트가 열려 있으면 그대로 열어 둔 채)
 function _nxRefresh(){ try{ renderNextGonggu(); }catch(_){} const sh=document.getElementById('nextSheet'); if(sh&&sh.classList.contains('open')){ try{ _nxSheetBody(); }catch(_){} } }
+// 앱 처음 켤 때 접근 권한 안내 → 확인 = 휴대폰 알림 허용 창 (2026-10-26)
+function _appPermNotice(){
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(localStorage.getItem('mc_perm_notice')) return false;
+    let m=document.getElementById('appPerm');
+    if(!m){ m=document.createElement('div'); m.id='appPerm';
+      m.innerHTML='<div class="ap-bg"></div><div class="ap-box"><div class="ap-t">앱 접근 권한 안내</div><div class="ap-s">맘캘린더 이용에 필요한 권한이에요</div>'+
+        '<div class="ap-k">선택 권한</div><div class="ap-row"><div class="ap-ico">🔔</div><div style="min-width:0"><div class="ap-n">알림</div><div class="ap-d">찜한 공구 오픈일 아침 9시 알림</div></div></div>'+
+        '<div class="ap-f">허용하지 않아도 이용할 수 있어요</div><button type="button">확인</button></div>';
+      document.body.appendChild(m);
+    }
+    const done=async function(){
+      m.classList.remove('open');
+      try{ localStorage.setItem('mc_perm_notice', String(Date.now())); }catch(_){}
+      const ok=await enablePush();   // 휴대폰의 「알림 허용」 창
+      try{ trackEvent('app_perm_notice', ok?'on':'off'); }catch(_){}
+      if(ok) try{ mcToast('🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){}
+    };
+    m.querySelector('button').onclick=done;
+    m.querySelector('.ap-bg').onclick=done;
+    m.classList.add('open');
+    try{ trackEvent('app_perm_notice','show'); }catch(_){}
+    return true;
+  }catch(_){ return false; }
+}
+// 앱(Capacitor) 알림 켜기 묻기 — 찜은 있는데 권한이 없는 손님(PWA 에서 찜을 가지고 온 회원 등). 웹에선 아무것도 안 한다 (2026-10-26)
+function _appPushAsk(force){
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(typeof notiGranted==='function' && notiGranted()) return false;
+    if(!force){ const nx=+(localStorage.getItem('mc_app_push_ask')||0); if(nx && Date.now()<nx) return false; }
+    let m=document.getElementById('nxdAsk');
+    if(!m){ m=document.createElement('div'); m.id='nxdAsk';
+      m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
+      document.body.appendChild(m);
+      m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
+    }
+    m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
+    m.querySelector('.nxa-s').textContent='오픈일 아침 9시 알림 보내드려요';
+    m.querySelector('.nxa-yes').textContent='알림 받을게요';
+    m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){ m.classList.remove('open'); try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){} };
+    m.querySelector('.nxa-yes').onclick=async function(){
+      m.classList.remove('open');
+      const ok=await enablePush();
+      try{ mcToast(ok?'🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요':'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){}
+      try{ trackEvent('app_push_ask', ok?'on':'fail'); }catch(_){}
+      if(fSt==='wish') try{ renderList(); }catch(_){}
+    };
+    m.classList.add('open');
+    try{ trackEvent('app_push_ask','show'); }catch(_){}
+    return true;
+  }catch(_){ return false; }
+}
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const it=(typeof DATA!=='undefined'?DATA:[]).find(x=>Number(x.id)===Number(id))||{};
   const md=it.openDate?_nxMDs(it.openDate):'오픈';
+  if(isWished(id) && _appPushAsk(true)) return;   // 앱: 찜은 있는데 알림 권한이 없다 → 끄지 말고 켜기부터(2026-10-26)
   if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); try{ mcToast('알림을 껐어요'); }catch(_){} return; }
   // 🔔 알림이 이미 켜진 기기 → 묻지 않고 바로 찜 + 안내만 (사장님 2026-10-23 "이미 알람 받게 설정된 사람한테는 그냥 9시에 알람 보내준다고만")
   if(typeof notiGranted==='function' && notiGranted()){ _nxOn(id); try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){} return; }
