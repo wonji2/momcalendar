@@ -1785,6 +1785,7 @@ document.addEventListener('visibilitychange', function(){
     localStorage.removeItem('mc_scroll_at');
     var n=0;
     (function attempt(){
+      try{ if(typeof _listFillTo==='function') _listFillTo(s.y); }catch(_){}
       window.scrollTo(0, s.y);
       if(++n<6 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-s.y)>4) setTimeout(attempt,120);
     })();
@@ -2653,6 +2654,7 @@ function updateStatCounts(){
 
 function renderList(){
   const el=document.getElementById('cardList');
+  _listStop(); const _gen=++_listGen;   // 나눠 그리기: 옛 감시자·늦게 온 콜백이 새 목록에 붙지 않게
   updateStatCounts();
   // 대분류 칩 상태 동기화 (클래스 + 색칠)
   document.querySelectorAll('.cchip').forEach(b=>b.classList.toggle('on', b.dataset.cat===fMajor));
@@ -2721,9 +2723,51 @@ function renderList(){
 
   // 모든 탭(전체 TOP100 · 오늘오픈 · 오늘마감 · 예정): 평면 리스트
   const arr=_applyListSort(getFiltered(selWeekDate));
-  el.innerHTML=_sortChipsHtml()+(arr.length
-    ?_appJoin(arr.map(item=>renderCard(item)))
-    :`<div class="empty">해당하는 공구가 없어요 🙅</div>`);
+  // 카드를 한꺼번에 다 그리면(약 2,800장) 화면 목록이 22MB 가 되어 앱 시험 도구가 못 읽고 저사양 폰도 무겁다(2026-10-26)
+  //   → 처음 LIST_CHUNK 장, 아래로 내려 끝 표시(#cardMore)가 가까워지면 LIST_STEP 장씩 이어 붙인다
+  if(!arr.length || arr.length<=LIST_CHUNK || !('IntersectionObserver' in window)){
+    _listKey=''; _listArr=null; _listShown=0;
+    el.innerHTML=_sortChipsHtml()+(arr.length
+      ?_appJoin(arr.map(item=>renderCard(item)))
+      :`<div class="empty">해당하는 공구가 없어요 🙅</div>`);
+    return;
+  }
+  const key=_listKeyNow();
+  // 같은 목록을 다시 그리면(배너·이웃셀러·찜수 도착 등) 지금까지 그린 장수를 유지 — 뒤로가기로 맞춘 자리가 줄어들어 위로 끌려가지 않게
+  const keep=(key===_listKey)?Math.max(LIST_CHUNK,_listShown):LIST_CHUNK;
+  const n=Math.min(arr.length,keep);
+  _listKey=key; _listArr=arr; _listShown=n;
+  el.innerHTML=_sortChipsHtml()+_appJoinPart(arr.slice(0,n).map(item=>renderCard(item)),0,arr.length)+'<div id="cardMore" aria-hidden="true" style="height:1px"></div>';
+  const m=document.getElementById('cardMore');
+  _listIO=new IntersectionObserver(function(es){ if(_gen!==_listGen) return; if(es.some(e=>e.isIntersecting)) _listMore(_gen); },{rootMargin:'2000px 0px'});
+  _listIO.observe(m);
+  setTimeout(function(){ if(_gen===_listGen) _listMore(_gen); }, 600);   // 빨리 튕겨 내려도 바닥이 덜 보이게 한 덩어리 미리
+}
+// ── 나눠 그리기 도우미 (되돌리기: LIST_CHUNK=Infinity) ──
+var LIST_CHUNK=120, LIST_STEP=200;   // var: renderList 가 이 줄보다 먼저 불려도 TDZ 오류가 안 나게
+var _listGen=0, _listIO=null, _listKey='', _listArr=null, _listShown=0;
+function _listKeyNow(){ return [fSt,fMajor,(fMinors||[]).join(','),fCalCat,selWeekDate,_listSort,fSearch].join('|'); }
+function _listStop(){ if(_listIO){ try{ _listIO.disconnect(); }catch(_){} _listIO=null; } }
+function _listMore(gen){
+  if(gen!==_listGen || !_listArr || _listShown>=_listArr.length) return false;
+  const m=document.getElementById('cardMore'); if(!m) return false;
+  const s=_listShown, e=Math.min(_listArr.length, s+LIST_STEP);
+  m.insertAdjacentHTML('beforebegin', _appJoinPart(_listArr.slice(s,e).map(item=>renderCard(item)), s, _listArr.length));
+  _listShown=e;
+  if(e>=_listArr.length){ _listStop(); m.remove(); return true; }
+  // 붙인 뒤에도 끝 표시가 아직 가까우면(감시자는 「들어올 때」만 알린다) 한 번 더
+  requestAnimationFrame(function(){ if(gen!==_listGen || !m.isConnected || !m.offsetParent) return; if(m.getBoundingClientRect().top < innerHeight+2000) _listMore(gen); });
+  return true;
+}
+// y 위치로 되돌아갈 때: 문서가 거기까지 자라도록 남은 카드를 먼저 그린다(나눠 그리면 저절로 안 자란다)
+function _listFillTo(y){ for(let k=0;k<40;k++){ const max=(document.documentElement.scrollHeight||0)-window.innerHeight; if(max>=y-2) return; if(!_listMore(_listGen)) return; } }
+// _appJoin 의 조각판 — 중간 배너 자리는 전체 순번 기준(5번째, 그 뒤 50장마다), 「5장 미만이면 맨 아래」는 전체 장수로
+function _appJoinPart(cards,start,total){
+  if(!_appOn() || !cards.length) return cards.join('');
+  const b=appMidBanner(); let out='';
+  cards.forEach((c,j)=>{ const i=start+j; out+=c; if(i===4 || (i>4 && (i-4)%50===0)) out+=b; });
+  if(total<5 && start+cards.length===total) out+=b;
+  return out;
 }
 // ── 목록 정렬 (사장님 2026-10-23 앱 디벨롭: 인기순·방금 오픈순·마감임박순) — 기본은 지금 순서(오픈일순·파트너 우선)
 let _listSort='open';
@@ -3113,12 +3157,14 @@ function _restoreScroll(y){
   (function attempt(){
     var cur=window.scrollY||document.documentElement.scrollTop||0;
     // 목표 지점까지 문서가 아직 안 자랐으면 기다렸다 다시 (밑에서 자르지 않는다)
+    try{ _listFillTo(y); }catch(_){}
     var max=Math.max(0,(document.documentElement.scrollHeight||0)-window.innerHeight);
     if(max>=y-2) window.scrollTo(0,y);
     if(++n<16 && Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4){ setTimeout(attempt,140); }
   })();
   // 늦게 들어오는 이미지 때문에 또 밀릴 수 있다 → 로드 완료 후 한 번 더
   var fix=function(){ setTimeout(function(){
+    try{ _listFillTo(y); }catch(_){}
     if(Math.abs((window.scrollY||document.documentElement.scrollTop||0)-y)>4) window.scrollTo(0,y);
   }, 60); };
   window.addEventListener('load', fix, {once:true});
