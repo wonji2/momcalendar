@@ -47,6 +47,22 @@ async function cdp() {
   return { ev, close: () => ws.close() };
 }
 
+// 크롬 첫 실행 안내(약관·계정·알림)를 눌러 넘긴다 — 실제 폰은 이미 크롬을 써 봤다. 이걸 안 넘기면 Custom Tab 이 안내 화면에 가려 도착을 못 본다
+async function chromeFre() {
+  sh('shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://example.com/', 'com.android.chrome');
+  for (let k = 0; k < 14; k++) {
+    await sleep(2500);
+    sh('shell', 'uiautomator', 'dump', '/sdcard/ui.xml');
+    const x = sh('shell', 'cat', '/sdcard/ui.xml');
+    if (/Example Domain/.test(x) && !/firstrun/i.test(top())) return true;
+    const m = [...x.matchAll(/<node [^>]*text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)]
+      .find((n) => /^(Accept & continue|Use without an account|Continue|No thanks|Got it|No Thanks|Done|More|Skip|동의하고 계속|계정 없이 사용|계속|아니요|확인|건너뛰기)$/i.test(n[1]));
+    if (m) sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1));
+  }
+  return false;
+}
+// Custom Tab 이 실제로 그 주소를 띄웠는지 — 화면 글자(uiautomator)로 본다
+function screenHas(re) { sh('shell', 'uiautomator', 'dump', '/sdcard/ui.xml'); return re.test(sh('shell', 'cat', '/sdcard/ui.xml')); }
 async function back() { sh('shell', 'input', 'keyevent', 'KEYCODE_BACK'); await sleep(1500); }
 async function home() { sh('shell', 'am', 'force-stop', 'com.android.chrome'); await sleep(500); }
 async function launch() {
@@ -60,6 +76,9 @@ async function launch() {
   // 크롬 첫 실행 화면이 Custom Tab 앞을 막지 않게
   sh('shell', 'am', 'set-debug-app', '--persistent', 'com.android.chrome');
   sh('shell', 'sh', '-c', 'echo "chrome --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line');
+  const fre = await chromeFre();
+  rows.push(`| ℹ️ | 크롬 첫 실행 안내 넘김 | ${fre} · ${top()} |`);
+  sh('shell', 'am', 'force-stop', 'com.android.chrome');
   await launch();
   shot('01_home');
   let c;
@@ -85,6 +104,7 @@ async function launch() {
     const t = top();
     shot('link_' + name.replace(/\W+/g, '_'));
     rec(`openLink ${name} → 선택창 없음`, !isChooser(t) && !t.startsWith(PKG + '/'), t);
+    { const host = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2).join('.'); rec(`openLink ${name} → 브라우저 화면이 열림`, /chrome|browser/i.test(t) && !/firstrun/i.test(t), t + ' · 화면에 ' + host + ': ' + screenHas(new RegExp(host.replace(/\./g, '\\.')))); }
     await back(); await home();
     if (!top().startsWith(PKG)) await launch();
   }

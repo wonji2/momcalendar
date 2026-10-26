@@ -19,6 +19,8 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         try { getWindow().getDecorView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         if (bridge != null) bridge.setWebViewClient(new MomcalWebViewClient(bridge));
+        // 상태바·아래 막대 자리(웹뷰 바깥 여백)를 보라로 — TWA 때와 같은 색. 없으면 연회색 바탕에 흰 아이콘이라 시계가 안 보였다(e2e 01_home.png)
+        try { android.view.View p = (android.view.View) bridge.getWebView().getParent(); if (p != null) p.setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         openSiteUrl(getIntent());
     }
 
