@@ -5107,6 +5107,9 @@ function nativeBoot(){
   try{
     P.addListener('registration', function(t){ if(window.__mcPushLate && localStorage.getItem('mc_push_on')!=='1') return;   // 시간이 지나 실패로 끝난 뒤 온 토큰은 버린다
       _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
+    var _plat=(function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })();
+    P.addListener('pushNotificationReceived', function(n){ try{ trackEvent('push_recv', _plat+'|'+String((n&&n.title)||'').slice(0,40)); }catch(_){} });   // 진단(2026-10-26)
+    try{ P.checkPermissions().then(function(st){ try{ trackEvent('push_perm', _plat+'|'+(st&&st.receive)+'|on='+(localStorage.getItem('mc_push_on')||'')); }catch(_){} }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
     P.addListener('pushNotificationActionPerformed', function(ev){
