@@ -27,6 +27,10 @@ on:
         description: "시험용 앱이 띄울 주소 (라이브에 올리기 전엔 test.html, 올린 뒤엔 https://momcalendar.com/ 로 한 번 더)"
         required: true
         default: "https://momcalendar.com/test.html"
+      pushTest:
+        description: "알림 도착 시험(1 = PC 의 scratchpad/fcm_e2e_watch.mjs 가 시험 알림을 보내는 동안만)"
+        required: false
+        default: "0"
 
 concurrency:
   group: android-cap-build
@@ -133,6 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       E2E_URL: ${{ inputs.e2eUrl }}
+      E2E_PUSH: ${{ inputs.pushTest }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4

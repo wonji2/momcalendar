@@ -237,6 +237,23 @@ async function expectTab(name, url, run) {
     if (ready === 'true') rec('알림 켜기 → 권한 허용 → 토큰 받음', r === 'true' && on === '1', `ready=${ready} 허용창=${tapped} 결과=${r} mc_push_on=${on}`);
     else info('알림 켜기(설정 파일 없는 빌드)', `ready=${ready} 결과=${r}`);
     info('시험 기기 번호(push_fcm 확인용)', dev);
+    // 알림 도착: 바깥(PC 감시기 scratchpad/fcm_e2e_watch.mjs)이 이 기기 토큰을 보면 시험 알림을 보낸다 — 앱을 켠 채 1번, 홈으로 나간 뒤 1번
+    //   알림 목록(dumpsys notification)에 우리 앱 알림이 올라왔는지 본다. E2E_PUSH=1 일 때만(감시기가 돌 때)
+    if (process.env.E2E_PUSH === '1' && ready === 'true' && r === 'true') {
+      const posted = () => { const d = sh('shell', 'dumpsys', 'notification', '--noredact'); const blocks = d.split(/NotificationRecord\(/).filter((b) => b.includes('pkg=' + PKG)); return blocks.map((b) => (b.match(/android\.title=String \(([^)]*)\)/) || [])[1] || '?').join(','); };
+      let fg = '';
+      for (let k = 0; k < 24 && !fg; k++) { await sleep(5000); fg = posted(); }
+      shot('push_foreground');
+      rec('알림 도착 — 앱을 켠 채', !!fg, fg || '90초 동안 없음');
+      sh('shell', 'service', 'call', 'notification', '1');   // 알림 모두 지우기(다음 판정을 깨끗이)
+      sh('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+      let bg = '';
+      for (let k = 0; k < 24 && !bg; k++) { await sleep(5000); bg = posted(); }
+      shot('push_background');
+      rec('알림 도착 — 앱을 닫은(홈) 상태', !!bg, bg || '120초 동안 없음');
+      info('알림 설정 상태', sh('shell', 'dumpsys', 'notification').split('\n').filter((l) => l.includes(PKG) && /importance|channel|banned|blocked/i.test(l)).slice(0, 6).join(' / '));
+      await launch();
+    }
   }
   // 앱 링크: 바깥에서 momcalendar.com 주소 → 우리 앱이 받고 그 주소를 띄운다(카카오 로그인 뒤 돌아오기)
   {
