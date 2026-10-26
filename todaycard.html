@@ -293,7 +293,7 @@ async function load(){
   document.getElementById('st').textContent='불러오는 중…';
   try{
     const [gg,pt,cc,wc,mySoon]=await Promise.all([
-      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date&limit=500`,{headers:H}).then(r=>r.json()),
+      fetch(`${SB}/rest/v1/gonggu?approved=eq.true&always=eq.false&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date&limit=500`,{headers:H}).then(r=>r.json()),
       // ⚠️ 노출기간(start_date~end_date)까지 봐야 한다. is_partner 만 보면 계약 끝난 셀러가 이웃셀러로 뜬다.
       //    (2026-08-04: 건이맘이 7/31 로 끝났는데 8/4 카드에 이웃셀러로 나감 — 사장님 지적)
       //    index.html 의 파트너 판정과 같은 기준. 한쪽만 고치면 또 어긋난다.
@@ -351,7 +351,7 @@ const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace(
     //    (사장님 지시 2026-09-29 "오픈마감 아니어도 오늘 것만 넣어줘 — 이웃배너 갱신된 걸로 카드에 올리면 되지"). 이웃배너(momcal-seller-banner)와 같은 셀러 집합.
     try{
       const ph=[...P, 'momcal_','momcalendar','momcal'].map(h=>h.replace(/[^a-z0-9._]/gi,'')).filter(Boolean);
-      const og=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&open_date=lt.${day}&end_date=gte.${day}&insta=in.(${ph.join(',')})&select=id,name,influencer,insta,open_date,end_date&limit=100`,{headers:H}).then(r=>r.json());
+      const og=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&always=eq.false&open_date=lt.${day}&end_date=gte.${day}&insta=in.(${ph.join(',')})&select=id,name,influencer,insta,open_date,end_date&limit=100`,{headers:H}).then(r=>r.json());
       const have=new Set(rows.map(r=>r.id));
       const extra=(Array.isArray(og)?og:[]).filter(g=>!have.has(g.id)).map(g=>({...g,partner:true,own:isMomcal(g),score:(C[g.id]||0)+(W[g.id]||0),ongoing:true,
         seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')})).filter(x=>!noSeller(x));

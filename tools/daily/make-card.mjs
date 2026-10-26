@@ -102,8 +102,8 @@ const rest = (p) => fetch(`${SB}/gonggu?${p}`, { headers: { apikey: SB_KEY } }).
 // 블로그 초안이 실패해도 카드는 살아야 한다 → 실패 시 빈 목록으로 계속
 let opens = [], closes = [];
 try {
-  opens  = await rest(`select=name,influencer,insta,major,end_date&approved=eq.true&open_date=eq.${day}&order=major.asc,name.asc`);
-  closes = await rest(`select=name,influencer,insta&approved=eq.true&end_date=eq.${day}&order=name.asc`);
+  opens  = await rest(`select=name,influencer,insta,major,end_date&approved=eq.true&always=eq.false&open_date=eq.${day}&order=major.asc,name.asc`);
+  closes = await rest(`select=name,influencer,insta&approved=eq.true&always=eq.false&end_date=eq.${day}&order=name.asc`);
   if (!Array.isArray(opens))  opens  = [];
   if (!Array.isArray(closes)) closes = [];
 } catch (e) { console.log('블로그용 REST 실패:', String(e).slice(0, 120)); }
