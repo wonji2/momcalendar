@@ -37,8 +37,10 @@ echo "   cert $CERT_ID"
 
 echo "── 2. App Store 프로파일 발급"
 BID=$(python3 "$ASC" bundle-id "$BUNDLE_ID")
+python3 "$ASC" ensure-cap "$BID" APPLE_ID_AUTH   # 애플로 로그인 — 프로파일보다 먼저 켜야 프로파일에 권한이 들어간다(2026-10-27)
 PROF_ID=$(python3 "$ASC" create-profile "$BID" "$CERT_ID" "$PROFILE_NAME" "$WORK/appstore.mobileprovision")
 UUID=$(security cms -D -i "$WORK/appstore.mobileprovision" | plutil -extract UUID raw -)
+security cms -D -i "$WORK/appstore.mobileprovision" | grep -q "com.apple.developer.applesignin" || { echo "🔴 프로파일에 애플로 로그인 권한이 없다"; exit 1; }
 for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
   mkdir -p "$d"; cp "$WORK/appstore.mobileprovision" "$d/$UUID.mobileprovision"
 done

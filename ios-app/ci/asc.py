@@ -53,6 +53,16 @@ def main():
         if not d:
             sys.stderr.write('🔴 bundle id 없음: %s\n' % a[0]); sys.exit(1)
         print(d[0]['id'])
+    elif cmd == 'ensure-cap':  # a: bundleIdResId, capabilityType — 번들 ID 에 기능이 없으면 켠다(2026-10-27 애플로 로그인)
+        have = [c['attributes'].get('capabilityType') for c in call('GET', '/bundleIds/%s/bundleIdCapabilities' % a[0])['data']]
+        if a[1] in have:
+            print('있음', a[1]); return
+        attrs = {'capabilityType': a[1]}
+        if a[1] == 'APPLE_ID_AUTH':
+            attrs['settings'] = [{'key': 'APPLE_ID_AUTH_APP_CONSENT', 'options': [{'key': 'PRIMARY_APP_CONSENT'}]}]
+        call('POST', '/bundleIdCapabilities', {'data': {'type': 'bundleIdCapabilities', 'attributes': attrs,
+            'relationships': {'bundleId': {'data': {'type': 'bundleIds', 'id': a[0]}}}}})
+        print('켬', a[1])
     elif cmd == 'create-profile':  # a: bundleIdResId, certId, name, out.mobileprovision
         d = call('POST', '/profiles', {'data': {'type': 'profiles',
             'attributes': {'name': a[2], 'profileType': 'IOS_APP_STORE'},

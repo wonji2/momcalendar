@@ -85,6 +85,24 @@ jobs:
           test -f ios/App/App/capacitor.config.json && echo "OK" || (echo "🔴 설정 누락"; exit 1)
           echo "--- 푸시 플러그인이 붙었나 ---"
           grep -q "PushNotifications" ios/App/Podfile && echo "OK" || (echo "🔴 푸시 플러그인 없음"; exit 1)
+          echo "--- 브라우저 플러그인이 붙었나(카카오 로그인 시스템 브라우저, 2026-10-27) ---"
+          grep -q "CapacitorBrowser" ios/App/Podfile && echo "OK" || (echo "🔴 브라우저 플러그인 없음"; exit 1)
+          echo "--- 애플로 로그인 플러그인이 붙었나(App Review 4.8, 2026-10-27) ---"
+          grep -q "CapacitorCommunityAppleSignIn" ios/App/Podfile && echo "OK" || (echo "🔴 애플 로그인 플러그인 없음"; exit 1)
+      - name: 카카오 로그인 되돌아오기 주소(momcalendar://) 등록
+        working-directory: ios-app
+        run: |
+          # RFC 8252·카카오 보안 권장: 시스템 브라우저(SFSafariViewController)에서 로그인 → momcalendar://auth?code&state 로 앱에 돌아온다
+          #   앱(사이트 _appOAuthBoot)은 자기가 만든 state·PKCE 가 맞을 때만 받는다. AppDelegate 의 open url → ApplicationDelegateProxy 가 App 플러그인 appUrlOpen 으로 넘긴다
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$P" >/dev/null 2>&1 || /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.wontsbe.momcalendar.auth" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string momcalendar" "$P"
+          plutil -lint "$P"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes:0:CFBundleURLSchemes:0" "$P" | grep -qx momcalendar && echo "✅ URL 스킴 momcalendar" || (echo "🔴 URL 스킴 등록 실패"; exit 1)
+          grep -q "ApplicationDelegateProxy.shared.application(app, open: url" ios/App/App/AppDelegate.swift && echo "✅ open url 넘김" || (echo "🔴 AppDelegate 에 open url 넘김이 없다"; exit 1)
       - name: 푸시 토큰 전달 코드(AppDelegate) 넣기
         working-directory: ios-app
         run: |
@@ -105,6 +123,10 @@ jobs:
           <dict>
             <key>aps-environment</key>
             <string>development</string>
+            <key>com.apple.developer.applesignin</key>
+            <array>
+              <string>Default</string>
+            </array>
           </dict>
           </plist>
           PLIST
@@ -133,6 +155,9 @@ jobs:
           grep -q "aps-environment" App/App.entitlements \
             && echo "✅ APNs 권한 확인" \
             || (echo "🔴 entitlements 내용 없음"; exit 1)
+          grep -q "com.apple.developer.applesignin" App/App.entitlements \
+            && echo "✅ 애플로 로그인 권한 확인" \
+            || (echo "🔴 애플로 로그인 권한 없음"; exit 1)
 
       - name: 서명 없이 컴파일 검증
         if: ${{ inputs.mode == 'unsigned' }}
