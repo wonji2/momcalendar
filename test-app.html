@@ -793,6 +793,27 @@ body.srch-mode .app-tabbar{display:none!important}
 .sale-d.one{white-space:nowrap;font-size:11px;font-weight:700}
 .sale-d.soon{background:#FFF1E0;color:#C25A00}
 .sale-d.later{background:#F1F3F6;color:#5B6773}
+/* 세일 목록 — 화면 규격 v1 (references/apps/DESIGN_SPEC.md, 2026-10-26): 상자 대신 줄 · 제목 16/600 · 보조 13 · 상태는 오른쪽 글자 · 회색 칩 */
+#saleList .sale-sec{font-size:20px;font-weight:700;color:#191F28;margin:28px 2px 4px;gap:8px;align-items:baseline}
+#saleList .sale-sec:first-child{margin-top:16px}
+#saleList .sale-sec i{font-size:13px;font-weight:400;color:#8B95A1}
+#saleList .sale-card{background:none;border:0;border-bottom:1px solid #F2F4F6;border-radius:0;padding:16px 2px;margin:0;gap:12px}
+#saleList .sale-card:active{background:#F9FAFB}
+#saleList .sale-logo{flex-basis:44px;width:44px;height:44px;border-radius:12px;border-color:#F2F4F6}
+#saleList .sale-t{font-size:16px;font-weight:600;color:#191F28;line-height:23px}
+#saleList .sale-t em{background:none;padding:0;margin-left:6px;font-size:12px;font-weight:600;color:#8B95A1;vertical-align:0}
+#saleList .sale-m{font-size:13px;color:#8B95A1;margin-top:4px;line-height:18px}
+#saleList .sale-bar{height:3px;background:#F2F4F6;margin-top:8px}
+#saleList .sale-bar b{background:#602090}
+#saleList .sale-d{width:auto;height:auto;background:none;flex-direction:row;gap:3px;font-size:13px;font-weight:600;line-height:18px;padding:0 0 0 4px;white-space:nowrap}
+#saleList .sale-d small{font-size:13px;font-weight:600;opacity:1}
+#saleList .sale-d.on{color:#602090}
+#saleList .sale-d.end{color:#F04452}
+#saleList .sale-d.one{font-size:13px;font-weight:600}
+#saleList .sale-d.soon{color:#4E5968}
+#saleList .sale-d.later{color:#8B95A1}
+.sale-chips .sale-chip{border:0;background:#F2F4F6;color:#4E5968;min-height:36px;padding:0 14px;font-size:14px;font-weight:400}
+.sale-chips .sale-chip.on{background:#191F28;color:#fff;font-weight:600}
 .sale-foot{font-size:10.5px;color:#A5ADB6;text-align:center;line-height:1.6;margin:16px 4px 6px}
 .sale-empty{text-align:center;color:#9AA3AD;font-size:13px;padding:30px 10px}
 .sale-act{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
@@ -3110,7 +3131,7 @@ async function saleWSync(){
 }
 // ── 세일 | 라방 토글 (2026-10-24) — 마지막에 본 쪽을 기억한다(localStorage, 인앱 뒤로가기에도 남게)
 let _slMode='sale', _liveData=null, _liveCat='';
-try{ const m=localStorage.getItem('mc_sl_mode'); if(m==='live') _slMode='live'; }catch(_){}
+try{ const m=localStorage.getItem('mc_sl_first'); if(m==='live') _slMode='live'; }catch(_){}   // 첫 화면 = 내정보 설정(기본 세일). 마지막에 본 쪽(mc_sl_mode)은 더 안 따른다 (2026-10-26)
 function _slApply(){
   const sb=document.getElementById('saleBox'), lb=document.getElementById('liveBox');
   if(sb) sb.style.display=_slMode==='sale'?'block':'none';
@@ -3303,7 +3324,7 @@ function renderSale(){
     const brands=[...new Set(all.filter(e=>!isMun(e)&&!isOvs(e)).map(e=>e.brand))];
     const names=['',...(wishN?['__wish']:[]),...(all.some(isMun)?['__munsen']:[]),...(all.some(isOvs)?['__overseas']:[]),...brands];
     chips.innerHTML=names.map(b=>{
-      const lab=b===''?'전체':b==='__wish'?`💜 내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
+      const lab=b===''?'전체':b==='__wish'?`내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
       return `<button class="sale-chip${_saleBrand===b?' on':''}" data-b="${escHtml(b)}" onclick="saleFilter(this.dataset.b)">${escHtml(lab)}</button>`;
     }).join('');
   }
@@ -3326,7 +3347,7 @@ function renderSale(){
     let pill, bar='';
     if(mun && kind==='ing'){ pill=ds===0?'<div class="sale-d on">오늘<small>접수</small></div>':'<div class="sale-d on one">접수중</div>'; }
     else if(kind==='ing'){
-      pill=de===null?'<div class="sale-d on one">진행중</div>':de===0?'<div class="sale-d on">오늘<small>마감</small></div>':`<div class="sale-d on">D-${de}<small>종료</small></div>`;
+      pill=de===null?'<div class="sale-d on one">진행중</div>':de===0?'<div class="sale-d on end">오늘<small>마감</small></div>':`<div class="sale-d on${de<=3?' end':''}">D-${de}<small>종료</small></div>`;
       if(de!==null){ const tot=Math.max(1,_saleDay(e.end_date)-ds), done=Math.min(tot,Math.max(0,-ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
     }else pill=`<div class="sale-d ${kind}">D-${ds}<small>${mun?'접수':'시작'}</small></div>`;
     const tag=e.tag?`<em>${escHtml(e.tag)}</em>`:'';
@@ -3338,9 +3359,9 @@ function renderSale(){
     return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
   };
   let h='';
-  if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
-  if(soon.length) h+=`<div class="sale-sec">🟠 이번 주 시작 <i>${soon.length}</i></div>`+soon.map(e=>card(e,'soon')).join('');
-  if(later.length) h+=`<div class="sale-sec">⚪ 이후 예정 <i>${later.length}</i></div>`+later.map(e=>card(e,'later')).join('');
+  if(ing.length) h+=`<div class="sale-sec">지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
+  if(soon.length) h+=`<div class="sale-sec">이번 주 시작 <i>${soon.length}</i></div>`+soon.map(e=>card(e,'soon')).join('');
+  if(later.length) h+=`<div class="sale-sec">이후 예정 <i>${later.length}</i></div>`+later.map(e=>card(e,'later')).join('');
   list.innerHTML=h;
 }
 
@@ -3449,6 +3470,7 @@ function renderMe(){
   const allOn=['gonggu','hotdeal','sale','event'].every(k=>p[k]);
   let cats=[]; try{ cats=JSON.parse(localStorage.getItem('mc_pref_cats')||'[]'); }catch(_){}
   let st='gonggu'; try{ st=localStorage.getItem('mc_start_tab')==='hotdeal'?'hotdeal':'gonggu'; }catch(_){}
+  let slf='sale'; try{ slf=localStorage.getItem('mc_sl_first')==='live'?'live':'sale'; }catch(_){}
   const sw=(k,on,lab)=>`<button class="me-sw${on?' on':''}" type="button" aria-label="${lab}" aria-pressed="${on?'true':'false'}" onclick="${k==='all'?'notiPrefAll()':`notiPrefToggle('${k}')`};renderMe()"></button>`;
   v.innerHTML=`
   ${logged?`<div class="me-head" onclick="openSettings()"><div class="av">👤</div><div><b>${escHtml(m.nickname||'회원')}님</b><small>${(m&&m.provider==='naver')?'네이버':'카카오'} 로그인 · 별명·회원번호만 받아요</small></div></div>`
@@ -3463,6 +3485,7 @@ function renderMe(){
     ${noti?'':'<p class="me-note">이 기기는 아직 알림을 켜지 않았어요. 찜한 공구의 🔔 을 누르면 켜져요.</p>'}
     <div class="g">보기</div>
     <button class="it" type="button" onclick="mePickCats()"><div><b>관심 카테고리</b><small>${cats.length?escHtml(cats.join(' · ')):'고르지 않았어요'}</small></div><span class="ar">›</span></button>
+    <div class="it" style="cursor:default"><div><b>세일/라방 첫 화면</b></div><div class="me-seg" role="group"><button type="button" class="${slf==='sale'?'on':''}" onclick="meSlFirst('sale')">세일</button><button type="button" class="${slf==='live'?'on':''}" onclick="meSlFirst('live')">라방</button></div></div>
     <div class="it" style="cursor:default"><div><b>시작 탭</b></div><div class="me-seg" role="group"><button type="button" class="${st==='gonggu'?'on':''}" onclick="meStartTab('gonggu')">공구</button><button type="button" class="${st==='hotdeal'?'on':''}" onclick="meStartTab('hotdeal')">핫딜</button></div></div>
     <div class="g">계정</div>
     <button class="it" type="button" onclick="switchContent('gonggu');switchTab('list');setTimeout(()=>{const b=document.getElementById('stab-wish');if(b)b.click();},50)"><div><b>내 찜 목록</b><small>${wishN}개</small></div><span class="ar">›</span></button>
@@ -3484,6 +3507,7 @@ function mePickCats(){
   try{ trackEvent('me_pick_cats',''); }catch(_){}
 }
 // 시작 탭 — 앱을 열면 처음 보이는 탭(공구/핫딜). 주소에 #·?q 가 있으면 그쪽이 먼저
+function meSlFirst(m){ try{ localStorage.setItem('mc_sl_first', m==='live'?'live':'sale'); }catch(_){} renderMe(); try{ trackEvent('me_sl_first',m); }catch(_){} }
 function meStartTab(t){ try{ localStorage.setItem('mc_start_tab', t==='hotdeal'?'hotdeal':'gonggu'); }catch(_){} renderMe(); try{ trackEvent('me_start_tab',t); }catch(_){} }
 document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try{ const _p=new URLSearchParams(location.search); ['app','v','reset','utm_source','utm_medium','utm_campaign'].forEach(k=>_p.delete(k)); if(location.hash || [..._p.keys()].length) return; if(localStorage.getItem('mc_start_tab')==='hotdeal') switchContent('hotdeal'); }catch(_){} }, 0); });
 
@@ -7163,10 +7187,12 @@ function schChannelsHtml(){
 }
 // ── 커뮤니티 탭 ────────────────────────────────────────────────
 const COMM_CLUB=31499187;
-let _commData=null, _commBoard=0, _commShown=30;
+let _commData=null, _commBoard=0, _commShown=30, _commNotices=null;
+function _commNoticesLoad(){ if(_commNotices) return; _commNotices=[]; fetch(`${SUPABASE_URL}/functions/v1/cafe-article?notices=1`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.ok?r.json():null).then(d=>{ const l=(d&&d.notices)||[]; if(!l.length){ _commNotices=null; return; } _commNotices=l; if(typeof _ctPrev!=='undefined' && _ctPrev==='community' && _commData) renderCommunity(); }).catch(()=>{ _commNotices=null; }); }
 async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
   try{ _goRulesLoad(); }catch(_){}
+  try{ _commNoticesLoad(); }catch(_){}
   if(_commData && !force){ renderCommunity(); _commLiveStart(); if(Date.now()-_commAt>50000) _commCheck(); return; }
   v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
   try{
@@ -7281,8 +7307,9 @@ function renderCommunity(){
   const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
   const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
-  let h=_cxIcons()+`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
-  h+='<div class="lv-q"><button onclick="cxOpen(\'grade\')">등급<i>?</i></button></div>';   // 🏅 등급은 작은 버튼 → 시트 (2026-10-26)
+  let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  h+='<div class="lv-q"><button onclick="cxOpen(\'grade\')">등급<i>?</i></button></div>';
+  if(!_commBoard && _commNotices && _commNotices.length) h+='<div class="comm-nts">'+_commNotices.slice(0,5).map(x=>'<a class="comm-nt" href="https://cafe.naver.com/momcal/'+x.id+'" target="_blank" rel="noopener" onclick="try{trackEvent(\'community_notice\',String('+x.id+'))}catch(_){} return commOpenPost('+x.id+',event)"><em>공지</em><span>'+escHtml(x.title)+'</span></a>').join('')+'</div>';   // 카페 필독 공지 고정 (2026-10-26)   // 🏅 등급은 작은 버튼 → 시트 (2026-10-26)
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
@@ -7327,6 +7354,10 @@ function renderCommunity(){
 .onb-acts{display:flex;flex-direction:column;gap:8px;padding:8px 20px calc(20px + env(safe-area-inset-bottom,0px))}
 .onb-btn{border:0;background:#602090;color:#fff;border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer}
 .onb-btn.o{background:#F2F4F6;color:#191F28}
+.onb-pair{flex-direction:row}
+.onb-pair .onb-btn{flex:1}
+.onb-pair #onbNext{flex:2}
+#onbPrev[hidden]{display:none}
 .onb-link{background:none;border:0;color:#8B95A1;font-size:13px;padding:8px;font-family:inherit;cursor:pointer}
 .onb-top{padding:calc(28px + env(safe-area-inset-top,0px)) 22px 6px}
 .onb-top h2{font-size:20px;font-weight:900;margin:0;line-height:1.35;word-break:keep-all}
@@ -7358,7 +7389,7 @@ function renderCommunity(){
       <div class="onb-sl onb-vid"><video src="intro/v5.mp4" poster="intro/v5.jpg" muted playsinline preload="none"></video></div><!-- 마지막 장: 문화센터 신청일·특가 라방 알림까지 (사장님 2026-10-25) -->
     </div></div>
     <div class="onb-dots" id="onbDots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="onb-acts"><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
+    <div class="onb-acts onb-pair"><button class="onb-btn o" type="button" id="onbPrev" onclick="onbPrev()" hidden>이전</button><button class="onb-btn" type="button" id="onbNext" onclick="onbNext()">다음</button></div>
   </div>
   <div class="onb-step" id="onbCat">
     <div class="onb-top"><h2>어떤 공구를 먼저 볼까요?</h2><small>여러 개 골라도 돼요</small></div>
@@ -7413,7 +7444,7 @@ function onbOpen(){
 function _onbN(){ const r=document.getElementById('onbRail'); return r?r.children.length:4; }
 function _onbVid(k){ const sl=document.querySelectorAll('#onbRail .onb-sl')[k==null?_onbI:k]; return sl?sl.querySelector('video'):null; }
 function _onbShow(k){ const N=_onbN(), prev=_onbI; _onbI=Math.max(0,Math.min(N-1,k));
-  document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음';
+  document.getElementById('onbRail').style.transform='translateX(-'+(_onbI*100)+'%)'; document.querySelectorAll('#onbDots i').forEach((d,j)=>d.classList.toggle('on',j===_onbI)); document.getElementById('onbNext').textContent=_onbI===_onbN()-1?'시작하기':'다음'; { const pb=document.getElementById('onbPrev'); if(pb) pb.hidden=_onbI===0; }
   if(prev===_onbI) return;   // 덜 밀어 제자리로 돌아온 것 — 보던 영상은 그대로
   clearTimeout(_onbTimer); clearTimeout(_onbPlayT); clearTimeout(_onbRewT); const me=_onbI, v=_onbVid(), nx=_onbVid(_onbI+1);
   document.querySelectorAll('#onbRail video').forEach(o=>{ if(o!==v) o.pause(); });
@@ -7427,6 +7458,7 @@ function _onbShow(k){ const N=_onbN(), prev=_onbI; _onbI=Math.max(0,Math.min(N-1
     // 재생이 시작도 안 되고 매달리면(느린 인앱·저전력) 자동 넘김이 영영 멈춘다 → 4초 안에 안 움직이면 다음 장으로
     _onbTimer=setTimeout(()=>{ if(_onbAuto && _onbI===me && me<N-1 && v.currentTime<0.1) _onbShow(me+1); },4000); },ONB_SLIDE_MS);
 }
+function onbPrev(){ _onbAuto=false; if(_onbI>0) _onbShow(_onbI-1); }
 function onbNext(){ _onbAuto=false; if(_onbI<_onbN()-1){ _onbShow(_onbI+1); return; } clearTimeout(_onbTimer); clearTimeout(_onbPlayT); document.querySelectorAll('#onbRail video').forEach(o=>o.pause()); _onbMarkDone(); _onbStep('onbCat'); }   // 「시작하기」를 누르면(밀어도) 그때 봤음 — 카테고리 화면에서 앱을 닫아도 다시 안 뜬다(전엔 카테고리·아이 정보까지 끝내야 저장돼 또 떴다)
 function _onbStep(id){ document.querySelectorAll('.onb-step').forEach(s=>s.classList.toggle('on',s.id===id)); if(id==='onbCat') _onbRenderCats(); if(id==='onbKid' && !document.querySelectorAll('#onbKids .onb-kid').length) onbKidAdd(); }
 function _onbRenderCats(){ const el=document.getElementById('onbCatChips'); if(el.children.length) return; el.innerHTML=ONB_CATS.map(([e,n])=>`<button class="onb-chip" type="button" data-c="${n}" onclick="this.classList.toggle('on')">${e} ${n}</button>`).join(''); }
@@ -7888,7 +7920,14 @@ function _grCard(){
 .comm-post .m>span:not(.nk){flex:none}
 .comm-post .m span+span::before{display:inline-block;width:7px;margin-right:5px;text-align:center}
 .comm-post .m .lv{height:16px;margin-left:3px;padding:0 6px 0 4px;font-size:10.5px;vertical-align:0}
-.comm-post .m .lv svg{width:10px;height:10px}
+.comm-post .m .lv svg{width:11px;height:11px}
+.comm-post .m .lv{height:18px;font-size:12px;padding:0 6px 0 4px}
+.comm-post .m .lv b{font-size:12px;line-height:18px}   /* 배지 글자 = 닉네임과 같은 12px → 글자 아래끝이 같은 줄 (2026-10-26 사장님 「묘하게 줄이 안맞아」, 잉크 실측 0~1px) */
+.comm-nts{margin:4px 0 2px;border-bottom:1px solid #F2F4F6}
+.comm-nt{display:flex;align-items:center;gap:8px;padding:12px 0;text-decoration:none;color:#191F28;font-size:15px;font-weight:600;line-height:22px;-webkit-tap-highlight-color:transparent}
+.comm-nt+.comm-nt{border-top:1px solid #F2F4F6}
+.comm-nt em{flex:none;font-style:normal;font-size:12px;font-weight:600;color:#602090;background:#F3EDFA;border-radius:6px;padding:2px 6px;line-height:16px}
+.comm-nt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lv-q{display:flex;justify-content:flex-end;margin:6px 0 -4px}
 .lv-q button{border:0;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#8B95A1;display:inline-flex;align-items:center;gap:4px;padding:6px 2px;cursor:pointer}
 .lv-q i{font-style:normal;width:15px;height:15px;border-radius:50%;border:1.5px solid #B0B8C1;display:inline-grid;place-items:center;font-size:10px;font-weight:800;line-height:1}
