@@ -381,6 +381,8 @@ body.srch-suggest #searchDrop{display:block}
 .card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
 .card-sellerline{font-size:10px;color:#9a9aa5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:48px}
 .card-seller-strong{color:#5b4ba8;font-weight:700}
+.card-ot{color:#5b4ba8;font-weight:700}
+.card-partner .card-ot{color:#4A1A78}
 
 /* 날짜 섹션 구분선 */
 .date-section{}
@@ -2228,9 +2230,9 @@ function renderCard(item){
   const partner = effPartner(item);
   const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#602090"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const sb = partner ? badgeSvg : '';
-  // 「10/27~10/29 10시 오픈」 — 오늘·앞으로 여는 공구에만 (테스트 페이지에서만 · 라이브는 사장님 목업 확인 후) (사장님 2026-10-27 「공구팡팡은 몇시 오픈인지까지 나오는데」)
+  // 「10/27 10시 오픈~10/29」 오픈일 바로 뒤에 시각 (목업 C안 · 테스트 페이지에서만, 라이브는 사장님 확인 후) (사장님 2026-10-27 「c에서 10시 오픈 이렇게 오픈자 붙여봐」)
   const openAt = openTimeTxt(item);
-  const periodOt = openAt ? `${period} ${openAt}` : period;
+  const periodOt = openAt ? `${disp(item.openDate)} <span class="card-ot">${openAt}</span>${item.endDate?'~'+disp(item.endDate):''}` : period;
   const sellerLine = seller
     ? `${sb}<span class="card-seller-strong">${escHtml(seller)}</span> · ${periodOt}`
     : (partner ? `${sb}${periodOt}` : periodOt);
