@@ -4597,7 +4597,9 @@ function startKakaoLogin(){
   Kakao.Auth.authorize({
     redirectUri: kkoRedirect(),
     scope: 'profile_nickname',
-    throughTalk: !_isInApp()
+    // 🔴 아이폰 앱(Capacitor) 안에서도 카톡 앱으로 넘기지 않는다 — 카톡 인앱 브라우저에서 로그인이 끝나 우리 앱으로 안 돌아온다
+    //    (2026-10-26 실측: 앱 로그인 시도 10건 성공 0 · talk-apps.kakao.com/scheme/kakaotalk://inappbrowser 로 빠짐)
+    throughTalk: !_isInApp() && !(typeof _isNativeApp==='function' && _isNativeApp())
   });
 }
 // 찜한 뒤 로그인 권유 (하루 1회 이하, 찜 2개 이상부터)
