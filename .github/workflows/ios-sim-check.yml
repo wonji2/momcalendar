@@ -119,14 +119,7 @@ jobs:
           xcrun simctl terminate "$UDID" "$BID" || true
           xcrun simctl install "$UDID" "$APP_PATH"
           curl -Ls "https://get.maestro.mobile.dev" | bash
-          # 진단(2026-10-26): Maestro 가 판정하는 동안 웹 화면 글자가 접근성 목록에 없다(실패 뒤 기록엔 있음) → 켠 뒤 시간별·쓸기 뒤로 목록을 떠서 띠 문구가 언제 생기는지 센다
-          xcrun simctl launch "$UDID" "$BID" || true
-          for t in 5 15 30 60; do sleep $([ $t = 5 ] && echo 5 || ([ $t = 15 ] && echo 10 || ([ $t = 30 ] && echo 15 || echo 30)))
-            "$HOME/.maestro/bin/maestro" --udid "$UDID" hierarchy > sim-out/maestro/probe_$t.json 2>/dev/null || true
-            echo "t=$t 띠문구=$(grep -c "공구 핫딜 정보 공유 커뮤니티" sim-out/maestro/probe_$t.json) 크기=$(wc -c < sim-out/maestro/probe_$t.json)" | tee -a sim-out/maestro_probe.txt; done
-          "$HOME/.maestro/bin/maestro" --udid "$UDID" test --env APP_ID="$BID" .maestro/diag/swipe.yaml || true
-          "$HOME/.maestro/bin/maestro" --udid "$UDID" hierarchy > sim-out/maestro/probe_swipe.json 2>/dev/null || true
-          echo "쓸기 뒤 띠문구=$(grep -c "공구 핫딜 정보 공유 커뮤니티" sim-out/maestro/probe_swipe.json) 크기=$(wc -c < sim-out/maestro/probe_swipe.json)" | tee -a sim-out/maestro_probe.txt
+          # (10-26 진단 결과: 판정 중엔 웹 글자가 접근성 목록에 안 잡힌다 → 흐름은 자리 누르기+캡처, .maestro/common/start.yaml)
           "$HOME/.maestro/bin/maestro" --udid "$UDID" test --env APP_ID="$BID" --test-output-dir sim-out/maestro --format junit --output sim-out/maestro.xml .maestro/ || touch sim-out/maestro_failed.txt
       - uses: actions/upload-artifact@v4
         if: always()
