@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async onload="try{kkoInit()}catch(_){}"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- 📌 서치콘솔 실측(7/13~8/9): '공구일정' 노출 36 · 클릭 1 / '공구 일정' 노출 7 · 클릭 0
      원인 — 우리 제목에 **붙여 쓴 '공구일정' 이 하나도 없었다**(전 페이지 0개).
@@ -41,6 +41,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="맘캘린더">
 <!-- Google Analytics -->
+<link rel="preconnect" href="https://api.momcalendar.com" crossorigin>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-NRCP2FVRSB"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -48,7 +49,8 @@
   gtag('js', new Date());
   gtag('config', 'G-NRCP2FVRSB');
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 <style>
 /* 화면에서는 안 보이고 크롤러·스크린리더에는 읽히는 제목 (h1). 접근성 표준 방식 — display:none 이면 둘 다 못 읽는다 */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -470,7 +472,7 @@ body.srch-suggest #searchDrop{display:block}
 @media(min-width:480px){.chat-fab-wrap{right:calc(50% - 240px + 16px)}}
 .chat-fab{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#FF7EB3,#FF5E8A);border:none;box-shadow:0 4px 16px rgba(255,80,120,.45);cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:transform .2s}
 .chat-fab.open{transform:rotate(135deg) scale(.96)}
-.totop-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:299;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.97);border:1px solid #E2E2E6;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0}
+.totop-fab{position:fixed;left:auto;right:22px;transform:none;bottom:88px;z-index:299;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.97);border:1px solid #E2E2E6;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0}
 .totop-fab svg{width:20px;height:20px;stroke:#888;stroke-width:2.5;fill:none}
 /* align-items 기본값(stretch)이면 모든 버튼이 가장 긴 것 폭으로 늘어난다 → flex-end 로 각자 글자만큼만 */
 .chat-menu{display:flex;flex-direction:column;align-items:flex-end;gap:8px;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:.2s}
@@ -821,7 +823,9 @@ body.native-app .side-hd{padding-top:calc(20px + env(safe-area-inset-top,0px))} 
 body.native-app::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--main-d);z-index:250;pointer-events:none}
 /* 아래 홈 막대에 걸리는 것들 */
 body.native-app .side-menu{padding-bottom:env(safe-area-inset-bottom,0px)}
-body.native-app .totop-fab{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+body.native-app .totop-fab{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+body:has(.comm-fab) .totop-fab{bottom:calc(152px + env(safe-area-inset-bottom,0px))}   /* 커뮤니티 글쓰기 버튼 위로 */
+@media(display-mode:standalone){.totop-fab{bottom:calc(116px + env(safe-area-inset-bottom,0px))}}   /* 홈화면 앱은 + 버튼이 48 위에 있다 */
 body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 </style>
 <style id="mc-app-perm">#appPerm{position:fixed;inset:0;z-index:1450;display:none}#appPerm.open{display:block}#appPerm .ap-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}#appPerm .ap-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 40px));background:#fff;border-radius:18px;padding:22px 18px 16px}#appPerm .ap-t{font-size:16px;font-weight:900;color:#191919;white-space:nowrap}#appPerm .ap-s{margin-top:4px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-k{margin-top:16px;font-size:12px;font-weight:800;color:#8E8799}#appPerm .ap-row{display:flex;align-items:center;gap:12px;margin-top:8px}#appPerm .ap-ico{width:40px;height:40px;border-radius:12px;background:#F4EEFA;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}#appPerm .ap-n{font-size:14px;font-weight:800;color:#191919}#appPerm .ap-d{margin-top:2px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-f{margin-top:14px;font-size:11.5px;color:#A39CAE}#appPerm button{margin-top:16px;width:100%;height:46px;border:none;border-radius:12px;background:#602090;color:#fff;font:inherit;font-size:15px;font-weight:800}</style>
@@ -837,7 +841,7 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 <!-- PWA 홈화면 추가 안내 팝업 -->
 <div id="pwaModal" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.55);z-index:9999;align-items:center;justify-content:center;padding:22px">
   <div style="background:#fff;border-radius:20px;padding:24px 20px;text-align:center;max-width:340px;width:100%;box-shadow:0 10px 30px rgba(60,30,90,.25)">
-    <div style="width:70px;height:70px;border-radius:17px;overflow:hidden;margin:0 auto 12px;box-shadow:0 4px 14px rgba(96,32,144,.35)"><img src="momcal-appicon.png" alt="맘캘린더" style="width:100%;height:100%;display:block"></div>
+    <div style="width:70px;height:70px;border-radius:17px;overflow:hidden;margin:0 auto 12px;box-shadow:0 4px 14px rgba(96,32,144,.35)"><img src="momcal-appicon-256.png" alt="맘캘린더" style="width:100%;height:100%;display:block"></div>
     <div style="font-size:17px;font-weight:800;margin-bottom:5px;color:#232326">홈 화면에 추가하고 앱처럼 쓰기</div>
     <div style="font-size:12.5px;color:#888;line-height:1.6;margin-bottom:16px">아이콘 하나로 공구 일정을<br>바로 확인할 수 있어요</div>
     <!-- 갤럭시(설치 가능): 버튼 -->
@@ -972,11 +976,12 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 
 <!-- PWA 홈화면 추가 얇은 띠 (문구 아래·공구 카드 위) -->
 <div id="pwaStrip" style="display:none;margin:10px 12px 10px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:10px;padding:9px 11px;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(96,32,144,.12)">
-  <img src="momcal-appicon.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
+  <img src="momcal-appicon-128.png" alt="" style="width:26px;height:26px;border-radius:6px;display:block;flex-shrink:0">
   <span class="pwa-strip-txt" style="flex:1;font-size:11.5px;color:#5B2C8D;font-weight:700;line-height:1.3">홈 화면에 추가하고 앱처럼 쓰기</span>
   <button onclick="pwaStripAdd()" style="color:#fff;background:#602090;border:none;border-radius:13px;padding:5px 11px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit">추가</button>
   <button onclick="pwaStripClose()" style="color:#B0A0C8;font-size:14px;background:none;border:none;cursor:pointer;padding:2px 4px">✕</button>
 </div>
+<script>(function(){try{var ua=navigator.userAgent||'',L=localStorage;if(!/Android|iPhone|iPad|iPod|Mobile/i.test(ua))return;if((window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true)return;if(/MomcalApp/.test(ua)||window.Capacitor)return;if(L.getItem('mc_relogin_done')!=='1'&&(L.getItem('mc_login_fail')||L.getItem('mc_login_from')||L.getItem('mc_member')))return;if(L.getItem('mc_pwa_installed')==='1')return;if((parseInt(L.getItem('mc_pwa_ask_n')||'0',10)||0)>=2)return;var nx=parseInt(L.getItem('mc_pwa_strip_next')||'0',10);if(nx&&Date.now()<nx)return;var e=document.getElementById('pwaStrip');if(e)e.style.display='flex';}catch(_){}})();</script>
 
 <!-- 사이드 메뉴 -->
 <div class="side-overlay" id="sideOverlay" onclick="closeSide()"></div>
@@ -3413,6 +3418,7 @@ async function openHdSheet(id){
   // 그래프에 그린 이력과 같은 값으로 평균을 내야 라벨과 선이 어긋나지 않는다
   const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):(h.price_before||h.price);
   const dropPct=avg>h.price?Math.round((avg-h.price)/avg*100):(h.discount_rate||0);
+  const avgDrop=(pts.length && avg>h.price)?Math.round((avg-h.price)/avg*100):0;   // 「평소보다」는 우리가 기록한 평균 대비일 때만(2026-10-27: 평균보다 비싼 날에 정가 대비 13%가 「평소보다 저렴」으로 나갔다)
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
@@ -3460,7 +3466,7 @@ async function openHdSheet(id){
              ? `쿠팡이 <b>오늘의 특가</b>로 직접 고른 상품이에요. 맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>하고 있어서, 며칠 뒤엔 위 그래프로 평소 가격과 비교해 보실 수 있어요.`
              : `맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
                 ${pts.length?`지금까지 ${pts.length}일치 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
-                ${dropPct?` 평소보다 <b style="color:#E8402A">${dropPct}% 저렴</b>합니다.`:''}`}
+                ${avgDrop?` 평소보다 <b style="color:#E8402A">${avgDrop}% 싸요</b>.`:''}`}
          </div>`}
 
     <a href="${h.link}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id});closeHdSheet()"
@@ -4385,6 +4391,8 @@ function closeAdModal(){ document.getElementById('partnerModal').classList.remov
 
 // ── 친구에게 공유 (앱 모드엔 주소창이 없어 링크 공유가 어려움 → 네이티브 공유 시트) ──
 function mcShare(){
+  // 카카오 도구를 늦게 받는다 → 카톡 인앱에서 아직이면 잠깐 기다렸다가 카카오 공유창(없으면 08-20 처럼 「복사됐어요」로 빠진다, 검증자 2026-10-27)
+  if(_isInApp() && !window.Kakao && !window.__shareWaited){ window.__shareWaited=1; var _n=0; var _t=setInterval(function(){ _n++; if(window.Kakao||_n>=100){ clearInterval(_t); mcShare(); window.__shareWaited=0; } },100); return; }
   var url='https://momcalendar.com/';
   var data={ title:'맘캘린더', text:'공구 핫딜 정보 공유 커뮤니티 맘캘린더', url:url };
   try{ trackEvent('share_click',''); }catch(_){}
@@ -4627,6 +4635,21 @@ function memberGet(){ try{ return JSON.parse(localStorage.getItem('mc_member')||
 //    2026-08-03 토큰 방식으로 바꾸기 전에 로그인한 사람은 token 이 없어서,
 //    화면엔 로그인된 것처럼 보이는데 출석·캘린더가 전부 실패했다(2026-08-04 발견).
 function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id && m.token); }
+// 앱 강제 업데이트(웹 쪽 장치, 2026-10-27 선기획 3절 A9) — 앱 파일을 꼭 바꿔야 하는 고침이 나가면 여기 숫자만 올린다.
+//   그보다 낮은 빌드의 앱을 켠 손님에게 스토어로 가는 시트를 한 번(하루) 띄운다. 0 이면 아무 일 없음.
+const _UPD_MIN_BUILD={ ios:0, android:0 };
+const _UPD_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
+setTimeout(async function(){
+  try{
+    if(!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform())) return;
+    const plat=Capacitor.getPlatform(), min=_UPD_MIN_BUILD[plat]||0; if(!min) return;
+    const A=Capacitor.Plugins && Capacitor.Plugins.App; if(!A || !A.getInfo) return;
+    const info=await A.getInfo(); const build=parseInt(info && info.build,10)||0; if(!build || build>=min) return;
+    const day=new Date().toISOString().slice(0,10); if(localStorage.getItem('mc_upd_ask')===day) return; localStorage.setItem('mc_upd_ask',day);
+    try{ trackEvent('app_update_ask', plat+'|'+build+'<'+min); }catch(_){}
+    if(typeof mcSheet==='function'){ const el=mcSheet('updSheet','<b class="mc-t">새 버전이 나왔어요</b><button class="mc-btn" onclick="location.href=\''+_UPD_STORE_URL[plat]+'\'">업데이트</button><button class="mc-btn sub" onclick="document.getElementById(\'updSheet\').classList.remove(\'open\')">나중에</button>'); }
+  }catch(_){}
+}, 4000);
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
@@ -4726,7 +4749,10 @@ function startKakaoLogin(){
     try{ if(!localStorage.getItem("mc_inapp_guided")){ localStorage.setItem("mc_inapp_guided","1");
       if(kkoInAppGuide()) return; } }catch(_){}   // 안내를 못 띄우면 아래로 내려가 원래대로 로그인한다
   }
-  if(!kkoInit()){ alert('카카오 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
+  if(!kkoInit()){   // 카카오 도구는 화면을 막지 않게 늦게 받는다 → 아직이면 최대 10초 기다렸다가 다시
+    if(!window.__kkoWait){ window.__kkoWait=1; let n=0; const t=setInterval(function(){ n++; if(kkoInit()){ clearInterval(t); window.__kkoWait=0; window.__kkoSkipGuide=true; startKakaoLogin(); } else if(n>=100){ clearInterval(t); window.__kkoWait=0; alert('카카오 로그인을 불러오지 못했어요. 잠시 후 다시 시도해주세요.'); } },100); }
+    return;
+  }
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
@@ -5350,7 +5376,10 @@ function scrollToTop(){
 function _toggleToTop(){
   const b=document.getElementById('toTopFab');
   if(!b) return;
-  b.style.display = _scrollY()>400 ? 'flex' : 'none';
+  // 위로 밀 때만 보이고 멈추면 2.5초 뒤 숨는다 — 늘 떠 있으면 카드 찜 하트를 가린다(검증자 2026-10-27, 인스타·쿠팡 방식)
+  const y=_scrollY(), up=y < (window.__ttY||0) - 2; window.__ttY=y;
+  if(y<=400){ b.style.display='none'; return; }
+  if(up){ b.style.display='flex'; clearTimeout(window.__ttT); window.__ttT=setTimeout(function(){ b.style.display='none'; },2500); }
 }
 window.addEventListener('scroll', _toggleToTop, {passive:true});
 document.addEventListener('scroll', _toggleToTop, {passive:true});
@@ -5701,6 +5730,7 @@ setTimeout(function(){ _autoPromptFromChrome(0); }, 900);
 // 자동 팝업은 더 이상 쓰지 않는다. 설치 안내는 얇은 띠 하나로만 하고,
 // 팝업(pwaModal)은 사이드메뉴 '홈 화면에 앱으로 추가'를 눌렀을 때만 forceInstallPwa() 로 연다.
 function maybeShowPwa(retry){
+  try{ var _e=document.getElementById('pwaStrip'); if(_e) _e.style.display='none'; }catch(_){}   // 위 작은 스크립트가 먼저 띄웠으면 다시 판정(같은 순간이라 밀림 없음)
   showPwaStrip();
 }
 function _pwaModalFlow(retry){
@@ -5752,6 +5782,7 @@ function pwaAskBump(){
 function showPwaStrip(){
   try{
     if(_isStandalone()) return;                        // 앱으로 실행 중 → 안 뜸
+    if(typeof _isNativeApp==='function' && _isNativeApp()) return;   // 우리 앱 안(아이폰 앱은 UA 표시가 없어 Capacitor 로 본다, 검증자 2026-10-27)
     if(!_isMobile()) return;                            // PC → 안 뜸
     if(localStorage.getItem('mc_pwa_installed')==='1') return;  // 설치한 사람 → 안 뜸
     if(pwaAskDone()) return;                            // 두 번 봤으면 끝. 이제 메뉴에서만.
@@ -5855,7 +5886,7 @@ try{
   var _vn=parseInt(localStorage.getItem('mc_visit_n')||'0',10)+1;
   localStorage.setItem('mc_visit_n', String(_vn));
 }catch(_){}
-setTimeout(maybeShowPwa, 8000);   // 3초는 화면을 훑기도 전이라 8초로
+document.addEventListener('DOMContentLoaded', function(){ maybeShowPwa(); });   // 처음 그릴 때 함께(재로그인 띠 판정 뒤 같은 순간) — 8초 뒤에 끼우면 화면이 66px 밀려 누르려던 곳이 바뀐다(2026-10-27 실측 CLS 0.065)
 
 // 뒤로가기(bfcache) 복원 대응: 카드 눌러 나갔다 돌아오면 페이지가 '이동중' 상태로 굳어
 // 다른 카드가 안 눌리는 문제 방지. 복원 감지 시 상태를 다시 그려 정상화한다.
@@ -6365,7 +6396,7 @@ function renderSellerBanners(){
     const seller=cut>0?raw.slice(cut+3):'';
     return `<div class="sub-card" data-i="${i}">
       <div class="sub-ph">
-        <div class="sub-bg" style="background:${bg}"></div>
+        <div class="sub-bg"${i<3?` style="background:${bg}"`:` data-bg="${bg.replace(/"/g,'&quot;')}" style="background:#ECE8FA"`}></div>
       </div>
       <div class="sub-tx">
         ${seller?`<div class="sub-sel">${seller}</div>`:''}
@@ -6373,6 +6404,10 @@ function renderSellerBanners(){
       </div>
     </div>`;
   }).join('');
+  // 처음 3장 뒤는 옆으로 밀어 보일 때 받는다(셀러 배너 12장 ≈ 1MB 를 첫 화면에 다 받고 있었다, 2026-10-27)
+  try{ const lazy=row.querySelectorAll('.sub-bg[data-bg]'); const put=el=>{ const d=el.getAttribute('data-bg'); if(d){ el.style.background=d; el.removeAttribute('data-bg'); } };
+    if('IntersectionObserver' in window){ const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ put(e.target); io.unobserve(e.target); } }),{root:row,rootMargin:'0px 200px'}); lazy.forEach(el=>io.observe(el)); }
+    else lazy.forEach(put); }catch(_){}
   row.querySelectorAll('.sub-card').forEach((el,i)=>{
     el.onclick=()=>{
       const b=list[i];
