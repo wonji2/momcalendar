@@ -5224,6 +5224,8 @@ document.addEventListener('DOMContentLoaded', nativeBoot);
 // 앱 자체 시험(시뮬레이터·에뮬레이터 자동 점검용) — 앱 안 + ?e2e=selftest 일 때만 (2026-10-26, references/SELF_QA.md)
 (function _mcSelfTest(){
   try{ if(!(typeof _isNativeApp==='function' && _isNativeApp()) || !/[?&]e2e=selftest/.test(location.search)) return; }catch(_){ return; }
+  // 한 번 깔린 앱에서 한 번만 — 다른 화면 시험(Maestro)이 앱을 다시 켤 때마다 돌면 바깥 링크를 열어 그 시험을 방해한다(코덱스 매일 검사 2026-10-26)
+  try{ if(localStorage.getItem('mc_selftest_done')) return; localStorage.setItem('mc_selftest_done', String(Date.now())); }catch(_){}
   const out=function(n,ok,note){ try{ console.log('E2E|'+n+'|'+(ok?1:0)+'|'+String(note==null?'':note).slice(0,160)); }catch(_){} };
   setTimeout(async function(){
     let plat='?'; try{ plat=Capacitor.getPlatform(); }catch(_){}

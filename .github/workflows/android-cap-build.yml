@@ -173,7 +173,7 @@ jobs:
           script: |
             node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk || touch e2e-run-failed
             mkdir -p e2e-out/maestro
-            curl -Ls "https://get.maestro.mobile.dev" | bash
+            curl -Ls "https://get.maestro.mobile.dev" | bash || touch e2e-out/maestro_failed.txt
             $HOME/.maestro/bin/maestro test --env APP_ID=com.wantsb.momcalendar --test-output-dir e2e-out/maestro --format junit --output e2e-out/maestro.xml .maestro/ || touch e2e-out/maestro_failed.txt
             test ! -f e2e-run-failed
       - uses: actions/upload-artifact@v4
