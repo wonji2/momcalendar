@@ -117,6 +117,26 @@ async function expectTab(name, url, run) {
   sh('shell', 'am', 'force-stop', 'com.android.chrome');
   await launch();
   shot('01_home');
+  // 처음 켤 때 「앱 접근 권한 안내」 → 확인 → 휴대폰 알림 허용 창 → 허용 (사장님 2026-10-26 「다른 앱들은 깔자마자 묻던데」)
+  {
+    let open = 'false';
+    for (let k = 0; k < 8 && open !== 'true'; k++) { await sleep(1000); open = await js(`String(!!document.querySelector('#appPerm.open'))`); }
+    shot('00_perm_notice');
+    rec('처음 켤 때 앱 접근 권한 안내가 뜬다', open === 'true', 'open=' + open);
+    if (open === 'true') {
+      await js(`document.querySelector('#appPerm button').click(),'ok'`);
+      let tapped = false;
+      for (let k = 0; k < 8 && !tapped; k++) {
+        await sleep(1500);
+        const x = screenText();
+        const m = [...x.matchAll(/<node [^>]*text="(Allow|허용)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)][0];
+        if (m) { sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1)); tapped = true; }
+      }
+      let on = '';
+      for (let k = 0; k < 10 && on !== '1'; k++) { await sleep(1500); on = await js(`localStorage.getItem('mc_push_on')`); }
+      rec('확인 → 휴대폰 알림 허용 창 → 허용 → 알림 켜짐', tapped && on === '1', `허용창=${tapped} mc_push_on=${on}`);
+    }
+  }
   const env = await js(`JSON.stringify({u:location.href, ua:navigator.userAgent, plat:(window.Capacitor&&Capacitor.getPlatform&&Capacitor.getPlatform()), plug:!!(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.MomcalLink), inapp:(typeof _isInApp==='function'?_isInApp():'?'), native:(typeof _mcNative==='function'&&!!_mcNative()), share:typeof navigator.share})`);
   let E = {}; try { E = JSON.parse(env); } catch (_) {}
   rec('앱이 켜지고 사이트가 뜬다', /^https:\/\/momcalendar\.com\//.test(E.u || ''), (E.u || env) + ' · ' + top());
