@@ -4805,8 +4805,8 @@ function startKakaoLogin(){
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
   try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
-  // 🔴 2026-10-27: 앱(새 빌드)은 카카오 가이드·RFC 8252 대로 시스템 브라우저 + state + PKCE (_appKakaoLogin)
-  if(_appBrowserLogin()){ _appKakaoLogin().catch(function(){ alert('로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.'); }); return; }
+  // 🔴 2026-10-27: 앱은 state + PKCE 로 앱 화면 안에서 연다(_appKakaoLogin). 크롬 창을 띄우지 않는다(사장님 지시)
+  if(_kkoNative()){ _appKakaoLogin().catch(function(){ alert('로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.'); }); return; }
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -4882,7 +4882,8 @@ async function _appKakaoLogin(){
   var state='a.'+_kkoRand(16);
   try{ localStorage.setItem('mc_app_oauth', JSON.stringify({state:state, verifier:verifier, at:Date.now()})); }catch(_){}
   var q=new URLSearchParams({client_id:KKO_JS_KEY, redirect_uri:'https://momcalendar.com/', response_type:'code', scope:'profile_nickname', state:state, code_challenge:challenge, code_challenge_method:'S256'});
-  await Capacitor.Plugins.Browser.open({url:'https://kauth.kakao.com/oauth/authorize?'+q.toString(), presentationStyle:'popover'});
+  // 시스템 브라우저(크롬 커스텀 탭)로 열지 않는다 — 앱 화면 안에서 카카오 로그인 화면으로 간다(사장님 지시 2026-10-27)
+  location.assign('https://kauth.kakao.com/oauth/authorize?'+q.toString());
 }
 // 시스템 브라우저 안의 맘캘린더 페이지: 앱이 연 로그인(state=a.…)이면 교환하지 않고 앱으로만 넘긴다
 function _appBounce(){
