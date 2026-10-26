@@ -3,7 +3,7 @@
 #   pwsh tools/seo/build.ps1                     ← DB 캐시(seo_dataset RPC)를 읽어 생성
 #   pwsh tools/seo/build.ps1 -DataFile a.json    ← 받아둔 JSON 으로 생성(테스트용)
 #
-# 데이터는 public.seo_dataset() 이 준다. 이 RPC 는 공개 키로 읽히며 반환값은
+# 데이터는 public.seo_dataset() 이 준다. 이 RPC 는 2026-10-27 부터 서버 열쇠로만 부른다(SUPABASE_SERVICE_KEY). 반환값은
 # 전부 사이트에 그대로 공개되는 내용이다. 그래서 GitHub Secret 이 필요 없다.
 param(
   [string]$Root = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
@@ -22,8 +22,11 @@ if($DataFile){
   $D = SquashSpaces ([IO.File]::ReadAllText($DataFile)) | ConvertFrom-Json
 } else {
   $api = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/rpc/seo_dataset'
+  # 🔒 2026-10-27: seo_dataset(공개 공구 전체를 한 번에 주는 함수)은 공개 키로 못 부르게 막았다 — 서버 열쇠(GitHub Secret SUPABASE_SERVICE_KEY)로 부른다
+  $sk = $env:SUPABASE_SERVICE_KEY
+  if(-not $sk){ throw 'SUPABASE_SERVICE_KEY 가 없다 — GitHub Secrets(또는 로컬은 tools/daily/.env 의 SB_SERVICE_KEY 를 이 이름으로) 확인' }
   $r = Invoke-WebRequest -Uri $api -Method POST -TimeoutSec 180 `
-        -Headers @{ apikey=$key; Authorization="Bearer $key"; 'Content-Type'='application/json' } -Body '{}'
+        -Headers @{ apikey=$sk; Authorization="Bearer $sk"; 'Content-Type'='application/json' } -Body '{}'
   $D = SquashSpaces ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json
 }
 
