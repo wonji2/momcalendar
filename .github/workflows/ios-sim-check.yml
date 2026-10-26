@@ -114,6 +114,10 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p sim-out/maestro
+          # 위 자체 시험용 앱은 켤 때마다 ?e2e=selftest 로 떠서 바깥 브라우저를 연다 → 손님과 같은 주소로 바꿔 다시 깐다(이 러너 안에서만)
+          python3 -c "import json,os;p=os.environ['APP_PATH']+'/capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          xcrun simctl terminate "$UDID" "$BID" || true
+          xcrun simctl install "$UDID" "$APP_PATH"
           curl -Ls "https://get.maestro.mobile.dev" | bash
           "$HOME/.maestro/bin/maestro" --udid "$UDID" test --env APP_ID="$BID" --test-output-dir sim-out/maestro --format junit --output sim-out/maestro.xml .maestro/ || touch sim-out/maestro_failed.txt
       - uses: actions/upload-artifact@v4
