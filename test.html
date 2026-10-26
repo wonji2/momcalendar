@@ -810,6 +810,12 @@ body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::a
 @keyframes mcSk{0%{background-position:100% 0}100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{animation:none}}
 </style>
+<style id="mc-native-safe">
+/* 아이폰 앱(Capacitor, contentInset=never)은 화면을 상태바 밑까지 쓴다 → 머리·옆 메뉴를 상태바 높이만큼 내린다 (사장님 2026-10-26 "위에 다 짤림")
+   env() 값은 viewport-fit=cover 일 때만 들어온다 → nativeBoot 가 앱 안에서만 viewport 에 붙인다. 웹·인앱은 그대로 */
+body.native-app .hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}
+body.native-app .side-menu{padding-top:env(safe-area-inset-top,0px)}
+</style>
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}</style>
 </head>
 <body>
@@ -5136,6 +5142,7 @@ async function _sendIosToken(token){
 function nativeBoot(){
   if(!_isNativeApp()) return;               // ← 웹이면 여기서 끝. 아래는 실행되지 않는다.
   try{ document.body.classList.add('native-app'); }catch(_){}
+  try{ var vp=document.querySelector('meta[name="viewport"]'); if(vp && !/viewport-fit/.test(vp.content)) vp.content += ', viewport-fit=cover'; }catch(_){}   // 상태바 높이(env safe-area) 받기
   var P=_pushPlugin(); if(!P) return;
   try{
     P.addListener('registration', function(t){ if(window.__mcPushLate && localStorage.getItem('mc_push_on')!=='1') return;   // 시간이 지나 실패로 끝난 뒤 온 토큰은 버린다
