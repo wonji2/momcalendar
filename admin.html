@@ -6542,7 +6542,12 @@ async function renderHome(){
   clearTimeout(_homeTimer); _homeTimer=setTimeout(()=>{ if(curTab==='home') renderHome(); }, 5*60e3);
   let d;
   try{ d=await adminRpc('admin_home_get',{}); _homeData=d; }
-  catch(e){ el.innerHTML=`<div class="hm-band bad">홈을 못 불러왔어요 · ${_hmEsc(e.message)}<small>로그인이 만료됐으면 로그아웃 후 다시 로그인</small></div>`; return; }
+  catch(e){
+    // 한 번 실패하면 3초 뒤 한 번 더(서버가 잠깐 바쁠 때 — 2026-10-26 23:30 실측). 그래도 안 되면 그대로 알린다
+    if(!renderHome._retry){ renderHome._retry=1; el.innerHTML='<div class="hm-band warn">서버가 잠깐 바빠요 — 3초 뒤 다시 불러올게요</div>'; setTimeout(()=>{ renderHome(); }, 3000); return; }
+    renderHome._retry=0;
+    el.innerHTML=`<div class="hm-band bad">홈을 못 불러왔어요 · ${_hmEsc(e.message)}<small>로그인이 만료됐으면 로그아웃 후 다시 로그인</small></div>`; return; }
+  renderHome._retry=0;
   const rep=d.report||{}, secs=rep.secs||[], age=d.report_age_min, pcAge=d.pc_age_min;
   const all=[]; secs.forEach(sc=>{ const role=String(sc.role||'').split(' — ')[0]; (sc.rows||[]).forEach(r=>all.push({role, lv:r.lv, t:r.t})); });
   // 오류 레이더는 실시간 값으로(보고서 안의 같은 줄은 뺀다)
