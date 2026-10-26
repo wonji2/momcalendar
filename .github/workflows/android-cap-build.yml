@@ -169,7 +169,13 @@ jobs:
           cores: 4
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk
+          # 각 줄은 따로 실행된다(emulator-runner). Maestro 화면 시험(.maestro/)은 처음엔 결과만 남기고 출시를 막지 않는다
+          script: |
+            node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk || touch e2e-run-failed
+            mkdir -p e2e-out/maestro
+            curl -Ls "https://get.maestro.mobile.dev" | bash
+            $HOME/.maestro/bin/maestro test --env APP_ID=com.wantsb.momcalendar --test-output-dir e2e-out/maestro --format junit --output e2e-out/maestro.xml .maestro/ || touch e2e-out/maestro_failed.txt
+            test ! -f e2e-run-failed
       - uses: actions/upload-artifact@v4
         if: always()
         with:

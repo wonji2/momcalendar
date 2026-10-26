@@ -108,6 +108,13 @@ jobs:
           open('sim-out/report.md','w',encoding='utf-8').write(md); print(md)
           raise SystemExit(1 if fail else 0)
           PY
+      - name: Maestro 화면 시험 (.maestro/ — 처음엔 결과만 남기고 판정은 안 막음)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p sim-out/maestro
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --udid "$UDID" test --env APP_ID="$BID" --test-output-dir sim-out/maestro --format junit --output sim-out/maestro.xml .maestro/ || touch sim-out/maestro_failed.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
