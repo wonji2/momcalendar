@@ -150,7 +150,7 @@ const cfgp = path.join(MAIN, 'assets', 'capacitor.config.json');
 if (!fs.existsSync(cfgp)) die('assets/capacitor.config.json 없음 — npx cap sync 먼저');
 const cfg = JSON.parse(fs.readFileSync(cfgp, 'utf8'));
 cfg.android = { ...(cfg.android || {}), webContentsDebuggingEnabled: process.env.E2E === '1' };
-// 시험용은 test.html 을 띄운다 — 라이브(index.html)에 올리기 전에 앱에서 먼저 굴려 본다(규칙 0-A)
+// 시험용은 test-app.html(앱 테스트)을 띄운다 — 라이브(index.html)에 올리기 전에 앱에서 먼저 굴려 본다(규칙 0-A)
 if (process.env.E2E === '1' && process.env.E2E_URL) cfg.server = { ...(cfg.server || {}), url: process.env.E2E_URL };
 fs.writeFileSync(cfgp, JSON.stringify(cfg, null, 2));
 console.log('✔ 웹뷰 디버깅', cfg.android.webContentsDebuggingEnabled, '· 띄울 주소', cfg.server && cfg.server.url);
