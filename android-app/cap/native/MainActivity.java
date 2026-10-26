@@ -15,8 +15,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        CrashReporter.install(this);        // 앱이 죽으면 오류를 적어 두고 다음에 켤 때 서버로(2026-10-26)
         registerPlugin(MomcalLinkPlugin.class);
         super.onCreate(savedInstanceState);
+        CrashReporter.sendPending(this);
         try { getWindow().getDecorView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         if (bridge != null) bridge.setWebViewClient(new MomcalWebViewClient(bridge));
         fitSystemBars();

@@ -140,6 +140,25 @@ public class MomcalLinkPlugin extends Plugin {
         call.resolve(r);
     }
 
+    // 강제 종료 기록 시험용 — 시험용 빌드(웹뷰 디버깅 켬)에서만. 출시판은 거절한다
+    @PluginMethod
+    public void crashTest(PluginCall call) {
+        boolean dbg = false;
+        try { dbg = getBridge().getConfig().isWebContentsDebuggingEnabled(); } catch (Throwable ignored) { }
+        if (!dbg) { call.reject("not allowed"); return; }
+        call.resolve();
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> { throw new RuntimeException("momcal crashTest (e2e)"); }, 300);
+    }
+
+    @PluginMethod
+    public void crashStatus(PluginCall call) {
+        android.content.SharedPreferences sp = getContext().getSharedPreferences(CrashReporter.PREF, android.content.Context.MODE_PRIVATE);
+        JSObject r = new JSObject();
+        r.put("pending", sp.getString("trace", null) != null);
+        r.put("sentAt", sp.getLong("sentAt", 0));
+        call.resolve(r);
+    }
+
     @PluginMethod
     public void pushReady(PluginCall call) {
         JSObject r = new JSObject();

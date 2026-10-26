@@ -283,6 +283,18 @@ async function expectTab(name, url, run) {
       await launch();
     }
   }
+  // 앱 강제 종료 기록: 시험용 빌드에서 일부러 죽이고 → 다시 켜면 → 기록이 서버로 갔는가(CrashReporter)
+  {
+    const r = await js(`(Capacitor.Plugins.MomcalLink.crashTest().then(()=>'ok').catch(e=>'ERR '+e))`);
+    await sleep(4000);
+    const died = sh('shell', 'pidof', PKG).trim() === '' || !ours(top());
+    sh('shell', 'am', 'force-stop', PKG);   // 「앱이 중지됨」 창이 남아 있으면 닫는다
+    await dismissAnr();
+    await launch();
+    let st = '';
+    for (let k = 0; k < 8; k++) { await sleep(2500); st = await js(`(Capacitor.Plugins.MomcalLink.crashStatus().then(x=>JSON.stringify(x)).catch(e=>'ERR '+e))`); if (/"pending":false/.test(st) && /"sentAt":[1-9]/.test(st)) break; }
+    rec('앱 강제 종료 → 다시 켜면 기록을 서버로 보냄', died && /"pending":false/.test(st) && /"sentAt":[1-9]/.test(st), `시험=${r} 죽음=${died} 상태=${st}`);
+  }
   // 앱 링크: 바깥에서 momcalendar.com 주소 → 우리 앱이 받고 그 주소를 띄운다(카카오 로그인 뒤 돌아오기)
   {
     info('앱 링크 확인 상태', sh('shell', 'pm', 'get-app-links', PKG).replace(/\s+/g, ' ').trim().slice(0, 250));

@@ -74,6 +74,7 @@ jobs:
         run: |
           # push-notifications README 필수 단계 — 없으면 알림을 켜도 토큰이 안 온다(2026-10-26 push_ios 0행)
           python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
+          python3 ci/add_crash_reporter.py ios/App/App/AppDelegate.swift   # 앱 강제 종료 기록(2026-10-26)
           grep -n "capacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift
       - name: 푸시 권한(entitlements) 심고 프로젝트에 연결
         working-directory: ios-app/ios/App

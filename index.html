@@ -5175,6 +5175,29 @@ function nativeBoot(){
   }catch(_){}
 }
 document.addEventListener('DOMContentLoaded', nativeBoot);
+// 앱 자체 시험(시뮬레이터·에뮬레이터 자동 점검용) — 앱 안 + ?e2e=selftest 일 때만 (2026-10-26, references/SELF_QA.md)
+(function _mcSelfTest(){
+  try{ if(!(typeof _isNativeApp==='function' && _isNativeApp()) || !/[?&]e2e=selftest/.test(location.search)) return; }catch(_){ return; }
+  const out=function(n,ok,note){ try{ console.log('E2E|'+n+'|'+(ok?1:0)+'|'+String(note==null?'':note).slice(0,160)); }catch(_){} };
+  setTimeout(async function(){
+    let plat='?'; try{ plat=Capacitor.getPlatform(); }catch(_){}
+    out('platform', plat==='ios'||plat==='android', plat);
+    out('push_plugin', !!(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.PushNotifications), '');
+    try{ out('not_inapp', !(typeof _isInApp==='function'&&_isInApp()), navigator.userAgent.slice(-60)); }catch(e){ out('not_inapp',0,e); }
+    const h=document.body.scrollHeight, cards=document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length;
+    out('list_rendered', h>1500 && cards>0, 'h='+h+' cards='+cards);
+    try{ let el=document.elementFromPoint(innerWidth/2, 24), bg=''; for(let k=0;el&&k<6&&!bg;k++){ const c=getComputedStyle(el).backgroundColor; if(c&&c!=='rgba(0, 0, 0, 0)'&&c!=='transparent') bg=c; el=el.parentElement; } const v=(bg||'').replace('rgba(','').replace('rgb(','').replace(')','').split(',').map(function(x){return parseFloat(x);}); const pur=v.length>=3 && v[2]>v[0] && v[0]>v[1]; out('header_visible', pur, 'top bg='+bg); }catch(e){ out('header_visible',0,e); }
+    out('perm_notice', !!document.querySelector('#appPerm.open') || !!localStorage.getItem('mc_perm_notice'), document.querySelector('#appPerm.open')?'open':'done-before');
+    try{ const st=await Capacitor.Plugins.PushNotifications.checkPermissions(); out('push_perm_api', !!st, st&&st.receive); }catch(e){ out('push_perm_api',0,e&&e.message); }
+    try{ out('share_api', typeof navigator.share==='function', typeof navigator.share); }catch(_){}
+    out('js_errors', !(window.__mcErrs&&window.__mcErrs.length), (window.__mcErrs||[]).join(' / '));
+    try{ const g=_inqMeta(); out('inquiry_meta', !!g && /_app$/.test(g.env), g&&g.env); }catch(e){ out('inquiry_meta',0,e&&e.message); }
+    // 마지막: 바깥 링크 — 앱이 뒤로 가면(사파리·크롬이 앞으로) 통과. 시뮬레이터 점검은 이 뒤에 화면을 찍지 않는다
+    setTimeout(function(){ let hid=false; const on=function(){ if(document.hidden) hid=true; }; document.addEventListener('visibilitychange', on);
+      try{ openLink('https://smartstore.naver.com/'); }catch(e){ out('open_external',0,e&&e.message); }
+      setTimeout(function(){ out('open_external', hid||document.hidden, 'hidden='+(hid||document.hidden)); out('done',1,''); }, 4000); }, 2000);
+  }, 9000);
+})();
 
 function urlB64ToUint8(b64){
   const pad='='.repeat((4-b64.length%4)%4);
