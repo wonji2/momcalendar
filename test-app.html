@@ -1088,9 +1088,9 @@ function _appJoin(cards){
 //    act = 도착한 앱이 이어서 할 일(예: wish=123 · nxbell=123). 주소에 실어 보내고 도착하면 지운다(_appArrive).
 function appOpenUrl(act){
   if(typeof _isIOS==='function' && _isIOS()) return APP_LINKS.ios;
-  const q=new URLSearchParams(location.search); ['wdid','wlink','flowtest','from','v','mvfrom','src'].forEach(k=>q.delete(k));
+  const q=new URLSearchParams(location.search); ['wdid','wlink','flowtest','from','v','mvfrom','mvt','src'].forEach(k=>q.delete(k));
   if(act){ const [k,v]=String(act).split('='); if(k) q.set(k, v||'1'); }
-  try{ q.set('mvfrom', deviceId()); }catch(_){}          // 앱이 도착하면 이 기기의 찜을 전부 옮겨 간다(wish_move)
+  if(window._appTicket) q.set('mvt', window._appTicket);   // 앱이 도착하면 이 표로 이 기기의 찜을 전부 옮긴다(wish_move_claim, 10분·한 번)
   q.set('src', _appInAppKind());
   const qs=q.toString();
   const path=/test-app\.html$/.test(location.pathname) ? location.pathname : '/';   // 시험 쪽만 그대로, 그 밖은 메인으로
@@ -1102,7 +1102,7 @@ function appOpen(where, act){
   const ios=(typeof _isIOS==='function' && _isIOS());
   let left=false; const onHide=()=>{ if(document.hidden) left=true; }; document.addEventListener('visibilitychange', onHide);
   location.href=appOpenUrl(act);
-  if(!ios) setTimeout(function(){ document.removeEventListener('visibilitychange', onHide); if(!left && !document.hidden) _appOpenStuck(where); }, 1500);
+  if(!ios) setTimeout(function(){ document.removeEventListener('visibilitychange', onHide); if(!left && !document.hidden) _appOpenStuck(where); }, 2500);
 }
 // 인앱이 앱 열기를 막으면(인스타·네이버 등) 화면이 그대로다 → 다른 브라우저로 여는 법 + 주소 복사
 function _appOpenStuck(where){
@@ -1120,12 +1120,20 @@ function appOneButton(where, act, label){
   return '<button class="app-one" onclick="appOpen(\''+where+'\',\''+String(act||'').replace(/[^\w=]/g,'')+'\')">'+(label||'맘캘린더 앱으로 열기')+'</button>';
 }
 function _appInAppAndroid(){ return (typeof _isInApp==='function' && _isInApp()); }
+function _appPrefetchTicket(){
+  try{
+    if(window._appTicket || (typeof _isIOS==='function' && _isIOS())) return;   // 아이폰은 앱스토어로만 가서 쓸 일이 없다
+    fetch(SUPABASE_URL+'/rest/v1/rpc/wish_move_ticket',{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_from:deviceId()})})
+      .then(r=>r.ok?r.json():null).then(t=>{ if(typeof t==='string' && /^[0-9a-f]{24}$/.test(t)) window._appTicket=t; }).catch(()=>{});
+  }catch(_){}
+}
 function appGoPopup(where, sub, act){
   if(!_appOn()){ return false; }
   const p=document.getElementById('appGoPop'); if(!p) return false;
   document.getElementById('appGoPopSub').textContent=sub||'알림은 앱에서만 받을 수 있어요';
   document.getElementById('appGoPopBadges').innerHTML=_appInAppAndroid()?appOneButton('pop_'+(where||''), act):appBadges('pop_'+(where||''));
   p.classList.add('open'); p.setAttribute('aria-hidden','false');
+  _appPrefetchTicket();
   try{ trackEvent('app_popup', String(where||'')); }catch(_){}
   return true;
 }
@@ -1140,6 +1148,7 @@ function maybeShowAppSheet(){
     const s=document.getElementById('appSheet'); if(!s) return false;
     document.getElementById('appSheetBadges').innerHTML=_appInAppAndroid()?appOneButton('sheet_inapp',''):appBadges('sheet');
     s.classList.add('open'); s.setAttribute('aria-hidden','false');
+    _appPrefetchTicket();
     try{ trackEvent('app_sheet','show'); }catch(_){}
     return true;
   }catch(_){ return false; }
@@ -1155,21 +1164,23 @@ setTimeout(function(){ try{ if(_appInAppAndroid() && !document.body.classList.co
 function _appArrive(){
   try{
     const q=new URLSearchParams(location.search);
-    const w=Number(q.get('wish'))||0, from=q.get('mvfrom')||'', src=(q.get('src')||'').replace(/[^a-z]/g,'').slice(0,10);
-    if(!w && !from && !src) return;
-    ['wish','mvfrom','src'].forEach(k=>q.delete(k));
+    const w=Number(q.get('wish'))||0, tk=(q.get('mvt')||'').toLowerCase(), src=(q.get('src')||'').replace(/[^a-z]/g,'').slice(0,10);
+    if(!w && !tk && !src) return;
+    ['wish','mvt','mvfrom','src'].forEach(k=>q.delete(k));
     history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);
-    // 🔒 앱 안에서만 — 남이 만든 링크(?wish=·?mvfrom=)를 웹에서 열어 찜이 바뀌지 않게
-    if(!(typeof _appCtxEarly==='function' && _appCtxEarly())) return;
-    const okFrom=/^[A-Za-z0-9_-]{8,64}$/.test(from) && from!==deviceId();
-    const mv = okFrom ? fetch(SUPABASE_URL+'/rest/v1/rpc/wish_move',{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_from:from,p_to:deviceId()})}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null);
+    // 🔒 진짜 앱 안에서만(Capacitor·우리 안드로이드 TWA) — ?app=1 같은 주소로는 통하지 않는다
+    const realApp=!!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) || /^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'');
+    if(!realApp) return;
+    const mv = /^[0-9a-f]{24}$/.test(tk) ? fetch(SUPABASE_URL+'/rest/v1/rpc/wish_move_claim',{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_token:tk,p_to:deviceId()})}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null);
+    const waitData=()=>new Promise(res=>{ let n=0; const t=setInterval(()=>{ n++; if((typeof DATA!=='undefined' && DATA.length) || n>=30){ clearInterval(t); res(); } },200); });
     mv.then(function(m){
       const moved=(m&&m.ok)?((m.gonggu||0)+(m.sale||0)+(m.live||0)):0;
-      return Promise.resolve(typeof syncWishFromServer==='function' ? syncWishFromServer() : null).catch(()=>{}).then(function(){
+      return Promise.all([Promise.resolve(typeof syncWishFromServer==='function' ? syncWishFromServer() : null).catch(()=>{}), waitData()]).then(function(){
         let added=false;
         // 방금 누른 공구가 아직 진행 중·예정이고 찜이 안 돼 있으면 찜(목록에 없는 공구·마감된 공구는 건드리지 않는다)
-        if(w && typeof isWished==='function' && !isWished(w) && (typeof DATA==='undefined' || !DATA.length || DATA.some(d=>Number(d.id)===w))){ toggleWish(w, null); added=true; }
+        if(w && typeof isWished==='function' && !isWished(w) && (typeof DATA!=='undefined' && DATA.some(d=>Number(d.id)===w))){ toggleWish(w, null); added=true; }
         if(moved>0 || added){ try{ mcToast(moved>0 ? '찜 '+(moved+(added?1:0))+'개를 앱으로 옮겨 왔어요 💜' : '찜한 공구 가져왔어요 💜'); }catch(_){} }
+        else if(src && !(typeof isLoggedIn==='function' && isLoggedIn())){ try{ mcToast('앱에서 카카오로 로그인하면 다른 곳에서 한 찜도 합쳐져요'); }catch(_){} }
         try{ trackEvent('app_arrive', (src||'-')+'|moved='+moved+'|wish='+(w?1:0)); }catch(_){}
       });
     });
