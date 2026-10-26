@@ -3,6 +3,8 @@
 #   python review_reply.py attach <버전id> <영상.mp4>     앱 심사 정보에 첨부 파일(화면 녹화)을 올린다
 #   python review_reply.py build <버전id> <빌드번호>       그 버전에 쓸 빌드를 바꾼다(VALID 인 것만)
 #   python review_reply.py submit <앱id>                   심사에 다시 낸다(기존 제출을 다시 submitted 로)
+#   ⚠ 2026-10-26 실측: 반려(UNRESOLVED_ISSUES) 제출은 빌드를 바꾸면 API 로 다시 못 낸다(「Version is not ready」).
+#     → 새 reviewSubmission 을 만들고, 옛 제출을 canceled:true 로 닫은 뒤(20초쯤 걸림), 새 제출에 버전을 넣고 submitted:true. 그렇게 해서 WAITING_FOR_REVIEW 가 됐다.
 #   환경변수: APPLE_API_KEY_ID · APPLE_API_ISSUER_ID · APPLE_API_KEY_PATH (asc.py 와 같다)
 import hashlib, json, os, sys, urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
@@ -36,7 +38,7 @@ elif cmd == 'attach':
     print('attach', att, st.get('assetDeliveryState'))
 elif cmd == 'build':
     ver, num = a
-    app = asc.call('GET', f'/appStoreVersions/{ver}/app')['data']['id']
+    app = asc.call('GET', f'/appStoreVersions/{ver}?include=app')['data']['relationships']['app']['data']['id']
     b = asc.call('GET', f'/builds?filter[app]={app}&filter[version]={num}&limit=1')['data']
     if not b or b[0]['attributes']['processingState'] != 'VALID': print('build not ready', b and b[0]['attributes']['processingState']); sys.exit(2)
     asc.call('PATCH', f'/appStoreVersions/{ver}/relationships/build', {'data': {'type': 'builds', 'id': b[0]['id']}})
