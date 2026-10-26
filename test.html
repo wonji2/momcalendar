@@ -7174,7 +7174,7 @@ async function loadCommunity(force){
   }catch(_){ _commData=[]; }
   renderCommunity();
 }
-function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
+function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(isNaN(d)) return ''; if(d<1) return '방금'; if(d<60) return Math.floor(d)+'분 전'; if(d<1440) return Math.floor(d/60)+'시간 전'; if(d<10080) return Math.floor(d/1440)+'일 전'; return _commMD(t); }   // 7일까지는 「N분·시간·일 전」, 넘으면 「10.18」 (2026-10-26)
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
 function commMore(){ _commShown+=30; renderCommunity(); }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }
@@ -7256,7 +7256,7 @@ function renderCommunity(){
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
     const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}${_grBadge(p.writer_level)}</span>`:''}</div></div>${img}</a>`;
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commAgo(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}${_grBadge(p.writer_level)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
