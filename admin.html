@@ -145,6 +145,48 @@ details summary::-webkit-details-marker{display:none}
 @media (max-width:380px){
   .stats{grid-template-columns:repeat(2,1fr)}
 }
+/* 🏠 관리자 홈 (2026-10-26) */
+#homeView{padding:16px 16px 80px;max-width:1180px}
+.hm-band{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:4px}
+.hm-band.ok{background:#E8F7EE;color:#03753A}.hm-band.bad{background:#FFEBEE;color:#C62828}.hm-band.warn{background:#FFF4E0;color:#8A5300}
+.hm-band small{font-weight:400;opacity:.85;margin-left:auto;font-size:12px}
+.hm-sec{margin-top:24px}.hm-sec h3{font-size:16px;font-weight:700;margin:0 0 10px;display:flex;align-items:baseline;gap:8px;color:#191F28}
+.hm-sec h3 span{font-size:12px;font-weight:400;color:#8B95A1}
+.hm-grid{display:grid;gap:10px}
+.hm-todo{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.hm-kpi{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.hm-card{background:#fff;border:1px solid #E5E8EB;border-radius:14px;padding:14px 16px;min-width:0}
+.hm-card.click{cursor:pointer}.hm-card.click:hover{border-color:#4A35A0}
+.hm-card small{display:block;font-size:13px;color:#4E5968}
+.hm-card b{display:block;font-size:24px;font-weight:700;margin-top:4px;color:#191F28}
+.hm-card b.zero{color:#B0B8C1}
+.hm-card em{display:block;font-style:normal;font-size:12px;color:#8B95A1;margin-top:2px}
+.hm-card .up{color:#03A94D}.hm-card .dn{color:#F04452}
+.hm-list{background:#fff;border:1px solid #E5E8EB;border-radius:14px;padding:2px 16px}
+.hm-row{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-top:1px solid #F2F4F6;font-size:13px;line-height:1.5;color:#191F28;min-width:0}
+.hm-row:first-child{border-top:0}
+.hm-row>i{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px}
+.hm-row>div{min-width:0;word-break:break-all}
+.lv-r{background:#F04452}.lv-y{background:#F5A623}.lv-g{background:#03A94D}.lv-u{background:#B0B8C1}
+.hm-row .rl{flex:none;font-size:11px;color:#8B95A1;width:64px;padding-top:1px}
+.hm-empty{padding:14px 0;font-size:13px;color:#8B95A1}
+.hm-lim{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px 22px;padding:14px 16px}
+.hm-lim small{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#4E5968}
+.hm-lim em{display:block;font-style:normal;font-size:12px;color:#8B95A1;margin-top:4px}
+.hm-bar{height:8px;border-radius:99px;background:#F2F4F6;overflow:hidden;margin-top:6px}.hm-bar i{display:block;height:100%;border-radius:99px}
+.hm-more{border:0;background:none;color:#4A35A0;font:inherit;font-size:13px;font-weight:700;padding:10px 0;cursor:pointer}
+.hm-foot{margin-top:20px;font-size:12px;color:#8B95A1;line-height:1.7}
+.hm-foot a{color:#4A35A0}
+.tab-grp{display:none}
+@media(min-width:1100px){
+  #adminWrap{padding-left:208px}
+  #adminWrap>.hd{margin-left:-208px}
+  .tabs{position:fixed;left:0;top:55px;bottom:0;width:208px;flex-direction:column;overflow-x:hidden;overflow-y:auto;border-bottom:0;border-right:1px solid #EBEBEB;padding:8px 8px 40px;z-index:98}
+  .tab{text-align:left;border-bottom:0;margin:0 0 2px;padding:9px 12px;border-radius:10px;font-size:13px;color:#4E5968;white-space:normal}
+  .tab.on{background:#F1EDFB;color:#4A35A0;border-bottom:0}
+  .tabs .tab[style*="F3ECFB"]:not(.on){background:none!important}
+  .tab-grp{display:block;flex-shrink:0;font-size:11px;font-weight:700;color:#B0B8C1;padding:14px 12px 4px}
+}
 </style>
 </head>
 <body>
@@ -178,26 +220,34 @@ details summary::-webkit-details-marker{display:none}
   </div>
 
   <div class="tabs">
-    <div class="tab on" onclick="switchTab('all',this)">전체 <span id="tabcnt-all" style="opacity:.7"></span></div>
+    <div class="tab on" id="tabHome" onclick="switchTab('home',this)">🏠 홈</div>
+    <div class="tab-grp">공구</div>
+    <div class="tab" onclick="switchTab('all',this)">전체 <span id="tabcnt-all" style="opacity:.7"></span></div>
     <div class="tab" onclick="switchTab('pending',this)">대기중 <span id="tabcnt-pending" style="opacity:.7"></span><span id="badge-pending" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('approved',this)">승인됨 <span id="tabcnt-approved" style="opacity:.7"></span></div>
     <div class="tab" onclick="switchTab('dup',this)">중복의심 <span id="tabcnt-dup" style="opacity:.7"></span><span id="badge-dup" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('ai',this)">🤖 AI등록</div>
     <div class="tab" onclick="switchTab('crawl',this)">🕷️ 크롤링</div>
+    <div class="tab-grp">판매</div>
     <div class="tab" onclick="switchTab('hotdeal',this)">🔥 핫딜 <span id="badge-hotdeal" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('exp',this)">🎁 체험단 <span id="badge-exp" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너 <span id="badge-banner" class="tab-badge" style="display:none"></span></div>
+    <div class="tab-grp">사람</div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 이웃셀러</div>
     <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('inq',this)">💌 제보 <span id="badge-inq" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('member',this)">👥 회원</div>
     <div class="tab" onclick="switchTab('attend',this)">💜 출석·추첨</div>
+    <div class="tab-grp">분석·도구</div>
     <div class="tab" onclick="switchTab('adperf',this)">📈 광고성과</div>
     <div class="tab" onclick="openReelCard()" style="background:#F3ECFB;color:#5B3A8C;font-weight:800">📸 인스타 카드</div>
     <div class="tab" onclick="switchTab('bot',this)">🤖 챗봇 <span id="badge-bot" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
+    <div class="tab" onclick="location.href='ops.html'">⚙️ 운영 현황</div>
   </div>
 
+  <!-- 🏠 홈 (2026-10-26) — renderHome() 이 채운다 -->
+  <div id="homeView" style="display:none"></div>
   <!-- 🔥 핫딜 등록 탭 -->
   <div id="hotdealView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="background:#FBEAE7;border-radius:12px;padding:12px 13px;margin-bottom:12px;font-size:12px;color:#993C1D;line-height:1.7">
@@ -1316,6 +1366,7 @@ function enterAdmin(){
   scheduleRefresh();
   loadData();
   loadBotBadge();
+  try{ switchTab('home', document.getElementById('tabHome')); }catch(_){}
 }
 // 🤖 챗봇 검토판 대기 건수 — 탭을 안 열어도 몇 건인지 보이게 (사장님 지시 2026-09-02)
 async function loadBotBadge(){
@@ -1325,6 +1376,7 @@ async function loadBotBadge(){
       adminRpc('admin_bot_pairs',  {p_limit:100}).catch(()=>[]),
     ]);
     if(typeof setBadge==='function') setBadge('badge-bot', (rev||[]).length + (prs||[]).length);
+    try{ if(curTab==='home') hmTodo(); }catch(_){}
   }catch(_){ /* 못 세면 배지만 안 뜬다 — 탭은 그대로 동작한다 */ }
 }
 let _refreshTimer=null;
@@ -5077,22 +5129,15 @@ async function selectPeriod(p, btn){
   const hdrs={'apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`};
   document.getElementById('periodChart').innerHTML='<div style="color:#aaa;font-size:12px">불러오는 중...</div>';
   try{
-    // 페이지네이션 전체 조회 (1000행 한도 대응)
-    let rows=[]; let from=0;
-    while(true){
-      const r=await fetch(`${SB_URL}/rest/v1/visitors?visited_at=gte.${sStr}T00:00:00&visited_at=lte.${eStr}T23:59:59&select=visited_at&order=visited_at.asc`,
-        {headers:{...hdrs,'Range-Unit':'items','Range':`${from}-${from+999}`}});
-      const chunk=await r.json();
-      if(!Array.isArray(chunk)||!chunk.length) break;
-      rows=rows.concat(chunk);
-      if(chunk.length<1000) break;
-      from+=1000;
-    }
+    // 2026-10-26: 방문 원본(visitors)은 90일만 남긴다 → 하루 요약 RPC(요약표 + 아직 안 묶인 날은 원본, 날짜 KST)
+    // 날짜는 한국 시간으로(전엔 toISOString=UTC 라 새벽 0~9시엔 오늘이 빠졌다 — 검증자 2026-10-26)
+    const _ymd=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+    const rows=await adminRpc('admin_visitors_daily',{p_from:_ymd(start),p_to:_ymd(end)});
     // 날짜별 카운트
     const dayCount={};
     let d=new Date(start);
-    while(d<=end){ dayCount[d.toISOString().slice(0,10)]=0; d.setDate(d.getDate()+1); }
-    rows.forEach(v=>{ const k=(v.visited_at||'').slice(0,10); if(dayCount[k]!==undefined) dayCount[k]++; });
+    while(d<=end){ dayCount[_ymd(d)]=0; d.setDate(d.getDate()+1); }
+    (rows||[]).forEach(v=>{ const k=String(v.day||'').slice(0,10); if(dayCount[k]!==undefined) dayCount[k]+=Number(v.n)||0; });
     // 요약
     const dayVals=Object.values(dayCount);
     const total=dayVals.reduce((a,b)=>a+b,0);
@@ -6441,6 +6486,92 @@ async function renderBotStats(){
   }
 }
 
+// ══ 🏠 관리자 홈 (2026-10-26) — 지금 고장 난 것·할 일·숫자·한도 ══
+let _homeTimer=null, _homeData=null;
+const _hmEsc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const _hmN=n=>(Number(n)||0).toLocaleString('ko-KR');
+function _hmGo(tab){ const el=document.querySelector(`.tab[onclick*="'${tab}'"]`); if(el) switchTab(tab, el); }
+function _hmTabCnt(id){ const t=(document.getElementById(id)||{}).textContent||''; const m=t.match(/\d+/); return m?Number(m[0]):null; }
+function _hmLv(lv){ return lv==='🔴'?'lv-r':lv==='🟡'?'lv-y':lv==='✅'?'lv-g':'lv-u'; }
+function hmTodo(){
+  const box=document.getElementById('hmTodo'); if(!box) return;
+  const d=_homeData||{}, td=d.todo||{};
+  const pend=(typeof isSellerReq==='function' && allData && allData.length)?allData.filter(isSellerReq).length:_hmTabCnt('tabcnt-pending');
+  const dup=_hmTabCnt('tabcnt-dup');
+  const bb=document.getElementById('badge-bot'); const bot=(bb && bb.style.display!=='none')?(Number((bb.textContent||'').replace(/\D/g,''))||0):0;   // setBadge(0) 은 숨기기만 하고 글자는 남긴다
+  const items=[
+    ['공구 대기중', pend, 'pending', '셀러가 올린 등록·수정 요청'],
+    ['제보·문의 새 글', td.inq_new, 'inq', td.inq_oldest_days!=null?`가장 오래된 것 ${td.inq_oldest_days}일째`:''],
+    ['셀러 가입 승인', td.seller_auth, 'sellerauth', ''],
+    ['중복 의심', dup, 'dup', ''],
+    ['챗봇 검토', bot, 'bot', ''],
+  ];
+  box.innerHTML=items.map(([t,n,tab,sub])=>`<div class="hm-card click" onclick="_hmGo('${tab}')"><small>${t}</small><b class="${n?'':'zero'}">${n==null?'…':_hmN(n)}</b>${sub?`<em>${_hmEsc(sub)}</em>`:''}</div>`).join('');
+}
+function _hmKpi(k){
+  const c=(k&&k.cur)||{}, p=(k&&k.prev)||{};
+  const row=(t,cur,prev,sub)=>{ const dlt=prev?Math.round((cur-prev)/prev*100):null;
+    const ds=dlt==null?'':`<span class="${dlt>=0?'up':'dn'}">${dlt>=0?'▲':'▼'} ${Math.abs(dlt)}%</span> `;
+    return `<div class="hm-card"><small>${t}</small><b>${_hmN(cur)}</b><em>${ds}그 전 24시간 ${_hmN(prev)}${sub?' · '+sub:''}</em></div>`; };
+  return [
+    row('방문한 사람', k.people||0, k.people_prev||0, `방문 ${_hmN(k.visits)}회`),
+    row('공구 카드 눌림', c.card_click||0, p.card_click||0),
+    row('핫딜 → 몰로 이동', c.hotdeal_go||0, p.hotdeal_go||0, `핫딜 열기 ${_hmN(c.hotdeal_open)}`),
+    row('찜', c.wish_add||0, p.wish_add||0),
+    row('검색', c.search||0, p.search||0),
+    row('배너 눌림', (c.banner_click||0)+(c.sellerbanner_click||0), (p.banner_click||0)+(p.sellerbanner_click||0), `이웃셀러 ${_hmN(c.sellerbanner_click)}`),
+    row('카카오 로그인 완료', c.kakao_login_done||0, p.kakao_login_done||0, `시작 ${_hmN(c.kakao_login_start)}`),
+    row('앱 설치·알림 켬', (c.pwa_install||0)+(c.push_on||0), (p.pwa_install||0)+(p.push_on||0)),
+  ].join('');
+}
+function _hmRows(list){ return list.length?list.map(r=>`<div class="hm-row"><i class="${_hmLv(r.lv)}"></i><span class="rl">${_hmEsc(r.role)}</span><div>${_hmEsc(r.t)}</div></div>`).join(''):'<div class="hm-empty">없음</div>'; }
+function hmMore(btn){ const l=btn.previousElementSibling; l.querySelectorAll('.hm-row[hidden]').forEach(x=>x.hidden=false); btn.remove(); }
+async function renderHome(){
+  const el=document.getElementById('homeView'); if(!el) return;
+  if(!_homeData) el.innerHTML='<div class="hm-band warn">불러오는 중…</div>';
+  clearTimeout(_homeTimer); _homeTimer=setTimeout(()=>{ if(curTab==='home') renderHome(); }, 5*60e3);
+  let d;
+  try{ d=await adminRpc('admin_home_get',{}); _homeData=d; }
+  catch(e){ el.innerHTML=`<div class="hm-band bad">홈을 못 불러왔어요 · ${_hmEsc(e.message)}<small>로그인이 만료됐으면 로그아웃 후 다시 로그인</small></div>`; return; }
+  const rep=d.report||{}, secs=rep.secs||[], age=d.report_age_min, pcAge=d.pc_age_min;
+  const all=[]; secs.forEach(sc=>{ const role=String(sc.role||'').split(' — ')[0]; (sc.rows||[]).forEach(r=>all.push({role, lv:r.lv, t:r.t})); });
+  // 오류 레이더는 실시간 값으로(보고서 안의 같은 줄은 뺀다)
+  const radarRed=(d.radar||[]).filter(r=>/🔴/.test(r['상태']||'')).map(r=>({role:'오류', lv:'🔴', t:`${r.kind} — 1시간 ${r.h1} · 24시간 ${r.h24} (기준 ${r['임계']})`}));
+  const radarWarn=(d.radar||[]).filter(r=>/⚠|🟡/.test(r['상태']||'')).map(r=>({role:'오류', lv:'🟡', t:`${r.kind} — 1시간 ${r.h1} · 24시간 ${r.h24} (기준 ${r['임계']})`}));
+  const notRadar=r=>!(r.role==='운영' && /오류 레이더|—\s*1시간 .* · 24시간 .*\(임계/.test(r.t));
+  // 겹치는 줄 빼기: 알림줄의 [errors](=실시간 레이더)·[inquiry](=할 일 칸) · 요약 줄(아래 낱줄이 있다) · 한도·배포 칸에 따로 나오는 것
+  const dupRow=r=>/^\[(errors|inquiry)\]/.test(r.t) || /^예약작업 \d+개 중|^용량 감시 마지막 회차|^오류 레이더 \d+종/.test(r.t);
+  const inLimit=r=>/^DB: DB |^워커요청:|^HANDOFF\.md /.test(r.t);
+  const isDeploy=r=>/에만 있는 함수/.test(r.t);
+  const red=radarRed.concat(all.filter(r=>r.lv==='🔴' && notRadar(r) && !dupRow(r)));
+  const chk=radarWarn.concat(all.filter(r=>(r.lv==='🟡'||r.lv==='⚪') && notRadar(r) && !dupRow(r) && !inLimit(r) && !isDeploy(r)));
+  const stale=[]; if(age==null) stale.push('현황 보고가 아직 없음'); else if(age>120) stale.push(`현황이 ${Math.round(age/60)}시간 전 것`);
+  if(pcAge==null) stale.push('PC 소식이 한 번도 안 옴'); else if(pcAge>90) stale.push(`PC 소식 ${Math.round(pcAge/60)}시간째 끊김(PC 꺼짐?)`);
+  const band=red.length?`<div class="hm-band bad">🔴 고장 ${red.length}건${stale.length?' · '+_hmEsc(stale.join(' · ')):''}<small>서버 ${_hmEsc(d.at)} · 현황 ${_hmEsc(rep.at||'없음')}</small></div>`
+    : stale.length?`<div class="hm-band warn">⚠ ${_hmEsc(stale.join(' · '))} — 아래 숫자가 낡았을 수 있어요<small>서버 ${_hmEsc(d.at)}</small></div>`
+    : `<div class="hm-band ok">✅ 지금 고장 난 것 없음 · 확인 필요 ${chk.length}건<small>서버 ${_hmEsc(d.at)} · 현황 ${_hmEsc(rep.at||'')}</small></div>`;
+  // 한도
+  const fr=d.free||{}, txt=all.map(r=>r.t).join('\n');
+  const lim=[];
+  if(fr.db_mb!=null){ const pc=Math.round(fr.db_mb/(fr.db_limit||500)*100); lim.push({t:'DB 크기', v:`${fr.db_mb} / ${fr.db_limit||500}MB`, pc, sub:'매일 05:20 정리 · 클릭 기록 45일·방문 기록 90일 보관(백업 뒤 삭제)'}); }
+  const mw=txt.match(/워커요청[^\n]*?([\d,]+)건 — 무료 한도 10만\/일의 (\d+)%/); if(mw) lim.push({t:'API 서버 요청(하루)', v:`${mw[2]}%`, pc:+mw[2], sub:`최고 ${mw[1]}건 / 10만`});
+  // 디스크는 실시간 레이더 값(h1 = C·E 중 최소 여유 GB, 판정 5GB 🔴·15GB ⚠ — error_radar_79)
+  const dk=(d.radar||[]).find(r=>/디스크/.test(r.kind||'')); const gb=dk?Number(dk.h1):((txt.match(/C: 여유 (\d+)GB/)||[])[1]);
+  if(gb!=null && !isNaN(gb)) lim.push({t:'PC 디스크 최소 여유', v:`${(+gb).toFixed(1)}GB`, pc:gb<5?95:gb<15?75:40, sub:'15GB 아래 주의 · 5GB 아래 고장'});
+  const mh=txt.match(/HANDOFF\.md (\d+)KB/); if(mh) lim.push({t:'인계 문서', v:`${mh[1]} / 100KB`, pc:+mh[1], sub:''});
+  const limHtml=lim.map(x=>`<div><small><span>${x.t}</span><span>${_hmEsc(x.v)}</span></small><div class="hm-bar"><i style="width:${Math.min(100,x.pc)}%;background:${x.pc>=90?'#F04452':x.pc>=70?'#F5A623':'#03A94D'}"></i></div>${x.sub?`<em>${_hmEsc(x.sub)}</em>`:''}</div>`).join('');
+  const deploy=all.filter(r=>/에만 있는 함수/.test(r.t));
+  const chkShow=8;
+  el.innerHTML=band
+    +`<div class="hm-sec"><h3>오늘 할 일 <span>누르면 그 탭으로</span></h3><div class="hm-grid hm-todo" id="hmTodo"></div></div>`
+    +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3><div class="hm-list">${_hmRows(red)}</div></div>`
+    +`<div class="hm-sec"><h3>지난 24시간 <span>그 전 24시간과 비교</span></h3><div class="hm-grid hm-kpi">${_hmKpi(d.kpi||{})}</div></div>`
+    +`<div class="hm-sec"><h3>한도</h3><div class="hm-list hm-lim">${limHtml||'<div class="hm-empty">못 쟀어요</div>'}</div></div>`
+    +`<div class="hm-sec"><h3>확인 필요 <span>${chk.length}건 · 노랑 = 지켜볼 것 · 회색 = 못 잰 것</span></h3><div class="hm-list">${chk.length?chk.map((r,i)=>`<div class="hm-row"${i>=chkShow?' hidden':''}><i class="${_hmLv(r.lv)}"></i><span class="rl">${_hmEsc(r.role)}</span><div>${_hmEsc(r.t)}</div></div>`).join(''):'<div class="hm-empty">없음</div>'}</div>${chk.length>chkShow?`<button class="hm-more" onclick="hmMore(this)">${chk.length-chkShow}건 더 보기</button>`:''}</div>`
+    +(deploy.length?`<div class="hm-sec"><h3>올리기 기다리는 것 <span>테스트 페이지에만 있음</span></h3><div class="hm-list">${_hmRows(deploy)}</div></div>`:'')
+    +`<div class="hm-foot">서버 숫자 ${_hmEsc(d.at)} · /현황 ${_hmEsc(rep.at||'없음')}${age!=null?` (${age}분 전)`:''} · 5분마다 새로 고침 · 자동화 하나하나는 <a href="ops.html">운영 현황</a></div>`;
+  hmTodo();
+}
 async function adminRpc(name, body){
   const r=await fetch(`${SB_URL}/rest/v1/rpc/${name}`,{
     method:'POST',
@@ -6656,6 +6787,7 @@ function updateStats(){
   // 빨간 알림 배지 (처리 필요한 항목)
   setBadge('badge-pending', allData.filter(isSellerReq).length);
   setBadge('badge-dup', dups.length);
+  try{ if(curTab==='home') hmTodo(); }catch(_){}
 }
 // 빨간 배지 표시/숨김 (0이면 숨김)
 function setBadge(id,n){
@@ -7688,11 +7820,12 @@ function switchTab(tab,el){
   updateBulkBar();
   // 모든 뷰 숨기기
   ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView',
-   'inqView','memberView','adperfView','attendView'].forEach(id=>{
+   'inqView','memberView','adperfView','attendView','homeView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
   // 🤖 챗봇 검토판 — 관리자 3단계 깊이에 있던 것을 최상단 탭으로 뺐다 (사장님 지시 2026-09-02)
   //   화면은 기존 것을 그대로 쓴다(renderBotStats). 두 벌로 만들면 한쪽만 고치는 사고가 난다.
+  if(tab==='home'){ document.getElementById('homeView').style.display='block'; renderHome(); return; }
   if(tab==='bot'){
     document.getElementById('statsView').style.display='block';
     switchEvtTab('bot');                       // 안에서 renderBotStats 까지 돈다
