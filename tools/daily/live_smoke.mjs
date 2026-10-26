@@ -37,7 +37,10 @@ const log = (s) => { console.log(s); try { fs.appendFileSync(LOGF, `[${kst()}] $
 const liveHtml = LOCAL ? '' : await fetch(SITE + '?smoke=' + Date.now()).then((r) => r.text()).catch(() => '');
 const hash = crypto.createHash('sha1').update(liveHtml).digest('hex').slice(0, 12);
 const st = (() => { try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return {}; } })();
-if (AUTO && st.hash === hash && Date.now() - (st.at || 0) < 55 * 60e3) { console.log('바뀐 것 없음 — 건너뜀'); process.exit(0); }
+// ⚠ process.exit() 로 끊으면 윈도우 node 가 열린 fetch 소켓을 닫다가 터진다(0xC0000409 — 예약작업이 실패로 찍힘). 블록을 건너뛰고 자연 종료한다
+const SKIP = AUTO && st.hash === hash && Date.now() - (st.at || 0) < 55 * 60e3;
+if (SKIP) console.log('바뀐 것 없음 — 건너뜀');
+else {
 
 const PATHS = {
   web:   { ua: 'Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36' },
@@ -145,4 +148,5 @@ if (!DRY) {
   } else clearAlert('smoke');
   try { pushAlerts('사장님 알림: 라이브 화면 검사'); } catch {}
 }
-process.exit(fails.length ? 1 : 0);
+process.exitCode = fails.length ? 1 : 0;
+}
