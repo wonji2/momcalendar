@@ -269,7 +269,16 @@ async function expectTab(name, url, run) {
 })().catch((e) => { rec('시험 중 오류', false, e.stack || e.message); finish(); });
 
 function finish() {
-  const md = `# 안드로이드 앱 자동 시험 (${new Date().toISOString()})\n\n| 결과 | 항목 | 메모 |\n|---|---|---|\n${rows.join('\n')}\n\n실패 ${fails}개\n`;
+  // 앱이 죽었는지·알림 처리 기록 — 실패 원인을 추측하지 않고 기록으로 본다
+  try {
+    const crash = sh('logcat', '-d', '-b', 'crash');
+    fs.writeFileSync(`${OUT}/crash.txt`, crash);
+    const fatal = (crash.match(/FATAL EXCEPTION[\s\S]{0,600}/) || [''])[0].replace(/\s+/g, ' ');
+    info('앱 강제 종료 기록', fatal ? fatal.slice(0, 280) : '없음');
+    const all = sh('logcat', '-d', '-v', 'brief');
+    fs.writeFileSync(`${OUT}/logcat_push.txt`, all.split('\n').filter((l) => /FirebaseMessaging|FCM|PushNotification|Capacitor\/Plugin|NotificationService|momcalendar|AndroidRuntime/i.test(l)).slice(-400).join('\n'));
+  } catch (_) {}
+  const md =`# 안드로이드 앱 자동 시험 (${new Date().toISOString()})\n\n| 결과 | 항목 | 메모 |\n|---|---|---|\n${rows.join('\n')}\n\n실패 ${fails}개\n`;
   fs.writeFileSync(`${OUT}/report.md`, md);
   console.log(md);
   process.exit(fails ? 1 : 0);
