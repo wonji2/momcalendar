@@ -814,7 +814,13 @@ body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::a
 /* 아이폰 앱(Capacitor, contentInset=never)은 화면을 상태바 밑까지 쓴다 → 머리·옆 메뉴를 상태바 높이만큼 내린다 (사장님 2026-10-26 "위에 다 짤림")
    env() 값은 viewport-fit=cover 일 때만 들어온다 → nativeBoot 가 앱 안에서만 viewport 에 붙인다. 웹·인앱은 그대로 */
 body.native-app .hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}
-body.native-app .side-menu{padding-top:env(safe-area-inset-top,0px)}
+body.native-app .side-hd{padding-top:calc(20px + env(safe-area-inset-top,0px))}   /* 옆 메뉴는 보라 머리가 상태바까지 올라오게 */
+/* 화면을 내리면 카드가 상태바(시계·배터리) 밑으로 지나가 겹친다 → 앱 안에선 상태바 자리를 머리 색으로 늘 채운다(옆 메뉴·창은 그 위에 뜬다) */
+body.native-app::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--main-d);z-index:250;pointer-events:none}
+/* 아래 홈 막대에 걸리는 것들 */
+body.native-app .side-menu{padding-bottom:env(safe-area-inset-bottom,0px)}
+body.native-app .totop-fab{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 </style>
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}</style>
 </head>
