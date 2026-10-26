@@ -53,7 +53,13 @@ elif cmd == 'cancel':  # a: app id — 심사 대기 중인 제출을 취소한�
     print('canceled', s2[0]['id'], r['data']['attributes'].get('state'))
 elif cmd == 'resubmit':  # a: app id, version id — 새 제출을 만들어 그 버전을 넣고 낸다(취소 뒤)
     app, ver = a
-    sub = asc.call('POST', '/reviewSubmissions', {'data': {'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
+    # 빌드에 수출 규정 답(usesNonExemptEncryption)이 없으면 제출이 409 — 비어 있으면 false(HTTPS 만)로 채운다
+    bl = asc.call('GET', f'/appStoreVersions/{ver}/build')['data']
+    if bl and bl['attributes'].get('usesNonExemptEncryption') is None:
+        asc.call('PATCH', f"/builds/{bl['id']}", {'data': {'type': 'builds', 'id': bl['id'], 'attributes': {'usesNonExemptEncryption': False}}})
+    # 지난번 실패로 남은 빈 제출(READY_FOR_REVIEW)이 있으면 그걸 쓴다
+    ready = [x for x in asc.call('GET', f'/reviewSubmissions?filter[app]={app}&limit=5')['data'] if x['attributes'].get('state') == 'READY_FOR_REVIEW']
+    sub = ready[0] if ready else asc.call('POST', '/reviewSubmissions', {'data': {'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
         'relationships': {'app': {'data': {'type': 'apps', 'id': app}}}}})['data']
     asc.call('POST', '/reviewSubmissionItems', {'data': {'type': 'reviewSubmissionItems',
         'relationships': {'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sub['id']}},

@@ -100,6 +100,9 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.wontsbe.momcalendar.auth" "$P"
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$P"
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string momcalendar" "$P"
+          # 수출 규정(암호화): HTTPS 만 쓴다 → 면제. 없으면 빌드마다 App Store Connect 가 질문을 걸어 심사 제출이 409 로 막힌다(2026-10-27 빌드 58)
+          /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$P" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P"
           plutil -lint "$P"
           /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes:0:CFBundleURLSchemes:0" "$P" | grep -qx momcalendar && echo "✅ URL 스킴 momcalendar" || (echo "🔴 URL 스킴 등록 실패"; exit 1)
           grep -q "ApplicationDelegateProxy.shared.application(app, open: url" ios/App/App/AppDelegate.swift && echo "✅ open url 넘김" || (echo "🔴 AppDelegate 에 open url 넘김이 없다"; exit 1)
