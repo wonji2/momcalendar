@@ -19,11 +19,32 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         try { getWindow().getDecorView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         if (bridge != null) bridge.setWebViewClient(new MomcalWebViewClient(bridge));
-        // 상태바·아래 막대 자리(웹뷰 바깥 여백)를 보라로 — TWA 때와 같은 색. 없으면 연회색 바탕에 흰 아이콘이라 시계가 안 보였다(e2e 01_home.png)
-        try { android.view.View p = (android.view.View) bridge.getWebView().getParent(); if (p != null) p.setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
-        //   웹뷰 140 미만은 Capacitor 가 웹뷰 자체에 여백(padding)을 준다 → 그 여백은 웹뷰 바탕색으로 칠해진다(SystemBars 문서). 사이트 본문은 자기 바탕색을 칠하므로 안 바뀐다
-        try { bridge.getWebView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
+        fitSystemBars();
         // 처음 켤 때의 주소는 BridgeActivity.load() 가 onNewIntent(getIntent()) 로 넘겨준다 → 여기서 또 부르면 두 번 연다(검증자 지적)
+    }
+
+    // 상태바·아래 막대·키보드 자리를 웹뷰 바깥으로 비우고 그 자리를 보라로 칠한다 (TWA 때와 같은 모양)
+    //   안드로이드 15+(targetSdk 35+)는 화면을 상태바 밑까지 강제로 넓힌다(edge-to-edge). 사이트는 viewport-fit=cover 가 아니라
+    //   그 자리를 비워야 한다. Capacitor 의 insetsHandling 은 웹뷰 140 미만에서 웹뷰 padding 으로 처리해 사이트 바탕이 비쳐
+    //   연회색에 흰 아이콘이 됐다(e2e 02_home_loaded.png) → 설정은 disable 로 두고 여기서 여백(margin)으로 직접 한다(SystemBars 문서의 disable 안내).
+    private void fitSystemBars() {
+        if (bridge == null) return;
+        final android.view.View web = bridge.getWebView();
+        try { android.view.View p = (android.view.View) web.getParent(); if (p != null) p.setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
+        try {
+            androidx.core.view.WindowInsetsControllerCompat c = new androidx.core.view.WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+            c.setAppearanceLightStatusBars(false);       // 보라 바탕에 흰 아이콘
+            c.setAppearanceLightNavigationBars(false);
+        } catch (Exception ignored) { }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(web, (v, insets) -> {
+            androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+            androidx.core.graphics.Insets ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+            android.view.ViewGroup.MarginLayoutParams lp = (android.view.ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            lp.setMargins(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));   // 키보드가 올라오면 입력칸이 가려지지 않게
+            v.setLayoutParams(lp);
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
+        });
+        androidx.core.view.ViewCompat.requestApplyInsets(web);
     }
 
     @Override

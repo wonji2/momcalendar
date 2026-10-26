@@ -89,7 +89,8 @@ async function expectTab(name, url, run) {
   await run();
   await sleep(5000);
   const t = top();
-  const txt = screenText();
+  // 화면 글자(uiautomator)는 페이지가 그려지는 중이면 비어 나온다 → 맨 앞 화면이 받은 주소(dumpsys 의 dat=)도 함께 본다
+  const txt = screenText() + ' ' + sh('shell', 'dumpsys', 'activity', 'top').slice(0, 20000) + ' ' + (sh('shell', 'dumpsys', 'activity', 'activities').match(/mResumedActivity[sS]{0,3000}/) || [''])[0];
   shot('t_' + name.replace(/[^\w가-힣]+/g, '_').slice(0, 40));
   rec(`${name} → 선택창 없음`, !isChooser(t), t);
   rec(`${name} → 브라우저 화면에 그 주소`, isTab(t) && hostRe(url).test(txt), t + ' · ' + hostRe(url) + ' ' + hostRe(url).test(txt));
@@ -114,6 +115,21 @@ async function expectTab(name, url, run) {
   const h = await js(`document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length+'|'+document.body.scrollHeight`);
   rec('목록이 그려짐(카드 수·본문 높이)', /^\d+\|\d+$/.test(h || '') && +h.split('|')[1] > 1500, h);
   shot('02_home_loaded');
+  // 상태바·아래 막대 자리가 보라(#602090)인가 — 화면 원본 픽셀(screencap 원시 형식: 머리 + RGBA)
+  {
+    let note = '';
+    let ok = false;
+    try {
+      const b = execFileSync('adb', ['exec-out', 'screencap'], { timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
+      const w = b.readUInt32LE(0), hh = b.readUInt32LE(4), head = b.length - w * hh * 4;
+      const px = (x, y) => { const o = head + (y * w + x) * 4; return [b[o], b[o + 1], b[o + 2]]; };
+      const near = (p) => Math.abs(p[0] - 0x60) < 24 && Math.abs(p[1] - 0x20) < 24 && Math.abs(p[2] - 0x90) < 24;
+      const topPx = px(w >> 1, 6), botPx = px(8, hh - 4);
+      ok = near(topPx) && near(botPx);
+      note = `위 ${topPx} · 아래 ${botPx} (${w}x${hh})`;
+    } catch (e) { note = e.message; }
+    rec('상태바·아래 막대 보라색(TWA 때와 같은 색)', ok, note);
+  }
 
   // 바깥 링크 — openLink(배너·핫딜·공구 카드가 지나는 길)
   const links = [
