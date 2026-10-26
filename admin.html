@@ -6581,6 +6581,7 @@ async function renderHome(){
   const chkShow=8;
   el.innerHTML=band
     +`<div class="hm-sec"><h3>오늘 할 일 <span>누르면 그 탭으로</span></h3><div class="hm-grid hm-todo" id="hmTodo"></div></div>`
+    +`<div class="hm-sec" id="hmInq">${window._inqPanelHtml||''}</div>`
     +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3><div class="hm-list">${_hmRows(red)}</div></div>`
     +(radarAcked.length?`<div class="hm-sec"><h3>처리한 것 <span>새로 생기면 다시 빨갛게</span></h3><div class="hm-list">${_hmRows(radarAcked)}</div></div>`:'')
     +`<div class="hm-sec"><h3>지난 24시간 <span>그 전 24시간과 비교</span></h3><div class="hm-grid hm-kpi">${_hmKpi(d.kpi||{})}</div></div>`
@@ -6589,6 +6590,7 @@ async function renderHome(){
     +(deploy.length?`<div class="hm-sec"><h3>올리기 기다리는 것 <span>테스트 페이지에만 있음</span></h3><div class="hm-list">${_hmRows(deploy)}</div></div>`:'')
     +`<div class="hm-foot">서버 숫자 ${_hmEsc(d.at)} · /현황 ${_hmEsc(rep.at||'없음')}${age!=null?` (${age}분 전)`:''} · 5분마다 새로 고침 · 자동화 하나하나는 <a href="ops.html">운영 현황</a></div>`;
   hmTodo();
+  loadInqPanel();
 }
 async function adminRpc(name, body){
   const r=await fetch(`${SB_URL}/rest/v1/rpc/${name}`,{
@@ -7701,7 +7703,17 @@ function fmtWhen(iso){
 // ── 제보 ──
 let _inqFilter='', _inqData=[];
 const INQ_KIND={request:{t:'🛒 공구요청',c:'#4A35A0',bg:'#EEE9FF'},question:{t:'❓ 문의',c:'#185FA5',bg:'#E6F1FB'},bug:{t:'🐛 오류제보',c:'#A32D2D',bg:'#FCEBEB'},partner:{t:'🤝 입점·제휴',c:'#0F6E56',bg:'#E1F5EE'},etc:{t:'기타',c:'#5F5E5A',bg:'#F1EFE8'}};
-const INQ_ST={new:{t:'🆕 새 제보',c:'#C62828'},doing:{t:'진행중',c:'#9A6A00'},done:{t:'✅ 완료',c:'#1E7D32'},hold:{t:'보류',c:'#8A8A8A'}};
+const INQ_ST={new:{t:'🆕 새 제보',c:'#C62828'},need:{t:'확인 필요',c:'#C62828'},doing:{t:'진행중',c:'#9A6A00'},done:{t:'✅ 처리',c:'#1E7D32'},hold:{t:'보류',c:'#8A8A8A'}};
+const INQ_TRI={date:'날짜',gone:'공구없음',name:'이름',link:'링크',site:'사이트 기능',etc:'기타'};
+// 자동 처리기(inquiry_triage.mjs)가 못 정한 것은 메모가 「확인 필요」 로 시작한다
+const inqSt=x=>INQ_ST[x.status==='doing'&&/^확인 필요/.test(x.admin_memo||'')?'need':x.status]||INQ_ST.new;
+function inqMemoHtml(x){
+  return `${x.admin_memo?`<div style="font-size:12.5px;color:#2A1D6E;line-height:1.6;background:#F7F5FF;border-radius:8px;padding:8px 10px;margin-top:6px;word-break:break-word">${esc2(x.admin_memo)}</div>`:''}
+    ${(x.handled_at||x.has_shot||x.shot)?`<div style="font-size:11px;color:#999;margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      ${x.handled_at?`<span>처리 ${fmtWhen(x.handled_at)}</span>`:''}
+      ${(x.has_shot||x.shot)?`<button onclick="openInqShot(${+x.id})" style="padding:4px 9px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">화면</button>`:''}
+    </div>`:''}`;
+}
 function setInqFilter(s,el){
   _inqFilter=s;
   document.querySelectorAll('.inqf').forEach(b=>b.classList.toggle('on', b===el));
@@ -7712,7 +7724,7 @@ async function loadInquiries(){
   el.innerHTML='<div style="text-align:center;padding:24px;color:#bbb;font-size:13px">불러오는 중…</div>';
   try{
     _inqData=await admRpc('inquiry_list',{p_status:null,p_limit:300});
-    const newCnt=(_inqData||[]).filter(x=>x.status==='new').length;
+    const newCnt=(_inqData||[]).filter(x=>x.status==='new'||inqSt(x)===INQ_ST.need).length;
     const b=document.getElementById('badge-inq');
     if(b){ b.textContent=newCnt||''; b.style.display=newCnt?'inline-block':'none'; }
     renderInq();
@@ -7723,15 +7735,17 @@ function renderInq(){
   const rows=(_inqData||[]).filter(x=>!_inqFilter||x.status===_inqFilter);
   if(!rows.length){ el.innerHTML='<div style="text-align:center;padding:30px;color:#bbb;font-size:13px">해당하는 제보가 없어요</div>'; return; }
   el.innerHTML=rows.map(x=>{
-    const k=INQ_KIND[x.kind]||INQ_KIND.etc, st=INQ_ST[x.status]||INQ_ST.new;
+    const k=INQ_KIND[x.kind]||INQ_KIND.etc, st=inqSt(x);
     const who=x.nickname?`💜 ${esc2(x.nickname)}`:(x.device_id?`🙈 비회원 ${esc2(String(x.device_id).slice(0,8))}`:'');
     return `<div style="background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:9px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:${k.bg};color:${k.c}">${k.t}</span>
         <span style="font-size:11px;font-weight:700;color:${st.c}">${st.t}</span>
-        <span style="font-size:11px;color:#bbb;margin-left:auto">${fmtWhen(x.created_at)}</span>
+        ${x.triage?`<span style="font-size:11px;color:#6B6380">${INQ_TRI[x.triage]||esc2(x.triage)}</span>`:''}
+        <span style="font-size:11px;color:#bbb;margin-left:auto">#${+x.id} · ${fmtWhen(x.created_at)}</span>
       </div>
       <div style="font-size:13.5px;color:#222;line-height:1.65;white-space:pre-wrap;word-break:break-word">${esc2(x.content)}</div>
+      ${inqMemoHtml(x)}
       <div style="font-size:11px;color:#999;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
         ${who?`<span>${who}</span>`:''}
         ${x.contact?`<span>📮 ${esc2(x.contact)}</span>`:''}
@@ -7750,11 +7764,53 @@ async function setInqStatus(id,st){
     const r=await fetch(`${SB_URL}/rest/v1/inquiries?id=eq.${id}`,{
       method:'PATCH',
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':`Bearer ${ACCESS_TOKEN}`,'Prefer':'return=minimal'},
-      body:JSON.stringify({status:st})
+      body:JSON.stringify({status:st, handled_at:st==='done'?new Date().toISOString():null})
     });
     if(!r.ok) throw new Error('HTTP '+r.status);
-    loadInquiries();
+    loadInquiries(); loadInqPanel();
   }catch(e){ alert('상태 변경 실패: '+e.message); }
+}
+// 🏠 홈 「손님 제보 처리」 — 사장님 2026-10-26 "메인 관리자 화면에서 어떻게 처리했는지 내가 보이게"
+//   처리는 tools/daily/inquiry_triage.mjs(매시간) · 처리 내용은 admin_memo · inquiry_recent 는 관리자만, 화면 사진은 눌렀을 때만 받는다
+async function loadInqPanel(){
+  const el=document.getElementById('hmInq'); if(!el) return;
+  let rows;
+  try{ rows=await admRpc('inquiry_recent',{p_limit:100}); }
+  catch(e){ el.innerHTML=`<h3>손님 제보 처리</h3><div class="hm-list"><div class="hm-empty">못 불러왔어요 · ${esc2(e.message)}</div></div>`; return; }
+  rows=rows||[];
+  const need=rows.filter(x=>x.status==='new'||inqSt(x)===INQ_ST.need).length;
+  const doing=rows.filter(x=>inqSt(x)===INQ_ST.doing).length;
+  const kday=t=>new Date(new Date(t).getTime()+9*3600e3).toISOString().slice(0,10);
+  const t0=kday(Date.now());
+  const doneToday=rows.filter(x=>x.status==='done'&&x.handled_at&&kday(x.handled_at)===t0).length;
+  const b=document.getElementById('badge-inq');
+  if(b){ b.textContent=need||''; b.style.display=need?'inline-block':'none'; }
+  const dot=x=>{ const st=inqSt(x); return st===INQ_ST.done?'lv-g':(st===INQ_ST.doing?'lv-y':(st===INQ_ST.hold?'lv-u':'lv-r')); };
+  el.innerHTML=`<h3>손님 제보 처리 <span>확인 필요 ${need} · 진행중 ${doing} · 오늘 처리 ${doneToday}</span></h3>
+    <div class="hm-list">${rows.slice(0,3).map(x=>{
+      const st=inqSt(x);
+      return `<div class="hm-row"><i class="${dot(x)}"></i><span class="rl">#${+x.id} ${INQ_TRI[x.triage]||''}</span><div style="flex:1">
+        <div style="display:flex;gap:8px;font-size:12px"><b style="color:${st.c};font-weight:700">${st.t}</b><span style="color:#8B95A1;margin-left:auto">${fmtWhen(x.created_at)}</span></div>
+        <div style="margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc2(x.content)}</div>
+        ${inqMemoHtml(x)}
+      </div></div>`;}).join('')||'<div class="hm-empty">없음</div>'}</div>
+    <button class="hm-more" onclick="openInqTab()">전체 보기</button>`;
+  window._inqPanelHtml=el.innerHTML;   // 홈이 5분마다 다시 그릴 때 빈 칸으로 깜빡이지 않게
+}
+function openInqTab(){
+  const t=[...document.querySelectorAll('.tab')].find(x=>(x.getAttribute('onclick')||'').includes("'inq'"));
+  if(t) switchTab('inq',t);
+}
+async function openInqShot(id){
+  try{
+    const src=await admRpc('inquiry_shot',{p_id:id});
+    if(!src||!/^data:image\/(jpeg|png);base64,/.test(src)){ alert('화면 사진이 없어요'); return; }
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick=()=>ov.remove();
+    const im=document.createElement('img'); im.src=src; im.style.cssText='max-width:100%;max-height:100%;border-radius:12px';
+    ov.appendChild(im); document.body.appendChild(ov);
+  }catch(e){ alert('화면을 못 불러왔어요: '+e.message); }
 }
 // ── 회원 ──
 async function loadMembers(){
