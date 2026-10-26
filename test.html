@@ -7178,7 +7178,8 @@ async function loadCommunity(force){
 }
 // ── 새 글 1분마다 (2026-10-26) ──
 let _commAt=0, _commT=0, _commBusy=false, _commNew=[];
-function _commOn(){ return typeof _ctPrev!=='undefined' && _ctPrev==='community' && !document.hidden; }
+function _commOn(){ return typeof _ctPrev!=='undefined' && _ctPrev==='community' && !document.hidden && !document.body.classList.contains('srch-mode'); }
+function _commVisNew(){ return _commNew.filter(x=>!_commBoard || x.board_id===_commBoard).length; }
 function _commLiveStart(){ if(_commT) return; _commT=setInterval(()=>{ if(_commOn()) _commCheck(); },60000);
   document.addEventListener('visibilitychange',()=>{ if(_commOn() && Date.now()-_commAt>50000) _commCheck(); }); }
 function _commAgoTick(){ document.querySelectorAll('#commView .ago[data-t]').forEach(e=>{ const x=_commAgo(e.dataset.t); if(e.textContent!==x) e.textContent=x; }); }
@@ -7193,13 +7194,13 @@ async function _commCheck(){
     if(add.length){
       const v=document.getElementById('commView'); const nearTop=!v || v.getBoundingClientRect().top>-80;
       _commNew=add.concat(_commNew);
-      if(nearTop) commShowNew(false); else _commPill();
+      if(nearTop || !_commVisNew()) commShowNew(false); else _commPill();
     }
   }catch(_){ }
   _commBusy=false; _commAgoTick();
 }
-function _commPill(){ let b=document.getElementById('commNewPill'); if(!b){ b=document.createElement('button'); b.id='commNewPill'; b.className='comm-newpill'; b.onclick=()=>commShowNew(true); document.body.appendChild(b); } b.textContent='새 글 '+_commNew.length; b.hidden=!_commOn(); }
-function commShowNew(scroll){ if(!_commNew.length) return; _commData=_commNew.concat(_commData); _commNew=[]; const b=document.getElementById('commNewPill'); if(b) b.hidden=true; renderCommunity();
+function _commPill(){ let b=document.getElementById('commNewPill'); if(!b){ b=document.createElement('button'); b.id='commNewPill'; b.className='comm-newpill'; b.onclick=()=>commShowNew(true); document.body.appendChild(b); } b.textContent='새 글 '+_commVisNew(); b.hidden=!_commOn() || !_commVisNew(); }
+function commShowNew(scroll){ renderCommunity();
   if(scroll){ const v=document.getElementById('commView'); if(v) window.scrollTo({top:v.getBoundingClientRect().top+scrollY-70,behavior:'smooth'}); } }
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(isNaN(d)) return ''; if(d<1) return '방금'; if(d<60) return Math.floor(d)+'분 전'; if(d<1440) return Math.floor(d/60)+'시간 전'; if(d<10080) return Math.floor(d/1440)+'일 전'; return _commMD(t); }   // 7일까지는 「N분·시간·일 전」, 넘으면 「10.18」 (2026-10-26)
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
@@ -7270,6 +7271,8 @@ function commGo(url, ev){
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
+  if(typeof _commNew!=='undefined' && _commNew.length){ const have=new Set((_commData||[]).map(x=>x.article_id)); _commData=_commNew.filter(x=>!have.has(x.article_id)).concat(_commData||[]); _commNew=[]; }
+  { const nb=document.getElementById('commNewPill'); if(nb) nb.hidden=true; }
   const all=_commData||[];
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
   const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
@@ -7283,7 +7286,7 @@ function renderCommunity(){
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
     const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span class="ago" data-t="${escHtml(p.posted_at)}">${_commAgo(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span class="nk">${escHtml(p.nick)}${_grBadge(p.writer_level)}</span>`:''}</div></div>${img}</a>`;
+    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span class="ago" data-t="${escHtml(p.posted_at)}">${_commAgo(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span class="nk"><i class="nn">${escHtml(p.nick)}</i>${_grBadge(p.writer_level)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
@@ -7878,7 +7881,10 @@ function _grCard(){
 .cx-top{margin:4px 0 6px}
 .comm-newpill{position:fixed;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:9000;border:0;border-radius:999px;background:#191F28;color:#fff;font-family:inherit;font-size:14px;font-weight:600;padding:9px 16px;box-shadow:0 4px 14px rgba(0,0,0,.18);cursor:pointer}
 .comm-newpill[hidden]{display:none}
-.comm-post .m .nk{display:inline-flex;align-items:center;min-width:0}
+.comm-post .m .nk{display:inline-flex;align-items:center;min-width:0;flex:0 1 auto}
+.comm-post .m .nk .nn{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comm-post .m .nk::before,.comm-post .m .nk .lv{flex:none}
+.comm-post .m>span:not(.nk){flex:none}
 .comm-post .m span+span::before{display:inline-block;width:7px;margin-right:5px;text-align:center}
 .comm-post .m .lv{height:16px;margin-left:3px;padding:0 6px 0 4px;font-size:10.5px;vertical-align:0}
 .comm-post .m .lv svg{width:10px;height:10px}

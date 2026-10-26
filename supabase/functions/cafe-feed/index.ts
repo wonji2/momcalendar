@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       if (!list.length) errors.push(`${menuid}: 0건`);
       const img: Record<number, string> = {};
       try { for (const a of await get(LIST(menuid, per, "I"))) if (a.representImage) img[Number(a.articleId)] = String(a.representImage); }
-      catch (e) { errors.push(`${menuid} 사진: ${String(e).slice(0, 60)}`); }
+      catch (e) { errors.push(`${menuid} 사진: ${String(e).slice(0, 60)}`); if (latest) continue; }   // 1분 회차는 사진 목록이 실패하면 저장하지 않는다(image_url 을 null 로 덮지 않게 — 검증자 2026-10-26)
       for (const a of list) {
         const aid = Number(a.articleId); if (!aid) continue;
         const bid = menuid === 0 ? Number(a.menuId) : menuid;
