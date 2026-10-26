@@ -1,5 +1,6 @@
 # 모든 흐름의 시작: 앱을 켜고, 처음 켤 때 뜨는 것(알림 허용창·소개 화면·관심 분류·아이 정보)을 넘겨 목록까지 간다
-#   2026-10-26 첫 시험에서 안드로이드는 소개 화면(STEP 1~7)에 가려 5개 흐름이 전부 첫 화면에서 막혔다
+#   2026-10-26 첫 시험: 안드로이드는 소개 화면(STEP 1~7)에 가려 5개 흐름이 전부 첫 화면에서 막혔다
+#   ⚠ 검색창 안의 흐린 안내 글씨(placeholder 「브랜드, 상품명 검색」)는 아이폰에서 글자로 안 읽힌다 → 늘 보이는 띠 문구를 기준으로 쓴다
 appId: ${APP_ID}
 ---
 - launchApp
@@ -7,16 +8,14 @@ appId: ${APP_ID}
     text: "(Allow|허용)"
     optional: true
 - extendedWaitUntil:
-    visible: ".*(브랜드, 상품명 검색|다음|시작하기|건너뛰기).*"
+    visible: ".*(공구 핫딜 정보 공유 커뮤니티|다음|시작하기|건너뛰기).*"
     timeout: 30000
 - repeat:
     times: 12
     while:
-      notVisible: "브랜드, 상품명 검색"
+      visible: "(다음|시작하기|건너뛰기)"
     commands:
-      - tapOn:
-          text: "(건너뛰기|시작하기|다음)"
-          optional: true
+      - tapOn: "(건너뛰기|시작하기|다음)"
 - extendedWaitUntil:
-    visible: "브랜드, 상품명 검색"
+    visible: ".*공구 핫딜 정보 공유 커뮤니티.*"
     timeout: 30000
