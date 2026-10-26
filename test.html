@@ -316,6 +316,7 @@ body.srch-mode .next-zone{display:none!important}
 #nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
 #nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:30px}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
 #nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
+#nxdAsk .nxa-t,#nxdAsk .nxa-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 #nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#602090;color:#fff}
 /* ⚙ 설정 · 내 정보 시트 (2026-10-15) */
@@ -6433,9 +6434,9 @@ function nxdBell(id,btn,ev){
     document.body.appendChild(m);
     m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
   }
-  m.querySelector('.nxa-t').textContent=(it.name?it.name+' ':'')+'오픈 알림 받으시겠어요?';
+  m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';   // 상품명·날짜 없이 한 줄(사장님 2026-10-26)
   const _inApp=(typeof _isInApp==='function' && _isInApp());
-  m.querySelector('.nxa-s').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?`오픈 날(${md}) 아침 9시 알림은 맘캘린더 앱에서 받을 수 있어요`:`오픈 날(${md}) 아침 9시 알림은 ${_isIOS()?'사파리':'크롬'}에서 받을 수 있어요 · 눌러서 바로 옮겨 드릴게요`):`오픈 날(${md}) 아침 9시에 알림을 보내드려요`;
+  m.querySelector('.nxa-s').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?'맘캘린더 앱에서 알림 받을 수 있어요':`${_isIOS()?'사파리':'크롬'}에서 알림 받을 수 있어요`):'오픈일 아침 9시 알림 보내드려요';
   m.querySelector('.nxa-yes').textContent=_inApp?(typeof _appOn==='function'&&_appOn()?'앱으로 오세요':(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기')):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
