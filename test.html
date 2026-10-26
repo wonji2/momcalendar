@@ -1187,6 +1187,7 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
   // v4 JS 오류 수집 — 페이지당 첫 1건만. 기록도 감싼 fetch 가 아니라 원본 _fetch 로 보낸다(오류 처리 중에 또 우회 로직을 타지 않게)
   var errReported=false;
   function reportErr(msg, src, line, col){
+    try{ var _l=(window.__mcErrs=window.__mcErrs||[]); _l.push(String(msg||'').slice(0,160)+' @'+String(src||'').split('/').pop().slice(0,40)+':'+(line||0)); if(_l.length>5) _l.shift(); }catch(_){}   // 오류 제보에 붙일 최근 5건(2026-10-26)
     if(errReported) return; errReported=true;
     try{ if((navigator.userAgent||'').indexOf('Claude/')>=0) return; }catch(_){}
     try{ var where=String(src||'').split('/').slice(3).join('/').slice(0,60)+(line?':'+line+(col?':'+col:''):'');   // 주소에서 호스트를 뗀다 (정규식 없이 — 백슬래시가 셸에서 죽는다)
@@ -3868,7 +3869,31 @@ function attendSparkle(streak){
 }
 
 // ── 오류·건의 폼 (카톡 채널 대신 사이트에서 직접 받음) ──
+// 오류 제보 화면 캡처 — 시트·메뉴·알림창은 빼고 지금 보이는 화면만, 작게(JPEG). 실패해도 글은 그대로 보낸다
+function _inqCapture(){
+  window.__inqShot=null;
+  const go=()=>{ try{
+    const skip=new Set(['infoBg','infoSheet','sideMenu','sideOverlay','mcToastBox','appPerm','nxdAsk']);
+    window.html2canvas(document.body,{x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight,windowWidth:window.innerWidth,windowHeight:window.innerHeight,
+      scale:Math.min(1, 540/Math.max(1,window.innerWidth)), useCORS:true, logging:false, backgroundColor:'#ffffff',
+      ignoreElements:function(el){ try{ return skip.has(el.id) || (el.classList && (el.classList.contains('side') || el.classList.contains('side-menu'))); }catch(_){ return false; } }})
+    .then(function(c){ let q=0.62, u=c.toDataURL('image/jpeg',q); while(u.length>290000 && q>0.3){ q-=0.12; u=c.toDataURL('image/jpeg',q); }
+      if(u.length>290000) return; window.__inqShot=u; const p=document.getElementById('inqShotBox'); if(p){ p.querySelector('img').src=u; p.style.display='flex'; } })
+    .catch(function(){});
+  }catch(_){} };
+  if(window.html2canvas) return go();
+  const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; sc.onload=go; document.head.appendChild(sc);
+}
+// 오류 제보에 붙일 환경 — 손님이 적지 않아도 어디서·무엇으로 봤는지 안다
+function _inqMeta(){
+  const ua=navigator.userAgent||''; let env='web';
+  try{ if(typeof _isNativeApp==='function' && _isNativeApp()) env=(window.Capacitor&&Capacitor.getPlatform?Capacitor.getPlatform():'app')+'_app'; else if(/KAKAOTALK/i.test(ua)) env='kakao'; else if(/Instagram/i.test(ua)) env='insta'; else if(typeof _isInApp==='function'&&_isInApp()) env='inapp'; else if(typeof _isStandalone==='function'&&_isStandalone()) env='pwa'; }catch(_){}
+  let logged=false, push=false; try{ logged=!!(typeof memberGet==='function'&&memberGet()); }catch(_){} try{ push=!!(typeof notiGranted==='function'&&notiGranted()); }catch(_){}
+  return { env:env, ua:ua.slice(0,300), vw:window.innerWidth, vh:window.innerHeight, dpr:window.devicePixelRatio||1, url:location.href.slice(0,300),
+    at:new Date().toISOString(), logged:logged, push:push, tab:(typeof fSt!=='undefined'?String(fSt):''), errs:(window.__mcErrs||[]).slice(-5) };
+}
 function openInqSheet(){
+  try{ _inqCapture(); }catch(_){}
   _openInfo(`
     <div style="font-size:16.5px;font-weight:900;color:#232326;margin-bottom:5px">무엇이 불편하셨나요? 🛠</div>
     <div style="font-size:12.5px;color:#8A8395;line-height:1.7;margin-bottom:15px">
@@ -3882,6 +3907,7 @@ function openInqSheet(){
     </div>
     <textarea id="inqText" rows="5" placeholder="어떤 화면에서 무엇이 안 되었는지 적어주시면 큰 도움이 돼요"
       style="width:100%;border:1.5px solid #E7E3EE;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;line-height:1.7;resize:none;margin-bottom:9px"></textarea>
+    <label id="inqShotBox" style="display:none;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px;color:#6B6480;cursor:pointer"><input type="checkbox" id="inqShotOn" checked style="width:16px;height:16px;accent-color:#602090"><img alt="" style="width:44px;height:78px;object-fit:cover;object-position:top;border-radius:6px;border:1px solid #E7E3EE">화면 같이 보내기</label>
     <button id="inqBtn" onclick="sendInquiry()"
       style="width:100%;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:13px;padding:15px;font-size:14.5px;font-weight:900;font-family:inherit;cursor:pointer">보내기</button>
     <div style="font-size:10.5px;color:#B0AABD;text-align:center;line-height:1.7;margin-top:10px">
@@ -3909,7 +3935,9 @@ async function sendInquiry(){
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
       body:JSON.stringify({p_kind:window.__inqKind||'etc', p_content:txt, p_contact:null,
         p_device:(typeof deviceId==='function'?deviceId():null), p_page:location.pathname+location.search,
-        p_token:(typeof mcToken==='function'?mcToken():'')})
+        p_token:(typeof mcToken==='function'?mcToken():''),
+        p_meta:(function(){ try{ return _inqMeta(); }catch(_){ return null; } })(),
+        p_shot:(function(){ try{ const on=document.getElementById('inqShotOn'); return (on&&on.checked&&window.__inqShot)||null; }catch(_){ return null; } })()})
     });
     const d=await r.json();
     if(d && d.ok){
