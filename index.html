@@ -6403,6 +6403,8 @@ function _goEnv(){
 function _goCands(env){
   const a=env.split('|'), plat=a[0], br=a[2];
   if(br==='naver') return ['plain'];
+  // 안드로이드 홈화면 앱: 누른 이동은 선택창이 뜨고 앱 intent 는 무시된다 → 중간 페이지로만 (2026-10-26)
+  if(plat==='a' && a[1]==='sa') return ['out'];
   if(plat==='a') return ['kakao','insta','fb','line','wv'].includes(br) ? ['wvopen','cafeapp','naverapp','plain'] : ['cafeapp','naverapp','plain'];
   if(plat==='i') return br==='kakao' ? ['safari_ext','plain'] : ['plain'];
   return ['plain'];
@@ -6428,6 +6430,7 @@ function _goRun(s,url,env,id){
   if(s==='cafeapp'){ location.href='intent://'+u.host+u.pathname+u.search+'#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.navercafe;S.browser_fallback_url='+encodeURIComponent(bridge('cafeapp'))+';end'; return; }
   if(s==='naverapp'){ location.href='intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+encodeURIComponent(bridge('naverapp')+'&last=1')+';end'; return; }
   if(s==='wvopen' && typeof openLink==='function'){ openLink(u.href); return; }
+  if(s==='out'){ location.href='/out.html?u='+enc; return; }
   if(s==='safari_ext'){ location.href='kakaotalk://web/openExternal?url='+enc; return; }
   try{ const w=window.open(u.href,'_blank'); if(!w) location.href=u.href; }catch(_){ location.href=u.href; }
 }
