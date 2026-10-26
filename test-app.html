@@ -979,6 +979,19 @@ body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::a
 @keyframes mcSk{0%{background-position:100% 0}100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{animation:none}}
 </style>
+<style id="mc-native-safe">
+/* 아이폰 앱(Capacitor, contentInset=never)은 화면을 상태바 밑까지 쓴다 → 머리·옆 메뉴를 상태바 높이만큼 내린다 (사장님 2026-10-26 "위에 다 짤림")
+   env() 값은 viewport-fit=cover 일 때만 들어온다 → nativeBoot 가 앱 안에서만 viewport 에 붙인다. 웹·인앱은 그대로 */
+body.native-app .hd{padding-top:calc(10px + env(safe-area-inset-top,0px))}
+body.native-app .side-hd{padding-top:calc(20px + env(safe-area-inset-top,0px))}   /* 옆 메뉴는 보라 머리가 상태바까지 올라오게 */
+/* 화면을 내리면 카드가 상태바(시계·배터리) 밑으로 지나가 겹친다 → 앱 안에선 상태바 자리를 머리 색으로 늘 채운다(옆 메뉴·창은 그 위에 뜬다) */
+body.native-app::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--main-d);z-index:250;pointer-events:none}
+/* 아래 홈 막대에 걸리는 것들 */
+body.native-app .side-menu{padding-bottom:env(safe-area-inset-bottom,0px)}
+body.native-app .totop-fab{bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+<style id="mc-app-perm">#appPerm{position:fixed;inset:0;z-index:1450;display:none}#appPerm.open{display:block}#appPerm .ap-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}#appPerm .ap-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 40px));background:#fff;border-radius:18px;padding:22px 18px 16px}#appPerm .ap-t{font-size:16px;font-weight:900;color:#191919;white-space:nowrap}#appPerm .ap-s{margin-top:4px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-k{margin-top:16px;font-size:12px;font-weight:800;color:#8E8799}#appPerm .ap-row{display:flex;align-items:center;gap:12px;margin-top:8px}#appPerm .ap-ico{width:40px;height:40px;border-radius:12px;background:#F4EEFA;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}#appPerm .ap-n{font-size:14px;font-weight:800;color:#191919}#appPerm .ap-d{margin-top:2px;font-size:12.5px;color:#6B6480;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#appPerm .ap-f{margin-top:14px;font-size:11.5px;color:#A39CAE}#appPerm button{margin-top:16px;width:100%;height:46px;border:none;border-radius:12px;background:#602090;color:#fff;font:inherit;font-size:15px;font-weight:800}</style>
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}</style>
 </head>
 <body>
@@ -5262,7 +5275,9 @@ function startKakaoLogin(){
   Kakao.Auth.authorize({
     redirectUri: kkoRedirect(),
     scope: 'profile_nickname',
-    throughTalk: !_isInApp()
+    // 🔴 아이폰 앱(Capacitor) 안에서도 카톡 앱으로 넘기지 않는다 — 카톡 인앱 브라우저에서 로그인이 끝나 우리 앱으로 안 돌아온다
+    //    (2026-10-26 실측: 앱 로그인 시도 10건 성공 0 · talk-apps.kakao.com/scheme/kakaotalk://inappbrowser 로 빠짐)
+    throughTalk: !_isInApp() && !(typeof _isNativeApp==='function' && _isNativeApp())
   });
 }
 // 🟢 네이버 로그인 — 카카오와 같은 흔적(mc_login_from·intent·try)을 남기고 nid.naver.com 으로 보낸다. 돌아오면 아래 ?code 처리에서 state 'nv_' 로 가른다
@@ -5621,6 +5636,7 @@ function maybeAskNoti(){
   try{
     if(window._nxNoAsk) return;   // 오픈 예정 스포 🔔 가 알림 켜기를 직접 처리한다
     if(notiGranted()) return;
+    if(typeof _isNativeApp==='function' && _isNativeApp()){ _appPushAsk(false); return; }   // 앱엔 웹 Notification 이 없다(전엔 여기서 오류로 끝났다)
     if(Notification.permission==='denied') return;          // 브라우저에서 이미 차단 → 물어봐야 소용없음
     if(sheetShownToday()) return;                            // 오늘 이미 뭔가 띄웠으면 쉬어감
     const next=localStorage.getItem('mc_wn_next')||'';
@@ -5766,10 +5782,22 @@ async function _sendIosToken(token){
 function nativeBoot(){
   if(!_isNativeApp()) return;               // ← 웹이면 여기서 끝. 아래는 실행되지 않는다.
   try{ document.body.classList.add('native-app'); }catch(_){}
+  try{ var vp=document.querySelector('meta[name="viewport"]'); if(vp && !/viewport-fit/.test(vp.content)) vp.content += ', viewport-fit=cover'; }catch(_){}   // 상태바 높이(env safe-area) 받기
   var P=_pushPlugin(); if(!P) return;
   try{
     P.addListener('registration', function(t){ if(window.__mcPushLate && localStorage.getItem('mc_push_on')!=='1') return;   // 시간이 지나 실패로 끝난 뒤 온 토큰은 버린다
-      _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
+      var _isAnd=false; try{ _isAnd=Capacitor.getPlatform()==='android'; }catch(_){}
+      if(_isAnd){ P.checkPermissions().then(function(st){ if(st && st.receive==='granted') _sendIosToken(t && t.value); }).catch(function(){}); }   // 권한 받은 뒤에만 서버에(2026-10-26)
+      else _sendIosToken(t && t.value);
+      try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
+    var _plat=(function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })();
+    P.addListener('pushNotificationReceived', function(n){ try{ trackEvent('push_recv', _plat+'|'+String((n&&n.title)||'').slice(0,40)); }catch(_){} });   // 진단(2026-10-26)
+    try{ P.checkPermissions().then(function(st){ try{ trackEvent('push_perm', _plat+'|'+(st&&st.receive)+'|on='+(localStorage.getItem('mc_push_on')||'')); }catch(_){}
+      // 권한이 없는데 켜짐으로 남아 있으면 끔으로 — 알림 켜기 버튼이 다시 보이게(설정에서 껐거나 앱을 새로 깐 경우)
+      try{ if(st && st.receive!=='granted' && localStorage.getItem('mc_push_on')==='1'){ localStorage.setItem('mc_push_on','0'); } }catch(_){}
+      if(st && /^prompt/.test(String(st.receive)) && !localStorage.getItem('mc_perm_notice')){ setTimeout(_appPermNotice, 900); }
+      else if(st && st.receive!=='granted'){ var _ask=function(){ try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){} return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
+    }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
     P.addListener('pushNotificationActionPerformed', function(ev){
@@ -6050,7 +6078,7 @@ function openSettings(){
   h+=logged?_setRow({onclick:'closeSettings();kkoLogout()'},'💜',`${escHtml(m.nickname||'회원')}님 (${(m&&m.provider==='naver')?'네이버':'카카오'})`,`받은 정보: ${(m&&m.provider==='naver')?'네이버':'카카오'} 별명, 회원번호. 누르면 로그아웃`):_setRow({onclick:'closeSettings();openLoginSheet()'},'💬','로그인','카카오·네이버로 3초. 찜 목록을 폰을 바꿔도 이어 써요. 별명과 회원번호만 받아요');
   h+='<div class="set-sec">알림</div>';
   h+=_setRow({onclick:'closeSettings();openNotiPrefs()'},'🔔','알림 설정','공구 · 핫딜 · 세일 · 이벤트 따로 켜고 끄기. 찜한 것만, 아침 9시 한 번');
-  h+=_setRow({onclick:'permGuide(true)'},'📱','앱 접근권한 안내','필수 권한 없음. 선택: 알림');
+  h+=_setRow({onclick:"closeSettings();enablePush().then(function(ok){ try{ mcToast(ok?'🔔 알림 켜졌어요':'휴대폰 설정에서 맘캘린더 알림을 켜 주세요'); }catch(_){} })"},'🔔','알림 허용','');
   h+='<div class="set-sec">고객센터</div>';
   if(typeof _appOn==='function' && _appOn()) h+=_setRow({onclick:"closeSettings();appGoPopup('settings','더 많은 기능은 앱에서만 사용 가능해요')"},'📱','맘캘린더 앱 설치','');
   h+=_setRow({onclick:'closeSettings();openInqSheet()'},'🛠','오류 · 건의하기','');
@@ -6090,7 +6118,7 @@ async function permGuideOk(){
   try{ trackEvent('app_perm_notice', ok?'on':'off'); }catch(_){}
   if(ok) try{ mcToast('🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){}
 }
-(function(){ const go=()=>setTimeout(()=>{ try{ permGuide(false); }catch(_){} },1200); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); })();
+// (옛 「앱 접근권한 안내」 창 자동 띄우기는 2026-10-26 뺐다 — 앱은 시스템 팝업만)
 // 🤖 우리 안드로이드 앱(TWA, com.wantsb.momcalendar) 감지 (2026-10-15) — 첫 진입 referrer 가 android-app://… 로 오고 그 뒤 페이지 이동에선 사라지므로 한 번 보면 저장한다.
 //    _isInApp() 이 이걸 인앱 웹뷰로 오인하면 카카오 로그인이 "웹으로만 인증·안내 띄우기" 길로 빠진다. 앱은 크롬 그 자체라 정상 경로(throughTalk)로 가야 한다.
 function _isTwa(){ try{ if(localStorage.getItem('mc_twa')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ localStorage.setItem('mc_twa','1'); return true; } }catch(_){} return false; }
@@ -6503,10 +6531,50 @@ const _NXD={};   // 이번 방문에서 🔔 로 켠/끈 수 (서버 찜 수는 
 function _nxN(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; return Math.max(0,_nxBase(it.id)+base+(_NXD[it.id]||0)); }   // 서버 찜 수 + 이번 방문에서 누른 만큼
 // 띠와 전체일정 시트를 같이 다시 그린다(시트가 열려 있으면 그대로 열어 둔 채)
 function _nxRefresh(){ try{ renderNextGonggu(); }catch(_){} const sh=document.getElementById('nextSheet'); if(sh&&sh.classList.contains('open')){ try{ _nxSheetBody(); }catch(_){} } }
+// 앱 처음 켤 때 접근 권한 안내 → 확인 = 휴대폰 알림 허용 창 (2026-10-26)
+function _appPermNotice(){   // 앱 첫 실행 알림 권한 = 폰 시스템 팝업만(우리 안내 창 없음, 사장님 2026-10-26)
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(localStorage.getItem('mc_perm_notice')) return false;
+    try{ localStorage.setItem('mc_perm_notice', String(Date.now())); }catch(_){}
+    try{ trackEvent('app_perm_notice','system'); }catch(_){}
+    enablePush().then(function(ok){ try{ trackEvent('app_perm_notice', ok?'on':'off'); }catch(_){} }).catch(function(){});
+    return true;
+  }catch(_){ return false; }
+}
+// 앱(Capacitor) 알림 켜기 묻기 — 찜은 있는데 권한이 없는 손님(PWA 에서 찜을 가지고 온 회원 등). 웹에선 아무것도 안 한다 (2026-10-26)
+function _appPushAsk(force){
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(typeof notiGranted==='function' && notiGranted()) return false;
+    if(!force){ const nx=+(localStorage.getItem('mc_app_push_ask')||0); if(nx && Date.now()<nx) return false; }
+    let m=document.getElementById('nxdAsk');
+    if(!m){ m=document.createElement('div'); m.id='nxdAsk';
+      m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
+      document.body.appendChild(m);
+      m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
+    }
+    m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
+    m.querySelector('.nxa-s').textContent='오픈일 아침 9시 알림 보내드려요';
+    m.querySelector('.nxa-yes').textContent='알림 받을게요';
+    m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){ m.classList.remove('open'); try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){} };
+    m.querySelector('.nxa-yes').onclick=async function(){
+      m.classList.remove('open');
+      const ok=await enablePush();
+      try{ mcToast(ok?'🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요':'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){}
+      try{ trackEvent('app_push_ask', ok?'on':'fail'); }catch(_){}
+      if(fSt==='wish') try{ renderList(); }catch(_){}
+    };
+    m.classList.add('open');
+    try{ trackEvent('app_push_ask','show'); }catch(_){}
+    return true;
+  }catch(_){ return false; }
+}
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const it=(typeof DATA!=='undefined'?DATA:[]).find(x=>Number(x.id)===Number(id))||{};
   const md=it.openDate?_nxMDs(it.openDate):'오픈';
+  if(isWished(id) && _appPushAsk(true)) return;   // 앱: 찜은 있는데 알림 권한이 없다 → 끄지 말고 켜기부터(2026-10-26)
   if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); try{ mcToast('알림을 껐어요'); }catch(_){} return; }
   // 🔔 알림이 이미 켜진 기기 → 묻지 않고 바로 찜 + 안내만 (사장님 2026-10-23 "이미 알람 받게 설정된 사람한테는 그냥 9시에 알람 보내준다고만")
   if(typeof notiGranted==='function' && notiGranted()){ _nxOn(id); try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){} return; }
@@ -7542,7 +7610,6 @@ function onbFinish(how){
   _onbMarkDone(); try{ trackEvent('onb_done', how||''); }catch(_){}
   applyPrefCats();
   try{ renderMe(); }catch(_){}
-  if(window._permAfterOnb){ const f=window._permAfterOnb===2; window._permAfterOnb=0; setTimeout(()=>{ try{ permGuide(f); }catch(_){} },400); }   // 소개 끝 → 앱 접근 권한 창
 }
 // 고른 카테고리를 공구 탭 칩 맨 앞으로 + 첫 번째를 바로 선택 (사장님 "고른 카테고리가 공구 탭에 먼저")
 function applyPrefCats(){
