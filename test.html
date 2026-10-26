@@ -5597,7 +5597,7 @@ async function wnAllow(){
   closeWnSheet();
   const done=await enablePush();
   if(done) mcToast('알림 켜졌어요 🔔');
-  else mcToast('알림을 켜지 못했어요. 브라우저 설정을 확인해 주세요');
+  else mcToast((typeof _isNativeApp==='function'&&_isNativeApp())?'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요':'알림을 켜지 못했어요. 브라우저 설정을 확인해 주세요');
   if(fSt==='wish') renderList();
 }
 
@@ -5628,7 +5628,7 @@ async function disablePush(){
   if(_isNativeApp()){
     try{
       localStorage.setItem('mc_push_on','0');
-      await fetch(SUPABASE_URL+'/functions/v1/save-ios-token',{method:'POST',
+      await fetch(SUPABASE_URL+'/functions/v1/'+((window._mcCapAndroid&&window._mcCapAndroid())?'save-fcm-token':'save-ios-token'),{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:'off', device_id:deviceId()})}).catch(function(){});
       try{ trackEvent('push_off','ios_app'); }catch(_){}
@@ -5674,7 +5674,11 @@ async function enablePushNative(){
 
 async function _sendIosToken(token){
   if(!token) return;
-  if(window._mcCapAndroid && window._mcCapAndroid()) return;   // 안드로이드(FCM)는 APNs 표가 아니다(2026-10-26)
+  if(window._mcCapAndroid && window._mcCapAndroid()){   // 안드로이드(FCM) — 아이폰(APNs) 표와 따로 push_fcm 에
+    try{ await fetch(SUPABASE_URL+'/functions/v1/save-fcm-token',{method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'on', device_id:deviceId(), fcm_token:token, ua:navigator.userAgent.slice(0,300)})}); }catch(_){}
+    return;
+  }
   try{
     await fetch(SUPABASE_URL+'/functions/v1/save-ios-token',{method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -5691,7 +5695,7 @@ function nativeBoot(){
   var P=_pushPlugin(); if(!P) return;
   try{
     P.addListener('registration', function(t){ _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
-    P.addListener('registrationError', function(){ try{ trackEvent('push_err','ios_app'); }catch(_){} });
+    P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
     P.addListener('pushNotificationActionPerformed', function(ev){
       try{

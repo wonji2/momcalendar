@@ -40,7 +40,7 @@ let mf = fs.readFileSync(mfp, 'utf8');
 const pk = (p) => `        <package android:name="${p}" />`;
 const queries = `
     <queries>
-${['com.nhn.android.search', 'com.nhn.android.navercafe', 'com.kakao.talk', 'com.instagram.android', 'com.coupang.mobile', 'viva.republica.toss', 'com.android.chrome', 'com.sec.android.app.sbrowser'].map(pk).join('\n')}
+${['com.nhn.android.search', 'com.nhn.android.navercafe', 'com.kakao.talk', 'com.instagram.android', 'com.coupang.mobile', 'viva.republica.toss', 'com.android.chrome', 'com.sec.android.app.sbrowser', 'com.microsoft.emmx', 'com.naver.whale', 'com.android.vending'].map(pk).join('\n')}
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />

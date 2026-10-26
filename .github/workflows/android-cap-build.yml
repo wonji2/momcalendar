@@ -90,8 +90,8 @@ jobs:
           KS_ALIAS: momcal
         run: |
           ./gradlew --no-daemon :app:assembleRelease
-          mkdir -p ../../../out
-          cp app/build/outputs/apk/release/app-release.apk ../../../out/momcalendar-e2e.apk
+          mkdir -p ../../../out ../../../out-e2e
+          cp app/build/outputs/apk/release/app-release.apk ../../../out-e2e/momcalendar-e2e.apk
 
       - name: 출시용 APK·AAB (웹뷰 디버깅 끔)
         working-directory: android-app/cap
@@ -110,11 +110,18 @@ jobs:
           # 서명 확인 — 업로드 키 지문이 assetlinks 와 같아야 앱 링크(카카오 로그인 뒤 돌아오기)가 된다
           "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs ../../../out/momcalendar-v${{ inputs.versionCode }}.apk | grep -i "SHA-256"
 
+      # 시험용(test.html·웹뷰 디버깅 켬)과 출시용을 따로 — 출시용은 e2e 를 통과해야 publish 잡이 정식 이름으로 올린다(검증자 지적)
       - uses: actions/upload-artifact@v4
         with:
-          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          name: e2e-apk-v${{ inputs.versionCode }}
+          path: out-e2e/
+          retention-days: 3
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unverified-release-v${{ inputs.versionCode }}
           path: out/
-          retention-days: 30
+          retention-days: 3
           if-no-files-found: error
 
   e2e:
@@ -128,7 +135,7 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v4
         with:
-          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          name: e2e-apk-v${{ inputs.versionCode }}
           path: out
       - name: KVM 켜기 (에뮬레이터 가속 — android-emulator-runner 안내)
         run: |
@@ -151,3 +158,18 @@ jobs:
           name: e2e-report-v${{ inputs.versionCode }}
           path: e2e-out/
           retention-days: 30
+
+  publish:
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: unverified-release-v${{ inputs.versionCode }}
+          path: out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: error

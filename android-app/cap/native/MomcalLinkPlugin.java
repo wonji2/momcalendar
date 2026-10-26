@@ -6,7 +6,7 @@ package com.wantsb.momcalendar;
 //   saveFile(name,mime,base64)     카드 이미지·캘린더 파일 저장 — 웹뷰는 a download·blob 을 못 받는다(capacitor 이슈 #5478)
 //   widgetId()           홈화면 위젯 번호 — TWA 때는 앱이 주소에 붙였다(referrer 로 확인), 이제는 앱이 직접 알려 준다
 //   pushReady()          알림 설정 파일(google-services.json)이 앱에 들어 있나 — 없으면 알림 켜기를 부르지 않는다
-// 주의: 위젯 번호는 찜 열쇠다. 이 다리는 우리 사이트(momcalendar.com) 화면에서만 열린다(Capacitor 기본 — 바깥 주소는 앱 안에서 안 연다).
+// 주의: 위젯 번호는 찜 열쇠다. 이 다리는 allowNavigation(=momcalendar.com 만) 화면에만 열린다 — 로그인 화면은 앱 안에서 열어도 allowNavigation 에 넣지 않는다(MomcalWebViewClient).
 
 import android.app.Activity;
 import android.content.ContentResolver;
@@ -91,6 +91,7 @@ public class MomcalLinkPlugin extends Plugin {
         Activity act = getActivity();
         String name = safeName(call.getString("name", "momcal"));
         String mime = call.getString("mime", "application/octet-stream");
+        if (mime != null && mime.contains(";")) mime = mime.substring(0, mime.indexOf(';')).trim();   // text/calendar;charset=utf-8 → text/calendar (캘린더 앱 필터와 맞게 — 검증자 지적)
         String b64 = call.getString("base64", "");
         if (act == null || b64 == null || b64.isEmpty()) { call.reject("empty"); return; }
         try {
