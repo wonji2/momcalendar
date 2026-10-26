@@ -1573,6 +1573,10 @@ try{ window._mcNxEarly(); }catch(_){}
 //   원인: 홈화면 앱이 바깥 주소를 Chrome 임시 탭(Custom Tab)으로 여는데, 거기엔 네이버 로그인이 없고 앱 선택창이 뜬다.
 //   → 네이버 앱의 인앱브라우저 스킴(naversearchapp)을 **패키지까지 명시**한 intent 로 던진다. 명시하면 선택창이 없고, 네이버 앱은 로그인이 살아 있다.
 //     앱이 없으면 S.browser_fallback_url 로 크롬이 원래 주소를 연다(오류 페이지·플레이스토어로 안 간다 — 스킴을 맨 주소로 주면 ERR_UNKNOWN_URL_SCHEME 위험).
+// 우리 안드로이드 앱(TWA) 안인가 (2026-10-26) — 이 앱은 손님이 누른 바깥 주소마다 「열 앱」을 물어 Chrome/NAVER 선택창을 띄우고,
+//   아래 네이버 앱 intent 는 무시한다(실기기 기록). 누름 없이 넘기는 중간 페이지(out.html)만 선택창 없이 열렸다 → 앱 안에서만 그 길로.
+window._mcTwaApp=function(){ try{ if(sessionStorage.getItem('mc_twa_s')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ sessionStorage.setItem('mc_twa_s','1'); return true; } }catch(_){} return false; };
+try{ window._mcTwaApp(); }catch(_){}
 window._mcNaverApp=function(url){
   try{
     var ua=navigator.userAgent||'';
@@ -1586,8 +1590,6 @@ window._mcNaverApp=function(url){
     return {wv:wv, url:abs,
       intent:'intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end',
       // 앱이 없을 때 인앱 웹뷰에서 쓸 「기본 브라우저(인터넷·크롬)」 — 패키지를 안 박아 폰의 기본 브라우저가 열린다
-      // 홈화면 앱용: https 주소 그대로 + 네이버 앱 패키지 (2026-10-26 — 전용 스킴은 실기기에서 안 받아졌다)
-      https:'intent://'+u.host+u.pathname+u.search+'#Intent;scheme='+u.protocol.replace(':','')+';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end',
       ext:'intent://'+u.host+u.pathname+u.search+'#Intent;scheme='+u.protocol.replace(':','')+';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url='+enc+';end'};
   }catch(_){ return null; }
 };
@@ -1600,8 +1602,6 @@ window.openLink=function(url){
       var _now=Date.now();
       if(window._mcNaverBusy && window._mcNaverBusy.u===_n.url && _now-window._mcNaverBusy.t<2500) return;
       window._mcNaverBusy={u:_n.url,t:_now};
-      var _nlog=function(k){ try{ var dm='browser'; try{ dm=['standalone','fullscreen','minimal-ui'].find(function(m){ return window.matchMedia('(display-mode: '+m+')').matches; })||'browser'; }catch(_){} if(typeof trackEvent==='function') trackEvent(k, JSON.stringify({m:_n.wv?'wv':'sa_https', dm:dm, h:(new URL(_n.url)).host, ua:(navigator.userAgent||'').slice(-60)})); }catch(_){} };   // 실기기 진단(2026-10-26)
-      _nlog('naver_try');
       try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: _now})); }catch(_){}
       // 탭한 뒤 한 번이라도 가려졌으면 네이버 앱으로 넘어간 것 — 앱을 보고 돌아와도 폴백(이중 열림)을 내지 않는다(검증자 지적).
       var _seen=false;
@@ -1620,14 +1620,15 @@ window.openLink=function(url){
           if(_hidden()) return;
           try{ var _f2=document.createElement('iframe'); _f2.style.display='none'; _f2.src=_n.ext; document.body.appendChild(_f2); setTimeout(function(){ try{ _f2.parentNode.removeChild(_f2); }catch(_){} },1500); }catch(_){}
           // ③ 그래도 안 넘어가면 원래 방식으로 — 손님은 반드시 도착한다
-          setTimeout(function(){ if(_hidden()) return; _nlog('naver_fallback'); _arrive(); },1300);
+          setTimeout(function(){ if(_hidden()) return; _arrive(); },1300);
         },1500);
       }else{
         // 홈화면 앱(PWA)·크롬: 사용자 탭 직후의 최상위 이동. 앱이 없으면 크롬이 browser_fallback_url(원래 주소)로 보낸다 — 크롬 임시 탭은
         // 크롬과 쿠키를 같이 써서, 크롬에 네이버 로그인이 있으면 그대로 로그인돼 열린다. JS 타이머로 따로 열지 않아 이중 열림이 없다
-        // 2026-10-26 실기기: intent 3가지(location·링크·숨은 창) 모두 막혀 선택창이 떴다 → 우리 중간 페이지를 거쳐 누름 없이 넘긴다(out.html)
-        try{ if(typeof trackEvent==='function') trackEvent('naver_step','out'); }catch(_){}
-        try{ window.location.href='/out.html?u='+encodeURIComponent(_n.url); }catch(_){ _arrive(); }
+        if(window._mcTwaApp()){ try{ if(typeof trackEvent==='function') trackEvent('naver_step','out'); }catch(_){} try{ window.location.href='/out.html?u='+encodeURIComponent(_n.url); }catch(_){ _arrive(); } return; }
+        try{ window.location.href=_n.intent; }catch(_){ _arrive(); return; }
+        // 안전망: 이동이 조용히 무시돼(제스처 만료 등) 화면이 그대로면 2초 뒤 원래 주소로
+        setTimeout(function(){ if(_hidden()) return; _arrive(); },2000);
       }
       return;
     }
@@ -7145,8 +7146,8 @@ function _goEnv(){
 function _goCands(env){
   const a=env.split('|'), plat=a[0], br=a[2];
   if(br==='naver') return ['plain'];
-  // 안드로이드 홈화면 앱: 누른 이동은 선택창이 뜨고 앱 intent 는 무시된다 → 중간 페이지로만 (2026-10-26)
-  if(plat==='a' && a[1]==='sa') return ['out'];
+  // 우리 안드로이드 앱(TWA): 누른 이동은 선택창이 뜨고 앱 intent 는 무시된다 → 중간 페이지로만 (2026-10-26)
+  if(plat==='a' && a[1]==='sa' && window._mcTwaApp && window._mcTwaApp()) return ['out'];
   if(plat==='a') return ['kakao','insta','fb','line','wv'].includes(br) ? ['wvopen','cafeapp','naverapp','plain'] : ['cafeapp','naverapp','plain'];
   if(plat==='i') return br==='kakao' ? ['safari_ext','plain'] : ['plain'];
   return ['plain'];
