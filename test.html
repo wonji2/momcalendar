@@ -3873,10 +3873,13 @@ function attendSparkle(streak){
 function _inqCapture(){
   window.__inqShot=null;
   const go=()=>{ try{
+    const vw=window.innerWidth, vh=window.innerHeight;
     const skip=new Set(['infoBg','infoSheet','sideMenu','sideOverlay','mcToastBox','appPerm','nxdAsk']);
     window.html2canvas(document.body,{x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight,windowWidth:window.innerWidth,windowHeight:window.innerHeight,
       scale:Math.min(1, 540/Math.max(1,window.innerWidth)), useCORS:true, logging:false, backgroundColor:'#ffffff',
-      ignoreElements:function(el){ try{ return skip.has(el.id) || (el.classList && (el.classList.contains('side') || el.classList.contains('side-menu'))); }catch(_){ return false; } }})
+      // 화면 밖 요소는 통째로 뺀다 — 사이트가 20만 px 짜리 한 장이라 전부 그리면 화면이 수십 초 멈췄다(2026-10-26 실측)
+      ignoreElements:function(el){ try{ if(skip.has(el.id) || (el.classList && (el.classList.contains('side') || el.classList.contains('side-menu')))) return true;
+        if(el===document.body || el===document.documentElement) return false; const r=el.getBoundingClientRect(); return (r.width>0||r.height>0) && (r.bottom < -40 || r.top > vh+40 || r.right < -40 || r.left > vw+40); }catch(_){ return false; } }})
     .then(function(c){ let q=0.62, u=c.toDataURL('image/jpeg',q); while(u.length>290000 && q>0.3){ q-=0.12; u=c.toDataURL('image/jpeg',q); }
       if(u.length>290000) return; window.__inqShot=u; const p=document.getElementById('inqShotBox'); if(p){ p.querySelector('img').src=u; p.style.display='flex'; } })
     .catch(function(){});
