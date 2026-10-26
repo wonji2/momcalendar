@@ -712,6 +712,15 @@ body.srch-mode .next-zone{display:none!important}
 #nxdAsk .nxa-t,#nxdAsk .nxa-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 #nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#602090;color:#fff}
+.ao-sheet{position:fixed;inset:0;z-index:99995;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.ao-sheet.open{opacity:1;pointer-events:auto}
+.ao-box{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:28px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:12px;transform:translateY(16px);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.ao-sheet.open .ao-box{transform:none}
+.ao-ic{width:56px;height:56px;border-radius:14px}
+.ao-t{font-size:20px;font-weight:700;color:#191F28;margin:4px 0 8px}
+.ao-btn{display:block;width:100%;text-align:center;text-decoration:none;background:#602090;color:#fff;border-radius:14px;padding:15px;font-size:16px;font-weight:700}
+.ao-btn.i{background:#191F28}
+.ao-x{border:0;background:none;color:#8B95A1;font-size:14px;font-family:inherit;padding:8px;cursor:pointer}
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -2837,6 +2846,7 @@ async function liveWish(id,ev,btn){
   try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요\n세일·라방 알림이 꺼져 있어요\n내정보에서 켤 수 있어요'); return; } }catch(_){}
   try{
     if(!notiGranted()){
+      if(_appOnlyBell('wish')) return;
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -3018,6 +3028,7 @@ async function saleWish(id,ev,btn){
   let msg='찜했어요\n세일 시작하는 날 아침 9시에 알려드릴게요';
   try{
     if(!notiGranted()){
+      if(_appOnlyBell('wish')) return;
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -4939,7 +4950,8 @@ function maybeAskNoti(){
     setTimeout(openWnSheet, 420);
   }catch(_){}
 }
-function openWnSheet(){
+function openWnSheet(){ if(_appOnlyBell('wn')) return; return _openWnSheet0.apply(this, arguments); }
+function _openWnSheet0(){
   const desc=document.getElementById('wnDesc'), ok=document.getElementById('wnOk');
   if(iosNeedsInstall()){
     desc.innerHTML='아이폰은 <span style="color:#602090;font-weight:700">홈 화면에 추가</span>해야<br>알림을 받을 수 있어요';
@@ -4985,6 +4997,21 @@ async function wnAllow(){
 }
 
 // 실제 푸시 구독 → 서버 저장
+// ── 📲 웹 알림 → 앱에서만 (2026-10-26) — 앱 출시하는 날 WEB_PUSH_APP_ONLY=true ──
+const WEB_PUSH_APP_ONLY=false;
+const APP_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
+function _webPushAppOnly(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; return WEB_PUSH_APP_ONLY || location.search.indexOf('apponly=1')>=0; }catch(_){ return false; } }
+function _appOnlyBell(where){
+  if(!_webPushAppOnly()) return false;
+  try{ trackEvent('push_app_only', where||''); }catch(_){}
+  let el=document.getElementById('aoSheet');
+  if(!el){ el=document.createElement('div'); el.id='aoSheet'; el.className='ao-sheet'; el.onclick=e=>{ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
+  const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
+  const btn=k=>`<a class="ao-btn${k==='ios'?' i':''}" href="${APP_STORE_URL[k]}" target="_blank" rel="noopener" onclick="try{trackEvent('push_app_only_go','${k}|${where||''}')}catch(_){}">${k==='ios'?'App Store':'Google Play'}</a>`;
+  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">알림은 앱에서 받아요</b>${ios?btn('ios'):and?btn('android'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
+  requestAnimationFrame(()=>el.classList.add('open'));
+  return true;
+}
 async function enablePush(){
   if(_isNativeApp()) return enablePushNative();
   try{
@@ -5797,6 +5824,7 @@ function nxdBell(id,btn,ev){
   m.querySelector('.nxa-yes').textContent=_inApp?(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기'):'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
+    if(_appOnlyBell('nx')){ _nxOn(id); return; }
     if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
     _nxOn(id);
     try{
