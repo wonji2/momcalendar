@@ -1,0 +1,22 @@
+# ⑤ 카카오 로그인 — 「카카오로 시작하기」를 누르면 카카오 로그인 화면이 **앱 안에서** 열린다
+#    (2026-10-26 사고: 아이폰 앱에서 카카오톡 앱으로 넘어가 앱으로 안 돌아왔다 — 10번 시도 0번 성공)
+#    여기선 화면이 앱 안에 그대로 있는지(카카오 화면 글자가 보이는지)까지만 본다. 실제 로그인은 계정이 필요해 안 한다.
+appId: ${APP_ID}
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "브랜드, 상품명 검색"
+    timeout: 30000
+- tapOn:
+    point: "8%,8%"
+- tapOn: ".*카카오로 시작하기.*"
+# 로그인 안내 시트의 노란 버튼
+- extendedWaitUntil:
+    visible: ".*카카오로 3초 만에.*"
+    timeout: 10000
+- tapOn: ".*카카오로 3초 만에.*"
+- extendedWaitUntil:
+    visible: ".*(카카오계정|카카오톡으로 로그인|kakao).*"
+    timeout: 20000
+- assertVisible: ".*(카카오계정|카카오톡으로 로그인|kakao).*"
+- takeScreenshot: 05_kakao_login
