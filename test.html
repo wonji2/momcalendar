@@ -924,6 +924,7 @@ body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::a
 @keyframes mcSk{0%{background-position:100% 0}100%{background-position:0 0}}
 @media (prefers-reduced-motion:reduce){body.mc-top-wait .main-slider-wrap::before,body.mc-top-wait .main-slider-wrap::after,body.mc-top-wait #nextZone::before,body.mc-top-wait #sellerZone::before,body.mc-top-wait #subZone::before{animation:none}}
 </style>
+<style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}</style>
 </head>
 <body>
 <!-- 📲 앱 설치 유도 (사장님 2026-10-23 승인, 시안 v5: ① 제목 위 띠 ② 공구 카드 중간 배너 ③ 앱 전용 기능 팝업 ④ 첫 방문 시트 ⑤ 설정 줄)
@@ -1573,6 +1574,25 @@ try{ window._mcNxEarly(); }catch(_){}
 //   원인: 홈화면 앱이 바깥 주소를 Chrome 임시 탭(Custom Tab)으로 여는데, 거기엔 네이버 로그인이 없고 앱 선택창이 뜬다.
 //   → 네이버 앱의 인앱브라우저 스킴(naversearchapp)을 **패키지까지 명시**한 intent 로 던진다. 명시하면 선택창이 없고, 네이버 앱은 로그인이 살아 있다.
 //     앱이 없으면 S.browser_fallback_url 로 크롬이 원래 주소를 연다(오류 페이지·플레이스토어로 안 간다 — 스킴을 맨 주소로 주면 ERR_UNKNOWN_URL_SCHEME 위험).
+// 안드로이드 웹뷰 앱(Capacitor, 2026-10-26 TWA 대체) — 바깥 링크·공유·파일 저장은 앱 코드가 한다(android-app/cap/native)
+window._mcCapAndroid=function(){ try{ return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.getPlatform&&Capacitor.getPlatform()==='android'); }catch(_){ return false; } };
+window._mcNative=function(){ try{ if(!window._mcCapAndroid()) return null; var P=Capacitor.Plugins&&Capacitor.Plugins.MomcalLink; if(!P&&Capacitor.registerPlugin) P=Capacitor.registerPlugin('MomcalLink'); return P||null; }catch(_){ return null; } };
+(function(){
+  var P=window._mcNative&&window._mcNative(); if(!P) return;
+  var b64=function(bl){ return new Promise(function(r,j){ var fr=new FileReader(); fr.onload=function(){ r(String(fr.result).split(',')[1]||''); }; fr.onerror=j; fr.readAsDataURL(bl); }); };
+  try{ navigator.canShare=function(){ return true; };
+    navigator.share=async function(d){ d=d||{}; var fs=[]; if(d.files&&d.files.length){ for(var i=0;i<d.files.length;i++){ var x=d.files[i]; fs.push({name:x.name||'momcal.png', mime:x.type||'image/png', base64:await b64(x)}); } }
+      return P.share({title:d.title||'맘캘린더', text:d.text||'', url:d.url||'', files:fs}); }; }catch(_){}
+  // a download(blob:/data:) — 카드 이미지·캘린더 파일. 캘린더 파일은 저장 뒤 바로 열어 캘린더 앱이 받게 한다
+  document.addEventListener('click', function(e){
+    var a=e.target&&e.target.closest&&e.target.closest('a[download]'); if(!a) return;
+    var h=a.href||''; if(!/^(blob:|data:)/.test(h)) return;
+    e.preventDefault(); e.stopPropagation();
+    var name=a.getAttribute('download')||'momcal', ics=/\.ics$/i.test(name);
+    fetch(h).then(function(r){ return r.blob(); }).then(function(bl){ return b64(bl).then(function(v){ return P.saveFile({name:name, mime:bl.type||(ics?'text/calendar':'application/octet-stream'), base64:v, open:ics}); }); })
+      .catch(function(){ try{ mcToast('저장하지 못했어요. 다시 눌러 주세요'); }catch(_){} });
+  }, true);
+})();
 // 우리 안드로이드 앱(TWA) 안인가 (2026-10-26) — 이 앱은 손님이 누른 바깥 주소마다 「열 앱」을 물어 Chrome/NAVER 선택창을 띄우고,
 //   아래 네이버 앱 intent 는 무시한다(실기기 기록). 누름 없이 넘기는 중간 페이지(out.html)만 선택창 없이 열렸다 → 앱 안에서만 그 길로.
 window._mcTwaApp=function(){ try{ if(sessionStorage.getItem('mc_twa_s')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ sessionStorage.setItem('mc_twa_s','1'); return true; } }catch(_){} return false; };
@@ -1581,6 +1601,7 @@ window._mcNaverApp=function(url){
   try{
     var ua=navigator.userAgent||'';
     if(!/Android/i.test(ua) || /NAVER\(inapp/i.test(ua)) return null;
+    if(window._mcNative && window._mcNative()) return null;   // 웹뷰 앱은 앱 코드가 연다(2026-10-26)
     var sa=false; try{ sa=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }catch(_){}
     var wv=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua);
     if(!sa && !wv) return null;
@@ -1595,6 +1616,7 @@ window._mcNaverApp=function(url){
 };
 window.openLink=function(url){
   if(!url) return;
+  try{ var _nb=window._mcNative&&window._mcNative(); if(_nb){ try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){} _nb.open({url:new URL(url, location.href).href}).catch(function(){ try{ window.location.href=url; }catch(__){} }); return; } }catch(_){}
   try{
     var _n=window._mcNaverApp(url);
     if(_n && document.body){
@@ -4893,6 +4915,18 @@ function wishHeaders(){
 //   위젯은 자기 번호만 안다 → 위젯에서 앱을 열 때 ?wdid=<위젯번호> 가 붙어 온다. 앱(TWA) 안에서 열렸을 때만
 //   서버 widget_bind(위젯번호, 이 기기 mc_did) 로 짝을 지어 둔다 → 위젯이 widget_feed(위젯번호) 로 내 찜을 받는다.
 //   🔴 referrer 가 우리 앱이 아니면 무시한다 — 남이 보낸 링크(?wdid=남의번호)로 내 찜이 남의 위젯에 가지 않게.
+// 웹뷰 앱(2026-10-26): 앱이 알려 준 위젯 번호로 켤 때마다 짝을 짓는다 — 주소의 wdid 는 믿지 않는다(남의 번호 방지)
+(function nativeWidgetBind(){
+  try{
+    var N=window._mcNative&&window._mcNative(); if(!N) return;
+    var back=false; try{ back=new URL(location.href).searchParams.get('wlink')==='1'; }catch(_){}
+    N.widgetId().then(function(x){
+      var w=x&&x.id; if(!/^w[A-Za-z0-9]{15,40}$/.test(w||'')) return;
+      fetch(SUPABASE_URL+'/rest/v1/rpc/widget_bind',{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_widget:w,p_device:deviceId()})})
+        .then(function(r){ return r.ok?r.json():false; }).then(function(ok){ if(ok!==true) return; try{ localStorage.setItem('mc_wdid',w); }catch(_){} if(back){ try{ mcToast('위젯에 내 찜이 연결됐어요'); }catch(_){} } }).catch(function(){});
+    }).catch(function(){});
+  }catch(_){}
+})();
 (function widgetBind(){
   try{
     const u=new URL(location.href), w=u.searchParams.get('wdid');
@@ -5146,7 +5180,7 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+  try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -5163,7 +5197,7 @@ function startNaverLogin(){
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); }catch(_){}
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname, v:'naver'})); }catch(_){}
-  try{ trackEvent('naver_login_start', (_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+  try{ trackEvent('naver_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   var st='nv_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
   try{ localStorage.setItem('mc_nv_state', st); }catch(_){}
   location.href='https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id='+encodeURIComponent(NV_CLIENT_ID)+'&redirect_uri='+encodeURIComponent(kkoRedirect())+'&state='+st;
@@ -5621,18 +5655,26 @@ function _pushPlugin(){ try{ return window.Capacitor && Capacitor.Plugins && Cap
 
 async function enablePushNative(){
   var P=_pushPlugin(); if(!P) return false;
+  var plat='ios'; try{ plat=Capacitor.getPlatform(); }catch(_){}
   try{
+    // 안드로이드: 알림 설정 파일(Firebase)이 앱에 없으면 부르지 않는다 — 준비 전 빌드에서 켜짐으로 보이지 않게
+    if(plat==='android'){ var N=window._mcNative&&window._mcNative(); var rd=null; try{ rd=N?await N.pushReady():null; }catch(_){} if(!rd||!rd.ready) return false; }
     var st=await P.requestPermissions();
     if(!st || st.receive!=='granted') return false;
-    await P.register();                       // 성공하면 'registration' 리스너로 토큰이 온다
+    var tok=await new Promise(function(res){ var done=false; var t=setTimeout(function(){ if(!done){ done=true; res(null); } },10000);
+      window.__mcPushTokWait=function(v){ if(!done){ done=true; clearTimeout(t); res(v||null); } };
+      P.register().catch(function(){ if(!done){ done=true; clearTimeout(t); res(null); } }); });
+    window.__mcPushTokWait=null;
+    if(!tok){ try{ trackEvent('push_err', plat+'_app|no_token'); }catch(_){} return false; }
     localStorage.setItem('mc_push_on','1');
-    try{ trackEvent('push_on','ios_app'); }catch(_){}
+    try{ trackEvent('push_on', plat+'_app'); }catch(_){}
     return true;
   }catch(e){ return false; }
 }
 
 async function _sendIosToken(token){
   if(!token) return;
+  if(window._mcCapAndroid && window._mcCapAndroid()) return;   // 안드로이드(FCM)는 APNs 표가 아니다(2026-10-26)
   try{
     await fetch(SUPABASE_URL+'/functions/v1/save-ios-token',{method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -5648,7 +5690,7 @@ function nativeBoot(){
   try{ document.body.classList.add('native-app'); }catch(_){}
   var P=_pushPlugin(); if(!P) return;
   try{
-    P.addListener('registration', function(t){ _sendIosToken(t && t.value); });
+    P.addListener('registration', function(t){ _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
     P.addListener('registrationError', function(){ try{ trackEvent('push_err','ios_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
     P.addListener('pushNotificationActionPerformed', function(ev){
@@ -5938,7 +5980,7 @@ function openSettings(){
   h+=_setRow({href:'terms.html'},'📄','이용약관','');
   h+=_setRow({href:'privacy.html'},'🔒','개인정보처리방침','');
   h+=`<div class="set-row" style="cursor:default"><div><span>ℹ️ 사업자 정보</span><small>원츠비 · 대표 원지선 · 사업자등록번호 390-58-00826 · 통신판매업 제2024-용인수지-2336호 · momcal@kakao.com</small></div></div>`;
-  h+=`<div class="set-row" style="cursor:default"><div><span>🏷 버전</span><small>${APP_VERSION}${_isTwa()?' · 안드로이드 앱':(_isNativeApp()?' · 아이폰 앱':' · 웹')}</small></div></div>`;
+  h+=`<div class="set-row" style="cursor:default"><div><span>🏷 버전</span><small>${APP_VERSION}${(_isTwa()||(window._mcCapAndroid&&window._mcCapAndroid()))?' · 안드로이드 앱':(_isNativeApp()?' · 아이폰 앱':' · 웹')}</small></div></div>`;
   if(logged){ h+='<div class="set-sec">계정 삭제</div>'; h+=_setRow({onclick:'closeSettings();openWithdraw()'},'🗑','회원 탈퇴','회원정보·출석·로그인 세션을 즉시 삭제해요. 이 기기의 찜도 함께 지울지 고를 수 있어요',true); }
   document.getElementById('setTitle').textContent='설정 · 내 정보'; document.getElementById('setBody').innerHTML=h;
   document.getElementById('setSheet').classList.add('open'); document.body.style.overflow='hidden';
@@ -5962,6 +6004,7 @@ function permGuideOk(){ try{ localStorage.setItem('mc_perm_guided','1'); }catch(
 //    _isInApp() 이 이걸 인앱 웹뷰로 오인하면 카카오 로그인이 "웹으로만 인증·안내 띄우기" 길로 빠진다. 앱은 크롬 그 자체라 정상 경로(throughTalk)로 가야 한다.
 function _isTwa(){ try{ if(localStorage.getItem('mc_twa')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ localStorage.setItem('mc_twa','1'); return true; } }catch(_){} return false; }
 function _isInApp(){ // 인스타·카톡·네이버·페북·라인 등 인앱 웹뷰
+  if(window._mcCapAndroid && window._mcCapAndroid()) return false;   // 우리 안드로이드 웹뷰 앱(UA 에 「; wv)」 가 있다, 2026-10-26)
   if(_isTwa()) return false;   // 우리 앱은 인앱 웹뷰가 아니다
   return /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|; wv\)/i.test(navigator.userAgent||'');
 }
@@ -6164,7 +6207,7 @@ function showPwaStrip(){
 // 메뉴에서 언제든 설치(억제 플래그와 무관) — 재설치·이미설치자 모두
 function forceInstallPwa(){
   try{
-    if(_isStandalone()){ mcToast('이미 앱으로 실행 중이에요 🙂'); return; }
+    if(_isStandalone() || (typeof _isNativeApp==='function' && _isNativeApp())){ mcToast('이미 앱으로 실행 중이에요 🙂'); return; }
     pwaStripAdd();   // 갤럭시=프롬프트/크롬, 삼성·인앱=크롬, 아이폰=안내팝업
   }catch(_){}
 }
@@ -7144,6 +7187,7 @@ function _goEnv(){
   return plat+'|'+(sa?'sa':'tab')+'|'+br;
 }
 function _goCands(env){
+  if(window._mcNative && window._mcNative()) return ['wvopen'];   // 웹뷰 앱: openLink → 앱 코드(2026-10-26)
   const a=env.split('|'), plat=a[0], br=a[2];
   if(br==='naver') return ['plain'];
   // 우리 안드로이드 앱(TWA): 누른 이동은 선택창이 뜨고 앱 intent 는 무시된다 → 중간 페이지로만 (2026-10-26)

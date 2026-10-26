@@ -1,0 +1,147 @@
+# 맘캘린더 안드로이드 앱 빌드 — Capacitor 웹뷰 (아이폰 앱과 같은 방식) · 2026-10-26
+#
+# 왜 TWA(크롬)를 버렸나
+#   TWA 는 크롬이 사이트를 그대로 띄우는 구조라, 바깥 링크를 페이지가 앱으로 넘길 수 없고(크롬이 막는다 —
+#   chromium components/external_intents/README.md) 누를 때마다 「Chrome / NAVER」 선택창이 떴다.
+#   한국 웹뷰 앱의 정석(카카오 하이브리드 가이드·토스페이먼츠 dev-4)은 **앱 코드가 링크를 연다** → android-app/cap/native/LinkRouter.java
+#
+# 이 워크플로가 하는 일
+#   build 잡: npx cap add android → install_native.mjs(링크·위젯·아이콘·서명) → 시험용 APK(웹뷰 디버깅 켬) + 출시용 APK·AAB
+#   e2e 잡: 에뮬레이터(API 35, 크롬 있음)에 시험용 APK 를 깔고 android-app/cap/e2e/run.mjs 로 되던 것을 하나씩 확인
+#
+# 시크릿: ANDROID_KEYSTORE_B64 · ANDROID_KEYSTORE_PASSWORD · ANDROID_KEY_PASSWORD (TWA 와 같은 업로드 키)
+#         GOOGLE_SERVICES_JSON (있으면 알림 켬 — Firebase 프로젝트 필요)
+# 버전: Capacitor 8.5.3 = targetSdk 36 (Play 는 2026-08-31 부터 새 앱·업데이트에 API 36 을 요구), JDK 21, Node 22
+# 실행: Actions → "안드로이드 앱 빌드 (웹뷰)" → Run workflow → versionCode (TWA 판보다 크게)
+
+name: 안드로이드 앱 빌드 (웹뷰)
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionCode:
+        description: "versionCode (정수 · 지난번보다 크게)"
+        required: true
+        default: "10"
+
+concurrency:
+  group: android-cap-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 의존성 설치
+        working-directory: android-app/cap
+        run: npm install --no-audit --no-fund
+
+      - name: 오프라인 화면(www) 준비
+        working-directory: android-app/cap
+        run: |
+          mkdir -p www
+          cp ../../ios-app/www/index.html www/index.html
+
+      - name: 안드로이드 프로젝트 생성 (cap add android)
+        working-directory: android-app/cap
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: 맘캘린더 코드 끼우기 (시험용 — 웹뷰 디버깅 켬)
+        working-directory: android-app/cap
+        env:
+          VERSION_CODE: ${{ inputs.versionCode }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          E2E: '1'
+          E2E_URL: https://momcalendar.com/test.html
+        run: node install_native.mjs
+
+      - name: 업로드 키 복원
+        working-directory: android-app/cap
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > upload.p12
+          test -s upload.p12 || (echo "🔴 키스토어 시크릿이 비어 있다"; exit 1)
+
+      - name: 시험용 APK
+        working-directory: android-app/cap/android
+        env:
+          KS_PATH: ${{ github.workspace }}/android-app/cap/upload.p12
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KS_ALIAS: momcal
+        run: |
+          ./gradlew --no-daemon :app:assembleRelease
+          mkdir -p ../../../out
+          cp app/build/outputs/apk/release/app-release.apk ../../../out/momcalendar-e2e.apk
+
+      - name: 출시용 APK·AAB (웹뷰 디버깅 끔)
+        working-directory: android-app/cap
+        env:
+          KS_PATH: ${{ github.workspace }}/android-app/cap/upload.p12
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KS_ALIAS: momcal
+        run: |
+          node -e "const f='android/app/src/main/assets/capacitor.config.json';const fs=require('fs');const c=JSON.parse(fs.readFileSync(f,'utf8'));c.android={...(c.android||{}),webContentsDebuggingEnabled:false};c.server={...(c.server||{}),url:'https://momcalendar.com'};fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('debug',c.android.webContentsDebuggingEnabled,c.server.url)"
+          cd android
+          ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../../../out/momcalendar-v${{ inputs.versionCode }}.apk
+          cp app/build/outputs/bundle/release/app-release.aab ../../../out/momcalendar-v${{ inputs.versionCode }}.aab
+          ls -la ../../../out
+          # 서명 확인 — 업로드 키 지문이 assetlinks 와 같아야 앱 링크(카카오 로그인 뒤 돌아오기)가 된다
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs ../../../out/momcalendar-v${{ inputs.versionCode }}.apk | grep -i "SHA-256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: momcalendar-android-webview-v${{ inputs.versionCode }}
+          path: out
+      - name: KVM 켜기 (에뮬레이터 가속 — android-emulator-runner 안내)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: 에뮬레이터에서 앱 시험
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: node android-app/cap/e2e/run.mjs out/momcalendar-e2e.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report-v${{ inputs.versionCode }}
+          path: e2e-out/
+          retention-days: 30

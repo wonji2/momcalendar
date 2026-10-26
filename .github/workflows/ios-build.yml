@@ -66,6 +66,12 @@ jobs:
           test -f ios/App/App/capacitor.config.json && echo "OK" || (echo "🔴 설정 누락"; exit 1)
           echo "--- 푸시 플러그인이 붙었나 ---"
           grep -q "PushNotifications" ios/App/Podfile && echo "OK" || (echo "🔴 푸시 플러그인 없음"; exit 1)
+      - name: 푸시 토큰 전달 코드(AppDelegate) 넣기
+        working-directory: ios-app
+        run: |
+          # push-notifications README 필수 단계 — 없으면 알림을 켜도 토큰이 안 온다(2026-10-26 push_ios 0행)
+          python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
+          grep -n "capacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift
       - name: 푸시 권한(entitlements) 심고 프로젝트에 연결
         working-directory: ios-app/ios/App
         run: |

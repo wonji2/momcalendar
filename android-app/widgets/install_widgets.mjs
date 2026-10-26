@@ -10,7 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const APP = path.resolve(HERE, '..', 'app', 'src', 'main');
+// 웹뷰 앱(Capacitor) 빌드는 WIDGET_APP_MAIN 으로 경로를 넘긴다(android-app/cap/install_native.mjs, 2026-10-26)
+const APP = process.env.WIDGET_APP_MAIN || path.resolve(HERE, '..', 'app', 'src', 'main');
 if (!fs.existsSync(APP)) { console.error('🔴 app/src/main 없음 — bubblewrap update 를 먼저'); process.exit(1); }
 const W = (p, s) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, s); };
 
@@ -95,7 +96,7 @@ R('values/w_strings.xml', `<resources>\n${strings.join('\n')}\n</resources>`);
 // 2-b) 앱을 켤 때마다 위젯 번호를 사이트 주소에 붙인다 — 「연결하기」 버튼 없이 자동 연결 (사장님 2026-10-24 "불편한 방법말고")
 //   다른 앱들은 위젯과 앱이 같은 저장소를 쓴다. 우리 앱은 사이트(TWA)라 저장소가 크롬 안에 있어,
 //   앱을 열 때 주소로 위젯 번호를 넘기고 사이트가 서버에 짝을 지어 두는 게 같은 효과다(사이트는 받자마자 주소에서 지운다).
-{
+if (!process.env.WIDGET_APP_MAIN) {   // TWA 만: 웹뷰 앱은 위젯 번호를 앱 다리(widgetId)로 넘긴다
   const la = path.join(APP, 'java', 'com', 'wantsb', 'momcalendar', 'LauncherActivity.java');
   if (!fs.existsSync(la)) { console.error('🔴 LauncherActivity.java 없음'); process.exit(1); }
   let s = fs.readFileSync(la, 'utf8');
