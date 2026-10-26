@@ -5631,7 +5631,7 @@ async function disablePush(){
       await fetch(SUPABASE_URL+'/functions/v1/'+((window._mcCapAndroid&&window._mcCapAndroid())?'save-fcm-token':'save-ios-token'),{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:'off', device_id:deviceId()})}).catch(function(){});
-      try{ trackEvent('push_off','ios_app'); }catch(_){}
+      try{ trackEvent('push_off', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){}
     }catch(_){}
     mcToast('알림을 껐어요'); renderList(); return;
   }
@@ -5661,7 +5661,8 @@ async function enablePushNative(){
     if(plat==='android'){ var N=window._mcNative&&window._mcNative(); var rd=null; try{ rd=N?await N.pushReady():null; }catch(_){} if(!rd||!rd.ready) return false; }
     var st=await P.requestPermissions();
     if(!st || st.receive!=='granted') return false;
-    var tok=await new Promise(function(res){ var done=false; var t=setTimeout(function(){ if(!done){ done=true; res(null); } },10000);
+    window.__mcPushLate=false;
+    var tok=await new Promise(function(res){ var done=false; var t=setTimeout(function(){ if(!done){ done=true; window.__mcPushLate=true; res(null); } },10000);
       window.__mcPushTokWait=function(v){ if(!done){ done=true; clearTimeout(t); res(v||null); } };
       P.register().catch(function(){ if(!done){ done=true; clearTimeout(t); res(null); } }); });
     window.__mcPushTokWait=null;
@@ -5694,7 +5695,8 @@ function nativeBoot(){
   try{ document.body.classList.add('native-app'); }catch(_){}
   var P=_pushPlugin(); if(!P) return;
   try{
-    P.addListener('registration', function(t){ _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
+    P.addListener('registration', function(t){ if(window.__mcPushLate && localStorage.getItem('mc_push_on')!=='1') return;   // 시간이 지나 실패로 끝난 뒤 온 토큰은 버린다
+      _sendIosToken(t && t.value); try{ if(window.__mcPushTokWait) window.__mcPushTokWait(t && t.value); }catch(_){} });
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
     P.addListener('pushNotificationActionPerformed', function(ev){

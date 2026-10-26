@@ -10,7 +10,7 @@ import fs from 'node:fs';
 
 const APK = process.argv[2];
 const PKG = 'com.wantsb.momcalendar';
-const TEST = 'https://momcalendar.com/test.html';
+const TEST = process.env.E2E_URL || 'https://momcalendar.com/test.html';   // 시험용 앱이 띄운 주소(test.html 또는 라이브 https://momcalendar.com/)
 const OUT = 'e2e-out';
 fs.mkdirSync(OUT, { recursive: true });
 const sh = (...a) => { try { return execFileSync('adb', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 }); } catch (e) { return String(e.stdout || '') + String(e.stderr || ''); } };

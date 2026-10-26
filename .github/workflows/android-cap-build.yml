@@ -23,6 +23,10 @@ on:
         description: "versionCode (정수 · 지난번보다 크게)"
         required: true
         default: "10"
+      e2eUrl:
+        description: "시험용 앱이 띄울 주소 (라이브에 올리기 전엔 test.html, 올린 뒤엔 https://momcalendar.com/ 로 한 번 더)"
+        required: true
+        default: "https://momcalendar.com/test.html"
 
 concurrency:
   group: android-cap-build
@@ -72,7 +76,7 @@ jobs:
           VERSION_CODE: ${{ inputs.versionCode }}
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           E2E: '1'
-          E2E_URL: https://momcalendar.com/test.html
+          E2E_URL: ${{ inputs.e2eUrl }}
         run: node install_native.mjs
 
       - name: 업로드 키 복원
@@ -127,6 +131,8 @@ jobs:
   e2e:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      E2E_URL: ${{ inputs.e2eUrl }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
