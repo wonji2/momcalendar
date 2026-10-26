@@ -218,6 +218,26 @@ async function expectTab(name, url, run) {
     const r = await js(`(Capacitor.Plugins.MomcalLink.widgetId().then(x=>x.id).catch(e=>'ERR '+e))`);
     rec('위젯 번호를 앱이 알려 줌', /^w[A-Za-z0-9]{15,40}$/.test(r || ''), r);
   }
+  // 알림 켜기: 사이트의 「알림 켜기」와 같은 함수 → 안드로이드 권한 창 「허용」 → FCM 토큰 → save-fcm-token
+  //   (설정 파일이 없는 빌드면 pushReady=false 라 켜기가 false 로 끝나는 게 정상)
+  {
+    const ready = await js(`(Capacitor.Plugins.MomcalLink.pushReady().then(x=>String(x.ready)).catch(e=>'ERR '+e))`);
+    await js(`(window.__e2ep='wait', enablePush().then(r=>{window.__e2ep=String(r)}).catch(e=>{window.__e2ep='ERR '+e}), 'ok')`);
+    let tapped = false;
+    for (let k = 0; k < 8 && !tapped; k++) {
+      await sleep(2000);
+      const x = screenText();
+      const m = [...x.matchAll(/<node [^>]*text="(Allow|허용)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)][0];
+      if (m) { sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1)); tapped = true; }
+    }
+    let r = 'wait';
+    for (let k = 0; k < 10 && r === 'wait'; k++) { await sleep(1500); r = await js('window.__e2ep'); }
+    const dev = await js('deviceId()');
+    const on = await js(`localStorage.getItem('mc_push_on')`);
+    if (ready === 'true') rec('알림 켜기 → 권한 허용 → 토큰 받음', r === 'true' && on === '1', `ready=${ready} 허용창=${tapped} 결과=${r} mc_push_on=${on}`);
+    else info('알림 켜기(설정 파일 없는 빌드)', `ready=${ready} 결과=${r}`);
+    info('시험 기기 번호(push_fcm 확인용)', dev);
+  }
   // 앱 링크: 바깥에서 momcalendar.com 주소 → 우리 앱이 받고 그 주소를 띄운다(카카오 로그인 뒤 돌아오기)
   {
     info('앱 링크 확인 상태', sh('shell', 'pm', 'get-app-links', PKG).replace(/\s+/g, ' ').trim().slice(0, 250));
