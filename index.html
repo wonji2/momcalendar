@@ -712,6 +712,25 @@ body.srch-mode .next-zone{display:none!important}
 #nxdAsk .nxa-t,#nxdAsk .nxa-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 #nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#602090;color:#fff}
+.ip-sheet{position:fixed;inset:0;z-index:99996;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.ip-sheet.open{opacity:1;pointer-events:auto}
+.ip-box{width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;background:#fff;border-radius:24px 24px 0 0;padding:22px 20px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(16px);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.ip-sheet.open .ip-box{transform:none}
+.ip-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ip-h b{font-size:20px;font-weight:700;color:#191F28}
+.ip-h span{display:flex;gap:4px;flex:none}
+.ip-h button{border:0;background:none;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;padding:6px 6px;cursor:pointer}
+.ip-list{overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.ip-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #F2F4F6;cursor:pointer}
+.ip-row input{position:absolute;opacity:0;pointer-events:none}
+.ip-row i{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #D1D6DB;box-sizing:border-box;display:grid;place-items:center}
+.ip-row input:checked+i{background:#602090;border-color:#602090}
+.ip-row input:checked+i::after{content:"";width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.ip-m{min-width:0;display:flex;flex-direction:column}
+.ip-m b{font-size:15px;font-weight:600;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ip-m small{font-size:13px;color:#8B95A1;margin-top:2px}
+.ip-go{margin-top:14px;border:0;border-radius:14px;background:#602090;color:#fff;font-size:16px;font-weight:700;font-family:inherit;padding:15px;cursor:pointer}
+.ip-go:disabled{background:#E5E8EB;color:#8B95A1}
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -4036,6 +4055,22 @@ function setCalMine(v){
 
 // ── 찜한 공구 → 폰 캘린더(.ics) ────────────────────────
 // RFC 5545 표준이라 구글·네이버·애플·삼성·아웃룩이 모두 읽는다. 서버 없이 브라우저에서 바로 생성.
+// ── 내보낼 찜 고르기 시트 (2026-10-26) ──
+function _icsPick(items, sentSet){
+  let el=document.getElementById('icsPick');
+  if(!el){ el=document.createElement('div'); el.id='icsPick'; el.className='ip-sheet'; el.onclick=e=>{ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
+  const md=s=>{ const q=String(s||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; };
+  const rows=items.map(it=>{ const was=sentSet.has(it.id), end=(typeof realEnd==='function'?realEnd(it):it.endDate)||'';
+    return `<label class="ip-row"><input type="checkbox" value="${it.id}"${was?'':' checked'}><i></i><span class="ip-m"><b>${escHtml(it.name||'')}</b><small>${md(it.openDate)}${end&&end!==it.openDate?' ~ '+md(end):''}${was?' · 내보냄':''}</small></span></label>`; }).join('');
+  el.innerHTML=`<div class="ip-box"><div class="ip-h"><b>캘린더로 내보내기</b><span><button type="button" data-a="all">전체 선택</button><button type="button" data-a="none">전체 해제</button></span></div><div class="ip-list">${rows}</div><button class="ip-go" type="button"></button></div>`;
+  const cnt=()=>el.querySelectorAll('.ip-list input:checked').length;
+  const upd=()=>{ const n=cnt(), g=el.querySelector('.ip-go'); g.textContent=n?`${n}개 내보내기`:'고른 공구가 없어요'; g.disabled=!n; };
+  el.querySelector('[data-a="all"]').onclick=()=>{ el.querySelectorAll('.ip-list input').forEach(x=>x.checked=true); upd(); };
+  el.querySelector('[data-a="none"]').onclick=()=>{ el.querySelectorAll('.ip-list input').forEach(x=>x.checked=false); upd(); };
+  el.querySelector('.ip-list').onchange=upd;
+  el.querySelector('.ip-go').onclick=()=>{ const ids=new Set([...el.querySelectorAll('.ip-list input:checked')].map(x=>Number(x.value))); el.classList.remove('open'); try{ trackEvent('ics_pick', ids.size+'/'+items.length); }catch(_){} window._icsPicked=ids; exportWishIcs(); };
+  upd(); requestAnimationFrame(()=>el.classList.add('open'));
+}
 async function exportWishIcs(){
   // '내 것이 쌓이는 기능'은 로그인 필요 (보는 건 로그인 없이 — 트래픽 방어)
   if(typeof isLoggedIn==='function' && !isLoggedIn()){
@@ -4071,12 +4106,10 @@ async function exportWishIcs(){
   //    "새로 찜한 공구가 없어요" 라고 띄웠더니 **찜을 안 한 줄로 오해**하셨다.
   //    실제로는 오늘 아침에 5개를 찜하셨고, 그게 전부 '이미 내보냄'으로 기록돼 있던 것이다.
   //    → 찜 개수와 '내보낸 기록'을 분리해서, 무엇 때문에 이런 안내가 뜨는지 밝힌다.
-  if(sent.length && fresh.length && fresh.length<items.length){
-    const onlyNew=confirm(`찜한 ${items.length}개 중 ${items.length-fresh.length}개는 전에 내보낸 적이 있어요.\n\n[확인] 안 내보낸 ${fresh.length}개만 담기 (중복 없음)\n[취소] ${items.length}개 전부 다시 담기`);
-    if(onlyNew) items=fresh;
-  }else if(sent.length && !fresh.length){
-    if(!confirm(`찜한 ${items.length}개가 모두 전에 내보낸 걸로 기록돼 있어요.\n(저장을 중간에 취소했어도 기록은 남아요)\n\n${items.length}개를 다시 담을까요?`)) return;
-  }
+  // 고르는 창 (2026-10-26) — 처음 부르면 창을 띄우고 끝, 창에서 「N개 내보내기」를 누르면 고른 id 를 들고 다시 들어온다
+  if(!window._icsPicked){ _icsPick(items, sentSet); return; }
+  { const pk=window._icsPicked; window._icsPicked=null; items=items.filter(it=>pk.has(it.id)); }
+  if(!items.length){ mcToast('고른 공구가 없어요'); return; }
   const esc=s=>String(s||'').replace(/([,;\\])/g,'\\$1').replace(/\r?\n/g,'\\n');
   const ymd=s=>String(s||'').replace(/-/g,'');
   const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
@@ -6498,6 +6531,7 @@ function closeChatMenu(){
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
 @media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
+.comm-fab{display:flex!important;align-items:center;gap:7px;padding:0 22px!important;height:52px;font-size:16px!important;font-weight:700;letter-spacing:-.01em;box-shadow:0 6px 18px rgba(25,31,40,.28)!important}   /* 글쓰기 크고 굵게 (사장님 2026-10-26 「넘 작고 얇은듯」) */
 #commView{padding-bottom:96px!important}
 body:has(#commView[style*="display: block"]) .chat-fab-wrap,body:has(#commView[style*="display:block"]) .chat-fab-wrap{display:none}   /* 커뮤니티는 시안처럼 글쓰기 하나만 — ＋ 가 글쓰기를 반쯤 가렸다(앱 모드 실측) */   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
 </style>
@@ -6601,7 +6635,7 @@ function renderCommunity(){
     return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
-  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)">✏️ 글쓰기</a>`;
+  h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>글쓰기</a>`;
   v.innerHTML=h;
   const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }
