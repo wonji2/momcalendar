@@ -55,6 +55,8 @@ async function cdp() {
   ws.onclose = () => { for (const r of wait.values()) r({ error: 'closed' }); wait.clear(); };
   const send = (method, params = {}) => new Promise((r) => { const k = ++id; wait.set(k, r); try { ws.send(JSON.stringify({ id: k, method, params })); } catch (_) { r({ error: 'send' }); } setTimeout(() => { if (wait.has(k)) { wait.delete(k); r({ error: 'timeout' }); } }, 20000); });
   const ev = async (expr) => { const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, userGesture: true }); if (r.error) return 'ERR ' + r.error; return r.result && r.result.result ? r.result.result.value : (r.result && r.result.exceptionDetails ? 'ERR ' + JSON.stringify(r.result.exceptionDetails).slice(0, 200) : undefined); };
+  // 시험이 손님 통계(events: 로그인 시작·찜·클릭)를 더럽히지 않게 사이트의 기록 요청은 막는다 — live_smoke 와 같다(2026-10-26 error_radar 「로그인 길별 app 1/27」 이 시험 기기로 찼다). 앱 강제 종료 보고는 자바가 직접 보내 여기 안 걸린다
+  await send('Network.enable'); await send('Network.setBlockedURLs', { urls: ['*/rest/v1/events*'] });
   return { ev, close: () => { try { ws.close(); } catch (_) {} } };
 }
 async function js(expr) { for (let k = 0; k < 2; k++) { if (!C) { try { C = await cdp(); } catch (e) { return 'ERR ' + e.message; } } const v = await C.ev(expr); if (!(typeof v === 'string' && /^ERR (closed|send|timeout)/.test(v))) return v; C.close(); C = null; } return 'ERR 연결'; }
