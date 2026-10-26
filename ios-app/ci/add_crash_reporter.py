@@ -2,7 +2,7 @@
 #   python3 ios-app/ci/add_crash_reporter.py ios-app/ios/App/App/AppDelegate.swift
 #   · 처리 안 된 예외(NSException)·치명 신호(SIGABRT·SIGSEGV·SIGBUS·SIGILL·SIGTRAP·SIGFPE)를 받으면 캐시 폴더 파일에 적는다
 #   · 다음에 앱을 켤 때 그 파일이 있으면 우리 서버(events, event_type=app_crash)로 보내고 지운다 — 사이트와 같은 공개 손님 키
-#   · 신호 처리기 안에서는 open/write 만 쓴다(그 안에서 문자열·메모리 할당은 위험) — 신호 번호만 적는다
+#   · 신호 처리기 안에서는 open/write 만 쓴다 — 문구는 미리 만들어 두고(메모리 할당 없음), 예외 기록 뒤에 이어 적는다
 # 넣은 뒤 다시 읽어 확인하고, 없으면 exit 1.
 import sys
 
@@ -15,22 +15,23 @@ top = '''
 // ── 앱 강제 종료 기록(맘캘린더, 2026-10-26) ──
 private let mcCrashPath: String = (NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first ?? NSTemporaryDirectory()) + "/mc_crash.txt"
 private let mcCrashPathC: [CChar] = Array(mcCrashPath.utf8CString)
+// 신호 처리기 안에서는 메모리를 새로 잡지 않는다 — 신호별 문구를 미리 만들어 두고 쓰기만 한다(Codex 리뷰 2026-10-26)
+private let mcSigText: [[UInt8]] = (0..<32).map { Array("\\nsignal \\($0)\\n".utf8) }
 
 private func mcInstallCrashCatcher() {
+    _ = mcCrashPathC.count; _ = mcSigText.count   // 전역 상수는 처음 읽을 때 만들어진다 → 지금 미리 만든다(신호 처리기 안에서 만들면 위험)
     NSSetUncaughtExceptionHandler { e in
         let s = "\\(e.name.rawValue): \\(e.reason ?? "")\\n" + e.callStackSymbols.prefix(30).joined(separator: "\\n")
         try? s.write(toFile: mcCrashPath, atomically: false, encoding: .utf8)
     }
     for sig in [SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE] {
         signal(sig) { n in
+            // O_APPEND: 예외 처리기가 먼저 적은 이유·스택 뒤에 이어 적는다(예외 뒤엔 SIGABRT 가 따라온다 — 덮으면 이유가 사라진다)
             mcCrashPathC.withUnsafeBufferPointer { p in
-                let fd = open(p.baseAddress!, O_WRONLY | O_CREAT | O_TRUNC, 0o644)
+                let fd = open(p.baseAddress!, O_WRONLY | O_CREAT | O_APPEND, 0o644)
                 if fd >= 0 {
-                    var b: [UInt8] = Array("signal ".utf8)
-                    var v = Int(n); var d: [UInt8] = []
-                    repeat { d.insert(UInt8(48 + v % 10), at: 0); v /= 10 } while v > 0
-                    b += d
-                    _ = b.withUnsafeBufferPointer { write(fd, $0.baseAddress, $0.count) }
+                    let i = Int(n)
+                    if i >= 0 && i < 32 { mcSigText[i].withUnsafeBufferPointer { _ = write(fd, $0.baseAddress, $0.count) } }
                     close(fd)
                 }
             }

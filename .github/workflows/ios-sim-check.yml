@@ -76,7 +76,8 @@ jobs:
               rows.append(f"| {'✅' if ok else '❌'} | {name} | {note} |"); fail += (not ok)
           alive=int(os.environ.get('PID_ALIVE','0') or 0)
           rec('앱이 45초 뒤에도 살아 있다', alive>0, f'launchctl {alive}')
-          im=Image.open('sim-out/02_after20s.png').convert('RGB'); w,h=im.size
+          # 머리띠는 바깥 링크 시험(약 11초) 전 화면으로 본다 — 바깥 링크가 열리면 뒤 화면은 사파리다(Codex 리뷰 2026-10-26)
+          im=Image.open('sim-out/01_home.png').convert('RGB'); w,h=im.size
           # 사이트 머리(보라 #602090)가 화면 위쪽 12% 안에 있는가 — 오프라인 대기 화면은 연회색(#FAF9FC)
           band=[im.getpixel((x, y)) for y in range(int(h*0.06), int(h*0.12), 6) for x in range(20, w-20, 40)]
           purple=sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200)
