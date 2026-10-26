@@ -1043,6 +1043,8 @@ body.app-strip-on #pwaStrip{display:none!important}
 <script>
 // ── 📲 앱 설치 유도 — 한 곳(APP_LINKS)에서 켜고 끈다. 스토어 승인이 나는 날 enabled 를 true 로.
 const APP_LINKS={ enabled:true,
+  // OS별 출시 스위치 — 스토어에 실제로 올라간 쪽만 true (앱 심사 감시기 store_review_watch 가 공개를 알려 주면 켠다). 꺼진 OS 에는 띠·시트·팝업이 안 뜬다
+  android_live:true, ios_live:true,
   ios:'https://apps.apple.com/kr/app/id6826126083',
   android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
 const _APP_SVG={
@@ -1058,7 +1060,9 @@ function appBadges(where){
   return appBadge('ios',where)+appBadge('android',where);
 }
 function appGo(store, where){ try{ trackEvent('app_install_click', store+'|'+where); }catch(_){} }
-function _appOn(){ return !!(APP_LINKS.enabled && !document.body.classList.contains('native-app') && !_appCtxEarly()); }   // 앱 안(아이폰·안드로이드 TWA·?app=1)에선 설치 유도를 안 한다 (2026-10-25: 안드로이드 앱 안에서도 띠가 떴다)
+function _appLiveHere(){ const ios=(typeof _isIOS==='function' && _isIOS()); return ios ? !!APP_LINKS.ios_live : !!APP_LINKS.android_live; }
+function _appInAppKind(){ const ua=navigator.userAgent||''; return /KAKAOTALK/i.test(ua)?'kakao':/Instagram/i.test(ua)?'insta':/NAVER\(inapp/i.test(ua)?'naver':/FBAN|FBAV|FB_IAB/i.test(ua)?'fb':/Line\//i.test(ua)?'line':((typeof _isInApp==='function'&&_isInApp())?'inapp':'web'); }
+function _appOn(){ return !!(APP_LINKS.enabled && _appLiveHere() && !document.body.classList.contains('native-app') && !_appCtxEarly()); }   // 앱 안(아이폰·안드로이드 TWA·?app=1)에선 설치 유도를 안 한다 (2026-10-25: 안드로이드 앱 안에서도 띠가 떴다)
 function _appCtxEarly(){ try{ const q=new URLSearchParams(location.search).get('app'); if(q==='0') return false; if(q==='1') return true; if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()) return true; if(localStorage.getItem('mc_app_mode')==='1') return true; if(/^android-app:\/\/com\.wantsb\.momcalendar/.test(document.referrer||'')){ try{ sessionStorage.setItem('mc_twa_s','1'); }catch(_){} return true; } try{ if(sessionStorage.getItem('mc_twa_s')==='1') return true; }catch(_){} if(localStorage.getItem('mc_twa')==='1' && window.matchMedia && matchMedia('(display-mode: standalone)').matches) return true; }catch(_){} return false; }   // TWA 는 일반 크롬과 저장소를 같이 쓴다 → 앱으로 열린 그 탭 안(sessionStorage)에서만 기억 (검증자 2026-10-25)
 // ① 제목 위 띠
 function appInitStrip(){
@@ -1082,15 +1086,32 @@ function _appJoin(cards){
 //    act = 도착한 앱이 이어서 할 일(예: wish=123 · nxbell=123). 주소에 실어 보내고 도착하면 지운다(_appArrive).
 function appOpenUrl(act){
   if(typeof _isIOS==='function' && _isIOS()) return APP_LINKS.ios;
-  const q=new URLSearchParams(location.search); ['wdid','wlink','flowtest','from','v'].forEach(k=>q.delete(k));
+  const q=new URLSearchParams(location.search); ['wdid','wlink','flowtest','from','v','mvfrom','src'].forEach(k=>q.delete(k));
   if(act){ const [k,v]=String(act).split('='); if(k) q.set(k, v||'1'); }
+  try{ q.set('mvfrom', deviceId()); }catch(_){}          // 앱이 도착하면 이 기기의 찜을 전부 옮겨 간다(wish_move)
+  q.set('src', _appInAppKind());
   const qs=q.toString();
-  return 'intent://'+location.host+location.pathname+(qs?'?'+qs:'')+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent(APP_LINKS.android)+';end';
+  const path=/test-app\.html$/.test(location.pathname) ? location.pathname : '/';   // 시험 쪽만 그대로, 그 밖은 메인으로
+  return 'intent://momcalendar.com'+path+'?'+qs+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent(APP_LINKS.android)+';end';
 }
 function appOpen(where, act){
-  try{ trackEvent('app_open_tap', String(where||'')+'|'+(act||'')+'|'+((typeof _isInApp==='function'&&_isInApp())?'inapp':'web')); }catch(_){}
+  try{ trackEvent('app_open_tap', String(where||'')+'|'+(String(act||'').split('=')[0]||'-')+'|'+_appInAppKind()); }catch(_){}
+  try{ const d=new Date(); d.setDate(d.getDate()+1); localStorage.setItem('mc_app_sheet_next', d.toISOString().slice(0,10)); }catch(_){}
+  const ios=(typeof _isIOS==='function' && _isIOS());
+  let left=false; const onHide=()=>{ if(document.hidden) left=true; }; document.addEventListener('visibilitychange', onHide);
   location.href=appOpenUrl(act);
+  if(!ios) setTimeout(function(){ document.removeEventListener('visibilitychange', onHide); if(!left && !document.hidden) _appOpenStuck(where); }, 1500);
 }
+// 인앱이 앱 열기를 막으면(인스타·네이버 등) 화면이 그대로다 → 다른 브라우저로 여는 법 + 주소 복사
+function _appOpenStuck(where){
+  try{ trackEvent('app_open_stuck', String(where||'')+'|'+_appInAppKind()); }catch(_){}
+  const sub=document.getElementById('appGoPopSub'), box=document.getElementById('appGoPopBadges'), p=document.getElementById('appGoPop');
+  if(!p||!sub||!box) return;
+  sub.innerHTML='이 화면에선 앱이 바로 안 열려요<br><b>오른쪽 위 ⋮ → 다른 브라우저로 열기</b>를 눌러 주세요';
+  box.innerHTML='<button class="app-one" onclick="_appCopyUrl()">주소 복사하기</button>';
+  p.classList.add('open'); p.setAttribute('aria-hidden','false');
+}
+function _appCopyUrl(){ const u='https://momcalendar.com/'; try{ navigator.clipboard.writeText(u).then(()=>mcToast('주소를 복사했어요 · 크롬에 붙여 넣어 주세요')).catch(()=>mcToast(u)); }catch(_){ try{ mcToast(u); }catch(__){} } }
 // 안드로이드 인앱이면 배지 두 개 대신 버튼 하나(실측으로 한 번에 열린다). 아이폰은 앱스토어 배지.
 function appOneButton(where, act, label){
   if(typeof _isIOS==='function' && _isIOS()) return appBadge('ios', where);
@@ -1131,15 +1152,25 @@ setTimeout(function(){ try{ if(_appInAppAndroid() && !document.body.classList.co
 // 앱에 도착해서 이어서 할 일 — ?wish=<공구id> 면 찜까지 해 둔다(인앱에서 누른 찜을 들고 온 것)
 function _appArrive(){
   try{
-    const q=new URLSearchParams(location.search), w=Number(q.get('wish'))||0;
-    if(!w) return;
-    q.delete('wish'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);
-    // 서버 찜 목록을 받아 온 뒤에 찜한다(먼저 찜하면 늦게 도착한 목록이 덮어써 사라진다 — 시험에서 실측)
-    Promise.resolve(typeof syncWishFromServer==='function' ? syncWishFromServer() : null).catch(()=>{}).then(function(){
-      if(typeof isWished==='function' && !isWished(w) && typeof toggleWish==='function') toggleWish(w, null);
-      if(typeof mcToast==='function') mcToast('찜한 공구 가져왔어요 💜');
+    const q=new URLSearchParams(location.search);
+    const w=Number(q.get('wish'))||0, from=q.get('mvfrom')||'', src=(q.get('src')||'').replace(/[^a-z]/g,'').slice(0,10);
+    if(!w && !from && !src) return;
+    ['wish','mvfrom','src'].forEach(k=>q.delete(k));
+    history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);
+    // 🔒 앱 안에서만 — 남이 만든 링크(?wish=·?mvfrom=)를 웹에서 열어 찜이 바뀌지 않게
+    if(!(typeof _appCtxEarly==='function' && _appCtxEarly())) return;
+    const okFrom=/^[A-Za-z0-9_-]{8,64}$/.test(from) && from!==deviceId();
+    const mv = okFrom ? fetch(SUPABASE_URL+'/rest/v1/rpc/wish_move',{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_from:from,p_to:deviceId()})}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null);
+    mv.then(function(m){
+      const moved=(m&&m.ok)?((m.gonggu||0)+(m.sale||0)+(m.live||0)):0;
+      return Promise.resolve(typeof syncWishFromServer==='function' ? syncWishFromServer() : null).catch(()=>{}).then(function(){
+        let added=false;
+        // 방금 누른 공구가 아직 진행 중·예정이고 찜이 안 돼 있으면 찜(목록에 없는 공구·마감된 공구는 건드리지 않는다)
+        if(w && typeof isWished==='function' && !isWished(w) && (typeof DATA==='undefined' || !DATA.length || DATA.some(d=>Number(d.id)===w))){ toggleWish(w, null); added=true; }
+        if(moved>0 || added){ try{ mcToast(moved>0 ? '찜 '+(moved+(added?1:0))+'개를 앱으로 옮겨 왔어요 💜' : '찜한 공구 가져왔어요 💜'); }catch(_){} }
+        try{ trackEvent('app_arrive', (src||'-')+'|moved='+moved+'|wish='+(w?1:0)); }catch(_){}
+      });
     });
-    try{ trackEvent('app_arrive','wish'); }catch(_){}
   }catch(_){}
 }
 setTimeout(_appArrive, 1800);
@@ -5108,7 +5139,13 @@ function toggleWish(id, btn, ev){
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on && _appInAppAndroid() && typeof _appOn==='function' && _appOn()){
-    appGoPopup('wish','찜한 공구 오픈날 아침 알림은 앱에서 받아요 · 찜한 것도 그대로 가져가요','wish='+id);
+    // 하루 1번만 묻는다(찜은 이미 됐다). 아이폰은 앱스토어로만 가서 찜이 안 넘어간다 → 「로그인하면 합쳐져요」
+    let shown=false; try{ shown=localStorage.getItem('mc_app_wishpop_day')===new Date().toISOString().slice(0,10); }catch(_){}
+    if(!shown){
+      try{ localStorage.setItem('mc_app_wishpop_day', new Date().toISOString().slice(0,10)); }catch(_){}
+      const ios=(typeof _isIOS==='function' && _isIOS());
+      appGoPopup('wish', ios ? '찜한 공구 오픈날 아침 알림은 앱에서 받아요 · 앱에서 카카오로 로그인하면 찜이 합쳐져요' : '찜한 공구 오픈날 아침 알림은 앱에서 받아요 · 지금까지 찜한 것도 앱으로 옮겨 가요','wish='+id);
+    } else { try{ mcToast('찜했어요 💜'); }catch(_){} }
     return;
   }
   if(on){
