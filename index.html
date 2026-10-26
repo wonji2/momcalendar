@@ -1215,8 +1215,18 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
       return _fetch(b+rest, i).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){ if(timer) clearTimeout(timer); throw e; });
     }
     var cacheBroken=function(r){ return broken(r) || (viaCache && r && r.status===429); };   // 우회로 한도(Cloudflare 1027/429)도 "그 길 고장" 으로 본다
+    // 안전망(2026-10-27): 우회로가 정상 범위 밖의 목록을 주면 버리고 직행으로 다시 받는다(직행도 실패하면 오류로 끝낸다)
+    var fakeCheck = viaCache && /^\/rest\/v1\/(gonggu|hotdeals)(\?|$)/.test(rest);
+    function guard(r){
+      if(!fakeCheck || !r || !r.ok) return r;
+      return r.clone().text().then(function(t){
+        if(!/"id":\s*9\d{7}[,}]/.test(t)) return r;
+        try{ _fetch(PRIMARY+'/rest/v1/events',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','apikey':'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE','Prefer':'return=minimal'},body:JSON.stringify({event_type:'poison_seen',event_data:rest.slice(0,120)+'|'+(navigator.userAgent||'').slice(0,110)})}).catch(function(){}); }catch(_){}
+        return attempt(PRIMARY, SECOND_TIMEOUT);
+      }, function(){ return r; });
+    }
     return attempt(first, viaCache?CACHE_TIMEOUT:FIRST_TIMEOUT).then(function(r){
-      if(!cacheBroken(r)) return r;                              // 정상 답 (4xx 포함) → 그대로
+      if(!cacheBroken(r)) return guard(r);   // 정상 답(4xx 포함) → 그대로                              // 정상 답 (4xx 포함) → 그대로
       return attempt(second, SECOND_TIMEOUT).then(function(r2){
         if(broken(r2)) return r;                                 // 둘 다 5xx → 첫 응답 그대로
         if(!viaCache){ remember(second); report(second, 'http'+r.status, rest); } return r2;   // 캐시 길의 실패는 기억·기록하지 않는다(우회로 통계를 흐리지 않게)
