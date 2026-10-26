@@ -11,7 +11,8 @@
 //   · 계정만 생기고 **권한은 없다**. 사장님이 스탭 관리에서 승인해야 쓸 수 있다.
 const SB  = Deno.env.get("SUPABASE_URL")!;
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const CODE = Deno.env.get("STAFF_SIGNUP_CODE") ?? "momcal260610";
+// 🔴 2026-10-27: 기본값(옛 코드)이 staff.html 에 공개돼 있어 누구나 로그인 계정을 만들 수 있었다 → 기본값 없음. 시크릿이 없으면 가입을 받지 않는다
+const CODE = (Deno.env.get("STAFF_SIGNUP_CODE") || "").trim();
 
 function cors(origin: string | null) {
   const ok = ["https://momcalendar.com", "https://www.momcalendar.com"];
@@ -35,6 +36,7 @@ Deno.serve(async (req) => {
     const password = String(b?.password ?? "");
     const code = String(b?.code ?? "").trim();
 
+    if (!CODE) return json({ error: "지금은 스탭 가입을 받지 않아요. 사장님에게 문의해 주세요." }, 403);
     if (code !== CODE) return json({ error: "가입코드가 올바르지 않아요. 사장님에게 코드를 받아주세요." }, 400);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "이메일 형식이 아니에요." }, 400);
     if (password.length < 8) return json({ error: "비밀번호는 8자 이상으로 해주세요." }, 400);

@@ -2195,6 +2195,11 @@ function cmpPartnerFirst(a,b){
 
 // 🔒 XSS 방어 (2026-09-09): 검색어는 결과가 없을 때 화면에 그대로 출력된다.
 //   딥링크(?q=)가 생기면 링크 한 줄로 남의 브라우저에서 스크립트를 돌릴 수 있어 반드시 이스케이프한다.
+// onclick="fn(${_jsqA(값)})" 용 — JSON 문자열을 HTML 이스케이프(속성이 풀려도 JS 문자열 그대로, 2026-10-27 보안)
+function _jsqA(v){ return escHtml(JSON.stringify(String(v==null?'':v))); }
+// 받아온 글에서 태그 꺾쇠를 뺀다 — 상품명에 < > 가 쓰일 일은 없다(2026-10-27 보안)
+function _noTag(v){ return String(v==null?'':v).replace(/[<>]/g,''); }
+function _httpOnly(u){ u=String(u||'').trim(); return /^https?:\/\//i.test(u) ? u : ''; }
 function escHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
 // 🔗 검색 딥링크 (2026-09-09, 카페 자동 댓글용): momcalendar.com/?q=브랜드 → 그 검색 결과를 바로 연다.
 //   ⚠ loadData 는 **5분 캐시 빠른 경로와 본경로 두 군데**서 끝난다 — 둘 다 이 함수를 부른다.
@@ -2261,11 +2266,11 @@ async function loadData() {
     }
     DATA = rows.map(r => ({
       id: r.id,
-      influencer: r.influencer || '',
-      insta: (r.insta || '').replace('@', '').trim(),
-      major: r.major || '',
-      minor: r.minor || '',
-      name: r.name || '',
+      influencer: _noTag(r.influencer),
+      insta: (r.insta || '').replace('@', '').trim().replace(/[^A-Za-z0-9._]/g, ''),
+      major: _noTag(r.major),
+      minor: _noTag(r.minor),
+      name: _noTag(r.name),
       openDate: r.open_date || '',
       endDate: r.end_date || '',
       payLink: (r.pay_link || '').trim(),
@@ -2624,7 +2629,7 @@ function renderCard(item){
   const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#602090"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const sb = partner ? badgeSvg : '';
   const sellerLine = seller
-    ? `${sb}<span class="card-seller-strong">${seller}</span> · ${period}`
+    ? `${sb}<span class="card-seller-strong">${escHtml(seller)}</span> · ${period}`
     : (partner ? `${sb}${period}` : period);
   const partnerChip = partner ? `<span class="partner-chip">맘캘 이웃셀러</span>` : '';
   const cardBg = partner ? '#F0E6FA' : '#fff';
@@ -2632,14 +2637,14 @@ function renderCard(item){
   // 결제링크가 있으면 인스타 대신 그 링크로 바로 연결
   const _pay=(item.payLink||'').trim();
   const goUrl=/^https?:\/\//i.test(_pay)?_pay:instaUrl;
-  const oc = `goCard(${item.id},'${goUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`;
+  const oc = `goCard(${+item.id||0},${_jsqA(goUrl)})`;
   return`<div class="card${partner?' card-partner':''}" onclick="${oc}" style="background:${cardBg};border:1px solid ${cardBorder}">
     <div class="card-top">
-      <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${item.major}</span>
-      <span class="cat-sub">${item.minor}</span>
+      <span class="cat-tag" style="background:${c.tagBg};color:${c.tagTxt}">${escHtml(item.major)}</span>
+      <span class="cat-sub">${escHtml(item.minor)}</span>
       ${partnerChip}
     </div>
-    <div class="card-name" style="padding-right:${stPad}px">${item.name}</div>
+    <div class="card-name" style="padding-right:${stPad}px">${escHtml(item.name)}</div>
     <div class="card-sellerline" style="padding-right:${stPad}px">${sellerLine}</div>
     <span class="card-right">${stHtml}<span class="card-go">›</span></span>
     <button class="wbtn" data-wid="${item.id}" onclick="toggleWish(${item.id},this,event)" aria-label="찜하기">${heartSvg(isWished(item.id))}</button>
@@ -3615,7 +3620,7 @@ function renderMe(){
   const sw=(k,on,lab)=>`<button class="me-sw${on?' on':''}" type="button" aria-label="${lab}" aria-pressed="${on?'true':'false'}" onclick="${k==='all'?'notiPrefAll()':`notiPrefToggle('${k}')`};renderMe()"></button>`;
   v.innerHTML=`
   ${logged?`<div class="me-head" onclick="openSettings()"><div class="av">👤</div><div><b>${escHtml(m.nickname||'회원')}님</b><small>${(m&&m.provider==='naver')?'네이버':'카카오'} 로그인 · 별명·회원번호만 받아요</small></div></div>`
-    :`<div class="me-login"><button class="me-lbtn k" type="button" onclick="startKakaoLogin()">💬 카카오로 시작하기</button><button class="me-lbtn n" type="button" onclick="startNaverLogin()">N 네이버로 시작하기</button></div>`}
+    :`<div class="me-login"><button class="me-lbtn k" type="button" onclick="startKakaoLogin()">💬 카카오로 시작하기</button><button class="me-lbtn n" type="button" onclick="startNaverLogin()">N 네이버로 시작하기</button>${_appleAvail()?'<button class="me-lbtn" type="button" onclick="startAppleLogin()" style="background:#000;color:#fff">'+APPLE_SVG+' Apple로 로그인</button>':''}</div>`}
   <div class="me-set">
     <div class="g">알림</div>
     <div class="it"><div><b>전체 알림</b></div>${sw('all',allOn,'전체 알림')}</div>
@@ -4046,6 +4051,7 @@ async function openHdSheet(id){
   if(h.product_id!=='__demo__' && (!pts || pts.length<2)){
     trackHd('go',h.id);
     // 인앱 웹뷰는 window.open 이 null → location.href 폴백 (고정 대응 패턴)
+    if(!_httpOnly(h.link)) return;   // http(s) 가 아닌 링크(javascript: 등)는 열지 않는다(2026-10-27 보안)
     try{ if(window._mcNaverApp && window._mcNaverApp(h.link)){ openLink(h.link); return; } }catch(_){}
     var w=null; try{ w=window.open(h.link,'_blank'); }catch(_){}
     if(!w) location.href=h.link;
@@ -4068,9 +4074,9 @@ async function openHdSheet(id){
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-      ${h.img_url?`<img src="${mcApiSrc(h.img_url)}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
+      ${h.img_url?`<img src="${escHtml(mcApiSrc(h.img_url))}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${h.title}</div>
+        <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${escHtml(h.title)}</div>
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
           ${(function(){var u=hcUnitPrice(h);
@@ -4117,7 +4123,7 @@ async function openHdSheet(id){
 
     ${h.product_id==='__demo__'
       ? `<div style="text-align:center;background:#F2EFF6;color:#8A8395;border-radius:13px;padding:14px;font-size:13px;font-weight:700">예시 카드예요 · 실제 상품 링크는 없어요</div>`
-      : `<a href="${h.link}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id});closeHdSheet()"
+      : `<a href="${escHtml(_httpOnly(h.link)||'#')}" target="_blank" rel="noopener" onclick="trackHd('go',${+h.id||0});closeHdSheet()"
        style="display:block;text-align:center;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border-radius:13px;padding:14px;font-size:14px;font-weight:800;text-decoration:none">
       구매하러 가기 ›
     </a>`}
@@ -4221,8 +4227,8 @@ function expCardHtml(e){
     }
     const tag=ended?'<span class="ex-tag" style="background:#E0E0E0;color:#888">🎁 체험단</span>'
                    :'<span class="ex-tag" style="background:#E1F2EB;color:#085041">🎁 체험단</span>';
-    const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${e.major}</span>`:'';
-    const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${e.minor}</span>`:'';
+    const catTag=e.major?`<span class="hd-tag" style="background:${ended?'#E0E0E0':cc(e.major).tagBg};color:${ended?'#888':cc(e.major).tagTxt}">${escHtml(e.major)}</span>`:'';
+    const minorTxt=e.minor?`<span style="color:${ended?'#aaa':'#888'};font-size:11px;margin-left:5px">${escHtml(e.minor)}</span>`:'';
     const fmtMD=d=>{ if(!d) return ''; const p=String(d).slice(0,10).split('-'); return p.length>=3?`${+p[1]}/${+p[2]}`:''; };
     const endTxt=upcoming
       ? (e.open_date?`오픈 ${fmtMD(e.open_date)}`:'오픈 예정')
@@ -4231,10 +4237,10 @@ function expCardHtml(e){
     // 예정/마감이면 클릭 비활성 (링크 제거)
     const clickable=(!upcoming);
     const tag2=clickable?'a':'div';
-    const hrefAttr=clickable?`href="${e.link||'#'}" target="_blank" rel="noopener"`:'';
+    const hrefAttr=clickable?`href="${escHtml(_httpOnly(e.link)||'#')}" target="_blank" rel="noopener"`:'';
     return `<${tag2} class="ex-card${ended?' ended':''}" ${hrefAttr}>
       <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">${tag}${catTag}${minorTxt}</div>
-      <div style="font-size:14px;font-weight:700;color:${ended?'#999':'#222'};margin-bottom:6px;padding-right:44px">${e.title}</div>
+      <div style="font-size:14px;font-weight:700;color:${ended?'#999':'#222'};margin-bottom:6px;padding-right:44px">${escHtml(e.title)}</div>
       <div style="display:flex;align-items:center;gap:8px">${recruit}<span style="font-size:11px;color:${ended?'#aaa':'#999'}">${endTxt}</span></div>
       <span class="ct-arrow">${right}${clickable?'<span style="color:#ccc;font-size:16px">›</span>':''}</span>
     </${tag2}>`;
@@ -4320,7 +4326,7 @@ function buildCalendar(){
     // 마감 표시는 '내 찜만' 모드에서만. 전체 모드에선 매일 마감이 있어서 표시가 무의미해짐
     const ends=calMine?calPool().filter(item=>realEnd(item)===ds):[];
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
-    let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${ev.major}">${ev.name.slice(0,5)}</div>`).join('');
+    let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${escHtml(ev.major)}">${escHtml(ev.name.slice(0,5))}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
     // 마감일에도 '무엇이' 끝나는지 보이게 상품명을 붙인다 ("마감 1"만 뜨면 뭐가 끝나는지 알 수 없음)
     evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F">~${ev.name.slice(0,5)}</div>`).join('');
@@ -5339,6 +5345,7 @@ function openLoginSheet(title, sub, fine, intent){
     if(_bx && !_bx.querySelector("[data-kko-main]")) _bx.innerHTML =
       '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 3초 만에 시작</button>' + '<button data-nv-main onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:15px;font-weight:900;font-family:Arial,sans-serif;line-height:1">N</span> 네이버로 3초 만에 시작</button>';
   }catch(_){}
+  try{ _applePaint(); }catch(_){}
   bg.style.display='block'; m.style.bottom='0';
   if(!wasOpen) lockScroll();
 }
@@ -5409,6 +5416,68 @@ function kkoOpenChromeLogin(){
 }
 // 안내를 건너뛰고 원래대로 진행 — 인앱에서도 로그인은 된다, 조금 불편할 뿐이다
 function kkoForceLogin(){ window.__kkoSkipGuide = true; startKakaoLogin(); }
+// ══ 애플로 로그인 (2026-10-27 · App Review 4.8 · 애플 「Verifying a user」 — 검증은 서버 apple-auth) ══
+var APPLE_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/apple-auth';
+var APPLE_SVG='<svg width="15" height="18" viewBox="0 0 814 1000" aria-hidden="true" style="flex-shrink:0"><path fill="#fff" d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/></svg>';
+function _appleAvail(){ try{ return _kkoNative() && Capacitor.getPlatform && Capacitor.getPlatform()==='ios' && !!(Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('SignInWithApple')); }catch(_){ return false; } }
+var APPLE_BTN='<button data-apple-main type="button" onclick="startAppleLogin()" style="width:100%;background:#000;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">'+APPLE_SVG+' Apple로 로그인</button>';
+// 로그인 시트를 열 때마다: 아이폰 앱이면 카카오 버튼 바로 아래에 애플 버튼(같은 크기)
+function _applePaint(){
+  var bx=document.getElementById('kkoBtns'); if(!bx) return;
+  var have=bx.querySelector('[data-apple-main]');
+  if(!_appleAvail()){ if(have) have.remove(); return; }
+  if(have) return;
+  var k=bx.querySelector('[data-kko-main]'); var t=document.createElement('div'); t.innerHTML=APPLE_BTN; var b=t.firstChild;
+  if(k && k.nextSibling) bx.insertBefore(b, k.nextSibling); else bx.appendChild(b);
+  if(k && k.offsetHeight) b.style.height=k.offsetHeight+'px';   // 애플 HIG: 다른 로그인 버튼과 같은 크기
+}
+async function startAppleLogin(){
+  if(window.__appleBusy) return; window.__appleBusy=true;
+  try{
+    var raw=_kkoRand(32);
+    var nh=Array.prototype.map.call(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))), function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    var r=null;
+    try{ r=await Capacitor.Plugins.SignInWithApple.authorize({ clientId:'com.wontsbe.momcalendar', redirectURI:'https://momcalendar.com/', scopes:'name', state:_kkoRand(8), nonce:nh }); }
+    catch(e){ try{ trackEvent('apple_login_cancel', String(e&&e.message||e).slice(0,40)); }catch(_){} return; }   // 손님이 닫은 것 — 조용히
+    var a=(r&&r.response)||{};
+    if(!a.identityToken){ _appleFail('no_token'); return; }
+    var nm=((a.familyName||'')+(a.givenName||'')).trim();   // 이름은 처음 한 번만 온다
+    var res=await fetch(APPLE_FN,{ method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+      body:JSON.stringify({ id_token:a.identityToken, nonce:raw, device_id:(typeof deviceId==='function'?deviceId():null), name:nm||undefined }) });
+    var d=await res.json().catch(function(){ return null; });
+    if(!(d && d.ok)){ _appleFail(String((d&&d.error)||('http_'+res.status)).slice(0,40)); return; }
+    try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:'apple'})); }catch(_){}
+    try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_login_fail'); localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}
+    if(typeof reloginStripHide==='function') reloginStripHide();
+    try{ trackEvent('apple_login_done', ''); }catch(_){}
+    try{ closeLoginSheet(); }catch(_){}
+    if(typeof paintMemberUI==='function') paintMemberUI();
+    try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){}
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#2b2340;color:#fff;padding:12px 20px;border-radius:24px;font-size:13px;font-weight:700;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+    t.textContent='💜 '+(d.nickname||'회원')+'님, 반가워요!';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(function(){ t.remove(); },420); }, 2600);
+    var intent=window.__loginIntent||null; try{ intent=intent||localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
+    if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
+    else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+  }catch(e){ _appleFail('network'); }
+  finally{ window.__appleBusy=false; }
+}
+function _appleFail(why){
+  try{ trackEvent('apple_login_fail', why); }catch(_){}
+  var w=document.createElement('div');
+  w.style.cssText='position:fixed;left:12px;right:12px;bottom:86px;background:#fff;border:1px solid #E7DCF5;border-radius:14px;padding:14px 15px;z-index:99999;box-shadow:0 8px 26px rgba(0,0,0,.18);font-size:13px;color:#3A3345;line-height:1.6';
+  w.innerHTML='<b style="color:#7B3FB5">로그인을 마치지 못했어요</b>'+
+    '<div style="display:flex;gap:7px;margin-top:11px">'+
+    '<button type="button" data-r style="flex:1;background:#000;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">다시 로그인</button>'+
+    '<button type="button" data-x style="background:#F3F0F7;color:#8A8194;border:none;border-radius:10px;padding:10px 13px;font-size:13px;font-family:inherit;cursor:pointer">닫기</button></div>';
+  document.body.appendChild(w);
+  w.querySelector('[data-r]').onclick=function(){ w.remove(); startAppleLogin(); };
+  w.querySelector('[data-x]').onclick=function(){ w.remove(); };
+}
+
 
 function startKakaoLogin(){
   // 카톡 인앱이면 먼저 더 편한 길을 알려준다 (기기당 한 번만)
@@ -5425,6 +5494,8 @@ function startKakaoLogin(){
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
   try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+  // 🔴 2026-10-27: 앱(새 빌드)은 카카오 가이드·RFC 8252 대로 시스템 브라우저 + state + PKCE (_appKakaoLogin)
+  if(_appBrowserLogin()){ _appKakaoLogin().catch(function(){ alert('로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.'); }); return; }
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -5433,6 +5504,7 @@ function startKakaoLogin(){
   Kakao.Auth.authorize({
     redirectUri: kkoRedirect(),
     scope: 'profile_nickname',
+    state: _kkoNewState(),   // 카카오 보안 권장 2.3 — 돌아온 state 와 대조(로그인 CSRF 방지)
     // 🔴 아이폰 앱(Capacitor) 안에서도 카톡 앱으로 넘기지 않는다 — 카톡 인앱 브라우저에서 로그인이 끝나 우리 앱으로 안 돌아온다
     //    (2026-10-26 실측: 앱 로그인 시도 10건 성공 0 · talk-apps.kakao.com/scheme/kakaotalk://inappbrowser 로 빠짐)
     throughTalk: !_isInApp() && !(typeof _isNativeApp==='function' && _isNativeApp())
@@ -5471,7 +5543,7 @@ function loginStripHtml(){
   return `<div id="loginStrip" style="display:flex;align-items:center;gap:9px;background:#FBF7FF;border:1px solid #E7DCF5;border-radius:12px;padding:11px 13px;margin-bottom:10px">
       <span style="font-size:17px">💜</span>
       <span style="flex:1;font-size:12px;color:#6D6579;line-height:1.5">로그인하면 폰을 바꿔도<br>찜한 공구가 그대로예요</span>
-      <button onclick="startKakaoLogin()" style="background:#FEE500;color:#191919;border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap">카카오 로그인</button>
+      ${_appleAvail() ? '<button onclick="openLoginSheet()" style="background:#602090;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap">로그인</button>' : `<button onclick="startKakaoLogin()" style="background:#FEE500;color:#191919;border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap">카카오 로그인</button>`}
       <button onclick="hideLoginStrip()" style="background:none;border:none;color:#C6C0CE;font-size:15px;cursor:pointer;padding:2px 4px" aria-label="닫기">✕</button>
     </div>`;
 }
@@ -5485,6 +5557,75 @@ function hideLoginStrip(){
   }catch(_){}
   var el=document.getElementById('loginStrip'); if(el) el.remove();
 }
+// ══ 카카오 로그인 state·PKCE (2026-10-27 · 카카오 「보안 권장 사항」 2.3 · REST API PKCE · RFC 8252) ══
+function _kkoRand(n){ var a=new Uint8Array(n); crypto.getRandomValues(a); return Array.prototype.map.call(a,function(b){ return b.toString(16).padStart(2,'0'); }).join(''); }
+function _kkoB64url(buf){ var s=''; new Uint8Array(buf).forEach(function(b){ s+=String.fromCharCode(b); }); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function _kkoNewState(){ var s='w.'+_kkoRand(16); try{ localStorage.setItem('mc_kko_state', JSON.stringify({s:s, at:Date.now(), r:!!window.__kkoAuto})); }catch(_){} return s; }
+function _kkoStateOk(s){   // 쓰고 나면 지운다 — 같은 state 를 두 번 받지 않는다
+  var v=null; try{ v=JSON.parse(localStorage.getItem('mc_kko_state')||'null'); localStorage.removeItem('mc_kko_state'); }catch(_){}
+  return !!(v && v.s && s && v.s===s && Date.now()-v.at < 20*60e3);
+}
+// state 가 안 돌아온 경우(카톡 앱 경유 등 — 실기기 미확인): 이 기기에서 20분 안에 시작한 로그인이 있을 때만 받는다. 흔적은 1회용
+function _kkoPendingOk(){
+  var v=null; try{ v=JSON.parse(localStorage.getItem('mc_kko_state')||'null'); localStorage.removeItem('mc_kko_state'); }catch(_){}
+  var op=false; try{ op=!!window.opener; }catch(_){ op=true; }   // 다른 페이지가 연 창 — 그 페이지가 주소를 바꿔 넣을 수 있다
+  var ok=!!(v && v.s && !v.r && !op && Date.now()-v.at < 20*60e3);   // 자동 재시작(r)이 만든 흔적은 안 받는다
+  try{ trackEvent('kakao_state_missing', ok?'pending':(op?'opener':'none')); }catch(_){}
+  return ok;
+}
+function _kkoNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(_){ return false; } }
+function _appBrowserLogin(){ try{ return _kkoNative() && !!(Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('Browser') && Capacitor.isPluginAvailable('App')); }catch(_){ return false; } }
+async function _appKakaoLogin(){
+  var verifier=_kkoB64url(crypto.getRandomValues(new Uint8Array(32)));
+  var challenge=_kkoB64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  var state='a.'+_kkoRand(16);
+  try{ localStorage.setItem('mc_app_oauth', JSON.stringify({state:state, verifier:verifier, at:Date.now()})); }catch(_){}
+  var q=new URLSearchParams({client_id:KKO_JS_KEY, redirect_uri:'https://momcalendar.com/', response_type:'code', scope:'profile_nickname', state:state, code_challenge:challenge, code_challenge_method:'S256'});
+  await Capacitor.Plugins.Browser.open({url:'https://kauth.kakao.com/oauth/authorize?'+q.toString(), presentationStyle:'popover'});
+}
+// 시스템 브라우저 안의 맘캘린더 페이지: 앱이 연 로그인(state=a.…)이면 교환하지 않고 앱으로만 넘긴다
+function _appBounce(){
+  var qs=location.search.slice(1);
+  try{ history.replaceState({},'', location.pathname); }catch(_){}
+  var and=/Android/i.test(navigator.userAgent);
+  var target=and ? 'intent://auth?'+qs+'#Intent;scheme=momcalendar;package=com.wantsb.momcalendar;end' : 'momcalendar://auth?'+qs;
+  var show=function(){
+    var el=document.createElement('div'); el.id='appBackSheet';
+    el.style.cssText='position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;text-align:center';
+    el.innerHTML='<div style="font-size:20px;font-weight:700;color:#191F28">맘캘린더 앱으로 돌아가요</div>'
+      +'<a id="appBackBtn" style="display:block;width:100%;max-width:340px;height:52px;line-height:52px;margin-top:24px;border-radius:14px;background:#602090;color:#fff;font-size:16px;font-weight:700;text-decoration:none">앱으로 돌아가기</a>'
+      +'<button type="button" onclick="this.parentNode.remove()" style="margin-top:12px;min-height:44px;padding:0 20px;background:none;border:none;color:#8A8194;font-size:14px;font-family:inherit;cursor:pointer">닫기</button>';
+    document.body.appendChild(el); document.getElementById('appBackBtn').href=target;
+  };
+  if(document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+  try{ trackEvent('kakao_app_bounce', and?'android':'ios'); }catch(_){}
+  setTimeout(function(){ location.href=target; }, 50);
+}
+function _appOAuthBoot(){
+  if(!_appBrowserLogin()) return;
+  var take=function(url){
+    try{
+      var u=new URL(url);
+      if(u.protocol!=='momcalendar:' || u.host!=='auth') return;
+      try{ Capacitor.Plugins.Browser.close(); }catch(_){}
+      // 확인은 ?code 처리(아래)가 한다 — state 가 이 앱이 만든 것과 같을 때만 교환
+      location.replace('/?'+u.search.slice(1));
+    }catch(_){}
+  };
+  try{ Capacitor.Plugins.App.addListener('appUrlOpen', function(ev){ take(ev && ev.url); }); }catch(_){}
+  // 카톡을 다녀오는 사이 앱이 꺼졌다가 이 주소로 다시 켜진 경우(콜드 스타트) — 검토자 지적
+  try{ Capacitor.Plugins.App.getLaunchUrl().then(function(r){ if(r && r.url && /^momcalendar:\/\/auth/.test(r.url) && !sessionStorage.getItem('mc_launch_taken')){ sessionStorage.setItem('mc_launch_taken','1'); take(r.url); } }).catch(function(){}); }catch(_){}
+}
+// state 가 없거나 다르면(카톡을 다녀와 다른 브라우저로 돌아온 경우 1.3% · 남이 보낸 링크) 실패로 끝내지 않고 이 브라우저에서 한 번 다시 시작(3분에 1번)
+function _kkoRestartOnce(why){
+  var last=0; try{ last=+localStorage.getItem('mc_kko_retry')||0; }catch(_){}
+  if(Date.now()-last < 3*60e3) return false;
+  try{ localStorage.setItem('mc_kko_retry', String(Date.now())); }catch(_){}
+  try{ trackEvent('kakao_login_restart', why); }catch(_){}
+  var n=0; var go=function(){ if(window.Kakao && kkoInit()){ window.__kkoSkipGuide=true; window.__kkoAuto=true; startKakaoLogin(); window.__kkoAuto=false; } else if(++n<30) setTimeout(go,300); };
+  setTimeout(go, 300);
+  return true;
+}
 // 로그인 후 돌아왔을 때 ?code 처리
 (function(){
   try{
@@ -5492,6 +5633,8 @@ function hideLoginStrip(){
     var code=p.get('code');
     var _st=p.get('state')||'';
     var _nv=_st.indexOf('nv_')===0;   // 🟢 네이버에서 돌아옴
+    // 앱이 연 카카오 로그인(state=a.…)이 시스템 브라우저로 돌아왔다 → 교환하지 않고 앱으로만 넘긴다
+    if(_st.indexOf('a.')===0 && !_kkoNative() && (code || p.get('error'))){ _appBounce(); return; }
     if(_nv && !code){   // 손님이 네이버 동의 화면에서 취소하면 ?error=access_denied&state=nv_… 로 돌아온다
       try{ history.replaceState({},'', location.pathname); }catch(_){}
       try{ localStorage.removeItem('mc_login_try'); localStorage.removeItem('mc_nv_state'); }catch(_){}
@@ -5500,7 +5643,20 @@ function hideLoginStrip(){
     }
     if(!code) return;
     if(_nv){ var _want=null; try{ _want=localStorage.getItem('mc_nv_state'); localStorage.removeItem('mc_nv_state'); }catch(_){}
-      if(_want && _want!==_st){ try{ history.replaceState({},'', location.pathname); }catch(_){} try{ trackEvent('naver_login_fail','state_mismatch'); }catch(_){} return; } }
+      if(!_want || _want!==_st){ try{ history.replaceState({},'', location.pathname); }catch(_){} try{ trackEvent('naver_login_fail', _want?'state_mismatch':'state_none'); }catch(_){} return; } }   // 2026-10-27: 저장된 state 가 없어도 통과하던 구멍
+    var kkoVerifier=null;
+    if(!_nv){
+      if(_st.indexOf('a.')===0){
+        var ao=null; try{ ao=JSON.parse(localStorage.getItem('mc_app_oauth')||'null'); localStorage.removeItem('mc_app_oauth'); }catch(_){}
+        if(!ao || ao.state!==_st || Date.now()-ao.at > 20*60e3){ try{ history.replaceState({},'', location.pathname); }catch(_){} kkoLoginFailed('state_app'); return; }
+        kkoVerifier=ao.verifier;
+        try{ if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Browser) Capacitor.Plugins.Browser.close(); }catch(_){}
+      } else if(!(_st ? _kkoStateOk(_st) : _kkoPendingOk())){
+        try{ history.replaceState({},'', location.pathname); }catch(_){}
+        if(_kkoRestartOnce(_st ? 'state' : 'state_none')) return;
+        kkoLoginFailed(_st ? 'state' : 'state_none'); return;
+      }
+    }
     // ⚠️ 카카오 인가코드는 **한 번만** 쓸 수 있다.
     //    응답을 기다리는 사이에 손님이 새로고침하면 같은 코드로 또 요청해 반드시 실패한다.
     //    (인앱은 렌더가 느려 이 사이가 길다) → 요청을 보내기 전에 주소에서 먼저 지운다.
@@ -5510,7 +5666,7 @@ function hideLoginStrip(){
     window.__kkoReturning = true;   // 카카오에서 돌아와 처리 중 — checkLoginFail 이 '추정' 으로 세지 않게
     fetch(_nv?NV_FN:KKO_FN,{ method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-      body:JSON.stringify({ code:code, state:(_nv?_st:undefined), redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null) })
+      body:JSON.stringify({ code:code, state:(_nv?_st:undefined), redirect_uri:kkoRedirect(), device_id:(typeof deviceId==='function'?deviceId():null), code_verifier:kkoVerifier||undefined })
     }).then(function(r){ try{ window.__kkoHttp = r.status; }catch(_){}   // 실패 진단용 — status 를 버리면 원인을 못 찾는다
       return r.json().catch(function(){ return null; });
     }).then(function(d){
@@ -5735,7 +5891,7 @@ function reloginStripGo(){
     startKakaoLogin();
   }
 }
-document.addEventListener('DOMContentLoaded', function(){ kkoInit(); paintMemberUI(); checkLoginFail(); showReloginStrip(); });
+document.addEventListener('DOMContentLoaded', function(){ kkoInit(); paintMemberUI(); try{ _appOAuthBoot(); }catch(_){} checkLoginFail(); showReloginStrip(); });
 
 // ── 바텀시트를 아래로 끌어서 닫기 ──────────────────────
 // 손잡이(회색 바)를 내리면 닫히는 게 자연스러운데 지금은 '닫기' 버튼밖에 없어서 추가.
@@ -6009,9 +6165,9 @@ function renderEndedWish(item){
   const seller=(item.influencer && !item.influencer.startsWith('@')) ? item.influencer : normHandle(item.insta);
   const period=`${disp(item.openDate)}${item.endDate?'~'+disp(item.endDate):''}`;
   return `<div class="card wended">
-    <div class="card-top"><span class="cat-tag" style="background:#ECECEC;color:#999">${item.major||''}</span><span class="cat-sub">${item.minor||''}</span></div>
-    <div class="card-name">${item.name}</div>
-    <div class="card-sellerline">${seller?seller+' · ':''}${period}</div>
+    <div class="card-top"><span class="cat-tag" style="background:#ECECEC;color:#999">${escHtml(item.major)}</span><span class="cat-sub">${escHtml(item.minor)}</span></div>
+    <div class="card-name">${escHtml(item.name)}</div>
+    <div class="card-sellerline">${seller?escHtml(seller)+' · ':''}${period}</div>
     <button class="wdel" onclick="removeWish(${item.id},event)">삭제</button>
   </div>`;
 }
@@ -6026,8 +6182,8 @@ async function fetchWishExtra(){
     if(!r.ok) return;
     const rows=await r.json();
     _wishExtra=_wishExtra.concat(rows.map(x=>({
-      id:x.id, influencer:x.influencer||'', insta:(x.insta||'').replace('@','').trim(),
-      major:x.major||'', minor:x.minor||'', name:x.name||'',
+      id:x.id, influencer:_noTag(x.influencer), insta:(x.insta||'').replace('@','').trim().replace(/[^A-Za-z0-9._]/g,''),
+      major:_noTag(x.major), minor:_noTag(x.minor), name:_noTag(x.name),
       openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim(), always:x.always===true
     })));
     if(fSt==='wish') renderList();
@@ -6679,7 +6835,7 @@ async function _nxEarlyLoad(){
     const u=`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=gt.${todayStr}&order=open_date.asc,id.desc&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,vendor_id,always`;
     const rows=(window._mcNxEarly && window._mcNxEarlyDay===todayStr) ? await window._mcNxEarly() : await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}}).then(r=>r.ok?r.json():null);   // ⚡ 위에서 먼저 출발한 요청을 받아 쓴다 (2026-10-25)
     if(!Array.isArray(rows)) return;
-    _NX_EARLY=rows.map(x=>({id:x.id,influencer:x.influencer||'',insta:(x.insta||'').replace('@','').trim(),major:x.major||'',minor:x.minor||'',name:x.name||'',openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
+    _NX_EARLY=rows.map(x=>({id:x.id,influencer:_noTag(x.influencer),insta:(x.insta||'').replace('@','').trim().replace(/[^A-Za-z0-9._]/g,''),major:_noTag(x.major),minor:_noTag(x.minor),name:_noTag(x.name),openDate:x.open_date||'',endDate:x.end_date||'',payLink:(x.pay_link||'').trim(),vendorId:x.vendor_id||null}));
     if(!(typeof DATA!=='undefined' && DATA && DATA.length)) renderNextGonggu();   // 전체가 이미 왔으면 그쪽이 그린다
   }catch(_){}
 }
@@ -6689,7 +6845,7 @@ function _nxCard(it, wide){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):''; const sub=(b&&b.subtitle)||[it.major,it.minor].filter(Boolean).join(' · ');
   // 오픈 전엔 무조건 셀러 인스타(예고글·팔로우), 오픈일부터 판매링크 (사장님 2026-10-15 "누르면 내 인스타로 오게")
   const _pay=(it.payLink||'').trim(); const goUrl=(it.openDate>todayStr || !/^https?:\/\//i.test(_pay))?`https://www.instagram.com/${it.insta}/`:_pay;
-  const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')`;
+  const oc=`goCard(${+it.id||0},${_jsqA(goUrl)})`;
   const on=isWished(it.id);
   return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
     <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏳ D-${_nxDday(it.openDate)}</span></div>
@@ -6702,7 +6858,7 @@ const _NXB1='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.5 2.
 function _nxCardD(it){
   const b=_nxBanner(it); const img=b&&b.img_url?mcApiSrc(b.img_url):'';
   const _pay=(it.payLink||'').trim(); const goUrl=(it.openDate>todayStr || !/^https?:\/\//i.test(_pay))?`https://www.instagram.com/${it.insta}/`:_pay;
-  const oc=`goCard(${it.id},'${goUrl.replace(/'/g,"\'").replace(/"/g,'&quot;')}')`;
+  const oc=`goCard(${+it.id||0},${_jsqA(goUrl)})`;
   const on=isWished(it.id); const n=_nxN(it);
     // 오픈 전엔 카드를 누르면 「전체일정」 시트로 (사장님 2026-10-22 "누르면 전체일정 보기로 바로 가게 · 공구 오픈전까진"). 오픈일부터는 판매링크.
   const oc2=(it.openDate>todayStr)?`try{trackEvent('next_card_open_sheet','${it.id}')}catch(_){};openNextSheet()`:oc;
@@ -6921,7 +7077,7 @@ async function loadPromoBanners(){
         : `<span class="pc-ico">🌿</span>`;
       const brand=b.cta?`<div class="pc-brand" style="color:${txtCol}">${_promoEsc(b.cta)}</div>`:'';
       const sub=b.subtitle?`<div class="pc-sub" style="color:${txtCol}">${_promoEsc(b.subtitle)}</div>`:'';
-      return `<div class="promo-card" style="background:${_promoEsc(bg)}" onclick="goPromo(${b.id},'${(b.link||'').replace(/'/g,"\\'")}')">
+      return `<div class="promo-card" style="background:${_promoEsc(bg)}" onclick="goPromo(${+b.id||0},${_jsqA(b.link||'')})">
         <div class="pc-txt">${brand}<div class="pc-title" style="color:${txtCol}">${_promoEsc(b.title)}</div>${sub}</div>
         ${ico}</div>`;
     }).join('');

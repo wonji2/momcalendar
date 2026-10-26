@@ -301,7 +301,7 @@ const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 
 // ───────── 로그인 / 회원가입 ─────────
 const STAFF_DOMAIN='@staff.momcal';
-const SIGNUP_CODE='momcal260610';   // ← 사장님이 원하는 가입코드로 바꾸세요. 이 코드를 아는 스탭만 가입할 수 있어요.
+// 가입코드는 서버(staff-signup, 시크릿 STAFF_SIGNUP_CODE)만 안다 — 2026-10-27: 여기 적혀 있던 옛 코드는 공개돼 있어 지웠다
 function idToEmail(v){ v=(v||'').trim().toLowerCase(); return v.includes('@')?v:v+STAFF_DOMAIN; }
 
 function showSignup(){ document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block'; document.getElementById('gateSub').textContent='새 스탭 계정 만들기'; document.getElementById('gateMsg').textContent=''; }
@@ -333,7 +333,7 @@ async function doSignup(){
   const pw2=document.getElementById('suPw2').value;
   const code=document.getElementById('suCode').value.trim();
   const msg=document.getElementById('gateMsg');
-  if(code!==SIGNUP_CODE){ msg.textContent='가입코드가 올바르지 않아요. 사장님에게 코드를 받아주세요.'; return; }
+  if(!code){ msg.textContent='가입코드를 넣어 주세요.'; return; }
   if(!/^[a-zA-Z0-9._-]{3,}$/.test(idRaw)){ msg.textContent='아이디는 영문·숫자 3자 이상으로 입력하세요.'; return; }
   if(pw.length<6){ msg.textContent='비밀번호는 6자 이상으로 입력하세요.'; return; }
   if(pw!==pw2){ msg.textContent='비밀번호가 일치하지 않아요.'; return; }

@@ -4,7 +4,7 @@
 // 하는 일
 //   1) native/*.java → 앱 패키지 폴더 (MainActivity 덮어씀)
 //   2) 홈화면 위젯(../widgets) — TWA 판과 같은 코드, 여는 화면만 MainActivity
-//   3) AndroidManifest: <queries>(안드로이드 11+ 다른 앱 확인 — 토스페이먼츠 dev-4) · momcalendar.com 앱 링크(카카오 로그인 뒤 돌아오기) · 알림 아이콘
+//   3) AndroidManifest: <queries>(안드로이드 11+ 다른 앱 확인 — 토스페이먼츠 dev-4) · momcalendar.com 앱 링크 · momcalendar://auth(카카오 로그인 되돌아오기, 2026-10-27) · 알림 아이콘
 //   4) build.gradle: Custom Tabs 라이브러리 · 버전 · 서명(시크릿 → 환경변수)
 //   5) 아이콘·스플래시(맘캘 아이콘, 보라 바탕) — ImageMagick
 // 실패하면 exit 1 — 앵커를 못 찾았는데 그냥 넘어가면 「됐다고 보이는데 안 들어간」 앱이 나온다
@@ -67,6 +67,14 @@ const applink = `
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="momcalendar.com" />
+            </intent-filter>
+            <!-- 카카오 로그인 되돌아오기(2026-10-27, RFC 8252) — 시스템 브라우저(Custom Tab) 로그인 뒤 intent://auth…#Intent;scheme=momcalendar;package=com.wantsb.momcalendar
+                 패키지를 지정한 intent 로만 오게 하고, 앱은 자기가 만든 state·PKCE 가 맞을 때만 받는다(사이트 _appOAuthBoot) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="momcalendar" android:host="auth" />
             </intent-filter>
 `;
 mf = once(mf, '                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n',

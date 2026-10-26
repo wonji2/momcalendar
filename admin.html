@@ -1723,7 +1723,7 @@ function markAiDuplicates(){
       if(item.open_date && d.open_date && d.open_date!==item.open_date) continue;
       const sim=similarity(d.name, item.name);
       item._dup=true;
-      item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${d.name}"`;
+      item._dupReason=`이미 등록됨 (유사 ${Math.round(sim*100)}%): "${esc2(d.name)}"`;
       break;
     }
   });
@@ -4829,7 +4829,7 @@ function sellerAuthCard(s,isPending){
       <button onclick="rejectSeller(${s.id})" style="padding:6px 12px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 거부</button>`;
   } else {
     actions=`
-      <button onclick="resetSellerPw('${(s.login_insta||'').replace(/'/g,'')}','${(s.seller_influencer||s.name||'').replace(/'/g,'')}')" style="padding:5px 10px;background:#EEF2FF;color:#3A52A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔑 비번재설정</button>
+      <button onclick="resetSellerPw(${_jsq(s.login_insta||'')},${_jsq(s.seller_influencer||s.name||'')})" style="padding:5px 10px;background:#EEF2FF;color:#3A52A0;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔑 비번재설정</button>
       <button onclick="toggleSellerLogin(${s.id},true)" style="padding:5px 10px;background:#FFF9E6;color:#E6A817;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">로그인 차단</button>
       <button onclick="rejectSeller(${s.id})" style="padding:5px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>`;
   }
@@ -5321,7 +5321,7 @@ function updatePromoBox(totalCnt, monthCnt, gongguTotal){
     {label:'누적 공구 등록', value:`${gongguTotal.toLocaleString()}건`, copy:`맘캘린더 누적 공구 등록 ${gongguTotal.toLocaleString()}건`},
   ];
   el.innerHTML=items.map(it=>`
-    <div onclick="copyPromo('${it.copy}')" style="display:flex;justify-content:space-between;align-items:center;background:#F9F4FD;border-radius:10px;padding:10px 12px;cursor:pointer;border:1px solid #E8D5F8">
+    <div onclick="copyPromo(${_jsq(it.copy)})" style="display:flex;justify-content:space-between;align-items:center;background:#F9F4FD;border-radius:10px;padding:10px 12px;cursor:pointer;border:1px solid #E8D5F8">
       <div>
         <div style="font-size:10px;color:#9B6FD4">${it.label}</div>
         <div style="font-size:18px;font-weight:800;color:#602090;line-height:1.2">${it.value}</div>
@@ -5898,8 +5898,8 @@ function renderNeighborReportUI(){
         <div style="font-size:12px;font-weight:700;color:#333">@${ins} <span style="color:#9B6FD4;font-weight:400">${c.name||''}</span></div>
         <div style="font-size:10px;color:#999">${c.start||'?'} ~ ${c.end||'?'}${c.fee?(' · 월 '+Number(c.fee).toLocaleString()+'원'):''}</div>
       </div>
-      <button onclick="ngQuick('${ins}')" style="background:#602090;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">리포트</button>
-      <button onclick="ngDelete('${ins}')" title="삭제" style="background:#FBEAEA;border:none;color:#C0392B;font-size:12px;padding:6px 8px;border-radius:8px;cursor:pointer">🗑️</button>
+      <button onclick="ngQuick(${_jsq(ins)})" style="background:#602090;border:none;color:#fff;font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit">리포트</button>
+      <button onclick="ngDelete(${_jsq(ins)})" title="삭제" style="background:#FBEAEA;border:none;color:#C0392B;font-size:12px;padding:6px 8px;border-radius:8px;cursor:pointer">🗑️</button>
     </div>`).join('');
   el.innerHTML=`
     <div style="font-size:12px;font-weight:800;color:#4A35A0;margin-bottom:6px">🤝 이웃 인플루언서 성과 리포트</div>
@@ -6366,7 +6366,7 @@ function getDupReason(item){
     if(d.open_date!==item.open_date) continue;
     if(relName(d.name, item.name)){
       const nameSim=similarity(d.name, item.name);
-      return `같은 셀러·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${d.name}")`;
+      return `같은 셀러·날짜·유사상품 ${Math.round(nameSim*100)}% (ID:${d.id} "${esc2(d.name)}")`;
     }
   }
   return '';
@@ -6438,8 +6438,8 @@ async function renderBotStats(){
             <span style="font-size:10px;color:#bbb;font-weight:400"> ${p.cnt}회</span>
           </div>
           <div style="display:flex;gap:5px">
-            <button onclick="botPairDecide('${w}','${r}',true)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#1B6E8C;color:#fff;cursor:pointer">같은 뜻이에요</button>
-            <button onclick="botPairDecide('${w}','${r}',false)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#AAA;color:#fff;cursor:pointer">아니에요</button>
+            <button onclick="botPairDecide(${_jsq(p.wrong)},${_jsq(p.right_word)},true)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#1B6E8C;color:#fff;cursor:pointer">같은 뜻이에요</button>
+            <button onclick="botPairDecide(${_jsq(p.wrong)},${_jsq(p.right_word)},false)" style="border:0;border-radius:7px;padding:5px 11px;font-size:11px;font-weight:700;background:#AAA;color:#fff;cursor:pointer">아니에요</button>
           </div></div>`;
       }).join('');
     }
@@ -6452,7 +6452,7 @@ async function renderBotStats(){
         <div style="font-size:10.5px;color:#999;margin-bottom:8px">손님이 이렇게 말했는데 챗봇이 못 알아들었어요. 어떤 말인지 눌러주시면 <b>바로</b> 알아듣습니다.</div>`;
       h+=(rev||[]).map(r=>{
         const t=esc(r.term).replace(/'/g,'&#39;');
-        const btn=(k,label,bg)=>`<button onclick="botDecide('${t}','${k}')" style="border:0;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;background:${bg};color:#fff;cursor:pointer">${label}</button>`;
+        const btn=(k,label,bg)=>`<button onclick="botDecide(${_jsq(r.term)},'${k}')" style="border:0;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;background:${bg};color:#fff;cursor:pointer">${label}</button>`;
         return `<div style="padding:8px 0;border-bottom:1px solid #F5F0FA">
           <div style="font-size:13px;color:#333;font-weight:700;margin-bottom:6px">"${esc(r.sample||r.term)}" <span style="font-size:10px;color:#bbb;font-weight:400">${r.cnt}회</span></div>
           <div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -6592,6 +6592,8 @@ async function renderHome(){
   hmTodo();
   loadInqPanel();
 }
+// onclick="fn(${_jsq(값)})" 용 — JSON 문자열을 HTML 이스케이프한다(속성이 풀려도 JS 문자열 그대로, 2026-10-27 보안)
+function _jsq(v){ return JSON.stringify(String(v==null?'':v)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
 async function adminRpc(name, body){
   const r=await fetch(`${SB_URL}/rest/v1/rpc/${name}`,{
     method:'POST',
@@ -6849,7 +6851,7 @@ function previewPurge(){
   }
   // 매핑 보존 가능 여부 체크: insta가 있는데 influencers에 없는 것
   const missingMap=targets.filter(d=>d.insta && d.influencer && !inflMapping[d.insta]);
-  const sample=targets.slice(0,5).map(d=>`· ${d.name} (${d.influencer||d.insta||'?'}, ~${purgeRealEnd(d)})`).join('<br>');
+  const sample=targets.slice(0,5).map(d=>`· ${esc2(d.name)} (${esc2(d.influencer||d.insta||'?')}, ~${purgeRealEnd(d)})`).join('<br>');
   el.innerHTML=`
     <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid #eee">
       <div style="font-weight:800;color:#C62828;margin-bottom:8px">🗑️ 삭제 대상: ${targets.length}건</div>
@@ -7599,7 +7601,7 @@ async function loadWinners(){
               <div style="font-size:12.5px;font-weight:700;color:#232326">${esc2(x.nickname)} <span style="font-size:10.5px;color:#9A93A6;font-weight:600">${x.days}일</span></div>
               <div style="font-size:10.5px;color:#B08AA0">${esc2(x.prize)}</div>
               ${x.contact
-                ? `<div style="font-size:12px;font-weight:800;color:#0F6E56;margin-top:2px;cursor:pointer" onclick="copyTxt('${esc2(x.contact)}')">📱 ${esc2(x.contact)} <span style="font-size:10px;color:#9A93A6;font-weight:600">복사</span></div>`
+                ? `<div style="font-size:12px;font-weight:800;color:#0F6E56;margin-top:2px;cursor:pointer" onclick="copyTxt(${_jsq(x.contact)})">📱 ${esc2(x.contact)} <span style="font-size:10px;color:#9A93A6;font-weight:600">복사</span></div>`
                 : (x.sent?'':'<div style="font-size:10.5px;color:#C99;margin-top:2px">연락처 아직 안 남김</div>')}
             </div>
             <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#8A8395;cursor:pointer">
@@ -8162,18 +8164,18 @@ function renderDupCard(d){
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:${d.approved?'#E8F5E9':'#FFF9E6'};color:${d.approved?'#2E7D32':'#E6A817'}">${d.approved?'✅ 승인됨':(heldIds.has(d.id)?'⛔ 내려둠(잠금)':'⏳ 대기중')}</span>
-        <span style="font-size:12px;font-weight:700;color:#191919">${inflName}</span>
+        <span style="font-size:12px;font-weight:700;color:#191919">${esc2(inflName)}</span>
       </div>
-      <div style="font-size:14px;font-weight:700;color:#191919;margin-bottom:4px">${d.name}</div>
+      <div style="font-size:14px;font-weight:700;color:#191919;margin-bottom:4px">${esc2(d.name)}</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
-        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px">${d.major}</span>
-        <span style="background:#f0f0f0;color:#555;font-size:11px;padding:2px 7px;border-radius:10px">${d.minor}</span>
+        <span style="background:#EEE9FF;color:#4A35A0;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px">${esc2(d.major)}</span>
+        <span style="background:#f0f0f0;color:#555;font-size:11px;padding:2px 7px;border-radius:10px">${esc2(d.minor)}</span>
       </div>
       <div style="font-size:11px;color:#999">📅 ${d.open_date}${d.end_date?' ~ '+d.end_date:''}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
       <button onclick="openEdit(${d.id})" style="padding:4px 10px;background:#EEE9FF;color:#4A35A0;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ 수정</button>
-      <button onclick="openDel(${d.id},'${d.name.replace(/'/g,'')}')" style="padding:4px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
+      <button onclick="openDel(${d.id},${_jsq(d.name)})" style="padding:4px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
     </div>
   </div>`;
 }
@@ -8213,7 +8215,7 @@ function renderCompact(d){
     <div class="ca">
       <button class="ico" style="background:#EEEAFB;color:#4A35A0" onclick="cafePostCard(${d.id})">📋</button>
       <button class="ico" style="background:#EEEAFB;color:#4A35A0" onclick="openEdit(${d.id})">수정</button>
-      <button class="ico" style="background:#FDECEA;color:#C62828" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">삭제</button>
+      <button class="ico" style="background:#FDECEA;color:#C62828" onclick="openDel(${d.id},${_jsq(d.name||'')})">삭제</button>
     </div>
   </div>`;
 }
@@ -8241,13 +8243,13 @@ function renderCard(d){
       </div>
       <div class="card-dates">📅 ${d.open_date||'-'} 오픈${d.end_date?' ~ '+d.end_date+' 마감':''}</div>
       <div class="card-actions">
-        ${noInsta?`<button class="btn" style="background:#FFF3E0;color:#E65100" onclick="igSearch('${searchName}')">🔎 인스타 찾기</button>`:''}
+        ${noInsta?`<button class="btn" style="background:#FFF3E0;color:#E65100" onclick="igSearch(${_jsq(searchName)})">🔎 인스타 찾기</button>`:''}
         ${d.approved
           ?`<button class="btn btn-pending" onclick="toggleApprove(${d.id},false)">승인취소</button>`
           :`<button class="btn btn-approve" onclick="toggleApprove(${d.id},true)">✅ 승인</button>`}
         <button class="btn btn-edit" onclick="openEdit(${d.id})">${noInsta?'🔗 연결/수정':'✏️ 수정'}</button>
         <button class="btn" style="background:#EEEAFB;color:#4A35A0" onclick="cafePostCard(${d.id})">📋 카페글</button>
-        <button class="btn btn-del" onclick="openDel(${d.id},'${(d.name||'').replace(/'/g,'')}')">🗑️ 삭제</button>
+        <button class="btn btn-del" onclick="openDel(${d.id},${_jsq(d.name||'')})">🗑️ 삭제</button>
       </div>
     </div>
   </div>`;
@@ -8357,7 +8359,7 @@ function renderInflQuickSelect(){
   el.innerHTML=entries
     .slice(0,15)
     .map(([k,v])=>`
-      <button class="infl-chip" onclick="selectInfluencer('${k.replace(/'/g,"\\'")}')" title="${v.label} ${v.ids.length}건 전체선택">
+      <button class="infl-chip" onclick="selectInfluencer(${_jsq(k)})" title="${v.label} ${v.ids.length}건 전체선택">
         ${v.label} <span style="opacity:.7">${v.ids.length}</span>
       </button>`)
     .join('');
@@ -8598,7 +8600,7 @@ function openEdit(id){
   (function(){
     const mj=d.major||'육아';
     let opts=minorOptions(mj, d.minor||'');
-    if(d.minor && !(CATS_LIST[mj]||[]).includes(d.minor)) opts=`<option value="${d.minor}" selected>${d.minor} (기존값)</option>`+opts;
+    if(d.minor && !(CATS_LIST[mj]||[]).includes(d.minor)) opts=`<option value="${esc2(d.minor)}" selected>${esc2(d.minor)} (기존값)</option>`+opts;
     document.getElementById('editMinor').innerHTML=opts;
   })();
   document.getElementById('editName').value=d.name||'';
