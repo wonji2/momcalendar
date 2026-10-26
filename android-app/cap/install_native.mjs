@@ -73,6 +73,7 @@ mf = once(mf, '                <category android:name="android.intent.category.L
   '                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n' + applink, '런처 필터');
 mf = once(mf, '    </application>', `        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/push_icon" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/momcal_brand" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="momcal_default" />
     </application>`, '알림 아이콘');
 fs.writeFileSync(mfp, mf);
 console.log('✔ 매니페스트');

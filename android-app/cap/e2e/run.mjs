@@ -242,15 +242,16 @@ async function expectTab(name, url, run) {
     if (process.env.E2E_PUSH === '1' && ready === 'true' && r === 'true') {
       const posted = () => { const d = sh('shell', 'dumpsys', 'notification', '--noredact'); const blocks = d.split(/NotificationRecord\(/).filter((b) => b.includes('pkg=' + PKG)); return blocks.map((b) => (b.match(/android\.title=String \(([^)]*)\)/) || [])[1] || '?').join(','); };
       let fg = '';
-      for (let k = 0; k < 24 && !fg; k++) { await sleep(5000); fg = posted(); }
+      for (let k = 0; k < 24 && !/켠 채/.test(fg); k++) { await sleep(5000); fg = posted(); }
       shot('push_foreground');
-      rec('알림 도착 — 앱을 켠 채', !!fg, fg || '90초 동안 없음');
+      rec('알림 도착 — 앱을 켠 채', /켠 채/.test(fg), fg || '90초 동안 없음');
       sh('shell', 'service', 'call', 'notification', '1');   // 알림 모두 지우기(다음 판정을 깨끗이)
       sh('shell', 'input', 'keyevent', 'KEYCODE_HOME');
       let bg = '';
-      for (let k = 0; k < 24 && !bg; k++) { await sleep(5000); bg = posted(); }
+      for (let k = 0; k < 24 && !/홈/.test(bg); k++) { await sleep(5000); bg = posted(); }
       shot('push_background');
-      rec('알림 도착 — 앱을 닫은(홈) 상태', !!bg, bg || '120초 동안 없음');
+      rec('알림 도착 — 앱을 닫은(홈) 상태', /홈/.test(bg), bg || '120초 동안 없음');
+      { const d = sh('shell', 'dumpsys', 'notification', '--noredact'); const b = d.split(/NotificationRecord\(/).filter((x) => x.includes('pkg=' + PKG)); rec('알림이 「맘캘린더 알림」 채널(팝업 등급)로', b.length > 0 && b.every((x) => /channel=momcal_default/.test(x) && /importance=4/.test(x)), b.map((x) => ((x.match(/channel=(\S+)/) || [])[1] || '?') + ' imp=' + ((x.match(/importance=(\d)/) || [])[1] || '?')).join(', ')); }
       info('알림 설정 상태', sh('shell', 'dumpsys', 'notification').split('\n').filter((l) => l.includes(PKG) && /importance|channel|banned|blocked/i.test(l)).slice(0, 6).join(' / '));
       await launch();
     }

@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
         try { getWindow().getDecorView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         if (bridge != null) bridge.setWebViewClient(new MomcalWebViewClient(bridge));
         fitSystemBars();
+        makeNotificationChannel();
         // 처음 켤 때의 주소는 BridgeActivity.load() 가 onNewIntent(getIntent()) 로 넘겨준다 → 여기서 또 부르면 두 번 연다(검증자 지적)
     }
 
@@ -45,6 +46,21 @@ public class MainActivity extends BridgeActivity {
             return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
         androidx.core.view.ViewCompat.requestApplyInsets(web);
+    }
+
+    // 알림 종류(채널) 「맘캘린더 알림」 — 중요도 높음 = 화면 위에 팝업으로 뜬다(웹 알림·TWA 때와 같게)
+    //   채널이 없으면 FCM 이 「기타(fcm_fallback)」 보통 등급으로 넣어 팝업 없이 알림창에만 조용히 들어갔다(2026-10-26 e2e: importance=3)
+    //   안드로이드 공식: 팝업(헤드업)은 IMPORTANCE_HIGH 채널만 — developer.android.com/develop/ui/views/notifications/channels
+    static final String CHANNEL = "momcal_default";
+    private void makeNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT < 26) return;
+        try {
+            android.app.NotificationChannel ch = new android.app.NotificationChannel(CHANNEL, "맘캘린더 알림", android.app.NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("찜한 공구 오픈·마감, 세일, 라방 알림");
+            ch.enableVibration(true);
+            ch.setShowBadge(true);
+            getSystemService(android.app.NotificationManager.class).createNotificationChannel(ch);
+        } catch (Exception ignored) { }
     }
 
     @Override

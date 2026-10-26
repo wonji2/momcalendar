@@ -74,7 +74,7 @@ async function send(at: string, token: string, m: Msg): Promise<"ok" | "dead" | 
       token,
       notification: { title: m.title, body: m.body },
       data: { url: m.url },   // 앱(사이트 nativeBoot)이 누른 알림의 url 로 보낸다
-      android: { priority: "high", ttl: "21600s", notification: { tag: m.tag, color: "#602090" } },
+      android: { priority: "high", ttl: "21600s", notification: { tag: m.tag, color: "#602090", channel_id: "momcal_default", default_sound: true, notification_priority: "PRIORITY_HIGH" } },   // 앱이 만든 「맘캘린더 알림」 채널(중요도 높음 = 팝업)
     } }),
   });
   if (r.ok) return "ok";
