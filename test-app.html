@@ -2654,7 +2654,7 @@ function updateStatCounts(){
 
 function renderList(){
   const el=document.getElementById('cardList');
-  _listStop(); const _gen=++_listGen;   // 나눠 그리기: 옛 감시자·늦게 온 콜백이 새 목록에 붙지 않게
+  _listStop(); const _gen=++_listGen; const _prevKey=_listKey; _listKey='';   // 나눠 그리기: 옛 감시자·늦게 온 콜백이 새 목록에 붙지 않게. 찜 탭·날짜 필터를 거치면 열쇠가 비어 120장부터(검증자 지적)
   updateStatCounts();
   // 대분류 칩 상태 동기화 (클래스 + 색칠)
   document.querySelectorAll('.cchip').forEach(b=>b.classList.toggle('on', b.dataset.cat===fMajor));
@@ -2734,10 +2734,11 @@ function renderList(){
   }
   const key=_listKeyNow();
   // 같은 목록을 다시 그리면(배너·이웃셀러·찜수 도착 등) 지금까지 그린 장수를 유지 — 뒤로가기로 맞춘 자리가 줄어들어 위로 끌려가지 않게
-  const keep=(key===_listKey)?Math.max(LIST_CHUNK,_listShown):LIST_CHUNK;
+  const keep=(key===_prevKey)?Math.max(LIST_CHUNK,_listShown):LIST_CHUNK;
   const n=Math.min(arr.length,keep);
   _listKey=key; _listArr=arr; _listShown=n;
-  el.innerHTML=_sortChipsHtml()+_appJoinPart(arr.slice(0,n).map(item=>renderCard(item)),0,arr.length)+'<div id="cardMore" aria-hidden="true" style="height:1px"></div>';
+  el.innerHTML=_sortChipsHtml()+_appJoinPart(arr.slice(0,n).map(item=>renderCard(item)),0,arr.length)+(n<arr.length?'<div id="cardMore" aria-hidden="true" style="height:1px"></div>':'');
+  if(n>=arr.length) return;   // 이미 다 그렸으면 감시자 없음
   const m=document.getElementById('cardMore');
   _listIO=new IntersectionObserver(function(es){ if(_gen!==_listGen) return; if(es.some(e=>e.isIntersecting)) _listMore(_gen); },{rootMargin:'2000px 0px'});
   _listIO.observe(m);
@@ -2763,7 +2764,7 @@ function _listMore(gen){
 function _listFillTo(y){ for(let k=0;k<40;k++){ const max=(document.documentElement.scrollHeight||0)-window.innerHeight; if(max>=y-2) return; if(!_listMore(_listGen)) return; } }
 // _appJoin 의 조각판 — 중간 배너 자리는 전체 순번 기준(5번째, 그 뒤 50장마다), 「5장 미만이면 맨 아래」는 전체 장수로
 function _appJoinPart(cards,start,total){
-  if(!_appOn() || !cards.length) return cards.join('');
+  if(typeof _appOn!=='function' || !_appOn() || !cards.length) return cards.join('');
   const b=appMidBanner(); let out='';
   cards.forEach((c,j)=>{ const i=start+j; out+=c; if(i===4 || (i>4 && (i-4)%50===0)) out+=b; });
   if(total<5 && start+cards.length===total) out+=b;
