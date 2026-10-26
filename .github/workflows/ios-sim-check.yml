@@ -62,11 +62,12 @@ jobs:
           xcrun simctl io "$UDID" screenshot sim-out/02_after20s.png
           sleep 25   # 자체 시험(9초 뒤 시작, 마지막에 바깥 링크로 사파리가 앞에 온다)
           xcrun simctl io "$UDID" screenshot sim-out/03_after_selftest.png
-          kill $CPID 2>/dev/null || true
+          echo "$CPID" > sim-out/console.pid   # 앱 기록 받는 줄은 살아 있는지 잰 뒤에 끊는다(끊으면 앱도 같이 꺼진다)
       - name: 판정
         run: |
           pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
           export PID_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
+          kill "$(cat sim-out/console.pid 2>/dev/null)" 2>/dev/null || true
           xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "App"' > sim-out/app_log.txt 2>/dev/null || true
           python3 - <<'PY'
           import os, re
@@ -100,7 +101,11 @@ jobs:
               if len(parts)>=3: seen[parts[1]]=(parts[2].strip()[:1]=='1', '|'.join(parts[3:])[:120])
           rec('앱 안 자체 시험이 끝까지 돌았다', 'done' in seen, f'{len(seen)}개 항목')
           for k,(ok,note) in seen.items():
-              if k!='done': rec('자체 시험: '+k, ok, note)
+              if k=='done': continue
+              # 시스템 알림 허용창이 떠 있으면(CI 에선 누를 사람이 없다) 다른 앱으로 넘어가지 못한다 — 실기기 몫으로 적는다
+              if k=='open_external' and not ok and seen.get('push_perm_api',(0,''))[1].strip()=='prompt':
+                  rows.append(f'| ℹ️ | 자체 시험: {k} | 알림 허용창이 떠 있어 확인 불가(실기기 몫) · {note} |'); continue
+              rec('자체 시험: '+k, ok, note)
           md='# 아이폰 앱 시뮬레이터 점검\n\n| 결과 | 항목 | 메모 |\n|---|---|---|\n'+'\n'.join(rows)+f'\n\n실패 {fail}개\n'
           open('sim-out/report.md','w',encoding='utf-8').write(md); print(md)
           raise SystemExit(1 if fail else 0)
