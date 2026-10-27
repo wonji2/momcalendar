@@ -53,7 +53,7 @@ async function main() {
   fs.writeFileSync('/tmp/oldsite/index.html', oldHtml);
   fs.writeFileSync('/tmp/oldsite/test.html', fs.readFileSync('test.html', 'utf8'));
   const run = (args) => spawnSync(process.execPath, ['tools/daily/live_smoke.mjs', ...args], { encoding: 'utf8', timeout: 12 * 60e3 });
-  const nowRun = run(['--dry']);
+  const nowRun = run(process.env.AUTOFIX_TEST_NOW ? ['--local=' + process.env.AUTOFIX_TEST_NOW] : ['--dry']);   // 시험용: 깨진 판을 「지금」 으로 흉내
   const oldRun = run(['--local=/tmp/oldsite']);
   const fails = (r) => { const m = (r.stdout || '').match(/실패 (\d+)/g); return m ? +m[m.length - 1].replace(/\D/g, '') : 99; };
   const fNow = fails(nowRun), fOld = fails(oldRun);
