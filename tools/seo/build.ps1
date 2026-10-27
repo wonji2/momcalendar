@@ -1158,6 +1158,8 @@ if($curMonth.Count -gt 0){ [void]$ll.AppendLine("- [$($curMonth[0].label) 공구
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine('- 페이지에는 JSON-LD(WebPage·Organization·FAQPage·BreadcrumbList·ItemList) 구조화 데이터와 「기준일」이 들어 있습니다')
 [void]$ll.AppendLine("- [이용약관]($SITE/terms.html) · [개인정보처리방침]($SITE/privacy.html)")
+# 🤖 AI 가 제일 먼저 읽는 파일이라 이용 조건을 여기에도 밝힌다(2026-10-27 사장님 지시 「AI 한테 긁지 말라는 경고문」, /검증 지적). 인용은 환영·학습·재배포는 금지
+[void]$ll.AppendLine('- 이용 조건: 검색·AI 답변에서 출처(맘캘린더, momcalendar.com)를 밝혀 인용하는 것은 환영합니다. 자동 수집·복제, AI·기계학습 모델의 학습 자료 이용, 다른 사이트·데이터 상품으로의 재배포는 금지합니다(이용약관 제13조, https://momcalendar.com/terms.html). robots.txt 의 Content-Signal: ai-train=no 가 같은 뜻입니다.')
 [IO.File]::WriteAllText((Join-Path $Root 'llms.txt'), $ll.ToString(), [Text.UTF8Encoding]::new($false))
 
 # 루트에 만든 HTML 목록을 남긴다.
