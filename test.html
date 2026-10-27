@@ -2962,8 +2962,15 @@ async function liveWish(id,ev,btn){
   // 「알려드려요」 는 이 기기가 실제로 받을 수 있을 때만 말한다(세일 찜과 같은 기준)
   let msg='찜했어요\n방송 시작 10분 전에 알려드릴게요';
   // 라방 알림은 웹 알림으로만 간다 — 아이폰 앱(앱 알림)엔 아직 안 가고, 「세일 알림」을 꺼 두면 안 간다(서버 live_push_targets 와 같은 기준)
-  try{ if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); return; } }catch(_){}
   try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요\n세일·라방 알림이 꺼져 있어요\n내정보에서 켤 수 있어요'); return; } }catch(_){}
+  // 2026-10-27 사장님 「앱에서 라방 찜하면 찜했어요 4글자만 … 알림은 없는겨?」 — 안드로이드 앱은 서버 fcm-live-push 로 실제로 받으니 그대로 말하고,
+  //   알림이 꺼져 있으면 켜기를 권한다. 아이폰 앱은 라방 알림이 아직 없어 「찜했어요」만
+  try{ if(typeof _isNativeApp==='function' && _isNativeApp()){
+    if(window._mcCapAndroid && window._mcCapAndroid()){
+      if(notiGranted()) mcToast(msg);
+      else { let ok=false; try{ ok=await enablePushNative(); }catch(_){} mcToast(ok?msg:'찜했어요\n알림이 꺼져 있어요\n폰 설정에서 맘캘린더 알림을 켜 주세요'); }
+    } else mcToast('찜했어요');
+    return; } }catch(_){}
   try{
     if(!notiGranted()){
       if(_appOnlyBell('wish')) return;
