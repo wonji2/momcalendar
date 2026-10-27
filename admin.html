@@ -2757,8 +2757,18 @@ function parsePaste(text, existingData, minDate){
       //    핸들로 오인한다 (2026-08-22 사장님 지적 — 리얼커플 real_couple0815 건). 못 찾으면 빈칸이 낫다.
       const engMatch=handleLine.match(/@([a-z0-9_][a-z0-9_.]{2,29})(?![A-Za-z])/);
       const korMatch=handleLine.match(/@([가-힣A-Za-z0-9_][가-힣A-Za-z0-9_\s·ㅣl|]*?)(?:\s*$|\s+(?:댓글|프로필|링크|DM|알림|구매|흔적))/);
+      // 영문 대문자 이름 핸들: @Kim Jaeil (리얼커플...) — 2026-07-08 판에서 덮여 사라졌던 것 되살림(2026-10-27)
+      const engNameMatch=handleLine.match(/@([A-Z][A-Za-z\s]+?)(?:\s*[\(（]|\s*$)/);
       if(engMatch){ insta=engMatch[1]; influencer=(inflMapping&&inflMapping[insta])?inflMapping[insta]:''; }
-      else if(korMatch){ influencer=korMatch[1].trim(); }
+      else if(korMatch){
+        influencer=korMatch[1].trim();
+        const rv=inflMappingReverse[influencer.toLowerCase()];
+        if(rv) insta=rv;   // 한글 닉네임 → 아이디: 딱 1개일 때만(추정 연결) · 동명이인(null)은 비워 둔다(DB등록규칙 3)
+      } else if(engNameMatch){
+        influencer=engNameMatch[1].trim();
+        const rv=inflMappingReverse[influencer.toLowerCase()];
+        if(rv) insta=rv;
+      }
 
       // 상품명: 핸들 앞의 줄들 중 첫 번째 유효한 줄 (브랜드명·설명 제외)
       // 브랜드줄은 🏷️/📍 다음 줄 (단독 브랜드명)
@@ -6153,13 +6163,21 @@ async function loadMonthDetail(){
 
 // ── 데이터 로드 ──
 let inflMapping = {}; // insta → influencer 한글명 매핑
+// influencer명(소문자) → insta. 동명이인(아이디 2개 이상)은 null — DB등록규칙 3
+//   2026-07-08 1707e8f016 이 넣고 21분 뒤 웹 업로드(04c291cef4)가 덮어 사라졌던 것을 되살림(2026-10-27 사장님 「실수로 우연히 없어진거 다 찾아내」)
+let inflMappingReverse = {};
 
 async function loadInflMapping(){
   try{
     const rows=await fetchAllRows('influencers?select=insta,influencer');
-    inflMapping={};
-    rows.forEach(r=>{ if(r.insta&&r.influencer) inflMapping[r.insta]=r.influencer; });
-  }catch(e){ inflMapping={}; }
+    inflMapping={}; inflMappingReverse={};
+    rows.forEach(r=>{
+      if(!(r.insta&&r.influencer)) return;
+      inflMapping[r.insta]=r.influencer;
+      const k=r.influencer.trim().toLowerCase();
+      inflMappingReverse[k] = (k in inflMappingReverse && inflMappingReverse[k]!==r.insta) ? null : r.insta;
+    });
+  }catch(e){ inflMapping={}; inflMappingReverse={}; }
 }
 
 async function loadData(){
