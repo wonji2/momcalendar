@@ -3427,6 +3427,12 @@ async function openHdSheet(id){
     });
     if(r.ok) pts=await r.json();
   }catch(e){}
+  // 기록이 끊긴 상품은 그래프를 띄우지 않는다 — 마지막 기록이 3일보다 오래됐으면 「추적 중」이 아니다
+  //   (2026-10-27 사장님 「이거 근거가 있는 그래프야?」 — 킨도 기저귀의 9/6~9/29 띄엄띄엄 5번 기록이 「최근 5일 가격 추이」로 나갔다.
+  //    8/14 「추적 못하고 있으면 그 화면 빼고 그냥 바로 링크로」와 같은 원칙)
+  const _hdKst=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+  const _hdDd=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+  if(pts && pts.length && _hdDd(String(pts[pts.length-1].day).slice(0,10), _hdKst)>3) pts=[];
 
   if(!pts || pts.length<2){
     trackHd('go',h.id);
@@ -3450,7 +3456,13 @@ async function openHdSheet(id){
   // 그래프에 그린 이력과 같은 값으로 평균을 내야 라벨과 선이 어긋나지 않는다
   const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):(h.price_before||h.price);
   const dropPct=avg>h.price?Math.round((avg-h.price)/avg*100):(h.discount_rate||0);
-  const avgDrop=(pts.length && avg>h.price)?Math.round((avg-h.price)/avg*100):0;   // 「평소보다」는 우리가 기록한 평균 대비일 때만(2026-10-27: 평균보다 비싼 날에 정가 대비 13%가 「평소보다 저렴」으로 나갔다)
+  const avgDrop=(pts.length && avg>h.price)?Math.round((avg-h.price)/avg*100):0;
+  // 매일 빠짐없이 기록됐을 때만 「최근 N일」·「매일 기록」이라고 쓴다. 띄엄띄엄이면 기록한 날짜 범위와 횟수를 그대로(2026-10-27)
+  const _hdF=String(pts[0].day).slice(0,10), _hdL=String(pts[pts.length-1].day).slice(0,10);
+  const daily=(_hdDd(_hdF,_hdL)+1)===pts.length;
+  const _hdMd=d=>`${+d.slice(5,7)}/${+d.slice(8,10)}`;
+  const chartTitle=daily?`최근 ${pts.length}일 가격 추이`:`${_hdMd(_hdF)}~${_hdMd(_hdL)} 사이 ${pts.length}번 기록한 가격`;
+  // 「평소보다」는 우리가 기록한 평균 대비일 때만(2026-10-27: 평균보다 비싼 날에 정가 대비 13%가 「평소보다 저렴」으로 나갔다)
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
@@ -3476,7 +3488,7 @@ async function openHdSheet(id){
       // 쿠팡은 매일 키워드로 다시 검색하므로 반드시 쌓인다 → 안내를 띄워도 된다.
       (h.source==='adpick' && pts.length<3) ? '' : `
     <div style="border:1px solid #EFEDF2;border-radius:14px;padding:13px 12px 9px;margin-bottom:12px">
-      <div style="font-size:11.5px;font-weight:700;color:#8A8395;margin-bottom:8px">${pts.length>=3?`최근 ${pts.length}일 가격 추이`:'가격 추이'}</div>
+      <div style="font-size:11.5px;font-weight:700;color:#8A8395;margin-bottom:8px">${pts.length>=3?chartTitle:'가격 추이'}</div>
       ${hdChartSvg(pts,avg)}
       ${pts.length>=3?`<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#A9A3B2;margin-top:6px">
         <span>최저 ${wonFmt(lo)}</span><span>평균 ${wonFmt(avg)}</span><span>최고 ${wonFmt(hi)}</span>
@@ -3496,8 +3508,8 @@ async function openHdSheet(id){
            <b style="color:#7B3FB5">이래서 핫딜이에요</b><br>
            ${h.source==='goldbox'&&!dropPct
              ? `쿠팡이 <b>오늘의 특가</b>로 직접 고른 상품이에요. 맘캘린더도 오늘부터 이 상품 가격을 <b>매일 기록</b>하고 있어서, 며칠 뒤엔 위 그래프로 평소 가격과 비교해 보실 수 있어요.`
-             : `맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.
-                ${pts.length?`지금까지 ${pts.length}일치 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
+             : `${daily?'맘캘린더가 이 상품 가격을 <b>매일 기록</b>하고 있어요.':'맘캘린더가 이 상품이 올라온 날마다 가격을 기록해 왔어요.'}
+                ${pts.length?`${daily?`지금까지 ${pts.length}일치`:`기록한 ${pts.length}번의`} 평균은 ${wonFmt(avg)}인데, 오늘은 <b style="color:#E8402A">${wonFmt(h.price)}</b>이에요.`:'아직 이력이 쌓이는 중이에요.'}
                 ${avgDrop?` 평소보다 <b style="color:#E8402A">${avgDrop}% 싸요</b>.`:''}`}
          </div>`}
 
@@ -3519,7 +3531,9 @@ function hdChartSvg(pts,avg){
   const ps=pts.map(p=>p.price);
   let lo=Math.min(...ps), hi=Math.max(...ps);
   if(hi===lo){ hi=lo+1; }
-  const x=i=>PL+(W-PL-PR)*(i/(pts.length-1));
+  // 가로축은 실제 날짜 간격대로(띄엄띄엄 기록을 매일처럼 고르게 그리지 않는다, 2026-10-27). 날짜가 없으면 순서대로
+  const _t=i=>Date.parse(String(pts[i].day||'').slice(0,10)), t0=_t(0), tN=_t(pts.length-1);
+  const x=i=>PL+(W-PL-PR)*((tN>t0&&!isNaN(_t(i)))?(_t(i)-t0)/(tN-t0):(i/(pts.length-1)));
   const y=v=>PT+(H-PT-PB)*(1-(v-lo)/(hi-lo));
   const line=ps.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const area=`${line} L${x(ps.length-1).toFixed(1)},${H-PB} L${x(0).toFixed(1)},${H-PB} Z`;
