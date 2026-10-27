@@ -2128,6 +2128,12 @@ function getFiltered(dateStr){
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
+      // 🔴 셀러 이름·인스타 아이디는 **전체가 같을 때만** 찾는다 (사장님 2026-10-27 「사이트에 셀러 검색해도 나오게 해야지」)
+      //    2026-09-05 사장님 지시로 셀러명을 뺐던 이유 — 「포도」에 셀러 '포도네' 상품, 「와이」에 '와이블랑' 상품이 섞였다 → 부분 일치는 안 쓴다.
+      //    셀러명 뒤 괄호(「유니맘(이소현)」)는 떼고 비교. 아이디는 @·대소문자 무시
+      { const qn0=fSearch.toLowerCase().replace(/\s+/g,'').replace(/^@/,'');
+        const sel=String(item.influencer||'').toLowerCase().replace(/\s*[(（].*$/,'').replace(/\s+/g,'');
+        if(qn0 && (sel===qn0 || String(item.insta||'').toLowerCase()===qn0)) return true; }
       return[item.name,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
@@ -2527,10 +2533,10 @@ async function renderSearchAll(){
   el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:36px 0 10px;text-align:center;color:#aaa">
       '<b style="color:#7B3FB5">${escHtml(fSearch)}</b>' 지금 진행 중인 공구는 없어요<br>
       <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
-    </div><div id="pastWrap"></div>`) + backHome;
+    </div><div id="pastWrap"></div>`) + (html ? '<div id="pastWrap" style="margin-top:6px"></div>' : '') + backHome;
   paintHearts();
-  // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
-  if(!html) showPastResults((fSearch||'').trim());
+  // 끝난 공구도 찾아 회색으로 아래에 붙인다 — 결과가 있어도(사장님 2026-10-27 「끝난 이전 공구예요해서 회색처리처럼 돼서 밑에 떴었잖아」)
+  showPastResults((fSearch||'').trim(), !!html);
 }
 
 
@@ -2538,17 +2544,23 @@ async function renderSearchAll(){
 // DATA 에는 진행중·예정만 실려 있어 마감된 것은 안 잡힌다. 그것만 따로 조회한다.
 // "지금은 없지만 최근에 이때 했어요" 를 알려주면 손님이 다음에 다시 온다.
 //   ⚠ 한 번에 8건만 받는다(이그레스). 검색할 때만 부르므로 평소 부담이 없다.
+//   2026-10-27: 진행 중 결과가 있어도 아래에 붙이고(hasLive), **끝난 것만**(end_date < 오늘) 받는다.
+//     상품명은 부분 일치, 셀러명·아이디는 전체 일치만(포도 → 포도네 섞임 방지, getFiltered 와 같은 기준)
 let _pastCache = {};
-async function showPastResults(q){
+async function showPastResults(q, hasLive){
   const box = document.getElementById('pastWrap');
   if(!box || !q || q.length < 2) return;
   const key = q.toLowerCase();
   try{
     let rows = _pastCache[key];
     if(!rows){
-      const enc = encodeURIComponent('%' + q + '%');
-      const r = await fetch(SUPABASE_URL + '/rest/v1/gonggu?approved=eq.true&name=ilike.' + enc
-        + '&select=id,name,influencer,insta,open_date,end_date,major,pay_link&order=end_date.desc&limit=8',
+      // PostgREST or=() 안에서 쉼표·괄호·별표·콜론은 문법 글자라 뺀다
+      const w = q.replace(/[,()*:\\]/g, ' ').trim();
+      if(!w) return;
+      const v = encodeURIComponent('*' + w + '*'), x = encodeURIComponent(w.replace(/^@/, ''));
+      const r = await fetch(SUPABASE_URL + '/rest/v1/gonggu?approved=eq.true&end_date=lt.' + todayStr
+        + '&or=(name.ilike.' + v + ',influencer.ilike.' + x + ',insta.ilike.' + x + ')'
+        + '&select=id,name,influencer,insta,open_date,end_date,major,pay_link&order=end_date.desc,id.desc&limit=8',
         { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
       if(!r.ok) throw new Error('HTTP '+r.status);
       rows = await r.json();
@@ -2556,23 +2568,21 @@ async function showPastResults(q){
     }
     var _h=document.getElementById("pastHint"); if(_h) _h.remove();   // 다 찾았으니 "찾아보는 중" 은 지운다
     if(!Array.isArray(rows) || !rows.length){
-      box.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
+      box.innerHTML = hasLive ? '' : '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
         + '아직 다룬 적 없는 브랜드예요. 브랜드명·상품명으로 검색해보세요</div>';
       return;
     }
     try{ trackEvent('search_past_hit', q); }catch(_){}
     const md = d => { const p=String(d||'').split('-'); return p.length===3 ? (+p[1])+'/'+(+p[2]) : ''; };
-    box.innerHTML = '<div style="margin:2px 0 10px;text-align:center">'
-      + '<span style="font-size:12.5px;color:#7B3FB5;font-weight:700">최근에 이렇게 진행했어요</span>'
-      + '<div style="font-size:11.5px;color:#bbb;margin-top:3px">다시 열리면 여기에 올라와요</div></div>'
+    box.innerHTML = '<div style="margin:2px 2px 9px;font-size:13px;font-weight:800;color:#9A93A6">끝난 이전 공구예요</div>'
       + rows.map(function(g){
           const who = (g.influencer||g.insta||'').trim();
           return '<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:7px;'
-            + 'background:var(--card,#fff);border:1px solid #EFE9F6;border-radius:11px">'
+            + 'background:#F5F4F7;border:1px solid #E8E8EC;border-radius:11px;opacity:.78">'
             + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:13.5px;font-weight:700;color:#4A3A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+            + '<div style="font-size:13.5px;font-weight:700;color:#8b8b95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
             + _escH(g.name) + '</div>'
-            + '<div style="font-size:11.5px;color:#A99BC4;margin-top:2px">'
+            + '<div style="font-size:11.5px;color:#A6A1AE;margin-top:2px">'
             + (who ? _escH(who) + ' · ' : '') + md(g.open_date) + '~' + md(g.end_date) + ' 종료</div>'
             + '</div></div>';
         }).join('');
