@@ -65,6 +65,7 @@ function cors(req) {
   h.set('X-Robots-Tag', 'noindex, nofollow, noai, noimageai');
   h.set('Content-Usage', 'train-ai=n, ai-input=n, search=n');
   h.set('X-Momcal-Notice', 'Automated collection and AI training prohibited. Terms: https://momcalendar.com/terms.html (art. 13)');
+  h.set('tdm-reservation', '1'); h.set('tdm-policy', 'https://momcalendar.com/terms.html');   // TDM Reservation Protocol(W3C, EU DSM 4조) — 데이터 서버는 TDM 전부 유보
   return h;
 }
 
@@ -93,6 +94,10 @@ export default {
     if (url.pathname === '/__ping') {
       const h = cors(req); h.set('Content-Type', 'text/plain; charset=utf-8'); h.set('Cache-Control', 'no-store');
       return new Response('ok momcal-api-proxy ' + (req.cf && req.cf.colo || '') + ' build=' + BUILD, { headers: h });
+    }
+    if (url.pathname === '/.well-known/tdmrep.json') {
+      const h = cors(req); h.set('Content-Type', 'application/json; charset=utf-8'); h.set('Cache-Control', 'public, max-age=3600');
+      return new Response('[{"location":"/","tdm-reservation":1,"tdm-policy":"https://momcalendar.com/terms.html"}]', { headers: h });
     }
     if (url.pathname === '/robots.txt') {
       const h = cors(req); h.set('Content-Type', 'text/plain; charset=utf-8'); h.set('Cache-Control', 'public, max-age=3600');

@@ -109,7 +109,7 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<link rel=${Q}icon${Q} type=${Q}image/png${Q} sizes=${Q}512x512${Q} href=${Q}/momcal-appicon.png${Q}>")
   [void]$sb.AppendLine("<link rel=${Q}apple-touch-icon${Q} href=${Q}/momcal-appicon.png${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:image${Q} content=${Q}$SITE/momcal-appicon.png${Q}>")
-  [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}index,follow,max-image-preview:large${Q}>")
+  [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}index,follow,max-image-preview:large,noai,noimageai${Q}>")   # noai·noimageai = AI 학습 금지 표시(2026-10-27). 검색·AI 인용은 그대로
   [void]$sb.AppendLine("<meta property=${Q}og:title${Q} content=${Q}$tE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:description${Q} content=${Q}$dE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:type${Q} content=${Q}website${Q}>")

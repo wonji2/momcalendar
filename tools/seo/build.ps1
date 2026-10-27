@@ -1111,12 +1111,15 @@ foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','si
 #   네이버 크롤러(Yeti)는 * 규칙으로도 허용되지만, 서치어드바이저가 이름으로 확인하므로 명시한다.
 $blockRules = "Allow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /test.html`nDisallow: /kktest.html"
 # 🤖 AI 수집 금지 표지판(2026-10-27 사장님 지시 「우리 거 긁지 말라고 AI 한테 말하는 경고문」)
-#   · Content-Signal(Cloudflare 콘텐츠 신호 규약): 검색 색인은 허용, AI 학습은 금지. 검색엔진·AI 검색이 우리 글을 인용해 손님을 보내는 길은 열어 둔다.
-#   · 학습·대량 수집 전용 크롤러는 이름을 적어 전부 막는다(아래 목록). 검색 답변용 봇(OAI-SearchBot·ChatGPT-User·Claude-SearchBot·PerplexityBot)은 안 막는다 — 막으면 AI 검색에서 사이트가 사라진다.
+#   · Content-Signal(Cloudflare 콘텐츠 신호 규약): 검색 색인 yes · AI 답변에 넣기(ai-input) yes · AI 학습(ai-train) no. 검색엔진·AI 검색이 우리 글을 인용해 손님을 보내는 길은 열어 둔다.
+#   · 🔴 사장님 2026-10-27 「AI 인용 검색에 맘캘린더 홍보해야 하는데 상충하면 안 돼」 → **학습 전용 봇만** 막는다. 각 회사 공식 문서로 확인한 것:
+#       ClaudeBot=학습 전용(인용은 Claude-User·Claude-SearchBot, 안 막음) · GPTBot=학습 전용(검색은 OAI-SearchBot, 독립) · Applebot-Extended=학습 옵트아웃만(검색 노출 무관)
+#       Google-Extended=학습 **+ Gemini 앱 답변 grounding** → 막으면 Gemini 인용이 끊겨 **안 막는다** · meta-externalagent=학습+색인 겸용 → 안 막는다 · PetalBot·Timpibot=검색 색인 → 안 막는다
+#     검색 답변용 봇(OAI-SearchBot·ChatGPT-User·Claude-SearchBot·Claude-User·PerplexityBot·Googlebot·Yeti·Bingbot)은 당연히 안 막는다.
 #   · 막는 벽이 아니라 표지판이다. 베껴 간 쪽에 문제 삼는 근거는 이용약관 제13조 + api.momcalendar.com 의 같은 표지판(worker.js ROBOTS).
-$aiBots = @('GPTBot','ClaudeBot','anthropic-ai','Claude-Web','CCBot','Google-Extended','Applebot-Extended','Bytespider','meta-externalagent','Amazonbot','Diffbot','cohere-ai','cohere-training-data-crawler','omgili','omgilibot','ImagesiftBot','PetalBot','Timpibot','Webzio-Extended','AI2Bot','Ai2Bot-Dolma','PanguBot','Kangaroo Bot','ICC-Crawler','Scrapy','VelenPublicWebCrawler')
+$aiBots = @('GPTBot','ClaudeBot','anthropic-ai','Claude-Web','CCBot','Applebot-Extended','Bytespider','Amazonbot','Diffbot','cohere-ai','cohere-training-data-crawler','omgili','omgilibot','ImagesiftBot','Webzio-Extended','AI2Bot','Ai2Bot-Dolma','PanguBot','Kangaroo Bot','ICC-Crawler','Scrapy','VelenPublicWebCrawler')
 $aiBlock = (($aiBots | ForEach-Object { "User-agent: $_" }) -join "`n") + "`nDisallow: /"
-$robots = "User-agent: *`n$blockRules`nContent-Signal: search=yes, ai-train=no`n`nUser-agent: Yeti`n$blockRules`n`n# AI training / bulk collection crawlers: prohibited (Terms art. 13, https://momcalendar.com/terms.html)`n$aiBlock`n`nSitemap: $SITE/sitemap.xml`n"
+$robots = "User-agent: *`n$blockRules`nContent-Signal: search=yes, ai-input=yes, ai-train=no`n`nUser-agent: Yeti`n$blockRules`nContent-Signal: search=yes, ai-input=yes, ai-train=no`n`n# AI training-only crawlers: prohibited (Terms art. 13, https://momcalendar.com/terms.html). Search and AI-answer bots that cite the source are welcome.`n$aiBlock`n`nSitemap: $SITE/sitemap.xml`n"
 [IO.File]::WriteAllText((Join-Path $Root 'robots.txt'), $robots, [Text.UTF8Encoding]::new($false))
 
 # 🔎 llms.txt — AI 검색(ChatGPT·Perplexity·Claude·Gemini)이 사이트를 요약할 때 읽는 안내문. **매일 이 빌드가 실제 숫자로 다시 쓴다** (2026-10-24)
@@ -1159,7 +1162,7 @@ if($curMonth.Count -gt 0){ [void]$ll.AppendLine("- [$($curMonth[0].label) 공구
 [void]$ll.AppendLine('- 페이지에는 JSON-LD(WebPage·Organization·FAQPage·BreadcrumbList·ItemList) 구조화 데이터와 「기준일」이 들어 있습니다')
 [void]$ll.AppendLine("- [이용약관]($SITE/terms.html) · [개인정보처리방침]($SITE/privacy.html)")
 # 🤖 AI 가 제일 먼저 읽는 파일이라 이용 조건을 여기에도 밝힌다(2026-10-27 사장님 지시 「AI 한테 긁지 말라는 경고문」, /검증 지적). 인용은 환영·학습·재배포는 금지
-[void]$ll.AppendLine('- 이용 조건: 검색·AI 답변에서 출처(맘캘린더, momcalendar.com)를 밝혀 인용하는 것은 환영합니다. 자동 수집·복제, AI·기계학습 모델의 학습 자료 이용, 다른 사이트·데이터 상품으로의 재배포는 금지합니다(이용약관 제13조, https://momcalendar.com/terms.html). robots.txt 의 Content-Signal: ai-train=no 가 같은 뜻입니다.')
+[void]$ll.AppendLine('- 이용 조건: 검색·AI 답변에서 출처(맘캘린더, momcalendar.com)를 밝혀 인용하는 것은 환영합니다. 자동 수집·복제, AI·기계학습 모델의 학습 자료 이용, 다른 사이트·데이터 상품으로의 재배포는 금지합니다(이용약관 제13조, https://momcalendar.com/terms.html). robots.txt 의 Content-Signal: search=yes, ai-input=yes, ai-train=no 가 같은 뜻입니다.')
 [IO.File]::WriteAllText((Join-Path $Root 'llms.txt'), $ll.ToString(), [Text.UTF8Encoding]::new($false))
 
 # 루트에 만든 HTML 목록을 남긴다.
