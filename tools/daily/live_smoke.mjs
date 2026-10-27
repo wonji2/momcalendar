@@ -116,8 +116,9 @@ try {
     await p.evaluate(() => { try { localStorage.removeItem('mc_member'); } catch (_) {} try { window.__kkoSkipGuide = true; startKakaoLogin(); } catch (e) { window.__kkErr = e.message; } });
     await p.waitForTimeout(3500);
     const dest = kakaoNav[0] || '';
-    const needWeb = cfg.native || cfg.inapp;
-    ok(who, '카카오 로그인 이동', needWeb ? /^https:\/\/kauth\.kakao\.com\/oauth\/authorize/.test(dest) : /kakao|^intent:/.test(dest), dest.replace(/client_id=[^&]+/, 'client_id=…').slice(0, 90) || '이동 없음');
+    // 앱은 카카오톡 앱으로 바로(사장님 2026-10-27): 아이폰 kakaotalk://inappbrowser · 안드 intent:(SDK 의 CAPRI 로그인) — 크롬·kauth 화면 이동이면 실패
+    const want = cfg.native === 'ios' ? /^kakaotalk:\/\/inappbrowser\?url=https%3A%2F%2Fkauth\.kakao\.com/ : cfg.native ? /^intent:/ : cfg.inapp ? /^https:\/\/kauth\.kakao\.com\/oauth\/authorize/ : /kakao|^intent:/;
+    ok(who, '카카오 로그인 이동', want.test(dest), dest.replace(/client_id=[^&]+/, 'client_id=…').slice(0, 90) || '이동 없음');
     ok(who, '페이지 오류 없음', errs.length === 0, errs.slice(0, 2).join(' | '));
     ok(who, '우리 서버 4xx/5xx 없음', bad.length === 0, bad.slice(0, 3).join(' | '));
     await ctx.close();

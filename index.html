@@ -4815,8 +4815,8 @@ function startKakaoLogin(){
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
   try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
-  // 🔴 2026-10-27: 앱은 state + PKCE 로 앱 화면 안에서 연다(_appKakaoLogin). 크롬 창을 띄우지 않는다(사장님 지시)
-  if(_kkoNative()){ _appKakaoLogin().catch(function(){ alert('로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.'); }); return; }
+  // 🔴 2026-10-27: 앱은 카카오톡 앱으로 바로 로그인(_appTalkLogin). 크롬 창을 띄우지 않는다(사장님 지시 「바로 카톡 로그인이돼야지」)
+  if(_kkoNative()){ _appTalkLogin(); return; }
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -4871,7 +4871,7 @@ function hideLoginStrip(){
 // ══ 카카오 로그인 state·PKCE (2026-10-27 · 카카오 「보안 권장 사항」 2.3 · REST API PKCE · RFC 8252) ══
 function _kkoRand(n){ var a=new Uint8Array(n); crypto.getRandomValues(a); return Array.prototype.map.call(a,function(b){ return b.toString(16).padStart(2,'0'); }).join(''); }
 function _kkoB64url(buf){ var s=''; new Uint8Array(buf).forEach(function(b){ s+=String.fromCharCode(b); }); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function _kkoNewState(){ var s='w.'+_kkoRand(16); try{ localStorage.setItem('mc_kko_state', JSON.stringify({s:s, at:Date.now(), r:!!window.__kkoAuto})); }catch(_){} return s; }
+function _kkoNewState(pfx){ var s=(pfx||'w.')+_kkoRand(16); try{ localStorage.setItem('mc_kko_state', JSON.stringify({s:s, at:Date.now(), r:!!window.__kkoAuto})); }catch(_){} return s; }
 function _kkoStateOk(s){   // 쓰고 나면 지운다 — 같은 state 를 두 번 받지 않는다
   var v=null; try{ v=JSON.parse(localStorage.getItem('mc_kko_state')||'null'); localStorage.removeItem('mc_kko_state'); }catch(_){}
   return !!(v && v.s && s && v.s===s && Date.now()-v.at < 20*60e3);
@@ -4880,9 +4880,32 @@ function _kkoStateOk(s){   // 쓰고 나면 지운다 — 같은 state 를 두 �
 function _kkoPendingOk(){
   var v=null; try{ v=JSON.parse(localStorage.getItem('mc_kko_state')||'null'); localStorage.removeItem('mc_kko_state'); }catch(_){}
   var op=false; try{ op=!!window.opener; }catch(_){ op=true; }   // 다른 페이지가 연 창 — 그 페이지가 주소를 바꿔 넣을 수 있다
+  if(!op && _kkoNative()){ var rf=''; try{ rf=document.referrer||''; }catch(_){} if(rf.indexOf(location.origin+'/')!==0) op=true; }   // 앱: 우리 화면이 스스로 넘어간 것(카톡 로그인 기다림 끝)만 — 앱 링크로 열린 남의 ?code 는 referrer 가 없다
   var ok=!!(v && v.s && !v.r && !op && Date.now()-v.at < 20*60e3);   // 자동 재시작(r)이 만든 흔적은 안 받는다
   try{ trackEvent('kakao_state_missing', ok?'pending':(op?'opener':'none')); }catch(_){}
   return ok;
+}
+// 앱: 카카오톡으로 바로 로그인 — 카카오 SDK 의 카톡 로그인 길(카톡 실행 → 페이지가 code 를 기다림)을 쓴다. 카톡이 없으면 앱 화면 안 카카오 웹 로그인
+function _appTalkLogin(){
+  var ios=false; try{ ios=Capacitor.getPlatform()==='ios'; }catch(_){}
+  var opt={ redirectUri:kkoRedirect(), scope:'profile_nickname', state:_kkoNewState('t.'), throughTalk:true };
+  var web=function(why){ try{ trackEvent('kakao_talk_none', why); }catch(_){} Kakao.Auth.authorize({ redirectUri:kkoRedirect(), scope:'profile_nickname', state:_kkoNewState(), throughTalk:false }); };
+  if(!ios){ Kakao.Auth.authorize(opt); return; }   // 안드: SDK 가 intent: 로 카톡을 부르고 앱이 연다(없으면 앱 화면 안 웹 로그인)
+  var orig=window.open, hid=false;
+  var onVis=function(e){ if(e.type!=='visibilitychange' || document.visibilityState==='hidden') hid=true; };
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('blur', onVis); window.addEventListener('pagehide', onVis);
+  window.open=function(u){
+    window.open=orig;
+    var m=/^https:\/\/talk-apps\.kakao\.com\/scheme\/([^&]+)/.exec(String(u||'')), talk='';
+    try{ talk=m ? decodeURIComponent(m[1]) : ''; }catch(_){ talk=''; }
+    if(talk.indexOf('kakaotalk://')!==0){ document.removeEventListener('visibilitychange', onVis); window.removeEventListener('blur', onVis); window.removeEventListener('pagehide', onVis); web('ios_url'); return {closed:true, close:function(){}}; }
+    location.href=talk;   // 앱 밖 스킴 → 카톡 실행. 이 화면은 그대로 남아 code 를 기다린다
+    setTimeout(function(){ document.removeEventListener('visibilitychange', onVis); window.removeEventListener('blur', onVis); window.removeEventListener('pagehide', onVis); if(!hid && document.visibilityState==='visible') web('ios'); }, 3000);
+    return {closed:false, close:function(){}};
+  };
+  setTimeout(function(){ if(window.open!==orig) window.open=orig; }, 5000);
+  opt.isPopup=true;
+  try{ Kakao.Auth.authorize(opt); }catch(e){ window.open=orig; web('ios_err'); }
 }
 function _kkoNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(_){ return false; } }
 function _appBrowserLogin(){ try{ return _kkoNative() && !!(Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('Browser') && Capacitor.isPluginAvailable('App')); }catch(_){ return false; } }
@@ -4913,12 +4936,29 @@ function _appBounce(){
   try{ trackEvent('kakao_app_bounce', and?'android':'ios'); }catch(_){}
   setTimeout(function(){ location.href=target; }, 50);
 }
+// 앱 카톡 로그인(t.)의 끝 주소가 앱 밖(카톡 인앱 브라우저 등)에서 열렸다 — 교환하지 않고 code 도 넘기지 않는다. 아이폰은 앱을 앞으로 부른다
+function _talkBack(){
+  try{ history.replaceState({},'', location.pathname); }catch(_){}
+  var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var show=function(){
+    var el=document.createElement('div'); el.id='appBackSheet';
+    el.style.cssText='position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;text-align:center';
+    el.innerHTML='<div style="font-size:20px;font-weight:700;color:#191F28">맘캘린더 앱으로 돌아가요</div>'
+      +(ios?'<a href="momcalendar://back" style="display:block;width:100%;max-width:340px;height:52px;line-height:52px;margin-top:24px;border-radius:14px;background:#602090;color:#fff;font-size:16px;font-weight:700;text-decoration:none">앱으로 돌아가기</a>':'')
+      +'<button type="button" onclick="this.parentNode.remove()" style="margin-top:12px;min-height:44px;padding:0 20px;background:none;border:none;color:#8A8194;font-size:14px;font-family:inherit;cursor:pointer">닫기</button>';
+    document.body.appendChild(el);
+  };
+  if(document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+  try{ trackEvent('kakao_talk_outside', ios?'ios':'android'); }catch(_){}
+  if(ios) setTimeout(function(){ location.href='momcalendar://back'; }, 50);   // 앱의 appUrlOpen 은 auth 가 아니면 아무것도 안 한다 — 앱 화면(기다리는 중)이 그대로 앞으로
+}
 function _appOAuthBoot(){
   if(!_appBrowserLogin()) return;
   var take=function(url){
     try{
       var u=new URL(url);
       if(u.protocol!=='momcalendar:' || u.host!=='auth') return;
+      if(String(u.searchParams.get('state')||'').indexOf('a.')!==0) return;   // 앱이 시스템 브라우저로 연 로그인(a.)의 되돌아오기만 — 남이 만든 state 없는 ?code 를 받지 않는다(검증자 3차)
       try{ Capacitor.Plugins.Browser.close(); }catch(_){}
       // 확인은 ?code 처리(아래)가 한다 — state 가 이 앱이 만든 것과 같을 때만 교환
       location.replace('/?'+u.search.slice(1));
@@ -4947,7 +4987,8 @@ function _kkoRestartOnce(why){
     if(kst.indexOf('nv_')===0) return;   // 네이버 로그인에서 돌아온 것 — 카카오 처리 대상 아님
     // 앱이 연 로그인(state=a.…)이 시스템 브라우저로 돌아왔다 → 교환하지 않고 앱으로만 넘긴다(취소·에러도 넘겨 창을 닫게)
     if(kst.indexOf('a.')===0 && !_kkoNative() && (code || p.get('error'))){ _appBounce(); return; }
-    if(!code){ if(p.get('error') && kst.indexOf('w.')===0){ try{ localStorage.removeItem('mc_kko_state'); }catch(_){} } return; }
+    if(kst.indexOf('t.')===0 && !_kkoNative() && (code || p.get('error'))){ _talkBack(); return; }   // 앱 카톡 로그인이 앱 밖에서 끝난 것 — code 는 넘기지 않고 앱만 부른다(앱 화면이 code 를 기다려 받는다)
+    if(!code){ if(p.get('error') && (kst.indexOf('w.')===0 || kst.indexOf('t.')===0)){ try{ localStorage.removeItem('mc_kko_state'); }catch(_){} } return; }
     var kkoVerifier=null;
     if(kst.indexOf('a.')===0){
       // 앱: 자기가 만든 state 일 때만 — 남이 만든 주소면 버린다
@@ -4958,6 +4999,7 @@ function _kkoRestartOnce(why){
     } else if(!(kst ? _kkoStateOk(kst) : _kkoPendingOk())){
       // 웹: 로그인 누를 때 만든 state 와 다르면(남이 보낸 ?code 링크) 교환하지 않는다
       try{ history.replaceState({},'', location.pathname); }catch(_){}
+      if(_kkoNative()){ try{ trackEvent('kakao_login_fail', 'app_'+(kst ? 'state' : 'state_none')); }catch(_){} return; }   // 앱: 카톡을 저절로 다시 띄우지 않는다
       if(_kkoRestartOnce(kst ? 'state' : 'state_none')) return;
       kkoLoginFailed(kst ? 'state' : 'state_none'); return;
     }
