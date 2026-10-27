@@ -1354,8 +1354,8 @@ window._mcNaverApp=function(url){
     var abs=u.href, enc=encodeURIComponent(abs);
     return {wv:wv, url:abs,
       intent:'intent://inappbrowser?url='+enc+'&target=new&version=6#Intent;scheme=naversearchapp;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end',
-      // 네이버 앱이 없을 때 인앱 웹뷰에서 쓸 브라우저 — 삼성 인터넷을 지정한다(사장님 2026-10-27 「원래처럼 인터넷으로」). 패키지를 안 박으면 크롬/네이버 선택창이 뜬다. 삼성 인터넷이 없으면 원래 주소로
-      ext:'intent://'+u.host+u.pathname+u.search+'#Intent;scheme='+u.protocol.replace(':','')+';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.sec.android.app.sbrowser;S.browser_fallback_url='+enc+';end'};
+      // 2단계: 같은 주소를 네이버 앱(https 를 받는 앱)으로 바로 — 선택창에서 「NAVER」 를 고른 것과 같다(사장님 2026-10-27 「선택 자체가 안뜨게해」). 패키지를 안 박으면 크롬/네이버 선택창, 삼성 인터넷으로 보내면 회원 전용 카페 글이 로그인 벽이고 글 안 링크에서 또 선택창이 떴다. 네이버 앱이 없으면 원래 주소로
+      ext:'intent://'+u.host+u.pathname+u.search+'#Intent;scheme='+u.protocol.replace(':','')+';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.search;S.browser_fallback_url='+enc+';end'};
   }catch(_){ return null; }
 };
 window.openLink=function(url){
