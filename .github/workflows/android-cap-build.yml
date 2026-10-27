@@ -240,3 +240,17 @@ jobs:
           path: out/
           retention-days: 30
           if-no-files-found: error
+      # 사장님 폰 설치용 — 시험을 통과한 APK 를 Supabase 비공개 버킷 app-builds 에 「최신판」으로도 올린다(2026-10-27).
+      #   카톡으로 보낸 짧은 주소(Edge 함수 app-apk)가 늘 최신판을 준다 → 빌드마다 사람이 내려받아 옮길 필요 없음. 비공개 버킷이라 주소를 모르면 못 받는다
+      - name: 폰 설치용 최신판 올리기(app-builds)
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VC: ${{ inputs.versionCode || github.run_number }}
+        run: |
+          [ -n "$SB_KEY" ] || { echo "SUPABASE_SERVICE_KEY 없음 — 건너뜀"; exit 0; }
+          f=$(ls out/*.apk | head -1); [ -f "$f" ] || { echo "APK 없음"; exit 1; }
+          for name in "momcalendar-v$VC.apk" "momcalendar-latest.apk"; do
+            curl -sSf -X POST "https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/app-builds/android/$name" \
+              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/vnd.android.package-archive" -H "x-upsert: true" \
+              --data-binary @"$f" > /dev/null && echo "올림 android/$name"
+          done
