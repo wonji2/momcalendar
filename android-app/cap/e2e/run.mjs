@@ -161,14 +161,16 @@ async function expectTab(name, url, run) {
   {
     let note = '';
     let ok = false;
-    try {
+    // 에뮬레이터가 바쁘면(「응답 없음」 창·화면 버퍼 오류) 캡처가 비거나 다른 화면이 찍힌다 — 최대 세 번, 사이에 응답 없음 창을 닫는다(빌드 #38·#39)
+    for (let tryN = 0; tryN < 3 && !ok; tryN++) try {
+      if (tryN) { await dismissAnr(); await sleep(3000); }
       const b = execFileSync('adb', ['exec-out', 'screencap'], { timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
       const w = b.readUInt32LE(0), hh = b.readUInt32LE(4), head = b.length - w * hh * 4;
       const px = (x, y) => { const o = head + (y * w + x) * 4; return [b[o], b[o + 1], b[o + 2]]; };
       const near = (p) => Math.abs(p[0] - 0x60) < 24 && Math.abs(p[1] - 0x20) < 24 && Math.abs(p[2] - 0x90) < 24;
       const topPx = px(w >> 1, 6), botPx = px(8, hh - 4);
       ok = near(topPx) && near(botPx);
-      note = `위 ${topPx} · 아래 ${botPx} (${w}x${hh})`;
+      note = `위 ${topPx} · 아래 ${botPx} (${w}x${hh})${tryN ? ` · ${tryN + 1}번째 캡처` : ''}`;
     } catch (e) { note = e.message; }
     rec('상태바·아래 막대 보라색(TWA 때와 같은 색)', ok, note);
   }
