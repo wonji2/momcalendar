@@ -37,6 +37,21 @@ const IMG_TTL = 86400;
 // 캐시 열쇠에 섞여 있어 **배포 = 캐시 비우기** 가 된다(배너·공구를 고치고 바로 보이게 하려고, 2026-10-01).
 const BUILD = '__BUILD__';
 
+// 🤖 AI·대량 수집 금지 표지판(2026-10-27 사장님 지시 「우리 거 긁지 말라고 AI 한테 말하는 경고문」)
+//   데이터 서버에는 robots.txt 가 아예 없었다(404). 막는 벽은 비공개 확장(privateGuard)이 맡고,
+//   여기는 「긁지 말라」는 의사를 기계가 읽는 꼴로 밝힌다: /robots.txt + 모든 응답 머리말(cors 에서 붙임).
+//   근거 조항: 이용약관 제13조(자동 수집·복제 및 AI 학습 금지). 베껴 간 쪽에 문제 삼을 때 이 표지판과 약관이 증거다.
+//   사이트(momcalendar.com) 쪽 robots.txt 는 tools/seo/build.ps1 이 매일 다시 쓴다 — 거기서 같은 뜻을 밝힌다(검색은 허용·AI 학습만 금지).
+const ROBOTS = [
+  '# momcalendar.com data server (api.momcalendar.com)',
+  '# Automated collection, scraping, and AI/ML training are prohibited.',
+  '# 맘캘린더 데이터 서버입니다. 자동 수집·복제·AI 학습을 금지합니다. 이용약관 제13조: https://momcalendar.com/terms.html',
+  'User-agent: *',
+  'Disallow: /',
+  'Content-Signal: search=no, ai-input=no, ai-train=no',
+  '',
+].join(String.fromCharCode(10));
+
 function cors(req) {
   const h = new Headers();
   h.set('Access-Control-Allow-Origin', '*');
@@ -46,6 +61,10 @@ function cors(req) {
     'authorization, x-client-info, apikey, content-type, prefer, range, range-unit, x-cron-secret');
   h.set('Access-Control-Expose-Headers', 'content-range, content-type, x-momcal-proxy, x-momcal-cache');
   h.set('Access-Control-Max-Age', '86400');
+  // 🤖 AI 학습·자동 수집 금지 표시 — 모든 응답에(2026-10-27). X-Robots-Tag noai 는 널리 쓰는 관례, Content-Usage 는 IETF aipref 초안 꼴.
+  h.set('X-Robots-Tag', 'noindex, nofollow, noai, noimageai');
+  h.set('Content-Usage', 'train-ai=n, ai-input=n, search=n');
+  h.set('X-Momcal-Notice', 'Automated collection and AI training prohibited. Terms: https://momcalendar.com/terms.html (art. 13)');
   return h;
 }
 
@@ -74,6 +93,10 @@ export default {
     if (url.pathname === '/__ping') {
       const h = cors(req); h.set('Content-Type', 'text/plain; charset=utf-8'); h.set('Cache-Control', 'no-store');
       return new Response('ok momcal-api-proxy ' + (req.cf && req.cf.colo || '') + ' build=' + BUILD, { headers: h });
+    }
+    if (url.pathname === '/robots.txt') {
+      const h = cors(req); h.set('Content-Type', 'text/plain; charset=utf-8'); h.set('Cache-Control', 'public, max-age=3600');
+      return new Response(ROBOTS, { headers: h });
     }
     if (!ALLOW.test(url.pathname)) return new Response('not found', { status: 404, headers: cors(req) });
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });

@@ -1110,7 +1110,13 @@ foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','si
 #   2026-09-24 에 손으로 넣은 Yeti 블록이 09-25 빌드(986bddfd92)에 그대로 날아갔다. 바꿀 것은 여기서 바꾼다.
 #   네이버 크롤러(Yeti)는 * 규칙으로도 허용되지만, 서치어드바이저가 이름으로 확인하므로 명시한다.
 $blockRules = "Allow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /test.html`nDisallow: /kktest.html"
-$robots = "User-agent: *`n$blockRules`n`nUser-agent: Yeti`n$blockRules`n`nSitemap: $SITE/sitemap.xml`n"
+# 🤖 AI 수집 금지 표지판(2026-10-27 사장님 지시 「우리 거 긁지 말라고 AI 한테 말하는 경고문」)
+#   · Content-Signal(Cloudflare 콘텐츠 신호 규약): 검색 색인은 허용, AI 학습은 금지. 검색엔진·AI 검색이 우리 글을 인용해 손님을 보내는 길은 열어 둔다.
+#   · 학습·대량 수집 전용 크롤러는 이름을 적어 전부 막는다(아래 목록). 검색 답변용 봇(OAI-SearchBot·ChatGPT-User·Claude-SearchBot·PerplexityBot)은 안 막는다 — 막으면 AI 검색에서 사이트가 사라진다.
+#   · 막는 벽이 아니라 표지판이다. 베껴 간 쪽에 문제 삼는 근거는 이용약관 제13조 + api.momcalendar.com 의 같은 표지판(worker.js ROBOTS).
+$aiBots = @('GPTBot','ClaudeBot','anthropic-ai','Claude-Web','CCBot','Google-Extended','Applebot-Extended','Bytespider','meta-externalagent','Amazonbot','Diffbot','cohere-ai','cohere-training-data-crawler','omgili','omgilibot','ImagesiftBot','PetalBot','Timpibot','Webzio-Extended','AI2Bot','Ai2Bot-Dolma','PanguBot','Kangaroo Bot','ICC-Crawler','Scrapy','VelenPublicWebCrawler')
+$aiBlock = (($aiBots | ForEach-Object { "User-agent: $_" }) -join "`n") + "`nDisallow: /"
+$robots = "User-agent: *`n$blockRules`nContent-Signal: search=yes, ai-train=no`n`nUser-agent: Yeti`n$blockRules`n`n# AI training / bulk collection crawlers: prohibited (Terms art. 13, https://momcalendar.com/terms.html)`n$aiBlock`n`nSitemap: $SITE/sitemap.xml`n"
 [IO.File]::WriteAllText((Join-Path $Root 'robots.txt'), $robots, [Text.UTF8Encoding]::new($false))
 
 # 🔎 llms.txt — AI 검색(ChatGPT·Perplexity·Claude·Gemini)이 사이트를 요약할 때 읽는 안내문. **매일 이 빌드가 실제 숫자로 다시 쓴다** (2026-10-24)
