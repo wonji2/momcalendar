@@ -96,7 +96,11 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 #   path title desc canon h1 sub body(html) jsonld(문자열배열) bcName
 function WritePage([hashtable]$o){
   $tE = HtmlEsc $o.title
-  $dE = HtmlEsc $o.desc
+  # 2026-10-27 빙 웹마스터 권고 「설명 문구가 너무 짧은 페이지가 많다」 — 80자 미만이면 사이트 소개를 덧붙인다(160자 안쪽)
+  $d0 = "$($o.desc)"
+  if($d0.Length -lt 80){ $d0 = "$d0 맘캘린더(momcalendar.com)는 인스타 공동구매 일정·핫딜·세일 정보 공유 사이트입니다.".Trim() }
+  if($d0.Length -gt 160){ $d0 = $d0.Substring(0,158).TrimEnd() + '…' }
+  $dE = HtmlEsc $d0
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.AppendLine('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">')
   [void]$sb.AppendLine('<meta name="viewport" content="width=device-width,initial-scale=1">')
@@ -108,7 +112,8 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<link rel=${Q}icon${Q} href=${Q}/favicon.ico${Q} sizes=${Q}any${Q}>")
   [void]$sb.AppendLine("<link rel=${Q}icon${Q} type=${Q}image/png${Q} sizes=${Q}512x512${Q} href=${Q}/momcal-appicon.png${Q}>")
   [void]$sb.AppendLine("<link rel=${Q}apple-touch-icon${Q} href=${Q}/momcal-appicon.png${Q}>")
-  [void]$sb.AppendLine("<meta property=${Q}og:image${Q} content=${Q}$SITE/momcal-appicon.png${Q}>")
+  [void]$sb.AppendLine("<meta property=${Q}og:image${Q} content=${Q}$SITE/og-image.png${Q}>")
+  [void]$sb.AppendLine("<meta property=${Q}og:image:width${Q} content=${Q}1200${Q}><meta property=${Q}og:image:height${Q} content=${Q}630${Q}>")   # 2026-10-27 AI 답·메신저 링크 미리보기를 크게(홈과 같은 그림)
   [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}index,follow,max-image-preview:large,noai,noimageai${Q}>")   # noai·noimageai = AI 학습 금지 표시(2026-10-27). 검색·AI 인용은 그대로
   [void]$sb.AppendLine("<meta property=${Q}og:title${Q} content=${Q}$tE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:description${Q} content=${Q}$dE${Q}>")
@@ -116,7 +121,7 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<meta property=${Q}og:url${Q} content=${Q}$SITE/$($o.canon)${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:site_name${Q} content=${Q}맘캘린더${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:locale${Q} content=${Q}ko_KR${Q}>")
-  [void]$sb.AppendLine("<meta name=${Q}twitter:card${Q} content=${Q}summary${Q}>")
+  [void]$sb.AppendLine("<meta name=${Q}twitter:card${Q} content=${Q}summary_large_image${Q}><meta name=${Q}twitter:image${Q} content=${Q}$SITE/og-image.png${Q}>")
   # 🔎 dateModified — 기계가 "언제 기준 데이터인가"를 읽는 자리 (NEO/AI 브리핑 신선도 신호).
   #   화면의 "$ASOF 기준" 줄과 **같은 날짜**여야 한다. 둘이 어긋나면 거짓 신호가 된다.
   $wp = "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}WebPage${Q}," +
@@ -348,17 +353,25 @@ function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
     $faq += @{ q="$name $top 공구는 지금 진행 중인가요?";
                a=$(if($live.Count -gt 0){ "이 페이지 맨 위 '지금 진행 중인 $name 공구' 에 열려 있는 건이 있습니다. 마감일을 확인하고 기간 안에 신청하세요." } elseif($soon.Count -gt 0){ "지금 열려 있는 건은 없고, 가장 가까운 $name 공구는 $nearest 오픈입니다." } else { "지금 열려 있는 $name $top 공구는 없습니다. 아래 지난 일정에서 언제 진행됐는지 확인하면 다음 시기를 가늠할 수 있습니다." }) }
   }
-  $faq += @{ q="$name 공구는 어디서 하나요?";
-             a="인스타그램 셀러들이 각자 계정에서 진행합니다. 이 페이지 목록에서 셀러를 고르고 카드를 누르면 그 셀러의 인스타그램 계정으로 바로 이동합니다." }
+  # 🔎 2026-10-27 AEO: 「○○ 공구 어디서 해요?」「누가 해요?」「다음 공구 언제예요?」에 이 페이지의 실제 일정으로 답한다(사장님 「모든 db를」)
+  $md = { param($d) $d = "$d"; if($d.Length -ge 10){ return "$([int]$d.Substring(5,2))/$([int]$d.Substring(8,2))" } return $d }
+  $it = { param($r) "$($r.name)$(if($kind -ne '셀러' -and $r.who){ "($($r.who))" })" }
+  $whoList = @(@($live) + @($soon) + @($past) | Where-Object { $_.who } | ForEach-Object { "$($_.who)" } | Select-Object -Unique)
+  $now = $(if($live.Count -gt 0){ "지금 $($live.Count)건이 진행 중입니다. " + ((@($live | Select-Object -First 3) | ForEach-Object { "$(& $it $_) $(& $md $_.ed) 마감" }) -join ', ') + '.' } elseif($soon.Count -gt 0){ "다음 공구는 $(& $it $soon[0]) $(& $md $soon[0].od) 오픈입니다." } elseif($past.Count -gt 0){ "가장 최근 공구는 $(& $it $past[0]) ($(& $md $past[0].od)~$(& $md $past[0].ed))였습니다." } else { '' })
+  if($kind -eq '셀러'){
+    $faq += @{ q="$name 공구 어디서 해요?"; a="$name 셀러의 인스타그램 계정에서 진행하고, 일정은 맘캘린더(momcalendar.com) 셀러 페이지에 모여 있습니다. $now" }
+  } else {
+    $faq += @{ q="$name 공구 어디서 해요?"; a="$name 공구는 인스타그램 셀러들이 각자 계정에서 엽니다. 맘캘린더(momcalendar.com)에 $name 공구를 진행한 셀러 $($whoList.Count)명의 일정이 모여 있습니다. $now" }
+    if($whoList.Count -gt 0){ $faq += @{ q="$name 공구 누가 해요?"; a="맘캘린더에 기록된 $name 공구 셀러는 $(($whoList | Select-Object -First 6) -join ', ')$(if($whoList.Count -gt 6){ ' 등' }) $($whoList.Count)명입니다. 셀러를 누르면 그 셀러의 다른 공구도 볼 수 있습니다." } }
+  }
+  if($soon.Count -gt 0){ $faq += @{ q="$name 다음 공구 언제예요?"; a="$(& $md $soon[0].od) 오픈하는 $(& $it $soon[0])입니다.$(if($soon.Count -gt 1){ " 그다음은 $(& $md $soon[1].od) 오픈 $(& $it $soon[1])입니다." })" } }
+
   # '가격' 은 자동완성 실측 1위 꼬리말이다("무아스 공구 가격" 등 15개 브랜드, 2026-08-14).
   # 우리는 공구 가격을 수집하지 않으므로 낚시가 되지 않게 '어디서 확인하는지' 를 정직하게 안내한다.
   $faq += @{ q="$name 공구 가격은 어디서 확인하나요?";
              a="공구 가격은 오픈일에 각 셀러가 인스타그램 공지로 공개합니다. 같은 제품이라도 셀러와 구성에 따라 가격이 다를 수 있으니, 위 목록에서 진행 중인 셀러 카드를 눌러 그 계정의 공지에서 가격과 구매 링크를 확인하세요." }
   $faq += @{ q="인스타그램 $name 공구는 어떻게 찾나요?";
              a="셀러마다 계정이 달라 하나씩 찾기 어렵습니다. 맘캘린더는 여러 셀러의 $name 공구를 한곳에 모아 오픈일·마감일과 함께 보여줍니다. 매일 갱신됩니다." }
-  if($live.Count -eq 0 -and $soon.Count -gt 0){
-    $faq += @{ q="$name 공구는 언제 열리나요?"; a="가장 가까운 일정은 $nearest 오픈입니다. 오픈일에 맞춰 해당 셀러 계정을 확인하시면 됩니다." }
-  }
   if($past.Count -gt 0){
     $faq += @{ q="지난 $name 공구도 볼 수 있나요?";
                a="네, 이 페이지 아래에 지난 일정이 날짜순으로 남아 있습니다. 어느 셀러가 언제 진행했는지 확인할 수 있습니다." }
