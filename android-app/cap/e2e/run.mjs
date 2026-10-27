@@ -156,17 +156,6 @@ async function expectTab(name, url, run) {
   const h = await js(`document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length+'|'+document.body.scrollHeight`);
   rec('목록이 그려짐(카드 수·본문 높이)', /^\d+\|\d+$/.test(h || '') && +h.split('|')[1] > 1500, h);
   shot('02_home_loaded');
-  // 폰 글자 크기를 키워도 앱 글자는 웹(브라우저)과 같은 크기 — 사장님 2026-10-27 「웹이랑 비교해서 묘하게 확대된 듯 큰 거 같애」
-  {
-    const measure = async () => Number(await js(`(function(){var s=document.createElement('span');s.textContent='가나다';s.style.cssText='font-size:16px;line-height:normal;position:absolute;left:-999px;top:0';document.body.appendChild(s);var h=s.getBoundingClientRect().height;s.remove();return String(h)})()`));
-    const h1 = await measure();
-    sh('shell', 'settings', 'put', 'system', 'font_scale', '1.3');
-    reset(); await launch();
-    const h2 = await measure();
-    sh('shell', 'settings', 'put', 'system', 'font_scale', '1.0');
-    reset(); await launch();
-    rec('폰 글자 크기 130% 에도 앱 글자는 그대로(웹과 같은 크기)', h1 > 0 && h2 > 0 && Math.abs(h2 - h1) < 0.5, `글자 100%=${h1}px · 130%=${h2}px`);
-  }
   // 상태바·아래 막대 자리가 보라(#602090)인가 — 화면 원본 픽셀(screencap 원시 형식: 머리 + RGBA)
   await dismissAnr();
   {
@@ -323,6 +312,17 @@ async function expectTab(name, url, run) {
     const u = await js('location.href');
     const t = top(); shot('applink');
     rec('momcalendar.com 주소 → 우리 앱이 받아 그 주소를 띄움', ours(t) && /from=applink/.test(u || ''), t + ' · ' + u);
+  }
+  // (맨 끝에서 — 폰 설정을 바꾸고 앱을 두 번 다시 켜서 에뮬레이터 화면이 흔들려 뒤 시험이 깨졌다, 빌드 #38) 폰 글자 크기를 키워도 앱 글자는 웹(브라우저)과 같은 크기 — 사장님 2026-10-27 「웹이랑 비교해서 묘하게 확대된 듯 큰 거 같애」
+  {
+    const measure = async () => Number(await js(`(function(){var s=document.createElement('span');s.textContent='가나다';s.style.cssText='font-size:16px;line-height:normal;position:absolute;left:-999px;top:0';document.body.appendChild(s);var h=s.getBoundingClientRect().height;s.remove();return String(h)})()`));
+    const h1 = await measure();
+    sh('shell', 'settings', 'put', 'system', 'font_scale', '1.3');
+    reset(); await launch();
+    const h2 = await measure();
+    sh('shell', 'settings', 'put', 'system', 'font_scale', '1.0');
+    reset(); await launch();
+    rec('폰 글자 크기 130% 에도 앱 글자는 그대로(웹과 같은 크기)', h1 > 0 && h2 > 0 && Math.abs(h2 - h1) < 0.5, `글자 100%=${h1}px · 130%=${h2}px`);
   }
   finish();
 })().catch((e) => { rec('시험 중 오류', false, e.stack || e.message); finish(); });
