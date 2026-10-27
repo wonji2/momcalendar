@@ -1315,6 +1315,9 @@ try{ window._mcNxEarly(); }catch(_){}
 //     앱이 없으면 S.browser_fallback_url 로 크롬이 원래 주소를 연다(오류 페이지·플레이스토어로 안 간다 — 스킴을 맨 주소로 주면 ERR_UNKNOWN_URL_SCHEME 위험).
 // 안드로이드 웹뷰 앱(Capacitor, 2026-10-26 TWA 대체) — 바깥 링크·공유·파일 저장은 앱 코드가 한다(android-app/cap/native)
 window._mcCapAndroid=function(){ try{ return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.getPlatform&&Capacitor.getPlatform()==='android'); }catch(_){ return false; } };
+// 아이폰 웹뷰 앱: 새 창은 앱이 앱 밖(카톡·사파리)으로 열고 null 을 돌려준다 — 실패가 아니니 「열림」으로 돌려줘 같은 화면으로 또 보내지 않게(2026-10-27)
+window._mcCapIos=function(){ try{ return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.getPlatform&&Capacitor.getPlatform()==='ios'); }catch(_){ return false; } };
+(function(){ if(!window._mcCapIos()) return; var o=window.open; window.open=function(){ var w=null; try{ w=o.apply(window, arguments); }catch(_){} return w || {closed:false, close:function(){}, focus:function(){}}; }; })();
 window._mcNative=function(){ try{ if(!window._mcCapAndroid()) return null; var P=Capacitor.Plugins&&Capacitor.Plugins.MomcalLink; if(!P&&Capacitor.registerPlugin) P=Capacitor.registerPlugin('MomcalLink'); return P||null; }catch(_){ return null; } };
 (function(){
   var P=window._mcNative&&window._mcNative(); if(!P) return;
