@@ -226,8 +226,7 @@ async function loadWatch(){
     const dots=rows.slice().reverse().map(r=>'<span title="'+esc(r.at+' 통과 '+r.ok_n+' 실패 '+r.fail_n)+'" class="dot '+(r.fail_n?'bad':'')+'"></span>').join('');
     body='<div class="row"><span><span class="k">마지막</span> '+esc(last.at)+' ('+ageMin+'분 전) · <span class="k">통과</span> '+esc(last.ok_n)+' · <span class="k">실패</span> '+esc(last.fail_n)+(last.run_url?' · <a href="'+esc(last.run_url)+'" target="_blank">기록</a>':'')+'</span></div>'
       +'<div class="row"><span class="k">최근 6시간</span> '+dots+'</div>'
-      +(last.fail_n?'<div class="mono">'+esc((last.fails||[]).join('
-'))+'</div>':'')
+      +(last.fail_n?'<div class="mono">'+esc((last.fails||[]).join(String.fromCharCode(10)))+'</div>':'')
       +'<div class="row"><span class="k">PC 와 상관없이 깃허브 서버가 10분마다 모바일 웹·카톡 인앱·아이폰 앱·안드 앱 4길로 목록·탭·검색·찜·메뉴·로그인·RPC 를 실제로 눌러 봐요</span></div>';
   }
   box.insertAdjacentHTML('afterbegin','<section id="watchSec" class="'+(bad?'has-bad':'')+'"><h2 onclick="this.parentElement.classList.toggle(\x27closed\x27)">👀 손님 화면 실시간 검사<span class="st '+head[0]+'">'+esc(head[1])+'</span></h2><div class="body">'+body+'</div></section>');
