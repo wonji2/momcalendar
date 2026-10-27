@@ -24,7 +24,8 @@ import { setAlert, clearAlert, pushAlerts } from './alert.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LOCAL = (process.argv.find((a) => a.startsWith('--local=')) || '').slice(8);
-const DRY = process.argv.includes('--dry') || !!LOCAL;
+const CI = process.argv.includes('--ci');    // 깃허브 Actions(live-watch.yml): 결과를 DB site_watch 에 넣는다 — 알림 파일·git push 는 안 한다(PC 몫)
+const DRY = process.argv.includes('--dry') || !!LOCAL || CI;
 const AUTO = process.argv.includes('--auto');     // 예약작업: 바뀐 게 없고 지난 검사가 1시간 안이면 건너뛴다
 const STATE = path.join(REPO, 'scratchpad', 'live_smoke_state.json');
 const LOGF = path.join(REPO, 'scratchpad', 'live_smoke_log.txt');
@@ -140,6 +141,14 @@ try {
 
 log(`결과: 통과 ${okn.n} · 실패 ${fails.length}${LOCAL ? ' (배포 전 시험)' : ''}`);
 if (!LOCAL) fs.writeFileSync(STATE, JSON.stringify({ hash, at: Date.now(), fails }, null, 1));
+// CI: 서버 표 site_watch 에 한 줄(판정·경보는 서버 site_watch_guard 가 한다 — supabase/sql/site_watch_128.sql)
+if (CI && process.env.SITE_WATCH_KEY) {
+  try {
+    const run = process.env.GITHUB_RUN_ID ? `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : null;
+    const r = await fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/site_watch', { method: 'POST', headers: { apikey: process.env.SITE_WATCH_KEY, Authorization: 'Bearer ' + process.env.SITE_WATCH_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ source: 'ci', ok_n: okn.n, fail_n: fails.length, fails: fails.slice(0, 20), run_url: run }) });
+    log(`site_watch 기록 ${r.status}`);
+  } catch (e) { log('site_watch 기록 실패 ' + e.message); }
+}
 if (!DRY) {
   if (fails.length) {
     setAlert('smoke', `🔴 라이브 화면 검사 실패 ${fails.length}건: ${fails.slice(0, 3).join(' / ')} — node tools/daily/live_smoke.mjs`);

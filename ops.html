@@ -203,14 +203,40 @@ function render(d){
   // 8 감시기 경보 24h
   sec('🚨 감시기 경보 (24시간)', (d.alerts||[]).length?['warn',`${(d.alerts||[]).length}건`]:['ok','없음'], `<table><tr><th>시각</th><th>종류</th><th>내용</th></tr>${(d.alerts||[]).map(a=>`<tr><td>${esc(a.at)}</td><td>${esc(a.kind)}</td><td class="mono">${esc(a.msg)}</td></tr>`).join('')}</table>`, false);
   document.getElementById('sections').innerHTML=S.join('');
+  loadWatch();
   // PC 상태 자체가 끊겼으면 맨 위에 경고
   if(pcStale){ document.getElementById('sections').insertAdjacentHTML('afterbegin',`<section class="has-bad"><h2>🖥 PC 상태 <span class="st bad">${esc(pcHead[1])}</span></h2><div class="body">예약작업 momcal-ops-status 가 30분마다 올려야 해요. PC 가 꺼졌거나 작업이 죽었으면 여기부터 보세요.</div></section>`); }
   probeBot().then(b=>{ const el=document.getElementById('botBox'); if(!el) return; const ok=b.code===200; el.innerHTML=`<span class="dot ${ok?'':'bad'}"></span>스킬 서버 ${ok?`응답 ${b.ms}ms`:`🔴 응답 ${b.code||'없음'}`} · <span class="k">24h 대화</span> ${esc(c.kakao_bot_24h)} · <span class="k">마지막 대화</span> ${esc(c.kakao_bot_last)}`; const st=el.closest('section').querySelector('.st'); st.textContent=ok?'정상':'🔴 응답 없음'; st.className='st '+(ok?'ok':'bad'); if(!ok) el.closest('section').classList.add('has-bad'); });
+}
+// 손님 화면 실시간 검사 (2026-10-27) — 깃허브 Actions live-watch.yml 가 10분마다 4길(모바일 웹·카톡 인앱·아이폰 앱·안드 앱)로 실제 눌러 본 결과
+//   표 site_watch · 판정은 서버 site_watch_guard(2회 연속 실패·40분 무소식이면 health_alerts) · supabase/sql/site_watch_128.sql
+async function loadWatch(){
+  let rows=[]; try{ rows=await rpc('site_watch_recent',{p_limit:36}); }catch(e){ rows=null; }
+  const box=document.getElementById('sections'); if(!box) return;
+  const old=document.getElementById('watchSec'); if(old) old.remove();
+  let head, bad=false, body;
+  if(!rows){ head=['bad','읽기 실패']; bad=true; body='site_watch_recent 를 못 읽었어요'; }
+  else if(!rows.length){ head=['warn','아직 결과 없음']; body='첫 검사를 기다리는 중이에요(10분마다)'; }
+  else{
+    const last=rows[0], prev=rows[1];
+    const ageMin=Math.round((Date.now()-new Date(last.at_iso).getTime())/60000);
+    const stale=ageMin>40, two=last.fail_n>0&&prev&&prev.fail_n>0;
+    bad=stale||two;
+    head=stale?['bad','🔴 '+ageMin+'분째 무소식']:(two?['bad','🔴 2회 연속 실패']:(last.fail_n>0?['warn','방금 1회 실패(다음 회차 확인)']:['ok','정상 '+last.ok_n+'개 통과']));
+    const dots=rows.slice().reverse().map(r=>'<span title="'+esc(r.at+' 통과 '+r.ok_n+' 실패 '+r.fail_n)+'" class="dot '+(r.fail_n?'bad':'')+'"></span>').join('');
+    body='<div class="row"><span><span class="k">마지막</span> '+esc(last.at)+' ('+ageMin+'분 전) · <span class="k">통과</span> '+esc(last.ok_n)+' · <span class="k">실패</span> '+esc(last.fail_n)+(last.run_url?' · <a href="'+esc(last.run_url)+'" target="_blank">기록</a>':'')+'</span></div>'
+      +'<div class="row"><span class="k">최근 6시간</span> '+dots+'</div>'
+      +(last.fail_n?'<div class="mono">'+esc((last.fails||[]).join('
+'))+'</div>':'')
+      +'<div class="row"><span class="k">PC 와 상관없이 깃허브 서버가 10분마다 모바일 웹·카톡 인앱·아이폰 앱·안드 앱 4길로 목록·탭·검색·찜·메뉴·로그인·RPC 를 실제로 눌러 봐요</span></div>';
+  }
+  box.insertAdjacentHTML('afterbegin','<section id="watchSec" class="'+(bad?'has-bad':'')+'"><h2 onclick="this.parentElement.classList.toggle(\x27closed\x27)">👀 손님 화면 실시간 검사<span class="st '+head[0]+'">'+esc(head[1])+'</span></h2><div class="body">'+body+'</div></section>');
 }
 function toggleBad(){ document.body.classList.toggle('only-bad'); document.getElementById('badBtn').textContent=document.body.classList.contains('only-bad')?'전체 보기':'🔴 문제만 보기'; }
 document.getElementById('pw').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
 boot();
 setInterval(()=>{ if(at()&&!document.hidden) refresh(); }, 5*60*1000);
+setInterval(()=>{ if(at()&&!document.hidden&&DATA) loadWatch(); }, 60*1000);   // 손님 화면 검사 칸은 1분마다
 </script>
 </body>
 </html>

@@ -1,0 +1,39 @@
+# 손님 화면 실시간 검사 — PC 전원과 상관없이 10분마다 (사장님 2026-10-27)
+#   tools/daily/live_smoke.mjs 를 깃허브 서버에서 돌린다: 모바일 웹·카톡 인앱·아이폰 앱·안드 앱 4길로
+#   목록·탭·검색·찜·옆 메뉴·카카오 로그인 갈 곳·다른 쪽·RPC 를 실제로 누른다.
+#   결과는 Supabase site_watch 표 → 서버 pg_cron site-watch-guard 가 2회 연속 실패·40분 무소식이면 health_alerts.
+#   관리자 화면 ops.html 맨 위 「손님 화면 실시간 검사」에 보인다.
+#   ⚠ 깃허브 예약 실행은 몇 분씩 늦을 수 있다(무료 러너 대기). 그래서 무소식 경보는 40분.
+name: 손님 화면 실시간 검사
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: live-watch
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/daily
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 브라우저 준비
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx --prefix /tmp/pw playwright install --with-deps chromium >/dev/null
+      - name: 화면 검사
+        env:
+          SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NODE_PATH: /tmp/pw/node_modules
+        run: |
+          mkdir -p scratchpad daily
+          ln -s /tmp/pw/node_modules node_modules
+          node tools/daily/live_smoke.mjs --ci || echo "실패 항목 있음 — site_watch 에 기록됨(경보는 서버가 2회 연속일 때)"
