@@ -113,7 +113,10 @@ async function expectTab(name, url, run) {
   for (let k = 0; k < 12 && !isTab(t) && !isChooser(t); k++) { await sleep(1000); t = top(); }
   await sleep(1500);
   // 화면 글자(uiautomator)는 페이지가 그려지는 중이면 비어 나온다 → 맨 앞 화면이 받은 주소(dumpsys 의 dat=)도 함께 본다
-  const txt = screenText() + ' ' + sh('shell', 'dumpsys', 'activity', 'top').slice(0, 20000) + ' ' + (sh('shell', 'dumpsys', 'activity', 'activities').match(/mResumedActivity[sS]{0,3000}/) || [''])[0];
+  // 화면이 안 그려질 때(에뮬레이터 그래픽 오류 — 빌드 #41 「GL context preempted」)를 대비해 브라우저가 실제로 받은 주소도 본다:
+  //   시스템 기록(logcat ActivityTaskManager)의 마지막 「START … dat=<주소> … pkg=크롬/삼성 인터넷」 줄. 전엔 이 대비가 정규식 [sS] 오타로 안 돌았다
+  const starts = (sh('logcat', '-d', '-v', 'brief', 'ActivityTaskManager:I', '*:S').match(/START u0 \{[^\n]*dat=[^\n]*/g) || []).filter((l) => /com\.android\.chrome|com\.sec\.android\.app\.sbrowser/.test(l));
+  const txt = screenText() + ' ' + sh('shell', 'dumpsys', 'activity', 'top').slice(0, 20000) + ' ' + (sh('shell', 'dumpsys', 'activity', 'activities').match(/mResumedActivity[\s\S]{0,3000}/) || [''])[0] + ' ' + (starts.slice(-1)[0] || '');
   shot('t_' + name.replace(/[^\w가-힣]+/g, '_').slice(0, 40));
   rec(`${name} → 선택창 없음`, !isChooser(t), t);
   rec(`${name} → 브라우저 화면에 그 주소`, isTab(t) && hostRe(url).test(txt), t + ' · ' + hostRe(url) + ' ' + hostRe(url).test(txt));
