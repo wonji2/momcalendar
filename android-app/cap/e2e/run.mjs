@@ -107,8 +107,11 @@ async function toApp() {
 async function expectTab(name, url, run) {
   await dismissAnr();
   await run();
-  await sleep(5000);
-  const t = top();
+  // 5초 한 번만 보면 에뮬레이터가 느릴 때 브라우저가 아직 안 올라와 있다(빌드 #40) — 최대 15초, 1초마다 본다. 선택창이 뜨면 바로 멈춘다
+  await sleep(3000);
+  let t = top();
+  for (let k = 0; k < 12 && !isTab(t) && !isChooser(t); k++) { await sleep(1000); t = top(); }
+  await sleep(1500);
   // 화면 글자(uiautomator)는 페이지가 그려지는 중이면 비어 나온다 → 맨 앞 화면이 받은 주소(dumpsys 의 dat=)도 함께 본다
   const txt = screenText() + ' ' + sh('shell', 'dumpsys', 'activity', 'top').slice(0, 20000) + ' ' + (sh('shell', 'dumpsys', 'activity', 'activities').match(/mResumedActivity[sS]{0,3000}/) || [''])[0];
   shot('t_' + name.replace(/[^\w가-힣]+/g, '_').slice(0, 40));
