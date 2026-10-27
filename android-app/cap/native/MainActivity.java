@@ -21,6 +21,9 @@ public class MainActivity extends BridgeActivity {
         CrashReporter.sendPending(this);
         try { getWindow().getDecorView().setBackgroundColor(LinkRouter.BRAND); } catch (Exception ignored) { }
         if (bridge != null) bridge.setWebViewClient(new MomcalWebViewClient(bridge));
+        // 글자 확대를 100% 로 고정 — 안드로이드 웹뷰는 폰의 「글자 크기」 설정만큼 사이트 글자를 키운다. 그래서 같은 화면이 브라우저(웹)보다 크게 보였다
+        //   (사장님 2026-10-27 「웹이랑 비교해서 묘하게 뭐든게 좀 확대된듯 큰거같애」 — 「세일/라방」 탭이 두 줄로 꺾였다). 확대·축소(핀치)는 사이트가 정한 대로
+        try { if (bridge != null) bridge.getWebView().getSettings().setTextZoom(100); } catch (Exception ignored) { }
         fitSystemBars();
         makeNotificationChannel();
         // 처음 켤 때의 주소는 BridgeActivity.load() 가 onNewIntent(getIntent()) 로 넘겨준다 → 여기서 또 부르면 두 번 연다(검증자 지적)

@@ -117,6 +117,7 @@ public class InAppBrowserActivity extends Activity {
         s.setSupportMultipleWindows(true);            // target=_blank → onCreateWindow 에서 같은 창으로
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setMediaPlaybackRequiresUserGesture(true);
+        s.setTextZoom(100);                           // 폰 글자 크기 설정과 상관없이 브라우저와 같은 크기(MainActivity 와 같다, 2026-10-27)
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         CookieManager cm = CookieManager.getInstance();
