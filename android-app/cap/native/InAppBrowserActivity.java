@@ -10,7 +10,7 @@ package com.wantsb.momcalendar;
 //   · intent:  browser_fallback_url 이 있으면 그 주소를 같은 창에서. 없으면 손님이 직접 누른 것만 그 앱으로(패키지 지정 — 선택창 없음)
 //   · 그 밖 스킴(naversearchapp: kakaotalk: tel: market: …): 손님이 직접 누른 것만 그 앱으로. 페이지가 저절로 여는 건 막는다
 //   · 뒤로가기 = 앞 페이지, 첫 페이지면 창 닫기 · 새 창 열기(target=_blank)도 같은 창
-//   · 로그인(네이버 등)은 이 창 안에서 한 번 하면 앱 쿠키에 남는다(CookieManager — 앱 전체 공유)
+//   · 로그인(네이버 등)은 이 창 안에서 한 번 하면 앱 쿠키에 남는다(CookieManager — 앱 전체 공유). 네이버 로그인 화면은 「로그인 상태 유지」를 미리 켠다(10-27)
 
 import android.app.Activity;
 import android.content.Intent;
@@ -131,7 +131,17 @@ public class InAppBrowserActivity extends Activity {
             @Override
             public void onPageStarted(WebView view, String u, Bitmap fav) { showHost(u); bar.setVisibility(View.VISIBLE); }
             @Override
-            public void onPageFinished(WebView view, String u) { showHost(u); bar.setVisibility(View.GONE); try { CookieManager.getInstance().flush(); } catch (Exception ignored) { } }
+            public void onPageFinished(WebView view, String u) {
+                showHost(u); bar.setVisibility(View.GONE);
+                try { CookieManager.getInstance().flush(); } catch (Exception ignored) { }
+                // 네이버 로그인 화면이면 「로그인 상태 유지」를 미리 켠다 — 한 번 로그인하면 앱을 껐다 켜도 다시 안 묻게
+                // (사장님 2026-10-27 「딱 한번만 로그인하면 두번다신 로그인 안하게」). 화면에 보이는 체크라 손님이 끌 수 있다
+                try {
+                    String h = Uri.parse(u).getHost();
+                    if (h != null && h.equalsIgnoreCase("nid.naver.com"))
+                        view.evaluateJavascript("(function(){var c=document.getElementById('loginStay')||document.querySelector('input[name=nvlong]');if(c&&!c.checked)c.click();})()", null);
+                } catch (Exception ignored) { }
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
