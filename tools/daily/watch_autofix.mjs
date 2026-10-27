@@ -6,8 +6,8 @@
 //   ③ 마지막으로 통과한 회차의 판을 최근 커밋에서 찾는다(받은 HTML 지문 live_hash 로 — 커밋 번호는 Pages 지연 때 어긋난다)
 //   ④ 두 판을 **같은 조건**(둘 다 --local, 같은 시각대)에서 번갈아 두 번씩 잰다: 지금·옛·지금·옛
 //      지금 판은 두 번 다 「심각한 고장」 ≥1, 옛 판은 두 번 다 결과 줄이 있고 심각한 고장 0
-//      심각한 고장 = 손님이 못 쓰는 것: 공구 목록·페이지 오류·검색·핫딜/세일 탭·검색창·옆 메뉴
-//      (카카오 로그인 이동·찜 서버·서버 4xx 등은 기대값이 바뀌거나 서버 쪽 문제일 수 있어 되돌림 이유로 쓰지 않는다)
+//      심각한 고장 = 실제 브라우저와 같은 길(모바일 웹·카톡 인앱)에서 「공구 카드 0장」 또는 자바스크립트 오류뿐
+//      (앱 흉내 길은 흉내 환경에서만 나는 오류가 있고, 카드 수 기준·로그인 이동·찜·서버 4xx 는 정상 배포나 서버 쪽 문제로도 떨어져 쓰지 않는다)
 //   ⑤ 오늘(한국 시간) 자동 되돌림이 3번 미만 — DB 에서 날짜로 센다
 // 하는 것: 기록을 먼저 남기고(실패하면 멈춤) → index.html 만 통과 판으로 커밋 → **rebase 없이** 푸시
 //          (그 사이 누가 올렸으면 푸시가 거절된다 → 섞인 판을 만들지 않고 멈추고 기록만)
@@ -22,11 +22,31 @@ const KEY = process.env.SITE_WATCH_KEY;
 const REPO = process.env.GITHUB_REPOSITORY || 'wonji2/momcalendar';
 const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1';
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
-// 심각한 고장 = 화면이 아예 안 뜨는 것만(공구 카드 0장·자바스크립트 오류). 검색창·옆 메뉴·탭은 화면 구조를 바꾼 정상 배포에서도 떨어질 수 있어 뺐다(재검증 2026-10-27)
-const CRIT = ['공구 목록', '페이지 오류 없음'];
+// 심각한 고장 판정(머리 주석 ④) — 3차 검증 2026-10-27: 앱 흉내 길·「카드 100장 초과」 기준은 정상 배포에서도 떨어져 뺐다
+const isCrit = (l) => /🔴 \[(web|kakao)\] /.test(l) && (/\] 공구 목록 — 카드 0장/.test(l) || l.includes('] 페이지 오류 없음'));
 const log = (s) => console.log('[autofix] ' + s);
 const hashOf = (t) => crypto.createHash('sha1').update(t).digest('hex').slice(0, 12);
 const alert = (detail) => fetch(`${SB}/health_alerts`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ kind: 'watch:autofix', detail }) }).catch(() => {});
+
+// 자체 시험(live-watch 손 실행 selftest): DB 는 가짜 기록, 「지금」 판은 깨진 폴더, 푸시는 시험 브랜치로 — 쓰기 경로를 실제로 한 번 돌려 본다
+if (process.env.AUTOFIX_SELFTEST) {
+  const ref = process.env.AUTOFIX_PUSH_REF || '';
+  if (!/autofix-selftest/.test(ref)) { console.log('[autofix] 자체 시험은 시험 브랜치로만'); process.exit(1); }
+  const real = globalThis.fetch;
+  const gh0 = { Accept: 'application/vnd.github+json', ...(process.env.GH_TOKEN ? { Authorization: 'token ' + process.env.GH_TOKEN } : {}) };
+  const cur0 = hashOf(fs.readFileSync('index.html', 'utf8'));
+  const cs = await real(`https://api.github.com/repos/${REPO}/commits?path=index.html&per_page=2`, { headers: gh0 }).then((r) => r.json());
+  const prev0 = hashOf(await real(`https://raw.githubusercontent.com/${REPO}/${cs[1].sha}/index.html`).then((r) => r.text()));
+  globalThis.fetch = (u, o) => {
+    const s = String(u);
+    if (!s.startsWith(SB)) return real(u, o);
+    if (s.includes('source=eq.ci')) return Promise.resolve(new Response(JSON.stringify([{ id: 0, fail_n: 3, live_hash: cur0 }, { id: 0, fail_n: 3, live_hash: cur0 }, { id: 0, fail_n: 0, live_hash: prev0 }])));
+    if (s.includes('auto_action=like')) return Promise.resolve(new Response('[]'));
+    console.log('[autofix] (자체 시험) DB 쓰기 대신: ' + String(o && o.body || '').slice(0, 160));
+    return Promise.resolve(new Response(null, { status: 204 }));
+  };
+  console.log(`[autofix] 자체 시험 모드 — 지금 ${cur0} · 바로 전 ${prev0} · 푸시 ${ref}`);
+}
 
 async function main() {
   if (!KEY) { log('키 없음 — 건너뜀'); return; }
@@ -74,7 +94,7 @@ async function main() {
     const out = r.stdout || '';
     const rm = out.match(/결과: 통과 \d+ · 실패 (\d+)/);
     if (!rm) return null;   // 결과 줄이 없으면 모름
-    return { crit: out.split('\n').filter((l) => l.includes('🔴') && CRIT.some((c) => l.includes('] ' + c))).length, all: +rm[1] };
+    return { crit: out.split('\n').filter(isCrit).length, all: +rm[1] };
   };
   const cur = testCur || '/tmp/cursite';
   const m = [measure(cur), measure('/tmp/oldsite'), measure(cur), measure('/tmp/oldsite')];
@@ -86,7 +106,7 @@ async function main() {
 
   // 기록 먼저 — 못 남기면 되돌리지 않는다(상한이 새지 않게)
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  const msg = `자동 되돌림 ${today}: 손님 화면 심각한 고장(${m[0]}건) 2회 연속 → index.html 을 통과했던 판 ${oldSha.slice(0, 10)} 로. 원인 코드는 고쳐서 다시 올릴 것`;
+  const msg = `자동 되돌림 ${todayK}: 손님 화면 심각한 고장(${m[0].crit}건) 2회 연속 → index.html 을 통과했던 판 ${oldSha.slice(0, 10)} 로. 원인 코드는 고쳐서 다시 올릴 것`;
   const pr = await fetch(`${SB}/site_watch?id=eq.${r0.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ auto_action: msg }) }).catch(() => null);
   if (!pr || !pr.ok) { log('기록 실패 — 되돌리지 않음'); return; }
 
@@ -96,9 +116,9 @@ async function main() {
     g('config', 'user.name', 'momcal-autofix'); g('config', 'user.email', 'autofix@momcalendar.com');
     g('add', 'index.html');
     g('commit', '-m', `자동 되돌림: 손님 화면 심각한 고장 2회 연속 · 통과했던 판(${oldSha.slice(0, 10)})의 index.html 로 (live-watch)`);
-    g('push', 'origin', 'HEAD:main');   // rebase 하지 않는다 — 그 사이 누가 올렸으면 거절되고 멈춘다(섞인 판 방지)
+    g('push', 'origin', 'HEAD:' + (process.env.AUTOFIX_PUSH_REF || 'main'));   // rebase 하지 않는다 — 그 사이 누가 올렸으면 거절되고 멈춘다(섞인 판 방지)
   } catch (e) {
-    const why = `자동 되돌림 시도했으나 멈춤 ${today}: 그 사이 새 커밋이 올라왔거나 푸시 실패(${String(e.message).slice(0, 80)}) — 지금 라이브 확인 필요`;
+    const why = `자동 되돌림 시도했으나 멈춤(그 사이 새 커밋 — 횟수에 안 셈): 그 사이 새 커밋이 올라왔거나 푸시 실패(${String(e.message).slice(0, 80)}) — 지금 라이브 확인 필요`;
     await fetch(`${SB}/site_watch?id=eq.${r0.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ auto_action: why }) }).catch(() => {});
     await alert(why); log(why); return;
   }

@@ -9,7 +9,12 @@ name: 손님 화면 실시간 검사
 on:
   schedule:
     - cron: '*/10 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      selftest:
+        description: '자동 되돌림 쓰기 경로 자체 시험(시험 브랜치로만 푸시)'
+        required: false
+        default: ''
 concurrency:
   group: live-watch
   cancel-in-progress: false
@@ -19,7 +24,7 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,3 +51,17 @@ jobs:
           SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node tools/daily/watch_autofix.mjs --dry   # 검증 불통과(2026-10-27) — 고칠 때까지 판정만
+      - name: 자동 되돌림 자체 시험(손으로 selftest 를 줄 때만)
+        if: github.event.inputs.selftest != '' && github.event.inputs.selftest != null
+        env:
+          SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_SELFTEST: '1'
+          AUTOFIX_TEST_NOW: /tmp/brokensite
+          AUTOFIX_PUSH_REF: refs/heads/autofix-selftest
+        run: |
+          mkdir -p /tmp/brokensite && printf '<!DOCTYPE html><html><body>broken</body></html>' > /tmp/brokensite/index.html && cp test.html /tmp/brokensite/
+          git fetch -q --depth 1 origin main
+          git checkout -q -B selftest-work origin/main
+          date; node tools/daily/watch_autofix.mjs; date
+          git push -q origin --delete autofix-selftest || true
