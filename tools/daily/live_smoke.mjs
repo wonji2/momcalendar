@@ -145,7 +145,7 @@ if (!LOCAL) fs.writeFileSync(STATE, JSON.stringify({ hash, at: Date.now(), fails
 if (CI && process.env.SITE_WATCH_KEY) {
   try {
     const run = process.env.GITHUB_RUN_ID ? `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : null;
-    const r = await fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/site_watch', { method: 'POST', headers: { apikey: process.env.SITE_WATCH_KEY, Authorization: 'Bearer ' + process.env.SITE_WATCH_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ source: 'ci', ok_n: okn.n, fail_n: fails.length, fails: fails.slice(0, 20), run_url: run }) });
+    const r = await fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/site_watch', { method: 'POST', headers: { apikey: process.env.SITE_WATCH_KEY, Authorization: 'Bearer ' + process.env.SITE_WATCH_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ source: 'ci', ok_n: okn.n, fail_n: fails.length, fails: fails.slice(0, 20), run_url: run, live_hash: hash, commit_sha: process.env.GITHUB_SHA || null }) });
     log(`site_watch 기록 ${r.status}`);
   } catch (e) { log('site_watch 기록 실패 ' + e.message); }
 }

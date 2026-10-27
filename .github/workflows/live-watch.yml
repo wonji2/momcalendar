@@ -2,6 +2,7 @@
 #   tools/daily/live_smoke.mjs 를 깃허브 서버에서 돌린다: 모바일 웹·카톡 인앱·아이폰 앱·안드 앱 4길로
 #   목록·탭·검색·찜·옆 메뉴·카카오 로그인 갈 곳·다른 쪽·RPC 를 실제로 누른다.
 #   결과는 Supabase site_watch 표 → 서버 pg_cron site-watch-guard 가 2회 연속 실패·40분 무소식이면 health_alerts.
+#   2회 연속 실패이고 직전 통과 판으로 돌리면 통과하면 index.html 을 자동으로 되돌린다(tools/daily/watch_autofix.mjs).
 #   관리자 화면 ops.html 맨 위 「손님 화면 실시간 검사」에 보인다.
 #   ⚠ 깃허브 예약 실행은 몇 분씩 늦을 수 있다(무료 러너 대기). 그래서 무소식 경보는 40분.
 name: 손님 화면 실시간 검사
@@ -12,6 +13,9 @@ on:
 concurrency:
   group: live-watch
   cancel-in-progress: false
+permissions:
+  contents: write
+  pages: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -37,3 +41,8 @@ jobs:
           mkdir -p scratchpad daily
           ln -s /tmp/pw/node_modules node_modules
           node tools/daily/live_smoke.mjs --ci || echo "실패 항목 있음 — site_watch 에 기록됨(경보는 서버가 2회 연속일 때)"
+      - name: 깨졌으면 바로 되돌리기
+        env:
+          SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/daily/watch_autofix.mjs

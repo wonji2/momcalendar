@@ -16,6 +16,7 @@ create table if not exists public.site_watch (
   fails text[] not null default '{}',
   run_url text
 );
+alter table public.site_watch add column if not exists live_hash text, add column if not exists commit_sha text, add column if not exists auto_action text;
 create index if not exists site_watch_at on public.site_watch (at desc);
 alter table public.site_watch enable row level security;
 revoke all on public.site_watch from anon, authenticated;
@@ -44,16 +45,18 @@ begin
   else
     delete from health_alerts where kind = 'watch:fail';
   end if;
+  delete from health_alerts where kind = 'watch:autofix' and created_at < now() - interval '24 hours';
   return 'ok';
 end $$;
 revoke all on function public.site_watch_guard() from anon, authenticated, public;
 
+drop function if exists public.site_watch_recent(int);
 create or replace function public.site_watch_recent(p_limit int default 36)
-returns table(at text, at_iso text, source text, ok_n int, fail_n int, fails text[], run_url text)
+returns table(at text, at_iso text, source text, ok_n int, fail_n int, fails text[], run_url text, auto_action text)
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_app_admin() then raise exception 'forbidden' using errcode = '28000'; end if;
-  return query select to_char(w.at at time zone 'Asia/Seoul','MM-DD HH24:MI'), to_char(w.at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'), w.source, w.ok_n, w.fail_n, w.fails, w.run_url
+  return query select to_char(w.at at time zone 'Asia/Seoul','MM-DD HH24:MI'), to_char(w.at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'), w.source, w.ok_n, w.fail_n, w.fails, w.run_url, w.auto_action
     from site_watch w order by w.at desc limit least(greatest(p_limit,1),200);
 end $$;
 revoke all on function public.site_watch_recent(int) from anon, public;
