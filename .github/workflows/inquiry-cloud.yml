@@ -49,13 +49,15 @@ jobs:
       - uses: supabase/setup-cli@v1
         if: steps.chk.outputs.go == '1'
         with:
-          version: latest
+          version: 2.109.1
       - name: 판정 묶음 받기
         id: get
         if: steps.chk.outputs.go == '1'
         run: |
           mkdir -p scratchpad/handoff-log supabase/.temp
           echo -n hycaqsqeogjtbscmzrtm > supabase/.temp/project-ref
+          echo '{"ref":"hycaqsqeogjtbscmzrtm","name":"wonji2'"'"'s Project","organization_id":"lgnkcdsqsaksvrzxeexg","organization_slug":"lgnkcdsqsaksvrzxeexg"}' > supabase/.temp/linked-project.json
+          echo "select 1 as ok;" > /tmp/ping.sql && supabase db query --linked --output-format json -f /tmp/ping.sql
           node tools/daily/cloud_bundle_get.mjs
       - name: 처리
         if: steps.chk.outputs.go == '1'
