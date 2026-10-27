@@ -55,10 +55,10 @@ async function main() {
   const run = (args) => spawnSync(process.execPath, ['tools/daily/live_smoke.mjs', ...args], { encoding: 'utf8', timeout: 12 * 60e3 });
   const nowRun = run(process.env.AUTOFIX_TEST_NOW ? ['--local=' + process.env.AUTOFIX_TEST_NOW] : ['--dry']);   // 시험용: 깨진 판을 「지금」 으로 흉내
   const oldRun = run(['--local=/tmp/oldsite']);
-  const fails = (r) => { const m = (r.stdout || '').match(/실패 (\d+)/g); return m ? +m[m.length - 1].replace(/\D/g, '') : 99; };
+  const fails = (r) => { const m = (r.stdout || '').match(/결과: 통과 \d+ · 실패 (\d+)/); return m ? +m[1] : null; };   // 결과 줄이 없으면(검사 도구가 죽음) 모름 = null → 되돌리지 않는다
   const fNow = fails(nowRun), fOld = fails(oldRun);
   log(`다시 잼: 지금 실패 ${fNow} · 통과했던 판(${good.commit_sha.slice(0, 10)}) 실패 ${fOld}`);
-  if (!(fNow > 0 && fOld === 0)) { log('옛 판도 실패하거나 지금 판이 통과 — 되돌리지 않음'); return; }
+  if (!(fNow !== null && fNow > 0 && fOld === 0)) { log('옛 판도 실패하거나 지금 판이 통과 — 되돌리지 않음'); return; }
   if (DRY) { log('--dry: 되돌릴 판정만'); return; }
 
   fs.writeFileSync('index.html', oldHtml);
