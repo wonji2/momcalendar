@@ -117,6 +117,8 @@ async function expectTab(name, url, run) {
 
 (async () => {
   info('설치', sh('install', '-r', APK).trim().slice(-80));
+  // 시험 폰을 한국어로 — 손님 폰과 같게(에뮬레이터 기본 영어라 네이버·카카오 화면이 영어로 찍혔다, 사장님 2026-10-27 「네이버가 왜 영어로떠」)
+  info('앱 언어 한국어', (sh('shell', 'cmd', 'locale', 'set-app-locales', PKG, '--locales', 'ko-KR') + sh('shell', 'cmd', 'locale', 'set-app-locales', 'com.android.chrome', '--locales', 'ko-KR')).trim().slice(0, 80) || 'ok');
   info('크롬 첫 실행 안내 넘김', String(await chromeFre()) + ' · ' + top());
   sh('shell', 'am', 'force-stop', 'com.android.chrome');
   await launch();
