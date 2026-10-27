@@ -66,7 +66,7 @@ async function healthAlert(kind, detail) {
 async function restartProject(state) {
   if (!TOKEN) { if (!state.tokenWarned) { log('  🔴 SUPABASE_ACCESS_TOKEN 없음 — 재시작 못 한다. tools/daily/.env 에 넣을 것(대시보드 → Account → Access Tokens, projects:write)'); state.tokenWarned = true; } return false; }
   const h = { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' };
-  const hc = await get(`${MGMT}/v1/projects/${REF}/health?services=db,rest&timeout_ms=5000`, h, 12000);
+  const hc = await get(`${MGMT}/v1/projects/${REF}/health?services=db,rest`, h, 12000);
   log(`  관리 API health: ${hc.code} ${hc.txt.slice(0, 160).replace(/\s+/g, ' ')}`);
   let unhealthy = true;
   try { const j = JSON.parse(hc.txt); if (Array.isArray(j)) unhealthy = j.some((s) => s.healthy === false); } catch (_) {}

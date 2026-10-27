@@ -86,6 +86,24 @@ function cacheKey(req, url) {
   return new Request('https://api.momcalendar.com/__cache/' + encodeURIComponent(parts.join('|')), { method: 'GET' });
 }
 
+// 🛟 비상 사본(2026-10-27 — DB 가 09:44~10:33 49분 멈춰 손님 화면이 빈 채였다. 사장님 「거의 1시간 먹통인데 바로 고치는 기능이 없어?」)
+//   성공한 손님용 목록 응답(위 CACHE_RE)을 **24시간 따로** 보관해 두고, 원서버가 죽으면(연결 실패·20초 초과·5xx) 그 사본을 X-Momcal-Cache: STALE 로 준다.
+//   손님은 빈 화면 대신 마지막 목록을 본다(날짜 상태는 화면이 다시 계산한다). 열쇠에 BUILD 를 넣지 않아 배포해도 남고,
+//   날짜(YYYY-MM-DD)는 D 로 바꿔 자정이 지난 첫 요청도 어제 사본을 쓴다. 사진·쓰기·개인 요청은 해당 없음(ttl 0).
+//   ⚠ 원서버 시간제한은 캐시 대상 GET 에만 건다 — 함수(kakao-skill 등)·쓰기는 원래대로 기다린다.
+const STALE_TTL = 86400, ORIGIN_TIMEOUT_MS = 20000;
+function staleKey(req, url) {
+  const parts = [url.pathname + url.search.replace(/\d{4}-\d{2}-\d{2}/g, 'D'), req.headers.get('range') || '', req.headers.get('range-unit') || '', req.headers.get('prefer') || '', req.headers.get('accept') || ''];
+  return new Request('https://api.momcalendar.com/__stale/' + encodeURIComponent(parts.join('|')), { method: 'GET' });
+}
+async function serveStale(req, url, why) {
+  let hit = null; try { hit = await caches.default.match(staleKey(req, url)); } catch (_) {}
+  if (!hit) return null;
+  const out = new Headers(hit.headers); cors(req).forEach((v, k) => out.set(k, v));
+  out.set('X-Momcal-Proxy', '1'); out.set('X-Momcal-Cache', 'STALE'); out.set('X-Momcal-Stale-Why', why); out.set('Cache-Control', 'no-cache, max-age=0');
+  return new Response(hit.body, { status: hit.status, headers: out });
+}
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
@@ -142,15 +160,18 @@ export default {
       ? { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '300-399': 0, '400-499': 0, '500-599': 0 } } }
       : {};
     let res;
+    const ac = new AbortController(); const tmr = ttl ? setTimeout(() => ac.abort(), ORIGIN_TIMEOUT_MS) : null;   // 🛟 목록 GET 만 20초 제한
     try {
       res = await fetch(ORIGIN + url.pathname + url.search, {
         method: req.method, headers: h, body: hasBody ? req.body : undefined, redirect: 'manual',
-        ...cfOpt,
+        ...cfOpt, ...(ttl ? { signal: ac.signal } : {}),
       });
     } catch (e) {
+      if (ttl) { const st = await serveStale(req, url, 'unreachable'); if (st) return st; }   // 🛟 원서버 못 닿음 → 비상 사본
       const eh = cors(req); eh.set('Content-Type', 'application/json');
       return new Response(JSON.stringify({ error: 'upstream_unreachable', detail: String(e).slice(0, 200) }), { status: 502, headers: eh });
-    }
+    } finally { if (tmr) clearTimeout(tmr); }
+    if (ttl && res.status >= 500) { const st = await serveStale(req, url, 'origin_' + res.status); if (st) return st; }   // 🛟 5xx(522·503 등) → 비상 사본
     const out = new Headers(res.headers);
     const c = cors(req); c.forEach((v, k) => out.set(k, v));
     out.set('X-Momcal-Proxy', '1');
@@ -164,7 +185,11 @@ export default {
       const sh = new Headers(out);
       sh.set('Cache-Control', IMG_RE.test(url.pathname) ? 'public, max-age=' + IMG_TTL + ', immutable' : 'public, s-maxage=' + ttl + ', max-age=0');
       sh.delete('Set-Cookie'); sh.delete('X-Momcal-Cache');
-      ctx.waitUntil(caches.default.put(key, new Response(body, { status: res.status, headers: sh })));
+      const st = new Headers(sh); st.set('Cache-Control', 'public, s-maxage=' + STALE_TTL + ', max-age=0');   // 🛟 비상 사본은 24시간
+      ctx.waitUntil(Promise.all([
+        caches.default.put(key, new Response(body, { status: res.status, headers: sh })),
+        IMG_RE.test(url.pathname) ? Promise.resolve() : caches.default.put(staleKey(req, url), new Response(body, { status: res.status, headers: st })),
+      ]));
       return new Response(body, { status: res.status, statusText: res.statusText, headers: out });
     }
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers: out });
