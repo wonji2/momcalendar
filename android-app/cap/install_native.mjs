@@ -79,7 +79,11 @@ const applink = `
 `;
 mf = once(mf, '                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n',
   '                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n' + applink, '런처 필터');
-mf = once(mf, '    </application>', `        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/push_icon" />
+mf = once(mf, '    </application>', `        <!-- 앱 안 브라우저 창(2026-10-27 사장님 「동일한 창에서 띄우면 되지」) — 바깥 주소와 그 안의 링크를 같은 창에서. 밖에서 못 부르게 exported=false -->
+        <activity android:name=".InAppBrowserActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/push_icon" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/momcal_brand" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="momcal_default" />
     </application>`, '알림 아이콘');

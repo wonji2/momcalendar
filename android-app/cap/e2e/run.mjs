@@ -22,7 +22,9 @@ const info = (name, note) => rows.push(`| ℹ️ | ${name} | ${String(note || ''
 const shot = (n) => { try { const b = execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 30000 }); fs.writeFileSync(`${OUT}/${n}.png`, b); } catch (_) {} };
 const top = () => { const s = sh('shell', 'dumpsys', 'activity', 'activities'); const m = s.match(/mResumedActivity[^\n]*\{[^\n]*\s([\w.]+\/[\w.$]+)/) || s.match(/topResumedActivity[^\n]*\{[^\n]*\s([\w.]+\/[\w.$]+)/); return m ? m[1] : '?'; };
 const isChooser = (a) => /ResolverActivity|IntentResolver|ChooserActivity/.test(a);
-const isTab = (a) => /customtabs\.CustomTabActivity/.test(a);
+// 바깥 화면: 앱 안 브라우저 창(2026-10-27 — 사장님 「동일한 창에서 띄우면 되지」). 예전 Custom Tab 도 열린 것으로 본다
+const isTab = (a) => /customtabs\.CustomTabActivity|InAppBrowserActivity/.test(a);
+const isInApp = (a) => /InAppBrowserActivity/.test(a);
 const ours = (a) => a.startsWith(PKG + '/');
 function screenText() { sh('shell', 'uiautomator', 'dump', '/sdcard/ui.xml'); return sh('shell', 'cat', '/sdcard/ui.xml'); }
 const hostRe = (url) => { const h = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2).join('.'); return new RegExp(h.replace(/\./g, '\\.')); };
@@ -185,6 +187,32 @@ async function expectTab(name, url, run) {
     await sleep(6000); reset();
     const u = await js('location.href');
     rec('우리 사이트 주소는 앱 화면 안에서', ours(top()) && /e2e=inside/.test(u || ''), top() + ' · ' + u);
+  }
+  // 앱 안 브라우저 창 안에서 누른 링크(naver.me → 스마트스토어 · 새 창 링크)도 같은 창에서 — 사장님 2026-10-27 카페 글 안 링크 선택창
+  {
+    await js(`openLink('https://smartstore.naver.com/'),'ok'`);
+    await sleep(6000);
+    const opened = top();
+    let note = '';
+    try {
+      const pages = await (await fetch('http://127.0.0.1:9333/json', { signal: AbortSignal.timeout(5000) })).json();
+      const pg = pages.find((p) => p.type === 'page' && /naver\.com/.test(p.url));
+      if (!pg) throw new Error('앱 안 창 페이지 없음 ' + pages.map((p) => p.url).join(' '));
+      const ws = new WebSocket(pg.webSocketDebuggerUrl);
+      await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; setTimeout(() => j(new Error('ws')), 10000); });
+      const click = (href, target) => ws.send(JSON.stringify({ id: Math.floor(Math.random() * 1e6), method: 'Runtime.evaluate', params: { userGesture: true, expression: `(function(){var a=document.createElement('a');a.href=${JSON.stringify(href)};${target ? "a.target='_blank';" : ''}document.body.appendChild(a);a.click();return 'ok'})()` } }));
+      click('https://naver.me/xy7Mm8Cz', false);
+      await sleep(6000);
+      const t1 = top(); shot('inapp_link');
+      click('https://www.coupang.com/', true);
+      await sleep(6000);
+      const t2 = top(); shot('inapp_link_blank');
+      try { ws.close(); } catch (_) {}
+      rec('앱 안 창에서 링크 누름 → 선택창 없이 같은 창', isInApp(opened) && isInApp(t1) && !isChooser(t1), opened + ' → ' + t1);
+      rec('앱 안 창에서 새 창 링크 → 같은 창', isInApp(t2) && !isChooser(t2), t2);
+    } catch (e) { rec('앱 안 창에서 링크 누름 → 선택창 없이 같은 창', false, opened + ' · ' + e.message); }
+    sh('forward', '--remove-all');
+    await back(); await back(); await back(); await toApp(); reset();
   }
   // 뒤로가기: 바깥 화면(Custom Tab)이 정말 열린 뒤 뒤로 → 앱
   {

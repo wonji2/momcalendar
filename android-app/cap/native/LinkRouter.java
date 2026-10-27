@@ -94,22 +94,24 @@ public final class LinkRouter {
     }
 
     /** 바깥 https: 네이버·카톡·인스타는 그 앱이 있으면 그 앱으로, 아니면 브라우저의 Custom Tab */
+    /** 바깥 https — 앱 안 브라우저 창(같은 창에서 이어 열기). 카톡 채팅방·인스타만 그 앱으로(패키지 지정 = 선택창 없음)
+     *  (사장님 2026-10-27 「카페 본문을 들어가서 링크 누르면 또 이렇게 떠 제발 안뜨게해 동일한 창에서 띄우면 되지」)
+     *  전엔 네이버 앱 인앱브라우저 → 없으면 Custom Tab 이었다. Custom Tab 안에서 누른 링크는 크롬이 다른 앱으로 넘기려 해 선택창이 떴다 */
     static void openWeb(Activity act, Uri u) {
         String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
         PackageManager pm = act.getPackageManager();
-        if ((h.equals("naver.me") || h.equals("naver.com") || h.endsWith(".naver.com")) && installed(pm, NAVER_APP)) {
-            // 네이버 앱 인앱브라우저(로그인이 살아 있다) — 패키지를 정해서 선택창 없이
-            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("naversearchapp://inappbrowser?url=" + Uri.encode(u.toString()) + "&target=new&version=6"));
-            i.setPackage(NAVER_APP);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try { act.startActivity(i); return; } catch (Exception ignored) { }
-        }
         if ((h.equals("open.kakao.com") || h.equals("pf.kakao.com") || h.equals("qr.kakao.com")) && installed(pm, KAKAOTALK)) {
             if (startIn(act, u, KAKAOTALK)) return;
         }
         if ((h.equals("instagram.com") || h.endsWith(".instagram.com")) && installed(pm, INSTAGRAM)) {
             if (startIn(act, u, INSTAGRAM)) return;
         }
+        try {
+            Intent i = new Intent(act, InAppBrowserActivity.class);
+            i.putExtra(InAppBrowserActivity.EXTRA_URL, u.toString());
+            act.startActivity(i);
+            return;
+        } catch (Exception ignored) { }
         customTab(act, u);
     }
 
