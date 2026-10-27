@@ -23,7 +23,9 @@ const shot = (n) => { try { const b = execFileSync('adb', ['exec-out', 'screenca
 const top = () => { const s = sh('shell', 'dumpsys', 'activity', 'activities'); const m = s.match(/mResumedActivity[^\n]*\{[^\n]*\s([\w.]+\/[\w.$]+)/) || s.match(/topResumedActivity[^\n]*\{[^\n]*\s([\w.]+\/[\w.$]+)/); return m ? m[1] : '?'; };
 const isChooser = (a) => /ResolverActivity|IntentResolver|ChooserActivity/.test(a);
 // 바깥 화면: 앱 안 브라우저 창(2026-10-27 — 사장님 「동일한 창에서 띄우면 되지」). 예전 Custom Tab 도 열린 것으로 본다
-const isTab = (a) => /customtabs\.CustomTabActivity|InAppBrowserActivity/.test(a);
+// 2026-10-27 오후: 바깥 링크는 폰의 인터넷 앱(에뮬레이터 = 크롬)으로 넘긴다 — 크롬·삼성 인터넷 본 화면도 열린 것으로 본다
+const isTab = (a) => /customtabs\.CustomTabActivity|InAppBrowserActivity|^com\.android\.chrome\/|^com\.sec\.android\.app\.sbrowser\//.test(a);
+const isBrowserApp = (a) => /^com\.android\.chrome\/|^com\.sec\.android\.app\.sbrowser\//.test(a);
 const isInApp = (a) => /InAppBrowserActivity/.test(a);
 const ours = (a) => a.startsWith(PKG + '/');
 function screenText() { sh('shell', 'uiautomator', 'dump', '/sdcard/ui.xml'); return sh('shell', 'cat', '/sdcard/ui.xml'); }
@@ -112,11 +114,15 @@ async function expectTab(name, url, run) {
   shot('t_' + name.replace(/[^\w가-힣]+/g, '_').slice(0, 40));
   rec(`${name} → 선택창 없음`, !isChooser(t), t);
   rec(`${name} → 브라우저 화면에 그 주소`, isTab(t) && hostRe(url).test(txt), t + ' · ' + hostRe(url) + ' ' + hostRe(url).test(txt));
+  rec(`${name} → 폰 인터넷 앱으로(그 앱 로그인 그대로)`, isBrowserApp(t), t);
   await toApp();
 }
 
 (async () => {
   info('설치', sh('install', '-r', APK).trim().slice(-80));
+  // 크롬 첫 실행 안내(동의·로그인 권유)를 건너뛴다 — 바깥 링크가 이제 크롬 본 화면으로 열려서(2026-10-27 오후)
+  sh('shell', 'am', 'set-debug-app', '--persistent', 'com.android.chrome');
+  sh('shell', 'sh', '-c', "echo 'chrome --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line");
   // 시험 폰을 한국어로 — 손님 폰과 같게(에뮬레이터 기본 영어라 네이버·카카오 화면이 영어로 찍혔다, 사장님 2026-10-27 「네이버가 왜 영어로떠」)
   info('앱 언어 한국어', (sh('shell', 'cmd', 'locale', 'set-app-locales', PKG, '--locales', 'ko-KR') + sh('shell', 'cmd', 'locale', 'set-app-locales', 'com.android.chrome', '--locales', 'ko-KR')).trim().slice(0, 80) || 'ok');
   info('크롬 첫 실행 안내 넘김', String(await chromeFre()) + ' · ' + top());
@@ -190,32 +196,8 @@ async function expectTab(name, url, run) {
     const u = await js('location.href');
     rec('우리 사이트 주소는 앱 화면 안에서', ours(top()) && /e2e=inside/.test(u || ''), top() + ' · ' + u);
   }
-  // 앱 안 브라우저 창 안에서 누른 링크(naver.me → 스마트스토어 · 새 창 링크)도 같은 창에서 — 사장님 2026-10-27 카페 글 안 링크 선택창
-  {
-    await js(`openLink('https://smartstore.naver.com/'),'ok'`);
-    await sleep(6000);
-    const opened = top();
-    let note = '';
-    try {
-      const pages = await (await fetch('http://127.0.0.1:9333/json', { signal: AbortSignal.timeout(5000) })).json();
-      const pg = pages.find((p) => p.type === 'page' && /naver\.com/.test(p.url));
-      if (!pg) throw new Error('앱 안 창 페이지 없음 ' + pages.map((p) => p.url).join(' '));
-      const ws = new WebSocket(pg.webSocketDebuggerUrl);
-      await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; setTimeout(() => j(new Error('ws')), 10000); });
-      const click = (href, target) => ws.send(JSON.stringify({ id: Math.floor(Math.random() * 1e6), method: 'Runtime.evaluate', params: { userGesture: true, expression: `(function(){var a=document.createElement('a');a.href=${JSON.stringify(href)};${target ? "a.target='_blank';" : ''}document.body.appendChild(a);a.click();return 'ok'})()` } }));
-      click('https://naver.me/xy7Mm8Cz', false);
-      await sleep(6000);
-      const t1 = top(); shot('inapp_link');
-      click('https://www.coupang.com/', true);
-      await sleep(6000);
-      const t2 = top(); shot('inapp_link_blank');
-      try { ws.close(); } catch (_) {}
-      rec('앱 안 창에서 링크 누름 → 선택창 없이 같은 창', isInApp(opened) && isInApp(t1) && !isChooser(t1), opened + ' → ' + t1);
-      rec('앱 안 창에서 새 창 링크 → 같은 창', isInApp(t2) && !isChooser(t2), t2);
-    } catch (e) { rec('앱 안 창에서 링크 누름 → 선택창 없이 같은 창', false, opened + ' · ' + e.message); }
-    sh('forward', '--remove-all');
-    await back(); await back(); await back(); await toApp(); reset();
-  }
+  // 바깥 링크는 이제 폰의 인터넷 앱으로 넘어가므로(2026-10-27 오후) 그 안에서 누른 링크는 인터넷 앱 몫이다 — 앱 안 창 안 링크 시험은 앱 안 창이 대체 길일 때만 의미가 있어 뺐다
+  info('바깥 링크가 여는 곳', '폰의 인터넷 앱(기본 브라우저 → 삼성 인터넷 → 크롬 → 웨일 → 엣지). 그 앱의 로그인을 그대로 쓴다');
   // 뒤로가기: 바깥 화면(Custom Tab)이 정말 열린 뒤 뒤로 → 앱
   {
     await js(`openLink('https://smartstore.naver.com/'),'ok'`);

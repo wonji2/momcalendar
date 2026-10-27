@@ -33,6 +33,8 @@ public final class LinkRouter {
     static final String PLAY = "com.android.vending";
     // 기본 브라우저를 정하지 않은 폰에서 Custom Tab 을 맡길 브라우저(앞이 우선) — 크롬·삼성 인터넷·엣지·웨일
     static final List<String> BROWSERS = Arrays.asList("com.android.chrome", "com.sec.android.app.sbrowser", "com.microsoft.emmx", "com.naver.whale");
+    // 바깥 링크를 넘길 인터넷 앱 순서(기본 브라우저를 안 정한 폰) — 갤럭시는 삼성 인터넷이 먼저(사장님 폰에서 웹이 여는 곳)
+    static final List<String> BROWSER_ORDER = Arrays.asList("com.sec.android.app.sbrowser", "com.android.chrome", "com.naver.whale", "com.microsoft.emmx");
     static final int BRAND = 0xFF602090;
 
     private static String lastUrl = "";
@@ -93,8 +95,11 @@ public final class LinkRouter {
         return true;
     }
 
-    /** 바깥 https: 네이버·카톡·인스타는 그 앱이 있으면 그 앱으로, 아니면 브라우저의 Custom Tab */
-    /** 바깥 https — 앱 안 브라우저 창(같은 창에서 이어 열기). 카톡 채팅방·인스타만 그 앱으로(패키지 지정 = 선택창 없음)
+    /** 바깥 https — 폰의 인터넷 앱(기본 브라우저 → 삼성 인터넷 → 크롬 → 웨일 → 엣지)으로, 앱을 정해서 넘긴다(선택창 없음)
+     *  (사장님 2026-10-27 「라이브에선 … 인터넷으로 바로 들어가지는데 앱에선 똑같이 이렇게 구현이 안되는거야?」 · 「로그인 두번은 안하게」)
+     *  → 손님이 평소 쓰는 인터넷 앱의 로그인(네이버·쿠팡 등)을 그대로 쓴다. 웹사이트에서 누를 때와 똑같다.
+     *  카톡 채팅방·인스타만 그 앱으로. 인터넷 앱이 하나도 없을 때만 앱 안 브라우저 창
+     *  (그 전: 앱 안 창 = 선택창은 없지만 앱 안 저장소라 네이버 로그인을 따로 해야 했다 · 더 전: Custom Tab = 안에서 누른 링크마다 선택창)
      *  (사장님 2026-10-27 「카페 본문을 들어가서 링크 누르면 또 이렇게 떠 제발 안뜨게해 동일한 창에서 띄우면 되지」)
      *  전엔 네이버 앱 인앱브라우저 → 없으면 Custom Tab 이었다. Custom Tab 안에서 누른 링크는 크롬이 다른 앱으로 넘기려 해 선택창이 떴다 */
     static void openWeb(Activity act, Uri u) {
@@ -106,6 +111,8 @@ public final class LinkRouter {
         if ((h.equals("instagram.com") || h.endsWith(".instagram.com")) && installed(pm, INSTAGRAM)) {
             if (startIn(act, u, INSTAGRAM)) return;
         }
+        String b = phoneBrowser(act);
+        if (b != null && startIn(act, u, b)) return;
         try {
             Intent i = new Intent(act, InAppBrowserActivity.class);
             i.putExtra(InAppBrowserActivity.EXTRA_URL, u.toString());
@@ -113,6 +120,18 @@ public final class LinkRouter {
             return;
         } catch (Exception ignored) { }
         customTab(act, u);
+    }
+
+    /** 폰의 인터넷 앱 — 손님이 정해 둔 기본 브라우저가 있으면 그것, 없으면 BROWSER_ORDER 순서대로 깔린 것(갤럭시 = 삼성 인터넷) */
+    static String phoneBrowser(Activity act) {
+        PackageManager pm = act.getPackageManager();
+        try {
+            ResolveInfo ri = pm.resolveActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")), PackageManager.MATCH_DEFAULT_ONLY);
+            String d = ri == null || ri.activityInfo == null ? null : ri.activityInfo.packageName;
+            if (d != null && !"android".equals(d) && !d.equals(act.getPackageName()) && !d.startsWith("com.google.android.gms")) return d;
+        } catch (Exception ignored) { }
+        for (String b : BROWSER_ORDER) if (installed(pm, b)) return b;
+        return null;
     }
 
     static boolean startIn(Activity act, Uri u, String pkg) {
