@@ -22,7 +22,8 @@ const KEY = process.env.SITE_WATCH_KEY;
 const REPO = process.env.GITHUB_REPOSITORY || 'wonji2/momcalendar';
 const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1';
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
-const CRIT = ['공구 목록', '페이지 오류 없음', '검색 「파스퇴르」', '핫딜 탭', '세일 탭', '검색창', '옆 메뉴'];
+// 심각한 고장 = 화면이 아예 안 뜨는 것만(공구 카드 0장·자바스크립트 오류). 검색창·옆 메뉴·탭은 화면 구조를 바꾼 정상 배포에서도 떨어질 수 있어 뺐다(재검증 2026-10-27)
+const CRIT = ['공구 목록', '페이지 오류 없음'];
 const log = (s) => console.log('[autofix] ' + s);
 const hashOf = (t) => crypto.createHash('sha1').update(t).digest('hex').slice(0, 12);
 const alert = (detail) => fetch(`${SB}/health_alerts`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ kind: 'watch:autofix', detail }) }).catch(() => {});
@@ -35,9 +36,9 @@ async function main() {
   if (!(r0.fail_n > 0 && r1.fail_n > 0)) { log('연속 실패 아님'); return; }
   if (!r0.live_hash || r0.live_hash !== r1.live_hash) { log('두 실패 회차의 index.html 이 다르거나 모름 — 되돌리지 않음'); return; }
 
-  // ⑤ 오늘 되돌림 횟수(한국 시간 0시부터, DB 에서)
-  const kstMidnightUtc = new Date(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) + 'T00:00:00+09:00').toISOString();
-  const done = await fetch(`${SB}/site_watch?select=id&auto_action=not.is.null&at=gte.${encodeURIComponent(kstMidnightUtc)}`, { headers: H }).then((r) => r.json()).catch(() => null);
+  // ⑤ 오늘 되돌림 횟수 — 기록 문구에 들어간 한국 날짜로 센다(행 시각으로 세면 자정 언저리에서 어제 칸에 들어가 샌다, 재검증 2026-10-27)
+  const todayK = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const done = await fetch(`${SB}/site_watch?select=id&auto_action=like.*${todayK}*`, { headers: H }).then((r) => r.json()).catch(() => null);
   if (!Array.isArray(done)) { log('오늘 되돌림 횟수를 못 셈 — 멈춤'); return; }
   if (done.length >= 3) { log('오늘 이미 3번 되돌림 — 멈춤'); return; }
 
@@ -50,12 +51,17 @@ async function main() {
   if (!good) { log('통과했던 다른 판 기록 없음'); return; }
   const gh = { Accept: 'application/vnd.github+json', ...(process.env.GH_TOKEN ? { Authorization: 'token ' + process.env.GH_TOKEN } : {}) };
   const commits = await fetch(`https://api.github.com/repos/${REPO}/commits?path=index.html&per_page=30`, { headers: gh }).then((r) => r.json()).catch(() => []);
+  // 🔴 「바로 전 판」 하나만 — 지금 판의 커밋 바로 아래 index.html 커밋이 통과했던 판일 때만 되돌린다
+  //    (더 옛날 판으로 가면 그 사이 여러 커밋·로그인 수정까지 통째로 사라진다, 재검증 2026-10-27)
   let oldHtml = null, oldSha = null;
-  for (const c of Array.isArray(commits) ? commits : []) {
-    const t = await fetch(`https://raw.githubusercontent.com/${REPO}/${c.sha}/index.html`).then((r) => (r.ok ? r.text() : null)).catch(() => null);
-    if (t && hashOf(t) === good.live_hash) { oldHtml = t; oldSha = c.sha; break; }
-  }
-  if (!oldHtml || !oldHtml.startsWith('<!DOCTYPE html>')) { log('통과했던 판을 최근 30커밋에서 못 찾음'); return; }
+  const list = Array.isArray(commits) ? commits : [];
+  const body = async (sha) => fetch(`https://raw.githubusercontent.com/${REPO}/${sha}/index.html`).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+  let ci = -1;
+  for (let i = 0; i < Math.min(list.length, 5); i++) { const t = await body(list[i].sha); if (t && hashOf(t) === r0.live_hash) { ci = i; break; } }
+  if (ci < 0 || ci + 1 >= list.length) { log('지금 판의 커밋을 못 찾음 — 되돌리지 않음'); return; }
+  const prevT = await body(list[ci + 1].sha);
+  if (prevT && hashOf(prevT) === good.live_hash) { oldHtml = prevT; oldSha = list[ci + 1].sha; }
+  if (!oldHtml || !oldHtml.startsWith('<!DOCTYPE html>')) { log('통과했던 판이 바로 전 판이 아님 — 되돌리지 않음(여러 판을 한꺼번에 날리지 않는다)'); return; }
 
   // ④ 같은 조건으로 번갈아 두 번씩
   const testCur = process.env.AUTOFIX_TEST_NOW;
@@ -66,13 +72,16 @@ async function main() {
   const measure = (dir) => {
     const r = spawnSync(process.execPath, ['tools/daily/live_smoke.mjs', '--local=' + dir], { encoding: 'utf8', timeout: 12 * 60e3 });
     const out = r.stdout || '';
-    if (!/결과: 통과 \d+ · 실패 \d+/.test(out)) return null;   // 결과 줄이 없으면 모름
-    return out.split('\n').filter((l) => l.includes('🔴') && CRIT.some((c) => l.includes('] ' + c))).length;
+    const rm = out.match(/결과: 통과 \d+ · 실패 (\d+)/);
+    if (!rm) return null;   // 결과 줄이 없으면 모름
+    return { crit: out.split('\n').filter((l) => l.includes('🔴') && CRIT.some((c) => l.includes('] ' + c))).length, all: +rm[1] };
   };
   const cur = testCur || '/tmp/cursite';
   const m = [measure(cur), measure('/tmp/oldsite'), measure(cur), measure('/tmp/oldsite')];
-  log(`같은 조건 재측정(심각한 고장 수): 지금 ${m[0]}·${m[2]} · 통과했던 판(${oldSha.slice(0, 10)}) ${m[1]}·${m[3]}`);
-  if (!(m[0] > 0 && m[2] > 0 && m[1] === 0 && m[3] === 0)) { log('되돌릴 조건 아님(옛 판도 고장·지금 판 심각한 고장 없음·모름)'); return; }
+  const s = (x) => (x ? `${x.crit}/${x.all}` : '모름');
+  log(`같은 조건 재측정(심각한 고장/전체 실패): 지금 ${s(m[0])}·${s(m[2])} · 바로 전 판(${oldSha.slice(0, 10)}) ${s(m[1])}·${s(m[3])}`);
+  // 지금 판은 두 번 다 심각한 고장, 바로 전 판은 두 번 다 49개 전부 통과(로그인 이동까지)일 때만
+  if (!(m.every(Boolean) && m[0].crit > 0 && m[2].crit > 0 && m[1].all === 0 && m[3].all === 0)) { log('되돌릴 조건 아님'); return; }
   if (DRY) { log('--dry: 되돌릴 판정만'); return; }
 
   // 기록 먼저 — 못 남기면 되돌리지 않는다(상한이 새지 않게)
