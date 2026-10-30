@@ -4847,7 +4847,11 @@ function sellerAuthCard(s,isPending){
     <input type="checkbox" class="seller-chk" value="${s.id}" style="width:16px;height:16px;flex-shrink:0">
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap"><span style="font-size:14px;font-weight:700;color:#191919">${name}</span>${stBadge}</div>
-      <div style="font-size:11px;color:#888">@${handle}</div>
+      <div style="font-size:11px;color:#888">@${handle}${s.contact_name?` · 👤 ${s.contact_name}`:''}</div>
+      ${s.phone||s.email?`<div style="font-size:11px;color:#555;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+        ${s.phone?`<span>📞 <a href="tel:${s.phone}" style="color:#2E7D32;text-decoration:none;font-weight:600">${s.phone}</a></span>`:''}
+        ${s.email?`<span>✉️ <a href="mailto:${s.email}" style="color:#1976D2;text-decoration:none">${s.email}</a></span>`:''}
+      </div>`:''}
     </div>
     <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">${actions}</div>
   </div>`;
