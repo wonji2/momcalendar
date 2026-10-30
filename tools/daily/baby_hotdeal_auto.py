@@ -34,6 +34,8 @@ def classify_category(title):
     t = title.lower()
     if re.search(r'우유|분유|치즈|요거트|두유', t):
         return '식품', '유제품'
+    if re.search(r'유모차|유모자|카시트|아기띠|웨건|트라이크|보행기', t):
+        return '육아', '육아용품'
     if re.search(r'점퍼|패딩|자켓|바지|상의|하의|양말|슈트|의류|티셔츠|모자|내의|상하복', t):
         return '육아', '의류잡화'
     if re.search(r'기저귀|물티슈|손수건', t):
@@ -153,14 +155,14 @@ def main():
             editor_img = imgs[0] if imgs else ''
 
             # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/deal/\d+|item\.gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|www\.11st\.co\.kr/products/\d+)'
+            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/deal/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/itemView\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
             found = re.findall(link_re, detail)
             if not found:
                 print('[bbhd] 지원 링크 없음')
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
-            target_link = found[0]
+            target_link = found[0].replace('&amp;', '&')
             mall = '기타'
             source = 'linkprice'
             aff_link = None
@@ -175,6 +177,7 @@ def main():
             clean_title = re.sub(r'^\[[^\]]+\]\s*', '', raw_title)
             clean_title = re.sub(r'^[^\)]+\)\s*', '', clean_title)
             clean_title = re.sub(r'\s*\d{1,3}(?:,\d{3})+원.*$', '', clean_title).strip() or raw_title
+            clean_title = clean_title.replace('유모자', '유모차')
             major, minor = classify_category(raw_title)
 
             if 'link.coupang.com' in target_link:
@@ -201,6 +204,38 @@ def main():
                 prod_id = f'bori_{did}'
                 clean = f'https://m.boribori.co.kr/deal/{did}'
                 aff_link = f'https://click.linkprice.com/click.php?m=boribori&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+            elif 'ssg.com' in target_link:
+                mall = 'SSG'
+                source = 'linkprice'
+                sm = re.search(r'itemId=(\d+)', target_link)
+                sid = sm.group(1) if sm else str(wr_id)
+                prod_id = f'ssg_{sid}'
+                clean = f'https://m.ssg.com/item/itemView.ssg?itemId={sid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=emart&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+            elif '11st.co.kr' in target_link:
+                mall = '11번가'
+                source = 'linkprice'
+                em = re.search(r'products/(\d+)', target_link)
+                eid = em.group(1) if em else str(wr_id)
+                prod_id = f'11st_{eid}'
+                clean = f'https://www.11st.co.kr/products/{eid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=11st&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+            elif 'auction.co.kr' in target_link:
+                mall = '옥션'
+                source = 'linkprice'
+                am = re.search(r'itemno=([A-Za-z0-9]+)', target_link)
+                aid = am.group(1) if am else str(wr_id)
+                prod_id = f'auc_{aid}'
+                clean = f'http://itempage3.auction.co.kr/DetailView.aspx?itemno={aid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=auction&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+            elif 'lotteon.com' in target_link:
+                mall = '롯데ON'
+                source = 'linkprice'
+                lm = re.search(r'product/([A-Za-z0-9]+)', target_link)
+                lid = lm.group(1) if lm else str(wr_id)
+                prod_id = f'lo_{lid}'
+                clean = f'https://www.lotteon.com/p/product/{lid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
             elif 'gmarket.co.kr' in target_link:
                 mall = '지마켓'
                 source = 'linkprice'
