@@ -26,62 +26,63 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 const SITE = process.env.SITE?.trim() || 'https://momcalendar.com';  // SITE=http://localhost:8099 로 로컬 검증
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const day = process.env.DAY?.trim() || kstToday();
-// PAGE=2 → 2쪽 카드(1쪽에 들어가고 남은 항목). 산출물은 today-p2.png / <날짜>_today-p2.png 로 따로 (사장님 2026-10-07 "2페이지로 내용 더")
-const PAGE = Math.max(1, parseInt(process.env.PAGE || '1', 10) || 1);
-const SUF = PAGE > 1 ? '-p' + PAGE : '';
+// PAGE 환경변수가 있으면 해당 쪽만, 없으면 1~4쪽 전량 생성 (사장님 지시 2026-10-26 "카드는 3~4장")
+const targetPages = process.env.PAGE ? [parseInt(process.env.PAGE, 10)] : [1, 2, 3, 4];
 
 // 번들 headless → 없으면 설치된 Chrome 으로 폴백 (make-card.mjs 와 같은 이유·같은 패턴)
-const guard = pwGuard('오늘 카드 만들기', 5 * 60e3);
+const guard = pwGuard('오늘 카드 만들기', 8 * 60e3);
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
 guard.use(browser);
-const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, deviceScaleFactor: 1 });
-const errors = [];
-page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
+mkdirSync('daily', { recursive: true });
 
-await page.goto(`${SITE}/todaycard.html?d=${day}&p=${PAGE}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+for (const P of targetPages) {
+  const SUF = P > 1 ? '-p' + P : '';
+  const page = await browser.newPage({ viewport: { width: 1200, height: 2400 }, deviceScaleFactor: 1 });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
 
-// 데이터가 다 들어왔는지(캡션이 채워지는 것으로 판단) 기다린다
-await page.waitForFunction(() => {
-  const t = document.getElementById('captxt');
-  return t && t.value && t.value.length > 200;
-}, { timeout: 60000 });
-// 🔴 다 그려진 뒤에 찍는다 — 카드 줄 수가 멈출 때까지(스레드 2026-09-30 사고와 같은 구멍)
-{
-  let prev = -1;
-  for (let t = 1; t <= 8; t++) {
-    const n = await page.evaluate(() => document.querySelectorAll('#card .it-nm, #card .item, #card li').length);
-    if (n > 0 && n === prev) break;
-    prev = n; await new Promise((r) => setTimeout(r, 800));
+  await page.goto(`${SITE}/todaycard.html?d=${day}&p=${P}&cb=${Date.now()}`, { waitUntil: 'networkidle', timeout: 60000 });
+
+  await page.waitForFunction(() => {
+    const t = document.getElementById('captxt');
+    return t && t.value && t.value.length > 200;
+  }, { timeout: 60000 });
+
+  {
+    let prev = -1;
+    for (let t = 1; t <= 8; t++) {
+      const n = await page.evaluate(() => document.querySelectorAll('#card .it-nm, #card .item, #card li').length);
+      if (n > 0 && n === prev) break;
+      prev = n; await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+
+  const pngDataUrl = await page.evaluate(async () => {
+    const card = document.getElementById('card');
+    if (!card) return null;
+    document.body.classList.remove('mini');
+    document.body.classList.add('clean');
+    await document.fonts.ready;
+    await new Promise((r) => setTimeout(r, 400));
+    const canvas = await window.html2canvas(card, {
+      width: 1080, height: 1920, scale: 1,
+      backgroundColor: '#ffffff', useCORS: true, logging: false,
+      windowWidth: 1080, windowHeight: 1920,
+      onclone: window.trimToFit,
+    });
+    return canvas.toDataURL('image/png');
+  });
+  await page.close();
+
+  if (pngDataUrl) {
+    const buf = Buffer.from(pngDataUrl.split(',')[1], 'base64');
+    writeFileSync(`daily/today${SUF}.png`, buf);
+    writeFileSync(`daily/${day}_today${SUF}.png`, buf);
+    console.log(`오늘 카드 P${P} 완성: daily/today${SUF}.png (${(buf.length / 1024).toFixed(0)}KB) · 보관본 daily/${day}_today${SUF}.png`);
   }
 }
-
-const pngDataUrl = await page.evaluate(async () => {
-  const card = document.getElementById('card');
-  if (!card) return null;
-  document.body.classList.remove('mini');
-  document.body.classList.add('clean');
-  await document.fonts.ready;
-  await new Promise((r) => setTimeout(r, 400));
-  const canvas = await window.html2canvas(card, {
-    width: 1080, height: 1920, scale: 1,
-    backgroundColor: '#ffffff', useCORS: true, logging: false,
-    windowWidth: 1080, windowHeight: 1920,
-    // 🔴 복제본에서 넘침을 다시 잡는다. 없으면 맨 아래 "+N건 더" 가 잘린다
-    //    (2026-08-11 에 페이지 savePng 에만 들어갔던 수정 — 캡처 경로에도 똑같이 줘야 한다)
-    onclone: window.trimToFit,
-  });
-  return canvas.toDataURL('image/png');
-});
 await browser.close();
-guard.clear();   // 브라우저는 다 썼다 — 뒤쪽 후처리는 제한시간에서 뺀다
-
-if (!pngDataUrl) { console.error('카드를 못 그렸다'); process.exit(1); }
-if (errors.length) console.log('페이지 오류:', errors.slice(0, 3).join(' | '));
-
-mkdirSync('daily', { recursive: true });
-const buf = Buffer.from(pngDataUrl.split(',')[1], 'base64');
-writeFileSync(`daily/today${SUF}.png`, buf);
-writeFileSync(`daily/${day}_today${SUF}.png`, buf);
+guard.clear();
 
 const d = new Date(day + 'T00:00:00');
 const label = `${d.getMonth() + 1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`;
@@ -97,7 +98,7 @@ try {
     .map((a) => `<p style="margin:0;padding:10px 14px;background:#FFE9E9;color:#B3261E;font-size:13px;font-weight:700;line-height:1.5">⚠ ${a}</p>`)
     .join('');
 } catch { /* 없으면 정상 */ }
-if (PAGE === 1) writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
+if (!process.env.PAGE || process.env.PAGE === '1') writeFileSync('daily/today.html', `<!DOCTYPE html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>${label} 오늘 공구 캘린더</title>
