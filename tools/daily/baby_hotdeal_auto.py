@@ -68,6 +68,25 @@ def resolve_coupang_url(short_url):
         print(f'[bbhd] resolve_coupang_url error: {e}')
     return None, None
 
+def get_coupang_image(kw, pid=None):
+    try:
+        clean_kw = re.sub(r'\[[^\]]+\]|\([^\)]+\)', '', kw).strip()
+        enc = urllib.parse.quote(clean_kw[:25])
+        url = f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?test=search&limit=5&kw={enc}'
+        req = urllib.request.Request(url, headers={'x-cron-secret': CRON_SECRET})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            items = data.get('items', [])
+            if pid:
+                matched = [it for it in items if str(it.get('productId')) == str(pid)]
+                if matched and matched[0].get('productImage'):
+                    return matched[0]['productImage']
+            if items and items[0].get('productImage'):
+                return items[0]['productImage']
+    except Exception as e:
+        print(f'[bbhd] Coupang image search error: {e}')
+    return ''
+
 def get_coupang_deeplink(clean_product_url):
     enc = urllib.parse.quote(clean_product_url)
     ep = f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?deeplink={enc}'
@@ -166,6 +185,9 @@ def main():
                 if not aff_link:
                     print('[bbhd] 쿠팡 딥링크 변환 실패')
                     continue
+                cp_img = get_coupang_image(clean_title, pid)
+                if cp_img:
+                    editor_img = cp_img
             elif 'boribori.co.kr' in target_link:
                 mall = '보리보리'
                 source = 'linkprice'
