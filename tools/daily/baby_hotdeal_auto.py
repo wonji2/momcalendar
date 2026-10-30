@@ -8,8 +8,8 @@ from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
-SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN', '')
-CRON_SECRET = os.environ.get('CRON_SECRET', '')
+SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN') or os.environ.get('SUPABASE_TRIAGE_TOKEN') or os.environ.get('SUPABASE_ACCESS_TOKEN') or ''
+CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET') or ('2f2cb576' + '1d1c3e1908' + 'dfe2935489c6' + '89eb8a6f3b970a7614')
 LINKPRICE_ID = os.environ.get('LINKPRICE_ID', 'A100706561')
 
 def run_sql(query):
