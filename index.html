@@ -6283,8 +6283,8 @@ function nxdBell(id,btn,ev){
   }
   m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';   // 상품명·날짜 없이 한 줄(사장님 2026-10-26)
   const _inApp=(typeof _isInApp==='function' && _isInApp());
-  m.querySelector('.nxa-s').textContent=_inApp?`${_isIOS()?'사파리':'크롬'}에서 알림 받을 수 있어요`:'오픈일 아침 9시 알림 보내드려요';
-  m.querySelector('.nxa-yes').textContent=_inApp?(_isIOS()?'사파리에서 알림 켜기':'크롬에서 알림 켜기'):'알림 받을게요';
+  m.querySelector('.nxa-s').textContent=_inApp?`${_isIOS()?'사파리':'외부 브라우저'}에서 알림 받을 수 있어요`:'오픈일 아침 9시 알림 보내드려요';
+  m.querySelector('.nxa-yes').textContent=_inApp?'알림 켜러 가기':'알림 받을게요';
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
     if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
@@ -6295,7 +6295,7 @@ function nxdBell(id,btn,ev){
         const ok=await enablePush();                                                               // 브라우저 알림 허용 창
         mcToast(ok?`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`:'알림 권한이 꺼져 있어요 · 찜은 해 두었어요');
       } else {
-        mcToast(window.Notification && Notification.permission==='denied' ? '이 브라우저는 알림이 차단돼 있어요 · 찜은 해 두었어요' : '찜해 두었어요 · 이 화면에선 알림을 받을 수 없어요');
+        mcToast(window.Notification && Notification.permission==='denied' ? '알림이 차단돼 있어요 · 주소창 ⚙️에서 허용할 수 있어요' : '찜해 두었어요 · 이 화면에선 알림을 받을 수 없어요');
       }
     }catch(_){}
   };
@@ -6312,7 +6312,8 @@ function _nxOutside(id){
     if(/KAKAOTALK/i.test(ua)){ try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); }catch(_){}; setTimeout(()=>{ if(!document.hidden) fallback(); },1800); return; }
     fallback(); return;   // 인스타·스레드·네이버 등 아이폰 인앱은 밖으로 강제로 못 연다
   }
-  try{ location.href='intent://'+location.host+'/?nxbell='+id+'#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(url)+';end'; }catch(_){}
+  if(/KAKAOTALK/i.test(ua)){ try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); }catch(_){}; setTimeout(()=>{ if(!document.hidden) fallback(); },1800); return; }
+  try{ location.href='intent://'+location.host+'/?nxbell='+id+'#Intent;scheme=https;S.browser_fallback_url='+encodeURIComponent(url)+';end'; }catch(_){}
   setTimeout(()=>{ if(!document.hidden) fallback(); },1800);   // intent 를 막는 웹뷰면 화면이 그대로 남는다
 }
 function _nxGuide(url,ua){
@@ -6322,7 +6323,7 @@ function _nxGuide(url,ua){
       g.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t">찜은 해 두었어요</div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-yes">확인</button></div></div>';
       document.body.appendChild(g); g.querySelector('.nxa-bg').onclick=g.querySelector('.nxa-yes').onclick=function(){ g.classList.remove('open'); }; }
     const where=_isIOS()&&typeof _appGuide==='function'?_appGuide(ua):'<b>우측 위 ⋮</b> → <b>다른 브라우저로 열기</b>';
-    g.querySelector('.nxa-s').innerHTML='알림은 '+(_isIOS()?'사파리':'크롬')+'에서 받을 수 있어요<br>'+(ok?'<b style="color:#602090">주소를 복사했어요.</b> ':'')+where;
+    g.querySelector('.nxa-s').innerHTML='알림은 '+(_isIOS()?'사파리':'기본 브라우저')+'에서 받을 수 있어요<br>'+(ok?'<b style="color:#602090">주소를 복사했어요.</b> ':'')+where;
     g.classList.add('open');
   };
   try{ typeof _copyUrlThen==='function'?_copyUrlThen(url,go):go(false); }catch(_){ go(false); }
