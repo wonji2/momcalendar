@@ -155,7 +155,7 @@ def main():
             editor_img = imgs[0] if imgs else ''
 
             # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/deal/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
+            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
             found = re.findall(link_re, detail)
             if not found:
                 print('[bbhd] 지원 링크 없음')
@@ -199,10 +199,11 @@ def main():
             elif 'boribori.co.kr' in target_link:
                 mall = '보리보리'
                 source = 'linkprice'
-                dm = re.search(r'deal/(\d+)', target_link)
+                dm = re.search(r'(?:deal|product)/(\d+)', target_link)
                 did = dm.group(1) if dm else str(wr_id)
                 prod_id = f'bori_{did}'
-                clean = f'https://m.boribori.co.kr/deal/{did}'
+                path_type = 'product' if 'product/' in target_link else 'deal'
+                clean = f'https://m.boribori.co.kr/{path_type}/{did}'
                 aff_link = f'https://click.linkprice.com/click.php?m=boribori&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
             elif 'ssg.com' in target_link:
                 mall = 'SSG'
