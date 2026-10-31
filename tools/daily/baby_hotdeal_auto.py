@@ -155,7 +155,7 @@ def main():
             editor_img = imgs[0] if imgs else ''
 
             # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/deal/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/itemView\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
+            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/deal/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
             found = re.findall(link_re, detail)
             if not found:
                 print('[bbhd] 지원 링크 없음')
