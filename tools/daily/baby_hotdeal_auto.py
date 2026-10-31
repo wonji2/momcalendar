@@ -251,7 +251,8 @@ def main():
                 # Follow app.ac shortlink
                 try:
                     out = subprocess.check_output(['curl', '-sIL', target_link], timeout=10).decode('utf-8', errors='ignore')
-                    m_gm = re.search(r'goodscode=(\d+)', out)
+                    unquoted = urllib.parse.unquote(out)
+                    m_gm = re.search(r'(?:goodscode=|product/)(\d+)', unquoted, re.I)
                     if m_gm:
                         gid = m_gm.group(1)
                         mall = '지마켓'
