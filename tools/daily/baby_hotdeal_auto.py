@@ -253,7 +253,12 @@ def main():
                 try:
                     out = subprocess.check_output(['curl', '-sIL', target_link], timeout=10).decode('utf-8', errors='ignore')
                     unquoted = urllib.parse.unquote(out)
-                    m_gm = re.search(r'(?:goodscode=|product/)(\d+)', unquoted, re.I)
+                    m_gm = re.search(r'(?:gmarket\.co\.kr.*(?:goodscode=|product/)|link\.gmarket\.co\.kr.*(?:product/))(\d+)', unquoted, re.I)
+                    m_lo = re.search(r'lotteon\.com.*product/([A-Za-z0-9]+)', unquoted, re.I)
+                    m_11 = re.search(r'11st\.co\.kr.*products/(\d+)', unquoted, re.I)
+                    m_auc = re.search(r'auction\.co\.kr.*itemno=([A-Za-z0-9]+)', unquoted, re.I)
+                    m_ssg = re.search(r'ssg\.com.*itemId=(\d+)', unquoted, re.I)
+
                     if m_gm:
                         gid = m_gm.group(1)
                         mall = '지마켓'
@@ -262,6 +267,34 @@ def main():
                         clean = f'https://item.gmarket.co.kr/Item?goodscode={gid}'
                         aff_link = f'https://click.linkprice.com/click.php?m=gmarket&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
                         editor_img = f'https://gdimg.gmarket.co.kr/{gid}/still/600'
+                    elif m_lo:
+                        lid = m_lo.group(1)
+                        mall = '롯데ON'
+                        source = 'linkprice'
+                        prod_id = f'lo_{lid}'
+                        clean = f'https://www.lotteon.com/p/product/{lid}'
+                        aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+                    elif m_11:
+                        eid = m_11.group(1)
+                        mall = '11번가'
+                        source = 'linkprice'
+                        prod_id = f'11st_{eid}'
+                        clean = f'https://www.11st.co.kr/products/{eid}'
+                        aff_link = f'https://click.linkprice.com/click.php?m=11st&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+                    elif m_auc:
+                        aid = m_auc.group(1)
+                        mall = '옥션'
+                        source = 'linkprice'
+                        prod_id = f'auc_{aid}'
+                        clean = f'http://itempage3.auction.co.kr/DetailView.aspx?itemno={aid}'
+                        aff_link = f'https://click.linkprice.com/click.php?m=auction&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+                    elif m_ssg:
+                        sid = m_ssg.group(1)
+                        mall = 'SSG'
+                        source = 'linkprice'
+                        prod_id = f'ssg_{sid}'
+                        clean = f'https://m.ssg.com/item/itemView.ssg?itemId={sid}'
+                        aff_link = f'https://click.linkprice.com/click.php?m=emart&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
                     else:
                         print(f'[bbhd] app.ac 대상 확인 불가: {target_link}')
                         new_max_id = max(new_max_id, wr_id)
