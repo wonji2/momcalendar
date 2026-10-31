@@ -155,7 +155,7 @@ def main():
             editor_img = imgs[0] if imgs else ''
 
             # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|app\.ac/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
+            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|(?:app\.ac|bitl\.bz|deg\.kr)/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
             found = re.findall(link_re, detail)
             if not found:
                 print('[bbhd] 지원 링크 없음')
@@ -248,14 +248,14 @@ def main():
                 gm_img = f'https://gdimg.gmarket.co.kr/{gid}/still/600'
                 if gm_img:
                     editor_img = gm_img
-            elif 'app.ac' in target_link:
-                # Follow app.ac shortlink
+            elif any(dom in target_link for dom in ['app.ac', 'bitl.bz', 'deg.kr']):
+                # Follow shortlink
                 try:
-                    out = subprocess.check_output(['curl', '-sIL', target_link], timeout=10).decode('utf-8', errors='ignore')
-                    unquoted = urllib.parse.unquote(out)
+                    out = subprocess.check_output(['curl', '-sIL', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], timeout=10).decode('utf-8', errors='ignore')
+                    unquoted = urllib.parse.unquote(urllib.parse.unquote(out))
                     m_gm = re.search(r'(?:gmarket\.co\.kr.*(?:goodscode=|product/)|link\.gmarket\.co\.kr.*(?:product/))(\d+)', unquoted, re.I)
                     m_lo = re.search(r'lotteon\.com.*product/([A-Za-z0-9]+)', unquoted, re.I)
-                    m_11 = re.search(r'11st\.co\.kr.*products/(\d+)', unquoted, re.I)
+                    m_11 = re.search(r'11st\.co\.kr.*products(?:/|%2F)(\d+)', unquoted, re.I)
                     m_auc = re.search(r'auction\.co\.kr.*itemno=([A-Za-z0-9]+)', unquoted, re.I)
                     m_ssg = re.search(r'ssg\.com.*itemId=(\d+)', unquoted, re.I)
 
