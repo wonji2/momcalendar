@@ -2456,7 +2456,7 @@ function hdExpired(h){
 }
 
 // 🔴 검색 결과의 핫딜은 **최근 7일 안에 올린 것**만 보여준다 (사장님 지시 2026-11-01 — 그 전엔 어제·오늘 이틀(08-22), 손님이 새벽에 「기저귀」를 찾았는데 10-30 핫딜이 빠져 공구만 보였다 · 제보 #18).
-//    3일 넘은 핫딜은 가격이 바뀌었을 수 있어 카드에 「N일 전 핫딜 (가격변동 가능)」 뱃지(hdCardHtml stale).
+//    3일 넘은 핫딜은 가격이 바뀌었을 수 있어 카드에 「가격변동 가능」 뱃지(「N일 전」은 카드에 이미 있다)(hdCardHtml stale).
 //    핫딜 가격은 보통 하루면 변한다 — 며칠 지난 핫딜이 검색에 걸리면 틀린 가격을 보여주게 된다.
 //    상시 핫딜(pin_random)은 가격을 자동 추적하므로 예외. 핫딜 탭 자체는 그대로(hdExpired 만 적용).
 const HD_SEARCH_DAYS=7;
@@ -3314,8 +3314,8 @@ function hdCardHtml(h,opt){
   const ago=isToday
     ? `<span class="hc-today">오늘</span>`
     : `<span class="hc-ago">${diff===1?'어제':diff+'일 전'}</span>`;
-  // 검색 결과(opt.stale)에서 3일 넘은 핫딜은 가격·재고가 바뀌었을 수 있다 — 「N일 전 핫딜 (가격변동 가능)」 (사장님 2026-11-01)
-  const stale=(opt&&opt.stale&&diff>=3)?`<span class="hc-stale">${diff}일 전 핫딜 (가격변동 가능)</span>`:'';
+  // 검색 결과(opt.stale)에서 3일 넘은 핫딜은 가격·재고가 바뀌었을 수 있다 — 「가격변동 가능」 (사장님 2026-11-01 — 「N일 전」은 카드에 이미 있으니 겹치지 않게)
+  const stale=(opt&&opt.stale&&diff>=3)?`<span class="hc-stale">가격변동 가능</span>`:'';
 
   const cat='🔥 '+[h.major,h.minor].filter(Boolean).join(' · ');
   // 판매처는 뱃지로 (제목에 섞으면 상품명 시작점이 흐려짐). 쿠팡 수집분은 mall 이 없어 source 로 보완
