@@ -16,7 +16,20 @@ LINKPRICE_ID = os.environ.get('LINKPRICE_ID', 'A100706561')
 if not SB_MGMT_TOKEN or not CRON_SECRET:
     raise SystemExit('[bbhd] SUPABASE_TRIAGE_TOKEN / PUSH_CRON_SECRET 환경변수가 없다 — 깃허브 시크릿을 확인')
 
-def run_sql(query):
+def run_sql(query, tries=3):
+    # 관리 API 가 가끔 502 를 낸다(11-01 클라우드 첫 회차: 20건 중 5건) → 2초·5초 쉬고 다시
+    import time
+    last = None
+    for i in range(tries):
+        try:
+            return _run_sql_once(query)
+        except Exception as e:
+            last = e
+            if i < tries - 1:
+                time.sleep(2 if i == 0 else 5)
+    raise last
+
+def _run_sql_once(query):
     url = f'https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query'
     req = urllib.request.Request(
         url,
@@ -121,7 +134,8 @@ def main():
         if rows and 'last_id' in rows[0].get('payload', {}):
             last_id = int(rows[0]['payload']['last_id'])
     except Exception as e:
-        print(f'[bbhd] ops_status 조회 실패, 기본값 사용: {e}')
+        print(f'[bbhd] ops_status 조회 실패 — 기본값으로 옛 글을 다시 훑지 않고 이 회차는 멈춘다: {e}')
+        raise SystemExit(0)
 
     print(f'[bbhd] 기준 wr_id: {last_id}')
 
