@@ -200,7 +200,7 @@ const run = async ([grp, say, want, need, headWord]) => {
 
 const list = CASES.filter((c) => !ONLY || c[0] === ONLY);
 const rs = [];
-for (const c of list) rs.push(await run(c));
+for (const c of list) { rs.push(await run(c)); await new Promise((r) => setTimeout(r, 500)); }   // 0.5초 간격 — 1분에 150건을 쏘면 그 순간 손님 질문이 4.2초를 넘겨 「스킬 오류」(2026-11-01 12:25 실손님 3건)
 
 const down = rs.filter((r) => r.down);
 const miss = rs.filter((r) => !r.down && r.want !== 'any' && r.got !== r.want);

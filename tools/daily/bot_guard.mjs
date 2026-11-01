@@ -28,7 +28,7 @@ process.chdir(ROOT);                 // ⚠ 예약작업 cwd 는 System32 — su
 const CLI = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
 const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const LOG = path.join(ROOT, 'scratchpad', 'bot_guard_log.txt');
-const FULL = process.argv.includes('--full') || new Date(Date.now() + 9 * 3600e3).getMinutes() < 30;
+const FULL = process.argv.includes('--full') || (() => { const k = new Date(Date.now() + 9 * 3600e3); return k.getMinutes() < 30 && k.getUTCHours() % 3 === 0; })();   // 105건 회귀는 3시간마다 — 매시 쏘면 손님 질문과 겹쳐 「스킬 오류」(2026-11-01)
 
 const MISS_MSG = /진행 중이거나 예정인 게 없|다룬 적이 없/;   // ⚠ '지난번에는' 안내와 겹치지 않게 좁힌 것
 //   🔑 실패 판정은 "카드가 없다" 가 아니라 "못 찾음 안내를 냈다" 로 한다 (사장님 지적 2026-09-02).
