@@ -37,7 +37,7 @@ order by month;`, 'utf8');
 let rows = [];
 try {
   const raw = execFileSync(CLI, ['db', 'query', '--linked', '--output-format', 'json', '--file', sqlRel],
-    { cwd: REPO, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+    { cwd: REPO, encoding: 'utf8', timeout: 300000, stdio: ['ignore', 'pipe', 'pipe'] });
   const got = parseRows(raw);
   if (!got.ok) throw new Error('결과를 못 읽었다');
   rows = got.rows || [];

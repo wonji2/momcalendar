@@ -31,7 +31,7 @@ const DRY = process.argv.includes('--dry');
 const runSql = (sql) => {
   writeFileSync(TMP, sql, 'utf8');
   // ⚠ 예약작업 cwd 는 System32 다 → --linked 가 프로젝트를 찾도록 cwd 를 레포 루트로 준다
-  const out = execFileSync(SB, sbArgs(TMP), { encoding: 'utf8', timeout: 120000, cwd: ROOT });
+  const out = execFileSync(SB, sbArgs(TMP), { encoding: 'utf8', timeout: 300000, cwd: ROOT });
   // 🔴 못 읽은 것과 0건을 구분한다 — 예전엔 배열 형식에서 [] 를 조용히 돌려줬다.
   const parsed = parseRows(out);
   if (!parsed.ok) throw new Error('CLI 출력을 못 읽었다 — ' + parsed.why);

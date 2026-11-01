@@ -47,6 +47,7 @@ const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : nu
 const cron = opt('--cron') || process.env.CLOUD_CRON || '';
 const only = opt('--job') || process.env.CLOUD_JOB || '';
 if (argv.includes('--list')) { for (const [k, j] of Object.entries(JOBS)) console.log(`${k}\t${j.cron}\t${j.script}\t${j.pw ? 'playwright' : ''}\t${j.pc}`); process.exit(0); }
+if (argv.includes('--needs-bundle')) { const sel = Object.values(JOBS).filter((j) => only ? JOBS[only] === j : j.cron === cron); console.log(sel.some((j) => j.bundle) ? '1' : '0'); process.exit(0); }
 if (argv.includes('--needs-pw')) { const sel = Object.values(JOBS).filter((j) => only ? JOBS[only] === j : j.cron === cron); console.log(sel.some((j) => j.pw) ? '1' : '0'); process.exit(0); }
 
 const names = only ? [only] : Object.keys(JOBS).filter((k) => JOBS[k].cron === cron);

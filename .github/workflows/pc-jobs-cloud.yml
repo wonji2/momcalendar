@@ -56,12 +56,17 @@ jobs:
           echo -n 17.6.1.127 > supabase/.temp/postgres-version
           chmod +x tools/daily/sb_cli_retry.sh
           echo "select 1 as ok;" > /tmp/ping.sql && tools/daily/sb_cli_retry.sh db query --linked --output-format json -f /tmp/ping.sql
+      - name: 피드 묶음이 필요한 회차인가
+        id: nb
+        run: echo "need=$(node tools/daily/cloud_jobs.mjs --needs-bundle)" >> $GITHUB_OUTPUT
       - name: 피드 묶음 번호(캐시 열쇠)
         id: bundle
+        if: steps.nb.outputs.need == '1'
         run: |
           at=$(curl -s -H "apikey: $SB_SERVICE_KEY" -H "Authorization: Bearer $SB_SERVICE_KEY" https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/cloud-bundle/manifest.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).at.replace(/[^0-9]/g,""))}catch{console.log("none")}})')
           echo "at=$at" >> $GITHUB_OUTPUT
       - uses: actions/cache@v4
+        if: steps.nb.outputs.need == '1'
         with:
           path: scratchpad/_bundle
           key: cloud-bundle-${{ steps.bundle.outputs.at }}
