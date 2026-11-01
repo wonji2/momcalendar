@@ -2570,7 +2570,7 @@ async function renderSearchAll(){
   const anyHit=ggS.length+hd.length+ex.length>0;
   const html =
     sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
-    sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
+    sec('hotdeal','🔥','핫딜',hdDedupe(hd),h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
     sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
 
   // 상단: 총 건수 + 정렬 (목업 ③번 화면)
@@ -3316,11 +3316,13 @@ function renderHotdeals(){
     return;
   }
   _hdIdx=0;                                   // 위쪽 8장은 즉시 로드하려고 매 렌더마다 초기화
-  el.innerHTML=hdOrder(live).map(h=>hdCardHtml(h)).join('');
+  el.innerHTML=hdOrder(hdDedupe(live)).map(h=>hdCardHtml(h)).join('');
 }
 let _hdIdx=0;
 // 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
 // 같은 날 안에서는 자리가 바뀌지 않게 '날짜'를 씨앗으로 쓴다(새로고침할 때마다 튀면 어지러움).
+// 같은 이름(기호·공백 무시)+같은 가격은 먼저 온 것 하나만 (2026-11-01 사장님 「동일상품 2개 왜 안 걸러」 — 제보 cp_ 키와 회차 키가 달라 DB 중복검사를 비켜갔다)
+function hdDedupe(list){ const seen=new Set(); return (list||[]).filter(h=>{ const k=String(h.title||'').toLowerCase().replace(/[^가-힣a-z0-9]/g,'')+'|'+(h.price||''); if(seen.has(k)) return false; seen.add(k); return true; }); }
 function hdOrder(list){
   const rest=(list||[]).filter(x=>!x.pin_random);
   const pins=(list||[]).filter(x=>x.pin_random);
@@ -3797,6 +3799,8 @@ function buildMineBars(y,m,grid){
     h+=`<div class="cweek" style="min-height:${30+lanes.length*20}px">${cells}<div class="cbars">${bars.join('')}</div></div>`;
   }
   grid.classList.add('mine'); grid.innerHTML=h;
+  // 주 높이는 전부 같게(찜이 없는 주도 좁히지 않는다 — 사장님 2026-11-01 「한 장 크기 그대로 여백 벌려둬」)
+  { const ws=[...grid.querySelectorAll('.cweek:not(.lbl)')]; const mh=Math.max(74, ...ws.map(w=>parseInt(w.style.minHeight)||0)); ws.forEach(w=>{ w.style.minHeight=mh+'px'; }); }
 }
 function buildCalendar(){
   const y=calMonth.getFullYear(),m=calMonth.getMonth();

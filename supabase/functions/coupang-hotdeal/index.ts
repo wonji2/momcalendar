@@ -607,8 +607,11 @@ Deno.serve(async (req) => {
   const recent = await sb(`hotdeals?select=product_id,title&deal_day=gte.${coolFrom}`);
   const recentRows = Array.isArray(recent) ? recent : [];
   const recentIds = new Set(recentRows.map((r: any) => r.product_id).filter(Boolean));
+  // 🔴 2026-11-01 사장님 「핫딜에 동일상품 2개 왜 안 걸러」: 카톡 제보(toss-sync convert)는 키가 `cp_<productId>`, 여기는 `<productId>_<itemId>` → 키가 달라 비켜갔다.
+  //    상품 번호(productId) 만 떼어 한 번 더 비교한다 (옵션이 달라도 같은 상품은 같은 날 하나만).
+  const recentPid = new Set(recentRows.map((r: any) => String(r.product_id || "").replace(/^cp_/, "").split("_")[0]).filter(Boolean));
   const before = picks.length;
-  const fresh = picks.filter((p) => !recentIds.has(p.id));
+  const fresh = picks.filter((p) => !recentIds.has(p.id) && !recentPid.has(String(p.id).split("_")[0]));
   log.skippedRecent = before - fresh.length;
   picks.length = 0; picks.push(...fresh);
 
