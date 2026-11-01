@@ -2660,6 +2660,7 @@ function applySearchMode(){
     document.getElementById('hotdealView').style.display='none';
     document.getElementById('expView').style.display='none';
     { const sv=document.getElementById('saleView'); if(sv) sv.style.display='none'; }
+    { const cv=document.getElementById('commView'); if(cv) cv.style.display='none'; }   // 커뮤니티 탭에서 검색하면 결과가 글 146개 밑(3,700px)으로 밀리던 것 (사장님 2026-11-01)
     renderSearchAll();
   }else{
     switchContent(_ctPrev||'gonggu');
@@ -5496,7 +5497,7 @@ function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.no
       var ua=navigator.userAgent||''; var ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
       if(!ios && !and) return;
       var next=parseInt(localStorage.getItem('mc_appbn_next')||'0',10); if(next && Date.now()<next) return;
-      var go=document.getElementById('appBnGo'); go.href=ios?APP_STORE_URL.ios:APP_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
+      var go=document.getElementById('appBnGo'); go.href=ios?_UPD_STORE_URL.ios:_UPD_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
       go.onclick=function(){ try{ trackEvent('app_banner_go', ios?'ios':'android'); }catch(_){} };
       el.style.display='flex'; try{ trackEvent('app_banner_show', ios?'ios':'android'); }catch(_){}
     }catch(_){}
@@ -6921,7 +6922,9 @@ function goCard(id, url){
       try{ w = window.open(url, '_blank', 'noopener'); }catch(_){}
       if(w) return;                 // 바깥 브라우저로 열렸으면 끝
     }
-    window.location.href = url;     // 그 외(웹·인앱웹뷰) 또는 팝업이 막혔을 때
+    // 2026-11-01 사장님 「카드를 눌렀을 때 현재 탭을 덮어쓰지 말고 새 창으로 — 앱이면 외부 브라우저」 → openLink(새 창·앱 플러그인·네이버 앱, 팝업이 막힐 때만 같은 창)
+    if(typeof openLink==='function'){ openLink(url); return; }
+    window.location.href = url;     // openLink 가 없을 때만(안전망)
   }, 0);
 }
 
