@@ -72,7 +72,9 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .app-bn-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .app-bn-tx b{font-size:13.5px;color:#191F28;font-weight:800}
 .app-bn-tx span{font-size:12px;color:#6B7684;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.app-bn-go{flex:none;height:34px;line-height:34px;padding:0 14px;border-radius:999px;background:#6B45B3;color:#fff;font-size:13px;font-weight:800;text-decoration:none}
+.app-bn-go{flex:none;height:32px;line-height:32px;padding:0 11px;border-radius:999px;background:#7C54C4;color:#fff;font-size:12px;font-weight:800;text-decoration:none;margin-left:4px}
+.app-bn-go2{background:#F2F4F6;color:#4E5968}
+.app-bn-tx span{display:none}   /* 두 스토어 단추가 들어가면 부제는 숨긴다(390px) */
 .app-bn-x{flex:none;width:32px;height:32px;border:0;background:none;color:#B0B8C1;font-size:15px;cursor:pointer;font-family:inherit}
 .hd{background:var(--main-d);padding:10px 16px 12px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -954,6 +956,7 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
   <img class="app-bn-ic" src="momcal-appicon-128.png" alt="">
   <div class="app-bn-tx"><b>맘캘린더 앱</b><span>공구 오픈 알림을 바로 받아요</span></div>
   <a class="app-bn-go" id="appBnGo" href="#" target="_blank" rel="noopener">받기</a>
+  <a class="app-bn-go app-bn-go2" id="appBnGo2" href="#" target="_blank" rel="noopener">받기</a>
   <button class="app-bn-x" onclick="appBnClose()" aria-label="닫기">✕</button>
 </div>
 <div class="hd">
@@ -5558,8 +5561,12 @@ function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.no
       var ua=navigator.userAgent||''; var ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
       if(!ios && !and) return;
       var next=parseInt(localStorage.getItem('mc_appbn_next')||'0',10); if(next && Date.now()<next) return;
-      var go=document.getElementById('appBnGo'); go.href=ios?_UPD_STORE_URL.ios:_UPD_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
+      // 두 스토어 다 보인다(폰에 맞는 쪽이 앞·진하게) — 사장님 2026-11-01
+      var go=document.getElementById('appBnGo'), go2=document.getElementById('appBnGo2');
+      go.href=ios?_UPD_STORE_URL.ios:_UPD_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
+      go2.href=ios?_UPD_STORE_URL.android:_UPD_STORE_URL.ios; go2.textContent=ios?'Google Play':'App Store';
       go.onclick=function(){ try{ trackEvent('app_banner_go', ios?'ios':'android'); }catch(_){} };
+      go2.onclick=function(){ try{ trackEvent('app_banner_go', ios?'android':'ios'); }catch(_){} };
       el.style.display='flex'; try{ trackEvent('app_banner_show', ios?'ios':'android'); }catch(_){}
     }catch(_){}
   }
