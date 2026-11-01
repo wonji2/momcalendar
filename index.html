@@ -619,6 +619,8 @@ body.srch-suggest #searchDrop{display:block}
 .hc-cat{font-size:9.5px;color:#9a9aa5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hc-today{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;background:#F0502E;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .hc-ago{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;color:#A99CC0;white-space:nowrap}
+.hc-stale{flex-shrink:0;font-size:9px;font-weight:800;color:#B45309;background:#FEF3C7;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.sa-empty-note{font-size:12.5px;color:#8B8597;background:#F6F4FA;border-radius:12px;padding:12px 14px;margin:0 2px}
 .hc-tit{font-size:12.5px;font-weight:700;color:#222;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
 .hc-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .hc-rate{font-size:15px;font-weight:900;color:#E8402A;letter-spacing:-.3px}
@@ -2447,14 +2449,16 @@ function hdExpired(h){
   return isFinite(t) && (Date.now()-t) > HD_STALE_DAYS*86400000;
 }
 
-// 🔴 검색 결과의 핫딜은 **어제까지 올린 것만** 보여준다 (사장님 지시 2026-08-22).
+// 🔴 검색 결과의 핫딜은 **최근 7일 안에 올린 것**만 보여준다 (사장님 지시 2026-11-01 — 그 전엔 어제·오늘 이틀(08-22), 손님이 새벽에 「기저귀」를 찾았는데 10-30 핫딜이 빠져 공구만 보였다 · 제보 #18).
+//    3일 넘은 핫딜은 가격이 바뀌었을 수 있어 카드에 「N일 전 핫딜 (가격변동 가능)」 뱃지(hdCardHtml stale).
 //    핫딜 가격은 보통 하루면 변한다 — 며칠 지난 핫딜이 검색에 걸리면 틀린 가격을 보여주게 된다.
 //    상시 핫딜(pin_random)은 가격을 자동 추적하므로 예외. 핫딜 탭 자체는 그대로(hdExpired 만 적용).
+const HD_SEARCH_DAYS=7;
 function hdFreshForSearch(h){
   if(h.pin_random) return true;
   const d=String(h.deal_day||h.created_at||'').slice(0,10);
   if(!d) return false;
-  const y=new Date(Date.now()+9*3600e3); y.setUTCDate(y.getUTCDate()-1);   // KST 어제
+  const y=new Date(Date.now()+9*3600e3); y.setUTCDate(y.getUTCDate()-(HD_SEARCH_DAYS-1));   // KST 오늘 포함 7일
   return d >= y.toISOString().slice(0,10);
 }
 
@@ -2503,8 +2507,13 @@ async function renderSearchAll(){
   // sort 는 stable 이라 파트너/일반 각 그룹 안에서는 위에서 고른 정렬 순서가 유지된다.
   ggS.sort((a,b)=>(effPartner(a)?0:1)-(effPartner(b)?0:1));
 
-  const sec=(kind,ico,label,arr,cardFn)=>{
-    if(!arr.length) return '';
+  const sec=(kind,ico,label,arr,cardFn,emptyNote)=>{
+    if(!arr.length) return emptyNote?`<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px">
+        <span>${ico} ${label}</span>
+        <span style="font-size:11.5px;font-weight:700;color:#9A93A6">0건</span>
+      </div>
+      <div class="sa-empty-note">${emptyNote}</div>
+      <div style="height:16px"></div>`:'';
     return `<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px">
         <span>${ico} ${label}</span>
         <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${arr.length}건</span>
@@ -2513,9 +2522,11 @@ async function renderSearchAll(){
       <div style="height:16px"></div>`;
   };
 
+  // 핫딜 0건이어도 절을 지우지 않고 「최근 7일 내 등록된 핫딜 0건」 을 보여 준다 — 손님이 공구만 나오는 이유를 알게(제보 #18, 사장님 2026-11-01). 전체 0건이면 기존 안내 그대로
+  const anyHit=ggS.length+hd.length+ex.length>0;
   const html =
     sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
-    sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h)) +
+    sec('hotdeal','🔥','핫딜',hd,h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
     sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
 
   // 상단: 총 건수 + 정렬 (목업 ③번 화면)
@@ -3282,7 +3293,7 @@ function hdOrder(list){
 function hcEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 // 핫딜 카드 1장 (핫딜 탭 · 통합검색 양쪽에서 씀)
-function hdCardHtml(h){
+function hdCardHtml(h,opt){
   // 며칠 전인지 — 한국시간 기준(서버는 UTC)
   const KST=9*3600000;
   const dayKst=t=>Math.floor((new Date(t).getTime()+KST)/86400000);
@@ -3291,6 +3302,8 @@ function hdCardHtml(h){
   const ago=isToday
     ? `<span class="hc-today">오늘</span>`
     : `<span class="hc-ago">${diff===1?'어제':diff+'일 전'}</span>`;
+  // 검색 결과(opt.stale)에서 3일 넘은 핫딜은 가격·재고가 바뀌었을 수 있다 — 「N일 전 핫딜 (가격변동 가능)」 (사장님 2026-11-01)
+  const stale=(opt&&opt.stale&&diff>=3)?`<span class="hc-stale">${diff}일 전 핫딜 (가격변동 가능)</span>`:'';
 
   const cat='🔥 '+[h.major,h.minor].filter(Boolean).join(' · ');
   // 판매처는 뱃지로 (제목에 섞으면 상품명 시작점이 흐려짐). 쿠팡 수집분은 mall 이 없어 source 로 보완
@@ -3298,7 +3311,7 @@ function hdCardHtml(h){
   const top=`<div class="hc-top">
       ${mall?`<span class="hc-mall">${hcEsc(mall)}</span>`:''}
       <span class="hc-cat">${hcEsc(cat)}</span>
-      ${ago}
+      ${ago}${stale}
     </div>`;
 
   // 가격이 있으면 가격 줄은 항상 보여주고, '근거 시트'는 보여줄 근거가 실제로 있을 때만 연다.
