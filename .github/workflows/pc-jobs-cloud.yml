@@ -21,7 +21,9 @@ on:
         description: '작업 이름 하나(cloud_jobs.mjs --list 참고)'
         required: true
 concurrency:
-  group: pc-jobs   # 한 번에 하나만 — 무료 Nano DB 에 동시 접속이 몰리면 「temp role」 접속 거부가 난다(2026-11-01 실측)
+  # 회차(cron 문자열)·손 실행 작업별로 따로 — 한 그룹으로 묶으면 대기 중인 회차가 서로 취소된다(2026-11-01 실측, 깃허브는 대기 1개만 남김).
+  # 동시 접속으로 무료 Nano DB 가 거부하는 건 sb_cli_retry.sh 가 15·30·45초 재시도로 받는다
+  group: pc-jobs-${{ github.event.schedule || github.event.inputs.job }}
   cancel-in-progress: false
 jobs:
   run:
