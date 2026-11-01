@@ -13,6 +13,8 @@ const PKG = 'com.wantsb.momcalendar';
 const TEST = process.env.E2E_URL || 'https://momcalendar.com/test-app.html';   // 시험용 앱이 띄운 주소(test.html 또는 라이브 https://momcalendar.com/)
 const OUT = 'e2e-out';
 fs.mkdirSync(OUT, { recursive: true });
+{ let st = ''; try { st = execFileSync('adb', ['get-state'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 20000 }).trim(); } catch (e) { st = String(e.stdout || e.message).trim(); }
+  if (st !== 'device') { console.log('🔴 에뮬레이터가 안 붙어 있다(adb get-state: ' + st + ') — 바로 실패로 끝낸다'); process.exit(1); } }
 const sh = (...a) => { try { return execFileSync('adb', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 }); } catch (e) { return String(e.stdout || '') + String(e.stderr || ''); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rows = [];
@@ -135,20 +137,17 @@ async function expectTab(name, url, run) {
   sh('shell', 'am', 'force-stop', 'com.android.chrome');
   await launch();
   shot('01_home');
-  // 처음 켤 때 = 우리 안내 창 없이 **폰 시스템 알림 허용 창만** 바로 (사장님 2026-10-26 「마미톡처럼 시스템 팝업만」, 라이브 a7125d4c20) → 허용 → 알림 켜짐
+  // 처음 켤 때 = 아무 창도 안 뜬다 (2026-11-01 54c011d63d — 찜 0개 첫 방문자에게 로드 즉시 알림 팝업 제거, 첫 하트 뒤에만 묻는다). 알림 켜기는 뒤의 「알림 켜기 → 권한 허용 → 토큰 받음」 시험이 본다
   {
     let tapped = false, seen = '';
-    for (let k = 0; k < 12 && !tapped; k++) {
+    for (let k = 0; k < 6 && !tapped; k++) {
       await sleep(1500);
       const x = screenText();
       const m = [...x.matchAll(/<node [^>]*text="(Allow|허용)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)][0];
       if (m) { seen = top(); shot('00_perm_system'); sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1)); tapped = true; }
     }
     const ours = await js(`String(!!document.querySelector('#appPerm.open'))`);
-    rec('처음 켤 때 폰 알림 허용 창이 바로 뜬다(우리 안내 창 없음)', tapped && ours !== 'true', `허용창=${tapped} ${seen} · 우리창=${ours}`);
-    let on = '';
-    for (let k = 0; k < 10 && on !== '1'; k++) { await sleep(1500); on = await js(`localStorage.getItem('mc_push_on')`); }
-    rec('허용 → 알림 켜짐', tapped && on === '1', `mc_push_on=${on}`);
+    rec('처음 켤 때 알림 허용 창·안내 창이 안 뜸(찜 0개 첫 방문자 — 11-01 첫 실행 팝업 제거)', !tapped && ours === 'false', `허용창=${tapped} ${seen} · 우리창=${ours}`);
   }
   const env = await js(`JSON.stringify({u:location.href, ua:navigator.userAgent, plat:(window.Capacitor&&Capacitor.getPlatform&&Capacitor.getPlatform()), plug:!!(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.MomcalLink), inapp:(typeof _isInApp==='function'?_isInApp():'?'), native:(typeof _mcNative==='function'&&!!_mcNative()), share:typeof navigator.share})`);
   let E = {}; try { E = JSON.parse(env); } catch (_) {}
@@ -162,7 +161,7 @@ async function expectTab(name, url, run) {
   const h = await js(`document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length+'|'+document.body.scrollHeight`);
   rec('목록이 그려짐(카드 수·본문 높이)', /^\d+\|\d+$/.test(h || '') && +h.split('|')[1] > 1500, h);
   shot('02_home_loaded');
-  // 상태바·아래 막대 자리가 보라(#602090)인가 — 화면 원본 픽셀(screencap 원시 형식: 머리 + RGBA)
+  // 상태바·아래 막대 자리가 라일락(#7C54C4)인가 — 화면 원본 픽셀(screencap 원시 형식: 머리 + RGBA)
   await dismissAnr();
   {
     let note = '';
@@ -173,12 +172,12 @@ async function expectTab(name, url, run) {
       const b = execFileSync('adb', ['exec-out', 'screencap'], { timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
       const w = b.readUInt32LE(0), hh = b.readUInt32LE(4), head = b.length - w * hh * 4;
       const px = (x, y) => { const o = head + (y * w + x) * 4; return [b[o], b[o + 1], b[o + 2]]; };
-      const near = (p) => Math.abs(p[0] - 0x60) < 24 && Math.abs(p[1] - 0x20) < 24 && Math.abs(p[2] - 0x90) < 24;
+      const near = (p) => Math.abs(p[0] - 0x7C) < 24 && Math.abs(p[1] - 0x54) < 24 && Math.abs(p[2] - 0xC4) < 24;   // 브랜드 #7C54C4 (LinkRouter.BRAND, 2026-11-01 디자인 v3)
       const topPx = px(w >> 1, 6), botPx = px(8, hh - 4);
       ok = near(topPx) && near(botPx);
       note = `위 ${topPx} · 아래 ${botPx} (${w}x${hh})${tryN ? ` · ${tryN + 1}번째 캡처` : ''}`;
     } catch (e) { note = e.message; }
-    rec('상태바·아래 막대 보라색(TWA 때와 같은 색)', ok, note);
+    rec('상태바·아래 막대 라일락(브랜드 #7C54C4)', ok, note);
   }
 
   // 바깥 링크 — openLink(배너·핫딜·공구 카드가 지나는 길)
