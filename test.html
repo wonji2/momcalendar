@@ -632,6 +632,10 @@ body.srch-suggest #searchDrop{display:block}
 .sa-chips{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
 .sa-chips span{width:100%;font-size:12px;color:#8B95A1;margin-bottom:2px}
 .sa-chips button{height:36px;padding:0 14px;border-radius:999px;border:1px solid #E5E0EE;background:#fff;color:#602090;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+/* 스켈레톤(목록 불러오는 동안, 토스·당근 방식 2026-11-01) · 이미지 깨짐 대체 */
+.skel-card{height:84px;border-radius:14px;margin:0 0 10px;background:linear-gradient(90deg,#F2F0F6 25%,#E9E6F0 37%,#F2F0F6 63%);background-size:400% 100%;animation:skel 1.2s ease infinite}
+.skel-card.s2{height:120px}
+@keyframes skel{0%{background-position:100% 0}100%{background-position:0 0}}
 .sa-empty-note{font-size:12.5px;color:#8B8597;background:#F6F4FA;border-radius:12px;padding:12px 14px;margin:0 2px}
 .hc-tit{font-size:12.5px;font-weight:700;color:#222;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
 .hc-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
@@ -1940,7 +1944,7 @@ async function loadData() {
         _loadTry++;
         try{ trackEvent('data_load_retry', _loadTry+'|'+String(e && e.message || '').slice(0,40)); }catch(_){}
         var _cl=document.getElementById('cardList');
-        if(_cl && !_cl.children.length) _cl.innerHTML='<div class="empty" style="color:#bbb;font-size:13px">공구를 불러오는 중이에요…</div>';
+        if(_cl && !_cl.children.length) _cl.innerHTML=skelHtml(5);
         _loadBusy=true;   // 기다리는 동안도 "진행 중" — 그 사이 online·bfcache 가 부르면 두 갈래가 된다(실측 재시도 3건)
         setTimeout(function(){ _loadBusy=false; loadData(); }, _loadTry===1?2000:6000);
         return;   // 아래 buildWeekTabs·bootView 는 재시도가 끝난 뒤(성공 경로 또는 최종 실패) 한 번만
@@ -2491,7 +2495,7 @@ async function renderSearchAll(){
 
   // 핫딜·체험단은 탭을 눌러야 로드되므로, 검색할 땐 없으면 먼저 가져온다
   if(!_hotdealData||!_expData){
-    el.innerHTML=`<div class="empty" style="padding:34px 0;text-align:center;color:#bbb">검색 중...</div>`;
+    el.innerHTML=skelHtml(4);
     await Promise.all([
       _hotdealData?null:fetch(`${SUPABASE_URL}/rest/v1/hotdeals?select=*&or=(pin_random.is.true,expires_at.is.null,expires_at.gt.now())&order=created_at.desc&limit=500`,
         {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}})
@@ -2937,7 +2941,7 @@ function setSlMode(m){
 async function loadLive(){
   _liveWLoad();
   if(_liveData){ renderLive(); return; }
-  const box=document.getElementById('liveList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
+  const box=document.getElementById('liveList'); if(box) box.innerHTML=skelHtml(3, true);
   try{
     // 2시간 전 시작한 방송까지(지금 방송 중일 수 있다). 🔑 정각으로 내린다 — 밀리초까지 넣으면 주소가 매번 달라 Worker 캐시가 안 잡힌다(2026-10-24 검증)
     const from=new Date(Math.floor((Date.now()-2*3600e3)/3600e3)*3600e3).toISOString().replace('.000Z','Z');
@@ -3092,7 +3096,7 @@ async function loadSale(){
   if(_slMode==='live'){ loadLive(); }
   if(_saleData){ renderSale(); return; }
   _saleWLoad();
-  const box=document.getElementById('saleList'); if(box) box.innerHTML='<div class="sale-empty">불러오는 중…</div>';
+  const box=document.getElementById('saleList'); if(box) box.innerHTML=skelHtml(3, true);
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/sale_events?select=id,brand,slug,title,tag,start_date,end_date,url,aff_merchant&order=start_date.asc&limit=200`,
       {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
@@ -3259,7 +3263,7 @@ function emptyBox(kind){
 async function loadHotdeals(){
   const el=document.getElementById('hotdealList');
   if(_hotdealData){ renderHotdeals(); return; }
-  el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">불러오는 중...</div>';
+  el.innerHTML=skelHtml(4, true);
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/hotdeals?select=*&or=(pin_random.is.true,expires_at.is.null,expires_at.gt.now())&order=created_at.desc&limit=500`,{
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
@@ -3502,7 +3506,7 @@ async function openHdSheet(id){
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-      ${h.img_url?`<img src="${escHtml(mcApiSrc(h.img_url))}" alt="" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
+      ${h.img_url?`<img src="${escHtml(mcApiSrc(h.img_url))}" alt="" onerror="_imgFail(this)" style="width:70px;height:70px;border-radius:13px;object-fit:cover;flex-shrink:0;background:#F5F3F7">`:''}
       <div style="flex:1;min-width:0">
         <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${escHtml(h.title)}</div>
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
@@ -3591,7 +3595,7 @@ function hdChartSvg(pts,avg){
 async function loadExperiences(){
   const el=document.getElementById('expList');
   if(_expData){ renderExperiences(); return; }
-  el.innerHTML='<div class="empty" style="padding:30px 0;text-align:center;color:#aaa">불러오는 중...</div>';
+  el.innerHTML=skelHtml(4, true);
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/experiences?select=*&limit=200`,{
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
@@ -4509,6 +4513,10 @@ function mcShare(){
   }
 }
 function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
+// 목록을 불러오는 동안 글자 대신 스켈레톤 칸(n개)을 보여 준다 (2026-11-01)
+function skelHtml(n, tall){ var h=''; for(var i=0;i<(n||4);i++) h+='<div class="skel-card'+(tall?' s2':'')+'" aria-hidden="true"></div>'; return h; }
+// 이미지가 깨지면(onerror) 엑박 대신 단정한 대체 그림(앱 아이콘, 연보라 바탕) (2026-11-01)
+function _imgFail(img){ try{ img.onerror=null; img.src='momcal-appicon-128.png'; img.style.objectFit='contain'; img.style.padding='18%'; img.style.background='#F3F0F8'; img.style.boxSizing='border-box'; }catch(_){} }
 function mcToast(msg, ms){
   try{
     // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
@@ -6307,7 +6315,7 @@ function _nxCard(it, wide){
   const oc=`goCard(${+it.id||0},${_jsqA(goUrl)})`;
   const on=isWished(it.id);
   return `<div class="nx-card${wide?' wide':''}" onclick="${oc}">
-    <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏳ D-${_nxDday(it.openDate)}</span></div>
+    <div class="nx-thumb">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy" onerror="_imgFail(this)">`:`<span>${_nxEsc(it.name.slice(0,2))}</span>`}<span class="nx-pill">⏳ D-${_nxDday(it.openDate)}</span></div>
     <div class="nx-body"><div class="nx-when">🕐 ${_nxMDs(it.openDate)} 오픈</div><div class="nx-t">${_nxEsc(it.name)}</div><div class="nx-s">${_nxEsc(sub)}</div>
     <div class="nx-row"><button class="nx-bell${on?' on':''}" onclick="nxdBell(${it.id},this,event)" aria-label="${on?'알림 끄기':'오픈 알림 받기'}">${on?_NXB1:_NXB0} ${_nxN(it)}</button></div>
     </div></div>`;   // 🔔 띠와 같은 버튼·같은 숫자 (사장님 2026-10-23 "전체일정 누르면 알림이 아니고 찜 · 해제했다 다시 누르면 안돼 · 명수가 안줄어")
@@ -6325,7 +6333,7 @@ return `<div class="nxd" onclick="${oc2}">
     <div class="nxd-l"><div class="nxd-dd">D-${_nxDday(it.openDate)}</div>
       <div style="max-width:100%"><div class="nxd-nm">${_nxEsc(it.name)}</div><div class="nxd-od">${_nxMDs(it.openDate)} 오픈</div></div>
       <button class="nxd-bell${on?' on':''}" data-nxd="${it.id}" onclick="nxdBell(${it.id},this,event)" aria-label="${on?'알림 끄기':'오픈 알림 받기'}">${on?_NXB1:_NXB0} ${n}</button></div>
-    <div class="nxd-r">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy">`:''}</div></div>`;
+    <div class="nxd-r">${img?`<img src="${_nxEsc(img)}" alt="" loading="lazy" onerror="_imgFail(this)">`:''}</div></div>`;
 }
 // 🔔 처음엔 빈 테두리 → 한 번 누르면 「알림 드릴까요?」 → 한 번 더 누르면 노랑(=찜, 오픈 아침 알림). 켜진 걸 누르면 끈다.
 const _NXD={};   // 이번 방문에서 🔔 로 켠/끈 수 (서버 찜 수는 다음 로드 때 맞춰진다)
@@ -6535,7 +6543,7 @@ async function loadPromoBanners(){
       const dark=/gradient|#[0-3]/.test(bg.toLowerCase()) && /gradient|rgb|#[0-6]/.test(bg.toLowerCase()) && !/#[e-fE-F]/.test(bg);
       const txtCol=dark?'#fff':'#1A5B3E';
       const ico=b.img_url
-        ? `<span class="pc-ico"><img src="${_promoEsc(mcApiSrc(b.img_url))}" alt=""></span>`
+        ? `<span class="pc-ico"><img src="${_promoEsc(mcApiSrc(b.img_url))}" alt="" onerror="_imgFail(this)"></span>`
         : `<span class="pc-ico">🌿</span>`;
       const brand=b.cta?`<div class="pc-brand" style="color:${txtCol}">${_promoEsc(b.cta)}</div>`:'';
       const sub=b.subtitle?`<div class="pc-sub" style="color:${txtCol}">${_promoEsc(b.subtitle)}</div>`:'';
@@ -7039,7 +7047,7 @@ async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
   try{ _goRulesLoad(); }catch(_){}
   if(_commData && !force){ renderCommunity(); return; }
-  v.innerHTML='<div class="comm-empty">불러오는 중...</div>';
+  v.innerHTML=skelHtml(4);
   try{
     const since=new Date(Date.now()-30*86400000).toISOString();
     const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
@@ -7127,7 +7135,7 @@ function renderCommunity(){
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
-    const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+    const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" onerror="_imgFail(this)" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
     return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
