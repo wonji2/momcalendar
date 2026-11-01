@@ -67,6 +67,13 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .ig-icon{width:15px;height:15px;flex-shrink:0;display:block}
 
 /* 헤더 */
+.app-bn{display:flex;align-items:center;gap:10px;height:56px;padding:0 12px 0 16px;background:#fff;border-bottom:1px solid #EEE9F4;max-width:480px;margin:0 auto}
+.app-bn-ic{width:36px;height:36px;border-radius:9px;flex:none}
+.app-bn-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.app-bn-tx b{font-size:13.5px;color:#191F28;font-weight:800}
+.app-bn-tx span{font-size:12px;color:#6B7684;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-bn-go{flex:none;height:34px;line-height:34px;padding:0 14px;border-radius:999px;background:#5B2E8C;color:#fff;font-size:13px;font-weight:800;text-decoration:none}
+.app-bn-x{flex:none;width:32px;height:32px;border:0;background:none;color:#B0B8C1;font-size:15px;cursor:pointer;font-family:inherit}
 .hd{background:var(--main-d);padding:10px 16px 12px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .hd-left{display:flex;align-items:center;gap:10px}
@@ -481,6 +488,8 @@ body.srch-suggest #searchDrop{display:block}
 /* 홈 화면 앱(PWA)으로 열면 하단 홈바 때문에 너무 아래 → 위로 올림 */
 @media(display-mode:standalone){.chat-fab-wrap{bottom:calc(48px + env(safe-area-inset-bottom))}}
 @media(min-width:480px){.chat-fab-wrap{right:calc(50% - 240px + 16px)}}
+.mcb-fab{pointer-events:auto;display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:999px;background:#5B2E8C;color:#fff;font-size:14px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(91,46,140,.38);letter-spacing:-.01em}
+.mcb-fab:active{opacity:.85}
 .chat-fab{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#FF7EB3,#FF5E8A);border:none;box-shadow:0 4px 16px rgba(255,80,120,.45);cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:transform .2s}
 .chat-fab.open{transform:rotate(135deg) scale(.96)}
 .totop-fab{position:fixed;left:auto;right:22px;transform:none;bottom:88px;z-index:299;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.97);border:1px solid #E2E2E6;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0}
@@ -940,6 +949,13 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 </svg>
 
 <!-- 헤더 -->
+<!-- 📲 앱 다운로드 띠 (사장님 2026-11-01 「앱에서 공구 오픈 알림을 0초 만에」) — 모바일 웹에만, 앱·홈화면 앱·PC 에선 안 보임. 닫으면 7일 -->
+<div id="appBn" class="app-bn" style="display:none" role="region" aria-label="앱 다운로드">
+  <img class="app-bn-ic" src="momcal-appicon-128.png" alt="">
+  <div class="app-bn-tx"><b>맘캘린더 앱</b><span>공구 오픈 알림을 바로 받아요</span></div>
+  <a class="app-bn-go" id="appBnGo" href="#" target="_blank" rel="noopener">받기</a>
+  <button class="app-bn-x" onclick="appBnClose()" aria-label="닫기">✕</button>
+</div>
 <div class="hd">
   <div class="hd-top">
     <div class="hd-left">
@@ -1233,7 +1249,8 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
   // 공개 저장소 사진(배너·카드)은 **언제나** 우회로로 — 파일 이름에 시각이 박혀 내용이 안 바뀌므로 엣지가 하루 붙잡아 두고 브라우저에도 하루 물린다.
   //   Supabase 무료 전송량 5GB/월 중 사진이 월 2GB 였다(2026-09-29 실측). 우회로가 못 주면 사진만 안 보이고 사이트는 그대로 돈다.
   var IMG_PUBLIC='/storage/v1/object/public/';
-  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
+  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf('http://')===0) u='https://'+u.slice(7); }catch(_){}   // 혼합 콘텐츠 차단 방지(http 사진 → https, 2026-11-01 사장님)
+    try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
   window.fetch=function(input, init){
     var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
@@ -5468,6 +5485,24 @@ async function wnAllow(){
 // ── 📲 웹 알림 → 앱에서만 (2026-10-26) — 앱 출시하는 날 WEB_PUSH_APP_ONLY=true ──
 const WEB_PUSH_APP_ONLY=false;
 const APP_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
+// 📲 앱 다운로드 띠 (2026-11-01) — 모바일 웹에만. 앱 안·홈화면 앱(standalone)·PC 는 안 띄움. 닫기 7일(mc_appbn_next). 누르면 push_app_banner_go
+function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.now()+7*864e5)); }catch(_){} var el=document.getElementById('appBn'); if(el) el.style.display='none'; try{ trackEvent('app_banner_close',''); }catch(_){} }
+(function(){
+  function show(){
+    try{
+      var el=document.getElementById('appBn'); if(!el) return;
+      if(typeof _isNativeApp==='function' && _isNativeApp()) return;
+      if(typeof _isStandalone==='function' && _isStandalone()) return;
+      var ua=navigator.userAgent||''; var ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
+      if(!ios && !and) return;
+      var next=parseInt(localStorage.getItem('mc_appbn_next')||'0',10); if(next && Date.now()<next) return;
+      var go=document.getElementById('appBnGo'); go.href=ios?APP_STORE_URL.ios:APP_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
+      go.onclick=function(){ try{ trackEvent('app_banner_go', ios?'ios':'android'); }catch(_){} };
+      el.style.display='flex'; try{ trackEvent('app_banner_show', ios?'ios':'android'); }catch(_){}
+    }catch(_){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', show); else show();
+})();
 function _webPushAppOnly(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; return WEB_PUSH_APP_ONLY || location.search.indexOf('apponly=1')>=0; }catch(_){ return false; } }
 function _appOnlyBell(where){
   if(!_webPushAppOnly()) return false;
@@ -5584,8 +5619,8 @@ function nativeBoot(){
     try{ P.checkPermissions().then(function(st){ try{ trackEvent('push_perm', _plat+'|'+(st&&st.receive)+'|on='+(localStorage.getItem('mc_push_on')||'')); }catch(_){}
       // 권한이 없는데 켜짐으로 남아 있으면 끔으로 — 알림 켜기 버튼이 다시 보이게(설정에서 껐거나 앱을 새로 깐 경우)
       try{ if(st && st.receive!=='granted' && localStorage.getItem('mc_push_on')==='1'){ localStorage.setItem('mc_push_on','0'); } }catch(_){}
-      if(st && /^prompt/.test(String(st.receive)) && !localStorage.getItem('mc_perm_notice')){ setTimeout(_appPermNotice, 900); }
-      else if(st && st.receive!=='granted'){ var _ask=function(){ try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){} return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
+      // 2026-11-01 사장님 「찜 0개 첫 방문자에게 로드 즉시 팝업 제거 — 하트를 1회 이상 눌렀을 때만」 → 로드 직후 _appPermNotice 호출을 뺐다(함수는 남겨 둠). 찜이 있는 사람만 되묻는다
+      if(st && st.receive!=='granted'){ var _ask=function(){ try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){} return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
     }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
@@ -6941,6 +6976,8 @@ function closeChatMenu(){
     <!-- 2026-10-24 사장님 「맘캘봇 이라고만 띄우고 그거 누르면 바로 친구추가 후 상담 가능하게해」 — 시트 없이 채널 친구 추가로 바로 간다(추가 화면에서 곧바로 채팅) -->
     <a class="chat-menu-item mcb-item" href="https://pf.kakao.com/_zGfxnX/friend" target="_blank" rel="noopener" onclick="closeChatMenu&&closeChatMenu();try{trackEvent('mcbot_friend','')}catch(_){}"><span class="chat-menu-ico mcb-ico">💬</span>맘캘봇</a>
   </div>
+  <!-- 2026-11-01 사장님 「맘캘봇 링크를 우하단 원형 플로팅 버튼으로 승격」 — + 메뉴 안 항목은 그대로 두고, 늘 보이는 버튼을 하나 더 -->
+  <a class="mcb-fab" href="https://pf.kakao.com/_zGfxnX/friend" target="_blank" rel="noopener" onclick="try{trackEvent('mcbot_friend','fab')}catch(_){}"><span aria-hidden="true">🤖</span>맘캘봇</a>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="출석 체크·맘캘봇 메뉴">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
