@@ -305,6 +305,7 @@ Deno.serve(async (req) => {
           price: p.price, price_before: p.avg, discount_rate: p.discount,
           major: p.major, minor: p.minor, mall: mallLabel(p.mall),
           source: "linkprice", product_id: p.id, is_lowest: p.isLowest,
+          badge: p.isLowest ? "lowest" : (Number(p.discount) >= 25 ? "super" : (Number(p.discount) >= 10 ? "sale" : null)),   // 1단계 2026-11-01
           deal_day: today, expires_at: expires,
         }))),
       });

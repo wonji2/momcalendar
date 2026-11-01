@@ -362,7 +362,7 @@ Deno.serve(async (req) => {
   log.keywords = kws.length;
 
   type Prod = { id: string; name: string; price: number; url: string; img: string;
-                major: string; minor: string; keyword: string; rocket: boolean };
+                major: string; minor: string; keyword: string; rocket: boolean; free?: boolean };
   const found = new Map<string, Prod>();
 
   let rateLimited = false;
@@ -396,11 +396,14 @@ Deno.serve(async (req) => {
         if (found.has(id)) continue;
         const price = Number(p.productPrice);
         if (!price || price < 1000) continue;
+        // 손님 검색어 키워드(src=search)는 분류가 없다 → 상품명으로 분류(AP_CAT 한 곳), 못 맞히면 안 올린다 (2026-11-01 1단계)
+        let major = k.major, minor = k.minor;
+        if (!major || !minor) { const c = apCat(String(p.productName || "")); if (!c) continue; [major, minor] = c; }
         found.set(id, {
           id, name: String(p.productName || "").slice(0, 200), price,
           url: p.productUrl, img: p.productImage,
-          major: k.major, minor: k.minor, keyword: k.keyword,
-          rocket: !!p.isRocket,
+          major, minor, keyword: k.keyword,
+          rocket: !!p.isRocket, free: !!p.isFreeShipping,
         });
       }
     } catch (e) { log.errors.push({ kw: k.keyword, err: String(e) }); }
@@ -642,7 +645,9 @@ Deno.serve(async (req) => {
   // (사장님 지적 2026-08-05: 뉴케어 마이키즈는 공구 상품인데 핫딜 탭에 올라왔다)
   try {
     const gToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    const gg = await sb(`gonggu?select=name&approved=eq.true&end_date=gte.${gToday}&limit=1000`);
+    // 규칙 0-M(사장님 2026-10-05 「내 공구는 2주 전부터 내 것만」): 오늘 진행 중 + 14일 안에 오픈하는 공구까지 본다 (2026-11-01 금붕어 지적)
+    const gAhead = new Date(Date.now() + 9 * 3600e3 + 14 * 864e5).toISOString().slice(0, 10);
+    const gg = await sb(`gonggu?select=name&approved=eq.true&end_date=gte.${gToday}&open_date=lte.${gAhead}&limit=1000`);
     const gKeys = new Set((Array.isArray(gg) ? gg : []).map((g: any) => baseKey(g.name || "")).filter(Boolean));
     const beforeG = picks.length;
     const notGonggu = picks.filter((p) => !gKeys.has(baseKey(p.name)));
@@ -675,6 +680,9 @@ Deno.serve(async (req) => {
       is_lowest: p.isLowest,
       deal_day: today,
       expires_at: new Date(Date.now() + 3 * 864e5).toISOString(),
+      // 1단계(2026-11-01): 뱃지는 우리 가격이력 판정값 그대로 · 배송은 아는 값만(무료배송 표시가 있을 때만)
+      badge: p.isLowest ? "lowest" : (Number(p.discount) >= 25 ? "super" : (Number(p.discount) >= 10 ? "sale" : null)),
+      ship_note: p.free ? "무료배송" : null,
     }))),
   });
   log.inserted = Array.isArray(ins) ? ins.length : 0;
