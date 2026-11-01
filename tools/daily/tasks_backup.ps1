@@ -17,7 +17,8 @@ param(
   # 🔴 2026-10-01: 처음엔 'momcal-|gijil-' 만 담았는데, tasks/ 에는 njob-*·work-backup-* XML 도 있어서
   #    -Check 가 그것들을 「등록은 없고 XML 만 있다」고 **거짓 경보**했다(실제로는 멀쩡히 등록돼 있었다).
   #    백업 안전망(work-backup-hourly·daily)까지 담는 게 맞으니 필터를 넓힌다.
-  [string]$Filter = 'momcal-|gijil-|njob-|work-backup'
+  # 2026-11-01 검증자 지적: tasks_safe_mode.ps1 대상(dad-·blogauto-·econ-·smartstore-track)이 빠져 XML 없는 작업 10개 → 필터를 맞춘다
+  [string]$Filter = 'momcal-|gijil-|njob-|work-backup|dad-|blogauto-|econ-|smartstore-track'
 )
 
 $ErrorActionPreference = 'Continue'

@@ -3,11 +3,12 @@
 # 사고: 2026-11-01 09:32 PC 재부팅 → StartWhenAvailable 예약작업 70여 개가 같은 초에 돌아 공용 임시 인덱스를
 #       서로 지우고, 파일 1개짜리 커밋이 라이브로 나갔다(ops/admin/test.html 404). 메모리 alert-push-wiped-repo-2026-11-01.
 #
-# 하는 것 (우리 예약작업 = momcal-* · njob-* · work-backup-* · gijil-* · dad-* · blogauto-* · econ-* · smartstore-track · Tick · Learn · RefreshToken)
+# 하는 것 (우리 예약작업 = 루트의 momcal-* · njob-* · work-backup-* · gijil-* · dad-* · blogauto-* · econ-* · smartstore-track + \ThreadsAutopilot\ 의 Tick · Learn · RefreshToken)
 #   ① StartWhenAvailable = false  — 놓친 회차를 켜질 때 몰아서 돌리지 않는다(다음 정규 회차에 돈다)
 #   ② MultipleInstances  = IgnoreNew — 같은 작업이 아직 돌고 있으면 새 회차는 버린다
 #   ③ ExecutionTimeLimit — 제한이 없던 작업(PT72H 기본값)에 상한을 건다: 점검·가드류 10분, 수집·발행류 1시간(좀비 방지).
 #      이미 제한이 걸려 있던 작업(20분·30분·2시간 …)은 그 값이 실측에 맞춰 둔 것이라 그대로 둔다.
+#      실측으로 1시간을 넘는 것은 따로 적는다($LimitOverride — month-blitz 68~81분·econ-daily 66분 → 2시간, 검증자 2026-11-01).
 #      ⚠ 손대지 않는 것: momcal-cafe-hotdeal · momcal-cafe-greeting(카페에 글을 올리는 발행기 — 사장님 2026-09-04 「풀지말고 냅둬」,
 #         중간에 끊으면 글이 반쯤 올라간다) 의 시간 제한, momcal-hub-server(상시 서버, 제한 없음이 맞다).
 #
@@ -35,15 +36,20 @@ $logDir = Join-Path $root 'scratchpad\handoff-log'
 
 # 시간 제한을 건드리지 않는 작업
 $KeepLimit = @('momcal-cafe-hotdeal', 'momcal-cafe-greeting', 'momcal-hub-server')
+# 실측이 1시간을 넘어 따로 정한 상한 (검증자 2026-11-01: month_start_log 68~81분 · econ-daily.log 66분)
+$LimitOverride = @{ 'momcal-month-blitz' = 'PT2H'; 'econ-daily' = 'PT2H' }
+# 작업 폴더: 루트 + 스레드 자동화(@eat__little) 폴더
+$Paths = @('\', '\ThreadsAutopilot\')
 # 제한이 없던 것 중 10분이면 충분한 점검·가드류 (나머지 제한 없던 것은 $LongLimit)
 $ShortRe = '(guard|watch|check|audit|smoke|gap|clean|sweep|status|report|honeypot|soldout|openlist|plan|rivals|shapes|retention|^Tick$|^RefreshToken$|^blogauto-backup$)'
 
 function Get-Targets {
-  Get-ScheduledTask | Where-Object { $_.TaskPath -eq '\' -and $_.TaskName -match $Filter } | Sort-Object TaskName
+  Get-ScheduledTask | Where-Object { $Paths -contains $_.TaskPath -and $_.TaskName -match $Filter } | Sort-Object TaskName
 }
 
 function Desired-Limit([string]$name, [string]$cur) {
   if ($KeepLimit -contains $name) { return $cur }
+  if ($LimitOverride.ContainsKey($name)) { return $LimitOverride[$name] }
   if ($cur -ne 'PT72H' -and $cur -ne 'PT0S' -and $cur) { return $cur }   # 이미 걸어 둔 제한은 그대로
   if ($name -match $ShortRe) { return $ShortLimit }
   return $LongLimit
@@ -73,7 +79,7 @@ if ($Rollback) {
     $s.StartWhenAvailable = [bool]::Parse($r.SWA_before)
     $s.MultipleInstances = $r.Multi_before
     $s.ExecutionTimeLimit = $r.Limit_before
-    Set-ScheduledTask -TaskName $r.Name -Settings $s | Out-Null
+    Set-ScheduledTask -TaskName $r.Name -TaskPath $t.TaskPath -Settings $s | Out-Null
     $n++
   }
   Write-Output "되돌림 $n 개 (파일 $Rollback)"
@@ -105,6 +111,7 @@ $plan | Format-Table Name, State, SWA_before, Multi_before, Limit_before, Limit_
 
 if (-not $Apply) { Write-Output "미리보기만 했다. 적용하려면 -Apply"; exit 0 }
 
+if (-not $chg.Count) { Write-Output "바꿀 것이 없다 — 되돌리기 TSV 도 새로 쓰지 않는다(지난 TSV 를 덮지 않게)"; exit 0 }
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force $logDir | Out-Null }
 $tsv = Join-Path $logDir ("tasks_safe_mode_{0}.tsv" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
 $plan | Select-Object Name, SWA_before, Multi_before, Limit_before, Limit_after | ConvertTo-Csv -NoTypeInformation -Delimiter "`t" | ForEach-Object { $_ -replace '"', '' } | Out-File -Encoding utf8 $tsv
@@ -113,12 +120,12 @@ Write-Output "되돌리기 TSV: $tsv"
 $ok = 0; $fail = 0
 foreach ($p in $chg) {
   try {
-    $t = Get-ScheduledTask -TaskName $p.Name
+    $t = Get-ScheduledTask -TaskName $p.Name | Where-Object { $Paths -contains $_.TaskPath } | Select-Object -First 1
     $s = $t.Settings
     $s.StartWhenAvailable = $false
     $s.MultipleInstances = 'IgnoreNew'
     $s.ExecutionTimeLimit = $p.Limit_after
-    Set-ScheduledTask -TaskName $p.Name -Settings $s | Out-Null
+    Set-ScheduledTask -TaskName $p.Name -TaskPath $t.TaskPath -Settings $s | Out-Null
     $ok++
   } catch {
     Write-Output "  🔴 실패 $($p.Name): $($_.Exception.Message)"; $fail++

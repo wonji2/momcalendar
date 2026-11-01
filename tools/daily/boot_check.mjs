@@ -41,7 +41,7 @@ const howOff = info.prevId === 1074 ? '정상 종료·재시작' : info.prevId =
 // ③ StartWhenAvailable 이 켜진 작업이 있나 — 2026-11-01 사고 뒤로는 0 이어야 한다(tasks_safe_mode.ps1). 켜진 게 있으면 그 이름을 경보에 싣는다
 const lag = JSON.parse(ps(`
 $pat = '^(momcal-|njob-|work-backup|gijil-|dad-|blogauto-|econ-|smartstore-track$|Tick$|Learn$|RefreshToken$)'
-$all = Get-ScheduledTask | Where-Object { $_.TaskPath -eq [string][char]92 -and $_.TaskName -match $pat -and $_.State -ne 'Disabled' }
+$all = Get-ScheduledTask | Where-Object { ($_.TaskPath -eq [string][char]92 -or $_.TaskPath -eq ([string][char]92 + 'ThreadsAutopilot' + [char]92)) -and $_.TaskName -match $pat }
 $on = @($all | Where-Object { $_.Settings.StartWhenAvailable } | ForEach-Object { $_.TaskName })
 @{ n = $all.Count; stuck = $on } | ConvertTo-Json -Compress`));
 const stuck = [].concat(lag.stuck || []);
