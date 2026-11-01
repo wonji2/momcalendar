@@ -7033,6 +7033,10 @@ function closeChatMenu(){
 .comm-post .m{font-size:12px;color:#8B95A1;display:flex;gap:6px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
 .comm-post .m span+span::before{content:"·";margin-right:6px}
 .comm-thumb{width:64px;height:64px;border-radius:12px;flex:none;background:#F2F4F6;object-fit:cover}
+.comm-local{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.comm-local::-webkit-scrollbar{display:none}
+.comm-local button{flex:none;height:40px;padding:0 14px;border-radius:999px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.comm-local button.on{background:#191F28;border-color:#191F28;color:#fff}
 .comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
@@ -7045,6 +7049,12 @@ body:has(#commView[style*="display: block"]) .chat-fab-wrap,body:has(#commView[s
 // ── 커뮤니티 탭 ────────────────────────────────────────────────
 const COMM_CLUB=31499187;
 let _commData=null, _commBoard=0, _commShown=30;
+// 「우리동네」 = 카페 지역 수다방 17개를 탭 하나로 묶고, 안에서 동네를 고른다 (사장님 2026-11-01). 탭 id 는 -1, _commLocal 은 고른 동네 게시판 id(0=전체)
+const COMM_LOCAL_ID=-1;
+const COMM_LOCAL_LIST=[[95,'서울'],[96,'경기'],[97,'인천'],[98,'부산'],[99,'대구'],[110,'대전'],[111,'세종'],[100,'광주'],[101,'울산'],[102,'강원'],[103,'충북'],[112,'충남'],[113,'전북'],[114,'전남'],[105,'경북'],[106,'경남'],[109,'제주']];   // 카페 메뉴 순서 그대로
+const COMM_LOCAL=Object.fromEntries(COMM_LOCAL_LIST);
+let _commLocal=0;
+function commLocalPick(id){ _commLocal=Number(id)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_local', String(_commLocal)); }catch(_){} }
 async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
   try{ _goRulesLoad(); }catch(_){}
@@ -7128,12 +7138,17 @@ function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
   const all=_commData||[];
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
-  const cnt={}; all.forEach(p=>{ const k=p.board_id; cnt[k]=cnt[k]||{id:k,name:p.board,n:0}; cnt[k].n++; });
+  const cnt={}; all.forEach(p=>{ const k=COMM_LOCAL[p.board_id]?COMM_LOCAL_ID:p.board_id; cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
+  if(!cnt[COMM_LOCAL_ID]) cnt[COMM_LOCAL_ID]={id:COMM_LOCAL_ID,name:'우리동네',n:0};   // 동네 글이 아직 없어도 탭은 둔다(고를 수 있게)
   const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
-  const rows=(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
+  const rows=(_commBoard===COMM_LOCAL_ID)?all.filter(p=>COMM_LOCAL[p.board_id]&&(!_commLocal||p.board_id===_commLocal)):(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
-  const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_commBoard?`&menuId=${_commBoard}`:''}`;
+  const _wb=(_commBoard===COMM_LOCAL_ID)?_commLocal:_commBoard; const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_wb>0?`&menuId=${_wb}`:''}`;
   let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  if(_commBoard===COMM_LOCAL_ID){
+    const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
+    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${String(_commLocal)===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
+  }
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
     // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
