@@ -1552,9 +1552,9 @@ window.slimAdClick=function(id){
   </div>
   <div class="cal-box">
     <div class="cal-head">
-      <button class="cal-nav" onclick="moveMonth(-1)">◀</button>
+      <!-- 2026-11-01 사장님: 네모 상자형 < 2026.11 오늘 > 대신 좌측 큰 「11월」 + 오른쪽 ◀ 오늘 ▶ -->
       <div class="cal-mo" id="calTitle"></div>
-      <div class="cal-navs"><button class="cal-tod" onclick="jumpToday()">오늘</button><button class="cal-nav" onclick="moveMonth(1)">▶</button></div>
+      <div class="cal-navs"><button class="cal-nav" onclick="moveMonth(-1)" aria-label="지난 달">◀</button><button class="cal-tod" onclick="jumpToday()">오늘</button><button class="cal-nav" onclick="moveMonth(1)" aria-label="다음 달">▶</button></div>
     </div>
     <div class="cgrid" id="calGrid"></div>
   </div>
@@ -3766,7 +3766,7 @@ function closeSide(){document.getElementById('sideOverlay').classList.remove('on
 
 // ── 캘린더 ──
 // ── 내 찜 캘린더: 상품마다 한 색, 오픈일~마감일을 막대로 (사장님 2026-11-01, 참고: 주 단위 막대가 다음 주로 이어지는 달력 앱 화면) ──
-const _MINE_PAL=[['#EDE4FB','#5B2E8C'],['#FDE7EE','#B4235A'],['#E3F1FD','#1D5FA8'],['#E6F6EA','#1E7A3C'],['#FFF1DB','#9A5B00'],['#E6F4F7','#0F6E7A'],['#F9E8F6','#8A2B7D'],['#EEF0DB','#5A6B00'],['#FFE9E2','#B2401C'],['#E8EAF6','#303F9F'],['#E0F4EC','#0B6B52'],['#F3E5D8','#7A4A1E']];
+const _MINE_PAL=[['#EEECFA','#554AB2'],['#FDEEF1','#C24866'],['#FDF6E3','#9E7412'],['#EBF1FD','#3B6EC2']];   // 파스텔 4색(사장님 2026-11-01): 연보라·베이비핑크·크림옐로우·파스텔스카이
 function _minePal(id){ return _MINE_PAL[Math.abs(Number(id)||0)%_MINE_PAL.length]; }
 function _dsAdd(ds,n){ const [y,m,d]=ds.split('-').map(Number); const t=new Date(y,m-1,d+n); return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`; }
 function buildMineBars(y,m,grid){
@@ -3798,7 +3798,7 @@ function buildMineBars(y,m,grid){
 }
 function buildCalendar(){
   const y=calMonth.getFullYear(),m=calMonth.getMonth();
-  document.getElementById('calTitle').textContent=`${y}.${pad(m+1)}`;
+  document.getElementById('calTitle').textContent=(y===new Date().getFullYear()?'':y+'년 ')+(m+1)+'월';   // 2026-11-01 큰 「11월」
   const grid=document.getElementById('calGrid');
   if(calMine){ buildMineBars(y,m,grid); return; }
   grid.classList.remove('mine');
@@ -4338,7 +4338,7 @@ async function saveCalImage(){
     await new Promise((res,rej)=>{ if(window.html2canvas) return res(); const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); });
     const canvas=await html2canvas(box,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-    const name='momcal_wish_'+document.getElementById('calTitle').textContent.replace('.','')+'.png';
+    const name='momcal_wish_'+calMonth.getFullYear()+pad(calMonth.getMonth()+1)+'.png';
     const file=new File([blob],name,{type:'image/png'});
     let shared=false;
     try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
@@ -7435,6 +7435,19 @@ body{letter-spacing:-0.02em}
 .cbar{position:absolute;height:18px;border-radius:5px;border-left:3px solid;font-size:9.5px;font-weight:600;line-height:18px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
 .cbar.cont{border-left-width:0;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:4px}
 .cbar.more{border-top-right-radius:0;border-bottom-right-radius:0}
+/* ── 핫딜 슬림 + 캘린더 레퍼런스 (사장님 2026-11-01) ── */
+.hc{padding:6px 10px!important;margin:0 0 4px!important;border-radius:10px!important}
+.hc-thumb,.hc-ph{width:60px!important;height:60px!important;border-radius:8px!important}
+.hc-tit{font-size:12px!important;line-height:1.25!important;margin-bottom:2px!important;-webkit-line-clamp:1!important;line-clamp:1!important}
+.hc-top{margin-bottom:2px!important}
+.hc-now,.hc-rate{font-size:14px!important}
+.cal-head{margin-bottom:10px}
+.cal-mo{font-size:26px!important;font-weight:800!important;color:#111!important;letter-spacing:-0.02em}
+.cal-nav{border:0!important;background:none!important;width:30px;height:30px;font-size:13px;color:#8B95A1}
+.cal-tod{background:#F2F4F6!important;color:#4E5968!important;border-radius:100px;padding:5px 12px;font-size:11px}
+.cbar{border-left:none!important;border-radius:4px!important;height:18px!important;line-height:18px!important;font-size:10px!important;padding:0 6px!important}
+.cbar.cont,.cbar.more{border-radius:4px!important}
+.ccell.ctod .cnum{width:24px;height:24px;border-radius:50%;background:#7C54C4;color:#fff;display:inline-flex;align-items:center;justify-content:center;margin:0 auto}
 </style>
 </body>
 </html>
