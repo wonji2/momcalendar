@@ -77,11 +77,14 @@ jobs:
           alive=int(os.environ.get('PID_ALIVE','0') or 0)
           rec('앱이 45초 뒤에도 살아 있다', alive>0, f'launchctl {alive}')
           # 머리띠는 바깥 링크 시험(약 11초) 전 화면으로 본다 — 바깥 링크가 열리면 뒤 화면은 사파리다(Codex 리뷰 2026-10-26)
-          im=Image.open('sim-out/01_home.png').convert('RGB'); w,h=im.size
-          # 사이트 머리(보라 #602090)가 화면 위쪽 12% 안에 있는가 — 오프라인 대기 화면은 연회색(#FAF9FC)
-          band=[im.getpixel((x, y)) for y in range(int(h*0.06), int(h*0.12), 6) for x in range(20, w-20, 40)]
-          purple=sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200)
-          rec('화면 위쪽에 사이트 머리(보라)가 보인다', purple > len(band)*0.4, f'보라 {purple}/{len(band)} · {w}x{h}')
+          # 머리띠: 8초 캡처(01)에 아직 안 떴으면 20초 캡처(02)로 다시 본다 — 2026-10-31 러너가 느려 8초엔 빈 화면, 20초엔 정상·자체 시험 header_visible 도 통과였는데 ❌ 로 떨어졌다(19회)
+          def purple_ratio(path):
+              im=Image.open(path).convert('RGB'); w,h=im.size
+              band=[im.getpixel((x, y)) for y in range(int(h*0.06), int(h*0.12), 6) for x in range(20, w-20, 40)]
+              return sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200), len(band), w, h
+          p1,n1,w,h=purple_ratio('sim-out/01_home.png')
+          p2,n2,_,_=purple_ratio('sim-out/02_after20s.png') if os.path.exists('sim-out/02_after20s.png') else (0,1,0,0)
+          rec('화면 위쪽에 사이트 머리(보라)가 보인다', p1 > n1*0.4 or p2 > n2*0.4, f'8초 {p1}/{n1} · 20초 {p2}/{n2} · {w}x{h}')
           log=open('sim-out/app_log.txt',encoding='utf-8',errors='ignore').read()
           crash=len(re.findall(r'Terminating app|EXC_|SIGABRT|fatal error', log))
           jserr=len(re.findall(r'(?i)(\[error\]|TypeError|ReferenceError|SyntaxError)', log))
