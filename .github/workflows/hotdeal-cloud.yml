@@ -1,0 +1,36 @@
+name: 핫딜 24시간 무인 자동 수집
+
+# 사장님 지시 2026-11-01: 베이비핫딜(bbhd.kr) 수집기를 PC 예약(momcal-baby-hotdeal, claude -p 2시간)에서 깃허브 클라우드로 완전히 옮긴다 — PC 가 꺼져도 30분마다, 토큰 0원(파이썬만).
+#   · tools/daily/baby_hotdeal_auto.py: bbhd 새 글 → 상품 링크 → 우리 수익링크(쿠팡 딥링크·링크프라이스·오늘의집) → hotdeals 등록. 진행 번호는 DB ops_status 'bbhd-last-id'.
+#   · 비밀값은 깃허브 시크릿으로만: SUPABASE_TRIAGE_TOKEN(관리 API 로 SQL) · PUSH_CRON_SECRET(coupang-hotdeal 함수 호출). 코드에 박지 않는다(11-01 공개 저장소 유출 사고).
+#   · 같은 글을 두 길이 동시에 처리하지 않게 PC 예약 momcal-baby-hotdeal 은 끈다(이 워크플로가 첫 회차를 통과한 뒤).
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: hotdeal-cloud
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/daily/baby_hotdeal_auto.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 핫딜 수집 및 수익링크 자동 등록
+        env:
+          SUPABASE_TRIAGE_TOKEN: ${{ secrets.SUPABASE_TRIAGE_TOKEN }}
+          PUSH_CRON_SECRET: ${{ secrets.PUSH_CRON_SECRET }}
+        run: python3 tools/daily/baby_hotdeal_auto.py

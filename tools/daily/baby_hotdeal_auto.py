@@ -8,9 +8,13 @@ from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
-SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN') or os.environ.get('SUPABASE_TRIAGE_TOKEN') or os.environ.get('SUPABASE_ACCESS_TOKEN') or ('sbp_' + 'fc24aa51fb34df7e71' + 'cdd92b35fc80decf841a30')
-CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET') or ('2f2cb576' + '1d1c3e1908' + 'dfe2935489c6' + '89eb8a6f3b970a7614')
+# 🔴 비밀값은 환경변수로만 (2026-11-01 — 코드에 박힌 토큰이 공개 저장소에 올라가 있었다). 없으면 바로 멈춘다
+SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN') or os.environ.get('SUPABASE_TRIAGE_TOKEN') or os.environ.get('SUPABASE_ACCESS_TOKEN') or ''
+CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET') or ''
 LINKPRICE_ID = os.environ.get('LINKPRICE_ID', 'A100706561')
+
+if not SB_MGMT_TOKEN or not CRON_SECRET:
+    raise SystemExit('[bbhd] SUPABASE_TRIAGE_TOKEN / PUSH_CRON_SECRET 환경변수가 없다 — 깃허브 시크릿을 확인')
 
 def run_sql(query):
     url = f'https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query'
@@ -155,7 +159,7 @@ def main():
             editor_img = imgs[0] if imgs else ''
 
             # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|(?:app\.ac|bitl\.bz|deg\.kr)/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
+            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|(?:app\.ac|bitl\.bz|deg\.kr)/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+|(?:www\.|m\.|store\.)?ohou\.se/(?:productions|goods)/\d+[^\"\'\s<>]*|ozip\.me/[A-Za-z0-9]+)'
             found = re.findall(link_re, detail)
             if not found:
                 print('[bbhd] 지원 링크 없음')
@@ -303,6 +307,28 @@ def main():
                     print(f'[bbhd] app.ac 해석 오류: {e}')
                     new_max_id = max(new_max_id, wr_id)
                     continue
+            elif 'ohou.se' in target_link or 'ozip.me' in target_link:
+                # 오늘의집 (사장님 2026-11-01): ozip.me 짧은 주소는 따라가 최종 주소에서 상품 번호(production id)를 뽑고, 공식 제휴 딥링크 틀로 조합
+                mall = '오늘의집'
+                source = 'ohouse'
+                final = target_link
+                try:
+                    req = urllib.request.Request(target_link, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        final = resp.geturl() or target_link
+                except Exception as e:
+                    print(f'[bbhd] 오늘의집 주소 추적 실패({e}) — 원 주소로 시도')
+                om = re.search(r'/(?:productions|goods)/(\d+)', final) or re.search(r'/(?:productions|goods)/(\d+)', target_link)
+                if not om:
+                    print(f'[bbhd] 오늘의집 상품 번호 없음: {final}')
+                    new_max_id = max(new_max_id, wr_id)
+                    continue
+                opid = om.group(1)
+                prod_id = f'oh_{opid}'
+                aff_link = (f"https://link.ohou.se/@ohouse/affiliate?channel=affiliate&sub_id_2=affiliate&sub_id_3=inorganic&campaign=brand_affiliate"
+                            f"&ad_creative=40570&ad_group=1120105&content=production_{opid}"
+                            f"&deeplink_url=ohouseapp%3A%2F%2Fohou.se%2Fproductions%2F{opid}%2Fselling"
+                            f"&fallback_desktop=https%3A%2F%2Fohou.se%2Fproductions%2F{opid}%2Fselling")
             else:
                 print(f'[bbhd] 지원 외 링크 {target_link}')
                 new_max_id = max(new_max_id, wr_id)
