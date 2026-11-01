@@ -36,11 +36,9 @@ export function pushOneFile(files, message, opts = {}) {
   const list = Array.isArray(files) ? files : [files];
   const repo = opts.repo || REPO;
   const branch = opts.branch || 'main';
-  // 워크트리에선 .git 이 폴더가 아니라 파일이라 .git/ 밑에 못 쓴다(2026-10-15 실측: 'Unable to create .git/push_one_N.idx.lock') → 실제 git dir 을 묻는다
-  const gitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], { cwd: repo, encoding: 'utf8' }).trim();
-  const idx = path.join(gitDir, `push_one_${process.pid}.idx`);
+  const idx = path.join(repo, '.git', `push_one_${process.pid}.idx`);
   const run = (args, env) => execFileSync('git', args, {
-    cwd: repo, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: repo, encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(env || {}) },
   }).trim();
 
@@ -74,6 +72,10 @@ export function pushOneFile(files, message, opts = {}) {
       }
     }
     const tree = run(['write-tree'], env);
+    // 🔴 안전장치: 빚은 트리가 origin/main 보다 파일이 줄었으면 절대 올리지 않는다(파일 한두 칸만 바꾸는 커밋이다)
+    //    2026-11-01 09:32 PC 재부팅 → 예약작업 70여 개가 한꺼번에 돌며 alert.mjs 의 공용 임시 인덱스를 서로 지워 파일 1개짜리 트리가 라이브로 나감(38,847개 삭제, cd3af9b5ef)
+    const gone = run(['diff-tree', '-r', '--diff-filter=D', '--name-only', base, tree]).split('\n').filter(Boolean);
+    if (gone.length > list.length) return { ok: false, error: `origin 에 있던 파일 ${gone.length}개가 빠진 트리 — 올리지 않음(전체 삭제 사고 방지): ${gone.slice(0, 3).join(', ')}` };
     const commit = run(['commit-tree', tree, '-p', base, '-m', message]);
     run(['push', '-q', 'origin', `${commit}:${branch}`]);
     return { ok: true, commit: commit.slice(0, 10) };

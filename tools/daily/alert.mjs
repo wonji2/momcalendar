@@ -65,10 +65,11 @@ export function clearAlert(key) {
 //   ⚠ 로컬 main 은 이 커밋만큼 뒤처진다. 다음 pull --rebase 가 알아서 따라붙는다(파일 내용은 이미 같다).
 export function pushAlerts(note = '알림 갱신') {
   const run = (args, env) => execFileSync('git', args, {
-    cwd: REPO, encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: REPO, encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(env || {}) },
   }).trim();
-  const IDX = path.join(REPO, '.git', 'alert_index.tmp');
+  // 🔴 임시 인덱스는 프로세스마다 따로 — 공용 파일 하나를 쓰다 동시에 돈 회차들이 서로 지워 빈 인덱스로 write-tree 한 사고(2026-11-01)
+  const IDX = path.join(REPO, '.git', `alert_index_${process.pid}.tmp`);
   try {
     run(['fetch', '-q', 'origin', 'main']);
     const base = run(['rev-parse', 'origin/main']);
@@ -89,6 +90,10 @@ export function pushAlerts(note = '알림 갱신') {
       run(['update-index', '--add', '--cacheinfo', `100644,${blob},daily/_alert.txt`], env);
     }
     const tree = run(['write-tree'], env);
+    // 🔴 안전장치: 빚은 트리가 origin/main 보다 파일이 줄었으면 절대 올리지 않는다(파일 한두 칸만 바꾸는 커밋이다)
+    //    2026-11-01 09:32 PC 재부팅 → 예약작업 70여 개가 한꺼번에 돌며 alert.mjs 의 공용 임시 인덱스를 서로 지워 파일 1개짜리 트리가 라이브로 나감(38,847개 삭제, cd3af9b5ef)
+    const gone = run(['diff-tree', '-r', '--diff-filter=D', '--name-only', base, tree]).split('\n').filter(Boolean);
+    if (gone.length > 1) return { ok: false, error: `origin 에 있던 파일 ${gone.length}개가 빠진 트리 — 올리지 않음(전체 삭제 사고 방지): ${gone.slice(0, 3).join(', ')}` };
     const commit = run(['commit-tree', tree, '-p', base, '-m', `사장님 알림: ${note}`]);
     run(['push', '-q', 'origin', `${commit}:main`]);
     return { ok: true, commit: commit.slice(0, 10) };
