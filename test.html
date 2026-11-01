@@ -2885,7 +2885,8 @@ function scrollToResults(){
 // ── 탭 전환 ──
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
-const CT_COLOR={gonggu:['#EFEAF5','#602090'],hotdeal:['#FBEAE7','#D85A30'],exp:['#E1F5EE','#0F6E56'],sale:['#E6F1FB','#185FA5'],community:['#EFEAF5','#602090']};
+// 2026-11-01 디자인 시스템: 탭마다 초록·파랑·주황으로 바뀌던 바탕을 없애고 전부 같은 색(연회색 + 보라 활성) — 옛 값은 git 에
+const CT_COLOR={gonggu:['#F2F4F6','#602090'],hotdeal:['#F2F4F6','#602090'],exp:['#F2F4F6','#602090'],sale:['#F2F4F6','#602090'],community:['#F2F4F6','#602090']};
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
@@ -2896,7 +2897,7 @@ function switchContent(ct){
     const on=b.dataset.ct===ct;
     b.classList.toggle('on',on);
     b.style.background=on?CT_COLOR[ct][1]:'transparent';
-    b.style.color=on?'#fff':(ct==='gonggu'?'#999':CT_COLOR[ct][1]);
+    b.style.color=on?'#fff':'#4E5968';   // 비활성 탭 글자는 본문색 하나로 (2026-11-01)
   });
   document.getElementById('gongguWrap').style.display = ct==='gonggu'?'block':'none';
   document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
@@ -7306,5 +7307,41 @@ function cpClose(fromPop){
 }
 window.addEventListener('popstate',()=>{ if(_cpOpen) cpClose(true); });   // 휴대폰 뒤로가기 = 읽기 화면 닫기
 </script>
+
+<!-- 🎨 디자인 시스템 (사장님 2026-11-01 「토스·당근·맘맘 스타일」) — 문서 맨 끝에 두어 앞의 규칙을 덮는다. 원본 scratchpad/patch_design_system.cjs -->
+<style id="mc-ds">
+/* ① 색 — 토큰부터 바꾼다 (var 를 쓰는 곳은 전부 따라온다) */
+:root{--cream:#F9FAFB;--border:#F2F4F6;--t1:#191F28;--t2:#4E5968;--t3:#8B95A1;--main-pale:#F7F3FB;--main-soft:#F7F3FB}
+html,body{background:#fff;color:#191F28}
+/* ② 글자 — 한국어 모바일: 자간 -0.025em · 줄 높이 1.45 */
+body{letter-spacing:-0.025em;line-height:1.45}
+.main-banner-title,.seller-title,.promo-head{font-size:17px;font-weight:700;color:#191F28}
+.card-name,.hc-tit,.sub-t1,.sale-t,.comm-post .t,.cp-t{font-size:15px;font-weight:600;color:#191F28}
+.comm-post .p,.card-status-txt,.sa-empty-note,.wd-sub,.mc-sub{font-size:13.5px;font-weight:500;color:#4E5968}
+.card-sellerline,.hc-cat,.hc-ago,.comm-post .m,.sub-sel,.date-sep-lbl,.hc-mall{font-size:11.5px;font-weight:400;color:#8B95A1}
+.hc-mall{font-weight:600}
+/* ③ 상자 — 회색 실선 대신 흰 바탕 + 보라빛 그림자, 모서리 16, 안쪽 12/16, 사이 12 */
+.card,.card.card-partner,.hc,.sale-card,.sub-card,.cal-box,.noti-banner,.cp-link,.sale-chip,.comm-thumb{border:0!important}
+.card,.hc,.sale-card,.cal-box,.noti-banner,.cp-link{background:#fff!important;box-shadow:0 2px 10px rgba(96,32,144,.04);border-radius:16px!important}
+.card.card-partner{background:#F7F3FB!important}
+.card{padding:12px 52px 12px 16px!important;margin-bottom:12px}
+.hc{padding:12px 16px!important;margin-bottom:12px!important}
+.sale-card{padding:12px 16px;margin-bottom:12px}
+.cards{background:#F9FAFB;padding:12px 16px 24px;gap:0}
+.sub-card{border-radius:16px;box-shadow:0 2px 10px rgba(96,32,144,.04);background:#fff}
+.date-sep-line{background:#F2F4F6}
+/* 시트 모서리 24 */
+#kkoSheet,#hdSheet,#wnSheet,#infoSheet,.fmodal,.nx-sheet-pnl,.srt-box,.ao-box,.mc-pnl{border-radius:24px 24px 0 0!important}
+/* 칩·버튼 — 알약(100px). 활성은 보라, 비활성은 연회색 바탕 + 본문색 (테두리 없음) */
+.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button,.content-seg .cseg,.app-bn-go,.mcb-fab,.mc-btn,.wd-go,.comm-more,.hc-mall{border-radius:100px!important}
+.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button{border:0!important;background:#F2F4F6!important;color:#4E5968!important;font-weight:500}
+.chip.on,.cchip.on,.subchip.on,.sale-chip.on,.comm-local button.on,.cchip.on[style]{background:#602090!important;color:#fff!important;font-weight:700}
+.content-seg{border-radius:100px;padding:4px}
+/* 강조색은 하트·활성·주요 버튼에만 — 핫딜의 주황·세일의 파랑 글자도 본문색으로 */
+.sale-t em{color:#602090;background:#F7F3FB}
+/* ④ 눌림 반응 */
+.card,.hc,.sale-card,.sub-card,.chip,.cchip,.subchip,.sale-chip,.cseg,.mc-btn,.app-bn-go,.mcb-fab,.comm-post,.comm-local button,.sa-chips button,.chat-fab,.share-btn,.wbtn{transition:transform .1s cubic-bezier(.2,0,0,1)}
+.card:active,.hc:active,.sale-card:active,.sub-card:active,.chip:active,.cchip:active,.subchip:active,.sale-chip:active,.cseg:active,.mc-btn:active,.app-bn-go:active,.mcb-fab:active,.comm-post:active,.comm-local button:active,.sa-chips button:active,.chat-fab:active,.share-btn:active{transform:scale(.97)}
+</style>
 </body>
 </html>
