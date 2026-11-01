@@ -4923,7 +4923,9 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
   try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
   // 🔴 2026-10-27: 앱은 카카오톡 앱으로 바로 로그인(_appTalkLogin). 크롬 창을 띄우지 않는다(사장님 지시 「바로 카톡 로그인이돼야지」)
-  if(_kkoNative()){ _appTalkLogin(); return; }
+  // 🔴 2026-11-01 사장님: 앱은 PKCE(code_challenge S256) + state 로 — 카카오 JS SDK(2.7.2)엔 PKCE 옵션이 없어 REST 인가 주소를 앱 화면 안에서 연다(_appPkceLogin).
+  //    되돌아오면 아래 ?code 처리의 a. 분기가 자기 state 를 대조하고 code_verifier 를 kakao-auth 에 보낸다. 카톡 앱을 다녀와 앱 밖에서 끝나도 _appBounce 가 앱으로 넘긴다.
+  if(_kkoNative()){ _appPkceLogin(); return; }
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
   //    그런데 카톡 인앱 브라우저 안에서 다시 카톡 앱을 부르면 전환이 깨져
   //    kauth.kakao.com 이 "일시적인 네트워크 오류입니다" 를 뱉는다.
@@ -5016,12 +5018,17 @@ function _appTalkLogin(){
 }
 function _kkoNative(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(_){ return false; } }
 function _appBrowserLogin(){ try{ return _kkoNative() && !!(Capacitor.isPluginAvailable && Capacitor.isPluginAvailable('Browser') && Capacitor.isPluginAvailable('App')); }catch(_){ return false; } }
+async function _appPkceLogin(){
+  // crypto.subtle 이 없는(옛 웹뷰) 경우만 옛 카톡 경로(state 만)로
+  if(!(window.crypto && crypto.subtle && crypto.getRandomValues)){ try{ trackEvent('kakao_pkce_none','no_crypto'); }catch(_){} _appTalkLogin(); return; }
+  try{ await _appKakaoLogin(); }catch(e){ try{ trackEvent('kakao_pkce_err', String(e && e.message||'').slice(0,40)); }catch(_){} _appTalkLogin(); }
+}
 async function _appKakaoLogin(){
   var verifier=_kkoB64url(crypto.getRandomValues(new Uint8Array(32)));
   var challenge=_kkoB64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
   var state='a.'+_kkoRand(16);
   try{ localStorage.setItem('mc_app_oauth', JSON.stringify({state:state, verifier:verifier, at:Date.now()})); }catch(_){}
-  var q=new URLSearchParams({client_id:KKO_JS_KEY, redirect_uri:'https://momcalendar.com/', response_type:'code', scope:'profile_nickname', state:state, code_challenge:challenge, code_challenge_method:'S256'});
+  var q=new URLSearchParams({client_id:KKO_JS_KEY, redirect_uri:kkoRedirect(), response_type:'code', scope:'profile_nickname', state:state, code_challenge:challenge, code_challenge_method:'S256'});
   // 시스템 브라우저(크롬 커스텀 탭)로 열지 않는다 — 앱 화면 안에서 카카오 로그인 화면으로 간다(사장님 지시 2026-10-27)
   location.assign('https://kauth.kakao.com/oauth/authorize?'+q.toString());
 }
