@@ -17,7 +17,11 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const FILE = path.join(REPO, 'daily', '_alert.txt');
+// ☁ 클라우드(깃허브 Actions · env MOMCAL_CLOUD=1): PC 알림 파일 대신 임시 파일에 적고, 부른 cloud_jobs.mjs 가 health_alerts(kind pc:<키>) 로 옮긴다. git 푸시는 하지 않는다 (2026-11-01)
+const CLOUD = !!process.env.MOMCAL_CLOUD;
+const FILE = CLOUD ? path.join(REPO, 'scratchpad', '_cloud_alerts.txt') : path.join(REPO, 'daily', '_alert.txt');
+const OPS = path.join(REPO, 'scratchpad', '_cloud_alert_ops.jsonl');
+const cloudOp = (op, key, text) => { if (!CLOUD) return; try { fs.mkdirSync(path.dirname(OPS), { recursive: true }); fs.appendFileSync(OPS, JSON.stringify({ op, key, text }) + '\n'); } catch {} };
 
 export function readAlerts() {
   try {
@@ -37,10 +41,12 @@ export function setAlert(key, text) {
   const list = readAlerts().filter((a) => a.key !== key);
   list.push({ key, text: String(text).replace(/[\r\n|]+/g, ' ').trim() });
   write(list);
+  cloudOp('set', key, list[list.length - 1].text);
 }
 
 export function clearAlert(key) {
   write(readAlerts().filter((a) => a.key !== key));
+  cloudOp('clear', key);
 }
 
 // 🔴 알림을 레포에 올린다 — 안 올리면 **사장님 화면에 영영 안 뜬다** (2026-09-22 실측)
@@ -64,6 +70,7 @@ export function clearAlert(key) {
 //     (2026-09-27 에 pull --rebase 가 거부돼 알림이 3일간 26회 전부 실패한 사고도 같이 사라진다).
 //   ⚠ 로컬 main 은 이 커밋만큼 뒤처진다. 다음 pull --rebase 가 알아서 따라붙는다(파일 내용은 이미 같다).
 export function pushAlerts(note = '알림 갱신') {
+  if (CLOUD) return { ok: true, skipped: '클라우드 — health_alerts 로 간다' };
   const run = (args, env) => execFileSync('git', args, {
     cwd: REPO, encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(env || {}) },

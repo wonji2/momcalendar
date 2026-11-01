@@ -17,7 +17,8 @@ import { setAlert, clearAlert, pushAlerts } from './alert.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STATE = path.join(REPO, 'scratchpad', 'app_e2e_watch.json');
-const token = execFileSync('git', ['credential', 'fill'], { input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8' })
+// 깃허브 토큰: 클라우드(Actions)면 env GH_TOKEN, PC 면 git 자격 증명 (2026-11-01 클라우드 이관)
+const token = process.env.GH_TOKEN || execFileSync('git', ['credential', 'fill'], { input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8' })
   .split('\n').find((l) => l.startsWith('password='))?.slice(9);
 const API = 'https://api.github.com/repos/wonji2/momcalendar/actions';
 const get = async (p) => (await fetch(API + p, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } })).json();
