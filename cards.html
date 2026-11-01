@@ -58,8 +58,8 @@ input[type=date]{flex:1;height:44px;border:1px solid #E5E0EE;border-radius:12px;
 <iframe id="work" title="카드 작업용"></iframe>
 <script>
 const MAX_PAGES=4;
-// 핫딜 사진 중계 함수(supabase/functions/img-proxy). 운영 이름(img-proxy) 배포는 분류기가 막아 시험 이름으로 먼저 올렸다(2026-11-01) — 운영 이름이 올라가면 여기만 바꾼다
-const IMG_PROXY='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/img-proxy-test';
+// 핫딜 사진 중계 함수(supabase/functions/img-proxy, 사장님이 2026-11-01 운영 이름으로 배포)
+const IMG_PROXY='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/img-proxy';
 const todayKST=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
 const fmtMD=d=>{const [y,m,dd]=d.split('-').map(Number);const w='일월화수목금토'[new Date(y,m-1,dd).getDay()];return `${m}/${dd}(${w})`;};
 const $=id=>document.getElementById(id);
@@ -78,11 +78,17 @@ function openFrame(url){
 async function waitFor(fn,ms,label){ const t0=Date.now(); while(Date.now()-t0<ms){ try{ if(fn()) return true; }catch(_){} await sleep(300); } throw new Error((label||'준비')+' 시간 초과'); }
 // 줄 수가 멈출 때까지(다 그려진 뒤에 찍는다 — make-today-card.mjs 와 같은 방식)
 async function waitStable(w,sel){ let prev=-1; for(let i=0;i<10;i++){ const n=w.document.querySelectorAll(sel).length; if(n>0&&n===prev) return n; prev=n; await sleep(700); } return prev; }
-async function snap(w,cardId){
+// inline=true: 복제본에 원본의 계산 스타일을 그대로 심는다 — html2canvas 복제본이 `body.vD …` 같은 규칙을 통째로 놓쳐
+//   핫딜카드 3×3 격자가 목록으로 펴지던 문제(11-01 실측). 공구카드는 원래 잘 나오므로 안 심는다.
+const INLINE_PROPS=['display','flex-direction','flex-wrap','flex','width','height','min-height','max-height','gap','row-gap','column-gap','align-items','align-content','justify-content','padding','margin','border','border-radius','border-bottom','overflow','background','background-color','font-size','font-weight','line-height','letter-spacing','color','object-fit','-webkit-line-clamp','white-space','text-overflow','position','top','left','right','bottom','box-sizing','text-align'];
+async function snap(w,cardId,inline){
   const d=w.document, card=d.getElementById(cardId);
   d.body.classList.remove('mini'); d.body.classList.add('clean');
   await d.fonts.ready; await sleep(400);
-  const canvas=await w.html2canvas(card,{width:1080,height:1920,scale:1,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:1080,windowHeight:1920,onclone:w.trimToFit});
+  const onclone=inline ? (doc)=>{ const o=[card,...card.querySelectorAll('*')], c=doc.getElementById(cardId), cl=[c,...c.querySelectorAll('*')];
+      for(let i=0;i<Math.min(o.length,cl.length);i++){ const cs=w.getComputedStyle(o[i]); for(const k of INLINE_PROPS){ const v=cs.getPropertyValue(k); if(v) cl[i].style.setProperty(k,v); } }
+      w.trimToFit(doc); } : w.trimToFit;
+  const canvas=await w.html2canvas(card,{width:1080,height:1920,scale:1,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:1080,windowHeight:1920,onclone});
   return new Promise(r=>canvas.toBlob(r,'image/png'));
 }
 function addCard(title,sub,blob,name){
@@ -126,7 +132,7 @@ async function run(){
       await Promise.all([...w.document.querySelectorAll('#L1 img.th')].map(i=>new Promise(res=>{ const src=i.getAttribute('src')||''; if(!/^https?:/.test(src)||src.includes('/functions/v1/img-proxy')){ res(); return; }
         i.crossOrigin='anonymous'; i.onload=()=>res(); i.onerror=()=>res(); i.src=IMG_PROXY+'?u='+encodeURIComponent(src); setTimeout(res,15000); })));
       await sleep(500);
-      const blob=await snap(w,'card'); rmPlaceholder();
+      const blob=await snap(w,'card',true); rmPlaceholder();
       addCard(`${md} 핫딜카드`, `오늘 ${todayN}건`, blob, `hotdeal_${day}.png`);
     }
     setSt(`완료 · ${made.length}장 · ${new Date(Date.now()+9*3600e3).toISOString().slice(11,16)} 기준`);
