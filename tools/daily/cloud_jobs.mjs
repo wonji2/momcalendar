@@ -31,7 +31,7 @@ const JOBS = {
   winner_notify:   { cron: '20 0 * * *',  script: 'tools/daily/winner_notify.mjs',       pc: 'momcal-winner-notify 09:20' },
   seller_banner:   { cron: '5 1 * * *',   script: 'tools/daily/seller_banner.mjs',       pc: 'momcal-seller-banner 10:05' },
   bot_learn:       { cron: '7,37 * * * *', script: 'tools/daily/bot_learn.mjs',          pc: 'momcal-bot-learn 30분' },
-  store_review:    { cron: '7,37 * * * *', script: 'tools/daily/store_review_watch.mjs', pc: 'momcal-store-review-watch 30분' },
+  // store_review_watch 는 애플 API 키 파일(work-backup/secrets/apple)이 PC 에만 있어 PC 유지(클라우드 시험 2026-11-01: 「애플 조회 실패 ENOENT」)
   naver_track:     { cron: '25 */6 * * *', script: 'tools/daily/naver_track.mjs',        pc: 'momcal-naver-track 6시간' },
   perf_probe:      { cron: '25 */6 * * *', script: 'tools/daily/perf_probe.mjs', args: ['--watch'], pw: true, pc: 'momcal-perf-watch 6시간' },
   // ── 2단계: 피드 묶음(cloud_bundle) 날짜 대조 — PC 가 90분 넘게 소식 없을 때만 대신 돈다(둘이 같이 고치지 않게). PC 예약작업은 그대로 둔다
