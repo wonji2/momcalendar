@@ -1,0 +1,219 @@
+# 맘캘린더 아이폰 앱 빌드 (맥 없이 — GitHub 의 macOS 러너가 대신 빌드한다)
+#
+# 왜 이렇게 하나
+#   사장님 PC 는 윈도우다. iOS 빌드는 맥에서만 된다.
+#   그래서 ios/ 네이티브 폴더를 레포에 두지 않고, 러너가 매번 `cap add ios` 로 새로 만든다.
+#   → 윈도우에서 절대 안 깨지고, 결과가 항상 재현된다.
+#
+# 지금 하는 일: 애플 개발자 계정 없이도 **컴파일이 되는지** 검증한다(서명 없이).
+#   계정(D-U-N-S → Apple Developer Program)이 나오면 아래 release 잡을 켜서 TestFlight 로 올린다.
+#
+# 실행: Actions 탭 → "iOS 앱 빌드" → Run workflow  (자동 실행 안 함 — 맥 러너는 분당 과금 단위가 크다)
+
+name: iOS 앱 빌드
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "unsigned = 서명 없이 컴파일만 확인 / release = TestFlight 업로드 (계정·시크릿 필요)"
+        required: true
+        default: unsigned
+        type: choice
+        options: [unsigned, release]
+      version:
+        description: "보이는 버전(예 1.0.1). 비우면 그대로 — 1.0 이 승인된 뒤 다음 업로드부터는 올려야 한다(같은 번호 거절)"
+        required: false
+        default: ""
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26   # Xcode 26.6 기본 — 2026-04 부터 iOS 26 SDK 아니면 App Store Connect 가 업로드를 거부한다(run #53: iOS 17.5 SDK 거부)
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치
+        working-directory: ios-app
+        run: npm install --no-audit --no-fund
+
+      - name: iOS 프로젝트 생성 (cap add ios)
+        working-directory: ios-app
+        run: |
+          npx cap add ios
+          npx cap sync ios
+          # 애플 ITMS-90068(2026-10-26 build 56): 최소 iOS 13.0 → 2027-04 부터 15.0 이상만 받는다. Capacitor 6 기본값이 13 이라 여기서 올린다
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-4].[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -c "IPHONEOS_DEPLOYMENT_TARGET = 15.0" ios/App/App.xcodeproj/project.pbxproj
+
+      - name: 앱 아이콘(1024) 교체
+        working-directory: ios-app
+        run: |
+          # 애플 요건: 1024x1024 · 알파 없음 · 모서리 둥글림 없음(시스템이 깎는다). Capacitor 템플릿은 단일 1024 아이콘을 쓴다.
+          ICON_DIR=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          test -d "$ICON_DIR" || (echo "🔴 AppIcon.appiconset 없음"; exit 1)
+          cp assets/AppIcon-1024.png "$ICON_DIR/AppIcon-512@2x.png"
+          echo "✅ 아이콘 교체"; ls -la "$ICON_DIR"
+
+      - name: 사진 저장 권한 문구 · 보이는 버전 (선기획 2026-10-27 A3·A4)
+        working-directory: ios-app
+        env:
+          VER: ${{ inputs.version }}
+        run: |
+          # 이미지 길게 눌러 「사진에 추가」·공유 시트 「이미지 저장」 때 문구가 없으면 앱이 꺼진다(심사 거절 사유)
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryAddUsageDescription" "$P" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 공구 카드와 캘린더 이미지를 사진첩에 저장할 때 사용해요." "$P"
+          /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryAddUsageDescription" "$P"
+          if [ -n "$VER" ]; then /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VER" "$P"; fi
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$P"
+      - name: 설정이 실제로 들어갔는지 확인
+        working-directory: ios-app
+        run: |
+          echo "--- Info.plist 앱 이름 ---"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" ios/App/App/Info.plist || true
+          echo "--- capacitor.config 이 복사됐나 ---"
+          test -f ios/App/App/capacitor.config.json && echo "OK" || (echo "🔴 설정 누락"; exit 1)
+          echo "--- 푸시 플러그인이 붙었나 ---"
+          grep -q "PushNotifications" ios/App/Podfile && echo "OK" || (echo "🔴 푸시 플러그인 없음"; exit 1)
+          echo "--- 브라우저 플러그인이 붙었나(카카오 로그인 시스템 브라우저, 2026-10-27) ---"
+          grep -q "CapacitorBrowser" ios/App/Podfile && echo "OK" || (echo "🔴 브라우저 플러그인 없음"; exit 1)
+          echo "--- 애플로 로그인 플러그인이 붙었나(App Review 4.8, 2026-10-27) ---"
+          grep -q "CapacitorCommunityAppleSignIn" ios/App/Podfile && echo "OK" || (echo "🔴 애플 로그인 플러그인 없음"; exit 1)
+      - name: 카카오 로그인 되돌아오기 주소(momcalendar://) 등록
+        working-directory: ios-app
+        run: |
+          # RFC 8252·카카오 보안 권장: 시스템 브라우저(SFSafariViewController)에서 로그인 → momcalendar://auth?code&state 로 앱에 돌아온다
+          #   앱(사이트 _appOAuthBoot)은 자기가 만든 state·PKCE 가 맞을 때만 받는다. AppDelegate 의 open url → ApplicationDelegateProxy 가 App 플러그인 appUrlOpen 으로 넘긴다
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$P" >/dev/null 2>&1 || /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.wontsbe.momcalendar.auth" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$P"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string momcalendar" "$P"
+          # 수출 규정(암호화): HTTPS 만 쓴다 → 면제. 없으면 빌드마다 App Store Connect 가 질문을 걸어 심사 제출이 409 로 막힌다(2026-10-27 빌드 58)
+          /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$P" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P"
+          plutil -lint "$P"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes:0:CFBundleURLSchemes:0" "$P" | grep -qx momcalendar && echo "✅ URL 스킴 momcalendar" || (echo "🔴 URL 스킴 등록 실패"; exit 1)
+          grep -q "ApplicationDelegateProxy.shared.application(app, open: url" ios/App/App/AppDelegate.swift && echo "✅ open url 넘김" || (echo "🔴 AppDelegate 에 open url 넘김이 없다"; exit 1)
+      - name: 푸시 토큰 전달 코드(AppDelegate) 넣기
+        working-directory: ios-app
+        run: |
+          # push-notifications README 필수 단계 — 없으면 알림을 켜도 토큰이 안 온다(2026-10-26 push_ios 0행)
+          python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
+          python3 ci/add_crash_reporter.py ios/App/App/AppDelegate.swift   # 앱 강제 종료 기록(2026-10-26)
+          grep -n "capacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift
+      - name: 푸시 권한(entitlements) 심고 프로젝트에 연결
+        working-directory: ios-app/ios/App
+        run: |
+          # Capacitor 기본 템플릿엔 APNs entitlement 가 없다.
+          # ⚠ 파일만 만들어두면 Xcode 가 안 읽는다 — project.pbxproj 의
+          #    CODE_SIGN_ENTITLEMENTS 까지 걸어야 실제로 붙는다.
+          cat > App/App.entitlements <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>aps-environment</key>
+            <string>development</string>
+            <key>com.apple.developer.applesignin</key>
+            <array>
+              <string>Default</string>
+            </array>
+          </dict>
+          </plist>
+          PLIST
+
+          # PRODUCT_BUNDLE_IDENTIFIER 줄 바로 뒤에 끼워 넣는다 (Debug/Release 양쪽)
+          python3 - <<'PY'
+          import re, sys
+          p = 'App.xcodeproj/project.pbxproj'
+          s = open(p, encoding='utf-8').read()
+          if 'CODE_SIGN_ENTITLEMENTS' in s:
+              print('이미 연결돼 있음'); sys.exit(0)
+          anchor = 'PRODUCT_BUNDLE_IDENTIFIER = '
+          n = s.count(anchor)
+          if n == 0:
+              print('🔴 앵커(PRODUCT_BUNDLE_IDENTIFIER)를 못 찾음 — 넣지 않고 실패로 끝낸다')
+              sys.exit(1)
+          s = s.replace(anchor, 'CODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n\t\t\t\t' + anchor)
+          open(p, 'w', encoding='utf-8').write(s)
+          print('연결함: %d 곳' % n)
+          PY
+
+          # 실제로 들어갔는지 되읽어 확인 — 안 들어갔으면 여기서 멈춘다
+          grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" App.xcodeproj/project.pbxproj \
+            && echo "✅ entitlements 연결 확인" \
+            || (echo "🔴 연결 실패"; exit 1)
+          grep -q "aps-environment" App/App.entitlements \
+            && echo "✅ APNs 권한 확인" \
+            || (echo "🔴 entitlements 내용 없음"; exit 1)
+          grep -q "com.apple.developer.applesignin" App/App.entitlements \
+            && echo "✅ 애플로 로그인 권한 확인" \
+            || (echo "🔴 애플로 로그인 권한 없음"; exit 1)
+
+      - name: 서명 없이 컴파일 검증
+        if: ${{ inputs.mode == 'unsigned' }}
+        working-directory: ios-app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -40
+
+      - name: 실패하면 화면을 남긴다
+        if: failure()
+        working-directory: ios-app
+        run: |
+          echo "=== 생성된 파일 목록 ==="
+          ls -R ios 2>/dev/null | head -60
+
+      # ── 아래는 애플 개발자 계정이 나온 뒤에 켠다 ───────────────────────
+      # 필요한 GitHub Secrets (Settings > Secrets and variables > Actions):
+      #   APPLE_CERT_P12       배포 인증서 (base64)
+      #   APPLE_CERT_PASSWORD  그 인증서 비밀번호
+      #   APPLE_PROFILE        프로비저닝 프로파일 (base64)
+      #   APPLE_API_KEY_P8     App Store Connect API 키 (base64)
+      #   APPLE_API_KEY_ID / APPLE_API_ISSUER_ID
+      # ── TestFlight 업로드 (2026-10-23) — 인증서·프로파일 파일 없이 **App Store Connect API 키로 클라우드 서명** (Xcode 13+)
+      #   필요한 GitHub Secrets 4개: APPLE_TEAM_ID · APPLE_API_KEY_ID · APPLE_API_ISSUER_ID · APPLE_API_KEY_P8(파일 원문, base64 아님)
+      #   키는 App Store Connect > 사용자 및 액세스 > 통합(Integrations) > App Store Connect API > 팀 키 (역할 **Admin** — 서명 인증서를 클라우드에서 만들려면 필요)
+      #   앱 레코드(번들 com.wontsbe.momcalendar)는 App Store Connect 에 먼저 만들어 둔다. 빌드 번호 = 러너 실행번호.
+      - name: TestFlight 업로드
+        if: ${{ inputs.mode == 'release' }}
+        working-directory: ios-app/ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -o pipefail
+          for v in APPLE_TEAM_ID APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_API_KEY_P8; do
+            [ -n "${!v}" ] || { echo "🔴 시크릿 $v 가 비어 있다 — README '사장님이 하셔야 하는 것'"; exit 1; }
+          done
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY=~/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+          # 시크릿에 키 앞뒤로 다른 글자가 섞여 들어가도(붙여넣기 사고) BEGIN~END 블록만 골라 쓴다
+          printf '%s\n' "$APPLE_API_KEY_P8" | tr -d '\r' | awk '/-----BEGIN PRIVATE KEY-----/{f=1} f{print} /-----END PRIVATE KEY-----/{f=0}' > "$KEY"; chmod 600 "$KEY"
+          head -1 "$KEY" | grep -q "BEGIN PRIVATE KEY" || { echo "🔴 APPLE_API_KEY_P8 가 .p8 원문이 아니다"; exit 1; }
+          # 서명·아카이브·업로드는 ios-app/ci/testflight.sh — 회차마다 배포 인증서·프로파일을 API 로 만들고 끝나면 지운다
+          #   (자동 서명은 등록 기기 0대라 불가 run #50, 자동+Distribution 은 충돌 run #51·#52)
+          export APPLE_API_KEY_PATH="$KEY" BUILD=${{ github.run_number }}
+          bash ../../ci/testflight.sh
+          rm -f "$KEY"

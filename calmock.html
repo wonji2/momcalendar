@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>내 일정 캘린더 · 액션 목업</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F8F7FA;color:#191919;max-width:420px;margin:0 auto;padding:12px 10px 60px}
+.note{font-size:11px;color:#8A8395;background:#fff;border:1px dashed #DED6EA;border-radius:10px;padding:9px 11px;margin-bottom:12px;line-height:1.6}
+.note b{color:#7B3FB5}
+
+/* 요약 바 */
+.sum{display:flex;gap:6px;margin-bottom:10px}
+.sum div{flex:1;background:#fff;border:1px solid #ECE8F2;border-radius:11px;padding:9px 6px;text-align:center}
+.sum .n{font-size:17px;font-weight:900;line-height:1.1}
+.sum .t{font-size:10px;color:#9A93A6;margin-top:3px}
+.sum .o .n{color:#7B3FB5}.sum .e .n{color:#E8402A}.sum .w .n{color:#E05C97}
+
+/* 토글 */
+.tg{display:flex;background:#EFEAF5;border-radius:10px;padding:3px;margin-bottom:10px}
+.tg button{flex:1;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:700;color:#8A8395;padding:8px 0;border-radius:8px;cursor:pointer}
+.tg button.on{background:#602090;color:#fff}
+
+/* 캘린더 */
+.cal{background:#fff;border:1px solid #ECE8F2;border-radius:14px;padding:10px 8px 6px;margin-bottom:12px}
+.calhd{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px}
+.calhd b{font-size:14px}
+.calhd button{border:none;background:none;font-size:17px;color:#9A93A6;cursor:pointer;padding:2px 8px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.lbl{text-align:center;font-size:10px;color:#A9A3B2;padding:3px 0}
+.cell{min-height:46px;border-radius:8px;padding:3px 2px 2px;cursor:pointer;border:1.5px solid transparent}
+.cell .d{font-size:11px;color:#555;text-align:center;line-height:1.4}
+.cell.sun .d{color:#E8556A}.cell.sat .d{color:#4A90E2}
+.cell.oth{opacity:.25;pointer-events:none}
+.cell.tod{background:#F5F0FB}
+.cell.tod .d{font-weight:900;color:#602090}
+.cell.sel{border-color:#7B3FB5;background:#F7F2FD}
+.cell.endday{border-color:#F3B6AC}                 /* 마감이 있는 날 = 빨간 테두리 */
+.dots{display:flex;justify-content:center;gap:2px;flex-wrap:wrap;margin-top:2px}
+.dot{width:5px;height:5px;border-radius:5px;background:#C9BEDD}
+.dot.p{background:#7B3FB5}                          /* 이웃셀러 */
+.dot.w{background:#E05C97}                          /* 내 찜 */
+.dot.e{background:#E8402A}                          /* 마감 */
+.cnt{font-size:9px;color:#B5AFBD;text-align:center;line-height:1}
+
+/* 선택 목록 */
+.sec{font-size:11.5px;font-weight:800;margin:14px 2px 7px;display:flex;align-items:center;gap:5px}
+.sec.p{color:#602090}.sec.w{color:#C2417A}.sec.o{color:#8A8395}
+.sec span{font-size:10.5px;font-weight:700;color:#B5AFBD}
+.card{background:#fff;border:1px solid #ECECEC;border-left:4px solid #E6E1EE;border-radius:12px;padding:10px 12px;margin-bottom:7px;position:relative}
+.card.p{border-left-color:#7B3FB5;background:linear-gradient(90deg,#FBF7FF,#fff 40%)}
+.card.w{border-left-color:#E05C97;background:linear-gradient(90deg,#FFF6FA,#fff 40%)}
+.badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;margin-right:5px}
+.badge.p{background:#EFE6FA;color:#602090}
+.badge.w{background:#FCE7F0;color:#C2417A}
+.nm{font-size:13.5px;font-weight:700;margin:4px 0 3px}
+.mt{font-size:11px;color:#9A93A6}
+.st{position:absolute;right:11px;top:11px;font-size:10.5px;font-weight:800}
+.st.open{color:#12A05C}.st.end{color:#E8402A}.st.soon{color:#8A8395}
+.empty{text-align:center;color:#B5AFBD;font-size:12.5px;padding:24px 0}
+
+.ics{width:100%;margin-top:14px;background:linear-gradient(135deg,#FF9DC0,#7B3FB5);color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer}
+.icshelp{font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:7px}
+.legend{display:flex;gap:10px;justify-content:center;font-size:10px;color:#9A93A6;margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:7px;margin-right:3px;vertical-align:middle}
+</style></head><body>
+
+<div class="note">
+  <b>액션 목업</b> — 실제로 눌러보실 수 있어요. 날짜를 누르면 아래 목록이 바뀌고, <b>전체 / 💜 내 찜</b> 토글도 작동합니다.
+  (8월 6·11·17일에 일정이 있어요)
+</div>
+
+<div class="sum">
+  <div class="o"><div class="n" id="sO">–</div><div class="t">오늘 오픈</div></div>
+  <div class="e"><div class="n" id="sE">–</div><div class="t">3일 내 마감</div></div>
+  <div class="w"><div class="n" id="sW">–</div><div class="t">내 찜</div></div>
+</div>
+
+<div class="tg">
+  <button class="on" id="tgAll" onclick="setMine(false)">전체</button>
+  <button id="tgMine" onclick="setMine(true)">💜 내 찜만</button>
+</div>
+
+<div class="cal">
+  <div class="calhd"><button onclick="mv(-1)">‹</button><b>2026.08</b><button onclick="mv(1)">›</button></div>
+  <div class="grid" id="grid"></div>
+  <div class="legend">
+    <span><i style="background:#7B3FB5"></i>이웃셀러</span>
+    <span><i style="background:#E05C97"></i>내 찜</span>
+    <span><i style="background:#C9BEDD"></i>일반</span>
+    <span><i style="background:#fff;border:1.5px solid #F3B6AC"></i>마감 있는 날</span>
+  </div>
+</div>
+
+<div id="list"></div>
+
+<button class="ics" onclick="alert('실제로는 여기서 .ics 파일이 내려받아집니다.\\n\\n찜한 공구가 폰 캘린더 일정으로 들어가요.\\n구글·네이버·애플·삼성·아웃룩 모두 지원합니다.')">📅 내 폰 캘린더에 넣기</button>
+<div class="icshelp">찜한 공구를 캘린더 앱으로 내보내요<br>구글 · 네이버 · 애플 · 삼성 · 아웃룩 모두 가능</div>
+
+<script>
+var TODAY='2026-08-03';
+// partner=이웃셀러, wish=내가 찜한 것
+var DATA=[
+ {d:'2026-08-06',end:'2026-08-09',n:'프로쉬 세제 기획전 2차',s:'유딘살림',partner:false,wish:true},
+ {d:'2026-08-06',end:'2026-08-08',n:'리틀스푼 떡뻥 모음전',s:'이현맘',partner:true,wish:false},
+ {d:'2026-08-06',end:'2026-08-10',n:'베베숲 시그니처 물티슈 20팩',s:'크레용맘',partner:true,wish:true},
+ {d:'2026-08-06',end:'2026-08-09',n:'하기스 네이처메이드 기저귀',s:'소이네',partner:false,wish:false},
+ {d:'2026-08-06',end:'2026-08-12',n:'오뚜기 컵밥 모음전',s:'뭉실맘',partner:false,wish:false},
+ {d:'2026-08-11',end:'2026-08-13',n:'토토랑 짝짝짝 초특가',s:'이현맘',partner:true,wish:false},
+ {d:'2026-08-11',end:'2026-08-14',n:'유아 쿨매트 여름특가',s:'젤리또리',partner:true,wish:true},
+ {d:'2026-08-11',end:'2026-08-15',n:'아기 목욕타월 3종',s:'루아홈',partner:false,wish:false},
+ {d:'2026-08-17',end:'2026-08-22',n:'프로살림 쪽쪽이 살균기',s:'이현맘',partner:true,wish:true},
+ {d:'2026-08-17',end:'2026-08-20',n:'키도러블 파우치토퍼',s:'힘버미네',partner:true,wish:false},
+ {d:'2026-08-17',end:'2026-08-19',n:'국내생산 냉감 러그',s:'누누네',partner:false,wish:false}
+];
+var mine=false, sel='2026-08-06';
+var DAYS=['일','월','화','수','목','금','토'];
+
+function setMine(v){
+  mine=v;
+  document.getElementById('tgAll').className=v?'':'on';
+  document.getElementById('tgMine').className=v?'on':'';
+  build(); pick(sel);
+}
+function mv(d){ alert('목업이라 8월만 보여드려요 🙏'); }
+function pool(){ return mine?DATA.filter(function(x){return x.wish}):DATA; }
+
+function build(){
+  var g=document.getElementById('grid'), h='';
+  DAYS.forEach(function(d){ h+='<div class="lbl">'+d+'</div>'; });
+  var first=new Date(2026,7,1).getDay(), last=31;
+  for(var i=0;i<first;i++) h+='<div class="cell oth"><div class="d">'+(26+i)+'</div></div>';
+  for(var d=1;d<=last;d++){
+    var ds='2026-08-'+(d<10?'0'+d:d), dow=new Date(2026,7,d).getDay();
+    var evs=pool().filter(function(x){return x.d===ds});
+    var ends=pool().filter(function(x){return x.end===ds});
+    var cls=['cell'];
+    if(dow===0)cls.push('sun'); if(dow===6)cls.push('sat');
+    if(ds===TODAY)cls.push('tod'); if(ds===sel)cls.push('sel');
+    if(ends.length)cls.push('endday');
+    var dots='';
+    evs.slice(0,4).forEach(function(x){ dots+='<div class="dot '+(x.partner?'p':(x.wish?'w':''))+'"></div>'; });
+    if(ends.length) dots+='<div class="dot e"></div>';
+    var more=evs.length>4?'<div class="cnt">+'+(evs.length-4)+'</div>':'';
+    h+='<div class="'+cls.join(' ')+'" onclick="pick(\''+ds+'\')"><div class="d">'+d+'</div><div class="dots">'+dots+'</div>'+more+'</div>';
+  }
+  g.innerHTML=h;
+  // 요약
+  document.getElementById('sO').textContent=pool().filter(function(x){return x.d===TODAY}).length;
+  document.getElementById('sE').textContent=pool().filter(function(x){return x.end>=TODAY && x.end<='2026-08-06'}).length;
+  document.getElementById('sW').textContent=DATA.filter(function(x){return x.wish}).length;
+}
+
+function card(x){
+  var cls=x.partner?'p':(x.wish?'w':'');
+  var bad=x.partner?'<span class="badge p">⭐ 이웃셀러</span>':(x.wish?'<span class="badge w">💜 내 찜</span>':'');
+  var st = x.d===TODAY?'<span class="st open">오늘오픈</span>'
+         : (x.d>TODAY?'<span class="st soon">예정</span>':'<span class="st end">진행중</span>');
+  var md=function(s){var p=s.split('-');return (+p[1])+'/'+(+p[2]);};
+  return '<div class="card '+cls+'">'+st+bad+
+    (x.partner&&x.wish?'<span class="badge w">💜</span>':'')+
+    '<div class="nm">'+x.n+'</div><div class="mt">'+x.s+' · '+md(x.d)+'~'+md(x.end)+'</div></div>';
+}
+
+function pick(ds){
+  sel=ds; build();
+  var evs=pool().filter(function(x){return x.d===ds});
+  var p=evs.filter(function(x){return x.partner});
+  var w=evs.filter(function(x){return !x.partner && x.wish});
+  var o=evs.filter(function(x){return !x.partner && !x.wish});
+  var t=ds.split('-'); var head='<div style="font-size:13px;font-weight:800;margin:2px 2px 4px">'+(+t[1])+'월 '+(+t[2])+'일 공구</div>';
+  var h=head;
+  if(!evs.length){ document.getElementById('list').innerHTML=head+'<div class="empty">이 날은 일정이 없어요</div>'; return; }
+  if(p.length) h+='<div class="sec p">⭐ 이웃셀러 <span>'+p.length+'</span></div>'+p.map(card).join('');
+  if(w.length) h+='<div class="sec w">💜 내가 찜한 공구 <span>'+w.length+'</span></div>'+w.map(card).join('');
+  if(o.length) h+='<div class="sec o">그 외 <span>'+o.length+'</span></div>'+o.map(card).join('');
+  document.getElementById('list').innerHTML=h;
+}
+build(); pick(sel);
+</script>
+</body></html>

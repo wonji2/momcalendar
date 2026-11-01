@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>판매 페이지로 이동 중…</title>
+<!--
+  네이버 링크 중간 페이지 (2026-10-26)
+
+  왜 있나: 안드로이드 홈 화면 앱에서 네이버 링크(쇼핑 커넥트·스마트스토어)를 손님이 누르면,
+    폰에 네이버 앱이 있을 때 「크롬 / NAVER」 선택창이 뜬다. 사이트 코드로 네이버 앱을 부르는 길은
+    실기기에서 막혀 있었다(events naver_try·naver_step, 2026-10-26).
+    폰은 손님이 직접 누른 이동에만 앱 선택창을 띄우는 경우가 많아서, 이 페이지를 한 번 거친 뒤
+    자동으로 넘기면(누름 없이) 선택창 없이 인터넷에서 바로 열린다 — 실기기 시험용.
+  ⚠ 네이버 주소(https · naver.com / naver.me)만 넘긴다. 다른 주소는 넘기지 않는다(아무 주소로나 보내는 통로가 되지 않게).
+  ⚠ noindex — 검색 노출 대상이 아니다.
+-->
+<style>
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:#fff;color:#191F28;gap:14px}
+  .sp{width:32px;height:32px;border:3px solid #EEE7F5;border-top-color:#602090;border-radius:50%;animation:s .8s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .t{font-size:15px;font-weight:700}
+  a{color:#602090;font-size:14px;font-weight:600;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="sp" aria-hidden="true"></div>
+<div class="t">판매 페이지로 이동하고 있어요</div>
+<a id="go" href="/" hidden>안 넘어가면 여기를 눌러 주세요</a>
+<script>
+(function(){
+  var u = '';
+  try { u = new URLSearchParams(location.search).get('u') || ''; } catch (_) {}
+  var ok = false;
+  try { var x = new URL(u); ok = x.protocol === 'https:' && /(^|\.)naver\.(com|me)$/i.test(x.hostname); } catch (_) {}
+  var a = document.getElementById('go');
+  if (!ok) { a.textContent = '맘캘린더로 돌아가기'; a.href = '/'; a.hidden = false; return; }
+  a.href = u;
+  // 누름 없이 넘긴다 — 손님이 누른 이동이 아니면 폰이 앱 선택창을 덜 띄운다
+  setTimeout(function(){ try { location.replace(u); } catch (_) { location.href = u; } }, 350);
+  setTimeout(function(){ a.hidden = false; }, 2500);
+})();
+</script>
+</body>
+</html>
