@@ -1224,7 +1224,8 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
   // 공개 저장소 사진(배너·카드)은 **언제나** 우회로로 — 파일 이름에 시각이 박혀 내용이 안 바뀌므로 엣지가 하루 붙잡아 두고 브라우저에도 하루 물린다.
   //   Supabase 무료 전송량 5GB/월 중 사진이 월 2GB 였다(2026-09-29 실측). 우회로가 못 주면 사진만 안 보이고 사이트는 그대로 돈다.
   var IMG_PUBLIC='/storage/v1/object/public/';
-  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
+  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf('http://')===0) u='https://'+u.slice(7); }catch(_){}   // 혼합 콘텐츠 차단 방지(http 사진 → https, 2026-11-01 사장님)
+    try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
   window.fetch=function(input, init){
     var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
