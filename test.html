@@ -2528,6 +2528,17 @@ async function renderSearchAll(){
     if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
   }
 
+  // 💬 커뮤니티 글 — 검색에도 보여 준다 (사장님 오더 2026-11-02 ORDER_ADMIN 작업1). 없으면 최근 30일 글을 먼저 가져온다
+  if(!_commData){
+    try{
+      const since=new Date(Date.now()-30*86400000).toISOString();
+      const cr=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,
+        {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},signal:AbortSignal.timeout?AbortSignal.timeout(6000):undefined});
+      if(cr.ok) _commData=await cr.json();   // 실패하면 null 로 둔다 — 커뮤니티 탭이 다시 받을 수 있게
+    }catch(_){}
+    if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
+  }
+
   // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
   const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
   // 🚫 「다른 브랜드」 는 핫딜·체험단 섹션에서도 뺀다 — 공구만 막으면 오이코스 핫딜이 들어올 때 다시 샌다 (2026-09-21)
@@ -2535,6 +2546,7 @@ async function renderSearchAll(){
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
+  const cm = (_commData||[]).filter(c=>hit(c.title,c.summary,c.board,c.nick));                   // 💬 커뮤니티
 
   // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
   //    오픈일순(기본) = 기존 검색 정렬 그대로(cmpDatePartner: 오픈일 빠른 순, 같은 날짜는 파트너 우선)
@@ -2569,14 +2581,18 @@ async function renderSearchAll(){
   };
 
   // 핫딜 0건이어도 절을 지우지 않고 「최근 7일 내 등록된 핫딜 0건」 을 보여 준다 — 손님이 공구만 나오는 이유를 알게(제보 #18, 사장님 2026-11-01). 전체 0건이면 기존 안내 그대로
-  const anyHit=ggS.length+hd.length+ex.length>0;
+  const anyHit=ggS.length+hd.length+ex.length+cm.length>0;
   const html =
     sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
     sec('hotdeal','🔥','핫딜',hdDedupe(hd),h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
-    sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
+    sec('exp','🎁','체험단',ex,e=>expCardHtml(e)) +
+    (cm.length?`<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px"><span>💬 커뮤니티</span><span style="font-size:11.5px;font-weight:700;color:#9A93A6">${cm.length}건</span></div>`
+      +cm.slice(0,5).map(_commCardHtml).join('')
+      +(cm.length>5?`<button class="comm-more" onclick="exitSearchMode();switchContent('community')">💬 커뮤니티 탭에서 전체보기 (${cm.length}건) ›</button>`:'')
+      +'<div style="height:16px"></div>':'');
 
   // 상단: 총 건수 + 정렬 (목업 ③번 화면)
-  const total=ggS.length+hd.length+ex.length;
+  const total=ggS.length+hd.length+ex.length+cm.length;
   const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
       <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
@@ -7238,6 +7254,11 @@ function commGo(url, ev){
   setTimeout(()=>{ if(!done){ done=true; _goLocalSet(s,false); try{ trackEvent('link_stay', tag); }catch(_){} } document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', ok); },2500);
   _goRun(s,url,env,id);
   return false;
+}
+// 커뮤니티 글 카드 한 장 — 커뮤니티 탭과 통합검색이 같이 쓴다
+function _commCardHtml(p){
+  const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" onerror="_imgFail(this)" loading="lazy" referrerpolicy="no-referrer">`:'';
+  return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;

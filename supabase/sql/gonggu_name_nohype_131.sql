@@ -52,6 +52,12 @@ BEGIN
      AND NEW.name ~ '(입니다|합니다|됩니다|되었습니다|됐습니다|했습니다|왔습니다|입니댜|합니당|오픈합니|오픈했습|시작합니|시작했습)' THEN
     NEW.approved := false;
   END IF;
+  -- ③ 사장님 2026-11-02 「인스타 네임에 오피셜 들어간 공식 계정은 공구 아닐 확률이 대부분 · 빼는 쪽으로」 (비비엔다 오피셜 포함)
+  --    새로 들어오는 행만 미승인으로 받는다(예외를 던지지 않는다 — 등록기 한 줄 때문에 회차가 멈추지 않게). 맘캘 본인(momcal_)은 제외.
+  --    기존 노출 137행은 11-02 에 내리고 gonggu_hold 에 넣었다.
+  IF TG_OP = 'INSERT' AND NEW.approved IS TRUE AND COALESCE(NEW.insta, '') ILIKE '%official%' AND COALESCE(NEW.insta, '') <> 'momcal_' THEN
+    NEW.approved := false;
+  END IF;
   RETURN NEW;
 END;
 $function$;
