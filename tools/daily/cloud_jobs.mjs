@@ -34,7 +34,15 @@ const JOBS = {
   store_review:    { cron: '7,37 * * * *', script: 'tools/daily/store_review_watch.mjs', pc: 'momcal-store-review-watch 30분' },
   naver_track:     { cron: '25 */6 * * *', script: 'tools/daily/naver_track.mjs',        pc: 'momcal-naver-track 6시간' },
   perf_probe:      { cron: '25 */6 * * *', script: 'tools/daily/perf_probe.mjs', args: ['--watch'], pw: true, pc: 'momcal-perf-watch 6시간' },
+  // ── 2단계: 피드 묶음(cloud_bundle) 날짜 대조 — PC 가 90분 넘게 소식 없을 때만 대신 돈다(둘이 같이 고치지 않게). PC 예약작업은 그대로 둔다
+  date_audit:      { cron: '50 * * * *', script: 'tools/daily/gonggu_date_audit.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-date-audit 매시 50분(PC 꺼졌을 때만 대신)',
+                     out: [/^scratchpad\/date_audit\/report_.*\.md$/, /^scratchpad\/handoff-log\/date_audit_fix_.*\.tsv$/, /^scratchpad\/date_audit\/log\.txt$/] },
+  period_fill:     { cron: '50 * * * *', script: 'tools/daily/period_fill.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-period-fill 매시(PC 꺼졌을 때만 대신)',
+                     out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/, /^scratchpad\/handoff-log\/period_fill_.*\.tsv$/] },
+  live_audit:      { cron: '50 0 * * *', script: 'tools/daily/live_audit.mjs', bundle: true, pc: 'momcal-live-audit 09:50', out: [/^scratchpad\/live_audit_log\.txt$/] },
+  date_audit_dry:  { cron: '-', script: 'tools/daily/gonggu_date_audit.mjs', bundle: true, pc: '(시험용 · 고치지 않고 보고서만)', out: [/^scratchpad\/date_audit\/report_.*\.md$/] },
 };
+const PC_ALIVE_MIN = 90;
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -55,8 +63,27 @@ const SB = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
 const results = [];
 
+// PC 심박(ops_status id='pc', momcal-ops-status 30분) — gate:'pc-off' 작업은 PC 가 PC_ALIVE_MIN 안에 살아 있으면 건너뛴다
+let pcAge = null;
+if (names.some((n) => JOBS[n].gate === 'pc-off') && KEY) {
+  const r = await fetch(`${SB}/rest/v1/ops_status?id=eq.pc&select=updated_at`, { headers: H }).then((x) => x.json()).catch(() => null);
+  if (Array.isArray(r) && r[0]) pcAge = Math.round((Date.now() - new Date(r[0].updated_at).getTime()) / 60000);
+  console.log(`PC 마지막 소식 ${pcAge == null ? '없음' : pcAge + '분 전'}`);
+}
+// 피드 묶음이 필요한 작업이 있으면 한 번 받아 둔다(48시간 넘게 낡았으면 exit 2 → 그 작업들은 건너뜀)
+let bundleOk = null;
+const needBundle = names.filter((n) => JOBS[n].bundle && !(JOBS[n].gate === 'pc-off' && pcAge != null && pcAge < PC_ALIVE_MIN));
+if (needBundle.length) {
+  for (const d of ['scratchpad/date_audit/inpock', 'scratchpad/date_audit/page', 'scratchpad/handoff-log', 'scratchpad/ig_feed']) fs.mkdirSync(path.join(REPO, d), { recursive: true });
+  const b = spawnSync(process.execPath, [path.join(REPO, 'tools/daily/cloud_bundle_get.mjs')], { cwd: REPO, encoding: 'utf8', timeout: 10 * 60e3, maxBuffer: 64 * 1024 * 1024, env: process.env });
+  console.log((b.stdout || '').trim()); if (b.stderr) console.log(b.stderr.trim().slice(0, 300));
+  bundleOk = b.status === 0;
+}
+
 for (const name of names) {
   const j = JOBS[name];
+  if (j.gate === 'pc-off' && pcAge != null && pcAge < PC_ALIVE_MIN) { console.log(`⏭ ${name} — PC 가 ${pcAge}분 전에 살아 있어 PC 몫으로 둠`); results.push({ name, ok: true, status: 0, sec: 0, tail: 'PC 살아 있음 — 건너뜀', skipped: true }); continue; }
+  if (j.bundle && bundleOk === false) { console.log(`⏭ ${name} — 피드 묶음을 못 받았거나 낡음`); results.push({ name, ok: true, status: 0, sec: 0, tail: '묶음 없음/낡음 — 건너뜀', skipped: true }); continue; }
   const t0 = Date.now();
   console.log(`▶ ${name} — node ${j.script} ${(j.args || []).join(' ')}`);
   const r = spawnSync(process.execPath, [path.join(REPO, j.script), ...(j.args || [])], {
@@ -82,13 +109,18 @@ if (KEY) {
     console.log(`알림 ${o.op} ${kind}${o.op === 'set' ? ' — ' + String(o.text).slice(0, 80) : ''}`);
   }
   const run = process.env.GITHUB_RUN_ID || 'local';
+  const put = (name, body) => fetch(`${SB}/storage/v1/object/cloud-bundle/runs/${run}/${name}`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'text/plain; charset=utf-8', 'x-upsert': 'true' }, body }).catch(() => {});
+  const walk = (d) => { let o = []; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (!/ig_feed|inpock|page/.test(e.name)) o = o.concat(walk(p)); } else o.push(p); } return o; };
   for (const x of results) {
-    const body = fs.readFileSync(path.join(LOGDIR, x.name + '.log'));
-    await fetch(`${SB}/storage/v1/object/cloud-bundle/runs/${run}/${x.name}.log`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'text/plain; charset=utf-8', 'x-upsert': 'true' }, body }).catch(() => {});
+    if (x.skipped) continue;
+    await put(x.name + '.log', fs.readFileSync(path.join(LOGDIR, x.name + '.log')));
+    // 보고서·되돌리기 TSV 같은 산출물(JOBS.out 정규식)
+    for (const re of JOBS[x.name].out || []) for (const p of walk(path.join(REPO, 'scratchpad'))) { const rel = path.relative(REPO, p).replace(/\\/g, '/'); if (re.test(rel)) { await put(rel.replace(/^scratchpad\//, '').replace(/\//g, '__'), fs.readFileSync(p)); console.log('산출물 올림', rel); } }
     const kind = 'cloud:' + x.name;
     await fetch(`${SB}/rest/v1/health_alerts?kind=eq.${encodeURIComponent(kind)}`, { method: 'DELETE', headers: H }).catch(() => {});
     if (!x.ok) await fetch(`${SB}/rest/v1/health_alerts`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ kind, detail: `클라우드 회차 실패(exit ${x.status}) — 로그 cloud-bundle/runs/${run}/${x.name}.log · ${x.tail}` }) }).catch(() => {});
+    else if (JOBS[x.name].gate === 'pc-off') await fetch(`${SB}/rest/v1/health_alerts`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ kind: 'cloud:대신함', detail: `PC 가 ${pcAge}분째 소식 없어 깃허브가 ${x.name} 을 대신 돌림(${x.sec}s) — 산출물 cloud-bundle/runs/${run}/` }) }).catch(() => {});
   }
 }
-console.log(`끝 — ${results.filter((x) => x.ok).length}/${results.length} 성공`);
-process.exit(results.every((x) => x.ok) ? 0 : 1);
+console.log(`끝 — ${results.filter((x) => x.ok).length}/${results.length} 성공${results.some((x) => x.skipped) ? ' (건너뜀 ' + results.filter((x) => x.skipped).length + ')' : ''}`);
+process.exitCode = results.every((x) => x.ok) ? 0 : 1;

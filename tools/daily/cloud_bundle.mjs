@@ -49,6 +49,7 @@ if (want && want.size) {
     for (const m of src.matchAll(/['"`]([a-z_]+\.(?:mjs|json))['"`]/g)) { const c = path.posix.join(path.posix.dirname(rel), m[1]); if (fs.existsSync(path.join(REPO, c))) walk(c); }
   };
   walk('tools/daily/inquiry_triage.mjs'); walk('tools/daily/gonggu_date_audit.mjs');
+  walk('tools/daily/period_fill.mjs'); walk('tools/daily/live_audit.mjs');   // 2026-11-01 클라우드 대신 돌기(cloud_jobs.mjs) — PC 판 그대로
   log('코드 ' + seen.size + '개: ' + [...seen].map((x) => x.split('/').pop()).join(' '));
   add('scratchpad/_littly_out.tsv'); add('scratchpad/date_audit/verified_hash.json');
   const cut = new Date(Date.now() + 9 * 3600e3 - 62 * 86400e3).toISOString().slice(0, 10);
