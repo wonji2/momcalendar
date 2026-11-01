@@ -78,6 +78,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .logo-svg-fallback{height:32px;display:flex;align-items:center}
 .ad-btn{height:32px;display:inline-flex;align-items:center;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:11px;font-weight:600;padding:0 11px;border-radius:20px;cursor:pointer;font-family:inherit;flex-shrink:0}
 .hd-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.share-btn.hd-mine{font-size:16px;line-height:1}
 .share-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0}
 .share-btn:active{background:rgba(255,255,255,.28)}
 .srch{position:relative}
@@ -358,7 +359,8 @@ body.srch-suggest #searchDrop{display:block}
 .wbtn{position:absolute;top:0;bottom:0;right:0;width:46px;border:none;border-left:1px solid #F0EDF5;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:3;border-radius:0 12px 12px 0}
 .wbtn svg{width:21px;height:21px;display:block;transition:transform .18s}
 .wbtn:active svg{transform:scale(.82)}
-.wbtn.pop svg{animation:wpop .34s}
+.wbtn.pop svg{animation:heartPop .35s cubic-bezier(.22,1,.36,1)}
+@keyframes heartPop{0%{transform:scale(1)}40%{transform:scale(1.35)}70%{transform:scale(.92)}100%{transform:scale(1)}}
 @keyframes wpop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
 .stab.wish-tab{background:#F3E8FC;color:#7B3FB5}
 .stab.on-w{background:#7B3FB5;color:#fff;font-weight:700}
@@ -627,6 +629,9 @@ body.srch-suggest #searchDrop{display:block}
 .hc-today{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;background:#F0502E;padding:2px 7px;border-radius:20px;white-space:nowrap}
 .hc-ago{margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;color:#A99CC0;white-space:nowrap}
 .hc-stale{flex-shrink:0;font-size:9px;font-weight:800;color:#B45309;background:#FEF3C7;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.sa-chips{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.sa-chips span{width:100%;font-size:12px;color:#8B95A1;margin-bottom:2px}
+.sa-chips button{height:36px;padding:0 14px;border-radius:999px;border:1px solid #E5E0EE;background:#fff;color:#602090;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .sa-empty-note{font-size:12.5px;color:#8B8597;background:#F6F4FA;border-radius:12px;padding:12px 14px;margin:0 2px}
 .hc-tit{font-size:12.5px;font-weight:700;color:#222;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
 .hc-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
@@ -953,7 +958,8 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
       <button class="share-btn" onclick="mcShare()" aria-label="공유하기">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><line x1="8.2" y1="10.9" x2="15.8" y2="6.1"/><line x1="8.2" y1="13.1" x2="15.8" y2="17.9"/></svg>
       </button>
-      <button class="ad-btn" onclick="openPartnerModal()">📩 제휴·입점</button>
+      <!-- 2026-11-01 사장님: 제휴·입점 버튼은 손님에게 쓸모없는 자리 차지 → 사이드메뉴 「문의」·푸터로 내리고, 자주 쓰는 「내 찜·일정」 바로가기로 -->
+      <button class="share-btn hd-mine" onclick="goCalMine()" aria-label="내 찜·일정">💜</button>
     </div>
   </div>
   <div class="srch-row">
@@ -1041,7 +1047,7 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
     <div style="margin-top:14px;padding:14px 16px 0;border-top:1px solid var(--border);font-size:10.5px;color:#A99CC0;line-height:1.7">
       공구 핫딜 정보 공유 커뮤니티 맘캘린더<br>
       본 사이트는 각 셀러·쇼핑몰과 무관하며, 공개된 일정 정보를 모아 안내합니다.<br>
-      문의 <b style="color:#8A8395">momcal@kakao.com</b>
+      문의 <b style="color:#8A8395">momcal@kakao.com</b> · <button type="button" class="side-acct-lnk" style="font-size:10.5px" onclick="closeSide();openPartnerModal()">제휴·입점 문의</button>
     </div>
   </div>
 </div>
@@ -2557,8 +2563,9 @@ async function renderSearchAll(){
   const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7B3FB5;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
 
   el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:36px 0 10px;text-align:center;color:#aaa">
-      '<b style="color:#7B3FB5">${escHtml(fSearch)}</b>' 지금 진행 중인 공구는 없어요<br>
+      '<b style="color:#7B3FB5">${escHtml(fSearch)}</b>' 결과가 없어요<br>
       <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
+      <div class="sa-chips"><span>추천 검색어</span>${['기저귀','물티슈','분유','이유식','장난감'].map(k=>`<button type="button" onclick="runSearch('${k}')">${k}</button>`).join('')}</div>
     </div><div id="pastWrap"></div>`) + backHome;
   paintHearts();
   // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
@@ -4502,7 +4509,7 @@ function mcShare(){
   }
 }
 function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
-function mcToast(msg){
+function mcToast(msg, ms){
   try{
     // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
     var prev=document.getElementById('mcToastBox'); if(prev){ try{prev.remove();}catch(_){} }
@@ -4521,7 +4528,7 @@ function mcToast(msg){
     document.body.appendChild(t);
     requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translate(-50%,0)'; });
     // 길면 오래 보여 준다(글자당 45ms, 3~5.5초)
-    var _ms=Math.min(5500, Math.max(3000, 1800+String(msg).length*45));
+    var _ms=(ms>0)?ms:Math.min(5500, Math.max(3000, 1800+String(msg).length*45));   // ms 를 주면 그 시간(찜 토스트 2초)
     setTimeout(function(){ t.style.opacity='0'; t.style.transform='translate(-50%,8px)'; setTimeout(function(){ try{t.remove();}catch(_){} }, 250); }, _ms);
   }catch(_){}
 }
@@ -4662,6 +4669,10 @@ function toggleWish(id, btn, ev){
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on){
+    // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트. 알림이 꺼져 있으면 「알려드려요」라고 약속하지 않는다
+    try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){}
+    try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
+      mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
     // 하트 한 번에 바로 시트가 뜨면 부담스러움 → 찜 2개째부터, 그것도 하루에 하나만.
     if(WISH.size >= 2){
       if(!(typeof maybeAskLogin==='function' && maybeAskLogin())) maybeAskNoti();
@@ -5705,6 +5716,33 @@ function updateSearchChrome(){
 window.addEventListener('popstate',()=>{
   if(_srchHist){ _srchHist=false; if(document.body.classList.contains('srch-mode')) exitSearchMode(); }
 });
+// ── 안드로이드 하드웨어·제스처 뒤로가기 (Google Play, 2026-11-01) ──
+//   @capacitor/app 의 backButton 에 리스너를 달면 기본 동작(웹뷰 뒤로가기 → 앱 종료)이 꺼진다.
+//   열려 있는 시트·메뉴·모달이 있으면 그것만 닫고, 검색 중이면 검색을 닫고, 메인에서는 2초 안에 두 번 눌러야 종료한다.
+(function(){
+  function _capApp(){ try{ return window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App; }catch(_){ return null; } }
+  var _lastBack=0;
+  function closeTopLayer(){
+    var sh=document.querySelector('.mc-sheet.open'); if(sh){ sh.classList.remove('open'); return true; }
+    var ids=['sideMenu','partnerModal','infoSheet','wnSheet','kkoSheet','loginSheet'];
+    for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue;
+      if(el.classList.contains('on')||el.classList.contains('open')){
+        if(ids[i]==='sideMenu') closeSide(); else if(ids[i]==='wnSheet'&&typeof closeWnSheet==='function') closeWnSheet(); else if(ids[i]==='loginSheet'&&typeof closeLoginSheet==='function') closeLoginSheet(); else el.classList.remove('on','open');
+        return true; } }
+    if(typeof _cpOpen!=='undefined' && _cpOpen && typeof cpClose==='function'){ cpClose(true); return true; }
+    if(document.body.classList.contains('srch-mode')){ exitSearchMode(); return true; }
+    return false;
+  }
+  function onBack(){
+    if(closeTopLayer()) return;
+    var now=Date.now();
+    if(now-_lastBack<2000){ try{ _capApp().exitApp(); }catch(_){} return; }
+    _lastBack=now; mcToast('한 번 더 누르면 앱이 종료돼요', 2000);
+  }
+  window._mcBack=onBack;   // 시험용(에뮬레이터·검증 스크립트)
+  function bind(){ var A=_capApp(); if(!A||!A.addListener) return false; try{ A.addListener('backButton', onBack); }catch(_){ return false; } return true; }
+  if(!bind()){ window.addEventListener('load', bind); document.addEventListener('deviceready', bind); }
+})();
 function exitSearchMode(){
   _suggestOpen=false;
   const si=document.getElementById('sInput');
@@ -6956,7 +6994,7 @@ function closeChatMenu(){
 <div style="max-width:480px;margin:0 auto;padding:10px 16px 90px;text-align:center">
   <div id="bizInfo" style="display:none;font-size:10.5px;color:#b0b0b0;line-height:1.7;margin-top:6px">
     상호 원츠비 · 대표 원지선<br>
-    사업자등록번호 390-58-00826<br>
+    사업자등록번호 390-58-00826 · <button type="button" onclick="openPartnerModal()" style="background:none;border:0;padding:0;font-family:inherit;font-size:inherit;color:inherit;text-decoration:underline;cursor:pointer">제휴·입점 문의</button><br>
     통신판매업 신고번호 제2024-용인수지-2336호<br>
     문의 momcal@kakao.com<br>
     <a href="/privacy.html" style="color:#9B6FD4;text-decoration:underline">개인정보처리방침</a> · <a href="/terms.html" style="color:#9B6FD4;text-decoration:underline">이용약관</a><br>
