@@ -3767,13 +3767,15 @@ function closeSide(){document.getElementById('sideOverlay').classList.remove('on
 // ── 캘린더 ──
 // ── 내 찜 캘린더: 상품마다 한 색, 오픈일~마감일을 막대로 (사장님 2026-11-01, 참고: 주 단위 막대가 다음 주로 이어지는 달력 앱 화면) ──
 const _MINE_PAL=[['#EEECFA','#554AB2'],['#FDEEF1','#C24866'],['#FDF6E3','#9E7412'],['#EBF1FD','#3B6EC2']];   // 파스텔 4색(사장님 2026-11-01): 연보라·베이비핑크·크림옐로우·파스텔스카이
-function _minePal(id){ return _MINE_PAL[Math.abs(Number(id)||0)%_MINE_PAL.length]; }
+let _mineOrder={};   // 상품 id → 색 번호(오픈일 순으로 4색 순환 — 이웃한 막대가 같은 색이 안 되게, 2026-11-01)
+function _minePal(id){ const k=_mineOrder[id]; return _MINE_PAL[(k==null?Math.abs(Number(id)||0):k)%_MINE_PAL.length]; }
 function _dsAdd(ds,n){ const [y,m,d]=ds.split('-').map(Number); const t=new Date(y,m-1,d+n); return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`; }
 function buildMineBars(y,m,grid){
   const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   const start=_dsAdd(`${y}-${pad(m+1)}-01`, -first);                 // 달력 첫 칸(이전 달 포함)
   const totalCells=Math.ceil((first+last)/7)*7;
-  const items=calPool().filter(it=>!it.always).map(it=>({id:it.id,name:it.name,s:it.openDate,e:realEnd(it)})).filter(it=>it.s&&it.e&&it.e>=it.s);   // 상시 공구는 달 전체를 덮어 뺀다(사이트 「기간 상시」·위젯 제외와 같은 기준)
+  const items=calPool().filter(it=>!it.always).map(it=>({id:it.id,name:it.name,s:it.openDate,e:realEnd(it)})).filter(it=>it.s&&it.e&&it.e>=it.s);
+  _mineOrder={}; items.slice().sort((x,y)=>x.s<y.s?-1:x.s>y.s?1:(x.id-y.id)).forEach((it,i)=>{ _mineOrder[it.id]=i; });   // 상시 공구는 달 전체를 덮어 뺀다(사이트 「기간 상시」·위젯 제외와 같은 기준)
   let h='<div class="cweek lbl">'+DAYS.map(d=>`<div class="cdlbl">${d}</div>`).join('')+'</div>';
   for(let w=0;w<totalCells/7;w++){
     const ws=_dsAdd(start,w*7), we=_dsAdd(start,w*7+6);
