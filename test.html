@@ -1853,6 +1853,8 @@ function bootView(){
 }
 let _loadTry=0, _loadBusy=false;   // 🔁 목록 자동 재시도 횟수(성공하면 0, 9 = online 복귀로 받은 것) · 진행 중 표시 (2026-09-24)
 async function loadData() {
+  // 첫 로딩: 카드가 아직 없으면 스켈레톤 자리 표시(토스·당근 방식, 2026-11-01) — 데이터가 오면 renderList 가 덮어쓴다
+  try{ var _c0=document.getElementById('cardList'); if(_c0 && !_c0.children.length && typeof skelHtml==='function') _c0.innerHTML=skelHtml(5); }catch(_){}
   if(_loadBusy) return;   // 재시도 체인이 도는 중에 또 부르면(online·bfcache) 겹쳐 두 갈래가 된다 — 검증자 실측 fail 2건 중복
   _loadBusy=true; const _t0=Date.now();   // 이 시도가 얼마나 걸렸나 — 오래 걸린 실패(무응답)는 재시도하지 않는다
   const _GGKEY='mc_gg_cache', _GGTTL=5*60*1000;   // 5분 캐시
