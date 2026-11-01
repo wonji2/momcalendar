@@ -40,7 +40,7 @@ import { sbArgs, parseRows } from './sb_query.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SP = (f) => path.join(ROOT, 'scratchpad', f);
 const LOG_F = SP('live_audit_log.txt');
-const SBX = fs.existsSync('C:/Users/FAMILY/supabase-cli/supabase.exe') ? 'C:/Users/FAMILY/supabase-cli/supabase.exe' : 'supabase';
+const SBX = process.env.SUPABASE_CLI || (fs.existsSync('C:/Users/FAMILY/supabase-cli/supabase.exe') ? 'C:/Users/FAMILY/supabase-cli/supabase.exe' : 'supabase');   // 클라우드는 env(재시도 대역) 우선
 const DRY = process.argv.includes('--dry');
 
 const KST = () => new Date(Date.now() + 9 * 3600e3);

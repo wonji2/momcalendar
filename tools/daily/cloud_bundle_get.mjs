@@ -1,7 +1,7 @@
 // 깃허브 Actions 안에서 PC 가 올린 판정 묶음(cloud_bundle.mjs)을 받아 같은 자리에 푼다 (2026-10-27)
 //   받는 것: 처리기 코드(PC 판 그대로) · 인스타 피드 최근 62일(노출 셀러만) · 리틀리 수확 · 판정 해시
-//   🔴 alert.mjs 는 클라우드용 빈 껍데기로 바꾼다 — PC 판은 daily/_alert.txt 를 git 으로 푸시하는데,
-//      클라우드엔 그 파일이 없어 PC 알림을 통째로 지워 버린다. 클라우드 처리 결과는 DB(제보 메모·site_watch)에 남는다.
+//   알림은 alert.mjs 클라우드 모드(env MOMCAL_CLOUD=1)가 health_alerts 로 보낸다 — 워크플로가 env 를 준다.
+//   조각은 scratchpad/_bundle/ 에 두고 manifest.at 가 같으면 다시 받지 않는다(워크플로 actions/cache 가 그 폴더를 보관 — 묶음 62MB, 전송량 한도).
 //   묶음이 48시간보다 오래됐으면 「낡음」 으로 끝낸다(exit 2) — 낡은 근거로 고치지 않는다
 // 실행: SB_SERVICE_KEY=… node tools/daily/cloud_bundle_get.mjs
 import fs from 'node:fs';
@@ -21,7 +21,11 @@ else {
   else {
     const feed = new Map(); let nFile = 0;
     for (let i = 0; i < man.parts; i++) {
-      const buf = Buffer.from(await get(`part-${i}.gz`).then((r) => r.arrayBuffer()));
+      const cdir = 'scratchpad/_bundle'; fs.mkdirSync(cdir, { recursive: true });
+      const cf = `${cdir}/part-${i}.gz`, cm = `${cdir}/manifest.json`;
+      let buf = null;
+      if (fs.existsSync(cf) && fs.existsSync(cm) && JSON.parse(fs.readFileSync(cm, 'utf8')).at === man.at) { buf = fs.readFileSync(cf); console.log(`조각 ${i} 캐시에서`); }
+      else { buf = Buffer.from(await get(`part-${i}.gz`).then((r) => r.arrayBuffer())); fs.writeFileSync(cf, buf); if (i === man.parts - 1) fs.writeFileSync(cm, JSON.stringify(man)); console.log(`조각 ${i} 받음 ${(buf.length / 1048576).toFixed(1)}MB`); }
       for (const l of zlib.gunzipSync(buf).toString('utf8').split('\n')) {
         if (!l) continue; const o = JSON.parse(l);
         if (o.b != null) { fs.mkdirSync(path.dirname(o.f), { recursive: true }); fs.writeFileSync(o.f, Buffer.from(o.b, 'base64')); nFile++; }
@@ -29,12 +33,7 @@ else {
       }
     }
     for (const [f, ls] of feed) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, ls.join('\n') + '\n'); }
-    fs.writeFileSync('tools/daily/alert.mjs', [
-      '// 클라우드용 빈 껍데기 — cloud_bundle_get.mjs 가 쓴다(PC 알림 파일을 건드리지 않게)',
-      'export function readAlerts() { return []; }',
-      'export function setAlert() {}',
-      'export function clearAlert() {}',
-      'export function pushAlerts() { return { ok: true, skipped: \'클라우드\' }; }', ''].join('\n'));
+    // (alert.mjs 는 MOMCAL_CLOUD=1 환경이면 스스로 클라우드 모드 — 덮어쓰지 않는다, 2026-11-01)
     console.log(`풀기 끝: 파일 ${nFile} · 피드 ${feed.size}일치`);
   }
 }

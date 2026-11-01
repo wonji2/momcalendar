@@ -23,7 +23,7 @@ import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);   // ⚠ 예약작업은 cwd 가 System32 라 supabase --linked 가 프로젝트를 못 찾는다 (카페 크롤러와 같은 함정)
-const CLI  = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
+const CLI  = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';   // 클라우드는 env 로 (2026-11-01)
 const SB   = 'https://hycaqsqeogjtbscmzrtm.supabase.co';
 const KEY  = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 const DRY  = process.argv.includes('--dry');

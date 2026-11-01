@@ -21,26 +21,24 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
-  caption_daily:   { cron: '20 19 * * *', script: 'tools/daily/caption_daily.mjs',        pc: 'momcal-caption 04:30' },
+  // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
   alias_collide:   { cron: '10 20 * * *', script: 'tools/daily/alias_collide_learn.mjs', args: ['--apply'], pc: 'momcal-alias-collide 05:10' },
   app_e2e_watch:   { cron: '10 20 * * *', script: 'tools/daily/app_e2e_watch.mjs',       pc: 'momcal-app-e2e-watch 05:30' },
   cat_guard:       { cron: '20 22 * * *', script: 'tools/daily/cat_guard.mjs',           pc: 'momcal-cat-guard 07:20' },
   my_gonggu_guard: { cron: '20 22 * * *', script: 'tools/daily/my_gonggu_guard.mjs',     pc: 'momcal-my-gonggu-guard 07:25' },
-  search_gap:      { cron: '20 23 * * *', script: 'tools/daily/search_gap_daily.mjs',    pc: 'momcal-search-gap 08:20' },
   dup_guard:       { cron: '20 0 * * *',  script: 'tools/daily/dup_guard.mjs',           pc: 'momcal-dup-guard 09:20' },
   winner_notify:   { cron: '20 0 * * *',  script: 'tools/daily/winner_notify.mjs',       pc: 'momcal-winner-notify 09:20' },
-  seller_banner:   { cron: '5 1 * * *',   script: 'tools/daily/seller_banner.mjs',       pc: 'momcal-seller-banner 10:05' },
+  seller_banner:   { cron: '-',   script: 'tools/daily/seller_banner.mjs',       pc: 'momcal-seller-banner 10:05(PC 는 끔)' },
   bot_learn:       { cron: '7,37 * * * *', script: 'tools/daily/bot_learn.mjs',          pc: 'momcal-bot-learn 30분' },
   // store_review_watch 는 애플 API 키 파일(work-backup/secrets/apple)이 PC 에만 있어 PC 유지(클라우드 시험 2026-11-01: 「애플 조회 실패 ENOENT」)
-  naver_track:     { cron: '25 */6 * * *', script: 'tools/daily/naver_track.mjs',        pc: 'momcal-naver-track 6시간' },
-  perf_probe:      { cron: '25 */6 * * *', script: 'tools/daily/perf_probe.mjs', args: ['--watch'], pw: true, pc: 'momcal-perf-watch 6시간' },
   // ── 2단계: 피드 묶음(cloud_bundle) 날짜 대조 — PC 가 90분 넘게 소식 없을 때만 대신 돈다(둘이 같이 고치지 않게). PC 예약작업은 그대로 둔다
-  date_audit:      { cron: '50 * * * *', script: 'tools/daily/gonggu_date_audit.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-date-audit 매시 50분(PC 꺼졌을 때만 대신)',
+  date_audit:      { cron: '50 */3 * * *', script: 'tools/daily/gonggu_date_audit.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-date-audit 매시 50분(PC 꺼졌을 때만 대신)',
                      out: [/^scratchpad\/date_audit\/report_.*\.md$/, /^scratchpad\/handoff-log\/date_audit_fix_.*\.tsv$/, /^scratchpad\/date_audit\/log\.txt$/] },
-  period_fill:     { cron: '50 * * * *', script: 'tools/daily/period_fill.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-period-fill 매시(PC 꺼졌을 때만 대신)',
+  period_fill:     { cron: '50 */3 * * *', script: 'tools/daily/period_fill.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-period-fill 매시(PC 꺼졌을 때만 대신)',
                      out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/, /^scratchpad\/handoff-log\/period_fill_.*\.tsv$/] },
-  live_audit:      { cron: '50 0 * * *', script: 'tools/daily/live_audit.mjs', bundle: true, pc: 'momcal-live-audit 09:50', out: [/^scratchpad\/live_audit_log\.txt$/] },
+  live_audit:      { cron: '50 0 * * *', script: 'tools/daily/live_audit.mjs', pc: 'momcal-live-audit 09:50', out: [/^scratchpad\/live_audit_log\.txt$/] },
   date_audit_dry:  { cron: '-', script: 'tools/daily/gonggu_date_audit.mjs', bundle: true, pc: '(시험용 · 고치지 않고 보고서만)', out: [/^scratchpad\/date_audit\/report_.*\.md$/] },
+  period_fill_dry: { cron: '-', script: 'tools/daily/period_fill.mjs', bundle: true, pc: '(시험용 · 확인만)', out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/] },
 };
 const PC_ALIVE_MIN = 90;
 
@@ -70,7 +68,7 @@ if (names.some((n) => JOBS[n].gate === 'pc-off') && KEY) {
   if (Array.isArray(r) && r[0]) pcAge = Math.round((Date.now() - new Date(r[0].updated_at).getTime()) / 60000);
   console.log(`PC 마지막 소식 ${pcAge == null ? '없음' : pcAge + '분 전'}`);
 }
-// 피드 묶음이 필요한 작업이 있으면 한 번 받아 둔다(48시간 넘게 낡았으면 exit 2 → 그 작업들은 건너뜀)
+// 피드 묶음이 필요한 작업이 있으면 한 번 받아 둔다(워크플로가 actions/cache 로 scratchpad/_bundle 을 보관 → 같은 묶음은 다시 안 받는다, 전송량 5GB/월 한도)(48시간 넘게 낡았으면 exit 2 → 그 작업들은 건너뜀)
 let bundleOk = null;
 const needBundle = names.filter((n) => JOBS[n].bundle && !(JOBS[n].gate === 'pc-off' && pcAge != null && pcAge < PC_ALIVE_MIN));
 if (needBundle.length) {

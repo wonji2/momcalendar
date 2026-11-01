@@ -22,7 +22,7 @@ import { sbArgs, parseRows } from './sb_query.mjs';
 const NL = String.fromCharCode(10);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SB = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
+const SB = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';
 const LOG = join(ROOT, 'scratchpad', 'naver_track_log.txt');
 const log = (s) => { const t = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
   appendFileSync(LOG, `[${t}] ${s}\n`); console.log(s); };

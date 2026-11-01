@@ -38,7 +38,7 @@ import { sbArgs, parseRows } from './sb_query.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);
-const CLI = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
+const CLI = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';   // 클라우드(깃허브 Actions)는 env 로 CLI 를 준다 (2026-11-01)
 const APPLY = process.argv.includes('--apply'), EVAL = process.argv.includes('--eval');
 const REPORT = path.join(ROOT, 'scratchpad', 'alias_collide_report.txt');
 const TMP = path.join(ROOT, 'scratchpad', '_alias_collide_q.sql');
