@@ -1561,6 +1561,8 @@ window.slimAdClick=function(id){
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
   <div id="icsBar" style="display:none;margin:10px 12px 0">
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
+    <!-- 2026-11-01 사장님 「이대로 사진으로 저장하기」 — 보이는 달력(막대)을 그대로 PNG 로. 공유 시트(갤러리 저장)가 되면 그걸로, 아니면 내려받기 -->
+    <button id="calImgBtn" onclick="saveCalImage()" style="width:100%;margin-top:8px;background:#7C54C4;border:0;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🖼 이대로 사진으로 저장</button>
     <!-- 마감된 건 자동으로 빠진다는 걸 누르기 전에 알려준다 (사장님 지적 2026-08-20) -->
     <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
     <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
@@ -3763,10 +3765,43 @@ function openSide(){document.getElementById('sideOverlay').classList.add('on');d
 function closeSide(){document.getElementById('sideOverlay').classList.remove('on');document.getElementById('sideMenu').classList.remove('on');}
 
 // ── 캘린더 ──
+// ── 내 찜 캘린더: 상품마다 한 색, 오픈일~마감일을 막대로 (사장님 2026-11-01, 참고: 주 단위 막대가 다음 주로 이어지는 달력 앱 화면) ──
+const _MINE_PAL=[['#EDE4FB','#5B2E8C'],['#FDE7EE','#B4235A'],['#E3F1FD','#1D5FA8'],['#E6F6EA','#1E7A3C'],['#FFF1DB','#9A5B00'],['#E6F4F7','#0F6E7A'],['#F9E8F6','#8A2B7D'],['#EEF0DB','#5A6B00'],['#FFE9E2','#B2401C'],['#E8EAF6','#303F9F'],['#E0F4EC','#0B6B52'],['#F3E5D8','#7A4A1E']];
+function _minePal(id){ return _MINE_PAL[Math.abs(Number(id)||0)%_MINE_PAL.length]; }
+function _dsAdd(ds,n){ const [y,m,d]=ds.split('-').map(Number); const t=new Date(y,m-1,d+n); return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`; }
+function buildMineBars(y,m,grid){
+  const first=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
+  const start=_dsAdd(`${y}-${pad(m+1)}-01`, -first);                 // 달력 첫 칸(이전 달 포함)
+  const totalCells=Math.ceil((first+last)/7)*7;
+  const items=calPool().filter(it=>!it.always).map(it=>({id:it.id,name:it.name,s:it.openDate,e:realEnd(it)})).filter(it=>it.s&&it.e&&it.e>=it.s);   // 상시 공구는 달 전체를 덮어 뺀다(사이트 「기간 상시」·위젯 제외와 같은 기준)
+  let h='<div class="cweek lbl">'+DAYS.map(d=>`<div class="cdlbl">${d}</div>`).join('')+'</div>';
+  for(let w=0;w<totalCells/7;w++){
+    const ws=_dsAdd(start,w*7), we=_dsAdd(start,w*7+6);
+    const evs=items.filter(it=>it.s<=we && it.e>=ws).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:(a.e>b.e?-1:1));
+    const lanes=[]; const bars=[];
+    for(const ev of evs){
+      const bs=ev.s<ws?ws:ev.s, be=ev.e>we?we:ev.e;
+      let lane=lanes.findIndex(end=>end<bs); if(lane<0){ lane=lanes.length; lanes.push(be); } else lanes[lane]=be;
+      const c0=Math.round((new Date(bs)-new Date(ws))/864e5), c1=Math.round((new Date(be)-new Date(ws))/864e5);
+      const p=_minePal(ev.id); const cont=ev.s<ws, more=ev.e>we;
+      bars.push(`<div class="cbar${cont?' cont':''}${more?' more':''}" style="left:calc(${c0}/7*100%);width:calc(${c1-c0+1}/7*100% - 2px);top:${lane*20}px;background:${p[0]};color:${p[1]};border-left-color:${p[1]}" title="${escHtml(ev.name)}">${escHtml(ev.name)}</div>`);
+    }
+    let cells='';
+    for(let i=0;i<7;i++){
+      const ds=_dsAdd(ws,i); const d=new Date(ds); const inMo=d.getMonth()===m; const dow=d.getDay();
+      const cls=['ccell',inMo?'':'oth',dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
+      cells+=`<div class="${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d.getDate()}</div></div>`;
+    }
+    h+=`<div class="cweek" style="min-height:${30+lanes.length*20}px">${cells}<div class="cbars">${bars.join('')}</div></div>`;
+  }
+  grid.classList.add('mine'); grid.innerHTML=h;
+}
 function buildCalendar(){
   const y=calMonth.getFullYear(),m=calMonth.getMonth();
   document.getElementById('calTitle').textContent=`${y}.${pad(m+1)}`;
   const grid=document.getElementById('calGrid');
+  if(calMine){ buildMineBars(y,m,grid); return; }
+  grid.classList.remove('mine');
   grid.innerHTML=DAYS.map(d=>`<div class="cdlbl">${d}</div>`).join('');
   const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevLast=new Date(y,m,0).getDate();
   for(let i=0;i<first;i++) grid.innerHTML+=`<div class="ccell oth"><div class="cnum">${prevLast-first+1+i}</div></div>`;
@@ -4240,6 +4275,8 @@ function openHowSheet(){
 }
 // 사이드메뉴 → 내 공구 캘린더로 바로
 function goCalMine(){
+  // 검색창을 누른 상태(srch-mode)·검색 중이면 그 화면이 공구 영역을 가려 아무것도 안 바뀌어 보였다 → 먼저 검색을 끈다 (사장님 2026-11-01)
+  try{ if(document.body.classList.contains('srch-mode') || (typeof searchAllOn==='function' && searchAllOn())) exitSearchMode(); }catch(_){}
   switchContent('gonggu');
   switchTab('cal');
   setCalMine(true);
@@ -4291,6 +4328,24 @@ function _icsPick(items, sentSet){
   el.querySelector('.ip-list').onchange=upd;
   el.querySelector('.ip-go').onclick=()=>{ const ids=new Set([...el.querySelectorAll('.ip-list input:checked')].map(x=>Number(x.value))); el.classList.remove('open'); try{ trackEvent('ics_pick', ids.size+'/'+items.length); }catch(_){} window._icsPicked=ids; exportWishIcs(); };
   upd();
+}
+// 달력(cal-box)을 그대로 PNG 로 — html2canvas 는 필요할 때만 받는다 (2026-11-01)
+async function saveCalImage(){
+  const btn=document.getElementById('calImgBtn'); const box=document.querySelector('#calView .cal-box'); if(!box) return;
+  const t0=btn?btn.textContent:''; if(btn){ btn.textContent='만드는 중…'; btn.disabled=true; }
+  try{
+    await new Promise((res,rej)=>{ if(window.html2canvas) return res(); const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); });
+    const canvas=await html2canvas(box,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    const name='momcal_wish_'+document.getElementById('calTitle').textContent.replace('.','')+'.png';
+    const file=new File([blob],name,{type:'image/png'});
+    let shared=false;
+    try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
+    if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
+    try{ trackEvent('cal_image', shared?'share':'download'); }catch(_){}
+    window._lastCalImage=blob;
+  }catch(e){ try{ mcToast('사진 만들기에 실패했어요. 다시 눌러 주세요'); }catch(_){} }
+  if(btn){ btn.textContent=t0; btn.disabled=false; }
 }
 async function exportWishIcs(){
   // '내 것이 쌓이는 기능'은 로그인 필요 (보는 건 로그인 없이 — 트래픽 방어)
@@ -7368,6 +7423,17 @@ body{letter-spacing:-0.02em}
 .sale-card{border:1px solid #EDE8F3!important;border-radius:12px!important;padding:8px 12px!important;margin-bottom:6px!important;box-shadow:none!important}
 .sale-logo{flex:0 0 36px!important;width:36px!important;height:36px!important;border-radius:9px!important}
 .hd{background:var(--main)!important;box-shadow:none}
+/* 이웃셀러(맘캘 보증) 카드는 더 눈에 띄게 — 테두리 진하게 + 틴트 (사장님 2026-11-01) */
+.card.card-partner{border:1.5px solid #B99BE3!important;background:#F3EDFB!important;box-shadow:inset 3px 0 0 #7C54C4!important}
+/* 내 찜 캘린더 막대 (2026-11-01) */
+.cgrid.mine{display:block}
+.cweek{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;border-top:1px solid #F2F4F6}
+.cweek.lbl{border-top:0}
+.cgrid.mine .ccell{min-height:0;border:0}
+.cbars{position:absolute;left:0;right:0;top:26px;pointer-events:none}
+.cbar{position:absolute;height:18px;border-radius:5px;border-left:3px solid;font-size:9.5px;font-weight:600;line-height:18px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+.cbar.cont{border-left-width:0;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:4px}
+.cbar.more{border-top-right-radius:0;border-bottom-right-radius:0}
 </style>
 </body>
 </html>
