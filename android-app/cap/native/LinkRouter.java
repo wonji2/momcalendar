@@ -35,7 +35,7 @@ public final class LinkRouter {
     static final List<String> BROWSERS = Arrays.asList("com.android.chrome", "com.sec.android.app.sbrowser", "com.microsoft.emmx", "com.naver.whale");
     // 바깥 링크를 넘길 인터넷 앱 순서(기본 브라우저를 안 정한 폰) — 갤럭시는 삼성 인터넷이 먼저(사장님 폰에서 웹이 여는 곳)
     static final List<String> BROWSER_ORDER = Arrays.asList("com.sec.android.app.sbrowser", "com.android.chrome", "com.naver.whale", "com.microsoft.emmx");
-    static final int BRAND = 0xFF602090;
+    static final int BRAND = 0xFF7C54C4;   // 2026-11-01 사장님: 상태바·헤더 단일색(theme-color #7C54C4 와 같게)
 
     private static String lastUrl = "";
     private static long lastAt = 0;
