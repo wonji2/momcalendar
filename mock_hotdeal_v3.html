@@ -532,32 +532,48 @@
   .sheet-bottom-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 6px;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 2px;
   }
   .bottom-diff-box {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    justify-content: center;
+    min-width: 68px;
   }
-  .diff-lbl { font-size: 10px; color: var(--text-muted); }
-  .diff-val { font-size: 13.5px; font-weight: 800; color: var(--coral-red); }
+  .diff-lbl { font-size: 10.5px; color: var(--text-muted); line-height: 14px; }
+  .diff-val { font-size: 14px; font-weight: 800; color: var(--coral-red); line-height: 18px; letter-spacing: -0.3px; }
 
   .btn-buy-link {
     flex: 1;
-    height: 44px;
+    height: 46px;
     background: var(--primary);
     color: #ffffff;
     border: 0;
     border-radius: 12px;
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     cursor: pointer;
+    padding: 0 16px;
     box-shadow: 0 3px 10px rgba(124, 84, 196, 0.22);
+    line-height: 1;
+  }
+  .btn-buy-link .btn-text {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+  .btn-buy-link .btn-arrow-svg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
   }
 
   /* 하단 네비게이션 */
@@ -843,10 +859,10 @@ let chartMetrics = { W: 320, H: 90, lo: 0, hi: 0, avg: 0 };
 
 function formatWon(n) { return (n || 0).toLocaleString() + '원'; }
 
-// 🎯 주식 앱처럼 일별 날짜 & 가격 데이터 생성기 (1개월=30일, 2개월=60일, 3개월=90일, 전체=180일)
+// 🎯 주식 앱처럼 일별 날짜 & 가격 데이터 생성기 (1개월=30일, 2개월=60일, 3개월=90일, 6개월=180일)
 function getDailyHistory(dealId, period) {
   const d = SAMPLE_DEALS[dealId] || SAMPLE_DEALS[1783];
-  const daysMap = { 1: 30, 2: 60, 3: 90, 'all': 180 };
+  const daysMap = { 1: 30, 2: 60, 3: 90, 6: 180 };
   const days = daysMap[period] || 60;
   
   const peakPrice = d.peakPrice || (d.price * 1.35);
@@ -976,12 +992,12 @@ function renderSheetBody() {
     <div class="chart-box">
       <div class="chart-head-row">
         <span class="chart-title">📈 가격 추이 그래프</span>
-        <!-- 폴센트식 1개월 / 2개월 / 3개월 / 전체 -->
+        <!-- 폴센트식 1개월 / 2개월 / 3개월 / 6개월 -->
         <div class="period-tabs">
           <button class="p-tab ${currentPeriod==1?'on':''}" onclick="changePeriod(1)">1개월</button>
           <button class="p-tab ${currentPeriod==2?'on':''}" onclick="changePeriod(2)">2개월</button>
           <button class="p-tab ${currentPeriod==3?'on':''}" onclick="changePeriod(3)">3개월</button>
-          <button class="p-tab ${currentPeriod=='all'?'on':''}" onclick="changePeriod('all')">전체</button>
+          <button class="p-tab ${currentPeriod==6?'on':''}" onclick="changePeriod(6)">6개월</button>
         </div>
       </div>
       ${chartSvg}
@@ -1000,8 +1016,10 @@ function renderSheetBody() {
         <span class="diff-val">-${formatWon(diff)}</span>
       </div>
       <button class="btn-buy-link" onclick="alert('제휴 수익링크로 이동합니다!')">
-        <span>${d.mall}에서 구매하러 가기</span>
-        <span>➔</span>
+        <span class="btn-text">${d.mall}에서 구매하러 가기</span>
+        <span class="btn-arrow-svg">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </span>
       </button>
     </div>
   `;
