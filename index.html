@@ -8346,12 +8346,13 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
   var r=F;
   if(!r){ var p=document.createElement('div'); p.style.cssText='position:absolute;left:-9999px;top:0;visibility:hidden;font:100px/1 sans-serif;white-space:nowrap'; p.textContent='가A'; document.body.appendChild(p); r=p.getBoundingClientRect().height/100; p.remove(); }
   window._mcTz=r; try{ localStorage.setItem('mc_tz',String(r)); }catch(_){}
+  setTimeout(function(){ try{ var s=document.getElementById('mc-tz-css'); if(typeof trackEvent==='function') trackEvent('tz_probe', JSON.stringify([+(+r).toFixed(3), innerWidth, devicePixelRatio, s?s.textContent.length:0, (navigator.userAgent||'').slice(20,110)])); }catch(_){} },3500);
   if(!(r>1.04||r<0.96)) return; r=Math.max(.7,Math.min(1.6,r));
   function walk(rules){ var o=''; for(var i=0;i<rules.length;i++){ var u=rules[i];
     if(u.type===1 && u.style && /px$/.test(u.style.fontSize||'')){ o+=u.selectorText+'{font-size:'+(parseFloat(u.style.fontSize)/r).toFixed(2)+'px'+(u.style.getPropertyPriority('font-size')?' !important':'')+'}'; }
     else if(u.type===4 && u.cssRules){ var q=walk(u.cssRules); if(q) o+='@media '+u.conditionText+'{'+q+'}'; } } return o; }
   var css=''; for(var s=0;s<document.styleSheets.length;s++){ try{ css+=walk(document.styleSheets[s].cssRules); }catch(_){} }
-  var st=document.createElement('style'); st.id='mc-tz-css'; st.textContent=css; document.head.appendChild(st);
+  var st=document.createElement('style'); st.id='mc-tz-css'; st.textContent=css; document.body.appendChild(st);   /* 맨 뒤에 둬야 뒤에 오는 !important 규칙을 이긴다 */
   function fix(root){ if(!root||root.nodeType!==1) return; var a=[root].concat([].slice.call(root.querySelectorAll('[style*="font-size"]')));
     a.forEach(function(e){ var v=e.style&&e.style.fontSize; if(v&&/px$/.test(v)&&!e.getAttribute('data-tz')){ e.setAttribute('data-tz','1'); e.style.fontSize=(parseFloat(v)/r).toFixed(2)+'px'; } }); }
   fix(document.body); var q=[],t=0;
