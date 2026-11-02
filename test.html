@@ -1899,11 +1899,15 @@ window.slimAdClick=function(id){
   <div class="filter-section">
     <div class="category-chips" id="hdCategoryChips">
       <button class="c-chip on" data-cat="all" onclick="setHdCategory('all')">전체</button>
-      <button class="c-chip" data-cat="baby" onclick="setHdCategory('baby')">육아</button>
-      <button class="c-chip" data-cat="food" onclick="setHdCategory('food')">식품</button>
-      <button class="c-chip" data-cat="living" onclick="setHdCategory('living')">리빙</button>
-      <button class="c-chip" data-cat="digital" onclick="setHdCategory('digital')">가전</button>
-      <button class="c-chip" data-cat="fashion" onclick="setHdCategory('fashion')">패션</button>
+      <button class="c-chip" data-cat="육아" onclick="setHdCategory('육아')">육아</button>
+      <button class="c-chip" data-cat="리빙" onclick="setHdCategory('리빙')">리빙</button>
+      <button class="c-chip" data-cat="식품" onclick="setHdCategory('식품')">식품</button>
+      <button class="c-chip" data-cat="건강" onclick="setHdCategory('건강')">건강</button>
+      <button class="c-chip" data-cat="가전" onclick="setHdCategory('가전')">가전</button>
+      <button class="c-chip" data-cat="뷰티" onclick="setHdCategory('뷰티')">뷰티</button>
+      <button class="c-chip" data-cat="패션" onclick="setHdCategory('패션')">패션</button>
+      <button class="c-chip" data-cat="여행" onclick="setHdCategory('여행')">여행</button>
+      <button class="c-chip" data-cat="반려동물" onclick="setHdCategory('반려동물')">반려동물</button>
     </div>
     <div id="hdFilterBar" style="display:none;align-items:center;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:12px">
       <span id="hdFilterLabel" style="font-size:13px;font-weight:700;color:#7C54C4">🔥 쟁여둘 핫딜 모아보기</span>
@@ -3880,13 +3884,18 @@ function renderHotdeals(){
 
   if(_hdCurrentCat && _hdCurrentCat !== 'all'){
     filtered = filtered.filter(function(h){
+      if(h.major === _hdCurrentCat) return true;
       var m = (h.major || '') + ' ' + (h.category || '') + ' ' + (h.title || '');
-      if(_hdCurrentCat === 'baby') return /육아|기저귀|물티슈|분유|아기|유아|키즈|장난감|젖병|이유식/.test(m);
-      if(_hdCurrentCat === 'food') return /식품|신선|간식|음료|커피|쌀|과일|밀키트|고기|라면|생수/.test(m);
-      if(_hdCurrentCat === 'living') return /리빙|생활|주방|세제|욕실|가구|인테리어|청소|휴지/.test(m);
-      if(_hdCurrentCat === 'digital') return /가전|디지털|IT|청소기|이어폰|컴퓨터|모니터|스마트폰|TV|건조기/.test(m);
-      if(_hdCurrentCat === 'fashion') return /패션|의류|잡화|신발|뷰티|화장품|원피스|양말|가방/.test(m);
-      return true;
+      if(_hdCurrentCat === '육아') return /육아|기저귀|물티슈|분유|아기|유아|키즈|장난감|젖병|이유식|턱받이|유모차/.test(m);
+      if(_hdCurrentCat === '리빙') return /리빙|생활|주방|세제|욕실|가구|인테리어|청소|휴지|수세미|치약|칫솔/.test(m);
+      if(_hdCurrentCat === '식품') return /식품|신선|간식|음료|커피|쌀|과일|밀키트|고기|라면|생수|만두|소시지|김치/.test(m);
+      if(_hdCurrentCat === '건강') return /건강|영양제|비타민|유산균|오메가|루테인|철분|다이어트|단백질/.test(m);
+      if(_hdCurrentCat === '가전') return /가전|디지털|IT|청소기|이어폰|컴퓨터|모니터|스마트폰|TV|건조기|에어프라이어|드라이기|전기요|온풍기/.test(m);
+      if(_hdCurrentCat === '뷰티') return /뷰티|화장품|스킨케어|앰플|토너|크림|립밤|샴푸|헤어|미스트|팩트/.test(m);
+      if(_hdCurrentCat === '패션') return /패션|의류|잡화|신발|원피스|양말|가방|자켓|속옷|팬티|슬리퍼|점퍼|후리스/.test(m);
+      if(_hdCurrentCat === '여행') return /여행|숙소|호텔|리조트|이용권|티켓|워터파크|스플라스/.test(m);
+      if(_hdCurrentCat === '반려동물') return /반려동물|강아지|고양이|사료|간식|배변패드/.test(m);
+      return false;
     });
   }
 
