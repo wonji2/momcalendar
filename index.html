@@ -3459,8 +3459,8 @@ function hdCardHtml(h,opt){
   // 핫딜이 실제로 눌리는지 기록한다. 이게 없으면 "아무도 안 산 건지, 애초에 안 눌린 건지"를 알 수 없다.
   // (2026-08-09 사장님 질문 "아직 아무도 안산게 맞아?" 에 답할 데이터가 없었다)
   const open=tracked
-    ? `<div class="${cls}" onclick="trackHd('open',${h.id});openHdSheet(${h.id})">`
-    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener" onclick="trackHd('go',${h.id})">`;
+    ? `<div class="${cls}" onclick="trackHd(&quot;open&quot;,${h.id});openHdSheet(${h.id})">`
+    : `<a class="${cls}" href="${hcEsc(h.link||'#')}" target="_blank" rel="noopener" onclick="trackHd(&quot;go&quot;,${h.id})">`;
   const close=tracked?'</div>':'</a>';
 
   return `${open}
@@ -3606,7 +3606,7 @@ async function openHdSheet(id){
 
     ${(function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var df=(av>h.price)?(av-h.price):0; var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
       return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
-      <a class="hd-buy" href="${escHtml(_httpOnly(h.link)||'#')}" target="_blank" rel="noopener" onclick="trackHd('go',${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`; })()}
+      <a class="hd-buy" href="${escHtml(_httpOnly(h.link)||'#')}" target="_blank" rel="noopener" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`; })()}
     <div style="font-size:10px;color:#B5AFBD;text-align:center;line-height:1.6;margin-top:9px">
       제휴 활동으로 일정액의 수수료를 받습니다
     </div>
@@ -8764,8 +8764,8 @@ function hdGridCardHtml(h){
     ? '<img class="hd-thumb" src="'+img+'" alt="" decoding="async" referrerpolicy="no-referrer" '+(eager?'loading="eager" fetchpriority="high"':'loading="lazy"')+' onerror="this.outerHTML=window.__hdgPh">'
     : window.__hdgPh;
   var open=tracked
-    ? '<div class="hdg-card" onclick="trackHd('open','+(+h.id||0)+');openHdSheet('+(+h.id||0)+')">'
-    : '<a class="hdg-card" href="'+hcEsc(h.link||'#')+'" target="_blank" rel="noopener" onclick="trackHd('go','+(+h.id||0)+')">';
+    ? '<div class="hdg-card" onclick="trackHd(&quot;open&quot;,'+(+h.id||0)+');openHdSheet('+(+h.id||0)+')">'
+    : '<a class="hdg-card" href="'+hcEsc(h.link||'#')+'" target="_blank" rel="noopener" onclick="trackHd(&quot;go&quot;,'+(+h.id||0)+')">';
   return open
     +'<div class="hd-thumb-wrap">'+thumb+(h.is_lowest?'<span class="c-micro-badge badge-red">역대최저</span>':'')+'</div>'
     +'<div class="hd-info">'
