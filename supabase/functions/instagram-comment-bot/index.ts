@@ -175,7 +175,7 @@ async function replyToComment(commentId: string, message: string): Promise<{ ok:
     console.warn("[IG_BOT] INSTAGRAM_ACCESS_TOKEN is not configured. Reply message:", message);
     return { ok: false, block: false, msg: "토큰 없음" };
   }
-  const url = `https://graph.facebook.com/v21.0/${commentId}/replies`;
+  const url = `https://graph.instagram.com/v21.0/${commentId}/replies`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Authorization": `Bearer ${IG_ACCESS_TOKEN}`, "Content-Type": "application/json" },
