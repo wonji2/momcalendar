@@ -1585,6 +1585,7 @@ window.slimAdClick=function(id){
   <div style="font-size:10px;color:#B0AAB8;text-align:center;line-height:1.5;margin:0 4px 11px">
     일부 링크는 제휴 활동으로 일정액의 수수료를 받습니다
   </div>
+  <div id="hdDemand"></div>
   <div id="hotdealList"></div>
 </div>
 <!-- ===== /핫딜 영역 ===== -->
@@ -7086,7 +7087,7 @@ function closeChatMenu(){
          맘캘봇 = 카톡 채널 챗봇(kakao-skill). 사이트 안 챗봇은 만들지 않는다(앱 설치·채널 친구 추가 유도 — scratchpad/momcalbot_spec.md) -->
     <button class="chat-menu-item" onclick="closeChatMenu&&closeChatMenu();openAttendSheet()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico">💜</span>출석 체크</button>
     <!-- 2026-10-24 사장님 「맘캘봇 이라고만 띄우고 그거 누르면 바로 친구추가 후 상담 가능하게해」 — 시트 없이 채널 친구 추가로 바로 간다(추가 화면에서 곧바로 채팅) -->
-    <a class="chat-menu-item mcb-item" href="https://pf.kakao.com/_zGfxnX/friend" target="_blank" rel="noopener" onclick="closeChatMenu&&closeChatMenu();try{trackEvent('mcbot_friend','')}catch(_){}"><span class="chat-menu-ico mcb-ico">💬</span>맘캘봇</a>
+    <button class="chat-menu-item mcb-item" type="button" onclick="closeChatMenu&&closeChatMenu();openMomcalBot()" style="border:none;cursor:pointer;font-family:inherit"><span class="chat-menu-ico mcb-ico">💬</span>맘캘봇</button>
   </div>
   <button class="chat-fab" id="chatFab" onclick="toggleChatMenu()" aria-label="출석 체크·맘캘봇 메뉴">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -7593,6 +7594,20 @@ function alarms(){
   });
 }
 window.getKwAlarms=alarms;
+// 맘캘봇이 부르는 등록 함수 — 입력창과 같은 검증(정규화 2글자·흔한 말·중복·30개). {ok,dup,msg}
+window.mcKwAdd=function(raw){
+  raw=String(raw||'').trim().slice(0,20); var nk=norm(raw), al=alarms();
+  if(nk.length<2) return {ok:false,msg:'2글자 이상 입력해 주세요'};
+  if(COMMON.indexOf(nk)>=0) return {ok:false,msg:'너무 흔한 말이에요'};
+  if(al.some(function(a){ return a.nk===nk; })) return {ok:false,dup:true,msg:'이미 등록했어요'};
+  if(al.length>=KW_MAX) return {ok:false,msg:'키워드는 '+KW_MAX+'개까지 등록할 수 있어요'};
+  al.push({kw:raw,nk:nk,types:['all'],on:true,created_at:Date.now(),base:{}});
+  if(!lset(K_AL,al)) return {ok:false,msg:'저장하지 못했어요'};
+  try{ trackEvent('kw_add','bot'); }catch(_){}
+  try{ ensure().then(function(){ try{ scan(); }catch(_){} }); }catch(_){}
+  try{ var sh=$('notiCenterSheet'); if(sh && sh.classList.contains('open') && VIEW==='kw') renderKw(); }catch(_){}
+  return {ok:true,kw:raw};
+};
 function onCount(){ return alarms().filter(function(a){ return a.on && a.nk.length>=2; }).length; }
 
 // ── 매칭 대상 (필드 이름: 공구 name·influencer / 핫딜 title / 세일 brand·title) ──
@@ -7889,6 +7904,7 @@ function busySheet(){
 }
 function onbTry(){
   try{
+    if(window.mcOnbV2) return;   // 영상 온보딩(mc-aob-js)이 있으면 그쪽이 첫 실행을 맡는다
     if(!APP_ONB_ON || !isApp() || isLoggedIn()) return;
     if(localStorage.getItem('mc_app_onb')==='1') return;                    // 시험(e2e)·이미 마친 기기
     var n=+localStorage.getItem('mc_app_onb_n')||0; if(n>=2) return;        // 닫아도 최대 2번까지만(둘러보기를 막지 않는다)
@@ -7926,5 +7942,400 @@ body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!
 .card-right{top:36.2px!important}
 .card .wbtn{padding-top:3.6px!important;box-sizing:border-box}
 </style>
+<!-- 맘캘봇 v2 인앱 바텀시트 모듈 (2026-11-02 사장님 ORDER_MOMCALBOT + 카톡 챗봇 디자인 차용) · 설계서 scratchpad/designs/2026-11-02_맘캘봇v2_인앱시트.md · 패치 scratchpad/patch_mcbot.cjs -->
+<style id="mc-bot-css">
+.mcb-h{display:flex;align-items:center;justify-content:space-between;flex:none;min-height:40px}
+.mcb-h b{font-size:15px;font-weight:800;color:#7C54C4}
+.mcb-x{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;padding:0}
+/* 카톡 챗봇 디자인: 회색 대화판 · 아바타+이름 · 내용만큼의 말풍선(손님=브랜드 라일락) · 흰 카드 가로 스크롤 · 회색 「전체 보기」 단추 */
+.mcb-msgs{flex:1 1 auto;min-height:200px;max-height:min(400px,50vh);overflow-y:auto;-webkit-overflow-scrolling:touch;background:#F2F4F6;border-radius:14px;padding:14px 10px 4px;margin-top:4px}
+.mcb-row{display:flex;gap:8px;align-items:flex-start;margin:0 0 12px}
+.mcb-av{flex:none;width:40px;height:40px;border-radius:14px;background:linear-gradient(150deg,#B48DEB,#7C54C4);display:flex;align-items:center;justify-content:center}
+.mcb-av.ghost{visibility:hidden}
+.mcb-col{flex:1;min-width:0}
+.mcb-nm{margin:0 0 4px 2px;font-size:13px;color:#4E5968}
+.mcb-line{display:flex;align-items:flex-end;gap:6px}
+.mcb-b{width:fit-content;max-width:100%;padding:11px 14px;font-size:15px;line-height:1.5;color:#191F28;word-break:keep-all;white-space:pre-line;box-sizing:border-box}
+.mcb-row .mcb-b{background:#fff;border-radius:6px 18px 18px 18px}
+.mcb-me{display:flex;justify-content:flex-end;align-items:flex-end;gap:6px;margin:0 0 12px}
+.mcb-me .mcb-b{max-width:78%;background:#7C54C4;color:#fff;border-radius:18px 6px 18px 18px;white-space:pre-wrap;word-break:break-all}   /* 손님 말풍선 = 우리 브랜드 라일락(카카오 노랑 아님, 사장님 2026-11-02) */
+.mcb-tm{flex:none;font-size:11px;color:#8B95A1;white-space:nowrap;padding-bottom:2px}
+.mcb-car{display:flex;gap:8px;overflow-x:auto;margin:0 -2px;padding:0 2px 4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.mcb-cd{flex:none;width:236px;background:#fff;border-radius:18px;padding:14px 14px 12px;box-sizing:border-box;scroll-snap-align:start}
+.mcb-cd h4{margin:0 0 4px;padding-bottom:10px;border-bottom:1px solid #EEF0F2;font-size:15px;font-weight:800;color:#191F28;word-break:keep-all}
+.mcb-it{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #EEF0F2;background:none;padding:9px 0;font-family:inherit;cursor:pointer}
+.mcb-it b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14.5px;font-weight:500;line-height:1.35;color:#191F28}
+.mcb-it small{display:block;margin-top:2px;font-size:12.5px;color:#8B95A1}
+.mcb-all{display:block;width:100%;height:42px;margin-top:10px;border:0;border-radius:12px;background:#F2F4F6;color:#191F28;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+.mcb-act{display:inline-block;margin:6px 6px 0 0;min-height:40px;padding:0 16px;border:1px solid #7C54C4;border-radius:100px;background:#fff;color:#7C54C4;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer}
+.mcb-chips{display:flex;gap:8px;overflow-x:auto;flex:none;padding:10px 0 8px;-webkit-overflow-scrolling:touch}
+.mcb-chip{flex:none;height:36px;padding:0 14px;border:1px solid #E5E8EB;border-radius:100px;background:#fff;color:#4E5968;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
+.mcb-in{display:flex;gap:8px;flex:none;padding-top:4px}
+.mcb-in input{flex:1;min-width:0;height:44px;border:1px solid #D1D6DB;border-radius:12px;padding:0 14px;font-size:16px;font-family:inherit;outline:none;box-sizing:border-box}
+.mcb-in input:focus{border-color:#7C54C4}
+.mcb-in input::placeholder{font-size:13.5px;color:#9CA3AF}
+.mcb-in button{flex:none;height:44px;padding:0 18px;border:0;border-radius:12px;background:#7C54C4;color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+/* 핫딜 탭 맨 위 — 맘캘러가 지금 많이 찾는 특가 */
+#hdDemand:empty{display:none}
+.hdd-h{margin:2px 2px 8px;font-size:15px;font-weight:800;color:#191F28}
+.hdd-row{display:flex;gap:8px;overflow-x:auto;margin:0 -12px 12px;padding:0 12px 2px;-webkit-overflow-scrolling:touch}
+.hdd-c{position:relative;flex:none;width:132px;padding:8px;border:1px solid #FFE4DD;border-radius:12px;background:#fff;text-align:left;font-family:inherit;cursor:pointer}
+.hdd-c img,.hdd-c .hdd-ph{display:block;width:100%;height:92px;border-radius:8px;object-fit:cover;background:#F6F3FA}
+.hdd-ph{display:flex!important;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#7C54C4}
+.hdd-b{position:absolute;top:12px;left:12px;height:20px;line-height:20px;padding:0 8px;border-radius:100px;background:#7C54C4;color:#fff;font-size:10.5px;font-weight:700}
+.hdd-t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:6px;font-size:12px;font-weight:600;line-height:1.3;color:#191F28;min-height:31px}
+.hdd-p{margin-top:4px;font-size:14px;font-weight:800;color:#191F28}
+</style>
+<script id="mc-bot-js">
+(function(){
+'use strict';
+var BOT_ON=true;   // 🔴 한 줄 킬스위치: false 면 맘캘봇 시트가 안 열리고 인기 특가 줄도 안 그린다
+var ESS=['기저귀','분유','생수','물티슈','세제','휴지','화장지','샴푸','칫솔','치약','섬유유연제','세탁세제','액체세제','손소독','계란','쌀가루'];   // 생활필수품(통째 낱말만 — 「마스크팩」「세탁기」에 안 걸리게)
+var TRIG=/(알림(?!장)|알려\s*줘|알려\s*주|알려\s*줄|알람|뜨면|나오면|올라오면)/;
+var TRIG_G=/(알림(?!장)|알려\s*줘\S*|알려\s*주\S*|알려\s*줄\S*|알람|뜨면|나오면|올라오면|해\s*줘|해\s*주세요|해\s*줄래|등록\S*)/g;
+var DROP=/(핫딜|공구|세일|특가|최저가)/g;
+var STOP=['쿠팡','로켓','로켓배송','지마켓','옥션','11번가','ssg','롯데온','오늘의집','네이버','토스','무료배송','배송','나는','저는','제가','내가','와요','안와요','받고','받을래','받을게','받기','받아','안','못','오는','오면','뜨는','하면','해요','돼요','되나요','설정','취소','삭제','해제','어떻게','방법','나와','나오나요','언제','어디','뭐','뭐가','좀','주세요','줘','있어','있나요','있어요','있어요?','찾아줘','찾아','보여줘','검색','관련','제품','상품','추천','싼','싸게','가격','얼마','싶어','싶어요','혹시','저기','내','제','저','나','때','및','그리고','그냥','다시','자주','매일'];
+var COMPLAIN=/(안\s*와|안\s*오|안\s*울|못\s*받|오지\s*않|알림.*(없|왜))/;
+var MANAGE=/((알림|알람).*(취소|삭제|해제|끄|꺼|지워|그만)|(취소|삭제|해제|지워).*(알림|알람))/;
+var HOWTO=/((알림|알람).*(설정|어떻게|방법|뭐)|(설정|방법).*(알림|알람))/;
+var LAST=[], CARDS={}, WHO='';
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function norm(s){ return String(s==null?'':s).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); }
+function md(d){ var q=String(d||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; }
+function won(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
+function clock(){ var d=new Date(), h=d.getHours(), m=d.getMinutes(); return (h<12?'오전 ':'오후 ')+(h%12||12)+':'+(m<10?'0':'')+m; }
+
+// ── 데이터 ──
+function ggItems(){
+  var out=[]; try{ (typeof DATA!=='undefined'&&Array.isArray(DATA)?DATA:[]).forEach(function(d){ try{ if(d&&d.name&&!isExpired(d)) out.push(d); }catch(_){} }); }catch(_){}
+  return out;
+}
+async function hdItems(){
+  try{ if(typeof _hotdealData!=='undefined' && !_hotdealData && typeof loadHotdeals==='function') await loadHotdeals(); }catch(_){}
+  var a=(typeof _hotdealData!=='undefined'&&_hotdealData)||[]; var out=[];
+  a.forEach(function(h){ try{ if(h&&h.title&&Number(h.id)>0&&!hdExpired(h)&&hdFreshForSearch(h)) out.push(h); }catch(_){} });   // 7일 넘은 핫딜은 검색에서 뺀다(사이트 검색과 같은 정책)
+  try{ out=hdDedupe(out); }catch(_){}
+  return out;
+}
+function hits(c){ var n=norm(c); if(n.length<2) return 0; var k=0;
+  try{ ggItems().forEach(function(d){ if(norm(d.name).indexOf(n)>=0) k++; }); }catch(_){}
+  try{ ((typeof _hotdealData!=='undefined'&&_hotdealData)||[]).forEach(function(h){ if(h&&norm(h.title).indexOf(n)>=0) k++; }); }catch(_){}
+  return k; }
+
+// ── 낱말 뽑기: 「압타밀 핫딜 뜨면 알려줘」→「압타밀」, 「기저귀랑 물티슈 알림」→ 기저귀·물티슈 ──
+// 원칙: 조사·군더더기를 떼되, 실제 상품명(공구·핫딜)에 맞는 쪽을 고른다. 확신이 없으면 자르지 않는다.
+function pickWord(w){
+  var s=w.replace(/(이랑|하고|랑|과|와)$/,'').replace(/(에서|으로|에게|한테)$/,'');
+  var t=s.replace(/([은는가을를도만의])$/,'');
+  var u=s.replace(/이$/,'');            // 「압타밀이」처럼 이가 조사인 경우 — 상품명에 맞을 때만 쓴다(「맥스드라이」의 이는 지키려고)
+  var cands=[w]; [s,t,u].forEach(function(x){ if(x.length>=2 && cands.indexOf(x)<0) cands.push(x); });
+  var best=w, bn=-1; cands.forEach(function(x){ var c=hits(x); if(c>bn){ bn=c; best=x; } });
+  if(bn<=0) best=(t.length>=2?t:(s.length>=2?s:w));   // 지금 걸리는 게 없으면 이 이외의 조사만 뗀다(이는 안 뗀다)
+  return best;
+}
+function junk(w){ return !w || w.length<2 || STOP.indexOf(w)>=0 || (hits(w)===0 && /(요|죠|까|니|나요|세요|어요|아요)$/.test(w)); }   // 「와요」「싶어요」 같은 말투 조각
+function specific(tokens){   // 여러 낱말 중 하나만 고를 때: ① 지금은 상품에 없는 긴 낱말(=아직 안 나온 브랜드일 가능성이 큼) ② 걸리는 것 중 제일 적게 걸리는(구체적인) 낱말 ③ 제일 긴 낱말
+  var sc=tokens.map(function(w,i){ return {w:w,h:hits(w),i:i}; });
+  var zero=sc.filter(function(x){ return x.h===0 && x.w.length>=3; });
+  if(zero.length){ zero.sort(function(a,b){ return b.w.length-a.w.length || a.i-b.i; }); return zero[0].w; }
+  var pos=sc.filter(function(x){ return x.h>0; });
+  if(pos.length){ pos.sort(function(a,b){ return a.h-b.h || b.w.length-a.w.length; }); return pos[0].w; }
+  sc.sort(function(a,b){ return b.w.length-a.w.length || a.i-b.i; }); return sc[0].w;
+}
+function extractKws(text){   // → {list:[낱말…], dropped:[버린 낱말…]}
+  var raw=String(text||'');
+  var t=raw.replace(/[\u0027\u0022“”‘’「」『』()\[\]{}.,!?~·…\/\\]/g,' ').replace(TRIG_G,' ').replace(DROP,' ');
+  var parts=t.split(/\s+/).filter(Boolean), toks=[];
+  parts.forEach(function(w){
+    if(STOP.indexOf(w)>=0) return;
+    var m=w.match(/^(.{2,}?)(랑|하고|이랑)(.{2,})$/);          // 붙여 쓴 접속: 「분유랑기저귀」
+    if(m && hits(m[1])>0 && hits(m[3])>0){ toks.push(pickWord(m[1]),pickWord(m[3])); return; }
+    toks.push(pickWord(w));
+  });
+  toks=toks.filter(function(w){ return !junk(w); });
+  if(toks.length>1) toks=toks.filter(function(w){ return w.indexOf('알림장')<0; });   // 「알림장 기저귀 알려줘」: 알림장은 말버릇이 아니라 상품일 수 있어도 기저귀와 같이 있으면 기저귀가 목적
+  var seen={}; toks=toks.filter(function(w){ var k=norm(w); if(!k||seen[k]) return false; seen[k]=1; return true; });
+  if(!toks.length) return {list:[],dropped:[]};
+  var conj=/(랑|하고)(\s|$)|[,，]|\s및\s|그리고/.test(raw) && toks.length>1;   // 「기저귀랑 물티슈」「기저귀, 분유」 처럼 여러 개를 말한 경우
+  if(conj || (toks.length>1 && /랑|하고/.test(raw) && parts.some(function(w){ return /^(.{2,}?)(랑|하고|이랑)(.{2,})$/.test(w); }))) { var l=toks.slice(0,3); return {list:l,dropped:toks.slice(3)}; }
+  if(toks.length>1){ var joined=toks.join(' ').slice(0,20); if(hits(joined)>0) return {list:[joined],dropped:[]}; }
+  var one=specific(toks); return {list:[one],dropped:toks.filter(function(x){ return x!==one; })};
+}
+
+// ── 대화 판(카톡 챗봇 모양) ──
+var AV='<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="3.2" fill="#fff"/><rect x="7.6" y="3.2" width="2" height="4" rx="1" fill="#fff"/><rect x="14.4" y="3.2" width="2" height="4" rx="1" fill="#fff"/><path d="M12 17.4c-3.2-2-4.6-3.5-4.6-5.1 0-1.2.9-2.1 2.1-2.1.9 0 1.9.6 2.5 1.5.6-.9 1.6-1.5 2.5-1.5 1.2 0 2.1.9 2.1 2.1 0 1.6-1.4 3.1-4.6 5.1z" fill="#FF7AA8"/></svg>';
+function msgs(){ return $('mcbMessages'); }
+function bottom(){ var m=msgs(); if(m) m.scrollTop=m.scrollHeight; }
+function botRow(node, time){
+  var m=msgs(); if(!m) return;
+  var first=(WHO!=='bot'); WHO='bot';
+  var r=document.createElement('div'); r.className='mcb-row';
+  var av=document.createElement('div'); av.className='mcb-av'+(first?'':' ghost'); av.innerHTML=AV; r.appendChild(av);
+  var col=document.createElement('div'); col.className='mcb-col';
+  if(first){ var nm=document.createElement('div'); nm.className='mcb-nm'; nm.textContent='맘캘린더'; col.appendChild(nm); }
+  var line=document.createElement('div'); line.className='mcb-line'; line.appendChild(node);
+  if(time!==false){ var tm=document.createElement('span'); tm.className='mcb-tm'; tm.textContent=clock(); line.appendChild(tm); }
+  col.appendChild(line); r.appendChild(col); m.appendChild(r); bottom(); return col;
+}
+function say(text,who){
+  var m=msgs(); if(!m) return;
+  var b=document.createElement('div'); b.className='mcb-b'; b.textContent=text;
+  if(who==='me'){ WHO='me'; var w=document.createElement('div'); w.className='mcb-me'; var tm=document.createElement('span'); tm.className='mcb-tm'; tm.textContent=clock(); w.appendChild(tm); w.appendChild(b); m.appendChild(w); bottom(); return; }
+  botRow(b);
+}
+function act(label,fn){   // 봇 말풍선 아래 빠른 답 단추
+  var m=msgs(); if(!m) return; var rows=m.querySelectorAll('.mcb-row'); var col=rows.length?rows[rows.length-1].querySelector('.mcb-col'):null; if(!col) return;
+  var b=document.createElement('button'); b.type='button'; b.className='mcb-act'; b.textContent=label; b.onclick=fn; col.appendChild(b); bottom();
+}
+// 카드 묶음: [{title, items:[{t,id,title,meta}], all:'전체 일정 보기', fn}]
+function carousel(cards){
+  var car=document.createElement('div'); car.className='mcb-car';
+  cards.forEach(function(c){
+    var d=document.createElement('div'); d.className='mcb-cd';
+    var h=document.createElement('h4'); h.textContent=c.title; d.appendChild(h);
+    c.items.forEach(function(x){ var key='c'+Math.random().toString(36).slice(2,8); CARDS[key]=x;
+      var b=document.createElement('button'); b.type='button'; b.className='mcb-it'; b.setAttribute('onclick',"mcbGo('"+key+"')");
+      var t=document.createElement('b'); t.textContent=x.title; var s=document.createElement('small'); s.textContent=x.meta||''; b.appendChild(t); if(x.meta) b.appendChild(s); d.appendChild(b); });
+    if(c.all){ var a=document.createElement('button'); a.type='button'; a.className='mcb-all'; a.textContent=c.all; a.onclick=c.fn; d.appendChild(a); }
+    car.appendChild(d);
+  });
+  botRow(car,false);
+}
+function ggCard(d){
+  var today=(typeof todayStr!=='undefined')?todayStr:'';
+  var seller=d.influencer?d.influencer+' · ':'';
+  var meta=seller+(d.openDate>today?md(d.openDate)+' 오픈':md(d.openDate)+(d.endDate?'~'+md(d.endDate):' 진행 중'));
+  return {t:'g',id:d.id,title:d.name,meta:meta};
+}
+function hdCard(h){ var mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':''); return {t:'h',id:h.id,title:h.title,meta:(h.price?won(h.price):'')+(h.is_lowest?' · 최저':'')+(mall?' · '+mall:'')}; }
+window.mcbGo=function(key){
+  var x=CARDS[key]; if(!x) return;
+  closeMomcalBot();
+  try{
+    if(x.t==='g'){ var d=(DATA||[]).find(function(i){ return i.id===x.id; }); if(!d) return;
+      var pay=(d.payLink||'').trim(); var url=/^https?:\/\//i.test(pay)?pay:('https://www.instagram.com/'+(d.insta||'')+'/');
+      goCard(d.id,url); }
+    else hdGo(x.id);
+    trackEvent('mcbot_card', x.t);
+  }catch(_){}
+};
+function hdGo(id){
+  var h=((typeof _hotdealData!=='undefined'&&_hotdealData)||[]).find(function(x){ return x.id===id; }); if(!h) return;
+  var tracked=!!h.product_id&&!!h.price&&(({toss:1,coupang:1,goldbox:1,adpick:1})[h.source]||!!h.price_before);   // 핫딜 카드(hdCardHtml)와 같은 판정
+  if(tracked){ trackHd('open',h.id); openHdSheet(h.id); } else { trackHd('go',h.id); openLink(h.link); }
+}
+function goTab(tab,q){ closeMomcalBot(); try{ switchContent(tab); if(q&&typeof runSearch==='function') runSearch(q); else window.scrollTo(0,0); }catch(_){} }
+
+// ── 시트 ──
+window.openMomcalBot=function(){
+  if(!BOT_ON) return;
+  WHO='';
+  mcSheet('mcbSheet',
+    '<div class="mcb-h"><b>💜 맘캘봇</b><button class="mc-tbtn mcb-x" type="button" aria-label="닫기" onclick="closeMomcalBot()">✕</button></div>'
+   +'<div class="mcb-msgs" id="mcbMessages"></div>'
+   +'<div class="mcb-chips"><button class="mcb-chip" type="button" onclick="mcbQuick(\'hot\')">🔥 오늘 핫한 공구</button><button class="mcb-chip" type="button" onclick="mcbQuick(\'deal\')">🛒 최저가 핫딜</button><button class="mcb-chip" type="button" onclick="mcbQuick(\'noti\')">🔔 내 키워드 알림</button><button class="mcb-chip" type="button" onclick="mcbQuick(\'ask\')">💬 건의·문의하기</button></div>'
+   +'<form class="mcb-in" onsubmit="mcbSend();return false"><input id="mcbInput" type="text" maxlength="60" placeholder="예: 압타밀 핫딜 뜨면 알려줘" autocomplete="off" enterkeyhint="send"><button type="submit">전송</button></form>');
+  say('반가워요 맘캘러님! 💜\n찾으시는 공구·핫딜을 편하게 물어보시거나,\n"기저귀 핫딜 뜨면 알려줘"처럼 알림을 등록해 보세요!');
+  try{ trackEvent('mcbot_open',''); }catch(_){}
+};
+window.closeMomcalBot=function(){ var el=$('mcbSheet'); if(el) el.classList.remove('open'); };
+window.mcbQuick=async function(k){
+  try{ trackEvent('mcbot_quick',k); }catch(_){}
+  if(k==='noti'){ closeMomcalBot(); openNotiCenterSheet(); return; }
+  if(k==='ask'){ say('건의·문의하기','me'); say('불편한 점이나 제안은 문의 페이지에서 남겨 주세요 💌'); act('문의 페이지 열기',function(){ closeMomcalBot(); location.href='contact.html'; }); return; }
+  if(k==='hot'){
+    say('🔥 오늘 핫한 공구','me');
+    try{ if(typeof loadViewCounts==='function' && !Object.keys(window.__viewCounts||{}).length) await loadViewCounts(); }catch(_){}
+    var vc=window.__viewCounts||{}, today=(typeof todayStr!=='undefined')?todayStr:'';
+    var all=ggItems().filter(function(d){ return !d.always; });
+    var todayList=all.filter(function(d){ return d.openDate===today||d.endDate===today; });
+    var pool=todayList.length?todayList:all.filter(function(d){ return d.openDate<=today; });
+    pool.sort(function(a,b){ return (vc[b.id]||0)-(vc[a.id]||0); });
+    var pick=pool.slice(0,3);
+    if(!pick.length){ say('지금은 보여드릴 공구가 없네요 🥺'); return; }
+    carousel([{title:todayList.length?'오늘 오픈·마감 인기 공구':'지금 인기 있는 공구',items:pick.map(ggCard),all:'전체 일정 보기',fn:function(){ goTab('gonggu'); }}]); return;
+  }
+  if(k==='deal'){
+    say('🛒 최저가 핫딜','me');
+    var hd=(await hdItems()).filter(function(h){ return h.price; });
+    hd.sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
+    var p=hd.slice(0,3);
+    if(!p.length){ say('지금은 보여드릴 핫딜이 없네요 🥺'); return; }
+    carousel([{title:'최저가 핫딜',items:p.map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }}]);
+  }
+};
+function registered(r,kw,dropped){
+  if(r.ok){ say("🔔 '"+kw+"' 키워드 알림에 등록해 두었어요!\n특가가 뜨면 맘캘린더 상단 종소리로 바로 알려드릴게요."+((dropped&&dropped.length)?"\n('"+dropped.slice(0,2).join("', '")+"' 도 받으시려면 따로 말씀해 주세요)":'')); }
+  else if(r.dup){ say("이미 '"+kw+"' 알림을 받고 계세요 🔔"); }
+  else { say(r.msg||'등록하지 못했어요'); return; }
+  act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); });
+}
+window.mcbReg=function(i){ var kw=LAST[i]; if(!kw||typeof mcKwAdd!=='function') return; registered(mcKwAdd(kw),kw); };
+window.mcbSend=async function(){
+  var inp=$('mcbInput'); if(!inp) return; var text=String(inp.value||'').trim(); if(!text) return; inp.value='';
+  say(text,'me');
+  if(MANAGE.test(text)){ try{ trackEvent('mcbot_send','manage'); }catch(_){} say('알림은 내 알림 목록에서 지우거나 바꿀 수 있어요.'); act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); }); return; }
+  if(COMPLAIN.test(text)){ try{ trackEvent('mcbot_send','complain'); }catch(_){} say('알림은 맘캘린더를 열면 상단 종소리에 쌓여요 🔔\n키워드가 잘 등록돼 있는지 목록에서 확인해 보세요.'); act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); }); return; }
+  if(HOWTO.test(text)){ try{ trackEvent('mcbot_send','howto'); }catch(_){} say('찾는 상품을 말씀해 주세요.\n예: "압타밀 핫딜 뜨면 알려줘"\n그 상품의 공구·핫딜이 뜨면 상단 종소리로 알려드려요.'); return; }
+  var ex=extractKws(text), kws=ex.list;
+  if(TRIG.test(text)){
+    try{ trackEvent('mcbot_send','alarm'); }catch(_){}
+    if(!kws.length){ say('어떤 상품 알림을 드릴까요?\n예: 압타밀 핫딜 뜨면 알려줘'); return; }
+    if(typeof mcKwAdd!=='function'){ say('알림 기능을 불러오지 못했어요'); return; }
+    kws.forEach(function(kw,ix){ registered(mcKwAdd(kw),kw,ix===kws.length-1?ex.dropped:[]); }); return;
+  }
+  try{ trackEvent('mcbot_send','search'); }catch(_){}
+  var kw=kws.length?kws[0]:text.replace(/\s+/g,' ').slice(0,20);
+  var nk=norm(kw);
+  if(nk.length<2){ say('조금 더 자세히 알려주세요 🙂\n예: 기저귀, 압타밀'); return; }
+  var hd=await hdItems();
+  var hH=hd.filter(function(h){ return h.price && norm(h.title).indexOf(nk)>=0; }).sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
+  var today=(typeof todayStr!=='undefined')?todayStr:'';
+  var gG=ggItems().filter(function(d){ return norm(d.name).indexOf(nk)>=0 || (nk.length>=3 && norm(d.influencer||'').indexOf(nk)>=0); })
+    .sort(function(a,b){ return (a.openDate>today)-(b.openDate>today) || (a.openDate<b.openDate?-1:1); });
+  var cards=[];
+  if(hH.length) cards.push({title:"'"+kw+"' 핫딜",items:hH.slice(0,3).map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }});
+  if(gG.length) cards.push({title:"'"+kw+"' 공구 일정",items:gG.slice(0,3).map(ggCard),all:'전체 일정 보기',fn:function(){ goTab('gonggu',kw); }});
+  if(cards.length){ carousel(cards); return; }
+  say("지금은 '"+kw+"' 공구나 핫딜이 없네요 🥺\n핫딜이 뜨면 바로 알려드릴까요?");
+  var i=LAST.push(kw)-1; act("'"+kw+"' 알림 등록하기 🔔",function(){ mcbReg(i); });
+};
+
+// ── 핫딜 탭 맨 위: 맘캘러가 지금 많이 찾는 특가 (검색 수요 → 생활필수품 순) ──
+async function paintDemand(){
+  var box=$('hdDemand'); if(!box) return;
+  if(!BOT_ON){ box.innerHTML=''; return; }
+  var data=((typeof _hotdealData!=='undefined'&&_hotdealData)||[]).filter(function(h){ try{ return h&&h.price&&h.title&&Number(h.id)>0&&!hdExpired(h); }catch(_){ return false; } });
+  if(!data.length){ box.innerHTML=''; return; }
+  var terms=[]; try{ terms=(await loadTrendingQ()).map(norm).filter(function(t){ return t.length>=2; }); }catch(_){}
+  var scored=data.map(function(h){
+    var n=norm(h.title), s=0;
+    for(var i=0;i<terms.length;i++){ if(n.indexOf(terms[i])>=0){ s=100-i*5; break; } }
+    if(!s){ for(var j=0;j<ESS.length;j++){ if(n.indexOf(ESS[j])>=0){ s=40; break; } } }
+    if(s){ if(h.is_lowest) s+=10; if(new Date(h.created_at).getTime()>Date.now()-86400e3) s+=5; }
+    return {h:h,s:s};
+  }).filter(function(x){ return x.s>0; }).sort(function(a,b){ return b.s-a.s; });
+  var pick=[], seen={};
+  scored.forEach(function(x){ var k=norm(x.h.title).slice(0,24); if(pick.length<4 && !seen[k]){ seen[k]=1; pick.push(x.h); } });
+  if(pick.length<2){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="hdd-h">🔥 맘캘러가 지금 많이 찾는 특가</div><div class="hdd-row">'+pick.map(function(h){
+    var img=h.img_url?'<img src="'+esc(typeof mcApiSrc==='function'?mcApiSrc(h.img_url):h.img_url)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;hdd-ph&quot;>HOT</div>\'">':'<div class="hdd-ph">HOT</div>';
+    return '<button class="hdd-c" type="button" onclick="mcbDemandGo('+(+h.id||0)+')"><span class="hdd-b">인기수요</span>'+img+'<div class="hdd-t">'+esc(h.title)+'</div><div class="hdd-p">'+won(h.price)+'</div></button>';
+  }).join('')+'</div>';
+}
+window.mcbDemandGo=function(id){ try{ trackEvent('hd_demand_go',String(id)); }catch(_){} hdGo(id); };
+// 핫딜 목록이 그려질 때마다 같이 그린다(기존 renderHotdeals 는 그대로 부르고 뒤에 덧붙이기만)
+try{ var _o=window.renderHotdeals; if(typeof _o==='function') window.renderHotdeals=function(){ var r=_o.apply(this,arguments); try{ paintDemand(); }catch(_){} return r; }; }catch(_){}
+})();
+</script>
+
+<!-- 앱 첫 실행 영상 온보딩 + 피클형 소셜 로그인 (2026-11-02 사장님 ORDER_ONBOARDING) · intro/v0~v5 영상 복원 · 패치 scratchpad/patch_onboarding.cjs -->
+<style id="mc-aob-css">
+#appOnboardingWrap{position:fixed;inset:0;z-index:99997;background:#fff;color:#191F28;display:flex;flex-direction:column;align-items:center;padding:calc(26px + env(safe-area-inset-top,0px)) 0 calc(16px + env(safe-area-inset-bottom,0px));overflow:hidden;font-family:inherit}
+.aob-h1{flex:none;padding:0 24px;font-size:22px;font-weight:800;line-height:1.35;text-align:center;word-break:keep-all;letter-spacing:-.02em}
+.aob-stage{flex:1 1 auto;min-height:0;width:100%;overflow:hidden;margin:14px 0 4px;touch-action:pan-y}
+.aob-rail{display:flex;height:100%;transition:transform .48s cubic-bezier(.22,1,.36,1);will-change:transform}
+.aob-sl{flex:0 0 100%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4px 0;box-sizing:border-box}
+.aob-ph{display:inline-flex;height:100%;max-width:92%;border-radius:22px;box-sizing:border-box;overflow:hidden;background:#fff}   /* 영상 안에 폰 목업이 이미 들어 있다 — 테두리를 또 두르지 않는다 */
+.aob-ph video{display:block;height:100%;width:auto;max-width:100%;aspect-ratio:9/16;object-fit:cover;background:#fff}
+.aob-h2{flex:none;padding:6px 24px 0;font-size:15px;font-weight:600;color:#6B7684;text-align:center;word-break:keep-all}
+.aob-dots{flex:none;display:flex;gap:6px;justify-content:center;padding:10px 0 14px}
+.aob-dots i{width:6px;height:6px;border-radius:3px;background:#E5E8EB;transition:width .48s cubic-bezier(.22,1,.36,1),background-color .48s}
+.aob-dots i.on{width:18px;background:#7C54C4}
+.aob-acts{flex:none;width:100%;max-width:420px;padding:0 24px;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch}
+.aob-btn{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border:0;border-radius:26px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:10px;width:100%}
+.aob-btn:first-child{margin-top:0}
+.aob-kko{background:#FEE500;color:#191919}
+.aob-nv{background:#03C75A;color:#fff}
+.aob-ap{background:#000;color:#fff}
+.aob-ico{font-weight:900;font-size:16px;line-height:1}
+.aob-sv{flex:none;display:block}
+.aob-skip{align-self:center;margin-top:10px;min-height:40px;padding:0 12px;border:0;background:none;color:#8B95A1;font-size:13.5px;font-weight:600;text-decoration:underline;font-family:inherit;cursor:pointer}
+</style>
+<script id="mc-aob-js">
+(function(){
+'use strict';
+var ONB_ON=true;                 // 🔴 킬스위치: false 면 앱 온보딩이 뜨지 않는다(어제 만든 로그인 시트 온보딩도 이 모듈이 있으면 양보)
+var VIDS=6, I=0, T=null, W=null, VS=[];
+window.mcOnbV2=true;             // 키워드 알림 모듈의 옛 로그인 시트 온보딩(onbTry)이 이걸 보고 양보한다
+function $(id){ return document.getElementById(id); }
+function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp(); }catch(_){ return false; } }
+function forced(){ try{ return new URLSearchParams(location.search).get('onb')==='1'; }catch(_){ return false; } }                        // 검증·확인용: 기기 저장 여부와 상관없이 노출
+function shouldShow(){
+  try{
+    if(forced()) return true;
+    if(!ONB_ON || !isApp()) return false;                                               // 웹·PWA·인앱 브라우저는 절대 안 뜬다(로그인 강제 금지)
+    if(typeof isLoggedIn==='function' && isLoggedIn()) return false;
+    if(localStorage.getItem('mc_onb_done_app')) return false;
+    if(localStorage.getItem('mc_app_onb')==='1') return false;                          // 앱 자동 시험(e2e)이 심는 값
+    return true;
+  }catch(_){ return false; }
+}
+// 네이버 버튼: 안드로이드 앱(앱 안에서 열리게 LinkRouter 허용) — 아이폰은 앱 재빌드 뒤 켠다. 확인용(?onb=1)으로 웹에서 열 때도 보인다
+function nvShow(){ try{ if(isApp()) return !!(window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'); return forced(); }catch(_){ return false; } }
+function apShow(){ try{ return typeof _appleAvail==='function' && _appleAvail(); }catch(_){ return false; } }   // 아이폰 앱: 카카오·네이버를 두면 애플 로그인도 같이(App Review 4.8)
+function close(done){
+  clearTimeout(T); T=null;
+  try{ VS.forEach(function(v){ try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(_){} }); }catch(_){}
+  if(W&&W.parentNode) W.parentNode.removeChild(W); W=null; VS=[];
+  if(done){ try{ localStorage.setItem('mc_onb_done_app', new Date().toISOString().slice(0,10)); }catch(_){} }
+  try{ if(typeof markSheetShown==='function') markSheetShown(); }catch(_){}
+}
+window.mcOnbClose=function(){ close(false); };
+window.mcOnbBrowse=function(){ try{ trackEvent('app_onb_browse',''); }catch(_){} close(true); };
+window.mcOnbKakao=function(){ try{ trackEvent('app_onb_login','kakao'); }catch(_){} try{ window.__loginIntent='onb'; startKakaoLogin(); }catch(_){} };
+window.mcOnbNaver=function(){ try{ trackEvent('app_onb_login','naver'); }catch(_){} try{ window.__loginIntent='onb'; startNaverLogin(); }catch(_){} };
+window.mcOnbApple=function(){ try{ trackEvent('app_onb_login','apple'); }catch(_){} try{ startAppleLogin(); }catch(_){} };
+function dots(){ var d=W&&W.querySelectorAll('.aob-dots i'); if(d) d.forEach(function(x,k){ x.classList.toggle('on',k===I); }); }
+function next(){ go(I+1); }
+function play(){
+  clearTimeout(T);
+  VS.forEach(function(v,k){ if(k!==I){ try{ v.pause(); }catch(_){} } });
+  var v=VS[I]; if(!v) return;
+  var nx=VS[(I+1)%VS.length]; if(nx && nx.preload!=='auto'){ nx.preload='auto'; try{ nx.load(); }catch(_){} }
+  v.onended=function(){ T=setTimeout(next,400); };          // 영상이 끝나면 0.4초 뒤 다음 장(10-25 슬라이더와 같은 속도)
+  v.onerror=function(){ T=setTimeout(next,3000); };         // 영상이 안 불러지면 포스터만 3초 보여주고 넘어간다
+  try{ v.currentTime=0; var p=v.play(); if(p&&p.catch) p.catch(function(){ T=setTimeout(next,3500); }); }catch(_){ T=setTimeout(next,3500); }
+}
+function go(n){
+  I=((n%VIDS)+VIDS)%VIDS;
+  var r=W&&W.querySelector('.aob-rail'); if(r) r.style.transform='translateX(-'+(I*100)+'%)';
+  dots(); play();
+}
+function build(){
+  if(W) return;
+  var sl='', dt='';
+  for(var k=0;k<VIDS;k++){
+    sl+='<div class="aob-sl"><div class="aob-ph"><video src="intro/v'+k+'.mp4" poster="intro/v'+k+'.jpg" muted playsinline webkit-playsinline preload="'+(k<2?'auto':'none')+'"></video></div></div>';
+    dt+='<i'+(k===0?' class="on"':'')+'></i>';
+  }
+  var btns='<button class="aob-btn aob-kko" type="button" onclick="mcOnbKakao()"><svg class="aob-sv" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#191919" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7l-1.1 4.1c-.1.3.3.6.6.4l4.9-3.2c.3 0 .7.1 1 .1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>카카오로 시작하기</button>';
+  if(apShow()) btns+='<button class="aob-btn aob-ap" type="button" onclick="mcOnbApple()"><svg class="aob-sv" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Apple로 시작하기</button>';
+  if(nvShow()) btns+='<button class="aob-btn aob-nv" type="button" onclick="mcOnbNaver()"><span class="aob-ico">N</span>네이버로 시작하기</button>';
+  btns+='<button class="aob-skip" type="button" onclick="mcOnbBrowse()">로그인 없이 둘러보기</button>';
+  W=document.createElement('div'); W.id='appOnboardingWrap'; W.setAttribute('role','dialog'); W.setAttribute('aria-label','맘캘린더 시작하기');
+  W.innerHTML='<div class="aob-h1">엄마들의 똑똑한 소비 습관, 맘캘린더</div>'
+    +'<div class="aob-stage"><div class="aob-rail">'+sl+'</div></div>'
+    +'<div class="aob-h2">육아 물가를 절감해줘요 💜</div>'
+    +'<div class="aob-dots">'+dt+'</div>'
+    +'<div class="aob-acts">'+btns+'</div>';
+  document.body.appendChild(W);
+  VS=[].slice.call(W.querySelectorAll('video'));
+  // 옆으로 밀어서 넘기기
+  var st=W.querySelector('.aob-stage'), x0=null;
+  st.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; },{passive:true});
+  st.addEventListener('touchend',function(e){ if(x0==null) return; var dx=(e.changedTouches[0].clientX)-x0; x0=null; if(Math.abs(dx)>40) go(I+(dx<0?1:-1)); },{passive:true});
+  W.querySelector('.aob-dots').addEventListener('click',function(e){ var k=[].indexOf.call(this.children,e.target); if(k>=0) go(k); });
+  try{ trackEvent('app_onb_show', forced()?'forced':'first'); }catch(_){}
+  go(0);
+  // 로그인이 끝나면(애플처럼 화면이 안 바뀌는 길) 스스로 닫는다
+  var chk=setInterval(function(){ if(!W){ clearInterval(chk); return; } try{ if(typeof isLoggedIn==='function' && isLoggedIn()){ clearInterval(chk); close(true); } }catch(_){} },1000);
+}
+function boot(){ if(shouldShow()) build(); }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
 </body>
 </html>
