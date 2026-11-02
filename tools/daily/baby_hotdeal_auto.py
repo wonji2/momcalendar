@@ -206,10 +206,11 @@ def clean_polluted_gonggu_titles():
         print(f'[clean] 정제 쿼리 에러: {e}')
 
 def purge_old_history():
-    # 180일 보관 헌법 준수
+    # 180일 보관 헌법 준수 (파이썬에서 날짜를 정확히 계산하여 단순 비교)
     try:
-        run_sql("DELETE FROM public.hotdeals WHERE deal_day < to_char(now() - interval '180 days', 'YYYY-MM-DD');")
-        print('[purge] 180일 초과 과거 핫딜 데이터 정리 완료')
+        cutoff = (datetime.now(KST) - timedelta(days=180)).strftime('%Y-%m-%d')
+        run_sql(f"DELETE FROM public.hotdeals WHERE deal_day < '{cutoff}';")
+        print(f'[purge] 180일 이전({cutoff}) 과거 핫딜 데이터 정리 완료')
     except Exception as e:
         print(f'[purge] 히스토리 정리 오류: {e}')
 
