@@ -15,12 +15,15 @@ PROFILE_NAME="momcal ci appstore $BUILD"
 ASC="$(cd "$(dirname "$0")" && pwd)/asc.py"
 WORK="$PWD/build/sign"; mkdir -p "$WORK"
 KC="$WORK/ci.keychain-db"; KCPW="$(uuidgen)"
-CERT_ID=""; PROF_ID=""
+CERT_ID=""; PROF_ID=""; PROF_ID2=""
+EXT_BUNDLE_ID=com.wontsbe.momcalendar.NotificationService
+EXT_PROFILE_NAME="momcal ci appstore ext $BUILD"
 
 cleanup() {
   set +e
   echo "── 정리: 이 회차 인증서·프로파일·키체인 삭제"
   [ -n "$PROF_ID" ] && python3 "$ASC" delete-profile "$PROF_ID"
+  [ -n "$PROF_ID2" ] && python3 "$ASC" delete-profile "$PROF_ID2"
   [ -n "$CERT_ID" ] && python3 "$ASC" delete-cert "$CERT_ID"
   security delete-keychain "$KC" 2>/dev/null
   rm -rf "$WORK"
@@ -45,6 +48,14 @@ for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Devel
   mkdir -p "$d"; cp "$WORK/appstore.mobileprovision" "$d/$UUID.mobileprovision"
 done
 echo "   profile $PROF_ID ($UUID)"
+# 알림 확장(사진 알림, 2026-11-02): 확장은 번들 ID 와 프로파일이 따로 필요하다
+EXT_BID=$(python3 "$ASC" ensure-bundle-id "$EXT_BUNDLE_ID" "momcal NotificationService")
+PROF_ID2=$(python3 "$ASC" create-profile "$EXT_BID" "$CERT_ID" "$EXT_PROFILE_NAME" "$WORK/ext.mobileprovision")
+UUID2=$(security cms -D -i "$WORK/ext.mobileprovision" | plutil -extract UUID raw -)
+for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+  mkdir -p "$d"; cp "$WORK/ext.mobileprovision" "$d/$UUID2.mobileprovision"
+done
+echo "   ext profile $PROF_ID2 ($UUID2)"
 
 echo "── 3. 임시 키체인에 키·인증서 넣기"
 security create-keychain -p "$KCPW" "$KC"
@@ -57,20 +68,31 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPW" "$
 security find-identity -v -p codesigning "$KC" | grep -q "Apple Distribution" || { echo "🔴 키체인에 Apple Distribution 신원이 없다"; security find-identity -v -p codesigning "$KC"; exit 1; }
 
 echo "── 4. 프로젝트 서명 설정 — App 타깃은 수동 서명, Pods 는 서명 안 함(앱에 심을 때 앱 신원으로 서명된다)"
-python3 - "$APPLE_TEAM_ID" "$PROFILE_NAME" <<'PY'
+python3 - "$APPLE_TEAM_ID" "$PROFILE_NAME" "$EXT_PROFILE_NAME" "$EXT_BUNDLE_ID" <<'PY'
 import re, sys
-team, prof = sys.argv[1], sys.argv[2]
+team, prof, eprof, ebid = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 p = 'App.xcodeproj/project.pbxproj'
 s = open(p, encoding='utf-8').read()
-anchor = 'PRODUCT_BUNDLE_IDENTIFIER = '
-if anchor not in s:
+if 'PRODUCT_BUNDLE_IDENTIFIER = ' not in s:
     print('🔴 앵커(PRODUCT_BUNDLE_IDENTIFIER)를 못 찾음'); sys.exit(1)
-s = re.sub(r'^\s*(CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE)(\[sdk=[^\]]*\])? = [^;]*;\n', '', s, flags=re.M)
-ins = ('CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t'
-       'DEVELOPMENT_TEAM = %s;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t' % (team, prof))
-s = s.replace(anchor, ins + anchor)
+strip = re.compile(r'^\s*(CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE)(\[sdk=[^\]]*\])? = [^;]*;\n', re.M)
+cnt = {'app': 0, 'ext': 0}
+def fix(m):
+    blk = m.group(0)
+    if 'PRODUCT_BUNDLE_IDENTIFIER = ' not in blk:
+        return blk
+    is_ext = ('PRODUCT_BUNDLE_IDENTIFIER = ' + ebid) in blk
+    blk = strip.sub('', blk)
+    name = eprof if is_ext else prof
+    ins = ('CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t'
+           'DEVELOPMENT_TEAM = %s;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t' % (team, name))
+    cnt['ext' if is_ext else 'app'] += 1
+    return blk.replace('PRODUCT_BUNDLE_IDENTIFIER = ', ins + 'PRODUCT_BUNDLE_IDENTIFIER = ', 1)
+# buildSettings 블록마다 따로 — 확장 타깃은 확장 프로파일, 나머지(App)는 앱 프로파일
+s = re.sub(r'buildSettings = \{\n.*?\n\t\t\t\};', fix, s, flags=re.S)
 open(p, 'w', encoding='utf-8').write(s)
-print('App 타깃: 수동 서명 %d 곳' % s.count('PROVISIONING_PROFILE_SPECIFIER'))
+print('App 타깃: 수동 서명 %d 곳 · 알림 확장 %d 곳' % (cnt['app'], cnt['ext']))
+if cnt['app'] == 0: sys.exit(1)
 pp = 'Pods/Pods.xcodeproj/project.pbxproj'
 t = open(pp, encoding='utf-8').read()
 t = re.sub(r'^\s*(CODE_SIGNING_ALLOWED|CODE_SIGNING_REQUIRED|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM)(\[sdk=[^\]]*\])? = [^;]*;\n', '', t, flags=re.M)
@@ -97,7 +119,7 @@ cat > "$WORK/ExportOptions.plist" <<PL
   <key>signingStyle</key><string>manual</string>
   <key>signingCertificate</key><string>Apple Distribution</string>
   <key>teamID</key><string>${APPLE_TEAM_ID}</string>
-  <key>provisioningProfiles</key><dict><key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string></dict>
+  <key>provisioningProfiles</key><dict><key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string><key>${EXT_BUNDLE_ID}</key><string>${EXT_PROFILE_NAME}</string></dict>
   <key>uploadSymbols</key><true/>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>

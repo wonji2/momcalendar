@@ -53,6 +53,14 @@ def main():
         if not d:
             sys.stderr.write('🔴 bundle id 없음: %s\n' % a[0]); sys.exit(1)
         print(d[0]['id'])
+    elif cmd == 'ensure-bundle-id':  # a: identifier, name — 없으면 만든다(알림 확장 번들 ID, 2026-11-02)
+        d = call('GET', '/bundleIds?filter[identifier]=' + a[0])['data']
+        d = [x for x in d if x['attributes'].get('identifier') == a[0]]
+        if d:
+            print(d[0]['id']); return
+        r = call('POST', '/bundleIds', {'data': {'type': 'bundleIds', 'attributes': {
+            'identifier': a[0], 'name': a[1], 'platform': 'IOS'}}})['data']
+        print(r['id'])
     elif cmd == 'ensure-cap':  # a: bundleIdResId, capabilityType — 번들 ID 에 기능이 없으면 켠다(2026-10-27 애플로 로그인)
         have = [c['attributes'].get('capabilityType') for c in call('GET', '/bundleIds/%s/bundleIdCapabilities' % a[0])['data']]
         if a[1] in have:

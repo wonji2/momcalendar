@@ -162,6 +162,20 @@ jobs:
             && echo "✅ 애플로 로그인 권한 확인" \
             || (echo "🔴 애플로 로그인 권한 없음"; exit 1)
 
+      - name: 알림 확장(사진 알림) 넣기
+        working-directory: ios-app
+        run: |
+          set -e
+          mkdir -p ios/App/NotificationService
+          cp ci/NotificationService.swift ios/App/NotificationService/NotificationService.swift
+          cp ci/NotificationService-Info.plist ios/App/NotificationService/Info.plist
+          # 버전은 App 과 같아야 한다(다르면 업로드 경고) — App 이 글자 그대로의 번호면 확장에도 같이, 변수($(MARKETING_VERSION))면 그대로 둔다
+          VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ios/App/App/Info.plist)
+          case "$VER" in '$'*) ;; *) /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VER" ios/App/NotificationService/Info.plist ;; esac
+          plutil -lint ios/App/NotificationService/Info.plist
+          gem list -i xcodeproj >/dev/null 2>&1 || sudo gem install xcodeproj --no-document
+          cd ios/App && ruby ../../ci/add_notification_extension.rb
+          grep -q "com.wontsbe.momcalendar.NotificationService" App.xcodeproj/project.pbxproj && echo "✅ 확장 타깃 연결 확인" || (echo "🔴 확장 타깃 없음"; exit 1)
       - name: 서명 없이 컴파일 검증
         if: ${{ inputs.mode == 'unsigned' }}
         working-directory: ios-app/ios/App
