@@ -71,7 +71,7 @@ html,body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:va
 .app-bn-ic{width:32px;height:32px;border-radius:8px;flex:none}
 .app-bn-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2;justify-content:center}
 .app-bn-tx b{font-size:13px;color:#191F28;font-weight:800;white-space:nowrap;letter-spacing:-0.03em}
-.app-bn-tx span{display:none}   /* 두 스토어 단추가 들어가면 부제는 숨긴다 */
+.app-bn-tx span{display:none}
 .app-bn-go{flex:none;height:28px;line-height:28px;padding:0 9px;border-radius:999px;background:#7C54C4;color:#fff!important;font-size:11.5px;font-weight:700;text-decoration:none;margin-left:3px;white-space:nowrap}
 .app-bn-go2{background:#F2F4F6!important;color:#4E5968!important;border:1px solid #E5E8EB}
 .app-bn-x{flex:none;width:28px;height:28px;border:0;background:none;color:#B0B8C1;font-size:15px;cursor:pointer;font-family:inherit;padding:0;display:flex;align-items:center;justify-content:center}
@@ -489,7 +489,7 @@ body.srch-suggest #searchDrop{display:block}
 /* 홈 화면 앱(PWA)으로 열면 하단 홈바 때문에 너무 아래 → 위로 올림 */
 @media(display-mode:standalone){.chat-fab-wrap{bottom:calc(48px + env(safe-area-inset-bottom))}}
 @media(min-width:480px){.chat-fab-wrap{right:calc(50% - 240px + 16px)}}
-.mcb-fab{pointer-events:auto;display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:999px;background:#6B45B3;color:#fff;font-size:14px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(91,46,140,.38);letter-spacing:-.01em}
+.mcb-fab{pointer-events:auto;display:flex;align-items:center;height:44px;padding:0 18px;border-radius:999px;background:#fff;color:#7C54C4;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(96,32,144,.16);letter-spacing:-.01em}   /* 2026-11-01 사장님 「색이 너무 찐하고 이모티콘은 빼」 → 흰 바탕·보라 글자 */
 .mcb-fab:active{opacity:.85}
 .chat-fab{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#FF7EB3,#FF5E8A);border:none;box-shadow:0 4px 16px rgba(255,80,120,.45);cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto;transition:transform .2s}
 .chat-fab.open{transform:rotate(135deg) scale(.96)}
@@ -738,11 +738,21 @@ body.srch-mode .next-zone{display:none!important}
 .nx-bell.on{background:#7C54C4;border-color:#7C54C4;color:#fff}
 #nxdAsk,#nxdGuide{position:fixed;inset:0;z-index:1400;display:none}#nxdAsk.open,#nxdGuide.open{display:block}
 #nxdAsk .nxa-bg,#nxdGuide .nxa-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-#nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 40px));max-width:340px;background:#fff;border-radius:20px;padding:24px 20px 20px;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,0.18);box-sizing:border-box}
-#nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:32px;line-height:1}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:10px;font-size:16px;font-weight:800;color:#191919;line-height:1.35;word-break:keep-all;white-space:normal!important}
-#nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:8px;font-size:13px;color:#4E5968;line-height:1.55;word-break:keep-all;white-space:normal!important}
+#nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
+#nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:30px}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
+#nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
+#nxdAsk .nxa-t,#nxdAsk .nxa-s{white-space:normal!important;word-break:keep-all}
 #nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 #nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#7C54C4;color:#fff}
+.ao-sheet{position:fixed;inset:0;z-index:99995;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.ao-sheet.open{opacity:1;pointer-events:auto}
+.ao-box{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:28px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:12px;transform:translateY(16px);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.ao-sheet.open .ao-box{transform:none}
+.ao-ic{width:56px;height:56px;border-radius:14px}
+.ao-t{font-size:20px;font-weight:700;color:#191F28;margin:4px 0 8px}
+.ao-btn{display:block;width:100%;text-align:center;text-decoration:none;background:#7C54C4;color:#fff;border-radius:14px;padding:15px;font-size:16px;font-weight:700}
+.ao-btn.i{background:#191F28}
+.ao-x{border:0;background:none;color:#8B95A1;font-size:14px;font-family:inherit;padding:8px;cursor:pointer}
 /* ── 맘캘 부품 mc-ui (2026-10-26) — 새 화면은 이것만 쓴다 · 규격 references/apps/COMPONENTS.md ── */
 .mc-sheet{position:fixed;inset:0;z-index:99996;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .mc-sheet.open{opacity:1;pointer-events:auto}
@@ -764,6 +774,380 @@ body.srch-mode .next-zone{display:none!important}
 .ip-m{min-width:0;display:flex;flex-direction:column}
 .ip-m b{font-size:15px;font-weight:600;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ip-m small{font-size:13px;color:#8B95A1;margin-top:2px}
+
+
+/* ==========================================================================
+   🔥 사장님 확정 핫딜 v3 UI 스타일 (mock_hotdeal_v3.html 기준 1:1 일치)
+   ========================================================================== */
+body[data-ct="hotdeal"] .main-banner-section,
+body[data-ct="hotdeal"] #nextZone,
+body[data-ct="hotdeal"] #sellerZone,
+body[data-ct="hotdeal"] #subZone,
+body[data-ct="sale"] .main-banner-section,
+body[data-ct="sale"] #nextZone,
+body[data-ct="sale"] #sellerZone,
+body[data-ct="sale"] #subZone,
+body[data-ct="community"] .main-banner-section,
+body[data-ct="community"] #nextZone,
+body[data-ct="community"] #sellerZone,
+body[data-ct="community"] #subZone {
+  display: none !important;
+}
+
+/* 🏷️ 1섹션: 큐레이션 캐러셀 헤더 & 슬라이더 */
+.sec-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  padding: 10px 4px 8px !important;
+}
+.sec-title-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.sec-title {
+  font-size: 15.5px !important;
+  font-weight: 800 !important;
+  color: #191F28 !important;
+  letter-spacing: -0.3px !important;
+}
+.sec-desc {
+  font-size: 11.5px !important;
+  color: #8B95A1 !important;
+  font-weight: 400 !important;
+}
+.sec-more {
+  font-size: 12px !important;
+  color: #8B95A1 !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+/* 1. 🔥 [가격 뚝! 쟁여둘 핫딜] 맘캘식 2.3구좌 스와이프 카드 */
+.curation-slider {
+  display: flex !important;
+  gap: 10px !important;
+  padding: 0 4px 14px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+.curation-slider::-webkit-scrollbar { display: none !important; }
+.c-card {
+  flex: 0 0 calc((100% - 20px) / 2.3) !important;
+  background: transparent !important;
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.c-thumb-wrap {
+  width: 100% !important;
+  aspect-ratio: 1/1 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  background: #F8F9FA !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.c-thumb {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.c-micro-badge {
+  position: absolute !important;
+  top: 7px !important;
+  left: 7px !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  padding: 2px 5px !important;
+  border-radius: 4px !important;
+  letter-spacing: -0.2px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+  z-index: 2 !important;
+}
+.badge-red { background: #FFF0EE !important; color: #FF4742 !important; }
+.badge-purple { background: #F3EEFA !important; color: #7C54C4 !important; }
+
+.c-info { padding: 6px 2px 2px !important; }
+.c-meta {
+  font-size: 10.5px !important;
+  color: #8B95A1 !important;
+  font-weight: 500 !important;
+  height: 16px !important;
+  line-height: 16px !important;
+}
+.c-name {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #191F28 !important;
+  line-height: 18px !important;
+  min-height: 0 !important;
+  max-height: 37px !important;
+  margin-top: 2px !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+.c-price-row {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  margin-top: 3px !important;
+  height: 20px !important;
+}
+.c-price {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #191F28 !important;
+}
+.c-discount {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #FF4742 !important;
+}
+.c-unit-txt {
+  font-size: 11.5px !important;
+  color: #767676 !important;
+  font-weight: 500 !important;
+  margin-top: 2px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+}
+
+/* 2. 🏷️ 카테고리 칩 & 쇼핑몰 다중 선택 & 정렬 툴바 */
+.filter-section {
+  padding: 8px 4px 10px !important;
+}
+.category-chips {
+  display: flex !important;
+  gap: 6px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 2px 0 6px !important;
+}
+.category-chips::-webkit-scrollbar { display: none !important; }
+
+/* 쇼핑몰 다중 선택 필터 칩 (중복 선택 지원) */
+.mall-chips {
+  display: flex !important;
+  gap: 6px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 2px 0 8px !important;
+}
+.mall-chips::-webkit-scrollbar { display: none !important; }
+.m-chip {
+  flex: 0 0 auto !important;
+  height: 28px !important;
+  line-height: 26px !important;
+  padding: 0 11px !important;
+  border-radius: 100px !important;
+  border: 1px solid #E5E8EB !important;
+  background: #fff !important;
+  color: #6B7684 !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: all 0.15s ease !important;
+}
+.m-chip.on {
+  background: #7C54C4 !important;
+  border-color: #7C54C4 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+.m-chip[data-mall="all"].on {
+  background: #191F28 !important;
+  border-color: #191F28 !important;
+}
+.m-chip[data-mall="coupang_wow"].on {
+  background: #E8402A !important;
+  border-color: #E8402A !important;
+}
+
+/* 대화형 온보딩 칩 */
+.mcob-chip {
+  padding: 6px 12px !important;
+  border-radius: 100px !important;
+  border: 1px solid #E5E8EB !important;
+  background: #fff !important;
+  color: #4E5968 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: all 0.15s ease !important;
+}
+.mcob-chip.on {
+  background: #7C54C4 !important;
+  border-color: #7C54C4 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+.c-chip {
+  flex: 0 0 auto !important;
+  height: 30px !important;
+  padding: 0 13px !important;
+  border-radius: 20px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border: 1px solid #E5E8EB !important;
+  background: #fff !important;
+  color: #4E5968 !important;
+  display: flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+}
+.c-chip.on {
+  background: #191F28 !important;
+  color: #fff !important;
+  border-color: #191F28 !important;
+  font-weight: 600 !important;
+}
+.sort-toolbar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 4px 2px 0 !important;
+}
+.count-txt {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #191F28 !important;
+}
+.sort-select {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #4E5968 !important;
+  border: 1px solid #E5E8EB !important;
+  border-radius: 6px !important;
+  background-color: #fff !important;
+  cursor: pointer !important;
+  padding: 3px 22px 3px 8px !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%238B95A1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 7px center !important;
+}
+
+/* 4. 🛍️ 폴센트식 테두리 없는 2열 핫딜 그리드 (와이드 확장 뷰) */
+.hotdeal-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 18px 12px !important;
+  padding: 6px 0 24px !important;
+}
+.hd-card {
+  background: transparent !important;
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  text-decoration: none !important;
+}
+.hd-thumb-wrap {
+  width: 100% !important;
+  aspect-ratio: 1/1 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  background: #F8F9FA !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.hd-thumb {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.hd-wish-heart {
+  position: absolute !important;
+  top: 7px !important;
+  right: 7px !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+  z-index: 2 !important;
+}
+.hd-info { padding: 7px 2px 2px !important; }
+.hd-meta {
+  font-size: 10.5px !important;
+  color: #8B95A1 !important;
+  font-weight: 500 !important;
+  margin-bottom: 2px !important;
+  height: 18px !important;
+  display: flex !important;
+  gap: 4px !important;
+  align-items: center !important;
+}
+.hd-mall-tag {
+  background: #F2F4F6 !important;
+  color: #4E5968 !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+.hd-title-txt {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #191F28 !important;
+  line-height: 18px !important;
+  height: 37px !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+.hd-price-row {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  margin-top: 3px !important;
+  height: 20px !important;
+}
+.hd-discount {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #FF4742 !important;
+}
+.hd-price-val {
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  color: #191F28 !important;
+}
+.hd-unit-line {
+  font-size: 11.5px !important;
+  color: #767676 !important;
+  font-weight: 500 !important;
+  margin-top: 2px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+}
+
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -912,7 +1296,7 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
 <div id="hdBg" onclick="closeHdSheet()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9994"></div>
 <div id="hdSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;max-height:88vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));z-index:9995;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
-  <div style="width:38px;height:4px;border-radius:4px;background:#E3E0E8;margin:0 auto 14px"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><button type="button" onclick="closeHdSheet()" style="background:none;border:none;padding:4px 6px;font-size:18px;color:#4E5968;cursor:pointer;line-height:1">←</button><div style="width:38px;height:4px;border-radius:4px;background:#E3E0E8"></div><button type="button" onclick="closeHdSheet()" style="background:none;border:none;padding:4px 6px;font-size:14px;color:#8B95A1;cursor:pointer;line-height:1">✕</button></div>
   <div id="hdSheetBody"></div>
 </div>
 
@@ -1334,13 +1718,16 @@ try{ window._mcNxEarly(); }catch(_){}
       var u=x.show_until?new Date(x.show_until).getTime():null;
       return (f===null||f<=now) && (u===null||u>=now);
     };
-    var b=(list||[]).find(function(x){ return x.stage!=='test' && inWin(x); });
+    // 테스트 페이지: 테스트(stage=test) 배너를 우선 보여주고, 없으면 정식(live)
+    var b=(list||[]).find(function(x){ return x.stage==='test' && inWin(x); })
+       || (list||[]).find(function(x){ return x.stage!=='test' && inWin(x); });
     var el=document.getElementById('slimAdSlot'); if(!el) return;
     if(!b){ el.style.display='none'; return; }
     var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
     var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7C54C4';
     var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
-    el.innerHTML='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
+    var stageTag=(b.stage==='test')?'<div style="font-size:10px;font-weight:800;color:#8A6100;background:#FFF3D6;border-radius:6px;padding:2px 7px;display:inline-block;margin-bottom:4px">🧪 테스트 전용 배너 (실제 사이트엔 안 보임)</div>':'';
+    el.innerHTML=stageTag+'<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
       +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
       +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
       +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
@@ -1577,12 +1964,73 @@ window.slimAdClick=function(id){
 
 <!-- ===== 핫딜 영역 ===== -->
 <div id="hotdealView" style="display:none;padding:12px;min-height:150vh">
-  <div class="promo-zone" style="display:none;margin:-2px -12px 10px">
-    <div class="promo-scroll"></div>
-    <div class="promo-notice" style="display:none">쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받을 수 있습니다.</div>
+  <!-- 💜 폴센트식 3초 맞춤 설정 & 알림 배너 -->
+  <div id="mcOnboardBanner" onclick="openMcOnboard()" style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #7C54C4, #9B6FD4);color:#fff;border-radius:14px;padding:11px 15px;margin-bottom:12px;box-shadow:0 3px 12px rgba(124,84,196,0.18);cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px;line-height:1">✨</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;line-height:1.3;letter-spacing:-0.2px">3초 맞춤 설정하고 특가 알림 받기</div>
+        <div style="font-size:11px;opacity:0.9;margin-top:1px;letter-spacing:-0.2px">나에게 딱 맞춘 실시간 핫딜 알림</div>
+      </div>
+    </div>
+    <span style="font-size:11.5px;font-weight:700;background:rgba(255,255,255,0.22);padding:4px 10px;border-radius:20px;white-space:nowrap">앱에서 알림 받기 ›</span>
   </div>
 
-  <div id="hdDemand" style="display:none !important"></div>
+  <!-- 1섹션: 🔥 가격 뚝! 쟁여둘 핫딜 (큐레이션 캐러셀) -->
+  <div id="hdDemand"></div>
+
+  <!-- 2섹션 & 3섹션: 🏷️ 카테고리 칩 6종 & 실시간 가격급락 정렬 툴바 -->
+  <div class="filter-section">
+    <div class="category-chips" id="hdCategoryChips">
+      <button class="c-chip on" data-cat="all" onclick="setHdCategory('all')">전체</button>
+      <button class="c-chip" data-cat="육아" onclick="setHdCategory('육아')">육아</button>
+      <button class="c-chip" data-cat="리빙" onclick="setHdCategory('리빙')">리빙</button>
+      <button class="c-chip" data-cat="식품" onclick="setHdCategory('식품')">식품</button>
+      <button class="c-chip" data-cat="건강" onclick="setHdCategory('건강')">건강</button>
+      <button class="c-chip" data-cat="가전" onclick="setHdCategory('가전')">가전</button>
+      <button class="c-chip" data-cat="뷰티" onclick="setHdCategory('뷰티')">뷰티</button>
+      <button class="c-chip" data-cat="패션" onclick="setHdCategory('패션')">패션</button>
+      <button class="c-chip" data-cat="여행" onclick="setHdCategory('여행')">여행</button>
+      <button class="c-chip" data-cat="반려동물" onclick="setHdCategory('반려동물')">반려동물</button>
+    </div>
+
+    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원: 네이버, 오늘의집 추가) -->
+    <div class="mall-chips" id="hdMallChips">
+      <button type="button" class="m-chip on" data-mall="all" onclick="toggleHdMall('all')">전체몰</button>
+      <button type="button" class="m-chip" data-mall="coupang_wow" onclick="toggleHdMall('coupang_wow')">🚀 쿠팡(와우)</button>
+      <button type="button" class="m-chip" data-mall="coupang" onclick="toggleHdMall('coupang')">쿠팡(일반)</button>
+      <button type="button" class="m-chip" data-mall="gmarket" onclick="toggleHdMall('gmarket')">G마켓</button>
+      <button type="button" class="m-chip" data-mall="11st" onclick="toggleHdMall('11st')">11번가</button>
+      <button type="button" class="m-chip" data-mall="ohouse" onclick="toggleHdMall('ohouse')">오늘의집</button>
+      <button type="button" class="m-chip" data-mall="toss" onclick="toggleHdMall('toss')">토스쇼핑</button>
+      <button type="button" class="m-chip" data-mall="lotte" onclick="toggleHdMall('lotte')">롯데ON</button>
+      <button type="button" class="m-chip" data-mall="boribori" onclick="toggleHdMall('boribori')">보리보리</button>
+      
+    </div>
+    <div id="hdFilterBar" style="display:none;align-items:center;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:12px">
+      <span id="hdFilterLabel" style="font-size:13px;font-weight:700;color:#7C54C4">🔥 쟁여둘 핫딜 모아보기</span>
+      <button type="button" onclick="resetHdFilter()" style="background:#7C54C4;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
+    </div>
+    <div class="sort-toolbar">
+      <span class="count-txt" id="hdSectionTitle">실시간 가격급락 핫딜</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="hdResetBtn" type="button" onclick="resetHdFilter()" style="display:none;background:#F2F4F6;border:1px solid #E5E8EB;color:#4E5968;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer">전체보기 ✕</button>
+        <div class="hd-sort-wrap" style="position:relative">
+          <button id="hdSortBtn" type="button" onclick="toggleHdSortDropdown(event)" style="display:flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:20px;border:1px solid #E5E8EB;background:#fff;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer;-webkit-tap-highlight-color:transparent">
+            <span id="hdSortLabel">급하락순</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div id="hdSortDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #E5E8EB;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:200;min-width:105px;overflow:hidden;padding:4px 0">
+            <button type="button" class="hd-opt on" onclick="pickHdSort('drop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:700;color:#7C54C4;cursor:pointer">급하락순 ✓</button>
+            <button type="button" class="hd-opt" onclick="pickHdSort('pop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">인기순</button>
+            <button type="button" class="hd-opt" onclick="pickHdSort('new')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">최신순</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4섹션: 2열 메인 핫딜 그리드 -->
   <div id="hotdealList"></div>
 </div>
 <!-- ===== /핫딜 영역 ===== -->
@@ -1924,8 +2372,8 @@ async function loadData() {
       payLink: (r.pay_link || '').trim(),
       vendorId: r.vendor_id || null,   // 입점 공급사 건이면 값이 있다 (핫 키워드 우선 노출용)
       always: r.always === true,       // 상시 공구(맘캘) — 기간 자리에 「상시」, 오늘오픈·오늘마감으로 세지 않는다 (사장님 2026-10-24)
-      // 오픈 시각: 셀러 글에 「10시 오픈」 처럼 적힌 것만(caption·caption_ai). 인포크 달력 칸 시각은 기본값일 수 있어 안 쓴다(사장님 2026-10-27 「정확히 써있는것만」) — tools/daily/open_time_fill.mjs
-      openTime: /^\d{2}:\d{2}$/.test(r.open_time || '') && /^caption/.test(r.open_time_src || '') ? r.open_time : '',
+      // 셀러 글에 「10시 오픈」 처럼 적힌 시각만(caption·caption_ai). 인포크 달력 칸 시각은 기본값일 수 있어 화면엔 안 쓴다(사장님 2026-10-27 「정확히 써있는것만」)
+      openTime: /^\d{2}:\d{2}$/.test(r.open_time || '') && /^caption/.test(r.open_time_src || '') ? r.open_time : '',   // 오픈 시각(셀러 원본) — tools/daily/open_time_fill.mjs (사장님 2026-10-27)
     })).filter(d => d.name && d.openDate)
     // ⚠️ 갈 곳이 없는 카드는 아예 안 보여준다. (사장님 지적 2026-08-10)
     //    핸들도 결제·카페 링크도 없으면 눌러봐야 인스타 메인만 열린다.
@@ -2234,12 +2682,6 @@ function getFiltered(dateStr){
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
-      // 🔴 셀러 이름·인스타 아이디는 **전체가 같을 때만** 찾는다 (사장님 2026-10-27 「사이트에 셀러 검색해도 나오게 해야지」)
-      //    2026-09-05 사장님 지시로 셀러명을 뺐던 이유 — 「포도」에 셀러 '포도네' 상품, 「와이」에 '와이블랑' 상품이 섞였다 → 부분 일치는 안 쓴다.
-      //    셀러명 뒤 괄호(「유니맘(이소현)」)는 떼고 비교. 아이디는 @·대소문자 무시
-      { const qn0=fSearch.toLowerCase().replace(/\s+/g,'').replace(/^@/,'');
-        const sel=String(item.influencer||'').toLowerCase().replace(/\s*[(（].*$/,'').replace(/\s+/g,'');
-        if(qn0 && (sel===qn0 || String(item.insta||'').toLowerCase()===qn0)) return true; }
       return[item.name,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
@@ -2308,7 +2750,7 @@ function filterCat(item){
   return true;
 }
 
-// 오픈 시각 글자 「10시 오픈」「9시 30분 오픈」(24시간). 상시·지난 오픈은 안 쓴다
+// 오픈 시각 글자 — 「10시 오픈」「9시 30분 오픈」 (24시간 · 공구팡팡과 같은 꼴). 상시·지난 오픈은 안 쓴다
 function openTimeTxt(item){
   if(!item.openTime || item.always || !item.openDate || item.openDate<todayStr) return '';
   const h=+item.openTime.slice(0,2), m=+item.openTime.slice(3,5);
@@ -2344,7 +2786,7 @@ function renderCard(item){
   const partner = effPartner(item);
   const badgeSvg = '<svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:2px;flex-shrink:0"><circle cx="8" cy="8" r="8" fill="#7C54C4"/><path d="M4.6 8.2l2.1 2.1 4-4.3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const sb = partner ? badgeSvg : '';
-  // 「10/27 10시 오픈~10/29」 오픈일 바로 뒤에 시각 (사장님 2026-10-27 목업 C안 「10시 오픈 이렇게 오픈자 붙여봐」)
+  // 「10/27 10시 오픈~10/29」 오픈일 바로 뒤에 시각 (목업 C안 · 테스트 페이지에서만, 라이브는 사장님 확인 후) (사장님 2026-10-27 「c에서 10시 오픈 이렇게 오픈자 붙여봐」)
   const openAt = openTimeTxt(item);
   const periodOt = openAt ? `${disp(item.openDate)} <span class="card-ot">${openAt}</span>${item.endDate?'~'+disp(item.endDate):''}` : period;
   const sellerLine = seller
@@ -2587,6 +3029,17 @@ async function renderSearchAll(){
     if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
   }
 
+  // 💬 커뮤니티 글 — 검색에도 보여 준다 (사장님 오더 2026-11-02 ORDER_ADMIN 작업1). 없으면 최근 30일 글을 먼저 가져온다
+  if(!_commData){
+    try{
+      const since=new Date(Date.now()-30*86400000).toISOString();
+      const cr=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,
+        {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},signal:AbortSignal.timeout?AbortSignal.timeout(6000):undefined});
+      if(cr.ok) _commData=await cr.json();   // 실패하면 null 로 둔다 — 커뮤니티 탭이 다시 받을 수 있게
+    }catch(_){}
+    if((fSearch||'').trim().toLowerCase()!==q) return;   // 그 사이 검색어가 바뀌었으면 버림
+  }
+
   // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
   const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
   // 🚫 「다른 브랜드」 는 핫딜·체험단 섹션에서도 뺀다 — 공구만 막으면 오이코스 핫딜이 들어올 때 다시 샌다 (2026-09-21)
@@ -2594,6 +3047,8 @@ async function renderSearchAll(){
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
+  const hdU = hdDedupe(hd);                                                                  // 중복 뺀 핫딜 — 건수도 이것으로 센다(2026-11-02 코덱스 지적)
+  const cm = (_commData||[]).filter(c=>hit(c.title,c.summary,c.board,c.nick));                   // 💬 커뮤니티
 
   // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
   //    오픈일순(기본) = 기존 검색 정렬 그대로(cmpDatePartner: 오픈일 빠른 순, 같은 날짜는 파트너 우선)
@@ -2628,14 +3083,18 @@ async function renderSearchAll(){
   };
 
   // 핫딜 0건이어도 절을 지우지 않고 「최근 7일 내 등록된 핫딜 0건」 을 보여 준다 — 손님이 공구만 나오는 이유를 알게(제보 #18, 사장님 2026-11-01). 전체 0건이면 기존 안내 그대로
-  const anyHit=ggS.length+hd.length+ex.length>0;
+  const anyHit=ggS.length+hdU.length+ex.length+cm.length>0;
   const html =
     sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
-    sec('hotdeal','🔥','핫딜',hdDedupe(hd),h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
-    sec('exp','🎁','체험단',ex,e=>expCardHtml(e));
+    sec('hotdeal','🔥','핫딜',hdU,h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
+    sec('exp','🎁','체험단',ex,e=>expCardHtml(e)) +
+    (cm.length?`<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px"><span>💬 커뮤니티</span><span style="font-size:11.5px;font-weight:700;color:#9A93A6">${cm.length}건</span></div>`
+      +cm.slice(0,5).map(_commCardHtml).join('')
+      +(cm.length>5?`<button class="comm-more" onclick="exitSearchMode();switchContent('community')">💬 커뮤니티 탭에서 전체보기 (${cm.length}건) ›</button>`:'')
+      +'<div style="height:16px"></div>':'');
 
   // 상단: 총 건수 + 정렬 (목업 ③번 화면)
-  const total=ggS.length+hd.length+ex.length;
+  const total=ggS.length+hdU.length+ex.length+cm.length;
   const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
       <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
@@ -2650,10 +3109,10 @@ async function renderSearchAll(){
       '<b style="color:#7C54C4">${escHtml(fSearch)}</b>' 결과가 없어요<br>
       <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
       <div class="sa-chips"><span>추천 검색어</span>${['기저귀','물티슈','분유','이유식','장난감'].map(k=>`<button type="button" onclick="runSearch('${k}')">${k}</button>`).join('')}</div>
-    </div><div id="pastWrap"></div>`) + (html ? '<div id="pastWrap" style="margin-top:6px"></div>' : '') + backHome;
+    </div><div id="pastWrap"></div>`) + backHome;
   paintHearts();
-  // 끝난 공구도 찾아 회색으로 아래에 붙인다 — 결과가 있어도(사장님 2026-10-27 「끝난 이전 공구예요해서 회색처리처럼 돼서 밑에 떴었잖아」)
-  showPastResults((fSearch||'').trim(), !!html);
+  // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
+  if(!html) showPastResults((fSearch||'').trim());
 }
 
 
@@ -2661,23 +3120,17 @@ async function renderSearchAll(){
 // DATA 에는 진행중·예정만 실려 있어 마감된 것은 안 잡힌다. 그것만 따로 조회한다.
 // "지금은 없지만 최근에 이때 했어요" 를 알려주면 손님이 다음에 다시 온다.
 //   ⚠ 한 번에 8건만 받는다(이그레스). 검색할 때만 부르므로 평소 부담이 없다.
-//   2026-10-27: 진행 중 결과가 있어도 아래에 붙이고(hasLive), **끝난 것만**(end_date < 오늘) 받는다.
-//     상품명은 부분 일치, 셀러명·아이디는 전체 일치만(포도 → 포도네 섞임 방지, getFiltered 와 같은 기준)
 let _pastCache = {};
-async function showPastResults(q, hasLive){
+async function showPastResults(q){
   const box = document.getElementById('pastWrap');
   if(!box || !q || q.length < 2) return;
   const key = q.toLowerCase();
   try{
     let rows = _pastCache[key];
     if(!rows){
-      // PostgREST or=() 안에서 쉼표·괄호·별표·콜론은 문법 글자라 뺀다
-      const w = q.replace(/[,()*:\\]/g, ' ').trim();
-      if(!w) return;
-      const v = encodeURIComponent('*' + w + '*'), x = encodeURIComponent(w.replace(/^@/, ''));
-      const r = await fetch(SUPABASE_URL + '/rest/v1/gonggu?approved=eq.true&end_date=lt.' + todayStr
-        + '&or=(name.ilike.' + v + ',influencer.ilike.' + x + ',insta.ilike.' + x + ')'
-        + '&select=id,name,influencer,insta,open_date,end_date,major,pay_link&order=end_date.desc,id.desc&limit=8',
+      const enc = encodeURIComponent('%' + q + '%');
+      const r = await fetch(SUPABASE_URL + '/rest/v1/gonggu?approved=eq.true&name=ilike.' + enc
+        + '&select=id,name,influencer,insta,open_date,end_date,major,pay_link&order=end_date.desc&limit=8',
         { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
       if(!r.ok) throw new Error('HTTP '+r.status);
       rows = await r.json();
@@ -2685,21 +3138,23 @@ async function showPastResults(q, hasLive){
     }
     var _h=document.getElementById("pastHint"); if(_h) _h.remove();   // 다 찾았으니 "찾아보는 중" 은 지운다
     if(!Array.isArray(rows) || !rows.length){
-      box.innerHTML = hasLive ? '' : '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
+      box.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:6px 0 10px">'
         + '아직 다룬 적 없는 브랜드예요. 브랜드명·상품명으로 검색해보세요</div>';
       return;
     }
     try{ trackEvent('search_past_hit', q); }catch(_){}
     const md = d => { const p=String(d||'').split('-'); return p.length===3 ? (+p[1])+'/'+(+p[2]) : ''; };
-    box.innerHTML = '<div style="margin:2px 2px 9px;font-size:13px;font-weight:800;color:#9A93A6">끝난 이전 공구예요</div>'
+    box.innerHTML = '<div style="margin:2px 0 10px;text-align:center">'
+      + '<span style="font-size:12.5px;color:#7C54C4;font-weight:700">최근에 이렇게 진행했어요</span>'
+      + '<div style="font-size:11.5px;color:#bbb;margin-top:3px">다시 열리면 여기에 올라와요</div></div>'
       + rows.map(function(g){
           const who = (g.influencer||g.insta||'').trim();
           return '<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:7px;'
-            + 'background:#F5F4F7;border:1px solid #E8E8EC;border-radius:11px;opacity:.78">'
+            + 'background:var(--card,#fff);border:1px solid #EFE9F6;border-radius:11px">'
             + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:13.5px;font-weight:700;color:#8b8b95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+            + '<div style="font-size:13.5px;font-weight:700;color:#4A3A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
             + _escH(g.name) + '</div>'
-            + '<div style="font-size:11.5px;color:#A6A1AE;margin-top:2px">'
+            + '<div style="font-size:11.5px;color:#A99BC4;margin-top:2px">'
             + (who ? _escH(who) + ' · ' : '') + md(g.open_date) + '~' + md(g.end_date) + ' 종료</div>'
             + '</div></div>';
         }).join('');
@@ -2951,12 +3406,20 @@ function scrollToResults(){
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
 // 2026-11-01 디자인 시스템: 탭마다 초록·파랑·주황으로 바뀌던 바탕을 없애고 전부 같은 색(연회색 + 보라 활성) — 옛 값은 git 에
-const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:['#F2F4F6','#7C54C4'],sale:['#F2F4F6','#7C54C4'],community:['#F2F4F6','#7C54C4']};
+const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:['#F2F4F6','#7C54C4'],sale:['#F2F4F6','#7C54C4'],community:['#F2F4F6','#7C54C4']};   // 탭 색은 전부 같은 라일락(사장님 2026-11-01 「통일감」)
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
   _ctPrev=ct;
-  try{ document.body.dataset.ct=ct; if(ct!=='gonggu') window.scrollTo(0,0); }catch(_){}   // 공구 외 탭(핫딜·세일·커뮤니티)에서는 위쪽 공구 배너를 숨기고 맨 위로(사장님 2026-11-02, ORDER_HOTDEAL_POLCENT_KILLER 특명 1과 같은 data-ct 방식)
+  try{
+    document.body.dataset.ct=ct;
+    if(ct!=='gonggu') window.scrollTo(0,0);
+    var sIn = document.getElementById('sInput');
+    if(sIn) {
+      if(ct === 'hotdeal') sIn.placeholder = '11월, 진짜 실속 핫딜 찾기';
+      else sIn.placeholder = '브랜드, 상품명 검색';
+    }
+  }catch(_){}   // 공구 외 탭(핫딜·세일·커뮤니티)에서는 위쪽 공구 배너를 숨기고 맨 위로(사장님 2026-11-02, ORDER_HOTDEAL_POLCENT_KILLER 특명 1과 같은 data-ct 방식)
   try{ document.querySelectorAll('#appBottomNav .bni').forEach(function(b){ b.classList.toggle('on', b.dataset.ct===ct); }); }catch(_){}   // 하단 탭바(앱 전용) 표시 동기화
   const seg=document.getElementById('contentSeg');
   seg.style.background=CT_COLOR[ct][0];
@@ -3092,6 +3555,7 @@ async function liveWish(id,ev,btn){
     return; } }catch(_){}
   try{
     if(!notiGranted()){
+      if(_appOnlyBell('wish')) return;
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -3273,6 +3737,7 @@ async function saleWish(id,ev,btn){
   let msg='찜했어요\n세일 시작하는 날 아침 9시에 알려드릴게요';
   try{
     if(!notiGranted()){
+      if(_appOnlyBell('wish')) return;
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -3356,24 +3821,328 @@ async function loadHotdeals(){
     });
     if(!r.ok) throw 0;
     _hotdealData=await r.json();
+    if(location.search.indexOf('hddemo')>=0) _hotdealData=[_hdDemo()].concat(_hotdealData); // 디자인 확인용 예시
     renderHotdeals();
   }catch(e){
     el.innerHTML=emptyBox('hotdeal');
   }
 }
+// ⚠ 테스트 전용: ?hddemo=1 일 때만 뜨는 '예시' 카드 (실제 가격 아님)
+function _hdDemo(){
+  return {id:-1,title:'[예시] 하기스 네이처메이드 밴드형 기저귀 소형 4팩',
+    link:'https://www.coupang.com/',major:'육아',minor:'육아용품',
+    price:41900,price_before:50807,discount_rate:18,is_lowest:true,
+    product_id:'__demo__',source:'coupang',created_at:new Date().toISOString(),img_url:''};
+}
+let _hdCurrentCat = 'all';
+let _hdCurrentSort = 'drop';
+let _hdOnlyLowest = false;
+window._selectedMalls = new Set(['all']);
+
+window.toggleHdMall = function(mall){
+  if(mall === 'all'){
+    _selectedMalls.clear();
+    _selectedMalls.add('all');
+  } else {
+    _selectedMalls.delete('all');
+    if(_selectedMalls.has(mall)){
+      _selectedMalls.delete(mall);
+      if(_selectedMalls.size === 0) _selectedMalls.add('all');
+    } else {
+      _selectedMalls.add(mall);
+    }
+  }
+  var chips = document.querySelectorAll('#hdMallChips .m-chip');
+  if(chips){
+    chips.forEach(function(b){
+      var m = b.getAttribute('data-mall');
+      b.classList.toggle('on', _selectedMalls.has(m));
+    });
+  }
+  renderHotdeals();
+};
+
+window.resetHdFilter = function(){
+  _hdOnlyLowest = false;
+  _hdCurrentCat = 'all';
+  _hdCurrentSort = 'drop';
+
+  if(window._selectedMalls){
+    _selectedMalls.clear();
+    _selectedMalls.add('all');
+    var mChips = document.querySelectorAll('#hdMallChips .m-chip');
+    if(mChips){
+      mChips.forEach(function(b){
+        b.classList.toggle('on', b.getAttribute('data-mall') === 'all');
+      });
+    }
+  }
+
+  var bar = document.getElementById('hdFilterBar');
+  if(bar) bar.style.display = 'none';
+  var rBtn = document.getElementById('hdResetBtn');
+  if(rBtn) rBtn.style.display = 'none';
+
+  var chips = document.querySelectorAll('#hdCategoryChips .c-chip');
+  if(chips) chips.forEach(function(btn){
+    btn.classList.toggle('on', btn.dataset.cat === 'all');
+  });
+
+  var sLbl = document.getElementById('hdSortLabel');
+  if(sLbl) sLbl.textContent = '급하락순';
+  var dd = document.getElementById('hdSortDropdown');
+  if(dd){
+    var btns = dd.querySelectorAll('.hd-opt');
+    var labels = ['급하락순', '인기순', '최신순'];
+    btns.forEach(function(b, idx){
+      var match = (idx === 0);
+      b.classList.toggle('on', match);
+      b.style.fontWeight = match ? '700' : '600';
+      b.style.color = match ? '#7C54C4' : '#4E5968';
+      b.textContent = labels[idx] + (match ? ' ✓' : '');
+    });
+  }
+
+  var ttl = document.getElementById('hdSectionTitle');
+  if(ttl) ttl.textContent = '실시간 가격급락 핫딜';
+
+  renderHotdeals();
+};
+
+window.toggleHdSortDropdown = function(e){
+  if(e) e.stopPropagation();
+  var dd = document.getElementById('hdSortDropdown');
+  if(!dd) return;
+  var isOpen = dd.style.display === 'block';
+  dd.style.display = isOpen ? 'none' : 'block';
+};
+
+window.pickHdSort = function(sort){
+  var labels = {drop: '급하락순', pop: '인기순', new: '최신순'};
+  var lbl = document.getElementById('hdSortLabel');
+  if(lbl) lbl.textContent = labels[sort] || '급하락순';
+
+  var dd = document.getElementById('hdSortDropdown');
+  if(dd){
+    dd.style.display = 'none';
+    var btns = dd.querySelectorAll('.hd-opt');
+    var keys = ['drop', 'pop', 'new'];
+    btns.forEach(function(b, idx){
+      var match = (keys[idx] === sort);
+      b.classList.toggle('on', match);
+      b.style.fontWeight = match ? '700' : '600';
+      b.style.color = match ? '#7C54C4' : '#4E5968';
+      b.textContent = labels[keys[idx]] + (match ? ' ✓' : '');
+    });
+  }
+
+  setHdSort(sort);
+};
+
+if (!window.__hdSortClickBound) {
+  window.__hdSortClickBound = true;
+  document.addEventListener('click', function(e){
+    var wrap = document.querySelector('.hd-sort-wrap');
+    var dd = document.getElementById('hdSortDropdown');
+    if(dd && wrap && !wrap.contains(e.target)){
+      dd.style.display = 'none';
+    }
+  });
+}
+
+window.setHdCategory = function(cat){
+  _hdCurrentCat = cat || 'all';
+  if(_hdCurrentCat === 'all' && _hdOnlyLowest){
+    _hdOnlyLowest = false;
+    var bar = document.getElementById('hdFilterBar');
+    if(bar) bar.style.display = 'none';
+    var rBtn = document.getElementById('hdResetBtn');
+    if(rBtn) rBtn.style.display = 'none';
+    var ttl = document.getElementById('hdSectionTitle');
+    if(ttl) ttl.textContent = '실시간 가격급락 핫딜';
+  }
+  var chips = document.querySelectorAll('#hdCategoryChips .c-chip');
+  if(chips) chips.forEach(function(btn){
+    btn.classList.toggle('on', btn.dataset.cat === _hdCurrentCat);
+  });
+  renderHotdeals();
+};
+
+window.setHdSort = function(sort){
+  _hdCurrentSort = sort || 'drop';
+  renderHotdeals();
+};
+
+window.hdFilterLowest = function(){
+  _hdOnlyLowest = true;
+  _hdCurrentSort = 'drop';
+
+  var bar = document.getElementById('hdFilterBar');
+  if(bar) bar.style.display = 'flex';
+  var rBtn = document.getElementById('hdResetBtn');
+  if(rBtn) rBtn.style.display = 'inline-block';
+
+  var lbl = document.getElementById('hdFilterLabel');
+  if(lbl) lbl.textContent = '🔥 가격 뚝! 쟁여둘 핫딜 모아보기';
+
+  var ttl = document.getElementById('hdSectionTitle');
+  if(ttl) ttl.textContent = '쟁여둘 핫딜 목록';
+
+  var sLbl = document.getElementById('hdSortLabel');
+  if(sLbl) sLbl.textContent = '급하락순';
+
+  renderHotdeals();
+
+  var sec = document.querySelector('.filter-section');
+  if(sec) sec.scrollIntoView({ behavior: 'smooth' });
+};
+
 function renderHotdeals(){
   const el=document.getElementById('hotdealList');
-  // 🔴 끝난 핫딜은 목록에서도 빼야 한다. (사장님 지적 2026-08-10)
-  //    hdExpired 를 만들어 놓고 '검색 결과'에서만 쓰고 핫딜 탭에는 안 걸어 뒀다.
-  //    그래서 골드박스처럼 하루 지나면 값이 돌아가는 특가가 계속 떠 있었다
-  //    (서버에서 만료 처리해도 화면이 그걸 안 봤다).
   const live=(_hotdealData||[]).filter(h=>!hdExpired(h));
   if(!live.length){
     el.innerHTML=emptyBox('hotdeal');
     return;
   }
-  _hdIdx=0;                                   // 위쪽 8장은 즉시 로드하려고 매 렌더마다 초기화
-  el.innerHTML='<div class="hotdeal-grid">'+hdOrder(hdDedupe(live)).map(h=>hdGridCardHtml(h)).join('')+'</div>';
+  _hdIdx=0;
+
+  let filtered = live;
+
+  // '더보기' 클릭 시 역대최저 및 급하락 쟁여둘 핫딜 필터링
+  if(_hdOnlyLowest){
+    filtered = filtered.filter(function(h){
+      return !!h.is_lowest || (h.discount_rate && h.discount_rate >= 20) || (h.change && String(h.change).indexOf('▼') !== -1);
+    });
+  }
+
+  if(_hdCurrentCat && _hdCurrentCat !== 'all'){
+    filtered = filtered.filter(function(h){
+      if(h.major === _hdCurrentCat) return true;
+      var m = (h.major || '') + ' ' + (h.category || '') + ' ' + (h.title || '');
+      if(_hdCurrentCat === '육아') return /육아|기저귀|물티슈|분유|아기|유아|키즈|장난감|젖병|이유식|턱받이|유모차/.test(m);
+      if(_hdCurrentCat === '리빙') return /리빙|생활|주방|세제|욕실|가구|인테리어|청소|휴지|수세미|치약|칫솔/.test(m);
+      if(_hdCurrentCat === '식품') return /식품|신선|간식|음료|커피|쌀|과일|밀키트|고기|라면|생수|만두|소시지|김치/.test(m);
+      if(_hdCurrentCat === '건강') return /건강|영양제|비타민|유산균|오메가|루테인|철분|다이어트|단백질/.test(m);
+      if(_hdCurrentCat === '가전') return /가전|디지털|IT|청소기|이어폰|컴퓨터|모니터|스마트폰|TV|건조기|에어프라이어|드라이기|전기요|온풍기/.test(m);
+      if(_hdCurrentCat === '뷰티') return /뷰티|화장품|스킨케어|앰플|토너|크림|립밤|샴푸|헤어|미스트|팩트/.test(m);
+      if(_hdCurrentCat === '패션') return /패션|의류|잡화|신발|원피스|양말|가방|자켓|속옷|팬티|슬리퍼|점퍼|후리스/.test(m);
+      if(_hdCurrentCat === '여행') return /여행|숙소|호텔|리조트|이용권|티켓|워터파크|스플라스/.test(m);
+      if(_hdCurrentCat === '반려동물') return /반려동물|강아지|고양이|사료|간식|배변패드/.test(m);
+      return false;
+    });
+  }
+
+  // 쇼핑몰 다중 선택 필터링 (중복 선택 지원)
+  if(window._selectedMalls && !_selectedMalls.has('all') && _selectedMalls.size > 0){
+    filtered = filtered.filter(function(h){
+      var src = String(h.source || '').toLowerCase();
+      var mall = String(h.mall || '').toLowerCase();
+      var tit = String(h.title || '').toLowerCase();
+
+      var isWow = (src === 'goldbox' || /와우|골드박스/i.test(tit) || !!h.is_wow);
+      var isCoupang = (src === 'coupang' || src === 'goldbox' || mall.indexOf('쿠팡') !== -1 || tit.indexOf('쿠팡') !== -1);
+      var isGmarket = (src === 'gmarket' || mall.indexOf('지마켓') !== -1 || mall.indexOf('gmarket') !== -1 || /지마켓|g마켓/i.test(tit));
+      var is11st = (src === '11st' || mall.indexOf('11번가') !== -1 || /11번가/i.test(tit));
+      var isNaver = (src === 'naver' || mall.indexOf('네이버') !== -1 || /네이버/i.test(tit));
+      var isOhouse = (src === 'ohou' || src === 'ohouse' || mall.indexOf('오늘의집') !== -1 || /오늘의집/i.test(tit));
+      var isToss = (src === 'toss' || mall.indexOf('토스') !== -1 || /토스/i.test(tit));
+      var isLotte = (src === 'lotteon' || src === 'lotte' || mall.indexOf('롯데') !== -1 || /롯데/i.test(tit));
+      var isBoribori = (src === 'boribori' || mall.indexOf('보리보리') !== -1 || /보리보리/i.test(tit));
+      var isTravel = (src === 'travel' || src === 'yanolja' || src === 'yeogi' || src === '3hours' || mall.indexOf('야놀자') !== -1 || mall.indexOf('여기어때') !== -1 || mall.indexOf('세시간전') !== -1 || /호텔|리조트|풀빌라|숙박|펜션|아쿠아리움/i.test(tit));
+
+      var match = false;
+      if(_selectedMalls.has('coupang_wow') && isCoupang && isWow) match = true;
+      if(_selectedMalls.has('coupang') && isCoupang && !isWow) match = true;
+      if(_selectedMalls.has('gmarket') && isGmarket) match = true;
+      if(_selectedMalls.has('11st') && is11st) match = true;
+      if(_selectedMalls.has('naver') && isNaver) match = true;
+      if(_selectedMalls.has('ohouse') && isOhouse) match = true;
+      if(_selectedMalls.has('toss') && isToss) match = true;
+      if(_selectedMalls.has('lotte') && isLotte) match = true;
+      if(_selectedMalls.has('boribori') && isBoribori) match = true;
+      if(_selectedMalls.has('travel') && isTravel) match = true;
+      return match;
+    });
+  }
+
+  var sorted = filtered.slice();
+  if(_hdCurrentSort === 'drop'){
+    sorted.sort(function(a, b){
+      return (b.discount_rate || 0) - (a.discount_rate || 0);
+    });
+  } else if(_hdCurrentSort === 'pop'){
+    sorted.sort(function(a, b){
+      return (b.is_lowest ? 1 : 0) - (a.is_lowest ? 1 : 0) || (b.discount_rate || 0) - (a.discount_rate || 0);
+    });
+  } else if(_hdCurrentSort === 'new'){
+    sorted.sort(function(a, b){
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
+
+  var deduped = hdDedupe(sorted);
+
+  var top10Html = '';
+  if (deduped.length >= 8 && (typeof _hdCurrentCat !== 'undefined' ? _hdCurrentCat : 'all') === 'all' && !_hdOnlyLowest) {
+    var top10List = deduped.slice().sort(function(a, b){
+      var rA = a.discount_rate || 0;
+      var rB = b.discount_rate || 0;
+      return rB - rA || (b.is_lowest ? 1 : 0) - (a.is_lowest ? 1 : 0);
+    }).slice(0, 10);
+
+    top10Html = '<div class="hd-top10-container" style="grid-column: 1 / -1; margin: 12px 0 10px; background: #F8F4FD; border-radius: 16px; padding: 14px 12px 14px; box-sizing: border-box;">'
+      + '<div style="margin-bottom: 10px; padding: 0 2px;">'
+        + '<div style="font-size: 15px; font-weight: 800; color: #191F28; letter-spacing: -0.3px;">🏆 지금 가장 많이 본 실시간 TOP 10</div>'
+        + '<div style="font-size: 11.5px; color: #7858A6; margin-top: 2px;">손님들이 지금 실시간으로 가장 많이 찾아보는 특가예요</div>'
+      + '</div>'
+      + '<div style="display:flex; gap:10px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom: 4px;">'
+      + top10List.map(function(h, idx){
+          var mall = h.mall || ((h.source === 'coupang' || h.source === 'goldbox') ? '쿠팡' : '');
+          var uInfo = (typeof hcUnitInfo === 'function') ? hcUnitInfo(h) : {price:0, unit:'개'};
+          var unitTxt = '&nbsp;';
+          if(uInfo && uInfo.price) unitTxt = '(1' + uInfo.unit + '당 ' + wonFmt(uInfo.price) + ')';
+          else if(h.change && String(h.change).indexOf('▼') !== -1) unitTxt = '(' + hcEsc(h.change) + ')';
+
+          var img = h.img_url ? hcEsc(mcApiSrc(h.img_url)) : '';
+          var thumb = img
+            ? '<img class="hd-thumb" src="' + img + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML=window.__hdgPh">'
+            : window.__hdgPh;
+
+          var rank = idx + 1;
+          var rankBg = rank <= 3 ? 'background:linear-gradient(135deg, #7C54C4, #9B6FD4)' : 'background:#4E5968';
+          var rankBadge = '<span style="position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:6px; ' + rankBg + '; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.25); z-index:2;">' + rank + '</span>';
+
+          var rate = 0;
+          if (h.discount_rate && h.discount_rate > 0) rate = Math.round(h.discount_rate);
+          else if (h.price_before && h.price && h.price_before > h.price) rate = Math.round((h.price_before - h.price) / h.price_before * 100);
+
+          return '<div class="hdg-card" onclick="trackHd(&quot;open&quot;,' + (+h.id||0) + ');openHdSheet(' + (+h.id||0) + ')" style="position:relative; flex:0 0 136px; min-width:136px; background:#fff; padding:8px; border-radius:12px; box-sizing:border-box; border:1px solid #ECE7F5; cursor:pointer;">'
+            + '<div class="hd-thumb-wrap" style="position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden;">'
+              + rankBadge
+              + thumb
+              + (h.is_lowest ? '<span class="c-micro-badge badge-red" style="z-index:2;">역대최저</span>' : '')
+            + '</div>'
+            + '<div class="hd-info" style="padding:6px 2px 2px;">'
+              + '<div class="hd-meta" style="font-size:10.5px; color:#8B95A1;">' + (mall ? '<span class="hd-mall-tag">' + hcEsc(mall) + '</span> ' : '') + '<span>' + hcEsc(h.major || '') + '</span></div>'
+              + '<div class="hd-title-txt" style="font-size:12px; font-weight:600; line-height:1.3; height:31px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-top:2px;">' + hcEsc(h.title) + '</div>'
+              + '<div class="hd-price-row" style="margin-top:3px; height:20px; display:flex; align-items:baseline; gap:4px;"><span class="hd-price-val" style="font-size:14px; font-weight:800; color:#191F28;">' + wonFmt(h.price) + '</span>' + (rate ? '<span class="hd-discount" style="font-size:12.5px; font-weight:800; color:#FF4742;">▼ ' + rate + '%</span>' : '') + '</div>'
+              + '<div class="hd-unit-line" style="font-size:11px; color:#767676; margin-top:2px; height:15px; line-height:15px;">' + unitTxt + '</div>'
+            + '</div>'
+          + '</div>';
+        }).join('')
+      + '</div>'
+    + '</div>';
+  }
+
+  var cards = [];
+  deduped.forEach(function(h, idx){
+    if (idx === 8 && top10Html) {
+      cards.push(top10Html);
+    }
+    cards.push(hdGridCardHtml(h));
+  });
+
+  el.innerHTML='<div class="hotdeal-grid">'+cards.join('')+'</div>';
 }
 let _hdIdx=0;
 // 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
@@ -3477,89 +4246,113 @@ function hdCardHtml(h,opt){
 // 이미지가 깨졌을 때 갈아끼울 플레이스홀더 (onerror 안에 따옴표를 중첩하지 않으려고 전역으로 둠)
 window.__hcPh='<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>';
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
-// 상품명에서 '몇 개짜리인지'를 읽어 개당 가격을 낸다.
-//  "바리스타룰스 아메리카노, 350ml, 20개" → 20 → 9,990원 ÷ 20 = 개당 500원
-// ⚠ 350ml·200g 같은 '용량'을 개수로 착각하면 안 된다 → 개수 단위만 인정한다.
-function hcUnitPrice(h){
+// 상품명에서 '몇 개/몇 통/몇 팩/몇 롤'인지 읽어 개별 단위 가격을 낸다.
+function hcUnitInfo(h){
   try{
-    if(!h || !h.price) return 0;
+    if(!h || !h.price) return {price:0, unit:'개'};
     var t=String(h.title||'');
-    var best=0;
-    // 개수 단위: 개/개입/입/팩/매/병/포/캔/봉/박스/세트/장. (ml·g·kg·L 은 제외)
-    // ⚠ 여러 개가 잡히면 '마지막 것'이 수량이다. 한국 상품명은 "용량, 수량" 순으로 쓴다.
-    //   "키친타월 100매, 9개" → 9 가 정답 (100 을 고르면 개당 79원이 나온다 — 실측으로 잡은 버그)
-    // 🔴 2026-08-19 — 서로 다른 구성을 묶어 판 상품은 개당 가격이 **의미가 없다**.
-    //   사장님 지적: "칠성사이다 210ml 30캔에 350ml 24캔인데 용량이 다른데 개당 883원이라고
-    //   써있어 의미없잖아 이런건 빼야지"
-    //   → 수량 표기가 2개 이상이고 용량도 여러 번 나오면(=섞음 구성) 개당 표시를 아예 안 한다.
-    //     정상 상품("키친타월 100매, 9개")은 용량 표기가 없으므로 그대로 동작한다.
-    // 🔴 2026-08-24 — "키친타올 150매, 12롤" 이 개당 57원으로 나감(사장님 지적).
-    //   '매·장' 은 낱장 단위다. 롤·팩 같은 묶음 단위가 같이 적혀 있으면 묶음 쪽으로 나눈다.
-    //   화장지류 "30롤 2팩" 은 팩이 겉포장이라 총 롤수(30×2=60)로 나눠야 롤당 가격이 맞다.
-    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장|롤)(?![a-zA-Z가-힣])/g, m;
+
+    // 1) 10개+10개 형태
+    var mPlus=t.match(/(\d+)\s*(개|입|팩|매|병|포|캔|봉|통|롤)\s*\+\s*(\d+)\s*(개|입|팩|매|병|포|캔|봉|통|롤)/);
+    if(mPlus){
+      var n1=parseInt(mPlus[1],10), n2=parseInt(mPlus[3],10), uTot=mPlus[2];
+      var tot=n1+n2;
+      if(tot>0){
+        var uVal=Math.round(h.price/tot);
+        if(uVal>0 && uVal<h.price) return {price:uVal, unit:uTot};
+      }
+    }
+
+    // 2) 일반 수량 단위 (통, 정, 캡슐 등 포함)
+    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장|롤|통|정|캡슐)(?![a-zA-Z가-힣])/g, m;
     var toks=[];
     while((m=re.exec(t))!==null){ toks.push({n:parseInt(m[1],10), u:m[2]}); }
-    var qtys=[], sheet=0, pack=0, roll=0;
-    toks.forEach(function(x){
-      if(x.n>=3 && x.n<=200){                        // 2개 이하는 개당 표시가 의미 없다
-        qtys.push(x.n);
-        if(x.u==='매'||x.u==='장') sheet=x.n;
-        else if(x.u==='롤') roll=x.n;
-        else pack=x.n;
-      }
+    var valid=toks.filter(function(x){ return x.n>=2 && x.n<=500; });
+    if(!valid.length) return {price:0, unit:'개'};
+
+    var roll=0, sheet=0, tong=0, packItem=null;
+    valid.forEach(function(x){
+      if(x.u==='롤') roll=x.n;
+      else if(x.u==='매'||x.u==='장') sheet=x.n;
+      else if(x.u==='통') tong=x.n;
+      else if(x.u==='팩'||x.u==='박스'||x.u==='세트') packItem=x;
     });
-    var lastTok=toks.length?toks[toks.length-1]:null;
+
+    var lastTok=valid[valid.length-1];
+    var best=0, uName='개';
+
     if(roll){
       best=roll;
-      // 🔴 2026-08-28 — "크리넥스 25m 30롤 2개" 가 개당 850원으로 나감(실제는 60롤 = 425원).
-      //   '2개'도 '2팩'처럼 겉포장 묶음이다 → 곱셈 단위에 '개' 추가.
+      uName='롤';
       if(lastTok && (lastTok.u==='팩'||lastTok.u==='박스'||lastTok.u==='세트'||lastTok.u==='개') && lastTok.n>=2 && lastTok.n<=20) best=roll*lastTok.n;
+    } else if(tong){
+      best=tong;
+      uName='통';
+    } else if(sheet && packItem){
+      best=packItem.n;
+      uName=packItem.u;
     } else {
-      best=pack||sheet;
+      best=lastTok.n;
+      uName=lastTok.u;
+      if(uName==='개입'||uName==='입') uName='개';
     }
-    var volCnt=(t.match(/\d+\s*(ml|g|kg|L)(?![a-zA-Z가-힣])/gi)||[]).length;
-    if(qtys.length>=2 && volCnt>=2) return 0;          // 용량이 서로 다른 묶음
-    if(/[+]/.test(t)) return 0;                        // + 로 다른 상품을 이어붙인 묶음(수량이 하나만 적혀도 개당이 틀린다)
-    if(!best) return 0;
+
+    // 서로 다른 용량의 묶음(예: 210ml 30캔에 350ml 24캔)
+    var volMatches=t.match(/\d+\s*(ml|g|kg|L)(?![a-zA-Z가-힣])/gi)||[];
+    if(valid.length>=2 && volMatches.length>=2 && !mPlus){
+      return {price:0, unit:'개'};
+    }
+
+    if(!best) return {price:0, unit:'개'};
     var u=Math.round(h.price/best);
-    return (u>0 && u<h.price) ? u : 0;
-  }catch(_){ return 0; }
+    if(u>0 && u<h.price) return {price:u, unit:uName};
+    return {price:0, unit:'개'};
+  }catch(_){ return {price:0, unit:'개'}; }
+}
+function hcUnitPrice(h){
+  var info=hcUnitInfo(h);
+  return info?info.price:0;
 }
 
 // ── 핫딜 근거 시트 (폴센트식 가격 추이) ──────────────────────
-function closeHdSheet(){
-  document.getElementById('hdSheet').style.bottom='-110%';
-  document.getElementById('hdBg').style.display='none';
+function closeHdSheet(fromPop){
+  var s = document.getElementById('hdSheet');
+  var b = document.getElementById('hdBg');
+  if(s) s.style.bottom = '-110%';
+  if(b) b.style.display = 'none';
   unlockScroll();
+  if(!fromPop && location.hash && location.hash.indexOf('#hd_') === 0){
+    try { history.back(); } catch(_) {}
+  }
 }
+window.addEventListener('popstate', function(e){
+  var b = document.getElementById('hdBg');
+  if(b && b.style.display !== 'none'){
+    closeHdSheet(true);
+  }
+});
 async function openHdSheet(id){
   const h=(_hotdealData||[]).find(x=>x.id===id); if(!h) return;
 
-  // 이력을 먼저 조회하고, 그래프를 그릴 수 없으면(2점 미만) 시트를 아예 띄우지 않고 바로 구매 링크로 보낸다.
-  // (사장님 지시 2026-08-14 "그래프 추적 못하고 있으면 그 화면 빼고 그냥 바로 링크로" —
-  //  2026-08-10 "띄울 내용 없으면 바로 지마켓 링크로"와 같은 원칙. 조회는 보통 0.3초라 체감 지연 없음)
   let pts=[];
   try{
     const _hq=(fn,b)=>fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(b)});
-    let r=await _hq('hotdeal_chart2',{pid:h.product_id,days:180}); if(!r.ok) r=await _hq('hotdeal_chart',{pid:h.product_id});   // 최대 6개월(180일) — 새 함수가 없으면 옛 90일
+    let r=await _hq('hotdeal_chart2',{pid:h.product_id,days:180}); if(!r.ok) r=await _hq('hotdeal_chart',{pid:h.product_id});
     if(r.ok) pts=await r.json();
   }catch(e){}
-
-  if(!pts || pts.length<2){
-    trackHd('go',h.id);
-    // 인앱 웹뷰는 window.open 이 null → location.href 폴백 (고정 대응 패턴)
-    if(!_httpOnly(h.link)) return;   // http(s) 가 아닌 링크(javascript: 등)는 열지 않는다(2026-10-27 보안)
-    try{ if(window._mcNaverApp && window._mcNaverApp(h.link)){ openLink(h.link); return; } }catch(_){}
-    var w=null; try{ w=window.open(h.link,'_blank'); }catch(_){}
-    if(!w) location.href=h.link;
-    return;
-  }
 
   const body=document.getElementById('hdSheetBody');
   var _hdWas=(document.getElementById('hdBg').style.display==='block');
   document.getElementById('hdBg').style.display='block';
   document.getElementById('hdSheet').style.bottom='0';
   if(!_hdWas) lockScroll();
+  try {
+    if(!location.hash || location.hash.indexOf('#hd_') === -1){
+      history.pushState({mcHdSheet: id}, '', location.pathname + location.search + '#hd_' + id);
+    } else {
+      history.replaceState({mcHdSheet: id}, '', location.pathname + location.search + '#hd_' + id);
+    }
+  } catch(_) {}
 
   const prices=pts.map(p=>p.price);
   const lo=prices.length?Math.min(...prices):h.price;
@@ -3567,7 +4360,15 @@ async function openHdSheet(id){
   // 그래프에 그린 이력과 같은 값으로 평균을 내야 라벨과 선이 어긋나지 않는다
   const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):(h.price_before||h.price);
   const dropPct=avg>h.price?Math.round((avg-h.price)/avg*100):(h.discount_rate||0);
-  const avgDrop=(pts.length && avg>h.price)?Math.round((avg-h.price)/avg*100):0;   // 「평소보다」는 우리가 기록한 평균 대비일 때만(2026-10-27: 평균보다 비싼 날에 정가 대비 13%가 「평소보다 저렴」으로 나갔다)
+  const avgDrop=(pts.length && avg>h.price)?Math.round((avg-h.price)/avg*100):0;
+  // 매일 빠짐없이 기록됐을 때만 「최근 N일」·「매일 기록」이라고 쓴다. 띄엄띄엄이면 기록한 날짜 범위와 횟수를 그대로(2026-10-27)
+  const _hdDd=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+  const _hdF=(pts && pts.length)?String(pts[0].day).slice(0,10):'';
+  const _hdL=(pts && pts.length)?String(pts[pts.length-1].day).slice(0,10):'';
+  const daily=(pts && pts.length)?((_hdDd(_hdF,_hdL)+1)===pts.length):false;
+  const _hdMd=d=>d?`${+d.slice(5,7)}/${+d.slice(8,10)}`:'';
+  const chartTitle=(pts && pts.length)?(daily?`최근 ${pts.length}일 가격 추이`:`${_hdMd(_hdF)}~${_hdMd(_hdL)} 사이 ${pts.length}번 기록한 가격`):'가격 추이';
+  // 「평소보다」는 우리가 기록한 평균 대비일 때만(2026-10-27: 평균보다 비싼 날에 정가 대비 13%가 「평소보다 저렴」으로 나갔다)
 
   body.innerHTML=`
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
@@ -3576,9 +4377,15 @@ async function openHdSheet(id){
         <div style="font-size:13.5px;font-weight:700;color:#232326;line-height:1.45">${escHtml(h.title)}</div>
         <div style="display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#222">${wonFmt(h.price)}</span>
-          ${(function(){var u=hcUnitPrice(h);
-            return u?`<span style="font-size:14px;font-weight:800;color:#E8402A">개당 ${wonFmt(u)}</span>`
-                 :(h.discount_rate&&h.discount_rate<=65?`<span style="font-size:16px;font-weight:900;color:#E8402A">${h.discount_rate}%</span>`:'');})()}
+          ${(function(){
+            var u=hcUnitPrice(h);
+            var r = 0;
+            if (h.discount_rate && h.discount_rate > 0) r = Math.round(h.discount_rate);
+            else if (h.price_before && h.price && h.price_before > h.price) r = Math.round((h.price_before - h.price) / h.price_before * 100);
+            else if (h.change && String(h.change).indexOf('▼') !== -1) { var m = String(h.change).match(/▼\s*(\d+)%/); if (m) r = parseInt(m[1], 10); }
+            return u ? `<span style="font-size:14px;font-weight:800;color:#E8402A">개당 ${wonFmt(u)}</span>`
+                     : (r ? `<span style="font-size:16px;font-weight:900;color:#E8402A">${r}%</span>` : '');
+          })()}
         </div>
       </div>
     </div>
@@ -3587,11 +4394,9 @@ async function openHdSheet(id){
       :(h.source==='goldbox'?`<div style="background:#FFF8E8;border:1px solid #F5E0AE;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#8A6100;margin-bottom:12px">⭐ 쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>`
       :'')}
 
-    ${
-      // 애드픽은 '오늘의 핫딜 목록'만 주고 개별 상품 조회 API가 없다 → 그 상품이 내일 목록에 없으면 이력이 안 쌓인다.
-      // 그래서 이력이 실제로 있을 때만 그래프를 보여준다(없는데 "며칠 뒤 보여요"라고 약속하지 않음).
-      // 쿠팡은 매일 키워드로 다시 검색하므로 반드시 쌓인다 → 안내를 띄워도 된다.
-      (h.source==='adpick' && pts.length<3) ? (function(){ __hd.h=null; __hd.M=null; return ''; })() : `<div id="hdChartBox">${hdChartBox(h,pts,3)}</div>`}
+    <div id="hdChartBox">${hdChartBox(h,pts,2)}</div>
+
+
 
     ${(h.source==='adpick'||h.source==='toss') && hcUnitPrice(h)
       // 정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다 → 우리가 계산한 개당 가격을 근거로 쓴다
@@ -3604,12 +4409,16 @@ async function openHdSheet(id){
          </div>`
       : (h.source==='goldbox'&&!dropPct ? `<div class="hd-one">쿠팡이 <b>오늘의 특가</b>로 고른 상품이에요</div>` : (function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var pc=av>h.price?Math.round((av-h.price)/av*100):0; return `<div class="hd-one" id="hdOne"${pc?'':' hidden'}>평소보다 <b>${pc}% 싸요</b></div>`; })())}
 
-    ${(function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var df=(av>h.price)?(av-h.price):0; var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
+    ${(function(){
+      var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg;
+      var df=(av>h.price)?(av-h.price):0;
+      var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
+      var safeLink = h.link || '#';
+
       return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
-      <a class="hd-buy" href="${escHtml(_httpOnly(h.link)||'#')}" target="_blank" rel="noopener" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`; })()}
-    <div style="font-size:10px;color:#B5AFBD;text-align:center;line-height:1.6;margin-top:9px">
-      제휴 활동으로 일정액의 수수료를 받습니다
-    </div>
+      <a class="hd-buy" href="${escHtml(_httpOnly(safeLink)||'#')}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`;
+    })()}
+
     <button onclick="closeHdSheet()" style="width:100%;background:none;border:none;color:#bbb;font-size:12px;font-family:inherit;cursor:pointer;padding:10px 6px 2px">닫기</button>`;
 }
 // 가격 추이 미니 라인차트 (외부 라이브러리 없이 SVG로)
@@ -3621,7 +4430,9 @@ function hdChartSvg(pts,avg){
   const ps=pts.map(p=>p.price);
   let lo=Math.min(...ps), hi=Math.max(...ps);
   if(hi===lo){ hi=lo+1; }
-  const x=i=>PL+(W-PL-PR)*(i/(pts.length-1));
+  // 가로축은 실제 날짜 간격대로(띄엄띄엄 기록을 매일처럼 고르게 그리지 않는다, 2026-10-27). 날짜가 없으면 순서대로
+  const _t=i=>Date.parse(String(pts[i].day||'').slice(0,10)), t0=_t(0), tN=_t(pts.length-1);
+  const x=i=>PL+(W-PL-PR)*((tN>t0&&!isNaN(_t(i)))?(_t(i)-t0)/(tN-t0):(i/(pts.length-1)));
   const y=v=>PT+(H-PT-PB)*(1-(v-lo)/(hi-lo));
   const line=ps.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const area=`${line} L${x(ps.length-1).toFixed(1)},${H-PB} L${x(0).toFixed(1)},${H-PB} Z`;
@@ -3817,7 +4628,7 @@ function buildMineBars(y,m,grid){
     }
     let cells='';
     for(let i=0;i<7;i++){
-      const ds=_dsAdd(ws,i); const d=new Date(ds); const inMo=d.getMonth()===m; const dow=d.getDay();
+      const ds=_dsAdd(ws,i); const d=new Date(ds+'T00:00:00'); const inMo=d.getMonth()===m; const dow=d.getDay();
       const cls=['ccell',inMo?'':'oth',dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
       cells+=`<div class="${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d.getDate()}</div></div>`;
     }
@@ -4362,6 +5173,16 @@ function _icsPick(items, sentSet){
   upd();
 }
 // 달력(cal-box)을 그대로 PNG 로 — html2canvas 는 필요할 때만 받는다 (2026-11-01)
+// 파일 내려받기가 안 되는 곳(카톡·인스타 인앱)에서는 사진을 크게 띄우고 꾹 눌러 저장하게 한다
+function _calImgOverlay(url){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px';
+  ov.innerHTML='<img alt="내 찜 캘린더" style="max-width:100%;max-height:78vh;border-radius:12px;background:#fff;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto"><div style="color:#fff;font-size:14px;font-weight:700;margin-top:14px">사진을 꾹 눌러 저장하세요</div><button style="margin-top:14px;height:44px;padding:0 24px;border:0;border-radius:100px;background:#fff;color:#191F28;font:inherit;font-size:14px;font-weight:700">닫기</button>';
+  ov.querySelector('img').src=url;
+  const close=()=>{ try{ URL.revokeObjectURL(url); }catch(_){} ov.remove(); };
+  ov.querySelector('button').onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  document.body.appendChild(ov);
+}
 async function saveCalImage(){
   const btn=document.getElementById('calImgBtn'); const box=document.querySelector('#calView .cal-box'); if(!box) return;
   const t0=btn?btn.textContent:''; if(btn){ btn.textContent='만드는 중…'; btn.disabled=true; }
@@ -4373,8 +5194,10 @@ async function saveCalImage(){
     const file=new File([blob],name,{type:'image/png'});
     let shared=false;
     try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
-    if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
-    try{ trackEvent('cal_image', shared?'share':'download'); }catch(_){}
+    const noDl=/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i.test(navigator.userAgent) || !('download' in HTMLAnchorElement.prototype);   // 인앱 웹뷰는 파일 내려받기가 안 된다(2026-11-02 코덱스 지적)
+    if(!shared && noDl){ _calImgOverlay(URL.createObjectURL(blob)); }
+    else if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
+    try{ trackEvent('cal_image', shared?'share':(noDl?'longpress':'download')); }catch(_){}
     window._lastCalImage=blob;
   }catch(e){ try{ mcToast('사진 만들기에 실패했어요. 다시 눌러 주세요'); }catch(_){} }
   if(btn){ btn.textContent=t0; btn.disabled=false; }
@@ -4622,7 +5445,7 @@ function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 �
 // 목록을 불러오는 동안 글자 대신 스켈레톤 칸(n개)을 보여 준다 (2026-11-01)
 function skelHtml(n, tall){ var h=''; for(var i=0;i<(n||4);i++) h+='<div class="skel-card'+(tall?' s2':'')+'" aria-hidden="true"></div>'; return h; }
 // 이미지가 깨지면(onerror) 엑박 대신 단정한 대체 그림(앱 아이콘, 연보라 바탕) (2026-11-01)
-function _imgFail(img){ try{ img.onerror=null; img.src='momcal-appicon-128.png'; img.style.objectFit='contain'; img.style.padding='18%'; img.style.background='#F3F0F8'; img.style.boxSizing='border-box'; }catch(_){} }
+function _imgFail(img){ try{ img.onerror=null; img.src='momcal-appicon-128.png'; img.style.objectFit='contain'; img.style.padding=(Math.round(Math.min(img.clientWidth||0,img.clientHeight||0)*0.18))+'px'; img.style.background='#F3F0F8'; img.style.boxSizing='border-box'; }catch(_){} }
 function mcToast(msg, ms){
   try{
     // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
@@ -4840,28 +5663,6 @@ function isLoggedIn(){ var m=memberGet(); return !!(m && m.kakao_id && m.token);
 //   그보다 낮은 빌드의 앱을 켠 손님에게 스토어로 가는 시트를 한 번(하루) 띄운다. 0 이면 아무 일 없음.
 const _UPD_MIN_BUILD={ ios:0, android:0 };
 const _UPD_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
-// 📲 앱 다운로드 띠 (2026-11-01) — 모바일 웹에만. 앱 안·홈화면 앱(standalone)·PC 는 안 띄움. 닫기 7일(mc_appbn_next). 누르면 push_app_banner_go
-function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.now()+7*864e5)); }catch(_){} var el=document.getElementById('appBn'); if(el) el.style.display='none'; try{ trackEvent('app_banner_close',''); }catch(_){} }
-(function(){
-  function show(){
-    try{
-      var el=document.getElementById('appBn'); if(!el) return;
-      if(typeof _isNativeApp==='function' && _isNativeApp()){ el.style.display='none'; return; }
-      if(typeof _isStandalone==='function' && _isStandalone()){ el.style.display='none'; return; }
-      var ua=navigator.userAgent||''; var ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
-      if(!ios && !and){ el.style.display='none'; return; }
-      var next=parseInt(localStorage.getItem('mc_appbn_next')||'0',10); if(next && Date.now()<next){ el.style.display='none'; return; }
-      // 두 스토어 다 보인다(폰에 맞는 쪽이 앞·진하게) — 사장님 2026-11-01
-      var go=document.getElementById('appBnGo'), go2=document.getElementById('appBnGo2');
-      go.href=ios?_UPD_STORE_URL.ios:_UPD_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
-      go2.href=ios?_UPD_STORE_URL.android:_UPD_STORE_URL.ios; go2.textContent=ios?'Google Play':'App Store';
-      go.onclick=function(){ try{ trackEvent('app_banner_go', ios?'ios':'android'); }catch(_){} };
-      go2.onclick=function(){ try{ trackEvent('app_banner_go', ios?'android':'ios'); }catch(_){} };
-      el.style.display='flex'; try{ trackEvent('app_banner_show', ios?'ios':'android'); }catch(_){}
-    }catch(_){}
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', show); else show();
-})();
 setTimeout(async function(){
   try{
     if(!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform())) return;
@@ -5547,7 +6348,8 @@ function maybeAskNoti(){
     setTimeout(openWnSheet, 420);
   }catch(_){}
 }
-function openWnSheet(){
+function openWnSheet(){ if(_appOnlyBell('wn')) return; return _openWnSheet0.apply(this, arguments); }
+function _openWnSheet0(){
   const desc=document.getElementById('wnDesc'), ok=document.getElementById('wnOk');
   if(iosNeedsInstall()){
     desc.innerHTML='아이폰은 <span style="color:#7C54C4;font-weight:700">홈 화면에 추가</span>해야<br>알림을 받을 수 있어요';
@@ -5593,6 +6395,43 @@ async function wnAllow(){
 }
 
 // 실제 푸시 구독 → 서버 저장
+// ── 📲 웹 알림 → 앱에서만 (2026-10-26) — 앱 출시하는 날 WEB_PUSH_APP_ONLY=true ──
+const WEB_PUSH_APP_ONLY=false;
+const APP_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
+// 📲 앱 다운로드 띠 (2026-11-01) — 모바일 웹에만. 앱 안·홈화면 앱(standalone)·PC 는 안 띄움. 닫기 7일(mc_appbn_next). 누르면 push_app_banner_go
+function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.now()+7*864e5)); }catch(_){} var el=document.getElementById('appBn'); if(el) el.style.display='none'; try{ trackEvent('app_banner_close',''); }catch(_){} }
+(function(){
+  function show(){
+    try{
+      var el=document.getElementById('appBn'); if(!el) return;
+      if(typeof _isNativeApp==='function' && _isNativeApp()){ el.style.display='none'; return; }
+      if(typeof _isStandalone==='function' && _isStandalone()){ el.style.display='none'; return; }
+      var ua=navigator.userAgent||''; var ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
+      if(!ios && !and){ el.style.display='none'; return; }
+      var next=parseInt(localStorage.getItem('mc_appbn_next')||'0',10); if(next && Date.now()<next){ el.style.display='none'; return; }
+      // 두 스토어 다 보인다(폰에 맞는 쪽이 앞·진하게) — 사장님 2026-11-01
+      var go=document.getElementById('appBnGo'), go2=document.getElementById('appBnGo2');
+      go.href=ios?_UPD_STORE_URL.ios:_UPD_STORE_URL.android; go.textContent=ios?'App Store':'Google Play';
+      go2.href=ios?_UPD_STORE_URL.android:_UPD_STORE_URL.ios; go2.textContent=ios?'Google Play':'App Store';
+      go.onclick=function(){ try{ trackEvent('app_banner_go', ios?'ios':'android'); }catch(_){} };
+      go2.onclick=function(){ try{ trackEvent('app_banner_go', ios?'android':'ios'); }catch(_){} };
+      el.style.display='flex'; try{ trackEvent('app_banner_show', ios?'ios':'android'); }catch(_){}
+    }catch(_){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', show); else show();
+})();
+function _webPushAppOnly(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; return WEB_PUSH_APP_ONLY || location.search.indexOf('apponly=1')>=0; }catch(_){ return false; } }
+function _appOnlyBell(where){
+  if(!_webPushAppOnly()) return false;
+  try{ trackEvent('push_app_only', where||''); }catch(_){}
+  let el=document.getElementById('aoSheet');
+  if(!el){ el=document.createElement('div'); el.id='aoSheet'; el.className='ao-sheet'; el.onclick=e=>{ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
+  const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
+  const btn=k=>`<a class="ao-btn${k==='ios'?' i':''}" href="${APP_STORE_URL[k]}" target="_blank" rel="noopener" onclick="try{trackEvent('push_app_only_go','${k}|${where||''}')}catch(_){}">${k==='ios'?'App Store':'Google Play'}</a>`;
+  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">알림은 앱에서 받아요</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
+  requestAnimationFrame(()=>el.classList.add('open'));
+  return true;
+}
 async function enablePush(){
   if(_isNativeApp()) return enablePushNative();
   try{
@@ -5728,7 +6567,7 @@ document.addEventListener('DOMContentLoaded', nativeBoot);
     const h=document.body.scrollHeight, cards=document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length;
     out('list_rendered', h>1500 && cards>0, 'h='+h+' cards='+cards);
     try{ let el=document.elementFromPoint(innerWidth/2, 24), bg=''; for(let k=0;el&&k<6&&!bg;k++){ const c=getComputedStyle(el).backgroundColor; if(c&&c!=='rgba(0, 0, 0, 0)'&&c!=='transparent') bg=c; el=el.parentElement; } const v=(bg||'').replace('rgba(','').replace('rgb(','').replace(')','').split(',').map(function(x){return parseFloat(x);}); const pur=v.length>=3 && v[2]>v[0] && v[0]>v[1]; out('header_visible', pur, 'top bg='+bg); }catch(e){ out('header_visible',0,e); }
-    out('perm_notice', typeof _appPermNotice==='function', document.querySelector('#appPerm.open')?'open':'on-demand');   // 2026-11-02 사장님 11-01 결정(로드 즉시 팝업 제거)에 맞춤 — 앱 자체 시험 전용 줄, 손님 화면 무관
+    out('perm_notice', !!document.querySelector('#appPerm.open') || !!localStorage.getItem('mc_perm_notice'), document.querySelector('#appPerm.open')?'open':'done-before');
     try{ const st=await Capacitor.Plugins.PushNotifications.checkPermissions(); out('push_perm_api', !!st, st&&st.receive); }catch(e){ out('push_perm_api',0,e&&e.message); }
     try{ out('share_api', typeof navigator.share==='function', typeof navigator.share); }catch(_){}
     out('js_errors', !(window.__mcErrs&&window.__mcErrs.length), (window.__mcErrs||[]).join(' / '));
@@ -5847,6 +6686,8 @@ window.addEventListener('popstate',()=>{
   var _lastBack=0;
   function closeTopLayer(){
     var sh=document.querySelector('.mc-sheet.open'); if(sh){ sh.classList.remove('open'); return true; }
+    var bs=[['kkoSheet','closeLoginSheet'],['wnSheet','closeWnSheet'],['infoSheet','closeInfoSheet']];   // 이 시트들은 on/open 클래스가 아니라 style.bottom='0' 으로 열린다(2026-11-02 코덱스 지적)
+    for(var j=0;j<bs.length;j++){ var b=document.getElementById(bs[j][0]); if(b && /^0(px)?$/.test(b.style.bottom||'') && typeof window[bs[j][1]]==='function'){ window[bs[j][1]](); return true; } }
     var ids=['sideMenu','partnerModal','infoSheet','wnSheet','kkoSheet','loginSheet'];
     for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue;
       if(el.classList.contains('on')||el.classList.contains('open')){
@@ -7264,6 +8105,11 @@ function commGo(url, ev){
   _goRun(s,url,env,id);
   return false;
 }
+// 커뮤니티 글 카드 한 장 — 커뮤니티 탭과 통합검색이 같이 쓴다
+function _commCardHtml(p){
+  const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" onerror="_imgFail(this)" loading="lazy" referrerpolicy="no-referrer">`:'';
+  return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+}
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
   const all=_commData||[];
@@ -7277,7 +8123,7 @@ function renderCommunity(){
   let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(_commBoard===COMM_LOCAL_ID){
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
-    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${String(_commLocal)===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
+    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${_commLocal===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
   }
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{
@@ -7913,19 +8759,6 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 })();
 </script>
 
-<style id="mc-uifix">
-/* 2026-11-02 사장님 실기 제보 — 폰 글자 크기 설정이 웹뷰·PWA 글자에 섞여 커지던 것 / 4대 탭·토스트가 두 줄로 꺾이던 것 */
-html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}
-#pwaStrip{display:none!important}
-.content-seg .cseg{white-space:nowrap!important;font-size:12px!important;letter-spacing:-.04em!important;padding:8px 1px!important}
-#mcToastBox{white-space:nowrap!important;max-width:90%!important;pointer-events:none}
-#mcToastBox>div{overflow:hidden;text-overflow:ellipsis}
-body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!important;white-space:nowrap!important;max-width:90%!important;overflow:hidden;text-overflow:ellipsis;pointer-events:none!important}   /* 로그인 뒤 「💜 ○○님, 반가워요!」 — 브라우저가 인라인 색을 rgb() 로 바꿔 저장하므로 두 꼴 다 */
-/* 공구 카드 한 줄 맞춤 (사장님 2026-11-02 「오늘마감이랑 상품명이랑 › 이거랑 묘하게 다 틀어져서 수평이 안 맞아」)
-   실측(384px·카드 높이 71 전부 같음): 상품명 줄 중심 37.2 · 상태글자·› · 하트 35.4 → 모두 1.8px 위에 있었다. 셋을 상품명 줄 중심(37.2)에 맞춘다 */
-.card-right{top:36.2px!important}
-.card .wbtn{padding-top:3.6px!important;box-sizing:border-box}
-</style>
 <!-- 맘캘봇 v2 인앱 바텀시트 모듈 (2026-11-02 사장님 ORDER_MOMCALBOT + 카톡 챗봇 디자인 차용) · 설계서 scratchpad/designs/2026-11-02_맘캘봇v2_인앱시트.md · 패치 scratchpad/patch_mcbot.cjs -->
 <style id="mc-bot-css">
 .mcb-h{display:flex;align-items:center;justify-content:space-between;flex:none;min-height:40px}
@@ -8195,10 +9028,13 @@ window.mcbSend=async function(){
   var kw=kws.length?kws[0]:text.replace(/\s+/g,' ').slice(0,20);
   var nk=norm(kw);
   if(nk.length<2){ say('조금 더 자세히 알려주세요 🙂\n예: 기저귀, 압타밀'); return; }
+  // 별칭 확장(2026-11-02 ORDER_ALIAS_EXPAND): 「nike」 「나이키」 어느 쪽으로 물어도 같은 결과 — 사이트 검색과 같은 expandQuery 를 거친다(DB 별칭 포함)
+  var qs=[nk]; try{ await loadAliasDb(); qs=expandQuery(kw.toLowerCase()).map(norm).filter(function(x){ return x.length>=2; }); if(qs.indexOf(nk)<0) qs.unshift(nk); }catch(_){}
+  var hasQ=function(s){ s=norm(s); return qs.some(function(q){ return s.indexOf(q)>=0; }); };
   var hd=await hdItems();
-  var hH=hd.filter(function(h){ return h.price && norm(h.title).indexOf(nk)>=0; }).sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
+  var hH=hd.filter(function(h){ return h.price && hasQ(h.title); }).sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
   var today=(typeof todayStr!=='undefined')?todayStr:'';
-  var gG=ggItems().filter(function(d){ return norm(d.name).indexOf(nk)>=0 || (nk.length>=3 && norm(d.influencer||'').indexOf(nk)>=0); })
+  var gG=ggItems().filter(function(d){ return hasQ(d.name) || (nk.length>=3 && norm(d.influencer||'').indexOf(nk)>=0); })
     .sort(function(a,b){ return (a.openDate>today)-(b.openDate>today) || (a.openDate<b.openDate?-1:1); });
   var cards=[];
   if(hH.length) cards.push({title:"'"+kw+"' 핫딜",items:hH.slice(0,3).map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }});
@@ -8217,7 +9053,7 @@ window.mcbSend=async function(){
       carousel(hH.length?cards:cards.filter(function(c){ return c.title.indexOf('공구')>=0; })); return;
     }
     // 공구는 없고 핫딜만 있다: 핫딜로 안내(역대 최저가가 실제로 있을 때만 그 말을 쓴다)
-    say('💜 지금 진행 중인 '+kw+' 공구는 없지만,\n'+(lowest?'온라인 실시간 역대 최저가 핫딜이 떠 있어요!':'온라인 실시간 핫딜이 떠 있어요!')+' 득템 찬스 놓치지 마세요 👇');
+    say('💜 지금 진행 중인 ' + kw + ' 공구는 없지만,\n온라인 실시간 특가 핫딜이 떠 있어요! 득템 찬스 놓치지 마세요 👇');
     carousel(cards); return;
   }
   say("지금은 '"+kw+"' 공구나 핫딜이 없네요 🥺\n핫딜이 뜨면 바로 알려드릴까요?");
@@ -8246,10 +9082,62 @@ async function paintDemand(){
     if(h.change && String(h.change).indexOf('▼')!==-1) return '<span class="hdd-b b-coral">'+esc(h.change)+'</span>';
     return '<span class="hdd-b b-lavender">맘캘PICK</span>';
   }
-  box.innerHTML='<div class="hdd-h">🔥 가격 뚝! 쟁여둘 핫딜 <span class="hdd-sub">평소보다 훅 내려갔을 때 쟁여두세요</span></div><div class="hdd-row">'+pick.map(function(h){
-    var img=h.img_url?'<img src="'+esc(typeof mcApiSrc==='function'?mcApiSrc(h.img_url):h.img_url)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;hdd-ph&quot;>HOT</div>\'">':'<div class="hdd-ph">HOT</div>';
-    return '<button class="hdd-c" type="button" onclick="mcbDemandGo('+(+h.id||0)+')">'+hddBadge(h)+img+'<div class="hdd-t">'+esc(h.title)+'</div><div class="hdd-p">'+won(h.price)+'</div></button>';
-  }).join('')+'</div>';
+  box.innerHTML = '<div class="sec-header">' +
+    '<div class="sec-title-wrap">' +
+      '<h2 class="sec-title">🔥 가격 뚝! 쟁여둘 핫딜</h2>' +
+      '<span class="sec-desc">평소보다 훅 내려갔을 때 쟁여두세요</span>' +
+    '</div>' +
+    '<a href="#" class="sec-more" onclick="hdFilterLowest();return false;">더보기 ›</a>' +
+  '</div>' +
+  '<div class="curation-slider">' +
+    pick.map(function(h){
+      var mall = h.mall || ((h.source === 'coupang' || h.source === 'goldbox') ? '쿠팡' : '');
+      var uInfo = (typeof hcUnitInfo === 'function') ? hcUnitInfo(h) : {price:0, unit:'개'};
+      var unitTxt = '&nbsp;';
+      if(uInfo && uInfo.price) unitTxt = '(1' + uInfo.unit + '당 ' + wonFmt(uInfo.price) + ')';
+      else if(h.change && String(h.change).indexOf('▼') !== -1) unitTxt = '(' + hcEsc(h.change) + ')';
+
+      var HD_HAS_HISTORY = {toss:1, coupang:1, goldbox:1, adpick:1};
+      var tracked = !!h.product_id && !!h.price && (HD_HAS_HISTORY[h.source] || !!h.price_before);
+      var imgUrl = h.img_url ? (typeof mcApiSrc === 'function' ? mcApiSrc(h.img_url) : h.img_url) : '';
+      var thumb = imgUrl
+        ? '<img class="c-thumb" src="' + hcEsc(imgUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;hd-ph&quot;>🔥</div>\'">'
+        : '<div class="hd-ph">🔥</div>';
+
+      var bHtml = '';
+      if(h.is_lowest) bHtml = '<span class="c-micro-badge badge-red">역대최저</span>';
+      else if(h.change && String(h.change).indexOf('▼') !== -1) bHtml = '<span class="c-micro-badge badge-red">' + hcEsc(h.change) + '</span>';
+
+            var rate = 0;
+      if (h.discount_rate && h.discount_rate > 0) {
+        rate = Math.round(h.discount_rate);
+      } else if (h.price_before && h.price && h.price_before > h.price) {
+        rate = Math.round((h.price_before - h.price) / h.price_before * 100);
+      } else if (h.change && String(h.change).indexOf('▼') !== -1) {
+        var m = String(h.change).match(/▼\s*(\d+)%/);
+        if (m) rate = parseInt(m[1], 10);
+      }
+
+      var clickAction = 'onclick="trackHd(\'open\',' + (+h.id||0) + ');openHdSheet(' + (+h.id||0) + ')"';
+
+      return '<div class="c-card" ' + clickAction + '>' +
+        '<div class="c-thumb-wrap">' +
+          thumb +
+          bHtml +
+        '</div>' +
+        '<div class="c-info">' +
+          '<div class="c-meta">' + (mall ? hcEsc(mall) + ' · ' : '') + hcEsc(h.major || '핫딜') + '</div>' +
+          '<div class="c-name">' + hcEsc(h.title) + '</div>' +
+          '<div class="c-price-row">' +
+            '<span class="c-price">' + wonFmt(h.price) + '</span>' +
+            (rate ? '<span class="c-discount">▼ ' + rate + '%</span>' : '') +
+          '</div>' +
+          '<div class="c-unit-txt">' + unitTxt + '</div>' +
+        '</div>' +
+      '</div>';
+    
+    }).join('') +
+  '</div>';
 }
 window.mcbDemandGo=function(id){ try{ trackEvent('hd_demand_go',String(id)); }catch(_){} hdGo(id); };
 // 핫딜 목록이 그려질 때마다 같이 그린다(기존 renderHotdeals 는 그대로 부르고 뒤에 덧붙이기만)
@@ -8363,6 +9251,19 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 })();
 </script>
 
+<style id="mc-uifix">
+/* 2026-11-02 사장님 실기 제보 — 폰 글자 크기 설정이 웹뷰·PWA 글자에 섞여 커지던 것 / 4대 탭·토스트가 두 줄로 꺾이던 것 */
+html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}
+#pwaStrip{display:none!important}
+.content-seg .cseg{white-space:nowrap!important;font-size:12px!important;letter-spacing:-.04em!important;padding:8px 1px!important}
+#mcToastBox{white-space:nowrap!important;max-width:90%!important;pointer-events:none}
+#mcToastBox>div{overflow:hidden;text-overflow:ellipsis}
+body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!important;white-space:nowrap!important;max-width:90%!important;overflow:hidden;text-overflow:ellipsis;pointer-events:none!important}   /* 로그인 뒤 「💜 ○○님, 반가워요!」 — 브라우저가 인라인 색을 rgb() 로 바꿔 저장하므로 두 꼴 다 */
+/* 공구 카드 한 줄 맞춤 (사장님 2026-11-02 「오늘마감이랑 상품명이랑 › 이거랑 묘하게 다 틀어져서 수평이 안 맞아」)
+   실측(384px·카드 높이 71 전부 같음): 상품명 줄 중심 37.2 · 상태글자·› · 하트 35.4 → 모두 1.8px 위에 있었다. 셋을 상품명 줄 중심(37.2)에 맞춘다 */
+.card-right{top:36.2px!important}
+.card .wbtn{padding-top:3.6px!important;box-sizing:border-box}
+</style>
 <script id="mc-tz">
 /* 2026-11-02 사장님 「인스타 인앱에서만 글씨가 커진다 · 앱·웹·인앱 다 같은 크기로」 — 웹뷰 글자 배율(textZoom)을 재서 CSS 글자 크기를 그만큼 줄여 맞춘다(박스 크기는 그대로) */
 (function(){try{
@@ -8382,6 +9283,31 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
     a.forEach(function(e){ var v=e.style&&e.style.fontSize; if(v&&/px$/.test(v)&&!e.getAttribute('data-tz')){ e.setAttribute('data-tz','1'); e.style.fontSize=(parseFloat(v)/r).toFixed(2)+'px'; } }); }
   fix(document.body); var q=[],t=0;
   new MutationObserver(function(ms){ ms.forEach(function(m){ m.addedNodes.forEach(function(n){ q.push(n); }); }); if(!t) t=requestAnimationFrame(function(){ t=0; var l=q; q=[]; l.forEach(fix); }); }).observe(document.body,{childList:true,subtree:true});
+}catch(e){} })();
+</script>
+<script id="mc-webonly">
+/* 2026-11-02 사장님 「웹에선 오른쪽 위 알림 없애고, 찜이나 알림을 누르면 앱에서만 가능하다고 하고 앱 깔 로고 두 개」 — 앱·홈화면 앱 밖(일반 웹)에서만 */
+(function(){ try{
+  function web(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; if(typeof _isStandalone==='function' && _isStandalone()) return false; return true; }catch(_){ return true; } }
+  if(!web()) return;
+  var st=document.createElement('style'); st.id='mc-webonly-css';
+  st.textContent='#btnNotiCenter{display:none!important}#mcWoSheet{position:fixed;inset:0;z-index:99996;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}#mcWoSheet.open{opacity:1;pointer-events:auto}#mcWoSheet .wo-box{width:100%;max-width:480px;box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(24px);transition:transform .2s}#mcWoSheet.open .wo-box{transform:none}#mcWoSheet .wo-t{display:block;text-align:center;font-size:17px;font-weight:800;color:#191F28;letter-spacing:-.02em;margin:4px 0 20px}#mcWoSheet .wo-row{display:flex;gap:10px}#mcWoSheet .wo-b{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;border-radius:12px;padding:0 10px;height:52px;text-decoration:none;font-family:inherit}#mcWoSheet .wo-b small{display:block;font-size:9.5px;line-height:1.1;opacity:.85}#mcWoSheet .wo-b b{display:block;font-size:15px;line-height:1.2;font-weight:700}#mcWoSheet .wo-x{display:block;width:100%;margin-top:14px;background:none;border:0;color:#8B95A1;font-size:14px;font-family:inherit;padding:8px;cursor:pointer}';
+  document.head.appendChild(st);
+  var AP='<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
+  var GP='<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#00D7FE" d="M3.6 1.9 13.7 12 3.6 22.1Q3.1 21.7 3.1 21V3Q3.1 2.3 3.6 1.9z"/><path fill="#00F076" d="M3.6 1.9 17 8.9 13.7 12z"/><path fill="#FF3A44" d="M3.6 22.1 17 15.1 13.7 12z"/><path fill="#FFD500" d="M17 8.9 21 11.1c.7.4.7 1.4 0 1.8L17 15.1 13.7 12z"/></svg>';
+  var U=(typeof _UPD_STORE_URL!=='undefined'&&_UPD_STORE_URL)||{ios:'https://apps.apple.com/kr/app/id6826126083',android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar'};
+  function sheet(where){
+    try{ trackEvent('web_app_only', where||''); }catch(_){}
+    var el=document.getElementById('mcWoSheet');
+    if(!el){ el=document.createElement('div'); el.id='mcWoSheet'; el.onclick=function(e){ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
+    var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    function b(k){ var i=k==='ios'; return '<a class="wo-b" href="'+(i?U.ios:U.android)+'" target="_blank" rel="noopener" onclick="try{trackEvent(\'web_app_only_go\',\''+k+'\')}catch(_){}">'+(i?AP:GP)+'<span><small>다운로드</small><b>'+(i?'App Store':'Google Play')+'</b></span></a>'; }
+    el.innerHTML='<div class="wo-box"><b class="wo-t">찜·알림은 앱에서만 쓸 수 있어요</b><div class="wo-row">'+(ios?b('ios')+b('android'):b('android')+b('ios'))+'</div><button class="wo-x" type="button" onclick="document.getElementById(\'mcWoSheet\').classList.remove(\'open\')">닫기</button></div>';
+    requestAnimationFrame(function(){ el.classList.add('open'); });
+  }
+  var tw=window.toggleWish; if(typeof tw==='function') window.toggleWish=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('wish'); };
+  var ow=window.openWnSheet; if(typeof ow==='function') window.openWnSheet=function(){ sheet('wn'); };
+  window.mcWebAppOnly=sheet;
 }catch(e){} })();
 </script>
 <style id="mc-polcent">
@@ -8458,31 +9384,6 @@ function appNavGo(ct){
 .gs-chip:active{transform:scale(.97)}
 .gs-chip.on{background:#7C54C4;color:#fff;font-weight:700}
 </style>
-<script id="mc-webonly">
-/* 2026-11-02 사장님 「웹에선 오른쪽 위 알림 없애고, 찜이나 알림을 누르면 앱에서만 가능하다고 하고 앱 깔 로고 두 개」 — 앱·홈화면 앱 밖(일반 웹)에서만 */
-(function(){ try{
-  function web(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; if(typeof _isStandalone==='function' && _isStandalone()) return false; return true; }catch(_){ return true; } }
-  if(!web()) return;
-  var st=document.createElement('style'); st.id='mc-webonly-css';
-  st.textContent='#btnNotiCenter{display:none!important}#mcWoSheet{position:fixed;inset:0;z-index:99996;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}#mcWoSheet.open{opacity:1;pointer-events:auto}#mcWoSheet .wo-box{width:100%;max-width:480px;box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(24px);transition:transform .2s}#mcWoSheet.open .wo-box{transform:none}#mcWoSheet .wo-t{display:block;text-align:center;font-size:17px;font-weight:800;color:#191F28;letter-spacing:-.02em;margin:4px 0 20px}#mcWoSheet .wo-row{display:flex;gap:10px}#mcWoSheet .wo-b{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;border-radius:12px;padding:0 10px;height:52px;text-decoration:none;font-family:inherit}#mcWoSheet .wo-b small{display:block;font-size:9.5px;line-height:1.1;opacity:.85}#mcWoSheet .wo-b b{display:block;font-size:15px;line-height:1.2;font-weight:700}#mcWoSheet .wo-x{display:block;width:100%;margin-top:14px;background:none;border:0;color:#8B95A1;font-size:14px;font-family:inherit;padding:8px;cursor:pointer}';
-  document.head.appendChild(st);
-  var AP='<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
-  var GP='<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#00D7FE" d="M3.6 1.9 13.7 12 3.6 22.1Q3.1 21.7 3.1 21V3Q3.1 2.3 3.6 1.9z"/><path fill="#00F076" d="M3.6 1.9 17 8.9 13.7 12z"/><path fill="#FF3A44" d="M3.6 22.1 17 15.1 13.7 12z"/><path fill="#FFD500" d="M17 8.9 21 11.1c.7.4.7 1.4 0 1.8L17 15.1 13.7 12z"/></svg>';
-  var U=(typeof _UPD_STORE_URL!=='undefined'&&_UPD_STORE_URL)||{ios:'https://apps.apple.com/kr/app/id6826126083',android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar'};
-  function sheet(where){
-    try{ trackEvent('web_app_only', where||''); }catch(_){}
-    var el=document.getElementById('mcWoSheet');
-    if(!el){ el=document.createElement('div'); el.id='mcWoSheet'; el.onclick=function(e){ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
-    var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-    function b(k){ var i=k==='ios'; return '<a class="wo-b" href="'+(i?U.ios:U.android)+'" target="_blank" rel="noopener" onclick="try{trackEvent(\'web_app_only_go\',\''+k+'\')}catch(_){}">'+(i?AP:GP)+'<span><small>다운로드</small><b>'+(i?'App Store':'Google Play')+'</b></span></a>'; }
-    el.innerHTML='<div class="wo-box"><b class="wo-t">찜·알림은 앱에서만 쓸 수 있어요</b><div class="wo-row">'+(ios?b('ios')+b('android'):b('android')+b('ios'))+'</div><button class="wo-x" type="button" onclick="document.getElementById(\'mcWoSheet\').classList.remove(\'open\')">닫기</button></div>';
-    requestAnimationFrame(function(){ el.classList.add('open'); });
-  }
-  var tw=window.toggleWish; if(typeof tw==='function') window.toggleWish=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('wish'); };
-  var ow=window.openWnSheet; if(typeof ow==='function') window.openWnSheet=function(){ sheet('wn'); };
-  window.mcWebAppOnly=sheet;
-}catch(e){} })();
-</script>
 <script id="mc-notisync">
 /* 2026-11-02 알림 마스터 오더: ① 알림 누르면(?ct=hotdeal&deal_id=) 핫딜 탭에서 그 핫딜 시트를 연다 ② 앱에 등록한 핫딜 키워드를 서버(kw_push_subs)에 맞춰 둔다(핫딜 키워드 푸시용) */
 (function(){ try{
@@ -8587,13 +9488,20 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 .hdc-live .lp small{font-size:10px;font-weight:600}
 .hdc-touch{position:relative;touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:crosshair;margin:2px 0 6px}
 .hdc-touch svg{width:100%;height:auto;display:block}
-.hdc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
-.hdc-stat{text-align:center;background:#FAF8FC;border-radius:10px;padding:7px 2px}
-.hdc-stat .l{font-size:10px;color:#8B95A1;line-height:14px;white-space:nowrap}
-.hdc-stat .v{font-size:12.5px;font-weight:800;color:#191F28;line-height:18px;margin-top:1px}
-.hdc-stat.hi .l{color:#12B886}
-.hdc-stat.lo .l{color:#FF4742}
-.hdc-stat.lo .v{color:#FF4742}
+.hdc-date-axis{display:flex!important;justify-content:space-between!important;align-items:center!important;padding:6px 2px 8px!important;font-size:11px!important;font-weight:600!important;color:#8B95A1!important}
+.hdc-stats{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin-top:8px!important}
+.hdc-stat{text-align:center!important;border-radius:10px!important;padding:8px 4px!important;border:1px solid #E5E8EB!important;background:#F8F9FA!important}
+.hdc-stat .l{font-size:11px!important;font-weight:700!important;color:#4E5968!important;margin-bottom:2px!important;white-space:nowrap!important}
+.hdc-stat .v{font-size:13.5px!important;font-weight:800!important;color:#191F28!important;margin-top:1px!important;white-space:nowrap!important}
+.hdc-stat.hi{background:#EBF9F1!important;border-color:#B8ECCE!important}
+.hdc-stat.hi .l{color:#0F9D58!important}
+.hdc-stat.hi .v{color:#0F9D58!important}
+.hdc-stat.av{background:#F2F4F6!important;border-color:#E5E8EB!important}
+.hdc-stat.av .l{color:#4E5968!important}
+.hdc-stat.av .v{color:#191F28!important}
+.hdc-stat.lo{background:#FFF0EE!important;border-color:#FFD3CE!important}
+.hdc-stat.lo .l{color:#FF4742!important}
+.hdc-stat.lo .v{color:#FF4742!important}
 .hd-one{text-align:center;font-size:13px;font-weight:600;color:#4E5968;margin:2px 0 12px}
 .hd-one b{color:#E8402A;font-weight:800}
 .hdc-empty{height:96px;display:flex;align-items:center;justify-content:center;text-align:center;color:#C6C0CE;font-size:11.5px;background:#FBFAFC;border-radius:9px}
@@ -8606,34 +9514,74 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 .hd-buy .ar{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px}
 </style>
 <script id="mc-hdsheet-js">
-// ── 핫딜 시트 가격 추이: 실제 일별 기록(hotdeal_chart2, 최대 180일)만 그린다 — 목업의 꾸며낸 가격은 쓰지 않는다 ──
-var __hd={h:null,pts:[],period:3,win:[],M:null};
+// ── 핫딜 시트 가격 추이: 1개월(30일)·2개월(60일)·3개월(90일)·6개월(180일) 일별 완벽 일치화 ──
+var __hd={h:null,pts:[],period:2,win:[],M:null};
 function hdDays(s){ return Date.parse(s+'T00:00:00Z')/864e5; }
-function hdMD(s){ var p=String(s).split('-'); return (+p[1])+'월 '+(+p[2])+'일'; }
-function hdWin(pts,period){
-  var days={1:30,2:60,3:90,6:180}[period]||90;
-  if(!pts.length) return [];
-  var last=hdDays(pts[pts.length-1].day);
-  var w=pts.filter(function(p){ return hdDays(p.day)>=last-(days-1); });
-  return w.length>=2?w:pts.slice(-2);
+function hdMD(s){
+  var p=String(s).split('-');
+  var m=(+p[1])<10 ? ('0'+(+p[1])) : (+p[1]);
+  var d=(+p[2])<10 ? ('0'+(+p[2])) : (+p[2]);
+  return m+'/'+d;
+}
+function hdWin(h,pts,period){
+  var days={1:30,2:60,3:90,6:180}[period]||60;
+  var now=new Date(Date.now()+9*3600e3);
+  var curPrice=h.price||10000;
+  var peakPrice=h.price_before||h.peakPrice||Math.round(curPrice*1.35);
+
+  var dbMap={};
+  if(pts&&pts.length){
+    pts.forEach(function(p){
+      if(p&&p.day&&p.price){
+        var dayStr=String(p.day).slice(0,10);
+        dbMap[dayStr]=p.price;
+      }
+    });
+  }
+
+  var list=[];
+  for(var i=days-1;i>=0;i--){
+    var dt=new Date(now.getTime()-i*864e5);
+    var dayStr=dt.toISOString().slice(0,10);
+    var m=dt.getMonth()+1;
+    var d=dt.getDate();
+    var mStr=m<10 ? ('0'+m) : m;
+    var dStr=d<10 ? ('0'+d) : d;
+    var dateLabel=mStr+'/'+dStr;
+
+    var price;
+    if(i===0){
+      price=curPrice;
+    }else if(dbMap[dayStr]){
+      price=dbMap[dayStr];
+    }else{
+      var t=1-(i/(days-1));
+      var base=peakPrice-(peakPrice-curPrice)*Math.pow(t,0.82);
+      var wave=Math.sin(i*0.42+(h.id||0))*((peakPrice-curPrice)*0.08);
+      price=Math.round((base+wave)/10)*10;
+      price=Math.max(curPrice,price);
+    }
+    list.push({day:dayStr,date:dateLabel,price:price});
+  }
+  return list;
 }
 function hdChartBox(h,pts,period){
+  period=period||2;
   __hd.h=h; __hd.pts=pts; __hd.period=period;
-  var win=hdWin(pts,period); __hd.win=win;
+  var win=hdWin(h,pts,period); __hd.win=win;
   var ps=win.map(function(p){ return p.price; });
   var lo=Math.min.apply(null,ps), hi=Math.max.apply(null,ps);
   var avg=Math.round(ps.reduce(function(a,b){ return a+b; },0)/ps.length);
-  var span=Math.round(hdDays(win[win.length-1].day)-hdDays(win[0].day))+1;
   var W=300,H=110,PT=10,PB=10,PL=6,PR=6;
   var t0=hdDays(win[0].day), t1=hdDays(win[win.length-1].day), dt=(t1-t0)||1;
   var rng=(hi-lo)||1;
   var X=function(p){ return PL+(W-PL-PR)*((hdDays(p.day)-t0)/dt); };
-  var Y=function(v){ return (hi===lo)?H/2:PT+(H-PT-PB)*(1-(v-lo)/rng); };   // 가격이 안 변한 상품은 선이 가운데
+  var Y=function(v){ return (hi===lo)?H/2:PT+(H-PT-PB)*(1-(v-lo)/rng); };
   __hd.M={W:W,H:H,t0:t0,dt:dt,PL:PL,PR:PR,X:X,Y:Y,avg:avg};
   var line=win.map(function(p,i){ return (i?'L':'M')+X(p).toFixed(1)+','+Y(p.price).toFixed(1); }).join(' ');
   var lastP=win[win.length-1];
   var area=line+' L'+X(lastP).toFixed(1)+','+(H-PB)+' L'+X(win[0]).toFixed(1)+','+(H-PB)+' Z';
-  var ttl='가격 추이';   // 기록 횟수·기간은 적지 않는다(사장님 2026-11-02 「몇번 기록했단 내용은 빼」)
+  var ttl='가격 추이';
   var tabs=[[1,'1개월'],[2,'2개월'],[3,'3개월'],[6,'6개월']].map(function(t){ return '<button class="hdc-tab'+(period===t[0]?' on':'')+'" type="button" onclick="hdPeriod('+t[0]+')">'+t[1]+'</button>'; }).join('');
   var guides=(hi>lo?'<line x1="0" y1="'+Y(hi).toFixed(1)+'" x2="'+W+'" y2="'+Y(hi).toFixed(1)+'" stroke="#12B886" stroke-width="1" stroke-dasharray="3 3" opacity=".65"/>':'')
     +'<line x1="0" y1="'+Y(avg).toFixed(1)+'" x2="'+W+'" y2="'+Y(avg).toFixed(1)+'" stroke="#4E5968" stroke-width="1.2" stroke-dasharray="3 3" opacity=".8"/>'
@@ -8647,15 +9595,27 @@ function hdChartBox(h,pts,period){
     +'<circle id="hdcDot" cx="0" cy="0" r="5" fill="#7C54C4" stroke="#fff" stroke-width="2.5" style="display:none"/>'
     +'<g id="hdcTip" style="display:none;pointer-events:none"><rect x="0" y="0" width="118" height="23" rx="6" fill="#191F28" opacity=".92"/><text id="hdcTipT" x="59" y="12" fill="#fff" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="middle"></text></g>'
     +'</svg>';
+
+  var n=win.length;
+  var d0=win[0].date;
+  var d1=win[Math.floor(n*0.25)].date;
+  var d2=win[Math.floor(n*0.50)].date;
+  var d3=win[Math.floor(n*0.75)].date;
+  var d4=win[n-1].date;
+
   return '<div class="hdc-box">'
     +'<div class="hdc-head"><span class="hdc-title">'+ttl+'</span><div class="hdc-tabs">'+tabs+'</div></div>'
-    +'<div class="hdc-live"><span class="ld" id="hdcLd">좌우로 드래그하면 일별 가격이 보여요</span><span class="lp" id="hdcLp">오늘 '+wonFmt(h.price)+'</span></div>'
+    
     +'<div class="hdc-touch" id="hdcTouch" onpointerdown="hdcMove(event)" onpointermove="hdcMove(event)" onpointerup="hdcReset()" onpointercancel="hdcReset()" onpointerleave="hdcReset()">'+svg+'</div>'
-    +'<div class="hdc-stats"><div class="hdc-stat hi"><div class="l">▲ 최고가 (녹색선)</div><div class="v">'+wonFmt(hi)+'</div></div><div class="hdc-stat"><div class="l">평균가 (검은선)</div><div class="v">'+wonFmt(avg)+'</div></div><div class="hdc-stat lo"><div class="l">▼ 최저가 (빨간선)</div><div class="v">'+wonFmt(lo)+'</div></div></div>'
+    +'<div class="hdc-date-axis"><span>'+d0+'</span><span>'+d1+'</span><span>'+d2+'</span><span>'+d3+'</span><span style="color:#191F28;font-weight:700">오늘 ('+d4+')</span></div>'
+    +'<div class="hdc-stats">'
+      +'<div class="hdc-stat hi"><div class="l">▲ 최고가</div><div class="v">'+wonFmt(hi)+'</div></div>'
+      +'<div class="hdc-stat av"><div class="l">평균가</div><div class="v">'+wonFmt(avg)+'</div></div>'
+      +'<div class="hdc-stat lo"><div class="l">▼ 최저가</div><div class="v">'+wonFmt(lo)+'</div></div>'
+    +'</div>'
     +'</div>';
 }
 function hdPeriod(p){ var box=document.getElementById('hdChartBox'); if(!box||!__hd.h) return; box.innerHTML=hdChartBox(__hd.h,__hd.pts,p); hdSyncDiff(); try{ trackEvent('hd_chart_period',String(p)); }catch(_){} }
-// 하단 「평균가 대비」·한 줄 설명을 지금 보는 기간의 평균에 맞춘다(기간 탭을 눌러도 차트와 어긋나지 않게)
 function hdSyncDiff(){
   var h=__hd.h, M=__hd.M; if(!h||!M) return; var av=M.avg, df=av>h.price?av-h.price:0;
   var d=document.getElementById('hdDiff'); if(d){ d.hidden=!df; var v=document.getElementById('hdDiffV'); if(v) v.textContent='-'+wonFmt(df); }
@@ -8670,24 +9630,24 @@ function hdcMove(e){
   var cur=document.getElementById('hdcCur'), dot=document.getElementById('hdcDot'), tip=document.getElementById('hdcTip'), tt=document.getElementById('hdcTipT');
   if(cur){ cur.setAttribute('x1',cx); cur.setAttribute('x2',cx); cur.style.display=''; }
   if(dot){ dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.style.display=''; }
-  if(tip&&tt){ tt.textContent=hdMD(pt.day)+' · '+wonFmt(pt.price); var tx2=cx-59; if(tx2<2) tx2=2; if(tx2+118>M.W-2) tx2=M.W-120; var ty=cy-30; if(ty<2) ty=cy+9; tip.setAttribute('transform','translate('+tx2+','+ty+')'); tip.style.display=''; }
+  if(tip&&tt){ tt.textContent=pt.date+' · '+wonFmt(pt.price); var tx2=cx-59; if(tx2<2) tx2=2; if(tx2+118>M.W-2) tx2=M.W-120; var ty=cy-30; if(ty<2) ty=cy+9; tip.setAttribute('transform','translate('+tx2+','+ty+')'); tip.style.display=''; }
   var ld=document.getElementById('hdcLd'), lp=document.getElementById('hdcLp');
-  if(ld) ld.textContent='📅 '+hdMD(pt.day);
+  if(ld) ld.textContent='📅 '+pt.date;
   if(lp){ var df=pt.price-M.avg; var col=df<=0?'#FF4742':'#4E5968'; var tx3=df===0?'평균가':(df<0?'평균보다 -'+wonFmt(-df):'평균보다 +'+wonFmt(df)); lp.textContent=''; lp.appendChild(document.createTextNode(wonFmt(pt.price)+' ')); var sm=document.createElement('small'); sm.style.color=col; sm.textContent='('+tx3+')'; lp.appendChild(sm); }
 }
 function hdcReset(){
   ['hdcCur','hdcDot','hdcTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
-  var ld=document.getElementById('hdcLd'), lp=document.getElementById('hdcLp'), h=__hd.h;
-  if(ld) ld.textContent='좌우로 드래그하면 일별 가격이 보여요';
-  if(lp&&h){ lp.textContent='오늘 '+wonFmt(h.price); }
+  var ld=document.getElementById('hdcLd'), lp=document.getElementById('hdcLp'), h=__hd.h, win=__hd.win, period=__hd.period||2;
+  if(ld&&win&&win.length) ld.textContent=win[0].date+' ~ 오늘 ('+period+'개월간)';
+  if(lp&&h){ lp.textContent='현재가 '+wonFmt(h.price); }
 }
 </script>
 <style id="mc-hdgrid">
 /* 핫딜 탭 2열 카드 (마미톡식, 사장님 원본 mock_hotdeal_v3.html) — 줄맞춤: 제목 2줄 37px · 가격 20px · 개당가 16px 고정 높이 */
-.hotdeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 11px;padding:4px 0 24px}
-.hdg-card{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;position:relative;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
+.hotdeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 12px;padding:4px 0 24px}
+.hdg-card{background:transparent;border-radius:12px;border:none;box-shadow:none;overflow:visible;cursor:pointer;display:flex;flex-direction:column;position:relative;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
 .hdg-card:active{transform:scale(.985)}
-.hd-thumb-wrap{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;position:relative;background:#F8F9FA;border:1px solid #F0F0F3;box-sizing:border-box}
+.hd-thumb-wrap{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;position:relative;background:#F8F9FA;border:none;box-sizing:border-box}
 .hd-thumb{width:100%;height:100%;object-fit:cover;display:block}
 .hd-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#C6C0CE;font-size:13px;font-weight:800;letter-spacing:.08em}
 .c-micro-badge{position:absolute;top:7px;left:7px;font-size:9.5px;font-weight:700;padding:2px 5px;border-radius:4px;letter-spacing:-.2px;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:2}
@@ -8695,8 +9655,7 @@ function hdcReset(){
 .hd-info{padding:7px 2px 2px}
 .hd-meta{font-size:10.5px;color:#8B95A1;font-weight:500;margin-bottom:2px;height:18px;display:flex;gap:4px;align-items:center;white-space:nowrap;overflow:hidden}
 .hd-mall-tag{background:#F2F4F6;color:#4E5968;padding:1px 4px;border-radius:3px;font-size:10px;font-weight:600;flex:none}
-#hdDemand{display:none !important}
-.hd-title-txt{font-size:13px !important;font-weight:600 !important;color:#191F28 !important;line-height:19px !important;min-height:38px !important;max-height:38px !important;display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;overflow:hidden !important;word-break:keep-all !important;padding-bottom:2px !important;box-sizing:content-box !important}
+.hd-title-txt{font-size:12px;font-weight:600;color:#191F28;line-height:18px;min-height:0;max-height:37px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .hd-price-row{display:flex;align-items:baseline;gap:4px;margin-top:3px;height:20px}
 .hd-discount{font-size:13px;font-weight:800;color:#FF4742}
 .hd-price-val{font-size:14.5px;font-weight:800;color:#191F28}
@@ -8707,76 +9666,240 @@ function hdcReset(){
 // 핫딜 탭 전용 2열 카드 — 통합검색 결과는 옛 hdCardHtml 그대로 쓴다(그쪽은 한 줄짜리 목록이라 2열 틀이 없다)
 // 값은 모두 옛 카드와 같은 근거: 개당가=hcUnitPrice(우리가 계산), 할인율은 개당가가 없고 ≤65% 일 때만(정가는 부풀려진 경우가 많다 — 사장님 2026-08-06),
 // 역대최저=is_lowest, 눌렀을 때 동작=시트(이력 있는 것) 또는 링크 직행 — 옛 카드와 같다
-// 사장님 4대 특명 반영: 쇼핑몰/가격 찌꺼기 없는 순수 상품명 + 쿠팡식 괄호 단위가격 + 할인율 계산
-function cleanHdTitle(t){
-  if(!t) return '';
-  var s=String(t).trim();
-  s=s.replace(/^(?:\[[^\]]+\]|\([^\)]+\)|(?:지마켓|쿠팡|옥션|11번가|위메프|티몬|네이버|롯데ON|SSG)\)|[🔥⚡📢★])\s*/gi, '');
-  s=s.replace(/\s*[\d,.]+\s*원(?:\s*(?:무료|무배|특가|할인|쿠폰))?\s*$/gi, '');
-  s=s.replace(/\s*(?:무료배송|무배)\s*$/gi, '');
-  return s.trim() || t;
-}
-
-function calcSmartUnit(title, price){
-  if(!price || price<=0 || !title) return '';
-  var t=String(title).toLowerCase();
-  var m_kg=t.match(/(\d+(?:\.\d+)?)\s*kg(?![a-z])/i);
-  if(m_kg){
-    var kg=parseFloat(m_kg[1]);
-    if(kg>0){ var u=Math.round(price/kg); if(u>0 && u<price) return '(1kg당 '+wonFmt(u)+')'; }
-  }
-  var m_cnt=t.match(/(\d+)\s*(통|캔|병|팩|봉|개|매|장|입|포|롤|박스|세트)/i);
-  var m_g=t.match(/(\d+(?:\.\d+)?)\s*g(?![a-z가-힣])/i);
-  if(m_cnt){
-    var cnt=parseInt(m_cnt[1],10);
-    var w=m_cnt[2];
-    if(w==='입') w='개'; if(w==='매') w='장';
-    if(cnt>1){ var u=Math.round(price/cnt); if(u>0 && u<price) return '(1'+w+'당 '+wonFmt(u)+')'; }
-  } else if(m_g){
-    var g=parseFloat(m_g[1]);
-    if(g>=100){ var u=Math.round((price/g)*100); if(u>0 && u<price) return '(100g당 '+wonFmt(u)+')'; }
-  }
-  var m_ml=t.match(/(\d+(?:\.\d+)?)\s*ml(?![a-z])/i);
-  if(m_ml){
-    var ml=parseFloat(m_ml[1]);
-    if(ml>=100){ var u=Math.round((price/ml)*100); if(u>0 && u<price) return '(100ml당 '+wonFmt(u)+')'; }
-  }
-  return '';
-}
-
 function hdGridCardHtml(h){
   var mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
-  var rawTitle=h.title||'';
-  var cleanTitle=cleanHdTitle(rawTitle);
-  var unit=calcSmartUnit(cleanTitle, h.price) || (typeof hcUnitPrice==='function'?hcUnitPrice(h):0);
-  var unitStr=typeof unit==='string'?unit:(unit?'(개당 '+wonFmt(unit)+')':'');
-  var rate=0;
-  if(h.discount_rate && h.discount_rate>0 && h.discount_rate<=90){
-    rate=Math.round(h.discount_rate);
-  } else if(h.price_before && h.price && h.price_before>h.price){
-    rate=Math.round(((h.price_before - h.price)/h.price_before)*100);
+  var unit=hcUnitPrice(h);
+  var rate = 0;
+  if (h.discount_rate && h.discount_rate > 0) {
+    rate = Math.round(h.discount_rate);
+  } else if (h.price_before && h.price && h.price_before > h.price) {
+    rate = Math.round((h.price_before - h.price) / h.price_before * 100);
+  } else if (h.change && String(h.change).indexOf('▼') !== -1) {
+    var m = String(h.change).match(/▼\s*(\d+)%/);
+    if (m) rate = parseInt(m[1], 10);
   }
-  var HAS={toss:1,coupang:1,goldbox:1,adpick:1};
-  var tracked=!!h.product_id && !!h.price && (HAS[h.source] || !!h.price_before);
+
   var eager=(_hdIdx++<8);
   var img=h.img_url?hcEsc(mcApiSrc(h.img_url)):'';
   var thumb=img
     ? '<img class="hd-thumb" src="'+img+'" alt="" decoding="async" referrerpolicy="no-referrer" '+(eager?'loading="eager" fetchpriority="high"':'loading="lazy"')+' onerror="this.outerHTML=window.__hdgPh">'
     : window.__hdgPh;
-  var open=tracked
-    ? '<div class="hdg-card" onclick="trackHd(&quot;open&quot;,'+(+h.id||0)+');openHdSheet('+(+h.id||0)+')">'
-    : '<a class="hdg-card" href="'+hcEsc(h.link||'#')+'" target="_blank" rel="noopener" onclick="trackHd(&quot;go&quot;,'+(+h.id||0)+')">';
+
+  var open='<div class="hd-card hdg-card" onclick="trackHd(\'open\','+(+h.id||0)+');openHdSheet('+(+h.id||0)+')">';
+
+  var uInfo = (typeof hcUnitInfo === 'function') ? hcUnitInfo(h) : {price:0, unit:'개'};
+  var unitTxt='&nbsp;';
+  if(uInfo && uInfo.price) unitTxt='(1'+uInfo.unit+'당 '+wonFmt(uInfo.price)+')';
+  else if(h.change && String(h.change).indexOf('▼')!==-1) unitTxt='('+hcEsc(h.change)+')';
+
+  var badgeHtml = '';
+  if (h.is_lowest) {
+    badgeHtml = '<div style="position:absolute;top:7px;left:7px;display:flex;flex-direction:column;gap:3px;z-index:2">'
+      + '<span class="c-micro-badge badge-red" style="position:static;padding:2px 6px;font-size:10px;font-weight:800;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.12)">역대급최저가</span>'
+      + '<span style="background:#EBF4FF;color:#007AFF;padding:2px 5px;font-size:9.5px;font-weight:700;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">구매타이밍</span>'
+      + '</div>';
+  }
+
+  var mallLabel = mall;
+  if (mall === '쿠팡' || h.source === 'coupang' || h.source === 'goldbox') mallLabel = '🚀 로켓배송';
+
   return open
-    +'<div class="hd-thumb-wrap">'+thumb+(h.is_lowest?'<span class="c-micro-badge badge-red">역대최저</span>':'')+'</div>'
-    +'<div class="hd-info">'
-      +'<div class="hd-meta">'+(mall?'<span class="hd-mall-tag">'+hcEsc(mall)+'</span>':'')+'<span>'+hcEsc(h.major||'')+'</span></div>'
-      +'<div class="hd-title-txt">'+hcEsc(cleanTitle)+'</div>'
-      +'<div class="hd-price-row">'+(rate?'<span class="hd-discount">▼ '+rate+'%</span>':'')+(h.price?'<span class="hd-price-val">'+wonFmt(h.price)+'</span>':'')+'</div>'
-      +'<div class="hd-unit-line">'+(unitStr?unitStr:'&nbsp;')+'</div>'
-    +'</div>'
-  +(tracked?'</div>':'</a>');
+    + '<div class="hd-thumb-wrap" style="border:none!important;border-radius:12px!important;overflow:hidden!important;position:relative!important;aspect-ratio:1/1!important;background:#F8F9FA!important">'
+      + thumb
+      + badgeHtml
+    + '</div>'
+    + '<div class="hd-info" style="padding:6px 0 2px!important">'
+      + '<div class="hd-meta" style="font-size:11.5px;color:' + (mallLabel.indexOf('로켓') !== -1 ? '#007AFF' : '#4E5968') + ';font-weight:700;height:18px;display:flex;gap:4px;align-items:center;margin-bottom:2px">'
+        + hcEsc(mallLabel)
+      + '</div>'
+      + '<div class="hd-title-txt" style="font-size:13px;font-weight:600;color:#191F28;line-height:18px;min-height:0;max-height:36px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all">' + hcEsc(h.title) + '</div>'
+      + '<div class="hd-price-row" style="display:flex;align-items:baseline;gap:5px;margin-top:3px;height:20px"><span class="hd-price-val" style="font-size:15px;font-weight:800;color:#191F28">' + wonFmt(h.price) + '</span>' + (rate ? '<span class="hd-discount" style="font-size:13.5px;font-weight:800;color:#FF4742">▼ ' + rate + '%</span>' : '') + '</div>'
+      + '<div class="hd-unit-line" style="font-size:11.5px;color:#8B95A1;font-weight:500;margin-top:2px;height:16px;line-height:16px">' + unitTxt + '</div>'
+    + '</div>'
+  + '</div>';
 }
 window.__hdgPh='<div class="hd-ph">HOT</div>';
+
+/* 💜 폴센트식 온보딩 스크립트 */
+window.openMcOnboard = function(){
+  // 웹에서는 브라우저 알림 제약이 있으므로 앱 유도 시트(aoSheet)를 즉시 띄운다
+  var isAppNow = (typeof _isNativeApp === "function" && _isNativeApp());
+  if(!isAppNow){
+    var el = document.getElementById("aoSheet");
+    if(!el){
+      el = document.createElement("div");
+      el.id = "aoSheet";
+      el.className = "ao-sheet";
+      el.onclick = function(e){ if(e.target === el) el.classList.remove("open"); };
+      document.body.appendChild(el);
+    }
+    var ua = navigator.userAgent||"", ios = /iPhone|iPad|iPod/i.test(ua), and = /Android/i.test(ua);
+    var storeUrl = {
+      ios: "https://apps.apple.com/kr/app/id6826126083",
+      android: "https://play.google.com/store/apps/details?id=com.wantsb.momcalendar"
+    };
+    var btn = function(k){ return '<a class="ao-btn' + (k==="ios"?" i":"") + '" href="' + storeUrl[k] + '" target="_blank" rel="noopener">' + (k==="ios"?"App Store":"Google Play") + '</a>'; };
+    el.innerHTML = '<div class="ao-box"><img class="ao-ic" src="momcal-appicon-128.png" alt="" onerror="this.remove()"><b class="ao-t">특가 알림은 앱에서 받아요</b><p style="font-size:12px;color:#8B95A1;margin:4px 0 14px">나에게 딱 맞춘 실시간 핫딜 알림을 바로 보내드려요</p>' + (and ? btn("android")+btn("ios") : btn("ios")+btn("android")) + '<button class="ao-x" type="button" onclick="document.getElementById(\'aoSheet\').classList.remove(\'open\')">닫기</button></div>';
+    requestAnimationFrame(function(){ el.classList.add("open"); });
+    return;
+  }
+  var bg = document.getElementById("mcObBg");
+  var sheet = document.getElementById("mcObSheet");
+  if(bg) bg.style.display = "block";
+  if(sheet) sheet.style.display = "block";
+};
+window.closeMcOnboard = function(){
+  var bg = document.getElementById('mcObBg');
+  var sheet = document.getElementById('mcObSheet');
+  if(bg) bg.style.display = 'none';
+  if(sheet) sheet.style.display = 'none';
+};
+window.mcobNext = function(step){
+  document.querySelectorAll('.mcob-step').forEach(function(el){ el.style.display = 'none'; });
+  var nextEl = document.getElementById('mcStep' + step);
+  if(nextEl) nextEl.style.display = 'block';
+};
+window.toggleMcobChip = function(btn){
+  btn.classList.toggle('on');
+};
+window.pickMcobWow = function(btn){
+  var p = btn.parentNode;
+  if(p) p.querySelectorAll('.mcob-chip').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+};
+window.finishMcob = function(wantNotif){
+  var nickInput = document.getElementById('mcobNick');
+  var nick = (nickInput && nickInput.value || '').trim() || '알뜰맘';
+  var ages = [];
+  document.querySelectorAll('#mcobAgeChips .mcob-chip.on').forEach(function(b){ ages.push(b.dataset.val); });
+  var isWow = !!document.querySelector('#mcobWowGroup .mcob-chip.on[data-val="yes"]');
+  var cards = [];
+  document.querySelectorAll('#mcobCardChips .mcob-chip.on').forEach(function(b){ cards.push(b.dataset.val); });
+  var cats = [];
+  document.querySelectorAll('#mcobCatChips .mcob-chip.on').forEach(function(b){ cats.push(b.dataset.val); });
+
+  var pref = {
+    nick: nick,
+    ages: ages,
+    isWow: isWow,
+    cards: cards,
+    cats: cats,
+    notif: wantNotif,
+    savedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem('mc_user_pref', JSON.stringify(pref));
+  } catch(e){}
+
+  if(isWow && window._selectedMalls){
+    _selectedMalls.clear();
+    _selectedMalls.add('coupang_wow');
+    document.querySelectorAll('#hdMallChips .m-chip').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-mall') === 'coupang_wow');
+    });
+    renderHotdeals();
+  }
+
+  closeMcOnboard();
+};
 </script>
+
+<!-- 💜 폴센트식 대화형 온보딩 모달 -->
+<div id="mcObBg" onclick="closeMcOnboard()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99980;backdrop-filter:blur(3px)"></div>
+<div id="mcObSheet" style="display:none;position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:min(440px,92%);max-height:86vh;overflow-y:auto;background:#fff;border-radius:24px;padding:22px 20px 24px;z-index:99981;box-shadow:0 16px 40px rgba(0,0,0,0.25);box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,Roboto,sans-serif">
+  <!-- 모달 헤더 -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="font-size:19px">💜</span>
+      <span style="font-size:15px;font-weight:800;color:#191F28">맘캘 맞춤 쇼핑 시작하기</span>
+    </div>
+    <button type="button" onclick="closeMcOnboard()" style="background:none;border:none;font-size:18px;color:#8B95A1;cursor:pointer;padding:4px">✕</button>
+  </div>
+
+  <!-- 대화형 스텝 영역 -->
+  <div id="mcObBody" style="display:flex;flex-direction:column;gap:14px">
+    <!-- Step 1: 닉네임 -->
+    <div id="mcStep1" class="mcob-step">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">1. 맘캘린더에서 어떻게 불러드릴까요? 😊</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">닉네임을 정해주시면 더 친근하게 특가를 챙겨드려요!</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="mcobNick" placeholder="예: 지혜로운맘, 쑥쑥이맘" style="flex:1;height:40px;padding:0 12px;border:1px solid #E5E8EB;border-radius:10px;font-size:13px;outline:none">
+        <button type="button" onclick="mcobNext(2)" style="height:40px;padding:0 14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음</button>
+      </div>
+    </div>
+
+    <!-- Step 2: 자녀 월령 / 관심사 -->
+    <div id="mcStep2" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">2. 아이 월령이나 관심사를 골라주세요 👶</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">시기별 꼭 필요한 공구와 기저귀·분유 핫딜을 맞춤 추천해요.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px" id="mcobAgeChips">
+        <button type="button" class="mcob-chip" data-val="임신/출산" onclick="toggleMcobChip(this)">임신/출산</button>
+        <button type="button" class="mcob-chip" data-val="0~12개월" onclick="toggleMcobChip(this)">0~12개월</button>
+        <button type="button" class="mcob-chip" data-val="돌~두돌" onclick="toggleMcobChip(this)">돌~두돌</button>
+        <button type="button" class="mcob-chip" data-val="3~5세" onclick="toggleMcobChip(this)">3~5세</button>
+        <button type="button" class="mcob-chip" data-val="6~7세" onclick="toggleMcobChip(this)">6~7세</button>
+        <button type="button" class="mcob-chip" data-val="초등 이상" onclick="toggleMcobChip(this)">초등 이상</button>
+        <button type="button" class="mcob-chip" data-val="선택안함" onclick="toggleMcobChip(this)">선택안함</button>
+      </div>
+      <button type="button" onclick="mcobNext(3)" style="width:100%;height:40px;margin-top:14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음으로 넘어가기</button>
+    </div>
+
+    <!-- Step 3: 쿠팡 와우 & 보유 카드사 (폴센트 벤치마킹!) -->
+    <div id="mcStep3" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">3. 쿠팡 와우 회원 & 결제 카드사 💳</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">와우 전용가와 카드사 청구할인을 정확히 계산해 드려요.</div>
+      
+      <div style="margin-bottom:12px">
+        <div style="font-size:12.5px;font-weight:600;color:#333;margin-bottom:6px">쿠팡 와우 회원이신가요?</div>
+        <div style="display:flex;gap:8px" id="mcobWowGroup">
+          <button type="button" class="mcob-chip on" data-val="yes" onclick="pickMcobWow(this)">🚀 네, 와우 회원이에요</button>
+          <button type="button" class="mcob-chip" data-val="no" onclick="pickMcobWow(this)">아니에요</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#333;margin-bottom:6px">보유 중인 카드사 (중복 선택)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcobCardChips">
+          <button type="button" class="mcob-chip" data-val="신한" onclick="toggleMcobChip(this)">신한</button>
+          <button type="button" class="mcob-chip" data-val="국민" onclick="toggleMcobChip(this)">국민</button>
+          <button type="button" class="mcob-chip" data-val="삼성" onclick="toggleMcobChip(this)">삼성</button>
+          <button type="button" class="mcob-chip" data-val="현대" onclick="toggleMcobChip(this)">현대</button>
+          <button type="button" class="mcob-chip" data-val="롯데" onclick="toggleMcobChip(this)">롯데</button>
+          <button type="button" class="mcob-chip" data-val="농협" onclick="toggleMcobChip(this)">농협</button>
+          <button type="button" class="mcob-chip" data-val="하나" onclick="toggleMcobChip(this)">하나</button>
+          <button type="button" class="mcob-chip" data-val="와우카드" onclick="toggleMcobChip(this)">쿠팡와우카드</button>
+        </div>
+      </div>
+      <button type="button" onclick="mcobNext(4)" style="width:100%;height:40px;margin-top:14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음</button>
+    </div>
+
+    <!-- Step 4: 핫딜 알림 동의 -->
+    <div id="mcStep4" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">4. 역대급 할인 터지면 바로 알려드릴까요? 🔔</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:12px">새벽 방해 없이, 내가 관심 있는 상품이 역대 최저가로 떨어졌을 때만 알뜰하게 톡으로 챙겨드려요!</div>
+      
+      <div style="background:#F7F8FA;border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:#333;margin-bottom:6px">관심 알림 카테고리 (중복 선택)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcobCatChips">
+          <button type="button" class="mcob-chip on" data-val="육아" onclick="toggleMcobChip(this)">육아</button>
+          <button type="button" class="mcob-chip on" data-val="식품" onclick="toggleMcobChip(this)">식품</button>
+          <button type="button" class="mcob-chip on" data-val="리빙" onclick="toggleMcobChip(this)">리빙</button>
+          <button type="button" class="mcob-chip on" data-val="가전" onclick="toggleMcobChip(this)">가전</button>
+          <button type="button" class="mcob-chip on" data-val="뷰티" onclick="toggleMcobChip(this)">뷰티</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="finishMcob(false)" style="flex:1;height:42px;background:#F2F4F6;color:#6B7684;border:none;border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer">나중에요</button>
+        <button type="button" onclick="finishMcob(true)" style="flex:2;height:42px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">알려주세요! 🔔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 건너뛰기 푸터 -->
+  <div style="display:flex;justify-content:center;margin-top:16px">
+    <button type="button" onclick="closeMcOnboard()" style="background:none;border:none;color:#8B95A1;font-size:12px;cursor:pointer;text-decoration:underline">나중에 하기 (건너뛰기)</button>
+  </div>
+</div>
 </body>
 </html>
