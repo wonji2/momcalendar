@@ -5352,7 +5352,7 @@ function paintMemberUI(){
   el.innerHTML = isLoggedIn()
     ? '💜 <b>'+(m.nickname||'회원')+'</b>님'   // 로그아웃은 아래 푸터 링크로 (2026-11-01)
     : (_appleAvail() ? '<button onclick="openLoginSheet()" style="background:#7C54C4;color:#fff;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">로그인</button>'
-       : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>');
+       : '<button onclick="openLoginSheet()" style="background:#FEE500;color:#191919;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💛 카카오로 시작하기</button>'+(typeof nvAvail==='function'&&nvAvail()?'<div style="margin-top:6px"><button onclick="startNaverLogin()" style="background:#03C75A;color:#fff;border:none;border-radius:18px;padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">N 네이버로 시작하기</button></div>':''));
 }
 // ── 회원 탈퇴 (계정 삭제) ──────────────────────────────
 // 되돌릴 수 없는 일이라 두 번 묻고, 무엇이 지워지고 무엇이 남는지 먼저 알려준다.
@@ -5407,7 +5407,7 @@ async function _appleRevokeFlush(){
   try{ await fetch(APPLE_FN,{ method:'POST', headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}, body:JSON.stringify({ action:'flush' }), keepalive:true }); }catch(_){}
 }
 function kkoLogout(){
-  if(!confirm('로그아웃할까요?\n(찜은 이 기기에 그대로 남아요)')) return;
+  if(!confirm((typeof _isNativeApp==='function'&&_isNativeApp())?'로그아웃할까요?':'로그아웃할까요?\n(찜은 이 기기에 그대로 남아요)')) return;
   try{ localStorage.removeItem('mc_member'); }catch(_){}
   // 스스로 로그아웃한 사람에게 "로그인이 중단됐었어요" 안내가 뜨면 엉뚱하다 → 대상에서 제외
   try{
@@ -7933,6 +7933,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 <style id="mc-uifix">
 /* 2026-11-02 사장님 실기 제보 — 폰 글자 크기 설정이 웹뷰·PWA 글자에 섞여 커지던 것 / 4대 탭·토스트가 두 줄로 꺾이던 것 */
 html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}
+#pwaStrip{display:none!important}
 .content-seg .cseg{white-space:nowrap!important;font-size:12px!important;letter-spacing:-.04em!important;padding:8px 1px!important}
 #mcToastBox{white-space:nowrap!important;max-width:90%!important;pointer-events:none}
 #mcToastBox>div{overflow:hidden;text-overflow:ellipsis}
@@ -8337,5 +8338,25 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 })();
 </script>
 
+<script id="mc-tz">
+/* 2026-11-02 사장님 「인스타 인앱에서만 글씨가 커진다 · 앱·웹·인앱 다 같은 크기로」 — 웹뷰 글자 배율(textZoom)을 재서 CSS 글자 크기를 그만큼 줄여 맞춘다(박스 크기는 그대로) */
+(function(){try{
+  var ua=navigator.userAgent||'', F=window._mcTzForce;
+  if(!F && !/Instagram|FBAN|FBAV|KAKAOTALK|; wv\)/i.test(ua)) return;
+  var r=F;
+  if(!r){ var p=document.createElement('div'); p.style.cssText='position:absolute;left:-9999px;top:0;visibility:hidden;font:100px/1 sans-serif;white-space:nowrap'; p.textContent='가A'; document.body.appendChild(p); r=p.getBoundingClientRect().height/100; p.remove(); }
+  window._mcTz=r; try{ localStorage.setItem('mc_tz',String(r)); }catch(_){}
+  if(!(r>1.04||r<0.96)) return; r=Math.max(.7,Math.min(1.6,r));
+  function walk(rules){ var o=''; for(var i=0;i<rules.length;i++){ var u=rules[i];
+    if(u.type===1 && u.style && /px$/.test(u.style.fontSize||'')){ o+=u.selectorText+'{font-size:'+(parseFloat(u.style.fontSize)/r).toFixed(2)+'px'+(u.style.getPropertyPriority('font-size')?' !important':'')+'}'; }
+    else if(u.type===4 && u.cssRules){ var q=walk(u.cssRules); if(q) o+='@media '+u.conditionText+'{'+q+'}'; } } return o; }
+  var css=''; for(var s=0;s<document.styleSheets.length;s++){ try{ css+=walk(document.styleSheets[s].cssRules); }catch(_){} }
+  var st=document.createElement('style'); st.id='mc-tz-css'; st.textContent=css; document.head.appendChild(st);
+  function fix(root){ if(!root||root.nodeType!==1) return; var a=[root].concat([].slice.call(root.querySelectorAll('[style*="font-size"]')));
+    a.forEach(function(e){ var v=e.style&&e.style.fontSize; if(v&&/px$/.test(v)&&!e.getAttribute('data-tz')){ e.setAttribute('data-tz','1'); e.style.fontSize=(parseFloat(v)/r).toFixed(2)+'px'; } }); }
+  fix(document.body); var q=[],t=0;
+  new MutationObserver(function(ms){ ms.forEach(function(m){ m.addedNodes.forEach(function(n){ q.push(n); }); }); if(!t) t=requestAnimationFrame(function(){ t=0; var l=q; q=[]; l.forEach(fix); }); }).observe(document.body,{childList:true,subtree:true});
+}catch(e){} })();
+</script>
 </body>
 </html>
