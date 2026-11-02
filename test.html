@@ -975,9 +975,7 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
     </div>
     <div class="hd-right">
       <!-- 2026-11-01 사장님: 헤더 + 버튼(채널 메뉴)은 햄버거와 중복 → 제거. 우측은 공유·내 찜 2개만 -->
-      <button class="share-btn" onclick="mcShare()" aria-label="공유하기">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><line x1="8.2" y1="10.9" x2="15.8" y2="6.1"/><line x1="8.2" y1="13.1" x2="15.8" y2="17.9"/></svg>
-      </button>
+      <button class="share-btn hd-bell" id="btnNotiCenter" type="button" onclick="openNotiCenterSheet()" aria-label="알림함"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span id="notiBadge"></span></button>
       <!-- 2026-11-01 사장님: 제휴·입점 버튼은 손님에게 쓸모없는 자리 차지 → 사이드메뉴 「문의」·푸터로 내리고, 자주 쓰는 「내 찜·일정」 바로가기로 -->
       <button class="share-btn hd-mine" onclick="goCalMine()" aria-label="내 찜·일정">💜</button>
     </div>
@@ -4793,6 +4791,7 @@ function toggleWish(id, btn, ev){
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){}
     try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
       mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
+    try{ if(window.__mcAppIn && window.__mcAppIn()) mcToast('내 찜에 담았어요 💜', 2000); }catch(_){}   // 앱 로그인 손님: 바텀시트 없이 토스트만(사장님 2026-11-02)
     // 하트 한 번에 바로 시트가 뜨면 부담스러움 → 찜 2개째부터, 그것도 하루에 하나만.
     if(WISH.size >= 2){
       if(!(typeof maybeAskLogin==='function' && maybeAskLogin())) maybeAskNoti();
@@ -4871,6 +4870,7 @@ function openLoginSheet(title, sub, fine, intent){
   if(s) s.innerHTML   = sub   || KKO_DEFAULT_S;
   // 찜 권유가 아닐 땐 '찜은 계속 쓸 수 있어요' 안내가 맥락에 안 맞음
   if(f) f.textContent = (fine===undefined) ? KKO_DEFAULT_F : fine;
+  try{ if(typeof _isNativeApp==='function' && _isNativeApp() && typeof window.KKO_APP_S==='string' && s){ s.innerHTML=window.KKO_APP_S; if(f) f.textContent=''; } }catch(_){}   // 앱: 「이 기기에만」·설명 문구 모두 없앰(사장님 2026-11-02)
   // 아이폰 앱(애플 로그인도 있음): 카카오만 말하는 문구를 빼고 고를 수 있게(App Review 4.8)
   try{ if(_appleAvail()){
     if(s && /카카오/.test(s.innerHTML)) s.innerHTML = s.innerHTML.indexOf('이 기기에만')>=0 ? '지금은 <b style="color:#7C54C4">이 기기에만</b> 저장돼요<br>로그인하면 폰을 바꿔도 찜이 그대로예요' : '';
@@ -4884,6 +4884,7 @@ function openLoginSheet(title, sub, fine, intent){
       '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 3초 만에 시작</button>';
   }catch(_){}
   try{ _applePaint(); }catch(_){}
+  try{ if(typeof _nvPaint==='function') _nvPaint(); }catch(_){}   // 앱 전용 네이버 버튼(카카오 → 애플 → 네이버 순서)
   bg.style.display='block'; m.style.bottom='0';
   if(!wasOpen) lockScroll();
 }
@@ -7521,5 +7522,416 @@ body{letter-spacing:-0.02em}
 .cbar.cont,.cbar.more{border-radius:4px!important}
 .ccell.ctod .cnum{width:24px;height:24px;border-radius:50%;background:#7C54C4;color:#fff;display:inline-flex;align-items:center;justify-content:center;margin:0 auto}
 </style>
+<!-- 🔔 키워드 알림 센터 + 앱 로그인 온보딩 (2026-11-02 사장님 ORDER_KEYWORD_NOTI + 당근 실제 화면 8장) · 설계서 scratchpad/designs/2026-11-02_키워드알림센터_앱온보딩.md · 패치 scratchpad/patch_kwnoti.cjs -->
+<style id="mc-kw-css">
+/* 헤더 🔔 — 기존 .share-btn(32px 원)을 그대로 쓰고 터치 영역만 40px 로 */
+.hd-right{gap:8px!important}
+.hd-right .share-btn{position:relative}
+.hd-right .share-btn::before{content:'';position:absolute;inset:-4px}
+#notiBadge{display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#FF4545;border:1.5px solid var(--main,#7C54C4);box-sizing:border-box;pointer-events:none}
+/* 알림 시트(mcSheet 부품) — 당근 「알림 · 새 글」「키워드 알림 설정」「알림 조건 설정」「키워드 편집」 구조 */
+.ns-h{display:flex;align-items:center;justify-content:space-between;flex:none;min-height:40px}
+.ns-hr{display:flex;align-items:center}
+.ns-ico{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;padding:0}
+.ns-back{width:40px;height:40px;margin-left:-10px;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.ns-t2{flex:1;font-size:18px;font-weight:700;color:#191F28}
+.ns-done{border:0;background:none;color:#191F28;font-size:15px;font-weight:700;font-family:inherit;min-height:40px;padding:0 4px;cursor:pointer}
+.ns-tabs{display:flex;flex:none;margin:6px 0 0;border-bottom:1px solid #EDEFF1}
+.ns-tab{flex:1;height:44px;border:0;border-bottom:2px solid transparent;background:none;color:#8B95A1;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:-1px}
+.ns-tab.on{color:#191F28;border-bottom-color:#191F28}
+.ns-body{flex:1 1 auto;min-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ns-pills{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;-webkit-overflow-scrolling:touch}
+.ns-pill{flex:none;position:relative;height:36px;padding:0 16px;border-radius:100px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+.ns-pill::before{content:'';position:absolute;inset:-4px -2px}
+.ns-pill.on{background:#7C54C4;border-color:#7C54C4;color:#fff}
+.ns-strip{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;margin:10px 0 4px;padding:0 14px;border:0;border-radius:12px;background:#F6F3FA;font-family:inherit;font-size:14px;color:#191F28;cursor:pointer;text-align:left}
+.ns-strip b{font-weight:800}
+.ns-strip span{color:#7C54C4;font-weight:700}
+.ns-row{display:flex;align-items:flex-start;gap:12px;width:100%;min-height:64px;padding:14px 0;border:0;border-bottom:1px solid #F2F4F6;background:#fff;text-align:left;font-family:inherit;cursor:pointer}
+.ns-tt{flex:1;min-width:0;font-size:15px;font-weight:600;color:#191F28;line-height:1.4;word-break:keep-all}
+.ns-sub{display:block;margin-top:4px;font-size:12.5px;font-weight:500;color:#8B95A1}
+.ns-side{flex:none;display:flex;align-items:center;gap:6px;font-size:12px;color:#8B95A1;white-space:nowrap;margin-top:2px}
+.ns-new{width:7px;height:7px;border-radius:50%;background:#FF4545}
+.ns-empty{padding:56px 8px 24px;text-align:center;color:#8B95A1;font-size:14px;line-height:1.5}
+.ns-empty .mc-btn{margin-top:20px}
+.kw-head{display:flex;align-items:center;justify-content:space-between;margin:14px 0 10px}
+.kw-head b{font-size:15px;font-weight:800;color:#191F28}
+.kw-add{display:flex;align-items:center;height:48px;border:1px solid #D1D6DB;border-radius:12px;padding:0 6px 0 14px;margin-bottom:6px;box-sizing:border-box}
+.kw-add:focus-within{border-color:#7C54C4}
+.kw-add input{flex:1;min-width:0;height:44px;border:0;background:none;font-size:16px;font-family:inherit;outline:none;color:#191F28}
+.kw-add input::placeholder{font-size:13.5px;color:#9CA3AF}
+.kw-add button{height:40px;min-width:48px;padding:0 10px;background:none;border:0;color:#7C54C4;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap}
+.kw-row{display:flex;align-items:center;gap:4px;min-height:60px;border-bottom:1px solid #F2F4F6}
+.kw-nm{flex:1;min-width:0;font-size:15px;font-weight:600;color:#191F28;word-break:break-all}
+.kw-ib{flex:none;width:40px;height:40px;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ns-ck{display:flex;align-items:center;gap:14px;min-height:60px;border-bottom:1px solid #F2F4F6;cursor:pointer}
+.ns-foot{display:flex;gap:10px;flex:none;padding-top:12px}
+.ns-foot .mc-btn{flex:1 1 0;width:auto;min-width:0;margin-top:0;height:48px;font-size:15px}
+.ns-lbl{margin:20px 0 10px;font-size:15px;font-weight:800;color:#191F28}
+.ns-lbl small{font-size:13px;font-weight:500;color:#8B95A1}
+.ns-box{height:48px;display:flex;align-items:center;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;background:#F9FAFB;font-size:15px;color:#191F28;box-sizing:border-box}
+.ns-menu{position:absolute;right:20px;top:64px;z-index:3;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(25,31,40,.18);padding:6px;min-width:190px}
+.ns-menu button{display:block;width:100%;min-height:44px;border:0;background:none;text-align:left;padding:0 12px;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;color:#191F28;cursor:pointer}
+.ns-menu button:active{background:#F2F4F6}
+#nsDlgBg{position:fixed;inset:0;z-index:99998;background:rgba(25,31,40,.5);display:flex;align-items:center;justify-content:center;padding:0 28px}
+.ns-dlg{width:100%;max-width:340px;background:#fff;border-radius:20px;padding:24px 20px 16px;box-sizing:border-box}
+.ns-dlg p{margin:0 0 20px;font-size:16px;font-weight:700;line-height:1.45;color:#191F28;word-break:keep-all}
+.ns-dlg div{display:flex;gap:10px}
+.ns-dlg button{flex:1;height:48px;border:0;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:#F2F4F6;color:#4E5968}
+.ns-dlg button.go{background:#7C54C4;color:#fff}
+/* 앱 로그인 시트: 버튼이 늘어도 화면 안에 */
+#kkoSheet{max-height:92vh;overflow-y:auto}
+</style>
+<script id="mc-kw-js">
+(function(){
+'use strict';
+var KW_NOTI_ON=true;     // 🔴 한 줄 킬스위치: false 면 🔔 숨김·타이머 정지 (롤백은 이 값 또는 패치 역적용)
+var APP_ONB_ON=true;     // 앱 첫 실행 로그인 온보딩 (앱에서만 동작)
+var K_AL='mc_kw_alarms', K_HIST='mc_noti_hist', K_SEEN='mc_noti_seen', K_KS='mc_kw_seen';
+var KW_MAX=30, HIST_MAX=100, SEEN_MAX=3000;
+var COMMON=['엄마','아기','공구','핫딜','세일','할인','특가','무료','이벤트','공동구매','육아','아이','맘캘린더'];
+var MEM={}, _kwHd=null, _kwSale=null;
+var TAGS={gonggu:'공구',hotdeal:'핫딜',sale:'세일'};
+function $(id){ return document.getElementById(id); }
+function toast(m,ms){ try{ mcToast(m, ms||2200); }catch(_){} }
+function esc(s){ try{ return escHtml(s); }catch(_){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); } }
+// 저장: 쓰고 다시 읽어 확인. 실패하면 이 세션만 메모리로 동작(사생활 보호 모드·용량 초과)
+function lget(k,d){ if(k in MEM) return MEM[k]; try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(_){ return d; } }
+function lset(k,v){ MEM[k]=v; try{ var s=JSON.stringify(v); localStorage.setItem(k,s); return localStorage.getItem(k)===s; }catch(_){ return false; } }
+function norm(s){ return String(s==null?'':s).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); }
+
+// ── 키워드 목록 ──
+function alarms(){
+  var a=lget(K_AL,[]); if(!Array.isArray(a)) a=[];
+  return a.filter(function(x){ return x && typeof x.kw==='string' && x.kw; }).map(function(x){
+    if(!x.nk) x.nk=norm(x.kw);
+    if(!Array.isArray(x.types)||!x.types.length) x.types=['all'];
+    if(!x.base||typeof x.base!=='object') x.base={};
+    if(typeof x.on!=='boolean') x.on=true;
+    return x;
+  });
+}
+window.getKwAlarms=alarms;
+function onCount(){ return alarms().filter(function(a){ return a.on && a.nk.length>=2; }).length; }
+
+// ── 매칭 대상 (필드 이름: 공구 name·influencer / 핫딜 title / 세일 brand·title) ──
+function items(){
+  var g=[],h=[],s=[]; try{ loadSaved(); }catch(_){}
+  try{ if(typeof DATA!=='undefined' && Array.isArray(DATA)) DATA.forEach(function(d){ try{
+    if(!d||!d.name||isExpired(d)) return;
+    g.push({id:d.id,label:d.name,n:norm(d.name),n2:norm(d.influencer||'')});
+  }catch(_){} }); }catch(_){}
+  try{ var hd=(typeof _hotdealData!=='undefined' && _hotdealData && _hotdealData.length)?_hotdealData:_kwHd;
+    (hd||[]).forEach(function(x){ try{ if(!x||!x.title||Number(x.id)<0||hdExpired(x)) return; h.push({id:x.id,label:x.title,n:norm(x.title),n2:''}); }catch(_){} }); }catch(_){}
+  try{ var sd=(typeof _saleData!=='undefined' && _saleData && _saleData.length)?_saleData:_kwSale;
+    (sd||[]).forEach(function(e){ try{ if(!e||(e.end_date&&e.end_date<todayStr)) return; var t=(e.title||e.brand||''); if(!t) return; s.push({id:e.id,label:(e.brand&&t.indexOf(e.brand)<0?e.brand+' ':'')+t,n:norm((e.brand||'')+' '+(e.title||'')),n2:''}); }catch(_){} }); }catch(_){}
+  return {gonggu:g,hotdeal:h,sale:s};
+}
+
+// ── 데이터 받기: 키워드가 1개라도 켜져 있을 때만. 핫딜은 기존과 같은 주소(Worker 캐시).
+//    받은 목록은 줄여서(id·제목·만료 판정에 쓰는 칸만) 기기에도 저장한다 → 앱을 다시 켜도 스캔할 대상이 있고, 핫딜 1시간·세일 3시간이 지나면 다시 받는다(Codex 지적 2026-11-02)
+var K_D1='mc_kw_hd', K_D2='mc_kw_sale', _hdAt=0, _slAt=0, _hdTry=0, _slTry=0;
+function loadSaved(){
+  if(!_kwHd){ var o=lget(K_D1,null); if(o && Array.isArray(o.rows)){ _kwHd=o.rows; _hdAt=+o.t||0; } }
+  if(!_kwSale){ var q=lget(K_D2,null); if(q && Array.isArray(q.rows)){ _kwSale=q.rows; _slAt=+q.t||0; } }
+}
+function ensure(){
+  var jobs=[];
+  if(!onCount()) return Promise.resolve();
+  try{
+    loadSaved();
+    var now=Date.now(), H={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY};
+    var pageHd=(typeof _hotdealData!=='undefined' && _hotdealData && _hotdealData.length);       // 핫딜 탭을 열어 이미 받은 목록이 더 새것이다
+    if(!pageHd && (!_kwHd || now-_hdAt>3600e3) && now-_hdTry>300e3){ _hdTry=now;
+      jobs.push(fetch(SUPABASE_URL+'/rest/v1/hotdeals?select=*&or=(pin_random.is.true,expires_at.is.null,expires_at.gt.now())&order=created_at.desc&limit=500',{headers:H}).then(function(r){ return r.ok?r.json():null; }).then(function(d){
+        if(!Array.isArray(d)) return;
+        _kwHd=d.map(function(x){ return {id:x.id,title:x.title,pin_random:x.pin_random,expires_at:x.expires_at,created_at:x.created_at}; }); _hdAt=Date.now();
+        lset(K_D1,{t:_hdAt,rows:_kwHd});
+      }).catch(function(){})); }
+    var pageSl=(typeof _saleData!=='undefined' && _saleData && _saleData.length);
+    if(!pageSl && (!_kwSale || now-_slAt>3*3600e3) && now-_slTry>300e3){ _slTry=now;
+      jobs.push(fetch(SUPABASE_URL+'/rest/v1/sale_events?select=id,brand,slug,title,tag,start_date,end_date,url,aff_merchant&order=start_date.asc&limit=200',{headers:H}).then(function(r){ return r.ok?r.json():null; }).then(function(d){
+        if(!Array.isArray(d)) return;
+        _kwSale=d.map(function(e){ return {id:e.id,brand:e.brand,title:e.title,end_date:e.end_date}; }); _slAt=Date.now();
+        lset(K_D2,{t:_slAt,rows:_kwSale});
+      }).catch(function(){})); }
+  }catch(_){}
+  return Promise.all(jobs);
+}
+
+// ── 스캔: 키워드×종류의 첫 스캔은 조용히 「본 것」으로만 표시(등록하자마자 쏟아지는 것 방지), 이후 새로 생긴 것만 알림 ──
+function scan(){
+  if(!KW_NOTI_ON) return;
+  var al=alarms(); if(!al.some(function(a){ return a.on && a.nk.length>=2; })) { badge(); return; }
+  var it=items(), seen=lget(K_KS,[]); if(!Array.isArray(seen)) seen=[];
+  var set={}; seen.forEach(function(k){ set[k]=1; });
+  var add=[], fresh=[], dirty=false;
+  al.forEach(function(a){
+    if(!a.on || a.nk.length<2) return;
+    ['gonggu','hotdeal','sale'].forEach(function(t){
+      var arr=it[t]; if(!arr.length) return;
+      var silent=!a.base[t]; if(silent){ a.base[t]=1; dirty=true; }
+      arr.forEach(function(x){
+        var hit=x.n.indexOf(a.nk)>=0 || (t==='gonggu' && a.nk.length>=3 && x.n2 && x.n2.indexOf(a.nk)>=0);
+        if(!hit) return;
+        var k1=a.nk+'|'+t+'|'+x.id, k2=a.nk+'|'+t+'|t:'+x.n.slice(0,40);
+        if(set[k1]||set[k2]){ if(!set[k1]){ set[k1]=1; add.push(k1); } return; }
+        set[k1]=1; set[k2]=1; add.push(k1,k2);
+        if(silent) return;
+        if(a.types.indexOf('all')<0 && a.types.indexOf(t)<0) return;
+        fresh.push({k:k1,t:t,kw:a.kw,title:x.label,time:Date.now(),id:x.id});
+      });
+    });
+  });
+  if(!dirty && !add.length){ badge(); return; }
+  var ns=seen.concat(add); if(ns.length>SEEN_MAX) ns=ns.slice(-SEEN_MAX);
+  if(!lset(K_KS,ns)) return;          // 저장이 안 되면 알림도 만들지 않는다(실행할 때마다 되풀이되는 것 방지)
+  lset(K_AL,al);
+  if(fresh.length){ var hist=lget(K_HIST,[]); if(!Array.isArray(hist)) hist=[]; lset(K_HIST,fresh.concat(hist).slice(0,HIST_MAX)); try{ trackEvent('kw_noti_new', String(fresh.length)); }catch(_){} }
+  badge();
+}
+function unread(){ var seenTs=+lget(K_SEEN,0)||0, h=lget(K_HIST,[]); return Array.isArray(h)?h.filter(function(x){ return x&&x.time>seenTs; }).length:0; }
+function badge(){ var b=$('notiBadge'); if(b) b.style.display=(KW_NOTI_ON&&unread()>0)?'block':'none'; }
+
+// ── 시트 ──
+var IC_SLIDER='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#4E5968" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="7" r="2.6"/><path d="M3 7h3M11.1 7H21"/><circle cx="15.5" cy="17" r="2.6"/><path d="M3 17h10M18.1 17H21"/></svg>';
+var IC_TRASH='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#4E5968" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>';
+var IC_BACK='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#191F28" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>';
+var VIEW='inbox', CUR=0, FILTER='all', EDIT={};
+function ago(t){ var s=Math.max(0,(Date.now()-t)/1000); if(s<60) return '방금'; if(s<3600) return Math.floor(s/60)+'분 전'; if(s<86400) return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전'; }
+function sheet(){ return $('notiCenterSheet'); }
+function body(){ return $('nsBody'); }
+function setRoot(head, foot){ var h=$('nsHead'), f=$('nsFoot'); if(h) h.innerHTML=head; if(f) f.innerHTML=foot||''; }
+function mainHead(tab){
+  return '<div class="ns-h"><b class="mc-t">🔔 알림</b><span class="ns-hr"><button class="mc-tbtn ns-ico" id="nsGear" type="button" aria-label="알림 설정" onclick="nsMenu()">⚙️</button><button class="mc-tbtn ns-ico" type="button" aria-label="닫기" onclick="nsClose()">✕</button></span></div>'
+   +'<div class="ns-tabs"><button class="ns-tab'+(tab==='inbox'?' on':'')+'" type="button" onclick="kwTab(\'inbox\')">받은 알림</button><button class="ns-tab'+(tab==='kw'?' on':'')+'" type="button" onclick="kwTab(\'kw\')">키워드 관리</button></div>';
+}
+function subHead(title, right){
+  return '<div class="ns-h"><button class="ns-back" type="button" aria-label="뒤로" onclick="kwTab(\'kw\')">'+IC_BACK+'</button><b class="ns-t2">'+title+'</b>'+(right||'')+'</div>';
+}
+function nsMenuOff(){ var m=$('nsMenu'); if(m) m.remove(); }
+window.nsClose=function(){ nsMenuOff(); var el=sheet(); if(el) el.classList.remove('open'); };
+window.nsMenu=function(){
+  if($('nsMenu')){ nsMenuOff(); return; }
+  var pnl=document.querySelector('#notiCenterSheet .mc-pnl'); if(!pnl) return;
+  pnl.style.position='relative';
+  var m=document.createElement('div'); m.id='nsMenu'; m.className='ns-menu';
+  m.innerHTML='<button type="button" onclick="kwTab(\'kw\')">알림 설정</button><button type="button" onclick="nsAskClear()">모든 알림 삭제하기</button>';
+  pnl.appendChild(m);
+};
+function dlg(msg, goLabel, onGo){
+  var old=$('nsDlgBg'); if(old) old.remove();
+  var bg=document.createElement('div'); bg.id='nsDlgBg';
+  bg.innerHTML='<div class="ns-dlg" role="alertdialog"><p></p><div><button type="button" data-a="no">취소</button><button type="button" class="go" data-a="go">'+goLabel+'</button></div></div>';
+  bg.querySelector('p').textContent=msg;
+  bg.onclick=function(e){ if(e.target===bg) bg.remove(); };
+  bg.querySelector('[data-a="no"]').onclick=function(){ bg.remove(); };
+  bg.querySelector('[data-a="go"]').onclick=function(){ bg.remove(); onGo(); };
+  document.body.appendChild(bg);
+}
+window.nsAskClear=function(){ nsMenuOff(); dlg('받은 알림을 모두 삭제할까요?','삭제',function(){ lset(K_HIST,[]); badge(); renderInbox(); }); };
+
+function renderInbox(){
+  VIEW='inbox'; setRoot(mainHead('inbox'));
+  var b=body(); if(!b) return;
+  var hist=lget(K_HIST,[]); if(!Array.isArray(hist)) hist=[];
+  var seenTs=+lget(K_SEEN,0)||0, n=onCount();
+  var pills=['all','gonggu','hotdeal','sale'].map(function(t){ return '<button class="ns-pill'+(FILTER===t?' on':'')+'" type="button" onclick="nsFilter(\''+t+'\')">'+(t==='all'?'전체':TAGS[t])+'</button>'; }).join('');
+  var h='<div class="ns-pills">'+pills+'</div><button class="ns-strip" type="button" onclick="kwTab(\'kw\')"><b>알림 받는 키워드 '+n+'개</b><span>🔔 설정</span></button>';
+  var rows=hist.map(function(x,i){ return {x:x,i:i}; }).filter(function(r){ return FILTER==='all' || r.x.t===FILTER; });
+  if(!rows.length){
+    h+='<div class="ns-empty">받은 알림이 없어요.<br>관심 키워드를 등록하면 알림을 보내드려요!<button class="mc-btn" type="button" onclick="kwTab(\'kw\')">+ 키워드 등록하러 가기</button></div>';
+  }else{
+    h+=rows.map(function(r){ var x=r.x;
+      return '<button class="ns-row" type="button" onclick="kwGo('+r.i+')"><span class="ns-tt">'+esc(x.title)+'<span class="ns-sub">'+esc(TAGS[x.t]||'')+' · '+esc(x.kw)+'</span></span><span class="ns-side">'+ago(x.time)+(x.time>seenTs?'<i class="ns-new"></i>':'')+'</span></button>';
+    }).join('');
+  }
+  b.innerHTML=h;
+  lset(K_SEEN,Date.now()); badge();
+}
+function renderKw(){
+  VIEW='kw'; setRoot(mainHead('kw'));
+  var b=body(); if(!b) return;
+  var al=alarms();
+  var h='<div class="kw-head"><b>알림 받는 키워드 ('+al.length+'/'+KW_MAX+')</b>'+(al.length?'<button class="mc-tbtn" type="button" onclick="kwEdit()">편집</button>':'')+'</div>'
+   +'<div class="kw-add"><input id="kwInput" type="text" maxlength="40" placeholder="알림 받을 키워드 (예: 기저귀, 분유, 비판텐)" autocomplete="off" enterkeyhint="done"><button type="button" onclick="addKeywordAlarm()">등록</button></div>';
+  h+=al.map(function(a,i){
+    var cat=a.types.indexOf('all')<0?'<span class="ns-sub">카테고리 설정됨</span>':'';
+    return '<div class="kw-row"><span class="kw-nm">'+esc(a.kw)+cat+'</span><button class="kw-ib" type="button" aria-label="조건 설정" onclick="kwCond('+i+')">'+IC_SLIDER+'</button><button class="kw-ib" type="button" aria-label="삭제" onclick="kwAskDel('+i+')">'+IC_TRASH+'</button></div>';
+  }).join('');
+  b.innerHTML=h;
+  var inp=$('kwInput'); if(inp) inp.onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); addKeywordAlarm(); } };
+}
+function renderCond(){
+  VIEW='cond'; var a=alarms()[CUR]; if(!a){ renderKw(); return; }
+  setRoot(subHead('알림 조건 설정','<button class="ns-done" type="button" onclick="kwTab(\'kw\')">완료</button>'));
+  var all=a.types.indexOf('all')>=0;
+  function p(t,l){ var on=(t==='all')?all:(!all&&a.types.indexOf(t)>=0); return '<button class="ns-pill'+(on?' on':'')+'" type="button" onclick="toggleKwType('+CUR+',\''+t+'\')">'+l+'</button>'; }
+  body().innerHTML='<div class="ns-lbl">키워드</div><div class="ns-box">'+esc(a.kw)+'</div><div class="ns-lbl">카테고리 <small>(여러개 선택 가능)</small></div><div class="ns-pills" style="padding-top:0">'+p('all','전체')+p('gonggu','공구')+p('hotdeal','핫딜')+p('sale','세일')+'</div>';
+}
+function renderEdit(){
+  VIEW='edit'; var al=alarms();
+  setRoot(subHead('키워드 편집',''),
+    '<div class="ns-foot"><button class="mc-btn sub" type="button" onclick="kwEditAll()">전체 선택</button><button class="mc-btn" id="nsDelBtn" type="button" onclick="kwBulkDel()">삭제하기</button></div>');
+  body().innerHTML=al.map(function(a,i){ return '<label class="ns-ck mc-ck"><input type="checkbox" data-i="'+i+'"'+(EDIT[i]?' checked':'')+' onchange="kwEditPick('+i+',this.checked)"><i></i><span class="kw-nm">'+esc(a.kw)+'</span></label>'; }).join('');
+  editUpd();
+}
+function editUpd(){ var n=Object.keys(EDIT).filter(function(k){ return EDIT[k]; }).length, b=$('nsDelBtn'); if(b){ b.disabled=!n; b.textContent=n?'삭제하기 ('+n+')':'삭제하기'; } }
+window.kwTab=function(t){ nsMenuOff(); if(t==='kw') renderKw(); else renderInbox(); };
+window.nsFilter=function(t){ FILTER=t; renderInbox(); };
+window.kwCond=function(i){ CUR=i; renderCond(); };
+window.kwEdit=function(){ EDIT={}; renderEdit(); };
+window.kwEditPick=function(i,on){ EDIT[i]=!!on; editUpd(); };
+window.kwEditAll=function(){ var al=alarms(); var allOn=al.every(function(_,i){ return EDIT[i]; }); EDIT={}; if(!allOn) al.forEach(function(_,i){ EDIT[i]=true; }); renderEdit(); };
+window.kwBulkDel=function(){
+  var idx=Object.keys(EDIT).filter(function(k){ return EDIT[k]; }).map(Number); if(!idx.length) return;
+  dlg(idx.length+'개 키워드 알림을 삭제할까요?','삭제',function(){ var al=alarms().filter(function(_,i){ return idx.indexOf(i)<0; }); lset(K_AL,al); EDIT={}; try{ trackEvent('kw_del', String(idx.length)); }catch(_){} renderKw(); });
+};
+window.kwAskDel=function(i){ var a=alarms()[i]; if(!a) return; dlg("'"+a.kw+"' 키워드 알림을 삭제할까요?",'삭제',function(){ removeKeywordAlarm(i); }); };
+window.openNotiCenterSheet=function(tab){
+  if(!KW_NOTI_ON) return;
+  try{ scan(); }catch(_){}
+  FILTER='all'; EDIT={};
+  mcSheet('notiCenterSheet','<div id="nsHead"></div><div class="ns-body" id="nsBody"></div><div id="nsFoot"></div>');
+  kwTab(tab==='kw'?'kw':'inbox');
+  try{ trackEvent('noti_open', tab==='kw'?'kw':'inbox'); }catch(_){}
+  ensure().then(function(){ try{ scan(); var s=sheet(); if(s && s.classList.contains('open') && VIEW==='inbox') renderInbox(); }catch(_){} });
+};
+window.kwGo=function(i){
+  var hist=lget(K_HIST,[]); var h=Array.isArray(hist)?hist[i]:null; if(!h) return;
+  nsClose();
+  try{
+    if(h.t==='gonggu'){ switchContent('gonggu'); if(typeof runSearch==='function') runSearch(h.title); }
+    else if(h.t==='hotdeal'){ switchContent('hotdeal'); window.scrollTo(0,0); }
+    else { switchContent('sale'); window.scrollTo(0,0); }
+    trackEvent('noti_go', h.t);
+  }catch(_){}
+};
+window.addKeywordAlarm=function(){
+  var inp=$('kwInput'); if(!inp) return;
+  var parts=String(inp.value||'').split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+  if(!parts.length){ toast('키워드를 입력해 주세요'); return; }
+  var al=alarms(), added=0, msg='';
+  for(var j=0;j<parts.length;j++){
+    var raw=parts[j].slice(0,20), nk=norm(raw);
+    if(nk.length<2){ msg='2글자 이상 입력해 주세요'; continue; }
+    if(COMMON.indexOf(nk)>=0){ msg='너무 흔한 말이에요'; continue; }
+    if(al.some(function(a){ return a.nk===nk; })){ msg='이미 등록했어요'; continue; }
+    if(al.length>=KW_MAX){ msg='키워드는 '+KW_MAX+'개까지 등록할 수 있어요'; break; }
+    al.push({kw:raw,nk:nk,types:['all'],on:true,created_at:Date.now(),base:{}}); added++;
+  }
+  if(!added){ toast(msg||'키워드를 입력해 주세요'); return; }
+  if(!lset(K_AL,al)) toast('저장하지 못했어요'); else toast('키워드를 등록했어요');
+  inp.value=''; renderKw();
+  try{ trackEvent('kw_add', String(added)); }catch(_){}
+  ensure().then(function(){ try{ scan(); }catch(_){} });
+};
+window.removeKeywordAlarm=function(i){
+  var al=alarms(); if(!al[i]) return; al.splice(i,1); lset(K_AL,al);
+  if(VIEW==='kw') renderKw();
+  try{ trackEvent('kw_del','1'); }catch(_){}
+};
+window.toggleKwType=function(i,t){
+  var al=alarms(), a=al[i]; if(!a) return;
+  var ty=a.types.slice();
+  if(t==='all') ty=['all'];
+  else if(ty.indexOf('all')>=0) ty=[t];
+  else{
+    var p=ty.indexOf(t);
+    if(p>=0){ if(ty.length===1){ toast('알림받을 항목을 최소 1개 선택해 주세요'); return; } ty.splice(p,1); }
+    else ty.push(t);
+    if(ty.length>=3) ty=['all'];
+  }
+  a.types=ty; lset(K_AL,al); if(VIEW==='cond') renderCond(); else renderKw();
+};
+
+// ── 앱 첫 실행 로그인 온보딩 + 네이버 로그인 (앱에서만) ──
+window.KKO_APP_S='';   // 앱: 설명 문장 없음(사장님 2026-11-02 「쓸모없는 문구 다 빼」)
+function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp(); }catch(_){ return false; } }
+window.__mcAppIn=function(){ try{ return isApp() && isLoggedIn(); }catch(_){ return false; } };
+// 네이버 버튼: 안드로이드 앱만(앱 안에서 열리게 LinkRouter 가 이미 허용). 아이폰은 allowNavigation 에 nid.naver.com 을 넣은 앱을 다시 빌드한 뒤 'ios' 를 더한다
+function nvAvail(){ try{ return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
+var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';
+var NV_CLIENT_ID='b7KajUAIzrC4cfBxr6zO';   // OAuth client_id 는 공개값(시크릿은 서버 naver-auth 에만)
+var NV_BTN='<button data-nv-main type="button" onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px"><span style="font-size:17px">💚</span> 네이버로 시작하기</button>';
+window._nvPaint=function(){
+  var bx=$('kkoBtns'); if(!bx) return;
+  var have=bx.querySelector('[data-nv-main]');
+  if(!nvAvail()){ if(have) have.remove(); return; }
+  if(have) return;
+  var t=document.createElement('div'); t.innerHTML=NV_BTN; bx.appendChild(t.firstChild);   // 순서: 카카오 → 애플(아이폰) → 네이버
+};
+window.startNaverLogin=function(){
+  try{ localStorage.setItem('mc_login_from', location.pathname+location.search); localStorage.setItem('mc_login_intent', window.__loginIntent||''); localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname, v:'naver'})); }catch(_){}
+  try{ trackEvent('naver_login_start', isApp()?'app':'web'); }catch(_){}
+  var st='nv_'+_kkoRand(16);   // 네이버 보안 권장: 추측 못 하는 state — 돌아온 값과 대조(로그인 CSRF 방지)
+  try{ localStorage.setItem('mc_nv_state', JSON.stringify({s:st,at:Date.now()})); }catch(_){ toast('로그인을 시작하지 못했어요'); return; }
+  location.href='https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id='+encodeURIComponent(NV_CLIENT_ID)+'&redirect_uri='+encodeURIComponent(kkoRedirect())+'&state='+encodeURIComponent(st);
+};
+// 네이버에서 돌아왔을 때(?code&state=nv_…) — 카카오 처리 코드는 nv_ 를 만나면 return 하므로 여기서 따로 받는다
+(function(){ try{
+  var p=new URLSearchParams(location.search), st=p.get('state')||'';
+  if(st.indexOf('nv_')!==0) return;
+  var code=p.get('code'), want=null;
+  try{ want=JSON.parse(localStorage.getItem('mc_nv_state')||'null'); localStorage.removeItem('mc_nv_state'); }catch(_){}
+  try{ history.replaceState({},'',location.pathname); }catch(_){}   // 인가코드는 한 번만 쓸 수 있다 — 요청 전에 주소에서 지운다
+  try{ localStorage.removeItem('mc_login_try'); }catch(_){}
+  if(!code){ try{ trackEvent('naver_login_cancel', String(p.get('error')||'').slice(0,30)); }catch(_){} toast('로그인을 취소했어요'); return; }
+  if(!want || want.s!==st || Date.now()-want.at>20*60e3){ try{ trackEvent('naver_login_fail', want?'state_mismatch':'state_none'); }catch(_){} toast('로그인을 다시 시도해 주세요'); return; }
+  fetch(NV_FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
+    body:JSON.stringify({code:code,state:st,redirect_uri:kkoRedirect(),device_id:(typeof deviceId==='function'?deviceId():null)})})
+  .then(function(r){ return r.json().catch(function(){ return null; }); })
+  .then(function(d){
+    if(d && d.ok && d.token){
+      try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:'naver'})); }catch(_){}
+      try{ localStorage.removeItem('mc_login_fail'); localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}
+      try{ if(typeof reloginStripHide==='function') reloginStripHide(); }catch(_){}
+      try{ trackEvent('naver_login_done',''); }catch(_){}
+      try{ if(typeof paintMemberUI==='function') paintMemberUI(); }catch(_){}
+      try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){}
+      var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
+      try{ history.replaceState({},'', back||location.pathname); }catch(_){}
+      toast('💜 '+(d.nickname||'회원')+'님, 반가워요!');
+      var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
+      if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
+      else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+    }else{ try{ trackEvent('naver_login_fail', 'server_'+String((d&&d.error)||'none').slice(0,30)); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); }
+  }).catch(function(){ try{ trackEvent('naver_login_fail','net'); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); });
+}catch(e){} })();
+function busySheet(){
+  try{
+    var k=$('kkoSheet'); if(k && (k.style.bottom==='0px'||k.style.bottom==='0')) return true;
+    if(document.querySelector('.mc-sheet.open')) return true;
+    var a=$('appPerm'); if(a && a.classList.contains('open')) return true;
+  }catch(_){}
+  return false;
+}
+function onbTry(){
+  try{
+    if(!APP_ONB_ON || !isApp() || isLoggedIn()) return;
+    if(localStorage.getItem('mc_app_onb')==='1') return;                    // 시험(e2e)·이미 마친 기기
+    var n=+localStorage.getItem('mc_app_onb_n')||0; if(n>=2) return;        // 닫아도 최대 2번까지만(둘러보기를 막지 않는다)
+    if(busySheet()) return;                                                 // 다른 시트가 떠 있으면 이번엔 건너뜀(횟수에 안 넣음)
+    localStorage.setItem('mc_app_onb_n', String(n+1));
+    try{ markSheetShown(); }catch(_){}
+    openLoginSheet('맘캘린더 시작하기', '', '', 'onb');
+    try{ trackEvent('app_onb_show', String(n+1)); }catch(_){}
+  }catch(_){}
+}
+
+// ── 시작 ──
+function boot(){
+  if(!KW_NOTI_ON){ var b=$('btnNotiCenter'); if(b) b.style.display='none'; return; }
+  badge();
+  setTimeout(function(){ ensure().then(function(){ try{ scan(); }catch(_){} }); }, 5000);
+  setTimeout(function(){ try{ scan(); }catch(_){} }, 20000);     // 공구 목록이 느리게 온 경우
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden){ try{ scan(); }catch(_){} } });
+  document.addEventListener('click', function(e){ var m=$('nsMenu'); if(m && !m.contains(e.target) && e.target.id!=='nsGear') m.remove(); });
+  if(APP_ONB_ON) setTimeout(onbTry, 2000);
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
 </body>
 </html>
