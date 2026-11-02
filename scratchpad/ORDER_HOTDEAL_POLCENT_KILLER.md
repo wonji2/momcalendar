@@ -24,7 +24,11 @@
    - 사장님 말씀: *"평균가 검은선은 안보여 그리고 30일 단위로 가격 얼마였는지 터치하면 폴센트는 보이던데"*, *"주식투자그래프처럼 매일매일 좌라락 터치 스크롤하면 금액 쭉 뜨면 좋고"*
    - 1) 차트에 **평균가 검은 점선 가이드**(`stroke="#4E5968" stroke-dasharray="3 3"`) 확실히 표시 + 하단 3단 스펙에 `▲ 최고가(녹색선) / - 평균가(검은선) / ▼ 최저가(빨간선)` 범례 일체화.
    - 2) 토스/업비트 주식 차트처럼 손가락으로 차트를 좌우로 스윽 드래그하면 세로 보라색 커서선과 점이 따라다니고, 상단 바에 `📅 10월 25일 13,400원 (평균 대비 저렴)`이 실시간으로 좌라락 뜨며 SVG 말풍선 툴팁 표시.
-7. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
+7. **[특명 7] 차트 기간 최대 6개월 캡 (DB 용량 방어) & 구매 버튼 텍스트/화살표 정중앙 정렬**:
+   - 사장님 말씀: *"1 3 6개월 이렇게해줘... 1년까지 정보저장하면 슈퍼베이스 넘치는거아냐? 폴센트도 3개월만 저장하는 이유가 있을텐데 최대 6개월로 할까"*, *"11번가에서 구매하러가기 이거 위아래 정렬 안맞자나"*
+   - 1) 기간 탭: `[1개월] [2개월] [3개월] [6개월]` (수파베이스 무료 500MB DB 용량 절약 및 초고속 쿼리 유지를 위해 1년 폐기, 최대 6개월 캡).
+   - 2) 구매 버튼 수직 정렬: 유니코드 `➔` 버그를 제거하고 단일 SVG 화살표 장착 + `display: inline-flex; align-items: center; line-height: 1;`로 상하좌우 픽셀 단위 완전 정중앙 정렬.
+8. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
 
 ---
 
@@ -346,4 +350,52 @@ body[data-ct="community"] #subZone {
   font-size: 12px !important;
 }
 .stat-item.avg .val { color: #4E5968 !important; }
+
+/* 🛒 바텀시트 하단 바 정중앙 정렬 */
+.sheet-bottom-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 10px !important;
+  padding-top: 2px !important;
+}
+.bottom-diff-box {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-width: 68px !important;
+}
+.diff-lbl { font-size: 10.5px !important; color: #8B95A1 !important; line-height: 14px !important; }
+.diff-val { font-size: 14px !important; font-weight: 800 !important; color: #FF4742 !important; line-height: 18px !important; letter-spacing: -0.3px !important; }
+
+.btn-buy-link {
+  flex: 1 !important;
+  height: 46px !important;
+  background: #7C54C4 !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  padding: 0 16px !important;
+  box-shadow: 0 3px 10px rgba(124, 84, 196, 0.22) !important;
+  line-height: 1 !important;
+}
+.btn-buy-link .btn-text {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 1 !important;
+}
+.btn-buy-link .btn-arrow-svg {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+}
 ```
