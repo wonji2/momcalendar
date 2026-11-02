@@ -2979,6 +2979,7 @@ const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:[
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
   _ctPrev=ct;
+  try{ document.body.dataset.ct=ct; if(ct!=='gonggu') window.scrollTo(0,0); }catch(_){}   // 공구 외 탭(핫딜·세일·커뮤니티)에서는 위쪽 공구 배너를 숨기고 맨 위로(사장님 2026-11-02, ORDER_HOTDEAL_POLCENT_KILLER 특명 1과 같은 data-ct 방식)
   try{ document.querySelectorAll('#appBottomNav .bni').forEach(function(b){ b.classList.toggle('on', b.dataset.ct===ct); }); }catch(_){}   // 하단 탭바(앱 전용) 표시 동기화
   const seg=document.getElementById('contentSeg');
   seg.style.background=CT_COLOR[ct][0];
@@ -8060,6 +8061,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 (function(){
 'use strict';
 var BOT_ON=true;   // 🔴 한 줄 킬스위치: false 면 맘캘봇 시트가 안 열리고 인기 특가 줄도 안 그린다
+var BOT_V2=/(^|\/)test(-app)?\.html$/.test(location.pathname);   // 새 인앱 맘캘봇은 테스트 페이지에서만 — 실제 웹·앱은 카톡 채널로(사장님 2026-11-02)
 var ESS=['기저귀','분유','생수','물티슈','세제','휴지','화장지','샴푸','칫솔','치약','섬유유연제','세탁세제','액체세제','손소독','계란','쌀가루'];   // 생활필수품(통째 낱말만 — 「마스크팩」「세탁기」에 안 걸리게)
 var TRIG=/(알림(?!장)|알려\s*줘|알려\s*주|알려\s*줄|알람|뜨면|나오면|올라오면)/;
 var TRIG_G=/(알림(?!장)|알려\s*줘\S*|알려\s*주\S*|알려\s*줄\S*|알람|뜨면|나오면|올라오면|해\s*줘|해\s*주세요|해\s*줄래|등록\S*)/g;
@@ -8159,12 +8161,32 @@ function act(label,fn){   // 봇 말풍선 아래 빠른 답 단추
   var b=document.createElement('button'); b.type='button'; b.className='mcb-act'; b.textContent=label; b.onclick=fn; col.appendChild(b); bottom();
 }
 // 카드 묶음: [{title, items:[{t,id,title,meta}], all:'전체 일정 보기', fn}]
+// 사진·상품명·가격이 있는 목록 한 줄 (텍스트는 textContent 로만 — 상품명에 들어 있을 수 있는 꺾쇠가 코드로 읽히지 않게)
+function richRow(x,key){
+  var b=document.createElement('button'); b.type='button'; b.className='mcb-hr'; b.setAttribute('onclick',"mcbGo('"+key+"')");
+  var ph=document.createElement('span'); ph.className='mcb-hr-ph';
+  if(x.img){ var im=document.createElement('img'); im.src=x.img; im.alt=''; im.loading='lazy'; im.decoding='async'; im.referrerPolicy='no-referrer'; im.onerror=function(){ im.remove(); }; ph.appendChild(im); }
+  b.appendChild(ph);
+  var tx=document.createElement('span'); tx.className='mcb-hr-tx';
+  var t=document.createElement('b'); t.className='mcb-hr-t'; t.textContent=x.title; tx.appendChild(t);
+  var pr=document.createElement('span'); pr.className='mcb-hr-p';
+  if(x.rate){ var d=document.createElement('em'); d.textContent='▼ '+x.rate+'%'; pr.appendChild(d); }
+  var pv=document.createElement('strong'); pv.textContent=x.price||''; pr.appendChild(pv);
+  tx.appendChild(pr);
+  var mt=document.createElement('span'); mt.className='mcb-hr-m';
+  if(x.low){ var lw=document.createElement('i'); lw.textContent='역대최저'; mt.appendChild(lw); }
+  if(x.mall){ var ml=document.createElement('span'); ml.textContent=x.mall; mt.appendChild(ml); }
+  if(mt.childNodes.length) tx.appendChild(mt);
+  b.appendChild(tx); return b;
+}
 function carousel(cards){
   var car=document.createElement('div'); car.className='mcb-car';
   cards.forEach(function(c){
     var d=document.createElement('div'); d.className='mcb-cd';
     var h=document.createElement('h4'); h.textContent=c.title; d.appendChild(h);
+    if(c.rich) d.classList.add('mcb-wide');
     c.items.forEach(function(x){ var key='c'+Math.random().toString(36).slice(2,8); CARDS[key]=x;
+      if(c.rich){ d.appendChild(richRow(x,key)); return; }
       var b=document.createElement('button'); b.type='button'; b.className='mcb-it'; b.setAttribute('onclick',"mcbGo('"+key+"')");
       var t=document.createElement('b'); t.textContent=x.title; var s=document.createElement('small'); s.textContent=x.meta||''; b.appendChild(t); if(x.meta) b.appendChild(s); d.appendChild(b); });
     if(c.all){ var a=document.createElement('button'); a.type='button'; a.className='mcb-all'; a.textContent=c.all; a.onclick=c.fn; d.appendChild(a); }
@@ -8178,7 +8200,7 @@ function ggCard(d){
   var meta=seller+(d.openDate>today?md(d.openDate)+' 오픈':md(d.openDate)+(d.endDate?'~'+md(d.endDate):' 진행 중'));
   return {t:'g',id:d.id,title:d.name,meta:meta};
 }
-function hdCard(h){ var mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':''); return {t:'h',id:h.id,title:h.title,meta:(h.price?won(h.price):'')+(h.is_lowest?' · 최저':'')+(mall?' · '+mall:'')}; }
+function hdCard(h){ var mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':''); var img=h.img_url?(typeof mcApiSrc==='function'?mcApiSrc(h.img_url):h.img_url):''; return {t:'h',id:h.id,title:h.title,meta:(h.price?won(h.price):'')+(h.is_lowest?' · 최저':'')+(mall?' · '+mall:''),img:img,price:h.price?won(h.price):'',mall:mall,low:!!h.is_lowest,rate:(h.discount_rate&&h.discount_rate>0&&h.discount_rate<=65)?h.discount_rate:0}; }
 window.mcbGo=function(key){
   var x=CARDS[key]; if(!x) return;
   closeMomcalBot();
@@ -8200,6 +8222,7 @@ function goTab(tab,q){ closeMomcalBot(); try{ switchContent(tab); if(q&&typeof r
 // ── 시트 ──
 window.openMomcalBot=function(){
   if(!BOT_ON) return;
+  if(!BOT_V2){ try{ trackEvent('mcbot_friend',''); }catch(_){} try{ openLink('https://pf.kakao.com/_zGfxnX/friend'); }catch(_){ location.href='https://pf.kakao.com/_zGfxnX/friend'; } return; }   // 실제 웹·앱: 카톡 채널 친구 추가 후 상담
   WHO='';
   mcSheet('mcbSheet',
     '<div class="mcb-h"><b>💜 맘캘봇</b><button class="mc-tbtn mcb-x" type="button" aria-label="닫기" onclick="closeMomcalBot()">✕</button></div>'
@@ -8230,9 +8253,9 @@ window.mcbQuick=async function(k){
     say('🛒 최저가 핫딜','me');
     var hd=(await hdItems()).filter(function(h){ return h.price; });
     hd.sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
-    var p=hd.slice(0,3);
+    var p=hd.slice(0,8);
     if(!p.length){ say('지금은 보여드릴 핫딜이 없네요 🥺'); return; }
-    carousel([{title:'최저가 핫딜',items:p.map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }}]);
+    carousel([{title:'최저가 핫딜 '+p.length+'개',rich:true,items:p.map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }}]);
   }
 };
 function registered(r,kw,dropped){
@@ -8585,5 +8608,73 @@ function appNavGo(ct){
   setTimeout(sync,5000); setInterval(sync,20000);
 }catch(e){} })();
 </script>
+<style id="mc-fix1102">
+/* ① 상단 앱 띠 스토어 단추 — 글자를 알약 가운데로(영문이 2~3px 아래로 앉던 것). 두 단추 높이도 같게 */
+.app-bn-go{display:inline-flex!important;align-items:center;justify-content:center;line-height:1!important;padding:0 9px 1px!important;box-sizing:border-box}
+/* ③ 핫딜·세일·커뮤니티 탭: 위쪽 공구 배너 전부 숨김(공구 탭에서만 보임) */
+body[data-ct="hotdeal"] .main-banner-section,body[data-ct="hotdeal"] #nextZone,body[data-ct="hotdeal"] #sellerZone,body[data-ct="hotdeal"] #subZone,body[data-ct="hotdeal"] #slimAdSlot,
+body[data-ct="sale"] .main-banner-section,body[data-ct="sale"] #nextZone,body[data-ct="sale"] #sellerZone,body[data-ct="sale"] #subZone,body[data-ct="sale"] #slimAdSlot,
+body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZone,body[data-ct="community"] #sellerZone,body[data-ct="community"] #subZone,body[data-ct="community"] #slimAdSlot{display:none!important}
+/* ② 맘캘봇: 전체 화면(보이는 높이 = 키보드를 뺀 높이) */
+#mcbSheet{align-items:stretch;background:#fff}
+#mcbSheet .mc-pnl{height:var(--mcb-h,100dvh);margin-top:var(--mcb-t,0px);max-height:none!important;border-radius:0!important;padding:calc(8px + env(safe-area-inset-top,0px)) 16px calc(12px + env(safe-area-inset-bottom,0px));transform:none!important}
+#mcbSheet .mcb-msgs{max-height:none;min-height:0;flex:1 1 auto;margin-top:6px}
+@media(min-width:481px){#mcbSheet{background:rgba(25,31,40,.45)}}
+</style>
+<script id="mc-fix1102-js">
+// ② 맘캘봇이 열려 있는 동안: 뒤 화면 스크롤 잠금 + 보이는 높이에 맞추기. 닫히면(버튼·뒤로가기 어느 쪽이든) 원래 위치로
+(function(){
+  var _open=window.openMomcalBot; if(typeof _open!=='function') return;
+  var st=null;
+  function fit(){
+    var sh=document.getElementById('mcbSheet'); if(!sh) return;
+    var vv=window.visualViewport, h=vv?vv.height:window.innerHeight, t=vv?vv.offsetTop:0;
+    sh.style.setProperty('--mcb-h',Math.round(h)+'px'); sh.style.setProperty('--mcb-t',Math.round(t)+'px');
+    var m=document.getElementById('mcbMessages'); if(m) m.scrollTop=m.scrollHeight;
+  }
+  function lock(){
+    if(st || !document.getElementById('mcbSheet')) return; var b=document.body, y=window.pageYOffset;
+    st={y:y,pos:b.style.position,top:b.style.top,w:b.style.width,l:b.style.left,r:b.style.right};
+    b.style.position='fixed'; b.style.top=(-y)+'px'; b.style.left='0'; b.style.right='0'; b.style.width='100%';
+    if(window.visualViewport){ window.visualViewport.addEventListener('resize',fit); window.visualViewport.addEventListener('scroll',fit); }
+    window.addEventListener('resize',fit); fit();
+    var sh=document.getElementById('mcbSheet'); if(!sh) return;
+    var mo=new MutationObserver(function(){ if(!sh.classList.contains('open')){ mo.disconnect(); unlock(); } });
+    mo.observe(sh,{attributes:true,attributeFilter:['class']});
+  }
+  function unlock(){
+    if(!st) return; var b=document.body, y=st.y;
+    b.style.position=st.pos; b.style.top=st.top; b.style.width=st.w; b.style.left=st.l; b.style.right=st.r; st=null;
+    if(window.visualViewport){ window.visualViewport.removeEventListener('resize',fit); window.visualViewport.removeEventListener('scroll',fit); }
+    window.removeEventListener('resize',fit);
+    window.scrollTo(0,y);
+  }
+  // 시트가 실제로 열렸을 때만 잠근다(킬스위치 BOT_ON=false 로 일찍 끝나면 잠금이 남지 않게) — mcSheet 가 다음 프레임에 open 을 붙이므로 두 프레임 뒤에 확인
+  window.openMomcalBot=function(){ _open.apply(this,arguments); try{ requestAnimationFrame(function(){ requestAnimationFrame(function(){ try{ var sh=document.getElementById('mcbSheet'); if(sh && sh.classList.contains('open')) lock(); }catch(e){ try{ console.error(e); }catch(_){} } }); }); }catch(_){} };
+  // 닫을 때는 같은 틱에 바로 풀어 준다 — goTab 처럼 닫자마자 스크롤을 옮기는 코드가 뒤늦은 복원에 덮이지 않게(검증자 지적)
+  var _close=window.closeMomcalBot; if(typeof _close==='function') window.closeMomcalBot=function(){ var r=_close.apply(this,arguments); try{ unlock(); }catch(_){} return r; };
+})();
+// 배너를 숨긴 탭(핫딜·세일·커뮤니티)에서 해시 링크(#hotdeal·#sale)가 탭 줄로 스크롤하면 검색창·머리가 화면 밖으로 밀린다 → 맨 위로
+(function(){ try{ var sv=Element.prototype.scrollIntoView; Element.prototype.scrollIntoView=function(o){ if(this.id==='contentSeg'){ var c=document.body.dataset.ct; if(c && c!=='gonggu'){ window.scrollTo(0,0); return; } } return sv.apply(this,arguments); }; }catch(_){} })();
+// ③ 배너를 숨긴 탭은 「콘텐츠 시작 위치」가 곧 맨 위 — 앱 탭바로 들어와도 머리(검색창)가 화면 위로 사라지지 않게 맨 위로
+(function(){ var _m=window.mcScrollToContent; if(typeof _m!=='function') return; window.mcScrollToContent=function(){ var c=document.body.dataset.ct; if(c && c!=='gonggu'){ window.scrollTo(0,0); return; } return _m.apply(this,arguments); }; })();
+</script>
+<style id="mc-botdeal">
+/* 맘캘봇 최저가 핫딜 목록 — 사진 56 · 상품명 2줄 · 가격(굵게) · 몰·역대최저 */
+.mcb-cd.mcb-wide{width:100%;max-width:100%;box-sizing:border-box}
+.mcb-car:has(.mcb-wide){display:block;overflow:visible;margin:0;padding:0}
+.mcb-hr{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid #EEF0F2;background:none;padding:11px 0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mcb-hr:last-of-type{border-bottom:0}
+.mcb-hr:active{background:#F8F9FA}
+.mcb-hr-ph{flex:none;width:60px;height:60px;border-radius:12px;background:#F2F4F6;border:1px solid #F0F0F3;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.mcb-hr-ph img{width:100%;height:100%;object-fit:cover}
+.mcb-hr-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.mcb-hr-t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;font-weight:600;line-height:1.35;color:#191F28;word-break:keep-all}
+.mcb-hr-p{display:flex;align-items:baseline;gap:5px}
+.mcb-hr-p em{font-style:normal;font-size:13px;font-weight:800;color:#FF4742}
+.mcb-hr-p strong{font-size:15px;font-weight:800;color:#191F28}
+.mcb-hr-m{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#8B95A1}
+.mcb-hr-m i{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:#FFF0EE;color:#FF4742}
+</style>
 </body>
 </html>
