@@ -8440,5 +8440,30 @@ function appNavGo(ct){
 .gs-chip:active{transform:scale(.97)}
 .gs-chip.on{background:#7C54C4;color:#fff;font-weight:700}
 </style>
+<script id="mc-webonly">
+/* 2026-11-02 사장님 「웹에선 오른쪽 위 알림 없애고, 찜이나 알림을 누르면 앱에서만 가능하다고 하고 앱 깔 로고 두 개」 — 앱·홈화면 앱 밖(일반 웹)에서만 */
+(function(){ try{
+  function web(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; if(typeof _isStandalone==='function' && _isStandalone()) return false; return true; }catch(_){ return true; } }
+  if(!web()) return;
+  var st=document.createElement('style'); st.id='mc-webonly-css';
+  st.textContent='#btnNotiCenter{display:none!important}#mcWoSheet{position:fixed;inset:0;z-index:99996;background:rgba(25,31,40,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}#mcWoSheet.open{opacity:1;pointer-events:auto}#mcWoSheet .wo-box{width:100%;max-width:480px;box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(24px);transition:transform .2s}#mcWoSheet.open .wo-box{transform:none}#mcWoSheet .wo-t{display:block;text-align:center;font-size:17px;font-weight:800;color:#191F28;letter-spacing:-.02em;margin:4px 0 20px}#mcWoSheet .wo-row{display:flex;gap:10px}#mcWoSheet .wo-b{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;border-radius:12px;padding:0 10px;height:52px;text-decoration:none;font-family:inherit}#mcWoSheet .wo-b small{display:block;font-size:9.5px;line-height:1.1;opacity:.85}#mcWoSheet .wo-b b{display:block;font-size:15px;line-height:1.2;font-weight:700}#mcWoSheet .wo-x{display:block;width:100%;margin-top:14px;background:none;border:0;color:#8B95A1;font-size:14px;font-family:inherit;padding:8px;cursor:pointer}';
+  document.head.appendChild(st);
+  var AP='<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
+  var GP='<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#00D7FE" d="M3.6 1.9 13.7 12 3.6 22.1Q3.1 21.7 3.1 21V3Q3.1 2.3 3.6 1.9z"/><path fill="#00F076" d="M3.6 1.9 17 8.9 13.7 12z"/><path fill="#FF3A44" d="M3.6 22.1 17 15.1 13.7 12z"/><path fill="#FFD500" d="M17 8.9 21 11.1c.7.4.7 1.4 0 1.8L17 15.1 13.7 12z"/></svg>';
+  var U=(typeof _UPD_STORE_URL!=='undefined'&&_UPD_STORE_URL)||{ios:'https://apps.apple.com/kr/app/id6826126083',android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar'};
+  function sheet(where){
+    try{ trackEvent('web_app_only', where||''); }catch(_){}
+    var el=document.getElementById('mcWoSheet');
+    if(!el){ el=document.createElement('div'); el.id='mcWoSheet'; el.onclick=function(e){ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
+    var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+    function b(k){ var i=k==='ios'; return '<a class="wo-b" href="'+(i?U.ios:U.android)+'" target="_blank" rel="noopener" onclick="try{trackEvent(\'web_app_only_go\',\''+k+'\')}catch(_){}">'+(i?AP:GP)+'<span><small>다운로드</small><b>'+(i?'App Store':'Google Play')+'</b></span></a>'; }
+    el.innerHTML='<div class="wo-box"><b class="wo-t">찜·알림은 앱에서만 쓸 수 있어요</b><div class="wo-row">'+(ios?b('ios')+b('android'):b('android')+b('ios'))+'</div><button class="wo-x" type="button" onclick="document.getElementById(\'mcWoSheet\').classList.remove(\'open\')">닫기</button></div>';
+    requestAnimationFrame(function(){ el.classList.add('open'); });
+  }
+  var tw=window.toggleWish; if(typeof tw==='function') window.toggleWish=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('wish'); };
+  var ow=window.openWnSheet; if(typeof ow==='function') window.openWnSheet=function(){ sheet('wn'); };
+  window.mcWebAppOnly=sheet;
+}catch(e){} })();
+</script>
 </body>
 </html>
