@@ -64,7 +64,7 @@ async function accessToken(): Promise<string> {
   return j.access_token;
 }
 
-type Msg = { title: string; body: string; url: string; tag: string };
+type Msg = { title: string; body: string; url: string; tag: string; image?: string };
 // 보내기 — 결과: ok / dead(토큰 죽음) / fail
 async function send(at: string, token: string, m: Msg): Promise<"ok" | "dead" | "fail"> {
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa().project_id}/messages:send`, {
@@ -72,7 +72,7 @@ async function send(at: string, token: string, m: Msg): Promise<"ok" | "dead" | 
     headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
     body: JSON.stringify({ message: {
       token,
-      notification: { title: m.title, body: m.body },
+      notification: { title: m.title, body: m.body, ...(m.image ? { image: m.image } : {}) },
       data: { url: m.url },   // 앱(사이트 nativeBoot)이 누른 알림의 url 로 보낸다
       android: { priority: "high", ttl: "21600s", notification: { tag: m.tag, color: "#602090", channel_id: "momcal_default", default_sound: true, notification_priority: "PRIORITY_HIGH" } },   // 앱이 만든 「맘캘린더 알림」 채널(중요도 높음 = 팝업)
     } }),
@@ -97,6 +97,8 @@ function openMsg(items: Item[], today: string, direct?: string): Msg {
 
 Deno.serve(async (req) => {
   if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return json({ error: "unauthorized" }, 401);
+  // 야간 방해금지: 한국 시간 21:00~09:00 에는 보내지 않는다(사장님 2026-11-02, 새벽 1·3시 라방 알림 사고). 시험용 ?force=1
+  if (new URL(req.url).searchParams.get("force") !== "1") { const kh = (new Date().getUTCHours() + 9) % 24; if (kh < 9 || kh >= 21) return json({ ok: true, skipped: "야간 방해금지 21:00~09:00 KST", kst_hour: kh }); }
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") || "open";
   const dry = url.searchParams.get("dry") === "1";
@@ -126,7 +128,7 @@ Deno.serve(async (req) => {
     logTable = "push_log";
     const r = await sbFetch("rpc/push_targets_fcm", { method: "POST", body: "{}" });
     if (!r.ok) return json({ ok: false, step: "push_targets_fcm", status: r.status, msg: await r.text() }, 500);
-    let rows: { device_id: string; fcm_token: string; gonggu_id: number; gonggu_name: string; kind: string }[] = await r.json();
+    let rows: { device_id: string; fcm_token: string; gonggu_id: number; gonggu_name: string; kind: string }[] = (await r.json() as { device_id: string; fcm_token: string; gonggu_id: number; gonggu_name: string; kind: string }[]).filter((t) => t.kind !== "end");   // 공구 마감 알림 삭제(2026-11-02)
     if (only) rows = rows.filter((t) => t.device_id === only);
     const groups = new Map<string, { token: string; items: Item[] }>();
     for (const t of rows) {
@@ -186,7 +188,28 @@ Deno.serve(async (req) => {
         : { title: `찜한 라방 ${n}개가 곧 시작해요`, body: `${head} 외 ${n - 1}개`, url: LIVE_URL, tag: `mc-live-${a.show_id}` };
       outs.push({ device_id: device, token: g.token, msg, log: g.items.map((it) => ({ device_id: device, show_id: it.show_id })) });
     }
-  } else return json({ ok: false, error: "mode 는 open|sale|live|test" }, 400);
+  } else if (mode === "kw") {
+    // 🔥 키워드 핫딜 알림 — 손님이 앱에서 켜 둔 키워드가 새 핫딜 제목에 들어 있으면 사진·가격·상품명을 담아 한 번 (사장님 2026-11-02, scratchpad/ORDER_NOTI_AND_BOT_MASTER.md)
+    logTable = "kw_push_log";
+    const r = await sbFetch("rpc/kw_push_targets_fcm", { method: "POST", body: "{}" });
+    if (!r.ok) return json({ ok: false, step: "kw_push_targets_fcm", status: r.status, msg: await r.text() }, 500);
+    type K = { device_id: string; fcm_token: string; hotdeal_id: number; keyword: string; title: string; price: number; discount_rate: number | null; mall: string | null; img_url: string | null; unit_price: number | null; unit_label: string | null };
+    let rows: K[] = await r.json();
+    if (only) rows = rows.filter((t) => t.device_id === only);
+    const by = new Map<string, K[]>();
+    for (const t of rows) { const a = by.get(t.device_id) || []; a.push(t); by.set(t.device_id, a); }
+    const won = (n: number) => n.toLocaleString("ko-KR") + "원";
+    for (const [device, list] of by) {
+      list.sort((a, b) => (b.discount_rate || 0) - (a.discount_rate || 0));
+      const h = list[0];
+      const pct = h.discount_rate && h.discount_rate >= 5 ? ` (▼${h.discount_rate}%)` : "";
+      const unit = h.unit_label ? ` (${h.unit_label})` : "";   // unit_label 이 「장당 457원」 처럼 가격까지 담고 있다
+      outs.push({ device_id: device, token: h.fcm_token,
+        msg: { title: `🔥 [${h.keyword}] 핫딜 발견! ${won(h.price)}${pct}`, body: `${h.mall ? `[${h.mall}] ` : ""}${h.title}${unit}${list.length > 1 ? ` 외 ${list.length - 1}건` : ""}`,
+               url: `${SITE}?ct=hotdeal&deal_id=${h.hotdeal_id}`, tag: `mc-kw-${h.hotdeal_id}`, image: h.img_url || undefined },
+        log: list.map((x) => ({ device_id: device, hotdeal_id: x.hotdeal_id })) });
+    }
+  } else return json({ ok: false, error: "mode 는 open|sale|live|kw|test" }, 400);
 
   if (dry) return json({ ok: true, dry: true, mode, today, messages: outs.length, preview: outs.slice(0, 20).map((o) => ({ device: o.device_id.slice(0, 8), ...o.msg })) });
   if (!outs.length) return json({ ok: true, mode, today, sent: 0, note: "발송 대상 없음" });

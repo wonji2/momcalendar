@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
   const today = seoulToday();
 
   if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return json({ ok: false, msg: "unauthorized" }, 401);
+  // 야간 방해금지: 한국 시간 21:00~09:00 에는 보내지 않는다(사장님 2026-11-02, 새벽 1·3시 라방 알림 사고). 시험용 ?force=1
+  if (new URL(req.url).searchParams.get("force") !== "1") { const kh = (new Date().getUTCHours() + 9) % 24; if (kh < 9 || kh >= 21) return json({ ok: true, skipped: "야간 방해금지 21:00~09:00 KST", kst_hour: kh }); }
 
   try {
     const r = await sbFetch("rpc/sale_push_targets", { method: "POST", body: "{}" });

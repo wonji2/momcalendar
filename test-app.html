@@ -8998,5 +8998,27 @@ body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!
   new MutationObserver(function(ms){ ms.forEach(function(m){ m.addedNodes.forEach(function(n){ q.push(n); }); }); if(!t) t=requestAnimationFrame(function(){ t=0; var l=q; q=[]; l.forEach(fix); }); }).observe(document.body,{childList:true,subtree:true});
 }catch(e){} })();
 </script>
+<script id="mc-notisync">
+/* 2026-11-02 알림 마스터 오더: ① 알림 누르면(?ct=hotdeal&deal_id=) 핫딜 탭에서 그 핫딜 시트를 연다 ② 앱에 등록한 핫딜 키워드를 서버(kw_push_subs)에 맞춰 둔다(핫딜 키워드 푸시용) */
+(function(){ try{
+  var q=new URLSearchParams(location.search), did=parseInt(q.get('deal_id')||'0',10);
+  if(q.get('ct')==='hotdeal' && did>0){
+    var t0=setInterval(function(){ try{ if(typeof switchContent==='function'){ clearInterval(t0); switchContent('hotdeal'); } }catch(_){} },300), n=0;
+    var t=setInterval(function(){ n++; try{
+      if(typeof _hotdealData!=='undefined' && _hotdealData && _hotdealData.length && typeof openHdSheet==='function'){ clearInterval(t); try{ history.replaceState({},'',location.pathname); }catch(_){} openHdSheet(did); }
+    }catch(_){} if(n>50) clearInterval(t); },300);
+    setTimeout(function(){ clearInterval(t0); },6000);
+  }
+  var last=null;
+  function sync(){ try{
+    if(typeof _isNativeApp!=='function' || !_isNativeApp() || typeof deviceId!=='function') return;
+    var raw=localStorage.getItem('mc_kw_alarms')||'[]'; if(raw===last) return;
+    var a=JSON.parse(raw)||[];
+    var kws=a.filter(function(x){ return x && x.kw && x.on!==false && (!x.types || x.types.indexOf('all')>=0 || x.types.indexOf('hotdeal')>=0); }).map(function(x){ return String(x.kw).slice(0,20); });
+    fetch(SUPABASE_URL+'/rest/v1/rpc/kw_push_set',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_device:deviceId(),p_kws:kws})}).then(function(r){ if(r.ok) last=raw; }).catch(function(){});
+  }catch(_){} }
+  setTimeout(sync,5000); setInterval(sync,20000);
+}catch(e){} })();
+</script>
 </body>
 </html>

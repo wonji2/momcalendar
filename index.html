@@ -8201,7 +8201,23 @@ window.mcbSend=async function(){
   var cards=[];
   if(hH.length) cards.push({title:"'"+kw+"' 핫딜",items:hH.slice(0,3).map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }});
   if(gG.length) cards.push({title:"'"+kw+"' 공구 일정",items:gG.slice(0,3).map(ggCard),all:'전체 일정 보기',fn:function(){ goTab('gonggu',kw); }});
-  if(cards.length){ carousel(cards); return; }
+  if(cards.length){
+    // 공구와 핫딜을 같이 안내한다(사장님 2026-11-02, ORDER_NOTI_AND_BOT_MASTER 작업 3)
+    var live=gG.filter(function(d){ return d.openDate<=today; }), soon=gG.filter(function(d){ return d.openDate>today; });
+    var lowest=hH.some(function(h){ return h.is_lowest; });
+    if(live.length){                                   // 진행 중인 공구가 있다: 공구 카드 먼저, 아래에 핫딜 권유
+      carousel(cards.slice().sort(function(a,b){ return (a.title.indexOf('공구')>=0?0:1)-(b.title.indexOf('공구')>=0?0:1); }));
+      if(hH.length) say('🔥 실시간 최저가 핫딜도 함께 확인해보세요!'); return;
+    }
+    if(soon.length){                                   // 공구가 곧 열린다
+      var s0=soon[0], own=(s0.insta||'')==='momcal_';
+      say('📅 '+kw+'는 '+md(s0.openDate)+(own?' 방장보증':'')+' 공구 오픈 예정이에요!'+(hH.length?'\n지금 당장 급하시다면 현재 진행 중인 최저가 핫딜을 먼저 확인해보세요 👇':''));
+      carousel(hH.length?cards:cards.filter(function(c){ return c.title.indexOf('공구')>=0; })); return;
+    }
+    // 공구는 없고 핫딜만 있다: 핫딜로 안내(역대 최저가가 실제로 있을 때만 그 말을 쓴다)
+    say('💜 지금 진행 중인 '+kw+' 공구는 없지만,\n'+(lowest?'온라인 실시간 역대 최저가 핫딜이 떠 있어요!':'온라인 실시간 핫딜이 떠 있어요!')+' 득템 찬스 놓치지 마세요 👇');
+    carousel(cards); return;
+  }
   say("지금은 '"+kw+"' 공구나 핫딜이 없네요 🥺\n핫딜이 뜨면 바로 알려드릴까요?");
   var i=LAST.push(kw)-1; act("'"+kw+"' 알림 등록하기 🔔",function(){ mcbReg(i); });
 };
@@ -8463,6 +8479,28 @@ function appNavGo(ct){
   var tw=window.toggleWish; if(typeof tw==='function') window.toggleWish=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('wish'); };
   var ow=window.openWnSheet; if(typeof ow==='function') window.openWnSheet=function(){ sheet('wn'); };
   window.mcWebAppOnly=sheet;
+}catch(e){} })();
+</script>
+<script id="mc-notisync">
+/* 2026-11-02 알림 마스터 오더: ① 알림 누르면(?ct=hotdeal&deal_id=) 핫딜 탭에서 그 핫딜 시트를 연다 ② 앱에 등록한 핫딜 키워드를 서버(kw_push_subs)에 맞춰 둔다(핫딜 키워드 푸시용) */
+(function(){ try{
+  var q=new URLSearchParams(location.search), did=parseInt(q.get('deal_id')||'0',10);
+  if(q.get('ct')==='hotdeal' && did>0){
+    var t0=setInterval(function(){ try{ if(typeof switchContent==='function'){ clearInterval(t0); switchContent('hotdeal'); } }catch(_){} },300), n=0;
+    var t=setInterval(function(){ n++; try{
+      if(typeof _hotdealData!=='undefined' && _hotdealData && _hotdealData.length && typeof openHdSheet==='function'){ clearInterval(t); try{ history.replaceState({},'',location.pathname); }catch(_){} openHdSheet(did); }
+    }catch(_){} if(n>50) clearInterval(t); },300);
+    setTimeout(function(){ clearInterval(t0); },6000);
+  }
+  var last=null;
+  function sync(){ try{
+    if(typeof _isNativeApp!=='function' || !_isNativeApp() || typeof deviceId!=='function') return;
+    var raw=localStorage.getItem('mc_kw_alarms')||'[]'; if(raw===last) return;
+    var a=JSON.parse(raw)||[];
+    var kws=a.filter(function(x){ return x && x.kw && x.on!==false && (!x.types || x.types.indexOf('all')>=0 || x.types.indexOf('hotdeal')>=0); }).map(function(x){ return String(x.kw).slice(0,20); });
+    fetch(SUPABASE_URL+'/rest/v1/rpc/kw_push_set',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_device:deviceId(),p_kws:kws})}).then(function(r){ if(r.ok) last=raw; }).catch(function(){});
+  }catch(_){} }
+  setTimeout(sync,5000); setInterval(sync,20000);
 }catch(e){} })();
 </script>
 </body>
