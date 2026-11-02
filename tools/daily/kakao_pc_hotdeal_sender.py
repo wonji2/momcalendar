@@ -48,14 +48,31 @@ def save_posted_history(posted_ids):
 
 def get_latest_hotdeals(limit=5):
     """수파베이스에서 최신 핫딜 목록 조회 (0토큰 무료 REST API)"""
+    # 1. requests 우선 시도 (SSL 자동 처리)
     try:
-        # link 컬럼(길아 님의 쿠팡파트너스/링크프라이스 직결 수익링크) 필수 포함
+        import requests
+        url = f"{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at&order=id.desc&limit={limit}"
+        r = requests.get(url, headers={
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+        }, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+
+    # 2. urllib 백업 시도
+    try:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         url = f"{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at&order=id.desc&limit={limit}"
         req = urllib.request.Request(url, headers={
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
         })
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             return json.loads(resp.read().decode('utf-8'))
     except Exception as e:
         print(f"[WARN] 핫딜 조회 일시 지연: {e}")
