@@ -48,7 +48,8 @@ def save_posted_history(posted_ids):
 def get_latest_hotdeals(limit=5):
     """수파베이스에서 최신 핫딜 목록 조회 (0토큰 무료 REST API)"""
     try:
-        url = f"{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,created_at&order=id.desc&limit={limit}"
+        # link 컬럼(길아 님의 쿠팡파트너스/링크프라이스 직결 수익링크) 필수 포함
+        url = f"{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at&order=id.desc&limit={limit}"
         req = urllib.request.Request(url, headers={
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
@@ -121,11 +122,16 @@ def format_kakao_message(deal):
     if unit_str:
         second_line += f" {unit_str}"
 
+    # 사장님 절대 원칙: 맘캘린더 거치지 않고 바로 해당 쇼핑몰 결제 페이지(쿠팡/지마켓/11번가)로 직행
+    target_link = deal.get("link")
+    if not target_link:
+        target_link = f"https://momcalendar.com/?deal_id={deal_id}"
+
     msg = (
         f"{clean_title}\n"
         f"{second_line}\n\n"
-        f"👉 맘캘 역대최저가 차트 & 득템:\n"
-        f"https://momcalendar.com/?deal_id={deal_id}"
+        f"👉 구매하러 가기:\n"
+        f"{target_link}"
     )
     return msg
 
