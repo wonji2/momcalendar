@@ -42,6 +42,11 @@ async function claim(commentId: string): Promise<boolean> {
   const j = await r.json().catch(() => []);
   return Array.isArray(j) && j.length > 0;
 }
+// 진단 기록: 상한 계산(ok·fail·block)에 안 잡히는 status 만 쓴다. 키 접두사로 댓글 claim 과 겹치지 않는다
+async function diag(key: string, status: string, note: string) {
+  if (!SR) return;
+  await sbs("ig_bot_log", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ comment_id: key, status, note: note.slice(0, 280), done_at: new Date().toISOString() }) }).catch(() => {});
+}
 async function setStatus(commentId: string, status: string, note = "") {
   await sbs(`ig_bot_log?comment_id=eq.${encodeURIComponent(commentId)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status, note: note.slice(0, 300), done_at: new Date().toISOString() }) }).catch(() => {});
 }
@@ -208,6 +213,7 @@ async function handleEvents(body: any) {
 
       // ① 내 계정·답글은 무시 — 봇이 단 답글에 다시 답하는 반복 차단(계정 ID 환경변수가 없어도 entry.id 와 부모 댓글 유무로 항상 막는다)
       if (!commentId) continue;
+      await diag("seen-" + commentId, "seen", `from=${username} parent=${!!val?.parent_id} len=${text.length}`);
       if (val?.parent_id) continue;
       if ((IG_ACCOUNT_ID && fromId === IG_ACCOUNT_ID) || (ownId && fromId === ownId)) continue;
       if (OWN_USERNAMES.includes(String(username).toLowerCase())) continue;
@@ -274,7 +280,7 @@ serve(async (req: Request) => {
   if (req.method === "POST") {
     try {
       const raw = await req.text();
-      if (!(await sigOk(raw, req.headers.get("x-hub-signature-256")))) return new Response("Forbidden", { status: 403 });
+      if (!(await sigOk(raw, req.headers.get("x-hub-signature-256")))) { await diag("sigfail-" + Date.now(), "sigfail", `header=${req.headers.get("x-hub-signature-256") ? "있음" : "없음"} len=${raw.length}`); return new Response("Forbidden", { status: 403 }); }
       if (IG_BOT_OFF) { console.warn("[IG_BOT] IG_BOT_OFF=1 — 처리하지 않음"); return new Response(JSON.stringify({ status: "off" }), { headers: { "Content-Type": "application/json" }, status: 200 }); }
       const body = JSON.parse(raw);
       const work = handleEvents(body).catch((e) => console.error("[IG_BOT] handleEvents error:", e));
