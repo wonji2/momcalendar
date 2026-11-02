@@ -109,7 +109,14 @@ def sql_quote(val):
     return "'" + str(val).replace("'", "''") + "'"
 
 def clean_polluted_gonggu_titles():
-    print('[clean] 공구 오염 상품명 소급 정제 시작...')
+    print('[clean] 공구 오염 상품명 및 크레용맘 배너 정제 시작...')
+    # 크레용맘 배너 비활성화 (219, 220 등)
+    try:
+        run_sql("UPDATE public.banners SET active = false WHERE title ILIKE '%크레용%' OR id IN (219, 220);")
+        print('[clean] 크레용맘 배너 비활성화 완료')
+    except Exception as e:
+        print(f'[clean] 크레용맘 배너 처리 실패: {e}')
+
     specific = {
         33469: '슈슈비 셀프시공매트',
         34461: '아비노 베이비',
