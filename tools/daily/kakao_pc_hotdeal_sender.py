@@ -123,16 +123,14 @@ def format_kakao_message(deal):
     if unit_str:
         second_line += f" {unit_str}"
 
-    # 사장님 절대 원칙: 맘캘린더 거치지 않고 바로 해당 쇼핑몰 결제 페이지(쿠팡/지마켓/11번가)로 직행
-    target_link = deal.get("link")
-    if not target_link:
-        target_link = f"https://momcalendar.com/?deal_id={deal_id}"
+    # 맘캘린더 공식 도메인으로 제휴코드/긴 주소 100% 마스킹 & 0.1초 자동 리디렉트
+    clean_momcal_link = f"https://momcalendar.com/r.html?id={deal_id}" if deal_id else deal.get("link")
 
     msg = (
         f"{clean_title}\n"
         f"{second_line}\n\n"
         f"👉 구매하러 가기:\n"
-        f"{target_link}"
+        f"{clean_momcal_link}"
     )
     return msg
 
