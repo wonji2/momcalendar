@@ -112,6 +112,8 @@ const TAILS = [
   /부탁\s*(드려요|드립니다|해요)?$/,
   /(궁금해요|궁금해|궁금합니다|알고싶어요|사고싶어요)$/,
   /(안보여요|안보여|어디있나요)$/,
+  /(있|잇|읻|없|업)(나|어|을까|는지|냐)[가-힣]{0,3}$/,   // 있나용·있나욤·있어여 같은 말끝
+  /(주세요|주세용|줘요|줘용)$/,
   /(이요|에요|예요|요)$/,
   /공구$/,
 ];
@@ -148,36 +150,88 @@ function won(n: number | string): string {
 }
 
 // 맘캘린더 공구 및 핫딜 검색
+// 노출 중인 공구 목록(승인·마감 전) — 댓글이 드물어 통째로 받아 앞뒤 띄어쓰기·낱말 순서에 상관없이 코드에서 맞춘다. 5분 캐시
+let _gCache: { at: number; rows: any[] } | null = null;
+async function activeGonggu(today: string): Promise<any[]> {
+  if (_gCache && Date.now() - _gCache.at < 300e3) return _gCache.rows;
+  const rows: any[] = [];
+  for (let off = 0; off < 5000; off += 1000) {
+    const page = await q(`gonggu?select=${COLS}&approved=eq.true&end_date=gte.${today}&order=id.asc&limit=1000&offset=${off}`);
+    if (!Array.isArray(page)) break;
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
+  if (rows.length) _gCache = { at: Date.now(), rows };
+  return rows;
+}
+const flatKo = (t: string) => String(t || "").toLowerCase().replace(/[^0-9a-z가-힣]/g, "");
+// 낱말 하나가 이름에 걸리는가 — 통째로 들어 있거나, 둘로 쪼갠 두 조각이 다 들어 있으면 된다(슈메르양말 ↔ 슈메르 미끄럼방지 양말)
+function tokenHit(hay: string, tok: string): boolean {
+  if (hay.includes(tok)) return true;
+  for (let i = 2; i <= tok.length - 2; i++) if (hay.includes(tok.slice(0, i)) && hay.includes(tok.slice(i))) return true;
+  return false;
+}
+// 챗봇과 같은 규칙(고정): 별칭은 DB bot_alias 한 곳 · 다른 브랜드 제외는 bot_alias_deny · 셀러 이름으로는 찾지 않는다 · 수식어는 사전으로만 뗀다
+let _aCache: { at: number; AL: [string, string][]; DENY: Map<string, string[]> } | null = null;
+async function aliasData() {
+  if (_aCache && Date.now() - _aCache.at < 300e3) return _aCache;
+  const al = await q("bot_alias?select=term,expand");
+  const dn = await q("bot_alias_deny?select=term,expand");
+  const AL: [string, string][] = (Array.isArray(al) ? al : []).map((r: any) => [String(r.term), String(r.expand)]);
+  const DENY = new Map<string, string[]>();
+  for (const r of Array.isArray(dn) ? dn : []) { const t = String((r as any).term || "").trim(), x = String((r as any).expand || "").trim(); if (t && x) { if (!DENY.has(t)) DENY.set(t, []); DENY.get(t)!.push(x); } }
+  _aCache = { at: Date.now(), AL, DENY };
+  return _aCache;
+}
+const MODIFIERS = ["신생아", "어린이", "우리아이", "유아용", "아기", "유아", "아이", "키즈", "엄마"];
+function expandAlias(src: string[], AL: [string, string][]): string[] {
+  const out: string[] = [];
+  for (const t of src) for (const [a, b] of AL) {
+    if (a && t.includes(a)) out.push(t.split(a).join(b));
+    if (b && t.includes(b)) out.push(t.split(b).join(a));
+  }
+  return out;
+}
+function nameHit(name: string, keyword: string): boolean {
+  const toks = keyword.split(/\s+/).map(flatKo).filter((x) => x.length >= 2);
+  const hay = flatKo(name);
+  return toks.length > 0 && toks.every((t) => tokenHit(hay, t));
+}
+function matchGonggu(rows: any[], keyword: string, AL: [string, string][] = [], DENY: Map<string, string[]> = new Map()): any[] {
+  // 손님 말 그대로 → 별칭 1·2단계 → (그래도 없으면) 수식어를 사전으로 뗀 말
+  const t0 = [keyword];
+  const t1 = expandAlias(t0, AL);
+  const t2 = expandAlias(t1, AL);
+  const mods: string[] = [];
+  for (const t of [...t0, ...t1, ...t2]) for (const w of t.split(/\s+/)) for (const m of MODIFIERS) if (w.startsWith(m) && w.length > m.length + 1) { mods.push(t.split(w).join(w.slice(m.length))); break; }
+  const stages = [[...new Set([...t0, ...t1, ...t2])], [...new Set(mods)]];
+  let hit: any[] = [];
+  for (const st of stages) {
+    hit = rows.filter((g) => st.some((v) => nameHit(String(g.name || ""), v)));
+    if (hit.length) break;
+  }
+  // 다른 브랜드 제외 — 손님이 term 을 그대로 쳤을 때만
+  const deny = DENY.get(keyword.trim()) || [];
+  if (deny.length) hit = hit.filter((g) => !deny.some((x) => String(g.name || "").includes(x)));
+  // 맘캘린더 공구 먼저(규칙 0-M), 그 뒤 오픈 빠른 순
+  hit.sort((x, y) => (y.insta === "momcal_" ? 1 : 0) - (x.insta === "momcal_" ? 1 : 0) || String(x.open_date).localeCompare(String(y.open_date)));
+  return hit;
+}
 async function searchMomcal(keyword: string) {
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   if (!keyword || keyword.length < 2) return null;
 
-  // 1. 공구 검색 (진행 중이거나 예정된 공구 우선) — 띄어쓰기가 다른 말(슈메르양말 ↔ 슈메르 미끄럼방지 양말)도 찾는다
-  const clean = keyword.replace(/[,()*%\\"']/g, "").trim();
-  const pats = new Set<string>([`*${clean}*`]);
-  const parts = clean.split(/\s+/).filter(Boolean);
-  if (parts.length > 1) pats.add(`*${parts.join("*")}*`);
-  const flat = clean.replace(/\s+/g, "");
-  for (let i = 2; i <= flat.length - 2 && pats.size < 14; i++) pats.add(`*${flat.slice(0, i)}*${flat.slice(i)}*`);
-  const orExpr = [...pats].map((p) => `name.ilike.${p}`).join(",");
-  const gonggus = await q(
-    `gonggu?select=${COLS}&approved=eq.true&or=(${encodeURIComponent(orExpr)})&end_date=gte.${today}&order=open_date.asc&limit=6`
-  );
-
-  if (Array.isArray(gonggus) && gonggus.length > 0) {
-    const mine = gonggus.find((g: any) => g.insta === "momcal_");   // 맘캘린더 공구가 있으면 그것을 먼저(규칙 0-M)
-    return { type: "gonggu", item: mine || gonggus[0], count: gonggus.length };
-  }
+  // 1. 공구 검색 (진행 중이거나 예정된 공구)
+  const { AL, DENY } = await aliasData();
+  const hit = matchGonggu(await activeGonggu(today), keyword, AL, DENY);
+  if (hit.length > 0) return { type: "gonggu", item: hit[0], items: hit.slice(0, 3), count: hit.length };
 
   // 2. 핫딜 검색 (공구가 없으면 최저가 핫딜 확인)
+  const clean = keyword.replace(/[,()*%\\"']/g, "").trim();
   const hotdeals = await q(
     `hotdeals?select=id,title,price,price_before,mall,link&title=ilike.${encodeURIComponent(`*${clean}*`)}&order=id.desc&limit=1`
   );
-
-  if (Array.isArray(hotdeals) && hotdeals.length > 0) {
-    return { type: "hotdeal", item: hotdeals[0] };
-  }
-
+  if (Array.isArray(hotdeals) && hotdeals.length > 0) return { type: "hotdeal", item: hotdeals[0] };
   return null;
 }
 
@@ -239,7 +293,10 @@ async function handleEvents(body: any) {
       let replyMsg = "";
       
                     // 💜 @momcal_official 오피셜 계정 고유의 말투 및 양식 반영
-                    if (searchResult?.type === "gonggu") {
+                    if (searchResult?.type === "gonggu" && (searchResult as any).items?.length > 1) {
+                      const list = (searchResult as any).items.map((g: any) => `· ${g.name} (${formatDate(g.open_date)}~${formatDate(g.end_date)}${g.insta === "momcal_" ? " 맘캘린더 공구" : ""})`).join("\n");
+                      replyMsg = `@${username} 님! '${kw}' 관련 공구가 ${(searchResult as any).count}건 있어요 💜\n${list}\n전체 일정과 상세 정보는 프로필 링크 맘캘린더 웹사이트에서 확인하실 수 있어요 ✨`;
+                    } else if (searchResult?.type === "gonggu") {
                       const g = searchResult.item;
                       const openD = formatDate(g.open_date);
                       const endD = formatDate(g.end_date);
