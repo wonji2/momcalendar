@@ -20,7 +20,7 @@ KST = timezone(timedelta(hours=9))
 
 # 수파베이스 설정 (토큰 0원 REST API)
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
-SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y2Fxc3Flb2dqdGJzY216cnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1MDU4NjAsImV4cCI6MjA1NDA4MTg2MH0.2o1E4Xk0iOQ4J7hZ_X2u2u2u2u2u2u2u2u2u2u2u2u2')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE')
 
 # 단톡방 대상 명칭 및 오픈채팅 링크 (인원수 숫자 1, 2 등 제외한 순수 방 이름)
 TARGET_ROOM_NAME = "[맘캘린더] 핫딜공지방"
@@ -61,43 +61,60 @@ def get_latest_hotdeals(limit=5):
         print(f"[WARN] 핫딜 조회 일시 지연: {e}")
         return []
 
+def clean_deal_title(t):
+    if not t: return ''
+    s = str(t).strip()
+    # 1. 쇼핑몰 앞머리 및 특수문자 제거
+    s = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\)|(?:지마켓|쿠팡|옥션|11번가|위메프|티몬|네이버|롯데ON|SSG)\)|[🔥⚡📢★])\s*', '', s, flags=re.IGNORECASE)
+    # 2. 끝머리 가격 및 무료배송 찌꺼기 제거
+    s = re.sub(r'\s*[\d,.]+\s*원(?:\s*(?:무료|무배|특가|할인|쿠폰))?\s*$', '', s, flags=re.IGNORECASE)
+    s = re.sub(r'\s*(?:무료배송|무배)\s*$', '', s, flags=re.IGNORECASE)
+    return s.strip() or t
+
 def calculate_unit_price(title, price):
     """상품명과 가격에서 개별 단위 가격 자동 계산 (쿠팡/맘캘 단위가 로직)"""
-    if not price or price <= 0:
+    if not price or price <= 0 or not title:
         return ""
     
-    t = title.lower()
+    t = str(title).lower()
 
     # 1. kg 단위 (예: 5kg, 10kg, 1.5kg)
-    m_kg = re.search(r'(\d+(?:\.\d+)?)\s*kg', t)
+    m_kg = re.search(r'(\d+(?:\.\d+)?)\s*kg(?![a-z])', t)
     if m_kg:
         kg = float(m_kg.group(1))
         if kg > 0:
             unit_val = int(round(price / kg))
-            return f"(1kg당 {unit_val:,}원)"
+            if 0 < unit_val < price:
+                return f"(1kg당 {unit_val:,}원)"
 
-    # 2. g 단위 (예: 800g, 500g) -> 100g당
-    m_g = re.search(r'(\d+)\s*g(?![a-z])', t)
-    if m_g:
-        g = float(m_g.group(1))
-        if g >= 100:
-            unit_val = int(round((price / g) * 100))
-            return f"(100g당 {unit_val:,}원)"
-
-    # 3. 장/매/개/입/팩/포/캔/병 단위
-    # 예: 3박스 세트, 120매, 30포, 12캔
-    m_count = re.search(r'(\d+)\s*(?:매|장|개|입|팩|포|캔|병|롤|봉)', t)
+    # 2. 통/캔/병/팩/봉/개/매/장/입/포/롤/박스 단위
+    m_count = re.search(r'(\d+)\s*(통|캔|병|팩|봉|개|매|장|입|포|롤|박스|세트)', t)
+    m_g = re.search(r'(\d+(?:\.\d+)?)\s*g(?![a-z가-힣])', t)
     if m_count:
         cnt = int(m_count.group(1))
-        unit_word = re.search(r'(매|장|개|입|팩|포|캔|병|롤|봉)', m_count.group(0)).group(1)
-        # 통일감: 매->장
+        unit_word = m_count.group(2)
         if unit_word == '매': unit_word = '장'
         if unit_word == '입': unit_word = '개'
         if cnt > 1:
             unit_val = int(round(price / cnt))
-            return f"(1{unit_word}당 {unit_val:,}원)"
+            if 0 < unit_val < price:
+                return f"(1{unit_word}당 {unit_val:,}원)"
+    elif m_g:
+        g = float(m_g.group(1))
+        if g >= 100:
+            unit_val = int(round((price / g) * 100))
+            if 0 < unit_val < price:
+                return f"(100g당 {unit_val:,}원)"
 
-    # 기본값 없음
+    # 3. ml 단위 (예: 473ml) -> 100ml당
+    m_ml = re.search(r'(\d+(?:\.\d+)?)\s*ml(?![a-z])', t)
+    if m_ml:
+        ml = float(m_ml.group(1))
+        if ml >= 100:
+            unit_val = int(round((price / ml) * 100))
+            if 0 < unit_val < price:
+                return f"(100ml당 {unit_val:,}원)"
+
     return ""
 
 def format_kakao_message(deal):
@@ -110,8 +127,8 @@ def format_kakao_message(deal):
     price = deal.get("price", 0)
     deal_id = deal.get("id")
 
-    # 불필요한 앞머리 어그로 특수문자 제거 후 순수 상품명 추출
-    clean_title = re.sub(r'^(?:🔥|⚡|📢|\[[^\]]+\]|\([^\)]+\))\s*', '', raw_title).strip()
+    # 쇼핑몰 태그 및 가격 찌꺼기 없는 순수 상품명
+    clean_title = clean_deal_title(raw_title)
     if not clean_title:
         clean_title = raw_title
 
