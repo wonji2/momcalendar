@@ -1988,15 +1988,18 @@ window.slimAdClick=function(id){
       <button class="c-chip" data-cat="반려동물" onclick="setHdCategory('반려동물')">반려동물</button>
     </div>
 
-    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원) -->
+    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원: 네이버, 오늘의집 추가) -->
     <div class="mall-chips" id="hdMallChips">
       <button type="button" class="m-chip on" data-mall="all" onclick="toggleHdMall('all')">전체몰</button>
       <button type="button" class="m-chip" data-mall="coupang_wow" onclick="toggleHdMall('coupang_wow')">🚀 쿠팡(와우)</button>
       <button type="button" class="m-chip" data-mall="coupang" onclick="toggleHdMall('coupang')">쿠팡(일반)</button>
       <button type="button" class="m-chip" data-mall="gmarket" onclick="toggleHdMall('gmarket')">G마켓</button>
       <button type="button" class="m-chip" data-mall="11st" onclick="toggleHdMall('11st')">11번가</button>
+      <button type="button" class="m-chip" data-mall="ohouse" onclick="toggleHdMall('ohouse')">오늘의집</button>
       <button type="button" class="m-chip" data-mall="toss" onclick="toggleHdMall('toss')">토스쇼핑</button>
       <button type="button" class="m-chip" data-mall="lotte" onclick="toggleHdMall('lotte')">롯데ON</button>
+      <button type="button" class="m-chip" data-mall="boribori" onclick="toggleHdMall('boribori')">보리보리</button>
+      <button type="button" class="m-chip" data-mall="travel" onclick="toggleHdMall('travel')">✈️ 여행·숙박</button>
     </div>
     <div id="hdFilterBar" style="display:none;align-items:center;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:12px">
       <span id="hdFilterLabel" style="font-size:13px;font-weight:700;color:#7C54C4">🔥 쟁여둘 핫딜 모아보기</span>
@@ -4034,16 +4037,24 @@ function renderHotdeals(){
       var isCoupang = (src === 'coupang' || src === 'goldbox' || mall.indexOf('쿠팡') !== -1 || tit.indexOf('쿠팡') !== -1);
       var isGmarket = (src === 'gmarket' || mall.indexOf('지마켓') !== -1 || mall.indexOf('gmarket') !== -1 || /지마켓|g마켓/i.test(tit));
       var is11st = (src === '11st' || mall.indexOf('11번가') !== -1 || /11번가/i.test(tit));
+      var isNaver = (src === 'naver' || mall.indexOf('네이버') !== -1 || /네이버/i.test(tit));
+      var isOhouse = (src === 'ohou' || src === 'ohouse' || mall.indexOf('오늘의집') !== -1 || /오늘의집/i.test(tit));
       var isToss = (src === 'toss' || mall.indexOf('토스') !== -1 || /토스/i.test(tit));
       var isLotte = (src === 'lotteon' || src === 'lotte' || mall.indexOf('롯데') !== -1 || /롯데/i.test(tit));
+      var isBoribori = (src === 'boribori' || mall.indexOf('보리보리') !== -1 || /보리보리/i.test(tit));
+      var isTravel = (src === 'travel' || src === 'yanolja' || src === 'yeogi' || src === '3hours' || mall.indexOf('야놀자') !== -1 || mall.indexOf('여기어때') !== -1 || mall.indexOf('세시간전') !== -1 || /호텔|리조트|풀빌라|숙박|펜션|아쿠아리움/i.test(tit));
 
       var match = false;
       if(_selectedMalls.has('coupang_wow') && isCoupang && isWow) match = true;
       if(_selectedMalls.has('coupang') && isCoupang && !isWow) match = true;
       if(_selectedMalls.has('gmarket') && isGmarket) match = true;
       if(_selectedMalls.has('11st') && is11st) match = true;
+      if(_selectedMalls.has('naver') && isNaver) match = true;
+      if(_selectedMalls.has('ohouse') && isOhouse) match = true;
       if(_selectedMalls.has('toss') && isToss) match = true;
       if(_selectedMalls.has('lotte') && isLotte) match = true;
+      if(_selectedMalls.has('boribori') && isBoribori) match = true;
+      if(_selectedMalls.has('travel') && isTravel) match = true;
       return match;
     });
   }
@@ -4300,6 +4311,8 @@ async function openHdSheet(id){
 
     <div id="hdChartBox">${hdChartBox(h,pts,2)}</div>
 
+
+
     ${(h.source==='adpick'||h.source==='toss') && hcUnitPrice(h)
       // 정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다 → 우리가 계산한 개당 가격을 근거로 쓴다
       ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
@@ -4316,11 +4329,7 @@ async function openHdSheet(id){
       var df=(av>h.price)?(av-h.price):0;
       var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
       var safeLink = h.link || '#';
-      if (safeLink.indexOf('item.gmarket.co.kr') !== -1) {
-        safeLink = safeLink.replace('item.gmarket.co.kr%2FItem', 'm.gmarket.co.kr%2Fitem')
-                           .replace('item.gmarket.co.kr/Item', 'm.gmarket.co.kr/item')
-                           .replace('item.gmarket.co.kr', 'm.gmarket.co.kr');
-      }
+
       return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
       <a class="hd-buy" href="${escHtml(_httpOnly(safeLink)||'#')}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`;
     })()}
@@ -9511,7 +9520,7 @@ function hdChartBox(h,pts,period){
 
   return '<div class="hdc-box">'
     +'<div class="hdc-head"><span class="hdc-title">'+ttl+'</span><div class="hdc-tabs">'+tabs+'</div></div>'
-    +'<div class="hdc-live"><span class="ld" id="hdcLd">'+d0+' ~ 오늘 ('+period+'개월간)</span><span class="lp" id="hdcLp">현재가 '+wonFmt(h.price)+'</span></div>'
+    
     +'<div class="hdc-touch" id="hdcTouch" onpointerdown="hdcMove(event)" onpointermove="hdcMove(event)" onpointerup="hdcReset()" onpointercancel="hdcReset()" onpointerleave="hdcReset()">'+svg+'</div>'
     +'<div class="hdc-date-axis"><span>'+d0+'</span><span>'+d1+'</span><span>'+d2+'</span><span>'+d3+'</span><span style="color:#191F28;font-weight:700">오늘 ('+d4+')</span></div>'
     +'<div class="hdc-stats">'
@@ -9612,16 +9621,31 @@ window.__hdgPh='<div class="hd-ph">HOT</div>';
 
 /* 💜 폴센트식 온보딩 스크립트 */
 window.openMcOnboard = function(){
-  // 웹에서는 브라우저 알림 제약이 있으므로 앱 유도 시트를 띄운다 (매니저님 피드백 반영)
-  if(!isApp()){
-    if(typeof _appOnlyBell === 'function' && _appOnlyBell('hotdeal_onboard')) return;
-    var el = document.getElementById('aoSheet') || document.getElementById('mcWoSheet');
-    if(el) { el.classList.add('open'); return; }
+  // 웹에서는 브라우저 알림 제약이 있으므로 앱 유도 시트(aoSheet)를 즉시 띄운다
+  var isAppNow = (typeof _isNativeApp === "function" && _isNativeApp());
+  if(!isAppNow){
+    var el = document.getElementById("aoSheet");
+    if(!el){
+      el = document.createElement("div");
+      el.id = "aoSheet";
+      el.className = "ao-sheet";
+      el.onclick = function(e){ if(e.target === el) el.classList.remove("open"); };
+      document.body.appendChild(el);
+    }
+    var ua = navigator.userAgent||"", ios = /iPhone|iPad|iPod/i.test(ua), and = /Android/i.test(ua);
+    var storeUrl = {
+      ios: "https://apps.apple.com/kr/app/id6826126083",
+      android: "https://play.google.com/store/apps/details?id=com.wantsb.momcalendar"
+    };
+    var btn = function(k){ return '<a class="ao-btn' + (k==="ios"?" i":"") + '" href="' + storeUrl[k] + '" target="_blank" rel="noopener">' + (k==="ios"?"App Store":"Google Play") + '</a>'; };
+    el.innerHTML = '<div class="ao-box"><img class="ao-ic" src="momcal-appicon-128.png" alt="" onerror="this.remove()"><b class="ao-t">특가 알림은 앱에서 받아요</b><p style="font-size:12px;color:#8B95A1;margin:4px 0 14px">자녀 월령 · 쿠팡 와우 · 카드사 맞춤 특가 알림을 바로 보내드려요</p>' + (and ? btn("android")+btn("ios") : btn("ios")+btn("android")) + '<button class="ao-x" type="button" onclick="document.getElementById(\'aoSheet\').classList.remove(\'open\')">닫기</button></div>';
+    requestAnimationFrame(function(){ el.classList.add("open"); });
+    return;
   }
-  var bg = document.getElementById('mcObBg');
-  var sheet = document.getElementById('mcObSheet');
-  if(bg) bg.style.display = 'block';
-  if(sheet) sheet.style.display = 'block';
+  var bg = document.getElementById("mcObBg");
+  var sheet = document.getElementById("mcObSheet");
+  if(bg) bg.style.display = "block";
+  if(sheet) sheet.style.display = "block";
 };
 window.closeMcOnboard = function(){
   var bg = document.getElementById('mcObBg');
