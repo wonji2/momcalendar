@@ -208,7 +208,7 @@ def clean_polluted_gonggu_titles():
 def purge_old_history():
     # 180일 보관 헌법 준수
     try:
-        run_sql("DELETE FROM public.hotdeals WHERE deal_day < (CURRENT_DATE - INTERVAL '180 days')::text;")
+        run_sql("DELETE FROM public.hotdeals WHERE deal_day < to_char(now() - interval '180 days', 'YYYY-MM-DD');")
         print('[purge] 180일 초과 과거 핫딜 데이터 정리 완료')
     except Exception as e:
         print(f'[purge] 히스토리 정리 오류: {e}')
