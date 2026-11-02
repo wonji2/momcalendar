@@ -3,8 +3,9 @@
 #   2026-09-18~21 사고: tools/vendor/ 가 사흘간 공개돼 셀러 실명·과세유형·요율이 노출됐다.
 #   .gitignore 만으로는 `git add -f` 와 옛 .gitignore 를 쓰는 워크트리를 못 막는다.
 # 되살리는 법:  git config core.hooksPath .githooks
+# 지우는 변경(D)은 막지 않는다 — 공개 저장소에서 빼는 커밋까지 막히던 것을 고쳤다(2026-11-02)
 BLOCKED='^(tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md|CLAUDE\.md)'
-HIT=$(git diff --cached --name-only -z | tr '\0' '\n' | grep -E "$BLOCKED")
+HIT=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -E "$BLOCKED")
 if [ -n "$HIT" ]; then
   echo ""
   echo "🔴 공개 저장소에 올리면 안 되는 파일이 올라가려 합니다 — 커밋을 멈췄습니다."
