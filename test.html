@@ -7961,23 +7961,33 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 })();
 </script>
 
-<!-- 맘캘봇 v2 인앱 바텀시트 모듈 (2026-11-02 사장님 ORDER_MOMCALBOT) · 설계서 scratchpad/designs/2026-11-02_맘캘봇v2_인앱시트.md · 패치 scratchpad/patch_mcbot.cjs -->
+<!-- 맘캘봇 v2 인앱 바텀시트 모듈 (2026-11-02 사장님 ORDER_MOMCALBOT + 카톡 챗봇 디자인 차용) · 설계서 scratchpad/designs/2026-11-02_맘캘봇v2_인앱시트.md · 패치 scratchpad/patch_mcbot.cjs -->
 <style id="mc-bot-css">
 .mcb-h{display:flex;align-items:center;justify-content:space-between;flex:none;min-height:40px}
 .mcb-h b{font-size:15px;font-weight:800;color:#7C54C4}
 .mcb-x{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;padding:0}
-.mcb-msgs{flex:1 1 auto;min-height:180px;max-height:min(380px,48vh);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0}
-.mcb-b{max-width:88%;margin:0 0 10px;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.5;color:#191F28;word-break:keep-all;white-space:pre-line;box-sizing:border-box}
-.mcb-b.bot{background:#F6F3FA;border-top-left-radius:6px}
-.mcb-b.me{margin-left:auto;background:#7C54C4;color:#fff;border-top-right-radius:6px;white-space:pre-wrap;word-break:break-all}
-.mcb-b.cards{width:88%;padding:8px 10px}
-.mcb-card{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:9px 0;border:0;border-bottom:1px solid #EDE8F3;background:none;text-align:left;font-family:inherit;cursor:pointer}
-.mcb-card:last-child{border-bottom:0}
-.mcb-card i{flex:none;font-style:normal;font-size:11px;font-weight:700;color:#7C54C4;background:#fff;border-radius:100px;padding:2px 8px}
-.mcb-card span{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.35;color:#191F28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.mcb-card em{display:block;margin-top:2px;font-style:normal;font-size:12px;font-weight:600;color:#6B45B3}
-.mcb-act{display:inline-block;margin:0 0 10px;min-height:40px;padding:0 16px;border:1px solid #7C54C4;border-radius:100px;background:#fff;color:#7C54C4;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer}
-.mcb-chips{display:flex;gap:8px;overflow-x:auto;flex:none;padding:8px 0;-webkit-overflow-scrolling:touch}
+/* 카톡 챗봇 디자인: 회색 대화판 · 아바타+이름 · 내용만큼의 말풍선(손님=카카오 노랑) · 흰 카드 가로 스크롤 · 회색 「전체 보기」 단추 */
+.mcb-msgs{flex:1 1 auto;min-height:200px;max-height:min(400px,50vh);overflow-y:auto;-webkit-overflow-scrolling:touch;background:#F2F4F6;border-radius:14px;padding:14px 10px 4px;margin-top:4px}
+.mcb-row{display:flex;gap:8px;align-items:flex-start;margin:0 0 12px}
+.mcb-av{flex:none;width:40px;height:40px;border-radius:14px;background:linear-gradient(150deg,#B48DEB,#7C54C4);display:flex;align-items:center;justify-content:center}
+.mcb-av.ghost{visibility:hidden}
+.mcb-col{flex:1;min-width:0}
+.mcb-nm{margin:0 0 4px 2px;font-size:13px;color:#4E5968}
+.mcb-line{display:flex;align-items:flex-end;gap:6px}
+.mcb-b{width:fit-content;max-width:100%;padding:11px 14px;font-size:15px;line-height:1.5;color:#191F28;word-break:keep-all;white-space:pre-line;box-sizing:border-box}
+.mcb-row .mcb-b{background:#fff;border-radius:6px 18px 18px 18px}
+.mcb-me{display:flex;justify-content:flex-end;align-items:flex-end;gap:6px;margin:0 0 12px}
+.mcb-me .mcb-b{max-width:78%;background:#FEE500;color:#191919;border-radius:18px 6px 18px 18px;white-space:pre-wrap;word-break:break-all}
+.mcb-tm{flex:none;font-size:11px;color:#8B95A1;white-space:nowrap;padding-bottom:2px}
+.mcb-car{display:flex;gap:8px;overflow-x:auto;margin:0 -2px;padding:0 2px 4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.mcb-cd{flex:none;width:236px;background:#fff;border-radius:18px;padding:14px 14px 12px;box-sizing:border-box;scroll-snap-align:start}
+.mcb-cd h4{margin:0 0 4px;padding-bottom:10px;border-bottom:1px solid #EEF0F2;font-size:15px;font-weight:800;color:#191F28;word-break:keep-all}
+.mcb-it{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #EEF0F2;background:none;padding:9px 0;font-family:inherit;cursor:pointer}
+.mcb-it b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14.5px;font-weight:500;line-height:1.35;color:#191F28}
+.mcb-it small{display:block;margin-top:2px;font-size:12.5px;color:#8B95A1}
+.mcb-all{display:block;width:100%;height:42px;margin-top:10px;border:0;border-radius:12px;background:#F2F4F6;color:#191F28;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+.mcb-act{display:inline-block;margin:6px 6px 0 0;min-height:40px;padding:0 16px;border:1px solid #7C54C4;border-radius:100px;background:#fff;color:#7C54C4;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer}
+.mcb-chips{display:flex;gap:8px;overflow-x:auto;flex:none;padding:10px 0 8px;-webkit-overflow-scrolling:touch}
 .mcb-chip{flex:none;height:36px;padding:0 14px;border:1px solid #E5E8EB;border-radius:100px;background:#fff;color:#4E5968;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
 .mcb-in{display:flex;gap:8px;flex:none;padding-top:4px}
 .mcb-in input{flex:1;min-width:0;height:44px;border:1px solid #D1D6DB;border-radius:12px;padding:0 14px;font-size:16px;font-family:inherit;outline:none;box-sizing:border-box}
@@ -7999,46 +8009,20 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 (function(){
 'use strict';
 var BOT_ON=true;   // 🔴 한 줄 킬스위치: false 면 맘캘봇 시트가 안 열리고 인기 특가 줄도 안 그린다
-var ESS=['기저귀','분유','생수','물티슈','세제','휴지','화장지','우유','쌀','계란','샴푸','칫솔','마스크','섬유유연제','세탁','손소독','치약'];   // 생활필수품
-var TRIG=/(알림|알려\s*줘|알려\s*주세요|알려\s*줄래|알람|뜨면|나오면|올라오면)/;
-var STOP=['핫딜','공구','세일','특가','뜨면','나오면','올라오면','알려줘','알려주세요','알려줄래','알려','알림','알람','해줘','해주세요','해줄래','등록','등록해줘','좀','주세요','줘','있어','있나요','있어요','찾아줘','찾아','보여줘','검색','관련','제품','상품','추천','싼','싸게','최저가','가격','얼마','싶어','싶어요','혹시','저기','언제','뭐','어디','내','제','저','나','때','및','그리고'];
-var LAST=[];    // 말풍선 단추가 가리키는 값(속성에 글자를 직접 넣지 않으려고)
-var CARDS={};   // 말풍선 카드가 가리키는 항목
+var ESS=['기저귀','분유','생수','물티슈','세제','휴지','화장지','샴푸','칫솔','치약','섬유유연제','세탁세제','액체세제','손소독','계란','쌀가루'];   // 생활필수품(통째 낱말만 — 「마스크팩」「세탁기」에 안 걸리게)
+var TRIG=/(알림(?!장)|알려\s*줘|알려\s*주|알려\s*줄|알람|뜨면|나오면|올라오면)/;
+var TRIG_G=/(알림(?!장)|알려\s*줘\S*|알려\s*주\S*|알려\s*줄\S*|알람|뜨면|나오면|올라오면|해\s*줘|해\s*주세요|해\s*줄래|등록\S*)/g;
+var DROP=/(핫딜|공구|세일|특가|최저가)/g;
+var STOP=['설정','취소','삭제','해제','어떻게','방법','나와','나오나요','언제','어디','뭐','뭐가','좀','주세요','줘','있어','있나요','있어요','있어요?','찾아줘','찾아','보여줘','검색','관련','제품','상품','추천','싼','싸게','가격','얼마','싶어','싶어요','혹시','저기','내','제','저','나','때','및','그리고','그냥','다시','자주','매일'];
+var MANAGE=/((알림|알람).*(취소|삭제|해제|끄|꺼|지워|그만)|(취소|삭제|해제|지워).*(알림|알람))/;
+var HOWTO=/((알림|알람).*(설정|어떻게|방법|뭐)|(설정|방법).*(알림|알람))/;
+var LAST=[], CARDS={}, WHO='';
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function norm(s){ return String(s==null?'':s).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); }
 function md(d){ var q=String(d||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; }
 function won(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
-
-// ── 낱말 뽑기: 「압타밀 핫딜 뜨면 알려줘」 → 「압타밀」 ──
-function extractKw(text){
-  var t=String(text||'').replace(/['"“”‘’「」『』()\[\]{}.,!?~·…\/\\]/g,' ');
-  var toks=t.split(/\s+/).filter(Boolean).map(function(w){
-    w=w.replace(/(알려\s*줘|알려주세요|알려줄래|알림|알람|뜨면|나오면|올라오면|해줘|해주세요|해줄래|등록해줘|등록)/g,'');
-    if(STOP.indexOf(w)>=0) return '';
-    var s=w.replace(/(에서|으로|이랑|에게|한테)$/,'').replace(/([은는이가을를도만의])$/,function(m){ return w.length>=3?'':m; });
-    if(s.length<w.length && s.length>=2 && STOP.indexOf(s)<0) w=s; else if(s.length<w.length && STOP.indexOf(s)>=0) return '';
-    return w.length>=2?w:'';
-  }).filter(Boolean);
-  return toks.slice(0,3).join(' ').slice(0,20);
-}
-
-// ── 말풍선 ──
-function msgs(){ return $('mcbMessages'); }
-function bottom(){ var m=msgs(); if(m) m.scrollTop=m.scrollHeight; }
-function say(text,cls,html){
-  var m=msgs(); if(!m) return null;
-  var d=document.createElement('div'); d.className='mcb-b '+(cls||'bot');
-  if(html) d.innerHTML=html; else d.textContent=text;
-  m.appendChild(d); bottom(); return d;
-}
-function act(label,fn){ var m=msgs(); if(!m) return; var b=document.createElement('button'); b.type='button'; b.className='mcb-act'; b.textContent=label; b.onclick=fn; m.appendChild(b); bottom(); }
-function cardsBubble(head,list){
-  var h=head?'<div style="font-size:13.5px;margin:2px 2px 4px">'+esc(head)+'</div>':'';
-  var rows=list.map(function(x){ var key='c'+Math.random().toString(36).slice(2,8); CARDS[key]=x;
-    return '<button class="mcb-card" type="button" onclick="mcbGo(\''+key+'\')"><i>'+(x.t==='h'?'핫딜':'공구')+'</i><span>'+esc(x.title)+'<em>'+esc(x.meta)+'</em></span></button>'; }).join('');
-  say('', 'bot cards', h+rows);
-}
+function clock(){ var d=new Date(), h=d.getHours(), m=d.getMinutes(); return (h<12?'오전 ':'오후 ')+(h%12||12)+':'+(m<10?'0':'')+m; }
 
 // ── 데이터 ──
 function ggItems(){
@@ -8048,13 +8032,79 @@ function ggItems(){
 async function hdItems(){
   try{ if(typeof _hotdealData!=='undefined' && !_hotdealData && typeof loadHotdeals==='function') await loadHotdeals(); }catch(_){}
   var a=(typeof _hotdealData!=='undefined'&&_hotdealData)||[]; var out=[];
-  a.forEach(function(h){ try{ if(h&&h.title&&Number(h.id)>0&&!hdExpired(h)) out.push(h); }catch(_){} });
+  a.forEach(function(h){ try{ if(h&&h.title&&Number(h.id)>0&&!hdExpired(h)&&hdFreshForSearch(h)) out.push(h); }catch(_){} });   // 7일 넘은 핫딜은 검색에서 뺀다(사이트 검색과 같은 정책)
+  try{ out=hdDedupe(out); }catch(_){}
   return out;
+}
+function hits(c){ var n=norm(c); if(n.length<2) return 0; var k=0;
+  try{ ggItems().forEach(function(d){ if(norm(d.name).indexOf(n)>=0) k++; }); }catch(_){}
+  try{ ((typeof _hotdealData!=='undefined'&&_hotdealData)||[]).forEach(function(h){ if(h&&norm(h.title).indexOf(n)>=0) k++; }); }catch(_){}
+  return k; }
+
+// ── 낱말 뽑기: 「압타밀 핫딜 뜨면 알려줘」→「압타밀」, 「기저귀랑 물티슈 알림」→ 기저귀·물티슈 ──
+function pickWord(w){   // 끝 조사를 뗄지는 실제 상품명에 맞는 쪽으로(「맥스드라이」의 이 같은 낱말 끝을 안 자르게)
+  var s=w.replace(/(이랑|하고|랑|과|와)$/,'').replace(/(에서|으로|에게|한테)$/,'');
+  var t=s.replace(/([은는가을를도만의])$/,'');
+  var u=(w.length>=4)?s.replace(/이$/,''):s;
+  var cands=[w]; [s,t,u].forEach(function(x){ if(x.length>=2 && cands.indexOf(x)<0) cands.push(x); });
+  var best=w, bn=-1; cands.forEach(function(x){ var c=hits(x); if(c>bn){ bn=c; best=x; } });
+  if(bn<=0){ best=(t.length>=2?t:s.length>=2?s:w); if(w.length>=4 && /이$/.test(best)) best=best.replace(/이$/,''); }   // 지금 걸리는 게 없을 땐 조사를 뗀 쪽
+  return best;
+}
+function extractKws(text){
+  var t=String(text||'').replace(/['"“”‘’「」『』()\[\]{}.,!?~·…\/\\]/g,' ').replace(TRIG_G,' ').replace(DROP,' ');
+  var toks=t.split(/\s+/).filter(function(w){ return w && STOP.indexOf(w)<0; }).map(pickWord).filter(function(w){ return w.length>=2 && STOP.indexOf(w)<0; });
+  var seen={}; toks=toks.filter(function(w){ var k=norm(w); if(!k||seen[k]) return false; seen[k]=1; return true; });
+  if(!toks.length) return [];
+  var conj=/(랑|하고)(\s|$)|[,，]|\s및\s|그리고/.test(String(text||'')) && toks.length>1;   // 「기저귀랑 물티슈」「기저귀, 분유」 처럼 여러 개를 말한 경우
+  if(conj) return toks.slice(0,3);
+  if(toks.length>1){ var joined=toks.join(' ').slice(0,20); if(hits(joined)>0) return [joined]; }
+  return [toks[0]];
+}
+
+// ── 대화 판(카톡 챗봇 모양) ──
+var AV='<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="3.2" fill="#fff"/><rect x="7.6" y="3.2" width="2" height="4" rx="1" fill="#fff"/><rect x="14.4" y="3.2" width="2" height="4" rx="1" fill="#fff"/><path d="M12 17.4c-3.2-2-4.6-3.5-4.6-5.1 0-1.2.9-2.1 2.1-2.1.9 0 1.9.6 2.5 1.5.6-.9 1.6-1.5 2.5-1.5 1.2 0 2.1.9 2.1 2.1 0 1.6-1.4 3.1-4.6 5.1z" fill="#FF7AA8"/></svg>';
+function msgs(){ return $('mcbMessages'); }
+function bottom(){ var m=msgs(); if(m) m.scrollTop=m.scrollHeight; }
+function botRow(node, time){
+  var m=msgs(); if(!m) return;
+  var first=(WHO!=='bot'); WHO='bot';
+  var r=document.createElement('div'); r.className='mcb-row';
+  var av=document.createElement('div'); av.className='mcb-av'+(first?'':' ghost'); av.innerHTML=AV; r.appendChild(av);
+  var col=document.createElement('div'); col.className='mcb-col';
+  if(first){ var nm=document.createElement('div'); nm.className='mcb-nm'; nm.textContent='맘캘린더'; col.appendChild(nm); }
+  var line=document.createElement('div'); line.className='mcb-line'; line.appendChild(node);
+  if(time!==false){ var tm=document.createElement('span'); tm.className='mcb-tm'; tm.textContent=clock(); line.appendChild(tm); }
+  col.appendChild(line); r.appendChild(col); m.appendChild(r); bottom(); return col;
+}
+function say(text,who){
+  var m=msgs(); if(!m) return;
+  var b=document.createElement('div'); b.className='mcb-b'; b.textContent=text;
+  if(who==='me'){ WHO='me'; var w=document.createElement('div'); w.className='mcb-me'; var tm=document.createElement('span'); tm.className='mcb-tm'; tm.textContent=clock(); w.appendChild(tm); w.appendChild(b); m.appendChild(w); bottom(); return; }
+  botRow(b);
+}
+function act(label,fn){   // 봇 말풍선 아래 빠른 답 단추
+  var m=msgs(); if(!m) return; var rows=m.querySelectorAll('.mcb-row'); var col=rows.length?rows[rows.length-1].querySelector('.mcb-col'):null; if(!col) return;
+  var b=document.createElement('button'); b.type='button'; b.className='mcb-act'; b.textContent=label; b.onclick=fn; col.appendChild(b); bottom();
+}
+// 카드 묶음: [{title, items:[{t,id,title,meta}], all:'전체 일정 보기', fn}]
+function carousel(cards){
+  var car=document.createElement('div'); car.className='mcb-car';
+  cards.forEach(function(c){
+    var d=document.createElement('div'); d.className='mcb-cd';
+    var h=document.createElement('h4'); h.textContent=c.title; d.appendChild(h);
+    c.items.forEach(function(x){ var key='c'+Math.random().toString(36).slice(2,8); CARDS[key]=x;
+      var b=document.createElement('button'); b.type='button'; b.className='mcb-it'; b.setAttribute('onclick',"mcbGo('"+key+"')");
+      var t=document.createElement('b'); t.textContent=x.title; var s=document.createElement('small'); s.textContent=x.meta||''; b.appendChild(t); if(x.meta) b.appendChild(s); d.appendChild(b); });
+    if(c.all){ var a=document.createElement('button'); a.type='button'; a.className='mcb-all'; a.textContent=c.all; a.onclick=c.fn; d.appendChild(a); }
+    car.appendChild(d);
+  });
+  botRow(car,false);
 }
 function ggCard(d){
   var today=(typeof todayStr!=='undefined')?todayStr:'';
   var seller=d.influencer?d.influencer+' · ':'';
-  var meta=seller+(d.openDate>today?md(d.openDate)+' 오픈':(d.endDate?'~'+md(d.endDate)+' 마감':'진행 중'));
+  var meta=seller+(d.openDate>today?md(d.openDate)+' 오픈':md(d.openDate)+(d.endDate?'~'+md(d.endDate):' 진행 중'));
   return {t:'g',id:d.id,title:d.name,meta:meta};
 }
 function hdCard(h){ var mall=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':''); return {t:'h',id:h.id,title:h.title,meta:(h.price?won(h.price):'')+(h.is_lowest?' · 최저':'')+(mall?' · '+mall:'')}; }
@@ -8074,10 +8124,12 @@ function hdGo(id){
   var tracked=!!h.product_id&&!!h.price&&(({toss:1,coupang:1,goldbox:1,adpick:1})[h.source]||!!h.price_before);   // 핫딜 카드(hdCardHtml)와 같은 판정
   if(tracked){ trackHd('open',h.id); openHdSheet(h.id); } else { trackHd('go',h.id); openLink(h.link); }
 }
+function goTab(tab,q){ closeMomcalBot(); try{ switchContent(tab); if(q&&typeof runSearch==='function') runSearch(q); else window.scrollTo(0,0); }catch(_){} }
 
 // ── 시트 ──
 window.openMomcalBot=function(){
   if(!BOT_ON) return;
+  WHO='';
   mcSheet('mcbSheet',
     '<div class="mcb-h"><b>💜 맘캘봇</b><button class="mc-tbtn mcb-x" type="button" aria-label="닫기" onclick="closeMomcalBot()">✕</button></div>'
    +'<div class="mcb-msgs" id="mcbMessages"></div>'
@@ -8101,7 +8153,7 @@ window.mcbQuick=async function(k){
     pool.sort(function(a,b){ return (vc[b.id]||0)-(vc[a.id]||0); });
     var pick=pool.slice(0,3);
     if(!pick.length){ say('지금은 보여드릴 공구가 없네요 🥺'); return; }
-    cardsBubble(todayList.length?'오늘 오픈·마감하는 인기 공구예요':'지금 인기 있는 공구예요', pick.map(ggCard)); return;
+    carousel([{title:todayList.length?'오늘 오픈·마감 인기 공구':'지금 인기 있는 공구',items:pick.map(ggCard),all:'전체 일정 보기',fn:function(){ goTab('gonggu'); }}]); return;
   }
   if(k==='deal'){
     say('🛒 최저가 핫딜','me');
@@ -8109,28 +8161,30 @@ window.mcbQuick=async function(k){
     hd.sort(function(a,b){ return (b.is_lowest?1:0)-(a.is_lowest?1:0) || new Date(b.created_at)-new Date(a.created_at); });
     var p=hd.slice(0,3);
     if(!p.length){ say('지금은 보여드릴 핫딜이 없네요 🥺'); return; }
-    cardsBubble('최저가 위주로 골랐어요', p.map(hdCard));
+    carousel([{title:'최저가 핫딜',items:p.map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }}]);
   }
 };
 function registered(r,kw){
   if(r.ok){ say("🔔 '"+kw+"' 키워드 알림에 등록해 두었어요!\n특가가 뜨면 맘캘린더 상단 종소리로 바로 알려드릴게요."); }
   else if(r.dup){ say("이미 '"+kw+"' 알림을 받고 계세요 🔔"); }
-  else { say(r.msg||'등록하지 못했어요'); if(!r.ok && !r.dup) return; }
+  else { say(r.msg||'등록하지 못했어요'); return; }
   act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); });
 }
 window.mcbReg=function(i){ var kw=LAST[i]; if(!kw||typeof mcKwAdd!=='function') return; registered(mcKwAdd(kw),kw); };
 window.mcbSend=async function(){
   var inp=$('mcbInput'); if(!inp) return; var text=String(inp.value||'').trim(); if(!text) return; inp.value='';
   say(text,'me');
-  var kw=extractKw(text);
+  if(MANAGE.test(text)){ try{ trackEvent('mcbot_send','manage'); }catch(_){} say('알림은 내 알림 목록에서 지우거나 바꿀 수 있어요.'); act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); }); return; }
+  if(HOWTO.test(text)){ try{ trackEvent('mcbot_send','howto'); }catch(_){} say('찾는 상품을 말씀해 주세요.\n예: "압타밀 핫딜 뜨면 알려줘"\n그 상품의 공구·핫딜이 뜨면 상단 종소리로 알려드려요.'); return; }
+  var kws=extractKws(text);
   if(TRIG.test(text)){
     try{ trackEvent('mcbot_send','alarm'); }catch(_){}
-    if(!kw){ say('어떤 상품 알림을 드릴까요?\n예: 압타밀 핫딜 뜨면 알려줘'); return; }
+    if(!kws.length){ say('어떤 상품 알림을 드릴까요?\n예: 압타밀 핫딜 뜨면 알려줘'); return; }
     if(typeof mcKwAdd!=='function'){ say('알림 기능을 불러오지 못했어요'); return; }
-    registered(mcKwAdd(kw),kw); return;
+    kws.forEach(function(kw){ registered(mcKwAdd(kw),kw); }); return;
   }
   try{ trackEvent('mcbot_send','search'); }catch(_){}
-  if(!kw) kw=text.replace(/\s+/g,' ').slice(0,20);
+  var kw=kws.length?kws[0]:text.replace(/\s+/g,' ').slice(0,20);
   var nk=norm(kw);
   if(nk.length<2){ say('조금 더 자세히 알려주세요 🙂\n예: 기저귀, 압타밀'); return; }
   var hd=await hdItems();
@@ -8138,10 +8192,10 @@ window.mcbSend=async function(){
   var today=(typeof todayStr!=='undefined')?todayStr:'';
   var gG=ggItems().filter(function(d){ return norm(d.name).indexOf(nk)>=0 || (nk.length>=3 && norm(d.influencer||'').indexOf(nk)>=0); })
     .sort(function(a,b){ return (a.openDate>today)-(b.openDate>today) || (a.openDate<b.openDate?-1:1); });
-  var pick=[]; hH.slice(0,2).forEach(function(h){ pick.push(hdCard(h)); }); gG.slice(0,2).forEach(function(d){ pick.push(ggCard(d)); });
-  hH.slice(2).forEach(function(h){ if(pick.length<3) pick.push(hdCard(h)); }); gG.slice(2).forEach(function(d){ if(pick.length<3) pick.push(ggCard(d)); });
-  pick=pick.slice(0,3);
-  if(pick.length){ cardsBubble("'"+kw+"' 찾아봤어요", pick); return; }
+  var cards=[];
+  if(hH.length) cards.push({title:"'"+kw+"' 핫딜",items:hH.slice(0,3).map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }});
+  if(gG.length) cards.push({title:"'"+kw+"' 공구 일정",items:gG.slice(0,3).map(ggCard),all:'전체 일정 보기',fn:function(){ goTab('gonggu',kw); }});
+  if(cards.length){ carousel(cards); return; }
   say("지금은 '"+kw+"' 공구나 핫딜이 없네요 🥺\n핫딜이 뜨면 바로 알려드릴까요?");
   var i=LAST.push(kw)-1; act("'"+kw+"' 알림 등록하기 🔔",function(){ mcbReg(i); });
 };
