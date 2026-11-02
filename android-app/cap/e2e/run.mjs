@@ -137,7 +137,7 @@ async function expectTab(name, url, run) {
   sh('shell', 'am', 'force-stop', 'com.android.chrome');
   await launch();
   shot('01_home');
-  await js(`try{ localStorage.setItem('mc_app_onb','1'); var _k=document.getElementById('kkoSheet'); if(_k && typeof closeLoginSheet==='function') closeLoginSheet(); 'ok' }catch(e){ 'err' }`);   // 앱 첫 실행 로그인 온보딩이 상태바 색·목록 검사를 가리지 않게(2026-11-02)
+  await js(`try{ localStorage.setItem('mc_app_onb','1'); localStorage.setItem('mc_onb_done_app','e2e'); if(typeof mcOnbClose==='function') mcOnbClose(); var _k=document.getElementById('kkoSheet'); if(_k && typeof closeLoginSheet==='function') closeLoginSheet(); 'ok' }catch(e){ 'err' }`);   // 앱 첫 실행 로그인 온보딩이 상태바 색·목록 검사를 가리지 않게(2026-11-02)
   // 처음 켤 때 = 아무 창도 안 뜬다 (2026-11-01 54c011d63d — 찜 0개 첫 방문자에게 로드 즉시 알림 팝업 제거, 첫 하트 뒤에만 묻는다). 알림 켜기는 뒤의 「알림 켜기 → 권한 허용 → 토큰 받음」 시험이 본다
   {
     let tapped = false, seen = '';
