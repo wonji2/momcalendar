@@ -1084,62 +1084,6 @@ function resetTouch() {
   if (livePriceVal) livePriceVal.innerHTML = `오늘 ${formatWon(d.price)}`;
 }
 
-  const html = `
-    <div class="sheet-prod-header">
-      <img class="sheet-thumb" src="${d.img}" referrerpolicy="no-referrer">
-      <div class="sheet-prod-info">
-        <div class="sheet-mall">${d.mall} 특가</div>
-        <div class="sheet-title">${d.title}</div>
-        <div class="sheet-price-row">
-          <span class="sheet-discount">${d.discount}%</span>
-          <span class="sheet-price">${formatWon(d.price)}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 💡 자비스 실질 절감액 배너 -->
-    <div class="savings-callout">
-      <span>💡</span>
-      <span>평소 평균가보다 <b>${formatWon(diff)} 더 저렴</b>한 역대급 구매 찬스예요!</span>
-    </div>
-
-    <!-- 폴센트 캡처 2번형 차트 박스 -->
-    <div class="chart-box">
-      <div class="chart-head-row">
-        <span class="chart-title">📈 가격 추이 그래프</span>
-        <!-- 폴센트식 1개월 / 2개월 / 3개월 / 전체 -->
-        <div class="period-tabs">
-          <button class="p-tab ${currentPeriod==1?'on':''}" onclick="changePeriod(1)">1개월</button>
-          <button class="p-tab ${currentPeriod==2?'on':''}" onclick="changePeriod(2)">2개월</button>
-          <button class="p-tab ${currentPeriod==3?'on':''}" onclick="changePeriod(3)">3개월</button>
-          <button class="p-tab ${currentPeriod=='all'?'on':''}" onclick="changePeriod('all')">전체</button>
-        </div>
-      </div>
-      ${chartSvg}
-      <!-- 3단 스펙 (폴센트 캡처 2번 실측) -->
-      <div class="price-stats-grid">
-        <div class="stat-item high"><div class="lbl">▲ 최고가</div><div class="val">${formatWon(hi)}</div></div>
-        <div class="stat-item"><div class="lbl">- 평균가</div><div class="val">${formatWon(avg)}</div></div>
-        <div class="stat-item best"><div class="lbl">▼ 최저가</div><div class="val">${formatWon(lo)}</div></div>
-      </div>
-    </div>
-
-    <!-- 🛒 [폴센트 캡처 2번 하단 바] 절감액 + 구매 버튼 -->
-    <div class="sheet-bottom-bar">
-      <div class="bottom-diff-box">
-        <span class="diff-lbl">평균가 대비</span>
-        <span class="diff-val">-${formatWon(diff)}</span>
-      </div>
-      <button class="btn-buy-link" onclick="alert('제휴 수익링크로 이동합니다!')">
-        <span>${d.mall}에서 구매하러 가기</span>
-        <span>➔</span>
-      </button>
-    </div>
-  `;
-
-  document.getElementById('hdSheetContent').innerHTML = html;
-}
-
 function closeHotdealChart() {
   document.getElementById('hdSheet').style.bottom = '-110%';
   setTimeout(() => { document.getElementById('hdBg').style.display = 'none'; }, 300);
