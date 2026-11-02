@@ -54,8 +54,10 @@ BEGIN
   END IF;
   -- ③ 사장님 2026-11-02 「인스타 네임에 오피셜 들어간 공식 계정은 공구 아닐 확률이 대부분 · 빼는 쪽으로」 (비비엔다 오피셜 포함)
   --    새로 들어오는 행만 미승인으로 받는다(예외를 던지지 않는다 — 등록기 한 줄 때문에 회차가 멈추지 않게). 맘캘 본인(momcal_)은 제외.
-  --    기존 노출 137행은 11-02 에 내리고 gonggu_hold 에 넣었다.
-  IF TG_OP = 'INSERT' AND NEW.approved IS TRUE AND COALESCE(NEW.insta, '') ILIKE '%official%' AND COALESCE(NEW.insta, '') <> 'momcal_' THEN
+  --    기존 노출 137행은 11-02 에 내렸다가 개인 셀러 5명(별난맘·풍기댁홈·릴리맘·lovemomomom·지엠마)은 같은 날 되살렸다(하봄 등 회사·브랜드는 그대로 제외).
+  --     gonggu_hold 에 넣었다.
+  IF TG_OP = 'INSERT' AND NEW.approved IS TRUE AND COALESCE(NEW.insta, '') ILIKE '%official%' AND COALESCE(NEW.insta, '') <> 'momcal_'
+     AND NEW.insta NOT IN ('byulnanmam_official','2na2jun_mom.official','lillimom_official','lovemomomom_official','jiemma_official') THEN   -- 실제 공구하는 개인 셀러는 둔다(사장님 2026-11-02)
     NEW.approved := false;
   END IF;
   RETURN NEW;
