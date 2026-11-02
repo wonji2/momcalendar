@@ -4073,8 +4073,10 @@ async function openHdSheet(id){
          </div>`
       : (h.source==='goldbox'&&!dropPct ? `<div class="hd-one">쿠팡이 <b>오늘의 특가</b>로 고른 상품이에요</div>` : (function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var pc=av>h.price?Math.round((av-h.price)/av*100):0; return `<div class="hd-one" id="hdOne"${pc?'':' hidden'}>평소보다 <b>${pc}% 싸요</b></div>`; })())}
 
-    ${(function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var df=(av>h.price)?(av-h.price):0; var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
-      return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
+    ${(function(){
+      var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg;
+      var df=(av>h.price)?(av-h.price):0;
+      var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
       var safeLink = h.link || '#';
       if (safeLink.indexOf('item.gmarket.co.kr') !== -1) {
         safeLink = safeLink.replace('item.gmarket.co.kr%2FItem', 'm.gmarket.co.kr%2Fitem')
@@ -4082,7 +4084,8 @@ async function openHdSheet(id){
                            .replace('item.gmarket.co.kr', 'm.gmarket.co.kr');
       }
       return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
-      <a class="hd-buy" href="${escHtml(_httpOnly(safeLink)||'#')}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`; })()}
+      <a class="hd-buy" href="${escHtml(_httpOnly(safeLink)||'#')}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>`;
+    })()}
 
     <button onclick="closeHdSheet()" style="width:100%;background:none;border:none;color:#bbb;font-size:12px;font-family:inherit;cursor:pointer;padding:10px 6px 2px">닫기</button>`;
 }
