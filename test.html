@@ -1988,15 +1988,13 @@ window.slimAdClick=function(id){
       <button class="c-chip" data-cat="반려동물" onclick="setHdCategory('반려동물')">반려동물</button>
     </div>
 
-    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원: 네이버, 오늘의집 추가) -->
+    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원) -->
     <div class="mall-chips" id="hdMallChips">
       <button type="button" class="m-chip on" data-mall="all" onclick="toggleHdMall('all')">전체몰</button>
       <button type="button" class="m-chip" data-mall="coupang_wow" onclick="toggleHdMall('coupang_wow')">🚀 쿠팡(와우)</button>
       <button type="button" class="m-chip" data-mall="coupang" onclick="toggleHdMall('coupang')">쿠팡(일반)</button>
       <button type="button" class="m-chip" data-mall="gmarket" onclick="toggleHdMall('gmarket')">G마켓</button>
       <button type="button" class="m-chip" data-mall="11st" onclick="toggleHdMall('11st')">11번가</button>
-      <button type="button" class="m-chip" data-mall="naver" onclick="toggleHdMall('naver')">네이버</button>
-      <button type="button" class="m-chip" data-mall="ohouse" onclick="toggleHdMall('ohouse')">오늘의집</button>
       <button type="button" class="m-chip" data-mall="toss" onclick="toggleHdMall('toss')">토스쇼핑</button>
       <button type="button" class="m-chip" data-mall="lotte" onclick="toggleHdMall('lotte')">롯데ON</button>
     </div>
@@ -4036,8 +4034,6 @@ function renderHotdeals(){
       var isCoupang = (src === 'coupang' || src === 'goldbox' || mall.indexOf('쿠팡') !== -1 || tit.indexOf('쿠팡') !== -1);
       var isGmarket = (src === 'gmarket' || mall.indexOf('지마켓') !== -1 || mall.indexOf('gmarket') !== -1 || /지마켓|g마켓/i.test(tit));
       var is11st = (src === '11st' || mall.indexOf('11번가') !== -1 || /11번가/i.test(tit));
-      var isNaver = (src === 'naver' || mall.indexOf('네이버') !== -1 || /네이버/i.test(tit));
-      var isOhouse = (src === 'ohou' || src === 'ohouse' || mall.indexOf('오늘의집') !== -1 || /오늘의집/i.test(tit));
       var isToss = (src === 'toss' || mall.indexOf('토스') !== -1 || /토스/i.test(tit));
       var isLotte = (src === 'lotteon' || src === 'lotte' || mall.indexOf('롯데') !== -1 || /롯데/i.test(tit));
 
@@ -4046,8 +4042,6 @@ function renderHotdeals(){
       if(_selectedMalls.has('coupang') && isCoupang && !isWow) match = true;
       if(_selectedMalls.has('gmarket') && isGmarket) match = true;
       if(_selectedMalls.has('11st') && is11st) match = true;
-      if(_selectedMalls.has('naver') && isNaver) match = true;
-      if(_selectedMalls.has('ohouse') && isOhouse) match = true;
       if(_selectedMalls.has('toss') && isToss) match = true;
       if(_selectedMalls.has('lotte') && isLotte) match = true;
       return match;
@@ -4305,18 +4299,6 @@ async function openHdSheet(id){
       :'')}
 
     <div id="hdChartBox">${hdChartBox(h,pts,2)}</div>
-
-    <!-- 📅 핫딜 놓쳤을 때 공구 오픈 일정 안내 (공구가는 비공개 안전 유지) -->
-    <div style="background:#F8F4FD;border:1px solid #E5D6F7;border-radius:12px;padding:12px 14px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div style="display:flex;align-items:center;gap:9px">
-        <span style="font-size:18px">📅</span>
-        <div>
-          <div style="font-size:12.5px;font-weight:700;color:#5E2FA2">핫딜 놓쳤거나 품절됐나요?</div>
-          <div style="font-size:11.5px;color:#7858A6;margin-top:2px">인스타 공구 캘린더에서 다음 오픈 일정을 확인해 보세요</div>
-        </div>
-      </div>
-      <button type="button" onclick="closeHdSheet();switchContent('gonggu')" style="background:#7C54C4;color:#fff;border:none;border-radius:8px;padding:7px 11px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">공구 일정 ›</button>
-    </div>
 
     ${(h.source==='adpick'||h.source==='toss') && hcUnitPrice(h)
       // 정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다 → 우리가 계산한 개당 가격을 근거로 쓴다
