@@ -120,12 +120,13 @@ console.log('✔ build.gradle versionCode', vc);
 fs.writeFileSync(path.join(MAIN, 'res', 'values', 'momcal_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="momcal_brand">#602090</color>\n</resources>\n');
 {
   const bgx = path.join(MAIN, 'res', 'values', 'ic_launcher_background.xml');
-  if (fs.existsSync(bgx)) fs.writeFileSync(bgx, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#602090</color>\n</resources>\n');
+  if (fs.existsSync(bgx)) fs.writeFileSync(bgx, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#F6F3FA</color>\n</resources>\n');
 }
 
 // 5) 아이콘·스플래시·알림 아이콘
 const ROOT = path.resolve(HERE, '..', '..');
 const ICON = path.join(ROOT, 'momcal-appicon.png'), BADGE = path.join(ROOT, 'momcal-badge.png');
+const FG_SRC = fs.existsSync(path.join(HERE, 'ic_launcher_foreground_src.png')) ? path.join(HERE, 'ic_launcher_foreground_src.png') : ICON;
 if (!fs.existsSync(ICON) || !fs.existsSync(BADGE)) die('아이콘 원본 없음');
 const im = (...a) => execFileSync('convert', a, { stdio: 'inherit' });
 const D = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
@@ -135,7 +136,7 @@ for (const [d, k] of Object.entries(D)) {
   const n = Math.round(48 * k), fg = Math.round(108 * k);
   im(ICON, '-resize', `${n}x${n}`, path.join(dir, 'ic_launcher.png'));
   im(ICON, '-resize', `${n}x${n}`, path.join(dir, 'ic_launcher_round.png'));
-  im(ICON, '-resize', `${fg}x${fg}`, path.join(dir, 'ic_launcher_foreground.png'));
+  im(FG_SRC, '-resize', `${fg}x${fg}`, path.join(dir, 'ic_launcher_foreground.png'));   // 적응형 아이콘: 그림 62%·둘레 비움(갤럭시 One UI 가 바깥 18~20% 를 잘라 확대돼 보이던 것, 2026-11-02)
   const dd = path.join(MAIN, 'res', 'drawable-' + d);
   fs.mkdirSync(dd, { recursive: true });
   im(BADGE, '-resize', `${Math.round(24 * k)}x${Math.round(24 * k)}`, path.join(dd, 'push_icon.png'));
