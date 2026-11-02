@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>맘캘린더 핫딜 연결</title>
+  <meta property="og:title" content="🔥 맘캘린더 실시간 역대 최저가 핫딜">
+  <meta property="og:description" content="맘캘린더가 실시간으로 검증한 특가 핫딜입니다. 안전한 쇼핑몰 결제 페이지로 이동합니다.">
+  <meta property="og:image" content="https://momcalendar.com/icons/icon-512.png">
+  <meta property="og:site_name" content="맘캘린더 (momcalendar.com)">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #FAF9FD;
+      color: #191F28;
+      text-align: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #EDE9FE;
+      border-top-color: #7C54C4;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .title { font-size: 16px; font-weight: 700; color: #7C54C4; margin-bottom: 6px; }
+    .desc { font-size: 13px; color: #8B95A1; }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <div class="title">맘캘린더 검증 최저가 연결 중...</div>
+  <div class="desc">잠시 후 안전한 쇼핑몰 결제 페이지로 바로 이동합니다.</div>
+
+  <script>
+    (async function(){
+      const q = new URLSearchParams(location.search);
+      const id = q.get('id');
+      if (!id) {
+        location.replace('https://momcalendar.com/?ct=hotdeal');
+        return;
+      }
+      try {
+        const url = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals?id=eq.' + id + '&select=link';
+        const res = await fetch(url, {
+          headers: {
+            'apikey': 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'
+          }
+        });
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].link) {
+          location.replace(data[0].link);
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      location.replace('https://momcalendar.com/?ct=hotdeal&deal_id=' + id);
+    })();
+  </script>
+</body>
+</html>
