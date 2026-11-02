@@ -38,6 +38,8 @@ def sql_quote(val):
 
 def classify_category(title):
     t = title.lower()
+    if re.search(r'호텔|리조트|풀빌라|펜션|숙박|워터파크|스파|아쿠아리움|키즈카페|입장권|테마파크|항공권|렌터카|투어|패키지|여행|글램핑|캠핑장', t):
+        return '여행', '숙박/레저' 
     if re.search(r'우유|분유|치즈|요거트|두유', t):
         return '식품', '유제품'
     if re.search(r'유모차|유모자|카시트|아기띠|웨건|트라이크|보행기', t):
@@ -266,7 +268,7 @@ def collect_from_jirum_alarm():
             ext_links = re.findall(r'href=[\"\'](https?://[^\"\']+)[\"\']', p_html)
             target_link = ''
             for el in ext_links:
-                if any(k in el for k in ['linkprice.com', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'auction.co.kr', 'lotteon.com', 'ssg.com', 'ohou.se']):
+                if any(k in el for k in ['linkprice.com', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'auction.co.kr', 'lotteon.com', 'ssg.com', 'ohou.se', '3hoursahead.com', 'yanolja.com', 'goodchoice.kr', 'agoda.com']):
                     target_link = el
                     break
 
@@ -338,6 +340,21 @@ def collect_from_jirum_alarm():
                 prod_id = f'lo_{lid}'
                 clean = f'https://www.lotteon.com/p/product/{lid}'
                 aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+            elif '3hoursahead.com' in target_link:
+                mall = '세시간전'
+                source = 'linkprice'
+                prod_id = f'3h_{jid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=3hoursahead&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(target_link)}'
+            elif 'yanolja.com' in target_link:
+                mall = '야놀자'
+                source = 'linkprice'
+                prod_id = f'yan_{jid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=yanolja&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(target_link)}'
+            elif 'goodchoice.kr' in target_link:
+                mall = '여기어때'
+                source = 'linkprice'
+                prod_id = f'yeogi_{jid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=goodchoice&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(target_link)}'
 
             if not aff_link:
                 continue
@@ -415,7 +432,7 @@ def collect_from_bbhd():
             links = re.findall(r'https?://[^\s\"\'<>]+', detail)
             target_link = ''
             for l in links:
-                if any(dom in l for dom in ['app.ac', 'bitl.bz', 'deg.kr', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'lotteon.com', 'auction.co.kr', 'ssg.com', 'ohou.se']):
+                if any(dom in l for dom in ['app.ac', 'bitl.bz', 'deg.kr', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'lotteon.com', 'auction.co.kr', 'ssg.com', 'ohou.se', '3hoursahead.com', 'yanolja.com', 'goodchoice.kr', 'agoda.com']):
                     target_link = l
                     break
 
