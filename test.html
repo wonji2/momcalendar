@@ -886,7 +886,8 @@ body[data-ct="community"] #subZone {
   font-weight: 600 !important;
   color: #191F28 !important;
   line-height: 18px !important;
-  height: 37px !important;
+  min-height: 0 !important;
+  max-height: 37px !important;
   margin-top: 2px !important;
   display: -webkit-box !important;
   -webkit-line-clamp: 2 !important;
@@ -4019,53 +4020,72 @@ function hdCardHtml(h,opt){
 // 이미지가 깨졌을 때 갈아끼울 플레이스홀더 (onerror 안에 따옴표를 중첩하지 않으려고 전역으로 둠)
 window.__hcPh='<div class="hc-ph"><span class="hc-ph-i">🔥</span><span class="hc-ph-t">HOT</span></div>';
 function wonFmt(n){ return Number(n||0).toLocaleString('ko-KR')+'원'; }
-// 상품명에서 '몇 개짜리인지'를 읽어 개당 가격을 낸다.
-//  "바리스타룰스 아메리카노, 350ml, 20개" → 20 → 9,990원 ÷ 20 = 개당 500원
-// ⚠ 350ml·200g 같은 '용량'을 개수로 착각하면 안 된다 → 개수 단위만 인정한다.
-function hcUnitPrice(h){
+// 상품명에서 '몇 개/몇 통/몇 팩/몇 롤'인지 읽어 개별 단위 가격을 낸다.
+function hcUnitInfo(h){
   try{
-    if(!h || !h.price) return 0;
+    if(!h || !h.price) return {price:0, unit:'개'};
     var t=String(h.title||'');
-    var best=0;
-    // 개수 단위: 개/개입/입/팩/매/병/포/캔/봉/박스/세트/장. (ml·g·kg·L 은 제외)
-    // ⚠ 여러 개가 잡히면 '마지막 것'이 수량이다. 한국 상품명은 "용량, 수량" 순으로 쓴다.
-    //   "키친타월 100매, 9개" → 9 가 정답 (100 을 고르면 개당 79원이 나온다 — 실측으로 잡은 버그)
-    // 🔴 2026-08-19 — 서로 다른 구성을 묶어 판 상품은 개당 가격이 **의미가 없다**.
-    //   사장님 지적: "칠성사이다 210ml 30캔에 350ml 24캔인데 용량이 다른데 개당 883원이라고
-    //   써있어 의미없잖아 이런건 빼야지"
-    //   → 수량 표기가 2개 이상이고 용량도 여러 번 나오면(=섞음 구성) 개당 표시를 아예 안 한다.
-    //     정상 상품("키친타월 100매, 9개")은 용량 표기가 없으므로 그대로 동작한다.
-    // 🔴 2026-08-24 — "키친타올 150매, 12롤" 이 개당 57원으로 나감(사장님 지적).
-    //   '매·장' 은 낱장 단위다. 롤·팩 같은 묶음 단위가 같이 적혀 있으면 묶음 쪽으로 나눈다.
-    //   화장지류 "30롤 2팩" 은 팩이 겉포장이라 총 롤수(30×2=60)로 나눠야 롤당 가격이 맞다.
-    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장|롤)(?![a-zA-Z가-힣])/g, m;
+
+    // 1) 10개+10개 형태
+    var mPlus=t.match(/(\d+)\s*(개|입|팩|매|병|포|캔|봉|통|롤)\s*\+\s*(\d+)\s*(개|입|팩|매|병|포|캔|봉|통|롤)/);
+    if(mPlus){
+      var n1=parseInt(mPlus[1],10), n2=parseInt(mPlus[3],10), uTot=mPlus[2];
+      var tot=n1+n2;
+      if(tot>0){
+        var uVal=Math.round(h.price/tot);
+        if(uVal>0 && uVal<h.price) return {price:uVal, unit:uTot};
+      }
+    }
+
+    // 2) 일반 수량 단위 (통, 정, 캡슐 등 포함)
+    var re=/(\d+)\s*(개입|개|입|팩|매|병|포|캔|봉|박스|세트|장|롤|통|정|캡슐)(?![a-zA-Z가-힣])/g, m;
     var toks=[];
     while((m=re.exec(t))!==null){ toks.push({n:parseInt(m[1],10), u:m[2]}); }
-    var qtys=[], sheet=0, pack=0, roll=0;
-    toks.forEach(function(x){
-      if(x.n>=3 && x.n<=200){                        // 2개 이하는 개당 표시가 의미 없다
-        qtys.push(x.n);
-        if(x.u==='매'||x.u==='장') sheet=x.n;
-        else if(x.u==='롤') roll=x.n;
-        else pack=x.n;
-      }
+    var valid=toks.filter(function(x){ return x.n>=2 && x.n<=500; });
+    if(!valid.length) return {price:0, unit:'개'};
+
+    var roll=0, sheet=0, tong=0, packItem=null;
+    valid.forEach(function(x){
+      if(x.u==='롤') roll=x.n;
+      else if(x.u==='매'||x.u==='장') sheet=x.n;
+      else if(x.u==='통') tong=x.n;
+      else if(x.u==='팩'||x.u==='박스'||x.u==='세트') packItem=x;
     });
-    var lastTok=toks.length?toks[toks.length-1]:null;
+
+    var lastTok=valid[valid.length-1];
+    var best=0, uName='개';
+
     if(roll){
       best=roll;
-      // 🔴 2026-08-28 — "크리넥스 25m 30롤 2개" 가 개당 850원으로 나감(실제는 60롤 = 425원).
-      //   '2개'도 '2팩'처럼 겉포장 묶음이다 → 곱셈 단위에 '개' 추가.
+      uName='롤';
       if(lastTok && (lastTok.u==='팩'||lastTok.u==='박스'||lastTok.u==='세트'||lastTok.u==='개') && lastTok.n>=2 && lastTok.n<=20) best=roll*lastTok.n;
+    } else if(tong){
+      best=tong;
+      uName='통';
+    } else if(sheet && packItem){
+      best=packItem.n;
+      uName=packItem.u;
     } else {
-      best=pack||sheet;
+      best=lastTok.n;
+      uName=lastTok.u;
+      if(uName==='개입'||uName==='입') uName='개';
     }
-    var volCnt=(t.match(/\d+\s*(ml|g|kg|L)(?![a-zA-Z가-힣])/gi)||[]).length;
-    if(qtys.length>=2 && volCnt>=2) return 0;          // 용량이 서로 다른 묶음
-    if(/[+]/.test(t)) return 0;                        // + 로 다른 상품을 이어붙인 묶음(수량이 하나만 적혀도 개당이 틀린다)
-    if(!best) return 0;
+
+    // 서로 다른 용량의 묶음(예: 210ml 30캔에 350ml 24캔)
+    var volMatches=t.match(/\d+\s*(ml|g|kg|L)(?![a-zA-Z가-힣])/gi)||[];
+    if(valid.length>=2 && volMatches.length>=2 && !mPlus){
+      return {price:0, unit:'개'};
+    }
+
+    if(!best) return {price:0, unit:'개'};
     var u=Math.round(h.price/best);
-    return (u>0 && u<h.price) ? u : 0;
-  }catch(_){ return 0; }
+    if(u>0 && u<h.price) return {price:u, unit:uName};
+    return {price:0, unit:'개'};
+  }catch(_){ return {price:0, unit:'개'}; }
+}
+function hcUnitPrice(h){
+  var info=hcUnitInfo(h);
+  return info?info.price:0;
 }
 
 // ── 핫딜 근거 시트 (폴센트식 가격 추이) ──────────────────────
@@ -8830,9 +8850,9 @@ async function paintDemand(){
   '<div class="curation-slider">' +
     pick.map(function(h){
       var mall = h.mall || ((h.source === 'coupang' || h.source === 'goldbox') ? '쿠팡' : '');
-      var unit = (typeof hcUnitPrice === 'function') ? hcUnitPrice(h) : 0;
+      var uInfo = (typeof hcUnitInfo === 'function') ? hcUnitInfo(h) : {price:0, unit:'개'};
       var unitTxt = '&nbsp;';
-      if(unit) unitTxt = '(1개당 ' + wonFmt(unit) + ')';
+      if(uInfo && uInfo.price) unitTxt = '(1' + uInfo.unit + '당 ' + wonFmt(uInfo.price) + ')';
       else if(h.change && String(h.change).indexOf('▼') !== -1) unitTxt = '(' + hcEsc(h.change) + ')';
 
       var HD_HAS_HISTORY = {toss:1, coupang:1, goldbox:1, adpick:1};
@@ -9393,7 +9413,7 @@ function hdcReset(){
 .hd-info{padding:7px 2px 2px}
 .hd-meta{font-size:10.5px;color:#8B95A1;font-weight:500;margin-bottom:2px;height:18px;display:flex;gap:4px;align-items:center;white-space:nowrap;overflow:hidden}
 .hd-mall-tag{background:#F2F4F6;color:#4E5968;padding:1px 4px;border-radius:3px;font-size:10px;font-weight:600;flex:none}
-.hd-title-txt{font-size:12px;font-weight:600;color:#191F28;line-height:18px;height:37px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.hd-title-txt{font-size:12px;font-weight:600;color:#191F28;line-height:18px;min-height:0;max-height:37px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .hd-price-row{display:flex;align-items:baseline;gap:4px;margin-top:3px;height:20px}
 .hd-discount{font-size:13px;font-weight:800;color:#FF4742}
 .hd-price-val{font-size:14.5px;font-weight:800;color:#191F28}
@@ -9425,8 +9445,9 @@ function hdGridCardHtml(h){
 
   var open='<div class="hd-card hdg-card" onclick="trackHd(\'open\','+(+h.id||0)+');openHdSheet('+(+h.id||0)+')">';
 
+  var uInfo = (typeof hcUnitInfo === 'function') ? hcUnitInfo(h) : {price:0, unit:'개'};
   var unitTxt='&nbsp;';
-  if(unit) unitTxt='(1개당 '+wonFmt(unit)+')';
+  if(uInfo && uInfo.price) unitTxt='(1'+uInfo.unit+'당 '+wonFmt(uInfo.price)+')';
   else if(h.change && String(h.change).indexOf('▼')!==-1) unitTxt='('+hcEsc(h.change)+')';
 
   return open
