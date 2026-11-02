@@ -1,21 +1,26 @@
 # 🚀 [폴센트 킬러 핫딜 전면 개편] 클로드 코드 1회 완결 마스터 지시서
 
-## 📌 사장님 최종 확정 지침 (2026-11-02 4대 특명)
+## 📌 사장님 최종 확정 지침 (2026-11-02 4대 특명 + 3대 디테일 긴급 보정)
 1. **[특명 1] 핫딜/세일 탭 진입 시 상단 공구 배너 4종 싹 숨김**:
    - 사장님 말씀: *"핫딜누르면 위에 맘캘방장 공구예정등등 배너는 안보이고 바로 핫딜만 보여야지"*
    - 핫딜/세일/커뮤니티 탭 진입 시: `.main-banner-section`, `#nextZone`, `#sellerZone`, `#subZone` 전면 숨김(`display: none !important;`) ➔ 헤더 바로 밑에 핫딜 최상단 노출.
 2. **[특명 2] 쿠팡처럼 가격 바로 밑에 괄호 단위가격 사전 표시**:
    - 사장님 말씀: *"겹치거나 잘리는거 없애고 상품을 누르기전에 개당 단위가를 쿠팡처럼 미리 보여줘"*
    - 가격 바로 밑에 `(1장당 349원)`, `(100ml당 320원)`, `(1개당 120원)` 회색 괄호 단가 상시 노출.
-3. **[특명 3] 줄맞춤(수직 정렬) 칼일치**:
-   - 사장님 말씀: *"줄맞춤 안맞는거 다 정렬맞춰"*
-   - 제목 2줄 높이(`height: 34px; line-height: 17px;`), 가격 줄 높이(`height: 20px;`), 단위가 줄 높이(`height: 16px;`)를 엄격 고정하여 **좌우 카드의 가격·단위가가 동일한 수평선(Pixel Baseline)에 완벽 정렬**되도록 함.
-4. **[특명 4] 토글 칩 이모지 영구 삭제 & 겹침·잘림 방지 2단 분리**:
-   - 사장님 말씀: *"이모티콘 다 빼 토글칩에"*, *"120+찜 이런건 없애 우린"*
+3. **[특명 3] 줄맞춤(수직 정렬) 칼일치 & 제목 하단 글자 잘림 방지**:
+   - 사장님 말씀: *"줄맞춤 안맞는거 다 정렬맞춰"*, *"자세히 보면 제목 하단 글씨가 조금씩 잘리는 경향이 있어서 이거 수정하고"*
+   - 기존 `height: 34px; line-height: 17px;`는 한글 받침(ㅇ, ㄹ, ㅁ) 하단 곡선이 칼같이 잘리는 결함 발생!
+   - **`height: 37px !important; line-height: 18px !important;`**로 3px 여유를 주어 하단 글자가 1픽셀도 잘리지 않으면서 좌우 카드의 수평선(Pixel Baseline)은 완벽히 유지.
+4. **[특명 4] 토글 칩 이모지 영구 삭제 & 가짜 타이머 배너 삭제**:
+   - 사장님 말씀: *"오늘 마감 한정 특가는 뭐야... 의미 없는 거면 빼고"*, *"이모티콘 다 빼 토글칩에"*, *"120+찜 이런건 없애 우린"*
    - 칩에서 이모지(`👶`, `🥗`, `🏠`, `🔌`) 전면 제거 ➔ `[전체] [육아] [식품] [리빙] [가전] [패션]`.
    - 사진 위 `120+ 찜`, `무료배송` 등 가짜 뱃지 완전 삭제.
-   - 쿠팡식 2단 분리: 1단 가로 스크롤 칩 / 2단 좌측 카운트 + 우측 정렬 드롭다운 (겹침 0%).
-5. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
+   - **가짜 타이머 바(`오늘 마감 한정 특가`, `14:18:22 남음`, `자정 자동 종료`) 전면 삭제**: 우리 핫딜은 실시간 특가라 자정에 끝나는 딜이 아니므로 불필요한 가짜 카운트다운 완전 배제.
+5. **[특명 5] 정렬 드롭다운 중복 세모(`∨`) 제거**:
+   - 사장님 말씀: *"필터에서는 이미 세모가 있는데 필터 제목에 세모 모양이 또 들어가 있어"*
+   - `<option>` 텍스트에서 `∨` 기호 전면 삭제 (`<option>급하락순</option>`, `<option>인기순</option>`, `<option>최신순</option>`).
+   - `.sort-select`에 `appearance: none;`과 단일 SVG 화살표를 적용하여 2중 세모 버그 완벽 박멸.
+6. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
 
 ---
 
@@ -247,8 +252,8 @@ body[data-ct="community"] #subZone {
   font-size: 12px !important;
   font-weight: 600 !important;
   color: #191F28 !important;
-  line-height: 17px !important;
-  height: 34px !important;
+  line-height: 18px !important;
+  height: 37px !important;
   display: -webkit-box !important;
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
@@ -286,5 +291,22 @@ body[data-ct="community"] #subZone {
   font-weight: 400 !important;
   color: #8B95A1 !important;
   margin-left: 6px !important;
+}
+
+/* 🔻 정렬 드롭다운 (중복 세모 없는 단일 화살표) */
+.sort-select {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #4E5968 !important;
+  border: 1px solid #E5E8EB !important;
+  border-radius: 6px !important;
+  background-color: #fff !important;
+  cursor: pointer !important;
+  padding: 3px 22px 3px 8px !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%238B95A1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 7px center !important;
 }
 ```
