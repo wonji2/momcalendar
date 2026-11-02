@@ -1,5 +1,41 @@
 # 🚀 [폴센트 킬러 핫딜 전면 개편] 5대 불만 해결 + 마미톡 2열 그리드 + 프리미엄 차트
 
+## 0. 🚨 [사장님 긴급 오더] 핫딜/세일/커뮤니티 탭 진입 시 상단 공구 배너 전면 숨김!
+- **사장님 말씀**: "핫딜누르면 위에 맘캘방장 공구예정등등 배너는 안보이고 바로 핫딜만 보여야지"
+- **문제 원인**: 현재 `switchContent(ct)`가 아래쪽 `#gongguWrap`만 숨기고, 상단에 위치한 메인배너(`.main-banner-section`), 오픈예정스포(`#nextZone`), 이웃셀러(`#sellerZone`), 셀러배너(`#subZone`)를 숨기지 않아서 핫딜 탭을 눌러도 공구 배너들이 화면 절반을 가리고 핫딜이 밑으로 밀려남.
+- **반드시 적용할 해결책**:
+  1. `switchContent(ct)` 함수 실행 시 `document.body.dataset.ct = ct;` 를 지정한다.
+  2. 공구(`ct === 'gonggu'`)가 아닐 때는 상단 공구 4대 영역(`.main-banner-section`, `#nextZone`, `#sellerZone`, `#subZone`)을 `display: none !important;`로 전면 숨긴다.
+  3. 공구 탭으로 돌아왔을 때만 원래대로 복원한다.
+  ```css
+  /* 🎯 공구 외 탭(핫딜, 세일, 커뮤니티)에서는 상단 공구 배너·예고·이웃셀러 완전 숨김 */
+  body[data-ct="hotdeal"] .main-banner-section,
+  body[data-ct="hotdeal"] #nextZone,
+  body[data-ct="hotdeal"] #sellerZone,
+  body[data-ct="hotdeal"] #subZone,
+  body[data-ct="sale"] .main-banner-section,
+  body[data-ct="sale"] #nextZone,
+  body[data-ct="sale"] #sellerZone,
+  body[data-ct="sale"] #subZone,
+  body[data-ct="community"] .main-banner-section,
+  body[data-ct="community"] #nextZone,
+  body[data-ct="community"] #sellerZone,
+  body[data-ct="community"] #subZone {
+    display: none !important;
+  }
+  ```
+  ```javascript
+  // switchContent(ct) 함수 최상단에 추가:
+  document.body.dataset.ct = ct;
+  var isGonggu = (ct === 'gonggu');
+  var mb = document.querySelector('.main-banner-section'); if(mb) mb.style.display = isGonggu ? '' : 'none';
+  var nz = document.getElementById('nextZone'); if(nz) nz.style.display = isGonggu ? '' : 'none';
+  var sz = document.getElementById('sellerZone'); if(sz) sz.style.display = isGonggu ? '' : 'none';
+  var sb = document.getElementById('subZone'); if(sb) sb.style.display = isGonggu ? '' : 'none';
+  ```
+
+---
+
 ## 1. 사장님 최종 확정 지침 및 기획 배경 (2026-11-02)
 - **사장님 말씀**: "참고해서 더 디벨롭해줘 완전 따라하기보다는 너의 핫딜원칙과 섞어서 더 편하게 볼만한 방법으로... 폴센트 앱스토어나 구글플레이스토어 리뷰를 평점낮은순으로봐서 불만인것들을 해결한 방안으로 짜줘... 구조랑 디자인 잘짜서 클코에넘겨"
 - **폴센트 5대 불만 전면 해결**:
