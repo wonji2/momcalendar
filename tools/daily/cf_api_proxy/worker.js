@@ -28,6 +28,10 @@ const ANON = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 //   🔑 급히 반영하려면 **node tools/daily/cf_api_proxy.mjs purge** (2026-10-14 신설). 배포만으로는 아래 공유 캐시단이 안 비워진다.
 const CACHE_TTL = { hotdeals: 900, gonggu: 900, banners_public: 180, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600, live_shows: 3600 };   // live_shows: 라방 편성표(6시간마다 수집, 2026-10-24)
 const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block|live_shows)(?:\?|$)/;
+// 🪣 Worker 요청 줄이기(2026-11-02, 어제 91,116건/10만): 손님 브라우저가 이 목록을 잠깐 쥐고 있으면 다시 열 때 Worker 를 안 부른다. 핫딜·체험단은 제외 —
+//    2026-09-29 마감 핫딜이 오래 남은 사고가 있어 계속 「매번 물어본다」. 여기 있는 표는 몇 분 늦어도 손님이 알 수 없는 것들이다. 0/없음 = 예전 그대로
+const BROWSER_TTL = { gonggu: 180, sellers: 300, banners_public: 120, bot_alias: 600, bot_alias_deny: 600, brand_block: 600, live_shows: 600 };
+const browserCC = (pathname) => { const m = pathname.match(CACHE_RE); const s = m && BROWSER_TTL[m[1]]; return s ? 'public, max-age=' + s : 'no-cache, max-age=0'; };
 // 공개 저장소 사진(배너·카드 이미지)은 파일 이름에 시각이 박혀 있어 내용이 바뀌지 않는다 → 하루 붙잡아 두고 브라우저에도 하루 물린다.
 // 활성 배너 3장이 600KB 인데 손님마다 새로 받아가면 월 2GB 다(2026-09-29 실측). 비공개(object/sign·authenticated)는 건드리지 않는다.
 const IMG_RE = /^\/storage\/v1\/object\/public\//;
@@ -134,7 +138,7 @@ export default {
         out.set('X-Momcal-Proxy', '1'); out.set('X-Momcal-Cache', 'HIT');
         // 🔴 손님 브라우저엔 물리지 않는다(2026-09-29 검증: zone 설정이 4시간을 덮어씌워 마감 핫딜이 계속 보였다).
         //    엣지는 붙잡아 두고 브라우저는 매번 물어본다 — 사진만 예외로 하루 물린다.
-        if (!IMG_RE.test(url.pathname)) out.set('Cache-Control', 'no-cache, max-age=0');
+        if (!IMG_RE.test(url.pathname)) out.set('Cache-Control', browserCC(url.pathname));
         return new Response(hit.body, { status: hit.status, headers: out });
       }
     }
@@ -177,7 +181,7 @@ export default {
     out.set('X-Momcal-Proxy', '1');
     if (ttl) out.set('X-Momcal-Cache', 'MISS');
     if (IMG_RE.test(url.pathname)) { if (res.status === 200 || res.status === 206) out.set('Cache-Control', 'public, max-age=' + IMG_TTL + ', immutable'); }
-    else if (ttl) out.set('Cache-Control', 'no-cache, max-age=0');
+    else if (ttl) out.set('Cache-Control', browserCC(url.pathname));
 
     // 정상 답(200·206)만 붙잡아 둔다. 오류·빈 답은 다음 손님이 다시 물어본다
     if (ttl && (res.status === 200 || res.status === 206)) {
