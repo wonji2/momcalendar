@@ -93,7 +93,7 @@ try {
     // ③ 탭
     const tab = (t) => p.evaluate((x) => { try { switchContent(x); return true; } catch (e) { return false; } }, t);
     await tab('hotdeal'); await p.waitForTimeout(3000);
-    { const n = await p.evaluate(() => [...document.querySelectorAll('#hotdealList .hc')].filter((e) => e.offsetParent).length); ok(who, '핫딜 탭', n > 0, `${n}개`); }
+    { const n = await p.evaluate(() => [...document.querySelectorAll('#hotdealList .hc, #hotdealList .hdg-card')].filter((e) => e.offsetParent).length); ok(who, '핫딜 탭', n > 0, `${n}개`); }
     await tab('sale'); await p.waitForTimeout(3000);
     { const txt = await p.evaluate(() => document.body.innerText); ok(who, '세일 탭', /세일|라방/.test(txt) && !/불러오지 못/.test(txt)); }
     await tab('gonggu'); await p.waitForTimeout(1500);
