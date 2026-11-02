@@ -837,9 +837,11 @@ body[data-ct="community"] #subZone {
 .curation-slider::-webkit-scrollbar { display: none !important; }
 .c-card {
   flex: 0 0 calc((100% - 20px) / 2.3) !important;
-  background: #fff !important;
+  background: transparent !important;
   border-radius: 12px !important;
-  overflow: hidden !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
   cursor: pointer !important;
   display: flex !important;
   flex-direction: column !important;
@@ -851,7 +853,8 @@ body[data-ct="community"] #subZone {
   overflow: hidden !important;
   position: relative !important;
   background: #F8F9FA !important;
-  border: 1px solid #F0F0F3 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .c-thumb {
   width: 100% !important;
@@ -1046,17 +1049,19 @@ body[data-ct="community"] #subZone {
   background-position: right 7px center !important;
 }
 
-/* 4. 🛍️ 마미톡식 2열 핫딜 그리드 (수직 라인 칼정렬) */
+/* 4. 🛍️ 폴센트식 테두리 없는 2열 핫딜 그리드 (와이드 확장 뷰) */
 .hotdeal-grid {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 14px 11px !important;
-  padding: 8px 4px 24px !important;
+  gap: 18px 12px !important;
+  padding: 6px 0 24px !important;
 }
 .hd-card {
-  background: #fff !important;
+  background: transparent !important;
   border-radius: 12px !important;
-  overflow: hidden !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
   cursor: pointer !important;
   display: flex !important;
   flex-direction: column !important;
@@ -1070,7 +1075,8 @@ body[data-ct="community"] #subZone {
   overflow: hidden !important;
   position: relative !important;
   background: #F8F9FA !important;
-  border: 1px solid #F0F0F3 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .hd-thumb {
   width: 100% !important;
@@ -9638,10 +9644,10 @@ function hdcReset(){
 </script>
 <style id="mc-hdgrid">
 /* 핫딜 탭 2열 카드 (마미톡식, 사장님 원본 mock_hotdeal_v3.html) — 줄맞춤: 제목 2줄 37px · 가격 20px · 개당가 16px 고정 높이 */
-.hotdeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 11px;padding:4px 0 24px}
-.hdg-card{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;position:relative;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
+.hotdeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 12px;padding:4px 0 24px}
+.hdg-card{background:transparent;border-radius:12px;border:none;box-shadow:none;overflow:visible;cursor:pointer;display:flex;flex-direction:column;position:relative;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent}
 .hdg-card:active{transform:scale(.985)}
-.hd-thumb-wrap{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;position:relative;background:#F8F9FA;border:1px solid #F0F0F3;box-sizing:border-box}
+.hd-thumb-wrap{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;position:relative;background:#F8F9FA;border:none;box-sizing:border-box}
 .hd-thumb{width:100%;height:100%;object-fit:cover;display:block}
 .hd-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#C6C0CE;font-size:13px;font-weight:800;letter-spacing:.08em}
 .c-micro-badge{position:absolute;top:7px;left:7px;font-size:9.5px;font-weight:700;padding:2px 5px;border-radius:4px;letter-spacing:-.2px;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:2}
@@ -9686,15 +9692,34 @@ function hdGridCardHtml(h){
   if(uInfo && uInfo.price) unitTxt='(1'+uInfo.unit+'당 '+wonFmt(uInfo.price)+')';
   else if(h.change && String(h.change).indexOf('▼')!==-1) unitTxt='('+hcEsc(h.change)+')';
 
+  var badgeHtml = '';
+  if (h.is_lowest) {
+    badgeHtml = '<div style="position:absolute;top:7px;left:7px;display:flex;flex-direction:column;gap:3px;z-index:2">'
+      + '<span class="c-micro-badge badge-red" style="position:static;padding:2px 6px;font-size:10px;font-weight:800;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.12)">역대급최저가</span>'
+      + '<span style="background:#EBF4FF;color:#007AFF;padding:2px 5px;font-size:9.5px;font-weight:700;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">구매타이밍</span>'
+      + '</div>';
+  }
+
+  var plusBtn = '<div class="hd-quick-plus" onclick="event.stopPropagation();openMcOnboard()" style="position:absolute;right:8px;bottom:8px;width:30px;height:30px;border-radius:50%;background:#007AFF;color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:400;box-shadow:0 2px 6px rgba(0,122,255,0.35);z-index:2;cursor:pointer;-webkit-tap-highlight-color:transparent">+</div>';
+
+  var mallLabel = mall;
+  if (mall === '쿠팡' || h.source === 'coupang' || h.source === 'goldbox') mallLabel = '🚀 로켓배송';
+
   return open
-    +'<div class="hd-thumb-wrap">'+thumb+(h.is_lowest?'<span class="c-micro-badge badge-red">역대최저</span>':'')+'<div class="hd-wish-heart">♡</div></div>'
-    +'<div class="hd-info">'
-      +'<div class="hd-meta">'+(mall?'<span class="hd-mall-tag">'+hcEsc(mall)+'</span>':'')+'<span>'+hcEsc(h.major||'')+'</span></div>'
-      +'<div class="hd-title-txt">'+hcEsc(h.title)+'</div>'
-      +'<div class="hd-price-row"><span class="hd-price-val">'+wonFmt(h.price)+'</span>'+(rate?'<span class="hd-discount">▼ '+rate+'%</span>':'')+'</div>'
-      +'<div class="hd-unit-line">'+unitTxt+'</div>'
-    +'</div>'
-  +'</div>';
+    + '<div class="hd-thumb-wrap" style="border:none!important;border-radius:12px!important;overflow:hidden!important;position:relative!important;aspect-ratio:1/1!important;background:#F8F9FA!important">'
+      + thumb
+      + badgeHtml
+      + plusBtn
+    + '</div>'
+    + '<div class="hd-info" style="padding:6px 0 2px!important">'
+      + '<div class="hd-meta" style="font-size:11.5px;color:' + (mallLabel.indexOf('로켓') !== -1 ? '#007AFF' : '#4E5968') + ';font-weight:700;height:18px;display:flex;gap:4px;align-items:center;margin-bottom:2px">'
+        + hcEsc(mallLabel)
+      + '</div>'
+      + '<div class="hd-title-txt" style="font-size:13px;font-weight:600;color:#191F28;line-height:18px;min-height:0;max-height:36px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all">' + hcEsc(h.title) + '</div>'
+      + '<div class="hd-price-row" style="display:flex;align-items:baseline;gap:5px;margin-top:3px;height:20px"><span class="hd-price-val" style="font-size:15px;font-weight:800;color:#191F28">' + wonFmt(h.price) + '</span>' + (rate ? '<span class="hd-discount" style="font-size:13.5px;font-weight:800;color:#FF4742">▼ ' + rate + '%</span>' : '') + '</div>'
+      + '<div class="hd-unit-line" style="font-size:11.5px;color:#8B95A1;font-weight:500;margin-top:2px;height:16px;line-height:16px">' + unitTxt + '</div>'
+    + '</div>'
+  + '</div>';
 }
 window.__hdgPh='<div class="hd-ph">HOT</div>';
 
