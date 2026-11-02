@@ -23,7 +23,7 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supa
 SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y2Fxc3Flb2dqdGJzY216cnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1MDU4NjAsImV4cCI6MjA1NDA4MTg2MH0.2o1E4Xk0iOQ4J7hZ_X2u2u2u2u2u2u2u2u2u2u2u2u2')
 
 # 단톡방 대상 명칭 및 오픈채팅 링크
-TARGET_ROOM_NAME = "핫딜공지방"
+TARGET_ROOM_NAME = "[맘캘린더] 핫딜공지방 1"
 OPEN_CHAT_URL = "https://open.kakao.com/o/pKNUHgVi"
 
 # 발송 이력 로컬 저장 파일 (중복 발송 100% 방지)
@@ -143,7 +143,7 @@ def send_to_kakao_windows(room_title, message):
         import win32con
         import win32clipboard
 
-        # 1. 대상 단톡방 핸들 찾기 (정확한 일치 및 부분 일치 자동 감지)
+        # 1. 대상 단톡방 핸들 찾기
         hwnd = win32gui.FindWindow(None, room_title)
         if not hwnd:
             def find_win(h, _):
