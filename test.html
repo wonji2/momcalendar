@@ -9226,13 +9226,20 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 .hdc-live .lp small{font-size:10px;font-weight:600}
 .hdc-touch{position:relative;touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:crosshair;margin:2px 0 6px}
 .hdc-touch svg{width:100%;height:auto;display:block}
-.hdc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
-.hdc-stat{text-align:center;background:#FAF8FC;border-radius:10px;padding:7px 2px}
-.hdc-stat .l{font-size:10px;color:#8B95A1;line-height:14px;white-space:nowrap}
-.hdc-stat .v{font-size:12.5px;font-weight:800;color:#191F28;line-height:18px;margin-top:1px}
-.hdc-stat.hi .l{color:#12B886}
-.hdc-stat.lo .l{color:#FF4742}
-.hdc-stat.lo .v{color:#FF4742}
+.hdc-date-axis{display:flex!important;justify-content:space-between!important;align-items:center!important;padding:6px 2px 8px!important;font-size:11px!important;font-weight:600!important;color:#8B95A1!important}
+.hdc-stats{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;margin-top:8px!important}
+.hdc-stat{text-align:center!important;border-radius:10px!important;padding:8px 4px!important;border:1px solid #E5E8EB!important;background:#F8F9FA!important}
+.hdc-stat .l{font-size:11px!important;font-weight:700!important;color:#4E5968!important;margin-bottom:2px!important;white-space:nowrap!important}
+.hdc-stat .v{font-size:13.5px!important;font-weight:800!important;color:#191F28!important;margin-top:1px!important;white-space:nowrap!important}
+.hdc-stat.hi{background:#EBF9F1!important;border-color:#B8ECCE!important}
+.hdc-stat.hi .l{color:#0F9D58!important}
+.hdc-stat.hi .v{color:#0F9D58!important}
+.hdc-stat.av{background:#F2F4F6!important;border-color:#E5E8EB!important}
+.hdc-stat.av .l{color:#4E5968!important}
+.hdc-stat.av .v{color:#191F28!important}
+.hdc-stat.lo{background:#FFF0EE!important;border-color:#FFD3CE!important}
+.hdc-stat.lo .l{color:#FF4742!important}
+.hdc-stat.lo .v{color:#FF4742!important}
 .hd-one{text-align:center;font-size:13px;font-weight:600;color:#4E5968;margin:2px 0 12px}
 .hd-one b{color:#E8402A;font-weight:800}
 .hdc-empty{height:96px;display:flex;align-items:center;justify-content:center;text-align:center;color:#C6C0CE;font-size:11.5px;background:#FBFAFC;border-radius:9px}
@@ -9248,7 +9255,12 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 // ── 핫딜 시트 가격 추이: 1개월(30일)·2개월(60일)·3개월(90일)·6개월(180일) 일별 완벽 일치화 ──
 var __hd={h:null,pts:[],period:2,win:[],M:null};
 function hdDays(s){ return Date.parse(s+'T00:00:00Z')/864e5; }
-function hdMD(s){ var p=String(s).split('-'); return (+p[1])+'월 '+(+p[2])+'일'; }
+function hdMD(s){
+  var p=String(s).split('-');
+  var m=(+p[1])<10 ? ('0'+(+p[1])) : (+p[1]);
+  var d=(+p[2])<10 ? ('0'+(+p[2])) : (+p[2]);
+  return m+'/'+d;
+}
 function hdWin(h,pts,period){
   var days={1:30,2:60,3:90,6:180}[period]||60;
   var now=new Date(Date.now()+9*3600e3);
@@ -9271,7 +9283,9 @@ function hdWin(h,pts,period){
     var dayStr=dt.toISOString().slice(0,10);
     var m=dt.getMonth()+1;
     var d=dt.getDate();
-    var dateLabel=m+'월 '+d+'일';
+    var mStr=m<10 ? ('0'+m) : m;
+    var dStr=d<10 ? ('0'+d) : d;
+    var dateLabel=mStr+'/'+dStr;
 
     var price;
     if(i===0){
@@ -9320,16 +9334,23 @@ function hdChartBox(h,pts,period){
     +'<g id="hdcTip" style="display:none;pointer-events:none"><rect x="0" y="0" width="118" height="23" rx="6" fill="#191F28" opacity=".92"/><text id="hdcTipT" x="59" y="12" fill="#fff" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="middle"></text></g>'
     +'</svg>';
 
-  var startStr=win[0].date;
-  var midStr=win[Math.floor(win.length/2)].date;
-  var endStr=win[win.length-1].date;
+  var n=win.length;
+  var d0=win[0].date;
+  var d1=win[Math.floor(n*0.25)].date;
+  var d2=win[Math.floor(n*0.50)].date;
+  var d3=win[Math.floor(n*0.75)].date;
+  var d4=win[n-1].date;
 
   return '<div class="hdc-box">'
     +'<div class="hdc-head"><span class="hdc-title">'+ttl+'</span><div class="hdc-tabs">'+tabs+'</div></div>'
-    +'<div class="hdc-live"><span class="ld" id="hdcLd">'+startStr+' ~ 오늘 ('+period+'개월간)</span><span class="lp" id="hdcLp">오늘 '+wonFmt(h.price)+'</span></div>'
+    +'<div class="hdc-live"><span class="ld" id="hdcLd">'+d0+' ~ 오늘 ('+period+'개월간)</span><span class="lp" id="hdcLp">현재가 '+wonFmt(h.price)+'</span></div>'
     +'<div class="hdc-touch" id="hdcTouch" onpointerdown="hdcMove(event)" onpointermove="hdcMove(event)" onpointerup="hdcReset()" onpointercancel="hdcReset()" onpointerleave="hdcReset()">'+svg+'</div>'
-    +'<div class="hdc-date-axis"><span>'+startStr+'</span><span>'+midStr+'</span><span>오늘 ('+endStr+')</span></div>'
-    +'<div class="hdc-stats"><div class="hdc-stat hi"><div class="l">▲ 최고가 (녹색선)</div><div class="v">'+wonFmt(hi)+'</div></div><div class="hdc-stat"><div class="l">평균가 (검은선)</div><div class="v">'+wonFmt(avg)+'</div></div><div class="hdc-stat lo"><div class="l">▼ 최저가 (빨간선)</div><div class="v">'+wonFmt(lo)+'</div></div></div>'
+    +'<div class="hdc-date-axis"><span>'+d0+'</span><span>'+d1+'</span><span>'+d2+'</span><span>'+d3+'</span><span style="color:#191F28;font-weight:700">오늘 ('+d4+')</span></div>'
+    +'<div class="hdc-stats">'
+      +'<div class="hdc-stat hi"><div class="l">▲ 최고가</div><div class="v">'+wonFmt(hi)+'</div></div>'
+      +'<div class="hdc-stat av"><div class="l">평균가</div><div class="v">'+wonFmt(avg)+'</div></div>'
+      +'<div class="hdc-stat lo"><div class="l">▼ 최저가</div><div class="v">'+wonFmt(lo)+'</div></div>'
+    +'</div>'
     +'</div>';
 }
 function hdPeriod(p){ var box=document.getElementById('hdChartBox'); if(!box||!__hd.h) return; box.innerHTML=hdChartBox(__hd.h,__hd.pts,p); hdSyncDiff(); try{ trackEvent('hd_chart_period',String(p)); }catch(_){} }
@@ -9356,7 +9377,7 @@ function hdcReset(){
   ['hdcCur','hdcDot','hdcTip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   var ld=document.getElementById('hdcLd'), lp=document.getElementById('hdcLp'), h=__hd.h, win=__hd.win, period=__hd.period||2;
   if(ld&&win&&win.length) ld.textContent=win[0].date+' ~ 오늘 ('+period+'개월간)';
-  if(lp&&h){ lp.textContent='오늘 '+wonFmt(h.price); }
+  if(lp&&h){ lp.textContent='현재가 '+wonFmt(h.price); }
 }
 </script>
 <style id="mc-hdgrid">
