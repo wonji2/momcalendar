@@ -2091,6 +2091,62 @@ const BRAND_ALIAS=[
   // 실측(2026-08-31): DB 는 '레꼴뜨'(recolte 무선초퍼, 10건+)가 정식인데 '레꼴드' 표기도 1건 있고
   //   손님 검색은 '레꼴드'가 많다(수요갭 20회). 사장님 확인 — 같은 브랜드 맞음.
   ['레꼴드','레꼴뜨'],
+
+// 🔎 사장님 오더 2026-11-02 ORDER_ALIAS_EXPAND — 영문↔한글 50종 기본값. 원본은 DB bot_alias(사이트·챗봇이 같이 읽음)에도 같은 줄을 넣었다. 이 상수는 DB 를 못 읽거나 캐시가 낡았을 때의 기본값
+  ['nike','나이키'],
+  ['adidas','아디다스'],
+  ['new balance','뉴발란스'],
+  ['뉴발','뉴발란스'],
+  ['crocs','크록스'],
+  ['ugg','어그'],
+  ['zara','자라'],
+  ['uniqlo','유니클로'],
+  ['mlb','엠엘비'],
+  ['apple','애플'],
+  ['airpods','에어팟'],
+  ['iphone','아이폰'],
+  ['ipad','아이패드'],
+  ['samsung','삼성'],
+  ['galaxy','갤럭시'],
+  ['buds','버즈'],
+  ['dyson','다이슨'],
+  ['philips','필립스'],
+  ['braun','브라운'],
+  ['vornado','보네이도'],
+  ['balmuda','발뮤다'],
+  ['huggies','하기스'],
+  ['pampers','팸퍼스'],
+  ['libero','리베로'],
+  ['aptamil','압타밀'],
+  ['novalac','노발락'],
+  ['bebesup','베베숲'],
+  ['penelope','페넬로페'],
+  ['mother-k','마더케이'],
+  ['hegen','헤겐'],
+  ['doubleheart','더블하트'],
+  ['umee','유미'],
+  ['upang','유팡'],
+  ['spectra','스펙트라'],
+  ['relive','릴리브'],
+  ['bepanthen','비판텐'],
+  ['physiogel','피지오겔'],
+  ['atopalm','아토팜'],
+  ['illiyoon','일리윤'],
+  ['mongdies','몽디에스'],
+  ['mustela','무스텔라'],
+  ['primage','쁘리마쥬'],
+  ['lactofit','락토핏'],
+  ['orthomol','오쏘몰'],
+  ['stokke','스토케'],
+  ['tripp trapp','트립트랩'],
+  ['bugaboo','부가부'],
+  ['butterfly','버터플라이'],
+  ['ergobaby','에르고베이비'],
+  ['pognae','포그내'],
+  ['sidiz','시디즈'],
+  ['iloom','일룸'],
+  ['alzipmat','알집매트'],
+  ['creamhaus','크림하우스'],
 ];
 // 🔗 상품 ↔ 브랜드 연관 — 손님이 **상품 이름만** 알고 검색하는 경우 (사장님 지시 2026-08-17)
 //   예) '빼빼구마' 는 룰루맘 브랜드의 공구 상품인데, 상품명에는 '룰루맘' 만 적혀 있다.
@@ -6429,29 +6485,20 @@ function _appPermNotice(){   // 앱 첫 실행 알림 권한 = 폰 시스템 팝
 }
 // 앱(Capacitor) 알림 켜기 묻기 — 찜은 있는데 권한이 없는 손님(PWA 에서 찜을 가지고 온 회원 등). 웹에선 아무것도 안 한다 (2026-10-26)
 function _appPushAsk(force){
+  // 2026-11-02 사장님 「로그인하자마자 아무것도 안 눌렀는데 이 팝업이 떠 · 핸드폰 알림 허용 창만 떠야 하는 거 아냐?」
+  //   우리 안내창(오픈 알림 설정할까요?)을 없애고 폰 시스템 「알림 허용」 창만 띄운다(2026-10-26 결정 「앱 알림 권한 = 폰 시스템 팝업만」과 같다).
+  //   자동으로 부를 땐(앱을 켠 뒤 찜이 있을 때) 거절하든 허용하든 3일 안엔 다시 묻지 않는다. 결과 안내 토스트는 손님이 직접 눌러 부른 경우(force)만.
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
     if(typeof notiGranted==='function' && notiGranted()) return false;
     if(!force){ const nx=+(localStorage.getItem('mc_app_push_ask')||0); if(nx && Date.now()<nx) return false; }
-    let m=document.getElementById('nxdAsk');
-    if(!m){ m=document.createElement('div'); m.id='nxdAsk';
-      m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
-      document.body.appendChild(m);
-      m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
-    }
-    m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
-    m.querySelector('.nxa-s').textContent='오픈일 아침 9시 알림 보내드려요';
-    m.querySelector('.nxa-yes').textContent='알림 받을게요';
-    m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){ m.classList.remove('open'); try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){} };
-    m.querySelector('.nxa-yes').onclick=async function(){
-      m.classList.remove('open');
-      const ok=await enablePush();
-      try{ mcToast(ok?'🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요':'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){}
-      try{ trackEvent('app_push_ask', ok?'on':'fail'); }catch(_){}
-      if(fSt==='wish') try{ renderList(); }catch(_){}
-    };
-    m.classList.add('open');
-    try{ trackEvent('app_push_ask','show'); }catch(_){}
+    try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){}
+    try{ trackEvent('app_push_ask','system'); }catch(_){}
+    Promise.resolve(enablePush()).then(function(ok){
+      if(force){ try{ mcToast(ok?'🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요':'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){} }
+      try{ trackEvent('app_push_ask', ok?'on':'off'); }catch(_){}
+      if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){}
+    }).catch(function(){});
     return true;
   }catch(_){ return false; }
 }
@@ -7874,6 +7921,10 @@ html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!importan
 #mcToastBox{white-space:nowrap!important;max-width:90%!important;pointer-events:none}
 #mcToastBox>div{overflow:hidden;text-overflow:ellipsis}
 body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!important;white-space:nowrap!important;max-width:90%!important;overflow:hidden;text-overflow:ellipsis;pointer-events:none!important}   /* 로그인 뒤 「💜 ○○님, 반가워요!」 — 브라우저가 인라인 색을 rgb() 로 바꿔 저장하므로 두 꼴 다 */
+/* 공구 카드 한 줄 맞춤 (사장님 2026-11-02 「오늘마감이랑 상품명이랑 › 이거랑 묘하게 다 틀어져서 수평이 안 맞아」)
+   실측(384px·카드 높이 71 전부 같음): 상품명 줄 중심 37.2 · 상태글자·› · 하트 35.4 → 모두 1.8px 위에 있었다. 셋을 상품명 줄 중심(37.2)에 맞춘다 */
+.card-right{top:36.2px!important}
+.card .wbtn{padding-top:3.6px!important;box-sizing:border-box}
 </style>
 </body>
 </html>
