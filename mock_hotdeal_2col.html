@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>맘캘린더 핫딜 마미톡형 2열 목업</title>
+<style>
+  :root {
+    --primary: #7C54C4;
+    --primary-light: #F3EEFA;
+    --coral-red: #FF4742;
+    --text-main: #191F28;
+    --text-sub: #4E5968;
+    --text-muted: #8B95A1;
+    --bg-gray: #F8F9FA;
+    --border-line: #E5E8EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: #f0f2f5; color: var(--text-main); display: flex; justify-content: center; }
+  
+  .phone-frame {
+    width: 100%;
+    max-width: 412px;
+    background: #ffffff;
+    min-height: 100vh;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+    padding-bottom: 70px;
+  }
+
+  /* 상단 앱 헤더 */
+  .app-header {
+    background: var(--primary);
+    padding: 12px 16px 14px;
+    color: #fff;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .app-logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .header-icons {
+    display: flex;
+    gap: 14px;
+    font-size: 18px;
+    align-items: center;
+  }
+  .search-box {
+    background: #ffffff;
+    border-radius: 20px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* 상단 4단 메인 탭 */
+  .main-tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #F2F4F6;
+    padding: 6px 16px;
+    gap: 8px;
+  }
+  .m-tab {
+    flex: 1;
+    height: 38px;
+    border-radius: 12px;
+    border: 0;
+    background: #F8F9FA;
+    color: var(--text-sub);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .m-tab.on {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* 제휴 고지문구 */
+  .affiliate-note {
+    text-align: center;
+    padding: 10px 16px 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* 핫딜 섹션 타이틀 */
+  .hotdeal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 16px 10px;
+  }
+  .hd-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: -0.3px;
+  }
+  .hd-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  /* 카테고리 필터 칩 */
+  .category-chips {
+    display: flex;
+    gap: 6px;
+    padding: 4px 16px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .category-chips::-webkit-scrollbar { display: none; }
+  .c-chip {
+    flex: 0 0 auto;
+    height: 30px;
+    padding: 0 13px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border: 1px solid var(--border-line);
+    background: #fff;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+  }
+  .c-chip.on {
+    background: #191F28;
+    color: #fff;
+    border-color: #191F28;
+    font-weight: 600;
+  }
+
+  /* 🔥 [핵심] 마미톡 스타일 2열 핫딜 그리드 (사진 큼직 & 가림 없음) */
+  .hotdeal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 11px;
+    padding: 0 16px 24px;
+  }
+
+  .hd-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 큼직한 1:1 정사각 사진 (사진 위 뱃지 완전 제거!) */
+  .hd-photo-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: #F8F9FA;
+    border: 1px solid #F0F0F3;
+  }
+  .hd-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* 우측 하단 은은한 위시 하트 */
+  .hd-wish {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 26px;
+    height: 26px;
+    background: rgba(0,0,0,0.22);
+    backdrop-filter: blur(2px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 13px;
+  }
+
+  /* 텍스트 영역 (마미톡 타이포그래피) */
+  .hd-info {
+    padding: 8px 2px 2px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  /* 쇼핑몰 & 카테고리 (11px 깔끔 회색) */
+  .hd-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .hd-mall-tag {
+    background: #F2F4F6;
+    color: var(--text-sub);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+    font-size: 10.5px;
+  }
+
+  /* 상품명 (13px 2줄 말줄임) */
+  .hd-title-txt {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main);
+    line-height: 1.35;
+    letter-spacing: -0.2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 35px;
+  }
+
+  /* 가격 영역 (할인율 빨간색 볼드 + 가격) */
+  .hd-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin-top: 5px;
+  }
+  .hd-discount {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--coral-red);
+  }
+  .hd-price-val {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.3px;
+  }
+
+  /* 🏷️ 스마트 뱃지: 사진을 가리지 않고 '가격 아래'에 단정하게 배치! */
+  .hd-badges-bottom {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .b-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    letter-spacing: -0.2px;
+  }
+  .b-red {
+    background: #FFF0EE;
+    color: #FF4742;
+  }
+  .b-purple {
+    background: #F3EEFA;
+    color: #7C54C4;
+  }
+  .b-gray {
+    background: #F2F4F6;
+    color: #6B7684;
+  }
+
+  /* 하단바 (마미톡형 단색 라인 SVG) */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 412px;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid #E6EBF1;
+    display: flex;
+    z-index: 1000;
+  }
+  .nav-btn {
+    flex: 1;
+    border: 0;
+    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #8D95A1;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .nav-btn.on {
+    color: var(--primary);
+  }
+  .nav-btn svg {
+    stroke-width: 1.8;
+  }
+  .nav-btn.on svg {
+    stroke-width: 2.2;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <!-- 상단 헤더 -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="app-logo">맘캘린더</div>
+      <div class="header-icons">
+        <span>🔍</span>
+        <span>🔔</span>
+        <span>👤</span>
+      </div>
+    </div>
+    <div class="search-box">
+      <span>🔍</span>
+      <span>브랜드, 핫딜 상품명 검색</span>
+    </div>
+  </header>
+
+  <!-- 메인 4단 탭 (핫딜 활성) -->
+  <div class="main-tabs">
+    <button class="m-tab">📅 공구</button>
+    <button class="m-tab on">🔥 핫딜</button>
+    <button class="m-tab">🛍️ 세일/라방</button>
+    <button class="m-tab">💬 커뮤니티</button>
+  </div>
+
+  <div class="affiliate-note">일부 링크는 제휴 활동으로 일정액의 수수료를 받습니다</div>
+
+  <!-- 핫딜 헤더 -->
+  <div class="hotdeal-head">
+    <h2 class="hd-title">🔥 실시간 가격급락 핫딜</h2>
+    <span class="hd-count">실시간 업데이트</span>
+  </div>
+
+  <!-- 카테고리 칩 -->
+  <div class="category-chips">
+    <button class="c-chip on">전체</button>
+    <button class="c-chip">육아·유아</button>
+    <button class="c-chip">생필품·리빙</button>
+    <button class="c-chip">식품·가공</button>
+    <button class="c-chip">가전·디지털</button>
+  </div>
+
+  <!-- 🔥 [마미톡식 2열 핫딜 그리드] 사진을 가리던 뱃지를 가격 아래로 전면 배치! -->
+  <div class="hotdeal-grid">
+
+    <!-- 1. 하기스 맥스드라이 -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="https://gdimg.gmarket.co.kr/4646464076/still/600" alt="하기스 맥스드라이">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">지마켓</span>
+          <span>육아용품</span>
+        </div>
+        <div class="hd-title-txt">하기스 맥스드라이 기저귀 3박스 세트 특가</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">34%</span>
+          <span class="hd-price-val">118,810원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-red">역대최저</span>
+          <span class="b-tag b-gray">개당 39,603원</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 햇 나주배 신고배 5kg -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="http://cdn.011st.com/11dims/resize/300/quality/75/11src/dl/v2/1/2/1/2/6/8/FPqVH/9568121268_242311973.webp" alt="나주배">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">11번가</span>
+          <span>신선식품</span>
+        </div>
+        <div class="hd-title-txt">[5kg에 9,900원대] 햇 나주배 신고배 5kg 혼합과 가정용</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">21%</span>
+          <span class="hd-price-val">10,920원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-red">가격급락</span>
+          <span class="b-tag b-gray">무료배송</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 드시모네 키즈스텝 -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="https://gdimg.gmarket.co.kr/2330457301/still/600" alt="드시모네">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">지마켓</span>
+          <span>어린이건강</span>
+        </div>
+        <div class="hd-title-txt">드시모네 키즈스텝1 3박스 + 키즈스텝2 20일분 증정</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">25%</span>
+          <span class="hd-price-val">107,336원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-purple">맘캘PICK</span>
+          <span class="b-tag b-gray">체감가</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 맥심 화이트골드 -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="https://gdimg.gmarket.co.kr/1153422127/still/600" alt="맥심 화이트골드">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">지마켓</span>
+          <span>생활식품</span>
+        </div>
+        <div class="hd-title-txt">맥심 화이트골드 커피믹스 190T 대용량 박스</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">18%</span>
+          <span class="hd-price-val">22,980원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-gray">무료배송</span>
+          <span class="b-tag b-gray">단독특가</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 짱죽 이유식 25팩 -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="https://gdimg.gmarket.co.kr/4366342741/still/600" alt="짱죽 이유식">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">지마켓</span>
+          <span>이유식</span>
+        </div>
+        <div class="hd-title-txt">짱죽 프리미엄 실온/냉동 이유식 25팩 골라담기</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">30%</span>
+          <span class="hd-price-val">50,690원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-purple">맘캘PICK</span>
+          <span class="b-tag b-gray">팩당 2,028원</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 세이펜 세이온펜 -->
+    <div class="hd-card">
+      <div class="hd-photo-wrap">
+        <img class="hd-photo" src="https://gdimg.gmarket.co.kr/4483681055/still/600" alt="세이펜">
+        <div class="hd-wish">♡</div>
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta">
+          <span class="hd-mall-tag">지마켓</span>
+          <span>유아교육</span>
+        </div>
+        <div class="hd-title-txt">세이펜 최신형 세이온펜 32GB 단독 풀패키지</div>
+        <div class="hd-price-row">
+          <span class="hd-discount">22%</span>
+          <span class="hd-price-val">90,860원</span>
+        </div>
+        <div class="hd-badges-bottom">
+          <span class="b-tag b-red">역대최저</span>
+          <span class="b-tag b-gray">무료배송</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 하단 탭바 (마미톡형 라인 SVG) -->
+  <nav class="bottom-nav">
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+      <span>공구</span>
+    </button>
+    <button class="nav-btn on">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg>
+      <span>핫딜</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg>
+      <span>세일</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+      <span>커뮤니티</span>
+    </button>
+  </nav>
+</div>
+
+</body>
+</html>
