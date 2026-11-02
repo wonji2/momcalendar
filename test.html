@@ -7953,6 +7953,7 @@ window.startNaverLogin=function(){
   try{ localStorage.removeItem('mc_login_try'); }catch(_){}
   if(!code){ try{ trackEvent('naver_login_cancel', String(p.get('error')||'').slice(0,30)); }catch(_){} toast('로그인을 취소했어요'); return; }
   if(!want || want.s!==st || Date.now()-want.at>20*60e3){ try{ trackEvent('naver_login_fail', want?'state_mismatch':'state_none'); }catch(_){} toast('로그인을 다시 시도해 주세요'); return; }
+  try{ toast('네이버 로그인 중이에요'); }catch(_){}   // 서버 응답(2~4초) 동안 아무 반응이 없던 것(사장님 2026-11-02)
   fetch(NV_FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
     body:JSON.stringify({code:code,state:st,redirect_uri:kkoRedirect(),device_id:(typeof deviceId==='function'?deviceId():null)})})
   .then(function(r){ return r.json().catch(function(){ return null; }); })
@@ -7963,7 +7964,7 @@ window.startNaverLogin=function(){
       try{ if(typeof reloginStripHide==='function') reloginStripHide(); }catch(_){}
       try{ trackEvent('naver_login_done',''); }catch(_){}
       try{ if(typeof paintMemberUI==='function') paintMemberUI(); }catch(_){}
-      try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){}
+      setTimeout(function(){ try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){} },1200);   // 첫 화면이 그려진 뒤에 동기화(렉 방지)
       var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
       try{ history.replaceState({},'', back||location.pathname); }catch(_){}
       toast('💜 '+(d.nickname||'회원')+'님, 반가워요!');
