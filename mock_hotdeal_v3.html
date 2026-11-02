@@ -494,6 +494,39 @@
   .stat-item .val { font-size: 12px; font-weight: 700; color: var(--text-main); margin-top: 2px; }
   .stat-item.best .val { color: var(--coral-red); }
   .stat-item.high .val { color: var(--green-best); }
+  .stat-item.avg .val { color: #4E5968; }
+
+  /* 📈 주식 앱식 터치 드래그 인터랙티브 차트 */
+  .chart-touch-wrap {
+    position: relative;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+    margin: 2px 0 6px;
+  }
+  .chart-live-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #F7F5FA;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .chart-live-bar .live-date {
+    color: #4E5968;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .chart-live-bar .live-price {
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 12px;
+  }
 
   /* 🛒 [폴센트 캡처 2번 하단 바] 절감액 표시 + 구매 버튼 */
   .sheet-bottom-bar {
@@ -775,12 +808,7 @@ const SAMPLE_DEALS = {
     price: 10920,
     discount: 21,
     img: 'https://cdn.011st.com/11dims/resize/300/quality/75/11src/dl/v2/1/2/1/2/6/8/FPqVH/9568121268_242311973.webp',
-    history: {
-      1: [14200, 13800, 13500, 12900, 13200, 12800, 11900, 10920],
-      2: [15900, 15200, 14900, 14200, 13900, 14500, 13500, 12900, 13200, 12800, 11900, 10920],
-      3: [17900, 16900, 15900, 15200, 14900, 14200, 13900, 14500, 13500, 12900, 10920],
-      all: [18900, 17900, 16900, 15900, 15200, 14900, 14200, 13900, 14500, 13500, 10920]
-    }
+    peakPrice: 15900
   },
   1785: {
     mall: '지마켓',
@@ -788,19 +816,60 @@ const SAMPLE_DEALS = {
     price: 118810,
     discount: 34,
     img: 'https://gdimg.gmarket.co.kr/4646464076/still/600',
-    history: {
-      1: [135000, 132000, 129000, 125000, 128000, 122000, 118810],
-      2: [145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810],
-      3: [152000, 148000, 145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810],
-      all: [159000, 155000, 152000, 148000, 145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810]
-    }
+    peakPrice: 149000
+  },
+  1782: {
+    mall: '지마켓',
+    title: '드시모네 키즈스텝1 3박스 + 키즈스텝2 20일분 증정',
+    price: 107336,
+    discount: 25,
+    img: 'https://gdimg.gmarket.co.kr/2330457301/still/600',
+    peakPrice: 143000
+  },
+  1784: {
+    mall: '지마켓',
+    title: '맥심 화이트골드 커피믹스 190T 대용량 박스',
+    price: 22980,
+    discount: 18,
+    img: 'https://gdimg.gmarket.co.kr/1153422127/still/600',
+    peakPrice: 28000
   }
 };
 
 let currentDealId = 1783;
 let currentPeriod = 2; // 기본 2개월
+let currentPointsData = [];
+let chartMetrics = { W: 320, H: 90, lo: 0, hi: 0, avg: 0 };
 
 function formatWon(n) { return (n || 0).toLocaleString() + '원'; }
+
+// 🎯 주식 앱처럼 일별 날짜 & 가격 데이터 생성기 (1개월=30일, 2개월=60일, 3개월=90일, 전체=180일)
+function getDailyHistory(dealId, period) {
+  const d = SAMPLE_DEALS[dealId] || SAMPLE_DEALS[1783];
+  const daysMap = { 1: 30, 2: 60, 3: 90, 'all': 180 };
+  const days = daysMap[period] || 60;
+  
+  const peakPrice = d.peakPrice || (d.price * 1.35);
+  const currentPrice = d.price;
+  
+  const list = [];
+  const now = new Date(2026, 10, 2); // 2026-11-02
+  for (let i = days - 1; i >= 0; i--) {
+    const dt = new Date(now);
+    dt.setDate(dt.getDate() - i);
+    const m = dt.getMonth() + 1;
+    const day = dt.getDate();
+    const dateStr = `${m}월 ${day}일`;
+    
+    // 점진적으로 하락하며 현실적인 가격 파동(Wave)
+    const t = 1 - (i / (days - 1));
+    const base = peakPrice - (peakPrice - currentPrice) * Math.pow(t, 0.82);
+    const wave = Math.sin(i * 0.42) * ((peakPrice - currentPrice) * 0.08);
+    const price = (i === 0) ? currentPrice : Math.round((base + wave) / 10) * 10;
+    list.push({ date: dateStr, price: Math.max(currentPrice, price) });
+  }
+  return list;
+}
 
 function openHotdealChart(id) {
   currentDealId = id;
@@ -816,39 +885,204 @@ function changePeriod(p) {
 
 function renderSheetBody() {
   const d = SAMPLE_DEALS[currentDealId] || SAMPLE_DEALS[1783];
-  const pts = d.history[currentPeriod] || d.history[2];
-  const lo = Math.min(...pts);
-  const hi = Math.max(...pts);
-  const avg = Math.round(pts.reduce((a,b)=>a+b,0)/pts.length);
+  const items = getDailyHistory(currentDealId, currentPeriod);
+  currentPointsData = items;
+  const prices = items.map(p => p.price);
+  const lo = Math.min(...prices);
+  const hi = Math.max(...prices);
+  const avg = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
   const diff = avg - d.price;
 
-  // 폴센트 캡처 2번 실측 차트 (최고가 녹색 가이드선 + 최저가 빨간 가이드선)
-  const W = 320, H = 86, PT = 8, PB = 8, PL = 6, PR = 6;
-  const x = i => PL + (W - PL - PR) * (i / (pts.length - 1));
+  const W = 320, H = 90, PT = 10, PB = 10, PL = 6, PR = 6;
+  chartMetrics = { W, H, lo, hi, avg };
+
+  const x = i => PL + (W - PL - PR) * (i / (items.length - 1));
   const y = v => PT + (H - PT - PB) * (1 - (v - lo) / ((hi - lo) || 1));
-  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const area = `${line} L${x(pts.length - 1).toFixed(1)},${H - PB} L${x(0).toFixed(1)},${H - PB} Z`;
-  const last = pts.length - 1;
+  const line = items.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.price).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(items.length - 1).toFixed(1)},${H - PB} L${x(0).toFixed(1)},${H - PB} Z`;
+  const last = items.length - 1;
 
   const chartSvg = `
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:86px;display:block">
-      <defs>
-        <linearGradient id="chartGradV3" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#7C54C4" stop-opacity="0.22"/>
-          <stop offset="100%" stop-color="#7C54C4" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <!-- 최고가 점선 가이드 (녹색) -->
-      <line x1="0" y1="${y(hi).toFixed(1)}" x2="${W}" y2="${y(hi).toFixed(1)}" stroke="#12B886" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
-      <!-- 최저가 점선 가이드 (빨간색) -->
-      <line x1="0" y1="${y(lo).toFixed(1)}" x2="${W}" y2="${y(lo).toFixed(1)}" stroke="#FF4742" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
-      <!-- 영역 & 라인 -->
-      <path d="${area}" fill="url(#chartGradV3)"/>
-      <path d="${line}" fill="none" stroke="#7C54C4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- 현재가 포인트 -->
-      <circle cx="${x(last).toFixed(1)}" cy="${y(pts[last]).toFixed(1)}" r="4.2" fill="#FF4742" stroke="#fff" stroke-width="2"/>
-    </svg>
+    <!-- 실시간 터치 피드백 바 -->
+    <div class="chart-live-bar" id="chartLiveBar">
+      <span class="live-date" id="liveDate">👆 좌우로 드래그하면 일별 가격 표시</span>
+      <span class="live-price" id="livePriceVal">오늘 ${formatWon(d.price)}</span>
+    </div>
+
+    <!-- 터치 드래그 인터랙티브 영역 -->
+    <div class="chart-touch-wrap" id="chartTouchArea"
+         ontouchstart="handleTouch(event)"
+         ontouchmove="handleTouch(event)"
+         ontouchend="resetTouch()"
+         onmousemove="handleMouse(event)"
+         onmouseleave="resetTouch()">
+      <svg id="mainChartSvg" viewBox="0 0 ${W} ${H}" style="width:100%;height:96px;display:block">
+        <defs>
+          <linearGradient id="chartGradV3" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#7C54C4" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#7C54C4" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        <!-- 최고가 점선 가이드 (녹색) -->
+        <line x1="0" y1="${y(hi).toFixed(1)}" x2="${W}" y2="${y(hi).toFixed(1)}" stroke="#12B886" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+
+        <!-- 평균가 점선 가이드 (검은선/진회색) -->
+        <line x1="0" y1="${y(avg).toFixed(1)}" x2="${W}" y2="${y(avg).toFixed(1)}" stroke="#4E5968" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.75"/>
+
+        <!-- 최저가 점선 가이드 (빨간색) -->
+        <line x1="0" y1="${y(lo).toFixed(1)}" x2="${W}" y2="${y(lo).toFixed(1)}" stroke="#FF4742" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+
+        <!-- 영역 & 라인 -->
+        <path d="${area}" fill="url(#chartGradV3)"/>
+        <path d="${line}" fill="none" stroke="#7C54C4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- 오늘 최저가 고정 포인트 -->
+        <circle cx="${x(last).toFixed(1)}" cy="${y(items[last].price).toFixed(1)}" r="4.2" fill="#FF4742" stroke="#fff" stroke-width="2"/>
+
+        <!-- 🎯 [주식 차트 수직 커서선] -->
+        <line id="touchCursorLine" x1="0" y1="0" x2="0" y2="${H}" stroke="#7C54C4" stroke-width="1.5" stroke-dasharray="2 2" style="display:none;"/>
+        <circle id="touchCursorDot" cx="0" cy="0" r="5" fill="#7C54C4" stroke="#fff" stroke-width="2.5" style="display:none;"/>
+
+        <!-- 💬 [플로팅 말풍선 툴팁] -->
+        <g id="touchTooltip" style="display:none; pointer-events:none;">
+          <rect id="tipRect" x="0" y="0" width="112" height="23" rx="6" fill="#191F28" opacity="0.92"/>
+          <text id="tipText" x="56" y="12" fill="#fff" font-size="10" font-weight="600" text-anchor="middle" dominant-baseline="middle"></text>
+        </g>
+      </svg>
+    </div>
   `;
+
+  const html = `
+    <div class="sheet-prod-header">
+      <img class="sheet-thumb" src="${d.img}" referrerpolicy="no-referrer">
+      <div class="sheet-prod-info">
+        <div class="sheet-mall">${d.mall} 특가</div>
+        <div class="sheet-title">${d.title}</div>
+        <div class="sheet-price-row">
+          <span class="sheet-discount">${d.discount}%</span>
+          <span class="sheet-price">${formatWon(d.price)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 💡 자비스 실질 절감액 배너 -->
+    <div class="savings-callout">
+      <span>💡</span>
+      <span>평소 평균가보다 <b>${formatWon(diff)} 더 저렴</b>한 역대급 구매 찬스예요!</span>
+    </div>
+
+    <!-- 폴센트 캡처 2번형 차트 박스 -->
+    <div class="chart-box">
+      <div class="chart-head-row">
+        <span class="chart-title">📈 가격 추이 그래프</span>
+        <!-- 폴센트식 1개월 / 2개월 / 3개월 / 전체 -->
+        <div class="period-tabs">
+          <button class="p-tab ${currentPeriod==1?'on':''}" onclick="changePeriod(1)">1개월</button>
+          <button class="p-tab ${currentPeriod==2?'on':''}" onclick="changePeriod(2)">2개월</button>
+          <button class="p-tab ${currentPeriod==3?'on':''}" onclick="changePeriod(3)">3개월</button>
+          <button class="p-tab ${currentPeriod=='all'?'on':''}" onclick="changePeriod('all')">전체</button>
+        </div>
+      </div>
+      ${chartSvg}
+      <!-- 3단 스펙 (폴센트 캡처 2번 실측 + 선 색상 범례) -->
+      <div class="price-stats-grid">
+        <div class="stat-item high"><div class="lbl">▲ 최고가 (녹색선)</div><div class="val">${formatWon(hi)}</div></div>
+        <div class="stat-item avg"><div class="lbl">- 평균가 (검은선)</div><div class="val">${formatWon(avg)}</div></div>
+        <div class="stat-item best"><div class="lbl">▼ 최저가 (빨간선)</div><div class="val">${formatWon(lo)}</div></div>
+      </div>
+    </div>
+
+    <!-- 🛒 [폴센트 캡처 2번 하단 바] 절감액 + 구매 버튼 -->
+    <div class="sheet-bottom-bar">
+      <div class="bottom-diff-box">
+        <span class="diff-lbl">평균가 대비</span>
+        <span class="diff-val">-${formatWon(diff)}</span>
+      </div>
+      <button class="btn-buy-link" onclick="alert('제휴 수익링크로 이동합니다!')">
+        <span>${d.mall}에서 구매하러 가기</span>
+        <span>➔</span>
+      </button>
+    </div>
+  `;
+
+  document.getElementById('hdSheetContent').innerHTML = html;
+}
+
+function handleTouch(e) {
+  if (e.touches && e.touches[0]) {
+    e.preventDefault();
+    updateCursor(e.touches[0].clientX);
+  }
+}
+function handleMouse(e) {
+  updateCursor(e.clientX);
+}
+function updateCursor(clientX) {
+  const wrap = document.getElementById('chartTouchArea');
+  if (!wrap || !currentPointsData.length) return;
+  const rect = wrap.getBoundingClientRect();
+  const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const idx = Math.min(currentPointsData.length - 1, Math.max(0, Math.round(relX * (currentPointsData.length - 1))));
+  const pt = currentPointsData[idx];
+  if (!pt) return;
+
+  const { W, H, lo, hi, avg } = chartMetrics;
+  const PL = 6, PR = 6, PT = 10, PB = 10;
+  const cx = PL + (W - PL - PR) * (idx / (currentPointsData.length - 1));
+  const cy = PT + (H - PT - PB) * (1 - (pt.price - lo) / ((hi - lo) || 1));
+
+  const line = document.getElementById('touchCursorLine');
+  const dot = document.getElementById('touchCursorDot');
+  const tip = document.getElementById('touchTooltip');
+  const tipText = document.getElementById('tipText');
+  const liveDate = document.getElementById('liveDate');
+  const livePriceVal = document.getElementById('livePriceVal');
+
+  if (line) {
+    line.setAttribute('x1', cx);
+    line.setAttribute('x2', cx);
+    line.style.display = 'block';
+  }
+  if (dot) {
+    dot.setAttribute('cx', cx);
+    dot.setAttribute('cy', cy);
+    dot.style.display = 'block';
+  }
+  if (tip && tipText) {
+    tipText.textContent = `${pt.date} · ${formatWon(pt.price)}`;
+    const tipW = 112;
+    let tipX = cx - (tipW / 2);
+    if (tipX < 2) tipX = 2;
+    if (tipX + tipW > W - 2) tipX = W - tipW - 2;
+    let tipY = cy - 28;
+    if (tipY < 2) tipY = cy + 8;
+    tip.setAttribute('transform', `translate(${tipX}, ${tipY})`);
+    tip.style.display = 'block';
+  }
+  if (liveDate) liveDate.innerHTML = `📅 <b>${pt.date}</b>`;
+  if (livePriceVal) {
+    const diff = pt.price - avg;
+    const diffColor = diff <= 0 ? '#FF4742' : '#4E5968';
+    const diffTxt = diff === 0 ? '평균가' : (diff < 0 ? `평균보다 -${formatWon(Math.abs(diff))}` : `평균보다 +${formatWon(diff)}`);
+    livePriceVal.innerHTML = `${formatWon(pt.price)} <span style="font-size:10px;font-weight:600;color:${diffColor}">(${diffTxt})</span>`;
+  }
+}
+
+function resetTouch() {
+  const line = document.getElementById('touchCursorLine');
+  const dot = document.getElementById('touchCursorDot');
+  const tip = document.getElementById('touchTooltip');
+  if (line) line.style.display = 'none';
+  if (dot) dot.style.display = 'none';
+  if (tip) tip.style.display = 'none';
+
+  const d = SAMPLE_DEALS[currentDealId] || SAMPLE_DEALS[1783];
+  const liveDate = document.getElementById('liveDate');
+  const livePriceVal = document.getElementById('livePriceVal');
+  if (liveDate) liveDate.innerText = '👆 좌우로 드래그하면 일별 가격 표시';
+  if (livePriceVal) livePriceVal.innerHTML = `오늘 ${formatWon(d.price)}`;
+}
 
   const html = `
     <div class="sheet-prod-header">
