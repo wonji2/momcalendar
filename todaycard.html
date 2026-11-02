@@ -339,9 +339,14 @@ async function load(){
     // 🔴 셀러를 모르는 공구는 카드에서 뺀다 (사장님 지시 2026-09-01)
     //    "누가 하는지를 모르는데" — 카페 크롤러 등록분은 카페 글 제목에 셀러가 없어 insta/influencer 가 빈 문자열이다.
 // 🔴 카드 제외 (사장님 2026-09-29 "카드에서 말랑하니랑 젤리또리 빼 · 돌잔치템플릿도 빼") — DB·사이트엔 남고 카드에서만 뺀다. 핸들은 소문자·@없이, 상품명은 정규식
-const CARD_EXCLUDE_SELLERS=['jelly_ddori','malanghoney_'];
+const CARD_EXCLUDE_SELLERS=['jelly_ddori','malanghoney_','pyjaehasip','crayonmom'];
 const CARD_EXCLUDE_NAMES=[/돌잔치.*템플릿/,/성장영상.*템플릿/];
-const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace('@','').trim().toLowerCase())||CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
+const cardExcluded=x=>{
+  const h=String(x.insta||'').replace('@','').trim().toLowerCase();
+  const sl=String(x.seller||x.influencer||'').trim();
+  if(CARD_EXCLUDE_SELLERS.includes(h) || sl.includes('크레용맘') || h==='pyjaehasip') return true;
+  return CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
+};
     const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x);
     const dropNS=rows.filter(noSeller).map(x=>x.name);
     if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
@@ -363,6 +368,7 @@ const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace(
       for(const b of (Array.isArray(bn)?bn:[])){
         const m=String(b.title||'').match(/^(.*?)\s*-\s*([^-]+)$/); if(!m) continue;
         const name=m[1].trim(), seller=m[2].trim(); if(!name||!seller||names.has(norm(name))) continue;
+        if(seller.includes('크레용맘') || CARD_EXCLUDE_SELLERS.includes(seller.toLowerCase())) continue;
         const end=(b.show_until||'').slice(0,10)||pend[seller]||'';
         extra.push({id:'b'+b.id,name,seller,insta:'',influencer:seller,open_date:day,end_date:end,partner:true,own:false,score:0,ongoing:true}); names.add(norm(name));
       }
