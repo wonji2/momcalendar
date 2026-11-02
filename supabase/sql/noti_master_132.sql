@@ -48,3 +48,27 @@ select cron.schedule('fcm-kw-push', '*/30 * * * *',
 -- 매일 00:10 KST(UTC 15:10) 180일 지난 가격 이력 삭제
 select cron.schedule('price-history-prune', '10 15 * * *', $$delete from public.price_history where day < (now() at time zone 'Asia/Seoul')::date - 180$$);
 select jobname, schedule, position('mode=kw' in command) > 0 as kw_ok from cron.job where jobname in ('fcm-kw-push','price-history-prune');
+
+-- 아이폰 판 (2026-11-02 추가): push_ios 토큰으로 같은 키워드 핫딜 알림. 안드로이드와 같은 규칙(하루 5건·90분 안 새 핫딜).
+create or replace function public.kw_push_targets_ios()
+returns table(device_id text, apns_token text, env text, hotdeal_id bigint, keyword text, title text, price int, discount_rate int, mall text, img_url text, unit_price int, unit_label text)
+language sql stable security definer set search_path to 'public' as $$
+  select distinct on (s.device_id, h.id)
+         s.device_id, s.apns_token, s.env, h.id, k.keyword, h.title, h.price, h.discount_rate, h.mall, h.img_url, h.unit_price, h.unit_label
+  from kw_push_subs k
+  join push_ios s on s.device_id = k.device_id
+  join hotdeals h on position(lower(k.keyword) in lower(h.title)) > 0
+  where h.created_at > now() - interval '90 minutes'
+    and h.price > 0 and h.img_url is not null
+    and (h.expires_at is null or h.expires_at > now())
+    and s.fail_count < 5
+    and not exists (select 1 from kw_push_log l where l.device_id = s.device_id and l.hotdeal_id = h.id)
+    and (select count(*) from kw_push_log l2 where l2.device_id = s.device_id and l2.sent_at > now() - interval '24 hours') < 5
+  order by s.device_id, h.id, length(k.keyword) desc;
+$$;
+revoke all on function public.kw_push_targets_ios() from anon, authenticated;
+select cron.schedule('ios-kw-push', '*/30 * * * *',
+  replace(replace((select command from cron.job where jobname = 'fcm-open-push'), 'send-fcm-push?mode=open', 'send-open-push-ios?mode=kw'), 'push_targets_fcm()', 'kw_push_targets_ios()'));
+
+-- 보정: 안드로이드 키워드 크론도 「키워드 대상이 있을 때만」 부르게(복사한 조건이 오픈 알림 대상이라 어긋나 있었다)
+select cron.schedule('fcm-kw-push', '*/30 * * * *', replace((select command from cron.job where jobname='fcm-kw-push'), 'public.push_targets_fcm()', 'public.kw_push_targets_fcm()'));

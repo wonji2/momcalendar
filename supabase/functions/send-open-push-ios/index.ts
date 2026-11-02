@@ -101,9 +101,9 @@ function json(body: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) {
     return json({ error: "unauthorized" }, 401);
+  }
   // 야간 방해금지: 한국 시간 21:00~09:00 에는 보내지 않는다(사장님 2026-11-02, 새벽 1·3시 라방 알림 사고). 시험용 ?force=1
   if (new URL(req.url).searchParams.get("force") !== "1") { const kh = (new Date().getUTCHours() + 9) % 24; if (kh < 9 || kh >= 21) return json({ ok: true, skipped: "야간 방해금지 21:00~09:00 KST", kst_hour: kh }); }
-  }
   const url = new URL(req.url);
   const dry = url.searchParams.get("dry") === "1";
 
@@ -127,6 +127,46 @@ Deno.serve(async (req) => {
     } catch (e) {
       return json({ ok: false, selftest: true, error: String(e) }, 500);
     }
+  }
+
+  // 🔥 키워드 핫딜 알림 (mode=kw) — 안드로이드 send-fcm-push?mode=kw 의 아이폰 판 (사장님 2026-11-02)
+  //   ※ 사진은 payload 에 image 로 싣고 mutable-content 를 켠다. 아이폰 앱에 알림 확장(Notification Service Extension)이 있어야 사진이 붙는다 — 없으면 글만 간다.
+  if (url.searchParams.get("mode") === "kw") {
+    const r = await sbFetch("rpc/kw_push_targets_ios", { method: "POST", body: "{}" });
+    if (!r.ok) return json({ ok: false, step: "kw_push_targets_ios", status: r.status, msg: await r.text() }, 500);
+    type K = { device_id: string; apns_token: string; env: string; hotdeal_id: number; keyword: string; title: string; price: number; discount_rate: number | null; mall: string | null; img_url: string | null; unit_label: string | null };
+    const rows: K[] = await r.json();
+    const by = new Map<string, K[]>();
+    for (const t of rows) { const a = by.get(t.device_id) || []; a.push(t); by.set(t.device_id, a); }
+    const won = (n: number) => n.toLocaleString("ko-KR") + "원";
+    const msgs = [...by.entries()].map(([device, list]) => {
+      list.sort((a, b) => (b.discount_rate || 0) - (a.discount_rate || 0));
+      const h = list[0];
+      const pct = h.discount_rate && h.discount_rate >= 5 ? ` (▼${h.discount_rate}%)` : "";
+      const unit = h.unit_label ? ` (${h.unit_label})` : "";
+      return { device, token: h.apns_token, env: h.env === "dev" ? "dev" : "prod", list,
+        title: `🔥 [${h.keyword}] 핫딜 발견! ${won(h.price)}${pct}`,
+        body: `${h.mall ? `[${h.mall}] ` : ""}${h.title}${unit}${list.length > 1 ? ` 외 ${list.length - 1}건` : ""}`,
+        url: `${SITE}?ct=hotdeal&deal_id=${h.hotdeal_id}`, image: h.img_url || "", id: h.hotdeal_id };
+    });
+    if (dry) return json({ ok: true, dry: true, mode: "kw", people: msgs.length, preview: msgs.slice(0, 5).map((m) => ({ device: m.device.slice(0, 8), title: m.title, body: m.body, url: m.url, image: m.image })) });
+    if (!msgs.length) return json({ ok: true, mode: "kw", sent: 0, note: "발송 대상 없음" });
+    const jwt = await apnsJwt();
+    const okLog: { device_id: string; hotdeal_id: number }[] = [];
+    const dead: string[] = [];
+    let sent = 0, failed = 0;
+    for (const m of msgs) {
+      const payload = JSON.stringify({ aps: { alert: { title: m.title, body: m.body }, sound: "default", "thread-id": "hotdeal-kw", "mutable-content": 1 }, url: m.url, image: m.image });
+      try {
+        const res = await fetch(`${HOST[m.env as "prod" | "dev"]}/3/device/${m.token}`, { method: "POST",
+          headers: { authorization: `bearer ${jwt}`, "apns-topic": BUNDLE_ID, "apns-push-type": "alert", "apns-priority": "10", "apns-expiration": String(Math.floor(Date.now() / 1000) + 6 * 3600) }, body: payload });
+        if (res.ok) { sent++; for (const x of m.list) okLog.push({ device_id: m.device, hotdeal_id: x.hotdeal_id }); }
+        else { failed++; if (res.status === 410 || res.status === 400) dead.push(m.token); }
+      } catch { failed++; }
+    }
+    for (let i = 0; i < okLog.length; i += 500) await sbFetch("kw_push_log", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(okLog.slice(i, i + 500)) });
+    for (const tk of dead) await sbFetch("rpc/push_ios_fail", { method: "POST", body: JSON.stringify({ p_token: tk }) });
+    return json({ ok: true, mode: "kw", people: msgs.length, sent, failed, dead: dead.length });
   }
 
   const r = await sbFetch("rpc/push_targets_ios", { method: "POST", body: "{}" });
