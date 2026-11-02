@@ -8014,7 +8014,8 @@ var ESS=['기저귀','분유','생수','물티슈','세제','휴지','화장지'
 var TRIG=/(알림(?!장)|알려\s*줘|알려\s*주|알려\s*줄|알람|뜨면|나오면|올라오면)/;
 var TRIG_G=/(알림(?!장)|알려\s*줘\S*|알려\s*주\S*|알려\s*줄\S*|알람|뜨면|나오면|올라오면|해\s*줘|해\s*주세요|해\s*줄래|등록\S*)/g;
 var DROP=/(핫딜|공구|세일|특가|최저가)/g;
-var STOP=['설정','취소','삭제','해제','어떻게','방법','나와','나오나요','언제','어디','뭐','뭐가','좀','주세요','줘','있어','있나요','있어요','있어요?','찾아줘','찾아','보여줘','검색','관련','제품','상품','추천','싼','싸게','가격','얼마','싶어','싶어요','혹시','저기','내','제','저','나','때','및','그리고','그냥','다시','자주','매일'];
+var STOP=['쿠팡','로켓','로켓배송','지마켓','옥션','11번가','ssg','롯데온','오늘의집','네이버','토스','무료배송','배송','나는','저는','제가','내가','와요','안와요','받고','받을래','받을게','받기','받아','안','못','오는','오면','뜨는','하면','해요','돼요','되나요','설정','취소','삭제','해제','어떻게','방법','나와','나오나요','언제','어디','뭐','뭐가','좀','주세요','줘','있어','있나요','있어요','있어요?','찾아줘','찾아','보여줘','검색','관련','제품','상품','추천','싼','싸게','가격','얼마','싶어','싶어요','혹시','저기','내','제','저','나','때','및','그리고','그냥','다시','자주','매일'];
+var COMPLAIN=/(안\s*와|안\s*오|안\s*울|못\s*받|오지\s*않|알림.*(없|왜))/;
 var MANAGE=/((알림|알람).*(취소|삭제|해제|끄|꺼|지워|그만)|(취소|삭제|해제|지워).*(알림|알람))/;
 var HOWTO=/((알림|알람).*(설정|어떻게|방법|뭐)|(설정|방법).*(알림|알람))/;
 var LAST=[], CARDS={}, WHO='';
@@ -8043,24 +8044,43 @@ function hits(c){ var n=norm(c); if(n.length<2) return 0; var k=0;
   return k; }
 
 // ── 낱말 뽑기: 「압타밀 핫딜 뜨면 알려줘」→「압타밀」, 「기저귀랑 물티슈 알림」→ 기저귀·물티슈 ──
-function pickWord(w){   // 끝 조사를 뗄지는 실제 상품명에 맞는 쪽으로(「맥스드라이」의 이 같은 낱말 끝을 안 자르게)
+// 원칙: 조사·군더더기를 떼되, 실제 상품명(공구·핫딜)에 맞는 쪽을 고른다. 확신이 없으면 자르지 않는다.
+function pickWord(w){
   var s=w.replace(/(이랑|하고|랑|과|와)$/,'').replace(/(에서|으로|에게|한테)$/,'');
   var t=s.replace(/([은는가을를도만의])$/,'');
-  var u=(w.length>=4)?s.replace(/이$/,''):s;
+  var u=s.replace(/이$/,'');            // 「압타밀이」처럼 이가 조사인 경우 — 상품명에 맞을 때만 쓴다(「맥스드라이」의 이는 지키려고)
   var cands=[w]; [s,t,u].forEach(function(x){ if(x.length>=2 && cands.indexOf(x)<0) cands.push(x); });
   var best=w, bn=-1; cands.forEach(function(x){ var c=hits(x); if(c>bn){ bn=c; best=x; } });
-  if(bn<=0){ best=(t.length>=2?t:s.length>=2?s:w); if(w.length>=4 && /이$/.test(best)) best=best.replace(/이$/,''); }   // 지금 걸리는 게 없을 땐 조사를 뗀 쪽
+  if(bn<=0) best=(t.length>=2?t:(s.length>=2?s:w));   // 지금 걸리는 게 없으면 이 이외의 조사만 뗀다(이는 안 뗀다)
   return best;
 }
-function extractKws(text){
-  var t=String(text||'').replace(/['"“”‘’「」『』()\[\]{}.,!?~·…\/\\]/g,' ').replace(TRIG_G,' ').replace(DROP,' ');
-  var toks=t.split(/\s+/).filter(function(w){ return w && STOP.indexOf(w)<0; }).map(pickWord).filter(function(w){ return w.length>=2 && STOP.indexOf(w)<0; });
+function junk(w){ return !w || w.length<2 || STOP.indexOf(w)>=0 || (hits(w)===0 && /(요|죠|까|니|나요|세요|어요|아요)$/.test(w)); }   // 「와요」「싶어요」 같은 말투 조각
+function specific(tokens){   // 여러 낱말 중 하나만 고를 때: ① 지금은 상품에 없는 긴 낱말(=아직 안 나온 브랜드일 가능성이 큼) ② 걸리는 것 중 제일 적게 걸리는(구체적인) 낱말 ③ 제일 긴 낱말
+  var sc=tokens.map(function(w,i){ return {w:w,h:hits(w),i:i}; });
+  var zero=sc.filter(function(x){ return x.h===0 && x.w.length>=3; });
+  if(zero.length){ zero.sort(function(a,b){ return b.w.length-a.w.length || a.i-b.i; }); return zero[0].w; }
+  var pos=sc.filter(function(x){ return x.h>0; });
+  if(pos.length){ pos.sort(function(a,b){ return a.h-b.h || b.w.length-a.w.length; }); return pos[0].w; }
+  sc.sort(function(a,b){ return b.w.length-a.w.length || a.i-b.i; }); return sc[0].w;
+}
+function extractKws(text){   // → {list:[낱말…], dropped:[버린 낱말…]}
+  var raw=String(text||'');
+  var t=raw.replace(/[\u0027\u0022“”‘’「」『』()\[\]{}.,!?~·…\/\\]/g,' ').replace(TRIG_G,' ').replace(DROP,' ');
+  var parts=t.split(/\s+/).filter(Boolean), toks=[];
+  parts.forEach(function(w){
+    if(STOP.indexOf(w)>=0) return;
+    var m=w.match(/^(.{2,}?)(랑|하고|이랑)(.{2,})$/);          // 붙여 쓴 접속: 「분유랑기저귀」
+    if(m && hits(m[1])>0 && hits(m[3])>0){ toks.push(pickWord(m[1]),pickWord(m[3])); return; }
+    toks.push(pickWord(w));
+  });
+  toks=toks.filter(function(w){ return !junk(w); });
+  if(toks.length>1) toks=toks.filter(function(w){ return w.indexOf('알림장')<0; });   // 「알림장 기저귀 알려줘」: 알림장은 말버릇이 아니라 상품일 수 있어도 기저귀와 같이 있으면 기저귀가 목적
   var seen={}; toks=toks.filter(function(w){ var k=norm(w); if(!k||seen[k]) return false; seen[k]=1; return true; });
-  if(!toks.length) return [];
-  var conj=/(랑|하고)(\s|$)|[,，]|\s및\s|그리고/.test(String(text||'')) && toks.length>1;   // 「기저귀랑 물티슈」「기저귀, 분유」 처럼 여러 개를 말한 경우
-  if(conj) return toks.slice(0,3);
-  if(toks.length>1){ var joined=toks.join(' ').slice(0,20); if(hits(joined)>0) return [joined]; }
-  return [toks[0]];
+  if(!toks.length) return {list:[],dropped:[]};
+  var conj=/(랑|하고)(\s|$)|[,，]|\s및\s|그리고/.test(raw) && toks.length>1;   // 「기저귀랑 물티슈」「기저귀, 분유」 처럼 여러 개를 말한 경우
+  if(conj || (toks.length>1 && /랑|하고/.test(raw) && parts.some(function(w){ return /^(.{2,}?)(랑|하고|이랑)(.{2,})$/.test(w); }))) { var l=toks.slice(0,3); return {list:l,dropped:toks.slice(3)}; }
+  if(toks.length>1){ var joined=toks.join(' ').slice(0,20); if(hits(joined)>0) return {list:[joined],dropped:[]}; }
+  var one=specific(toks); return {list:[one],dropped:toks.filter(function(x){ return x!==one; })};
 }
 
 // ── 대화 판(카톡 챗봇 모양) ──
@@ -8165,8 +8185,8 @@ window.mcbQuick=async function(k){
     carousel([{title:'최저가 핫딜',items:p.map(hdCard),all:'핫딜 전체 보기',fn:function(){ goTab('hotdeal'); }}]);
   }
 };
-function registered(r,kw){
-  if(r.ok){ say("🔔 '"+kw+"' 키워드 알림에 등록해 두었어요!\n특가가 뜨면 맘캘린더 상단 종소리로 바로 알려드릴게요."); }
+function registered(r,kw,dropped){
+  if(r.ok){ say("🔔 '"+kw+"' 키워드 알림에 등록해 두었어요!\n특가가 뜨면 맘캘린더 상단 종소리로 바로 알려드릴게요."+((dropped&&dropped.length)?"\n('"+dropped.slice(0,2).join("', '")+"' 도 받으시려면 따로 말씀해 주세요)":'')); }
   else if(r.dup){ say("이미 '"+kw+"' 알림을 받고 계세요 🔔"); }
   else { say(r.msg||'등록하지 못했어요'); return; }
   act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); });
@@ -8176,13 +8196,14 @@ window.mcbSend=async function(){
   var inp=$('mcbInput'); if(!inp) return; var text=String(inp.value||'').trim(); if(!text) return; inp.value='';
   say(text,'me');
   if(MANAGE.test(text)){ try{ trackEvent('mcbot_send','manage'); }catch(_){} say('알림은 내 알림 목록에서 지우거나 바꿀 수 있어요.'); act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); }); return; }
+  if(COMPLAIN.test(text)){ try{ trackEvent('mcbot_send','complain'); }catch(_){} say('알림은 맘캘린더를 열면 상단 종소리에 쌓여요 🔔\n키워드가 잘 등록돼 있는지 목록에서 확인해 보세요.'); act('🔔 내 알림 목록 보기',function(){ closeMomcalBot(); openNotiCenterSheet('kw'); }); return; }
   if(HOWTO.test(text)){ try{ trackEvent('mcbot_send','howto'); }catch(_){} say('찾는 상품을 말씀해 주세요.\n예: "압타밀 핫딜 뜨면 알려줘"\n그 상품의 공구·핫딜이 뜨면 상단 종소리로 알려드려요.'); return; }
-  var kws=extractKws(text);
+  var ex=extractKws(text), kws=ex.list;
   if(TRIG.test(text)){
     try{ trackEvent('mcbot_send','alarm'); }catch(_){}
     if(!kws.length){ say('어떤 상품 알림을 드릴까요?\n예: 압타밀 핫딜 뜨면 알려줘'); return; }
     if(typeof mcKwAdd!=='function'){ say('알림 기능을 불러오지 못했어요'); return; }
-    kws.forEach(function(kw){ registered(mcKwAdd(kw),kw); }); return;
+    kws.forEach(function(kw,ix){ registered(mcKwAdd(kw),kw,ix===kws.length-1?ex.dropped:[]); }); return;
   }
   try{ trackEvent('mcbot_send','search'); }catch(_){}
   var kw=kws.length?kws[0]:text.replace(/\s+/g,' ').slice(0,20);
@@ -8249,6 +8270,7 @@ try{ var _o=window.renderHotdeals; if(typeof _o==='function') window.renderHotde
 .aob-nv{background:#03C75A;color:#fff}
 .aob-ap{background:#000;color:#fff}
 .aob-ico{font-weight:900;font-size:16px;line-height:1}
+.aob-sv{flex:none;display:block}
 .aob-skip{align-self:center;margin-top:10px;min-height:40px;padding:0 12px;border:0;background:none;color:#8B95A1;font-size:13.5px;font-weight:600;text-decoration:underline;font-family:inherit;cursor:pointer}
 </style>
 <script id="mc-aob-js">
@@ -8259,7 +8281,7 @@ var VIDS=6, I=0, T=null, W=null, VS=[];
 window.mcOnbV2=true;             // 키워드 알림 모듈의 옛 로그인 시트 온보딩(onbTry)이 이걸 보고 양보한다
 function $(id){ return document.getElementById(id); }
 function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp(); }catch(_){ return false; } }
-function forced(){ return location.search.indexOf('onb=1')>=0; }                        // 검증·확인용: 기기 저장 여부와 상관없이 노출
+function forced(){ try{ return new URLSearchParams(location.search).get('onb')==='1'; }catch(_){ return false; } }                        // 검증·확인용: 기기 저장 여부와 상관없이 노출
 function shouldShow(){
   try{
     if(forced()) return true;
@@ -8308,8 +8330,8 @@ function build(){
     sl+='<div class="aob-sl"><div class="aob-ph"><video src="intro/v'+k+'.mp4" poster="intro/v'+k+'.jpg" muted playsinline webkit-playsinline preload="'+(k<2?'auto':'none')+'"></video></div></div>';
     dt+='<i'+(k===0?' class="on"':'')+'></i>';
   }
-  var btns='<button class="aob-btn aob-kko" type="button" onclick="mcOnbKakao()"><span class="aob-ico">💬</span>카카오로 시작하기</button>';
-  if(apShow()) btns+='<button class="aob-btn aob-ap" type="button" onclick="mcOnbApple()"><span class="aob-ico"></span>Apple로 시작하기</button>';
+  var btns='<button class="aob-btn aob-kko" type="button" onclick="mcOnbKakao()"><svg class="aob-sv" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#191919" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7l-1.1 4.1c-.1.3.3.6.6.4l4.9-3.2c.3 0 .7.1 1 .1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>카카오로 시작하기</button>';
+  if(apShow()) btns+='<button class="aob-btn aob-ap" type="button" onclick="mcOnbApple()"><svg class="aob-sv" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Apple로 시작하기</button>';
   if(nvShow()) btns+='<button class="aob-btn aob-nv" type="button" onclick="mcOnbNaver()"><span class="aob-ico">N</span>네이버로 시작하기</button>';
   btns+='<button class="aob-skip" type="button" onclick="mcOnbBrowse()">로그인 없이 둘러보기</button>';
   W=document.createElement('div'); W.id='appOnboardingWrap'; W.setAttribute('role','dialog'); W.setAttribute('aria-label','맘캘린더 시작하기');
