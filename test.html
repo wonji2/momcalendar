@@ -8290,9 +8290,14 @@ async function paintDemand(){
   var pick=[], seen={};
   scored.forEach(function(x){ var k=norm(x.h.title).slice(0,24); if(pick.length<4 && !seen[k]){ seen[k]=1; pick.push(x.h); } });
   if(pick.length<2){ box.innerHTML=''; return; }
+  function hddBadge(h){   /* 폴센트식 뱃지: 실제 데이터일 때만 코랄(역대최저 is_lowest · 하락률 ▼), 나머지는 맘캘PICK */
+    if(h.is_lowest) return '<span class="hdd-b b-coral">역대최저</span>';
+    if(h.change && String(h.change).indexOf('▼')!==-1) return '<span class="hdd-b b-coral">'+esc(h.change)+'</span>';
+    return '<span class="hdd-b b-lavender">맘캘PICK</span>';
+  }
   box.innerHTML='<div class="hdd-h">🔥 맘캘러가 지금 많이 찾는 특가</div><div class="hdd-row">'+pick.map(function(h){
     var img=h.img_url?'<img src="'+esc(typeof mcApiSrc==='function'?mcApiSrc(h.img_url):h.img_url)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;hdd-ph&quot;>HOT</div>\'">':'<div class="hdd-ph">HOT</div>';
-    return '<button class="hdd-c" type="button" onclick="mcbDemandGo('+(+h.id||0)+')"><span class="hdd-b">인기수요</span>'+img+'<div class="hdd-t">'+esc(h.title)+'</div><div class="hdd-p">'+won(h.price)+'</div></button>';
+    return '<button class="hdd-c" type="button" onclick="mcbDemandGo('+(+h.id||0)+')">'+hddBadge(h)+img+'<div class="hdd-t">'+esc(h.title)+'</div><div class="hdd-p">'+won(h.price)+'</div></button>';
   }).join('')+'</div>';
 }
 window.mcbDemandGo=function(id){ try{ trackEvent('hd_demand_go',String(id)); }catch(_){} hdGo(id); };
@@ -8466,5 +8471,19 @@ body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!
   window.mcWebAppOnly=sheet;
 }catch(e){} })();
 </script>
+<style id="mc-polcent">
+/* 폴센트 × 맘캘 핫딜 카드 + 섹션 제목 14px 통일 (사장님 2026-11-02, scratchpad/ORDER_POLCENT_MOMCAL_STYLE.md) */
+.hdd-h{font-size:14px!important;font-weight:700!important;color:#191F28!important;margin:14px 0 8px 0!important;letter-spacing:-.2px!important}
+.hdd-row{display:flex!important;gap:10px!important;overflow-x:auto!important;margin:0!important;padding:4px 16px 14px!important;scroll-snap-type:x mandatory!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}
+.hdd-row::-webkit-scrollbar{display:none}
+.hdd-c{flex:0 0 calc((100% - 52px) / 2.3)!important;width:auto!important;background:#fff!important;border:1px solid #F0F0F3!important;border-radius:14px!important;padding:10px!important;box-sizing:border-box!important;text-align:left!important;position:relative!important;scroll-snap-align:start!important;box-shadow:0 2px 6px rgba(0,0,0,.02)!important;cursor:pointer!important}
+.hdd-c img,.hdd-ph{width:100%!important;height:auto!important;aspect-ratio:1/1!important;object-fit:cover!important;border-radius:10px!important;background:#F8F9FA!important}
+.hdd-b{position:absolute!important;top:14px!important;left:14px!important;height:auto!important;line-height:1.2!important;padding:3px 6px!important;border-radius:4px!important;font-size:10px!important;font-weight:800!important;letter-spacing:-.2px!important;z-index:2!important}
+.hdd-b.b-coral{background:#FFF0EE!important;color:#FF4742!important}
+.hdd-b.b-lavender{background:#F3EEFA!important;color:#7C54C4!important}
+.hdd-t{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;font-size:12px!important;font-weight:600!important;line-height:1.35!important;color:#191F28!important;margin-top:8px!important;min-height:32px!important}
+.hdd-p{font-size:14px!important;font-weight:800!important;color:#191F28!important;margin-top:4px!important;letter-spacing:-.3px!important}
+.main-banner-title,.seller-title,.nx-title,#nextZone .nx-title,.promo-head,.hdd-h{font-size:14px!important;font-weight:700!important;color:#191F28!important;letter-spacing:-.2px!important;line-height:1.4!important}
+</style>
 </body>
 </html>
