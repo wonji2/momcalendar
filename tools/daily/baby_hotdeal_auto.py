@@ -242,8 +242,8 @@ def clean_polluted_gonggu_titles():
     # 맘캘린더 공구 제목 정제 및 헌법 수호
     sql = """
     UPDATE public.gonggu
-    SET title = regexp_replace(title, '^\\[[^\\]]+\\]\\s*', '')
-    WHERE title ~ '^\\[[^\\]]+\\]';
+    SET name = regexp_replace(name, '^\\[[^\\]]+\\]\\s*', '')
+    WHERE name ~ '^\\[[^\\]]+\\]';
     """
     run_sql(sql)
 
@@ -371,14 +371,21 @@ def collect_from_bbhd():
     today_str = today.strftime('%Y-%m-%d')
 
     print(f'[source:bbhd] 뽐뿌/맘이베베 직수집 파이프라인 가동...')
-    list_url = 'https://m.ppomppu.co.kr/new/bbs_list.php?id=ppomppu'
+    list_url = 'https://www.bbhd.kr/bbs/bbs/board.php?bo_table=free'
     try:
         html_src = fetch_html(list_url)
     except Exception as e:
         print(f'[bbhd] 리스트 다운로드 실패: {e}')
         return
 
-    articles = re.findall(r'href=[\"\']bbs_view\.php\?id=ppomppu&no=(\d+)[\"\'][^>]*>(.*?)</a>', html_src)
+    matches = re.findall(r'wr_id=(\d+)[^>]*>([\s\S]*?)</a>', html_src)
+    articles = []
+    seen = set()
+    for wid, raw_t in matches:
+        t = re.sub(r'<[^>]+>', '', raw_t).strip()
+        if wid not in seen and t and '댓글' not in t and 'wr_id' not in t:
+            seen.add(wid)
+            articles.append((wid, t))
     print(f'[bbhd] 조회된 게시글: {len(articles)}개')
 
     # 상태 조회
@@ -386,6 +393,8 @@ def collect_from_bbhd():
     last_id = 0
     if status_res and isinstance(status_res, list) and len(status_res) > 0:
         last_id = status_res[0].get('payload', {}).get('last_id', 0)
+    if last_id > 100000 or last_id < 30000:
+        last_id = 36600
 
     new_max_id = last_id
     for wr_id_str, raw_title in articles:
@@ -394,7 +403,7 @@ def collect_from_bbhd():
             if wr_id <= last_id:
                 continue
 
-            view_url = f'https://m.ppomppu.co.kr/new/bbs_view.php?id=ppomppu&no={wr_id}'
+            view_url = f'https://www.bbhd.kr/bbs/bbs/board.php?bo_table=free&wr_id={wr_id}'
             detail = fetch_html(view_url)
 
             # 가격 추출
@@ -427,10 +436,18 @@ def collect_from_bbhd():
                 mall = '쿠팡'
                 source = 'coupang'
                 cpid = resolve_coupang_pid(target_link)
+                if not cpid:
+                    try:
+                        res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+                        cpid = resolve_coupang_pid(res.stdout)
+                    except Exception:
+                        pass
                 if cpid:
                     prod_id = f'cp_{cpid}'
                     clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
                     aff_link = get_coupang_deeplink(clean_cp) or clean_cp
+                else:
+                    aff_link = target_link
             elif any(dom in target_link for dom in ['app.ac', 'bitl.bz', 'deg.kr']):
                 try:
                     res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)

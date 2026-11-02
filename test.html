@@ -2022,18 +2022,18 @@ window.slimAdClick=function(id){
       <button type="button" onclick="resetHdFilter()" style="background:#7C54C4;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap">전체보기 ✕</button>
     </div>
     <div class="sort-toolbar">
-      <span class="count-txt" id="hdSectionTitle">실시간 가격급락 핫딜</span>
+      <span class="count-txt" id="hdSectionTitle">실시간 최신 핫딜</span>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="hdResetBtn" type="button" onclick="resetHdFilter()" style="display:none;background:#F2F4F6;border:1px solid #E5E8EB;color:#4E5968;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer">전체보기 ✕</button>
         <div class="hd-sort-wrap" style="position:relative">
           <button id="hdSortBtn" type="button" onclick="toggleHdSortDropdown(event)" style="display:flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:20px;border:1px solid #E5E8EB;background:#fff;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer;-webkit-tap-highlight-color:transparent">
-            <span id="hdSortLabel">급하락순</span>
+            <span id="hdSortLabel">최신순</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div id="hdSortDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #E5E8EB;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:200;min-width:105px;overflow:hidden;padding:4px 0">
-            <button type="button" class="hd-opt on" onclick="pickHdSort('drop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:700;color:#7C54C4;cursor:pointer">급하락순 ✓</button>
+            <button type="button" class="hd-opt" onclick="pickHdSort('drop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">급하락순</button>
             <button type="button" class="hd-opt" onclick="pickHdSort('pop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">인기순</button>
-            <button type="button" class="hd-opt" onclick="pickHdSort('new')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">최신순</button>
+            <button type="button" class="hd-opt on" onclick="pickHdSort('new')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:700;color:#7C54C4;cursor:pointer">최신순 ✓</button>
           </div>
         </div>
       </div>
@@ -3845,7 +3845,7 @@ function _hdDemo(){
     product_id:'__demo__',source:'coupang',created_at:new Date().toISOString(),img_url:''};
 }
 let _hdCurrentCat = 'all';
-let _hdCurrentSort = 'drop';
+let _hdCurrentSort = 'new';
 let _hdOnlyLowest = false;
 window._selectedMalls = new Set(['all']);
 
@@ -3875,7 +3875,7 @@ window.toggleHdMall = function(mall){
 window.resetHdFilter = function(){
   _hdOnlyLowest = false;
   _hdCurrentCat = 'all';
-  _hdCurrentSort = 'drop';
+  _hdCurrentSort = 'new';
 
   if(window._selectedMalls){
     _selectedMalls.clear();
@@ -3899,13 +3899,13 @@ window.resetHdFilter = function(){
   });
 
   var sLbl = document.getElementById('hdSortLabel');
-  if(sLbl) sLbl.textContent = '급하락순';
+  if(sLbl) sLbl.textContent = '최신순';
   var dd = document.getElementById('hdSortDropdown');
   if(dd){
     var btns = dd.querySelectorAll('.hd-opt');
     var labels = ['급하락순', '인기순', '최신순'];
     btns.forEach(function(b, idx){
-      var match = (idx === 0);
+      var match = (idx === 2);
       b.classList.toggle('on', match);
       b.style.fontWeight = match ? '700' : '600';
       b.style.color = match ? '#7C54C4' : '#4E5968';
@@ -3914,7 +3914,7 @@ window.resetHdFilter = function(){
   }
 
   var ttl = document.getElementById('hdSectionTitle');
-  if(ttl) ttl.textContent = '실시간 가격급락 핫딜';
+  if(ttl) ttl.textContent = '실시간 최신 핫딜';
 
   renderHotdeals();
 };
@@ -3930,7 +3930,7 @@ window.toggleHdSortDropdown = function(e){
 window.pickHdSort = function(sort){
   var labels = {drop: '급하락순', pop: '인기순', new: '최신순'};
   var lbl = document.getElementById('hdSortLabel');
-  if(lbl) lbl.textContent = labels[sort] || '급하락순';
+  if(lbl) lbl.textContent = labels[sort] || '최신순';
 
   var dd = document.getElementById('hdSortDropdown');
   if(dd){
@@ -3969,7 +3969,7 @@ window.setHdCategory = function(cat){
     var rBtn = document.getElementById('hdResetBtn');
     if(rBtn) rBtn.style.display = 'none';
     var ttl = document.getElementById('hdSectionTitle');
-    if(ttl) ttl.textContent = '실시간 가격급락 핫딜';
+    if(ttl && !_hdOnlyLowest) ttl.textContent = '실시간 최신 핫딜';
   }
   var chips = document.querySelectorAll('#hdCategoryChips .c-chip');
   if(chips) chips.forEach(function(btn){
@@ -3979,7 +3979,7 @@ window.setHdCategory = function(cat){
 };
 
 window.setHdSort = function(sort){
-  _hdCurrentSort = sort || 'drop';
+  _hdCurrentSort = sort || 'new';
   renderHotdeals();
 };
 
@@ -4086,7 +4086,9 @@ function renderHotdeals(){
     });
   } else if(_hdCurrentSort === 'new'){
     sorted.sort(function(a, b){
-      return (b.id || 0) - (a.id || 0);
+      var ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      var tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return (tb - ta) || ((b.id || 0) - (a.id || 0));
     });
   }
 
