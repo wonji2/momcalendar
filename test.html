@@ -920,7 +920,7 @@ body[data-ct="community"] #subZone {
   line-height: 16px !important;
 }
 
-/* 2. 🏷️ 카테고리 칩 & 정렬 툴바 */
+/* 2. 🏷️ 카테고리 칩 & 쇼핑몰 다중 선택 & 정렬 툴바 */
 .filter-section {
   padding: 8px 4px 10px !important;
 }
@@ -930,9 +930,74 @@ body[data-ct="community"] #subZone {
   overflow-x: auto !important;
   scrollbar-width: none !important;
   -webkit-overflow-scrolling: touch !important;
-  padding: 2px 0 8px !important;
+  padding: 2px 0 6px !important;
 }
 .category-chips::-webkit-scrollbar { display: none !important; }
+
+/* 쇼핑몰 다중 선택 필터 칩 (중복 선택 지원) */
+.mall-chips {
+  display: flex !important;
+  gap: 6px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 2px 0 8px !important;
+}
+.mall-chips::-webkit-scrollbar { display: none !important; }
+.m-chip {
+  flex: 0 0 auto !important;
+  height: 28px !important;
+  line-height: 26px !important;
+  padding: 0 11px !important;
+  border-radius: 100px !important;
+  border: 1px solid #E5E8EB !important;
+  background: #fff !important;
+  color: #6B7684 !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: all 0.15s ease !important;
+}
+.m-chip.on {
+  background: #7C54C4 !important;
+  border-color: #7C54C4 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+.m-chip[data-mall="all"].on {
+  background: #191F28 !important;
+  border-color: #191F28 !important;
+}
+.m-chip[data-mall="coupang_wow"].on {
+  background: #E8402A !important;
+  border-color: #E8402A !important;
+}
+
+/* 대화형 온보딩 칩 */
+.mcob-chip {
+  padding: 6px 12px !important;
+  border-radius: 100px !important;
+  border: 1px solid #E5E8EB !important;
+  background: #fff !important;
+  color: #4E5968 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: all 0.15s ease !important;
+}
+.mcob-chip.on {
+  background: #7C54C4 !important;
+  border-color: #7C54C4 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
 .c-chip {
   flex: 0 0 auto !important;
   height: 30px !important;
@@ -1893,6 +1958,18 @@ window.slimAdClick=function(id){
 
 <!-- ===== 핫딜 영역 ===== -->
 <div id="hotdealView" style="display:none;padding:12px;min-height:150vh">
+  <!-- 💜 폴센트식 3초 맞춤 설정 & 알림 배너 -->
+  <div id="mcOnboardBanner" onclick="openMcOnboard()" style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #7C54C4, #9B6FD4);color:#fff;border-radius:14px;padding:11px 15px;margin-bottom:12px;box-shadow:0 3px 12px rgba(124,84,196,0.18);cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px;line-height:1">✨</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;line-height:1.3;letter-spacing:-0.2px">3초 맞춤 설정하고 특가 알림 받기</div>
+        <div style="font-size:11px;opacity:0.9;margin-top:1px;letter-spacing:-0.2px">자녀 월령 · 쿠팡 와우 · 카드사 맞춤 특가</div>
+      </div>
+    </div>
+    <span style="font-size:11.5px;font-weight:700;background:rgba(255,255,255,0.22);padding:4px 10px;border-radius:20px;white-space:nowrap">앱에서 알림 받기 ›</span>
+  </div>
+
   <!-- 1섹션: 🔥 가격 뚝! 쟁여둘 핫딜 (큐레이션 캐러셀) -->
   <div id="hdDemand"></div>
 
@@ -1909,6 +1986,17 @@ window.slimAdClick=function(id){
       <button class="c-chip" data-cat="패션" onclick="setHdCategory('패션')">패션</button>
       <button class="c-chip" data-cat="여행" onclick="setHdCategory('여행')">여행</button>
       <button class="c-chip" data-cat="반려동물" onclick="setHdCategory('반려동물')">반려동물</button>
+    </div>
+
+    <!-- 🛍️ 쇼핑몰 다중 선택 필터 (중복 선택 지원) -->
+    <div class="mall-chips" id="hdMallChips">
+      <button type="button" class="m-chip on" data-mall="all" onclick="toggleHdMall('all')">전체몰</button>
+      <button type="button" class="m-chip" data-mall="coupang_wow" onclick="toggleHdMall('coupang_wow')">🚀 쿠팡(와우)</button>
+      <button type="button" class="m-chip" data-mall="coupang" onclick="toggleHdMall('coupang')">쿠팡(일반)</button>
+      <button type="button" class="m-chip" data-mall="gmarket" onclick="toggleHdMall('gmarket')">G마켓</button>
+      <button type="button" class="m-chip" data-mall="11st" onclick="toggleHdMall('11st')">11번가</button>
+      <button type="button" class="m-chip" data-mall="toss" onclick="toggleHdMall('toss')">토스쇼핑</button>
+      <button type="button" class="m-chip" data-mall="lotte" onclick="toggleHdMall('lotte')">롯데ON</button>
     </div>
     <div id="hdFilterBar" style="display:none;align-items:center;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;background:#F0E6FA;border:1px solid #C9A8E8;border-radius:12px">
       <span id="hdFilterLabel" style="font-size:13px;font-weight:700;color:#7C54C4">🔥 쟁여둘 핫딜 모아보기</span>
@@ -3740,11 +3828,46 @@ function _hdDemo(){
 let _hdCurrentCat = 'all';
 let _hdCurrentSort = 'drop';
 let _hdOnlyLowest = false;
+window._selectedMalls = new Set(['all']);
+
+window.toggleHdMall = function(mall){
+  if(mall === 'all'){
+    _selectedMalls.clear();
+    _selectedMalls.add('all');
+  } else {
+    _selectedMalls.delete('all');
+    if(_selectedMalls.has(mall)){
+      _selectedMalls.delete(mall);
+      if(_selectedMalls.size === 0) _selectedMalls.add('all');
+    } else {
+      _selectedMalls.add(mall);
+    }
+  }
+  var chips = document.querySelectorAll('#hdMallChips .m-chip');
+  if(chips){
+    chips.forEach(function(b){
+      var m = b.getAttribute('data-mall');
+      b.classList.toggle('on', _selectedMalls.has(m));
+    });
+  }
+  renderHotdeals();
+};
 
 window.resetHdFilter = function(){
   _hdOnlyLowest = false;
   _hdCurrentCat = 'all';
   _hdCurrentSort = 'drop';
+
+  if(window._selectedMalls){
+    _selectedMalls.clear();
+    _selectedMalls.add('all');
+    var mChips = document.querySelectorAll('#hdMallChips .m-chip');
+    if(mChips){
+      mChips.forEach(function(b){
+        b.classList.toggle('on', b.getAttribute('data-mall') === 'all');
+      });
+    }
+  }
 
   var bar = document.getElementById('hdFilterBar');
   if(bar) bar.style.display = 'none';
@@ -3897,6 +4020,31 @@ function renderHotdeals(){
       if(_hdCurrentCat === '여행') return /여행|숙소|호텔|리조트|이용권|티켓|워터파크|스플라스/.test(m);
       if(_hdCurrentCat === '반려동물') return /반려동물|강아지|고양이|사료|간식|배변패드/.test(m);
       return false;
+    });
+  }
+
+  // 쇼핑몰 다중 선택 필터링 (중복 선택 지원)
+  if(window._selectedMalls && !_selectedMalls.has('all') && _selectedMalls.size > 0){
+    filtered = filtered.filter(function(h){
+      var src = String(h.source || '').toLowerCase();
+      var mall = String(h.mall || '').toLowerCase();
+      var tit = String(h.title || '').toLowerCase();
+
+      var isWow = (src === 'goldbox' || /와우|골드박스/i.test(tit) || !!h.is_wow);
+      var isCoupang = (src === 'coupang' || src === 'goldbox' || mall.indexOf('쿠팡') !== -1 || tit.indexOf('쿠팡') !== -1);
+      var isGmarket = (src === 'gmarket' || mall.indexOf('지마켓') !== -1 || mall.indexOf('gmarket') !== -1 || /지마켓|g마켓/i.test(tit));
+      var is11st = (src === '11st' || mall.indexOf('11번가') !== -1 || /11번가/i.test(tit));
+      var isToss = (src === 'toss' || mall.indexOf('토스') !== -1 || /토스/i.test(tit));
+      var isLotte = (src === 'lotteon' || src === 'lotte' || mall.indexOf('롯데') !== -1 || /롯데/i.test(tit));
+
+      var match = false;
+      if(_selectedMalls.has('coupang_wow') && isCoupang && isWow) match = true;
+      if(_selectedMalls.has('coupang') && isCoupang && !isWow) match = true;
+      if(_selectedMalls.has('gmarket') && isGmarket) match = true;
+      if(_selectedMalls.has('11st') && is11st) match = true;
+      if(_selectedMalls.has('toss') && isToss) match = true;
+      if(_selectedMalls.has('lotte') && isLotte) match = true;
+      return match;
     });
   }
 
@@ -9461,6 +9609,172 @@ function hdGridCardHtml(h){
   +'</div>';
 }
 window.__hdgPh='<div class="hd-ph">HOT</div>';
+
+/* 💜 폴센트식 온보딩 스크립트 */
+window.openMcOnboard = function(){
+  // 웹에서는 브라우저 알림 제약이 있으므로 앱 유도 시트를 띄운다 (매니저님 피드백 반영)
+  if(!isApp()){
+    if(typeof _appOnlyBell === 'function' && _appOnlyBell('hotdeal_onboard')) return;
+    var el = document.getElementById('aoSheet') || document.getElementById('mcWoSheet');
+    if(el) { el.classList.add('open'); return; }
+  }
+  var bg = document.getElementById('mcObBg');
+  var sheet = document.getElementById('mcObSheet');
+  if(bg) bg.style.display = 'block';
+  if(sheet) sheet.style.display = 'block';
+};
+window.closeMcOnboard = function(){
+  var bg = document.getElementById('mcObBg');
+  var sheet = document.getElementById('mcObSheet');
+  if(bg) bg.style.display = 'none';
+  if(sheet) sheet.style.display = 'none';
+};
+window.mcobNext = function(step){
+  document.querySelectorAll('.mcob-step').forEach(function(el){ el.style.display = 'none'; });
+  var nextEl = document.getElementById('mcStep' + step);
+  if(nextEl) nextEl.style.display = 'block';
+};
+window.toggleMcobChip = function(btn){
+  btn.classList.toggle('on');
+};
+window.pickMcobWow = function(btn){
+  var p = btn.parentNode;
+  if(p) p.querySelectorAll('.mcob-chip').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+};
+window.finishMcob = function(wantNotif){
+  var nickInput = document.getElementById('mcobNick');
+  var nick = (nickInput && nickInput.value || '').trim() || '알뜰맘';
+  var ages = [];
+  document.querySelectorAll('#mcobAgeChips .mcob-chip.on').forEach(function(b){ ages.push(b.dataset.val); });
+  var isWow = !!document.querySelector('#mcobWowGroup .mcob-chip.on[data-val="yes"]');
+  var cards = [];
+  document.querySelectorAll('#mcobCardChips .mcob-chip.on').forEach(function(b){ cards.push(b.dataset.val); });
+  var cats = [];
+  document.querySelectorAll('#mcobCatChips .mcob-chip.on').forEach(function(b){ cats.push(b.dataset.val); });
+
+  var pref = {
+    nick: nick,
+    ages: ages,
+    isWow: isWow,
+    cards: cards,
+    cats: cats,
+    notif: wantNotif,
+    savedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem('mc_user_pref', JSON.stringify(pref));
+  } catch(e){}
+
+  if(isWow && window._selectedMalls){
+    _selectedMalls.clear();
+    _selectedMalls.add('coupang_wow');
+    document.querySelectorAll('#hdMallChips .m-chip').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-mall') === 'coupang_wow');
+    });
+    renderHotdeals();
+  }
+
+  closeMcOnboard();
+};
 </script>
+
+<!-- 💜 폴센트식 대화형 온보딩 모달 -->
+<div id="mcObBg" onclick="closeMcOnboard()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99980;backdrop-filter:blur(3px)"></div>
+<div id="mcObSheet" style="display:none;position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:min(440px,92%);max-height:86vh;overflow-y:auto;background:#fff;border-radius:24px;padding:22px 20px 24px;z-index:99981;box-shadow:0 16px 40px rgba(0,0,0,0.25);box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,system-ui,Roboto,sans-serif">
+  <!-- 모달 헤더 -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="font-size:19px">💜</span>
+      <span style="font-size:15px;font-weight:800;color:#191F28">맘캘 맞춤 쇼핑 시작하기</span>
+    </div>
+    <button type="button" onclick="closeMcOnboard()" style="background:none;border:none;font-size:18px;color:#8B95A1;cursor:pointer;padding:4px">✕</button>
+  </div>
+
+  <!-- 대화형 스텝 영역 -->
+  <div id="mcObBody" style="display:flex;flex-direction:column;gap:14px">
+    <!-- Step 1: 닉네임 -->
+    <div id="mcStep1" class="mcob-step">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">1. 맘캘린더에서 어떻게 불러드릴까요? 😊</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">닉네임을 정해주시면 더 친근하게 특가를 챙겨드려요!</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="mcobNick" placeholder="예: 지혜로운맘, 쑥쑥이맘" style="flex:1;height:40px;padding:0 12px;border:1px solid #E5E8EB;border-radius:10px;font-size:13px;outline:none">
+        <button type="button" onclick="mcobNext(2)" style="height:40px;padding:0 14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음</button>
+      </div>
+    </div>
+
+    <!-- Step 2: 자녀 월령 / 관심사 -->
+    <div id="mcStep2" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">2. 아이 월령이나 관심사를 골라주세요 👶</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">시기별 꼭 필요한 공구와 기저귀·분유 핫딜을 맞춤 추천해요.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px" id="mcobAgeChips">
+        <button type="button" class="mcob-chip" data-val="임신/출산" onclick="toggleMcobChip(this)">임신/출산</button>
+        <button type="button" class="mcob-chip" data-val="0~12개월" onclick="toggleMcobChip(this)">0~12개월</button>
+        <button type="button" class="mcob-chip" data-val="돌~두돌" onclick="toggleMcobChip(this)">돌~두돌</button>
+        <button type="button" class="mcob-chip" data-val="3~5세" onclick="toggleMcobChip(this)">3~5세</button>
+        <button type="button" class="mcob-chip" data-val="6~7세" onclick="toggleMcobChip(this)">6~7세</button>
+        <button type="button" class="mcob-chip" data-val="초등 이상" onclick="toggleMcobChip(this)">초등 이상</button>
+        <button type="button" class="mcob-chip" data-val="선택안함" onclick="toggleMcobChip(this)">선택안함</button>
+      </div>
+      <button type="button" onclick="mcobNext(3)" style="width:100%;height:40px;margin-top:14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음으로 넘어가기</button>
+    </div>
+
+    <!-- Step 3: 쿠팡 와우 & 보유 카드사 (폴센트 벤치마킹!) -->
+    <div id="mcStep3" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">3. 쿠팡 와우 회원 & 결제 카드사 💳</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:10px">와우 전용가와 카드사 청구할인을 정확히 계산해 드려요.</div>
+      
+      <div style="margin-bottom:12px">
+        <div style="font-size:12.5px;font-weight:600;color:#333;margin-bottom:6px">쿠팡 와우 회원이신가요?</div>
+        <div style="display:flex;gap:8px" id="mcobWowGroup">
+          <button type="button" class="mcob-chip on" data-val="yes" onclick="pickMcobWow(this)">🚀 네, 와우 회원이에요</button>
+          <button type="button" class="mcob-chip" data-val="no" onclick="pickMcobWow(this)">아니에요</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:#333;margin-bottom:6px">보유 중인 카드사 (중복 선택)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcobCardChips">
+          <button type="button" class="mcob-chip" data-val="신한" onclick="toggleMcobChip(this)">신한</button>
+          <button type="button" class="mcob-chip" data-val="국민" onclick="toggleMcobChip(this)">국민</button>
+          <button type="button" class="mcob-chip" data-val="삼성" onclick="toggleMcobChip(this)">삼성</button>
+          <button type="button" class="mcob-chip" data-val="현대" onclick="toggleMcobChip(this)">현대</button>
+          <button type="button" class="mcob-chip" data-val="롯데" onclick="toggleMcobChip(this)">롯데</button>
+          <button type="button" class="mcob-chip" data-val="농협" onclick="toggleMcobChip(this)">농협</button>
+          <button type="button" class="mcob-chip" data-val="하나" onclick="toggleMcobChip(this)">하나</button>
+          <button type="button" class="mcob-chip" data-val="와우카드" onclick="toggleMcobChip(this)">쿠팡와우카드</button>
+        </div>
+      </div>
+      <button type="button" onclick="mcobNext(4)" style="width:100%;height:40px;margin-top:14px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">다음</button>
+    </div>
+
+    <!-- Step 4: 핫딜 알림 동의 -->
+    <div id="mcStep4" class="mcob-step" style="display:none">
+      <div style="font-size:13.5px;font-weight:700;color:#191F28;margin-bottom:6px">4. 역대급 할인 터지면 바로 알려드릴까요? 🔔</div>
+      <div style="font-size:12px;color:#6B7684;margin-bottom:12px">새벽 방해 없이, 내가 관심 있는 상품이 역대 최저가로 떨어졌을 때만 알뜰하게 톡으로 챙겨드려요!</div>
+      
+      <div style="background:#F7F8FA;border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:#333;margin-bottom:6px">관심 알림 카테고리 (중복 선택)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcobCatChips">
+          <button type="button" class="mcob-chip on" data-val="육아" onclick="toggleMcobChip(this)">육아</button>
+          <button type="button" class="mcob-chip on" data-val="식품" onclick="toggleMcobChip(this)">식품</button>
+          <button type="button" class="mcob-chip on" data-val="리빙" onclick="toggleMcobChip(this)">리빙</button>
+          <button type="button" class="mcob-chip on" data-val="가전" onclick="toggleMcobChip(this)">가전</button>
+          <button type="button" class="mcob-chip on" data-val="뷰티" onclick="toggleMcobChip(this)">뷰티</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="finishMcob(false)" style="flex:1;height:42px;background:#F2F4F6;color:#6B7684;border:none;border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer">나중에요</button>
+        <button type="button" onclick="finishMcob(true)" style="flex:2;height:42px;background:#7C54C4;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">알려주세요! 🔔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 건너뛰기 푸터 -->
+  <div style="display:flex;justify-content:center;margin-top:16px">
+    <button type="button" onclick="closeMcOnboard()" style="background:none;border:none;color:#8B95A1;font-size:12px;cursor:pointer;text-decoration:underline">나중에 하기 (건너뛰기)</button>
+  </div>
+</div>
 </body>
 </html>
