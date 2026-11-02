@@ -152,19 +152,26 @@ async function searchMomcal(keyword: string) {
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   if (!keyword || keyword.length < 2) return null;
 
-  // 1. 공구 검색 (진행 중이거나 예정된 공구 우선)
-  const encodedKw = encodeURIComponent(`%${keyword}%`);
+  // 1. 공구 검색 (진행 중이거나 예정된 공구 우선) — 띄어쓰기가 다른 말(슈메르양말 ↔ 슈메르 미끄럼방지 양말)도 찾는다
+  const clean = keyword.replace(/[,()*%\\"']/g, "").trim();
+  const pats = new Set<string>([`*${clean}*`]);
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length > 1) pats.add(`*${parts.join("*")}*`);
+  const flat = clean.replace(/\s+/g, "");
+  for (let i = 2; i <= flat.length - 2 && pats.size < 14; i++) pats.add(`*${flat.slice(0, i)}*${flat.slice(i)}*`);
+  const orExpr = [...pats].map((p) => `name.ilike.${p}`).join(",");
   const gonggus = await q(
-    `gonggu?select=${COLS}&approved=eq.true&name=ilike.${encodedKw}&end_date=gte.${today}&order=open_date.asc&limit=3`
+    `gonggu?select=${COLS}&approved=eq.true&or=(${encodeURIComponent(orExpr)})&end_date=gte.${today}&order=open_date.asc&limit=6`
   );
 
   if (Array.isArray(gonggus) && gonggus.length > 0) {
-    return { type: "gonggu", item: gonggus[0], count: gonggus.length };
+    const mine = gonggus.find((g: any) => g.insta === "momcal_");   // 맘캘린더 공구가 있으면 그것을 먼저(규칙 0-M)
+    return { type: "gonggu", item: mine || gonggus[0], count: gonggus.length };
   }
 
   // 2. 핫딜 검색 (공구가 없으면 최저가 핫딜 확인)
   const hotdeals = await q(
-    `hotdeals?select=id,title,price,price_before,mall,link&title=ilike.${encodedKw}&order=id.desc&limit=1`
+    `hotdeals?select=id,title,price,price_before,mall,link&title=ilike.${encodeURIComponent(`*${clean}*`)}&order=id.desc&limit=1`
   );
 
   if (Array.isArray(hotdeals) && hotdeals.length > 0) {
