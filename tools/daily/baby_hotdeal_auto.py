@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import html
 import subprocess
 import urllib.request
 import urllib.parse
@@ -13,7 +14,7 @@ CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET'
 LINKPRICE_ID = os.environ.get('LINKPRICE_ID', 'A100706561')
 
 def run_sql(query):
-    url = f'https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query'
+    url = 'https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query'
     req = urllib.request.Request(
         url,
         data=json.dumps({'query': query}).encode('utf-8'),
@@ -26,9 +27,14 @@ def run_sql(query):
         return json.loads(resp.read().decode('utf-8'))
 
 def fetch_html(url):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
     with urllib.request.urlopen(req, timeout=15) as resp:
         return resp.read().decode('utf-8', errors='ignore')
+
+def sql_quote(val):
+    if val is None:
+        return 'NULL'
+    return "'" + str(val).replace("'", "''") + "'"
 
 def classify_category(title):
     t = title.lower()
@@ -52,47 +58,78 @@ def classify_category(title):
         return '리빙', '주방용품'
     if re.search(r'세제|유연제|휴지|치약|칫솔', t):
         return '리빙', '생활용품'
+    if re.search(r'세탁기|건조기|로봇청소기|청소기|공기청정기|냉장고|모니터|노트북|tv|제습기|가습기', t):
+        return '디지털/가전', '생활가전'
     return '육아', '육아용품'
 
-def resolve_coupang_url(short_url):
+def calculate_unit_price(title, price):
+    if not price or price <= 0:
+        return ''
+    t = title.lower()
     try:
-        out = subprocess.check_output(['curl', '-sI', short_url], timeout=10).decode('utf-8', errors='ignore')
-        m = re.search(r'[Ll]ocation:\s*(https://www\.coupang\.com/vp/products/(\d+)[^\r\n]*)', out)
+        # 1. 기저귀/물티슈/마스크 (장, 매, 팩)
+        m = re.search(r'(\d+)\s*(?:매|장|입|p|피스)\s*(?:[x*]\s*(\d+)\s*팩?)?', t)
         if m:
-            pid = m.group(2)
-            return pid, f'https://www.coupang.com/vp/products/{pid}'
-        # cookie fallback
-        cm = re.search(r'trac_ctag=(\d+)', out)
-        if cm:
-            pid = cm.group(1)
-            return pid, f'https://www.coupang.com/vp/products/{pid}'
-    except Exception as e:
-        print(f'[bbhd] resolve_coupang_url error: {e}')
-    return None, None
+            count1 = int(m.group(1))
+            count2 = int(m.group(2)) if m.group(2) else 1
+            total = count1 * count2
+            if total > 5 and price > 0:
+                u_price = round(price / total)
+                return f'(1장당 {u_price:,}원)'
 
-def get_coupang_image(kw, pid=None):
-    try:
-        clean_kw = re.sub(r'\[[^\]]+\]|\([^\)]+\)', '', kw).strip()
-        enc = urllib.parse.quote(clean_kw[:25])
-        url = f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?test=search&limit=5&kw={enc}'
-        req = urllib.request.Request(url, headers={'x-cron-secret': CRON_SECRET})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            items = data.get('items', [])
-            if pid:
-                matched = [it for it in items if str(it.get('productId')) == str(pid)]
-                if matched and matched[0].get('productImage'):
-                    return matched[0]['productImage']
-            if items and items[0].get('productImage'):
-                return items[0]['productImage']
-    except Exception as e:
-        print(f'[bbhd] Coupang image search error: {e}')
+        # 2. 부피 (L, ml)
+        m_l = re.search(r'(\d+(?:\.\d+)?)\s*l\b(?:\s*[x*]\s*(\d+))?', t)
+        if m_l:
+            liters = float(m_l.group(1))
+            cnt = int(m_l.group(2)) if m_l.group(2) else 1
+            total_100ml = (liters * 1000 * cnt) / 100
+            if total_100ml > 0:
+                u_price = round(price / total_100ml)
+                return f'(100ml당 {u_price:,}원)'
+
+        m_ml = re.search(r'(\d+)\s*ml\b(?:\s*[x*]\s*(\d+))?', t)
+        if m_ml:
+            mls = int(m_ml.group(1))
+            cnt = int(m_ml.group(2)) if m_ml.group(2) else 1
+            total_100ml = (mls * cnt) / 100
+            if total_100ml > 0:
+                u_price = round(price / total_100ml)
+                return f'(100ml당 {u_price:,}원)'
+
+        # 3. 무게 (kg, g)
+        m_kg = re.search(r'(\d+(?:\.\d+)?)\s*kg\b(?:\s*[x*]\s*(\d+))?', t)
+        if m_kg:
+            kgs = float(m_kg.group(1))
+            cnt = int(m_kg.group(2)) if m_kg.group(2) else 1
+            total_100g = (kgs * 1000 * cnt) / 100
+            if total_100g > 0:
+                u_price = round(price / total_100g)
+                return f'(100g당 {u_price:,}원)'
+
+        m_g = re.search(r'(\d+)\s*g\b(?:\s*[x*]\s*(\d+))?', t)
+        if m_g:
+            gs = int(m_g.group(1))
+            cnt = int(m_g.group(2)) if m_g.group(2) else 1
+            total_100g = (gs * cnt) / 100
+            if total_100g > 0:
+                u_price = round(price / total_100g)
+                return f'(100g당 {u_price:,}원)'
+
+        # 4. 개수 (개, 팩, 포, 병, 캔, 봉, 박스)
+        m_cnt = re.search(r'(\d+)\s*(?:개|팩|포|병|캔|봉|입|box|박스)\b', t)
+        if m_cnt:
+            cnt = int(m_cnt.group(1))
+            if cnt > 1:
+                u_price = round(price / cnt)
+                return f'(1개당 {u_price:,}원)'
+    except Exception:
+        pass
     return ''
 
 def get_coupang_deeplink(clean_product_url):
     enc = urllib.parse.quote(clean_product_url)
     ep = f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?deeplink={enc}'
-    req = urllib.request.Request(ep, headers={'x-cron-secret': CRON_SECRET})
+    req = urllib.request.Request(ep, headers={'x-cron-secret': CRON_SECRET, 'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
@@ -100,17 +137,29 @@ def get_coupang_deeplink(clean_product_url):
             if arr and 'shortenUrl' in arr[0]:
                 return arr[0]['shortenUrl']
     except Exception as e:
-        print(f'[bbhd] Coupang deeplink error: {e}')
+        print(f'[multi-hotdeal] Coupang deeplink error: {e}')
     return None
 
-def sql_quote(val):
-    if val is None:
-        return 'NULL'
-    return "'" + str(val).replace("'", "''") + "'"
+def resolve_coupang_pid(short_or_long_url):
+    try:
+        # direct regex
+        m = re.search(r'coupang\.com/vp/products/(\d+)', short_or_long_url)
+        if m:
+            return m.group(1)
+        # curl redirect
+        res = subprocess.run(['curl', '-sIL', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', short_or_long_url], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        m2 = re.search(r'coupang\.com/vp/products/(\d+)', res.stdout)
+        if m2:
+            return m2.group(1)
+        cm = re.search(r'trac_ctag=(\d+)', res.stdout)
+        if cm:
+            return cm.group(1)
+    except Exception as e:
+        print(f'[multi-hotdeal] resolve_coupang_pid error: {e}')
+    return None
 
 def clean_polluted_gonggu_titles():
     print('[clean] 공구 오염 상품명 및 크레용맘 배너 정제 시작...')
-    # 크레용맘 배너 비활성화 (219, 220 등)
     try:
         run_sql("UPDATE public.banners SET active = false WHERE title ILIKE '%크레용%' OR id IN (219, 220);")
         print('[clean] 크레용맘 배너 비활성화 완료')
@@ -125,9 +174,8 @@ def clean_polluted_gonggu_titles():
     for gid, fixed in specific.items():
         try:
             run_sql(f"UPDATE public.gonggu SET name = '{fixed}' WHERE id = {gid};")
-            print(f'[clean] 고정 수정 완료: id={gid} -> {fixed}')
-        except Exception as e:
-            print(f'[clean] 고정 수정 실패 {gid}: {e}')
+        except Exception:
+            pass
 
     try:
         rows = run_sql("""
@@ -157,14 +205,172 @@ def clean_polluted_gonggu_titles():
     except Exception as e:
         print(f'[clean] 정제 쿼리 에러: {e}')
 
-def main():
-    print('[bbhd] 베이비핫딜 0원 자동 수집기 가동')
+def purge_old_history():
+    # 180일 보관 헌법 준수
     try:
-        clean_polluted_gonggu_titles()
+        run_sql("DELETE FROM public.hotdeals WHERE deal_day < (CURRENT_DATE - INTERVAL '180 days')::text;")
+        print('[purge] 180일 초과 과거 핫딜 데이터 정리 완료')
     except Exception as e:
-        print(f'[clean] clean_polluted_gonggu_titles error: {e}')
+        print(f'[purge] 히스토리 정리 오류: {e}')
 
-    # 1. ops_status 에서 last_id 조회
+def collect_from_jirum_alarm():
+    print('\n[source:jirum] 맘이베베·뽐뿌·어미새 16대 커뮤니티 육아/생필품 핫딜 직수집 가동')
+    themes = [
+        '/themes/baby',                  # 맘이베베 육아/아동 특가
+        '/themes/household-essentials',  # 뽐뿌 생필품 특가
+        '/themes/appliances-furniture'   # 에펨/어미새 고가 가전 특가
+    ]
+
+    seen_products = set()
+    product_paths = []
+    for th in themes:
+        try:
+            th_html = fetch_html(f'https://jirum-alarm.com{th}')
+            links = re.findall(r'href=[\"\'](/products/\d+[^\"\']*)[\"\']', th_html)
+            for l in links:
+                base_path = l.split('?')[0]
+                if base_path not in seen_products:
+                    seen_products.add(base_path)
+                    product_paths.append(base_path)
+        except Exception as e:
+            print(f'[source:jirum] 테마 {th} 스크랩 실패: {e}')
+
+    print(f'[source:jirum] 수집 후보 상품: {len(product_paths)}건')
+
+    registered = 0
+    today_str = datetime.now(KST).strftime('%Y-%m-%d')
+
+    for p_path in product_paths[:25]: # 속도 및 안정성 보장
+        try:
+            pid_match = re.search(r'/products/(\d+)', p_path)
+            if not pid_match:
+                continue
+            jid = pid_match.group(1)
+
+            p_html = fetch_html(f'https://jirum-alarm.com{p_path}')
+            h1 = re.search(r'<h1[^>]*>(.*?)</h1>', p_html)
+            if not h1:
+                continue
+            raw_title = html.unescape(h1.group(1)).strip()
+
+            price_m = re.search(r'([0-9,]+)원', p_html)
+            price = int(price_m.group(1).replace(',', '')) if price_m else 0
+
+            # 커뮤니티 출처 및 이미지
+            comm_m = re.search(r'cdn\.jirum-alarm\.com/community/([a-z0-9_-]+)/(\d+)\.webp', p_html)
+            comm_source = comm_m.group(1) if comm_m else 'community'
+            img_url = f'https://cdn.jirum-alarm.com/community/{comm_m.group(1)}/{comm_m.group(2)}.webp' if comm_m else ''
+
+            # 아웃바운드 링크 탐색
+            ext_links = re.findall(r'href=[\"\'](https?://[^\"\']+)[\"\']', p_html)
+            target_link = ''
+            for el in ext_links:
+                if any(k in el for k in ['linkprice.com', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'auction.co.kr', 'lotteon.com', 'ssg.com', 'ohou.se']):
+                    target_link = el
+                    break
+
+            if not target_link:
+                continue
+
+            # 링크 및 몰 변환
+            mall = '온라인몰'
+            source = 'linkprice'
+            prod_id = f'jirum_{jid}'
+            aff_link = ''
+
+            target_link = target_link.replace('&amp;', '&')
+
+            if 'click.linkprice.com' in target_link:
+                parsed = urllib.parse.urlparse(target_link)
+                qs = urllib.parse.parse_qs(parsed.query)
+                m_param = qs.get('m', [''])[0]
+                tu_param = qs.get('tu', [''])[0]
+                if tu_param:
+                    clean_tu = urllib.parse.unquote(tu_param)
+                    mall_map = {'gmarket': '지마켓', '11st': '11번가', 'auction': '옥션', 'lotteon': '롯데ON', 'emart': 'SSG', 'boribori': '보리보리'}
+                    mall = mall_map.get(m_param, '온라인몰')
+                    aff_link = f'https://click.linkprice.com/click.php?m={m_param}&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean_tu)}'
+                    if m_param == 'gmarket':
+                        gm_m = re.search(r'goodscode=(\d+)', clean_tu)
+                        if gm_m:
+                            prod_id = f'gm_{gm_m.group(1)}'
+                    elif m_param == '11st':
+                        e_m = re.search(r'products/(\d+)', clean_tu)
+                        if e_m:
+                            prod_id = f'11st_{e_m.group(1)}'
+                    elif m_param == 'lotteon':
+                        l_m = re.search(r'product/([A-Za-z0-9]+)', clean_tu)
+                        if l_m:
+                            prod_id = f'lo_{l_m.group(1)}'
+
+            elif 'coupang.com' in target_link:
+                mall = '쿠팡'
+                source = 'coupang'
+                cpid = resolve_coupang_pid(target_link)
+                if cpid:
+                    prod_id = f'cp_{cpid}'
+                    clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
+                    aff_link = get_coupang_deeplink(clean_cp) or clean_cp
+                else:
+                    aff_link = target_link
+
+            elif 'gmarket.co.kr' in target_link:
+                mall = '지마켓'
+                gm_m = re.search(r'goodscode=(\d+)', target_link)
+                gid = gm_m.group(1) if gm_m else jid
+                prod_id = f'gm_{gid}'
+                clean = f'https://item.gmarket.co.kr/Item?goodscode={gid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=gmarket&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+
+            elif '11st.co.kr' in target_link:
+                mall = '11번가'
+                em = re.search(r'products/(\d+)', target_link)
+                eid = em.group(1) if em else jid
+                prod_id = f'11st_{eid}'
+                clean = f'https://www.11st.co.kr/products/{eid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=11st&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+
+            elif 'lotteon.com' in target_link:
+                mall = '롯데ON'
+                lm = re.search(r'product/([A-Za-z0-9]+)', target_link)
+                lid = lm.group(1) if lm else jid
+                prod_id = f'lo_{lid}'
+                clean = f'https://www.lotteon.com/p/product/{lid}'
+                aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
+
+            if not aff_link:
+                continue
+
+            # 단위가격 및 제목 정제
+            unit_str = calculate_unit_price(raw_title, price)
+            clean_title = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\))\s*', '', raw_title).strip()
+            major, minor = classify_category(clean_title)
+
+            # DB 중복 검사 및 등록
+            ins_sql = f'''
+            INSERT INTO public.hotdeals (
+              title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
+            )
+            SELECT
+              {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
+              {price}, {sql_quote(img_url)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
+              {sql_quote(today_str)}, true, false, now() + interval '3 days'
+            WHERE NOT EXISTS (
+              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
+            )
+            RETURNING id;
+            '''
+            res = run_sql(ins_sql)
+            if res and isinstance(res, list) and len(res) > 0:
+                print(f'[source:jirum] 신규 등록 성공! [{comm_source}/{mall}] {clean_title} ({price:,}원 {unit_str}) id={res[0].get("id")}')
+                registered += 1
+        except Exception as e:
+            print(f'[source:jirum] {p_path} 처리 오류: {e}')
+
+    print(f'[source:jirum] 16대 커뮤니티 신규 등록 완결: {registered}건')
+
+def collect_from_bbhd():
+    print('\n[source:bbhd] 베이비핫딜 보조 피드 수집 가동')
     last_id = 36544
     try:
         rows = run_sql("SELECT payload FROM ops_status WHERE id = 'bbhd-last-id';")
@@ -173,12 +379,9 @@ def main():
     except Exception as e:
         print(f'[bbhd] ops_status 조회 실패, 기본값 사용: {e}')
 
-    print(f'[bbhd] 기준 wr_id: {last_id}')
-
-    # 2. 목록 스크랩
-    html = fetch_html('https://www.bbhd.kr/bbs/bbs/board.php?bo_table=free')
+    html_content = fetch_html('https://www.bbhd.kr/bbs/bbs/board.php?bo_table=free')
     pattern = r'href=[\'"][^\'"]*wr_id=(\d+)[^\'"]*[\'"][^>]*>([\s\S]*?)</a>'
-    matches = re.findall(pattern, html)
+    matches = re.findall(pattern, html_content)
 
     posts = []
     seen = set()
@@ -192,146 +395,47 @@ def main():
     posts.sort(key=lambda x: x[0])
     print(f'[bbhd] 신규 글: {len(posts)}건')
 
-    if not posts:
-        print('[bbhd] 처리할 새 글이 없습니다.')
-        return
-
     new_max_id = last_id
-    success_count = 0
+    today_str = datetime.now(KST).strftime('%Y-%m-%d')
 
-    for wr_id, raw_title in posts:
+    for wr_id, raw_title in posts[:15]:
         try:
-            print(f'\n[bbhd] 처리 wr_id={wr_id}: {raw_title}')
             detail = fetch_html(f'https://www.bbhd.kr/bbs/bbs/board.php?bo_table=free&wr_id={wr_id}')
-
-            # 이미지
             imgs = re.findall(r'https?://[^\"\']+/data/editor/[^\"\']+', detail)
             editor_img = imgs[0] if imgs else ''
 
-            # 링크
-            link_re = r'https?://(?:link\.coupang\.com/a/[A-Za-z0-9]+|m\.boribori\.co\.kr/(?:deal|product)/\d+|(?:m\.|item\.)?gmarket\.co\.kr/Item\?goodscode=\d+|(?:app\.ac|bitl\.bz|deg\.kr)/[A-Za-z0-9]+|(?:www\.|m\.)?11st\.co\.kr/products/\d+|(?:m\.|www\.)?ssg\.com/item/(?:itemView|dealItemView)\.ssg\?[^\"\'\s<>]+|itempage3\.auction\.co\.kr/DetailView\.aspx\?[^\"\'\s<>]+|(?:www\.|m\.)?lotteon\.com/p/product/[A-Za-z0-9]+)'
-            found = re.findall(link_re, detail)
-            if not found:
-                print('[bbhd] 지원 링크 없음')
+            # 가격 추출
+            price_m = re.search(r'([0-9,]+)원', raw_title)
+            if not price_m:
+                price_m = re.search(r'([0-9,]+)원', detail)
+            price = int(price_m.group(1).replace(',', '')) if price_m else 0
+
+            # 링크 추출
+            links = re.findall(r'https?://[^\s\"\'<>]+', detail)
+            target_link = ''
+            for l in links:
+                if any(dom in l for dom in ['app.ac', 'bitl.bz', 'deg.kr', 'coupang.com', 'gmarket.co.kr', '11st.co.kr', 'lotteon.com', 'auction.co.kr', 'ssg.com', 'ohou.se']):
+                    target_link = l
+                    break
+
+            if not target_link:
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
-            target_link = found[0].replace('&amp;', '&')
-            mall = '기타'
+            mall = '온라인몰'
             source = 'linkprice'
-            aff_link = None
             prod_id = f'bbhd_{wr_id}'
+            aff_link = ''
 
-            # 가격 및 제목 정제
-            price = 10000
-            pm = re.search(r'(\d{1,3}(?:,\d{3})+|\d{4,})원?', raw_title)
-            if pm:
-                price = int(pm.group(1).replace(',', ''))
-
-            clean_title = re.sub(r'^\[[^\]]+\]\s*', '', raw_title)
-            clean_title = re.sub(r'^[^\)]+\)\s*', '', clean_title)
-            clean_title = re.sub(r'\s*\d{1,3}(?:,\d{3})+원.*$', '', clean_title).strip() or raw_title
-            clean_title = clean_title.replace('유모자', '유모차')
-            major, minor = classify_category(raw_title)
-
-            if 'link.coupang.com' in target_link:
+            if 'coupang.com' in target_link:
                 mall = '쿠팡'
                 source = 'coupang'
-                pid, clean_cp_url = resolve_coupang_url(target_link)
-                if not clean_cp_url:
-                    print('[bbhd] 쿠팡 원본 URL 확인 불가')
-                    new_max_id = max(new_max_id, wr_id)
-                    continue
-                prod_id = f'cp_{pid}' if pid else f'cp_bbhd_{wr_id}'
-                aff_link = get_coupang_deeplink(clean_cp_url)
-                if not aff_link:
-                    print('[bbhd] 쿠팡 딥링크 변환 실패')
-                    continue
-                cp_img = get_coupang_image(clean_title, pid)
-                if cp_img:
-                    editor_img = cp_img
-            elif 'boribori.co.kr' in target_link:
-                mall = '보리보리'
-                source = 'linkprice'
-                dm = re.search(r'(?:deal|product)/(\d+)', target_link)
-                did = dm.group(1) if dm else str(wr_id)
-                prod_id = f'bori_{did}'
-                path_type = 'product' if 'product/' in target_link else 'deal'
-                clean = f'https://m.boribori.co.kr/{path_type}/{did}'
-                aff_link = f'https://click.linkprice.com/click.php?m=boribori&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-            elif 'ssg.com' in target_link:
-                mall = 'SSG'
-                source = 'linkprice'
-                sm = re.search(r'itemId=(\d+)', target_link)
-                sid = sm.group(1) if sm else str(wr_id)
-                prod_id = f'ssg_{sid}'
-                clean = f'https://m.ssg.com/item/itemView.ssg?itemId={sid}'
-                aff_link = f'https://click.linkprice.com/click.php?m=emart&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-            elif '11st.co.kr' in target_link:
-                mall = '11번가'
-                source = 'linkprice'
-                em = re.search(r'products/(\d+)', target_link)
-                eid = em.group(1) if em else str(wr_id)
-                prod_id = f'11st_{eid}'
-                clean = f'https://www.11st.co.kr/products/{eid}'
-                aff_link = f'https://click.linkprice.com/click.php?m=11st&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-            elif 'auction.co.kr' in target_link:
-                mall = '옥션'
-                source = 'linkprice'
-                am = re.search(r'itemno=([A-Za-z0-9]+)', target_link)
-                aid = am.group(1) if am else str(wr_id)
-                prod_id = f'auc_{aid}'
-                clean = f'http://itempage3.auction.co.kr/DetailView.aspx?itemno={aid}'
-                aff_link = f'https://click.linkprice.com/click.php?m=auction&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-            elif 'lotteon.com' in target_link:
-                mall = '롯데ON'
-                source = 'linkprice'
-                lm = re.search(r'product/([A-Za-z0-9]+)', target_link)
-                lid = lm.group(1) if lm else str(wr_id)
-                prod_id = f'lo_{lid}'
-                clean = f'https://www.lotteon.com/p/product/{lid}'
-                aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-            elif 'gmarket.co.kr' in target_link:
-                mall = '지마켓'
-                source = 'linkprice'
-                gm = re.search(r'goodscode=(\d+)', target_link)
-                gid = gm.group(1) if gm else str(wr_id)
-                prod_id = f'gm_{gid}'
-                clean = f'https://item.gmarket.co.kr/Item?goodscode={gid}'
-                aff_link = f'https://click.linkprice.com/click.php?m=gmarket&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-                gm_img = f'https://gdimg.gmarket.co.kr/{gid}/still/600'
-                if gm_img:
-                    editor_img = gm_img
-            elif 'ohou.se' in target_link or 'ozip.me' in target_link:
-                mall = '오늘의집'
-                source = 'ohouse'
-                opid = None
-                if 'ozip.me' in target_link:
-                    try:
-                        res = subprocess.run(['curl', '-sIL', '--max-redirs', '3', target_link], stdout=subprocess.PIPE, text=True, timeout=5)
-                        opm = re.search(r'(?:productions|goods)/(\d+)', res.stdout)
-                        if opm: opid = opm.group(1)
-                    except Exception as e:
-                        print(f'[bbhd] ozip redirect error: {e}')
-                else:
-                    opm = re.search(r'(?:productions|goods)/(\d+)', target_link)
-                    if opm: opid = opm.group(1)
-                opid = opid or str(wr_id)
-                prod_id = f'oh_{opid}'
-                oh_params = {
-                    'channel': 'affiliate',
-                    'sub_id_2': 'affiliate',
-                    'sub_id_3': 'inorganic',
-                    'campaign': 'brand_affiliate',
-                    'ad_creative': '40570',
-                    'ad_group': '1120105',
-                    'content': f'production_{opid}',
-                    'deeplink_url': f'ohouseapp://ohou.se/productions/{opid}/selling',
-                    'fallback_desktop': f'https://ohou.se/productions/{opid}/selling'
-                }
-                aff_link = 'https://link.ohou.se/@ohouse/affiliate?' + urllib.parse.urlencode(oh_params)
+                cpid = resolve_coupang_pid(target_link)
+                if cpid:
+                    prod_id = f'cp_{cpid}'
+                    clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
+                    aff_link = get_coupang_deeplink(clean_cp) or clean_cp
             elif any(dom in target_link for dom in ['app.ac', 'bitl.bz', 'deg.kr']):
-                # Follow shortlink
                 try:
                     res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
                     out = res.stdout
@@ -339,13 +443,10 @@ def main():
                     m_gm = re.search(r'(?:gmarket\.co\.kr.*(?:goodscode=|product/)|link\.gmarket\.co\.kr.*(?:product/))(\d+)', unquoted, re.I)
                     m_lo = re.search(r'lotteon\.com.*product/([A-Za-z0-9]+)', unquoted, re.I)
                     m_11 = re.search(r'11st\.co\.kr.*products(?:/|%2F)(\d+)', unquoted, re.I)
-                    m_auc = re.search(r'auction\.co\.kr.*itemno=([A-Za-z0-9]+)', unquoted, re.I)
-                    m_ssg = re.search(r'ssg\.com.*itemId=(\d+)', unquoted, re.I)
 
                     if m_gm:
                         gid = m_gm.group(1)
                         mall = '지마켓'
-                        source = 'linkprice'
                         prod_id = f'gm_{gid}'
                         clean = f'https://item.gmarket.co.kr/Item?goodscode={gid}'
                         aff_link = f'https://click.linkprice.com/click.php?m=gmarket&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
@@ -353,47 +454,25 @@ def main():
                     elif m_lo:
                         lid = m_lo.group(1)
                         mall = '롯데ON'
-                        source = 'linkprice'
                         prod_id = f'lo_{lid}'
                         clean = f'https://www.lotteon.com/p/product/{lid}'
                         aff_link = f'https://click.linkprice.com/click.php?m=lotteon&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
                     elif m_11:
                         eid = m_11.group(1)
                         mall = '11번가'
-                        source = 'linkprice'
                         prod_id = f'11st_{eid}'
                         clean = f'https://www.11st.co.kr/products/{eid}'
                         aff_link = f'https://click.linkprice.com/click.php?m=11st&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-                    elif m_auc:
-                        aid = m_auc.group(1)
-                        mall = '옥션'
-                        source = 'linkprice'
-                        prod_id = f'auc_{aid}'
-                        clean = f'http://itempage3.auction.co.kr/DetailView.aspx?itemno={aid}'
-                        aff_link = f'https://click.linkprice.com/click.php?m=auction&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-                    elif m_ssg:
-                        sid = m_ssg.group(1)
-                        mall = 'SSG'
-                        source = 'linkprice'
-                        prod_id = f'ssg_{sid}'
-                        clean = f'https://m.ssg.com/item/itemView.ssg?itemId={sid}'
-                        aff_link = f'https://click.linkprice.com/click.php?m=emart&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(clean)}'
-                    else:
-                        print(f'[bbhd] app.ac 대상 확인 불가: {target_link}')
-                        new_max_id = max(new_max_id, wr_id)
-                        continue
                 except Exception as e:
-                    print(f'[bbhd] app.ac 해석 오류: {e}')
-                    new_max_id = max(new_max_id, wr_id)
-                    continue
-            else:
-                print(f'[bbhd] 지원 외 링크 {target_link}')
+                    print(f'[bbhd] 리디렉트 해석 오류: {e}')
+
+            if not aff_link:
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
-            today_str = datetime.now(KST).strftime('%Y-%m-%d')
+            clean_title = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\))\s*', '', raw_title).strip()
+            major, minor = classify_category(clean_title)
 
-            # SQL insert via management api
             ins_sql = f'''
             INSERT INTO public.hotdeals (
               title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
@@ -407,14 +486,11 @@ def main():
             )
             RETURNING id;
             '''
-            res = run_sql(ins_sql)
-            print(f'[bbhd] 등록 결과: {res}')
-            success_count += 1
+            run_sql(ins_sql)
             new_max_id = max(new_max_id, wr_id)
         except Exception as e:
-            print(f'[bbhd] wr_id={wr_id} 에러: {e}')
+            print(f'[bbhd] wr_id={wr_id} 처리 실패: {e}')
 
-    # ops_status 갱신
     if new_max_id > last_id:
         up_sql = f'''
         INSERT INTO ops_status (id, payload, updated_at)
@@ -422,7 +498,30 @@ def main():
         ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();
         '''
         run_sql(up_sql)
-        print(f'[bbhd] ops_status last_id {new_max_id} 갱신 완료')
+
+def main():
+    print('=== [맘캘린더 24시간 멀티 핫딜 엔진 가동] ===')
+    try:
+        clean_polluted_gonggu_titles()
+    except Exception as e:
+        print(f'[clean error] {e}')
+
+    try:
+        purge_old_history()
+    except Exception as e:
+        print(f'[purge error] {e}')
+
+    try:
+        collect_from_jirum_alarm()
+    except Exception as e:
+        print(f'[collect_from_jirum_alarm error] {e}')
+
+    try:
+        collect_from_bbhd()
+    except Exception as e:
+        print(f'[collect_from_bbhd error] {e}')
+
+    print('=== [멀티 핫딜 수집 완료] ===')
 
 if __name__ == '__main__':
     main()
