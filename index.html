@@ -738,10 +738,9 @@ body.srch-mode .next-zone{display:none!important}
 .nx-bell.on{background:#7C54C4;border-color:#7C54C4;color:#fff}
 #nxdAsk,#nxdGuide{position:fixed;inset:0;z-index:1400;display:none}#nxdAsk.open,#nxdGuide.open{display:block}
 #nxdAsk .nxa-bg,#nxdGuide .nxa-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-#nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,calc(100% - 48px));background:#fff;border-radius:18px;padding:22px 18px 16px;text-align:center}
-#nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:30px}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:8px;font-size:15.5px;font-weight:900;color:#191919;line-height:1.35;word-break:keep-all}
-#nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:6px;font-size:12.5px;color:#6B6480}
-#nxdAsk .nxa-t,#nxdAsk .nxa-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#nxdAsk .nxa-box,#nxdGuide .nxa-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100% - 40px));max-width:340px;background:#fff;border-radius:20px;padding:24px 20px 20px;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,0.18);box-sizing:border-box}
+#nxdAsk .nxa-ico,#nxdGuide .nxa-ico{font-size:32px;line-height:1}#nxdAsk .nxa-t,#nxdGuide .nxa-t{margin-top:10px;font-size:16px;font-weight:800;color:#191919;line-height:1.35;word-break:keep-all;white-space:normal!important}
+#nxdAsk .nxa-s,#nxdGuide .nxa-s{margin-top:8px;font-size:13px;color:#4E5968;line-height:1.55;word-break:keep-all;white-space:normal!important}
 #nxdAsk .nxa-btns,#nxdGuide .nxa-btns{display:flex;gap:8px;margin-top:16px}#nxdAsk button,#nxdGuide button{flex:1;height:44px;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 #nxdAsk .nxa-no,#nxdGuide .nxa-no{background:#F1EEF6;color:#6B6480}#nxdAsk .nxa-yes,#nxdGuide .nxa-yes{background:#7C54C4;color:#fff}
 /* ── 맘캘 부품 mc-ui (2026-10-26) — 새 화면은 이것만 쓴다 · 규격 references/apps/COMPONENTS.md ── */
@@ -6446,60 +6445,85 @@ function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   const it=(typeof DATA!=='undefined'?DATA:[]).find(x=>Number(x.id)===Number(id))||{};
   const md=it.openDate?_nxMDs(it.openDate):'오픈';
-  if(isWished(id) && _appPushAsk(true)) return;   // 앱: 찜은 있는데 알림 권한이 없다 → 끄지 말고 켜기부터(2026-10-26)
-  if(isWished(id)){ toggleWish(id,null); _NXD[id]=(_NXD[id]||0)-1; _nxRefresh(); try{ mcToast('알림을 껐어요'); }catch(_){} return; }
-  // 🔔 알림이 이미 켜진 기기 → 묻지 않고 바로 찜 + 안내만 (사장님 2026-10-23 "이미 알람 받게 설정된 사람한테는 그냥 9시에 알람 보내준다고만")
-  if(typeof notiGranted==='function' && notiGranted()){ _nxOn(id); try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){} return; }
-  // 아직 알림이 안 켜진 기기 → 한 번 누르면 바로 팝업, 「알림 받을게요」 = 찜 + 휴대폰 알림 켜기까지 한 번에
+
+  // 1. 이미 찜한 상태면 토글 해제
+  if(isWished(id) && _appPushAsk(true)) return;
+  if(isWished(id)){
+    toggleWish(id,null);
+    _NXD[id]=(_NXD[id]||0)-1;
+    _nxRefresh();
+    try{ mcToast('알림을 껐어요'); }catch(_){}
+    return;
+  }
+
+  // 2. 찜 즉시 등록 (버튼 보라색 활성화 + 카운트 +1)
+  _nxOn(id);
+
+  // 3. 브라우저 알림이 이미 허용된 기기 -> 토스트만 띄우고 종료
+  if(typeof notiGranted==='function' && notiGranted()){
+    try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){}
+    return;
+  }
+
+  // 4. 카톡·인스타·스레드 인앱 브라우저 -> 2중 팝업 없이 1개의 명확한 안내 팝업만 표시
+  const _inApp=(typeof _isInApp==='function' && _isInApp());
+  if(_inApp){
+    _nxGuide(location.origin+'/?nxbell='+id, navigator.userAgent||'');
+    return;
+  }
+
+  // 5. 일반 브라우저(크롬·사파리 등) 알림 허용 팝업
   let m=document.getElementById('nxdAsk');
-  if(!m){ m=document.createElement('div'); m.id='nxdAsk';
+  if(!m){
+    m=document.createElement('div'); m.id='nxdAsk';
     m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
     document.body.appendChild(m);
     m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
   }
-  m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';   // 상품명·날짜 없이 한 줄(사장님 2026-10-26)
-  const _inApp=(typeof _isInApp==='function' && _isInApp());
-  m.querySelector('.nxa-s').textContent=_inApp?`${_isIOS()?'사파리':'외부 브라우저'}에서 알림 받을 수 있어요`:'오픈일 아침 9시 알림 보내드려요';
-  m.querySelector('.nxa-yes').textContent=_inApp?'알림 켜러 가기':'알림 받을게요';
+  m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
+  m.querySelector('.nxa-s').innerHTML=`${md} 오픈일 아침 9시에 알림을 보내드려요`;
+  m.querySelector('.nxa-yes').textContent='알림 받을게요';
+  m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){
+    m.classList.remove('open');
+    try{ mcToast('찜해 두었어요'); }catch(_){}
+  };
   m.querySelector('.nxa-yes').onclick=async function(){
     m.classList.remove('open');
-    if(_inApp){ _nxOutside(id); return; }   // 🔴 카톡·인스타·스레드·인포크 인앱은 알림이 안 된다 → 밖(크롬·사파리)으로 데리고 나가서 거기서 켠다
-    _nxOn(id);
     try{
-      if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }        // 아이폰 웹: 홈 화면 추가 안내
+      if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }
       if(typeof pushSupported==='function' && pushSupported() && !(window.Notification && Notification.permission==='denied')){
-        const ok=await enablePush();                                                               // 브라우저 알림 허용 창
+        const ok=await enablePush();
         mcToast(ok?`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`:'알림 권한이 꺼져 있어요 · 찜은 해 두었어요');
       } else {
-        mcToast(window.Notification && Notification.permission==='denied' ? '알림이 차단돼 있어요 · 주소창 ⚙️에서 허용할 수 있어요' : '찜해 두었어요 · 이 화면에선 알림을 받을 수 없어요');
+        mcToast(window.Notification && Notification.permission==='denied' ? '알림이 차단돼 있어요 · 주소창 ⚙️에서 허용할 수 있어요' : '찜해 두었어요');
       }
     }catch(_){}
   };
   m.classList.add('open');
 }
-// 🚪 인앱 → 크롬(안드로이드)·사파리(아이폰)로 옮긴다. 찜은 **도착한 브라우저에서** 한다(인앱 기기와 따로 세지 않게).
-//    주소에 ?nxbell=<공구id> 를 달아 보내면 도착한 쪽이 그 공구 🔔 팝업을 바로 띄운다(_nxArrive). 사장님 2026-10-23
-//    "카톡이나 스레드 인스타 인포크링크 타고 인앱으로 오는 사람이 절반 이상인데 밖으로 나와서 잘 설정되고 알림도 받을 수 있게"
+
 function _nxOutside(id){
   const ua=navigator.userAgent||''; const url=location.origin+'/?nxbell='+id;
-  try{ trackEvent('next_bell_out',(typeof _appName==='function'?_appName(ua):'inapp')+(_isIOS()?'_ios':'_and')); }catch(_){}
-  const fallback=()=>{ _nxOn(id); _nxGuide(url,ua); };   // 못 나가면: 여기서라도 찜 + 주소 복사·여는 위치 안내
-  if(_isIOS()){
-    if(/KAKAOTALK/i.test(ua)){ try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); }catch(_){}; setTimeout(()=>{ if(!document.hidden) fallback(); },1800); return; }
-    fallback(); return;   // 인스타·스레드·네이버 등 아이폰 인앱은 밖으로 강제로 못 연다
-  }
-  if(/KAKAOTALK/i.test(ua)){ try{ location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url); }catch(_){}; setTimeout(()=>{ if(!document.hidden) fallback(); },1800); return; }
-  try{ location.href='intent://'+location.host+'/?nxbell='+id+'#Intent;scheme=https;S.browser_fallback_url='+encodeURIComponent(url)+';end'; }catch(_){}
-  setTimeout(()=>{ if(!document.hidden) fallback(); },1800);   // intent 를 막는 웹뷰면 화면이 그대로 남는다
+  _nxOn(id);
+  _nxGuide(url, ua);
 }
+
 function _nxGuide(url,ua){
   const go=(ok)=>{
     let g=document.getElementById('nxdGuide');
-    if(!g){ g=document.createElement('div'); g.id='nxdGuide'; g.className='nxa-wrap';
-      g.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t">찜은 해 두었어요</div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-yes">확인</button></div></div>';
-      document.body.appendChild(g); g.querySelector('.nxa-bg').onclick=g.querySelector('.nxa-yes').onclick=function(){ g.classList.remove('open'); }; }
-    const where=_isIOS()&&typeof _appGuide==='function'?_appGuide(ua):'<b>우측 위 ⋮</b> → <b>다른 브라우저로 열기</b>';
-    g.querySelector('.nxa-s').innerHTML='알림은 '+(_isIOS()?'사파리':'기본 브라우저')+'에서 받을 수 있어요<br>'+(ok?'<b style="color:#7C54C4">주소를 복사했어요.</b> ':'')+where;
+    if(!g){
+      g=document.createElement('div'); g.id='nxdGuide'; g.className='nxa-wrap';
+      g.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t">찜 완료! 오픈일에 알려드려요</div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-yes">확인</button></div></div>';
+      document.body.appendChild(g);
+      g.querySelector('.nxa-bg').onclick=g.querySelector('.nxa-yes').onclick=function(){ g.classList.remove('open'); };
+    }
+    const targetBrowser = _isIOS() ? '사파리' : '크롬(일반 브라우저)';
+    const where = _isIOS() && typeof _appGuide==='function' ? _appGuide(ua) : '우측 상단 <b>⋮</b> 누르고 <b>[다른 브라우저로 열기]</b>';
+    g.querySelector('.nxa-s').innerHTML = `
+      <div style="font-weight:700;color:#191919;margin-bottom:6px">카톡·인스타 안에서는 알림이 제한돼요</div>
+      <div style="font-size:12.5px;color:#6B6480;line-height:1.5">${where}를 하시면<br>${targetBrowser}에서 오픈 알림을 놓치지 않아요.</div>
+      ${ok ? '<div style="margin-top:8px;font-size:12px;color:#7C54C4;font-weight:700">✓ 주소를 복사해 두었어요</div>' : ''}
+    `;
     g.classList.add('open');
   };
   try{ typeof _copyUrlThen==='function'?_copyUrlThen(url,go):go(false); }catch(_){ go(false); }
