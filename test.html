@@ -2530,9 +2530,10 @@ function _sortRest(arr){
 const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
 // 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
 function _sortChipsHtml(){
-  const cur=(SORT_OPTS.find(o=>o[0]===_listSort)||SORT_OPTS[0])[1];
-  return `<div class="sort-bar"><button class="sort-btn" type="button" onclick="openSortSheet()" aria-haspopup="dialog" aria-label="정렬 바꾸기, 지금 ${cur}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg>${cur}</button></div>`;
+  // 칩 3개 — 인기순·방금 오픈순·마감 임박순. 고른 칩을 다시 누르면 기본(오픈일순)으로
+  return '<div class="gs-chips" role="group" aria-label="정렬">'+SORT_OPTS.filter(function(o){ return o[0]!=='open'; }).map(function(o){ var on=_listSort===o[0]; return '<button type="button" class="gs-chip'+(on?' on':'')+'" aria-pressed="'+on+'" onclick="sortGonggu(\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>';
 }
+function sortGonggu(k){ setListSort(_listSort===k?'open':k); }
 function openSortSheet(){
   let sh=document.getElementById('sortSheet');
   if(!sh){ sh=document.createElement('div'); sh.id='sortSheet'; sh.className='srt-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','정렬'); sh.onclick=e=>{ if(e.target===sh) closeSortSheet(); }; document.body.appendChild(sh); }
@@ -2978,6 +2979,7 @@ const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:[
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
   _ctPrev=ct;
+  try{ document.querySelectorAll('#appBottomNav .bni').forEach(function(b){ b.classList.toggle('on', b.dataset.ct===ct); }); }catch(_){}   // 하단 탭바(앱 전용) 표시 동기화
   const seg=document.getElementById('contentSeg');
   seg.style.background=CT_COLOR[ct][0];
   seg.querySelectorAll('.cseg').forEach(b=>{
@@ -4711,7 +4713,7 @@ function mcToast(msg, ms){
     //  (화면에 고정된 요소는 offsetParent 가 늘 null 이라 크기·표시로 판정한다 · ＋ 는 메뉴 묶음이 아니라 버튼 자체 위치)
     var _vis=function(el){ if(!el) return null; var cs=getComputedStyle(el); if(cs.display==='none'||cs.visibility==='hidden') return null; var r=el.getBoundingClientRect(); return (r.width&&r.height&&r.top<window.innerHeight)?r:null; };
     try{ var rf=_vis(document.getElementById('chatFab')); if(rf && _vis(document.querySelector('.chat-fab-wrap'))) b=Math.max(b, window.innerHeight-rf.top+12); }catch(_){}
-    try{ var rt=_vis(document.getElementById('appTabbar')); if(rt) b=Math.max(b, window.innerHeight-rt.top+12); }catch(_){}
+    try{ var rt=_vis((document.getElementById('appTabbar')||document.getElementById('appBottomNav'))); if(rt) b=Math.max(b, window.innerHeight-rt.top+12); }catch(_){}
     t.style.cssText='position:fixed;left:50%;bottom:'+b+'px;transform:translate(-50%,8px);opacity:0;width:max-content;max-width:min(448px, calc(100% - 32px));box-sizing:border-box;background:#333D4B;color:#fff;padding:14px 18px;border-radius:12px;z-index:99999;text-align:center;word-break:keep-all;overflow-wrap:anywhere;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s ease,transform .2s ease;pointer-events:none';
     document.body.appendChild(t);
     requestAnimationFrame(function(){ t.style.opacity='1'; t.style.transform='translate(-50%,0)'; });
@@ -7493,45 +7495,45 @@ function cpClose(fromPop){
 }
 window.addEventListener('popstate',()=>{ if(_cpOpen) cpClose(true); });   // 휴대폰 뒤로가기 = 읽기 화면 닫기
 </script>
-
-<!-- 🎨 디자인 시스템 (사장님 2026-11-01 「토스·당근·맘맘 스타일」) — 문서 맨 끝에 두어 앞의 규칙을 덮는다. 원본 scratchpad/patch_design_system.cjs -->
-<style id="mc-ds">
-/* ① 색 — 토큰부터 바꾼다 (var 를 쓰는 곳은 전부 따라온다) */
-:root{--cream:#F9FAFB;--border:#F2F4F6;--t1:#191F28;--t2:#4E5968;--t3:#8B95A1;--main-pale:#F7F3FB;--main-soft:#F7F3FB}
-html,body{background:#fff;color:#191F28}
-/* ② 글자 — 한국어 모바일: 자간 -0.025em · 줄 높이 1.45 */
-body{letter-spacing:-0.02em;line-height:1.45}
-.main-banner-title,.seller-title,.promo-head{font-size:17px;font-weight:700;color:#191F28}
+
+<!-- 🎨 디자인 시스템 (사장님 2026-11-01 「토스·당근·맘맘 스타일」) — 문서 맨 끝에 두어 앞의 규칙을 덮는다. 원본 scratchpad/patch_design_system.cjs -->
+<style id="mc-ds">
+/* ① 색 — 토큰부터 바꾼다 (var 를 쓰는 곳은 전부 따라온다) */
+:root{--cream:#F9FAFB;--border:#F2F4F6;--t1:#191F28;--t2:#4E5968;--t3:#8B95A1;--main-pale:#F7F3FB;--main-soft:#F7F3FB}
+html,body{background:#fff;color:#191F28}
+/* ② 글자 — 한국어 모바일: 자간 -0.025em · 줄 높이 1.45 */
+body{letter-spacing:-0.02em;line-height:1.45}
+.main-banner-title,.seller-title,.promo-head{font-size:17px;font-weight:700;color:#191F28}
 .card-name,.hc-tit,.sub-t1,.sale-t,.comm-post .t,.cp-t{font-size:14px;font-weight:600;color:#191F28}   /* 사장님 2026-11-01 「상품명 14px」 */
 .sale-t{-webkit-line-clamp:1;line-clamp:1;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}   /* 세일 제목 한 줄만 */
-.lv-p{font-size:14px;font-weight:700}
-.comm-post .p,.card-status-txt,.sa-empty-note,.wd-sub,.mc-sub{font-size:13.5px;font-weight:500;color:#4E5968}
-.card-sellerline,.hc-cat,.hc-ago,.comm-post .m,.sub-sel,.date-sep-lbl,.hc-mall{font-size:11.5px;font-weight:400;color:#8B95A1}
-.hc-mall{font-weight:600}
-/* ③ 상자 — 회색 실선 대신 흰 바탕 + 보라빛 그림자, 모서리 16, 안쪽 12/16, 사이 12 */
-.sale-card,.sub-card,.cal-box,.noti-banner,.cp-link,.sale-chip,.comm-thumb{border:0!important}
+.lv-p{font-size:14px;font-weight:700}
+.comm-post .p,.card-status-txt,.sa-empty-note,.wd-sub,.mc-sub{font-size:13.5px;font-weight:500;color:#4E5968}
+.card-sellerline,.hc-cat,.hc-ago,.comm-post .m,.sub-sel,.date-sep-lbl,.hc-mall{font-size:11.5px;font-weight:400;color:#8B95A1}
+.hc-mall{font-weight:600}
+/* ③ 상자 — 회색 실선 대신 흰 바탕 + 보라빛 그림자, 모서리 16, 안쪽 12/16, 사이 12 */
+.sale-card,.sub-card,.cal-box,.noti-banner,.cp-link,.sale-chip,.comm-thumb{border:0!important}
 .card,.hc,.sale-card,.cal-box,.noti-banner,.cp-link{background:#fff!important;box-shadow:0 2px 10px rgba(96,32,144,.04);border-radius:16px!important}
 /* 사장님 2026-11-01 「카드가 너무 커지고 경계가 사라져 가독성이 떨어진다」 → 은은한 테두리 복원 + 안쪽 10/14 로 다이어트 */
 .card,.card.card-partner{border:1px solid #EDE8F3!important}
-.hc{border:1px solid #EFEFEF!important}
-.card.card-partner{background:#F7F3FB!important}
-.card{padding:10px 52px 10px 14px!important;margin-bottom:8px}
-.hc{padding:10px 14px!important;margin-bottom:8px!important}
-.sale-card{padding:12px 16px;margin-bottom:12px}
-.cards{background:#F9FAFB;padding:12px 16px 24px;gap:0}
-.sub-card{border-radius:16px;box-shadow:0 2px 10px rgba(96,32,144,.04);background:#fff}
-.date-sep-line{background:#F2F4F6}
-/* 시트 모서리 24 */
-#kkoSheet,#hdSheet,#wnSheet,#infoSheet,.fmodal,.nx-sheet-pnl,.srt-box,.ao-box,.mc-pnl{border-radius:24px 24px 0 0!important}
-/* 칩·버튼 — 알약(100px). 활성은 보라, 비활성은 연회색 바탕 + 본문색 (테두리 없음) */
-.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button,.content-seg .cseg,.app-bn-go,.mcb-fab,.mc-btn,.wd-go,.comm-more,.hc-mall{border-radius:100px!important}
-.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button{border:0!important;background:#F2F4F6!important;color:#4E5968!important;font-weight:500}
-.chip.on,.cchip.on,.subchip.on,.sale-chip.on,.comm-local button.on,.cchip.on[style]{background:#7C54C4!important;color:#fff!important;font-weight:700}
-.content-seg{border-radius:100px;padding:4px}
-/* 강조색은 하트·활성·주요 버튼에만 — 핫딜의 주황·세일의 파랑 글자도 본문색으로 */
-.sale-t em{color:#7C54C4;background:#F7F3FB}
-/* ④ 눌림 반응 */
-.card,.hc,.sale-card,.sub-card,.chip,.cchip,.subchip,.sale-chip,.cseg,.mc-btn,.app-bn-go,.mcb-fab,.comm-post,.comm-local button,.sa-chips button,.chat-fab,.share-btn,.wbtn{transition:transform .1s cubic-bezier(.2,0,0,1)}
+.hc{border:1px solid #EFEFEF!important}
+.card.card-partner{background:#F7F3FB!important}
+.card{padding:10px 52px 10px 14px!important;margin-bottom:8px}
+.hc{padding:10px 14px!important;margin-bottom:8px!important}
+.sale-card{padding:12px 16px;margin-bottom:12px}
+.cards{background:#F9FAFB;padding:12px 16px 24px;gap:0}
+.sub-card{border-radius:16px;box-shadow:0 2px 10px rgba(96,32,144,.04);background:#fff}
+.date-sep-line{background:#F2F4F6}
+/* 시트 모서리 24 */
+#kkoSheet,#hdSheet,#wnSheet,#infoSheet,.fmodal,.nx-sheet-pnl,.srt-box,.ao-box,.mc-pnl{border-radius:24px 24px 0 0!important}
+/* 칩·버튼 — 알약(100px). 활성은 보라, 비활성은 연회색 바탕 + 본문색 (테두리 없음) */
+.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button,.content-seg .cseg,.app-bn-go,.mcb-fab,.mc-btn,.wd-go,.comm-more,.hc-mall{border-radius:100px!important}
+.chip,.cchip,.subchip,.sale-chip,.comm-local button,.sa-chips button{border:0!important;background:#F2F4F6!important;color:#4E5968!important;font-weight:500}
+.chip.on,.cchip.on,.subchip.on,.sale-chip.on,.comm-local button.on,.cchip.on[style]{background:#7C54C4!important;color:#fff!important;font-weight:700}
+.content-seg{border-radius:100px;padding:4px}
+/* 강조색은 하트·활성·주요 버튼에만 — 핫딜의 주황·세일의 파랑 글자도 본문색으로 */
+.sale-t em{color:#7C54C4;background:#F7F3FB}
+/* ④ 눌림 반응 */
+.card,.hc,.sale-card,.sub-card,.chip,.cchip,.subchip,.sale-chip,.cseg,.mc-btn,.app-bn-go,.mcb-fab,.comm-post,.comm-local button,.sa-chips button,.chat-fab,.share-btn,.wbtn{transition:transform .1s cubic-bezier(.2,0,0,1)}
 .card:active,.hc:active,.sale-card:active,.sub-card:active,.chip:active,.cchip:active,.subchip:active,.sale-chip:active,.cseg:active,.mc-btn:active,.app-bn-go:active,.mcb-fab:active,.comm-post:active,.comm-local button:active,.sa-chips button:active,.chat-fab:active,.share-btn:active{transform:scale(.97)}
 /* ── 8칸 고정 규격 + 공식 로고 팔레트 (사장님 2026-11-01) — 아래가 위 규칙을 덮는다 ── */
 :root{--main:#7C54C4;--main-d:#6B45B3;--main-l:#A98BDD;--main-pale:#F6F3FA;--main-soft:#F6F3FA;--point-pink:#F08CAE}
@@ -7582,7 +7584,7 @@ body{letter-spacing:-0.02em}
 .cbar{border-left:none!important;border-radius:4px!important;height:18px!important;line-height:18px!important;font-size:10px!important;padding:0 6px!important}
 .cbar.cont,.cbar.more{border-radius:4px!important}
 .ccell.ctod .cnum{width:24px;height:24px;border-radius:50%;background:#7C54C4;color:#fff;display:inline-flex;align-items:center;justify-content:center;margin:0 auto}
-</style>
+</style>
 <!-- 🔔 키워드 알림 센터 + 앱 로그인 온보딩 (2026-11-02 사장님 ORDER_KEYWORD_NOTI + 당근 실제 화면 8장) · 설계서 scratchpad/designs/2026-11-02_키워드알림센터_앱온보딩.md · 패치 scratchpad/patch_kwnoti.cjs -->
 <style id="mc-kw-css">
 /* 헤더 🔔 — 기존 .share-btn(32px 원)을 그대로 쓰고 터치 영역만 40px 로 */
@@ -8484,6 +8486,66 @@ body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!
 .hdd-t{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;font-size:12px!important;font-weight:600!important;line-height:1.35!important;color:#191F28!important;margin-top:8px!important;min-height:32px!important}
 .hdd-p{font-size:14px!important;font-weight:800!important;color:#191F28!important;margin-top:4px!important;letter-spacing:-.3px!important}
 .main-banner-title,.seller-title,.nx-title,#nextZone .nx-title,.promo-head,.hdd-h{font-size:14px!important;font-weight:700!important;color:#191F28!important;letter-spacing:-.2px!important;line-height:1.4!important}
+</style>
+<!-- 📱 [앱 전용] 하단 고정 탭바 — 웹에서는 display:none, 앱(body.native-app)에서만 표시. 중간의 4대 탭 세그먼트(#contentSeg)는 앱에서 숨겨 중복 제거 (사장님 2026-11-02) -->
+<nav class="bnav" id="appBottomNav" aria-label="하단 네비게이션">
+  <!-- 아이콘 = 사장님 원본 mockapp.html 의 단색 라인 SVG 4종(이모지 금지, 사장님 2026-11-02) -->
+  <button class="bni on" type="button" data-ct="gonggu" onclick="appNavGo('gonggu')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></span><span class="bni-lbl">공구</span></button>
+  <button class="bni" type="button" data-ct="hotdeal" onclick="appNavGo('hotdeal')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg></span><span class="bni-lbl">핫딜</span></button>
+  <button class="bni" type="button" data-ct="sale" onclick="appNavGo('sale')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg></span><span class="bni-lbl">세일/라방</span></button>
+  <button class="bni" type="button" data-ct="community" onclick="appNavGo('community')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span class="bni-lbl">커뮤니티</span></button>
+</nav>
+<style id="mc-bnav">
+/* ── 하단 탭바: 웹은 숨김, 앱(native-app)만 표시 ── */
+#appBottomNav{display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(480px,100vw);background:#fff;border-top:1px solid #F2F4F6;padding:5px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:298;box-shadow:0 -2px 10px rgba(0,0,0,.03)}
+#appBottomNav .bni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;color:#8D95A1;transition:color .15s ease;-webkit-tap-highlight-color:transparent}
+#appBottomNav .bni-ico{display:flex;align-items:center;justify-content:center;line-height:1}
+#appBottomNav .bni-ico svg{stroke-width:1.9}
+#appBottomNav .bni-lbl{font-size:10.5px;font-weight:600;line-height:1;letter-spacing:-.02em}
+#appBottomNav .bni.on{color:#7C54C4}
+#appBottomNav .bni.on .bni-ico svg{stroke-width:2.3}
+#appBottomNav .bni.on .bni-lbl{font-weight:700}
+#appBottomNav .bni:active{transform:scale(.97)}
+body.native-app #appBottomNav{display:flex!important}
+body.native-app.srch-mode #appBottomNav{display:none!important}
+body.native-app.srch-mode{padding-bottom:0!important}
+body.native-app #contentSeg{display:none!important}
+body.native-app{padding-bottom:calc(65px + env(safe-area-inset-bottom,0px))!important}
+body.native-app .chat-fab-wrap{bottom:calc(75px + env(safe-area-inset-bottom,0px))!important}
+body.native-app .totop-fab{bottom:calc(140px + env(safe-area-inset-bottom,0px))!important}
+body.native-app:has(.comm-fab) .totop-fab{bottom:calc(152px + env(safe-area-inset-bottom,0px))!important}   /* 커뮤니티: 글쓰기 버튼(92) 위로 — 기존 규칙 유지 */
+</style>
+<script id="mc-bnav-js">
+// 앱에서는 중간 4대 탭 줄(#contentSeg)이 숨겨져 있다. 콘텐츠 시작 위치 = 그 줄이 있던 자리(바로 다음에 보이는 요소의 위쪽) — 웹의 해시 링크(#sale·#hotdeal)가 쓰던 「세그까지 스크롤」과 같은 자리다.
+function mcScrollToContent(){
+  try{
+    var seg=document.getElementById('contentSeg'); var nx=seg&&seg.nextElementSibling; while(nx && (/^(SCRIPT|STYLE|TEMPLATE)$/.test(nx.tagName) || nx.getBoundingClientRect().height<=0)) nx=nx.nextElementSibling; if(!nx) return;   // 화면에 보이는(높이 있는) 첫 요소 = 세그가 있던 자리 다음
+    // 상태바(아이폰 안전영역) 만큼은 늘 비운다. 머리(.hd)는 위에 붙어 보일 때만 그 높이를 비운다(스크롤하면 사라지는 머리는 비우지 않는다)
+    var pr=document.createElement('div'); pr.style.cssText='position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden'; document.body.appendChild(pr); var safe=pr.getBoundingClientRect().height; pr.remove();
+    var go=function(){ return nx.getBoundingClientRect().top; };
+    window.scrollTo(0,Math.max(0,go()+window.pageYOffset-safe-6));
+    var hd=document.querySelector('.hd'); var hb=hd?hd.getBoundingClientRect().bottom:0;
+    if(hb>safe+1){ window.scrollBy(0,go()-hb-4); }   // 머리가 붙어 있으면 그 아래에서 시작
+  }catch(_){}
+}
+// 숨겨진 세그에 대한 scrollIntoView(기존 해시 링크·알림 딥링크)는 아무 일도 안 하므로 같은 자리로 보낸다
+(function(){ try{ var sv=Element.prototype.scrollIntoView; Element.prototype.scrollIntoView=function(o){ if(this.id==='contentSeg' && getComputedStyle(this).display==='none'){ mcScrollToContent(); return; } return sv.apply(this,arguments); }; }catch(_){} })();
+// 하단 탭 누름 — 전환 + 콘텐츠 시작 위치로
+function appNavGo(ct){
+  try{
+    if(document.body.classList.contains('srch-mode') && typeof exitSearchMode==='function'){ try{ exitSearchMode(); }catch(_){} }
+    switchContent(ct);
+    mcScrollToContent();
+  }catch(e){ try{ console.error(e); }catch(_){} }
+}
+</script>
+<style id="mc-sortchips">
+/* 공구 목록 정렬 칩 (원본 mockapp.html 칩: 테두리 없는 알약) — 높이 30 · 모서리 100 · 선택 시 라벤더 */
+.gs-chips{display:flex;gap:8px;margin:2px 0 10px;padding:0;overflow-x:auto;scrollbar-width:none}
+.gs-chips::-webkit-scrollbar{display:none}
+.gs-chip{flex:none;height:30px;padding:0 13px;border:0;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;letter-spacing:-.02em;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease}
+.gs-chip:active{transform:scale(.97)}
+.gs-chip.on{background:#7C54C4;color:#fff;font-weight:700}
 </style>
 </body>
 </html>
