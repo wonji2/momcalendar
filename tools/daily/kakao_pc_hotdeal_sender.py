@@ -22,8 +22,8 @@ KST = timezone(timedelta(hours=9))
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
 SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y2Fxc3Flb2dqdGJzY216cnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1MDU4NjAsImV4cCI6MjA1NDA4MTg2MH0.2o1E4Xk0iOQ4J7hZ_X2u2u2u2u2u2u2u2u2u2u2u2u2')
 
-# 단톡방 대상 명칭 및 오픈채팅 링크
-TARGET_ROOM_NAME = "[맘캘린더] 핫딜공지방 1"
+# 단톡방 대상 명칭 및 오픈채팅 링크 (인원수 숫자 1, 2 등 제외한 순수 방 이름)
+TARGET_ROOM_NAME = "[맘캘린더] 핫딜공지방"
 OPEN_CHAT_URL = "https://open.kakao.com/o/pKNUHgVi"
 
 # 발송 이력 로컬 저장 파일 (중복 발송 100% 방지)
@@ -143,7 +143,7 @@ def send_to_kakao_windows(room_title, message):
         import win32con
         import win32clipboard
 
-        # 1. 대상 단톡방 핸들 찾기
+        # 1. 대상 단톡방 핸들 찾기 (인원수가 1, 2, 50명으로 늘어나도 '핫딜공지방' 자동 감지)
         hwnd = win32gui.FindWindow(None, room_title)
         if not hwnd:
             def find_win(h, _):
@@ -151,7 +151,7 @@ def send_to_kakao_windows(room_title, message):
                 if hwnd:
                     return
                 t = win32gui.GetWindowText(h)
-                if room_title in t or "핫딜공지방" in t:
+                if "핫딜공지방" in t or "[맘캘린더]" in t and "핫딜" in t:
                     hwnd = h
             win32gui.EnumWindows(find_win, None)
 
