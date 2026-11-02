@@ -21,7 +21,7 @@ const COLS = "id,name,influencer,insta,open_date,end_date,pay_link";
 // ─────────── 안전장치 (2026-11-02) ───────────
 const IG_BOT_OFF = Deno.env.get("IG_BOT_OFF") === "1";                         // 🔴 즉시 정지 스위치 (시크릿 IG_BOT_OFF=1)
 const APP_SECRET = Deno.env.get("INSTAGRAM_APP_SECRET") || "";                 // 메타 앱 시크릿 — 있으면 서명을 반드시 확인
-const OWN_USERNAMES = (Deno.env.get("INSTAGRAM_OWN_USERNAMES") || "momcal_official,momcal_").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
+const OWN_USERNAMES = (Deno.env.get("INSTAGRAM_OWN_USERNAMES") || "momcal_official").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
 const PER_HOUR = Number(Deno.env.get("IG_BOT_PER_HOUR") || 8);                  // 시간당 답글 상한 (0-T: 막히면 멈추고, 몰아서 안 쏜다)
 const PER_DAY = Number(Deno.env.get("IG_BOT_PER_DAY") || 30);                   // 하루 상한
 const GAP_MS = Number(Deno.env.get("IG_BOT_GAP_MS") || 30000);                  // 답글 사이 최소 간격(+ 무작위 0~15초)
