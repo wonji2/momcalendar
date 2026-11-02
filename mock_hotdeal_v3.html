@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="referrer" content="no-referrer">
+<title>맘캘린더 × 폴센트 프리미엄 핫딜 v3</title>
+<style>
+  :root {
+    --primary: #7C54C4;
+    --primary-light: #F3EEFA;
+    --coral-red: #FF4742;
+    --green-best: #12B886;
+    --text-main: #191F28;
+    --text-sub: #4E5968;
+    --text-muted: #8B95A1;
+    --bg-gray: #F8F9FA;
+    --border-line: #E5E8EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: #f0f2f5; color: var(--text-main); display: flex; justify-content: center; }
+  
+  .phone-frame {
+    width: 100%;
+    max-width: 412px;
+    background: #ffffff;
+    min-height: 100vh;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+    padding-bottom: 74px;
+  }
+
+  /* 상단 헤더 */
+  .app-header {
+    background: var(--primary);
+    padding: 12px 16px 14px;
+    color: #fff;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .app-logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .header-icons {
+    display: flex;
+    gap: 14px;
+    font-size: 18px;
+    align-items: center;
+  }
+  .search-box {
+    background: #ffffff;
+    border-radius: 20px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* 메인 4단 탭 */
+  .main-tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #F2F4F6;
+    padding: 6px 16px;
+    gap: 8px;
+  }
+  .m-tab {
+    flex: 1;
+    height: 38px;
+    border-radius: 12px;
+    border: 0;
+    background: #F8F9FA;
+    color: var(--text-sub);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .m-tab.on {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* 🏷️ 섹션 헤더 (마미톡형 좌측 정렬 15px 볼드 + 더보기) */
+  .sec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 18px 16px 8px;
+  }
+  .sec-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sec-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sec-desc {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .sec-more {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  /* 1. 🔥 [지금이 타이밍] 폴센트식 2.3구좌 스와이프 카드 */
+  .curation-slider {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .curation-slider::-webkit-scrollbar { display: none; }
+  .c-card {
+    flex: 0 0 calc((100% - 20px) / 2.3);
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .c-thumb-wrap {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: #F8F9FA;
+    border: 1px solid #F0F0F3;
+  }
+  .c-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* 폴센트식 초미니 마이크로 뱃지 (사진 안 가림) */
+  .c-micro-badge {
+    position: absolute;
+    top: 7px;
+    left: 7px;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    letter-spacing: -0.2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .badge-red { background: #FFF0EE; color: #FF4742; }
+  .badge-purple { background: #F3EEFA; color: #7C54C4; }
+  .badge-blue { background: #EBF4FF; color: #3182F6; }
+
+  .c-info {
+    padding: 6px 2px 2px;
+  }
+  .c-meta {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .c-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.35;
+    margin-top: 1px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 34px;
+  }
+  .c-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 3px;
+  }
+  .c-price {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--text-main);
+  }
+  .c-discount {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--coral-red);
+  }
+  .c-unit-txt {
+    font-size: 10.5px;
+    color: #00875A;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* 2. ⏰ [한정 특가] 폴센트형 골드박스 타이머 바 */
+  .timer-banner {
+    margin: 4px 16px 14px;
+    background: #FFF5F5;
+    border: 1px solid #FFE3E3;
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+  .timer-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    color: #D6336C;
+  }
+  .timer-clock {
+    font-weight: 800;
+    color: #C2255C;
+    background: #fff;
+    padding: 2px 6px;
+    border-radius: 5px;
+    border: 1px solid #FFD8DE;
+    font-size: 11px;
+  }
+
+  /* 3. 🏷️ 카테고리 칩 & 정렬 드롭다운 */
+  .filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px 10px;
+  }
+  .category-chips {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .category-chips::-webkit-scrollbar { display: none; }
+  .c-chip {
+    flex: 0 0 auto;
+    height: 29px;
+    padding: 0 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border-line);
+    background: #fff;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+  }
+  .c-chip.on {
+    background: #191F28;
+    color: #fff;
+    border-color: #191F28;
+    font-weight: 600;
+  }
+  .sort-select {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-sub);
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  /* 4. 2열 메인 핫딜 그리드 (마미톡 2열 + 자비스 단위가격) */
+  .hotdeal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 11px;
+    padding: 0 16px 24px;
+  }
+  .hd-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+  }
+  .hd-thumb-wrap {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: #F8F9FA;
+    border: 1px solid #F0F0F3;
+  }
+  .hd-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .hd-info {
+    padding: 7px 2px 2px;
+  }
+  .hd-meta {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 2px;
+    display: flex;
+    gap: 4px;
+  }
+  .hd-mall-tag {
+    background: #F2F4F6;
+    color: var(--text-sub);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .hd-title-txt {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-main);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 34px;
+  }
+  .hd-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 3px;
+  }
+  .hd-discount {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--coral-red);
+  }
+  .hd-price-val {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--text-main);
+  }
+  /* 자비스의 단위가격 / 절감액 표시 */
+  .hd-unit-line {
+    font-size: 10.5px;
+    color: #00875A;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* 📊 [폴센트 실제 캡처 2번 완벽 재현] 가격 분석 바텀시트 */
+  #hdBg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 10, 30, 0.55);
+    z-index: 9994;
+    backdrop-filter: blur(2px);
+  }
+  #hdSheet {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 412px;
+    bottom: -110%;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 20px 20px 0 0;
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+    z-index: 9995;
+    transition: bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  }
+  .sheet-handle {
+    width: 32px;
+    height: 4px;
+    border-radius: 4px;
+    background: #E3E0E8;
+    margin: 0 auto 12px;
+  }
+
+  /* 상품 헤더 */
+  .sheet-prod-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .sheet-thumb {
+    width: 58px;
+    height: 58px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 1px solid #F0F0F3;
+    flex-shrink: 0;
+  }
+  .sheet-prod-info { flex: 1; min-width: 0; }
+  .sheet-mall { font-size: 10.5px; font-weight: 600; color: var(--primary); margin-bottom: 1px; }
+  .sheet-title { font-size: 12.5px; font-weight: 600; color: var(--text-main); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .sheet-price-row { display: flex; align-items: baseline; gap: 5px; margin-top: 3px; }
+  .sheet-discount { font-size: 15px; font-weight: 800; color: var(--coral-red); }
+  .sheet-price { font-size: 16.5px; font-weight: 800; color: var(--text-main); }
+
+  /* 💡 자비스 실질 절감액 배너 */
+  .savings-callout {
+    background: #F0FDF4;
+    border: 1px solid #DCFCE7;
+    border-radius: 9px;
+    padding: 7px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #15803D;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+
+  /* 📈 차트 박스 (폴센트 캡처 2번 이식) */
+  .chart-box {
+    border: 1px solid #EFEDF2;
+    border-radius: 12px;
+    padding: 12px 12px 8px;
+    margin-bottom: 12px;
+    background: #FAF9FC;
+  }
+  .chart-head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .chart-title { font-size: 11.5px; font-weight: 700; color: #4E5968; }
+
+  /* 폴센트식 1개월 / 2개월 / 3개월 / 전체 토글 */
+  .period-tabs {
+    display: flex;
+    background: #ECE9F2;
+    padding: 2px;
+    border-radius: 7px;
+    gap: 2px;
+  }
+  .p-tab {
+    border: 0;
+    background: none;
+    font-size: 10px;
+    font-weight: 600;
+    color: #7B7388;
+    padding: 3px 7px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .p-tab.on {
+    background: #ffffff;
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  /* 3단 가격 스펙 (폴센트 캡처 2번) */
+  .price-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #E5E2EB;
+    text-align: center;
+  }
+  .stat-item .lbl { font-size: 10px; color: var(--text-muted); }
+  .stat-item .val { font-size: 12px; font-weight: 700; color: var(--text-main); margin-top: 2px; }
+  .stat-item.best .val { color: var(--coral-red); }
+  .stat-item.high .val { color: var(--green-best); }
+
+  /* 🛒 [폴센트 캡처 2번 하단 바] 절감액 표시 + 구매 버튼 */
+  .sheet-bottom-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .bottom-diff-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .diff-lbl { font-size: 10px; color: var(--text-muted); }
+  .diff-val { font-size: 13.5px; font-weight: 800; color: var(--coral-red); }
+
+  .btn-buy-link {
+    flex: 1;
+    height: 44px;
+    background: var(--primary);
+    color: #ffffff;
+    border: 0;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(124, 84, 196, 0.22);
+  }
+
+  /* 하단 네비게이션 */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 412px;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid #E6EBF1;
+    display: flex;
+    z-index: 1000;
+  }
+  .nav-btn {
+    flex: 1;
+    border: 0;
+    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #8D95A1;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .nav-btn.on { color: var(--primary); }
+  .nav-btn svg { stroke-width: 1.8; }
+  .nav-btn.on svg { stroke-width: 2.2; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <!-- 상단 헤더 -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="app-logo">맘캘린더</div>
+      <div class="header-icons">
+        <span>🔍</span>
+        <span>🔔</span>
+        <span>👤</span>
+      </div>
+    </div>
+    <div class="search-box">
+      <span>🔍</span>
+      <span>11월, 진짜 실속 핫딜 찾기</span>
+    </div>
+  </header>
+
+  <!-- 메인 4단 탭 (핫딜 활성) -->
+  <div class="main-tabs">
+    <button class="m-tab">📅 공구</button>
+    <button class="m-tab on">🔥 핫딜</button>
+    <button class="m-tab">🛍️ 세일/라방</button>
+    <button class="m-tab">💬 커뮤니티</button>
+  </div>
+
+  <!-- ① [지금이 타이밍] 폴센트식 2.3구좌 스와이프 캐러셀 + 자비스 단위가격 -->
+  <section>
+    <div class="sec-header">
+      <div class="sec-title-wrap">
+        <h2 class="sec-title">🔥 지금이 타이밍</h2>
+        <span class="sec-desc">언제까지 이 가격일지 몰라요!</span>
+      </div>
+      <a href="#" class="sec-more">더보기 ›</a>
+    </div>
+    <div class="curation-slider">
+      <!-- 1. 나주배 -->
+      <div class="c-card" onclick="openHotdealChart(1783)">
+        <div class="c-thumb-wrap">
+          <img class="c-thumb" src="https://cdn.011st.com/11dims/resize/300/quality/75/11src/dl/v2/1/2/1/2/6/8/FPqVH/9568121268_242311973.webp" alt="나주배" referrerpolicy="no-referrer">
+          <span class="c-micro-badge badge-red">역대급</span>
+        </div>
+        <div class="c-info">
+          <div class="c-meta">11번가 · 신선</div>
+          <div class="c-name">[5kg에 9,900원대] 햇 나주배 5kg 가정용</div>
+          <div class="c-price-row">
+            <span class="c-price">10,920원</span>
+            <span class="c-discount">▼ 21%</span>
+          </div>
+          <div class="c-unit-txt">평소보다 -2,732원 저렴</div>
+        </div>
+      </div>
+
+      <!-- 2. 하기스 맥스드라이 -->
+      <div class="c-card" onclick="openHotdealChart(1785)">
+        <div class="c-thumb-wrap">
+          <img class="c-thumb" src="https://gdimg.gmarket.co.kr/4646464076/still/600" alt="하기스" referrerpolicy="no-referrer">
+          <span class="c-micro-badge badge-purple">120+ 찜</span>
+        </div>
+        <div class="c-info">
+          <div class="c-meta">지마켓 · 육아</div>
+          <div class="c-name">하기스 맥스드라이 기저귀 3박스 세트</div>
+          <div class="c-price-row">
+            <span class="c-price">118,810원</span>
+            <span class="c-discount">▼ 34%</span>
+          </div>
+          <div class="c-unit-txt">장당 349원 (역대 최저)</div>
+        </div>
+      </div>
+
+      <!-- 3. 맥심 화이트골드 -->
+      <div class="c-card" onclick="openHotdealChart(1784)">
+        <div class="c-thumb-wrap">
+          <img class="c-thumb" src="https://gdimg.gmarket.co.kr/1153422127/still/600" alt="맥심" referrerpolicy="no-referrer">
+          <span class="c-micro-badge badge-blue">무료배송</span>
+        </div>
+        <div class="c-info">
+          <div class="c-meta">지마켓 · 식품</div>
+          <div class="c-name">맥심 화이트골드 커피믹스 190T 박스</div>
+          <div class="c-price-row">
+            <span class="c-price">22,980원</span>
+            <span class="c-discount">▼ 18%</span>
+          </div>
+          <div class="c-unit-txt">스틱당 120원 알짜특가</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② ⏰ [오늘 마감 특가] 폴센트형 골드박스 타이머 바 -->
+  <div class="timer-banner">
+    <div class="timer-left">
+      <span>⏰ 오늘 마감 한정 특가</span>
+      <span class="timer-clock">14:18:22 남음</span>
+    </div>
+    <span style="font-size:11px;color:#868E96">자정 자동 종료</span>
+  </div>
+
+  <!-- ③ 카테고리 칩 & 실시간 정렬 -->
+  <div class="filter-bar">
+    <div class="category-chips">
+      <button class="c-chip on">전체</button>
+      <button class="c-chip">👶 육아</button>
+      <button class="c-chip">🥗 식품</button>
+      <button class="c-chip">🏠 리빙</button>
+      <button class="c-chip">🔌 가전</button>
+    </div>
+    <select class="sort-select">
+      <option>급하락순 ∨</option>
+      <option>인기순 ∨</option>
+      <option>최신순 ∨</option>
+    </select>
+  </div>
+
+  <!-- ④ [2열 실시간 핫딜 그리드] 마미톡형 2열 + 자비스의 단위가격 융합 -->
+  <div class="hotdeal-grid">
+
+    <!-- 1. 나주배 -->
+    <div class="hd-card" onclick="openHotdealChart(1783)">
+      <div class="hd-thumb-wrap">
+        <img class="hd-thumb" src="https://cdn.011st.com/11dims/resize/300/quality/75/11src/dl/v2/1/2/1/2/6/8/FPqVH/9568121268_242311973.webp" alt="나주배" referrerpolicy="no-referrer">
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta"><span class="hd-mall-tag">11번가</span><span>신선식품</span></div>
+        <div class="hd-title-txt">[5kg에 9,900원대] 햇 나주배 신고배 5kg 혼합과 가정용</div>
+        <div class="hd-price-row">
+          <span class="hd-price-val">10,920원</span>
+          <span class="hd-discount">▼ 21%</span>
+        </div>
+        <div class="hd-unit-line">평소보다 -2,732원 저렴</div>
+      </div>
+    </div>
+
+    <!-- 2. 하기스 맥스드라이 -->
+    <div class="hd-card" onclick="openHotdealChart(1785)">
+      <div class="hd-thumb-wrap">
+        <img class="hd-thumb" src="https://gdimg.gmarket.co.kr/4646464076/still/600" alt="하기스" referrerpolicy="no-referrer">
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta"><span class="hd-mall-tag">지마켓</span><span>육아용품</span></div>
+        <div class="hd-title-txt">하기스 맥스드라이 기저귀 3박스 세트 특가</div>
+        <div class="hd-price-row">
+          <span class="hd-price-val">118,810원</span>
+          <span class="hd-discount">▼ 34%</span>
+        </div>
+        <div class="hd-unit-line">장당 349원 (개당 39,603원)</div>
+      </div>
+    </div>
+
+    <!-- 3. 드시모네 키즈스텝 -->
+    <div class="hd-card" onclick="openHotdealChart(1782)">
+      <div class="hd-thumb-wrap">
+        <img class="hd-thumb" src="https://gdimg.gmarket.co.kr/2330457301/still/600" alt="드시모네" referrerpolicy="no-referrer">
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta"><span class="hd-mall-tag">지마켓</span><span>어린이건강</span></div>
+        <div class="hd-title-txt">드시모네 키즈스텝1 3박스 + 키즈스텝2 20일분 증정</div>
+        <div class="hd-price-row">
+          <span class="hd-price-val">107,336원</span>
+          <span class="hd-discount">▼ 25%</span>
+        </div>
+        <div class="hd-unit-line">포당 993원 (체감 역대급)</div>
+      </div>
+    </div>
+
+    <!-- 4. 맥심 화이트골드 -->
+    <div class="hd-card" onclick="openHotdealChart(1784)">
+      <div class="hd-thumb-wrap">
+        <img class="hd-thumb" src="https://gdimg.gmarket.co.kr/1153422127/still/600" alt="맥심" referrerpolicy="no-referrer">
+      </div>
+      <div class="hd-info">
+        <div class="hd-meta"><span class="hd-mall-tag">지마켓</span><span>생활식품</span></div>
+        <div class="hd-title-txt">맥심 화이트골드 커피믹스 190T 대용량 박스</div>
+        <div class="hd-price-row">
+          <span class="hd-price-val">22,980원</span>
+          <span class="hd-discount">▼ 18%</span>
+        </div>
+        <div class="hd-unit-line">스틱당 120원 알짜단가</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 📊 [폴센트 캡처 2번 완벽 이식] 가격 추이 바텀시트 -->
+  <div id="hdBg" onclick="closeHotdealChart()"></div>
+  <div id="hdSheet">
+    <div class="sheet-handle"></div>
+    <div id="hdSheetContent">
+      <!-- 동적 렌더링 영역 -->
+    </div>
+  </div>
+
+  <!-- 하단 탭바 -->
+  <nav class="bottom-nav">
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+      <span>공구</span>
+    </button>
+    <button class="nav-btn on">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg>
+      <span>핫딜</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg>
+      <span>세일</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+      <span>커뮤니티</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// 폴센트 캡처 2번 기준 정밀 데이터셋
+const SAMPLE_DEALS = {
+  1783: {
+    mall: '11번가',
+    title: '[5kg에 9,900원대] 햇 나주배 신고배 5kg 혼합과 가정용',
+    price: 10920,
+    discount: 21,
+    img: 'https://cdn.011st.com/11dims/resize/300/quality/75/11src/dl/v2/1/2/1/2/6/8/FPqVH/9568121268_242311973.webp',
+    history: {
+      1: [14200, 13800, 13500, 12900, 13200, 12800, 11900, 10920],
+      2: [15900, 15200, 14900, 14200, 13900, 14500, 13500, 12900, 13200, 12800, 11900, 10920],
+      3: [17900, 16900, 15900, 15200, 14900, 14200, 13900, 14500, 13500, 12900, 10920],
+      all: [18900, 17900, 16900, 15900, 15200, 14900, 14200, 13900, 14500, 13500, 10920]
+    }
+  },
+  1785: {
+    mall: '지마켓',
+    title: '하기스 맥스드라이 기저귀 3박스 세트 특가',
+    price: 118810,
+    discount: 34,
+    img: 'https://gdimg.gmarket.co.kr/4646464076/still/600',
+    history: {
+      1: [135000, 132000, 129000, 125000, 128000, 122000, 118810],
+      2: [145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810],
+      3: [152000, 148000, 145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810],
+      all: [159000, 155000, 152000, 148000, 145000, 142000, 139000, 138000, 141000, 135000, 132000, 129000, 125000, 128000, 122000, 118810]
+    }
+  }
+};
+
+let currentDealId = 1783;
+let currentPeriod = 2; // 기본 2개월
+
+function formatWon(n) { return (n || 0).toLocaleString() + '원'; }
+
+function openHotdealChart(id) {
+  currentDealId = id;
+  renderSheetBody();
+  document.getElementById('hdBg').style.display = 'block';
+  setTimeout(() => { document.getElementById('hdSheet').style.bottom = '0'; }, 10);
+}
+
+function changePeriod(p) {
+  currentPeriod = p;
+  renderSheetBody();
+}
+
+function renderSheetBody() {
+  const d = SAMPLE_DEALS[currentDealId] || SAMPLE_DEALS[1783];
+  const pts = d.history[currentPeriod] || d.history[2];
+  const lo = Math.min(...pts);
+  const hi = Math.max(...pts);
+  const avg = Math.round(pts.reduce((a,b)=>a+b,0)/pts.length);
+  const diff = avg - d.price;
+
+  // 폴센트 캡처 2번 실측 차트 (최고가 녹색 가이드선 + 최저가 빨간 가이드선)
+  const W = 320, H = 86, PT = 8, PB = 8, PL = 6, PR = 6;
+  const x = i => PL + (W - PL - PR) * (i / (pts.length - 1));
+  const y = v => PT + (H - PT - PB) * (1 - (v - lo) / ((hi - lo) || 1));
+  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(pts.length - 1).toFixed(1)},${H - PB} L${x(0).toFixed(1)},${H - PB} Z`;
+  const last = pts.length - 1;
+
+  const chartSvg = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:86px;display:block">
+      <defs>
+        <linearGradient id="chartGradV3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7C54C4" stop-opacity="0.22"/>
+          <stop offset="100%" stop-color="#7C54C4" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- 최고가 점선 가이드 (녹색) -->
+      <line x1="0" y1="${y(hi).toFixed(1)}" x2="${W}" y2="${y(hi).toFixed(1)}" stroke="#12B886" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+      <!-- 최저가 점선 가이드 (빨간색) -->
+      <line x1="0" y1="${y(lo).toFixed(1)}" x2="${W}" y2="${y(lo).toFixed(1)}" stroke="#FF4742" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+      <!-- 영역 & 라인 -->
+      <path d="${area}" fill="url(#chartGradV3)"/>
+      <path d="${line}" fill="none" stroke="#7C54C4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 현재가 포인트 -->
+      <circle cx="${x(last).toFixed(1)}" cy="${y(pts[last]).toFixed(1)}" r="4.2" fill="#FF4742" stroke="#fff" stroke-width="2"/>
+    </svg>
+  `;
+
+  const html = `
+    <div class="sheet-prod-header">
+      <img class="sheet-thumb" src="${d.img}" referrerpolicy="no-referrer">
+      <div class="sheet-prod-info">
+        <div class="sheet-mall">${d.mall} 특가</div>
+        <div class="sheet-title">${d.title}</div>
+        <div class="sheet-price-row">
+          <span class="sheet-discount">${d.discount}%</span>
+          <span class="sheet-price">${formatWon(d.price)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 💡 자비스 실질 절감액 배너 -->
+    <div class="savings-callout">
+      <span>💡</span>
+      <span>평소 평균가보다 <b>${formatWon(diff)} 더 저렴</b>한 역대급 구매 찬스예요!</span>
+    </div>
+
+    <!-- 폴센트 캡처 2번형 차트 박스 -->
+    <div class="chart-box">
+      <div class="chart-head-row">
+        <span class="chart-title">📈 가격 추이 그래프</span>
+        <!-- 폴센트식 1개월 / 2개월 / 3개월 / 전체 -->
+        <div class="period-tabs">
+          <button class="p-tab ${currentPeriod==1?'on':''}" onclick="changePeriod(1)">1개월</button>
+          <button class="p-tab ${currentPeriod==2?'on':''}" onclick="changePeriod(2)">2개월</button>
+          <button class="p-tab ${currentPeriod==3?'on':''}" onclick="changePeriod(3)">3개월</button>
+          <button class="p-tab ${currentPeriod=='all'?'on':''}" onclick="changePeriod('all')">전체</button>
+        </div>
+      </div>
+      ${chartSvg}
+      <!-- 3단 스펙 (폴센트 캡처 2번 실측) -->
+      <div class="price-stats-grid">
+        <div class="stat-item high"><div class="lbl">▲ 최고가</div><div class="val">${formatWon(hi)}</div></div>
+        <div class="stat-item"><div class="lbl">- 평균가</div><div class="val">${formatWon(avg)}</div></div>
+        <div class="stat-item best"><div class="lbl">▼ 최저가</div><div class="val">${formatWon(lo)}</div></div>
+      </div>
+    </div>
+
+    <!-- 🛒 [폴센트 캡처 2번 하단 바] 절감액 + 구매 버튼 -->
+    <div class="sheet-bottom-bar">
+      <div class="bottom-diff-box">
+        <span class="diff-lbl">평균가 대비</span>
+        <span class="diff-val">-${formatWon(diff)}</span>
+      </div>
+      <button class="btn-buy-link" onclick="alert('제휴 수익링크로 이동합니다!')">
+        <span>${d.mall}에서 구매하러 가기</span>
+        <span>➔</span>
+      </button>
+    </div>
+  `;
+
+  document.getElementById('hdSheetContent').innerHTML = html;
+}
+
+function closeHotdealChart() {
+  document.getElementById('hdSheet').style.bottom = '-110%';
+  setTimeout(() => { document.getElementById('hdBg').style.display = 'none'; }, 300);
+}
+
+// open=1 파라미터 시 자동 오픈
+if (new URLSearchParams(location.search).get('open') === '1') {
+  setTimeout(() => openHotdealChart(1783), 200);
+}
+</script>
+
+</body>
+</html>
