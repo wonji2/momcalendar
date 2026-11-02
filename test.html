@@ -2546,6 +2546,7 @@ async function renderSearchAll(){
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
+  const hdU = hdDedupe(hd);                                                                  // 중복 뺀 핫딜 — 건수도 이것으로 센다(2026-11-02 코덱스 지적)
   const cm = (_commData||[]).filter(c=>hit(c.title,c.summary,c.board,c.nick));                   // 💬 커뮤니티
 
   // ── 정렬 (검색결과 상단 칩, 2026-08-31) — 공구 섹션에 적용 ──
@@ -2581,10 +2582,10 @@ async function renderSearchAll(){
   };
 
   // 핫딜 0건이어도 절을 지우지 않고 「최근 7일 내 등록된 핫딜 0건」 을 보여 준다 — 손님이 공구만 나오는 이유를 알게(제보 #18, 사장님 2026-11-01). 전체 0건이면 기존 안내 그대로
-  const anyHit=ggS.length+hd.length+ex.length+cm.length>0;
+  const anyHit=ggS.length+hdU.length+ex.length+cm.length>0;
   const html =
     sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
-    sec('hotdeal','🔥','핫딜',hdDedupe(hd),h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
+    sec('hotdeal','🔥','핫딜',hdU,h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
     sec('exp','🎁','체험단',ex,e=>expCardHtml(e)) +
     (cm.length?`<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px"><span>💬 커뮤니티</span><span style="font-size:11.5px;font-weight:700;color:#9A93A6">${cm.length}건</span></div>`
       +cm.slice(0,5).map(_commCardHtml).join('')
@@ -2592,7 +2593,7 @@ async function renderSearchAll(){
       +'<div style="height:16px"></div>':'');
 
   // 상단: 총 건수 + 정렬 (목업 ③번 화면)
-  const total=ggS.length+hd.length+ex.length+cm.length;
+  const total=ggS.length+hdU.length+ex.length+cm.length;
   const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
       <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
@@ -3810,7 +3811,7 @@ function buildMineBars(y,m,grid){
     }
     let cells='';
     for(let i=0;i<7;i++){
-      const ds=_dsAdd(ws,i); const d=new Date(ds); const inMo=d.getMonth()===m; const dow=d.getDay();
+      const ds=_dsAdd(ws,i); const d=new Date(ds+'T00:00:00'); const inMo=d.getMonth()===m; const dow=d.getDay();
       const cls=['ccell',inMo?'':'oth',dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
       cells+=`<div class="${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d.getDate()}</div></div>`;
     }
@@ -4355,6 +4356,16 @@ function _icsPick(items, sentSet){
   upd();
 }
 // 달력(cal-box)을 그대로 PNG 로 — html2canvas 는 필요할 때만 받는다 (2026-11-01)
+// 파일 내려받기가 안 되는 곳(카톡·인스타 인앱)에서는 사진을 크게 띄우고 꾹 눌러 저장하게 한다
+function _calImgOverlay(url){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px';
+  ov.innerHTML='<img alt="내 찜 캘린더" style="max-width:100%;max-height:78vh;border-radius:12px;background:#fff;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto"><div style="color:#fff;font-size:14px;font-weight:700;margin-top:14px">사진을 꾹 눌러 저장하세요</div><button style="margin-top:14px;height:44px;padding:0 24px;border:0;border-radius:100px;background:#fff;color:#191F28;font:inherit;font-size:14px;font-weight:700">닫기</button>';
+  ov.querySelector('img').src=url;
+  const close=()=>{ try{ URL.revokeObjectURL(url); }catch(_){} ov.remove(); };
+  ov.querySelector('button').onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  document.body.appendChild(ov);
+}
 async function saveCalImage(){
   const btn=document.getElementById('calImgBtn'); const box=document.querySelector('#calView .cal-box'); if(!box) return;
   const t0=btn?btn.textContent:''; if(btn){ btn.textContent='만드는 중…'; btn.disabled=true; }
@@ -4366,8 +4377,10 @@ async function saveCalImage(){
     const file=new File([blob],name,{type:'image/png'});
     let shared=false;
     try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
-    if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
-    try{ trackEvent('cal_image', shared?'share':'download'); }catch(_){}
+    const noDl=/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i.test(navigator.userAgent) || !('download' in HTMLAnchorElement.prototype);   // 인앱 웹뷰는 파일 내려받기가 안 된다(2026-11-02 코덱스 지적)
+    if(!shared && noDl){ _calImgOverlay(URL.createObjectURL(blob)); }
+    else if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
+    try{ trackEvent('cal_image', shared?'share':(noDl?'longpress':'download')); }catch(_){}
     window._lastCalImage=blob;
   }catch(e){ try{ mcToast('사진 만들기에 실패했어요. 다시 눌러 주세요'); }catch(_){} }
   if(btn){ btn.textContent=t0; btn.disabled=false; }
@@ -4615,7 +4628,7 @@ function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 �
 // 목록을 불러오는 동안 글자 대신 스켈레톤 칸(n개)을 보여 준다 (2026-11-01)
 function skelHtml(n, tall){ var h=''; for(var i=0;i<(n||4);i++) h+='<div class="skel-card'+(tall?' s2':'')+'" aria-hidden="true"></div>'; return h; }
 // 이미지가 깨지면(onerror) 엑박 대신 단정한 대체 그림(앱 아이콘, 연보라 바탕) (2026-11-01)
-function _imgFail(img){ try{ img.onerror=null; img.src='momcal-appicon-128.png'; img.style.objectFit='contain'; img.style.padding='18%'; img.style.background='#F3F0F8'; img.style.boxSizing='border-box'; }catch(_){} }
+function _imgFail(img){ try{ img.onerror=null; img.src='momcal-appicon-128.png'; img.style.objectFit='contain'; img.style.padding=(Math.round(Math.min(img.clientWidth||0,img.clientHeight||0)*0.18))+'px'; img.style.background='#F3F0F8'; img.style.boxSizing='border-box'; }catch(_){} }
 function mcToast(msg, ms){
   try{
     // 토스·당근형 하단 토스트 (2026-10-24) — 첫 줄 굵게, 둘째 줄부터 흐리게. ＋ 버튼·탭바 위에 띄워 겹치지 않게
@@ -5853,6 +5866,8 @@ window.addEventListener('popstate',()=>{
   var _lastBack=0;
   function closeTopLayer(){
     var sh=document.querySelector('.mc-sheet.open'); if(sh){ sh.classList.remove('open'); return true; }
+    var bs=[['kkoSheet','closeLoginSheet'],['wnSheet','closeWnSheet'],['infoSheet','closeInfoSheet']];   // 이 시트들은 on/open 클래스가 아니라 style.bottom='0' 으로 열린다(2026-11-02 코덱스 지적)
+    for(var j=0;j<bs.length;j++){ var b=document.getElementById(bs[j][0]); if(b && /^0(px)?$/.test(b.style.bottom||'') && typeof window[bs[j][1]]==='function'){ window[bs[j][1]](); return true; } }
     var ids=['sideMenu','partnerModal','infoSheet','wnSheet','kkoSheet','loginSheet'];
     for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue;
       if(el.classList.contains('on')||el.classList.contains('open')){
@@ -7297,7 +7312,7 @@ function renderCommunity(){
   let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(_commBoard===COMM_LOCAL_ID){
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
-    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${String(_commLocal)===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
+    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${_commLocal===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
   }
   if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
   else h+=rows.slice(0,_commShown).map(p=>{

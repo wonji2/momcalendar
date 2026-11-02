@@ -49,7 +49,7 @@ begin
     if m is null then m := regexp_match(t, '(\d+)\s*(개|팩|봉|캔|병|통|입|박스)[^0-9]{0,8}\d+(?:\.\d+)?\s*(?:kg|g)\y'); end if;
     if m is not null then mult := m[1]::int; end if;
     -- 「0.9g, 100개입, 3개」처럼 개수가 두 번이면 곱한다
-    m := regexp_match(t, '(d+)s*(개입|입|포|스틱|p)y[^0-9]{0,6}(d+)s*(개|팩|박스|봉|통)'); if m is not null then mult := m[1]::int * m[3]::int; end if;
+    m := regexp_match(t, '(\d+)\s*(개입|입|포|스틱|p)\y[^0-9]{0,6}(\d+)\s*(개|팩|박스|봉|통)'); if m is not null then mult := m[1]::int * m[3]::int; end if;
     if base*mult <= 0 then return; end if;
     per := p_price::numeric / (base*mult) * 100;
     if per < 1 or per > 500000 then return; end if;
@@ -64,7 +64,7 @@ begin
     if m is null then m := regexp_match(t, '(\d+)\s*(개|팩|봉|캔|병|통|입|박스)[^0-9]{0,8}\d+(?:\.\d+)?\s*(?:ml|l)\y'); end if;
     if m is not null then mult := m[1]::int; end if;
     -- 「0.9g, 100개입, 3개」처럼 개수가 두 번이면 곱한다
-    m := regexp_match(t, '(d+)s*(개입|입|포|스틱|p)y[^0-9]{0,6}(d+)s*(개|팩|박스|봉|통)'); if m is not null then mult := m[1]::int * m[3]::int; end if;
+    m := regexp_match(t, '(\d+)\s*(개입|입|포|스틱|p)\y[^0-9]{0,6}(\d+)\s*(개|팩|박스|봉|통)'); if m is not null then mult := m[1]::int * m[3]::int; end if;
     if base*mult <= 0 then return; end if;
     per := p_price::numeric / (base*mult) * 100;
     if per < 1 or per > 500000 then return; end if;
@@ -125,7 +125,9 @@ begin
    where k.src='search' and k.active and k.keyword not in (
      select term from (
        select trim(regexp_replace(lower(term),'[^가-힣a-z0-9 ]',' ','g')) as term from site_search_stats where c30 >= 2
-       union select trim(split_part(event_data,'|',1)) from events where event_type in ('kakao_bot','momcal_bot') and visited_at > now() - interval '14 days' and event_data !~ 'uid=BOT'
+       union select trim(regexp_replace(lower(split_part(event_data,'|',1)),'[^가-힣a-z0-9 ]',' ','g')) from events where event_type in ('kakao_bot','momcal_bot') and visited_at > now() - interval '14 days' and event_data !~ 'uid=BOT'
+       -- 검색 교정(search_fix)에서 발굴한 키워드도 유지 대상이다 — 빠져 있으면 같은 실행에서 바로 active=false 가 됐다(2026-11-02 코덱스 지적)
+       union select trim(regexp_replace(lower(case when event_data ~ '^\s*\{' then event_data::jsonb->>'to' end),'[^가-힣a-z0-9 ]',' ','g')) from events where event_type='search_fix' and visited_at > now() - interval '14 days' and event_data ~ '^\s*\{'
      ) s where term is not null);
   return v_n;
 end $$;

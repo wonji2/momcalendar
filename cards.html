@@ -119,8 +119,9 @@ function rmPlaceholder(){ const p=$('ph'); if(p) p.remove(); }
 
 async function run(){
   const day=$('day').value||todayKST(); const md=fmtMD(day), tag=day.replace(/-/g,'');
-  $('go').disabled=true; $('zip').style.display='none'; $('out').innerHTML=''; made=[];
+  // 먼저 이전 사진 주소를 풀고 나서 화면을 비운다 — 순서가 거꾸로면 a.dl 이 이미 없어 주소가 메모리에 계속 쌓였다(2026-11-02 코덱스 지적)
   for(const u of document.querySelectorAll('a.dl')) try{ URL.revokeObjectURL(u.href); }catch(_){}
+  $('go').disabled=true; $('zip').style.display='none'; $('out').innerHTML=''; made=[];
   try{
     // ① 공구카드 1쪽~ : 항목이 없는 쪽이 나오면 멈춘다
     for(let p=1;p<=MAX_PAGES;p++){
@@ -160,6 +161,7 @@ async function zipAll(){
   const z=new JSZip(); made.forEach(m=>z.file(m.name,m.blob));
   const b=await z.generateAsync({type:'blob'}); const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download=`momcal_cards_${($('day').value||todayKST()).replace(/-/g,'')}.zip`; a.click();
+  setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); }catch(_){} },15000);   // 묶음 파일 주소도 내려받은 뒤 푼다
 }
 (function init(){
   const q=new URLSearchParams(location.search); $('day').value=q.get('d')||todayKST();

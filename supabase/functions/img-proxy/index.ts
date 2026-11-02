@@ -17,7 +17,21 @@ Deno.serve(async (req) => {
   try { target = new URL(u); } catch { return new Response('bad url', { status: 400, headers: CORS }); }
   if (!/^https?:$/.test(target.protocol) || !ALLOW.test(target.hostname)) return new Response('host not allowed', { status: 403, headers: CORS });
   try {
-    const r = await fetch(target.toString(), { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36', Accept: 'image/*,*/*;q=0.8', Referer: target.origin + '/' }, redirect: 'follow' });
+    // 리다이렉트는 직접 따라가며 매번 프로토콜·호스트를 허용 목록으로 다시 확인한다 — redirect:'follow' 는 허용 안 된 주소까지 서버가 대신 요청해 주는 구멍이었다(2026-11-02 코덱스 지적)
+    let cur = target, r: Response | null = null;
+    for (let hop = 0; hop < 4; hop++) {
+      r = await fetch(cur.toString(), { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36', Accept: 'image/*,*/*;q=0.8', Referer: cur.origin + '/' }, redirect: 'manual' });
+      if (r.status >= 300 && r.status < 400) {
+        const loc = r.headers.get('location');
+        if (!loc) return new Response('bad redirect', { status: 502, headers: CORS });
+        let next: URL;
+        try { next = new URL(loc, cur); } catch { return new Response('bad redirect', { status: 502, headers: CORS }); }
+        if (!/^https?:$/.test(next.protocol) || !ALLOW.test(next.hostname)) return new Response('redirect host not allowed', { status: 403, headers: CORS });
+        cur = next; r = null; continue;
+      }
+      break;
+    }
+    if (!r) return new Response('too many redirects', { status: 502, headers: CORS });
     const ct = r.headers.get('content-type') || '';
     if (!r.ok || !/^image\//i.test(ct)) return new Response('not image', { status: 502, headers: CORS });
     const len = Number(r.headers.get('content-length') || 0);

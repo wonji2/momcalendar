@@ -129,10 +129,12 @@ def main():
     print('[bbhd] 베이비핫딜 0원 자동 수집기 가동')
     # 1. ops_status 에서 last_id 조회
     last_id = 36544
+    retries = {}   # 일시 실패(주소 추적 실패)로 다시 시도할 글 → 시도 횟수 (3번 넘으면 포기하고 넘어간다, 2026-11-02 코덱스 지적)
     try:
         rows = run_sql("SELECT payload FROM ops_status WHERE id = 'bbhd-last-id';")
         if rows and 'last_id' in rows[0].get('payload', {}):
             last_id = int(rows[0]['payload']['last_id'])
+            retries = {str(k): int(v) for k, v in (rows[0]['payload'].get('retries') or {}).items()}
     except Exception as e:
         print(f'[bbhd] ops_status 조회 실패 — 기본값으로 옛 글을 다시 훑지 않고 이 회차는 멈춘다: {e}')
         raise SystemExit(0)
@@ -162,6 +164,7 @@ def main():
 
     new_max_id = last_id
     success_count = 0
+    hold_min = None   # 다시 시도할 글 중 가장 작은 번호 — 체크포인트가 이 번호를 넘지 않게 한다
 
     for wr_id, raw_title in posts:
         try:
@@ -326,17 +329,28 @@ def main():
                 mall = '오늘의집'
                 source = 'ohouse'
                 final = target_link
+                net_err = False
                 try:
                     req = urllib.request.Request(target_link, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
                     with urllib.request.urlopen(req, timeout=15) as resp:
                         final = resp.geturl() or target_link
                 except Exception as e:
+                    net_err = True
                     print(f'[bbhd] 오늘의집 주소 추적 실패({e}) — 원 주소로 시도')
                 om = re.search(r'/(?:productions|goods)/(\d+)', final) or re.search(r'/(?:productions|goods)/(\d+)', target_link)
                 if not om:
+                    tries = retries.get(str(wr_id), 0) + 1
+                    if net_err and tries < 3:
+                        # 잠깐의 통신 오류일 수 있다 — 처리한 것으로 치지 않고 다음 회차에 다시 시도(최대 3번)
+                        retries[str(wr_id)] = tries
+                        hold_min = wr_id if hold_min is None else min(hold_min, wr_id)
+                        print(f'[bbhd] 오늘의집 주소 추적 실패 — 다음 회차에 다시 시도({tries}/3): {target_link}')
+                        continue
+                    retries.pop(str(wr_id), None)
                     print(f'[bbhd] 오늘의집 상품 번호 없음: {final}')
                     new_max_id = max(new_max_id, wr_id)
                     continue
+                retries.pop(str(wr_id), None)
                 opid = om.group(1)
                 prod_id = f'oh_{opid}'
                 aff_link = (f"https://link.ohou.se/@ohouse/affiliate?channel=affiliate&sub_id_2=affiliate&sub_id_3=inorganic&campaign=brand_affiliate"
@@ -371,11 +385,16 @@ def main():
         except Exception as e:
             print(f'[bbhd] wr_id={wr_id} 에러: {e}')
 
+    # 다시 시도할 글이 있으면 체크포인트를 그 앞에 둔다(이미 등록한 글은 product_id+deal_day 로 중복 등록이 막힌다)
+    if hold_min is not None:
+        new_max_id = min(new_max_id, hold_min - 1)
     # ops_status 갱신
-    if new_max_id > last_id:
+    retries_json = json.dumps(retries, ensure_ascii=False)
+    if new_max_id > last_id or retries:
+        new_max_id = max(new_max_id, last_id)
         up_sql = f'''
         INSERT INTO ops_status (id, payload, updated_at)
-        VALUES ('bbhd-last-id', jsonb_build_object('last_id', {new_max_id}, 'at', to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI')), now())
+        VALUES ('bbhd-last-id', jsonb_build_object('last_id', {new_max_id}, 'retries', {sql_quote(retries_json)}::jsonb, 'at', to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI')), now())
         ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();
         '''
         run_sql(up_sql)
