@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>맘캘린더 검색 UX 전면 개편 목업</title>
+<style>
+  :root {
+    --primary: #7C54C4;
+    --primary-light: #F3EEFA;
+    --coral-red: #FF3B30;
+    --green-best: #12B886;
+    --text-main: #191F28;
+    --text-sub: #4E5968;
+    --text-muted: #8B95A1;
+    --bg-gray: #F8F9FA;
+    --border-line: #E5E8EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: #eef1f5; color: var(--text-main); display: flex; flex-direction: column; align-items: center; padding: 20px 10px; }
+
+  /* 상단 상태 전환 컨트롤러 바 */
+  .control-bar {
+    width: 100%;
+    max-width: 412px;
+    background: #191F28;
+    border-radius: 14px;
+    padding: 8px 10px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .ctrl-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #b0b8c1;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    line-height: 1.3;
+  }
+  .ctrl-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(124, 84, 196, 0.4);
+  }
+
+  /* 모바일 기기 프레임 */
+  .phone-frame {
+    width: 100%;
+    max-width: 412px;
+    background: #ffffff;
+    min-height: 780px;
+    position: relative;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+    border-radius: 28px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 모바일 상태 표시줄 (Status Bar) */
+  .status-bar {
+    height: 44px;
+    padding: 10px 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    background: #fff;
+    color: var(--text-main);
+  }
+  .status-icons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+  }
+
+  /* 검색 상단 헤더 바 */
+  .search-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px 12px;
+    background: #fff;
+    border-bottom: 1px solid #f2f4f6;
+  }
+  .back-btn {
+    font-size: 20px;
+    color: var(--text-main);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+  }
+  .search-input-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .search-input {
+    width: 100%;
+    height: 42px;
+    background: #F2F4F6;
+    border: 1.5px solid transparent;
+    border-radius: 22px;
+    padding: 0 38px 0 38px;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    transition: all 0.2s;
+  }
+  .search-input.focused {
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(124, 84, 196, 0.1);
+  }
+  .search-icon-left {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    font-size: 15px;
+    pointer-events: none;
+  }
+  .clear-btn {
+    position: absolute;
+    right: 12px;
+    width: 20px;
+    height: 20px;
+    background: #D1D6DB;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 11px;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+  }
+
+  /* 컨텐츠 영역 */
+  .content-body {
+    flex: 1;
+    background: #fff;
+    overflow-y: auto;
+  }
+
+  /* ================================================= */
+  /* [상태 A: 검색창 포커스 (최근 검색어 + 인기 검색어)] */
+  /* ================================================= */
+  .state-focus-view { display: none; }
+
+  /* 최근 검색어 섹션 */
+  .section-recent {
+    padding: 16px 16px 14px;
+    border-bottom: 8px solid #F8F9FA;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-all-delete {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .recent-tags-scroll {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .recent-tags-scroll::-webkit-scrollbar { display: none; }
+  .recent-chip {
+    flex-shrink: 0;
+    background: #F8F9FA;
+    border: 1px solid #E5E8EB;
+    border-radius: 18px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .recent-chip:active { background: #E5E8EB; }
+  .chip-del {
+    color: #8B95A1;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  /* 실시간 인기 검색어 섹션 */
+  .section-trending {
+    padding: 18px 16px 24px;
+  }
+  .trending-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+  .trending-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+    row-gap: 14px;
+    margin-top: 14px;
+  }
+  .trending-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .rank-badge {
+    width: 20px;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    color: #6B7684;
+  }
+  .rank-badge.top-rank {
+    color: var(--coral-red);
+  }
+  .trending-keyword {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rank-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .tag-hot { background: #FFF0F0; color: #FF3B30; }
+  .tag-up { color: #FF3B30; font-size: 10px; }
+  .tag-same { color: #8B95A1; }
+  .tag-new { background: #E8F8F5; color: #12B886; }
+
+  /* 포커스 하단 꿀팁 배너 */
+  .focus-banner {
+    margin: 8px 16px 20px;
+    background: var(--primary-light);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .banner-icon { font-size: 20px; }
+  .banner-text { flex: 1; font-size: 12px; color: var(--primary); font-weight: 600; line-height: 1.4; }
+
+  /* ================================================= */
+  /* [상태 B: 검색 로딩 스켈레톤 (Shimmer UI)] */
+  /* ================================================= */
+  .state-skeleton-view { display: none; }
+  
+  .loading-guide-bar {
+    background: #F8F9FA;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #f2f4f6;
+  }
+  .spinner-dot {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #E5E8EB;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 스켈레톤 반짝임 애니메이션 */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer-bg {
+    background: linear-gradient(90deg, #F0F2F5 25%, #E6E8EB 50%, #F0F2F5 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+  }
+  .skeleton-list {
+    padding: 8px 16px;
+  }
+  .skeleton-card {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid #F2F4F6;
+  }
+  .sk-thumb {
+    width: 76px;
+    height: 76px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .sk-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+  .sk-badge { width: 50px; height: 14px; }
+  .sk-title-1 { width: 85%; height: 16px; }
+  .sk-title-2 { width: 55%; height: 14px; }
+  .sk-price { width: 40%; height: 18px; margin-top: 2px; }
+
+  /* ================================================= */
+  /* [상태 C: 검색 결과 (젤리 19건)] */
+  /* ================================================= */
+  .state-result-view { display: none; }
+
+  .result-header-bar {
+    padding: 12px 16px 8px;
+    background: #fff;
+  }
+  .result-count-text {
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .result-count-bold {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  /* 카테고리별 서브 탭 */
+  .category-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 6px 16px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid #F2F4F6;
+  }
+  .category-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #F8F9FA;
+    color: var(--text-sub);
+    border: 1px solid #E5E8EB;
+    cursor: pointer;
+  }
+  .cat-tab.active {
+    background: #191F28;
+    color: #fff;
+    border-color: #191F28;
+  }
+
+  /* 2열 초밀착 상품 그리드 */
+  .prod-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #F8F9FA;
+  }
+  .p-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+  }
+  .p-thumb-box {
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
+    background: #ECEFF2;
+  }
+  .p-thumb-box img {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .badge-tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: #fff;
+  }
+  .badge-hotdeal { background: var(--coral-red); }
+  .badge-gonggu { background: var(--primary); }
+  .badge-soon { background: #6B7684; }
+
+  .p-body {
+    padding: 10px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .p-mall {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .p-title {
+    font-size: 13px;
+    color: var(--text-main);
+    font-weight: 600;
+    line-height: 1.35;
+    height: 35px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 6px;
+  }
+  .p-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: auto;
+  }
+  .p-discount {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--coral-red);
+  }
+  .p-price {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+  }
+  .p-unit-price {
+    font-size: 11px;
+    color: #8B95A1;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ================================================= */
+  /* [상태 D: 결과 0건 & 키워드 알림 CTA] */
+  /* ================================================= */
+  .state-empty-view { display: none; }
+  
+  .empty-container {
+    padding: 60px 24px 40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    background: #F3EEFA;
+    color: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  .empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .empty-desc {
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+  .empty-cta-btn {
+    width: 100%;
+    max-width: 280px;
+    background: var(--primary);
+    color: #fff;
+    border: 0;
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(124, 84, 196, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+  .empty-cta-btn:active { transform: scale(0.98); }
+
+  .empty-recommend-title {
+    margin-top: 36px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .empty-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .empty-chip {
+    padding: 6px 12px;
+    background: #F8F9FA;
+    border: 1px solid #E5E8EB;
+    border-radius: 16px;
+    font-size: 12px;
+    color: var(--text-sub);
+    cursor: pointer;
+  }
+
+  /* 토스트 알림 팝업 */
+  .toast-popup {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(25, 31, 40, 0.92);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+  }
+  .toast-popup.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- 상단 4단 인터랙티브 상태 스위처 바 -->
+<div class="control-bar">
+  <button class="ctrl-btn active" onclick="switchState('focus')">① 포커스 레이어<br><span style="opacity:0.7">최근·인기검색어</span></button>
+  <button class="ctrl-btn" onclick="switchState('skeleton')">② 스켈레톤 로딩<br><span style="opacity:0.7">3초 빈화면 방지</span></button>
+  <button class="ctrl-btn" onclick="switchState('result')">③ 검색 결과 (19건)<br><span style="opacity:0.7">카테고리·2열뷰</span></button>
+  <button class="ctrl-btn" onclick="switchState('empty')">④ 결과 0건 대응<br><span style="opacity:0.7">키워드 알림 CTA</span></button>
+</div>
+
+<!-- 모바일 목업 프레임 -->
+<div class="phone-frame">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span>9:41</span>
+    <div class="status-icons">
+      <span>5G</span>
+      <span>100%</span>
+    </div>
+  </div>
+
+  <!-- 검색 헤더 -->
+  <div class="search-nav">
+    <button class="back-btn" onclick="switchState('focus')">←</button>
+    <div class="search-input-wrap">
+      <span class="search-icon-left">🔍</span>
+      <input type="text" id="mockInput" class="search-input focused" value="젤리" placeholder="브랜드, 상품, 공구를 검색해보세요">
+      <button class="clear-btn" id="mockClear" onclick="clearInput()">✕</button>
+    </div>
+  </div>
+
+  <!-- 메인 뷰 컨테이너 -->
+  <div class="content-body">
+
+    <!-- [상태 A: 검색창 포커스 상태] -->
+    <div id="viewFocus" class="state-focus-view" style="display: block;">
+      <!-- 최근 검색어 -->
+      <div class="section-recent">
+        <div class="section-header">
+          <span class="section-title">최근 검색어</span>
+          <button class="btn-all-delete" onclick="showToast('최근 검색어가 모두 삭제되었습니다.')">전체삭제</button>
+        </div>
+        <div class="recent-tags-scroll">
+          <div class="recent-chip" onclick="executeSearch('젤리')">젤리 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+          <div class="recent-chip" onclick="executeSearch('기저귀')">기저귀 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+          <div class="recent-chip" onclick="executeSearch('레날파우치')">레날파우치 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+          <div class="recent-chip" onclick="executeSearch('물티슈')">물티슈 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+          <div class="recent-chip" onclick="executeSearch('비판텐')">비판텐 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+          <div class="recent-chip" onclick="executeSearch('아기상어')">아기상어 <span class="chip-del" onclick="event.stopPropagation(); this.parentElement.remove();">✕</span></div>
+        </div>
+      </div>
+
+      <!-- 실시간 인기 검색어 TOP 10 -->
+      <div class="section-trending">
+        <div class="section-header">
+          <span class="section-title">🔥 육아맘 실시간 인기 검색어</span>
+          <span class="trending-time">08:15 기준</span>
+        </div>
+        <div class="trending-grid">
+          <div class="trending-item" onclick="executeSearch('기저귀')">
+            <span class="rank-badge top-rank">1</span>
+            <span class="trending-keyword">기저귀</span>
+            <span class="rank-tag tag-hot">HOT</span>
+          </div>
+          <div class="trending-item" onclick="executeSearch('비판텐')">
+            <span class="rank-badge">6</span>
+            <span class="trending-keyword">비판텐</span>
+            <span class="rank-tag tag-same">-</span>
+          </div>
+
+          <div class="trending-item" onclick="executeSearch('물티슈')">
+            <span class="rank-badge top-rank">2</span>
+            <span class="trending-keyword">물티슈</span>
+            <span class="rank-tag tag-up">▲ 1</span>
+          </div>
+          <div class="trending-item" onclick="executeSearch('유산균')">
+            <span class="rank-badge">7</span>
+            <span class="trending-keyword">유산균</span>
+            <span class="rank-tag tag-new">NEW</span>
+          </div>
+
+          <div class="trending-item" onclick="executeSearch('분유')">
+            <span class="rank-badge top-rank">3</span>
+            <span class="trending-keyword">분유</span>
+            <span class="rank-tag tag-same">-</span>
+          </div>
+          <div class="trending-item" onclick="executeSearch('레고')">
+            <span class="rank-badge">8</span>
+            <span class="trending-keyword">레고</span>
+            <span class="rank-tag tag-same">-</span>
+          </div>
+
+          <div class="trending-item" onclick="executeSearch('젤리')">
+            <span class="rank-badge">4</span>
+            <span class="trending-keyword" style="color:var(--primary); font-weight:700;">젤리</span>
+            <span class="rank-tag tag-up">▲ 2</span>
+          </div>
+          <div class="trending-item" onclick="executeSearch('고양이사료')">
+            <span class="rank-badge">9</span>
+            <span class="trending-keyword">고양이사료</span>
+            <span class="rank-tag tag-up">▲ 3</span>
+          </div>
+
+          <div class="trending-item" onclick="executeSearch('핫딜')">
+            <span class="rank-badge">5</span>
+            <span class="trending-keyword">핫딜</span>
+            <span class="rank-tag tag-same">-</span>
+          </div>
+          <div class="trending-item" onclick="executeSearch('롱패딩')">
+            <span class="rank-badge">10</span>
+            <span class="trending-keyword">롱패딩</span>
+            <span class="rank-tag tag-new">NEW</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 탐색 배너 -->
+      <div class="focus-banner">
+        <span class="banner-icon">💡</span>
+        <div class="banner-text">원하는 상품을 검색하면 <b>공구와 온라인 최저가 핫딜</b>을 동시에 비교해 드려요!</div>
+      </div>
+    </div>
+
+    <!-- [상태 B: 검색 로딩 스켈레톤 (Shimmer 로더)] -->
+    <div id="viewSkeleton" class="state-skeleton-view">
+      <div class="loading-guide-bar">
+        <div class="spinner-dot"></div>
+        <span><b>"젤리"</b> 최저가 핫딜과 공구 캘린더를 찾는 중...</span>
+      </div>
+      <div class="skeleton-list">
+        <!-- 스켈레톤 카드 1 -->
+        <div class="skeleton-card">
+          <div class="sk-thumb shimmer-bg"></div>
+          <div class="sk-details">
+            <div class="sk-badge shimmer-bg"></div>
+            <div class="sk-title-1 shimmer-bg"></div>
+            <div class="sk-title-2 shimmer-bg"></div>
+            <div class="sk-price shimmer-bg"></div>
+          </div>
+        </div>
+        <!-- 스켈레톤 카드 2 -->
+        <div class="skeleton-card">
+          <div class="sk-thumb shimmer-bg"></div>
+          <div class="sk-details">
+            <div class="sk-badge shimmer-bg"></div>
+            <div class="sk-title-1 shimmer-bg"></div>
+            <div class="sk-title-2 shimmer-bg"></div>
+            <div class="sk-price shimmer-bg"></div>
+          </div>
+        </div>
+        <!-- 스켈레톤 카드 3 -->
+        <div class="skeleton-card">
+          <div class="sk-thumb shimmer-bg"></div>
+          <div class="sk-details">
+            <div class="sk-badge shimmer-bg"></div>
+            <div class="sk-title-1 shimmer-bg"></div>
+            <div class="sk-title-2 shimmer-bg"></div>
+            <div class="sk-price shimmer-bg"></div>
+          </div>
+        </div>
+        <!-- 스켈레톤 카드 4 -->
+        <div class="skeleton-card">
+          <div class="sk-thumb shimmer-bg"></div>
+          <div class="sk-details">
+            <div class="sk-badge shimmer-bg"></div>
+            <div class="sk-title-1 shimmer-bg"></div>
+            <div class="sk-title-2 shimmer-bg"></div>
+            <div class="sk-price shimmer-bg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- [상태 C: 검색 결과 화면 (젤리 19건)] -->
+    <div id="viewResult" class="state-result-view">
+      <div class="result-header-bar">
+        <div class="result-count-text">검색 결과 <span class="result-count-bold">19개</span>를 찾았어요</div>
+      </div>
+
+      <!-- 카테고리 칩 -->
+      <div class="category-tabs">
+        <div class="cat-tab active">전체 19</div>
+        <div class="cat-tab">공구 17</div>
+        <div class="cat-tab">핫딜 1</div>
+        <div class="cat-tab">커뮤니티 1</div>
+      </div>
+
+      <!-- 2열 초밀착 상품 그리드 -->
+      <div class="prod-grid">
+        <!-- 상품 1: 핫딜 카드 -->
+        <div class="p-card">
+          <div class="p-thumb-box">
+            <img src="downloads/shark_card_1.png" alt="하리보 젤리" onerror="this.src='https://placehold.co/200x200/F3EEFA/7C54C4?text=HARIBO'">
+            <span class="badge-tag badge-hotdeal">🔥 실시간 특가</span>
+          </div>
+          <div class="p-body">
+            <div class="p-mall">쿠팡와우 · 식품</div>
+            <div class="p-title">[쿠팡] 하리보 골드베렌 과즙젤리 980g 대용량 버킷</div>
+            <div class="p-price-row">
+              <span class="p-discount">28%</span>
+              <span class="p-price">9,900원</span>
+            </div>
+            <div class="p-unit-price">(100g당 1,010원)</div>
+          </div>
+        </div>
+
+        <!-- 상품 2: 공구 오픈 카드 -->
+        <div class="p-card">
+          <div class="p-thumb-box">
+            <img src="downloads/bepanthen_card_1.png" alt="닥터키즈 비타젤리" onerror="this.src='https://placehold.co/200x200/F3EEFA/7C54C4?text=GONGGU'">
+            <span class="badge-tag badge-gonggu">📅 공구 오픈</span>
+          </div>
+          <div class="p-body">
+            <div class="p-mall">인스타 셀러 @mom_recipe</div>
+            <div class="p-title">닥터키즈 얼려먹는 유기농 비타민 젤리 30포 한정공구</div>
+            <div class="p-price-row">
+              <span class="p-discount">46%</span>
+              <span class="p-price">18,900원</span>
+            </div>
+            <div class="p-unit-price">(정가 35,000원 · 무료배송)</div>
+          </div>
+        </div>
+
+        <!-- 상품 3: 공구 예정 카드 -->
+        <div class="p-card">
+          <div class="p-thumb-box">
+            <img src="downloads/card_3.png" alt="아기상어 젤리" onerror="this.src='https://placehold.co/200x200/F3EEFA/7C54C4?text=BABY+SHARK'">
+            <span class="badge-tag badge-soon">11.04 오픈예정</span>
+          </div>
+          <div class="p-body">
+            <div class="p-mall">블로그 @아기준이맘</div>
+            <div class="p-title">핑크퐁 아기상어 비타민 사탕 & 과즙 젤리 3종 세트</div>
+            <div class="p-price-row">
+              <span class="p-discount">35%</span>
+              <span class="p-price">12,500원</span>
+            </div>
+            <div class="p-unit-price">(알림신청 142명)</div>
+          </div>
+        </div>
+
+        <!-- 상품 4: 핫딜 카드 -->
+        <div class="p-card">
+          <div class="p-thumb-box">
+            <img src="downloads/card_1.png" alt="천연 젤리" onerror="this.src='https://placehold.co/200x200/F3EEFA/7C54C4?text=JELLY'">
+            <span class="badge-tag badge-hotdeal">🔥 실시간 특가</span>
+          </div>
+          <div class="p-body">
+            <div class="p-mall">11번가 · 키즈식품</div>
+            <div class="p-title">유럽 천연 과일 과즙 곰젤리 100g 10봉 묶음</div>
+            <div class="p-price-row">
+              <span class="p-discount">22%</span>
+              <span class="p-price">14,200원</span>
+            </div>
+            <div class="p-unit-price">(1봉당 1,420원)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- [상태 D: 결과 0건 대응 & 알림 신청 CTA] -->
+    <div id="viewEmpty" class="state-empty-view">
+      <div class="empty-container">
+        <div class="empty-icon">🔔</div>
+        <div class="empty-title">‘롱패딩’에 대한<br>핫딜·공구가 아직 없어요</div>
+        <div class="empty-desc">키워드를 등록해 두시면 최저가 특가가 뜨는 즉시<br>맘캘봇이 1초 만에 알림을 보내드려요!</div>
+        <button class="empty-cta-btn" onclick="showToast('‘롱패딩’ 키워드 핫딜 알림이 등록되었습니다! 🔔')">
+          <span>🔔 ‘롱패딩’ 특가 알림 받기</span>
+        </button>
+
+        <div class="empty-recommend-title">지금 다른 엄마들이 많이 찾는 키워드</div>
+        <div class="empty-chips">
+          <div class="empty-chip" onclick="executeSearch('기저귀')">기저귀</div>
+          <div class="empty-chip" onclick="executeSearch('물티슈')">물티슈</div>
+          <div class="empty-chip" onclick="executeSearch('분유')">분유</div>
+          <div class="empty-chip" onclick="executeSearch('비판텐')">비판텐</div>
+          <div class="empty-chip" onclick="executeSearch('젤리')">젤리</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 토스트 팝업 -->
+  <div id="toastPopup" class="toast-popup">알림이 설정되었습니다.</div>
+</div>
+
+<script>
+  function switchState(state) {
+    document.getElementById('viewFocus').style.display = 'none';
+    document.getElementById('viewSkeleton').style.display = 'none';
+    document.getElementById('viewResult').style.display = 'none';
+    document.getElementById('viewEmpty').style.display = 'none';
+
+    var btns = document.querySelectorAll('.ctrl-btn');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+
+    var input = document.getElementById('mockInput');
+
+    if (state === 'focus') {
+      document.getElementById('viewFocus').style.display = 'block';
+      btns[0].classList.add('active');
+      input.value = '';
+      input.placeholder = '브랜드, 상품, 공구를 검색해보세요';
+      input.classList.add('focused');
+    } else if (state === 'skeleton') {
+      document.getElementById('viewSkeleton').style.display = 'block';
+      btns[1].classList.add('active');
+      input.value = '젤리';
+      input.classList.remove('focused');
+    } else if (state === 'result') {
+      document.getElementById('viewResult').style.display = 'block';
+      btns[2].classList.add('active');
+      input.value = '젤리';
+      input.classList.remove('focused');
+    } else if (state === 'empty') {
+      document.getElementById('viewEmpty').style.display = 'block';
+      btns[3].classList.add('active');
+      input.value = '롱패딩';
+      input.classList.remove('focused');
+    }
+  }
+
+  function executeSearch(keyword) {
+    var input = document.getElementById('mockInput');
+    input.value = keyword;
+    switchState('skeleton');
+    setTimeout(function() {
+      if (keyword === '롱패딩') {
+        switchState('empty');
+      } else {
+        switchState('result');
+      }
+    }, 700);
+  }
+
+  function clearInput() {
+    var input = document.getElementById('mockInput');
+    input.value = '';
+    switchState('focus');
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById('toastPopup');
+    t.innerText = msg;
+    t.classList.add('show');
+    setTimeout(function() {
+      t.classList.remove('show');
+    }, 2200);
+  }
+</script>
+</body>
+</html>
