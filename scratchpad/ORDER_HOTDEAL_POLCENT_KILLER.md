@@ -20,7 +20,11 @@
    - 사장님 말씀: *"필터에서는 이미 세모가 있는데 필터 제목에 세모 모양이 또 들어가 있어"*
    - `<option>` 텍스트에서 `∨` 기호 전면 삭제 (`<option>급하락순</option>`, `<option>인기순</option>`, `<option>최신순</option>`).
    - `.sort-select`에 `appearance: none;`과 단일 SVG 화살표를 적용하여 2중 세모 버그 완벽 박멸.
-6. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
+6. **[특명 6] 주식 투자 앱식 일별 터치 드래그 차트 & 평균가 검은 점선 가이드**:
+   - 사장님 말씀: *"평균가 검은선은 안보여 그리고 30일 단위로 가격 얼마였는지 터치하면 폴센트는 보이던데"*, *"주식투자그래프처럼 매일매일 좌라락 터치 스크롤하면 금액 쭉 뜨면 좋고"*
+   - 1) 차트에 **평균가 검은 점선 가이드**(`stroke="#4E5968" stroke-dasharray="3 3"`) 확실히 표시 + 하단 3단 스펙에 `▲ 최고가(녹색선) / - 평균가(검은선) / ▼ 최저가(빨간선)` 범례 일체화.
+   - 2) 토스/업비트 주식 차트처럼 손가락으로 차트를 좌우로 스윽 드래그하면 세로 보라색 커서선과 점이 따라다니고, 상단 바에 `📅 10월 25일 13,400원 (평균 대비 저렴)`이 실시간으로 좌라락 뜨며 SVG 말풍선 툴팁 표시.
+7. **[참조 목업]**: `https://momcalendar.com/mock_hotdeal_v3.html` 에 실측 반영 완료.
 
 ---
 
@@ -309,4 +313,37 @@ body[data-ct="community"] #subZone {
   background-repeat: no-repeat !important;
   background-position: right 7px center !important;
 }
+
+/* 📈 주식 투자 앱식 터치 드래그 인터랙티브 차트 */
+.chart-touch-wrap {
+  position: relative !important;
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: crosshair !important;
+  margin: 2px 0 6px !important;
+}
+.chart-live-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background: #F7F5FA !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  margin-bottom: 6px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+.chart-live-bar .live-date {
+  color: #4E5968 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.chart-live-bar .live-price {
+  color: #7C54C4 !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+}
+.stat-item.avg .val { color: #4E5968 !important; }
 ```
