@@ -255,7 +255,7 @@ body {
   position: relative;
   background: #fff;
   border-radius: 20px 20px 0 0;
-  padding: 12px 18px 24px;
+  padding: 16px 18px 24px;
   max-width: 412px;
   width: 100%;
   margin: 0 auto;
@@ -282,9 +282,10 @@ body {
   <div class="plan-selector-bar">
     <div class="plan-title">💡 기획안 비교</div>
     <div class="plan-tabs">
-      <button class="plan-btn active" id="btnPlanA" onclick="switchPlan('A')">A안 (사장님 기준안)</button>
-      <button class="plan-btn" id="btnPlanB" onclick="switchPlan('B')">B안 (스마트 통합안)</button>
-    </div>
+        <button class="plan-btn" id="btnPlanA" onclick="switchPlan('A')">A안</button>
+        <button class="plan-btn" id="btnPlanB" onclick="switchPlan('B')">B안</button>
+        <button class="plan-btn active" id="btnPlanC" onclick="switchPlan('C')">⭐ C안 (최종 완성안)</button>
+      </div>
   </div>
 
   <!-- 토스/마미톡식 1줄 헤더 -->
@@ -617,17 +618,377 @@ body {
   </nav>
 </div>
 
+
+    <!-- ============================================== -->
+    <!-- ⭐ [C안: 매니저님 최종 확정안 - 당근·폴센트 속화면 완비] -->
+    <!-- ============================================== -->
+    <div id="planC" class="plan-wrap active">
+      
+      <!-- 프로필 & 3단 스탯 카드 -->
+      <div class="card" style="margin-bottom: 12px; padding: 20px 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg, #EFE6FA, #FDF2F8); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 2px 6px rgba(124,84,196,0.15);">
+              💜
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:16.5px; font-weight:800; color:#191F28;">맘캘러님</span>
+                <span style="background:#F3EFFC; color:var(--main); font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:12px;">새싹회원</span>
+              </div>
+              <div style="font-size:12px; color:var(--muted); margin-top:3px;">
+                맞춤 특가와 공구 일정을 모아드려요
+              </div>
+            </div>
+          </div>
+          <button onclick="showToast('프로필 수정 준비 중입니다')" style="background:#F2F4F6; border:none; border-radius:8px; padding:6px 10px; font-size:11.5px; font-weight:600; color:#4E5968; cursor:pointer;">
+            설정
+          </button>
+        </div>
+
+        <!-- 3단 클릭 스탯 (찜 / 키워드 / 출석) -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:#F8F9FA; padding:12px; border-radius:12px; border:1px solid #ECEEF0;">
+          <div onclick="openWishSheet()" style="text-align:center; cursor:pointer;">
+            <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:2px;">찜한 공구</div>
+            <div style="font-size:17px; font-weight:900; color:var(--main);" id="statWishCount">3</div>
+          </div>
+          <div onclick="openKwSheet()" style="text-align:center; border-left:1px solid #E5E8EB; border-right:1px solid #E5E8EB; cursor:pointer;">
+            <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:2px;">알림 키워드</div>
+            <div style="font-size:17px; font-weight:900; color:#333D4B;" id="statKwCount">4</div>
+          </div>
+          <div onclick="showToast('출석 완료! 10P가 적립되었습니다 🎁')" style="text-align:center; cursor:pointer;">
+            <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:2px;">매일 출석</div>
+            <div style="font-size:14px; font-weight:800; color:#03C75A;">출첵완료</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 마미톡식 2초 계정연동 유도 배너 (폴센트 1번 캡처 + 마미톡 3번 캡처 반영) -->
+      <div onclick="showToast('⚡ 카카오 2초 계정 연동 창으로 이동합니다')" style="margin-bottom:12px; background:#EBF4FF; border:1px solid #D0E2FF; border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:20px;">🛡️</div>
+          <div>
+            <div style="font-size:12.5px; font-weight:800; color:#0055D6;">안전한 알림 보관을 위해 연동하세요</div>
+            <div style="font-size:11px; color:#5079B0; margin-top:2px;">기기를 바꿔도 찜 목록과 키워드가 안전하게 보관돼요</div>
+          </div>
+        </div>
+        <span style="font-size:11.5px; font-weight:800; background:#0064FF; color:#fff; padding:5px 9px; border-radius:6px;">연동 ›</span>
+      </div>
+
+      <!-- 1. 📅 캘린더 핵심 메뉴 (매니저님 지침: 3개 널브러뜨리지 않고 1개로 압축) -->
+      <div class="card" style="margin-bottom: 12px;">
+        <div class="menu-item" onclick="openCalSheet()">
+          <div class="menu-left">
+            <span class="menu-icon">📅</span>
+            <span class="menu-label">내 공구 캘린더</span>
+            <span style="font-size:11px; color:var(--main); font-weight:700; background:#F3EFFC; padding:2px 6px; border-radius:4px;">저장·내보내기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+
+      <!-- 2. 🛍️ 나의 쇼핑 활동 (매니저님 지침: 찜과 알림 2개로 분리 + 당근식 속연결) -->
+      <div class="card" style="margin-bottom: 12px;">
+        <div class="sec-label">나의 쇼핑 활동</div>
+        <div class="menu-item" onclick="openWishSheet()">
+          <div class="menu-left">
+            <span class="menu-icon">💜</span>
+            <span class="menu-label">나의 찜한 일정</span>
+            <span style="font-size:12px; color:var(--muted); font-weight:600;" id="badgeWish">3개 보관중</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="openKwSheet()">
+          <div class="menu-left">
+            <span class="menu-icon">🔔</span>
+            <span class="menu-label">특가 키워드 알림</span>
+            <span style="font-size:12px; color:var(--muted); font-weight:600;" id="badgeKw">4개 등록됨</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+
+      <!-- 3. 가운데 추천 배너 (매니저님 지침: 친구에게 맘캘린더 알려주기 배너 유지) -->
+      <div onclick="shareAppKakao()" style="margin-bottom: 12px; background:linear-gradient(135deg, #7C54C4, #9B6FD4); border-radius:14px; padding:15px 16px; color:#fff; display:flex; align-items:center; justify-content:space-between; cursor:pointer; box-shadow:0 4px 12px rgba(124,84,196,0.2);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">🎁</div>
+          <div>
+            <div style="font-size:13.5px; font-weight:800; color:#fff;">친구에게 맘캘린더 알려주기</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.8); margin-top:2px;">엄마들이 극찬한 공구·핫딜 1등 캘린더</div>
+          </div>
+        </div>
+        <span style="font-size:12px; font-weight:800; background:rgba(255,255,255,0.25); padding:5px 9px; border-radius:6px; color:#fff;">공유 ›</span>
+      </div>
+
+      <!-- 4. 고객지원 & 안내 (매니저님 지침: 맨 하단 배치, 순서/글자수 통일, 1초 간편 삭제) -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="sec-label">고객지원 & 안내</div>
+        
+        <!-- 1) 맘캘린더 소개 & 이용가이드 -->
+        <div class="menu-item" onclick="openGuideSheet()">
+          <div class="menu-left">
+            <span class="menu-icon">📖</span>
+            <span class="menu-label">맘캘린더 소개 & 이용가이드</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+
+        <!-- 2) 카카오톡 문의 (공식 1:1 상담) -->
+        <a href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener" class="menu-item" style="text-decoration:none;">
+          <div class="menu-left">
+            <span class="menu-icon">💬</span>
+            <span class="menu-label">카카오톡 문의</span>
+            <span style="font-size:11px; color:var(--muted); font-weight:600;">(공식 1:1 상담)</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </a>
+
+        <!-- 3) 건의 · 오류 제보 (매니저님 지침: 1초 간편 뱃지 삭제) -->
+        <div class="menu-item" onclick="openInqSheet()">
+          <div class="menu-left">
+            <span class="menu-icon">🛠️</span>
+            <span class="menu-label">건의 · 오류 제보</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+
+        <!-- 4) 제휴 · 입점 문의 (매니저님 지침: 셀럽자 빼고 글자수 통일) -->
+        <div class="menu-item" onclick="openPartnerModal()">
+          <div class="menu-left">
+            <span class="menu-icon">📩</span>
+            <span class="menu-label">제휴 · 입점 문의</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </div>
+
+        <!-- 5) 앱 문의 메일 (app@momcalendar.com 연동) -->
+        <a href="mailto:app@momcalendar.com?subject=[맘캘린더%20앱%20문의]" class="menu-item" style="text-decoration:none;">
+          <div class="menu-left">
+            <span class="menu-icon">✉️</span>
+            <span class="menu-label">앱 문의 메일</span>
+            <span style="font-size:11.5px; color:var(--main); font-weight:700;">app@momcalendar.com</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </a>
+      </div>
+
+      <!-- 푸터 안내 -->
+      <div style="text-align:center; padding: 10px 0 20px; font-size:11px; color:#A9AFB8; line-height:1.7;">
+        운영 · 원츠비 | 문의 app@momcalendar.com<br>
+        <span onclick="showToast('이용약관 준비 중입니다')" style="cursor:pointer; text-decoration:underline;">이용약관</span> · 
+        <span onclick="showToast('개인정보처리방침 준비 중입니다')" style="cursor:pointer; text-decoration:underline;">개인정보처리방침</span>
+      </div>
+
+    </div>
+
+
+  <!-- ============================================== -->
+  <!-- 📱 [당근마켓·폴센트 스타일 실작동 상세 속화면 바텀시트 3종] -->
+  <!-- ============================================== -->
+
+  <!-- 1. 🔔 당근+폴센트식 키워드 알림 관리 시트 -->
+  <div id="sheetKeyword" class="sheet-modal" style="display:none;">
+    <div class="sheet-backdrop" onclick="closeSheet('sheetKeyword')"></div>
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:16.5px; font-weight:800; color:#191F28;">
+          🔔 특가 키워드 알림 <span style="font-size:13px; color:var(--main); font-weight:700;" id="sheetKwCountText">(4/10)</span>
+        </div>
+        <button onclick="closeSheet('sheetKeyword')" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:12px; color:#6B7684; line-height:1.6; margin-bottom:14px;">
+        원하는 상품 키워드를 등록해 두시면, 최저가 핫딜이나 공구가 오픈될 때 푸시로 가장 먼저 낚아채드려요!
+      </div>
+
+      <!-- 당근식 키워드 추가 인풋바 -->
+      <div style="display:flex; gap:6px; margin-bottom:14px;">
+        <input id="inputKw" type="text" placeholder="알림 받을 키워드 (예: 기저귀, 닌자, 다이슨)" maxlength="20"
+          style="flex:1; border:1.5px solid #E5E8EB; border-radius:10px; padding:11px 12px; font-size:13px; font-family:inherit; outline:none;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addKwChip();}">
+        <button onclick="addKwChip()" style="background:var(--main); color:#fff; border:none; border-radius:10px; padding:0 16px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;">
+          등록
+        </button>
+      </div>
+
+      <!-- 현재 등록된 키워드 칩 영역 -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11.5px; font-weight:700; color:#8B95A1; margin-bottom:8px;">등록된 키워드</div>
+        <div id="kwChipBox" style="display:flex; flex-wrap:wrap; gap:6px;">
+          <!-- JS로 동적 렌더링 -->
+        </div>
+      </div>
+
+      <!-- 추천 키워드 태그 -->
+      <div style="margin-bottom:18px; background:#F8F9FA; padding:12px; border-radius:10px;">
+        <div style="font-size:11px; font-weight:700; color:#8B95A1; margin-bottom:6px;">엄마들이 많이 등록한 추천 키워드</div>
+        <div style="display:flex; flex-wrap:wrap; gap:5px;">
+          <span onclick="quickAddKw('닌자')" style="background:#fff; border:1px solid #E5E8EB; border-radius:12px; padding:4px 9px; font-size:11px; color:#4E5968; cursor:pointer;">+ 닌자</span>
+          <span onclick="quickAddKw('아넬라')" style="background:#fff; border:1px solid #E5E8EB; border-radius:12px; padding:4px 9px; font-size:11px; color:#4E5968; cursor:pointer;">+ 아넬라</span>
+          <span onclick="quickAddKw('물티슈')" style="background:#fff; border:1px solid #E5E8EB; border-radius:12px; padding:4px 9px; font-size:11px; color:#4E5968; cursor:pointer;">+ 물티슈</span>
+          <span onclick="quickAddKw('유모차')" style="background:#fff; border:1px solid #E5E8EB; border-radius:12px; padding:4px 9px; font-size:11px; color:#4E5968; cursor:pointer;">+ 유모차</span>
+          <span onclick="quickAddKw('삼겹살')" style="background:#fff; border:1px solid #E5E8EB; border-radius:12px; padding:4px 9px; font-size:11px; color:#4E5968; cursor:pointer;">+ 삼겹살</span>
+        </div>
+      </div>
+
+      <!-- 폴센트 2번 캡처 알림 설정 옵션 100% 반영 -->
+      <div style="border-top:1px solid #F2F4F6; padding-top:12px; display:flex; flex-direction:column; gap:12px;">
+        
+        <!-- 1) 역대급최저가 무조건 알림 배너 -->
+        <div style="background:#FFF5F5; border:1px solid #FFE3E3; border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:6px;">
+          <span style="font-size:14px;">🔥</span>
+          <span style="font-size:11.5px; font-weight:800; color:#E03838;">역대급 최저가일 때는 무조건 즉시 알려드려요!</span>
+        </div>
+
+        <!-- 2) 야간 알림 차단 토글 -->
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:12.5px; font-weight:700; color:#333D4B;">🌙 야간 알림 차단</div>
+            <div style="font-size:11px; color:#8B95A1;">밤 10시 ~ 아침 8시 사이엔 소리·진동을 꺼요</div>
+          </div>
+          <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
+        </div>
+
+        <!-- 3) 야간 알림 아침 요약 토글 (폴센트 킬러 기능) -->
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:12.5px; font-weight:700; color:#333D4B;">🔔 야간 알림 아침 요약</div>
+            <div style="font-size:11px; color:#8B95A1;">밤사이 놓친 핫딜을 아침 8시 30분에 한 번에 모아드려요</div>
+          </div>
+          <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
+        </div>
+
+        <!-- 4) 쿠팡 와우 멤버 & 카드사 추가 할인 자동 매칭 -->
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:12.5px; font-weight:700; color:#333D4B;">💳 와우 & 보유 카드 할인 자동 계산</div>
+            <div style="font-size:11px; color:#8B95A1;">내가 보유한 카드사 최대 혜택가로 맞춰서 알림</div>
+          </div>
+          <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. 💜 당근마켓식 관심 찜한 공구 목록 시트 -->
+  <div id="sheetWish" class="sheet-modal" style="display:none;">
+    <div class="sheet-backdrop" onclick="closeSheet('sheetWish')"></div>
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:16.5px; font-weight:800; color:#191F28;">
+          💜 나의 찜한 일정 <span style="font-size:13px; color:var(--main); font-weight:700;" id="sheetWishCountText">(3개)</span>
+        </div>
+        <button onclick="closeSheet('sheetWish')" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- 찜 탭 (전체 / 진행중 / 마감) -->
+      <div style="display:flex; gap:6px; margin-bottom:12px;">
+        <button onclick="filterWishTab('all', this)" class="wish-tab-btn active" style="flex:1; padding:7px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:#F3EFFC; color:var(--main); border:none;">전체 (3)</button>
+        <button onclick="filterWishTab('ing', this)" class="wish-tab-btn" style="flex:1; padding:7px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; background:#fff; color:#8B95A1; border:1px solid #E5E8EB;">진행중 (2)</button>
+        <button onclick="filterWishTab('end', this)" class="wish-tab-btn" style="flex:1; padding:7px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; background:#fff; color:#8B95A1; border:1px solid #E5E8EB;">마감 (1)</button>
+      </div>
+
+      <!-- 찜한 공구 카드 목록 -->
+      <div id="wishListBox" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow-y:auto;">
+        
+        <!-- 카드 1 -->
+        <div class="wish-card-item ing" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#F8F9FA; border-radius:10px; border:1px solid #ECEEF0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:42px; height:42px; border-radius:8px; background:#FFE2E5; display:flex; align-items:center; justify-content:center; font-size:18px;">🦈</div>
+            <div>
+              <div style="font-size:11px; color:#8B95A1; font-weight:600;">식품 · 간식</div>
+              <div style="font-size:13px; font-weight:800; color:#191F28;">얼려먹는 아기상어 젤리</div>
+              <div style="font-size:11px; color:var(--main); font-weight:700;">10/30 ~ 11/5 · 진행중</div>
+            </div>
+          </div>
+          <button onclick="delWishCard(this)" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer; padding:5px;">✕</button>
+        </div>
+
+        <!-- 카드 2 -->
+        <div class="wish-card-item ing" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#F8F9FA; border-radius:10px; border:1px solid #ECEEF0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:42px; height:42px; border-radius:8px; background:#E8F3FF; display:flex; align-items:center; justify-content:center; font-size:18px;">🍼</div>
+            <div>
+              <div style="font-size:11px; color:#8B95A1; font-weight:600;">육아 · 육아용품</div>
+              <div style="font-size:13px; font-weight:800; color:#191F28;">JVR 모노아이 트라이탄 물병</div>
+              <div style="font-size:11px; color:var(--main); font-weight:700;">11/2 ~ 11/5 · 진행중</div>
+            </div>
+          </div>
+          <button onclick="delWishCard(this)" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer; padding:5px;">✕</button>
+        </div>
+
+        <!-- 카드 3 (마감) -->
+        <div class="wish-card-item end" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#F8F9FA; border-radius:10px; border:1px solid #ECEEF0; opacity:0.6;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:42px; height:42px; border-radius:8px; background:#EFEFEF; display:flex; align-items:center; justify-content:center; font-size:18px;">👢</div>
+            <div>
+              <div style="font-size:11px; color:#8B95A1; font-weight:600;">패션 · 신발</div>
+              <div style="font-size:13px; font-weight:800; color:#191F28;">정품 호주UGG 어그</div>
+              <div style="font-size:11px; color:#8B95A1; font-weight:700;">10/25 ~ 11/1 · 마감됨</div>
+            </div>
+          </div>
+          <button onclick="delWishCard(this)" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer; padding:5px;">✕</button>
+        </div>
+
+      </div>
+
+      <div style="margin-top:14px; text-align:center;">
+        <button onclick="showToast('공구 탭으로 이동합니다'); closeSheet('sheetWish');" style="width:100%; padding:12px; background:#F2F4F6; border:none; border-radius:10px; font-size:13px; font-weight:800; color:#4E5968; cursor:pointer;">
+          + 더 많은 공구 구경하러 가기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 📅 내 공구 캘린더 상세 시트 (상단 저장·내보내기 버튼 완비) -->
+  <div id="sheetCalendar" class="sheet-modal" style="display:none;">
+    <div class="sheet-backdrop" onclick="closeSheet('sheetCalendar')"></div>
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div style="font-size:16.5px; font-weight:800; color:#191F28;">
+          📅 내 공구 캘린더 (2026.11)
+        </div>
+        <button onclick="closeSheet('sheetCalendar')" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- 상단 액션 바 (매니저님 지침: 화면 안에 저장/내보내기 배치) -->
+      <div style="display:flex; gap:6px; margin-bottom:14px;">
+        <button onclick="showToast('📸 캘린더 이미지를 사진첩에 저장했습니다!')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; background:#F3EFFC; color:var(--main); border:none; border-radius:8px; padding:9px 6px; font-size:12px; font-weight:800; cursor:pointer;">
+          📸 캘린더 사진 저장
+        </button>
+        <button onclick="showToast('📤 구글/애플 캘린더로 일정이 내보내졌습니다!')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; background:#F2F4F6; color:#4E5968; border:none; border-radius:8px; padding:9px 6px; font-size:12px; font-weight:800; cursor:pointer;">
+          📤 폰 캘린더 연동
+        </button>
+      </div>
+
+      <!-- 달력 그래픽 뷰 목업 -->
+      <div style="background:#fff; border:1px solid #ECEEF0; border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:11px; font-weight:700; color:#8B95A1; margin-bottom:8px;">
+          <span style="color:#FF3B30;">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; text-align:center; font-size:12px; font-weight:700;">
+          <span style="color:#C4C9D0;">25</span><span style="color:#C4C9D0;">26</span><span style="color:#C4C9D0;">27</span><span style="color:#C4C9D0;">28</span><span style="color:#C4C9D0;">29</span><span style="color:#C4C9D0;">30</span><span style="background:#F3EFFC; color:var(--main); border-radius:6px; padding:4px 0;">31 💜</span>
+          <span style="color:#FF3B30;">1</span><span>2</span><span style="background:var(--main); color:#fff; border-radius:6px; padding:4px 0;">3 오늘</span><span>4</span><span>5</span><span>6</span><span>7</span>
+          <span style="color:#FF3B30;">8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span>
+        </div>
+      </div>
+
+      <!-- 선택된 오늘 일정 요약 -->
+      <div style="font-size:12px; font-weight:700; color:#8B95A1; margin-bottom:6px;">오늘(11/3) 나의 관심 공구 일정</div>
+      <div style="background:#F8F9FA; border-radius:10px; padding:10px 12px; border:1px solid #ECEEF0;">
+        <div style="font-size:12.5px; font-weight:800; color:#191F28;">🍼 JVR 모노아이 트라이탄 물병</div>
+        <div style="font-size:11px; color:var(--main); margin-top:2px; font-weight:700;">11/2 ~ 11/5 오픈 중 · 맘캘린더 방장 보증</div>
+      </div>
+    </div>
+  </div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => { t.style.display = 'none'; }, 2000);
-}
-
-
 let currentKeywords = ['기저귀', '분유', '다이슨', '비판텐'];
 let currentWishCount = 3;
 
@@ -738,7 +1099,6 @@ function shareAppKakao() {
   showToast('카카오톡으로 맘캘린더 공유 링크를 보냅니다 🎁');
 }
 
-// 탭 스위치 수정 (A, B, C)
 function switchPlan(p) {
   document.getElementById('btnPlanA').classList.toggle('active', p === 'A');
   document.getElementById('btnPlanB').classList.toggle('active', p === 'B');
@@ -749,12 +1109,20 @@ function switchPlan(p) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 초기화
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => {
+    t.style.display = 'none';
+  }, 2200);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   renderKwChips();
 });
-);
-}
 </script>
 
 </body>
