@@ -115,3 +115,13 @@ ${alertLine}
 </body></html>`, 'utf8');
 
 console.log(`오늘 카드 완성: daily/today${SUF}.png (${(buf.length / 1024).toFixed(0)}KB) · 보관본 daily/${day}_today${SUF}.png`);
+
+
+// 💜 매니저님 지시 (2026-11-03): 블로그·카페 일간 원고 자동 생성 (공구 150건 + 핫딜 100건 + 앱 설치 링크)
+try {
+  const { execSync } = require('child_process');
+  execSync('python3 tools/daily/make_blog_post.py', { stdio: 'inherit' });
+  console.log('블로그·카페 일간 원고 자동 생성 완료: daily/blog_today.txt, daily/cafe_today.txt');
+} catch (e) {
+  console.warn('블로그·카페 일간 원고 생성 스킵/오류:', e.message);
+}
