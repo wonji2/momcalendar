@@ -8,6 +8,13 @@
 
 import os
 import sys
+
+# Windows cp1252/cp949 콘솔 이모지 인코딩 충돌 방지
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 import time
 import json
 import re
