@@ -223,6 +223,30 @@ def send_to_kakao_windows(room_title, message):
         print(f"[ERROR] 카카오 전송 에러: {e}")
         return False
 
+def should_post_deal(deal):
+    """
+    야간 에티켓 및 핫딜 필터링 (심야 스마트 선별 전송 헌법)
+    - 주간 (08:00 ~ 23:00): 모든 핫딜 정상 전송
+    - 심야 (23:00 ~ 08:00): 객단가 10만원 이상 대형 가전/가구 또는 핵심 특가만 선별 전송
+    """
+    now_hour = datetime.now(KST).hour
+    price = deal.get("price") or 0
+    title = deal.get("title", "")
+
+    # 주간 (08시 ~ 23시): 전수 발송
+    if 8 <= now_hour < 23:
+        return True
+
+    # 심야 (23시 ~ 08시): 10만원 이상 고가 상품 또는 대형 가전/가구만 발송
+    if price >= 100000:
+        return True
+
+    if re.search(r'청소기|다이슨|에어프라이어|세탁기|건조기|냉장고|TV|모니터|식세기', title, re.I):
+        return True
+
+    print(f"[*] 심야 에티켓(23~08시) 일반 생필품 침묵 통과: [{price:,}원] {title[:30]}")
+    return False
+
 def main_loop():
     print("=" * 60)
     print("🚀 맘캘린더 PC 카카오톡 핫딜 무인 자동 발송기 가동")
@@ -245,6 +269,10 @@ def main_loop():
             for deal in reversed(deals):
                 deal_id = deal.get("id")
                 if deal_id not in posted_ids:
+                    if not should_post_deal(deal):
+                        posted_ids.add(deal_id)
+                        save_posted_history(posted_ids)
+                        continue
                     msg = format_kakao_message(deal)
                     sent = send_to_kakao_windows(TARGET_ROOM_NAME, msg)
                     if sent:
