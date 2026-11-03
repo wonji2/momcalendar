@@ -1224,6 +1224,17 @@ body[data-ct="community"] #subZone {
   letter-spacing: -0.2px !important;
 }
 
+
+body[data-ct="mypage"] .main-banner-section,
+body[data-ct="mypage"] #nextZone,
+body[data-ct="mypage"] #sellerZone,
+body[data-ct="mypage"] #subZone,
+body[data-ct="mypage"] #slimAdSlot,
+body[data-ct="mypage"] #contentSeg,
+body[data-ct="mypage"] .cseg-wrap {
+  display: none !important;
+}
+
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -3643,7 +3654,7 @@ function scrollToResults(){
 // ───── 콘텐츠 탭 (공구/핫딜/체험단) ─────
 let _hotdealData=null, _expData=null;
 // 2026-11-01 디자인 시스템: 탭마다 초록·파랑·주황으로 바뀌던 바탕을 없애고 전부 같은 색(연회색 + 보라 활성) — 옛 값은 git 에
-const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:['#F2F4F6','#7C54C4'],sale:['#F2F4F6','#7C54C4'],community:['#F2F4F6','#7C54C4']};   // 탭 색은 전부 같은 라일락(사장님 2026-11-01 「통일감」)
+const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:['#F2F4F6','#7C54C4'],sale:['#F2F4F6','#7C54C4'],community:['#F2F4F6','#7C54C4'],mypage:['#F2F4F6','#7C54C4']};   // 탭 색은 전부 같은 라일락(사장님 2026-11-01 「통일감」)
 
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
@@ -3683,7 +3694,8 @@ function switchContent(ct){
   document.getElementById('hotdealView').style.display = ct==='hotdeal'?'block':'none';
   document.getElementById('expView').style.display = ct==='exp'?'block':'none';
   { const sv=document.getElementById('saleView'); if(sv) sv.style.display = ct==='sale'?'block':'none'; }
-  { const cv=document.getElementById('commView'); if(cv) cv.style.display = ct==='community'?'block':'none'; if(ct==='community'){ try{ loadCommunity(); }catch(e){ console.error(e); } } }   // 💬 커뮤니티(카페 글)
+  { const cv=document.getElementById('commView'); if(cv) cv.style.display = ct==='community'?'block':'none'; if(ct==='community'){ try{ loadCommunity(); }catch(e){ console.error(e); } } }
+  { const mv=document.getElementById('mypageWrap'); if(mv) mv.style.display = ct==='mypage'?'block':'none'; }   // 💬 커뮤니티(카페 글)
   if(ct==='sale') loadSale();
   if(ct==='hotdeal') loadHotdeals();
   if(ct==='exp') loadExperiences();
