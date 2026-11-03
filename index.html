@@ -1158,6 +1158,54 @@ body[data-ct="community"] #subZone {
   line-height: 15px !important;
 }
 
+
+/* 🔍 [과제 2 & 3 & 4] 검색 스켈레톤 로딩 & 카테고리 서브탭 & 2열 초밀착 그리드 & 0건 폰알림 */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-box {
+  background: linear-gradient(90deg, #f0f2f5 25%, #e6e8eb 50%, #f0f2f5 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+.skeleton-card {
+  display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f2f3f7;
+}
+.skeleton-thumb { width: 72px; height: 72px; border-radius: 10px; flex-shrink: 0; }
+.skeleton-content { flex: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+
+.sa-cat-tabs {
+  display: flex; gap: 6px; padding: 10px 10px 14px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.sa-cat-tabs::-webkit-scrollbar { display: none; }
+.sa-cat-tab {
+  flex-shrink: 0; padding: 7px 14px; font-size: 13px; font-weight: 700; border-radius: 999px;
+  background: #f2f3f7; color: #555; border: none; cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.sa-cat-tab.on {
+  background: #191F28 !important; color: #fff !important;
+}
+
+.sa-zero-box {
+  padding: 40px 16px 24px; text-align: center;
+}
+.sa-zero-title {
+  font-size: 16.5px; font-weight: 800; color: #191F28; margin-bottom: 8px; line-height: 1.4;
+}
+.sa-zero-desc {
+  font-size: 13px; color: #738096; line-height: 1.5; margin-bottom: 20px;
+}
+.sa-zero-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; max-width: 340px; padding: 14px 20px;
+  background: #7C54C4; color: #fff; font-size: 15px; font-weight: 800;
+  border-radius: 14px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(124, 84, 196, 0.35);
+  font-family: inherit; transition: transform .1s;
+}
+.sa-zero-btn:active { transform: scale(0.98); }
+
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -3093,36 +3141,84 @@ async function renderSearchAll(){
   };
 
   // 핫딜 0건이어도 절을 지우지 않고 「최근 7일 내 등록된 핫딜 0건」 을 보여 준다 — 손님이 공구만 나오는 이유를 알게(제보 #18, 사장님 2026-11-01). 전체 0건이면 기존 안내 그대로
-  const anyHit=ggS.length+hdU.length+ex.length+cm.length>0;
-  const html =
-    sec('gonggu','🛒','공구',ggS,it=>renderCard(it)) +
-    sec('hotdeal','🔥','핫딜',hdU,h=>hdCardHtml(h,{stale:true}),anyHit?`최근 ${HD_SEARCH_DAYS}일 내 등록된 핫딜 0건`:'') +
-    sec('exp','🎁','체험단',ex,e=>expCardHtml(e)) +
-    (cm.length?`<div style="font-size:13px;font-weight:800;color:#3B3546;margin:4px 2px 9px;display:flex;align-items:center;gap:6px"><span>💬 커뮤니티</span><span style="font-size:11.5px;font-weight:700;color:#9A93A6">${cm.length}건</span></div>`
-      +cm.slice(0,5).map(_commCardHtml).join('')
-      +(cm.length>5?`<button class="comm-more" onclick="exitSearchMode();switchContent('community')">💬 커뮤니티 탭에서 전체보기 (${cm.length}건) ›</button>`:'')
-      +'<div style="height:16px"></div>':'');
-
-  // 상단: 총 건수 + 정렬 (목업 ③번 화면)
+  // 상단: 총 건수 + 정렬
   const total=ggS.length+hdU.length+ex.length+cm.length;
-  const meta = total?`<div class="sa-meta"><div><b>${total}건</b> 결과</div>
+  
+  // 🔍 [과제 3] 카테고리 서브탭: [전체 N] [공구 N] [핫딜 N] [커뮤니티 N]
+  const catTabsHtml = total ? `
+    <div class="sa-cat-tabs">
+      <button type="button" class="sa-cat-tab ${_saCatTab==='all'?'on':''}" onclick="setSaCatTab('all')">전체 ${total}</button>
+      <button type="button" class="sa-cat-tab ${_saCatTab==='gonggu'?'on':''}" onclick="setSaCatTab('gonggu')">공구 ${ggS.length}</button>
+      <button type="button" class="sa-cat-tab ${_saCatTab==='hotdeal'?'on':''}" onclick="setSaCatTab('hotdeal')">핫딜 ${hdU.length}</button>
+      <button type="button" class="sa-cat-tab ${_saCatTab==='comm'?'on':''}" onclick="setSaCatTab('comm')">커뮤니티 ${cm.length}</button>
+    </div>` : '';
+
+  // 섹션별 렌더링
+  const secGonggu = (_saCatTab==='all'||_saCatTab==='gonggu') && ggS.length ? `
+    <div style="font-size:13px;font-weight:800;color:#3B3546;margin:12px 10px 8px;display:flex;align-items:center;gap:6px">
+      <span>🛒 공구</span>
+      <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${ggS.length}건</span>
+    </div>
+    ${ggS.map(it => renderCard(it)).join('')}
+    <div style="height:12px"></div>
+  ` : '';
+
+  // 🔍 [과제 3] 핫딜: 사장님 확정 2열 초밀착 와이드 그리드 적용
+  const secHotdeal = (_saCatTab==='all'||_saCatTab==='hotdeal') && hdU.length ? `
+    <div style="font-size:13px;font-weight:800;color:#3B3546;margin:12px 10px 8px;display:flex;align-items:center;gap:6px">
+      <span>🔥 핫딜</span>
+      <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${hdU.length}건</span>
+    </div>
+    <div class="hotdeal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px 8px;padding:0 10px;">
+      ${hdU.map(h => (typeof hdGridCardHtml === 'function' ? hdGridCardHtml(h) : hdCardHtml(h, {stale:true}))).join('')}
+    </div>
+    <div style="height:12px"></div>
+  ` : '';
+
+  const secExp = (_saCatTab==='all') && ex.length ? sec('exp','🎁','체험단',ex,e=>expCardHtml(e)) : '';
+
+  const secComm = (_saCatTab==='all'||_saCatTab==='comm') && cm.length ? `
+    <div style="font-size:13px;font-weight:800;color:#3B3546;margin:12px 10px 8px;display:flex;align-items:center;gap:6px">
+      <span>💬 커뮤니티</span>
+      <span style="font-size:11.5px;font-weight:700;color:#9A93A6">${cm.length}건</span>
+    </div>
+    ${cm.slice(0, _saCatTab==='comm'?30:5).map(_commCardHtml).join('')}
+    ${_saCatTab!=='comm'&&cm.length>5?`<button class="comm-more" onclick="setSaCatTab('comm')">💬 커뮤니티에서 더보기 (${cm.length}건) ›</button>`:''}
+    <div style="height:12px"></div>
+  ` : '';
+
+  const html = secGonggu + secHotdeal + secExp + secComm;
+
+  const meta = total ? `<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
       <span class="${_saSort==='open'?'on':''}" onclick="setSaSort('open')">오픈일순</span>
       <span class="${_saSort==='pop'?'on':''}" onclick="setSaSort('pop')">인기순</span>
       <span class="${_saSort==='end'?'on':''}" onclick="setSaSort('end')">마감임박순</span>
-    </div></div>`:'';
+    </div></div>` : '';
 
-  // 결과 밑: 메인으로 돌아가기 버튼 + 큰 여백 — 푸터(모아보기·사업자정보)는 한참 내려야 보인다 (사장님 지시 2026-08-31)
-  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7C54C4;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;   // 푸터까지의 큰 여백은 .seolinks margin(전 화면 공통)이 담당
+  const backHome = `<button onclick="exitSearchMode()" style="display:block;margin:26px auto 0;background:#7C54C4;color:#fff;border:none;border-radius:999px;padding:13px 30px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(123,63,181,.3)">🏠 메인으로 돌아가기</button><div style="height:20px"></div>`;
 
-  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (html ? meta+html : `<div class="empty" style="padding:36px 0 10px;text-align:center;color:#aaa">
-      '<b style="color:#7C54C4">${escHtml(fSearch)}</b>' 결과가 없어요<br>
-      <span id="pastHint" style="font-size:12px;color:#bbb">지난 공구를 찾아보는 중…</span>
-      <div class="sa-chips"><span>추천 검색어</span>${['기저귀','물티슈','분유','이유식','장난감'].map(k=>`<button type="button" onclick="runSearch('${k}')">${k}</button>`).join('')}</div>
-    </div><div id="pastWrap"></div>`) + backHome;
+  // 🔍 [과제 4] 0건 대응 UI: 특가 알림 받기 CTA 및 Capacitor 폰알림 연동
+  const zeroHtml = `
+    <div class="sa-zero-box">
+      <div class="sa-zero-title">‘<span style="color:#7C54C4">${escHtml(fSearch)}</span>’에 대한 핫딜·공구가 아직 없어요</div>
+      <div class="sa-zero-desc">키워드를 등록해 두시면 최저가 특가가 뜨는 즉시 맘캘봇이 1초 만에 알림을 보내드려요!</div>
+      <button type="button" class="sa-zero-btn" onclick="registerKeywordAlertFromSearch('${escHtml((fSearch||'').replace(/'/g, "\\'"))}')">
+        🔔 ‘${escHtml(fSearch)}’ 특가 알림 받기
+      </button>
+      <div style="margin-top:28px">
+        <div style="font-size:12px;font-weight:700;color:#8E8899;margin-bottom:10px">이런 키워드는 어때요?</div>
+        <div class="sa-chips" style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px">
+          ${['기저귀','물티슈','분유','비판텐','젤리','유모차'].map(k=>`<button type="button" onclick="runSearch('${k}')" style="padding:6px 12px;font-size:12.5px;border-radius:999px;border:1px solid #E2E4EB;background:#fff;color:#4E5968;cursor:pointer">${k}</button>`).join('')}
+        </div>
+      </div>
+      <div id="pastWrap" style="margin-top:20px"></div>
+    </div>
+  `;
+
+  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (total ? catTabsHtml + meta + html : zeroHtml) + backHome;
   paintHearts();
-  // 결과가 하나도 없으면 지난 공구를 찾아본다 (2026-09-01)
-  if(!html) showPastResults((fSearch||'').trim());
+  if(!total) showPastResults((fSearch||'').trim());
 }
 
 
@@ -6800,6 +6896,9 @@ function pickRecentQ(i){ const q=getRecentQ()[i]; if(q) runSearch(q); }
 function pickTrendQ(i){ const q=(_trendQ||[])[i]; if(q) runSearch(q); }
 // 드롭다운 칩 클릭 → 그 검색어로 즉시 검색 실행 (스펙 2번)
 function runSearch(q, opts){
+  const saEl = document.getElementById('searchAllView');
+  if (saEl) saEl.innerHTML = getSearchSkeletonHtml();
+
   // opts.silent = 카페 댓글 딥링크(?q=)로 들어온 것. 손님이 직접 친 검색이 아니므로
   //   최근검색어·트렌딩(search 이벤트)에 넣지 않는다 (검증자 지적 2026-09-09)
   const _silent = !!(opts && opts.silent);
@@ -9814,6 +9913,99 @@ window.finishMcob = function(wantNotif){
 
   closeMcOnboard();
 };
+
+// ── 🔍 [과제 2 & 3 & 4] 검색 UX 전면 개편 상태 및 함수 ──
+let _saCatTab = 'all';
+
+function getSearchSkeletonHtml() {
+  return `<div class="sa-skeleton-wrap" style="padding:10px 0">
+    <div style="padding:10px 14px 6px;display:flex;gap:6px">
+      <div class="skeleton-box" style="width:60px;height:30px;border-radius:999px"></div>
+      <div class="skeleton-box" style="width:60px;height:30px;border-radius:999px"></div>
+      <div class="skeleton-box" style="width:60px;height:30px;border-radius:999px"></div>
+      <div class="skeleton-box" style="width:60px;height:30px;border-radius:999px"></div>
+    </div>
+    ${[1,2,3,4].map(() => `
+      <div class="skeleton-card">
+        <div class="skeleton-box skeleton-thumb"></div>
+        <div class="skeleton-content">
+          <div class="skeleton-box" style="width:40%;height:14px"></div>
+          <div class="skeleton-box" style="width:85%;height:16px"></div>
+          <div class="skeleton-box" style="width:60%;height:14px"></div>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function setSaCatTab(tab) {
+  _saCatTab = tab;
+  renderSearchAll();
+}
+
+async function registerKeywordAlertFromSearch(kw) {
+  if (!kw || !kw.trim()) return;
+  const keyword = kw.trim();
+
+  // 1. 앱(Capacitor 네이티브)인 경우: OS 레벨 폰 푸시 권한 요청 및 등록
+  const isApp = (typeof _isNativeApp === 'function' && _isNativeApp());
+  if (isApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications) {
+    try {
+      const perm = await window.Capacitor.Plugins.PushNotifications.requestPermissions();
+      if (perm.receive === 'granted') {
+        await window.Capacitor.Plugins.PushNotifications.register();
+      }
+    } catch (e) {
+      console.warn('Native push registration error:', e);
+    }
+  } else if ('Notification' in window && Notification.permission === 'default') {
+    // 2. 웹 브라우저인 경우: 브라우저 알림 권한 요청
+    try {
+      await Notification.requestPermission();
+    } catch (e) {}
+  }
+
+  // 3. 당근마켓식 키워드 알림 데이터 저장 ('mc_kw_alarms')
+  let list = [];
+  try {
+    list = JSON.parse(localStorage.getItem('mc_kw_alarms') || '[]');
+  } catch(e) { list = []; }
+
+  const existIdx = list.findIndex(item => item.kw === keyword);
+  if (existIdx >= 0) {
+    list[existIdx].on = true;
+    list[existIdx].types = ['all'];
+  } else {
+    list.unshift({
+      kw: keyword,
+      types: ['all'],
+      on: true,
+      created_at: Date.now()
+    });
+  }
+  localStorage.setItem('mc_kw_alarms', JSON.stringify(list));
+
+  // 4. 상단 헤더 종 아이콘 알림 뱃지 활성화 & 안내 히스토리 등록
+  if (typeof saveNotiHistory === 'function') {
+    saveNotiHistory({
+      type: 'system',
+      kw: keyword,
+      title: `[키워드 등록] '${keyword}' 특가 알림이 설정되었습니다.`,
+      time: Date.now()
+    });
+  }
+  if (typeof showNotiBadge === 'function') {
+    showNotiBadge();
+  }
+
+  // 5. 손님 안내 완료 토스트 팝업 (1초 피드백)
+  if (typeof mcToast === 'function') {
+    mcToast(`🔔 '${keyword}' 특가 알림이 등록되었어요! 최저가가 뜨면 바로 알려드릴게요.`);
+  } else {
+    alert(`🔔 '${keyword}' 특가 알림이 등록되었어요!`);
+  }
+}
+
 </script>
 
 <!-- 💜 폴센트식 대화형 온보딩 모달 -->
