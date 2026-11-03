@@ -2230,6 +2230,8 @@ window.slimAdClick=function(id){
         <span style="font-size:11px;font-weight:600;color:#333D4B;">육아수다방</span>
       </a>
     </div>
+    <!-- 커뮤니티 본문 목록 영역 (상단 스토리 퀵바 보존 분리) -->
+    <div id="commListWrap"></div>
 </div>
 
 <!-- [👤 마이] 탭 신설 (ORDER_INDEX_MYPAGE_COMMUNITY_MASTER.md) -->
@@ -8374,7 +8376,9 @@ async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
   try{ _goRulesLoad(); }catch(_){}
   if(_commData && !force){ renderCommunity(); return; }
-  v.innerHTML=skelHtml(4);
+  let list=document.getElementById('commListWrap');
+  if(!list){ list=document.createElement('div'); list.id='commListWrap'; v.appendChild(list); }
+  list.innerHTML=skelHtml(4);
   try{
     const since=new Date(Date.now()-30*86400000).toISOString();
     const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
@@ -8456,6 +8460,8 @@ function _commCardHtml(p){
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
+  let list=document.getElementById('commListWrap');
+  if(!list){ list=document.createElement('div'); list.id='commListWrap'; v.appendChild(list); }
   const all=_commData||[];
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
   const cnt={}; all.forEach(p=>{ const k=COMM_LOCAL[p.board_id]?COMM_LOCAL_ID:p.board_id; cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
@@ -8477,8 +8483,8 @@ function renderCommunity(){
   }).join('');
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>글쓰기</a>`;
-  v.innerHTML=h;
-  const on=v.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
+  list.innerHTML=h;
+  const on=list.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
 }
 </script>
 <style id="mc-cpost">
