@@ -82,6 +82,9 @@ def main():
         call('DELETE', '/profiles/' + a[0]); print('profile 삭제', a[0])
     elif cmd == 'delete-cert':
         call('DELETE', '/certificates/' + a[0]); print('cert 삭제', a[0])
+    elif cmd == 'build-state':  # a: appId, buildNumber — 업로드한 빌드의 애플 처리 상태(PROCESSING/VALID/FAILED/INVALID), 없으면 NONE (2026-11-03)
+        d = call('GET', '/builds?filter[app]=%s&filter[version]=%s&limit=5' % (a[0], a[1]))['data']
+        print(d[0]['attributes'].get('processingState', 'NONE') if d else 'NONE')
     elif cmd == 'list':
         for c in call('GET', '/certificates')['data']:
             print('cert', c['id'], c['attributes']['certificateType'], c['attributes']['name'])

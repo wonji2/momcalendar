@@ -109,6 +109,18 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk ip
   CURRENT_PROJECT_VERSION="$BUILD" OTHER_CODE_SIGN_FLAGS="--keychain $KC" | tail -40
 [ -d "$WORK/App.xcarchive" ] || { echo "🔴 아카이브 없음"; exit 1; }
 
+echo "── 5-1. 업로드 전 서명 점검 — 앱·확장 둘 다 배포 인증서로 서명됐는지(2026-11-03 build 61 ITMS-90035 뒤)"
+APPDIR="$WORK/App.xcarchive/Products/Applications/App.app"
+for T in "$APPDIR" "$APPDIR"/PlugIns/*.appex; do
+  [ -e "$T" ] || continue
+  echo "   · $(basename "$T")"
+  codesign --verify --deep --strict --verbose=2 "$T" 2>&1 | tail -3
+  [ "${PIPESTATUS[0]}" = 0 ] || { echo "🔴 서명 검증 실패: $T"; exit 1; }
+  INFO=$(codesign -dvvv "$T" 2>&1)
+  echo "$INFO" | grep -E "^(Authority|TeamIdentifier|Identifier)=" | head -5
+  echo "$INFO" | grep -q "Authority=Apple Distribution" || { echo "🔴 배포 인증서 서명이 아니다: $T"; exit 1; }
+done
+
 echo "── 6. App Store Connect 업로드"
 cat > "$WORK/ExportOptions.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
@@ -127,4 +139,14 @@ PL
 xcodebuild -exportArchive -archivePath "$WORK/App.xcarchive" -exportOptionsPlist "$WORK/ExportOptions.plist" \
   -exportPath "$WORK/export" -authenticationKeyPath "$APPLE_API_KEY_PATH" \
   -authenticationKeyID "$APPLE_API_KEY_ID" -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -40
+# 인증서를 바로 지우면 애플이 처리하는 중에 폐기된 인증서로 보일 수 있다(의심) — 처리 상태가 나올 때까지 지우지 않고 기다린다
+echo "── 7. 애플 처리 결과 대기(최대 20분) — 이 동안 인증서는 지우지 않는다"
+APP_ID="${ASC_APP_ID:-6826126083}"; STATE=NONE
+for i in $(seq 1 40); do
+  sleep 30
+  STATE=$(python3 "$ASC" build-state "$APP_ID" "$BUILD" 2>/dev/null || echo NONE)
+  echo "   [$i] 처리 상태: $STATE"
+  case "$STATE" in VALID|FAILED|INVALID) break;; esac
+done
+if [ "$STATE" != "VALID" ]; then echo "🔴 빌드 $BUILD 처리 결과가 VALID 가 아니다: $STATE — 애플 메일·App Store Connect 확인"; exit 1; fi
 echo "✅ 업로드 요청 끝 — TestFlight 처리 5~15분 뒤 App Store Connect 빌드 목록에 뜬다 (빌드 번호 $BUILD)"
