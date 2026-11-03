@@ -10,7 +10,7 @@ on:
         required: true
         default: show
         type: choice
-        options: [show, apply]
+        options: [show, apply, submit]
 jobs:
   store:
     runs-on: ubuntu-latest
@@ -30,5 +30,5 @@ jobs:
           KEY=$RUNNER_TEMP/AuthKey.p8
           printf '%s\n' "$APPLE_API_KEY_P8" | tr -d '\r' | awk '/-----BEGIN PRIVATE KEY-----/{f=1} f{print} /-----END PRIVATE KEY-----/{f=0}' > "$KEY"; chmod 600 "$KEY"
           export APPLE_API_KEY_PATH="$KEY"
-          if [ "${{ inputs.mode }}" = "apply" ]; then python3 ios-app/ci/store_edit.py apply ios-app/store/plan.json; else python3 ios-app/ci/store_edit.py show; fi
+          if [ "${{ inputs.mode }}" = "apply" ]; then python3 ios-app/ci/store_edit.py apply ios-app/store/plan.json; elif [ "${{ inputs.mode }}" = "submit" ]; then python3 ios-app/ci/store_edit.py submit; else python3 ios-app/ci/store_edit.py show; fi
           rm -f "$KEY"

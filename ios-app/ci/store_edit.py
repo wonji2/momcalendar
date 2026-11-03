@@ -111,10 +111,35 @@ def apply(plan):
     print('✅ 끝 — 심사 제출은 하지 않았다')
 
 
+def submit():
+    """준비 중인 버전을 심사에 제출한다(사장님 2026-11-03 「애플은 제출해」). 빌드가 안 붙어 있으면 멈춘다."""
+    aid = app_id()
+    vs = [v for v in versions(aid) if v['attributes']['appStoreState'] == 'PREPARE_FOR_SUBMISSION']
+    if not vs:
+        print('🔴 제출할 준비 중 버전이 없다'); sys.exit(1)
+    vid = vs[0]['id']; print('제출 대상', vs[0]['attributes']['versionString'], vid)
+    b = asc.call('GET', '/appStoreVersions/%s/build' % vid).get('data')
+    if not b:
+        print('🔴 이 버전에 빌드가 안 붙어 있다'); sys.exit(1)
+    print('빌드', b['attributes'].get('version'), b['attributes'].get('processingState'))
+    subs = asc.call('GET', '/apps/%s/reviewSubmissions?filter[state]=READY_FOR_REVIEW&filter[platform]=IOS' % aid)['data']
+    if subs:
+        rs = subs[0]['id']; print('열려 있던 제출 서류 사용', rs)
+    else:
+        rs = asc.call('POST', '/reviewSubmissions', {'data': {'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
+             'relationships': {'app': {'data': {'type': 'apps', 'id': aid}}}}})['data']['id']
+    asc.call('POST', '/reviewSubmissionItems', {'data': {'type': 'reviewSubmissionItems',
+         'relationships': {'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': rs}}, 'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
+    r = asc.call('PATCH', '/reviewSubmissions/' + rs, {'data': {'type': 'reviewSubmissions', 'id': rs, 'attributes': {'submitted': True}}})
+    print('✅ 심사 제출됨', r['data']['attributes'].get('state'))
+
+
 if __name__ == '__main__':
     if sys.argv[1] == 'show':
         show()
     elif sys.argv[1] == 'apply':
         apply(sys.argv[2])
+    elif sys.argv[1] == 'submit':
+        submit()
     else:
         print(__doc__)
