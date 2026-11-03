@@ -87,6 +87,21 @@ try {
   console.error("🚨 [RESTORE KLOOK ERROR]", e);
 }
 
+// 🚨 긴급 조치: 세타필(1830)·아넬라(1825) 정품 이미지 UPDATE 및 클룩 [세시간전x클룩] 접두사 영구 삭제
+try {
+  const sql = `
+    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3108640518/still/600' WHERE id = 1830;
+    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A3437/P408089380/2_P408089380_basic_1782716837154.jpg' WHERE id = 1825;
+    UPDATE public.hotdeals SET title = regexp_replace(title, '^\[세시간전[xX]?클룩\]\s*', '') WHERE title ILIKE '%세시간전%클룩%';
+  `;
+  fs.writeFileSync("/tmp/clean_prefix_and_restore.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/clean_prefix_and_restore.sql"], { stdio: "inherit" });
+  console.log("🚨 [CLEAN] 세타필·아넬라 이미지 복구 및 클룩 접두사 제거 SQL 완결!");
+} catch (e) {
+  console.error("🚨 [CLEAN ERROR]", e);
+}
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
