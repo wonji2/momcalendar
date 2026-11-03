@@ -20,6 +20,41 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 
+// 🚨 긴급 복구: 누락된 23건 정품 썸네일 일괄 UPDATE
+try {
+  const sql = `
+    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9718376800/B.jpg' WHERE id = 1768;
+    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/492842757/B.jpg' WHERE id = 1777;
+    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9712622434/B.jpg' WHERE id = 1735;
+    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9232893709/B.jpg' WHERE id = 1761;
+    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/7826121612/B.jpg' WHERE id = 1753;
+    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A3437/P408089380/2_P408089380_basic_1782716837154.jpg' WHERE id = 1721;
+    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A0001/P265013509/1_P265013509_basic_1782500000000.jpg' WHERE id = 1696;
+    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A0001/P382322750/1_P382322750_basic_1782500000000.jpg' WHERE id = 1698;
+    UPDATE public.hotdeals SET img_url = 'https://contents.lotteon.com/itemimage/LO/27/65/45/12/93/LO2765451293_1_1.jpg' WHERE id = 1724;
+    UPDATE public.hotdeals SET img_url = 'https://thumbnail7.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/05/23/11/4/c089c25f-2c83-4a1e-a4b5-4122d25f7781.jpg' WHERE id = 1812;
+    UPDATE public.hotdeals SET img_url = 'https://thumbnail9.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/04/18/10/8/9f257bf4-3ff3-4ee1-b9bc-4df15a4d6501.jpg' WHERE id = 1814;
+    UPDATE public.hotdeals SET img_url = 'https://thumbnail10.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/09/25/14/6/17c823b1-2a65-4f76-8801-44755ad26cf8.jpg' WHERE id = 1816;
+    UPDATE public.hotdeals SET img_url = 'https://thumbnail6.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/06/12/17/2/6d1c8f42-4f10-4aa7-b50a-e83c072d670a.jpg' WHERE id = 1817;
+    UPDATE public.hotdeals SET img_url = 'https://thumbnail10.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/08/14/15/8/3e5cb159-22a7-47b2-a4e9-29177a58b88d.jpg' WHERE id = 1808;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/51/64/08/item/1000070864551_i1_500.jpg' WHERE id = 1719;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/32/38/13/item/1000813338532_i1_500.jpg' WHERE id = 1722;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/84/89/06/item/1000064098984_i1_500.jpg' WHERE id = 1712;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/79/68/34/item/1000834586879_i1_500.jpg' WHERE id = 1748;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/59/13/28/item/1000022801359_i1_500.jpg' WHERE id = 1745;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/58/36/61/item/1000796136658_i1_500.jpg' WHERE id = 1749;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/27/75/56/item/1000568275727_i1_500.jpg' WHERE id = 1750;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/01/27/67/item/1000677222701_i1_500.jpg' WHERE id = 1707;
+    UPDATE public.hotdeals SET img_url = 'https://image.hmall.com/p/image/broadcast/20261023/bfmt202610236004.jpg' WHERE id = 1507;
+  `;
+  fs.writeFileSync("/tmp/restore_thumbnails.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/restore_thumbnails.sql"], { stdio: "inherit" });
+  console.log("🚨 [RESTORE] 핫딜 정품 썸네일 23건 DB UPDATE 완결!");
+} catch (e) {
+  console.error("🚨 [RESTORE ERROR]", e);
+}
+
 // 🚨 긴급 조치: 타사 베이비핫딜 로고 및 이미지 유입 긴급 차단 및 삭제
 try {
   const sql = `
