@@ -19,6 +19,21 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+
+// 🚨 긴급 조치: 타사 베이비핫딜 로고 및 이미지 유입 긴급 차단 및 삭제
+try {
+  const sql = `
+    DELETE FROM public.hotdeals WHERE img_url ILIKE '%logo_fullPc%' OR img_url ILIKE '%bbhd.kr/bbs/img%' OR id IN (1821, 1822, 1823);
+    UPDATE public.hotdeals SET img_url = NULL WHERE img_url ILIKE '%bbhd.kr%';
+  `;
+  fs.writeFileSync("/tmp/emergency_clean.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/emergency_clean.sql"], { stdio: "inherit" });
+  console.log("🚨 [EMERGENCY] 타사(베이비핫딜) 로고 썸네일 DB 삭제 완결!");
+} catch (e) {
+  console.error("🚨 [EMERGENCY ERROR]", e);
+}
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
