@@ -201,6 +201,7 @@ def main():
 
     # 파일 출력
     os.makedirs("scratchpad/output", exist_ok=True)
+    os.makedirs("daily", exist_ok=True)
     blog_path = "scratchpad/output/blog_today.txt"
     cafe_path = "scratchpad/output/cafe_today.txt"
 
@@ -210,8 +211,15 @@ def main():
     with open(cafe_path, "w", encoding="utf-8") as f:
         f.write("\n".join(c_lines))
 
-    print(f"-> 블로그 원고 생성 완료: {blog_path}")
-    print(f"-> 카페 원고 생성 완료: {cafe_path}")
+    # daily 폴더에도 동시 저장 (GitHub Pages 및 원격 워크플로우 연동)
+    with open("daily/blog_today.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(b_lines))
+
+    with open("daily/cafe_today.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(c_lines))
+
+    print(f"-> 블로그 원고 생성 완료: {blog_path}, daily/blog_today.txt")
+    print(f"-> 카페 원고 생성 완료: {cafe_path}, daily/cafe_today.txt")
 
 if __name__ == '__main__':
     main()
