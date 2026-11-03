@@ -107,7 +107,9 @@ try {
     await p.evaluate(() => { const c = document.querySelector('#cardList .card .wbtn[data-wid]'); c && c.scrollIntoView({ block: 'center' }); }); await p.waitForTimeout(600);
     const wid = await p.evaluate(() => { const b = document.querySelector('#cardList .card .wbtn[data-wid]') || [...document.querySelectorAll('.wbtn[data-wid]')].find((x) => x.offsetParent); if (!b) return null; const id = b.getAttribute('data-wid'); const was = isWished(id); toggleWish(Number(id), b); const now = isWished(id); toggleWish(Number(id), b); return { was, now, after: isWished(id) }; });
     await p.waitForTimeout(2000);
-    ok(who, '찜 켜고 끄기', !!wid && wid.was !== wid.now && wid.after === wid.was && wishRes.length >= 2 && wishRes.every((x) => x === 200), JSON.stringify(wid) + ' 서버 ' + wishRes.join(','));
+    // 웹(앱 아님)은 찜이 앱 전용이다(사장님 2026-11-02): 누르면 찜은 안 되고 「앱에서만」 시트(구글플레이·앱스토어)가 떠야 한다
+    if (!cfg.native) { const sh = await p.evaluate(() => { const e = document.getElementById('mcWoSheet'); return !!(e && e.classList.contains('open') && /Google Play/.test(e.textContent) && /App Store/.test(e.textContent)); }); ok(who, '웹 찜 → 앱 안내 시트', !!wid && wid.was === wid.now && sh, JSON.stringify(wid) + ' 시트 ' + sh); await p.evaluate(() => { const e = document.getElementById('mcWoSheet'); e && e.classList.remove('open'); }); }
+    else ok(who, '찜 켜고 끄기', !!wid && wid.was !== wid.now && wid.after === wid.was && wishRes.length >= 2 && wishRes.every((x) => x === 200), JSON.stringify(wid) + ' 서버 ' + wishRes.join(','));
     await p.evaluate(() => { document.querySelectorAll('.app-pop.open,.app-sheet.open').forEach((e) => e.classList.remove('open')); });
     // ⑥ 옆 메뉴
     await p.evaluate(() => { try { openSide(); } catch (e) { window.__sideErr = e.message; } }); await p.waitForTimeout(700);   // 0.3초 미끄러져 나온다
