@@ -6997,15 +6997,21 @@ setInterval(_toggleToTop, 500);
 function goHome(){
   fSt='all'; fMajor='전체'; fMinors=[]; fSearch='';
   selWeekDate=todayStr;
-  document.getElementById('sInput').value='';
-  document.getElementById('sClear').style.display='none';
+  var sIn = document.getElementById('sInput');
+  if(sIn) sIn.value='';
+  var sClr = document.getElementById('sClear');
+  if(sClr) sClr.style.display='none';
   _suggestOpen=false;
-  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기 (검색모드 클래스도 여기서 회수)
+  if(typeof exitSearchMode==='function') exitSearchMode();
+  else if(typeof applySearchMode==='function') applySearchMode();
   document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
-  document.getElementById('stab-all').classList.add('on-all');
-  document.getElementById('sideAllBtn').classList.add('on');
-  switchTab('list');
-  renderList();
+  var stabAll = document.getElementById('stab-all');
+  if(stabAll) stabAll.classList.add('on-all');
+  var sideAll = document.getElementById('sideAllBtn');
+  if(sideAll) sideAll.classList.add('on');
+  if(typeof switchContent==='function') switchContent('gonggu');
+  if(typeof switchTab==='function') switchTab('list');
+  if(typeof renderList==='function') renderList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function clearSearch(){ exitSearchMode(); }   // ✕도 취소도 원래 화면 복귀 (스펙 1번)
@@ -8363,9 +8369,10 @@ function closeChatMenu(){
 .comm-local button.on{background:#191F28;border-color:#191F28;color:#fff}
 .comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
-.comm-fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
+.comm-fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
 @media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
-.comm-fab{display:flex!important;align-items:center;gap:7px;padding:0 22px!important;height:52px;font-size:16px!important;font-weight:700;letter-spacing:-.01em;box-shadow:0 6px 18px rgba(25,31,40,.28)!important}   /* 글쓰기 크고 굵게 (사장님 2026-10-26 「넘 작고 얇은듯」) */
+.comm-fab{display:flex!important;align-items:center;gap:7px;padding:0 22px!important;height:52px;font-size:16px!important;font-weight:700;letter-spacing:-.01em;box-shadow:0 6px 18px rgba(25,31,40,.28)!important}
+body.native-app .comm-fab{bottom:calc(75px + env(safe-area-inset-bottom,0px))!important}   /* 글쓰기 크고 굵게 (사장님 2026-10-26 「넘 작고 얇은듯」) */
 #commView{padding-bottom:96px!important}
 body:has(#commView[style*="display: block"]) .chat-fab-wrap,body:has(#commView[style*="display:block"]) .chat-fab-wrap{display:none}   /* 커뮤니티는 시안처럼 글쓰기 하나만 — ＋ 가 글쓰기를 반쯤 가렸다(앱 모드 실측) */   /* 떠 있는 글쓰기·+ 버튼이 마지막 글을 가리지 않게 */
 </style>
