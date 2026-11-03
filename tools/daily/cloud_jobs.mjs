@@ -69,6 +69,24 @@ try {
   console.error("🚨 [EMERGENCY ERROR]", e);
 }
 
+// 🚨 긴급 복구: 클룩 여행 상품 4건 고화질 정품 CDN 이미지 UPDATE
+try {
+  const sql = `
+    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=600&q=80' WHERE id = 1826;
+    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1596727147705-61a532a659bd?w=600&q=80' WHERE id = 1827;
+    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&q=80' WHERE id = 1828;
+    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600&q=80' WHERE id = 1829;
+    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3052857476/still/600' WHERE id = 1825;
+    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/26/51/66/item/1000673665126_i1_500.jpg' WHERE id = 1824;
+  `;
+  fs.writeFileSync("/tmp/restore_klook.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/restore_klook.sql"], { stdio: "inherit" });
+  console.log("🚨 [RESTORE] 클룩 여행 4건 및 1824·1825번 이미지 DB UPDATE 완결!");
+} catch (e) {
+  console.error("🚨 [RESTORE KLOOK ERROR]", e);
+}
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
