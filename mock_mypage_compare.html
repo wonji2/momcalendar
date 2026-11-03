@@ -312,8 +312,8 @@ body {
   <div class="top-header">
     <div class="header-title">마이</div>
     <div class="header-right">
-      <span onclick="showToast('알림함 열기')">🔔</span>
-      <span onclick="showToast('내 찜 바로가기')">💜</span>
+      <span onclick="openSubpage('subNotiCenter')" style="cursor:pointer;">🔔</span>
+      <span onclick="openSubpage('subWish')" style="cursor:pointer;">💜</span>
     </div>
   </div>
 
@@ -739,7 +739,7 @@ body {
             <span class="menu-arrow">›</span>
           </a>
 
-          <div class="menu-item" onclick="showToast('건의 · 오류 제보 창구를 엽니다 (app@momcalendar.com)')">
+          <div class="menu-item" onclick="openSubpage('subInq')">
             <div class="menu-left">
               <span class="menu-icon">🛠️</span>
               <span class="menu-label">건의 · 오류 제보</span>
@@ -747,7 +747,7 @@ body {
             <span class="menu-arrow">›</span>
           </div>
 
-          <div class="menu-item" onclick="showToast('제휴 · 입점 문의 창구를 엽니다')">
+          <div class="menu-item" onclick="openInqForPartner()">
             <div class="menu-left">
               <span class="menu-icon">📩</span>
               <span class="menu-label">제휴 · 입점 문의</span>
@@ -1019,6 +1019,82 @@ body {
         </div>
       </div><!-- /#subCal -->
 
+      <!-- ============================================== -->
+      <!-- 📱 [서브페이지 4: 🔔 알림함 타임라인 (전체화면)] -->
+      <!-- ============================================== -->
+      <div id="subNotiCenter" class="subpage-view" style="display:none;">
+        <div class="subpage-header">
+          <button onclick="closeSubpage('subNotiCenter')" class="back-btn">←</button>
+          <div class="subpage-title">알림함</div>
+          <button onclick="clearAllNotis()" style="background:none; border:none; font-size:12px; color:#8B95A1; font-weight:600; cursor:pointer;">모두읽음</button>
+        </div>
+
+        <div style="padding:14px 16px;">
+          <div style="font-size:12px; font-weight:800; color:#8B95A1; margin-bottom:8px;">오늘</div>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+            <div style="background:#fff; border-radius:12px; padding:14px; border:1px solid #ECEEF0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-size:11px; font-weight:800; color:var(--main); background:#F3EFFC; padding:2px 6px; border-radius:4px;">키워드 특가</span>
+                <span style="font-size:11px; color:#8B95A1;">오후 2:30</span>
+              </div>
+              <div style="font-size:13.5px; font-weight:800; color:#191F28;">#다이슨 V12 무선청소기 역대 최저가 포착!</div>
+              <div style="font-size:12px; color:#6B7684; margin-top:3px;">쿠팡 로켓배송 598,000원 (최근 6개월 최저가 경신)</div>
+            </div>
+            <div style="background:#fff; border-radius:12px; padding:14px; border:1px solid #ECEEF0; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-size:11px; font-weight:800; color:#FF5B5B; background:#FFF0F0; padding:2px 6px; border-radius:4px;">공구 마감임박</span>
+                <span style="font-size:11px; color:#8B95A1;">오전 11:15</span>
+              </div>
+              <div style="font-size:13.5px; font-weight:800; color:#191F28;">찜하신 [얼려먹는 아기상어 젤리] 공구가 곧 마감돼요</div>
+              <div style="font-size:12px; color:#6B7684; margin-top:3px;">오늘 자정 공구가 마감되니 놓치지 마세요!</div>
+            </div>
+          </div>
+
+          <div style="font-size:12px; font-weight:800; color:#8B95A1; margin-bottom:8px;">어제</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="background:#F8F9FA; border-radius:12px; padding:14px; border:1px solid #ECEEF0; opacity:0.8;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-size:11px; font-weight:800; color:#03C75A; background:#E8F8F0; padding:2px 6px; border-radius:4px;">출석 보너스</span>
+                <span style="font-size:11px; color:#8B95A1;">11/2</span>
+              </div>
+              <div style="font-size:13.5px; font-weight:800; color:#4E5968;">11월 연속 출석 3일차 달성! 10P 적립완료</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /#subNotiCenter -->
+
+      <!-- ============================================== -->
+      <!-- 📱 [서브페이지 5: 🛠️ 고객지원 & 제보 창구 (전체화면)] -->
+      <!-- ============================================== -->
+      <div id="subInq" class="subpage-view" style="display:none;">
+        <div class="subpage-header">
+          <button onclick="closeSubpage('subInq')" class="back-btn">←</button>
+          <div class="subpage-title" id="subInqTitle">건의 · 오류 제보</div>
+          <div style="width:24px;"></div>
+        </div>
+
+        <div style="padding:14px 16px;">
+          <div style="background:#F3EFFC; border-radius:12px; padding:12px 14px; margin-bottom:16px; font-size:12px; color:#4A3A68; line-height:1.5;">
+            💡 보내주신 소중한 의견은 맘캘린더 운영진이 매일 아침 전수 확인 후 서비스에 신속히 반영합니다.
+          </div>
+
+          <div style="font-size:13px; font-weight:800; color:#191F28; margin-bottom:6px;">문의 / 제보 유형</div>
+          <div style="display:flex; gap:6px; margin-bottom:16px;">
+            <button onclick="setInqType(this, '오류 제보')" class="inq-type-btn active" style="flex:1; padding:8px; border-radius:8px; font-size:12px; font-weight:700; background:#F3EFFC; color:var(--main); border:1px solid #E3D9F6; cursor:pointer;">오류 제보</button>
+            <button onclick="setInqType(this, '기능 건의')" class="inq-type-btn" style="flex:1; padding:8px; border-radius:8px; font-size:12px; font-weight:600; background:#fff; color:#8B95A1; border:1px solid #E5E8EB; cursor:pointer;">기능 건의</button>
+            <button onclick="setInqType(this, '제휴/입점')" class="inq-type-btn" style="flex:1; padding:8px; border-radius:8px; font-size:12px; font-weight:600; background:#fff; color:#8B95A1; border:1px solid #E5E8EB; cursor:pointer;">제휴/입점</button>
+          </div>
+
+          <div style="font-size:13px; font-weight:800; color:#191F28; margin-bottom:6px;">내용 작성</div>
+          <textarea id="inqContent" placeholder="발생한 문제나 건의하고 싶은 내용을 자세히 적어주시면 큰 도움이 됩니다 (예: 핫딜 링크 오류, 원하는 기능)" style="width:100%; height:130px; border:1.5px solid #E5E8EB; border-radius:12px; padding:12px; font-size:13px; font-family:inherit; outline:none; resize:none; box-sizing:border-box; margin-bottom:14px;"></textarea>
+
+          <button onclick="submitInq()" style="width:100%; padding:14px; background:var(--main); color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; font-family:inherit;">
+            접수하기
+          </button>
+        </div>
+      </div><!-- /#subInq -->
+
+
     </div><!-- /#planC -->
 
   <nav class="bottom-nav">
@@ -1050,8 +1126,114 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
+
+// ==========================================
+// 💾 localStorage 실제 데이터 연동 (사장님 지시 100% 반영)
+// ==========================================
 let currentKeywords = ['기저귀', '분유', '다이슨', '비판텐'];
-let currentWishCount = 3;
+try {
+  const savedKw = localStorage.getItem('mc_kw_alarms');
+  if (savedKw) {
+    const parsed = JSON.parse(savedKw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      currentKeywords = parsed;
+    }
+  }
+} catch(e) {}
+
+let myWishList = [
+  { id: 'w1', title: '마인크래프트 미니 자석블럭 100pcs 풀세트', cat: '육아 · 완구', period: '11/1 ~ 11/5 오픈 중', tag: 'ing', dday: 'D-2 마감임박', icon: '🧩' },
+  { id: 'w2', title: 'JVR 모노아이 트라이탄 물병 2개 세트', cat: '육아 · 육아용품', period: '11/2 ~ 11/5 오픈 중', tag: 'ing', dday: '진행중', icon: '🍼' },
+  { id: 'w3', title: '아넬라 생과일 퓨레 10팩 골라담기', cat: '식품 · 이유식', period: '10/28 ~ 10/31 종료', tag: 'end', dday: '종료됨', icon: '🍎' }
+];
+
+try {
+  const savedWish = localStorage.getItem('mc_wish');
+  if (savedWish) {
+    const parsedW = JSON.parse(savedWish);
+    if (Array.isArray(parsedW) && parsedW.length > 0) {
+      myWishList = parsedW.map((item, idx) => ({
+        id: item.id || `w_${idx}`,
+        title: item.title || item.name || '찜한 상품',
+        cat: item.category || '공구 · 핫딜',
+        period: item.period || '진행 중',
+        tag: item.status === 'end' ? 'end' : 'ing',
+        dday: item.status === 'end' ? '종료됨' : '진행중',
+        icon: item.icon || '💜'
+      }));
+    }
+  }
+} catch(e) {}
+
+function saveKeywords() {
+  try {
+    localStorage.setItem('mc_kw_alarms', JSON.stringify(currentKeywords));
+  } catch(e) {}
+}
+
+function saveWishList() {
+  try {
+    localStorage.setItem('mc_wish', JSON.stringify(myWishList));
+  } catch(e) {}
+}
+
+function renderWishList(filterTag = 'all') {
+  const wrap = document.getElementById('wishListWrap');
+  if (!wrap) return;
+
+  const filtered = myWishList.filter(item => {
+    if (filterTag === 'all') return true;
+    return item.tag === filterTag;
+  });
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<div style="text-align:center; padding:30px 0; color:#8B95A1; font-size:13px;">찜한 일정이 없습니다.</div>`;
+  } else {
+    wrap.innerHTML = filtered.map(item => `
+      <div class="wish-card-item ${item.tag}" style="background:#fff; border-radius:12px; border:1px solid #ECEEF0; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,0.03);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div style="display:flex; gap:12px;">
+            <div style="width:50px; height:50px; border-radius:10px; background:${item.tag==='end'?'#EFEFEF':'#F3EFFC'}; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;">${item.icon}</div>
+            <div>
+              <span style="font-size:11px; font-weight:700; color:${item.tag==='end'?'#8B95A1':(item.dday.includes('D-')?'#FF5B5B':'var(--main)')}; background:${item.tag==='end'?'#E5E8EB':(item.dday.includes('D-')?'#FFF0F0':'#F3EFFC')}; padding:2px 6px; border-radius:4px;">${item.dday}</span>
+              <div style="font-size:14px; font-weight:800; color:${item.tag==='end'?'#8B95A1':'#191F28'}; margin:4px 0 2px;">${item.title}</div>
+              <div style="font-size:11.5px; color:#8B95A1;">${item.cat} | ${item.period}</div>
+            </div>
+          </div>
+          <button onclick="delWishItem('${item.id}')" style="background:none; border:none; color:#C4C9D0; font-size:18px; cursor:pointer; padding:0 4px;">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 카운트 동기화
+  const statWish = document.getElementById('statWishCount');
+  if (statWish) statWish.textContent = myWishList.length;
+  const badgeWish = document.getElementById('badgeWish');
+  if (badgeWish) badgeWish.textContent = `${myWishList.length}개 보관중`;
+  const subWish = document.getElementById('subWishCountText');
+  if (subWish) subWish.textContent = `(${myWishList.length})`;
+}
+
+function delWishItem(id) {
+  myWishList = myWishList.filter(item => item.id !== id);
+  saveWishList();
+  renderWishList(window._currentWishTab || 'all');
+  showToast('찜 목록에서 삭제되었습니다');
+}
+
+function filterWishTab(tab, btn) {
+  window._currentWishTab = tab;
+  document.querySelectorAll('.wish-tab-btn').forEach(b => {
+    b.style.background = '#fff';
+    b.style.color = '#8B95A1';
+    b.style.border = '1px solid #E5E8EB';
+  });
+  btn.style.background = '#F3EFFC';
+  btn.style.color = 'var(--main)';
+  btn.style.border = 'none';
+  renderWishList(tab);
+}
 
 function renderKwChips() {
   const box = document.getElementById('kwChipBox');
@@ -1078,6 +1260,7 @@ function addKwChip() {
   if(currentKeywords.includes(val)) { showToast('이미 등록된 키워드입니다'); return; }
   if(currentKeywords.length >= 10) { showToast('키워드는 최대 10개까지 가능합니다'); return; }
   currentKeywords.push(val);
+  saveKeywords();
   inp.value = '';
   renderKwChips();
   showToast(`'${val}' 키워드가 등록되었습니다 🔔`);
@@ -1087,6 +1270,7 @@ function quickAddKw(val) {
   if(currentKeywords.includes(val)) { showToast('이미 등록된 키워드입니다'); return; }
   if(currentKeywords.length >= 10) { showToast('키워드는 최대 10개까지 가능합니다'); return; }
   currentKeywords.push(val);
+  saveKeywords();
   renderKwChips();
   showToast(`'${val}' 키워드가 등록되었습니다 🔔`);
 }
@@ -1094,43 +1278,45 @@ function quickAddKw(val) {
 function delKwChip(idx) {
   const delVal = currentKeywords[idx];
   currentKeywords.splice(idx, 1);
+  saveKeywords();
   renderKwChips();
   showToast(`'${delVal}' 키워드가 삭제되었습니다`);
 }
 
-function delWishCard(btn) {
-  const card = btn.closest('.wish-card-item');
-  if(card) {
-    card.style.opacity = '0';
-    setTimeout(() => {
-      card.remove();
-      currentWishCount = Math.max(0, currentWishCount - 1);
-      const statWish = document.getElementById('statWishCount');
-      if(statWish) statWish.textContent = currentWishCount;
-      const badgeWish = document.getElementById('badgeWish');
-      if(badgeWish) badgeWish.textContent = `${currentWishCount}개 보관중`;
-      const subWish = document.getElementById('subWishCountText');
-      if(subWish) subWish.textContent = `(${currentWishCount})`;
-      showToast('찜 목록에서 삭제되었습니다');
-    }, 200);
-  }
+function openInqForPartner() {
+  openSubpage('subInq');
+  document.getElementById('subInqTitle').textContent = '제휴 · 입점 문의';
+  const btns = document.querySelectorAll('.inq-type-btn');
+  if(btns && btns[2]) setInqType(btns[2], '제휴/입점');
 }
 
-function filterWishTab(tab, btn) {
-  document.querySelectorAll('.wish-tab-btn').forEach(b => {
+function setInqType(btn, type) {
+  document.querySelectorAll('.inq-type-btn').forEach(b => {
     b.style.background = '#fff';
     b.style.color = '#8B95A1';
     b.style.border = '1px solid #E5E8EB';
+    b.classList.remove('active');
   });
   btn.style.background = '#F3EFFC';
   btn.style.color = 'var(--main)';
-  btn.style.border = 'none';
+  btn.style.border = '1px solid #E3D9F6';
+  btn.classList.add('active');
+  window._inqType = type;
+}
 
-  document.querySelectorAll('.wish-card-item').forEach(card => {
-    if(tab === 'all') card.style.display = 'block';
-    else if(tab === 'ing') card.style.display = card.classList.contains('ing') ? 'block' : 'none';
-    else if(tab === 'end') card.style.display = card.classList.contains('end') ? 'block' : 'none';
-  });
+function submitInq() {
+  const content = (document.getElementById('inqContent').value || '').trim();
+  if(!content) {
+    showToast('내용을 작성해 주세요');
+    return;
+  }
+  showToast('소중한 의견이 접수되었습니다! 감사합니다 💌');
+  document.getElementById('inqContent').value = '';
+  setTimeout(() => closeSubpage('subInq'), 1200);
+}
+
+function clearAllNotis() {
+  showToast('모든 알림을 읽음 처리했습니다');
 }
 
 function toggleCatFilter(cat, btn) {
@@ -1196,6 +1382,7 @@ function showToast(msg) {
 
 window.addEventListener('DOMContentLoaded', () => {
   renderKwChips();
+  renderWishList();
 });
 
 // URL 파라미터 또는 기본 C안 자동 선택
