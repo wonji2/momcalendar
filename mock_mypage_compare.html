@@ -232,14 +232,11 @@ body {
 
 /* 풀스크린 서브페이지 스타일 */
 .subpage-view {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
   width: 100%;
   min-height: 100vh;
   background: var(--bg);
-  z-index: 250;
-  animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeIn 0.18s ease-out;
 }
 .subpage-header {
   position: sticky;
@@ -1134,7 +1131,9 @@ function toggleMannerBox(checked) {
 // 풀스크린 서브페이지 전환
 function openSubpage(subId) {
   document.getElementById('myMainView').style.display = 'none';
-  document.getElementById(subId).style.display = 'block';
+  document.querySelectorAll('.subpage-view').forEach(el => el.style.display = 'none');
+  const target = document.getElementById(subId);
+  if(target) target.style.display = 'block';
   window.scrollTo({ top: 0 });
   if(subId === 'subNoti') renderKwChips();
 }
