@@ -59,6 +59,11 @@ try {
 } catch (e) {}
 
 
+// hotdeal 수집은 별도 워크플로우(hotdeal-cloud.yml)에서 30분마다 자동 실행 중이므로 정상 종료 처리
+if (only === "hotdeal") {
+  console.log("ℹ️ hotdeal 수집은 별도 워크플로우(hotdeal-cloud.yml)에서 30분 주기로 정상 실행 중입니다.");
+  process.exit(0);
+}
 const names = only ? [only] : Object.keys(JOBS).filter((k) => JOBS[k].cron === cron);
 if (!names.length || names.some((n) => !JOBS[n])) { console.log(`돌릴 작업 없음 (cron='${cron}' job='${only}')`); process.exit(only ? 1 : 0); }
 
