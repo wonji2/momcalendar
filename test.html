@@ -2109,13 +2109,7 @@ window.slimAdClick=function(id){
 <!-- ===== 핫딜 영역 ===== -->
 <div id="hotdealView" style="display:none;padding:12px;min-height:150vh">
   <!-- 💜 폴센트식 3초 맞춤 설정 & 알림 배너 -->
-  <div id="mcOnboardBanner" onclick="openMcOnboard()" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(135deg, #7C54C4, #9B6FD4);color:#fff;border-radius:14px;padding:9px 12px;margin-bottom:12px;box-shadow:0 3px 12px rgba(124,84,196,0.18);cursor:pointer;-webkit-tap-highlight-color:transparent">
-    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-      <span style="font-size:18px;line-height:1;flex-shrink:0">✨</span>
-      <div style="min-width:0;flex:1">
-        <div style="font-size:12.5px;font-weight:700;line-height:1.2;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">나에게 딱 맞춘 실시간 핫딜 알림</div>
-        <div style="font-size:10.5px;opacity:0.9;margin-top:1px;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">쿠팡 와우 · 카드사 맞춤 특가</div>
-      </div>
+  </div>
     </div>
     <span style="font-size:11px;font-weight:700;background:rgba(255,255,255,0.22);padding:4px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0">알림 받기 ›</span>
   </div>
@@ -2281,10 +2275,6 @@ window.slimAdClick=function(id){
     <div style="padding:14px 16px 8px;font-size:13px;font-weight:700;color:#8B95A1;">나의 쇼핑 활동</div>
     <div onclick="switchContent('gonggu');stabClick('wish')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
       <span style="font-size:14px;font-weight:600;color:#333D4B;">💜 찜한 공구 모아보기</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
-    <div onclick="openMcOnboard()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">✨ 맞춤 쇼핑 조건 재설정 (연령·와우·카드)</span>
       <span style="font-size:13px;color:#B0B8C1;">›</span>
     </div>
     <div onclick="openKeywordSheet()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
@@ -10394,166 +10384,7 @@ async function registerKeywordAlertFromSearch(kw) {
 </nav>
 
 
-<!-- [과제 C] 첫 방문자 맞춤 설정 & 알림 바텀시트 모달 -->
-<div id="mcOnboardModal" class="mc-modal-overlay" onclick="if(event.target===this) closeMcOnboard(true)">
-  <div class="mc-onboard-sheet" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:20px">✨</span>
-        <h3 style="margin:0;font-size:17px;font-weight:700;color:#191F28">3초 맞춤 쇼핑 설정</h3>
-      </div>
-      <button type="button" onclick="closeMcOnboard(true)" style="background:none;border:none;color:#8B95A1;font-size:13px;font-weight:600;cursor:pointer;padding:4px 8px">나중에 하기</button>
-    </div>
-    <p style="margin:0 0 16px;font-size:13px;color:#6B7684;line-height:1.4">
-      자녀 연령과 혜택을 설정하면 딱 맞는 특가를 먼저 추천해 드려요.
-    </p>
 
-    <!-- 자녀 연령 -->
-    <div style="margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:700;color:#333D4B;margin-bottom:8px">👶 자녀 연령 (선택 1)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcObAgeGroup">
-        <div class="mc-ob-chip" data-val="pre">임신·출산준비</div>
-        <div class="mc-ob-chip" data-val="0-12">0~12개월</div>
-        <div class="mc-ob-chip active" data-val="1-3">1~3세 (유아)</div>
-        <div class="mc-ob-chip" data-val="4-7">4~7세 (어린이)</div>
-        <div class="mc-ob-chip" data-val="8+">초등 이상</div>
-      </div>
-    </div>
-
-    <!-- 쿠팡 와우 멤버십 -->
-    <div style="margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:700;color:#333D4B;margin-bottom:8px">🚀 쿠팡 와우 멤버십</label>
-      <div style="display:flex;gap:8px" id="mcObWowGroup">
-        <div class="mc-ob-chip active" data-val="y" style="flex:1;text-align:center">🚀 와우 회원이에요</div>
-        <div class="mc-ob-chip" data-val="n" style="flex:1;text-align:center">일반 회원이에요</div>
-      </div>
-    </div>
-
-    <!-- 주 사용 카드사 -->
-    <div style="margin-bottom:20px">
-      <label style="display:block;font-size:13px;font-weight:700;color:#333D4B;margin-bottom:8px">💳 주 사용 카드사 (중복 선택)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px" id="mcObCardGroup">
-        <div class="mc-ob-chip active" data-val="국민">국민</div>
-        <div class="mc-ob-chip active" data-val="신한">신한</div>
-        <div class="mc-ob-chip" data-val="삼성">삼성</div>
-        <div class="mc-ob-chip" data-val="현대">현대</div>
-        <div class="mc-ob-chip" data-val="롯데">롯데</div>
-        <div class="mc-ob-chip" data-val="우리">우리</div>
-        <div class="mc-ob-chip" data-val="하나">하나</div>
-        <div class="mc-ob-chip" data-val="농협">농협</div>
-      </div>
-    </div>
-
-    <!-- 하단 완료 버튼 -->
-    <button type="button" onclick="saveMcOnboard()" style="width:100%;height:48px;border-radius:14px;background:#7C54C4;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(124,84,196,0.25)">
-      설정 완료하고 맞춤 특가 보기
-    </button>
-  </div>
-</div>
-
-<script>
-function openMcOnboard() {
-  var m = document.getElementById('mcOnboardModal');
-  if(!m) return;
-  m.classList.add('show');
-  try {
-    var age = localStorage.getItem('mc_user_age');
-    if(age) {
-      document.querySelectorAll('#mcObAgeGroup .mc-ob-chip').forEach(function(c) {
-        c.classList.toggle('active', c.dataset.val === age);
-      });
-    }
-    var wow = localStorage.getItem('mc_user_wow');
-    if(wow) {
-      document.querySelectorAll('#mcObWowGroup .mc-ob-chip').forEach(function(c) {
-        c.classList.toggle('active', c.dataset.val === wow);
-      });
-    }
-    var cardsStr = localStorage.getItem('mc_user_cards');
-    if(cardsStr) {
-      var cards = JSON.parse(cardsStr);
-      document.querySelectorAll('#mcObCardGroup .mc-ob-chip').forEach(function(c) {
-        c.classList.toggle('active', cards.includes(c.dataset.val));
-      });
-    }
-  } catch(_) {}
-}
-
-function closeMcOnboard(skipped) {
-  var m = document.getElementById('mcOnboardModal');
-  if(!m) return;
-  m.classList.remove('show');
-  if(skipped) {
-    try { localStorage.setItem('mc_onboard_skipped', '1'); } catch(_) {}
-  }
-}
-
-function saveMcOnboard() {
-  try {
-    var selAge = document.querySelector('#mcObAgeGroup .mc-ob-chip.active');
-    var ageVal = selAge ? selAge.dataset.val : '1-3';
-    localStorage.setItem('mc_user_age', ageVal);
-
-    var selWow = document.querySelector('#mcObWowGroup .mc-ob-chip.active');
-    var wowVal = selWow ? selWow.dataset.val : 'y';
-    localStorage.setItem('mc_user_wow', wowVal);
-
-    var selCards = [];
-    document.querySelectorAll('#mcObCardGroup .mc-ob-chip.active').forEach(function(c) {
-      selCards.push(c.dataset.val);
-    });
-    localStorage.setItem('mc_user_cards', JSON.stringify(selCards));
-
-    localStorage.setItem('mc_onboard_done', '1');
-    closeMcOnboard(false);
-
-    if(typeof showToast === 'function') {
-      showToast('✨ 맞춤 쇼핑 조건이 저장되었어요!');
-    } else {
-      alert('✨ 맞춤 쇼핑 조건이 저장되었어요!');
-    }
-  } catch(e) {
-    console.error(e);
-    closeMcOnboard(false);
-  }
-}
-
-// 칩 클릭 바인딩 & 자동 팝업
-(function initOnboardChips() {
-  function bindChips() {
-    var ageChips = document.querySelectorAll('#mcObAgeGroup .mc-ob-chip');
-    ageChips.forEach(function(chip) {
-      chip.onclick = function() {
-        ageChips.forEach(function(c) { c.classList.remove('active'); });
-        this.classList.add('active');
-      };
-    });
-
-    var wowChips = document.querySelectorAll('#mcObWowGroup .mc-ob-chip');
-    wowChips.forEach(function(chip) {
-      chip.onclick = function() {
-        wowChips.forEach(function(c) { c.classList.remove('active'); });
-        this.classList.add('active');
-      };
-    });
-
-    var cardChips = document.querySelectorAll('#mcObCardGroup .mc-ob-chip');
-    cardChips.forEach(function(chip) {
-      chip.onclick = function() {
-        this.classList.toggle('active');
-      };
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindChips);
-  } else {
-    bindChips();
-  }
-
-  // 웹에서는 자동 팝업 없이 둘러보기 전용 (매니저님 피드백 2026-11-03)
-})();
-</script>
 
 </body>
 </html>
