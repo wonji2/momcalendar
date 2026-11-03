@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>맘캘린더 마이페이지 기획 비교 목업 (A안 vs B안)</title>
+<style>
+:root {
+  --main: #7C54C4;
+  --main-light: #F3EFFC;
+  --bg: #F8F9FA;
+  --card: #FFFFFF;
+  --fg: #191F28;
+  --muted: #8B95A1;
+  --line: #E5E8EB;
+  --red: #FF3B30;
+  --radius: 16px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #E9ECEF;
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  color: var(--fg);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  -webkit-text-size-adjust: 100% !important;
+}
+.phone-frame {
+  width: 100%;
+  max-width: 412px;
+  background-color: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  padding-bottom: 75px;
+}
+
+/* 상단 비교 셀렉터 바 (사장님 검토용 픽스바) */
+.plan-selector-bar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: #191F28;
+  color: #fff;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.plan-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.plan-tabs {
+  display: flex;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 2px;
+}
+.plan-btn {
+  background: none;
+  border: none;
+  color: #B0B8C1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.plan-btn.active {
+  background: var(--main);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* 상단 1줄 헤더 */
+.top-header {
+  background: #fff;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #F2F4F6;
+}
+.header-title { font-size: 18px; font-weight: 700; }
+.header-right { display: flex; gap: 8px; font-size: 18px; }
+
+/* 공통 카드 & 메뉴 */
+.content-area { padding: 14px 16px; }
+.card-box {
+  background: #fff;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+.card-header {
+  padding: 14px 16px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #F8F9FA;
+  cursor: pointer;
+  background: #fff;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+}
+.menu-row:last-child { border-bottom: none; }
+.menu-row:active { background: #F8F9FA; }
+.menu-left { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: #333D4B; }
+.menu-right { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.menu-arrow { font-size: 13px; color: #B0B8C1; }
+
+.badge-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+.tag-red { background: #F04452; color: #fff; }
+.tag-purple { background: var(--main-light); color: var(--main); }
+
+/* 프로필 요약 카드 */
+.prof-summary {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+.prof-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.prof-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #ECE7F5; color: var(--main);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700;
+}
+.prof-name { font-size: 16px; font-weight: 700; color: #191F28; display: flex; align-items: center; gap: 6px; }
+.prof-badge { background: #F2EDFC; color: var(--main); font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 6px; }
+.prof-sub { font-size: 12px; color: #8B95A1; margin-top: 2px; }
+
+/* 2단 vs 3단 스탯 */
+.stat-grid-2 { display: flex; border-top: 1px solid #F2F4F6; padding-top: 12px; text-align: center; }
+.stat-grid-2 > div { flex: 1; cursor: pointer; }
+.stat-grid-2 > div + div { border-left: 1px solid #F2F4F6; }
+
+.stat-grid-3 { display: flex; border-top: 1px solid #F2F4F6; padding-top: 12px; text-align: center; }
+.stat-grid-3 > div { flex: 1; cursor: pointer; }
+.stat-grid-3 > div + div { border-left: 1px solid #F2F4F6; }
+
+.stat-num { font-size: 16px; font-weight: 700; }
+.stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* 플랜별 컨테이너 */
+.plan-container { display: none; }
+.plan-container.active { display: block; }
+
+/* 기획 해설 박스 */
+.plan-desc-box {
+  background: #ECE7F5;
+  border: 1px solid #DCD2EC;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: #4A3A68;
+  line-height: 1.6;
+}
+.plan-desc-box b { color: var(--main); }
+
+/* 푸터 링크 */
+.footer-sec {
+  text-align: center;
+  padding: 14px 0 20px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.footer-sec a { color: var(--muted); text-decoration: none; margin: 0 6px; }
+.footer-ver { font-size: 10.5px; color: #B0B8C1; margin-top: 5px; }
+
+/* 토스트 */
+.toast {
+  position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%);
+  background: rgba(25, 31, 40, 0.92); color: #fff; padding: 9px 18px;
+  border-radius: 999px; font-size: 12.5px; font-weight: 500; display: none; z-index: 2000;
+  white-space: nowrap !important;
+}
+
+/* 하단 5단 바텀탭 (고정) */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: 412px;
+  background: #fff;
+  border-top: 1px solid #F2F4F6;
+  display: flex;
+  padding: 7px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+}
+.nav-btn {
+  flex: 1; border: none; background: none; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; font-size: 10.5px; font-weight: 600; color: #8D8798; cursor: pointer; padding: 3px 0; font-family: inherit;
+}
+.nav-btn.active { color: var(--main); font-weight: 700; }
+.nav-btn svg { width: 21px; height: 21px; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <!-- 사장님 비교용 상단 셀렉터 -->
+  <div class="plan-selector-bar">
+    <div class="plan-title">💡 기획안 비교</div>
+    <div class="plan-tabs">
+      <button class="plan-btn active" id="btnPlanA" onclick="switchPlan('A')">A안 (사장님 기준안)</button>
+      <button class="plan-btn" id="btnPlanB" onclick="switchPlan('B')">B안 (스마트 통합안)</button>
+    </div>
+  </div>
+
+  <!-- 토스/마미톡식 1줄 헤더 -->
+  <div class="top-header">
+    <div class="header-title">마이</div>
+    <div class="header-right">
+      <span onclick="showToast('알림함 열기')">🔔</span>
+      <span onclick="showToast('내 찜 바로가기')">💜</span>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- [A안: 사장님 직관 기준안]                                       -->
+  <!-- ============================================================== -->
+  <div class="plan-container active" id="planA">
+    <div class="content-area">
+      <!-- 기획 설명 -->
+      <div class="plan-desc-box">
+        <b>[A안: 사장님 직관 기준안]</b><br>
+        • 출첵 중복 제거: 상단 프로필 카드에만 출석 유지.<br>
+        • 찜·알림 직관 분리: 찜한 공구 모아보기 / 키워드 알림 관리.<br>
+        • 상단 캘린더 기능 강화: 캘린더 보기 + 사진 저장 + 폰 캘린더 넣기.<br>
+        • 친구 공유 및 맘캘 소개·이용방법 하단 안착.
+      </div>
+
+      <!-- 1. 프로필 요약 카드 (출석 + 찜 + 키워드) -->
+      <div class="prof-summary">
+        <div class="prof-top">
+          <div class="prof-avatar">맘</div>
+          <div>
+            <div class="prof-name">
+              <span>맘캘러 님</span>
+              <span class="prof-badge">일반회원</span>
+            </div>
+            <div class="prof-sub">실속 육아 핫딜을 모아보고 있어요</div>
+          </div>
+        </div>
+        <div class="stat-grid-3">
+          <div onclick="showToast('공구 탭의 [💜 내 찜] 목록으로 즉시 이동!')">
+            <div class="stat-num" style="color:var(--main);">3</div>
+            <div class="stat-lbl">내 찜 공구</div>
+          </div>
+          <div onclick="showToast('키워드 알림 관리 시트(NotiCenter) 오픈!')">
+            <div class="stat-num" style="color:#191F28;">2</div>
+            <div class="stat-lbl">키워드 알림</div>
+          </div>
+          <div onclick="showToast('출석체크 도장 찍기 시트 오픈!')">
+            <div class="stat-num" style="color:#3182F6;">출석</div>
+            <div class="stat-lbl">매일 출첵</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 내 공구 일정 & 캘린더 (사장님 요청 3대 기능!) -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>📅 내 공구 일정</span>
+        </div>
+        <button class="menu-row" onclick="showToast('공구 탭의 [내 공구 캘린더(달력)]로 이동합니다!')">
+          <div class="menu-left">
+            <span>📅</span>
+            <span>내 공구 캘린더 보기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('내 찜 캘린더가 고화질 이미지(PNG)로 저장·공유됩니다!')">
+          <div class="menu-left">
+            <span>🖼️</span>
+            <span>캘린더 이미지 저장</span>
+            <span class="badge-tag tag-purple">인기</span>
+          </div>
+          <div class="menu-right">
+            <span>사진첩 저장</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </button>
+        <button class="menu-row" onclick="showToast('구글·네이버·애플 캘린더(ICS)로 일정을 내보냅니다!')">
+          <div class="menu-left">
+            <span>📤</span>
+            <span>내 폰 캘린더에 넣기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- 3. 나의 찜 & 쇼핑 활동 (출첵 목록 제거 완료!) -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>💜 나의 찜 & 쇼핑 알림</span>
+        </div>
+        <button class="menu-row" onclick="showToast('공구 탭 [💜 내 찜] 상태로 전환해 찜 목록을 보여줍니다!')">
+          <div class="menu-left">
+            <span>💜</span>
+            <span>찜한 공구 모아보기</span>
+          </div>
+          <div class="menu-right">
+            <span>3개 찜함</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </button>
+        <button class="menu-row" onclick="showToast('당근마켓식 키워드 알림 센터 시트를 엽니다!')">
+          <div class="menu-left">
+            <span>🔔</span>
+            <span>특가 키워드 알림 관리</span>
+          </div>
+          <div class="menu-right">
+            <span>기저귀 외 1건</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- 4. 고객지원 & 추천 -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>고객지원 & 제보</span>
+        </div>
+        <button class="menu-row" onclick="showToast('1초 간편 오류 제보 창(사진 첨부)을 엽니다!')">
+          <div class="menu-left">
+            <span>🛠️</span>
+            <span>건의 · 오류 제보</span>
+            <span class="badge-tag tag-red">1초 간편</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="window.open('https://pf.kakao.com/_zGfxnX/chat', '_blank')">
+          <div class="menu-left">
+            <span>💬</span>
+            <span>카카오톡 채널 문의</span>
+          </div>
+          <div class="menu-right">
+            <span>공식 채널</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </button>
+        <button class="menu-row" onclick="showToast('제휴 및 입점 신청 모달을 엽니다!')">
+          <div class="menu-left">
+            <span>📩</span>
+            <span>제휴 · 입점 문의</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('카카오톡/링크 복사로 친구에게 맘캘을 공유합니다!')">
+          <div class="menu-left">
+            <span>🔗</span>
+            <span>친구에게 공유하기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- 5. 안내 & 정보 (사장님 요청: 맨 하단 배치!) -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>맘캘린더 안내</span>
+        </div>
+        <button class="menu-row" onclick="showToast('맘캘린더 소개 시트를 엽니다!')">
+          <div class="menu-left">
+            <span>💜</span>
+            <span>맘캘린더 소개</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('맘캘린더 200% 활용 이용방법 가이드를 엽니다!')">
+          <div class="menu-left">
+            <span>📖</span>
+            <span>이용 방법</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- 서비스 정보 푸터 -->
+      <div class="footer-sec">
+        <div>
+          <a href="#" onclick="alert('이용약관');return false;">이용약관</a> ·
+          <a href="#" onclick="alert('개인정보처리방침');return false;">개인정보처리방침</a>
+        </div>
+        <div class="footer-ver">맘캘린더 v2.4 · 실시간 특가 수집 서비스</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- [B안: 스마트 통합안 - 토스/당근 미니멀 카드형]                 -->
+  <!-- ============================================================== -->
+  <div class="plan-container" id="planB">
+    <div class="content-area">
+      <!-- 기획 설명 -->
+      <div class="plan-desc-box">
+        <b>[B안: 스마트 통합안 (토스/당근 미니멀)]</b><br>
+        • "찜과 알림은 원래 하나다": 상단 프로필에서 <b>[내 찜·알림 3건]</b>으로 통합하여 인지 피로 최소화.<br>
+        • 메뉴를 3개 그룹(일정 / 활동 / 지원&가이드)으로 압축하여 한 화면 스크롤 대폭 감소.<br>
+        • 친구 공유를 카드 우측 배너로 시원하게 강조.
+      </div>
+
+      <!-- 1. 프로필 요약 카드 (찜·알림 통합 2단 스탯) -->
+      <div class="prof-summary">
+        <div class="prof-top">
+          <div class="prof-avatar">맘</div>
+          <div>
+            <div class="prof-name">
+              <span>맘캘러 님</span>
+              <span class="prof-badge">일반회원</span>
+            </div>
+            <div class="prof-sub">실속 육아 핫딜을 모아보고 있어요</div>
+          </div>
+        </div>
+        <div class="stat-grid-2">
+          <div onclick="showToast('찜한 공구와 키워드 알림 통합 화면으로 이동!')">
+            <div class="stat-num" style="color:var(--main);">3<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:3px;">개 관리</span></div>
+            <div class="stat-lbl">내 찜 & 키워드 알림</div>
+          </div>
+          <div onclick="showToast('출석체크 도장 찍기 시트 오픈!')">
+            <div class="stat-num" style="color:#3182F6;">출석</div>
+            <div class="stat-lbl">매일 출첵하기</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 친구 공유 배너 (B안 특화: 카드형 원터치 공유) -->
+      <div style="background:linear-gradient(135deg, #7C54C4, #9B6FD4);border-radius:var(--radius);padding:14px 16px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;box-shadow:0 3px 10px rgba(124,84,196,0.25);cursor:pointer;" onclick="showToast('친구에게 맘캘 링크 공유!')">
+        <div>
+          <div style="font-size:13.5px;font-weight:700;">친구에게 맘캘린더 알려주기</div>
+          <div style="font-size:11px;opacity:0.85;margin-top:2px;">인스타 공구 일정을 카톡으로 나눠보세요</div>
+        </div>
+        <div style="background:#fff;color:var(--main);font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:20px;">공유 🔗</div>
+      </div>
+
+      <!-- 2. 캘린더 & 일정 허브 -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>📅 공구 캘린더 허브</span>
+        </div>
+        <button class="menu-row" onclick="showToast('공구 탭 [내 공구 캘린더]로 이동!')">
+          <div class="menu-left">
+            <span>📅</span>
+            <span>내 공구 캘린더 열기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('캘린더 고화질 사진 저장!')">
+          <div class="menu-left">
+            <span>🖼️</span>
+            <span>캘린더 이미지 앨범 저장</span>
+          </div>
+          <div class="menu-right">
+            <span>PNG 다운</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </button>
+        <button class="menu-row" onclick="showToast('폰 캘린더(구글/애플/네이버) 자동 동기화!')">
+          <div class="menu-left">
+            <span>📤</span>
+            <span>내 폰 캘린더 내보내기</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- 3. 고객지원 & 서비스 안내 (통합) -->
+      <div class="card-box">
+        <div class="card-header">
+          <span>고객지원 & 서비스 안내</span>
+        </div>
+        <button class="menu-row" onclick="showToast('오류 제보 창 오픈!')">
+          <div class="menu-left">
+            <span>🛠️</span>
+            <span>건의 · 오류 제보</span>
+            <span class="badge-tag tag-red">1초 간편</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="window.open('https://pf.kakao.com/_zGfxnX/chat', '_blank')">
+          <div class="menu-left">
+            <span>💬</span>
+            <span>카카오톡 채널 문의</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('제휴·입점 문의 창 오픈!')">
+          <div class="menu-left">
+            <span>📩</span>
+            <span>셀러 제휴 · 입점 문의</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-row" onclick="showToast('맘캘 소개 & 가이드 오픈!')">
+          <div class="menu-left">
+            <span>📖</span>
+            <span>맘캘린더 소개 & 이용가이드</span>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- 서비스 정보 푸터 -->
+      <div class="footer-sec">
+        <div>
+          <a href="#" onclick="alert('이용약관');return false;">이용약관</a> ·
+          <a href="#" onclick="alert('개인정보처리방침');return false;">개인정보처리방침</a>
+        </div>
+        <div class="footer-ver">맘캘린더 v2.4 · 실시간 특가 수집 서비스</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단 5단 바텀탭 (마이 활성) -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" onclick="showToast('공구 탭')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+      <span>공구</span>
+    </button>
+    <button class="nav-btn" onclick="showToast('핫딜 탭')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg>
+      <span>핫딜</span>
+    </button>
+    <button class="nav-btn" onclick="showToast('세일 탭')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg>
+      <span>세일</span>
+    </button>
+    <button class="nav-btn" onclick="showToast('커뮤니티 탭')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+      <span>커뮤니티</span>
+    </button>
+    <button class="nav-btn active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>마이</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 2000);
+}
+
+function switchPlan(p) {
+  document.getElementById('btnPlanA').classList.toggle('active', p === 'A');
+  document.getElementById('btnPlanB').classList.toggle('active', p === 'B');
+  document.getElementById('planA').classList.toggle('active', p === 'A');
+  document.getElementById('planB').classList.toggle('active', p === 'B');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>
