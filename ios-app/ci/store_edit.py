@@ -122,14 +122,26 @@ def submit():
     if not b:
         print('🔴 이 버전에 빌드가 안 붙어 있다'); sys.exit(1)
     print('빌드', b['attributes'].get('version'), b['attributes'].get('processingState'))
-    subs = asc.call('GET', '/apps/%s/reviewSubmissions?filter[state]=READY_FOR_REVIEW&filter[platform]=IOS' % aid)['data']
-    if subs:
-        rs = subs[0]['id']; print('열려 있던 제출 서류 사용', rs)
+    # 이 버전이 이미 들어 있는 제출(반려·잘못된 빌드로 남은 것)을 먼저 찾아 그대로 다시 낸다 — 새로 만들면 409 ITEM_PART_OF_ANOTHER_SUBMISSION (2026-11-03)
+    allsubs = asc.call('GET', '/apps/%s/reviewSubmissions?filter[platform]=IOS&limit=50' % aid)['data']
+    rs = None
+    for sub in allsubs:
+        its = asc.call('GET', '/reviewSubmissions/%s/items?include=appStoreVersion&limit=50' % sub['id'])
+        has = any(((it.get('relationships', {}).get('appStoreVersion', {}) or {}).get('data') or {}).get('id') == vid for it in its.get('data', []))
+        print('제출', sub['id'], sub['attributes'].get('state'), '이 버전 포함' if has else '')
+        if has and sub['attributes'].get('state') in ('READY_FOR_REVIEW', 'UNRESOLVED_ISSUES'):
+            rs = sub['id']
+    if rs:
+        print('이 버전이 든 제출을 다시 낸다', rs)
     else:
-        rs = asc.call('POST', '/reviewSubmissions', {'data': {'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
-             'relationships': {'app': {'data': {'type': 'apps', 'id': aid}}}}})['data']['id']
-    asc.call('POST', '/reviewSubmissionItems', {'data': {'type': 'reviewSubmissionItems',
-         'relationships': {'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': rs}}, 'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
+        subs = [x for x in allsubs if x['attributes'].get('state') == 'READY_FOR_REVIEW']
+        if subs:
+            rs = subs[0]['id']; print('열려 있던 제출 서랍 사용', rs)
+        else:
+            rs = asc.call('POST', '/reviewSubmissions', {'data': {'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
+                 'relationships': {'app': {'data': {'type': 'apps', 'id': aid}}}}})['data']['id']
+        asc.call('POST', '/reviewSubmissionItems', {'data': {'type': 'reviewSubmissionItems',
+             'relationships': {'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': rs}}, 'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
     r = asc.call('PATCH', '/reviewSubmissions/' + rs, {'data': {'type': 'reviewSubmissions', 'id': rs, 'attributes': {'submitted': True}}})
     print('✅ 심사 제출됨', r['data']['attributes'].get('state'))
 
