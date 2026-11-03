@@ -801,14 +801,24 @@ body {
         원하는 상품 키워드를 등록해 두시면, 최저가 핫딜이나 공구가 오픈될 때 푸시로 가장 먼저 낚아채드려요!
       </div>
 
-      <!-- 당근식 키워드 추가 인풋바 -->
-      <div style="display:flex; gap:6px; margin-bottom:14px;">
-        <input id="inputKw" type="text" placeholder="알림 받을 키워드 (예: 기저귀, 닌자, 다이슨)" maxlength="20"
-          style="flex:1; border:1.5px solid #E5E8EB; border-radius:10px; padding:11px 12px; font-size:13px; font-family:inherit; outline:none;"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();addKwChip();}">
-        <button onclick="addKwChip()" style="background:var(--main); color:#fff; border:none; border-radius:10px; padding:0 16px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;">
-          등록
-        </button>
+      <!-- 당근+맘캘식 키워드 추가 인풋바 및 카테고리 조건 칩 -->
+      <div style="margin-bottom:14px;">
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input id="inputKw" type="text" placeholder="알림 받을 키워드 (예: 기저귀, 닌자, 다이슨)" maxlength="20"
+            style="flex:1; border:1.5px solid #E5E8EB; border-radius:10px; padding:11px 12px; font-size:13px; font-family:inherit; outline:none;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addKwChip();}">
+          <button onclick="addKwChip()" style="background:var(--main); color:#fff; border:none; border-radius:10px; padding:0 16px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;">
+            등록
+          </button>
+        </div>
+        <!-- 6번 캡처 알림 조건 다중선택 칩 -->
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:11px; color:#8B95A1; font-weight:700;">수신 채널:</span>
+          <button onclick="toggleCatFilter('all', this)" class="cat-pill active" style="padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700; background:#F3EFFC; color:var(--main); border:1px solid #E3D9F6; cursor:pointer;">전체</button>
+          <button onclick="toggleCatFilter('gonggu', this)" class="cat-pill" style="padding:4px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fff; color:#8B95A1; border:1px solid #E5E8EB; cursor:pointer;">공구</button>
+          <button onclick="toggleCatFilter('hotdeal', this)" class="cat-pill" style="padding:4px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fff; color:#8B95A1; border:1px solid #E5E8EB; cursor:pointer;">핫딜</button>
+          <button onclick="toggleCatFilter('sale', this)" class="cat-pill" style="padding:4px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fff; color:#8B95A1; border:1px solid #E5E8EB; cursor:pointer;">세일</button>
+        </div>
       </div>
 
       <!-- 현재 등록된 키워드 칩 영역 -->
@@ -938,6 +948,87 @@ body {
       <div style="margin-top:14px; text-align:center;">
         <button onclick="showToast('공구 탭으로 이동합니다'); closeSheet('sheetWish');" style="width:100%; padding:12px; background:#F2F4F6; border:none; border-radius:10px; font-size:13px; font-weight:800; color:#4E5968; cursor:pointer;">
           + 더 많은 공구 구경하러 가기
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 4. 🔔 마미톡 2번 캡처 스타일 알림함 타임라인 시트 -->
+  <div id="sheetNotiBox" class="sheet-modal" style="display:none;">
+    <div class="sheet-backdrop" onclick="closeSheet('sheetNotiBox')"></div>
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:16.5px; font-weight:800; color:#191F28;">
+          🔔 받은 알림함 <span style="font-size:12px; color:var(--main); font-weight:700;">새 소식 2건</span>
+        </div>
+        <button onclick="closeSheet('sheetNotiBox')" style="background:none; border:none; font-size:16px; color:#8B95A1; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; max-height:55vh; overflow-y:auto;">
+        <!-- 알림 1 (새 알림) -->
+        <div style="display:flex; gap:12px; padding:12px; background:#F8F5FF; border-radius:12px; border:1px solid #EFE6FA;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#7C54C4; color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            🔥
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+              <span style="font-size:12px; font-weight:800; color:var(--main);">키워드 특가 #기저귀</span>
+              <span style="font-size:10.5px; color:#8B95A1;">방금 전</span>
+            </div>
+            <div style="font-size:13px; font-weight:700; color:#191F28;">
+              하기스 네이처메이드 4단계 장당 289원 역대최저가!
+            </div>
+            <div style="font-size:11.5px; color:#6B7684; margin-top:2px;">
+              와우+신한카드 추가 10% 쿠폰이 적용되었습니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- 알림 2 -->
+        <div style="display:flex; gap:12px; padding:12px; background:#fff; border-radius:12px; border:1px solid #ECEEF0;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#FFE2E5; color:#E03838; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            ⏰
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+              <span style="font-size:12px; font-weight:700; color:#4E5968;">찜 일정 마감 임박</span>
+              <span style="font-size:10.5px; color:#8B95A1;">2시간 전</span>
+            </div>
+            <div style="font-size:13px; font-weight:700; color:#191F28;">
+              얼려먹는 아기상어 젤리 공구가 오늘 자정 마감돼요
+            </div>
+            <div style="font-size:11.5px; color:#6B7684; margin-top:2px;">
+              셀러 최저가 보증 공구 일정을 놓치지 마세요.
+            </div>
+          </div>
+        </div>
+
+        <!-- 알림 3 -->
+        <div style="display:flex; gap:12px; padding:12px; background:#fff; border-radius:12px; border:1px solid #ECEEF0; opacity:0.7;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#E8F3FF; color:#0055D6; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">
+            🎁
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+              <span style="font-size:12px; font-weight:700; color:#4E5968;">야간 알림 아침 요약</span>
+              <span style="font-size:10.5px; color:#8B95A1;">오늘 아침 8:30</span>
+            </div>
+            <div style="font-size:13px; font-weight:700; color:#191F28;">
+              밤사이 등록된 핫딜 12건이 요약 발송되었습니다
+            </div>
+            <div style="font-size:11.5px; color:#6B7684; margin-top:2px;">
+              다이슨 에어랩, 삼겹살 1kg 특가가 포함되어 있습니다.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:14px; text-align:center;">
+        <button onclick="showToast('모든 알림을 읽음 처리했습니다'); closeSheet('sheetNotiBox');" style="width:100%; padding:12px; background:#F2F4F6; border:none; border-radius:10px; font-size:13px; font-weight:800; color:#4E5968; cursor:pointer;">
+          모두 읽음 처리
         </button>
       </div>
     </div>
@@ -1097,6 +1188,25 @@ function openPartnerModal() {
 }
 function shareAppKakao() {
   showToast('카카오톡으로 맘캘린더 공유 링크를 보냅니다 🎁');
+}
+
+
+function openNotiBoxSheet() {
+  document.getElementById('sheetNotiBox').style.display = 'flex';
+}
+
+function toggleCatFilter(cat, btn) {
+  document.querySelectorAll('.cat-pill').forEach(b => {
+    b.style.background = '#fff';
+    b.style.color = '#8B95A1';
+    b.style.border = '1px solid #E5E8EB';
+    b.classList.remove('active');
+  });
+  btn.style.background = '#F3EFFC';
+  btn.style.color = 'var(--main)';
+  btn.style.border = '1px solid #E3D9F6';
+  btn.classList.add('active');
+  showToast(`[${btn.textContent}] 채널 알림으로 필터링되었습니다`);
 }
 
 function switchPlan(p) {
