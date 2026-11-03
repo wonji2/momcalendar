@@ -411,8 +411,12 @@ def collect_from_bbhd():
             price = int(price_m.group(1).replace(',', '')) if price_m else 0
 
             # 본문 이미지
-            img_m = re.search(r'<img[^>]+src=[\"\']([^\"\']+)[\"\']', detail)
-            editor_img = img_m.group(1) if img_m else ''
+            imgs = re.findall(r'https?://[^"\']+/data/editor/[^"\']+', detail)
+            editor_img = ''
+            for candidate in imgs:
+                if not any(bad in candidate.lower() for bad in ['logo', 'banner', 'icon', 'fullpc', 'default']):
+                    editor_img = candidate
+                    break
 
             # 링크 추출
             links = re.findall(r'https?://[^\s\"\'<>]+', detail)
