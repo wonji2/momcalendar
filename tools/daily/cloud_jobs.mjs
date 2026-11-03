@@ -119,6 +119,21 @@ try {
   console.error("🚨 [CLEAN ERROR]", e);
 }
 
+// 🚨 긴급 정밀 조치: 서울랜드(1829)·아쿠아리움(1828)·아넬라퓨레(1825) 정품 이미지 교체 및 서울랜드 닫는괄호 오타 수정
+try {
+  const sql = `
+    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3282523122/still/600', title = '서울랜드 파크이용권 종일/야간권 특가' WHERE id = 1829;
+    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4578165601/still/600', title = '코엑스 아쿠아리움 입장권 (즉시확정/당일사용)' WHERE id = 1828;
+    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/2471076465/still/600' WHERE id = 1825;
+  `;
+  fs.writeFileSync("/tmp/fix_anela_and_tickets.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/fix_anela_and_tickets.sql"], { stdio: "inherit" });
+  console.log("🚨 [FIX] 서울랜드·아쿠아리움·아넬라퓨레 정품 CDN 이미지 반영 완료!");
+} catch (e) {
+  console.error("🚨 [FIX ERROR]", e);
+}
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
