@@ -146,11 +146,46 @@ def submit():
     print('✅ 심사 제출됨', r['data']['attributes'].get('state'))
 
 
+def diag():
+    """제출이 「아직 준비 안 됨」으로 거절될 때 무엇이 비었는지 본다(2026-11-03). 공개 저장소 로그라 값은 찍지 않고 「채워짐/비었음」·상태만 찍는다"""
+    aid = app_id()
+    vs = [v for v in versions(aid) if v['attributes']['appStoreState'] == 'PREPARE_FOR_SUBMISSION']
+    if not vs:
+        print('준비 중 버전 없음'); return
+    vid = vs[0]['id']
+    def g(path):
+        try:
+            return asc.call('GET', path)
+        except SystemExit:
+            return {'data': None}
+    def fill(at, keys=None):
+        at = at or {}
+        return {k: ('있음' if at.get(k) not in (None, '', [], {}) else '비었음') for k in (keys or sorted(at))}
+    b = (g('/appStoreVersions/%s/build' % vid).get('data') or {}).get('attributes') or {}
+    print('빌드', {k: b.get(k) for k in ('version', 'processingState', 'usesNonExemptEncryption', 'expired')})
+    ar = (g('/appStoreVersions/%s/ageRatingDeclaration' % vid).get('data') or {}).get('attributes') or {}
+    print('연령등급 비어 있는 칸', [k for k, v in ar.items() if v is None])
+    rd = (g('/appStoreVersions/%s/appStoreReviewDetail' % vid).get('data') or {}).get('attributes') or {}
+    print('심사정보', fill(rd, ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail', 'demoAccountRequired', 'notes']))
+    for L in (g('/appStoreVersions/%s/appStoreVersionLocalizations' % vid).get('data') or []):
+        print('문구', L['attributes'].get('locale'), fill(L['attributes'], ['description', 'keywords', 'whatsNew', 'supportUrl', 'marketingUrl']))
+        for st in (g('/appStoreVersionLocalizations/%s/appScreenshotSets' % L['id']).get('data') or []):
+            ss = g('/appScreenshotSets/%s/appScreenshots' % st['id']).get('data') or []
+            print('  사진 세트', st['attributes'].get('screenshotDisplayType'), [(x['attributes'].get('assetDeliveryState') or {}).get('state') for x in ss])
+    for I in (g('/apps/%s/appInfos' % aid).get('data') or []):
+        print('appInfo', I['attributes'].get('appStoreState'))
+        for L in (g('/appInfos/%s/appInfoLocalizations' % I['id']).get('data') or []):
+            print('  지역', L['attributes'].get('locale'), fill(L['attributes'], ['name', 'subtitle', 'privacyPolicyUrl']))
+        print('  대분류', '있음' if (g('/appInfos/%s/primaryCategory' % I['id']).get('data')) else '비었음')
+
+
 if __name__ == '__main__':
     if sys.argv[1] == 'show':
         show()
     elif sys.argv[1] == 'apply':
         apply(sys.argv[2])
+    elif sys.argv[1] == 'diag':
+        diag()
     elif sys.argv[1] == 'submit':
         submit()
     else:
