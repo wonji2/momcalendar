@@ -40,6 +40,7 @@ const JOBS = {
   period_fill_dry: { cron: '-', script: 'tools/daily/period_fill.mjs', bundle: true, pc: '(시험용 · 확인만)', out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/] },
 };
 const PC_ALIVE_MIN = 90;
+const REPO = process.cwd();
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
