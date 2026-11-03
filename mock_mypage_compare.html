@@ -483,7 +483,7 @@ body {
 .cweek { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; border-top: 1px solid #F2F4F6; }
 .cweek.lbl { border-top: 0; padding-bottom: 6px; }
 .cdlbl { text-align: center; font-size: 11px; font-weight: 700; color: #8B95A1; }
-.ccell { min-height: 72px; padding: 4px 2px; text-align: center; border-radius: 4px; cursor: pointer; }
+.ccell { min-height: 80px !important; padding: 3px 2px 0 !important; text-align: center; border-radius: 4px; cursor: pointer; position: relative; }
 .ccell:active { background: #F8F9FA; }
 .ccell.oth { opacity: 0.25; }
 .cnum { font-size: 12px; font-weight: 700; color: #333D4B; line-height: 1; }
@@ -491,7 +491,7 @@ body {
   width: 22px; height: 22px; border-radius: 50%; background: #7C54C4; color: #fff;
   display: inline-flex; align-items: center; justify-content: center; margin: 0 auto;
 }
-.cbars { position: absolute; left: 0; right: 0; top: 24px; pointer-events: none; }
+.cbars { position: absolute; left: 0; right: 0; top: 28px !important; pointer-events: none; }
 .cbar {
   position: absolute; height: 18px; border-radius: 4px; font-size: 10px; font-weight: 700;
   line-height: 18px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -842,14 +842,14 @@ body {
               <div>
                 <div style="display:flex; align-items:center; gap:6px;">
                   <span style="font-size:16.5px; font-weight:800; color:#191F28;">맘캘러님</span>
-                  <span style="background:#F3EFFC; color:var(--main); font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:12px;">새싹회원</span>
+                  <span onclick="showToast('네이버 카페 및 맘캘린더 인증 패밀리 회원입니다 💜')" style="background:#F3EFFC; color:var(--main); font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:12px; cursor:pointer;">맘캘 패밀리</span>
                 </div>
                 <div style="font-size:12px; color:var(--muted); margin-top:3px;">
                   맞춤 특가와 공구 일정을 모아드려요
                 </div>
               </div>
             </div>
-            <button onclick="showToast('프로필 수정 준비 중입니다')" style="background:#F2F4F6; border:none; border-radius:8px; padding:6px 10px; font-size:11.5px; font-weight:600; color:#4E5968; cursor:pointer;">
+            <button onclick="openSubpage('subAccount')" style="background:#F2F4F6; border:none; border-radius:8px; padding:6px 10px; font-size:11.5px; font-weight:600; color:#4E5968; cursor:pointer;">
               설정
             </button>
           </div>
@@ -871,57 +871,36 @@ body {
           </div>
         </div>
 
-        <!-- 계정 연동 배너 -->
-        <div onclick="showToast('⚡ 카카오 2초 계정 연동 창으로 이동합니다')" style="margin-bottom:12px; background:#EBF4FF; border:1px solid #D0E2FF; border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="font-size:20px;">🛡️</div>
-            <div>
-              <div style="font-size:12.5px; font-weight:800; color:#0055D6;">안전한 알림 보관을 위해 연동하세요</div>
-              <div style="font-size:11px; color:#5079B0; margin-top:2px;">기기를 바꿔도 찜 목록과 키워드가 안전하게 보관돼요</div>
-            </div>
-          </div>
-          <span style="font-size:11.5px; font-weight:800; background:#0064FF; color:#fff; padding:5px 9px; border-radius:6px;">연동 ›</span>
-        </div>
-
         <!-- 1. 📅 캘린더 핵심 메뉴 (매니저님 지침: 3개 널브러뜨리지 않고 1개로 압축) -->
         <div class="card" style="margin-bottom: 12px;">
           <div class="menu-item" onclick="openSubpage('subCal')">
             <div class="menu-left">
               <span class="menu-icon">📅</span>
               <span class="menu-label">내 공구 캘린더</span>
-              <span style="font-size:11px; color:var(--main); font-weight:700; background:#F3EFFC; padding:2px 6px; border-radius:4px;">저장·연동</span>
+              
             </div>
             <span class="menu-arrow">›</span>
           </div>
         </div>
 
-        <!-- 2. 🛍️ 나의 쇼핑 활동 (전체화면 서브페이지 진입) -->
+        <!-- 2. 🔔 알림 세부 설정 단일화 (사장님 지침 100% 반영: 중복 제거) -->
         <div class="card" style="margin-bottom: 12px;">
-          <div class="sec-label">나의 쇼핑 활동</div>
-          <div class="menu-item" onclick="openSubpage('subWish')">
-            <div class="menu-left">
-              <span class="menu-icon">💜</span>
-              <span class="menu-label">나의 찜한 일정</span>
-              <span style="font-size:12px; color:var(--muted); font-weight:600;" id="badgeWish">3개 보관중</span>
-            </div>
-            <span class="menu-arrow">›</span>
-          </div>
+          <div class="sec-label">알림 관리</div>
           <div class="menu-item" onclick="openSubpage('subNoti')">
             <div class="menu-left">
               <span class="menu-icon">🔔</span>
-              <span class="menu-label">특가 키워드 & 알림 설정</span>
-              <span style="font-size:12px; color:var(--muted); font-weight:600;" id="badgeKw">4개 등록됨</span>
+              <span class="menu-label">알림 세부 설정</span>
+              <span style="font-size:11px; color:#8B95A1; font-weight:600;">매너타임 · 키워드</span>
             </div>
             <span class="menu-arrow">›</span>
           </div>
         </div>
-
         <!-- 3. 가운데 추천 배너 -->
         <div onclick="shareAppKakao()" style="margin-bottom: 12px; background:linear-gradient(135deg, #7C54C4, #9B6FD4); border-radius:14px; padding:15px 16px; color:#fff; display:flex; align-items:center; justify-content:space-between; cursor:pointer; box-shadow:0 4px 12px rgba(124,84,196,0.2);">
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="font-size:24px;">🎁</div>
             <div>
-              <div style="font-size:13.5px; font-weight:800; color:#fff;">친구에게 맘캘린더 알려주기</div>
+              <div style="font-size:13.5px; font-weight:800; color:#fff;">친구에게 공유</div>
               <div style="font-size:11px; color:rgba(255,255,255,0.8); margin-top:2px;">엄마들이 극찬한 공구·핫딜 1등 캘린더</div>
             </div>
           </div>
@@ -935,7 +914,7 @@ body {
           <div class="menu-item" onclick="showToast('맘캘린더 소개 & 이용가이드 페이지로 이동합니다')">
             <div class="menu-left">
               <span class="menu-icon">📖</span>
-              <span class="menu-label">맘캘린더 소개 & 이용가이드</span>
+              <span class="menu-label">소개·이용가이드</span>
             </div>
             <span class="menu-arrow">›</span>
           </div>
@@ -944,7 +923,6 @@ body {
             <div class="menu-left">
               <span class="menu-icon">💬</span>
               <span class="menu-label">카카오톡 문의</span>
-              <span style="font-size:11px; color:var(--muted); font-weight:600;">(공식 1:1 상담)</span>
             </div>
             <span class="menu-arrow">›</span>
           </a>
@@ -952,7 +930,7 @@ body {
           <div class="menu-item" onclick="openSubpage('subInq')">
             <div class="menu-left">
               <span class="menu-icon">🛠️</span>
-              <span class="menu-label">건의 · 오류 제보</span>
+              <span class="menu-label">건의·오류 제보</span>
             </div>
             <span class="menu-arrow">›</span>
           </div>
@@ -960,7 +938,7 @@ body {
           <div class="menu-item" onclick="openInqForPartner()">
             <div class="menu-left">
               <span class="menu-icon">📩</span>
-              <span class="menu-label">제휴 · 입점 문의</span>
+              <span class="menu-label">제휴·입점 문의</span>
             </div>
             <span class="menu-arrow">›</span>
           </div>
@@ -969,7 +947,6 @@ body {
             <div class="menu-left">
               <span class="menu-icon">✉️</span>
               <span class="menu-label">앱 문의 메일</span>
-              <span style="font-size:11.5px; color:var(--main); font-weight:700;">app@momcalendar.com</span>
             </div>
             <span class="menu-arrow">›</span>
           </a>
@@ -997,12 +974,6 @@ body {
         </div>
 
         <div style="padding:14px 16px;">
-          <!-- 정품 알림 배너 -->
-          <div class="noti-banner">
-            <div class="nb-txt">🔔 찜한 공구는 오픈하는 날 아침 알림이 옵니다</div>
-            <button onclick="showToast('알림 권한이 정상 활성화되어 있습니다')">알림받기</button>
-          </div>
-
           <!-- 정품 찜 리스트 컨테이너 -->
           <div id="wishOriginWrap"></div>
 
@@ -1030,7 +1001,7 @@ body {
           <div class="card" style="margin-bottom:14px; padding:16px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <div style="font-size:15px; font-weight:800; color:#191F28;">
-                🔔 특가 키워드 등록 <span style="font-size:12px; color:var(--main);" id="subKwCountText">(4/10)</span>
+                🔔 특가 키워드 등록 <span style="font-size:12px; color:var(--main);" id="subKwCountText">(4/30)</span>
               </div>
             </div>
             <div style="font-size:12px; color:#6B7684; line-height:1.5; margin-bottom:12px;">
@@ -1112,33 +1083,7 @@ body {
           </div>
 
           <!-- 섹션 3: 🔔 스마트 알림 옵션 (폴센트 킬러 기능) -->
-          <div class="card" style="margin-bottom:14px; padding:16px; display:flex; flex-direction:column; gap:14px;">
-            <div style="font-size:14.5px; font-weight:800; color:#191F28;">스마트 알림 수신</div>
-            
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-size:13px; font-weight:700; color:#333D4B;">🔔 야간 알림 아침 요약</div>
-                <div style="font-size:11px; color:#8B95A1;">밤사이 놓친 특가를 아침 8시 30분에 한 번에 모아서 발송</div>
-              </div>
-              <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #F2F4F6; padding-top:12px;">
-              <div>
-                <div style="font-size:13px; font-weight:700; color:#333D4B;">💳 와우 & 보유 카드 할인 자동 계산</div>
-                <div style="font-size:11px; color:#8B95A1;">내가 보유한 카드사 최대 혜택가로 맞춰서 알림</div>
-              </div>
-              <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #F2F4F6; padding-top:12px;">
-              <div>
-                <div style="font-size:13px; font-weight:700; color:#333D4B;">🔥 역대급 최저가 무조건 알림</div>
-                <div style="font-size:11px; color:#8B95A1;">최근 6개월 중 가장 싼 가격일 때는 즉시 발송</div>
-              </div>
-              <input type="checkbox" checked style="accent-color:var(--main); width:18px; height:18px; cursor:pointer;">
-            </div>
-          </div>
+          
 
         </div>
       </div><!-- /#subNoti -->
@@ -1173,10 +1118,10 @@ body {
           <!-- 캘린더 하단: 사진 저장 & 폰 캘린더 넣기 -->
           <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
             <button onclick="showToast('📱 내 폰 캘린더(구글·애플)로 찜한 일정을 동기화합니다')" style="width:100%; background:#fff; border:1.5px solid #DCD2EC; color:#7C54C4; border-radius:12px; padding:12px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;">
-              📅 찜한 공구, 내 폰 캘린더에 넣기
+              폰 캘린더 저장
             </button>
             <button onclick="showToast('🖼️ 4색 막대 캘린더가 갤러리에 고화질 이미지로 저장되었습니다')" style="width:100%; background:var(--main); border:0; color:#fff; border-radius:12px; padding:12px; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer;">
-              🖼 이대로 사진으로 저장
+              사진으로 저장
             </button>
             <div style="font-size:11px; color:#8A8194; text-align:center; margin-top:2px;">
               이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요
@@ -1266,6 +1211,52 @@ body {
           </button>
         </div>
       </div><!-- /#subInq -->
+
+      <!-- ============================================== -->
+      <!-- 📱 [서브페이지 6: ⚙️ 계정 및 프로필 설정 (전체화면)] -->
+      <!-- ============================================== -->
+      <div id="subAccount" class="subpage-view" style="display:none;">
+        <div class="subpage-header">
+          <button onclick="closeSubpage('subAccount')" class="back-btn">←</button>
+          <div class="subpage-title">계정 및 프로필 설정</div>
+          <div style="width:24px;"></div>
+        </div>
+
+        <div style="padding:14px 16px;">
+          <div class="card" style="margin-bottom:14px; padding:18px 16px;">
+            <div style="font-size:13px; font-weight:700; color:#8B95A1; margin-bottom:12px;">프로필 정보</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <span style="font-size:14px; font-weight:700; color:#191F28;">닉네임</span>
+              <span style="font-size:14px; font-weight:800; color:var(--main);">맘캘러 님</span>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:14px; font-weight:700; color:#191F28;">회원 등급</span>
+              <span style="font-size:12.5px; font-weight:800; color:#03C75A; background:#E8F8F0; padding:3px 8px; border-radius:6px;">맘캘 패밀리</span>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:14px; padding:14px 16px;">
+            <div class="menu-item" onclick="showToast('알림 데이터가 클라우드에 안전하게 보관되어 있습니다')" style="padding:10px 0; border:none;">
+              <div class="menu-left">
+                <span class="menu-label">데이터 동기화 관리</span>
+              </div>
+              <span class="menu-arrow">›</span>
+            </div>
+            <div class="menu-item" onclick="showToast('현재 최신 버전(v2.4.0)을 이용 중입니다')" style="padding:10px 0; border:none; border-top:1px solid #F8F9FA;">
+              <div class="menu-left">
+                <span class="menu-label">앱 버전</span>
+                <span style="font-size:12px; color:#8B95A1;">v2.4.0 최신</span>
+              </div>
+              <span class="menu-arrow">›</span>
+            </div>
+          </div>
+
+          <button onclick="showToast('로그아웃 되었습니다'); setTimeout(()=>closeSubpage('subAccount'),800);" style="width:100%; padding:14px; background:#F2F4F6; border:none; border-radius:12px; font-size:13.5px; font-weight:700; color:#8B95A1; cursor:pointer;">
+            로그아웃
+          </button>
+        </div>
+      </div><!-- /#subAccount -->
+
 
 
     </div><!-- /#planC -->
@@ -1514,7 +1505,7 @@ function buildRealCalendar() {
 
       const leftPct = (colStart * (100 / 7)).toFixed(2);
       const widthPct = (((colEnd - colStart + 1) * (100 / 7)) - 0.7).toFixed(2);
-      const topPx = 24 + lane * 20;
+      const topPx = 28 + lane * 21;
 
       bars.push(`
         <div class="cbar ${isCont ? 'cont' : ''} ${isMore ? 'more' : ''}"
@@ -1594,6 +1585,25 @@ function toggleCatFilter(cat, btn) {
   btn.style.border = '1px solid #E3D9F6';
   btn.classList.add('active');
   showToast(`[${btn.textContent}] 채널 알림으로 필터링되었습니다`);
+}
+
+
+function openMorningSummaryPreview() {
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.innerHTML = `🌅 <b>아침 8:30 모아보기 미리보기</b><br><span style="font-size:11.5px; opacity:0.9;">다이슨 V12 역대최저가(59만) 외 3건의 밤사이 특가가 발송됩니다.</span>`;
+  t.style.display = 'block';
+  t.style.whiteSpace = 'normal';
+  t.style.lineHeight = '1.4';
+  t.style.textAlign = 'center';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => {
+    t.style.display = 'none';
+  }, 3000);
+}
+
+function toggleMorningSummary(checked) {
+  showToast(checked ? '아침 8시 30분 모아보기 알림이 켜졌습니다' : '아침 요약 알림이 꺼졌습니다');
 }
 
 function toggleMannerBox(checked) {
