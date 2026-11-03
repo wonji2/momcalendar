@@ -12,11 +12,11 @@ LOG_FILE = r'C:\MomcalBot\bot.log'
 # 🔴 2026-11-04 사장님 긴급 지침(핫딜 카톡 발송봇 결함 3건) — scratchpad/ORDER_CLAUDE_HOTDEAL_BOT_FIX.md
 # ① 보내는 방은 이 제목과 글자 하나까지 같은 창 하나뿐이다. 키워드·부분일치·「아무 카톡 창」 금지(다른 채팅방에 날아간 사고).
 TARGET_ROOM = '[맘캘린더] 핫딜공지방'
-# ② 밤 22:00 ~ 아침 09:00(한국시간)에는 카톡으로 아무것도 보내지 않는다(새벽 3시반 발송 사고). 그때 올라온 딜은 DB 에만 쌓인다.
-QUIET_START_H, QUIET_END_H = 22, 9
+# ② 밤 23:00 ~ 아침 08:00(한국시간)에는 카톡으로 아무것도 보내지 않는다(새벽 3시반 발송 사고). 그때 올라온 딜은 DB 에만 쌓인다.
+QUIET_START_H, QUIET_END_H = 23, 8
 # ③ 시간 계산은 PC 시계·시간대 설정과 상관없이 항상 한국시간(UTC+9)으로 한다.
 KST = timezone(timedelta(hours=9))
-# 아침 9시에 밤사이 딜이 한꺼번에 쏟아지지 않게, 올라온 지 이 시간이 지난 딜은 보내지 않고 처리 끝으로만 표시한다.
+# 아침 8시에 밤사이 딜이 한꺼번에 쏟아지지 않게, 올라온 지 이 시간이 지난 딜은 보내지 않고 처리 끝으로만 표시한다.
 MAX_DEAL_AGE_H = 6
 
 def now_kst():
@@ -157,7 +157,7 @@ def _clear_edit(edit_h):
 
 def send_message(msg):
     if is_quiet_hour():
-        log('[QUIET] 방해금지 시간(22~09시) — 발송 안 함')
+        log('[QUIET] 방해금지 시간(23~08시) — 발송 안 함')
         return False
     chat_h, edit_h = find_chat_and_edit()
     if not chat_h or not edit_h:
@@ -248,7 +248,7 @@ def _single_instance():
 
 def run_loop():
     _lock = _single_instance()
-    log(f'=== 맘캘린더 핫딜 카톡방 자동 발송 봇 가동 — 대상 「{TARGET_ROOM}」 · 발송 09:00~22:00(KST) ===')
+    log(f'=== 맘캘린더 핫딜 카톡방 자동 발송 봇 가동 — 대상 「{TARGET_ROOM}」 · 발송 08:00~23:00(KST) ===')
     posted_ids = load_posted_history()
     last_quiet_log = None
     while True:
@@ -256,7 +256,7 @@ def run_loop():
             if is_quiet_hour():
                 key = now_kst().strftime('%Y-%m-%d %H')
                 if key != last_quiet_log:
-                    log('[QUIET] 방해금지 시간(22~09시, 한국시간) — 핫딜은 DB 에만 쌓이고 카톡 발송은 쉽니다')
+                    log('[QUIET] 방해금지 시간(23~08시, 한국시간) — 핫딜은 DB 에만 쌓이고 카톡 발송은 쉽니다')
                     last_quiet_log = key
                 time.sleep(60)
                 continue
@@ -270,7 +270,7 @@ def run_loop():
                     posted_ids.add(deal_id)
                     save_posted_history(posted_ids)
                     continue
-                if is_quiet_hour():   # 보내는 도중 22시를 넘기면 거기서 멈춘다
+                if is_quiet_hour():   # 보내는 도중 23시를 넘기면 거기서 멈춘다
                     break
                 msg = format_kakao_message(deal)
                 log(f'[*] 신규 핫딜 발송 시도: ID {deal_id} - {deal.get("title", "")[:20]}')
