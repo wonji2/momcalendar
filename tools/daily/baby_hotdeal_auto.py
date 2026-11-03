@@ -504,6 +504,98 @@ def collect_from_bbhd():
         '''
         run_sql(up_sql)
 
+
+def make_3ha_klook_deeplink(klook_url, aid='140703'):
+    """
+    클룩(Klook) 원문 URL을 세시간전 제휴 딥링크(AID: 140703)로 자동 변환
+    규격: aid=15500 (세시간전 클룩 제휴코드), aff_pid={우리AID}_{해시/추적ID}
+    """
+    parsed = urllib.parse.urlparse(klook_url)
+    qs = urllib.parse.parse_qs(parsed.query)
+    qs['aid'] = ['15500']
+    qs['aff_pid'] = [f'{aid}_momcal']
+    qs['utm_source'] = ['3hoursahead']
+    qs['utm_medium'] = ['affiliate']
+    qs['utm_campaign'] = ['140703']
+    new_query = urllib.parse.urlencode(qs, doseq=True)
+    return urllib.parse.urlunparse((
+        parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment
+    ))
+
+def collect_from_3ha_klook():
+    """
+    세시간전 x 클룩 여행·키즈체험·테마파크 특가 수집 및 24시간 자동 적재
+    """
+    print('[klook] 세시간전 제휴 여행 핫딜 수집 시작 (AID: 140703)...')
+    now = datetime.now(KST)
+    today_str = now.strftime('%Y-%m-%d')
+
+    # 맘캘러 인기 테마파크/키즈체험/아쿠아리움 큐레이션 풀
+    KLOOK_TARGETS = [
+        {
+            'prod_id': 'klook_15699',
+            'title': '[세시간전x클룩] 에버랜드 종일 이용권 특가 (QR 바로입장)',
+            'orig_url': 'https://www.klook.com/ko/activity/15699-everland-ticket-yongin/',
+            'price': 38000,
+            'price_before': 62000,
+            'discount_rate': 39,
+            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/15699-everland-ticket-yongin/EverlandThemeParkTicket.jpg',
+            'minor': '테마파크'
+        },
+        {
+            'prod_id': 'klook_2094',
+            'title': '[세시간전x클룩] 롯데월드 어드벤처 종합이용권 (종일/After4)',
+            'orig_url': 'https://www.klook.com/ko/activity/2094-lotte-world-theme-park-seoul/',
+            'price': 36900,
+            'price_before': 62000,
+            'discount_rate': 40,
+            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/2094-lotte-world-theme-park-seoul/LotteWorldThemePark.jpg',
+            'minor': '테마파크'
+        },
+        {
+            'prod_id': 'klook_1688',
+            'title': '[세시간전x클룩] 코엑스 아쿠아리움 입장권 (즉시확정/당일사용)',
+            'orig_url': 'https://www.klook.com/ko/activity/1688-coex-aquarium-seoul/',
+            'price': 23900,
+            'price_before': 33000,
+            'discount_rate': 28,
+            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/1688-coex-aquarium-seoul/CoexAquarium.jpg',
+            'minor': '키즈체험'
+        },
+        {
+            'prod_id': 'klook_3659',
+            'title': '[세시간전x클룩] 서울랜드 파크이용권 종일/야간권 특가',
+            'orig_url': 'https://www.klook.com/ko/activity/3659-seoulland-day-pass-seoul/',
+            'price': 21900,
+            'price_before': 49000,
+            'discount_rate': 55,
+            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/3659-seoulland-day-pass-seoul/SeoulLandDayPass.jpg',
+            'minor': '테마파크'
+        }
+    ]
+
+    for item in KLOOK_TARGETS:
+        try:
+            aff_link = make_3ha_klook_deeplink(item['orig_url'])
+            ins_sql = f"""
+            INSERT INTO public.hotdeals (
+              title, link, major, minor, price, price_before, discount_rate,
+              img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
+            )
+            SELECT
+              {sql_quote(item['title'])}, {sql_quote(aff_link)}, '여행', {sql_quote(item['minor'])},
+              {item['price']}, {item['price_before']}, {item['discount_rate']},
+              {sql_quote(item['img_url'])}, '3hoursahead', {sql_quote(item['prod_id'])}, '클룩',
+              {sql_quote(today_str)}, true, true, now() + interval '7 days'
+            WHERE NOT EXISTS (
+              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(item['prod_id'])} AND deal_day = {sql_quote(today_str)}
+            );
+            """
+            run_sql(ins_sql)
+            print(f"[klook] 여행 핫딜 등록 완료: {item['title']}")
+        except Exception as e:
+            print(f"[klook] {item['prod_id']} 등록 실패: {e}")
+
 def main():
     print('=== [맘캘린더 24시간 멀티 핫딜 엔진 가동] ===')
     try:
@@ -525,6 +617,11 @@ def main():
         collect_from_bbhd()
     except Exception as e:
         print(f'[collect_from_bbhd error] {e}')
+
+    try:
+        collect_from_3ha_klook()
+    except Exception as e:
+        print(f'[collect_from_3ha_klook error] {e}')
 
 if __name__ == '__main__':
     main()
