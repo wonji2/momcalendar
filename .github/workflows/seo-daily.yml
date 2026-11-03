@@ -74,7 +74,7 @@ jobs:
             for i in 1 2 3; do
               if git push; then pushed=1; break; fi
               echo "push 거절 — 원격을 끌어와 다시 얹는다 (${i}/3)"
-              git pull --rebase origin main || break   # 충돌이면 사람이 봐야 한다
+              git pull --rebase --autostash origin main || break   # 충돌이면 사람이 봐야 한다
               sleep 5
             done
             if [ "$pushed" != "1" ]; then
