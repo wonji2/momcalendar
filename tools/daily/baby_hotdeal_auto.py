@@ -1,3 +1,4 @@
+from tools.daily.fix_thumbnails import main as run_fix_thumbnails
 import os
 import re
 import json
@@ -597,6 +598,10 @@ def collect_from_3ha_klook():
             print(f"[klook] {item['prod_id']} 등록 실패: {e}")
 
 def main():
+    try:
+        run_fix_thumbnails()
+    except Exception as e:
+        print(f'[fix_thumbnails error] {e}')
     print('=== [맘캘린더 24시간 멀티 핫딜 엔진 가동] ===')
     try:
         clean_polluted_gonggu_titles()
