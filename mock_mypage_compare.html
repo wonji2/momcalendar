@@ -1144,7 +1144,7 @@ body {
               <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:2px;">찜한 공구</div>
               <div style="font-size:17px; font-weight:900; color:var(--main);" id="statWishCount">3</div>
             </div>
-            <div onclick="openSubpage('subNoti')" style="text-align:center; border-left:1px solid #E5E8EB; border-right:1px solid #E5E8EB; cursor:pointer;">
+            <div onclick="openSubpage('subKw')" style="text-align:center; border-left:1px solid #E5E8EB; border-right:1px solid #E5E8EB; cursor:pointer;">
               <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:2px;">알림 키워드</div>
               <div style="font-size:17px; font-weight:900; color:#333D4B;" id="statKwCount">4</div>
             </div>
@@ -1170,11 +1170,11 @@ body {
         <!-- 2. 🔔 알림 세부 설정 단일화 (사장님 지침 100% 반영: 중복 제거) -->
         <div class="card" style="margin-bottom: 12px;">
           <div class="sec-label">알림 관리</div>
-          <div class="menu-item" onclick="openSubpage('subNoti')">
+          <div class="menu-item" onclick="openSubpage('subNotiDetail')">
             <div class="menu-left">
               <span class="menu-icon">🔔</span>
               <span class="menu-label">알림 세부 설정</span>
-              <span style="font-size:11px; color:#8B95A1; font-weight:600;">매너타임 · 키워드</span>
+              <span style="font-size:11px; color:#8B95A1; font-weight:600;">소리 · 진동 · 매너타임</span>
             </div>
             <span class="menu-arrow">›</span>
           </div>
@@ -1961,6 +1961,208 @@ const _initialPlan = _urlParams.get('plan') || 'C';
 switchPlan(_initialPlan);
 </script>
 
+
+
+<script>
+// ── [매니저님 6대 실전 기획] 키워드 & 채널 다중 선택 데이터 ──
+let kwItems = [
+  { id: 1, kw: '기저귀', channels: ['gonggu', 'hotdeal'] },
+  { id: 2, kw: '아넬라', channels: ['gonggu', 'live'] },
+  { id: 3, kw: '비판텐', channels: ['gonggu'] },
+  { id: 4, kw: '물티슈', channels: ['hotdeal', 'sale'] }
+];
+
+const CH_LABELS = {
+  gonggu: '공구',
+  hotdeal: '핫딜',
+  sale: '세일',
+  live: '라방'
+};
+
+function renderKwList() {
+  const wrap = document.getElementById('kwCardListWrap');
+  const countBadge = document.getElementById('kwCountBadge');
+  const statCount = document.getElementById('statKwCount');
+  if(!wrap) return;
+
+  if(countBadge) countBadge.innerText = `${kwItems.length} / 30개`;
+  if(statCount) statCount.innerText = kwItems.length;
+
+  if(kwItems.length === 0) {
+    wrap.innerHTML = '<div style="text-align:center; padding:20px; font-size:12px; color:#8B95A1;">등록된 키워드가 없습니다. 위에서 키워드를 추가해 보세요!</div>';
+    return;
+  }
+
+  let html = '';
+  kwItems.forEach(item => {
+    html += `
+      <div style="background:#F8F9FA; border:1px solid #ECEEF0; border-radius:12px; padding:11px 12px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:13.5px; font-weight:800; color:#191F28;">🏷️ ${item.kw}</span>
+          <button onclick="removeKeyword(${item.id})" style="background:none; border:none; color:#ADB5BD; font-size:14px; cursor:pointer; padding:2px 4px;">✕</button>
+        </div>
+        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+    `;
+    ['gonggu', 'hotdeal', 'sale', 'live'].forEach(chKey => {
+      const isOn = item.channels.includes(chKey);
+      html += `
+        <span class="ch-chip ${isOn ? 'active' : ''}" onclick="toggleKwChannel(${item.id}, '${chKey}')">
+          ${isOn ? '✓ ' : ''}${CH_LABELS[chKey]}
+        </span>
+      `;
+    });
+    html += `
+        </div>
+      </div>
+    `;
+  });
+  wrap.innerHTML = html;
+}
+
+function addKeyword() {
+  const inp = document.getElementById('inputKw');
+  if(!inp) return;
+  const val = inp.value.trim();
+  if(!val) { showToast('키워드를 입력해 주세요'); return; }
+  if(kwItems.length >= 30) { showToast('키워드는 최대 30개까지 등록 가능합니다'); return; }
+  if(kwItems.some(x => x.kw === val)) { showToast('이미 등록된 키워드입니다'); return; }
+
+  kwItems.unshift({
+    id: Date.now(),
+    kw: val,
+    channels: ['gonggu', 'hotdeal'] // 기본값: 공구+핫딜
+  });
+  inp.value = '';
+  renderKwList();
+  showToast(`'${val}' 키워드가 등록되었습니다 (공구·핫딜 켜짐)`);
+}
+
+function removeKeyword(id) {
+  const item = kwItems.find(x => x.id === id);
+  kwItems = kwItems.filter(x => x.id !== id);
+  renderKwList();
+  if(item) showToast(`'${item.kw}' 키워드가 삭제되었습니다`);
+}
+
+function toggleKwChannel(id, chKey) {
+  const item = kwItems.find(x => x.id === id);
+  if(!item) return;
+  if(item.channels.includes(chKey)) {
+    item.channels = item.channels.filter(c => c !== chKey);
+    showToast(`'${item.kw}'의 [${CH_LABELS[chKey]}] 알림을 껐습니다`);
+  } else {
+    item.channels.push(chKey);
+    showToast(`'${item.kw}'의 [${CH_LABELS[chKey]}] 알림을 켰습니다 ✨`);
+  }
+  renderKwList();
+}
+
+function toggleAllKwChannels(state) {
+  kwItems.forEach(item => {
+    item.channels = state ? ['gonggu', 'hotdeal', 'sale', 'live'] : [];
+  });
+  renderKwList();
+  showToast(state ? '모든 키워드의 4대 분야 알림이 켜졌습니다 🎯' : '모든 분야 알림이 꺼졌습니다');
+}
+
+// ── 닉네임 수정 ──
+function editNickname() {
+  const current = document.getElementById('txtUserNick').innerText;
+  const newNick = prompt('변경하실 닉네임을 입력해 주세요:', current);
+  if(newNick && newNick.trim()) {
+    document.getElementById('txtUserNick').innerText = newNick.trim();
+    showToast(`닉네임이 '${newNick.trim()}'(으)로 변경되었습니다 ✨`);
+  }
+}
+
+// ── 등급 모달 ──
+function openGradeModal() {
+  document.getElementById('modalGrade').classList.add('show');
+}
+function closeGradeModal() {
+  document.getElementById('modalGrade').classList.remove('show');
+}
+
+// ── 친구 초대 모달 ──
+function openInviteModal() {
+  document.getElementById('modalInvite').classList.add('show');
+}
+function closeInviteModal() {
+  document.getElementById('modalInvite').classList.remove('show');
+}
+function inviteFriendKakao() {
+  closeInviteModal();
+  showToast('카카오톡 초대장을 보냈습니다! 출석 도장 3개가 적립되었습니다 🎁');
+  const statAttend = document.querySelector('[onclick*="출석 완료"] div:last-child');
+  if(statAttend) statAttend.innerText = '도장 6개';
+}
+
+// ── 데이터 동기화 모달 ──
+function openSyncModal() {
+  document.getElementById('modalSync').classList.add('show');
+}
+function closeSyncModal() {
+  document.getElementById('modalSync').classList.remove('show');
+}
+
+// ── 문의/제보 3단 탭 전환 ──
+let currentInqType = 'bug';
+function switchInqType(type) {
+  currentInqType = type;
+  document.getElementById('tabInqBug').classList.toggle('active', type === 'bug');
+  document.getElementById('tabInqIdea').classList.toggle('active', type === 'idea');
+  document.getElementById('tabInqPartner').classList.toggle('active', type === 'partner');
+
+  const guide = document.getElementById('inqGuideText');
+  if(type === 'bug') {
+    guide.innerText = '버그나 작동 오류를 알려주시면 개발팀이 확인 후 즉시 패치합니다.';
+  } else if(type === 'idea') {
+    guide.innerText = '맘캘린더에 있었으면 하는 기능이나 개선점을 자유롭게 제안해 주세요.';
+  } else if(type === 'partner') {
+    guide.innerText = '셀러 입점 제휴, 브랜드 핫딜 제휴 및 인스타 공구 협업 문의를 환영합니다.';
+  }
+}
+
+function submitInquiry() {
+  const title = document.getElementById('inputInqTitle').value.trim();
+  const content = document.getElementById('inputInqContent').value.trim();
+  if(!title || !content) {
+    showToast('제목과 내용을 입력해 주세요');
+    return;
+  }
+  showToast('소중한 의견이 접수되었습니다! app@momcalendar.com으로 전달 완료 ✨');
+  document.getElementById('inputInqTitle').value = '';
+  document.getElementById('inputInqContent').value = '';
+  closeSubpage('subInq');
+}
+
+// ── 서브페이지 열기 / 닫기 라우터 ──
+function openSubpage(subId) {
+  const main = document.getElementById('myMainView');
+  if(main) main.style.display = 'none';
+  document.querySelectorAll('.subpage-view').forEach(el => el.style.display = 'none');
+  const target = document.getElementById(subId);
+  if(target) target.style.display = 'block';
+  window.scrollTo({ top: 0 });
+
+  if(subId === 'subKw') renderKwList();
+  if(subId === 'subWish') renderOriginWish();
+  if(subId === 'subCal') buildRealCalendar();
+}
+
+function closeSubpage(subId) {
+  const target = document.getElementById(subId);
+  if(target) target.style.display = 'none';
+  const main = document.getElementById('myMainView');
+  if(main) main.style.display = 'block';
+  window.scrollTo({ top: 0 });
+}
+
+// 초기화
+window.addEventListener('DOMContentLoaded', () => {
+  renderKwList();
+});
+</script>
 
 </body>
 </html>
