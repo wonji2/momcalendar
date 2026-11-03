@@ -1,4 +1,4 @@
-import os, sys, time, ctypes, win32gui, win32con, win32clipboard, re, json, urllib.request
+import os, sys, time, random, ctypes, win32gui, win32con, win32clipboard, re, json, urllib.request
 from datetime import datetime, timedelta, timezone
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -16,8 +16,19 @@ TARGET_ROOM = '[맘캘린더] 핫딜공지방'
 QUIET_START_H, QUIET_END_H = 23, 8
 # ③ 시간 계산은 PC 시계·시간대 설정과 상관없이 항상 한국시간(UTC+9)으로 한다.
 KST = timezone(timedelta(hours=9))
-# 아침 8시에 밤사이 딜이 한꺼번에 쏟아지지 않게, 올라온 지 이 시간이 지난 딜은 보내지 않고 처리 끝으로만 표시한다.
-MAX_DEAL_AGE_H = 6
+# 방해금지 시간(23~08시)에 쌓인 딜은 아침 8시부터 **한꺼번에가 아니라 하나씩 간격을 두고** 순서대로 보낸다(사장님 2026-11-04 「한번엔 아니지만 순차적으로 오전에 좀 많이」).
+#   · 보내는 간격: 매번 GAP_MIN_S~GAP_MAX_S 초 사이 무작위(몰아치기·봇 티 방지). 낮에 새 딜이 겹쳐 올라와도 같은 간격으로 풀린다.
+#   · 밤사이 쌓인 딜을 놓치지 않게 한 번에 FETCH_LIMIT 개까지 읽고, 올라온 지 MAX_DEAL_AGE_H 시간이 지난 딜은 보내지 않고 처리 끝으로만 표시한다.
+FETCH_LIMIT = 40
+MAX_DEAL_AGE_H = 14
+GAP_MIN_S, GAP_MAX_S = 180, 300
+# 🔴 가격이 바뀐 딜은 거르고, **보내는 시각까지 핫딜가가 그대로인 딜만** 보낸다(사장님 2026-11-04 「딜 가격 변동된건 거르고 아침 보내는 시간까지도 핫딜가가 유지되는거에 한해서」).
+#   · 올라온 지 FRESH_MIN 분 안의 딜은 방금 수집한 가격이라 그대로 보낸다.
+#   · 그보다 오래된 딜은 PC 의 가격 확인 작업(tools/daily/hotdeal_price_gate.mjs)이 몰 페이지에서 다시 재서 적어 둔
+#     price_status 가 'same' 이고 확인 시각이 CHECK_VALID_MIN 분 안일 때만 보낸다. 확인 전이면 기다리고(보내지 않음),
+#     가격이 달라졌거나 품절·조건가·종료면 보내지 않고 처리 끝으로 표시한다. 확인 작업이 멈춰 있으면 오래된 딜은 나가지 않는다(안전 쪽).
+FRESH_MIN = 30
+CHECK_VALID_MIN = 90
 
 def now_kst():
     return datetime.now(KST)
@@ -33,6 +44,33 @@ def _too_old(deal, hours=MAX_DEAL_AGE_H):
         return (datetime.now(timezone.utc) - t) > timedelta(hours=hours)
     except Exception:
         return False   # 시각을 못 읽으면 막지 않는다(발송 여부는 신규 id 판정이 한다)
+
+def _ts(v):
+    try:
+        t = datetime.fromisoformat(str(v).replace('Z', '+00:00'))
+        return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def deal_gate(deal):
+    """딜 하나를 지금 보낼지 정한다 → ('send' | 'wait' | 'drop', 사유). wait 는 처리 표시 없이 다음에 다시 본다."""
+    now = datetime.now(timezone.utc)
+    exp = _ts(deal.get('expires_at'))
+    if exp and exp < now:
+        return 'drop', '딜 기간 종료'
+    created = _ts(deal.get('created_at'))
+    if created and (now - created) <= timedelta(minutes=FRESH_MIN):
+        return 'send', '방금 올라온 딜'
+    st = deal.get('price_status')
+    if st in ('changed', 'soldout', 'cond'):
+        return 'drop', {'changed': '가격이 달라짐', 'soldout': '품절', 'cond': '조건가(확인 불가)'}[st]
+    chk = _ts(deal.get('last_checked_at'))
+    if st == 'same' and chk and (now - chk) <= timedelta(minutes=CHECK_VALID_MIN):
+        cur, pr = deal.get('current_price'), deal.get('price')
+        if cur is not None and pr is not None and int(cur) != int(pr):
+            return 'drop', '확인 가격이 다름'
+        return 'send', '가격 유지 확인됨'
+    return 'wait', '가격 확인 대기(확인 작업 전이거나 확인이 오래됨)'
 
 def log(msg):
     t = now_kst().strftime('%Y-%m-%d %H:%M:%S')
@@ -66,7 +104,7 @@ def get_latest_hotdeals(limit=10):
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        url = f'{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at&order=id.desc&limit={limit}'
+        url = f'{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at,expires_at,price_status,current_price,last_checked_at&order=id.desc&limit={limit}'
         req = urllib.request.Request(url, headers={
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': f'Bearer {SUPABASE_ANON_KEY}'
@@ -249,8 +287,17 @@ def _single_instance():
 def run_loop():
     _lock = _single_instance()
     log(f'=== 맘캘린더 핫딜 카톡방 자동 발송 봇 가동 — 대상 「{TARGET_ROOM}」 · 발송 08:00~23:00(KST) ===')
+    first_run = not os.path.exists(HISTORY_FILE)
     posted_ids = load_posted_history()
+    if first_run:
+        # 기록 파일이 없으면(새로 설치·파일 삭제) 지금 DB 에 있는 딜은 이미 나간 것으로 본다 — 안 그러면 옛 딜이 줄줄이 나간다
+        init = get_latest_hotdeals(limit=FETCH_LIMIT)
+        for d in init:
+            if d.get('id') is not None: posted_ids.add(d.get('id'))
+        save_posted_history(posted_ids)
+        log(f'[INIT] 기록 파일이 없어 현재 핫딜 {len(init)}건은 발송 완료로 표시했습니다')
     last_quiet_log = None
+    last_wait_log = {}
     while True:
         try:
             if is_quiet_hour():
@@ -260,8 +307,8 @@ def run_loop():
                     last_quiet_log = key
                 time.sleep(60)
                 continue
-            deals = get_latest_hotdeals(limit=5)
-            for deal in reversed(deals):
+            deals = sorted(get_latest_hotdeals(limit=FETCH_LIMIT), key=lambda d: d.get('id') or 0)   # 오래된 딜부터 차례로
+            for deal in deals:
                 deal_id = deal.get('id')
                 if deal_id in posted_ids:
                     continue
@@ -269,6 +316,17 @@ def run_loop():
                     log(f'[SKIP] ID {deal_id} 올라온 지 {MAX_DEAL_AGE_H}시간이 지나 보내지 않습니다')
                     posted_ids.add(deal_id)
                     save_posted_history(posted_ids)
+                    continue
+                gate, why = deal_gate(deal)
+                if gate == 'drop':
+                    log(f'[SKIP] ID {deal_id} {why} — 보내지 않습니다')
+                    posted_ids.add(deal_id)
+                    save_posted_history(posted_ids)
+                    continue
+                if gate == 'wait':
+                    if last_wait_log.get(deal_id) != why:
+                        log(f'[WAIT] ID {deal_id} {why}')
+                        last_wait_log[deal_id] = why
                     continue
                 if is_quiet_hour():   # 보내는 도중 23시를 넘기면 거기서 멈춘다
                     break
@@ -278,7 +336,7 @@ def run_loop():
                 if sent:
                     posted_ids.add(deal_id)
                     save_posted_history(posted_ids)
-                    time.sleep(3)
+                    time.sleep(random.randint(GAP_MIN_S, GAP_MAX_S))   # 다음 딜까지 간격(순차 발송)
         except Exception as e:
             log(f'[LOOP ERROR] {e}')
         time.sleep(30)
