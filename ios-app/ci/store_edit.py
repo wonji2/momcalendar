@@ -177,6 +177,8 @@ def diag():
         for L in (g('/appInfos/%s/appInfoLocalizations' % I['id']).get('data') or []):
             print('  지역', L['attributes'].get('locale'), fill(L['attributes'], ['name', 'subtitle', 'privacyPolicyUrl']))
         print('  대분류', '있음' if (g('/appInfos/%s/primaryCategory' % I['id']).get('data')) else '비었음')
+        ar2 = (g('/appInfos/%s/ageRatingDeclaration' % I['id']).get('data') or {}).get('attributes') or {}
+        print('  연령등급', '선언 없음' if not ar2 else {'비어 있는 칸': [k for k, v in ar2.items() if v is None], '칸 수': len(ar2)})
 
 
 if __name__ == '__main__':
