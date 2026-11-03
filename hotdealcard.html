@@ -157,7 +157,7 @@ async function load(){
     const GRID=9;
     const since=new Date(new Date(day+'T00:00:00Z').getTime()-6*864e5).toISOString().slice(0,10);
     const nowIso=new Date().toISOString();
-    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
+    const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url,major&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
     let all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
     // 🔴 2026-10-26 — `?ids=1605,1604` 가 오면 **그 딜만** 그린다.
     //   왜: 스레드 핫딜 글은 올리기 전에 몰에서 가격을 직접 확인하는데(사장님 *"무조건 확인된것만 올려야지"*),
@@ -166,6 +166,16 @@ async function load(){
     //   그림에 틀린 가격이 박히면 본문을 아무리 검증해도 소용없다 → 글을 내리고 여기를 고쳤다.
     //   ⚠ ids 를 **안 주면 지금까지와 똑같이** 동작한다(인스타 카드 make-hotdeal-card.mjs 는 안 준다).
     if(idsQ){ const keep=new Set(idsQ.split(',').map(s=>s.trim()).filter(Boolean)); all=all.filter(h=>keep.has(String(h.id))); }
+    // 🔴 2026-11-03 사장님 지침: 여행/클룩 상품은 카드에 하루 최대 2개만 노출
+    let travelCount = 0;
+    all = all.filter(h => {
+      const isTravel = (h.major === '여행' || h.mall === '클룩');
+      if (isTravel) {
+        if (travelCount >= 2) return false;
+        travelCount++;
+      }
+      return true;
+    });
     // 같은 상품명은 하나만 (여러 몰에서 같은 딜이 뜬다)
     // 🔴 2026-10-16 사장님 "압타밀 두개니까 안겹치는거로" — 「압타밀 프로푸트라 … 4개」·「압타밀 프로푸투라 … 5개」가 나란히 실렸다.
     //   글자가 완전히 같을 때만 묶어서, 수량·옵션이 다르거나 표기가 한 글자 다르면 빠져나갔다.
