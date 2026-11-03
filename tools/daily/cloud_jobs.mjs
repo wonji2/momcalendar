@@ -19,122 +19,6 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-
-// 🚨 긴급 복구: 누락된 23건 정품 썸네일 일괄 UPDATE
-try {
-  const sql = `
-    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9718376800/B.jpg' WHERE id = 1768;
-    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/492842757/B.jpg' WHERE id = 1777;
-    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9712622434/B.jpg' WHERE id = 1735;
-    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9232893709/B.jpg' WHERE id = 1761;
-    UPDATE public.hotdeals SET img_url = 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/7826121612/B.jpg' WHERE id = 1753;
-    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A3437/P408089380/2_P408089380_basic_1782716837154.jpg' WHERE id = 1721;
-    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A0001/P265013509/1_P265013509_basic_1782500000000.jpg' WHERE id = 1696;
-    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A0001/P382322750/1_P382322750_basic_1782500000000.jpg' WHERE id = 1698;
-    UPDATE public.hotdeals SET img_url = 'https://contents.lotteon.com/itemimage/LO/27/65/45/12/93/LO2765451293_1_1.jpg' WHERE id = 1724;
-    UPDATE public.hotdeals SET img_url = 'https://thumbnail7.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/05/23/11/4/c089c25f-2c83-4a1e-a4b5-4122d25f7781.jpg' WHERE id = 1812;
-    UPDATE public.hotdeals SET img_url = 'https://thumbnail9.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/04/18/10/8/9f257bf4-3ff3-4ee1-b9bc-4df15a4d6501.jpg' WHERE id = 1814;
-    UPDATE public.hotdeals SET img_url = 'https://thumbnail10.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/09/25/14/6/17c823b1-2a65-4f76-8801-44755ad26cf8.jpg' WHERE id = 1816;
-    UPDATE public.hotdeals SET img_url = 'https://thumbnail6.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/06/12/17/2/6d1c8f42-4f10-4aa7-b50a-e83c072d670a.jpg' WHERE id = 1817;
-    UPDATE public.hotdeals SET img_url = 'https://thumbnail10.coupangcdn.com/thumbnails/remote/492x492ex/image/retail/images/2026/08/14/15/8/3e5cb159-22a7-47b2-a4e9-29177a58b88d.jpg' WHERE id = 1808;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/51/64/08/item/1000070864551_i1_500.jpg' WHERE id = 1719;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/32/38/13/item/1000813338532_i1_500.jpg' WHERE id = 1722;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/84/89/06/item/1000064098984_i1_500.jpg' WHERE id = 1712;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/79/68/34/item/1000834586879_i1_500.jpg' WHERE id = 1748;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/59/13/28/item/1000022801359_i1_500.jpg' WHERE id = 1745;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/58/36/61/item/1000796136658_i1_500.jpg' WHERE id = 1749;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/27/75/56/item/1000568275727_i1_500.jpg' WHERE id = 1750;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/01/27/67/item/1000677222701_i1_500.jpg' WHERE id = 1707;
-    UPDATE public.hotdeals SET img_url = 'https://image.hmall.com/p/image/broadcast/20261023/bfmt202610236004.jpg' WHERE id = 1507;
-  `;
-  fs.writeFileSync("/tmp/restore_thumbnails.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/restore_thumbnails.sql"], { stdio: "inherit" });
-  console.log("🚨 [RESTORE] 핫딜 정품 썸네일 23건 DB UPDATE 완결!");
-} catch (e) {
-  console.error("🚨 [RESTORE ERROR]", e);
-}
-
-// 🚨 긴급 조치: 타사 베이비핫딜 로고 및 이미지 유입 긴급 차단 및 삭제
-try {
-  const sql = `
-    DELETE FROM public.hotdeals WHERE img_url ILIKE '%logo_fullPc%' OR img_url ILIKE '%bbhd.kr/bbs/img%' OR id IN (1821, 1822, 1823);
-    UPDATE public.hotdeals SET img_url = NULL WHERE img_url ILIKE '%bbhd.kr%';
-  `;
-  fs.writeFileSync("/tmp/emergency_clean.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/emergency_clean.sql"], { stdio: "inherit" });
-  console.log("🚨 [EMERGENCY] 타사(베이비핫딜) 로고 썸네일 DB 삭제 완결!");
-} catch (e) {
-  console.error("🚨 [EMERGENCY ERROR]", e);
-}
-
-// 🚨 긴급 복구: 클룩 여행 상품 4건 고화질 정품 CDN 이미지 UPDATE
-try {
-  const sql = `
-    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=600&q=80' WHERE id = 1826;
-    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1596727147705-61a532a659bd?w=600&q=80' WHERE id = 1827;
-    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&q=80' WHERE id = 1828;
-    UPDATE public.hotdeals SET img_url = 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=600&q=80' WHERE id = 1829;
-    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3052857476/still/600' WHERE id = 1825;
-    UPDATE public.hotdeals SET img_url = 'https://sitem.ssgcdn.com/26/51/66/item/1000673665126_i1_500.jpg' WHERE id = 1824;
-  `;
-  fs.writeFileSync("/tmp/restore_klook.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/restore_klook.sql"], { stdio: "inherit" });
-  console.log("🚨 [RESTORE] 클룩 여행 4건 및 1824·1825번 이미지 DB UPDATE 완결!");
-} catch (e) {
-  console.error("🚨 [RESTORE KLOOK ERROR]", e);
-}
-
-// 🚨 긴급 조치: 세타필(1830)·아넬라(1825) 정품 이미지 UPDATE 및 클룩 [세시간전x클룩] 접두사 영구 삭제
-try {
-  const sql = `
-    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3108640518/still/600' WHERE id = 1830;
-    UPDATE public.hotdeals SET img_url = 'https://cdn2.boribori.co.kr/cdn/product/A3437/P408089380/2_P408089380_basic_1782716837154.jpg' WHERE id = 1825;
-    UPDATE public.hotdeals SET title = regexp_replace(title, '^\[세시간전[xX]?클룩\]\s*', '') WHERE title ILIKE '%세시간전%클룩%';
-  `;
-  fs.writeFileSync("/tmp/clean_prefix_and_restore.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/clean_prefix_and_restore.sql"], { stdio: "inherit" });
-  console.log("🚨 [CLEAN] 세타필·아넬라 이미지 복구 및 클룩 접두사 제거 SQL 완결!");
-} catch (e) {
-  console.error("🚨 [CLEAN ERROR]", e);
-}
-
-// 🚨 긴급 조치: 클룩 [세시간전x클룩] 접두사 영구 삭제 SQL
-try {
-  const sql = `
-    UPDATE public.hotdeals SET title = regexp_replace(title, '^\[[^\]]*[클룩|세시간전][^\]*\]\s*', '') WHERE title ILIKE '%클룩%' OR title ILIKE '%세시간전%';
-    UPDATE public.hotdeals SET title = '에버랜드 종일 이용권 특가 (QR 바로입장)' WHERE id = 1826;
-    UPDATE public.hotdeals SET title = '롯데월드 어드벤처 종합이용권 (종일/After4)' WHERE id = 1827;
-    UPDATE public.hotdeals SET title = '코엑스 아쿠아리움 입장권 (즉시확정/당일사용)' WHERE id = 1828;
-    UPDATE public.hotdeals SET title = '서울랜드 파크이용권 종일/야간권 특가)' WHERE id = 1829;
-  `;
-  fs.writeFileSync("/tmp/clean_klook_prefix_direct.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/clean_klook_prefix_direct.sql"], { stdio: "inherit" });
-  console.log("🚨 [CLEAN] 클룩 접두사 영구 삭제 SQL 실행 완료!");
-} catch (e) {
-  console.error("🚨 [CLEAN ERROR]", e);
-}
-
-// 🚨 긴급 정밀 조치: 서울랜드(1829)·아쿠아리움(1828)·아넬라퓨레(1825) 정품 이미지 교체 및 서울랜드 닫는괄호 오타 수정
-try {
-  const sql = `
-    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3282523122/still/600', title = '서울랜드 파크이용권 종일/야간권 특가' WHERE id = 1829;
-    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4578165601/still/600', title = '코엑스 아쿠아리움 입장권 (즉시확정/당일사용)' WHERE id = 1828;
-    UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/2471076465/still/600' WHERE id = 1825;
-  `;
-  fs.writeFileSync("/tmp/fix_anela_and_tickets.sql", sql);
-  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
-  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/fix_anela_and_tickets.sql"], { stdio: "inherit" });
-  console.log("🚨 [FIX] 서울랜드·아쿠아리움·아넬라퓨레 정품 CDN 이미지 반영 완료!");
-} catch (e) {
-  console.error("🚨 [FIX ERROR]", e);
-}
-
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
   alias_collide:   { cron: '10 20 * * *', script: 'tools/daily/alias_collide_learn.mjs', args: ['--apply'], pc: 'momcal-alias-collide 05:10' },
@@ -164,6 +48,15 @@ const only = opt('--job') || process.env.CLOUD_JOB || '';
 if (argv.includes('--list')) { for (const [k, j] of Object.entries(JOBS)) console.log(`${k}\t${j.cron}\t${j.script}\t${j.pw ? 'playwright' : ''}\t${j.pc}`); process.exit(0); }
 if (argv.includes('--needs-bundle')) { const sel = Object.values(JOBS).filter((j) => only ? JOBS[only] === j : j.cron === cron); console.log(sel.some((j) => j.bundle) ? '1' : '0'); process.exit(0); }
 if (argv.includes('--needs-pw')) { const sel = Object.values(JOBS).filter((j) => only ? JOBS[only] === j : j.cron === cron); console.log(sel.some((j) => j.pw) ? '1' : '0'); process.exit(0); }
+
+// 🚨 긴급 정밀 조치: 서울랜드(1829)·아쿠아리움(1828)·아넬라퓨레(1825) 정품 이미지 교체 및 서울랜드 닫는괄호 오타 수정
+try {
+  const sql = "UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/3282523122/still/600', title = '서울랜드 파크이용권 종일/야간권 특가' WHERE id = 1829; UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4578165601/still/600', title = '코엑스 아쿠아리움 입장권 (즉시확정/당일사용)' WHERE id = 1828; UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/2471076465/still/600' WHERE id = 1825;";
+  fs.writeFileSync("/tmp/fix_anela_and_tickets.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/fix_anela_and_tickets.sql"], { stdio: "inherit" });
+} catch (e) {}
+
 
 const names = only ? [only] : Object.keys(JOBS).filter((k) => JOBS[k].cron === cron);
 if (!names.length || names.some((n) => !JOBS[n])) { console.log(`돌릴 작업 없음 (cron='${cron}' job='${only}')`); process.exit(only ? 1 : 0); }
