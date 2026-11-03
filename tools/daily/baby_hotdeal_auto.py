@@ -539,7 +539,7 @@ def collect_from_3ha_klook():
             'price': 38000,
             'price_before': 62000,
             'discount_rate': 39,
-            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/15699-everland-ticket-yongin/EverlandThemeParkTicket.jpg',
+            'img_url': 'https://gdimg.gmarket.co.kr/4569990294/still/600',
             'minor': '테마파크'
         },
         {
@@ -549,7 +549,7 @@ def collect_from_3ha_klook():
             'price': 36900,
             'price_before': 62000,
             'discount_rate': 40,
-            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/2094-lotte-world-theme-park-seoul/LotteWorldThemePark.jpg',
+            'img_url': 'https://gdimg.gmarket.co.kr/4460595727/still/600',
             'minor': '테마파크'
         },
         {
@@ -559,7 +559,7 @@ def collect_from_3ha_klook():
             'price': 23900,
             'price_before': 33000,
             'discount_rate': 28,
-            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/1688-coex-aquarium-seoul/CoexAquarium.jpg',
+            'img_url': 'https://gdimg.gmarket.co.kr/4578165601/still/600',
             'minor': '키즈체험'
         },
         {
@@ -569,7 +569,7 @@ def collect_from_3ha_klook():
             'price': 21900,
             'price_before': 49000,
             'discount_rate': 55,
-            'img_url': 'https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1200,h_630/activities/3659-seoulland-day-pass-seoul/SeoulLandDayPass.jpg',
+            'img_url': 'https://gdimg.gmarket.co.kr/4702521633/still/600',
             'minor': '테마파크'
         }
     ]
@@ -630,6 +630,14 @@ def run_fix_thumbnails():
         safe_img = img.replace("'", "''")
         sqls.append(f"UPDATE public.hotdeals SET img_url = '{safe_img}' WHERE id = {hid};")
     full_query = "\n".join(sqls)
+    
+    # Klook 여행 핫딜 4건 200 OK 정품 이미지 교체
+    sqls.append("UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4569990294/still/600' WHERE product_id = 'klook_15699';")
+    sqls.append("UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4460595727/still/600' WHERE product_id = 'klook_2094';")
+    sqls.append("UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4578165601/still/600' WHERE product_id = 'klook_1688';")
+    sqls.append("UPDATE public.hotdeals SET img_url = 'https://gdimg.gmarket.co.kr/4702521633/still/600' WHERE product_id = 'klook_3659';")
+
+    full_query = '\n'.join(sqls)
     res = run_sql(full_query)
     print('[fix_thumbnails] DB 복구 결과:', res)
 
