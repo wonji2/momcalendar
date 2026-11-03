@@ -229,6 +229,50 @@ body {
 }
 .nav-btn.active { color: var(--main); font-weight: 700; }
 .nav-btn svg { width: 21px; height: 21px; }
+
+/* 바텀시트 모달 스타일 */
+.sheet-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.sheet-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.45);
+  animation: fadeIn 0.2s ease-out;
+}
+.sheet-content {
+  position: relative;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 12px 18px 24px;
+  max-width: 412px;
+  width: 100%;
+  margin: 0 auto;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 301;
+}
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: #E5E8EB;
+  border-radius: 4px;
+  margin: 0 auto 12px;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
 </style>
 </head>
 <body>
@@ -583,12 +627,133 @@ function showToast(msg) {
   setTimeout(() => { t.style.display = 'none'; }, 2000);
 }
 
+
+let currentKeywords = ['기저귀', '분유', '다이슨', '비판텐'];
+let currentWishCount = 3;
+
+function renderKwChips() {
+  const box = document.getElementById('kwChipBox');
+  if(!box) return;
+  box.innerHTML = currentKeywords.map((k, i) => `
+    <span style="display:inline-flex; align-items:center; gap:4px; background:#F3EFFC; color:var(--main); border:1px solid #E3D9F6; border-radius:14px; padding:5px 10px; font-size:12px; font-weight:700;">
+      #${k}
+      <button onclick="delKwChip(${i})" style="background:none; border:none; color:var(--main); font-size:13px; font-weight:900; cursor:pointer; padding:0 2px;">✕</button>
+    </span>
+  `).join('');
+  
+  const countEl = document.getElementById('sheetKwCountText');
+  if(countEl) countEl.textContent = `(${currentKeywords.length}/10)`;
+  const statKw = document.getElementById('statKwCount');
+  if(statKw) statKw.textContent = currentKeywords.length;
+  const badgeKw = document.getElementById('badgeKw');
+  if(badgeKw) badgeKw.textContent = `${currentKeywords.length}개 등록됨`;
+}
+
+function addKwChip() {
+  const inp = document.getElementById('inputKw');
+  const val = (inp.value || '').trim();
+  if(!val) { showToast('키워드를 입력해 주세요'); return; }
+  if(currentKeywords.includes(val)) { showToast('이미 등록된 키워드입니다'); return; }
+  if(currentKeywords.length >= 10) { showToast('키워드는 최대 10개까지 가능합니다'); return; }
+  currentKeywords.push(val);
+  inp.value = '';
+  renderKwChips();
+  showToast(`'${val}' 키워드가 등록되었습니다 🔔`);
+}
+
+function quickAddKw(val) {
+  if(currentKeywords.includes(val)) { showToast('이미 등록된 키워드입니다'); return; }
+  if(currentKeywords.length >= 10) { showToast('키워드는 최대 10개까지 가능합니다'); return; }
+  currentKeywords.push(val);
+  renderKwChips();
+  showToast(`'${val}' 키워드가 등록되었습니다 🔔`);
+}
+
+function delKwChip(idx) {
+  const delVal = currentKeywords[idx];
+  currentKeywords.splice(idx, 1);
+  renderKwChips();
+  showToast(`'${delVal}' 키워드가 삭제되었습니다`);
+}
+
+function delWishCard(btn) {
+  const card = btn.closest('.wish-card-item');
+  if(card) {
+    card.style.opacity = '0';
+    setTimeout(() => {
+      card.remove();
+      currentWishCount = Math.max(0, currentWishCount - 1);
+      const statWish = document.getElementById('statWishCount');
+      if(statWish) statWish.textContent = currentWishCount;
+      const badgeWish = document.getElementById('badgeWish');
+      if(badgeWish) badgeWish.textContent = `${currentWishCount}개 보관중`;
+      const sheetWish = document.getElementById('sheetWishCountText');
+      if(sheetWish) sheetWish.textContent = `(${currentWishCount}개)`;
+      showToast('찜 목록에서 삭제되었습니다');
+    }, 200);
+  }
+}
+
+function filterWishTab(tab, btn) {
+  document.querySelectorAll('.wish-tab-btn').forEach(b => {
+    b.style.background = '#fff';
+    b.style.color = '#8B95A1';
+    b.style.border = '1px solid #E5E8EB';
+  });
+  btn.style.background = '#F3EFFC';
+  btn.style.color = 'var(--main)';
+  btn.style.border = 'none';
+
+  document.querySelectorAll('.wish-card-item').forEach(card => {
+    if(tab === 'all') card.style.display = 'flex';
+    else if(tab === 'ing') card.style.display = card.classList.contains('ing') ? 'flex' : 'none';
+    else if(tab === 'end') card.style.display = card.classList.contains('end') ? 'flex' : 'none';
+  });
+}
+
+function openKwSheet() {
+  document.getElementById('sheetKeyword').style.display = 'flex';
+  renderKwChips();
+}
+function openWishSheet() {
+  document.getElementById('sheetWish').style.display = 'flex';
+}
+function openCalSheet() {
+  document.getElementById('sheetCalendar').style.display = 'flex';
+}
+function closeSheet(id) {
+  const s = document.getElementById(id);
+  if(s) s.style.display = 'none';
+}
+function openGuideSheet() {
+  showToast('맘캘린더 소개 & 이용가이드 시트를 엽니다');
+}
+function openInqSheet() {
+  showToast('건의 · 오류 제보 시트를 엽니다 (app@momcalendar.com)');
+}
+function openPartnerModal() {
+  showToast('제휴 · 입점 문의 창구를 엽니다');
+}
+function shareAppKakao() {
+  showToast('카카오톡으로 맘캘린더 공유 링크를 보냅니다 🎁');
+}
+
+// 탭 스위치 수정 (A, B, C)
 function switchPlan(p) {
   document.getElementById('btnPlanA').classList.toggle('active', p === 'A');
   document.getElementById('btnPlanB').classList.toggle('active', p === 'B');
+  document.getElementById('btnPlanC').classList.toggle('active', p === 'C');
   document.getElementById('planA').classList.toggle('active', p === 'A');
   document.getElementById('planB').classList.toggle('active', p === 'B');
+  document.getElementById('planC').classList.toggle('active', p === 'C');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 초기화
+window.addEventListener('DOMContentLoaded', () => {
+  renderKwChips();
+});
+);
 }
 </script>
 
