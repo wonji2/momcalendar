@@ -102,6 +102,23 @@ try {
   console.error("🚨 [CLEAN ERROR]", e);
 }
 
+// 🚨 긴급 조치: 클룩 [세시간전x클룩] 접두사 영구 삭제 SQL
+try {
+  const sql = `
+    UPDATE public.hotdeals SET title = regexp_replace(title, '^\[[^\]]*[클룩|세시간전][^\]*\]\s*', '') WHERE title ILIKE '%클룩%' OR title ILIKE '%세시간전%';
+    UPDATE public.hotdeals SET title = '에버랜드 종일 이용권 특가 (QR 바로입장)' WHERE id = 1826;
+    UPDATE public.hotdeals SET title = '롯데월드 어드벤처 종합이용권 (종일/After4)' WHERE id = 1827;
+    UPDATE public.hotdeals SET title = '코엑스 아쿠아리움 입장권 (즉시확정/당일사용)' WHERE id = 1828;
+    UPDATE public.hotdeals SET title = '서울랜드 파크이용권 종일/야간권 특가)' WHERE id = 1829;
+  `;
+  fs.writeFileSync("/tmp/clean_klook_prefix_direct.sql", sql);
+  const cli = process.env.SUPABASE_CLI || "tools/daily/sb_cli_retry.sh";
+  spawnSync(cli, ["db", "query", "--linked", "--output-format", "json", "-f", "/tmp/clean_klook_prefix_direct.sql"], { stdio: "inherit" });
+  console.log("🚨 [CLEAN] 클룩 접두사 영구 삭제 SQL 실행 완료!");
+} catch (e) {
+  console.error("🚨 [CLEAN ERROR]", e);
+}
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JOBS = {
   // caption_daily(PC 전용 scratchpad/caption_attach.mjs·ig_feed)·naver_track(상태 파일)·perf_probe(미추적 파일·playwright)·search_gap(결과가 PC 보고서뿐)은 PC 유지 — 검증 2026-11-01
