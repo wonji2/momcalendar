@@ -837,7 +837,15 @@ function parseDate(str,year){
   // 6/1, 6.1, 6-1, 6월1일, 6 1 등 다양한 구분자 허용
   const m=str.match(/^(\d{1,2})\s*[\/\.\-월]\s*(\d{1,2})\s*일?$/);
   if(!m)return null;
-  return `${year}-${String(parseInt(m[1])).padStart(2,'0')}-${String(parseInt(m[2])).padStart(2,'0')}`;
+  const mo=parseInt(m[1]), da=parseInt(m[2]);
+  if(mo<1||mo>12||da<1||da>31) return null;
+  let y=year;
+  // 연도 밀기(2026-11-03): 11월에 「1/3」을 쓰면 올해 1월(이미 지난 날)로 저장돼 마감으로 보였다.
+  // 올해로 붙였을 때 60일 넘게 지난 날짜는 내년으로 본다(방금 지난 공구를 늦게 올리는 건 올해 그대로).
+  const cand=new Date(y,mo-1,da);
+  if(cand.getMonth()!==mo-1) return null;          // 2/31 같은 없는 날
+  if(Date.now()-cand.getTime()>60*86400000) y=year+1;
+  return `${y}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
 }
 function addDays(dateStr,n){
   const d=new Date(dateStr);d.setDate(d.getDate()+n);
@@ -883,7 +891,9 @@ function parseText(){
       let endStr=range[2].trim().replace(/[日]/g,'');
       // 끝날짜가 일(day)만 있으면 시작월 붙이기 (6/5~10 → 6/10)
       if(!/[\/\.월]/.test(endStr)&&open) endStr=(parseInt(open.slice(5,7)))+'/'+endStr.replace(/일/g,'');
-      const end=parseDate(endStr,year);
+      let end=parseDate(endStr,year);
+      // 12/30~1/2 처럼 해를 넘는 기간: 마감이 오픈보다 앞서면 마감은 다음 해
+      if(open&&end&&end<open&&parseInt(end.slice(5,7))<parseInt(open.slice(5,7))) end=(parseInt(end.slice(0,4))+1)+end.slice(4);
       const name=range[3].trim().replace(/^[~～\-–—\s]+/,'').trim();
       const cat=guessCat(name);
       if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:capEnd(open,end)});
