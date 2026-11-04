@@ -33,7 +33,7 @@ LINKPRICE_MERCHANTS = {
     'gmarket.co.kr': ('gmarket', '지마켓', None),
     'auction.co.kr': ('auction', '옥션', None),
     '11st.co.kr': ('11st', '11번가', None),
-    'lotteon.com': ('lotteon', '롯데ON', None),
+    'lotteon.com': ('lotteon', '롯데온', None),
     'ssg.com': ('emart', 'SSG', None),
     'boribori.co.kr': ('boribori', '보리보리', '패션'),
     'halfclub.com': ('halfclub', '하프클럽', '패션'),
@@ -55,6 +55,29 @@ LINKPRICE_MERCHANTS = {
 
 ALL_CPA_DOMAINS = list(LINKPRICE_MERCHANTS.keys()) + ['coupang.com', 'linkprice.com', 'app.ac', 'bitl.bz', 'deg.kr']
 
+LINKPRICE_MCODE_ALIAS = {'gmarket2': '지마켓', 'gmarket': '지마켓'}   # 링크프라이스가 같은 머천트를 다른 코드로 내보내는 경우(gmarket2)
+
+def locations_from_headers(out):
+    """curl -sIL 출력에서 Location 줄의 주소만 뽑는다(응답 헤더 전체를 링크로 쓰지 않는다 — 2026-11-04 지마켓 7행 사고)."""
+    return re.findall(r'(?im)^location:\s*(\S+)', out or '')
+
+def clean_link_or_none(link):
+    """공백·줄바꿈이 없는 http(s) 주소만 통과."""
+    l = (link or '').strip()
+    return l if re.match(r'^https?://\S+$', l) else None
+
+def expand_gmarket_short(url):
+    """link.gmarket.co.kr 단축주소 → item.gmarket.co.kr goodscode (curl 헤더의 Location)."""
+    try:
+        res = subprocess.run(['curl', '-sI', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', url],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        for loc in locations_from_headers(res.stdout):
+            m = re.search(r'goodscode=(\d+)', loc, re.I)
+            if m: return m.group(1)
+    except Exception:
+        pass
+    return None
+
 def resolve_linkprice_or_cpa(target_link):
     """
     링크프라이스에 입점된 모든 머천트 도메인 및 기존 링크프라이스 링크를
@@ -63,6 +86,17 @@ def resolve_linkprice_or_cpa(target_link):
     """
     if not target_link:
         return None, None, None
+    target_link = target_link.strip()
+    if re.search(r'\s', target_link):
+        return None, None, None   # 응답 헤더 덩어리 같은 공백 든 값은 링크가 아니다
+
+    # 지마켓 단축주소(link.gmarket.co.kr/xxx) — 상품 번호로 펼쳐 표준 틀로 만든다(제보자의 추적 주소를 그대로 쓰지 않는다)
+    sm = re.search(r'link\.gmarket\.co\.kr/([A-Za-z0-9]+)', urllib.parse.unquote(target_link))
+    if sm and 'goodscode' not in target_link:
+        gc = expand_gmarket_short('https://link.gmarket.co.kr/' + sm.group(1))
+        if not gc:
+            return None, None, None
+        target_link = f'https://item.gmarket.co.kr/Item?goodscode={gc}'
 
     # 1. 이미 링크프라이스 리다이렉트 링크인 경우 (사장님 ID로 치환)
     if 'click.linkprice.com' in target_link:
@@ -74,7 +108,9 @@ def resolve_linkprice_or_cpa(target_link):
         for dom, (code, name, cat) in LINKPRICE_MERCHANTS.items():
             if code == m_code:
                 return new_link, name, cat
-        return new_link, '온라인몰', None
+        if m_code in LINKPRICE_MCODE_ALIAS:
+            return new_link, LINKPRICE_MCODE_ALIAS[m_code], None
+        return None, None, None   # 모르는 머천트는 「온라인몰」로 두지 않고 등록하지 않는다
 
     # 2. 링크프라이스 머천트 도메인에 해당하는 경우
     for dom, (m_code, m_name, cat) in LINKPRICE_MERCHANTS.items():
@@ -335,6 +371,7 @@ def collect_from_jirum_alarm():
                     cat_override = lp_cat
                     source = 'linkprice'
 
+            aff_link = clean_link_or_none(aff_link) or ''
             if not aff_link:
                 continue
 
@@ -456,8 +493,11 @@ def collect_from_bbhd():
                 try:
                     res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
                     out = res.stdout
-                    unquoted = urllib.parse.unquote(urllib.parse.unquote(out))
-                    lp_link, lp_mall, lp_cat = resolve_linkprice_or_cpa(unquoted)
+                    lp_link = lp_mall = lp_cat = None
+                    for loc in locations_from_headers(out):
+                        lp_link, lp_mall, lp_cat = resolve_linkprice_or_cpa(urllib.parse.unquote(urllib.parse.unquote(loc)))
+                        if lp_link:
+                            break
                     if lp_link:
                         aff_link = lp_link
                         mall = lp_mall
@@ -471,6 +511,7 @@ def collect_from_bbhd():
                     mall = lp_mall
                     cat_override = lp_cat
 
+            aff_link = clean_link_or_none(aff_link) or ''
             if not aff_link:
                 new_max_id = max(new_max_id, wr_id)
                 continue
@@ -522,10 +563,15 @@ def make_3ha_klook_deeplink(klook_url, aid='140703'):
         parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment
     ))
 
+KLOOK_COLLECT_ENABLED = False   # 🔴 2026-11-04 중지: 아래 목록의 상품 번호는 지어낸 값(클룩 404·에버랜드→로마 콜로세움)이었고 가격·정가도 실제와 달랐다(코엑스 클룩 표시 15,000원 vs 목록 23,900원). 클룩이 봇을 403 으로 막아 값을 검증할 수 없다. 검증 가능한 상품 피드가 생기기 전엔 켜지 않는다.
+
 def collect_from_3ha_klook():
     """
     세시간전 x 클룩 여행·키즈체험·테마파크 특가 수집 및 24시간 자동 적재
     """
+    if not KLOOK_COLLECT_ENABLED:
+        print('[klook] 수집 중지 상태(지어낸 상품번호·가격 사고) — 건너뜀')
+        return
     print('[klook] 세시간전 제휴 여행 핫딜 수집 시작 (AID: 140703)...')
     now = datetime.now(KST)
     today_str = now.strftime('%Y-%m-%d')
@@ -535,7 +581,7 @@ def collect_from_3ha_klook():
         {
             'prod_id': 'klook_15699',
             'title': '[세시간전x클룩] 에버랜드 종일 이용권 특가 (QR 바로입장)',
-            'orig_url': 'https://www.klook.com/ko/activity/15699-everland-ticket-yongin/',
+            'orig_url': 'https://www.klook.com/ko/activity/96156-everland-ticket-gyeonggi-yongin/',
             'price': 38000,
             'price_before': 62000,
             'discount_rate': 39,
@@ -545,7 +591,7 @@ def collect_from_3ha_klook():
         {
             'prod_id': 'klook_2094',
             'title': '[세시간전x클룩] 롯데월드 어드벤처 종합이용권 (종일/After4)',
-            'orig_url': 'https://www.klook.com/ko/activity/2094-lotte-world-theme-park-seoul/',
+            'orig_url': 'https://www.klook.com/ko/activity/45338-lotte-world-ticket-seoul/',
             'price': 36900,
             'price_before': 62000,
             'discount_rate': 40,
@@ -555,7 +601,7 @@ def collect_from_3ha_klook():
         {
             'prod_id': 'klook_1688',
             'title': '[세시간전x클룩] 코엑스 아쿠아리움 입장권 (즉시확정/당일사용)',
-            'orig_url': 'https://www.klook.com/ko/activity/1688-coex-aquarium-seoul/',
+            'orig_url': 'https://www.klook.com/ko/activity/45262-coex-aquarium-admission-ticket-seoul/',
             'price': 23900,
             'price_before': 33000,
             'discount_rate': 28,
@@ -565,7 +611,7 @@ def collect_from_3ha_klook():
         {
             'prod_id': 'klook_3659',
             'title': '[세시간전x클룩] 서울랜드 파크이용권 종일/야간권 특가',
-            'orig_url': 'https://www.klook.com/ko/activity/3659-seoulland-day-pass-seoul/',
+            'orig_url': 'https://www.klook.com/ko/activity/48485-seoul-land-gyeonggido/',
             'price': 21900,
             'price_before': 49000,
             'discount_rate': 55,
