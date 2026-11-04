@@ -260,6 +260,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="switchTab('exp',this)">🎁 체험단 <span id="badge-exp" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('banner',this)">🖼️ 배너 <span id="badge-banner" class="tab-badge" style="display:none"></span></div>
     <div class="tab-grp">사람</div>
+    <div class="tab" onclick="switchTab('hm',this)" style="background:#EEE9FF;color:#4A35A0;font-weight:800">🏠 홈 관리</div>
     <div class="tab" onclick="switchTab('seller',this)">⭐ 이웃셀러</div>
     <div class="tab" onclick="switchTab('sellerauth',this)">👤 셀러승인 <span id="badge-sellerauth" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('inq',this)">💌 제보 <span id="badge-inq" class="tab-badge" style="display:none"></span></div>
@@ -748,6 +749,14 @@ details summary::-webkit-details-marker{display:none}
         <button class="modal-save" onclick="saveBanner()">저장하기</button>
       </div>
     </div>
+  </div>
+
+  <!-- 🏠 홈 관리 탭 — 메인 첫 화면 5가지를 한 곳에서 수정·삭제·정렬 (사장님 지시 2026-11-04) -->
+  <div id="hmView" style="display:none;padding:14px;padding-bottom:80px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="hmChips"></div>
+    <div id="hmHelp" style="background:#F6F3FA;border-radius:10px;padding:10px 13px;font-size:12px;color:#4A35A0;line-height:1.7;margin-bottom:10px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button id="hmAddBtn" onclick="hmAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 추가</button></div>
+    <div id="hmList" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
 
   <!-- ⭐ 이웃셀러 관리 탭 -->
@@ -7965,6 +7974,128 @@ async function createSellerAccount(){
   }catch(e){msg.style.color='#C62828';msg.textContent='오류: '+e.message;}
 }
 
+// 🏠 홈 관리: 메인 첫 화면 5가지를 한 곳에서 (기존 수정·삭제 기능을 그대로 불러 쓴다) — 사장님 지시 2026-11-04
+// 대상: 보증공구(main 배너, 노출중) · 오픈예정 스포(main 배너, 노출 전) · 이웃셀러(sellers) · 이웃셀러 배너(banners seller) · 상위노출 보라 카드(맘캘+이웃셀러 공구)
+const HM_SECS=[
+  {k:'guar',  n:'💜 보증공구',      h:'메인 맨 위 「맘캘 방장이 보증하는 공구」 슬라이드예요. ▲▼로 순서를 바꾸면 바로 저장돼요.'},
+  {k:'spoil', n:'🔔 오픈예정 스포', h:'「기대되는 다음 공구」 가로 카드예요. 노출 시작일이 아직 안 된 메인 배너가 여기 떠요. ▲▼로 순서 변경.'},
+  {k:'nbr',   n:'⭐ 이웃셀러',      h:'이웃셀러 동그라미예요. 노출 순서는 방문할 때마다 랜덤이라 순서 조절은 없어요. 숨기기·수정·삭제만 돼요.'},
+  {k:'nbrban',n:'🖼 이웃셀러 배너', h:'이웃셀러 동그라미 바로 아래 2개씩 뜨는 배너예요. 순서는 랜덤이라 숨기기·수정·삭제만 돼요.'},
+  {k:'top',   n:'🟣 상위노출 카드', h:'맘캘린더·이웃셀러 공구 중 진행중·예정인 것이에요(보라 카드로 맨 위에 떠요). 위에서부터 맘캘 먼저, 오픈일 빠른 순이에요. 순서는 오픈일을 수정해 바꾸고, 내리기는 사이트에서만 숨겨요(삭제 아님).'}
+];
+let hmSec='guar';
+const hmEsc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hmBtn(bg,fg,on,t,dis){
+  return '<button '+(dis?'disabled ':'')+'onclick="'+on+'" style="padding:6px 10px;background:'+bg+';color:'+fg+';border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;'+(dis?'opacity:.35;cursor:default':'')+'">'+t+'</button>';
+}
+function hmKstToday(){ return new Date(Date.now()+9*3600*1000).toISOString().slice(0,10); }
+async function hmOpen(){
+  document.getElementById('hmList').innerHTML='<div style="text-align:center;padding:30px;color:#999;font-size:13px">불러오는 중... ⏳</div>';
+  try{
+    await Promise.all([ loadBannerAdmin(), loadSellerAdmin(), (allData&&allData.length)?Promise.resolve():loadData() ]);
+  }catch(e){}
+  hmRender();
+}
+function hmSetSec(k){ hmSec=k; hmRender(); }
+function hmRender(){
+  const box=document.getElementById('hmList'), hv=document.getElementById('hmView');
+  if(!box||!hv||hv.style.display==='none') return;
+  document.getElementById('hmChips').innerHTML=HM_SECS.map(x=>{
+    const on=x.k===hmSec;
+    return '<button onclick="hmSetSec(\''+x.k+'\')" style="padding:8px 13px;border-radius:100px;border:1.5px solid '+(on?'#4A35A0':'#DCD2FB')+';background:'+(on?'#4A35A0':'#fff')+';color:'+(on?'#fff':'#4A35A0')+';font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit">'+x.n+' <span style="opacity:.75">'+hmRows(x.k).length+'</span></button>';
+  }).join('');
+  document.getElementById('hmHelp').innerHTML=HM_SECS.find(x=>x.k===hmSec).h;
+  document.getElementById('hmAddBtn').style.display=(hmSec==='top')?'none':'';
+  const rows=hmRows(hmSec);
+  if(!rows.length){ box.innerHTML='<div style="text-align:center;padding:30px;color:#999;font-size:13px">항목이 없어요</div>'; return; }
+  box.innerHTML=rows.map((r,i)=>hmCard(hmSec,r,i,rows.length)).join('');
+}
+function hmMainBanners(){ return (bannerAll||[]).filter(b=>(b.type||'main')==='main').sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.id-b.id); }
+function hmPartnerSet(){ return new Set((sellerData||[]).filter(s=>s.is_partner===true&&s.active!==false).map(s=>(s.insta||'').replace('@','').trim().toLowerCase())); }
+function hmIsMomcal(d){ const ig=(d.insta||'').toLowerCase().replace('@',''); return (d.influencer||'').includes('맘캘린더')||['momcal_','momcalendar','momcal','momcalendar_'].includes(ig); }
+function hmRows(k){
+  if(k==='guar')   return hmMainBanners().filter(b=>bannerStatus(b).key!=='soon');
+  if(k==='spoil')  return hmMainBanners().filter(b=>bannerStatus(b).key==='soon');
+  if(k==='nbrban') return (bannerAll||[]).filter(b=>b.type==='seller');
+  if(k==='nbr')    return (sellerData||[]).filter(s=>s.is_partner===true);
+  if(k==='top'){
+    const t=hmKstToday(), ps=hmPartnerSet();
+    return (allData||[]).filter(d=>d.approved&&!(typeof heldIds!=='undefined'&&heldIds.has(d.id))&&(d.end_date||d.open_date||'')>=t&&!d.always
+        &&(hmIsMomcal(d)||ps.has((d.insta||'').replace('@','').trim().toLowerCase())))
+      .sort((a,b)=>((hmIsMomcal(b)?1:0)-(hmIsMomcal(a)?1:0))||(a.open_date||'').localeCompare(b.open_date||''));
+  }
+  return [];
+}
+function hmPill(t,c,bg){ return '<span style="background:'+bg+';color:'+c+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">'+t+'</span>'; }
+function hmWrap(thumb,title,sub,badge,btns){
+  return '<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.06)">'+thumb
+    +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:13.5px;font-weight:800;color:#191919;word-break:keep-all">'+title+'</span>'+badge+'</div><div style="font-size:11px;color:#888;margin-top:2px">'+sub+'</div></div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end">'+btns+'</div></div>';
+}
+function hmRow(...b){ return '<div style="display:flex;gap:5px">'+b.join('')+'</div>'; }
+function hmCard(k,r,i,n){
+  if(k==='guar'||k==='spoil'||k==='nbrban'){
+    const st=bannerStatus(r);
+    const th=r.img_url?'<img src="'+hmEsc(r.img_url)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy">':'<div style="width:64px;height:64px;border-radius:8px;background:#EFEAF5;flex-shrink:0"></div>';
+    const mv=(k==='nbrban')?'':hmRow(hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',1)','▼',i===n-1));
+    const act=hmRow(hmBtn('#FFF9E6','#B8860B','hmBanToggle('+r.id+','+(r.active!==false)+')',r.active!==false?'숨기기':'표시'),
+                    hmBtn('#EEE9FF','#4A35A0','hmBanEdit('+r.id+')','✏️ 수정'),hmBtn('#FFEBEE','#C62828','hmBanDel('+r.id+')','🗑️'));
+    return hmWrap(th,hmEsc(r.title||'(제목없음)'),hmEsc(r.subtitle||'')+(r.subtitle?' · ':'')+bannerPeriodText(r),
+      hmPill(st.label,st.c,st.bg)+(r.stage==='test'?hmPill('🧪 테스트','#7B3FB5','#F3ECFB'):''),mv+act);
+  }
+  if(k==='nbr'){
+    const h=(r.insta||'').replace('@',''), live=r.active!==false;
+    const th='<div style="width:46px;height:46px;border-radius:50%;border:2px solid #7B68EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10.5px;font-weight:700;color:#4A35A0;text-align:center;line-height:1.2;padding:0 2px">'+hmEsc(r.name||h)+'</div>';
+    const per=(r.start_date||r.end_date)?((r.start_date||'~')+' ~ '+(r.end_date||'계속')):'상시 노출';
+    return hmWrap(th,hmEsc(r.name||'(이름없음)'),'@'+hmEsc(h)+' · '+per,live?hmPill('노출중','#2E7D32','#E8F5E9'):hmPill('비활성','#999','#f0f0f0'),
+      hmRow(hmBtn('#FFF9E6','#B8860B','hmSelToggle('+r.id+','+live+')',live?'숨기기':'표시'),hmBtn('#EEE9FF','#4A35A0','hmSelEdit('+r.id+')','✏️ 수정'),hmBtn('#FFEBEE','#C62828','hmSelDel('+r.id+')','🗑️')));
+  }
+  // top — 공구 카드(맘캘+이웃셀러)
+  const mc=hmIsMomcal(r);
+  const th='<div style="width:46px;height:46px;border-radius:10px;background:'+(mc?'#7C54C4':'#F0E6FA')+';color:'+(mc?'#fff':'#4A35A0')+';display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;flex-shrink:0">'+(mc?'맘캘':'이웃')+'</div>';
+  return hmWrap(th,hmEsc(r.name||'(이름없음)'),hmEsc(r.influencer||r.insta||'')+' · '+hmEsc(r.open_date||'?')+' ~ '+hmEsc(r.end_date||'?'),'',
+    hmRow(hmBtn('#EEE9FF','#4A35A0','openEdit('+r.id+')','✏️ 수정'),hmBtn('#FFF9E6','#B8860B','hmTopHide('+r.id+')','내리기'),hmBtn('#FFEBEE','#C62828','hmTopDel('+r.id+')','🗑️')));
+}
+async function hmPatch(table,id,body){
+  const r=await fetch(SB_URL+'/rest/v1/'+table+'?id=eq.'+id,{method:'PATCH',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+ACCESS_TOKEN,'Prefer':'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('저장 실패 ('+r.status+') — 새로고침해 다시 로그인해 보세요');
+}
+async function hmMove(id,dir){
+  const sec=hmRows(hmSec), i=sec.findIndex(b=>b.id===id), j=i+dir;
+  if(i<0||j<0||j>=sec.length) return;
+  const all=hmMainBanners(), pi=all.findIndex(b=>b.id===id), pj=all.findIndex(b=>b.id===sec[j].id);
+  const t=all[pi]; all[pi]=all[pj]; all[pj]=t;
+  try{
+    for(let x=0;x<all.length;x++){ const o=x+1; if(all[x].sort_order!==o){ await hmPatch('banners',all[x].id,{sort_order:o}); all[x].sort_order=o; } }
+  }catch(e){ alert(e.message); }
+  await loadBannerAdmin();
+}
+async function hmBanToggle(id,cur){ try{ await hmPatch('banners',id,{active:!cur}); }catch(e){ alert(e.message); } await loadBannerAdmin(); }
+function hmBanEdit(id){ bannerData=bannerAll; openBannerEdit(id); }
+async function hmBanDel(id){ await deleteBanner(id); }
+async function hmSelToggle(id,cur){ try{ await hmPatch('sellers',id,{active:!cur}); }catch(e){ alert(e.message); } await loadSellerAdmin(); }
+function hmSelEdit(id){ openSellerEdit(id); }
+async function hmSelDel(id){ await deleteSeller(id); }
+async function hmTopHide(id){
+  const d=allData.find(x=>x.id===id); if(!d) return;
+  if(!confirm('"'+(d.name||'')+'" 을(를) 사이트에서 내릴까요? (삭제 아님, 승인 해제)')) return;
+  await toggleApprove(id,false);
+}
+function hmTopDel(id){ const d=allData.find(x=>x.id===id); openDel(id,d?(d.name||''):''); }
+function hmAdd(){
+  if(hmSec==='nbr'){ openSellerAdd(); return; }
+  bannerFilter=(hmSec==='nbrban')?'seller':'main'; bannerData=bannerAll||[];
+  openBannerAdd();
+  if(hmSec==='spoil'){ const f=document.getElementById('bShowFrom'); if(f&&!f.value){ const d=new Date(Date.now()+86400000); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.value=d.toISOString().slice(0,16); } }
+}
+// 기존 저장·삭제가 끝나면 홈 관리 목록도 다시 그린다 (새 코드를 다른 곳에 퍼뜨리지 않으려고 감싼다)
+(function(){
+  ['loadBannerAdmin','loadSellerAdmin','saveEdit','confirmDel','toggleApprove','saveSeller','toggleSellerActive','deleteSeller'].forEach(name=>{
+    const o=window[name]; if(typeof o!=='function') return;
+    window[name]=async function(){ const r=await o.apply(this,arguments); try{ hmRender(); }catch(_){} return r; };
+  });
+})();
+
 function switchTab(tab,el){
   curTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -7972,7 +8103,7 @@ function switchTab(tab,el){
   checkedIds.clear();
   updateBulkBar();
   // 모든 뷰 숨기기
-  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView',
+  ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView','hmView',
    'inqView','memberView','adperfView','attendView','homeView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
@@ -8023,6 +8154,9 @@ function switchTab(tab,el){
     } else if(tab==='adperf'){
       document.getElementById('adperfView').style.display='block';
       loadAdPerf();
+    } else if(tab==='hm'){
+      document.getElementById('hmView').style.display='block';
+      hmOpen();
     } else if(tab==='seller'){
       document.getElementById('sellerView').style.display='block';
       loadSellerAdmin();
