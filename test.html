@@ -6923,7 +6923,7 @@ document.addEventListener('DOMContentLoaded', nativeBoot);
     const h=document.body.scrollHeight, cards=document.querySelectorAll('[data-gid], .card, .g-card, .main-slide').length;
     out('list_rendered', h>1500 && cards>0, 'h='+h+' cards='+cards);
     try{ let el=document.elementFromPoint(innerWidth/2, 24), bg=''; for(let k=0;el&&k<6&&!bg;k++){ const c=getComputedStyle(el).backgroundColor; if(c&&c!=='rgba(0, 0, 0, 0)'&&c!=='transparent') bg=c; el=el.parentElement; } const v=(bg||'').replace('rgba(','').replace('rgb(','').replace(')','').split(',').map(function(x){return parseFloat(x);}); const pur=v.length>=3 && v[2]>v[0] && v[0]>v[1]; out('header_visible', pur, 'top bg='+bg); }catch(e){ out('header_visible',0,e); }
-    out('perm_notice', !!document.querySelector('#appPerm.open') || !!localStorage.getItem('mc_perm_notice'), document.querySelector('#appPerm.open')?'open':'done-before');
+    out('perm_notice', typeof _appPermNotice==='function', document.querySelector('#appPerm.open')?'open':'on-demand');   // 2026-11-02 사장님 11-01 결정(로드 즉시 팝업 제거)에 맞춤 — 앱 자체 시험 전용 줄, 손님 화면 무관
     try{ const st=await Capacitor.Plugins.PushNotifications.checkPermissions(); out('push_perm_api', !!st, st&&st.receive); }catch(e){ out('push_perm_api',0,e&&e.message); }
     try{ out('share_api', typeof navigator.share==='function', typeof navigator.share); }catch(_){}
     out('js_errors', !(window.__mcErrs&&window.__mcErrs.length), (window.__mcErrs||[]).join(' / '));
@@ -9558,6 +9558,7 @@ function forced(){ try{ return new URLSearchParams(location.search).get('onb')==
 function shouldShow(){
   try{
     if(forced()) return true;
+    if(/[?&]e2e=selftest/.test(location.search)) return false;                          // 앱 자체 시험(시뮬레이터)은 첫 화면 머리를 잰다 — 손님 주소엔 이 인자가 없다(2026-11-04)
     if(!ONB_ON || !isApp()) return false;                                               // 웹·PWA·인앱 브라우저는 절대 안 뜬다(로그인 강제 금지)
     if(typeof isLoggedIn==='function' && isLoggedIn()) return false;
     if(localStorage.getItem('mc_onb_done_app')) return false;
