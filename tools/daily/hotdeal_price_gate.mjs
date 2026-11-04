@@ -37,7 +37,18 @@ function sql(q) {
     return j.rows || j;
   } finally { try { fs.unlinkSync(f); } catch {} }
 }
-const log = (m) => console.log(`[${new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 19)} KST] ${m}`);
+const CLOUD = !!process.env.MOMCAL_CLOUD;   // 깃허브 Actions(cloud_jobs.mjs)에서 돌 때
+const LOGFILE = path.join(ROOT, 'scratchpad', 'hotdeal_price_gate.log');
+const log = (m) => {
+  const line = `[${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19).replace('T', ' ')} KST] ${m}`;
+  console.log(line);
+  if (CLOUD) return;   // 클라우드는 cloud_jobs.mjs 가 로그를 Storage 로 올린다
+  try {   // PC 예약작업은 창이 없어 화면에 안 남는다 → 파일로. 200KB 를 넘으면 앞쪽을 버린다(한도 대장 0-L)
+    fs.mkdirSync(path.dirname(LOGFILE), { recursive: true });
+    if (fs.existsSync(LOGFILE) && fs.statSync(LOGFILE).size > 200 * 1024) fs.writeFileSync(LOGFILE, fs.readFileSync(LOGFILE, 'utf8').slice(-100 * 1024));
+    fs.appendFileSync(LOGFILE, line + '\n');
+  } catch {}
+};
 
 const deals = sql(`select id, title, price, price_before, mall, source, product_id, price_status
   from public.hotdeals
@@ -53,7 +64,8 @@ const live = {};
 const toss = deals.filter((d) => d.source === 'toss' && /^toss_\d+$/.test(d.product_id || ''));
 if (toss.length) {
   try {
-    const secret = fs.readFileSync(path.join(os.homedir(), '.momcal_cron_secret'), 'utf8').trim();
+    // 비밀값은 코드에 두지 않는다: 클라우드는 깃허브 시크릿(PUSH_CRON_SECRET), PC 는 홈의 .momcal_cron_secret
+    const secret = (process.env.PUSH_CRON_SECRET || fs.readFileSync(path.join(os.homedir(), '.momcal_cron_secret'), 'utf8')).trim();
     const ids = toss.map((d) => d.product_id.replace('toss_', '')).join(',');
     const r = await fetch(`${FN}/toss-sync?mode=detail&ids=${ids}`, { headers: { 'x-cron-secret': secret } }).then((x) => x.json());
     for (const i of r.body?.success?.items || []) live['toss_' + i.tacaId] = { price: i.displayPrice, sold: i.isSoldOut };
@@ -69,7 +81,8 @@ const url = (d) => {
 };
 const mall = deals.filter((d) => url(d));
 if (mall.length) {
-  const args = ['tools/daily/mall_price.mjs', ...mall.flatMap((d) => ['--url', url(d)])];
+  // 클라우드엔 로그인된 크롬이 없어 창 없는 브라우저로 읽는다(지마켓·옥션은 봇체크에 막혀 못 읽을 수 있다 → unknown)
+  const args = ['tools/daily/mall_price.mjs', ...mall.flatMap((d) => ['--url', url(d)]), ...(CLOUD ? ['--headless'] : [])];
   const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64e6, timeout: 900000 });
   const lines = (r.stdout || '').split('\n').filter((l) => l.startsWith('{')).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
   for (const d of mall) {
@@ -93,6 +106,9 @@ for (const d of deals) {
   log(`#${d.id} ${d.mall} 등록 ${d.price} · 실측 ${cur ?? '-'} → ${st} · ${String(d.title).slice(0, 26)}`);
 }
 if (DRY) { log('--dry: DB 에 쓰지 않음'); process.exit(0); }
+// 못 읽은 것(unknown)은 적지 않는다 — PC 와 클라우드가 같이 도는데, 못 읽는 쪽이 읽은 쪽의 「same」을 지우면 안 된다
+rows.splice(0, rows.length, ...rows.filter((r) => r.st !== 'unknown'));
+if (!rows.length) { log('이번 회차에 읽은 가격이 없어 DB 는 그대로'); process.exit(0); }
 const vals = rows.map((r) => `(${r.id}, '${r.st}', ${r.cur ?? 'null'}::int, ${r.diff ?? 'null'}::int)`).join(',');
 sql(`update public.hotdeals h set price_status = v.st, current_price = v.cur, price_diff = v.diff, last_checked_at = now()
   from (values ${vals}) as v(id, st, cur, diff) where h.id = v.id returning h.id;`);

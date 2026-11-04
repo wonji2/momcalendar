@@ -36,6 +36,9 @@ const JOBS = {
   period_fill:     { cron: '50 */3 * * *', script: 'tools/daily/period_fill.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-period-fill 매시(PC 꺼졌을 때만 대신)',
                      out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/, /^scratchpad\/handoff-log\/period_fill_.*\.tsv$/] },
   live_audit:      { cron: '50 0 * * *', script: 'tools/daily/live_audit.mjs', pc: 'momcal-live-audit 09:50', out: [/^scratchpad\/live_audit_log\.txt$/] },
+  // 핫딜 가격 유지 확인(카톡 발송봇이 아침에 밤사이 딜을 보낼 때 쓴다, 사장님 2026-11-04) — PC 예약작업 momcal-hotdeal-price-gate 가 살아 있으면 PC 몫, 90분 넘게 소식이 없을 때만 대신 돈다.
+  //   한국 07:42~22:42 30분마다(UTC 22~13시). 클라우드는 창 없는 브라우저라 지마켓·옥션은 못 읽을 수 있다(그 딜은 unknown → 봇이 보내지 않는다, 안전 쪽)
+  hotdeal_price_gate: { cron: '12,42 22,23,0-13 * * *', script: 'tools/daily/hotdeal_price_gate.mjs', gate: 'pc-off', pw: true, pc: 'momcal-hotdeal-price-gate 30분(PC 꺼졌을 때만 대신)' },
   date_audit_dry:  { cron: '-', script: 'tools/daily/gonggu_date_audit.mjs', bundle: true, pc: '(시험용 · 고치지 않고 보고서만)', out: [/^scratchpad\/date_audit\/report_.*\.md$/] },
   period_fill_dry: { cron: '-', script: 'tools/daily/period_fill.mjs', bundle: true, pc: '(시험용 · 확인만)', out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/] },
 };
