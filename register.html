@@ -1099,6 +1099,14 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
 (function initSavedId(){
   let saved='';
   try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  // 로그인 바로가기 — 이미 가입한 셀러에게 주는 주소: https://momcalendar.com/register.html#login (카톡 나에게 보내기·즐겨찾기·홈 화면에 저장해 두고 쓴다. 2026-11-04 샤샤툰 건의)
+  if((location.hash||'').toLowerCase()==='#login' || /(^|[?&])login(=1|=true)?(&|$)/i.test(location.search||'')){
+    showLogin();
+    const li0=document.getElementById('liInsta');
+    if(li0 && saved) li0.value=saved;
+    setTimeout(()=>{ const f=(li0 && li0.value)?document.getElementById('liPw'):li0; if(f) f.focus(); },100);
+    return;
+  }
   if((location.hash||'').toLowerCase()==='#signup'){
     showSignup();   // 메인 '셀러 가입하기'로 들어온 경우 가입 화면을 바로 보여줌
     return;
