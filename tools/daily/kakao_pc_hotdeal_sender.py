@@ -16,8 +16,8 @@ TARGET_ROOM = '[맘캘린더] 핫딜공지방'
 TARGET_TITLE_RE = re.compile(r'^\[맘캘린더\]\s*핫딜공지방(?:\s*\d+)?$')
 def _is_target_title(t):
     return bool(TARGET_TITLE_RE.match(str(t or '').strip()))
-# ② 밤 22:00 ~ 아침 09:00(한국시간, 2026-11-04 가이드 ③)에는 카톡으로 아무것도 보내지 않는다(새벽 3시반 발송 사고). 그때 올라온 딜은 DB 에만 쌓인다.
-QUIET_START_H, QUIET_END_H = 22, 9
+# ② 밤 23:00 ~ 아침 08:00(한국시간) — 사장님 2026-11-04 「23시~8시야」에는 카톡으로 아무것도 보내지 않는다(새벽 3시반 발송 사고). 그때 올라온 딜은 DB 에만 쌓인다.
+QUIET_START_H, QUIET_END_H = 23, 8
 # ③ 시간 계산은 PC 시계·시간대 설정과 상관없이 항상 한국시간(UTC+9)으로 한다.
 KST = timezone(timedelta(hours=9))
 # 방해금지 시간(23~08시)에 쌓인 딜은 아침 8시부터 **한꺼번에가 아니라 하나씩 간격을 두고** 순서대로 보낸다(사장님 2026-11-04 「한번엔 아니지만 순차적으로 오전에 좀 많이」).
@@ -221,7 +221,7 @@ def _wake_send_button(edit_h):
 
 def send_message(msg):
     if is_quiet_hour():
-        log('[QUIET] 방해금지 시간(22~09시) — 발송 안 함')
+        log('[QUIET] 방해금지 시간(23~08시) — 발송 안 함')
         return False
     chat_h, edit_h = find_chat_and_edit()
     if not chat_h or not edit_h:
@@ -334,7 +334,7 @@ def _single_instance():
 
 def run_loop():
     _lock = _single_instance()
-    log(f'=== 맘캘린더 핫딜 카톡방 자동 발송 봇 가동 — 대상 「{TARGET_ROOM}」 · 발송 09:00~22:00(KST) ===')
+    log(f'=== 맘캘린더 핫딜 카톡방 자동 발송 봇 가동 — 대상 「{TARGET_ROOM}」 · 발송 08:00~23:00(KST) ===')
     first_run = not os.path.exists(HISTORY_FILE)
     posted_ids = load_posted_history()
     if first_run:
@@ -350,7 +350,7 @@ def run_loop():
             if is_quiet_hour():
                 key = now_kst().strftime('%Y-%m-%d %H')
                 if key != last_quiet_log:
-                    log('[QUIET] 방해금지 시간(22~09시, 한국시간) — 핫딜은 DB 에만 쌓이고 카톡 발송은 쉽니다')
+                    log('[QUIET] 방해금지 시간(23~08시, 한국시간) — 핫딜은 DB 에만 쌓이고 카톡 발송은 쉽니다')
                     last_quiet_log = key
                 time.sleep(60)
                 continue
