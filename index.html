@@ -2511,13 +2511,26 @@ function demotedByOwn(item){ if(isMomcal(item)) return false; if(!isPartner(item
 function effPartner(item){ return isMomcal(item) || (isPartner(item) && !demotedByOwn(item)); }
 // 같은 날짜 안에서 파트너 우선
 // 예정: 맘캘린더·이웃셀러를 맨 위로(그 안은 날짜순) → 그 아래 일반은 날짜순
+// 관리자 「홈 관리」에서 고정한 상위노출 순서 {공구id: 순번}. 비어 있으면 아래 정렬이 예전과 같다
+var TOP_ORDER={};
+function _topCmp(a,b){ const x=TOP_ORDER[a.id], y=TOP_ORDER[b.id]; if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1; return x-y; }
+async function loadTopOrder(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?approved=eq.true&top_order=not.is.null&select=id,top_order&_=${Math.floor(Date.now()/60000)}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+    if(!r.ok) return;
+    const j=await r.json(), m={}; (Array.isArray(j)?j:[]).forEach(x=>{ if(x.top_order!=null) m[x.id]=x.top_order; });
+    if(JSON.stringify(m)!==JSON.stringify(TOP_ORDER)){ TOP_ORDER=m; try{ _mcReRenderSoon(); }catch(_){} }
+  }catch(_){}
+}
 function cmpUpcoming(a,b){
   const pa=effPartner(a)?0:1, pb=effPartner(b)?0:1;
   if(pa!==pb) return pa-pb;
+  if(pa===0){ const t=_topCmp(a,b); if(t) return t; }
   return a.openDate.localeCompare(b.openDate);
 }
 // HOT: 본인·이웃셀러만 — 진행중 먼저(마감 임박순) → 예정(오픈 빠른순)
 function cmpHot(a,b){
+  { const t=_topCmp(a,b); if(t) return t; }
   const ao=(a.openDate<=todayStr)?0:1, bo=(b.openDate<=todayStr)?0:1;
   if(ao!==bo) return ao-bo;
   if(ao===0) return realEnd(a).localeCompare(realEnd(b));
@@ -2532,6 +2545,7 @@ function cmpDatePartner(a,b){
 function cmpPartnerFirst(a,b){
   const pa=effPartner(a)?0:1, pb=effPartner(b)?0:1;
   if(pa!==pb) return pa-pb;                      // 파트너 먼저
+  if(pa===0){ const t=_topCmp(a,b); if(t) return t; }   // 관리자가 고정한 순서
   const sa=a.always?1:0, sb=b.always?1:0;
   if(sa!==sb) return sa-sb;                      // 기간 정한 공구 먼저, 상시 공구는 그 아래 (사장님 2026-10-25)
   const e=realEnd(a).localeCompare(realEnd(b));
@@ -7912,7 +7926,7 @@ async function loadSellers(){
   let rows=[];
   try{
     // 필요한 컬럼만 명시 — 로그인 정보(login_pw 등)는 anon 권한에서 아예 차단돼 있음
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/sellers?is_partner=eq.true&active=eq.true&select=id,name,insta,grade,start_date,end_date,active,is_partner`,{
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/sellers?is_partner=eq.true&active=eq.true&select=id,name,insta,grade,start_date,end_date,active,is_partner,pin_order&_=${Math.floor(Date.now()/180000)}`,{
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
     });
     if(res.ok) rows=await res.json();
@@ -7945,8 +7959,11 @@ function renderSellers(rows){
   const host=rows.filter(s=>s.grade==='host'||norm(s.insta)===FIXED_SELLER.insta);
   const prem=rows.filter(s=>s.grade==='premium'&&!(s.grade==='host'||norm(s.insta)===FIXED_SELLER.insta));
   const normal=rows.filter(s=>s.grade!=='host'&&s.grade!=='premium'&&norm(s.insta)!==FIXED_SELLER.insta);
-  shuffle(normal); shuffle(prem);
-  const ordered=[...host,...prem,...normal];
+  // 관리자가 고정한 순서(pin_order)가 있으면 맘캘 바로 뒤에 그 순서대로, 나머지는 예전처럼 랜덤
+  const _pinned=[...prem,...normal].filter(s=>s.pin_order!=null).sort((a,b)=>a.pin_order-b.pin_order);
+  const prem2=prem.filter(s=>s.pin_order==null), normal2=normal.filter(s=>s.pin_order==null);
+  shuffle(normal2); shuffle(prem2);
+  const ordered=[...host,..._pinned,...prem2,...normal2];
   const hasUpper=host.length||prem.length;
   scroll.innerHTML=ordered.map((s,i)=>{
     const handle=norm(s.insta);
@@ -7961,7 +7978,7 @@ function renderSellers(rows){
     </div>`;
   }).join('');
 }
-loadSellers(); loadSellerBanners();
+loadSellers(); loadSellerBanners(); loadTopOrder();
 paintCatChips();
 
 function buildMainSlider(){
@@ -8044,8 +8061,11 @@ function renderSellerBanners(){
   const zone=document.getElementById('subZone'), row=document.getElementById('subRow');
   if(!zone||!row) return;
   // 매번 새로 섞는다 (Fisher-Yates)
-  const list=SELLER_BANNERS.slice();
+  const _allB=SELLER_BANNERS.slice();
+  const _pinB=_allB.filter(b=>b.pin_order!=null).sort((a,b)=>a.pin_order-b.pin_order);   // 관리자가 고정한 것은 그 순서대로 앞에
+  const list=_allB.filter(b=>b.pin_order==null);
   for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=list[i]; list[i]=list[j]; list[j]=t; }
+  list.unshift(..._pinB);
   if(!list.length){ zone.style.display='none'; return; }
   zone.style.display='block';
   row.innerHTML=list.map((b,i)=>{

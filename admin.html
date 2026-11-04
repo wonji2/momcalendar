@@ -755,7 +755,7 @@ details summary::-webkit-details-marker{display:none}
   <div id="hmView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="hmChips"></div>
     <div id="hmHelp" style="background:#F6F3FA;border-radius:10px;padding:10px 13px;font-size:12px;color:#4A35A0;line-height:1.7;margin-bottom:10px"></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button id="hmAddBtn" onclick="hmAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 추가</button></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px"><button id="hmResetBtn" onclick="hmResetPin()" style="padding:8px 14px;background:#fff;color:#4A35A0;border:1.5px solid #DCD2FB;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">🎲 랜덤으로 되돌리기</button><button id="hmAddBtn" onclick="hmAdd()" style="padding:8px 16px;background:#4A35A0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ 추가</button></div>
     <div id="hmList" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
 
@@ -7979,9 +7979,9 @@ async function createSellerAccount(){
 const HM_SECS=[
   {k:'guar',  n:'💜 보증공구',      h:'메인 맨 위 「맘캘 방장이 보증하는 공구」 슬라이드예요. ▲▼로 순서를 바꾸면 바로 저장돼요.'},
   {k:'spoil', n:'🔔 오픈예정 스포', h:'「기대되는 다음 공구」 가로 카드예요. 노출 시작일이 아직 안 된 메인 배너가 여기 떠요. ▲▼로 순서 변경.'},
-  {k:'nbr',   n:'⭐ 이웃셀러',      h:'이웃셀러 동그라미예요. 노출 순서는 방문할 때마다 랜덤이라 순서 조절은 없어요. 숨기기·수정·삭제만 돼요.'},
-  {k:'nbrban',n:'🖼 이웃셀러 배너', h:'이웃셀러 동그라미 바로 아래 2개씩 뜨는 배너예요. 순서는 랜덤이라 숨기기·수정·삭제만 돼요.'},
-  {k:'top',   n:'🟣 상위노출 카드', h:'맘캘린더·이웃셀러 공구 중 진행중·예정인 것이에요(보라 카드로 맨 위에 떠요). 위에서부터 맘캘 먼저, 오픈일 빠른 순이에요. 순서는 오픈일을 수정해 바꾸고, 내리기는 사이트에서만 숨겨요(삭제 아님).'}
+  {k:'nbr',   n:'⭐ 이웃셀러',      h:'이웃셀러 동그라미예요. ▲▼로 순서를 정하면 맘캘 바로 뒤에 그 순서대로 고정돼요(안 정한 셀러는 예전처럼 랜덤). 맨 아래 「랜덤으로 되돌리기」로 풀 수 있어요.'},
+  {k:'nbrban',n:'🖼 이웃셀러 배너', h:'이웃셀러 동그라미 바로 아래 2개씩 뜨는 배너예요. ▲▼로 정한 순서가 앞에 고정되고, 안 정한 배너는 예전처럼 랜덤이에요. 앞쪽만 계속 노출되니 필요할 때만 쓰세요.'},
+  {k:'top',   n:'🟣 상위노출 카드', h:'맘캘린더·이웃셀러 공구 중 진행중·예정인 것이에요(보라 카드로 맨 위에 떠요). ▲▼로 정한 순서가 맨 위부터 고정돼요(안 정한 것은 예전처럼 맘캘 먼저·오픈일순). 내리기는 사이트에서만 숨겨요(삭제 아님).'}
 ];
 let hmSec='guar';
 const hmEsc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -8006,6 +8006,7 @@ function hmRender(){
   }).join('');
   document.getElementById('hmHelp').innerHTML=HM_SECS.find(x=>x.k===hmSec).h;
   document.getElementById('hmAddBtn').style.display=(hmSec==='top')?'none':'';
+  document.getElementById('hmResetBtn').style.display=(hmSec==='nbr'||hmSec==='nbrban'||hmSec==='top')?'':'none';
   const rows=hmRows(hmSec);
   if(!rows.length){ box.innerHTML='<div style="text-align:center;padding:30px;color:#999;font-size:13px">항목이 없어요</div>'; return; }
   box.innerHTML=rows.map((r,i)=>hmCard(hmSec,r,i,rows.length)).join('');
@@ -8013,16 +8014,17 @@ function hmRender(){
 function hmMainBanners(){ return (bannerAll||[]).filter(b=>(b.type||'main')==='main').sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||a.id-b.id); }
 function hmPartnerSet(){ return new Set((sellerData||[]).filter(s=>s.is_partner===true&&s.active!==false).map(s=>(s.insta||'').replace('@','').trim().toLowerCase())); }
 function hmIsMomcal(d){ const ig=(d.insta||'').toLowerCase().replace('@',''); return (d.influencer||'').includes('맘캘린더')||['momcal_','momcalendar','momcal','momcalendar_'].includes(ig); }
+function hmPinCmp(x,y){ if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1; return x-y; }
 function hmRows(k){
   if(k==='guar')   return hmMainBanners().filter(b=>bannerStatus(b).key!=='soon');
   if(k==='spoil')  return hmMainBanners().filter(b=>bannerStatus(b).key==='soon');
-  if(k==='nbrban') return (bannerAll||[]).filter(b=>b.type==='seller');
-  if(k==='nbr')    return (sellerData||[]).filter(s=>s.is_partner===true);
+  if(k==='nbrban') return (bannerAll||[]).filter(b=>b.type==='seller').sort((a,b)=>hmPinCmp(a.pin_order,b.pin_order)||(a.sort_order||0)-(b.sort_order||0)||a.id-b.id);
+  if(k==='nbr')    return (sellerData||[]).filter(s=>s.is_partner===true).sort((a,b)=>hmPinCmp(a.pin_order,b.pin_order)||(b.id-a.id));
   if(k==='top'){
     const t=hmKstToday(), ps=hmPartnerSet();
     return (allData||[]).filter(d=>d.approved&&!(typeof heldIds!=='undefined'&&heldIds.has(d.id))&&(d.end_date||d.open_date||'')>=t&&!d.always
         &&(hmIsMomcal(d)||ps.has((d.insta||'').replace('@','').trim().toLowerCase())))
-      .sort((a,b)=>((hmIsMomcal(b)?1:0)-(hmIsMomcal(a)?1:0))||(a.open_date||'').localeCompare(b.open_date||''));
+      .sort((a,b)=>hmPinCmp(a.top_order,b.top_order)||((hmIsMomcal(b)?1:0)-(hmIsMomcal(a)?1:0))||(a.open_date||'').localeCompare(b.open_date||''));
   }
   return [];
 }
@@ -8037,24 +8039,24 @@ function hmCard(k,r,i,n){
   if(k==='guar'||k==='spoil'||k==='nbrban'){
     const st=bannerStatus(r);
     const th=r.img_url?'<img src="'+hmEsc(r.img_url)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0" loading="lazy">':'<div style="width:64px;height:64px;border-radius:8px;background:#EFEAF5;flex-shrink:0"></div>';
-    const mv=(k==='nbrban')?'':hmRow(hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',1)','▼',i===n-1));
+    const mv=(k==='nbrban')?hmRow(hmBtn('#EEE9FF','#4A35A0','hmPinBan('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmPinBan('+r.id+',1)','▼',i===n-1)):hmRow(hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmMove('+r.id+',1)','▼',i===n-1));
     const act=hmRow(hmBtn('#FFF9E6','#B8860B','hmBanToggle('+r.id+','+(r.active!==false)+')',r.active!==false?'숨기기':'표시'),
                     hmBtn('#EEE9FF','#4A35A0','hmBanEdit('+r.id+')','✏️ 수정'),hmBtn('#FFEBEE','#C62828','hmBanDel('+r.id+')','🗑️'));
     return hmWrap(th,hmEsc(r.title||'(제목없음)'),hmEsc(r.subtitle||'')+(r.subtitle?' · ':'')+bannerPeriodText(r),
-      hmPill(st.label,st.c,st.bg)+(r.stage==='test'?hmPill('🧪 테스트','#7B3FB5','#F3ECFB'):''),mv+act);
+      hmPill(st.label,st.c,st.bg)+(r.stage==='test'?hmPill('🧪 테스트','#7B3FB5','#F3ECFB'):'')+(k==='nbrban'&&r.pin_order!=null?hmPill('📌 '+r.pin_order,'#4A35A0','#EEE9FF'):''),mv+act);
   }
   if(k==='nbr'){
     const h=(r.insta||'').replace('@',''), live=r.active!==false;
     const th='<div style="width:46px;height:46px;border-radius:50%;border:2px solid #7B68EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10.5px;font-weight:700;color:#4A35A0;text-align:center;line-height:1.2;padding:0 2px">'+hmEsc(r.name||h)+'</div>';
     const per=(r.start_date||r.end_date)?((r.start_date||'~')+' ~ '+(r.end_date||'계속')):'상시 노출';
-    return hmWrap(th,hmEsc(r.name||'(이름없음)'),'@'+hmEsc(h)+' · '+per,live?hmPill('노출중','#2E7D32','#E8F5E9'):hmPill('비활성','#999','#f0f0f0'),
-      hmRow(hmBtn('#FFF9E6','#B8860B','hmSelToggle('+r.id+','+live+')',live?'숨기기':'표시'),hmBtn('#EEE9FF','#4A35A0','hmSelEdit('+r.id+')','✏️ 수정'),hmBtn('#FFEBEE','#C62828','hmSelDel('+r.id+')','🗑️')));
+    return hmWrap(th,hmEsc(r.name||'(이름없음)'),'@'+hmEsc(h)+' · '+per,(live?hmPill('노출중','#2E7D32','#E8F5E9'):hmPill('비활성','#999','#f0f0f0'))+(r.pin_order!=null?hmPill('📌 '+r.pin_order,'#4A35A0','#EEE9FF'):''),
+      hmRow(hmBtn('#EEE9FF','#4A35A0','hmPinNbr('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmPinNbr('+r.id+',1)','▼',i===n-1))+hmRow(hmBtn('#FFF9E6','#B8860B','hmSelToggle('+r.id+','+live+')',live?'숨기기':'표시'),hmBtn('#EEE9FF','#4A35A0','hmSelEdit('+r.id+')','✏️ 수정'),hmBtn('#FFEBEE','#C62828','hmSelDel('+r.id+')','🗑️')));
   }
   // top — 공구 카드(맘캘+이웃셀러)
   const mc=hmIsMomcal(r);
   const th='<div style="width:46px;height:46px;border-radius:10px;background:'+(mc?'#7C54C4':'#F0E6FA')+';color:'+(mc?'#fff':'#4A35A0')+';display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;flex-shrink:0">'+(mc?'맘캘':'이웃')+'</div>';
-  return hmWrap(th,hmEsc(r.name||'(이름없음)'),hmEsc(r.influencer||r.insta||'')+' · '+hmEsc(r.open_date||'?')+' ~ '+hmEsc(r.end_date||'?'),'',
-    hmRow(hmBtn('#EEE9FF','#4A35A0','openEdit('+r.id+')','✏️ 수정'),hmBtn('#FFF9E6','#B8860B','hmTopHide('+r.id+')','내리기'),hmBtn('#FFEBEE','#C62828','hmTopDel('+r.id+')','🗑️')));
+  return hmWrap(th,hmEsc(r.name||'(이름없음)'),hmEsc(r.influencer||r.insta||'')+' · '+hmEsc(r.open_date||'?')+' ~ '+hmEsc(r.end_date||'?'),(r.top_order!=null?hmPill('📌 '+r.top_order,'#4A35A0','#EEE9FF'):''),
+    hmRow(hmBtn('#EEE9FF','#4A35A0','hmPinTop('+r.id+',-1)','▲',i===0),hmBtn('#EEE9FF','#4A35A0','hmPinTop('+r.id+',1)','▼',i===n-1))+hmRow(hmBtn('#EEE9FF','#4A35A0','openEdit('+r.id+')','✏️ 수정'),hmBtn('#FFF9E6','#B8860B','hmTopHide('+r.id+')','내리기'),hmBtn('#FFEBEE','#C62828','hmTopDel('+r.id+')','🗑️')));
 }
 async function hmPatch(table,id,body){
   const r=await fetch(SB_URL+'/rest/v1/'+table+'?id=eq.'+id,{method:'PATCH',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+ACCESS_TOKEN,'Prefer':'return=minimal'},body:JSON.stringify(body)});
@@ -8069,6 +8071,28 @@ async function hmMove(id,dir){
     for(let x=0;x<all.length;x++){ const o=x+1; if(all[x].sort_order!==o){ await hmPatch('banners',all[x].id,{sort_order:o}); all[x].sort_order=o; } }
   }catch(e){ alert(e.message); }
   await loadBannerAdmin();
+}
+function hmPinBan(id,dir){ return hmPin('nbrban',id,dir); }
+function hmPinNbr(id,dir){ return hmPin('nbr',id,dir); }
+function hmPinTop(id,dir){ return hmPin('top',id,dir); }
+const HM_PIN={nbr:{t:'sellers',c:'pin_order'},nbrban:{t:'banners',c:'pin_order'},top:{t:'gonggu',c:'top_order'}};
+// ▲▼: 지금 보이는 순서를 1,2,3… 으로 저장하면서 두 칸을 맞바꾼다 → 사이트가 그 순서를 따른다
+async function hmPin(k,id,dir){
+  const rows=hmRows(k), i=rows.findIndex(r=>r.id===id), j=i+dir, m=HM_PIN[k];
+  if(i<0||j<0||j>=rows.length) return;
+  const t=rows[i]; rows[i]=rows[j]; rows[j]=t;
+  try{
+    for(let x=0;x<rows.length;x++){ const o=x+1; if(rows[x][m.c]!==o){ await hmPatch(m.t,rows[x].id,{[m.c]:o}); rows[x][m.c]=o; } }
+  }catch(e){ alert(e.message); }
+  hmRender();
+}
+async function hmResetPin(){
+  const k=hmSec, m=HM_PIN[k]; if(!m) return;
+  const rows=hmRows(k).filter(r=>r[m.c]!=null);
+  if(!rows.length){ alert('고정해 둔 순서가 없어요'); return; }
+  if(!confirm('고정한 순서 '+rows.length+'개를 모두 풀고 예전 방식(랜덤·날짜순)으로 되돌릴까요?')) return;
+  try{ for(const r of rows){ await hmPatch(m.t,r.id,{[m.c]:null}); r[m.c]=null; } }catch(e){ alert(e.message); }
+  hmRender();
 }
 async function hmBanToggle(id,cur){ try{ await hmPatch('banners',id,{active:!cur}); }catch(e){ alert(e.message); } await loadBannerAdmin(); }
 function hmBanEdit(id){ bannerData=bannerAll; openBannerEdit(id); }
