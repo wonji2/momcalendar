@@ -108,21 +108,23 @@ type Interp = { ask: boolean; q: string; src: string };
 async function interpLookup(text: string): Promise<Interp | null> {
   try {
     const un = normUtt(text); if (!un) return null;
-    const rows: any[] = await q(`bot_interp?select=intent,q&utt_norm=eq.${encodeURIComponent(un)}&limit=1`);
+    if (!SR) return null;   // bot_interp 는 anon 읽기가 막혀 있다 — 서비스 키로만 읽는다
+    const rr = await sbs(`bot_interp?select=intent,q&utt_norm=eq.${encodeURIComponent(un)}&limit=1`);
+    const rows: any[] = rr.ok ? await rr.json().catch(() => []) : [];
     const r = rows[0]; if (!r) return null;
     return { ask: String(r.intent) === "search", q: String(r.q || "").trim(), src: "dict" };
   } catch { return null; }
 }
 const AI_SYSTEM = [
   "맘캘린더(인스타 공동구매 일정 사이트) 인스타 댓글 해석기. 댓글을 읽고 JSON 한 줄만 낸다: {\"ask\":true|false,\"q\":\"...\"}",
-  "ask=true: 특정 브랜드·상품의 공구·핫딜 일정이나 판매 여부를 묻는 댓글. 칭찬·감탄·잡담·인사만 있으면 ask=false, q=\"\".",
+  "ask=true: 특정 브랜드·상품의 공구·핫딜 일정(언제 하는지·있는지·예정이 있는지)을 묻는 댓글만. 배송·가격·사이즈·후기·사용법·교환 문의, 칭찬·감탄·잡담·인사는 ask=false, q=\"\".",
   "q: 손님이 쓴 브랜드+상품명만, 표기는 한 글자도 바꾸지 않는다. 인사·'혹시'·'공구'·'예정'·'있나요·없을까요' 같은 말과 상품명 뒤에 붙은 조사(는·은·이·가·을·를)는 뺀다. 상품명이 끝나는 곳까지만.",
   "예: '안녕하세요 혹시 오엘라 멀티쿠커는 공구 예정 없을까요?' → {\"ask\":true,\"q\":\"오엘라 멀티쿠커\"} / '엔퍼센트 알려주세요ㅜㅜ' → {\"ask\":true,\"q\":\"엔퍼센트\"} / '너무 예뻐요' → {\"ask\":false,\"q\":\"\"}",
 ].join("\n");
 async function aiCallsToday(): Promise<number> {
   try {
     const since = new Date(Date.now() - 86400e3).toISOString();
-    const r = await sbs(`ig_bot_log?select=comment_id&status=eq.ai&done_at=gte.${encodeURIComponent(since)}&limit=500`);
+    const r = await sbs(`ig_bot_log?select=comment_id&status=in.(ai,aierr)&done_at=gte.${encodeURIComponent(since)}&limit=500`);
     const j = await r.json().catch(() => []);
     return Array.isArray(j) ? j.length : 0;
   } catch { return 0; }
@@ -145,8 +147,10 @@ async function interpAI(text: string, commentId: string): Promise<Interp | null>
     if (!m) { await diag("aierr-" + commentId, "aierr", "JSON 아님 " + raw.slice(0, 80)); return null; }
     const p = JSON.parse(m[0]);
     const it: Interp = { ask: p?.ask === true, q: String(p?.q || "").trim().slice(0, 40), src: "ai" };
+    // 상품명은 댓글에 실제로 있는 글자여야 하고(지어낸 말 금지), 줄바꿈·@·주소는 답글 본문에 못 들어간다 — 어기면 AI 결과를 버리고 규칙으로 간다(사전에도 안 남긴다)
+    if (it.ask && (!it.q || !flatKo(text).includes(flatKo(it.q)) || /[\n\r@]|https?:|www\./i.test(it.q))) { await diag("aierr-" + commentId, "aierr", "q 가 댓글에 없거나 쓸 수 없는 글자: " + it.q.slice(0, 40)); return null; }
     // 🔴 돈이 나간 호출은 사전에 남긴다 — 같은 말은 두 번 AI 에 안 간다(챗봇 bot_interp 와 같은 표)
-    await sbs("bot_interp", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    await sbs("bot_interp", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },   // 이미 있는 행(챗봇·사람이 만든 것)은 덮지 않는다
       body: JSON.stringify({ utt_norm: normUtt(text), utt: text.slice(0, 120), intent: it.ask && it.q ? "search" : "other", q: it.q, cat: "", src: "ai", model: AI_MODEL, in_tok: j?.usage?.input_tokens ?? 0, out_tok: j?.usage?.output_tokens ?? 0 }) }).catch(() => {});
     await diag("ai-" + commentId, "ai", `${text.slice(0, 40)} => ${it.ask ? it.q : "(문의 아님)"}`);
     return it;
@@ -174,7 +178,7 @@ const TAILS = [
   /(있|잇|읻|없|업)(나|어|을까|는지|냐)[가-힣]{0,3}$/,   // 있나용·있나욤·있어여 같은 말끝
   /(주세요|주세용|줘요|줘용)$/,
   /(이요|에요|예요|요)$/,
-  /(예정|일정)(이|은|은요|도)?$/,   // 「공구 예정 없을까요」 의 예정은 상품명이 아니다 (2026-11-04 오엘라 멀티쿠커)
+  /(\s|공구)(예정|일정)(이|은|은요|도)?$/,   // 「공구 예정 없을까요」 의 예정은 상품명이 아니다 (2026-11-04 오엘라 멀티쿠커)
   /공구$/,
 ];
 
@@ -355,7 +359,9 @@ async function handleEvents(body: any) {
       }
       const okKw = (k: string) => !!k && k.length >= 2 && k.length <= 20;
       let searchResult = okKw(kw) ? await searchMomcal(kw) : null;
-      if (!searchResult && !dict) {
+      // AI 는 답글을 실제로 보낼 수 있고(상한·정지 안 걸림) 상품 낱말이 남았을 때만 부른다 — 「공구 언제 해요?」처럼 낱말이 없는 말은 안 부른다
+      const interpGuard = !!kw && kw.length >= 2 && !/^(링크|가격|얼마|후기|배송|어디|언제|주소|문의|구매|오픈|예약|사이트)$/.test(kw);
+      if (!searchResult && !dict && interpGuard && (await mayReply()).ok) {
         const ai = await interpAI(text, commentId);
         if (ai) {
           if (!ai.ask || !ai.q) continue;
