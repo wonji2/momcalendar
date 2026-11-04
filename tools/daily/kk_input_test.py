@@ -50,6 +50,18 @@ time.sleep(0.4)
 if N == '1': tap(0x41); tap(0x08)
 if N == '2':
     for vk in (0x41, 0x08): si(vk, False); time.sleep(0.05); si(vk, True); time.sleep(0.05)
+if N == '8':   # 입력칸에 포커스를 강제로 준 뒤 키 입력
+    import win32process
+    me = ctypes.windll.kernel32.GetCurrentThreadId()
+    tid = win32process.GetWindowThreadProcessId(e)[0]
+    print('attach', u.AttachThreadInput(me, tid, True), 'setfocus', u.SetFocus(e), 'GetFocus==edit', u.GetFocus() == e)
+    tap(0x41); tap(0x42)
+    u.AttachThreadInput(me, tid, False)
+if N == '9':   # 입력칸에 WM_KEYDOWN/UP 로 키를 보낸다(스캔코드 포함)
+    for vk in (0x41, 0x42):
+        sc = u.MapVirtualKeyW(vk, 0)
+        win32gui.PostMessage(e, 0x0100, vk, 1 | (sc << 16)); time.sleep(0.05)
+        win32gui.PostMessage(e, 0x0101, vk, 1 | (sc << 16) | (3 << 30)); time.sleep(0.05)
 if N == '4': tap(0x41); tap(0x42)
 if N == '5':
     for vk in (0x41, 0x42): si(vk, False); time.sleep(0.05); si(vk, True); time.sleep(0.05)
