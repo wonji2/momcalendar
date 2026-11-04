@@ -35,6 +35,10 @@ const JOBS = {
                      out: [/^scratchpad\/date_audit\/report_.*\.md$/, /^scratchpad\/handoff-log\/date_audit_fix_.*\.tsv$/, /^scratchpad\/date_audit\/log\.txt$/] },
   period_fill:     { cron: '50 */3 * * *', script: 'tools/daily/period_fill.mjs', args: ['--apply'], gate: 'pc-off', bundle: true, pc: 'momcal-period-fill 매시(PC 꺼졌을 때만 대신)',
                      out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/, /^scratchpad\/handoff-log\/period_fill_.*\.tsv$/] },
+  // 사장님 2026-11-04 「걸러야지 브랜드랑 상품명 같은 것만 떼야지」 — 감사(live_audit)보다 먼저: 긴 이름에서 문장을 떼고 브랜드+상품만 남긴 뒤 감사가 본다
+  name_clean_am:   { cron: '50 0 * * *',  script: 'tools/daily/name_clean_pass.mjs', args: ['--apply'], pc: '(클라우드 전용 09:50)', out: [/^scratchpad\/name_clean_log\.txt$/, /^scratchpad\/handoff-log\/name_clean_.*\.tsv$/] },
+  name_clean_pm:   { cron: '50 6 * * *',  script: 'tools/daily/name_clean_pass.mjs', args: ['--apply'], pc: '(클라우드 전용 15:50)', out: [/^scratchpad\/name_clean_log\.txt$/, /^scratchpad\/handoff-log\/name_clean_.*\.tsv$/] },
+  name_clean_eve:  { cron: '50 12 * * *', script: 'tools/daily/name_clean_pass.mjs', args: ['--apply'], pc: '(클라우드 전용 21:50)', out: [/^scratchpad\/name_clean_log\.txt$/, /^scratchpad\/handoff-log\/name_clean_.*\.tsv$/] },
   live_audit:      { cron: '50 0 * * *', script: 'tools/daily/live_audit.mjs', pc: 'momcal-live-audit 09:50', out: [/^scratchpad\/live_audit_log\.txt$/] },
   // 사장님 2026-11-04 「늘 재검 삼검」 — 상품명 감사를 하루 3번(09:50·15:50·21:50 KST). 같은 판정(drop_badname.badReason)이라 처음 것을 놓친 것·새로 들어온 것을 계속 잡는다
   live_audit_pm:   { cron: '50 6 * * *',  script: 'tools/daily/live_audit.mjs', pc: '(클라우드 전용 재검 15:50)', out: [/^scratchpad\/live_audit_log\.txt$/] },
