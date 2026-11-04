@@ -169,7 +169,11 @@ public class InAppBrowserActivity extends Activity {
             }
         });
         showHost(url);
-        web.loadUrl(url);
+        web.loadUrl(httpsUp(url));
+    }
+
+    private static String httpsUp(String u) {
+        return (u != null && u.regionMatches(true, 0, "http://", 0, 7)) ? "https://" + u.substring(7) : u;
     }
 
     private void showHost(String u) {
@@ -192,6 +196,8 @@ public class InAppBrowserActivity extends Activity {
                 finish();
                 return true;
             }
+            // 평문 http 는 웹뷰가 막는다(ERR_CLEARTEXT_NOT_PERMITTED) — 11번가 링크프라이스 길이 http 로 이어진다. 같은 주소를 https 로 올려 연다(11번가·클룩·쿠팡 모두 https 지원)
+            if (mainFrame && sc.equals("http") && !h.isEmpty() && u.getPort() == -1) { view.loadUrl(httpsUp(u.toString())); return true; }
             return false;   // 같은 창
         }
         if (sc.equals("intent")) {
