@@ -311,7 +311,9 @@ async function handle(inq) {
   const tri = classify(text);
   const rel = related(text);
   const relS = rel.map((x) => `#${x.r.id}`).join(',');
-  const res = (status, memo) => ({ status, memo: status === 'done' || /^확인 필요/.test(memo) ? memo : `확인 필요: ${memo}`, triage: tri });
+  // 🔴 규칙 0-Q(사장님 2026-11-04): 손님이 문제라고 했으면 「이미 맞음·재현 안 됨·문제 없음」 으로 닫지 않는다 — 닫기(done)는 고치고 확인했을 때만. 그런 말이 든 done 은 확인 필요(doing)로 내린다
+  const NO_PROBLEM = /이미 (그|맞|같)|재현 ?(이 )?안|문제 ?없|이상 ?없|정상(이|입|임|으로)|원본과 같음|변화 ?없/;
+  const res = (status, memo) => { if (status === 'done' && NO_PROBLEM.test(memo)) { status = 'doing'; memo = `지금은 맞게 보이나 손님은 틀리게 봄 — 어디서 보였는지(캐시·기기·앱/웹) 확인 필요 · ${memo}`; } return { status, memo: status === 'done' || /^확인 필요/.test(memo) ? memo : `확인 필요: ${memo}`, triage: tri }; };
 
   if (tri === 'name') {
     const ms = [...text.matchAll(/([가-힣A-Za-z0-9._]{2,20}?)\s*(?:으로|로)\s*(?:변경|바꿔|바꾸|수정)/g)].map((m) => m[1]).filter((w) => !NOT_A_NAME.test(w));
@@ -324,7 +326,7 @@ async function handle(inq) {
     const src = /^[가-힣()]{2,10}$/.test(want) ? await profileHas(sellers[0], want) : '';
     if (!src) return res('doing', `${sellers[0]} 셀러명 「${want}」 요청 · 셀러 인포크 프로필 이름과 달라 안 바꿈`);
     const cur = [...new Set(loadRows().filter((x) => x.insta.toLowerCase() === sellers[0]).map((x) => x.influencer))];
-    if (cur.length && cur.every((n) => n === want)) return res('done', `셀러 인포크 프로필 이름 「${want}」 확인 · 이미 그 이름`);
+    if (cur.length && cur.every((n) => n === want)) return res('doing', `셀러 인포크 프로필 이름 「${want}」 확인 · 지금은 이미 그 이름인데 손님은 다르게 봄(캐시·다른 화면?)`);
     const n = setSeller(sellers[0], want, inq.id);
     if (!n) return res('doing', `${sellers[0]} 셀러명 「${want}」 요청 · 지금 한글 셀러명(${cur.slice(0, 2).join('/')})이 있어 자동으로 안 바꿈`);
     if (DRY) return res('doing', `(시험) ${sellers[0]} 영문 꼴 셀러명 ${n}행을 「${want}」 로 바꿀 것 — 실제로는 바꾼 뒤 보이는 행이 전부 그 이름이면 닫힘`);
