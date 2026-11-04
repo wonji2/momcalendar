@@ -9,8 +9,10 @@ from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
-SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN') or os.environ.get('SUPABASE_TRIAGE_TOKEN') or os.environ.get('SUPABASE_ACCESS_TOKEN') or ('sbp_' + 'fc24aa51fb34df7e71' + 'cdd92b35fc80decf841a30')
-CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET') or ('2f2cb576' + '1d1c3e1908' + 'dfe2935489c6' + '89eb8a6f3b970a7614')
+SB_MGMT_TOKEN = os.environ.get('SUPABASE_MGMT_TOKEN') or os.environ.get('SUPABASE_TRIAGE_TOKEN') or os.environ.get('SUPABASE_ACCESS_TOKEN')   # 🔴 비밀값은 환경변수(깃허브 시크릿)로만 — 코드에 박지 않는다(규칙 0-DS, 2026-11-04 조각 제거)
+CRON_SECRET = os.environ.get('CRON_SECRET') or os.environ.get('PUSH_CRON_SECRET')
+if not SB_MGMT_TOKEN:
+    raise SystemExit('SUPABASE_TRIAGE_TOKEN(또는 SUPABASE_MGMT_TOKEN) 환경변수가 없다 — 비밀값은 코드에 두지 않는다')
 LINKPRICE_ID = os.environ.get('LINKPRICE_ID', 'A100706561')
 
 def run_sql(query):
