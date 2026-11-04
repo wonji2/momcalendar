@@ -37,6 +37,18 @@ def _too_old(deal, hours=MAX_DEAL_AGE_H):
     except Exception:
         return False   # 시각을 못 읽으면 막지 않는다(발송 여부는 신규 id 판정이 한다)
 
+def deal_gate(deal):
+    """딜 하나를 보낼지 정한다 -> ('send' | 'drop', 사유).
+    가격이 올랐거나(changed) 품절(soldout)로 **명확히 확인된 딜만** 뺀다.
+    same·fresh·unknown(쿠팡·지마켓 봇체크로 못 읽음)·확인 전·그 밖의 값은 전부 보낸다(사장님 2026-11-04) —
+    수집 자체가 검증된 데이터라, 가격을 못 읽는다고 발송을 막지 않는다. 대기(wait)는 없다."""
+    st = deal.get('price_status')
+    if st == 'changed':
+        return 'drop', '가격이 달라짐(확인됨)'
+    if st == 'soldout':
+        return 'drop', '품절(확인됨)'
+    return 'send', '발송'
+
 def log(msg):
     t = now_kst().strftime('%Y-%m-%d %H:%M:%S')
     line = f'[{t}] {msg}'
@@ -69,7 +81,7 @@ def get_latest_hotdeals(limit=10):
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        url = f'{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at&order=id.desc&limit={limit}'
+        url = f'{SUPABASE_URL}/rest/v1/hotdeals?select=id,title,price,img_url,mall,link,created_at,price_status&order=id.desc&limit={limit}'
         req = urllib.request.Request(url, headers={
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': f'Bearer {SUPABASE_ANON_KEY}'
@@ -278,6 +290,12 @@ def run_loop():
                     continue
                 if _too_old(deal):
                     log(f'[SKIP] ID {deal_id} 올라온 지 {MAX_DEAL_AGE_H}시간이 지나 보내지 않습니다')
+                    posted_ids.add(deal_id)
+                    save_posted_history(posted_ids)
+                    continue
+                gate, why = deal_gate(deal)
+                if gate == 'drop':
+                    log(f'[SKIP] ID {deal_id} {why} — 보내지 않습니다')
                     posted_ids.add(deal_id)
                     save_posted_history(posted_ids)
                     continue
