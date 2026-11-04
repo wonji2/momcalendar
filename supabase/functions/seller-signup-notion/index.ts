@@ -8,7 +8,7 @@ const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_SRV = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET = Deno.env.get("PUSH_CRON_SECRET") || "";
 const NOTION_TOKEN = Deno.env.get("NOTION_TOKEN") || "";
-const NOTION_DB = Deno.env.get("NOTION_SIGNUP_DB_ID") || "bc424504-4957-4d8a-a23e-4be2078c4b37";   // 「셀러 가입 (자동수집)」 (벤더 내부용 아래)
+const NOTION_DB = Deno.env.get("NOTION_DB_ID") || "be08d86f-509d-460b-9253-372356b08e6a";   // 「셀러 정산정보 접수 (자동수집)」 — 노션 통합이 이미 연결된 표. 가입 행은 「접수구분=셀러 가입」 으로 구분(2026-11-04: 새 표는 통합 연결이 안 돼 이 표를 같이 쓴다)
 
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
 async function sb(path: string, init: RequestInit = {}) {
@@ -33,12 +33,14 @@ function props(s: any, followers: number | null) {
   return {
     "셀러명": { title: [{ text: { content: String(s.name || h || "(이름없음)").slice(0, 200) } }] },
     "인스타그램 아이디": rt(h ? `@${h}` : ""),
-    "인스타 주소": { url: h ? `https://www.instagram.com/${h}/` : null },
+    "채널": { url: h ? `https://www.instagram.com/${h}/` : null },
+    "접수구분": { select: { name: "셀러 가입" } },
+    "상태": { select: { name: "신규접수" } },
     "팔로워": { number: followers },
     "이메일": { email: s.email || null },
-    "대표자명(이름)": rt(String(s.contact_name || "")),
+    "대표자명": rt(String(s.contact_name || "")),
     "연락처": { phone_number: s.phone || null },
-    "가입일시": { date: { start: s.created_at } },
+    "접수일시": { date: { start: s.created_at } },
     "승인상태": { select: { name: s.login_active ? "승인됨" : "승인대기" } },
     "가입번호": { number: s.id },
   };
@@ -56,7 +58,7 @@ Deno.serve(async (req) => {
   const out = { created: 0, updated: 0, errors: [] as string[] };
   const cols = "id,name,login_insta,insta,email,contact_name,phone,login_active,created_at,notion_page_id";
   // ① 새 가입 → 노션에 한 줄
-  const fresh = await sb(`sellers?select=${cols}&notion_synced_at=is.null&login_insta=not.is.null&order=id&limit=20`);
+  const fresh = await sb(`sellers?select=${cols}&notion_synced_at=is.null&login_insta=not.is.null&order=id&limit=30`);
   for (const s of fresh || []) {
     try {
       const f = await followersOf(handleOf(s));
@@ -79,5 +81,11 @@ Deno.serve(async (req) => {
       out.updated++;
     } catch (e) { out.errors.push(`#${s.id} 팔로워 ${String(e).slice(0, 120)}`); }
   }
-  return json({ ok: out.errors.length === 0, ...out });
+  // 진단: 노션 통합이 어느 표에 접근 가능한지(404 = 연결 안 됨)
+  const probe: Record<string, number> = {};
+  for (const [k, id] of [["db", NOTION_DB]] as const) {
+    if (!id) continue;
+    try { probe[k] = (await fetch(`https://api.notion.com/v1/databases/${id}`, { headers: { Authorization: `Bearer ${NOTION_TOKEN}`, "Notion-Version": "2022-06-28" } })).status; } catch { probe[k] = 0; }
+  }
+  return json({ ok: out.errors.length === 0, ...out, probe });
 });
