@@ -209,7 +209,8 @@ const normUtt = (x: string) => x.toLowerCase().replace(/[?？!！.,~♡♥]+$/g,
 async function interpLookup(u: string): Promise<Interp | null> {
   try {
     const un = normUtt(u); if (!un) return null;
-    const rows = await q(`bot_interp?select=intent,q,cat&utt_norm=eq.${encodeURIComponent(un)}&limit=1`);
+    // 🔴 bot_interp 는 anon 읽기가 막혀 있다(security_fix_120 ⑤, 2026-11-04 확인: anon 401 → 사전 히트 0, AI 하루 600건 상한) — 서비스 키로 읽는다
+    const rr = await fetch(`${SB}/rest/v1/bot_interp?select=intent,q,cat&utt_norm=eq.${encodeURIComponent(un)}&limit=1`, { headers: { apikey: SRK, Authorization: `Bearer ${SRK}` } }); const rows = rr.ok ? await rr.json() : [];
     const r = (rows as any[])[0]; if (!r) return null;
     return { intent: String(r.intent), q: String(r.q || ""), cat: String(r.cat || ""), src: "dict" };
   } catch { return null; }

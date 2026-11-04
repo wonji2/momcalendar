@@ -10,7 +10,7 @@
  *      그래서 bad 낱말(나오면 안 되는 말)도 함께 검사한다.
  */
 import { checkSpec } from './kakao_spec.mjs';
-const U = 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-skill';
+const U = process.env.BOT_URL || 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-skill';   // BOT_URL 로 임시 함수(kakao-skill-test)를 겨눌 수 있다
 const ONLY = process.argv[2] || '';
 
 // [묶음, 발화, 기대, 카드에 이 낱말이 들어가야 함(선택)]
