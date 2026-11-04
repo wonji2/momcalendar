@@ -79,7 +79,10 @@ jobs:
           SUPABASE_CLI: supabase
           NODE_PATH: /tmp/pw/node_modules
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "push" ]; then node tools/daily/bugfix_runner.mjs --self-test; else node tools/daily/bugfix_runner.mjs --apply; fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            node tools/daily/bugfix_runner.mjs --self-test | tee /tmp/selftest.txt
+            grep -q 'dry_ok' /tmp/selftest.txt   # 합성 버그를 고치고 점검·검토까지 통과해야 성공으로 친다
+          else node tools/daily/bugfix_runner.mjs --apply; fi
       - name: 기록 남기기
         if: always() && steps.chk.outputs.go == '1'
         run: |
