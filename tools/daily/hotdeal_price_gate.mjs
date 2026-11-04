@@ -33,7 +33,16 @@ function sql(q) {
   fs.writeFileSync(f, q);
   try {
     const r = execFileSync(SB, ['db', 'query', '--linked', '--output-format', 'json', '-f', f], { encoding: 'utf8', cwd: ROOT, maxBuffer: 64e6, timeout: 120000 });
-    const j = JSON.parse(r.slice(r.indexOf('{')));
+    // CLI 가 JSON 앞뒤로 안내문(새 버전 알림 등)을 찍을 때가 있다 — 첫 { 부터 마지막 } 까지만 읽는다(예약작업에서 실제로 깨졌다, 2026-11-04)
+    // 출력 모양이 환경마다 다르다: 창이 있는 곳은 {boundary, rows:[…]}, 예약작업(창 없음)은 [ … ] 배열 그대로(2026-11-04 실측). 둘 다 읽는다
+    let j;
+    const t = r.trim();
+    try { j = JSON.parse(t); }
+    catch (e1) {
+      const a = t.indexOf('['), o = t.indexOf('{');
+      const s0 = a >= 0 && (o < 0 || a < o) ? a : o, e0 = s0 === a ? t.lastIndexOf(']') : t.lastIndexOf('}');
+      try { j = JSON.parse(t.slice(s0, e0 + 1)); } catch (e2) { throw new Error('CLI 출력을 못 읽음: ' + t.slice(0, 300).replace(/\s+/g, ' ')); }
+    }
     return j.rows || j;
   } finally { try { fs.unlinkSync(f); } catch {} }
 }
@@ -50,6 +59,10 @@ const log = (m) => {
   } catch {}
 };
 
+// 어디서 죽든 이유를 로그에 남긴다(예약작업은 창이 없어 죽어도 아무도 모른다)
+process.on('uncaughtException', (e) => { log('🔴 실패: ' + String((e && (e.stderr || e.message)) || e).slice(0, 400).replace(/\s+/g, ' ')); process.exit(1); });
+process.on('unhandledRejection', (e) => { log('🔴 실패(비동기): ' + String((e && (e.stderr || e.message)) || e).slice(0, 400).replace(/\s+/g, ' ')); process.exit(1); });
+log(`시작 · cwd=${process.cwd()} · ${CLOUD ? '클라우드' : 'PC'}`);
 const deals = sql(`select id, title, price, price_before, mall, source, product_id, price_status
   from public.hotdeals
   where created_at > now() - interval '${MAX_AGE_H} hours' and created_at < now() - interval '${FRESH_MIN} minutes'
