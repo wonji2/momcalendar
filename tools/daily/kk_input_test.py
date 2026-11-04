@@ -28,6 +28,14 @@ def tap(vk):
     sc = u.MapVirtualKeyW(vk, 0)
     u.keybd_event(vk, sc, 0, 0); time.sleep(0.05); u.keybd_event(vk, sc, 2, 0); time.sleep(0.05)
 h, e = find()
+if N == '6':
+    print('chat', win32gui.GetClassName(h), win32gui.GetWindowRect(h), 'edit', win32gui.GetWindowRect(e))
+    def dump(c, d):
+        t = win32gui.GetWindowText(c)
+        print('  ' * d, win32gui.GetClassName(c), repr(t[:20]), win32gui.GetWindowRect(c), 'vis', win32gui.IsWindowVisible(c), 'en', win32gui.IsWindowEnabled(c))
+        win32gui.EnumChildWindows(c, lambda cc, _: None, None)
+    win32gui.EnumChildWindows(h, lambda c, _: dump(c, 1), None)
+    sys.exit(0)
 win32gui.SendMessage(e, win32con.WM_SETTEXT, 0, '')
 win32clipboard.OpenClipboard(); win32clipboard.EmptyClipboard(); win32clipboard.SetClipboardText('TEST PASTE', win32clipboard.CF_UNICODETEXT); win32clipboard.CloseClipboard()
 win32gui.ShowWindow(h, 9); win32gui.SetForegroundWindow(h); time.sleep(0.6)
