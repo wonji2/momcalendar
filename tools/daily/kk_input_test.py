@@ -57,6 +57,13 @@ if N == '8':   # 입력칸에 포커스를 강제로 준 뒤 키 입력
     print('attach', u.AttachThreadInput(me, tid, True), 'setfocus', u.SetFocus(e), 'GetFocus==edit', u.GetFocus() == e)
     tap(0x41); tap(0x42)
     u.AttachThreadInput(me, tid, False)
+if N == '10':   # 포커스 강제 + 스페이스·백스페이스(원래 방식)
+    import win32process
+    me = ctypes.windll.kernel32.GetCurrentThreadId()
+    tid = win32process.GetWindowThreadProcessId(e)[0]
+    u.AttachThreadInput(me, tid, True); u.SetFocus(e)
+    tap(0x20); tap(0x08)
+    u.AttachThreadInput(me, tid, False)
 if N == '9':   # 입력칸에 WM_KEYDOWN/UP 로 키를 보낸다(스캔코드 포함)
     for vk in (0x41, 0x42):
         sc = u.MapVirtualKeyW(vk, 0)
