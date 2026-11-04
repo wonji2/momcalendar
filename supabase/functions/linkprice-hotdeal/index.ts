@@ -162,6 +162,8 @@ async function collect(log: any): Promise<Item[]> {
       const j = await r.json();
       if (Array.isArray(j)) {
         for (const p of j) {
+          // 11번가 「[40%][탑텐키즈 외] …」 같은 기획전(N% 즉할 묶음)은 상품 하나의 가격이 아니다 — 피드가 5,940원으로 똑같이 보내 손님이 오류로 봤다(사장님 2026-11-04). 가격을 알 수 없는 묶음은 싣지 않는다
+          if (/^\[\d{1,2}%\]/.test(String(p.product_name ?? "").trim())) continue;
           const price = Number(p.discount_price) > 0 ? Number(p.discount_price) : Number(p.normal_price ?? 0);
           push(String(p.merchant_id ?? "lp"), String(p.product_code ?? ""), String(p.product_name ?? ""),
                price, String(p.click_url ?? ""), String(p.product_image ?? ""));
