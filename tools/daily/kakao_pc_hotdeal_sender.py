@@ -187,6 +187,24 @@ def _post_key(edit_h, vk):
     except Exception:
         pass
 
+def _click_send_button(chat_h):
+    """전송 버튼은 별도 창이 아니라 화면에 그려진 버튼이다 — 창 오른쪽 아래 모서리 기준 위치를 마우스로 누른다.
+    (이 PC 에서는 keybd_event·SendInput 키 입력이 카톡에 안 들어가고 마우스 클릭만 먹었다. 맨 앞이 그 방일 때만 누른다.)"""
+    try:
+        if not _is_target_foreground(chat_h): return False
+        l, t, r, b = win32gui.GetWindowRect(chat_h)
+        x = int(r - (r - l) * 0.089)
+        y = int(b - (b - t) * 0.0414)
+        ctypes.windll.user32.SetCursorPos(x, y)
+        time.sleep(0.1)
+        if not _is_target_foreground(chat_h): return False
+        ctypes.windll.user32.mouse_event(2, 0, 0, 0, 0)
+        time.sleep(0.05)
+        ctypes.windll.user32.mouse_event(4, 0, 0, 0, 0)
+        return True
+    except Exception:
+        return False
+
 def _wake_send_button(edit_h):
     """붙여넣기만으로는 카톡이 입력을 못 알아봐 전송 버튼이 꺼진 채 있다 — 글자 하나를 넣었다 지워 깨운다."""
     try:
@@ -277,7 +295,12 @@ def send_message(msg):
         time.sleep(0.3)
         if _edit_len(edit_h) in (0, None): break
     if _edit_len(edit_h):
-        log('[RETRY] 물리 엔터로 안 나가 메시지 방식으로 다시 보냅니다')
+        log('[RETRY] 엔터로 안 나가 전송 버튼을 마우스로 누릅니다')
+        _wake_send_button(edit_h)
+        _click_send_button(chat_h)
+        time.sleep(0.5)
+    if _edit_len(edit_h):
+        log('[RETRY] 그래도 안 나가 메시지 방식으로 다시 보냅니다')
         for _ in range(3):
             _wake_send_button(edit_h)
             _post_key(edit_h, 0x0D)
