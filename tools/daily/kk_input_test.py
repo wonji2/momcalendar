@@ -37,11 +37,7 @@ if N == '6':
     win32gui.EnumChildWindows(h, lambda c, _: dump(c, 1), None)
     sys.exit(0)
 win32gui.SendMessage(e, win32con.WM_SETTEXT, 0, '')
-win32clipboard.OpenClipboard(); win32clipboard.EmptyClipboard(); win32clipboard.SetClipboardText(('블루독 베이직 트레이닝 상하세트
-🔥 체감가 20,590원
-
-👉 특가 구매링크:
-https://momcalendar.com/r.html?id=1847') if N == '7' else 'TEST PASTE', win32clipboard.CF_UNICODETEXT); win32clipboard.CloseClipboard()
+win32clipboard.OpenClipboard(); win32clipboard.EmptyClipboard(); win32clipboard.SetClipboardText(('블루독 베이직 트레이닝 상하세트\n🔥 체감가 20,590원\n\n👉 특가 구매링크:\nhttps://momcalendar.com/r.html?id=1847') if N == '7' else 'TEST PASTE', win32clipboard.CF_UNICODETEXT); win32clipboard.CloseClipboard()
 win32gui.ShowWindow(h, 9); win32gui.SetForegroundWindow(h); time.sleep(0.6)
 print('foreground ok:', win32gui.GetForegroundWindow() == h)
 r = win32gui.GetWindowRect(e); u.SetCursorPos((r[0] + r[2]) // 2, (r[1] + r[3]) // 2); time.sleep(0.1)
