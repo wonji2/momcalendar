@@ -97,6 +97,65 @@ async function q(path: string) {
   return r.ok ? await r.json() : [];
 }
 
+// ── 🧠 상품명 읽기 학습 (2026-11-04 사장님 「멀티쿠커까지가 상품명인데 인식이 왜 이래 … 상품명만 똑바로 읽도록 학습시켜」)
+//   순서: ① 해석 사전(bot_interp, 챗봇과 같은 표) 히트 → 0원  ② 규칙 추출·DB 검색  ③ 그래도 못 찾으면 AI 가 상품명만 읽어 사전에 저장 → 다시 검색
+//   AI 는 「무엇을 묻는지」만 말한다 — 일정 카드는 100% 우리 DB 에서 나온다. 조사·어미를 글자 단위로 떼는 규칙은 두지 않는다(메모리 ai-spend-must-accumulate).
+//   키(ANTHROPIC_API_KEY)가 없거나 하루 상한이 차면 ③ 만 건너뛰고 규칙으로만 간다.
+const AI_MODEL = Deno.env.get("BOT_AI_MODEL") || "claude-haiku-4-5";
+const AI_PER_DAY = Number(Deno.env.get("IG_BOT_AI_PER_DAY") || 100);
+const normUtt = (x: string) => x.toLowerCase().replace(/[?？!！.,~♡♥]+$/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+type Interp = { ask: boolean; q: string; src: string };
+async function interpLookup(text: string): Promise<Interp | null> {
+  try {
+    const un = normUtt(text); if (!un) return null;
+    const rows: any[] = await q(`bot_interp?select=intent,q&utt_norm=eq.${encodeURIComponent(un)}&limit=1`);
+    const r = rows[0]; if (!r) return null;
+    return { ask: String(r.intent) === "search", q: String(r.q || "").trim(), src: "dict" };
+  } catch { return null; }
+}
+const AI_SYSTEM = [
+  "맘캘린더(인스타 공동구매 일정 사이트) 인스타 댓글 해석기. 댓글을 읽고 JSON 한 줄만 낸다: {\"ask\":true|false,\"q\":\"...\"}",
+  "ask=true: 특정 브랜드·상품의 공구·핫딜 일정이나 판매 여부를 묻는 댓글. 칭찬·감탄·잡담·인사만 있으면 ask=false, q=\"\".",
+  "q: 손님이 쓴 브랜드+상품명만, 표기는 한 글자도 바꾸지 않는다. 인사·'혹시'·'공구'·'예정'·'있나요·없을까요' 같은 말과 상품명 뒤에 붙은 조사(는·은·이·가·을·를)는 뺀다. 상품명이 끝나는 곳까지만.",
+  "예: '안녕하세요 혹시 오엘라 멀티쿠커는 공구 예정 없을까요?' → {\"ask\":true,\"q\":\"오엘라 멀티쿠커\"} / '엔퍼센트 알려주세요ㅜㅜ' → {\"ask\":true,\"q\":\"엔퍼센트\"} / '너무 예뻐요' → {\"ask\":false,\"q\":\"\"}",
+].join("\n");
+async function aiCallsToday(): Promise<number> {
+  try {
+    const since = new Date(Date.now() - 86400e3).toISOString();
+    const r = await sbs(`ig_bot_log?select=comment_id&status=eq.ai&done_at=gte.${encodeURIComponent(since)}&limit=500`);
+    const j = await r.json().catch(() => []);
+    return Array.isArray(j) ? j.length : 0;
+  } catch { return 0; }
+}
+// 성공하면 {ask,q}, 키·상한·오류면 null (호출처는 규칙 답으로 간다)
+async function interpAI(text: string, commentId: string): Promise<Interp | null> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY"); if (!key || !SR) return null;
+  if ((await aiCallsToday()) >= AI_PER_DAY) { await diag("aicap-" + commentId, "aicap", "하루 AI 상한"); return null; }
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 120, system: AI_SYSTEM, messages: [{ role: "user", content: text.slice(0, 200) }] }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { await diag("aierr-" + commentId, "aierr", String(res.status) + " " + JSON.stringify(j).slice(0, 120)); return null; }
+    const raw = String(j?.content?.[0]?.text || "");
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) { await diag("aierr-" + commentId, "aierr", "JSON 아님 " + raw.slice(0, 80)); return null; }
+    const p = JSON.parse(m[0]);
+    const it: Interp = { ask: p?.ask === true, q: String(p?.q || "").trim().slice(0, 40), src: "ai" };
+    // 🔴 돈이 나간 호출은 사전에 남긴다 — 같은 말은 두 번 AI 에 안 간다(챗봇 bot_interp 와 같은 표)
+    await sbs("bot_interp", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ utt_norm: normUtt(text), utt: text.slice(0, 120), intent: it.ask && it.q ? "search" : "other", q: it.q, cat: "", src: "ai", model: AI_MODEL, in_tok: j?.usage?.input_tokens ?? 0, out_tok: j?.usage?.output_tokens ?? 0 }) }).catch(() => {});
+    await diag("ai-" + commentId, "ai", `${text.slice(0, 40)} => ${it.ask ? it.q : "(문의 아님)"}`);
+    return it;
+  } catch (e) {
+    await diag("aierr-" + commentId, "aierr", String((e as any)?.message || e).slice(0, 120));
+    return null;
+  }
+}
+
 // 손님들의 실제 댓글 유형에 맞춘 불용어/말끝 제거 규칙
 // (예: "엉파 공구중인곳 있나요??", "두리수전이요ㅜㅜㅜ", "아보드 밥솥캐리어요ㅜㅜ", "엔퍼센트 알려주세요")
 const TAILS = [
@@ -115,13 +174,18 @@ const TAILS = [
   /(있|잇|읻|없|업)(나|어|을까|는지|냐)[가-힣]{0,3}$/,   // 있나용·있나욤·있어여 같은 말끝
   /(주세요|주세용|줘요|줘용)$/,
   /(이요|에요|예요|요)$/,
+  /(예정|일정)(이|은|은요|도)?$/,   // 「공구 예정 없을까요」 의 예정은 상품명이 아니다 (2026-11-04 오엘라 멀티쿠커)
   /공구$/,
 ];
 
 function extractKeyword(text: string): string {
   let cleaned = text.trim();
   // 머리 인사말 및 접속사 제거
-  cleaned = cleaned.replace(/^(안녕하세요|안녕|하이|반가워요|혹시)[\s,.!~]*/i, "");
+  let h0 = "";
+  while (h0 !== cleaned) {
+    h0 = cleaned;
+    cleaned = cleaned.replace(/^(안녕하세요|안녕하세여|안녕하세용)[\s,.!~]*/, "").replace(/^(안녕|하이|반가워요|혹시나|혹시|저기)[\s,.!~]+/, "");
+  }
   // 말끝 제거 루프
   let prev = "";
   while (prev !== cleaned) {
@@ -281,14 +345,27 @@ async function handleEvents(body: any) {
       // ⑤ 공구 문의로 보이는 댓글만
       if (!wantsReply(text)) continue;
 
-      // 상품명/키워드 추출
-      const kw = extractKeyword(text);
-      if (!kw || kw.length < 2 || kw.length > 20) continue;
-
-      // DB 검색
-      const searchResult = await searchMomcal(kw);
-      // 일정이 없다는 답은 공구·핫딜을 직접 말한 댓글에만
-      if (!searchResult && !/공구|핫딜/.test(text)) continue;
+      // 상품명/키워드 추출 — ① 해석 사전  ② 규칙  ③ 규칙으로 못 찾으면 AI(결과는 사전에 저장)
+      let kw = extractKeyword(text);
+      let confirmed = false;   // 사전·AI 가 「상품을 묻는 댓글」이라고 확인했는가
+      const dict = await interpLookup(text);
+      if (dict) {
+        if (!dict.ask || !dict.q) continue;   // 사전이 「문의 아님」으로 알고 있는 말
+        kw = dict.q; confirmed = true;
+      }
+      const okKw = (k: string) => !!k && k.length >= 2 && k.length <= 20;
+      let searchResult = okKw(kw) ? await searchMomcal(kw) : null;
+      if (!searchResult && !dict) {
+        const ai = await interpAI(text, commentId);
+        if (ai) {
+          if (!ai.ask || !ai.q) continue;
+          kw = ai.q; confirmed = true;
+          searchResult = okKw(kw) ? await searchMomcal(kw) : null;
+        }
+      }
+      if (!okKw(kw)) continue;
+      // DB 에 없는 상품: 사전·AI 가 「상품 문의」로 확인했으면 「사이트에서 주기적으로 확인」 안내를 단다. 확인 못 한 말(AI 꺼짐)은 공구·핫딜을 직접 말한 댓글에만
+      if (!searchResult && !confirmed && !/공구|핫딜/.test(text)) continue;
 
       let replyMsg = "";
       
@@ -309,7 +386,7 @@ async function handleEvents(body: any) {
                       const priceStr = hd.price ? ` (${won(hd.price)})` : "";
                       replyMsg = `@${username} 님! '${kw}' 공구 일정은 현재 없지만, 최저가 핫딜${priceStr}이 지금 떠 있어요 🔥 프로필 링크 맘캘린더 핫딜 탭에서 확인해 보세요 💜`;
                     } else {
-                      replyMsg = `@${username} 님! '${kw}' 공구는 지금 맘캘린더에 등록된 일정이 안 보여요 🥺 새 일정은 계속 올라오고 있어서, 프로필 링크 맘캘린더 웹사이트에서 '${kw}' 검색하며 주기적으로 확인해 보시거나 키워드 알림을 켜두시면 올라오는 즉시 알려드려요 💜`;
+                      replyMsg = `@${username} 님! '${kw}' 공구는 지금 맘캘린더에 등록된 일정이 안 보여요 🥺 새 일정은 계속 올라오고 있어서, 프로필 링크 맘캘린더 웹사이트에서 '${kw}' 검색해서 주기적으로 확인해 보시거나 키워드 알림을 켜두시면 올라오는 즉시 알려드려요 💜`;
                     }
 
       // ③④ 상한·정지·간격 확인 → ② 같은 댓글 한 번만 → 발송
