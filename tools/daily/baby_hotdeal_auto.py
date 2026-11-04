@@ -1,3 +1,4 @@
+import time
 import os
 import re
 import json
@@ -267,14 +268,38 @@ def resolve_coupang_pid(target_link):
     m = re.search(r'products/(\d+)', target_link)
     if m:
         return m.group(1)
-    m = re.search(r'itemId=(\d+)', target_link)
-    if m:
-        return m.group(1)
-    return None
+    return None   # itemId 는 productId 가 아니다 — 대신 쓰면 다른 상품 주소가 된다(2026-11-04)
+
+def tidy_title(raw):
+    """제보 글 제목 → 상품명: 머리 [..]/(..) · 몰 꼬리표 「지마켓)」 · 끝 가격 「20,710원」「체감가 101,160원」「8,640원부터」를 뗀다(떼기만 한다)"""
+    t = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\))\s*', '', raw or '').strip()
+    t = re.sub(r'^(?:지마켓|G마켓|g마켓|쿠팡|ssg|SSG|11번가|옥션|롯데온|이마트몰|컬리)\s*\)\s*', '', t).strip()
+    t2 = re.sub(r'\s*(?:체감가\s*)?[\d,]{3,}\s*원(?:부터)?\s*$', '', t).strip()
+    return t2 or t
+
+_CP_DL_CALLS = 0
 
 def get_coupang_deeplink(clean_url):
-    # 쿠팡 파트너스 간이 변환 (AF9014060)
-    return f'https://link.coupang.com/a/AF9014060?subid=momcal&page={urllib.parse.quote(clean_url)}'
+    # 🔴 쿠팡 정식 딥링크(coupang-hotdeal?deeplink=) — 「간이 변환」 주소는 쿠팡 첫 화면으로 가서 쓰지 않는다(2026-11-04 실측)
+    #    쿠팡 API 하루 40회·간격 2초 불변 → 한 회차 10건 상한·2초 간격. 실패하면 None (부르는 쪽이 등록을 건너뛴다)
+    global _CP_DL_CALLS
+    if not CRON_SECRET or _CP_DL_CALLS >= 10:
+        return None
+    if _CP_DL_CALLS:
+        time.sleep(2.1)
+    _CP_DL_CALLS += 1
+    try:
+        req = urllib.request.Request(
+            f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?deeplink={urllib.parse.quote(clean_url, safe="")}',
+            headers={'x-cron-secret': CRON_SECRET})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            j = json.loads(resp.read().decode('utf-8'))
+        data = ((j.get('body') or {}).get('data') or []) if isinstance(j.get('body'), dict) else []
+        link = (data[0].get('shortenUrl') or '') if data else ''
+        return link if link.startswith('https://link.coupang.com/a/') else None
+    except Exception as e:
+        print(f'[쿠팡 딥링크 실패] {clean_url} {e}')
+        return None
 
 def clean_polluted_gonggu_titles():
     # 맘캘린더 공구 제목 정제 및 헌법 수호
@@ -362,9 +387,9 @@ def collect_from_jirum_alarm():
                 if cpid:
                     prod_id = f'cp_{cpid}'
                     clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
-                    aff_link = get_coupang_deeplink(clean_cp) or clean_cp
+                    aff_link = get_coupang_deeplink(clean_cp) or ''
                 else:
-                    aff_link = target_link
+                    aff_link = ''   # 상품번호를 못 찾은 쿠팡 링크는 남의 수익 링크일 수 있다 — 넣지 않는다
             else:
                 lp_link, lp_mall, lp_cat = resolve_linkprice_or_cpa(target_link)
                 if lp_link:
@@ -379,7 +404,7 @@ def collect_from_jirum_alarm():
 
             # 단위가격 및 제목 정제
             unit_str = calculate_unit_price(raw_title, price)
-            clean_title = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\))\s*', '', raw_title).strip()
+            clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
 
             # DB 중복 검사 및 등록
@@ -488,9 +513,9 @@ def collect_from_bbhd():
                 if cpid:
                     prod_id = f'cp_{cpid}'
                     clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
-                    aff_link = get_coupang_deeplink(clean_cp) or clean_cp
+                    aff_link = get_coupang_deeplink(clean_cp) or ''
                 else:
-                    aff_link = target_link
+                    aff_link = ''   # 상품번호를 못 찾은 쿠팡 링크는 남의 수익 링크일 수 있다 — 넣지 않는다
             elif any(dom in target_link for dom in ['app.ac', 'bitl.bz', 'deg.kr']):
                 try:
                     res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
@@ -518,7 +543,7 @@ def collect_from_bbhd():
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
-            clean_title = re.sub(r'^(?:\[[^\]]+\]|\([^\)]+\))\s*', '', raw_title).strip()
+            clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
 
             ins_sql = f'''
