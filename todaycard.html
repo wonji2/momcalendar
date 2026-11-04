@@ -329,7 +329,8 @@ async function load(){
       seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
     }));
     // 맘캘린더 본인 → 이웃셀러 → 나머지(인기순)
-    const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
+    // 맘캘린더 본인 → 이웃셀러 → (같은 무리 안에서) 오늘 오픈이 진행중보다 위 → 나머지(인기순) — 사장님 2026-11-04 「룰라러브를 제일 위에」
+    const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||((a.ongoing?1:0)-(b.ongoing?1:0))||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
     // 맘캘린더가 곧(D+1~D+3) 오픈할 상품과 같은 품목은 카드에서 뺀다.
     // 하루 전에 남의 이름으로 같은 상품을 홍보하면 우리 공구가 손해다. (사장님 지시 2026-08-04)
     const soon=(mySoon||[]);
@@ -347,7 +348,10 @@ const cardExcluded=x=>{
   if(CARD_EXCLUDE_SELLERS.includes(h) || sl.includes('크레용맘') || h==='pyjaehasip') return true;
   return CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
 };
-    const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x);
+    // 🔴 그날 카드에서만 뺄 행(DB·사이트엔 그대로) — 날짜별로 건다. 사장님 2026-11-04 「오늘자 공구 카드에서 마인크래프트 자석 블럭 빼고」(29082)
+    const CARD_HIDE_BY_DAY={'2026-11-04':[29082]};
+    const hiddenToday=x=>(CARD_HIDE_BY_DAY[day]||[]).includes(Number(x.id));
+    const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x)||hiddenToday(x);
     const dropNS=rows.filter(noSeller).map(x=>x.name);
     if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
     const opens=rows.filter(r=>r.open_date===day && !clash(r) && !noSeller(r)).sort(sortFn);

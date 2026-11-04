@@ -159,6 +159,9 @@ async function load(){
     const nowIso=new Date().toISOString();
     const rows=await fetch(`${SB}/rest/v1/hotdeals?select=id,title,price,price_before,discount_rate,mall,deal_day,created_at,img_url,major&created_at=gte.${since}T00:00:00%2B09:00&created_at=lt.${day}T23:59:59%2B09:00&or=(expires_at.is.null,expires_at.gt.${nowIso})&order=created_at.desc,discount_rate.desc.nullslast&limit=400`,{headers:H}).then(r=>r.json());
     let all=(Array.isArray(rows)?rows:[]).map(h=>({...h,...cleanTitle(h.title)})).filter(h=>h.name);
+    // 🔴 그날 카드에서만 뺄 딜(DB·사이트엔 그대로) — 날짜별로 건다. 사장님 2026-11-04: 서울랜드(1852)·아쿠아리움(1851)은 어제 카드에 나간 것, 계란은 대란(1854)만 두고 특란(1856) 뺌
+    const CARD_HIDE_BY_DAY={'2026-11-04':[1851,1852,1856]};
+    all=all.filter(h=>!(CARD_HIDE_BY_DAY[day]||[]).includes(Number(h.id)));
     // 🔴 2026-11-03 길아 사장님 확정 지침: 여행/클룩 상품은 카드 1장에 최대 2개만 노출
     let travelCount = 0;
     all = all.filter(h => {
