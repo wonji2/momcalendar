@@ -235,3 +235,4 @@ public class InAppBrowserActivity extends Activity {
         super.onDestroy();
     }
 }
+// 2026-11-04: 11번가 http 이동 https 로 올리기 수정을 새 빌드로 내보내려고 다시 빌드(push 트리거)

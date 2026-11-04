@@ -22,6 +22,11 @@ on:
   #   PC 의 tools/daily/app_e2e_watch.mjs 가 사장님 알림줄(health_alerts)에 올린다. 출시용 산출물은 만들지만 Play 에는 안 올린다.
   schedule:
     - cron: '40 18 * * *'
+  # 앱 코드(native)를 고쳐 main 에 올리면 바로 새로 빌드한다 — 다음 날 밤까지 기다리지 않게(사장님 2026-11-04, 11번가 http 오류 수정이 폰에 늦게 들어갔다)
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/cap/native/**'
   workflow_dispatch:
     inputs:
       versionCode:
