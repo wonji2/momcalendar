@@ -20,9 +20,10 @@
 //   node tools/daily/bugfix_runner.mjs                       dry — 후보 1건을 끝까지 시험(올리지 않음, DB 안 씀)
 //   node tools/daily/bugfix_runner.mjs --apply               실제로 올리고 제보 메모·상태를 쓴다 (예약작업이 이걸 부른다)
 //   node tools/daily/bugfix_runner.mjs --ids=5               그 제보만 (상태 무관, 시험용)
+//   node tools/daily/bugfix_runner.mjs --enable|--disable    스위치(DB). 꺼져 있으면 --apply 가 아무것도 안 한다. 처음엔 꺼져 있다
 //   node tools/daily/bugfix_runner.mjs --self-test           합성 제보: origin index.html 에 핫딜 카드 숨김 버그를 심고 고치는지 끝까지 시험(DB·push 없음)
-// 상태 scratchpad/bugfix_state.json · 로그 scratchpad/bugfix_log.txt · 회차 기록 scratchpad/bugfix_runs/<id>-<시각>/
-// 예약: momcal-bugfix (윈도우, 30분 주기, **Disabled 로 만들어 둔다** — 사장님 시험 결과 확인 뒤 켬). PC 가 꺼지면 멈춘다 — 서버판은 깃허브 비밀값 CLAUDE_CODE_OAUTH_TOKEN 이 필요(사장님 몫)
+// 상태 DB ops_status 'bugfix-state'(enabled·stopped·한도) · 켜기/끄기 --enable/--disable · 로그 scratchpad/bugfix_log.txt · 회차 기록 scratchpad/bugfix_runs/<id>-<시각>/
+// 실행 위치: **깃허브 Actions bugfix-cloud.yml(20분)** 이 본체다 — PC·채팅 세션이 꺼져도 돈다(규칙 0-Y-PC). 비밀값 CLAUDE_CODE_OAUTH_TOKEN(깃허브 저장소 비밀값)이 있어야 서버 회차가 클로드를 부른다. 이 PC 예약작업 momcal-bugfix 는 비밀값을 넣기 전 임시 대비용(Disabled)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,14 +34,16 @@ import { sbArgs, parseRows } from './sb_query.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
 const REPO = path.resolve(path.dirname(SELF), '..', '..');
-const CLI = process.env.SUPABASE_CLI || 'C:/Users/FAMILY/supabase-cli/supabase.exe';
-const CLAUDE = process.env.CLAUDE_EXE || 'C:/Users/FAMILY/.local/bin/claude.exe';
+const WIN = process.platform === 'win32';
+const CLI = process.env.SUPABASE_CLI || (WIN ? 'C:/Users/FAMILY/supabase-cli/supabase.exe' : 'supabase');
+const CLAUDE = process.env.CLAUDE_EXE || (WIN ? 'C:/Users/FAMILY/.local/bin/claude.exe' : 'claude');
 const ARGV = process.argv.slice(2);
 const APPLY = ARGV.includes('--apply');
+const SETFLAG = ARGV.includes('--enable') ? true : ARGV.includes('--disable') ? false : null;   // 켜기·끄기 스위치(DB) — 이 PC 예약작업이든 깃허브 서버판이든 같은 스위치
 const SELFTEST = ARGV.includes('--self-test');
 const IDS = ((ARGV.find((a) => a.startsWith('--ids=')) || '').slice(6)).split(',').filter(Boolean).map(Number);
 const SP = (...f) => path.join(REPO, 'scratchpad', ...f);
-const LOGF = SP('bugfix_log.txt'), STATE = SP('bugfix_state.json'), LOCK = SP('bugfix.lock');
+const LOGF = SP('bugfix_log.txt'), LOCK = SP('bugfix.lock');
 const kst = () => new Date(Date.now() + 9 * 3600e3);
 const TODAY = kst().toISOString().slice(0, 10);
 const log = (s) => { const t = kst().toISOString().slice(0, 16).replace('T', ' '); try { fs.mkdirSync(path.dirname(LOGF), { recursive: true }); fs.appendFileSync(LOGF, `[${t}] ${s}\n`); } catch {} console.log(s); };
@@ -58,14 +61,20 @@ const PATHS = {   // live_smoke.mjs 와 같은 4길
 let qn = 0;
 function sql(text, name = 'q') {
   const rel = `scratchpad/_bugfix_${name}_${process.pid}_${qn++}.sql`;
+  fs.mkdirSync(path.join(REPO, 'scratchpad'), { recursive: true });
   fs.writeFileSync(path.join(REPO, rel), text, 'utf8');
   try {
     const raw = execFileSync(CLI, sbArgs(rel), { encoding: 'utf8', cwd: REPO, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
     const r = parseRows(raw); if (!r.ok) throw new Error(r.why); return r.rows;
   } finally { try { fs.unlinkSync(path.join(REPO, rel)); } catch {} }
 }
-const loadState = () => { try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return { tries: {}, day: '', dayN: 0, lastAt: 0, fails: 0, stopped: false }; } };
-const saveState = (s) => { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE, JSON.stringify(s, null, 1)); };
+// 상태는 DB(ops_status 'bugfix-state')에 둔다 — 깃허브 서버 회차는 매번 새 컴퓨터라 파일은 사라진다. 읽기에 실패하면 올리는 모드는 멈춘다(한도·정지·스위치를 못 보고 돌지 않게)
+const DEFSTATE = { tries: {}, day: '', dayN: 0, lastAt: 0, fails: 0, stopped: false, enabled: false };
+function loadState() {
+  try { const r = sql("select payload from public.ops_status where id='bugfix-state';", 'st'); const p = r[0] && r[0].payload; return { ...DEFSTATE, ...(p ? (typeof p === 'string' ? JSON.parse(p) : p) : {}) }; }
+  catch (e) { if (APPLY || SETFLAG !== null) throw new Error('상태를 못 읽음: ' + String(e.message).slice(0, 100)); return { ...DEFSTATE }; }
+}
+const saveState = (s) => { sql(`insert into public.ops_status(id, payload, updated_at) values ('bugfix-state', ${q(JSON.stringify(s))}::jsonb, now()) on conflict (id) do update set payload=excluded.payload, updated_at=now();`, 'sst'); };
 const git = (cwd, ...a) => execFileSync('git', a, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 }).trim();
 const run = (cmd, args, opt = {}) => spawnSync(cmd, args, { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, ...opt });
 
@@ -292,13 +301,15 @@ async function main() {
   if (fs.existsSync(LOCK) && Date.now() - fs.statSync(LOCK).mtimeMs < 90 * 60e3) { console.log('다른 회차가 도는 중'); return; }
   fs.mkdirSync(path.dirname(LOCK), { recursive: true }); fs.writeFileSync(LOCK, String(process.pid));
   try {
+    if (SETFLAG !== null) { const s0 = loadState(); s0.enabled = SETFLAG; if (SETFLAG) { s0.stopped = false; s0.fails = 0; } saveState(s0); console.log(SETFLAG ? '켬: 자동 수정이 실제로 올립니다(예약작업·서버가 부를 때)' : '끔'); return; }
     const st = loadState();
     if (st.day !== TODAY) { st.day = TODAY; st.dayN = 0; }
     if (SELFTEST) {
       const inq = { id: 0, kind: 'site', content: '핫딜 탭을 눌렀는데 상품 카드가 하나도 안 보여요. 빈 화면이에요.', meta: { env: '카톡 인앱' }, shot: '' };
       const r = await attempt(inq, st); console.log('\n자체 시험 결과:', r.result); return;
     }
-    if (APPLY && st.stopped) { console.log('연속 실패로 멈춤 상태 — scratchpad/bugfix_state.json 의 stopped 를 false 로 풀어야 다시 돈다'); return; }
+    if (APPLY && !st.enabled) { console.log('꺼져 있음(--enable 로 켠다) — 아무것도 안 함'); return; }
+    if (APPLY && st.stopped) { console.log('연속 실패로 멈춤 상태 — --enable 로 다시 켜야 돈다'); return; }
     if (APPLY && st.dayN >= DAY_CAP) { console.log(`오늘 자동 수정 ${DAY_CAP}건 상한`); return; }
     if (APPLY && Date.now() - (st.lastAt || 0) < GAP_MIN * 60e3) { console.log('지난 회차 후 60분 안 — 건너뜀'); return; }
     // ① 후보 (없으면 여기서 끝 — 외부 호출 없음)
