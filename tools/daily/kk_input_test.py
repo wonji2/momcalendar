@@ -42,6 +42,9 @@ time.sleep(0.4)
 if N == '1': tap(0x41); tap(0x08)
 if N == '2':
     for vk in (0x41, 0x08): si(vk, False); time.sleep(0.05); si(vk, True); time.sleep(0.05)
+if N == '4': tap(0x41); tap(0x42)
+if N == '5':
+    for vk in (0x41, 0x42): si(vk, False); time.sleep(0.05); si(vk, True); time.sleep(0.05)
 if N == '3':
     win32gui.SendMessage(e, 0x0102, 0x41, 0); time.sleep(0.1); win32gui.SendMessage(e, 0x0102, 0x08, 0)
 print('variant', N, '입력칸 글자 수:', win32gui.SendMessage(e, 0x000E, 0, 0), '— 15초 안에 Send 버튼이 켜졌는지 화면을 봅니다')
