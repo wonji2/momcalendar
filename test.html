@@ -1898,6 +1898,8 @@ try{ window._mcNxEarly(); }catch(_){}
 //   → 네이버 앱의 인앱브라우저 스킴(naversearchapp)을 **패키지까지 명시**한 intent 로 던진다. 명시하면 선택창이 없고, 네이버 앱은 로그인이 살아 있다.
 //     앱이 없으면 S.browser_fallback_url 로 크롬이 원래 주소를 연다(오류 페이지·플레이스토어로 안 간다 — 스킴을 맨 주소로 주면 ERR_UNKNOWN_URL_SCHEME 위험).
 // 안드로이드 웹뷰 앱(Capacitor, 2026-10-26 TWA 대체) — 바깥 링크·공유·파일 저장은 앱 코드가 한다(android-app/cap/native)
+// 갤럭시 앱: 링크프라이스 클릭 주소는 서버(lp-hop)가 http 이동을 https 로 올려 준다 — 옛 앱 판 웹뷰가 평문 http 를 못 연다(ERR_CLEARTEXT_NOT_PERMITTED, 11번가 2026-11-04). 웹·아이폰은 그대로
+window._mcHop=function(u){ try{ if(window._mcCapAndroid&&window._mcCapAndroid()&&/^https:\/\/click\.linkprice\.com\/click\.php\?/.test(u)) return 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/lp-hop?u='+encodeURIComponent(u); }catch(_){} return u; };
 window._mcCapAndroid=function(){ try{ return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.getPlatform&&Capacitor.getPlatform()==='android'); }catch(_){ return false; } };
 // 아이폰 웹뷰 앱: 새 창은 앱이 앱 밖(카톡·사파리)으로 열고 null 을 돌려준다 — 실패가 아니니 「열림」으로 돌려줘 같은 화면으로 또 보내지 않게(2026-10-27)
 window._mcCapIos=function(){ try{ return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.getPlatform&&Capacitor.getPlatform()==='ios'); }catch(_){ return false; } };
@@ -1942,7 +1944,7 @@ window._mcNaverApp=function(url){
 };
 window.openLink=function(url){
   if(!url) return;
-  try{ var _nb=window._mcNative&&window._mcNative(); if(_nb){ try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){} _nb.open({url:new URL(url, location.href).href}).catch(function(){ try{ window.location.href=url; }catch(__){} }); return; } }catch(_){}
+  try{ var _nb=window._mcNative&&window._mcNative(); if(_nb){ try{ localStorage.setItem('mc_scroll_at', JSON.stringify({y: window.scrollY||document.documentElement.scrollTop||0, t: Date.now()})); }catch(_){} _nb.open({url:window._mcHop(new URL(url, location.href).href)}).catch(function(){ try{ window.location.href=url; }catch(__){} }); return; } }catch(_){}
   try{
     var _n=window._mcNaverApp(url);
     if(_n && document.body){
@@ -4785,7 +4787,7 @@ async function openHdSheet(id){
       var safeLink = h.link || '#';
 
       return `<div class="hd-bottom"><div class="hd-diff" id="hdDiff"${df?'':' hidden'}><span class="l">평균가 대비</span><span class="v" id="hdDiffV">-${wonFmt(df)}</span></div>
-      <a class="hd-buy" href="${escHtml(_httpOnly(safeLink)||'#')}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>
+      <a class="hd-buy" href="${escHtml(window._mcHop(_httpOnly(safeLink)||'#'))}" target="_blank" rel="noopener noreferrer" onclick="trackHd(&quot;go&quot;,${+h.id||0});closeHdSheet()"><span class="t">${mallName?escHtml(mallName)+'에서 ':''}구매하러 가기</span><span class="ar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></a></div>
       <div style="font-size:11px;color:#8E8E93;text-align:center;line-height:1.45;margin-top:10px;padding:0 8px;word-break:keep-all">링크를 통해 구매 시 맘캘린더에 일정액의 수수료가 제공되며, 서비스 운영 및 특가 데이터 수집에 사용됩니다.</div>`;
     })()}
 
