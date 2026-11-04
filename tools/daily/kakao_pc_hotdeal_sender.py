@@ -170,6 +170,33 @@ def _clear_edit(edit_h):
     try: win32gui.SendMessage(edit_h, win32con.WM_SETTEXT, 0, '')
     except Exception: pass
 
+def _edit_len(edit_h):
+    """입력칸에 남은 글자 수. 못 읽으면 None(발송 확인을 건너뛴다)."""
+    try:
+        n = win32gui.SendMessage(edit_h, 0x000E, 0, 0)   # WM_GETTEXTLENGTH
+        return n if isinstance(n, int) else None
+    except Exception:
+        return None
+
+def _post_key(edit_h, vk):
+    """입력칸 핸들에 키 메시지를 직접 보낸다 — 원격 데스크톱이 끊기거나 창이 맨 앞이 아니어도 전달된다."""
+    try:
+        win32gui.PostMessage(edit_h, win32con.WM_KEYDOWN, vk, 0)
+        time.sleep(0.03)
+        win32gui.PostMessage(edit_h, win32con.WM_KEYUP, vk, 0xC0000001)
+    except Exception:
+        pass
+
+def _wake_send_button(edit_h):
+    """붙여넣기만으로는 카톡이 입력을 못 알아봐 전송 버튼이 꺼진 채 있다 — 글자 하나를 넣었다 지워 깨운다."""
+    try:
+        win32gui.SendMessage(edit_h, 0x0102, 0x20, 0)   # WM_CHAR 스페이스
+        time.sleep(0.05)
+    except Exception:
+        pass
+    _post_key(edit_h, 0x08)   # 백스페이스
+    time.sleep(0.1)
+
 def send_message(msg):
     if is_quiet_hour():
         log('[QUIET] 방해금지 시간(23~08시) — 발송 안 함')
@@ -178,6 +205,9 @@ def send_message(msg):
     if not chat_h or not edit_h:
         log(f'[WAIT] 「{TARGET_ROOM}」 창을 찾을 수 없습니다. (다른 창에는 보내지 않습니다)')
         return False
+
+    # 0. 지난번 실패로 남은 글이 있으면 비운다(안 비우면 딜이 입력칸에 계속 쌓인다)
+    _clear_edit(edit_h)
 
     # 1. 클립보드 복사
     for _ in range(5):
@@ -218,6 +248,7 @@ def send_message(msg):
     # 4. 클립보드 붙여넣기 (입력칸 핸들에 직접 보낸다 — 대상 방의 칸 밖으로는 안 간다)
     win32gui.SendMessage(edit_h, win32con.WM_PASTE, 0, 0)
     time.sleep(0.2)
+    _wake_send_button(edit_h)   # 메시지 방식으로도 한 번 깨운다(아래 물리 키 입력은 원격 화면이 끊기면 안 먹는다)
 
     # 🚨 [길아 사장님 핫픽스] 스페이스 + 백스페이스 입력으로 카톡 전송(Send) 버튼 강제 활성화!
     #    키 입력은 맨 앞 창으로 가므로 시작 전에 다시 확인한다. 어긋나면 붙여 둔 글을 지우고 멈춘다.
@@ -234,15 +265,28 @@ def send_message(msg):
     ctypes.windll.user32.keybd_event(0x08, 0, 2, 0) # Backspace Up
     time.sleep(0.1)
 
-    # 5. 엔터 물리 전송 — 한 번 누를 때마다 맨 앞 창이 그 방인지 본다(어긋나면 즉시 중단)
+    # 5. 엔터 — 물리 키 → 안 나가면 메시지 방식. 입력칸이 비었는지 보고 나간 걸 확인한다(안 나갔으면 지우고 실패로 돌려 다음에 다시)
     for _ in range(3):
         if not _is_target_foreground(chat_h):
             log('[ABORT] 엔터 도중 맨 앞 창이 바뀌었습니다 — 중단합니다')
+            _clear_edit(edit_h)
             return False
         ctypes.windll.user32.keybd_event(0x0D, 0, 0, 0)
         time.sleep(0.05)
         ctypes.windll.user32.keybd_event(0x0D, 0, 2, 0)
-        time.sleep(0.1)
+        time.sleep(0.3)
+        if _edit_len(edit_h) in (0, None): break
+    if _edit_len(edit_h):
+        log('[RETRY] 물리 엔터로 안 나가 메시지 방식으로 다시 보냅니다')
+        for _ in range(3):
+            _wake_send_button(edit_h)
+            _post_key(edit_h, 0x0D)
+            time.sleep(0.4)
+            if not _edit_len(edit_h): break
+    if _edit_len(edit_h):
+        _clear_edit(edit_h)
+        log('[FAIL] 전송이 안 되어 입력칸을 비우고 다음에 다시 보냅니다')
+        return False
 
     log('[SUCCESS] 핫딜 단톡방 전송 성공!')
     return True
