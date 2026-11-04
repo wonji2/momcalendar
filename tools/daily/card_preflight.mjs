@@ -53,7 +53,10 @@ if (only !== 'hotdeal') {
 }
 
 // ── ② 핫딜 ──────────────────────────────────────────
-if (only !== 'gonggu') {
+// HOTDEAL_MALL_CHECK_OFF (2026-11-04 사장님 「가이드대로해」): 핫딜 가격을 몰 페이지로 다시 재지 않는다 — 대표 시작가라 핫딜가와 다르다.
+//   핫딜가 = 커뮤니티 제보 글 제목 숫자(가이드 1.2). 품절 판정은 hotdeal_soldout 쪽이 따로 한다.
+if (only !== 'gonggu') out.push('## 핫딜 — 가격 재측정 안 함(핫딜 가이드: 몰 페이지 가격은 대표 시작가라 쓰지 않는다)');
+if (false) {
   const deals = sql(`select id, price, price_before, discount_rate, mall, source, product_id, title from public.hotdeals where created_at >= '${kst} 00:00:00+09'::timestamptz and (expires_at is null or expires_at > now()) order by id;`);
   out.push(`## 핫딜 — 오늘 올라온 ${deals.length}건 가격 재측정`);
   const cond = (t) => /쿠폰|카드|와우|회원|결제가|적용가|즉시|청구|선착순/.test(t || '');
