@@ -30,6 +30,7 @@ public final class LinkRouter {
     static final String NAVER_APP = "com.nhn.android.search";
     static final String KAKAOTALK = "com.kakao.talk";
     static final String INSTAGRAM = "com.instagram.android";
+    static final String COUPANG_APP = "com.coupang.mobile";
     static final String PLAY = "com.android.vending";
     // 기본 브라우저를 정하지 않은 폰에서 Custom Tab 을 맡길 브라우저(앞이 우선) — 크롬·삼성 인터넷·엣지·웨일
     static final List<String> BROWSERS = Arrays.asList("com.android.chrome", "com.sec.android.app.sbrowser", "com.microsoft.emmx", "com.naver.whale");
@@ -105,6 +106,14 @@ public final class LinkRouter {
     static void openWeb(Activity act, Uri u) {
         String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
         PackageManager pm = act.getPackageManager();
+        if ((h.equals("link.coupang.com") || h.equals("coupa.ng") || h.equals("coupang.com") || h.endsWith(".coupang.com")) && installed(pm, COUPANG_APP)) {
+            // 쿠팡 앱(로그인이 살아 있다)으로 바로 — 앱 링크라 상품 화면이 열린다. 못 열면 아래 Custom Tab 으로
+            Intent i = new Intent(Intent.ACTION_VIEW, u);
+            i.addCategory(Intent.CATEGORY_BROWSABLE);
+            i.setPackage(COUPANG_APP);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { act.startActivity(i); return; } catch (Exception ignored) { }
+        }
         if ((h.equals("open.kakao.com") || h.equals("pf.kakao.com") || h.equals("qr.kakao.com")) && installed(pm, KAKAOTALK)) {
             if (startIn(act, u, KAKAOTALK)) return;
         }
