@@ -7,6 +7,13 @@ begin
   if new.link is not null and new.link ~ '[[:space:]]' then
     raise exception '핫딜 링크에 공백·줄바꿈이 있다(curl 응답 헤더를 넣지 않았는지 확인): %', left(new.link, 80);
   end if;
+  -- 링크프라이스 링크의 tu(상품 주소)가 http 면 https 로 올린다 — 앱 웹뷰가 평문 http 를 막는다(ERR_CLEARTEXT_NOT_PERMITTED, 2026-11-04)
+  if new.link ilike 'https://click.linkprice.com/%' then
+    new.link := replace(new.link, 'tu=http%3A', 'tu=https%3A');
+  end if;
+  if new.link is not null and new.link !~* '^https?://' then
+    raise exception '핫딜 링크가 http(s) 로 시작하지 않는다: %', left(new.link, 80);
+  end if;
   if new.mall is null or btrim(new.mall) = '' or new.mall = '온라인몰' then
     new.mall := case
       when new.link ilike '%coupang.com%' or new.link ilike '%coupa.ng%' then '쿠팡'
