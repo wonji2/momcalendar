@@ -141,7 +141,6 @@ const html = `<!DOCTYPE html>
       ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"${p.img === 'burger.jpg' ? ' style="object-fit:contain;padding:6px"' : ''}></div>
         <div class="pz-c">${p.cond}</div><div class="pz-n">${p.name}</div><div class="pz-h">${p.how}</div></div>`).join('')}
     </div>
-    ${NEW_RULES ? '<div class="cas">개근에서 안 뽑히면 자동으로 25일 이상 추첨자 명단으로 넘어가요</div>' : ''}
     <div class="site">매일 출석은 momcalendar.com</div>
   </div>
 </div></body></html>`;

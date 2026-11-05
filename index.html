@@ -761,6 +761,10 @@ body.srch-mode .next-zone{display:none!important}
 .mc-t{font-size:20px;font-weight:700;line-height:28px;color:#191F28}
 .mc-btn{display:block;flex:none;width:100%;height:52px;margin-top:16px;border:0;border-radius:14px;background:#7C54C4;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 .mc-btn:disabled{background:#E5E8EB;color:#8B95A1}
+.ap-x{align-self:flex-end;width:32px;height:32px;margin:-6px -6px 6px 0;border:0;border-radius:50%;background:#F2F4F6;color:#4E5968;font-size:15px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ap-img{height:172px;border-radius:20px;background:#F6F3FA;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ap-img img{max-height:88%;max-width:88%;object-fit:contain;mix-blend-mode:multiply}
+.ap-t{display:block;margin-top:20px;text-align:center;letter-spacing:-.02em}
 .mc-btn.sub{background:#F2F4F6;color:#4E5968}
 .mc-tbtn{border:0;background:none;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;padding:6px;cursor:pointer}
 .mc-ck input{position:absolute;opacity:0;pointer-events:none}
@@ -5067,7 +5071,7 @@ async function memberRpc(fn, body){
 function openAttendSheet(){
   if(!isLoggedIn()){
     openLoginSheet('출석 도장은 로그인해야 찍혀요',
-      '로그인하면 <b style="color:#7C54C4">폰을 바꿔도</b> 출석 기록이 그대로예요',
+      '로그인하면 <b style="color:#7C54C4">어디서 접속해도</b> 출석 기록이 그대로예요',
       '닉네임만 받아요', 'attend');
     return;
   }
@@ -5224,7 +5228,7 @@ function renderAttend(d, justChecked){
           }).join('')}
         </div>
         <div style="margin-top:11px;text-align:center;font-size:11px;color:#9A8FB0;line-height:1.6">
-          당첨자는 매월 초 선정돼요 <a href="/event-rules.html" style="color:#9A8FB0;text-decoration:underline">이벤트 규칙</a><br>개근 추첨에서 안 뽑히면 자동으로 25일 이상 추첨자 명단으로 넘어가요<br>출석체크는 많이 할수록 무조건 좋아요${(window._mcCapIos&&_mcCapIos())?'<br>Apple은 이 이벤트의 후원사가 아니에요':''}
+          당첨자는 매월 초 선정돼요 <a href="/event-rules.html" style="color:#9A8FB0;text-decoration:underline">이벤트 규칙</a>${(window._mcCapIos&&_mcCapIos())?'<br>Apple은 이 이벤트의 후원사가 아니에요':''}
         </div>
       </div>
     </div>`);
@@ -6701,6 +6705,28 @@ function _dstrPlus(n){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.get
 function sheetShownToday(){ try{ return localStorage.getItem('mc_sheet_day')===_dstr(); }catch(_){ return false; } }
 function markSheetShown(){ try{ localStorage.setItem('mc_sheet_day', _dstr()); }catch(_){} }
 
+// ── 출석 이벤트 팝업(2026-11-05): 매달 1~10일에 접속한 사람에게 한 번. X·바깥·버튼을 누르면 그 달은 다시 안 뜬다. 하루에 시트는 하나(sheetShownToday)
+function maybeAskAttendPop(){
+  try{
+    var d=new Date(); if(d.getDate()>10) return false;
+    var key='mc_att_pop_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(localStorage.getItem(key)) return false;
+    if(sheetShownToday()) return false;
+    if(document.querySelector('.mc-sheet.open')) return false;
+    markSheetShown();
+    setTimeout(function(){
+      var done=function(){ try{ localStorage.setItem(key,'1'); }catch(_){} };
+      var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="/prize/burger.jpg" alt=""></div><b class="mc-t ap-t">출석체크하고 맥도날드 받자</b><button class="mc-btn" type="button">출석체크 하기</button><button class="mc-btn sub" type="button">닫기</button>');
+      var close=function(){ done(); el.classList.remove('open'); };
+      el.querySelector('.ap-x').onclick=close;
+      el.querySelector('.mc-btn.sub').onclick=close;
+      el.addEventListener('click',function(e){ if(e.target===el) done(); });
+      el.querySelector('.mc-btn').onclick=function(){ close(); try{ trackEvent('att_pop_go',''); }catch(_){} try{ openAttendSheet(); }catch(_){} };
+      try{ trackEvent('att_pop_show',''); }catch(_){}
+    },0);
+    return true;
+  }catch(_){ return false; }
+}
 function maybeAskNoti(){
   try{
     if(window._nxNoAsk) return;   // 오픈 예정 스포 🔔 가 알림 켜기를 직접 처리한다
@@ -7981,6 +8007,7 @@ function renderSellers(rows){
   }).join('');
 }
 loadSellers(); loadSellerBanners(); loadTopOrder();
+setTimeout(function(){ try{ maybeAskAttendPop(); }catch(_){} }, 1000);
 paintCatChips();
 
 function buildMainSlider(){
