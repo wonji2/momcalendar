@@ -7226,12 +7226,60 @@ function _appPushAsk(force){
     try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){}
     try{ trackEvent('app_push_ask','system'); }catch(_){}
     Promise.resolve(enablePush()).then(function(ok){
-      if(force){ try{ mcToast(ok?'🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요':'알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){} }
+      if(force){
+        if(ok){ try{ mcToast('🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){} }
+        else _appPermState().then(function(st){ if(st==='denied'){ _appSettingsSheet(); } else { try{ mcToast('알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){} } });
+      }
       try{ trackEvent('app_push_ask', ok?'on':'off'); }catch(_){}
       if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){}
     }).catch(function(){});
     return true;
   }catch(_){ return false; }
+}
+// 앱 알림 권한 상태 — granted / denied / prompt (못 읽으면 '')
+async function _appPermState(){ try{ var P=_pushPlugin(); if(!P||!P.checkPermissions) return ''; var st=await P.checkPermissions(); return (st&&st.receive)||''; }catch(_){ return ''; } }
+// 휴대폰 설정(맘캘린더 알림)으로 보낸다 — 안드로이드는 앱 알림 설정 화면, 아이폰은 앱 설정 화면. 옛 앱(기능 없음)은 안내 토스트
+async function _appOpenSettings(){
+  try{
+    if(window._mcCapAndroid && window._mcCapAndroid()){ var N=window._mcNative&&window._mcNative(); if(N && N.openNotificationSettings){ await N.openNotificationSettings(); return true; } }
+    else if(window._mcCapIos && window._mcCapIos()){ location.href='app-settings:'; return true; }
+  }catch(_){}
+  try{ mcToast('휴대폰 설정 › 앱 › 맘캘린더 › 알림 을 켜 주세요'); }catch(_){}
+  return false;
+}
+// 설정에서 돌아오면 알림을 다시 확인해 켠다 (한 번만 묶는다)
+function _appSettingsResume(){
+  if(window._mcSetBound) return; window._mcSetBound=true;
+  var back=function(){
+    if(!window._mcSetWait) return; window._mcSetWait=false;
+    Promise.resolve(enablePush()).then(function(ok){
+      if(ok){ try{ mcToast('🔔 알림을 켰어요 · 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){} try{ trackEvent('app_push_settings','on'); }catch(_){} if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){} }
+      else { try{ trackEvent('app_push_settings','off'); }catch(_){} }
+    }).catch(function(){});
+  };
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') back(); });
+  try{ Capacitor.Plugins.App.addListener('appStateChange', function(st){ if(st && st.isActive) back(); }); }catch(_){}
+}
+function _appSettingsSheet(){
+  var m=document.getElementById('nxdAsk');
+  if(!m){
+    m=document.createElement('div'); m.id='nxdAsk';
+    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
+    document.body.appendChild(m);
+  }
+  m.querySelector('.nxa-t').textContent='알림이 꺼져 있어요';
+  m.querySelector('.nxa-s').textContent='설정에서 맘캘린더 알림을 켜면 오픈일 아침 9시에 알려드려요';
+  m.querySelector('.nxa-yes').textContent='설정 열기';
+  m.querySelector('.nxa-no').textContent='다음에';
+  m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){ m.classList.remove('open'); try{ mcToast('찜해 두었어요'); }catch(_){} };
+  m.querySelector('.nxa-yes').onclick=function(){
+    m.classList.remove('open');
+    window._mcSetWait=true; _appSettingsResume();
+    try{ trackEvent('app_push_settings','open'); }catch(_){}
+    _appOpenSettings();
+  };
+  m.classList.add('open');
+  try{ trackEvent('app_push_settings','sheet'); }catch(_){}
 }
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
@@ -7256,6 +7304,9 @@ function nxdBell(id,btn,ev){
     try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){}
     return;
   }
+
+  // 3-1. 앱(안드·아이폰): 웹용 팝업 말고 시스템 허용창 → 꺼져 있으면 휴대폰 설정 열기 시트 (2026-11-05)
+  if(typeof _isNativeApp==='function' && _isNativeApp()){ _appPushAsk(true); return; }
 
   // 5. 일반 브라우저(크롬·사파리 등) 알림 허용 팝업
   let m=document.getElementById('nxdAsk');
