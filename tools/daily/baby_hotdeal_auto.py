@@ -127,6 +127,10 @@ def resolve_linkprice_or_cpa(target_link):
                 e_m = re.search(r'products/(\d+)', target_link)
                 if e_m:
                     clean_url = f'https://www.11st.co.kr/products/{e_m.group(1)}'
+            elif dom == 'ssg.com':
+                s_m = re.search(r'itemView\.ssg\?itemId=(\d+)', target_link)
+                if s_m:
+                    clean_url = f'https://m.ssg.com/item/itemView.ssg?itemId={s_m.group(1)}'
             elif dom == 'lotteon.com':
                 l_m = re.search(r'product/([A-Za-z0-9]+)', target_link)
                 if l_m:
@@ -378,7 +382,7 @@ def collect_from_jirum_alarm():
             aff_link = ''
             cat_override = None
 
-            target_link = target_link.replace('&amp;', '&')
+            target_link = html.unescape(html.unescape(target_link))
 
             if 'coupang.com' in target_link:
                 mall = '쿠팡'
@@ -482,10 +486,14 @@ def collect_from_bbhd():
                     editor_img = candidate
                     break
 
-            # 링크 추출
-            links = re.findall(r'https?://[^\s\"\'<>]+', detail)
+            # 링크 추출 — href 를 먼저 본다. 화면 글자(「https://m.ssg.com/item...」)는 잘려 있어
+            #   없는 상품으로 간다(2026-11-05 SSG·지마켓 9건). &amp; 는 몇 겹이든 푼다
+            hrefs = re.findall(r'href=[\"\'](https?://[^\"\']+)[\"\']', detail)
+            links = [html.unescape(html.unescape(l)) for l in hrefs + re.findall(r'https?://[^\s\"\'<>]+', detail)]
             target_link = ''
             for l in links:
+                if l.endswith('...') or l.endswith('…'):
+                    continue
                 if any(dom in l for dom in ALL_CPA_DOMAINS):
                     target_link = l
                     break
