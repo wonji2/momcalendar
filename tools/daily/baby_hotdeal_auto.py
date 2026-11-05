@@ -64,6 +64,13 @@ def locations_from_headers(out):
     """curl -sIL 출력에서 Location 줄의 주소만 뽑는다(응답 헤더 전체를 링크로 쓰지 않는다 — 2026-11-04 지마켓 7행 사고)."""
     return re.findall(r'(?im)^location:\s*(\S+)', out or '')
 
+def unamp(s):
+    """&amp; 만 몇 겹이든 푼다. html.unescape 는 &region= 같은 세미콜론 없는 기호까지 바꿔 주소를 깨뜨린다(2026-11-05 검증자)."""
+    s = s or ""
+    while "&amp;" in s:
+        s = s.replace("&amp;", "&")
+    return s
+
 def clean_link_or_none(link):
     """공백·줄바꿈이 없는 http(s) 주소만 통과."""
     l = (link or '').strip()
@@ -382,7 +389,7 @@ def collect_from_jirum_alarm():
             aff_link = ''
             cat_override = None
 
-            target_link = html.unescape(html.unescape(target_link))
+            target_link = unamp(target_link)
 
             if 'coupang.com' in target_link:
                 mall = '쿠팡'
@@ -489,7 +496,7 @@ def collect_from_bbhd():
             # 링크 추출 — href 를 먼저 본다. 화면 글자(「https://m.ssg.com/item...」)는 잘려 있어
             #   없는 상품으로 간다(2026-11-05 SSG·지마켓 9건). &amp; 는 몇 겹이든 푼다
             hrefs = re.findall(r'href=[\"\'](https?://[^\"\']+)[\"\']', detail)
-            links = [html.unescape(html.unescape(l)) for l in hrefs + re.findall(r'https?://[^\s\"\'<>]+', detail)]
+            links = [unamp(l) for l in hrefs + re.findall(r'https?://[^\s\"\'<>]+', detail)]
             target_link = ''
             for l in links:
                 if l.endswith('...') or l.endswith('…'):
