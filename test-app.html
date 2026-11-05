@@ -6413,11 +6413,8 @@ function nativeBoot(){
       try{ if(st && st.receive!=='granted' && localStorage.getItem('mc_push_on')==='1'){ localStorage.setItem('mc_push_on','0'); } }catch(_){}
       // 2026-11-01 사장님 「찜 0개 첫 방문자에게 로드 즉시 팝업 제거 — 하트를 1회 이상 눌렀을 때만」 → 로드 직후 _appPermNotice 호출을 뺐다(함수는 남겨 둠). 찜이 있는 사람만 되묻는다
       if(st && st.receive!=='granted'){ var _ask=function(){
-        // 거부(denied)한 채 찜이 있는 기존 손님 → 휴대폰 설정 열기 시트를 3일에 한 번 (2026-11-05)
-        try{ if(st.receive==='denied'){ if(typeof WISH!=='undefined' && WISH.size>0){ var _nx=+(localStorage.getItem('mc_set_sheet')||0); if(!_nx || Date.now()>=_nx){ try{ localStorage.setItem('mc_set_sheet', String(Date.now()+3*864e5)); }catch(_){} _appSettingsSheet(); return true; } } return false; } }catch(_){}
-        try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){}
-        // 2026-11-05 사장님 「앱은 처음 깔았을 때 폰 설정에서 알림허용 하라는 게 뜨게 짜놓은 것 같은데」 — 아직 한 번도 안 물었으면(prompt) 폰 시스템 허용창만 첫 실행에 한 번 (우리 안내창 없음). 11-01 에 같이 빠졌던 것을 되살림
-        try{ if(/^prompt/.test(st.receive||'') && typeof _appPermNotice==='function') return _appPermNotice(); }catch(_){}
+        // 2026-11-05 사장님 「설치하자마자 허용창 없애고 로그인한 뒤에 띄워」 — 설치 직후(로그인 전)에는 아무것도 안 띄운다. 로그인한 기기에만 우리 시트(3일에 한 번)
+        try{ if(typeof isLoggedIn==='function' && isLoggedIn()) return _appAlarmAuto(st.receive); }catch(_){}
         return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
       else if(st && st.receive==='granted' && localStorage.getItem('mc_push_on')!=='1'){ setTimeout(function(){ try{ window._appReachLate=1; Promise.resolve(enablePush()).then(function(ok){ try{ trackEvent('app_push_reach', ok?'on':'off'); }catch(_){} }).catch(function(){}); }catch(_){} }, 2500); }
     }).catch(function(){}); }catch(_){}
@@ -7211,82 +7208,109 @@ function _nxN(it){ const base=(_wishCounts&&_wishCounts[it.id])||0; return Math.
 // 띠와 전체일정 시트를 같이 다시 그린다(시트가 열려 있으면 그대로 열어 둔 채)
 function _nxRefresh(){ try{ renderNextGonggu(); }catch(_){} const sh=document.getElementById('nextSheet'); if(sh&&sh.classList.contains('open')){ try{ _nxSheetBody(); }catch(_){} } }
 // 앱 처음 켤 때 접근 권한 안내 → 확인 = 휴대폰 알림 허용 창 (2026-10-26)
-function _appPermNotice(){   // 앱 첫 실행 알림 권한 = 폰 시스템 팝업만(우리 안내 창 없음, 사장님 2026-10-26)
-  try{
-    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
-    if(localStorage.getItem('mc_perm_notice')) return false;
-    try{ localStorage.setItem('mc_perm_notice', String(Date.now())); }catch(_){}
-    try{ trackEvent('app_perm_notice','system'); }catch(_){}
-    enablePush().then(function(ok){ try{ trackEvent('app_perm_notice', ok?'on':'off'); }catch(_){} }).catch(function(){});
-    return true;
-  }catch(_){ return false; }
-}
-// 앱(Capacitor) 알림 켜기 묻기 — 찜은 있는데 권한이 없는 손님(PWA 에서 찜을 가지고 온 회원 등). 웹에선 아무것도 안 한다 (2026-10-26)
-function _appPushAsk(force){
-  // 2026-11-02 사장님 「로그인하자마자 아무것도 안 눌렀는데 이 팝업이 떠 · 핸드폰 알림 허용 창만 떠야 하는 거 아냐?」
-  //   우리 안내창(오픈 알림 설정할까요?)을 없애고 폰 시스템 「알림 허용」 창만 띄운다(2026-10-26 결정 「앱 알림 권한 = 폰 시스템 팝업만」과 같다).
-  //   자동으로 부를 땐(앱을 켠 뒤 찜이 있을 때) 거절하든 허용하든 3일 안엔 다시 묻지 않는다. 결과 안내 토스트는 손님이 직접 눌러 부른 경우(force)만.
-  try{
-    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
-    if(typeof notiGranted==='function' && notiGranted()) return false;
-    if(!force){ const nx=+(localStorage.getItem('mc_app_push_ask')||0); if(nx && Date.now()<nx) return false; }
-    try{ localStorage.setItem('mc_app_push_ask', String(Date.now()+3*864e5)); }catch(_){}
-    try{ trackEvent('app_push_ask','system'); }catch(_){}
-    Promise.resolve(enablePush()).then(function(ok){
-      if(force){
-        if(ok){ try{ mcToast('🔔 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){} }
-        else _appPermState().then(function(st){ if(st==='denied'){ _appSettingsSheet(); } else { try{ mcToast('알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요'); }catch(_){} } });
-      }
-      try{ trackEvent('app_push_ask', ok?'on':'off'); }catch(_){}
-      if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){}
-    }).catch(function(){});
-    return true;
-  }catch(_){ return false; }
-}
-// 앱 알림 권한 상태 — granted / denied / prompt (못 읽으면 '')
+// ── 앱 알림 켜기 안내 (2026-11-05 사장님 「목업대로」 · 참고 맘맘 mommom/12 · 마미톡 mamitalk/10 · 키즈노트 kidsnote/18) ──
+function _appPermNotice(){ return false; }   // 설치 직후 시스템 허용창은 없앴다 — 로그인 뒤 우리 시트로 대체(자체 시험 진단이 이름을 본다)
+// 알림 권한 상태 — granted / denied / prompt / prompt-with-rationale (못 읽으면 '')
 async function _appPermState(){ try{ var P=_pushPlugin(); if(!P||!P.checkPermissions) return ''; var st=await P.checkPermissions(); return (st&&st.receive)||''; }catch(_){ return ''; } }
-// 휴대폰 설정(맘캘린더 알림)으로 보낸다 — 안드로이드는 앱 알림 설정 화면, 아이폰은 앱 설정 화면. 옛 앱(기능 없음)은 안내 토스트
-async function _appOpenSettings(){
+// 휴대폰 설정(맘캘린더 알림)으로 보낸다 — 안드로이드는 앱 알림 설정 화면, 아이폰은 앱 설정 화면. quiet=true 면 실패해도 안내 토스트를 띄우지 않는다
+async function _appOpenSettings(quiet){
   try{
     if(window._mcCapAndroid && window._mcCapAndroid()){ var N=window._mcNative&&window._mcNative(); if(N && N.openNotificationSettings){ await N.openNotificationSettings(); return true; } }
     else if(window._mcCapIos && window._mcCapIos()){ location.href='app-settings:'; return true; }
   }catch(_){}
-  try{ mcToast('휴대폰 설정 › 앱 › 맘캘린더 › 알림 을 켜 주세요'); }catch(_){}
+  if(!quiet){ try{ mcToast('휴대폰 설정 › 앱 › 맘캘린더 › 알림 을 켜 주세요'); }catch(_){} }
   return false;
 }
-// 설정에서 돌아오면 알림을 다시 확인해 켠다 (한 번만 묶는다)
+// 설정에서 돌아오면 — 허용돼 있을 때만 알림을 등록한다(허용창을 또 띄우지 않는다)
 function _appSettingsResume(){
   if(window._mcSetBound) return; window._mcSetBound=true;
   var back=function(){
-    if(!window._mcSetWait) return; window._mcSetWait=false;
-    Promise.resolve(enablePush()).then(function(ok){
-      if(ok){ try{ mcToast('🔔 알림을 켰어요 · 찜한 공구 오픈일 아침 9시에 알려드릴게요'); }catch(_){} try{ trackEvent('app_push_settings','on'); }catch(_){} if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){} }
-      else { try{ trackEvent('app_push_settings','off'); }catch(_){} }
+    if(!window._mcSetWait) return;
+    if(Date.now()-(window._mcSetAt||0)<1500) return;   // 설정 화면으로 나가는 순간의 깜박임은 무시
+    window._mcSetWait=false;
+    _appPermState().then(function(st){
+      if(st!=='granted'){ try{ trackEvent('app_alarm_settings','off'); }catch(_){} return; }
+      return Promise.resolve(enablePush()).then(function(ok){
+        if(ok){ try{ mcToast('🔔 알림을 켰어요! 오픈일 아침 9시에 알려요'); }catch(_){} try{ trackEvent('app_alarm_settings','on'); }catch(_){} if(typeof fSt!=='undefined' && fSt==='wish') try{ renderList(); }catch(_){} }
+      });
     }).catch(function(){});
   };
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') back(); });
   try{ Capacitor.Plugins.App.addListener('appStateChange', function(st){ if(st && st.isActive) back(); }); }catch(_){}
 }
-function _appSettingsSheet(){
-  var m=document.getElementById('nxdAsk');
-  if(!m){
-    m=document.createElement('div'); m.id='nxdAsk';
-    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
-    document.body.appendChild(m);
-  }
-  m.querySelector('.nxa-t').textContent='알림이 꺼져 있어요';
-  m.querySelector('.nxa-s').textContent='설정에서 맘캘린더 알림을 켜면 오픈일 아침 9시에 알려드려요';
-  m.querySelector('.nxa-yes').textContent='설정 열기';
-  m.querySelector('.nxa-no').textContent='다음에';
-  m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){ m.classList.remove('open'); try{ mcToast('찜해 두었어요'); }catch(_){} };
-  m.querySelector('.nxa-yes').onclick=function(){
-    m.classList.remove('open');
-    window._mcSetWait=true; _appSettingsResume();
-    try{ trackEvent('app_push_settings','open'); }catch(_){}
-    _appOpenSettings();
-  };
-  m.classList.add('open');
-  try{ trackEvent('app_push_settings','sheet'); }catch(_){}
+function _appAlarmCss(){
+  if(document.getElementById('mc-alarm-css')) return;
+  var st=document.createElement('style'); st.id='mc-alarm-css';
+  st.textContent='#mcAlarm{position:fixed;inset:0;z-index:99998;display:none}#mcAlarm.open{display:block}#mcAlarm .al-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}'
+  +'#mcAlarm .al-sh{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.22,1,.36,1)}#mcAlarm.open .al-sh{transform:none}'
+  +'#mcAlarm .al-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-10px auto 18px}#mcAlarm .al-t{font-size:18px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.02em}'
+  +'#mcAlarm .al-s{margin-top:8px;font-size:14px;line-height:1.5;color:#4E5968;word-break:keep-all}#mcAlarm .al-row{margin-top:18px;background:#F2F4F6;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#191F28}'
+  +'#mcAlarm .al-row img{width:38px;height:38px;border-radius:10px;display:block}#mcAlarm .al-tg{margin-left:auto;width:48px;height:28px;border-radius:14px;background:#C9CDD2;position:relative}#mcAlarm .al-tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff}'
+  +'#mcAlarm .al-go{display:block;width:100%;height:52px;margin-top:20px;border:0;border-radius:26px;background:#7C54C4;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}#mcAlarm .al-go:active{transform:scale(.97)}'
+  +'#mcAlarm .al-later{display:flex;align-items:center;justify-content:center;width:100%;height:44px;margin-top:6px;border:0;background:none;color:#8B95A1;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}';
+  document.head.appendChild(st);
+}
+// 「휴대폰 앱 알림이 꺼져 있어요」 시트 — 맘맘 12번 구성(제목 · 앱 아이콘+알림 허용 스위치 · 큰 버튼 · 작은 「나중에」)
+function _appAlarmSheet(src){
+  try{
+    _appAlarmCss();
+    var m=document.getElementById('mcAlarm');
+    if(!m){
+      m=document.createElement('div'); m.id='mcAlarm'; m.setAttribute('role','dialog');
+      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에<br>알려 드려요</div>'
+        +'<div class="al-row"><img src="/momcal-appicon.png" alt="">알림 허용<span class="al-tg"></span></div><button type="button" class="al-go">알림 켜기</button><button type="button" class="al-later">나중에</button></div>';
+      document.body.appendChild(m);
+    }
+    var close=function(){ m.classList.remove('open'); };
+    m.querySelector('.al-bg').onclick=m.querySelector('.al-later').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','later|'+(src||'')); }catch(_){} };
+    m.querySelector('.al-go').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','go|'+(src||'')); }catch(_){} _appAlarmGo(); };
+    m.classList.add('open');
+    try{ trackEvent('app_alarm_sheet','show|'+(src||'')); }catch(_){}
+  }catch(_){}
+}
+// 「알림 켜기」 — 안드로이드: 폰 알림 설정 화면으로 바로 · 아이폰: 허용창 한 번 → 거부했으면 설정(애플은 허용창을 한 번 띄워야 설정에 알림 줄이 생긴다)
+async function _appAlarmGo(){
+  var okMsg='🔔 알림을 켰어요! 오픈일 아침 9시에 알려요', failMsg='알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요';
+  try{
+    if(window._mcCapAndroid && window._mcCapAndroid()){
+      window._mcSetWait=true; window._mcSetAt=Date.now(); _appSettingsResume();
+      var opened=await _appOpenSettings(true);
+      if(!opened){   // 설정 열기 기능이 없는 옛 앱 — 시스템 허용창으로 대신한다
+        window._mcSetWait=false;
+        var ok=await enablePush();
+        try{ mcToast(ok?okMsg:failMsg); }catch(_){}
+      }
+    } else {
+      var st=await _appPermState();
+      if(st!=='denied'){
+        var ok2=await enablePush();
+        if(ok2){ try{ mcToast(okMsg); }catch(_){} return; }
+        st=await _appPermState();
+      }
+      if(st==='denied'){ window._mcSetWait=true; window._mcSetAt=Date.now(); _appSettingsResume(); await _appOpenSettings(); }
+      else { try{ mcToast(failMsg); }catch(_){} }
+    }
+  }catch(_){}
+}
+// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 3일에 한 번, 소개(로그인) 화면이 떠 있으면 안 띄운다
+function _appAlarmAuto(state){
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(state==='granted' || (typeof notiGranted==='function' && notiGranted())) return false;
+    if(document.getElementById('appOnboardingWrap')) return false;
+    var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false;
+    try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}
+    _appAlarmSheet('auto'); return true;
+  }catch(_){ return false; }
+}
+// 알림 신청 순간(벨·하트) — force=벨은 항상, 하트 등은 3일에 한 번. 시트만 띄운다(시스템 허용창은 시트의 「알림 켜기」 뒤)
+function _appPushAsk(force){
+  try{
+    if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(typeof notiGranted==='function' && notiGranted()) return false;
+    if(!force){ var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){} }
+    _appAlarmSheet(force?'bell':'heart'); return true;
+  }catch(_){ return false; }
 }
 function nxdBell(id,btn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }

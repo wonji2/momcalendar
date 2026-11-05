@@ -120,7 +120,7 @@ console.log('✔ build.gradle versionCode', vc);
 fs.writeFileSync(path.join(MAIN, 'res', 'values', 'momcal_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="momcal_brand">#602090</color>\n</resources>\n');
 {
   const bgx = path.join(MAIN, 'res', 'values', 'ic_launcher_background.xml');
-  if (fs.existsSync(bgx)) fs.writeFileSync(bgx, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#F6F3FA</color>\n</resources>\n');
+  if (fs.existsSync(bgx)) fs.writeFileSync(bgx, '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#B269EF</color>\n</resources>\n');
 }
 
 // 5) 아이콘·스플래시·알림 아이콘
@@ -136,7 +136,8 @@ for (const [d, k] of Object.entries(D)) {
   const n = Math.round(48 * k), fg = Math.round(108 * k);
   im(ICON, '-resize', `${n}x${n}`, path.join(dir, 'ic_launcher.png'));
   im(ICON, '-resize', `${n}x${n}`, path.join(dir, 'ic_launcher_round.png'));
-  im(FG_SRC, '-resize', `${fg}x${fg}`, path.join(dir, 'ic_launcher_foreground.png'));   // 적응형 아이콘: 그림 62%·둘레 비움(갤럭시 One UI 가 바깥 18~20% 를 잘라 확대돼 보이던 것, 2026-11-02)
+  // 2026-11-05 사장님 「아이콘이 작아져 흰 테두리가 생김」 — 밝은 배경(#F6F3FA) 위에 62% 로 줄여 둬서 테두리가 남았다. 배경을 아이콘 가장자리 보라색(#B269EF)으로 맞추고 아이콘 원본을 80% 로 키워 가운데 둔다(안전영역 72/108 안에 달력 전체가 들어간다)
+  im(ICON, '-resize', `${Math.round(fg * 0.8)}x${Math.round(fg * 0.8)}`, '-alpha', 'set', '-background', 'none', '-gravity', 'center', '-extent', `${fg}x${fg}`, path.join(dir, 'ic_launcher_foreground.png'));   // 적응형 아이콘: 그림 62%·둘레 비움(갤럭시 One UI 가 바깥 18~20% 를 잘라 확대돼 보이던 것, 2026-11-02)
   const dd = path.join(MAIN, 'res', 'drawable-' + d);
   fs.mkdirSync(dd, { recursive: true });
   im(BADGE, '-resize', `${Math.round(24 * k)}x${Math.round(24 * k)}`, path.join(dd, 'push_icon.png'));
