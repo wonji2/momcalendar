@@ -53,7 +53,7 @@ const PRIZES_OLD = [
 const PRIZES_NEW = [
   { img: 'coffee.jpg',  bg: 'linear-gradient(160deg,#EFE6FA,#F7F1FD)', cond: '20일 이상', name: '커피 기프티콘',  how: '추첨 3명' },
   { img: 'daiso.jpg',   bg: 'linear-gradient(160deg,#FCE7F0,#FDF2F8)', cond: '25일 이상', name: '다이소 3천원권', how: '추첨 2명' },
-  { img: 'burger.svg',  bg: 'linear-gradient(160deg,#FFF1CC,#FFF8E6)', cond: '개근',      name: '맥도날드 버거세트', how: '추첨 1명' },
+  { img: 'burger.jpg',  bg: '#FFFFFF', cond: '개근',      name: '맥도날드 버거세트', how: '추첨 1명' },
 ];
 const PRIZES = NEW_RULES ? PRIZES_NEW : PRIZES_OLD;
 
@@ -138,10 +138,10 @@ const html = `<!DOCTYPE html>
   <div class="next">
     <div class="next-t">${nextLabel}에도 출석체크 하면</div>
     <div class="prizes">
-      ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"></div>
+      ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"${p.img === 'burger.jpg' ? ' style="object-fit:contain;padding:6px"' : ''}></div>
         <div class="pz-c">${p.cond}</div><div class="pz-n">${p.name}</div><div class="pz-h">${p.how}</div></div>`).join('')}
     </div>
-    ${NEW_RULES ? '<div class="cas">높은 등급에서 안 뽑혀도 아래 등급 추첨에 함께 들어가요</div>' : ''}
+    ${NEW_RULES ? '<div class="cas">개근에서 안 뽑히면 자동으로 25일 이상 추첨자 명단으로 넘어가요</div>' : ''}
     <div class="site">매일 출석은 momcalendar.com</div>
   </div>
 </div></body></html>`;
