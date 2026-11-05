@@ -3890,12 +3890,13 @@ async function liveWish(id,ev,btn){
   try{ if(typeof _isNativeApp==='function' && _isNativeApp()){
     if(window._mcCapAndroid && window._mcCapAndroid()){
       if(notiGranted()) mcToast(msg);
-      else { let ok=false; try{ ok=await enablePushNative(); }catch(_){} mcToast(ok?msg:'찜했어요\n알림이 꺼져 있어요\n폰 설정에서 맘캘린더 알림을 켜 주세요'); }
+      else { mcToast('찜했어요'); try{ _appPushAsk(false); }catch(_){} }   // 앱: 시스템 허용창 대신 알림 시트(3일에 한 번, 2026-11-05)
     } else mcToast('찜했어요');
     return; } }catch(_){}
   try{
     if(!notiGranted()){
       if(_appOnlyBell('wish')) return;
+      if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); try{ _appPushAsk(false); }catch(_){} return; }   // 앱: 시스템 허용창 대신 알림 시트(3일에 한 번, 2026-11-05)
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -4078,6 +4079,7 @@ async function saleWish(id,ev,btn){
   try{
     if(!notiGranted()){
       if(_appOnlyBell('wish')) return;
+      if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); try{ _appPushAsk(false); }catch(_){} return; }   // 앱: 시스템 허용창 대신 알림 시트(3일에 한 번, 2026-11-05)
       if(iosNeedsInstall()){ msg='찜했어요\n아이폰은 홈 화면에 추가해야\n알림을 받을 수 있어요'; try{ pwaStripAdd(); }catch(_){} }
       else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
       else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
@@ -7821,7 +7823,6 @@ function nxdBell(id,btn,ev){
   const md=it.openDate?_nxMDs(it.openDate):'오픈';
 
   // 1. 이미 찜한 상태면 토글 해제
-  if(isWished(id) && _appPushAsk(true)) return;
   if(isWished(id)){
     toggleWish(id,null);
     _NXD[id]=(_NXD[id]||0)-1;
