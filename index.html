@@ -5101,11 +5101,18 @@ function attendGrid(d, pop){
 //    개근만 '전원 확정'인 이유: 개근자는 수가 적어 비용이 통제되고,
 //    확정이라야 20일에서 멈추지 않고 끝까지 갈 이유가 생긴다.
 // img 를 넣으면 이모지 대신 실제 상품 사진이 나옵니다 (예: img:'/prize/chicken.jpg')
-const ATTEND_TIERS=[
-  {i:1, ico:'☕', img:'/prize/coffee.jpg',  cond:'20일 이상', how:'추첨 3명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
-  {i:2, ico:'🎀', img:'/prize/daiso.jpg',   cond:'25일 이상', how:'추첨 2명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
-  {i:3, ico:'🍔', img:'/prize/burger.jpg',   cond:'개근',      how:'추첨 1명', prize:'맥도날드 버거세트', bg:'#FFFFFF'}
+// 날짜(한국시간)별 경품 세트 — from 날짜 이후부터 그 세트를 쓴다. 12/1 0시에 저절로 바뀐다(예약)
+const ATTEND_SETS=[
+  {from:'2000-01-01', tiers:[
+    {i:1, ico:'☕', img:'/prize/coffee.jpg',  cond:'20일 이상', how:'추첨 3명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
+    {i:2, ico:'🎀', img:'/prize/daiso.jpg',   cond:'25일 이상', how:'추첨 2명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
+    {i:3, ico:'🍔', img:'/prize/burger.jpg',   cond:'개근',      how:'추첨 1명', prize:'맥도날드 버거세트', short:'맥도날드', bg:'#FFFFFF'}]},
+  {from:'2026-12-01', tiers:[
+    {i:1, ico:'☕', img:'/prize/coffee.jpg',  cond:'20일 이상', how:'추첨 3명', prize:'커피 기프티콘',  bg:'linear-gradient(160deg,#EFE6FA,#F7F1FD)'},
+    {i:2, ico:'🎀', img:'/prize/daiso.jpg',   cond:'25일 이상', how:'추첨 2명', prize:'다이소 3천원권', bg:'linear-gradient(160deg,#FCE7F0,#FDF2F8)'},
+    {i:3, ico:'🛍️', img:'/prize/oliveyoung.png', cond:'개근',   how:'추첨 1명', prize:'올리브영 1만원권', short:'올리브영', bg:'#FFFFFF'}]}
 ];
+const ATTEND_TIERS=(function(){ var d=new Date(Date.now()+9*3600e3).toISOString().slice(0,10), t=ATTEND_SETS[0].tiers; ATTEND_SETS.forEach(function(x){ if(x.from<=d) t=x.tiers; }); return t; })();
 
 // 다음 등급까지 남은 일수로 응원 문구를 고른다 (출석 직후 · 등급이 코앞일 때만 노출)
 function attendCheer(d){
@@ -5114,7 +5121,7 @@ function attendCheer(d){
   const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
   const leftMonth=last-today.getDate();               // 이 달 남은 날
   if(n>=last) return {t:`개근 성공! 정말 대단해요 🎉`, hot:true};
-  if(n>=25)   return {t:`개근까지 ${last-n}일! 으쌰으쌰 🍔`, hot:true};
+  if(n>=25)   return {t:`개근까지 ${last-n}일! 으쌰으쌰 ${ATTEND_TIERS[2].ico}`, hot:true};
   if(n>=20)   return {t:`25일까지 ${25-n}일! 조금만 더 🔥`, hot:true};
   const need=20-n;
   if(need>leftMonth) return null;                     // 이 달엔 이미 20일 달성이 불가능
@@ -5127,7 +5134,7 @@ function attendTier(d){
   const n=d.month_days||0;
   const today=new Date(d.today);
   const last=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
-  if(n>=last)  return {i:3, ico:'🍔', name:'개근',    desc:'한 달 내내 출석'};
+  if(n>=last)  return {i:3, ico:ATTEND_TIERS[2].ico, name:'개근',    desc:'한 달 내내 출석'};
   if(n>=25)    return {i:2, ico:'🎀', name:'25일',    desc:'25일 이상 출석'};
   if(n>=20)    return {i:1, ico:'☕', name:'20일',    desc:'20일 이상 출석'};
   return {i:0, ico:'💜', name:'',     desc:'20일부터 응모돼요', need:20-n};
@@ -6716,7 +6723,7 @@ function maybeAskAttendPop(){
     markSheetShown();
     setTimeout(function(){
       var done=function(){ try{ localStorage.setItem(key,'1'); }catch(_){} };
-      var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="/prize/burger.jpg" alt=""></div><b class="mc-t ap-t">출석체크하고 맥도날드 받자</b><button class="mc-btn" type="button">출석체크 하기</button><button class="mc-btn sub" type="button">닫기</button>');
+      var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="'+ATTEND_TIERS[2].img+'" alt=""></div><b class="mc-t ap-t">출석체크하고 '+ATTEND_TIERS[2].short+' 받자</b><button class="mc-btn" type="button">출석체크 하기</button><button class="mc-btn sub" type="button">닫기</button>');
       var close=function(){ done(); el.classList.remove('open'); };
       el.querySelector('.ap-x').onclick=close;
       el.querySelector('.mc-btn.sub').onclick=close;

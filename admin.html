@@ -7655,11 +7655,12 @@ function copyAttendAll(){
 async function drawAttend(tier){
   const m=atMonthVal();
   const cfg=AT_TIERS.find(x=>x.t===tier);
+  const prizeNow=(tier===3&&m>='2026-12-01')?'올리브영 1만원권':cfg.prize;   // 12월분(1/1 추첨)부터 개근 경품 올리브영
   const raw=document.getElementById('atN'+tier).value;
   const n=raw?parseInt(raw,10):9999;
-  if(!confirm(`${cfg.name} 등급에서 ${raw?n+'명':'전원'}을 뽑을까요?\n경품: ${cfg.prize}`)) return;
+  if(!confirm(`${cfg.name} 등급에서 ${raw?n+'명':'전원'}을 뽑을까요?\n경품: ${prizeNow}`)) return;
   try{
-    const r=await admRpc('admin_attendance_draw',{p_month:m,p_tier:tier,p_count:n,p_prize:cfg.prize});
+    const r=await admRpc('admin_attendance_draw',{p_month:m,p_tier:tier,p_count:n,p_prize:prizeNow});
     alert(`${r.drawn}명 뽑았어요 🎉`);
     loadAttend(); loadAttendDay();
   }catch(e){ alert('실패: '+e.message); }

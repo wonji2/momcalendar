@@ -55,7 +55,14 @@ const PRIZES_NEW = [
   { img: 'daiso.jpg',   bg: 'linear-gradient(160deg,#FCE7F0,#FDF2F8)', cond: '25일 이상', name: '다이소 3천원권', how: '추첨 2명' },
   { img: 'burger.jpg',  bg: '#FFFFFF', cond: '개근',      name: '맥도날드 버거세트', how: '추첨 1명' },
 ];
-const PRIZES = NEW_RULES ? PRIZES_NEW : PRIZES_OLD;
+const PRIZES_DEC = [
+  PRIZES_NEW[0],
+  PRIZES_NEW[1],
+  { img: 'oliveyoung.png', bg: '#FFFFFF', cond: '개근', name: '올리브영 1만원권', how: '추첨 1명' },
+];
+// 카드의 「다음 달에도 …」 칸은 다음 달 경품 — 다음 달이 12월 이후면 올리브영 세트
+const NEXT_KEY = new Date(Date.UTC(Number(Y), Number(M), 1)).toISOString().slice(0, 7);
+const PRIZES = NEXT_KEY >= '2026-12' ? PRIZES_DEC : (NEW_RULES ? PRIZES_NEW : PRIZES_OLD);
 
 // 닉네임 가리기 — 사장님 지시 2026-09-22
 const mask = (s) => {
@@ -84,7 +91,7 @@ for (const r of rows) console.log(`   ${mask(r.nickname)} (${r.days}일) — ${r
 // ── ② 카드 HTML — 2026-11-05 새 디자인(사장님 「상품명 한 줄 · 심플하고 예쁘게 · 몇 월인지 크게」)
 //   색·글자는 디자인 헌법(0-DS) 값: 라일락 #7C54C4 · 글자 #191F28/#4E5968/#8B95A1 · 바탕 흰색·#F6F3FA · 이모지 장식 없음
 //   첫 화면 위계: 큰 「10월」 → 「당첨자 발표」 → 한 줄 안내 → 한 줄짜리 명단 → 다음 달 안내
-const PZ_TINT = (p) => /치킨|피자|버거/.test(p) ? ['#FFF1E6', '#C25A10'] : /커피/.test(p) ? ['#F3ECE6', '#7A4A2A'] : ['#FDEBEF', '#C2334D'];
+const PZ_TINT = (p) => /올리브영/.test(p) ? ['#E9F8E1', '#2E8B1F'] : /치킨|피자|버거/.test(p) ? ['#FFF1E6', '#C25A10'] : /커피/.test(p) ? ['#F3ECE6', '#7A4A2A'] : ['#FDEBEF', '#C2334D'];
 const many = rows.length > 5;
 const html = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
@@ -138,7 +145,7 @@ const html = `<!DOCTYPE html>
   <div class="next">
     <div class="next-t">${nextLabel}에도 출석체크 하면</div>
     <div class="prizes">
-      ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"${p.img === 'burger.jpg' ? ' style="object-fit:contain;padding:6px"' : ''}></div>
+      ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"${(p.img === 'burger.jpg' || p.img === 'oliveyoung.png') ? ' style="object-fit:contain;padding:6px"' : ''}></div>
         <div class="pz-c">${p.cond}</div><div class="pz-n">${p.name}</div><div class="pz-h">${p.how}</div></div>`).join('')}
     </div>
     <div class="site">매일 출석은 momcalendar.com</div>
