@@ -138,7 +138,7 @@ async function expectTab(name, url, run) {
   await launch();
   shot('01_home');
   await js(`try{ localStorage.setItem('mc_app_onb','1'); localStorage.setItem('mc_onb_done_app','e2e'); if(typeof mcOnbClose==='function') mcOnbClose(); var _k=document.getElementById('kkoSheet'); if(_k && typeof closeLoginSheet==='function') closeLoginSheet(); 'ok' }catch(e){ 'err' }`);   // 앱 첫 실행 로그인 온보딩이 상태바 색·목록 검사를 가리지 않게(2026-11-02)
-  // 처음 켤 때 = 아무 창도 안 뜬다 (2026-11-01 54c011d63d — 찜 0개 첫 방문자에게 로드 즉시 알림 팝업 제거, 첫 하트 뒤에만 묻는다). 알림 켜기는 뒤의 「알림 켜기 → 권한 허용 → 토큰 받음」 시험이 본다
+  // 처음 켤 때 = 폰 시스템 알림 허용창만 뜬다(2026-11-05 사장님 「앱은 처음 깔았을 때 알림허용이 뜨게」 — 11-01 에 같이 빠졌던 것 복구). 옛 기준: 아무 창도 안 뜬다 (2026-11-01 54c011d63d — 찜 0개 첫 방문자에게 로드 즉시 알림 팝업 제거, 첫 하트 뒤에만 묻는다). 알림 켜기는 뒤의 「알림 켜기 → 권한 허용 → 토큰 받음」 시험이 본다
   {
     let tapped = false, seen = '';
     for (let k = 0; k < 6 && !tapped; k++) {
@@ -148,7 +148,7 @@ async function expectTab(name, url, run) {
       if (m) { seen = top(); shot('00_perm_system'); sh('shell', 'input', 'tap', String((+m[2] + +m[4]) >> 1), String((+m[3] + +m[5]) >> 1)); tapped = true; }
     }
     const ours = await js(`String(!!document.querySelector('#appPerm.open'))`);
-    rec('처음 켤 때 알림 허용 창·안내 창이 안 뜸(찜 0개 첫 방문자 — 11-01 첫 실행 팝업 제거)', !tapped && ours === 'false', `허용창=${tapped} ${seen} · 우리창=${ours}`);
+    rec('처음 켤 때 폰 시스템 알림 허용 창만 한 번 뜸(우리 안내창 없음 — 2026-11-05 첫 실행 허용창 복구)', tapped && /permissioncontroller/.test(seen) && ours === 'false', `허용창=${tapped} ${seen} · 우리창=${ours}`);
   }
   const env = await js(`JSON.stringify({u:location.href, ua:navigator.userAgent, plat:(window.Capacitor&&Capacitor.getPlatform&&Capacitor.getPlatform()), plug:!!(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.MomcalLink), inapp:(typeof _isInApp==='function'?_isInApp():'?'), native:(typeof _mcNative==='function'&&!!_mcNative()), share:typeof navigator.share})`);
   let E = {}; try { E = JSON.parse(env); } catch (_) {}
