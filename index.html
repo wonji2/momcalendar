@@ -6936,10 +6936,14 @@ function nativeBoot(){
       // 권한이 없는데 켜짐으로 남아 있으면 끔으로 — 알림 켜기 버튼이 다시 보이게(설정에서 껐거나 앱을 새로 깐 경우)
       try{ if(st && st.receive!=='granted' && localStorage.getItem('mc_push_on')==='1'){ localStorage.setItem('mc_push_on','0'); } }catch(_){}
       // 2026-11-01 사장님 「찜 0개 첫 방문자에게 로드 즉시 팝업 제거 — 하트를 1회 이상 눌렀을 때만」 → 로드 직후 _appPermNotice 호출을 뺐다(함수는 남겨 둠). 찜이 있는 사람만 되묻는다
-      if(st && st.receive!=='granted'){ var _ask=function(){ try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){}
+      if(st && st.receive!=='granted'){ var _ask=function(){
+        // 거부(denied)한 채 찜이 있는 기존 손님 → 휴대폰 설정 열기 시트를 3일에 한 번 (2026-11-05)
+        try{ if(st.receive==='denied'){ if(typeof WISH!=='undefined' && WISH.size>0){ var _nx=+(localStorage.getItem('mc_set_sheet')||0); if(!_nx || Date.now()>=_nx){ try{ localStorage.setItem('mc_set_sheet', String(Date.now()+3*864e5)); }catch(_){} _appSettingsSheet(); return true; } } return false; } }catch(_){}
+        try{ if(typeof WISH!=='undefined' && WISH.size>0) return _appPushAsk(false); }catch(_){}
         // 2026-11-05 사장님 「앱은 처음 깔았을 때 폰 설정에서 알림허용 하라는 게 뜨게 짜놓은 것 같은데」 — 아직 한 번도 안 물었으면(prompt) 폰 시스템 허용창만 첫 실행에 한 번 (우리 안내창 없음). 11-01 에 같이 빠졌던 것을 되살림
-        try{ if(st.receive==='prompt' && typeof _appPermNotice==='function') return _appPermNotice(); }catch(_){}
+        try{ if(/^prompt/.test(st.receive||'') && typeof _appPermNotice==='function') return _appPermNotice(); }catch(_){}
         return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
+      else if(st && st.receive==='granted' && localStorage.getItem('mc_push_on')!=='1'){ setTimeout(function(){ try{ window._appReachLate=1; Promise.resolve(enablePush()).then(function(ok){ try{ trackEvent('app_push_reach', ok?'on':'off'); }catch(_){} }).catch(function(){}); }catch(_){} }, 2500); }
     }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
