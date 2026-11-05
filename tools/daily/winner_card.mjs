@@ -37,6 +37,8 @@ function defaultMonth() {
 }
 const month = (process.argv[2] && /^\d{4}-\d{2}$/.test(process.argv[2])) ? process.argv[2] : defaultMonth();
 const [Y, M] = month.split('-');
+// --bonus="문구" : 당첨자 위에 강조 띠 한 줄 (2026-10-17 9월 개근 2명 둘 다 증정 「방장이 쏜다」)
+const BONUS = (process.argv.find((a) => a.startsWith('--bonus=')) || '').slice(8);
 const mLabel = `${Number(M)}월`;
 const nextLabel = `${(Number(M) % 12) + 1}월`;
 
@@ -71,65 +73,61 @@ const sentAll = rows.every((r) => r.sent === true || r.sent === 't');
 console.log(`${month} 당첨자 ${rows.length}명 · 발송 ${sentAll ? '완료' : '미완료 있음'}`);
 for (const r of rows) console.log(`   ${mask(r.nickname)} (${r.days}일) — ${r.prize}`);
 
-// ── ② 카드 HTML
-const MEDAL_BG = ['#FFF0F6', '#F4EEFF', '#FFF6E8'];
+// ── ② 카드 HTML — 2026-11-05 새 디자인(사장님 「상품명 한 줄 · 심플하고 예쁘게 · 몇 월인지 크게」)
+//   색·글자는 디자인 헌법(0-DS) 값: 라일락 #7C54C4 · 글자 #191F28/#4E5968/#8B95A1 · 바탕 흰색·#F6F3FA · 이모지 장식 없음
+//   첫 화면 위계: 큰 「10월」 → 「당첨자 발표」 → 한 줄 안내 → 한 줄짜리 명단 → 다음 달 안내
+const PZ_TINT = (p) => /치킨|피자/.test(p) ? ['#FFF1E6', '#C25A10'] : /커피/.test(p) ? ['#F3ECE6', '#7A4A2A'] : ['#FDEBEF', '#C2334D'];
+const many = rows.length > 5;
 const html = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{width:1080px;height:1920px;font-family:'Pretendard','Malgun Gothic',sans-serif}
-  #card{width:1080px;height:1920px;position:relative;overflow:hidden;
-    background:linear-gradient(160deg,#FFF1F6 0%,#F8EEFF 52%,#F2EEFF 100%);
+  #card{width:1080px;height:1920px;position:relative;overflow:hidden;background:linear-gradient(180deg,#F6F3FA 0%,#FFFFFF 46%,#F6F3FA 100%);
     display:flex;flex-direction:column;align-items:center}
-  .blob{position:absolute;border-radius:50%;filter:blur(2px);opacity:.5}
-  .b1{width:420px;height:420px;background:#FBDCEA;top:-120px;left:-120px}
-  .b2{width:340px;height:340px;background:#E6DCFB;bottom:180px;right:-110px}
-  .brand{display:flex;align-items:center;gap:14px;margin-top:78px;z-index:2}
-  .brand .ico{width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#B57BE0,#8C5FD6);
-    display:flex;align-items:center;justify-content:center;font-size:32px}
-  .brand .nm{font-size:34px;font-weight:800;color:#4A1A78;letter-spacing:-.5px}
-  .ribbon{margin-top:36px;background:#C2417A;color:#fff;font-size:27px;font-weight:800;
-    padding:14px 36px;border-radius:999px;z-index:2}
-  h1{margin-top:24px;font-size:86px;font-weight:900;color:#2A1D4E;letter-spacing:-3px;line-height:1.08;text-align:center;z-index:2}
-  .sub{margin-top:16px;font-size:29px;color:#7A6E92;font-weight:600;text-align:center;line-height:1.55;z-index:2}
-  .list{margin-top:46px;width:840px;display:flex;flex-direction:column;gap:18px;z-index:2}
-  .row{background:#fff;border-radius:28px;padding:28px 36px;display:flex;align-items:center;gap:28px;
-    box-shadow:0 6px 26px rgba(120,60,150,.10)}
-  .medal{width:80px;height:80px;border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:46px;flex:none}
-  .who{flex:1;min-width:0}
-  .nick{font-size:42px;font-weight:800;color:#232326;letter-spacing:-1px}
-  .days{font-size:27px;color:#9A93A6;font-weight:600;margin-top:7px}
-  .prize{font-size:30px;font-weight:800;color:#C2417A;text-align:right;line-height:1.4;flex:none;max-width:250px}
-  .sent{margin-top:40px;font-size:27px;color:#8A8395;font-weight:600;z-index:2}
-  .next{margin-top:56px;width:900px;background:rgba(255,255,255,.82);border:2px solid #EFE2F6;
-    border-radius:34px;padding:40px 34px 36px;text-align:center;z-index:2}
-  .next-t{font-size:37px;font-weight:900;color:#4A1A78;letter-spacing:-1px}
-  .prizes{margin-top:30px;display:flex;gap:20px;justify-content:center}
+  .brand{margin-top:84px;display:flex;align-items:center;gap:12px;font-size:32px;font-weight:800;color:#7C54C4;letter-spacing:-.02em}
+  .brand i{width:44px;height:44px;border-radius:13px;background:#7C54C4;display:flex;align-items:center;justify-content:center}
+  .brand svg{width:26px;height:26px}
+  .mon{margin-top:${many ? 34 : 54}px;font-size:${many ? 250 : 290}px;font-weight:900;line-height:1;color:#7C54C4;letter-spacing:-.06em}
+  h1{margin-top:6px;font-size:${many ? 92 : 104}px;font-weight:900;color:#191F28;letter-spacing:-.04em;line-height:1.1}
+  .sub{margin-top:22px;font-size:34px;font-weight:600;color:#8B95A1;letter-spacing:-.02em}
+  .bonus{width:900px;margin-top:26px;background:#F0E8FB;color:#6B45B3;font-size:30px;font-weight:800;
+    padding:20px 32px;border-radius:22px;text-align:center;line-height:1.45;letter-spacing:-.02em}
+  .list{margin-top:${many ? 34 : 46}px;width:900px;display:flex;flex-direction:column;gap:${many ? 12 : 16}px}
+  .row{background:#fff;border:2px solid #EDE8F3;border-radius:24px;height:${many ? 92 : 112}px;padding:0 34px;display:flex;align-items:center;gap:22px}
+  .no{width:48px;height:48px;border-radius:50%;background:#F0E8FB;color:#7C54C4;font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+  .nick{font-size:${many ? 38 : 42}px;font-weight:800;color:#191F28;letter-spacing:-.03em;white-space:nowrap}
+  .days{font-size:27px;font-weight:600;color:#8B95A1;white-space:nowrap}
+  .sp{flex:1}
+  .prize{font-size:${many ? 29 : 32}px;font-weight:800;padding:10px 22px;border-radius:999px;white-space:nowrap;letter-spacing:-.02em}
+  .sent{margin-top:34px;font-size:28px;color:#8B95A1;font-weight:600}
+  .next{margin-top:${many ? 36 : 56}px;width:900px;text-align:center}
+  .next-t{font-size:34px;font-weight:800;color:#4E5968;letter-spacing:-.03em}
+  .prizes{margin-top:${many ? 20 : 28}px;display:flex;gap:18px}
   .pz{flex:1}
-  .pz-img{width:100%;aspect-ratio:1/1;border-radius:26px;overflow:hidden;display:flex;align-items:center;justify-content:center}
-  .pz-img img{width:100%;height:100%;object-fit:cover}
-  .pz-c{margin-top:14px;font-size:24px;font-weight:800;color:#C2417A}
-  .pz-n{margin-top:5px;font-size:26px;font-weight:800;color:#232326;letter-spacing:-.8px}
-  .pz-h{margin-top:4px;font-size:22px;color:#9A93A6;font-weight:600}
-  .site{margin-top:28px;font-size:27px;font-weight:800;color:#7B68EE}
+  .pz-img{width:100%;aspect-ratio:${many ? '4/3' : '1/1'};border-radius:22px;overflow:hidden}
+  .pz-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .pz-c{margin-top:12px;font-size:23px;font-weight:700;color:#7C54C4}
+  .pz-n{margin-top:3px;font-size:27px;font-weight:800;color:#191F28;letter-spacing:-.03em;white-space:nowrap}
+  .pz-h{margin-top:2px;font-size:22px;color:#8B95A1;font-weight:600}
+  .site{margin-top:${many ? 22 : 34}px;font-size:28px;font-weight:800;color:#7C54C4;letter-spacing:-.02em}
 </style></head>
 <body><div id="card">
-  <div class="blob b1"></div><div class="blob b2"></div>
-  <div class="brand"><div class="ico">💜</div><div class="nm">맘캘린더</div></div>
-  <div class="ribbon">${mLabel} 출석체크 이벤트</div>
+  <div class="brand"><i><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></i>맘캘린더</div>
+  <div class="mon">${mLabel}</div>
   <h1>당첨자 발표</h1>
-  <div class="sub">${mLabel} 한 달 매일 출석해주신 분들 중<br>${rows.length === 3 ? '세 분' : rows.length + '명'}을 뽑았어요</div>
+  <div class="sub">출석체크 이벤트 · ${rows.length === 3 ? '세 분' : rows.length + '분'}께 드려요</div>
+  ${BONUS ? `<div class="bonus">${esc(BONUS).split(String.fromCharCode(92) + 'n').join('<br>')}</div>` : ''}
   <div class="list">
-    ${rows.map((r, i) => `<div class="row">
-      <div class="medal" style="background:${MEDAL_BG[i % 3]}">🎀</div>
-      <div class="who"><div class="nick">${esc(mask(r.nickname))}</div><div class="days">${mLabel} 출석 ${r.days}일</div></div>
-      <div class="prize">${esc(r.prize).replace(/\s+/, '<br>')}</div>
-    </div>`).join('')}
+    ${rows.map((r, i) => { const [bg, fg] = PZ_TINT(r.prize); return `<div class="row" style="padding-left:44px">
+      <div class="nick">${esc(mask(r.nickname))}</div><div class="days">출석 ${r.days}일</div><div class="sp"></div>
+      <div class="prize" style="background:${bg};color:${fg}">${esc(r.prize)}</div>
+    </div>`; }).join('')}
   </div>
-  ${sentAll ? '<div class="sent">기프티콘은 당첨되신 분들께 모두 보내드렸어요 💌</div>' : ''}
+  ${sentAll ? '<div class="sent">기프티콘은 당첨되신 분들께 모두 보내드렸어요</div>' : ''}
   <div class="next">
-    <div class="next-t">${nextLabel}에도 출석체크 하면 🎁</div>
+    <div class="next-t">${nextLabel}에도 출석체크 하면</div>
     <div class="prizes">
       ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"></div>
         <div class="pz-c">${p.cond}</div><div class="pz-n">${p.name}</div><div class="pz-h">${p.how}</div></div>`).join('')}
