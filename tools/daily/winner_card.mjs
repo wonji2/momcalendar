@@ -43,11 +43,19 @@ const mLabel = `${Number(M)}월`;
 const nextLabel = `${(Number(M) % 12) + 1}월`;
 
 // 출석체크 화면(index.html)의 보상 등급과 같은 값 — 바뀌면 둘 다 고친다
-const PRIZES = [
+// 11월분(2026-10 카드의 「다음 달」)부터 경품 개편 — 20일↑ 3명 커피 · 25일↑ 2명 다이소 · 개근 1명 맥도날드 버거세트
+const NEW_RULES = month >= '2026-10';
+const PRIZES_OLD = [
   { img: 'coffee.jpg',  bg: 'linear-gradient(160deg,#EFE6FA,#F7F1FD)', cond: '20일 이상', name: '커피 기프티콘',  how: '추첨 5명' },
   { img: 'daiso.jpg',   bg: 'linear-gradient(160deg,#FCE7F0,#FDF2F8)', cond: '25일 이상', name: '다이소 3천원권', how: '추첨 3명' },
   { img: 'chicken.jpg', bg: 'linear-gradient(160deg,#FFE9D9,#FFF4EC)', cond: '개근',      name: '치킨 or 피자',   how: '추첨 1명' },
 ];
+const PRIZES_NEW = [
+  { img: 'coffee.jpg',  bg: 'linear-gradient(160deg,#EFE6FA,#F7F1FD)', cond: '20일 이상', name: '커피 기프티콘',  how: '추첨 3명' },
+  { img: 'daiso.jpg',   bg: 'linear-gradient(160deg,#FCE7F0,#FDF2F8)', cond: '25일 이상', name: '다이소 3천원권', how: '추첨 2명' },
+  { img: 'burger.svg',  bg: 'linear-gradient(160deg,#FFF1CC,#FFF8E6)', cond: '개근',      name: '맥도날드 버거세트', how: '추첨 1명' },
+];
+const PRIZES = NEW_RULES ? PRIZES_NEW : PRIZES_OLD;
 
 // 닉네임 가리기 — 사장님 지시 2026-09-22
 const mask = (s) => {
@@ -76,7 +84,7 @@ for (const r of rows) console.log(`   ${mask(r.nickname)} (${r.days}일) — ${r
 // ── ② 카드 HTML — 2026-11-05 새 디자인(사장님 「상품명 한 줄 · 심플하고 예쁘게 · 몇 월인지 크게」)
 //   색·글자는 디자인 헌법(0-DS) 값: 라일락 #7C54C4 · 글자 #191F28/#4E5968/#8B95A1 · 바탕 흰색·#F6F3FA · 이모지 장식 없음
 //   첫 화면 위계: 큰 「10월」 → 「당첨자 발표」 → 한 줄 안내 → 한 줄짜리 명단 → 다음 달 안내
-const PZ_TINT = (p) => /치킨|피자/.test(p) ? ['#FFF1E6', '#C25A10'] : /커피/.test(p) ? ['#F3ECE6', '#7A4A2A'] : ['#FDEBEF', '#C2334D'];
+const PZ_TINT = (p) => /치킨|피자|버거/.test(p) ? ['#FFF1E6', '#C25A10'] : /커피/.test(p) ? ['#F3ECE6', '#7A4A2A'] : ['#FDEBEF', '#C2334D'];
 const many = rows.length > 5;
 const html = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
@@ -111,6 +119,7 @@ const html = `<!DOCTYPE html>
   .pz-c{margin-top:12px;font-size:23px;font-weight:700;color:#7C54C4}
   .pz-n{margin-top:3px;font-size:27px;font-weight:800;color:#191F28;letter-spacing:-.03em;white-space:nowrap}
   .pz-h{margin-top:2px;font-size:22px;color:#8B95A1;font-weight:600}
+  .cas{margin-top:14px;font-size:24px;font-weight:600;color:#8B95A1;letter-spacing:-.02em}
   .site{margin-top:${many ? 22 : 34}px;font-size:28px;font-weight:800;color:#7C54C4;letter-spacing:-.02em}
 </style></head>
 <body><div id="card">
@@ -132,6 +141,7 @@ const html = `<!DOCTYPE html>
       ${PRIZES.map((p) => `<div class="pz"><div class="pz-img" style="background:${p.bg}"><img src="../prize/${p.img}"></div>
         <div class="pz-c">${p.cond}</div><div class="pz-n">${p.name}</div><div class="pz-h">${p.how}</div></div>`).join('')}
     </div>
+    ${NEW_RULES ? '<div class="cas">높은 등급에서 안 뽑혀도 아래 등급 추첨에 함께 들어가요</div>' : ''}
     <div class="site">매일 출석은 momcalendar.com</div>
   </div>
 </div></body></html>`;
