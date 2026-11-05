@@ -6722,13 +6722,14 @@ function maybeAskAttendPop(){
     markSheetShown();
     setTimeout(function(){
       var done=function(){ try{ localStorage.setItem(key,'1'); }catch(_){} };
-      var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="/prize/burger.jpg" alt=""></div><b class="mc-t ap-t">출석체크하고 맥도날드 받자</b><button class="mc-btn" type="button">출석체크 하기</button>');
+      var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="/prize/burger.jpg" alt=""></div><b class="mc-t ap-t">출석체크하고 맥도날드 받자</b><button class="mc-btn" type="button">출석체크 하기</button><button class="mc-btn sub" type="button">닫기</button>');
       var close=function(){ done(); el.classList.remove('open'); };
       el.querySelector('.ap-x').onclick=close;
+      el.querySelector('.mc-btn.sub').onclick=close;
       el.addEventListener('click',function(e){ if(e.target===el) done(); });
       el.querySelector('.mc-btn').onclick=function(){ close(); try{ trackEvent('att_pop_go',''); }catch(_){} try{ openAttendSheet(); }catch(_){} };
       try{ trackEvent('att_pop_show',''); }catch(_){}
-    },700);
+    },0);
     return true;
   }catch(_){ return false; }
 }
@@ -8006,7 +8007,7 @@ function renderSellers(rows){
   }).join('');
 }
 loadSellers(); loadSellerBanners(); loadTopOrder();
-setTimeout(function(){ try{ maybeAskAttendPop(); }catch(_){} }, 3000);
+setTimeout(function(){ try{ maybeAskAttendPop(); }catch(_){} }, 1000);
 paintCatChips();
 
 function buildMainSlider(){
