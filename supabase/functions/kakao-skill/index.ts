@@ -13,9 +13,7 @@
 //   ⚠ 카카오 규격: 캐러셀 최대 5장 · 캐러셀 안 항목 최대 4개(단일 5개) · 버튼 label 14자 · textCard 400자.
 //      어기면 응답이 통째로 버려져 손님에겐 무응답. **봇테스트는 이 검사를 안 한다.**
 //   ⚠ 손님이 '상담 진행중' 이면 카카오가 챗봇을 아예 호출하지 않는다 → 채널 관리자센터에서 상담 완료 처리.
-import Anthropic from "npm:@anthropic-ai/sdk@0.124.0";   // 버전 고정 — 재배포마다 최신을 받지 않게 (f9 검증 지적)
-import { z } from "npm:zod";
-import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.124.0/helpers/zod";
+// 🔴 Anthropic SDK·zod 는 AI 해석이 정말 필요한 말에서만 불러온다(동적 import) — 맨 위에서 불러오면 함수가 새로 깰 때마다 부팅이 수 초 늘어 카카오 5초 제한을 넘겼다(2026-11-05 「스킬 서버 연결 오류」). 버전은 그대로 고정.
 const SB = "https://hycaqsqeogjtbscmzrtm.supabase.co";
 const KEY = "sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE";
 const SITE = "https://momcalendar.com";
@@ -196,7 +194,6 @@ const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || KEY;   // 사전 쓰기
 const AI_MODEL = Deno.env.get("BOT_AI_MODEL") || "claude-haiku-4-5";
 const INTENTS = ["search", "today", "tomorrow", "week", "weekend", "closing", "popular", "hotdeal", "greeting", "thanks", "other"] as const;
 type Interp = { intent: string; q: string; cat: string; src: string };
-const InterpSchema = z.object({ intent: z.enum(INTENTS), q: z.string(), cat: z.string() });
 const AI_SYSTEM = [
   // ⚠ 짧게 유지한다 — 2026-09-08 실측 입력 960토큰/건 = 응답 1.7초·마감 초과의 원인. 규칙은 그대로, 말만 줄였다.
   "맘캘린더(인스타 공동구매 일정 사이트) 카카오 챗봇 해석기. 손님 말을 읽고 JSON 만 낸다.",
@@ -275,6 +272,10 @@ async function interpAI(u: string, tReq: number, uid = "?"): Promise<Interp | nu
   if (await aiCalledToday() >= AI_DAILY_CAP) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${AI_DAILY_CAP}건 상한 — 규칙만 | uid=${uid}`); return null; }
   const t0 = Date.now();
   try {
+    const { default: Anthropic } = await import("npm:@anthropic-ai/sdk@0.124.0");
+    const { zodOutputFormat } = await import("npm:@anthropic-ai/sdk@0.124.0/helpers/zod");
+    const { z } = await import("npm:zod");
+    const InterpSchema = z.object({ intent: z.enum(INTENTS), q: z.string(), cat: z.string() });
     const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: 8000 });   // 끊지 않는다 — 8초는 과금·인스턴스 상한
     const res = await client.messages.parse({
       model: AI_MODEL, max_tokens: 200, system: AI_SYSTEM,
@@ -1129,7 +1130,7 @@ async function handle(req: Request): Promise<Response> {
 //   → 4.2초 안에 답이 안 만들어지면 **"한 번만 더 보내주세요"** 를 먼저 보내고 `kakao_bot_timeout` 으로 남긴다.
 //     handle() 은 끊지 않는다(백그라운드로 끝까지) — AI 해석이 사전에 남아 다시 물으면 바로 나온다.
 //   ⚠ 4.2초는 handle 시작 기준이다. 콜드스타트(부팅 0.3~1초)는 여기서 못 본다 — 배포 직후엔 한 번 쳐서 덥혀 둘 것.
-const REPLY_GUARD_MS = Number(Deno.env.get("BOT_REPLY_GUARD_MS") || 4200);
+const REPLY_GUARD_MS = Number(Deno.env.get("BOT_REPLY_GUARD_MS") || 3300);
 Deno.serve(async (req) => {
   let peekU = "", peekId = "?", guardTest = false;
   try {
