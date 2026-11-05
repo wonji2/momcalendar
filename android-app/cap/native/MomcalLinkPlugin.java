@@ -159,6 +159,27 @@ public class MomcalLinkPlugin extends Plugin {
         call.resolve(r);
     }
 
+    // 휴대폰 설정 › 맘캘린더 알림 화면 열기 — 알림이 꺼진 손님이 「설정 열기」를 눌렀을 때 (2026-11-05)
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        try {
+            Intent i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            i.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            try {
+                Intent j = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+                j.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(j);
+                call.resolve();
+            } catch (Exception e2) {
+                call.reject("settings_failed");
+            }
+        }
+    }
+
     @PluginMethod
     public void pushReady(PluginCall call) {
         JSObject r = new JSObject();
