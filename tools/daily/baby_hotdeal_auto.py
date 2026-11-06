@@ -441,6 +441,87 @@ def collect_from_jirum_alarm():
 
     print(f'[source:jirum] 16대 커뮤니티 신규 등록 완결: {registered}건')
 
+# 🖼 상품 대표 사진(2026-11-06 사장님 「핫딜 카드사진이 상품 메인 사진만 떴는데 왜 캡쳐사진으로 떠서 뭔 상품인지가 안보여」)
+#   11-02 클라우드로 옮긴 뒤 bbhd 글 본문의 첫 사진(글쓴이가 올린 몰 앱 캡처)을 그대로 넣어 카드에 상품이 안 보였다.
+#   옛 절차(.claude/commands/베이비핫딜.md 4번)대로 몰에서 대표 사진을 받는다:
+#     지마켓 = gdimg.gmarket.co.kr/{상품번호}/still/600 (500 이면 exlarge 추가사진) · 쿠팡 = 공식 검색 API 에서 같은 productId 의 productImage
+#     그 밖의 몰 = 상품 페이지의 og:image. 사진은 실제로 받아 보고(200·image) 넣는다. 못 찾으면 '' — 캡처는 마지막 수단(부르는 쪽).
+def _img_ok(u):
+    if not u or not u.startswith('http'):
+        return False
+    try:
+        req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Range': 'bytes=0-2047'})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            ct = (resp.headers.get('Content-Type') or '').lower()
+            return resp.status in (200, 206) and ct.startswith('image/')
+    except Exception:
+        return False
+
+def _product_url_from(aff_link, target_link=''):
+    # 링크프라이스 주소는 tu= 안에 상품 주소가 있다
+    m = re.search(r'[?&]tu=([^&]+)', aff_link or '')
+    if m:
+        return urllib.parse.unquote(m.group(1))
+    return target_link or aff_link or ''
+
+def coupang_main_image(cpid, title):
+    # 검색 API 1회(딥링크와 같은 호출 상한·2초 간격을 나눠 쓴다). 같은 productId 가 있을 때만 쓴다(다른 상품 사진 금지)
+    global _CP_DL_CALLS
+    if not CRON_SECRET or not cpid or _CP_DL_CALLS >= 10:
+        return ''
+    if _CP_DL_CALLS:
+        time.sleep(2.1)
+    _CP_DL_CALLS += 1
+    kw = re.sub(r'\[[^\]]*\]|\([^)]*\)|[0-9,]+원.*$', ' ', title or '')
+    kw = re.sub(r'\s+', ' ', kw).strip()[:40]
+    if not kw:
+        return ''
+    try:
+        req = urllib.request.Request(f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?test=search&limit=10&kw={urllib.parse.quote(kw)}', headers={'x-cron-secret': CRON_SECRET})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            j = json.loads(resp.read().decode('utf-8'))
+        for it in (j.get('items') or []):
+            if str(it.get('productId')) == str(cpid) and it.get('productImage'):
+                return it['productImage']
+    except Exception as e:
+        print(f'[쿠팡 사진 검색 실패] {cpid} {e}')
+    return ''
+
+def product_main_image(mall, aff_link, target_link='', cpid=None, title=''):
+    try:
+        if mall == '쿠팡':
+            u = coupang_main_image(cpid, title)
+            return u if _img_ok(u) else ''
+        purl = _product_url_from(aff_link, target_link)
+        gm = re.search(r'goodscode=(\d+)', purl)
+        if gm:
+            gc = gm.group(1)
+            for u in (f'https://gdimg.gmarket.co.kr/{gc}/still/600', f'https://gdimg1.gmarket.co.kr/goods_image2/exlarge_moreimg/{gc[:3]}/{gc[3:6]}/{gc}/{gc}_00.jpg'):
+                if _img_ok(u):
+                    return u
+            return ''
+        sm = re.search(r'ssg\.com/.*[?&]itemId=(\d{8,})', purl)
+        if sm:   # SSG 상품 페이지는 봇을 403 으로 막는다 → 상품번호로 사진 저장소 주소를 만든다(끝 두 자리씩 세 번, 2026-11-06 실측)
+            it = sm.group(1)
+            for size in ('750', '500'):
+                u = f'https://sitem.ssgcdn.com/{it[-2:]}/{it[-4:-2]}/{it[-6:-4]}/item/{it}_i1_{size}.jpg'
+                if _img_ok(u):
+                    return u
+            return ''
+        if not purl.startswith('http'):
+            return ''
+        page = fetch_html(purl)
+        m = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)', page) or re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image', page)
+        u = html.unescape(m.group(1)).strip() if m else ''
+        if u.startswith('//'):
+            u = 'https:' + u
+        if u.startswith('http://'):
+            u = 'https://' + u[7:]
+        return u if _img_ok(u) and not re.search(r'logo|default|noimg|no_image', u, re.I) else ''
+    except Exception as e:
+        print(f'[대표 사진 실패] {mall} {e}')
+        return ''
+
 def collect_from_bbhd():
     today = datetime.now(KST)
     today_str = today.strftime('%Y-%m-%d')
@@ -512,6 +593,7 @@ def collect_from_bbhd():
             mall = '온라인몰'
             source = 'linkprice'
             prod_id = f'bbhd_{wr_id}'
+            cpid = None
             aff_link = ''
             cat_override = None
 
@@ -560,6 +642,10 @@ def collect_from_bbhd():
 
             clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
+            main_img = product_main_image(mall, aff_link, target_link, cpid if mall == '쿠팡' else None, clean_title)
+            if not main_img:
+                print(f'[bbhd] {wr_id} 대표 사진을 못 찾아 글 사진으로 둔다: {editor_img[:80]}')
+            card_img = main_img or editor_img
 
             ins_sql = f'''
             INSERT INTO public.hotdeals (
@@ -567,7 +653,7 @@ def collect_from_bbhd():
             )
             SELECT
               {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
-              {price}, {sql_quote(editor_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
+              {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
               {sql_quote(today_str)}, true, false, now() + interval '3 days'
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
