@@ -1781,6 +1781,15 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
   var IMG_PUBLIC='/storage/v1/object/public/';
   window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf('http://')===0) u='https://'+u.slice(7); }catch(_){}   // 혼합 콘텐츠 차단 방지(http 사진 → https, 2026-11-01 사장님)
     try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0){ var rest=u.slice(PRIMARY.length); if(rest.indexOf(IMG_PUBLIC)===0 || remembered()===FALLBACK) return FALLBACK+rest; } }catch(_){} return u; };
+  // 📉 사전 확인 요청(OPTIONS) 줄이기(2026-11-06) — 하루 4만 건 = Worker 무료 한도 10만의 40%였다.
+  //   apikey·Authorization 머리말이 붙으면 브라우저가 요청마다 OPTIONS 를 먼저 보낸다. 캐시 대상 GET 을 우회로로 보낼 때만
+  //   머리말 없이 ?apikey=<anon> 으로 부른다 — 워커(tools/daily/cf_api_proxy/worker.js liftQueryKey)가 머리말로 되돌리고 주소에선 떼어
+  //   캐시 열쇠·원서버 주소가 전과 글자까지 같다. anon 키·Accept 말고 다른 머리말(Range·Prefer 등)이 있으면 그대로 둔다(null).
+  var ANON_K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+  function bareInit(i){ try{ var h=i.headers, out={}, ok=true; if(!h) return null;
+    var each=function(k,v){ var n=String(k).toLowerCase(); if(n==='apikey'){ if(v!==ANON_K) ok=false; } else if(n==='authorization'){ if(v!=='Bearer '+ANON_K) ok=false; } else if(n==='accept'){ out.Accept=v; } else if(n==='content-type'){ } else ok=false; };
+    if(typeof h.forEach==='function' && typeof h.get==='function') h.forEach(function(v,k){ each(k,v); }); else if(Array.isArray(h)) h.forEach(function(kv){ each(kv[0],kv[1]); }); else Object.keys(h).forEach(function(k){ each(k,h[k]); });
+    if(!ok) return null; var n=Object.assign({}, i); if(Object.keys(out).length) n.headers=out; else delete n.headers; return n; }catch(_){ return null; } }
   window.fetch=function(input, init){
     var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
     var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
@@ -1791,7 +1800,8 @@ function _mcReRenderSoon(){ clearTimeout(_mcRrT); _mcRrT=setTimeout(()=>{ try{ i
     function attempt(b, ms){
       var i=Object.assign({}, init||{}), ac=null, timer=null;
       if(!i.signal && !oneShot && typeof AbortController!=='undefined'){ ac=new AbortController(); i.signal=ac.signal; timer=setTimeout(function(){ ac.abort(); }, ms); }
-      return _fetch(b+rest, i).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){ if(timer) clearTimeout(timer); throw e; });
+      var u=b+rest; if(b===FALLBACK && viaCache){ var q=bareInit(i); if(q){ i=q; u=b+rest+(rest.indexOf('?')>=0?'&':'?')+'apikey='+ANON_K; } }   // 📉 OPTIONS 없이(2026-11-06)
+      return _fetch(u, i).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){ if(timer) clearTimeout(timer); throw e; });
     }
     var cacheBroken=function(r){ return broken(r) || (viaCache && r && r.status===429); };   // 우회로 한도(Cloudflare 1027/429)도 "그 길 고장" 으로 본다
     // 안전망(2026-10-27): 우회로가 정상 범위 밖의 목록을 주면 버리고 직행으로 다시 받는다(직행도 실패하면 오류로 끝낸다)
