@@ -7897,16 +7897,26 @@ function _nxGuide(url,ua){
     }
     const targetBrowser = _isIOS() ? '사파리' : '크롬(일반 브라우저)';
     const where = _isIOS() && typeof _appGuide==='function' ? _appGuide(ua) : '우측 상단 <b>⋮</b> 누르고 <b>[다른 브라우저로 열기]</b>';
-    // 아이폰 안내(_appGuide)는 「위치<br>또는 붙여넣기」 두 줄이라 뒤에 「를 하시면」을 붙이면 「돼요.를 하시면」으로 겹친다 — 줄마다 따로 쓴다
-    const iosGuide = where.split('<br>');
-    const howTo = _isIOS() && iosGuide.length>1
-      ? iosGuide[0]+'<br>사파리로 열면 오픈 알림을 놓치지 않아요.<br>'+iosGuide.slice(1).join(' ')
+    // 아이폰 안내(_appGuide)는 「위치<br>또는 붙여넣기」 두 줄이라 뒤에 「를 하시면」을 붙이면 「돼요.를 하시면」으로 겹친다 — 위치 줄만 쓰고 붙여넣기는 아래 버튼으로
+    const ios = _isIOS();
+    const howTo = ios
+      ? where.split('<br>')[0]+'<br>사파리로 열면 오픈 알림을 놓치지 않아요.<br>또는 주소를 복사해서 Safari에 붙여넣어 주세요.'
       : where+'를 하시면<br>'+targetBrowser+'에서 오픈 알림을 놓치지 않아요.';
     g.querySelector('.nxa-s').innerHTML = `
       <div style="font-weight:700;color:#191919;margin-bottom:6px">카톡·인스타 안에서는 알림이 제한돼요</div>
       <div style="font-size:12.5px;color:#6B6480;line-height:1.5;word-break:keep-all">${howTo}</div>
-      ${ok ? '<div style="margin-top:8px;font-size:12px;color:#7C54C4;font-weight:700">✓ 주소를 복사해 두었어요</div>' : ''}
+      ${ok && !ios ? '<div style="margin-top:8px;font-size:12px;color:#7C54C4;font-weight:700">✓ 주소를 복사해 두었어요</div>' : ''}
     `;
+    // 아이폰: 붙여넣을 주소(이 공구로 돌아오는 주소)를 손님이 직접 복사하는 버튼
+    let cp=g.querySelector('.nxa-copy'); if(cp) cp.remove();
+    if(ios){
+      cp=document.createElement('button'); cp.type='button'; cp.className='nxa-no nxa-copy'; cp.textContent='주소 복사';
+      cp.onclick=function(){ _copyUrlThen(url,function(done){
+        cp.textContent = done ? '복사했어요 ✓' : '복사가 안 됐어요';
+        if(!done && !g.querySelector('.nxa-url')) g.querySelector('.nxa-s').insertAdjacentHTML('beforeend','<div class="nxa-url" style="margin-top:8px;font-size:12px;color:#191F28;word-break:break-all;user-select:all;-webkit-user-select:all">'+url+'</div>');
+      }); };
+      g.querySelector('.nxa-btns').insertBefore(cp, g.querySelector('.nxa-yes'));
+    }
     g.classList.add('open');
   };
   try{ typeof _copyUrlThen==='function'?_copyUrlThen(url,go):go(false); }catch(_){ go(false); }
