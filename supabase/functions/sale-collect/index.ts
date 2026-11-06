@@ -27,6 +27,8 @@ const BRANDS: Brand[] = [
   { name: "올리브영", slug: "oliveyoung", alias: ["올리브영", "올영", "CJ올리브영"], url: "https://www.oliveyoung.co.kr/" },
   { name: "무신사", slug: "musinsa", alias: ["무신사"], url: "https://www.musinsa.com/" },
   { name: "지그재그", slug: "zigzag", alias: ["지그재그"], url: "https://zigzag.kr/" },
+  { name: "29CM", slug: "29cm", alias: ["29CM", "29cm", "이십구센티미터"], url: "https://www.29cm.co.kr/" },
+  { name: "COS", slug: "cos", alias: ["COS", "코스(COS)"], url: "https://www.cos.com/ko-kr/" },
   { name: "에이블리", slug: "ably", alias: ["에이블리"], url: "https://a-bly.com/" },
   { name: "자라", slug: "zara", alias: ["자라", "ZARA", "Zara"], url: "https://www.zara.com/kr/" },
   { name: "유니클로", slug: "uniqlo", alias: ["유니클로"], url: "https://www.uniqlo.com/kr/ko/" },
@@ -58,7 +60,7 @@ const CUE = /(세일|페스타|페스티벌|데이|위크|특가|할인|감사�
 const NAMECUE = /(세일|페스타|페스티벌|데이|위크|특가|감사제|축제|기획전|블랙프라이데이|블프|쇼핑|결산|딜|대전|시즌오프|프라이데이)/;
 
 // 행사 이름으로 직접 찾는 검색어 — 브랜드명이 문장에 없어도 별칭 사전으로 브랜드를 가린다
-const EVENT_QUERIES = ["올영세일", "올리브영 올영데이", "무신사 무진장 블랙프라이데이", "11번가 십일절", "빅스마일데이", "쓱데이", "쿠팡 로켓 와우 세일", "컬리 블랙프라이데이", "코리아세일페스타", "블랙프라이데이 국내 세일 일정", "11월 쇼핑 행사 일정 이커머스", "연말 세일 일정 유통", "광군제 이커머스 행사"];
+const EVENT_QUERIES = ["29CM 이구위크", "지그재그 블랙프라이데이", "유니클로 블랙프라이데이", "탑텐 블랙프라이데이", "자라 블랙프라이데이", "H&M 블랙프라이데이", "COS 블랙프라이데이", "올영세일", "올리브영 올영데이", "무신사 무진장 블랙프라이데이", "11번가 십일절", "빅스마일데이", "쓱데이", "쿠팡 로켓 와우 세일", "컬리 블랙프라이데이", "코리아세일페스타", "블랙프라이데이 국내 세일 일정", "11월 쇼핑 행사 일정 이커머스", "연말 세일 일정 유통", "광군제 이커머스 행사"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body, null, 2), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
