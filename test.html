@@ -6725,17 +6725,20 @@ function maybeAskAttendPop(){
   try{
     var d=new Date(); if(d.getDate()>10) return false;
     var ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), key='mc_att_pop_'+ym, skey='att_pop_'+ym;
-    if(localStorage.getItem(key)) return false;
+    var toServer=function(){ try{ if(isLoggedIn() && !localStorage.getItem(key+'_s')) memberRpc('member_popup_mark',{p_key:skey}).then(function(r){ if(r&&r.ok) try{ localStorage.setItem(key+'_s','1'); }catch(_){} }); }catch(_){} };
+    // 이 브라우저에서 닫은 뒤 로그인했으면 그 「닫음」도 서버에 옮겨 적는다 — 다른 앱·인앱에서도 다시 안 뜨게
+    if(localStorage.getItem(key)){ toServer(); return false; }
     if(sheetShownToday()) return false;
     if(document.querySelector('.mc-sheet.open')) return false;
     var seenHere=function(){ try{ localStorage.setItem(key,'1'); }catch(_){} };
-    // 닫은 기록이 브라우저마다 따로라 앱에서 닫아도 카톡 인앱에서 또 떴다(사장님 2026-11-06) → 로그인한 사람은 서버 기록·이번 달 출석 여부로 거른다
+    // 닫은 기록이 브라우저마다 따로라 앱에서 닫아도 카톡 인앱에서 또 떴다(사장님 2026-11-06) → 로그인한 사람은 서버 기록으로 거른다.
+    //   이번 달 출석한 사람에게도 한 번은 띄운다(하루만 찍고 잊을 수 있다) — 닫으면 그 달은 어디서도 다시 안 뜬다
     var chk=(typeof isLoggedIn==='function' && isLoggedIn()) ? memberRpc('member_att_pop_check',{p_key:skey}) : Promise.resolve(null);
     chk.then(function(r){
-      if(r && r.ok && (r.seen || r.attended_month)){ seenHere(); return; }
-      if(sheetShownToday() || document.querySelector('.mc-sheet.open')) return;
+      if(r && r.ok && r.seen){ seenHere(); return; }
+      if(sheetShownToday() || document.querySelector('.mc-sheet.open') || (typeof busySheet==='function' && busySheet()) || (document.getElementById('mcAlarm')||{}).className==='open') return;
       markSheetShown();
-      var done=function(){ seenHere(); try{ if(isLoggedIn()) memberRpc('member_popup_mark',{p_key:skey}); }catch(_){} };
+      var done=function(){ seenHere(); toServer(); };
       var el=mcSheet('attPop','<button class="ap-x" type="button" aria-label="닫기">✕</button><div class="ap-img"><img src="'+ATTEND_TIERS[2].img+'" alt=""></div><b class="mc-t ap-t">출석체크하고 '+ATTEND_TIERS[2].short+' 받자</b><button class="mc-btn" type="button">출석체크 하기</button><button class="mc-btn sub" type="button">닫기</button>');
       var close=function(){ done(); el.classList.remove('open'); };
       el.querySelector('.ap-x').onclick=close;
