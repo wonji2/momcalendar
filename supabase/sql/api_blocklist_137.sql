@@ -29,7 +29,7 @@ grant execute on function public.api_blocklist_ips() to anon, authenticated;
 -- 첫 줄: 2026-11-06 눈으로 판정한 수집기(사장님 확인 「내 IP 아니야」). Cloudflare 방화벽 규칙 block-node-scraper-182.210.222.17 과 겹쳐 둔다
 insert into public.api_blocklist(ip, reason, stats, source, expires_at)
 values ('182.210.222.17', 'UA node · api 만 · 1~2분마다 사이트 첫 로딩 묶음 25건 · 24시간 · 사이트 화면 0',
-        '{"api_24h":19338,"hours":24,"site":0,"ua":["node"]}'::jsonb, 'manual', null)
+        '{"api_24h":19338,"hours":24,"site":0,"ua":["node"]}'::jsonb, 'manual', now() + interval '30 days')   -- 가정 회선이라 영구로 두지 않는다(다른 집에 넘어갈 수 있다, 검증자 2026-11-06). 다시 오면 감시기가 다시 잡는다
 on conflict (ip) do nothing;
 
 -- 감시기 심박(ops_status 'api-guard')이 36시간 끊기면 경보 — PC 가 꺼졌거나 예약작업이 죽은 것
