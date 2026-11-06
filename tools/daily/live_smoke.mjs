@@ -57,7 +57,7 @@ try {
   for (const [who, cfg] of Object.entries(PATHS)) {
     const ctx = await b.newContext({ viewport: { width: 393, height: 852 }, userAgent: cfg.ua, isMobile: true, hasTouch: true });
     if (cfg.native) await ctx.addInitScript((pf) => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => pf, Plugins: {} }; }, cfg.native);
-    await ctx.addInitScript(() => { try { localStorage.setItem('mc_onb_done', '1'); localStorage.setItem('mc_onb_done_app', '1'); localStorage.setItem('mc_sheet_day', new Date().toISOString().slice(0, 10)); } catch (_) {} });
+    await ctx.addInitScript(() => { try { localStorage.setItem('mc_onb_done', '1'); localStorage.setItem('mc_kko_auto', JSON.stringify({ r: 'none', at: Date.now() })); localStorage.setItem('mc_onb_done_app', '1'); localStorage.setItem('mc_sheet_day', new Date().toISOString().slice(0, 10)); } catch (_) {} });
     if (LOCAL) await ctx.route((u) => u.hostname === 'momcalendar.com' && /^\/(index\.html|test\.html)?$/.test(u.pathname), (r) => {
       const f = new URL(r.request().url()).pathname.slice(1) || 'index.html';
       r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: fs.readFileSync(path.join(LOCAL, f), 'utf8') });
