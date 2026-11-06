@@ -7762,7 +7762,7 @@ function _appAlarmSheet(src){
     var m=document.getElementById('mcAlarm');
     if(!m){
       m=document.createElement('div'); m.id='mcAlarm'; m.setAttribute('role','dialog');
-      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에<br>알려 드려요</div>'
+      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에 알려 드려요</div>'
         +'<button type="button" class="al-go">알림 켜기</button><button type="button" class="al-later">나중에</button></div>';
       document.body.appendChild(m);
     }
@@ -7897,9 +7897,14 @@ function _nxGuide(url,ua){
     }
     const targetBrowser = _isIOS() ? '사파리' : '크롬(일반 브라우저)';
     const where = _isIOS() && typeof _appGuide==='function' ? _appGuide(ua) : '우측 상단 <b>⋮</b> 누르고 <b>[다른 브라우저로 열기]</b>';
+    // 아이폰 안내(_appGuide)는 「위치<br>또는 붙여넣기」 두 줄이라 뒤에 「를 하시면」을 붙이면 「돼요.를 하시면」으로 겹친다 — 줄마다 따로 쓴다
+    const iosGuide = where.split('<br>');
+    const howTo = _isIOS() && iosGuide.length>1
+      ? iosGuide[0]+'<br>사파리로 열면 오픈 알림을 놓치지 않아요.<br>'+iosGuide.slice(1).join(' ')
+      : where+'를 하시면<br>'+targetBrowser+'에서 오픈 알림을 놓치지 않아요.';
     g.querySelector('.nxa-s').innerHTML = `
       <div style="font-weight:700;color:#191919;margin-bottom:6px">카톡·인스타 안에서는 알림이 제한돼요</div>
-      <div style="font-size:12.5px;color:#6B6480;line-height:1.5">${where}를 하시면<br>${targetBrowser}에서 오픈 알림을 놓치지 않아요.</div>
+      <div style="font-size:12.5px;color:#6B6480;line-height:1.5;word-break:keep-all">${howTo}</div>
       ${ok ? '<div style="margin-top:8px;font-size:12px;color:#7C54C4;font-weight:700">✓ 주소를 복사해 두었어요</div>' : ''}
     `;
     g.classList.add('open');
