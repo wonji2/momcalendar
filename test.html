@@ -15,7 +15,7 @@
     var a=null; try{ a=JSON.parse(LS.getItem(K)||'null'); }catch(_){ a=null; }
     if(a && !(a.at <= now+60e3)) a=null;                                   // 시계가 되돌아갔다 → 새로 판단
     var save=function(o){ try{ LS.setItem(K, JSON.stringify(o)); }catch(_){} };
-    var back=function(b){ try{ var u=new URL(b||'/', location.origin); if(u.origin===location.origin && u.pathname.charAt(0)==='/') return u.pathname+u.search; }catch(_){} return '/'; };
+    var back=function(b){ try{ var u=new URL(b||'/', location.origin); if(u.origin===location.origin && u.pathname.charAt(0)==='/') return u.pathname+u.search+u.hash; }catch(_){} return '/'; };
     // ⚠ window.stop() 은 쓰지 않는다 — 크롬에선 방금 건 이동까지 취소해 빈 화면에 멈춘다(2026-11-06 시험). 대신 떠나는 중 표시 → 방문 기록이 건너뛰고, 화면은 가린다
     var leave=function(url){ window.__mcLeaving=true; try{ document.documentElement.style.visibility='hidden'; }catch(_){} location.replace(url); };
     if(a && a.ret && now-a.ret < 60e3){ window.__mcRef=a.ref||''; delete a.ret; save(a); }   // 실패해 되돌아온 화면 — 방문 기록의 유입 경로는 처음 들어온 곳으로
@@ -47,7 +47,7 @@
     }
     var b=new Uint8Array(16); crypto.getRandomValues(b);
     var s='k.'+Array.prototype.map.call(b,function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
-    save({s:s, at:now, r:'go', back:path+location.search, ref:(document.referrer||'').slice(0,300)});
+    save({s:s, at:now, r:'go', back:path+location.search+location.hash, ref:(document.referrer||'').slice(0,300)});
     var q=new URLSearchParams({client_id:'04a73b2b11a54e8c11be73309e1b217c', redirect_uri:location.origin+(onTest?'/test.html':'/'), response_type:'code', scope:'profile_nickname', prompt:'none', state:s});
     leave('https://kauth.kakao.com/oauth/authorize?'+q.toString());
   }catch(_){}
@@ -6547,13 +6547,13 @@ function _kkoAutoEnd(r, log){
   var a=null; try{ a=JSON.parse(localStorage.getItem('mc_kko_auto')||'null')||{}; }catch(_){ a={}; }
   a.r=r; a.at=Date.now(); delete a.s; try{ localStorage.setItem('mc_kko_auto', JSON.stringify(a)); }catch(_){}
   try{ trackEvent('kakao_auto_'+String(log).split('|')[0], String(log).split('|').slice(1).join('|')); }catch(_){}
-  var b='/'; try{ var u=new URL(a.back||'/', location.origin); if(u.origin===location.origin) b=u.pathname+u.search; }catch(_){}
+  var b='/'; try{ var u=new URL(a.back||'/', location.origin); if(u.origin===location.origin) b=u.pathname+u.search+u.hash; }catch(_){}
   return b;
 }
-// 돌아갈 주소로: 검색어가 있으면 한 번 더 열고(true), 없으면 주소만 바꾸고 미뤄 둔 방문 기록을 남긴다 — 손님 1명 = 방문 1번
+// 돌아갈 주소로: 검색어·# 가 있으면 한 번 더 열고(true), 없으면 주소만 바꾸고 미뤄 둔 방문 기록을 남긴다 — 손님 1명 = 방문 1번
 function _kkoAutoGo(b){
   b=b||'/';
-  if(b.indexOf('?')>=0){ try{ var a=JSON.parse(localStorage.getItem('mc_kko_auto')||'null')||{}; a.ret=Date.now(); localStorage.setItem('mc_kko_auto', JSON.stringify(a)); }catch(_){} window.__mcLeaving=true; location.replace(b); return true; }
+  if(/[?#]/.test(b)){ try{ var a=JSON.parse(localStorage.getItem('mc_kko_auto')||'null')||{}; a.ret=Date.now(); localStorage.setItem('mc_kko_auto', JSON.stringify(a)); }catch(_){} window.__mcLeaving=true; try{ history.replaceState({},'', b); }catch(_){} location.reload(); return true; }   // #라방·#핫딜 같은 주소도 그 화면 처리가 다시 돌게(# 만 다르면 replace 는 다시 안 연다 — Codex 지적)
   try{ history.replaceState({},'', b); }catch(_){}
   window.__mcVisitLater=false; try{ recordVisit(); }catch(_){}
   return false;
