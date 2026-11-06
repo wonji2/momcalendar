@@ -108,9 +108,68 @@ async function serveStale(req, url, why) {
   return new Response(hit.body, { status: hit.status, headers: out });
 }
 
+// 🛡 자동 차단 목록(2026-11-06 사장님 「매일 감시시스템 만들고 자동으로 우리가 막게」)
+//   DB api_blocklist_ips()(supabase/sql/api_blocklist_137.sql) 를 5분마다 읽어 그 IP 를 403 으로 돌려보낸다 — 원서버·캐시를 안 탄다.
+//   목록은 scratchpad/private/api_scraper_guard.mjs 가 Cloudflare 분석으로 판정해 넣는다. 읽기 실패·첫 요청은 막지 않는다(fail-open, 손님이 먼저)
+const BLK_TTL = 300000;
+const _blk = { t: 0, set: new Set(), busy: false };
+function refreshBlock(ctx) {
+  const now = Date.now();
+  if (_blk.busy || now - _blk.t < BLK_TTL) return;
+  _blk.busy = true;
+  ctx.waitUntil((async () => {
+    try {
+      const ck = new Request('https://api.momcalendar.com/__blk/' + Math.floor(now / BLK_TTL), { method: 'GET' });   // 지점마다 5분에 원서버 1번
+      let txt = null; const hit = await caches.default.match(ck);
+      if (hit) txt = await hit.text();
+      else {
+        const o = await fetch(ORIGIN + '/rest/v1/rpc/api_blocklist_ips', { method: 'POST', headers: { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(4000) });
+        if (o.ok) { txt = await o.text(); await caches.default.put(ck, new Response(txt, { headers: { 'Cache-Control': 'public, s-maxage=300' } })); }
+      }
+      if (txt != null) _blk.set = new Set(String(JSON.parse(txt) || '').split(',').map((x) => x.trim()).filter(Boolean));
+    } catch (_) {}
+    _blk.t = Date.now(); _blk.busy = false;
+  })());
+}
+
+// 📉 사전 확인 요청(OPTIONS) 줄이기(2026-11-06) — 하루 4만 건, Worker 무료 한도 10만의 40%였다.
+//   브라우저는 apikey·Authorization 머리말이 붙은 다른 출처 요청마다 OPTIONS 를 먼저 보낸다. 사이트가 캐시 대상 GET 을
+//   머리말 없이 ?apikey=<anon> 으로 부르면 OPTIONS 가 안 나간다 → 여기서 머리말로 되돌리고 주소에서 뗀다.
+//   🔴 주소에서 떼야 캐시 열쇠·원서버 주소(공유 캐시단 열쇠)가 전과 **글자까지 같다** — 다르면 캐시가 통째로 비어 DB 가 멈춘다(2026-10-27 사고).
+//   URLSearchParams 로 지우면 괄호·쉼표가 %28 로 바뀌어 열쇠가 달라진다 → 글자로만 뗀다.
+//   새 Request 를 만들면 req.cf(ASN·지점)가 사라져 비공개 확장 판별이 깨진다 → 쓰는 칸(method·headers·cf·body)만 가진 객체로 바꾼다
+function liftQueryKey(req, url) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return req;
+  if (req.headers.get('apikey') || req.headers.get('authorization')) return req;
+  const m = url.search.match(/[?&]apikey=([^&]*)/);
+  if (!m || m[1] !== ANON) return req;
+  url.search = url.search.replace(/([?&])apikey=[^&]*(&?)/, (_, a, b) => (b ? a : ''));
+  const h = new Headers(req.headers); h.set('apikey', ANON); h.set('authorization', 'Bearer ' + ANON);
+  return { method: req.method, headers: h, cf: req.cf, body: null, url: url.toString() };
+}
+
+// 배포 때 비공개 확장이 끼워지는 자리(tools/daily/cf_api_proxy.mjs deploy). 없으면 아무 일 없다
+/*__PRIVATE_GUARD__*/
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+
+    // 🛡 자동 차단 목록 — 맨 먼저(살아있나 확인용 /__ping 만 예외). 목록은 뒤에서 5분마다 새로 읽는다
+    if (url.pathname !== '/__ping') {
+      try {
+        refreshBlock(ctx);
+        const ip = req.headers.get('cf-connecting-ip') || '';
+        if (ip && _blk.set.has(ip)) {
+          const bh = cors(req); bh.set('Content-Type', 'application/json'); bh.set('Cache-Control', 'no-store');
+          return new Response('{"error":"blocked","detail":"automated collection is prohibited — https://momcalendar.com/terms.html (art. 13)"}', { status: 403, headers: bh });
+        }
+      } catch (_) {}
+    }
+    req = liftQueryKey(req, url);   // 📉 ?apikey= 로 온 캐시 대상 GET → 머리말로(주소에선 뗀다)
+
+    // 비공개 확장(있으면) — 캐시보다 먼저. 예외면 원래 길로
+    try { if (typeof privateGuard === 'function') { const g = privateGuard(req, url, ctx, env); if (g) return g; } } catch (_) {}
 
     // 살아있나 확인용 — 사이트가 아니라 사람·도구가 본다
     if (url.pathname === '/__ping') {

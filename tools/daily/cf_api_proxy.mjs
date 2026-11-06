@@ -117,11 +117,29 @@ async function main() {
     // 1) Worker 올리기 (module 형식, multipart)
     // 올릴 때마다 BUILD 를 지금 시각으로 — caches.default 의 열쇠가 바뀌어 그쪽 옛 캐시는 버려진다(2026-10-01).
     // ⚠ 공유 캐시단(cf:cacheEverything)은 BUILD 가 안 들어간다 → 배포 끝에 purgeCache() 로 따로 비운다(2026-10-14).
-    const build = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
-    const src = fs.readFileSync(path.join(__dirname, 'cf_api_proxy', 'worker.js'), 'utf8').split('__BUILD__').join(build);
+    // 🔑 --keep-build(2026-11-06): 캐시를 비우지 않고 올린다 — 지금 라이브의 BUILD 를 그대로 쓰고 끝의 purge 도 건너뛴다.
+    //   코드만 바뀌고 캐시 열쇠·응답 모양이 그대로일 때(차단 목록·머리말 처리 등) 낮에도 안전하게 올리는 길.
+    //   ⚠ 일반 배포(BUILD 새로)는 캐시가 통째로 비어 무료 DB 가 멈춘 적이 있다(2026-10-27) → 낮엔 --keep-build, 목록 모양이 바뀌면 새벽에 일반 배포
+    const KEEP = process.argv.includes('--keep-build');
+    let build = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    if (KEEP) {
+      const ping = await fetch('https://' + HOSTNAME + '/__ping', { signal: AbortSignal.timeout(15000) }).then((r) => r.text()).catch(() => '');
+      const m = ping.match(/build=([0-9]{14})/);
+      if (!m) { console.log('  🔴 --keep-build: 라이브 BUILD 를 못 읽었다(' + ping.slice(0, 80) + ') — 올리지 않는다'); process.exit(1); }
+      build = m[1]; console.log('  🔑 --keep-build: 라이브 BUILD 그대로', build, '· 끝의 purge 건너뜀');
+    }
+    let src = fs.readFileSync(path.join(__dirname, 'cf_api_proxy', 'worker.js'), 'utf8').split('__BUILD__').join(build);
+    // 비공개 확장(2026-10-27) — 공개 레포에 두면 안 되는 코드는 scratchpad/private/ 에 두고 올릴 때만 끼운다.
+    //   이 파일이 없는 PC·세션에서 배포하면 확장이 빠진 채 올라간다 → 아래에서 알린다(되살리려면 work-backup 에서 그 파일을 가져온다)
+    const PRIV = path.join(__dirname, '..', '..', 'scratchpad', 'private', 'cf_guard_private.js');
+    if (src.includes('/*__PRIVATE_GUARD__*/')) {
+      if (fs.existsSync(PRIV)) { const p = fs.readFileSync(PRIV, 'utf8'); src = src.replace('/*__PRIVATE_GUARD__*/', () => p); console.log(`  🔒 비공개 확장 끼움 (${p.length}B)`); }
+      else console.log('  ⚠ 비공개 확장 파일이 없다 — 확장 없이 올라간다(scratchpad/private/cf_guard_private.js, momcal-ops 백업)');
+    }
     console.log('  build =', build, '(caches.default 는 이걸로 버려진다 · 공유 캐시단은 끝에서 purge)');
     const fd = new FormData();
-    fd.append('metadata', new Blob([JSON.stringify({ main_module: 'worker.js', compatibility_date: '2025-09-01' })], { type: 'application/json' }));
+    // keep_bindings: 대시보드·API 로 넣은 비밀값(BLOCK_NETS 등)이 코드 배포 때 지워지지 않게(2026-10-27)
+    fd.append('metadata', new Blob([JSON.stringify({ main_module: 'worker.js', compatibility_date: '2025-09-01', keep_bindings: ['secret_text', 'plain_text'] })], { type: 'application/json' }));
     fd.append('worker.js', new Blob([src], { type: 'application/javascript+module' }), 'worker.js');
     await cf(token, 'PUT', `/accounts/${account}/workers/scripts/${SCRIPT}`, fd, true);
     console.log(`  ✅ Worker ${SCRIPT} 업로드 (${src.length}B)`);
@@ -144,7 +162,7 @@ async function main() {
     else console.log(`  ✅ zone ECH ${ech ? ech.value : '(설정 조회 불가 — 아래 HTTPS 레코드로 확인)'}`);
 
     // 4) 🪣 공유 캐시단 비우기 — BUILD 로는 안 버려진다(purgeCache 주석 참고). 실패해도 배포는 성공이다.
-    await purgeCache(token, zone.id);
+    if (!KEEP) await purgeCache(token, zone.id);
   }
 
   // 캐시만 비우기:  node tools/daily/cf_api_proxy.mjs purge
@@ -167,7 +185,9 @@ async function main() {
   }
   console.log(`  HTTPS 레코드 ${HOSTNAME}: ${await dnsHttps(HOSTNAME)}`);
   const ok1 = await probe('ping', `https://${HOSTNAME}/__ping`);
-  const ok2 = await probe('rest gonggu 1건', `https://${HOSTNAME}/rest/v1/gonggu?select=id&limit=1`, { apikey: ANON, Authorization: 'Bearer ' + ANON });
+  // 사이트와 같은 출처(Origin)로 묻고, 받은 행이 정상 범위인지도 본다
+  const ok2 = await probe('rest gonggu 1건', `https://${HOSTNAME}/rest/v1/gonggu?select=id&limit=1`, { apikey: ANON, Authorization: 'Bearer ' + ANON, Origin: 'https://momcalendar.com' })
+    && await fetch(`https://${HOSTNAME}/rest/v1/gonggu?select=id&order=id.desc&limit=1`, { headers: { apikey: ANON, Authorization: 'Bearer ' + ANON, Origin: 'https://momcalendar.com' } }).then((r) => r.json()).then((j) => { const real = Array.isArray(j) && j.length && j[0].id < 90000000; console.log(`  ${real ? '✅' : '🔴'} 받은 행 정상: ${j && j[0] && j[0].id}`); return real; }).catch(() => false);
   // POST + JSON 본문이 그대로 원서버까지 가는지 — 잘못된 code 에 카카오가 400/KOE320 을 주면 본문 전달까지 정상이다
   const ok3 = await probe('functions kakao-auth POST(잘못된 code → 400 이 정상)', `https://${HOSTNAME}/functions/v1/kakao-auth`,
     { apikey: ANON, Authorization: 'Bearer ' + ANON, 'Content-Type': 'application/json' }, 400,
