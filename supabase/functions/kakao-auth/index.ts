@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
   try {
-    const { code, redirect_uri, device_id, code_verifier } = await req.json()
+    const { code, redirect_uri, device_id, code_verifier, auto } = await req.json()
     if (!code || !redirect_uri) return json({ error: 'code/redirect_uri 필요' }, 400)
     if (!OK_REDIRECT.test(String(redirect_uri))) return json({ error: 'redirect_uri 허용 안 됨' }, 400)
     if (code_verifier != null && !/^[A-Za-z0-9._~-]{43,128}$/.test(String(code_verifier))) return json({ error: 'code_verifier 형식' }, 400)
@@ -57,6 +57,13 @@ Deno.serve(async (req) => {
 
     // 3) members 테이블 저장(service_role)
     const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    // 카톡 인앱 자동 로그인(prompt=none, 2026-11-06)은 손님이 누른 게 아니다 → 이미 회원인 사람만 로그인시키고 새로 만들지 않는다
+    //   (탈퇴하면 member_delete_account 가 members 행을 지운다 — 탈퇴자가 카톡에서 저절로 다시 가입되지 않게)
+    if (auto === true) {
+      const { data: ex, error: exErr } = await sb.from('members').select('kakao_id').eq('kakao_id', kakaoId).maybeSingle()
+      if (exErr) return json({ error: 'DB 조회 실패' }, 500)
+      if (!ex) return json({ ok: false, error: 'not_member' })
+    }
     const { error } = await sb.from('members').upsert(
       { kakao_id: kakaoId, nickname, device_id: device_id || null, updated_at: new Date().toISOString() },
       { onConflict: 'kakao_id' },
