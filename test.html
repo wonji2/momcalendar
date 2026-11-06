@@ -23,6 +23,7 @@
     var waiting = !!(a && a.r==='go' && now-a.at < 3*60e3);
     // ① 카카오에서 돌아옴
     if(code || err){
+      if(st && st.indexOf('k.')!==0) return;   // 수동 로그인(w.·t.·a.·nv_)의 결과는 기다리는 중이어도 기존 처리로 — 손님이 누른 로그인을 가로채지 않는다(검증자 지적)
       if(!waiting){ if(st.indexOf('k.')===0){ try{ history.replaceState(null,'',location.pathname); }catch(_){} } return; }   // 자동 대기 중이 아닌 k. 는 주소만 정리, 그 밖은 기존(수동) 처리
       if(err && (!st || st===a.s)){ a.r='none'; a.at=now; a.ret=now; a.log='none|'+String(err).slice(0,30); save(a); leave(back(a.back)); return; }   // 가입 안 함 등 → 30일 쉼
       if(code && st && st===a.s){ a.r='busy'; save(a); window.__kkoAutoRet=a; window.__mcRef=a.ref||''; window.__mcVisitLater=true; return; }   // 교환은 본문의 ?code 처리가 한다
