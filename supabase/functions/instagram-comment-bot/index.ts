@@ -383,10 +383,11 @@ async function handleEvents(body: any) {
                       const g = searchResult.item;
                       const openD = formatDate(g.open_date);
                       const endD = formatDate(g.end_date);
-                      const seller = g.influencer || (g.insta ? `@${g.insta}` : "공구 셀러");
+                      const cleanInsta = g.insta ? String(g.insta).replace(/^@+/, "").trim() : "";
+                      const sellerText = cleanInsta ? `@${cleanInsta} 님 계정에서` : `${g.influencer || "공구 셀러"} 님을 통해`;
                       const dateStr = openD === endD ? `${openD}` : `${openD}~${endD}`;
       
-                      replyMsg = `@${username} 님! 문의주신 '${g.name}' 공구는 ${dateStr}에 ${seller} 님을 통해 진행 예정이에요 💜 전체 일정과 상세 정보는 프로필 링크 맘캘린더 웹사이트에서 바로 확인하실 수 있어요.ᐟ.ᐟ ✨`;
+                      replyMsg = `@${username} 님! 문의주신 '${g.name}' 공구는 ${dateStr}에 ${sellerText} 진행 예정이에요 💜 전체 일정과 상세 정보는 프로필 링크 맘캘린더 웹사이트에서 바로 확인하실 수 있어요.ᐟ.ᐟ ✨`;
                     } else if (searchResult?.type === "hotdeal") {
                       const hd = searchResult.item;
                       const priceStr = hd.price ? ` (${won(hd.price)})` : "";
