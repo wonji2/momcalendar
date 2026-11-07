@@ -1248,10 +1248,10 @@ body[data-ct="community"] #subZone {
   padding: 40px 16px 24px; text-align: center;
 }
 .sa-zero-title {
-  font-size: 16.5px; font-weight: 800; color: #191F28; margin-bottom: 8px; line-height: 1.4;
+  font-size: 16.5px; font-weight: 800; color: #191F28; margin-bottom: 8px; line-height: 1.4; word-break: keep-all; text-wrap: balance;
 }
 .sa-zero-desc {
-  font-size: 13px; color: #738096; line-height: 1.5; margin-bottom: 20px;
+  font-size: 13px; color: #738096; line-height: 1.5; margin-bottom: 20px; word-break: keep-all; text-wrap: balance;
 }
 .sa-zero-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -3478,7 +3478,7 @@ async function renderSearchAll(){
   const zeroHtml = `
     <div class="sa-zero-box">
       <div class="sa-zero-title">‘<span style="color:#7C54C4">${escHtml(fSearch)}</span>’에 대한 핫딜·공구가 아직 없어요</div>
-      <div class="sa-zero-desc">키워드를 등록해 두시면 특가가 뜨는 즉시 앱 알림으로 알려드려요!</div>
+      <div class="sa-zero-desc">키워드를 등록해 두시면 새 핫딜이 올라올 때 앱 알림으로 알려드려요!</div>
       <button type="button" class="sa-zero-btn" onclick="registerKeywordAlertFromSearch('${escHtml((fSearch||'').replace(/'/g, "\\'"))}')">
         🔔 ‘${escHtml(fSearch)}’ 특가 알림 받기
       </button>
@@ -6810,9 +6810,12 @@ function maybeAskAttendPop(){
     var seenHere=function(){ try{ localStorage.setItem(key,'1'); }catch(_){} };
     // 닫은 기록이 브라우저마다 따로라 앱에서 닫아도 카톡 인앱에서 또 떴다(사장님 2026-11-06) → 로그인한 사람은 서버 기록으로 거른다.
     //   이번 달 출석한 사람에게도 한 번은 띄운다(하루만 찍고 잊을 수 있다) — 닫으면 그 달은 어디서도 다시 안 뜬다
-    var chk=(typeof isLoggedIn==='function' && isLoggedIn()) ? memberRpc('member_att_pop_check',{p_key:skey}) : Promise.resolve(null);
-    chk.then(function(r){
+    var li=(typeof isLoggedIn==='function' && isLoggedIn());
+    var chk=li ? Promise.all([memberRpc('member_att_pop_check',{p_key:skey}), memberRpc('member_attendance')]) : Promise.resolve([null,null]);
+    chk.then(function(a){
+      var r=a[0], att=a[1];
       if(r && r.ok && r.seen){ seenHere(); return; }
+      if(att && att.ok && att.today){ var td=parseInt(String(att.today).slice(8,10),10); if((att.days||[]).indexOf(td)>=0) return; }   // 오늘 이미 출석했다 → 안 띄움
       if(sheetShownToday() || document.querySelector('.mc-sheet.open') || (typeof busySheet==='function' && busySheet()) || (document.getElementById('mcAlarm')||{}).className==='open') return;
       markSheetShown();
       var done=function(){ seenHere(); toServer(); };
@@ -6913,8 +6916,8 @@ function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.no
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', show); else show();
 })();
 function _webPushAppOnly(){ try{ if(typeof _isNativeApp==='function' && _isNativeApp()) return false; return WEB_PUSH_APP_ONLY || location.search.indexOf('apponly=1')>=0; }catch(_){ return false; } }
-function _appOnlyBell(where){
-  if(!_webPushAppOnly()) return false;
+function _appOnlyBell(where, force){
+  if(!force && !_webPushAppOnly()) return false;
   try{ trackEvent('push_app_only', where||''); }catch(_){}
   let el=document.getElementById('aoSheet');
   if(!el){ el=document.createElement('div'); el.id='aoSheet'; el.className='ao-sheet'; el.onclick=e=>{ if(e.target===el) el.classList.remove('open'); }; document.body.appendChild(el); }
@@ -10449,6 +10452,8 @@ function setSaCatTab(tab) {
 async function registerKeywordAlertFromSearch(kw) {
   if (!kw || !kw.trim()) return;
   const keyword = kw.trim();
+  // 키워드 알림은 앱 푸시만 있다(서버가 앱에 등록된 기기로 보낸다). 웹·카톡 인앱에서는 알림이 오지 않으므로 「등록됐다」고 하지 않고 앱 설치를 안내한다 (사장님 2026-11-07 「가짜로 온다고 띄우면 안되지」)
+  if (!(typeof _isNativeApp === 'function' && _isNativeApp())) { if (typeof _appOnlyBell === 'function') _appOnlyBell('kw', true); return; }
 
   // 1. 앱(Capacitor 네이티브)인 경우: OS 레벨 폰 푸시 권한 요청 및 등록
   const isApp = (typeof _isNativeApp === 'function' && _isNativeApp());
@@ -10457,6 +10462,9 @@ async function registerKeywordAlertFromSearch(kw) {
       const perm = await window.Capacitor.Plugins.PushNotifications.requestPermissions();
       if (perm.receive === 'granted') {
         await window.Capacitor.Plugins.PushNotifications.register();
+      } else {
+        if (typeof mcToast === 'function') mcToast('폰 설정에서 맘캘린더 알림을 켠 뒤 다시 눌러 주세요');   // 권한이 꺼져 있으면 「등록됐다」고 하지 않는다
+        return;
       }
     } catch (e) {
       console.warn('Native push registration error:', e);
@@ -10503,7 +10511,7 @@ async function registerKeywordAlertFromSearch(kw) {
 
   // 5. 손님 안내 완료 토스트 팝업 (1초 피드백)
   if (typeof mcToast === 'function') {
-    mcToast(`🔔 '${keyword}' 특가 알림이 등록되었어요! 최저가가 뜨면 바로 알려드릴게요.`);
+    mcToast(`🔔 '${keyword}' 특가 알림이 등록되었어요! 새 핫딜이 올라오면 앱 알림으로 알려드릴게요.`);
   } else {
     alert(`🔔 '${keyword}' 특가 알림이 등록되었어요!`);
   }
