@@ -77,7 +77,7 @@ async function boardIds(menuid: number, needBack: number): Promise<{ ids: Set<nu
       const r = await fetch(LIST(menuid, page, 50), { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(9000) });
       if (!r.ok) { ok = false; break; }
       const arr = ((await r.json())?.result?.articleList || []).map((x: any) => x?.item).filter(Boolean);
-      if (!arr.length) break;
+      if (!arr.length) { if (page === 1) ok = false; break; }   // 첫 쪽이 비면 응답 모양이 바뀐 것 → 목록을 못 읽은 것으로 본다(반증 불가 = 지우지 않는다)
       for (const a of arr) { const t = Number(a.writeDateTimestamp || 0); if (a.articleId) ids.add(Number(a.articleId)); if (t && t < reached) reached = t; }
       if (reached < needBack) break;
     } catch { ok = false; break; }
@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
     const targets = [...rows.keys()];
     const res = await pool(targets, 5, check, deadline);
     const seen: number[] = [], gone: number[] = [], unknown: number[] = [];
-    for (const [id, v] of res) (v === "gone" ? gone : v === "unknown" ? unknown : seen).push(id);
+    // 의심 중인 글이 이번에 판단 보류(unknown)면 연속이 끊긴 것이므로 의심을 0 으로 되돌린다(연속 3번만 인정)
+    for (const [id, v] of res) (v === "gone" ? gone : v === "unknown" && !(rows.get(id)?.gone_strikes > 0) ? unknown : seen).push(id);
     const newGone = gone.filter((id) => !(rows.get(id)?.gone_strikes > 0));
     out.checked = res.size; out.targets = targets.length; out.alive = seen.length; out.gone = gone.length; out.unknown = unknown.length; out.newGone = newGone.length;
 

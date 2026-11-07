@@ -33,20 +33,20 @@ begin
   get diagnostics n = row_count; return n;
 end $$;
 
--- 빼기: 보관표로 복사한 뒤 삭제. 의심 3번 이상 · 마지막 의심이 6시간 안인 글만(DB 쪽 마지막 안전장치)
+-- 빼기: 보관표로 복사한 뒤 삭제. 의심 3번 이상 · 마지막 의심이 6시간 안인 글만(DB 쪽 마지막 안전장치). 열 이름을 직접 적어 표에 칸이 늘어도 깨지지 않는다
 create or replace function public.cafe_prune_apply(p_ids bigint[], p_min int default 3)
 returns bigint[] language plpgsql security definer set search_path = public as $$
 declare done bigint[];
 begin
   if p_min < 3 then p_min := 3; end if;
   with moved as (
-    insert into community_posts_removed
-    select c.*, now(), 'cafe 4003 x' || c.gone_strikes
+    insert into community_posts_removed (cafe_id, article_id, board_id, board, title, nick, comments, views, likes, has_image, is_notice, posted_at, url, fetched_at, summary, image_url, writer_level, gone_strikes, gone_last_at, checked_at, removed_at, remove_reason)
+    select c.cafe_id, c.article_id, c.board_id, c.board, c.title, c.nick, c.comments, c.views, c.likes, c.has_image, c.is_notice, c.posted_at, c.url, c.fetched_at, c.summary, c.image_url, c.writer_level, c.gone_strikes, c.gone_last_at, c.checked_at, now(), 'cafe 4003 x' || c.gone_strikes
       from community_posts c
      where c.article_id = any(coalesce(p_ids, '{}')) and c.gone_strikes >= p_min and c.gone_last_at > now() - interval '6 hours'
-    returning article_id
+    returning cafe_id, article_id
   ), del as (
-    delete from community_posts d using moved m where d.article_id = m.article_id returning d.article_id
+    delete from community_posts d using moved m where d.cafe_id = m.cafe_id and d.article_id = m.article_id returning d.article_id
   ) select coalesce(array_agg(article_id), '{}') into done from del;
   return done;
 end $$;
