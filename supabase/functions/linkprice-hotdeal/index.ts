@@ -124,6 +124,8 @@ async function collect(log: any): Promise<Item[]> {
   const seen = new Set<string>();
   const push = (mall: string, code: string, name: string, price: number, url: string, img: string) => {
     if (!code || !name || !(price > 0) || !url) return;
+    // 11번가 「N종 모음·N% 즉할」 기획전은 상품 하나의 가격이 아니다 — 대표 옵션 5,940원이 41% 로 올라와 손님이 가격 오류로 봤다(사장님 2026-11-04·11-08). 어느 갈래(① 핫딜·② 리얼핫딜)로 와도 11번가면 여기서 거른다
+    if (/11st|11번가/i.test(mall) && (/^\[\d{1,2}%\]/.test(name.trim()) || /(외\s*\d{2}|\d{3})종/.test(name) || /\d{1,2}%\s*즉할/.test(name))) { log.skip_collection = (log.skip_collection ?? 0) + 1; return; }
     if (blocked(name, mall)) { log.blocked = (log.blocked ?? 0) + 1; return; }
     const id = `lp_${mall}_${code}`;
     if (seen.has(id)) return;
