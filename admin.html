@@ -7908,8 +7908,27 @@ async function loadMembers(){
   sEl.innerHTML='<div style="color:#bbb;font-size:13px">불러오는 중…</div>'; lEl.innerHTML='';
   try{
     const s=(await admRpc('member_stats',{p_days:30}))[0]||{};
-    const card=(lbl,val,sub)=>`<div style="background:#F7F5FF;border-radius:12px;padding:13px"><div style="font-size:11.5px;color:#8a80a0;margin-bottom:5px">${lbl}</div><div style="font-size:22px;font-weight:800;color:#2A1D6E">${(val||0).toLocaleString('ko-KR')}</div>${sub?`<div style="font-size:10.5px;color:#b3a9c8;margin-top:3px">${sub}</div>`:''}</div>`;
-    sEl.innerHTML=card('전체 회원',s.total_members)+card('최근 30일 신규',s.new_in_period)+card('오늘 가입',s.new_today)+card('채널추가 동의',s.channel_added_ct,'로그인 시 동의 기준')+card('찜한 회원',s.with_wish);
+    let s2=null; try{ s2=await admRpc('member_stats2',{}); }catch(_){ s2=null; }
+    const n0=v=>(v||0).toLocaleString('ko-KR');
+    const card=(lbl,val,sub,hot)=>`<div style="background:${hot?'#EFE6FA':'#F7F5FF'};border-radius:12px;padding:13px"><div style="font-size:11.5px;color:#8a80a0;margin-bottom:5px">${lbl}</div><div style="font-size:22px;font-weight:800;color:#2A1D6E">${n0(val)}</div>${sub?`<div style="font-size:10.5px;color:#a79bc4;margin-top:3px">${sub}</div>`:''}</div>`;
+    const bars=(obj,order)=>{ const e=Object.entries(obj||{}).sort((x,y)=>order?(order.indexOf(x[0])<0?99:order.indexOf(x[0]))-(order.indexOf(y[0])<0?99:order.indexOf(y[0])):y[1]-x[1]); const mx=Math.max(1,...e.map(x=>x[1])), tot=e.reduce((t,x)=>t+x[1],0)||1; return e.map(([k,v])=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px"><div style="width:54px;color:#666;flex:none">${esc2(k)}</div><div style="flex:1;background:#F1EDF8;border-radius:6px;height:14px;overflow:hidden"><div style="width:${Math.round(v/mx*100)}%;height:100%;background:#8B6CC9"></div></div><div style="width:78px;text-align:right;color:#2A1D6E;font-weight:700">${n0(v)} <span style="color:#a79bc4;font-weight:500">${Math.round(v/tot*100)}%</span></div></div>`).join(''); };
+    if(s2 && s2.total!==undefined){
+      const dly=s2.daily||[], dmx=Math.max(1,...dly.map(x=>x.n));
+      sEl.style.display='block';
+      sEl.innerHTML=`<div style="font-size:11.5px;color:#8a80a0;margin-bottom:10px">${esc2(s2.asof)} 기준 · 탈퇴 회원 제외</div>`
+        +`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">`
+        +card('전체 회원',s2.total,'',true)+card('오늘 가입',s2.today)+card('어제 가입',s2.yesterday)+card('최근 7일 가입',s2.d7)+card('최근 30일 가입',s2.d30)
+        +card('24시간 안 접속',s2.active1)+card('7일 안 접속',s2.active7)+card('채널추가 동의',s.channel_added_ct,'로그인 시 동의 기준')+card('찜한 회원',s.with_wish)
+        +`</div>`
+        +`<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)"><div style="font-size:12.5px;font-weight:700;color:#2A1D6E;margin-bottom:10px">일별 가입 (14일)</div><div style="display:flex;align-items:flex-end;gap:4px;height:90px">`+dly.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%"><div style="font-size:9.5px;color:#2A1D6E;font-weight:700">${x.n||''}</div><div style="width:100%;max-width:22px;background:#8B6CC9;border-radius:4px 4px 0 0;height:${Math.max(2,Math.round(x.n/dmx*62))}px"></div><div style="font-size:9px;color:#a79bc4;margin-top:3px">${x.d.slice(3)}</div></div>`).join('')+`</div></div>`
+        +`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px">`
+        +`<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)"><div style="font-size:12.5px;font-weight:700;color:#2A1D6E;margin-bottom:6px">로그인 방식</div>${bars(s2.by_provider)}</div>`
+        +`<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)"><div style="font-size:12.5px;font-weight:700;color:#2A1D6E;margin-bottom:6px">성별</div>${bars(s2.by_gender)}</div>`
+        +`<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)"><div style="font-size:12.5px;font-weight:700;color:#2A1D6E;margin-bottom:6px">연령대</div>${bars(s2.by_age)}</div>`
+        +`</div>`;
+    } else {
+      sEl.innerHTML=card('전체 회원',s.total_members)+card('최근 30일 신규',s.new_in_period)+card('오늘 가입',s.new_today)+card('채널추가 동의',s.channel_added_ct,'로그인 시 동의 기준')+card('찜한 회원',s.with_wish);
+    }
     const list=await admRpc('member_list',{p_limit:200});
     lEl.innerHTML=(list||[]).length? `<div style="background:#fff;border-radius:12px;padding:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)">`+list.map(m=>`
       <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #F5F2FA">
