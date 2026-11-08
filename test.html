@@ -1484,7 +1484,7 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 <div id="kkoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:24px 20px calc(26px + env(safe-area-inset-bottom));z-index:9993;transition:bottom .32s cubic-bezier(.4,0,.2,1);box-sizing:border-box">
   <div style="width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#FF9DC0,#7C54C4);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 5px 16px rgba(123,63,181,.28)">💜</div>
   <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜 보관 & 오픈 알림</div>
-  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:16px">
+  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:16px;word-break:keep-all;text-wrap:balance">
     카카오로 시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요
   </div>
   <div id="kkoNotiOpt" onclick="toggleKkoNoti(event)" style="background:#F8F6FC;border:1px solid #ECE5F6;border-radius:13px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
@@ -6141,19 +6141,27 @@ function toggleKkoNoti(ev){
   chk.checked = !chk.checked;
 }
 
+function _kkoNotiPossible(){   // 알림이 실제로 갈 수 있는 곳에서만 알림 체크칸을 보인다(가짜 약속 금지, 사장님 2026-11-07)
+  try{
+    if(typeof _isNativeApp==='function' && _isNativeApp()) return !notiGranted();
+    if(typeof pushSupported!=='function' || !pushSupported()) return false;
+    if(typeof iosNeedsInstall==='function' && iosNeedsInstall()) return false;
+    if(typeof Notification==='undefined' || Notification.permission==='denied') return false;
+    return !notiGranted();
+  }catch(_){ return false; }
+}
 async function startKakaoWithNoti(){
-  var chk=document.getElementById('kkoNotiChk');
-  var wantNoti = chk ? chk.checked : true;
-  if(wantNoti){
+  var opt=document.getElementById('kkoNotiOpt'), chk=document.getElementById('kkoNotiChk');
+  var shown = !!(opt && opt.style.display!=='none');
+  if(shown){ try{ localStorage.setItem('mc_alarm_next', String(Date.now()+7*864e5)); }catch(_){} }   // 여기서 이미 물었으니 앱의 알림 안내 시트는 7일 쉰다
+  if(shown && chk && chk.checked){
+    try{ trackEvent('kko_noti_on',''); }catch(_){}
     try{
-      localStorage.setItem('mc_push_on', '1');
-      if(typeof _isNativeApp==='function' && _isNativeApp()){
-        if(typeof enablePushNative==='function') await enablePushNative();
-      } else {
-        if(typeof enablePush==='function') await enablePush();
-      }
+      // 로그인 창으로 넘어가면 허용창을 못 띄우니 먼저 받는다. enablePush 가 앱·웹을 가려 처리하고 성공했을 때만 mc_push_on=1 을 저장한다. 안 눌러도 20초 뒤엔 로그인으로
+      var ok=await Promise.race([Promise.resolve(enablePush()), new Promise(function(r){ setTimeout(function(){ r(false); }, 20000); })]);
+      try{ trackEvent('kko_noti_'+(ok?'granted':'denied'),''); }catch(_){}
     }catch(e){ console.warn('push error:', e); }
-  }
+  } else if(shown){ try{ localStorage.setItem('mc_wn_next', _dstrPlus(7)); }catch(_){} }   // 체크를 풀었으면 알림 시트도 7일 쉰다
   startKakaoLogin();
 }
 
@@ -6176,10 +6184,10 @@ function openLoginSheet(title, sub, fine, intent){
   } }catch(_){}
   // 알림 옵션 박스 노출 분기: 출석/ics 등 특수 로그인이면 숨김, 일반 온보딩/찜 저장이면 표시
   try{ var opt=document.getElementById('kkoNotiOpt');
-    if(opt){
-      if(intent==='attend' || intent==='ics') opt.style.display='none';
-      else opt.style.display='flex';
-    }
+    var can=_kkoNotiPossible() && !(intent==='attend' || intent==='ics');
+    if(opt){ opt.style.display=can?'flex':'none'; var _c=document.getElementById('kkoNotiChk'); if(_c) _c.checked=true; }
+    // 알림을 못 받는 곳이면 「알려드려요」 약속을 문구에서 뺀다
+    if(!can && s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요');
   }catch(_){}
   var wasOpen=(bg.style.display==='block');
   // ⚠ 인앱 안내(kkoInAppGuide)가 버튼을 통째로 바꿔놓는다 → 시트를 열 때마다 원래 버튼으로 되돌린다.
@@ -6199,11 +6207,14 @@ function closeLoginSheet(){
 }
 function kkoLater(){
   try{
-    localStorage.setItem('mc_login_asked','1');
-    markSheetShown();
-    // 2차 알림 팝업(openWnSheet) 2연타 완전 차단 & 7일 쿨다운
-    localStorage.setItem('mc_wn_next', _dstrPlus(7));
-    window.__kkoDismissedTime = Date.now();
+    if(!window.__loginIntent){   // 찜 보관 시트일 때만(출석·ics 로그인 시트를 닫는다고 알림·로그인 권유가 막히면 안 된다)
+      localStorage.setItem('mc_login_asked','1');
+      markSheetShown();
+      // 2차 알림 팝업(openWnSheet) 2연타 차단 & 7일 쿨다운
+      localStorage.setItem('mc_wn_next', _dstrPlus(7));
+      localStorage.setItem('mc_alarm_next', String(Date.now()+7*864e5));   // 앱의 알림 안내 시트도 7일 쉰다
+      window.__kkoDismissedTime = Date.now();
+    }
   }catch(_){}
   closeLoginSheet();
   if(typeof renderList==='function' && fSt==='wish') renderList();
@@ -6889,16 +6900,14 @@ function maybeAskNoti(){
     const next=localStorage.getItem('mc_wn_next')||'';
     if(next.indexOf('-')>0 && _dstr() < next) return;        // 아직 쉬는 기간(날짜 기준)
     markSheetShown();
-    setTimeout(openWnSheet, 420);
+    setTimeout(function(){ openWnSheet('auto'); }, 420);
   }catch(_){}
 }
-function openWnSheet(force){
-  if(!force){
-    if(window.__kkoDismissedTime && (Date.now() - window.__kkoDismissedTime < 60000)) return; // 2연타 완전 차단
+function openWnSheet(mode){
+  if(mode==='auto'){   // 자동으로 뜨는 길만 막는다. 손님이 직접 누른 「오픈 알림 설정」은 항상 연다
+    if(window.__kkoDismissedTime && (Date.now() - window.__kkoDismissedTime < 60000)) return;   // 로그인 시트를 막 닫았다 → 2연타 차단
     var ksh=document.getElementById('kkoSheet');
-    if(ksh && (ksh.style.bottom==='0px' || ksh.style.bottom==='0')) return; // 로그인 시트 떠 있으면 중복 차단
-    var next=localStorage.getItem('mc_wn_next')||'';
-    if(next.indexOf('-')>0 && _dstr() < next) return;
+    if(ksh && (ksh.style.bottom==='0px' || ksh.style.bottom==='0')) return;   // 로그인 시트가 떠 있다
   }
   if(_appOnlyBell('wn')) return;
   return _openWnSheet0.apply(this, arguments);
@@ -7950,6 +7959,7 @@ function _appAlarmAuto(state){
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
     if(state==='granted' || (typeof notiGranted==='function' && notiGranted())) return false;
     if(document.getElementById('appOnboardingWrap')) return false;
+    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
     var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false;
     try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}
     _appAlarmSheet('auto'); return true;
@@ -7960,7 +7970,9 @@ function _appPushAsk(force){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
     if(typeof notiGranted==='function' && notiGranted()) return false;
-    if(!force){ var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){} }
+    if(!force){
+    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
+      var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){} }
     _appAlarmSheet(force?'bell':'heart'); return true;
   }catch(_){ return false; }
 }
