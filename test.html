@@ -6144,6 +6144,7 @@ function toggleKkoNoti(ev){
 function _kkoNotiPossible(){   // 알림이 실제로 갈 수 있는 곳에서만 알림 체크칸을 보인다(가짜 약속 금지, 사장님 2026-11-07)
   try{
     if(typeof _isNativeApp==='function' && _isNativeApp()) return !notiGranted();
+    if(typeof _isInApp==='function' && _isInApp()) return false;   // 카톡·인스타 인앱엔 웹 푸시가 없다
     if(typeof pushSupported!=='function' || !pushSupported()) return false;
     if(typeof iosNeedsInstall==='function' && iosNeedsInstall()) return false;
     if(typeof Notification==='undefined' || Notification.permission==='denied') return false;
@@ -6153,17 +6154,28 @@ function _kkoNotiPossible(){   // 알림이 실제로 갈 수 있는 곳에서�
 async function startKakaoWithNoti(){
   var opt=document.getElementById('kkoNotiOpt'), chk=document.getElementById('kkoNotiChk');
   var shown = !!(opt && opt.style.display!=='none');
-  if(shown){ try{ localStorage.setItem('mc_alarm_next', String(Date.now()+7*864e5)); }catch(_){} }   // 여기서 이미 물었으니 앱의 알림 안내 시트는 7일 쉰다
+  var auto = !!window.__kkoAutoOpen;   // 찜 2개째에 저절로 뜬 시트일 때만 쿨다운(손님이 직접 연 로그인 시트는 건드리지 않는다)
+  var cool = function(alarm){ if(!auto) return; try{ localStorage.setItem('mc_wn_next', _dstrPlus(7)); if(alarm) localStorage.setItem('mc_alarm_next', String(Date.now()+7*864e5)); }catch(_){} };
   if(shown && chk && chk.checked){
     try{ trackEvent('kko_noti_on',''); }catch(_){}
+    var ok=false;
     try{
-      // 로그인 창으로 넘어가면 허용창을 못 띄우니 먼저 받는다. enablePush 가 앱·웹을 가려 처리하고 성공했을 때만 mc_push_on=1 을 저장한다. 안 눌러도 20초 뒤엔 로그인으로
-      var ok=await Promise.race([Promise.resolve(enablePush()), new Promise(function(r){ setTimeout(function(){ r(false); }, 20000); })]);
+      if(typeof _isNativeApp==='function' && _isNativeApp()){
+        // 앱: 허용창·토큰 등록을 먼저(성공하면 enablePush 가 mc_push_on=1 저장). 안 눌러도 20초 뒤엔 로그인으로
+        ok=await Promise.race([Promise.resolve(enablePush()), new Promise(function(r){ setTimeout(function(){ r(false); }, 20000); })]);
+      } else if(typeof Notification!=='undefined'){
+        // 웹·홈화면 앱: 허용창만 먼저 받고 바로 로그인으로(구독·서버 저장은 돌아온 뒤 mc_push_resume) — 허용창 뒤에 오래 기다리면 카톡 앱 전환이 막힌다
+        var perm=await Promise.race([Notification.requestPermission(), new Promise(function(r){ setTimeout(function(){ r('timeout'); }, 20000); })]);
+        ok=(perm==='granted'); if(ok) localStorage.setItem('mc_push_resume','1');
+      }
       try{ trackEvent('kko_noti_'+(ok?'granted':'denied'),''); }catch(_){}
     }catch(e){ console.warn('push error:', e); }
-  } else if(shown){ try{ localStorage.setItem('mc_wn_next', _dstrPlus(7)); }catch(_){} }   // 체크를 풀었으면 알림 시트도 7일 쉰다
+    cool(ok || !(typeof _isNativeApp==='function' && _isNativeApp()));   // 앱에서 실패(OS 거부)면 설정으로 안내하는 알림 시트는 살려 둔다
+  } else if(shown){ cool(true); }   // 체크를 풀었으면 알림 안내도 7일 쉰다
   startKakaoLogin();
 }
+// 로그인에서 돌아온 뒤: 허용만 받아 둔 웹 푸시를 실제 구독으로 마무리(허용창은 다시 안 뜬다)
+setTimeout(function(){ try{ if(localStorage.getItem('mc_push_resume')!=='1') return; localStorage.removeItem('mc_push_resume'); if(!(typeof _isNativeApp==='function' && _isNativeApp()) && typeof Notification!=='undefined' && Notification.permission==='granted' && localStorage.getItem('mc_push_on')!=='1' && typeof enablePush==='function') enablePush(); }catch(_){} }, 3000);
 
 function openLoginSheet(title, sub, fine, intent){
   window.__loginIntent = intent || '';        // 로그인 끝나고 돌아왔을 때 이어서 할 일
@@ -6188,6 +6200,10 @@ function openLoginSheet(title, sub, fine, intent){
     if(opt){ opt.style.display=can?'flex':'none'; var _c=document.getElementById('kkoNotiChk'); if(_c) _c.checked=true; }
     // 알림을 못 받는 곳이면 「알려드려요」 약속을 문구에서 뺀다
     if(!can && s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요');
+    if(can && typeof _isNativeApp==='function' && _isNativeApp()){   // 앱: OS 가 이미 거부한 기기면 체크칸을 숨긴다(저장값만으로는 모른다)
+      var _P=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+      if(_P && _P.checkPermissions) _P.checkPermissions().then(function(st){ if(st && st.receive==='denied'){ var o2=document.getElementById('kkoNotiOpt'); if(o2) o2.style.display='none'; if(s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요'); } }).catch(function(){});
+    }
   }catch(_){}
   var wasOpen=(bg.style.display==='block');
   // ⚠ 인앱 안내(kkoInAppGuide)가 버튼을 통째로 바꿔놓는다 → 시트를 열 때마다 원래 버튼으로 되돌린다.
@@ -6203,11 +6219,12 @@ function openLoginSheet(title, sub, fine, intent){
 function closeLoginSheet(){
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
   if(!m||!bg) return;
+  window.__kkoAutoOpen=false;
   bg.style.display='none'; m.style.bottom='-110%'; unlockScroll();
 }
 function kkoLater(){
   try{
-    if(!window.__loginIntent){   // 찜 보관 시트일 때만(출석·ics 로그인 시트를 닫는다고 알림·로그인 권유가 막히면 안 된다)
+    if(!window.__loginIntent && window.__kkoAutoOpen){   // 찜 2개째에 저절로 뜬 찜 보관 시트일 때만(출석·ics 로그인 시트를 닫는다고 알림·로그인 권유가 막히면 안 된다)
       localStorage.setItem('mc_login_asked','1');
       markSheetShown();
       // 2차 알림 팝업(openWnSheet) 2연타 차단 & 7일 쿨다운
@@ -6380,6 +6397,7 @@ function maybeAskLogin(){
   if(sheetShownToday()) return false;                       // 오늘 이미 다른 시트를 띄웠으면 쉬어감
   try{ localStorage.setItem('mc_login_asked','1'); }catch(_){}
   markSheetShown();
+  window.__kkoAutoOpen=true;   // 저절로 뜬 시트 표시(손님이 직접 연 로그인 시트와 구분)
   setTimeout(openLoginSheet, 350);
   return true;
 }
