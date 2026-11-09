@@ -6,7 +6,13 @@ import html
 import subprocess
 import urllib.request
 import urllib.parse
+import random
 from datetime import datetime, timezone, timedelta
+
+# 🛡️ 사장님 지침(11-09): 안티봇 크롤링 방지망 회피를 위한 무작위 시간차 지터 (5~35초)
+_jitter = random.uniform(5.0, 35.0)
+print(f"[anti-bot] 봇 탐지 회피 무작위 시간차 지터: {_jitter:.1f}초 대기...")
+time.sleep(_jitter)
 
 KST = timezone(timedelta(hours=9))
 SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://hycaqsqeogjtbscmzrtm.supabase.co')
