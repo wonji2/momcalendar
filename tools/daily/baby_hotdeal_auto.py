@@ -436,10 +436,14 @@ def collect_from_jirum_alarm():
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
             )
+            AND NOT EXISTS (
+              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
+            )
             RETURNING id;
             '''
             res = run_sql(ins_sql)
             if res and isinstance(res, list) and len(res) > 0:
+                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price > {price};")
                 print(f'[source:jirum] 신규 등록 성공! [{comm_source}/{mall}] {clean_title} ({price:,}원 {unit_str}) id={res[0].get("id")}')
                 registered += 1
         except Exception as e:
@@ -664,9 +668,14 @@ def collect_from_bbhd():
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
             )
+            AND NOT EXISTS (
+              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
+            )
             RETURNING id;
             '''
-            run_sql(ins_sql)
+            b_res = run_sql(ins_sql)
+            if b_res and isinstance(b_res, list) and len(b_res) > 0:
+                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price > {price};")
             new_max_id = max(new_max_id, wr_id)
         except Exception as e:
             print(f'[bbhd] wr_id={wr_id} 처리 실패: {e}')
@@ -836,6 +845,12 @@ def main():
         purge_old_history()
     except Exception as e:
         print(f'[purge error] {e}')
+
+    try:
+        # 중복 핫딜 만료 정리 (2026-11-09 냠이 개발팀 점검 건: #2012, #1885, #1884, #1936)
+        run_sql("UPDATE public.hotdeals SET expires_at = now() WHERE id IN (2012, 1885, 1884, 1936) AND expires_at > now();")
+    except Exception as e:
+        print(f'[expire duplicates error] {e}')
 
     try:
         collect_from_jirum_alarm()
