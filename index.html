@@ -1345,6 +1345,82 @@ body[data-ct="mypage"] .unused_cseg {
   border-color: #7C54C4 !important;
 }
 
+/* 💜 2안 키즈노트 원형 100% 싱크로율 (원길아 사장님 & 매니저님 최종 합의안: 배지·버튼 완전 삭제, 본론 2줄 + 54px 썸네일) */
+.mc-infeed-kidsnote {
+  position: relative;
+  width: 100%;
+  background: #FFFDF9;
+  border: 1px solid #EFE5D8;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(180, 140, 100, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.mc-infeed-kidsnote:active {
+  transform: scale(0.985);
+  background: #FDF6EC;
+}
+.mc-kn-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.mc-kn-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2D2725;
+  line-height: 1.35;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-kn-desc {
+  font-size: 12px;
+  color: #8C7D75;
+  line-height: 1.4;
+  margin-top: 4px;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-kn-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.mc-kn-thumb {
+  width: 86px;
+  height: 62px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
+  background: #fff;
+  display: block;
+}
+.mc-kn-thumb-contain {
+  object-fit: contain;
+  background: #FFF5E8;
+  padding: 3px;
+}
+@media (max-width: 360px) {
+  .mc-infeed-kidsnote { padding: 11px 12px; gap: 10px; }
+  .mc-kn-title { font-size: 14px; }
+  .mc-kn-desc { font-size: 11.5px; }
+  .mc-kn-thumb { width: 78px; height: 56px; border-radius: 8px; }
+}
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
      홈은 CSR 이라 JS 없이 받은 HTML 에 제목도 구조도 없었다(h1 0개·JSON-LD 0블록).
@@ -1472,22 +1548,16 @@ body.native-app .fmodal{padding-bottom:env(safe-area-inset-bottom,0px)}
 </div>
 
 
-<!-- 💛 카카오 로그인 바텀시트 (찜 보관 & 오픈 알림 통합 시트) -->
+<!-- 💛 카카오 로그인 바텀시트 (찜 보관 간편 로그인) -->
 <div id="kkoBg" onclick="kkoLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9992"></div>
 <div id="kkoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:24px 20px calc(26px + env(safe-area-inset-bottom));z-index:9993;transition:bottom .32s cubic-bezier(.4,0,.2,1);box-sizing:border-box">
   <div style="width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#FF9DC0,#7C54C4);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 5px 16px rgba(123,63,181,.28)">💜</div>
-  <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜 보관 & 오픈 알림</div>
-  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:16px;word-break:keep-all;text-wrap:balance">
-    카카오로 시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요
-  </div>
-  <div id="kkoNotiOpt" onclick="toggleKkoNoti(event)" style="background:#F8F6FC;border:1px solid #ECE5F6;border-radius:13px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
-    <div style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:#232326">
-      <span style="font-size:16px">🔔</span><span>오픈 예정 공구 알림 받기</span>
-    </div>
-    <input type="checkbox" id="kkoNotiChk" checked style="width:18px;height:18px;accent-color:#7C54C4;cursor:pointer;margin:0">
+  <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구 보관하기</div>
+  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:18px;word-break:keep-all;text-wrap:balance">
+    로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요
   </div>
   <div id="kkoBtns">
-  <button data-kko-main onclick="startKakaoWithNoti()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
+  <button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
     <span style="font-size:17px">💬</span> 카카오로 한 번에 시작하기
   </button>
   </div>
@@ -2269,7 +2339,7 @@ window.slimAdClick=function(id){
 </div>
 <!-- ===== /세일 일정 영역 ===== -->
 <div id="commView" style="display:none;padding:12px;min-height:120vh">
-    <!-- [💬 커뮤니티] 상단 1줄 원형 스토리 퀵바 5종 (ORDER_INDEX_MYPAGE_COMMUNITY_MASTER.md) -->
+    <!-- [💬 커뮤니티] 상단 1줄 원형 스토리 퀵바 5종 (ORDER_INDEX_MYPAGE_COMMUNITY_MASTER.md — 2026-11-10 사장님 지시: 핫딜공지방 단톡 제거, 맘캘방장/공식인스타 2종 분리) -->
     <div class="story-channel-bar" style="display:flex;align-items:center;justify-content:space-around;padding:12px 10px;background:#fff;border-bottom:1px solid #F2F4F6;margin-bottom:12px;">
       <!-- 1) 네이버 카페 -->
       <a href="https://cafe.naver.com/momcal/" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:5px;">
@@ -2277,25 +2347,27 @@ window.slimAdClick=function(id){
         <span style="font-size:11px;font-weight:600;color:#333D4B;">네이버카페</span>
       </a>
 
-      <!-- 2) 공식 인스타그램 -->
+      <!-- 2) 방장인스타 (사장님 2026-11-10 피드백: '방장인스타' 라벨 + 화이트 인스타 SVG 벡터) -->
       <a href="https://instagram.com/momcal_" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:5px;">
-        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#F58529,#DD2A7B,#8134AF);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 2px 6px rgba(221,42,123,0.25);">📷</div>
-        <span style="font-size:11px;font-weight:600;color:#333D4B;">인스타그램</span>
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#F58529,#DD2A7B,#8134AF);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(221,42,123,0.25);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:#333D4B;">방장인스타</span>
       </a>
 
-      <!-- 3) 공구단톡방 -->
+      <!-- 3) 맘캘 공식 인스타그램 -->
+      <a href="https://instagram.com/momcal_official" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:5px;position:relative;">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7C54C4,#9B6FD4,#F0E6FA);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 2px 6px rgba(124,84,196,0.25);">💜</div>
+        <span style="position:absolute;top:-2px;right:-2px;background:#7C54C4;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;">공식</span>
+        <span style="font-size:11px;font-weight:600;color:#333D4B;">공식인스타</span>
+      </a>
+
+      <!-- 4) 공구알림방 -->
       <a href="https://open.kakao.com/o/gJ3NIKCh" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:5px;position:relative;">
         <div style="width:48px;height:48px;border-radius:50%;background:#FEE500;display:flex;align-items:center;justify-content:center;color:#3C1E1E;font-size:18px;box-shadow:0 2px 6px rgba(254,229,0,0.35);">📢</div>
         <span style="position:absolute;top:-2px;right:-2px;background:#3182F6;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;">공지</span>
         <span style="font-size:11px;font-weight:600;color:#333D4B;">공구알림방</span>
       </a>
-
-      <!-- 4) 핫딜공지방 (카톡 오픈채팅 직연결) -->
-      <div onclick="window.open('https://open.kakao.com/o/pKNUHgVi', '_blank')" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;gap:5px;position:relative;">
-        <div style="width:48px;height:48px;border-radius:50%;background:#FFF1EC;display:flex;align-items:center;justify-content:center;color:#FF5722;font-size:20px;border:1.5px solid #FF5722;box-shadow:0 2px 6px rgba(255,87,34,0.25);">🔥</div>
-        <span style="position:absolute;top:-2px;right:-2px;background:#F04452;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;">NEW</span>
-        <span style="font-size:11px;font-weight:700;color:#FF5722;">핫딜공지방</span>
-      </div>
 
       <!-- 5) 육아수다방 -->
       <a href="https://open.kakao.com/o/gr2kJhCh" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:5px;">
@@ -3162,6 +3234,121 @@ function updateStatCounts(){
 }
 
 // 앱 중간 배너가 없는 쪽(라이브 웹)에서는 그냥 잇기 — 나눠 그리기가 같은 이름을 부른다
+
+// ── [인피드 혜택 카드: 키즈노트 100% 원형 확정안] ──
+var IN_FEED_PROMOS = [
+  {
+    id: 'klook_themepark',
+    title: '"주말에 아이랑 뭐 하지?" 고민 끝 40% 특가',
+    brand: '서울랜드·롯데월드',
+    category: '나들이/테마파크',
+    desc: '줄 안 서고 모바일 즉시입장 특가 예매',
+    cta: '특가 확인',
+    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=300&auto=format&fit=crop&q=80',
+    url: 'https://www.klook.com/ko/activity/48485-seoul-land-gyeonggido/?aid=15500&aff_pid=140703_momcal&utm_source=3hoursahead&utm_medium=affiliate&utm_campaign=140703'
+  },
+  {
+    id: 'cleaninglab_30k',
+    title: '육아도 벅찬데 청소까지? 오늘 쉬세요',
+    brand: '청소연구소',
+    category: '생활/가사',
+    desc: '주방·욕실부터 쓰레기 배출까지 3만 원 할인',
+    cta: '쿠폰 받기',
+    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&auto=format&fit=crop&q=80',
+    url: 'https://res.cleaninglab.co.kr/u/web_to_app.html'
+  },
+  {
+    id: 'wink_free_trial',
+    title: '공부 잔소리 끝! 4~7세 한글 윙크 0원',
+    brand: '단비교육 윙크',
+    category: '유아교육',
+    desc: '스스로 앉아 끝내는 공부! 교재 4권 무료증정',
+    cta: '신청하기',
+    thumb: 'momcal-wink-device.png',
+    url: 'https://m.wink.co.kr/client/mobile/experience'
+  },
+  {
+    id: 'child_insurance_quote',
+    title: '지인 눈치 안 보고! 어린이보험 1분',
+    brand: '보험다모아',
+    category: '금융/보험',
+    desc: '불필요한 특약 쏙 뺀 8개사 다이렉트 최저가',
+    cta: '견적 확인',
+    thumb: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=300&auto=format&fit=crop&q=80',
+    url: 'https://e-insmarket.or.kr/guaranteeIns/guaranteeInsList.knia?menuId=C005'
+  }
+];
+
+function getInFeedPromo(slotIdx) {
+  return IN_FEED_PROMOS[slotIdx % IN_FEED_PROMOS.length];
+}
+
+function handleInFeedPromoClick(id, event) {
+  if (event) { event.stopPropagation(); }
+  try {
+    if (typeof trackEvent === 'function') {
+      trackEvent('infeed_promo_click', id);
+    }
+  } catch(e) {}
+
+  var promo = null;
+  for (var i = 0; i < IN_FEED_PROMOS.length; i++) {
+    if (IN_FEED_PROMOS[i].id === id) { promo = IN_FEED_PROMOS[i]; break; }
+  }
+
+  if (id === 'cleaninglab_30k') {
+    var ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) {
+      // 🚀 안드로이드: 청소연구소 공식 인텐트 스킴 직접 실행
+      var intentUri = 'intent://launch?#Intent;scheme=cleaninglab-user;package=kr.co.cleaninglab.user;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dkr.co.cleaninglab.user;end;';
+      window.location.href = intentUri;
+      return;
+    } else if (/iPad|iPhone|iPod/i.test(ua)) {
+      // 🍏 iOS: 청소연구소 공식 web_to_app 브릿지
+      window.location.href = 'https://res.cleaninglab.co.kr/u/web_to_app.html';
+      return;
+    } else {
+      window.open('https://res.cleaninglab.co.kr/u/web_to_app.html', '_blank');
+      return;
+    }
+  }
+
+  var targetUrl = (promo && promo.url) ? promo.url : 'https://momcalendar.com';
+  window.open(targetUrl, '_blank');
+}
+
+function renderInFeedPromoCard(promo, context) {
+  if (!promo) return '';
+  var isGrid = (context === 'hotdeal');
+  var oc = 'handleInFeedPromoClick(\'' + promo.id + '\', event)';
+  var knGrid = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0;"' : ' style="margin: 10px 0;"';
+  var thumbFallback = (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src=\'https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png\';"' : '';
+  var thumbExtraClass = (promo.id === 'wink_free_trial') ? ' mc-kn-thumb-contain' : '';
+  return '<div class="mc-infeed-kidsnote"' + knGrid + ' onclick="' + oc + '">'
+    + '<div class="mc-kn-body">'
+      + '<div class="mc-kn-title">' + promo.title + '</div>'
+      + '<div class="mc-kn-desc">' + promo.desc + '</div>'
+    + '</div>'
+    + '<div class="mc-kn-right">'
+      + '<img class="mc-kn-thumb' + thumbExtraClass + '" src="' + promo.thumb + '"' + thumbFallback + ' alt="" loading="lazy" />'
+    + '</div>'
+  + '</div>';
+}
+
+function _injectInFeedGonggu(cards, startIdx, totalCount) {
+  if (!cards || !cards.length) return '';
+  var out = '';
+  for (var j = 0; j < cards.length; j++) {
+    var globalIdx = startIdx + j;
+    out += cards[j];
+    if (globalIdx === 39 || (globalIdx > 39 && (globalIdx - 39) % 40 === 0)) {
+      var promoSlot = Math.floor(globalIdx / 40);
+      out += renderInFeedPromoCard(getInFeedPromo(promoSlot), 'gonggu');
+    }
+  }
+  return out;
+}
+
 function _appJoin(cards){ return cards.join(''); }
 function renderList(){
   const el=document.getElementById('cardList');
@@ -4545,9 +4732,14 @@ function renderHotdeals(){
   }
 
   var cards = [];
+  var hdPromoCount = 0;
   deduped.forEach(function(h, idx){
     if (idx === 8 && top10Html) {
       cards.push(top10Html);
+    }
+    // 핫딜 2열 그리드 전폭 인피드 슬롯: 40번째에서 1차 노출, 그 후 40개마다
+    if (idx === 39 || (idx > 39 && (idx - 39) % 40 === 0)) {
+      cards.push(renderInFeedPromoCard(getInFeedPromo(hdPromoCount++), 'hotdeal'));
     }
     cards.push(hdGridCardHtml(h));
   });
@@ -6052,14 +6244,22 @@ function toggleWish(id, btn, ev){
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on){
-    // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트. 알림이 꺼져 있으면 「알려드려요」라고 약속하지 않는다
+    // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트.
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){}
-    try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
-      mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
-    try{ if(window.__mcAppIn && window.__mcAppIn()) mcToast('내 찜에 담았어요 💜', 2000); }catch(_){}   // 앱 로그인 손님: 바텀시트 없이 토스트만(사장님 2026-11-02)
-    // 하트 한 번에 바로 시트가 뜨면 부담스러움 → 찜 2개째부터, 그것도 하루에 하나만.
-    if(WISH.size >= 2){
-      if(!(typeof maybeAskLogin==='function' && maybeAskLogin())) maybeAskNoti();
+
+    // 🔴 2026-11-10 사장님·매니저님 긴급 직격 지시: 비로그인은 찜하면 즉시 로그인 바텀시트만 호출!
+    if(!isLoggedIn()){
+      window.__kkoAutoOpen = true;
+      setTimeout(function(){
+        openLoginSheet('찜한 공구 보관하기', '로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요', '', 'wish');
+      }, 250);
+    } else {
+      // 💜 로그인 상태
+      mcToast('내 찜에 담았어요 💜', 2000);
+      // 알림은 앱에서만 가능: 앱이고 알림 권한이 꺼져 있으면 찐 폰 설정 직결
+      if(typeof _isNativeApp==='function' && _isNativeApp() && !(typeof notiGranted==='function' && notiGranted())){
+        _appPushAsk(false);
+      }
     }
   }
   else if(fSt==='wish') renderList();       // 내 찜 화면에서 해제하면 목록 갱신
@@ -6123,8 +6323,8 @@ setTimeout(async function(){
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
-var KKO_DEFAULT_T='찜 보관 & 오픈 알림';
-var KKO_DEFAULT_S='카카오로 시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요';
+var KKO_DEFAULT_T='찜한 공구 보관하기';
+var KKO_DEFAULT_S='로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요';
 var KKO_DEFAULT_F='';
 
 function toggleKkoNoti(ev){
@@ -6187,17 +6387,8 @@ function openLoginSheet(title, sub, fine, intent){
     if(s && /카카오로 시작하면/.test(s.innerHTML)) s.innerHTML = '시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요';
     if(f && /닉네임만 받아요/.test(f.textContent)) f.textContent = f.textContent.replace(/닉네임만 받아요( · )?/, '');
   } }catch(_){}
-  // 알림 옵션 박스 노출 분기: 출석/ics 등 특수 로그인이면 숨김, 일반 온보딩/찜 저장이면 표시
-  try{ var opt=document.getElementById('kkoNotiOpt');
-    var can=_kkoNotiPossible() && !(intent==='attend' || intent==='ics');
-    if(opt){ opt.style.display=can?'flex':'none'; var _c=document.getElementById('kkoNotiChk'); if(_c) _c.checked=true; }
-    // 알림을 못 받는 곳이면 「알려드려요」 약속을 문구에서 뺀다
-    if(!can && s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요');
-    if(can && typeof _isNativeApp==='function' && _isNativeApp()){   // 앱: OS 가 이미 거부한 기기면 체크칸을 숨긴다(저장값만으로는 모른다)
-      var _P=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
-      if(_P && _P.checkPermissions) _P.checkPermissions().then(function(st){ if(st && st.receive==='denied'){ var o2=document.getElementById('kkoNotiOpt'); if(o2) o2.style.display='none'; if(s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요'); } }).catch(function(){});
-    }
-  }catch(_){}
+  // 알림 옵션 박스 전면 제거 (매니저님 2026-11-10: 의미없는 체크박스 박멸, 로그인에만 집중)
+  try{ var opt=document.getElementById('kkoNotiOpt'); if(opt) opt.style.display='none'; }catch(_){}
   var wasOpen=(bg.style.display==='block');
   // ⚠ 인앱 안내(kkoInAppGuide)가 버튼을 통째로 바꿔놓는다 → 시트를 열 때마다 원래 버튼으로 되돌린다.
   try{ var _bx=document.getElementById("kkoBtns");
@@ -6970,7 +7161,7 @@ async function wnAllow(){
 
 // 실제 푸시 구독 → 서버 저장
 // ── 📲 웹 알림 → 앱에서만 (2026-10-26) — 앱 출시하는 날 WEB_PUSH_APP_ONLY=true ──
-const WEB_PUSH_APP_ONLY=false;
+const WEB_PUSH_APP_ONLY=true;
 const APP_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
 // 📲 앱 다운로드 띠 (2026-11-01) — 모바일 웹에만. 앱 안·홈화면 앱(standalone)·PC 는 안 띄움. 닫기 7일(mc_appbn_next). 누르면 push_app_banner_go
 function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.now()+7*864e5)); }catch(_){} var el=document.getElementById('appBn'); if(el) el.style.display='none'; try{ trackEvent('app_banner_close',''); }catch(_){} }
@@ -7916,35 +8107,11 @@ function _appSettingsResume(){
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') back(); });
   try{ Capacitor.Plugins.App.addListener('appStateChange', function(st){ if(st && st.isActive) back(); }); }catch(_){}
 }
-function _appAlarmCss(){
-  if(document.getElementById('mc-alarm-css')) return;
-  var st=document.createElement('style'); st.id='mc-alarm-css';
-  st.textContent='#mcAlarm{position:fixed;inset:0;z-index:99998;display:none}#mcAlarm.open{display:block}#mcAlarm .al-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}'
-  +'#mcAlarm .al-sh{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.22,1,.36,1)}#mcAlarm.open .al-sh{transform:none}'
-  +'#mcAlarm .al-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-10px auto 18px}#mcAlarm .al-t{font-size:18px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.02em}'
-  +'#mcAlarm .al-s{margin-top:8px;font-size:14px;line-height:1.5;color:#4E5968;word-break:keep-all}#mcAlarm .al-row{margin-top:18px;background:#F2F4F6;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#191F28}'
-  +'#mcAlarm .al-row img{width:38px;height:38px;border-radius:10px;display:block}#mcAlarm .al-tg{margin-left:auto;width:48px;height:28px;border-radius:14px;background:#C9CDD2;position:relative}#mcAlarm .al-tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff}'
-  +'#mcAlarm .al-go{display:block;width:100%;height:52px;margin-top:28px;border:0;border-radius:26px;background:#7C54C4;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}#mcAlarm .al-go:active{transform:scale(.97)}'
-  +'#mcAlarm .al-later{display:flex;align-items:center;justify-content:center;width:100%;height:44px;margin-top:6px;border:0;background:none;color:#8B95A1;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}';
-  document.head.appendChild(st);
-}
-// 「휴대폰 앱 알림이 꺼져 있어요」 시트 — 맘맘 12번 구성(제목 · 앱 아이콘+알림 허용 스위치 · 큰 버튼 · 작은 「나중에」)
+function _appAlarmCss(){ /* deprecated - mcAlarm removed */ }
+// 「휴대폰 앱 알림이 꺼져 있어요」 가짜 흉내 시트 전면 박멸 (매니저님 2026-11-10 지시)
+// 가짜 시트(#mcAlarm)를 일절 띄우지 않고 찐 휴대폰 설정 / 시스템 허용창으로 바로 직결한다.
 function _appAlarmSheet(src){
-  try{
-    _appAlarmCss();
-    var m=document.getElementById('mcAlarm');
-    if(!m){
-      m=document.createElement('div'); m.id='mcAlarm'; m.setAttribute('role','dialog');
-      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에 알려 드려요</div>'
-        +'<button type="button" class="al-go">알림 켜기</button><button type="button" class="al-later">나중에</button></div>';
-      document.body.appendChild(m);
-    }
-    var close=function(){ m.classList.remove('open'); };
-    m.querySelector('.al-bg').onclick=m.querySelector('.al-later').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','later|'+(src||'')); }catch(_){} };
-    m.querySelector('.al-go').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','go|'+(src||'')); }catch(_){} _appAlarmGo(); };
-    m.classList.add('open');
-    try{ trackEvent('app_alarm_sheet','show|'+(src||'')); }catch(_){}
-  }catch(_){}
+  _appAlarmGo();
 }
 // 「알림 켜기」 — 안드로이드: 폰 알림 설정 화면으로 바로 · 아이폰: 허용창 한 번 → 거부했으면 설정(애플은 허용창을 한 번 띄워야 설정에 알림 줄이 생긴다)
 async function _appAlarmGo(){
@@ -7970,27 +8137,28 @@ async function _appAlarmGo(){
     }
   }catch(_){}
 }
-// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 3일에 한 번, 소개(로그인) 화면이 떠 있으면 안 띄운다
+// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 매니저님 지침: 비로그인은 절대 안 띄우고, 로그인 상태에서만 찐 설정 직결
 function _appAlarmAuto(state){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(!isLoggedIn()) return false;
     if(state==='granted' || (typeof notiGranted==='function' && notiGranted())) return false;
     if(document.getElementById('appOnboardingWrap')) return false;
-    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
+    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;
     var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false;
     try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}
-    _appAlarmSheet('auto'); return true;
+    _appAlarmGo(); return true;
   }catch(_){ return false; }
 }
-// 알림 신청 순간(벨·하트) — force=벨은 항상, 하트 등은 3일에 한 번. 시트만 띄운다(시스템 허용창은 시트의 「알림 켜기」 뒤)
+// 알림 신청 순간(벨·하트) — 매니저님 지시: 가짜 시트 전면 제거, 비로그인은 로그인만, 로그인 후 찐 폰 설정 직결!
 function _appPushAsk(force){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(!isLoggedIn()) return false;
     if(typeof notiGranted==='function' && notiGranted()) return false;
-    if(!force){
-    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
-      var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){} }
-    _appAlarmSheet(force?'bell':'heart'); return true;
+    var _k=document.getElementById('kkoSheet');
+    if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0'||window.__kkoAutoOpen)) return false;
+    _appAlarmGo(); return true;
   }catch(_){ return false; }
 }
 function nxdBell(id,btn,ev){
@@ -8007,53 +8175,29 @@ function nxdBell(id,btn,ev){
     return;
   }
 
-  // 2. 찜 즉시 등록 (버튼 보라색 활성화 + 카운트 +1)
+  // 2. 🔴 매니저님 2026-11-10 철칙: 비로그인이면 오직 로그인 바텀시트만 깔끔하게 호출하고 즉시 반환! (2중 바텀시트 원천 박멸)
+  if(!isLoggedIn()){
+    _nxOn(id);
+    return;
+  }
+
+  // 3. 로그인이 된 상태: 찜 등록
   _nxOn(id);
 
-  // 3. 브라우저 알림이 이미 허용된 기기 -> 토스트만 띄우고 종료
+  // 4. 🔴 매니저님 철칙: 웹은 로그인 & 찜 저장만 가능! 알림은 앱에서만 가능하므로 웹은 토스트만 띄우고 가짜 팝업 일체 없이 종료!
+  if(!(typeof _isNativeApp==='function' && _isNativeApp())){
+    try{ mcToast(`💜 ${md} 오픈 예정 공구를 찜했어요!`); }catch(_){}
+    return;
+  }
+
+  // 5. 앱 환경: 이미 알림 권한이 켜져 있으면 안내 토스트
   if(typeof notiGranted==='function' && notiGranted()){
     try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){}
     return;
   }
 
-  // 3-1. 앱(안드·아이폰): 웹용 팝업 말고 시스템 허용창 → 꺼져 있으면 휴대폰 설정 열기 시트 (2026-11-05)
-  if(typeof _isNativeApp==='function' && _isNativeApp()){ _appPushAsk(true); return; }
-
-  // 4. 카톡·인스타·스레드 인앱 브라우저 -> 2중 팝업 없이 1개의 명확한 안내 팝업만 표시
-  const _inApp=(typeof _isInApp==='function' && _isInApp());
-  if(_inApp){
-    _nxGuide(location.origin+'/?nxbell='+id, navigator.userAgent||'');
-    return;
-  }
-
-  // 5. 일반 브라우저(크롬·사파리 등) 알림 허용 팝업
-  let m=document.getElementById('nxdAsk');
-  if(!m){
-    m=document.createElement('div'); m.id='nxdAsk';
-    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
-    document.body.appendChild(m);
-    m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
-  }
-  m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
-  m.querySelector('.nxa-s').innerHTML=`${md} 오픈일 아침 9시에 알림을 보내드려요`;
-  m.querySelector('.nxa-yes').textContent='알림 받을게요';
-  m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){
-    m.classList.remove('open');
-    try{ mcToast('찜해 두었어요'); }catch(_){}
-  };
-  m.querySelector('.nxa-yes').onclick=async function(){
-    m.classList.remove('open');
-    try{
-      if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }
-      if(typeof pushSupported==='function' && pushSupported() && !(window.Notification && Notification.permission==='denied')){
-        const ok=await enablePush();
-        mcToast(ok?`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`:'알림 권한이 꺼져 있어요 · 찜은 해 두었어요');
-      } else {
-        mcToast(window.Notification && Notification.permission==='denied' ? '알림이 차단돼 있어요 · 주소창 ⚙️에서 허용할 수 있어요' : '찜해 두었어요');
-      }
-    }catch(_){}
-  };
-  m.classList.add('open');
+  // 6. 앱 환경: 알림 권한이 꺼져 있으면 가짜 시트 없이 찐 폰 알림 설정 화면 / 시스템 허용창으로 바로 직행!
+  _appAlarmGo();
 }
 
 function _nxOutside(id){
@@ -8660,6 +8804,90 @@ function closeChatMenu(){
     <a href="/c/%EC%97%AC%ED%96%89%EA%B3%B5%EA%B5%AC.html">여행</a>
     <a href="/c/%EC%83%9D%ED%95%84%ED%92%88%EA%B3%B5%EA%B5%AC.html">생필품</a>
     <a href="/c/%EB%B0%98%EB%A0%A4%EB%8F%99%EB%AC%BC%EA%B3%B5%EA%B5%AC.html">반려동물</a>
+  </div>
+  <!-- 주요 브랜드·상품 색인 80선 (가나다순 색인화로 경쟁사 트래픽 추정 차단 + 구글봇 1-Hop 직통 크롤러 링크 100% 보존) -->
+  <div class="seolinks-t">주요 브랜드·상품 색인</div>
+  <div class="seolinks-row">
+    <a href="/g/%EA%B0%80%EB%B2%A0.html">가베</a>
+    <a href="/g/%EA%B3%B5%EB%A3%A1.html">공룡</a>
+    <a href="/g/%EA%B5%90%EA%B5%AC.html">교구</a>
+    <a href="/g/%EA%B7%B8%EB%A0%88%EC%9D%B4%ED%8A%B8%EB%B6%81%EC%8A%A4.html">그레이트북스</a>
+    <a href="/g/%EA%B7%B8%EB%A6%BC%EC%B1%85.html">그림책</a>
+    <a href="/g/%EA%B8%B0%EC%A0%80%EA%B7%80.html">기저귀</a>
+    <a href="/g/%EB%82%AE%EC%9E%A0%EC%9D%B4%EB%B6%88.html">낮잠이불</a>
+    <a href="/g/%EB%84%98%EB%B2%84%EB%B8%94%EB%9F%AD%EC%8A%A4.html">넘버블럭스</a>
+    <a href="/g/%EB%85%B8%EB%B6%80%EC%98%81.html">노부영</a>
+    <a href="/g/%EB%89%B4%EB%82%98.html">뉴나</a>
+    <a href="/g/%EB%8B%A4%EC%9D%B4%EC%B9%98.html">다이치</a>
+    <a href="/g/%EB%8F%84%EB%A0%88%EB%AF%B8.html">도레미</a>
+    <a href="/g/%EB%91%90%EB%91%90%EC%8A%A4%ED%86%A0%EB%A6%AC.html">두두스토리</a>
+    <a href="/g/%EB%94%94%EC%A6%88%EB%8B%88.html">디즈니</a>
+    <a href="/g/%EB%A0%88%EA%B3%A0.html">레고</a>
+    <a href="/g/%EB%A3%A8%EC%86%94.html">루솔</a>
+    <a href="/g/%EB%A6%AC%EC%95%88.html">리안</a>
+    <a href="/g/%EB%A6%BD%ED%94%84%EB%A1%9C%EA%B7%B8.html">립프로그</a>
+    <a href="/g/%EB%A7%88%EC%9D%B4%ED%81%AC%EB%A1%9C%ED%82%A5%EB%B3%B4%EB%93%9C.html">마이크로킥보드</a>
+    <a href="/g/%EB%A7%90%EB%9E%91%ED%95%98%EB%8B%88.html">말랑하니</a>
+    <a href="/g/%EB%A7%A5%ED%8F%AC%EB%A8%B8%EC%8A%A4.html">맥포머스</a>
+    <a href="/g/%EB%AA%A8%EC%9D%B4%EB%AA%B0%EB%A5%B8.html">모이몰른</a>
+    <a href="/g/%EB%AA%AC%ED%85%8C%EC%86%8C%EB%A6%AC.html">몬테소리</a>
+    <a href="/g/%EB%AA%BD%EB%94%94%EC%97%90%EC%8A%A4.html">몽디에스</a>
+    <a href="/g/%EB%AC%BC%ED%8B%B0%EC%8A%88.html">물티슈</a>
+    <a href="/g/%EB%B0%8D%ED%81%AC%EB%AE%A4.html">밍크뮤</a>
+    <a href="/g/%EB%B0%B0%EB%8F%84%EB%9D%BC%EC%A7%80.html">배도라지</a>
+    <a href="/g/%EB%B2%A0%EB%B2%A0%EC%88%B2.html">베베숲</a>
+    <a href="/g/%EB%B2%A0%EB%B2%A0%EC%BF%A1.html">베베쿡</a>
+    <a href="/g/%EB%B2%A0%EC%9D%B4%EB%B9%84%EB%B8%8C%EB%A0%88%EC%A7%9C.html">베이비브레짜</a>
+    <a href="/g/%EB%B3%B4%EB%93%9C%EA%B2%8C%EC%9E%84.html">보드게임</a>
+    <a href="/g/%EB%B3%B4%EB%93%9C%EB%B6%81.html">보드북</a>
+    <a href="/g/%EB%B6%80%EA%B0%80%EB%B6%80.html">부가부</a>
+    <a href="/g/%EB%B6%84%EC%9C%A0%ED%8F%AC%ED%8A%B8.html">분유포트</a>
+    <a href="/g/%EB%B8%8C%EB%9D%BC%EC%9A%B4%EB%AC%BC%ED%8B%B0%EC%8A%88.html">브라운물티슈</a>
+    <a href="/g/%EB%B8%94%EB%A3%A8%EB%8F%85.html">블루독</a>
+    <a href="/g/%EB%B8%94%EB%A3%A8%EB%9E%98%EB%B9%97.html">블루래빗</a>
+    <a href="/g/%EB%B9%84%EB%A3%A1%EC%86%8C.html">비룡소</a>
+    <a href="/g/%EB%B9%84%ED%8C%90%ED%85%90.html">비판텐</a>
+    <a href="/g/%EC%82%AC%EA%B3%BC%EC%A6%99.html">사과즙</a>
+    <a href="/g/%EC%82%AC%EC%9A%B4%EB%93%9C%EB%B6%81.html">사운드북</a>
+    <a href="/g/%EC%82%B0%EA%B3%A8%EC%9D%B4%EC%9C%A0%EC%8B%9D.html">산골이유식</a>
+    <a href="/g/%EC%86%8C%EC%A0%84%EC%A7%91.html">소전집</a>
+    <a href="/g/%EC%8A%A4%ED%8A%B8%EB%9D%BC%EC%9D%B4%EB%8D%94.html">스트라이더</a>
+    <a href="/g/%EC%8B%A4%EB%82%B4%EB%B3%B5.html">실내복</a>
+    <a href="/g/%EC%8B%B8%EC%9D%B4%EB%B2%A1%EC%8A%A4.html">싸이벡스</a>
+    <a href="/g/%EC%95%84%EA%B0%80%EB%B0%A9.html">아가방</a>
+    <a href="/g/%EC%95%84%EA%B8%B0%EB%9D%A0.html">아기띠</a>
+    <a href="/g/%EC%95%84%EB%84%AC%EB%9D%BC.html">아넬라</a>
+    <a href="/g/%EC%95%84%EB%9E%8C%EB%B6%81%EC%8A%A4.html">아람북스</a>
+    <a href="/g/%EC%95%84%EC%9D%B4%EB%B0%B0%EB%83%87.html">아이배냇</a>
+    <a href="/g/%EC%95%84%ED%86%A0%ED%8C%9C.html">아토팜</a>
+    <a href="/g/%EC%95%8C%EC%A7%91%EB%A7%A4%ED%8A%B8.html">알집매트</a>
+    <a href="/g/%EC%95%95%EC%86%8C%EB%B0%94.html">압소바</a>
+    <a href="/g/%EC%95%95%ED%83%80%EB%B0%80.html">압타밀</a>
+    <a href="/g/%EC%95%BC%EB%AC%BC%EC%95%BC%EB%AC%BC.html">야물야물</a>
+    <a href="/g/%EC%97%90%EA%B7%B8%EC%8A%A4%EC%BF%A8.html">에그스쿨</a>
+    <a href="/g/%EC%97%90%EB%A5%B4%EA%B3%A0.html">에르고</a>
+    <a href="/g/%EC%97%90%EB%A5%B4%EA%B3%A0%ED%8C%8C%EC%9A%B0%EC%B9%98.html">에르고파우치</a>
+    <a href="/g/%EC%98%A4%EB%A5%B4%EB%8B%A4.html">오르다</a>
+    <a href="/g/%EC%9C%A0%EB%9D%BC%EC%9D%B4%ED%81%AC.html">유라이크</a>
+    <a href="/g/%EC%9C%A0%EB%AA%A8%EC%B0%A8.html">유모차</a>
+    <a href="/g/%EC%9C%A0%EB%B9%84%EB%A7%98.html">유비맘</a>
+    <a href="/g/%EC%9C%A0%ED%8C%A1.html">유팡</a>
+    <a href="/g/%EC%9E%90%EC%97%B0%EA%B4%80%EC%B0%B0%EC%B1%85.html">자연관찰책</a>
+    <a href="/g/%EC%A1%B0%EC%9D%B4.html">조이</a>
+    <a href="/g/%EC%A1%B0%EC%9E%91%EB%B6%81.html">조작북</a>
+    <a href="/g/%EC%B2%B4%EC%98%A8%EA%B3%84.html">체온계</a>
+    <a href="/g/%EC%B6%94%ED%94%BC.html">추피</a>
+    <a href="/g/%EC%B9%B4%EC%8B%9C%ED%8A%B8.html">카시트</a>
+    <a href="/g/%ED%81%AC%EB%A6%BC%ED%95%98%EC%9A%B0%EC%8A%A4.html">크림하우스</a>
+    <a href="/g/%ED%82%A4%EC%A6%88%EC%8A%A4%EC%BD%9C%EB%A0%88.html">키즈스콜레</a>
+    <a href="/g/%ED%8A%A4%EB%A6%BD.html">튤립사운드북</a>
+    <a href="/g/%ED%8A%B8%EB%A6%BD%ED%8A%B8%EB%9E%A9.html">트립트랩</a>
+    <a href="/g/%ED%8C%8C%EC%8A%A4%ED%87%B4%EB%A5%B4.html">파스퇴르</a>
+    <a href="/g/%ED%8C%8C%ED%81%AC%EB%A1%A0.html">파크론</a>
+    <a href="/g/%ED%8C%B8%ED%8D%BC%EC%8A%A4.html">팸퍼스</a>
+    <a href="/g/%ED%8D%BC%EC%A6%90.html">퍼즐</a>
+    <a href="/g/%ED%8E%98%EB%84%AC%EB%A1%9C%ED%8E%98.html">페넬로페</a>
+    <a href="/g/%ED%8F%B4%EB%A0%88%EB%93%9C.html">폴레드</a>
   </div>
 </details>
 
@@ -10028,9 +10256,9 @@ body>div[style*="#2b2340"],body>div[style*="rgb(43, 35, 64)"]{width:max-content!
     el.innerHTML='<div class="wo-box"><b class="wo-t">찜·알림은 앱에서만 쓸 수 있어요</b><div class="wo-row">'+(ios?b('ios')+b('android'):b('android')+b('ios'))+'</div><button class="wo-x" type="button" onclick="document.getElementById(\'mcWoSheet\').classList.remove(\'open\')">닫기</button></div>';
     requestAnimationFrame(function(){ el.classList.add('open'); });
   }
-  var tw=window.toggleWish; if(typeof tw==='function') window.toggleWish=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('wish'); };
+  // var tw=window.toggleWish; // uninhibited wish on web (2026-11-10)
   var ow=window.openWnSheet; if(typeof ow==='function') window.openWnSheet=function(){ sheet('wn'); };
-  var nb=window.nxdBell; if(typeof nb==='function') window.nxdBell=function(id,btn,ev){ if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(_){} } sheet('bell'); };   /* 오픈 알림 벨: 찜·「알림 설정할까요?」 없이 앱 안내 시트만 */
+  // var nb=window.nxdBell; // uninhibited next gonggu bell wish on web (2026-11-10)   /* 오픈 알림 벨: 찜·「알림 설정할까요?」 없이 앱 안내 시트만 */
   window.mcWebAppOnly=sheet;
 }catch(e){} })();
 </script>
