@@ -1438,6 +1438,239 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 </style>
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
+
+<!-- 💜 맘캘린더 네이티브 인피드 혜택/CPA 슬롯 (키즈노트·맘맘형 웜베이지 피드 일체형) -->
+<style>
+.mc-infeed-promo {
+  min-height: 104px;
+  background: #FAF7F2;
+  border: 1px solid #EBE4D8;
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: transform 0.15s ease, background 0.15s ease;
+  margin: 12px 0 10px;
+}
+.mc-infeed-promo:active {
+  transform: scale(0.985);
+  background: #F4EFE6;
+}
+.mc-infeed-thumb-box {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #EFE9DE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mc-infeed-thumb-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mc-infeed-icon-ph {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: #F3ECE0;
+}
+.mc-infeed-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.mc-infeed-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.mc-infeed-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8C6A3E;
+  background: rgba(140, 106, 62, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: -0.2px;
+}
+.mc-infeed-tag {
+  font-size: 11px;
+  color: #8B95A1;
+  font-weight: 500;
+}
+.mc-infeed-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #191F28;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+.mc-infeed-desc {
+  font-size: 11.5px;
+  color: #6B7684;
+  line-height: 1.3;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+.mc-infeed-cta {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.mc-infeed-btn {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #7C54C4;
+  background: #fff;
+  border: 1px solid #D5C2F0;
+  padding: 6px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(124, 84, 196, 0.08);
+}
+@media (max-width: 360px) {
+  .mc-infeed-thumb-box { width: 54px; height: 54px; }
+  .mc-infeed-title { font-size: 12.5px; }
+  .mc-infeed-desc { font-size: 11px; }
+  .mc-infeed-btn { padding: 4px 8px; font-size: 11px; }
+}
+</style>
+<script>
+// 세시간전(클룩) 키카/테마파크 365일 데일리 롤링 풀
+var _doy = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+var _klookPool = [
+  { title: '전국 인기 뽀로로파크 & 타요 키즈카페 40% 특가', desc: '실내 놀이터 & 패밀리 이용권 단독 최저가 예약' },
+  { title: '전국 아쿠아플라넷 & 아쿠아리움 40% 단독 특가', desc: '일산·광교·여수·제주 패밀리 입장권 즉시 할인' },
+  { title: '챔피언1250 & 플레이타임 키즈카페 40% 특가', desc: '에너지 넘치는 우리 아이 실내 익스트림 놀이터' },
+  { title: '전국 온천 스파 & 워터파크 겨울 핫딜 40% 특가', desc: '아이와 따뜻한 겨울 물놀이 스플라스 리솜·설악 워터피아' },
+  { title: '서울랜드 & 롯데월드 패밀리 자유이용권 40% 특가', desc: '주말 가족 나들이 필수! 테마파크 당일 사용 할인' }
+];
+var _todayKlook = _klookPool[_doy % _klookPool.length];
+
+var IN_FEED_PROMOS = [
+  {
+    id: 'klook_kids_hotdeal',
+    badge: '스폰서드 · 40% 특가',
+    tag: '키즈 핫플 · 세시간전',
+    title: _todayKlook.title,
+    desc: _todayKlook.desc,
+    cta: '특가 확인',
+    icon: '🎡',
+    img: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=200&auto=format&fit=crop&q=80',
+    url: 'https://3hoursahead.com/s/140703'
+  },
+  {
+    id: 'cleaninglab_30k',
+    badge: '육아 지원 · 첫 이용 혜택',
+    tag: '가사 꿀팁 · 청소연구소',
+    title: '육아에 지칠 때, 우리 집 가사청소 3만원 할인',
+    desc: '추천코드 [ 1DE9D14 ] 등록 시 3만 원 쿠폰팩 즉시 지급',
+    cta: '쿠폰 받기',
+    icon: '✨',
+    img: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop&q=80',
+    url: 'https://www.cleaninglab.co.kr/'
+  },
+  {
+    id: 'wink_free_trial',
+    badge: '교육 체험 · 100% 무료',
+    tag: '유아 놀이학습 · 윙크',
+    title: '4~7세 한글·수학·영어 윙크 7일 무료체험 + 선물',
+    desc: '전용 학습기 무료 배송 & 회수까지 전액 0원 체험 혜택',
+    cta: '무료체험',
+    icon: '📚',
+    img: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=200&auto=format&fit=crop&q=80',
+    url: 'https://m.wink.co.kr/client/mobile/hpage/apply_point/?teacher=6947648'
+  },
+  {
+    id: 'child_insurance_quote',
+    badge: '금융 꿀팁 · 무료 견적',
+    tag: '육아 안심 · 태아·어린이보험',
+    title: '놓치기 쉬운 우리 아이 보험료 다이렉트 1분 비교',
+    desc: '주요 손해보험사 실시간 비교 견적 & 무료 보장 분석',
+    cta: '비교하기',
+    icon: '🛡️',
+    img: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=200&auto=format&fit=crop&q=80',
+    url: 'https://momcalendar.com/terms.html'
+  }
+];
+
+function getInFeedPromo(slotIdx) {
+  return IN_FEED_PROMOS[slotIdx % IN_FEED_PROMOS.length];
+}
+
+function handleInFeedPromoClick(id, url, event) {
+  if (event) { event.stopPropagation(); }
+  try {
+    if (typeof trackEvent === 'function') {
+      trackEvent('infeed_promo_click', id);
+    }
+  } catch(e) {}
+  window.open(url, '_blank');
+}
+
+function renderInFeedPromoCard(promo, context) {
+  var isGrid = (context === 'hotdeal');
+  var gridClass = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0 8px;"' : '';
+  
+  return '<div class="mc-infeed-promo" data-promo-id="' + promo.id + '"' + gridClass + ' onclick="handleInFeedPromoClick(\'' + promo.id + '\', \'' + promo.url + '\', event)">'
+    + '<div class="mc-infeed-thumb-box">'
+      + '<img src="' + promo.img + '" alt="" loading="lazy" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+      + '<div class="mc-infeed-icon-ph" style="display:none;">' + promo.icon + '</div>'
+    + '</div>'
+    + '<div class="mc-infeed-body">'
+      + '<div class="mc-infeed-meta">'
+        + '<span class="mc-infeed-badge">' + promo.badge + '</span>'
+        + '<span class="mc-infeed-tag">' + promo.tag + '</span>'
+      + '</div>'
+      + '<div class="mc-infeed-title">' + promo.title + '</div>'
+      + '<div class="mc-infeed-desc">' + promo.desc + '</div>'
+    + '</div>'
+    + '<div class="mc-infeed-cta">'
+      + '<span class="mc-infeed-btn">' + promo.cta + ' &gt;</span>'
+    + '</div>'
+  + '</div>';
+}
+
+function _injectInFeedGonggu(cards, startIdx, totalCount) {
+  if (!cards || !cards.length) return '';
+  var out = '';
+  // 첫 번째 카드는 8번째 뒤(index 7), 이후 10개마다 (17, 27, 37...)
+  for (var j = 0; j < cards.length; j++) {
+    var globalIdx = startIdx + j;
+    out += cards[j];
+    if (globalIdx === 7 || (globalIdx > 7 && (globalIdx - 7) % 10 === 0)) {
+      var promoSlot = Math.floor(globalIdx / 10);
+      out += renderInFeedPromoCard(getInFeedPromo(promoSlot), 'gonggu');
+    }
+  }
+  return out;
+}
+</script>
+
 </head>
 <body>
 
@@ -3246,7 +3479,7 @@ function renderList(){
   if(!arr.length || arr.length<=LIST_CHUNK || !('IntersectionObserver' in window)){
     _listKey=''; _listArr=null; _listShown=0;
     el.innerHTML=_sortChipsHtml()+(arr.length
-      ?_appJoin(arr.map(item=>renderCard(item)))
+      ?_injectInFeedGonggu(arr.map(item=>renderCard(item)), 0, arr.length)
       :`<div class="empty">해당하는 공구가 없어요 🙅</div>`);
     return;
   }
@@ -3255,7 +3488,7 @@ function renderList(){
   const keep=(key===_prevKey)?Math.max(LIST_CHUNK,_listShown):LIST_CHUNK;
   const n=Math.min(arr.length,keep);
   _listKey=key; _listArr=arr; _listShown=n;
-  el.innerHTML=_sortChipsHtml()+_appJoinPart(arr.slice(0,n).map(item=>renderCard(item)),0,arr.length)+(n<arr.length?'<div id="cardMore" aria-hidden="true" style="height:1px"></div>':'');
+  el.innerHTML=_sortChipsHtml()+_injectInFeedGonggu(arr.slice(0,n).map(item=>renderCard(item)), 0, arr.length)+(n<arr.length?'<div id="cardMore" aria-hidden="true" style="height:1px"></div>':'');
   if(n>=arr.length) return;   // 이미 다 그렸으면 감시자 없음
   const m=document.getElementById('cardMore');
   _listIO=new IntersectionObserver(function(es){ if(_gen!==_listGen) return; if(es.some(e=>e.isIntersecting)) _listMore(_gen); },{rootMargin:'2000px 0px'});
@@ -3271,7 +3504,7 @@ function _listMore(gen){
   if(gen!==_listGen || !_listArr || _listShown>=_listArr.length) return false;
   const m=document.getElementById('cardMore'); if(!m) return false;
   const s=_listShown, e=Math.min(_listArr.length, s+LIST_STEP);
-  m.insertAdjacentHTML('beforebegin', _appJoinPart(_listArr.slice(s,e).map(item=>renderCard(item)), s, _listArr.length));
+  m.insertAdjacentHTML('beforebegin', _injectInFeedGonggu(_listArr.slice(s,e).map(item=>renderCard(item)), s, _listArr.length));
   _listShown=e;
   if(e>=_listArr.length){ _listStop(); m.remove(); return true; }
   // 붙인 뒤에도 끝 표시가 아직 가까우면(감시자는 「들어올 때」만 알린다) 한 번 더
@@ -3475,7 +3708,8 @@ async function renderSearchAll(){
     <div style="height:12px"></div>
   ` : '';
 
-  const html = secGonggu + secHotdeal + secExp + secComm;
+  const promoSearch = (total >= 4) ? renderInFeedPromoCard(getInFeedPromo(1), 'search') : '';
+  const html = secGonggu + promoSearch + secHotdeal + secExp + secComm;
 
   const meta = total ? `<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
@@ -4552,9 +4786,14 @@ function renderHotdeals(){
   }
 
   var cards = [];
+  var hdPromoCount = 0;
   deduped.forEach(function(h, idx){
     if (idx === 8 && top10Html) {
       cards.push(top10Html);
+    }
+    // 핫딜 2열 그리드 전폭 인피드 슬롯: Top 10 뒤 14번째에서 1차 노출, 그 후 10개마다(24, 34...)
+    if (idx === 14 || (idx > 14 && (idx - 14) % 10 === 0)) {
+      cards.push(renderInFeedPromoCard(getInFeedPromo(hdPromoCount++), 'hotdeal'));
     }
     cards.push(hdGridCardHtml(h));
   });
