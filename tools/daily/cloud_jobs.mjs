@@ -51,6 +51,8 @@ const JOBS = {
   //   코드·제외 셀러 명단·분류 사전은 공개 저장소에 없다 → cloud_pack.mjs 가 비공개 버킷에 올린 묶음(pack)을 받아 푼다. 한국시각 14:40·04:40
   linkinbio:       { cron: '40 5,19 * * *', script: 'tools/daily/linkinbio_all.mjs', pack: 'linkinbio', pc: 'momcal-littly 04:20 꼬리(서버로 이관, PC 쪽 호출은 뺌)',
                      out: [/^scratchpad\/linkinbio_all_log\.txt$/, /^scratchpad\/register_table_log\.txt$/, /^scratchpad\/handoff-log\/register_table_ids_.*\.tsv$/] },
+  // 로그인 길별(카카오·네이버·애플) 완료율 감시 — 네이버가 95번 중 4번만 완료된 걸 아무도 못 본 사고(2026-11-10) 뒤. health_alerts login:<제공자>
+  login_watch:     { cron: '17 * * * *', script: 'tools/daily/login_watch.mjs', pc: '(새 감시 · 서버 전용)' },
   date_audit_dry:  { cron: '-', script: 'tools/daily/gonggu_date_audit.mjs', bundle: true, pc: '(시험용 · 고치지 않고 보고서만)', out: [/^scratchpad\/date_audit\/report_.*\.md$/] },
   period_fill_dry: { cron: '-', script: 'tools/daily/period_fill.mjs', bundle: true, pc: '(시험용 · 확인만)', out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/] },
 };
