@@ -1763,13 +1763,18 @@ function getInFeedPromo(slotIdx) {
   return IN_FEED_PROMOS[slotIdx % IN_FEED_PROMOS.length];
 }
 
-function handleInFeedPromoClick(id, url, event) {
+function handleInFeedPromoClick(id, event) {
   if (event) { event.stopPropagation(); }
   try {
     if (typeof trackEvent === 'function') {
       trackEvent('infeed_promo_click', id);
     }
   } catch(e) {}
+
+  var promo = null;
+  for (var i = 0; i < IN_FEED_PROMOS.length; i++) {
+    if (IN_FEED_PROMOS[i].id === id) { promo = IN_FEED_PROMOS[i]; break; }
+  }
 
   if (id === 'cleaninglab_30k') {
     var ua = navigator.userAgent || '';
@@ -1789,7 +1794,8 @@ function handleInFeedPromoClick(id, url, event) {
     }
   }
 
-  window.open(url, '_blank');
+  var targetUrl = (promo && promo.url) ? promo.url : 'https://momcalendar.com';
+  window.open(targetUrl, '_blank');
 }
 
 function renderInFeedPromoCard(promo, context) {
