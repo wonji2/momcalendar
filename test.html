@@ -1547,9 +1547,9 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   position: relative;
   width: 100%;
   background: #FFFDF9;
-  border: 1px solid #F3EAE0;
+  border: 1px solid #EFE5D8;
   border-radius: 14px;
-  padding: 13px 15px;
+  padding: 12px 14px;
   box-sizing: border-box;
   box-shadow: 0 2px 6px rgba(180, 140, 100, 0.05);
   display: flex;
@@ -1573,20 +1573,21 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   justify-content: center;
 }
 .mc-kn-title {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 800;
   color: #2D2725;
-  line-height: 1.3;
+  line-height: 1.35;
   letter-spacing: -0.3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .mc-kn-desc {
-  font-size: 11.5px;
+  font-size: 12px;
   color: #8C7D75;
-  line-height: 1.35;
+  line-height: 1.4;
   margin-top: 4px;
+  letter-spacing: -0.2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1597,20 +1598,25 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   align-items: center;
 }
 .mc-kn-thumb {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
+  width: 86px;
+  height: 62px;
+  border-radius: 10px;
   object-fit: cover;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
   background: #fff;
   display: block;
 }
+.mc-kn-thumb-contain {
+  object-fit: contain;
+  background: #FFF5E8;
+  padding: 3px;
+}
 @media (max-width: 360px) {
-  .mc-infeed-kidsnote { padding: 11px 13px; }
+  .mc-infeed-kidsnote { padding: 11px 12px; gap: 10px; }
   .mc-kn-title { font-size: 14px; }
-  .mc-kn-desc { font-size: 11px; }
-  .mc-kn-thumb { width: 46px; height: 46px; }
+  .mc-kn-desc { font-size: 11.5px; }
+  .mc-kn-thumb { width: 78px; height: 56px; border-radius: 8px; }
 }
 
 /* 💜 네이티브 인피드 시안 3대 실시간 비교 스위처 FAB (원길아 사장님 2026-11-10 "둘 다 목업 보내" 지시) */
@@ -1665,12 +1671,12 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 }
 </style>
 <script>
-// 세시간전(클룩) 키카/테마파크 365일 데일리 롤링 풀 (단어 중복 전면 차별화 & 공식 제휴 표기 제거)
+// 세시간전(클룩) 키카/테마파크 365일 데일리 롤링 풀 (매니저님 2026-11-10: 여백 없이 알차게 채운 20자 내외 후킹)
 var _doy = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
 var _klookPool = [
-  { title: '서울랜드·롯데월드 40%', desc: '줄 안 서고 모바일 즉시입장' },
-  { title: '키즈카페·아쿠아 40%', desc: '전국 300곳 바코드 즉시입장' },
-  { title: '온천 스파·워터파크 40%', desc: '따뜻한 가족 힐링 당일특가' }
+  { title: '서울랜드 & 롯데월드 40% 특가', desc: '줄 서지 않고 당일 바코드 즉시입장' },
+  { title: '온천 스파 & 전국 워터파크 40% 특가', desc: '따뜻한 온천 가족 힐링 당일 모바일특가' },
+  { title: '전국 300곳 키즈카페 & 아쿠아 40%', desc: '현장 대기 없는 모바일 바코드 즉시입장' }
 ];
 var _todayKlook = _klookPool[_doy % _klookPool.length];
 
@@ -1682,27 +1688,27 @@ var IN_FEED_PROMOS = [
     category: '키즈 핫플',
     desc: _todayKlook.desc,
     cta: '특가 확인',
-    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=200&auto=format&fit=crop&q=80',
+    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=300&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&auto=format&fit=crop&q=80',
     url: 'https://www.klook.com/ko/activity/48485-seoul-land-gyeonggido/?aid=15500&aff_pid=140703_momcal&utm_source=3hoursahead&utm_medium=affiliate&utm_campaign=140703'
   },
   {
     id: 'cleaninglab_30k',
-    title: '가사청소 첫 이용 3만 원',
+    title: '가사청소 첫 이용 3만 원 즉시할인',
     brand: '청소연구소',
     category: '생활/가사',
-    desc: '주방·욕실부터 쓰레기 배출까지',
+    desc: '주방·욕실부터 쓰레기 분리배출까지 안심',
     cta: '쿠폰 받기',
-    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop&q=80',
+    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80',
     url: 'https://play.google.com/store/apps/details?id=kr.co.cleaninglab.user'
   },
   {
     id: 'wink_free_trial',
-    title: '4~7세 윙크봇 0원 체험',
+    title: '4~7세 전용 윙크봇 학습기 0원 체험',
     brand: '단비교육 윙크',
     category: '유아교육',
-    desc: '전용 단말기+교재 4권 무료배송',
+    desc: '특허 로봇단말기 + 실물 교재 4권 무료배송',
     cta: '신청하기',
     thumb: 'momcal-wink-device.png',
     bgImg: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
@@ -1710,12 +1716,12 @@ var IN_FEED_PROMOS = [
   },
   {
     id: 'child_insurance_quote',
-    title: '태아·어린이보험 1분 견적',
+    title: '우리 아이 태아·어린이보험 1분 견적',
     brand: '보험다모아',
     category: '금융/보험',
-    desc: '국내 8개사 실시간 무료 비교',
+    desc: '국내 8개 주요 보험사 실시간 무료 비교',
     cta: '견적 확인',
-    thumb: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200&auto=format&fit=crop&q=80',
+    thumb: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=300&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
     url: 'https://e-insmarket.or.kr/guaranteeIns/guaranteeInsList.knia?menuId=C005'
   }
@@ -1817,17 +1823,18 @@ function renderInFeedPromoCard(promo, context) {
     }
   }
 
-  // ── [2안] 키즈노트 100% 원형 싱크로율 (배지·버튼 완전 삭제, 본론 2줄 + 54px 썸네일) ──
+  // ── [2안] 키즈노트 100% 원형 (매니저님 2026-11-10: 직사각형 86x62px 썸네일 + 여백 없이 꽉 찬 2줄) ──
   if (_infeedMode === '2') {
     var knGrid = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0;"' : ' style="margin: 10px 0;"';
     var thumbFallback = (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src=\'https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png\';"' : '';
+    var thumbExtraClass = (promo.id === 'wink_free_trial') ? ' mc-kn-thumb-contain' : '';
     return '<div class="mc-infeed-kidsnote"' + knGrid + ' onclick="' + oc + '">'
       + '<div class="mc-kn-body">'
         + '<div class="mc-kn-title">' + promo.title + '</div>'
         + '<div class="mc-kn-desc">' + promo.desc + '</div>'
       + '</div>'
       + '<div class="mc-kn-right">'
-        + '<img class="mc-kn-thumb" src="' + promo.thumb + '"' + thumbFallback + ' alt="" loading="lazy" />'
+        + '<img class="mc-kn-thumb' + thumbExtraClass + '" src="' + promo.thumb + '"' + thumbFallback + ' alt="" loading="lazy" />'
       + '</div>'
     + '</div>';
   }
