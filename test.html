@@ -1439,124 +1439,108 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 <style id="mc-native-app">body.native-app .side-link[onclick*="forceInstallPwa"]{display:none!important}body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
 
-<!-- 💜 맘캘린더 네이티브 인피드 혜택/CPA 슬롯 (키즈노트·맘맘형 웜베이지 피드 일체형) -->
+<!-- 💜 맘캘린더 네이티브 인피드 혜택/CPA 슬롯 (키즈노트형 풀블리드 포토 배너 & 플로팅 버튼) -->
 <style>
 .mc-infeed-promo {
-  min-height: 104px;
-  background: #FAF7F2;
-  border: 1px solid #EBE4D8;
-  border-radius: 16px;
-  padding: 12px 14px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  text-decoration: none;
   position: relative;
+  width: 100%;
+  height: 94px;
+  min-height: 94px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-  transition: transform 0.15s ease, background 0.15s ease;
+  cursor: pointer;
   margin: 12px 0 10px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #222;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .mc-infeed-promo:active {
   transform: scale(0.985);
-  background: #F4EFE6;
+  filter: brightness(0.94);
 }
-.mc-infeed-thumb-box {
+.mc-infeed-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.3s ease;
+}
+.mc-infeed-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(18,18,24,0.76) 0%, rgba(18,18,24,0.42) 58%, rgba(18,18,24,0.68) 100%);
+  pointer-events: none;
+}
+.mc-infeed-content {
   position: relative;
-  width: 66px;
-  height: 66px;
-  flex-shrink: 0;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #EFE9DE;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.mc-infeed-thumb-box img {
+  z-index: 2;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-}
-.mc-infeed-icon-ph {
+  padding: 0 16px;
+  box-sizing: border-box;
   display: flex;
-  width: 100%;
-  height: 100%;
   align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  background: #F3ECE0;
+  justify-content: space-between;
+  gap: 12px;
 }
-.mc-infeed-body {
+.mc-infeed-left {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 4px;
 }
-.mc-infeed-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 3px;
-}
-.mc-infeed-badge {
-  font-size: 10.5px;
+.mc-infeed-ad-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 9.5px;
   font-weight: 700;
-  color: #8C6A3E;
-  background: rgba(140, 106, 62, 0.12);
-  padding: 2px 6px;
+  color: rgba(255,255,255,0.88);
+  background: rgba(0,0,0,0.36);
+  backdrop-filter: blur(4px);
+  padding: 1.5px 5px;
   border-radius: 4px;
   letter-spacing: -0.2px;
 }
-.mc-infeed-tag {
-  font-size: 11px;
-  color: #8B95A1;
-  font-weight: 500;
-}
 .mc-infeed-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #191F28;
-  line-height: 1.35;
+  font-size: 15px;
+  font-weight: 800;
+  color: #FFFFFF;
+  line-height: 1.25;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
   letter-spacing: -0.3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.55);
 }
-.mc-infeed-desc {
-  font-size: 11.5px;
-  color: #6B7684;
-  line-height: 1.3;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.2px;
-}
-.mc-infeed-cta {
+.mc-infeed-btn-box {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
 }
 .mc-infeed-btn {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #7C54C4;
-  background: #fff;
-  border: 1px solid #D5C2F0;
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  color: #191F28;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 8px 14px;
   border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(124, 84, 196, 0.08);
+  letter-spacing: -0.2px;
+  transition: background 0.15s ease;
 }
 @media (max-width: 360px) {
-  .mc-infeed-thumb-box { width: 54px; height: 54px; }
-  .mc-infeed-title { font-size: 12.5px; }
-  .mc-infeed-desc { font-size: 11px; }
-  .mc-infeed-btn { padding: 4px 8px; font-size: 11px; }
+  .mc-infeed-promo { height: 88px; min-height: 88px; }
+  .mc-infeed-title { font-size: 13.5px; }
+  .mc-infeed-btn { font-size: 11.5px; padding: 6.5px 11px; }
+  .mc-infeed-content { padding: 0 12px; }
 }
 </style>
 <script>
@@ -1574,46 +1558,30 @@ var _todayKlook = _klookPool[_doy % _klookPool.length];
 var IN_FEED_PROMOS = [
   {
     id: 'klook_kids_hotdeal',
-    badge: '스폰서드 · 40% 특가',
-    tag: '키즈 핫플 · 세시간전',
-    title: _todayKlook.title,
-    desc: _todayKlook.desc,
+    title: _todayKlook.title.replace(' 패밀리 자유이용권', ''),
     cta: '특가 확인',
-    icon: '🎡',
-    img: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=200&auto=format&fit=crop&q=80',
+    bgImg: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&auto=format&fit=crop&q=80',
     url: 'https://3hoursahead.com/s/140703'
   },
   {
     id: 'cleaninglab_30k',
-    badge: '육아 지원 · 첫 이용 혜택',
-    tag: '가사 꿀팁 · 청소연구소',
-    title: '육아에 지칠 때, 우리 집 가사청소 3만원 할인',
-    desc: '추천코드 [ 1DE9D14 ] 등록 시 3만 원 쿠폰팩 즉시 지급',
+    title: '가사청소 3만 원 할인 쿠폰팩',
     cta: '쿠폰 받기',
-    icon: '✨',
-    img: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop&q=80',
+    bgImg: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80',
     url: 'https://www.cleaninglab.co.kr/'
   },
   {
     id: 'wink_free_trial',
-    badge: '교육 체험 · 100% 무료',
-    tag: '유아 놀이학습 · 윙크',
-    title: '4~7세 한글·수학·영어 윙크 7일 무료체험 + 선물',
-    desc: '전용 학습기 무료 배송 & 회수까지 전액 0원 체험 혜택',
+    title: '윙크 4~7세 놀이학습 7일 무료체험',
     cta: '무료체험',
-    icon: '📚',
-    img: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=200&auto=format&fit=crop&q=80',
+    bgImg: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
     url: 'https://m.wink.co.kr/client/mobile/hpage/apply_point/?teacher=6947648'
   },
   {
     id: 'child_insurance_quote',
-    badge: '금융 꿀팁 · 무료 견적',
-    tag: '육아 안심 · 태아·어린이보험',
-    title: '놓치기 쉬운 우리 아이 보험료 다이렉트 1분 비교',
-    desc: '주요 손해보험사 실시간 비교 견적 & 무료 보장 분석',
+    title: '태아·어린이보험 1분 다이렉트 비교',
     cta: '비교하기',
-    icon: '🛡️',
-    img: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?w=200&auto=format&fit=crop&q=80',
+    bgImg: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
     url: 'https://momcalendar.com/terms.html'
   }
 ];
@@ -1634,23 +1602,19 @@ function handleInFeedPromoClick(id, url, event) {
 
 function renderInFeedPromoCard(promo, context) {
   var isGrid = (context === 'hotdeal');
-  var gridClass = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0 8px;"' : '';
+  var gridStyle = isGrid ? ' style="grid-column: 1 / -1; margin: 12px 0 10px;"' : '';
   
-  return '<div class="mc-infeed-promo" data-promo-id="' + promo.id + '"' + gridClass + ' onclick="handleInFeedPromoClick(\'' + promo.id + '\', \'' + promo.url + '\', event)">'
-    + '<div class="mc-infeed-thumb-box">'
-      + '<img src="' + promo.img + '" alt="" loading="lazy" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
-      + '<div class="mc-infeed-icon-ph" style="display:none;">' + promo.icon + '</div>'
-    + '</div>'
-    + '<div class="mc-infeed-body">'
-      + '<div class="mc-infeed-meta">'
-        + '<span class="mc-infeed-badge">' + promo.badge + '</span>'
-        + '<span class="mc-infeed-tag">' + promo.tag + '</span>'
+  return '<div class="mc-infeed-promo" data-promo-id="' + promo.id + '"' + gridStyle + ' onclick="handleInFeedPromoClick('' + promo.id + '', '' + promo.url + '', event)">'
+    + '<div class="mc-infeed-bg" style="background-image: url('' + promo.bgImg + '');"></div>'
+    + '<div class="mc-infeed-overlay"></div>'
+    + '<div class="mc-infeed-content">'
+      + '<div class="mc-infeed-left">'
+        + '<span class="mc-infeed-ad-badge">스폰서드</span>'
+        + '<div class="mc-infeed-title">' + promo.title + '</div>'
       + '</div>'
-      + '<div class="mc-infeed-title">' + promo.title + '</div>'
-      + '<div class="mc-infeed-desc">' + promo.desc + '</div>'
-    + '</div>'
-    + '<div class="mc-infeed-cta">'
-      + '<span class="mc-infeed-btn">' + promo.cta + ' &gt;</span>'
+      + '<div class="mc-infeed-btn-box">'
+        + '<span class="mc-infeed-btn">' + promo.cta + ' ›</span>'
+      + '</div>'
     + '</div>'
   + '</div>';
 }
@@ -1658,12 +1622,12 @@ function renderInFeedPromoCard(promo, context) {
 function _injectInFeedGonggu(cards, startIdx, totalCount) {
   if (!cards || !cards.length) return '';
   var out = '';
-  // 첫 번째 카드는 8번째 뒤(index 7), 이후 10개마다 (17, 27, 37...)
+  // 간격 2배 확대: 첫 번째 카드는 20번째 뒤(index 19), 이후 20개마다 (39, 59, 79...)
   for (var j = 0; j < cards.length; j++) {
     var globalIdx = startIdx + j;
     out += cards[j];
-    if (globalIdx === 7 || (globalIdx > 7 && (globalIdx - 7) % 10 === 0)) {
-      var promoSlot = Math.floor(globalIdx / 10);
+    if (globalIdx === 19 || (globalIdx > 19 && (globalIdx - 19) % 20 === 0)) {
+      var promoSlot = Math.floor(globalIdx / 20);
       out += renderInFeedPromoCard(getInFeedPromo(promoSlot), 'gonggu');
     }
   }
@@ -3708,8 +3672,8 @@ async function renderSearchAll(){
     <div style="height:12px"></div>
   ` : '';
 
-  const promoSearch = (total >= 4) ? renderInFeedPromoCard(getInFeedPromo(1), 'search') : '';
-  const html = secGonggu + promoSearch + secHotdeal + secExp + secComm;
+  const promoSearch = (total >= 1) ? renderInFeedPromoCard(getInFeedPromo(0), 'search') : '';
+  const html = secGonggu + secHotdeal + secExp + secComm + promoSearch;
 
   const meta = total ? `<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
@@ -4792,7 +4756,8 @@ function renderHotdeals(){
       cards.push(top10Html);
     }
     // 핫딜 2열 그리드 전폭 인피드 슬롯: Top 10 뒤 14번째에서 1차 노출, 그 후 10개마다(24, 34...)
-    if (idx === 14 || (idx > 14 && (idx - 14) % 10 === 0)) {
+    // 핫딜 2열 그리드 전폭 인피드 슬롯: 20번째에서 1차 노출, 그 후 20개마다 (간격 2배 완화)
+    if (idx === 19 || (idx > 19 && (idx - 19) % 20 === 0)) {
       cards.push(renderInFeedPromoCard(getInFeedPromo(hdPromoCount++), 'hotdeal'));
     }
     cards.push(hdGridCardHtml(h));
