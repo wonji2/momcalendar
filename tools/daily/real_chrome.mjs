@@ -29,10 +29,12 @@ const CANDIDATES = [
 ];
 export const REAL_PROFILE = path.join(os.homedir(), 'browser-profile-realchrome');
 const LOCK = path.join(os.homedir(), '.momcal-realchrome.lock');
+// 프로필마다 잠금을 따로 둔다(2026-11-10) — 품절 판정기가 자기 프로필(browser-profile-soldout)로 돌 때 인스타 수확과 서로 기다리지 않게. 기본 프로필은 옛 잠금 그대로.
+const lockOf = (profile) => (profile === REAL_PROFILE ? LOCK : profile + '.lock');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function alive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
-async function acquire(maxWaitMs = 180000) {
+async function acquire(LOCK, maxWaitMs = 180000) {
   const t0 = Date.now();
   for (;;) {
     try { fs.writeFileSync(LOCK, String(process.pid), { flag: 'wx' }); return; }
@@ -53,7 +55,8 @@ async function acquire(maxWaitMs = 180000) {
 export async function openRealChrome({ profile = REAL_PROFILE, port = 9341, visible = false, startUrl = 'about:blank' } = {}) {
   const exe = CANDIDATES.find((p) => fs.existsSync(p));
   if (!exe) throw new Error('real_chrome: chrome.exe 를 못 찾았다');
-  await acquire();
+  const LOCK = lockOf(profile);
+  await acquire(LOCK);
   const release = () => { try { fs.unlinkSync(LOCK); } catch {} };
   let child = null;
   try {
