@@ -4828,7 +4828,7 @@ async function openHdSheet(id){
       </div>
     </div>
 
-    ${h.is_lowest?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🏆 추적 기간 중 <b>가장 싼 가격</b>이에요</div>`
+    ${(h.is_lowest&&!hdRose(h,pts))?`<div style="background:#FFF1EE;border:1px solid #FAD6CD;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#C0361F;margin-bottom:12px">🏆 추적 기간 중 <b>가장 싼 가격</b>이에요</div>`
       :(h.source==='goldbox'?`<div style="background:#FFF8E8;border:1px solid #F5E0AE;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#8A6100;margin-bottom:12px">⭐ 쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>`
       :'')}
 
@@ -4845,11 +4845,11 @@ async function openHdSheet(id){
       ? `<div style="font-size:12.5px;color:#6D6579;line-height:1.7;background:#FAF8FC;border-radius:12px;padding:11px 13px;margin-bottom:14px;text-align:center">
            판매처 표기가 ${wonFmt(h.price_before)} → <b style="color:#E8402A">${wonFmt(h.price)}</b>
          </div>`
-      : (h.source==='goldbox'&&!dropPct ? `<div class="hd-one">쿠팡이 <b>오늘의 특가</b>로 고른 상품이에요</div>` : (function(){ var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var pc=av>h.price?Math.round((av-h.price)/av*100):0; return `<div class="hd-one" id="hdOne"${pc?'':' hidden'}>평소보다 <b>${pc}% 싸요</b></div>`; })())}
+      : (h.source==='goldbox'&&!dropPct ? `<div class="hd-one">쿠팡이 <b>오늘의 특가</b>로 고른 상품이에요</div>` : (function(){ var rs=hdRose(h,pts); if(rs) return `<div class="hd-one">${+rs.day.slice(5,7)}/${+rs.day.slice(8,10)} 기록 가격은 <b>${wonFmt(rs.price)}</b>이에요</div>`; var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg; var pc=av>h.price?Math.round((av-h.price)/av*100):0; return `<div class="hd-one" id="hdOne"${pc?'':' hidden'}>평소보다 <b>${pc}% 싸요</b></div>`; })())}
 
     ${(function(){
       var av=(__hd.h===h&&__hd.M)?__hd.M.avg:avg;
-      var df=(av>h.price)?(av-h.price):0;
+      var df=(av>h.price&&!hdRose(h,pts))?(av-h.price):0;
       var mallName=h.mall||((h.source==='coupang'||h.source==='goldbox')?'쿠팡':'');
       var safeLink = h.link || '#';
 
@@ -10229,6 +10229,7 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 .hd-one b{color:#E8402A;font-weight:800}
 .hdc-empty{height:96px;display:flex;align-items:center;justify-content:center;text-align:center;color:#C6C0CE;font-size:11.5px;background:#FBFAFC;border-radius:9px}
 .hd-bottom{display:flex;align-items:center;gap:12px;margin-top:10px}
+.hd-diff[hidden],.hd-one[hidden]{display:none!important}
 .hd-diff{display:flex;flex-direction:column;justify-content:center;min-width:68px}
 .hd-diff .l{font-size:10.5px;color:#8B95A1;line-height:14px}
 .hd-diff .v{font-size:14px;font-weight:800;color:#FF4742;line-height:18px;letter-spacing:-.3px}
@@ -10239,6 +10240,9 @@ body[data-ct="community"] .main-banner-section,body[data-ct="community"] #nextZo
 <script id="mc-hdsheet-js">
 // ── 핫딜 시트 가격 추이: 1개월(30일)·2개월(60일)·3개월(90일)·6개월(180일) 일별 완벽 일치화 ──
 var __hd={h:null,pts:[],period:2,win:[],M:null};
+// 등록일 이후 기록된 마지막 가격이 카드 가격보다 2% 넘게 오르면 그 기록을 돌려준다(없으면 null) — 2026-11-10
+function hdRose(h,pts){ if(!h||!pts||!pts.length||!h.price) return null; var l=pts.slice().sort(function(a,b){return String(a.day).localeCompare(String(b.day));})[pts.length-1]; var reg=h.created_at?new Date(Date.parse(h.created_at)+9*3600e3).toISOString().slice(0,10):''; var d=String(l.day).slice(0,10); return (reg&&d>=reg&&Number(l.price)>h.price*1.02)?{day:d,price:Number(l.price)}:null; }
+function hdTodayKST(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
 function hdDays(s){ return Date.parse(s+'T00:00:00Z')/864e5; }
 function hdMD(s){
   var p=String(s).split('-');
@@ -10309,7 +10313,7 @@ function hdChartBox(h,pts,period){
     +'<div class="hdc-head"><span class="hdc-title">'+ttl+'</span><div class="hdc-tabs">'+tabs+'</div></div>'
     
     +'<div class="hdc-touch" id="hdcTouch" onpointerdown="hdcMove(event)" onpointermove="hdcMove(event)" onpointerup="hdcReset()" onpointercancel="hdcReset()" onpointerleave="hdcReset()">'+svg+'</div>'
-    +'<div class="hdc-date-axis"><span>'+d0+'</span><span>'+d1+'</span><span>'+d2+'</span><span>'+d3+'</span><span style="color:#191F28;font-weight:700">오늘 ('+d4+')</span></div>'
+    +'<div class="hdc-date-axis"><span>'+d0+'</span><span>'+d1+'</span><span>'+d2+'</span><span>'+d3+'</span><span style="color:#191F28;font-weight:700">'+(win[n-1].day===hdTodayKST()?'오늘 ('+d4+')':d4)+'</span></div>'
     +'<div class="hdc-stats">'
       +'<div class="hdc-stat hi"><div class="l">▲ 최고가</div><div class="v">'+wonFmt(hi)+'</div></div>'
       +'<div class="hdc-stat av"><div class="l">평균가</div><div class="v">'+wonFmt(avg)+'</div></div>'
@@ -10319,9 +10323,9 @@ function hdChartBox(h,pts,period){
 }
 function hdPeriod(p){ var box=document.getElementById('hdChartBox'); if(!box||!__hd.h) return; box.innerHTML=hdChartBox(__hd.h,__hd.pts,p); hdSyncDiff(); try{ trackEvent('hd_chart_period',String(p)); }catch(_){} }
 function hdSyncDiff(){
-  var h=__hd.h, M=__hd.M; if(!h||!M) return; var av=M.avg, df=av>h.price?av-h.price:0;
+  var h=__hd.h, M=__hd.M; if(!h||!M) return; var rs=hdRose(h,__hd.pts); var av=M.avg, df=(av>h.price&&!rs)?av-h.price:0;
   var d=document.getElementById('hdDiff'); if(d){ d.hidden=!df; var v=document.getElementById('hdDiffV'); if(v) v.textContent='-'+wonFmt(df); }
-  var o=document.getElementById('hdOne'); if(o){ var pc=av>h.price?Math.round((av-h.price)/av*100):0; o.hidden=!pc; var bb=o.querySelector('b'); if(bb) bb.textContent=pc+'% 싸요'; }
+  var o=document.getElementById('hdOne'); if(o){ var pc=(av>h.price&&!rs)?Math.round((av-h.price)/av*100):0; o.hidden=!pc; var bb=o.querySelector('b'); if(bb) bb.textContent=pc+'% 싸요'; }
 }
 function hdcMove(e){
   var wrap=document.getElementById('hdcTouch'), M=__hd.M, win=__hd.win; if(!wrap||!M||!win.length) return;
