@@ -1541,6 +1541,162 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   .mc-infeed-btn { font-size: 11.5px; padding: 6.5px 11px; }
   .mc-infeed-content { padding: 0 12px; }
 }
+
+/* 💜 2안 키즈노트형 웜베이지 원형 복제 카드 (티켓/쿠폰 바) */
+.mc-infeed-kidsnote {
+  position: relative;
+  width: 100%;
+  background: #FFFDF9;
+  border: 1px solid #F3EAE0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(180, 140, 100, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.mc-infeed-kidsnote:active {
+  transform: scale(0.985);
+  background: #FDF6EC;
+}
+.mc-kn-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mc-kn-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.mc-kn-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #E67E22;
+  background: #FDF2E2;
+  padding: 1.5px 6px;
+  border-radius: 4px;
+  letter-spacing: -0.2px;
+}
+.mc-kn-ad {
+  font-size: 9px;
+  font-weight: 600;
+  color: #A89F91;
+  border: 1px solid #EADBCC;
+  padding: 0.5px 3.5px;
+  border-radius: 3px;
+}
+.mc-kn-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2D2725;
+  line-height: 1.3;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-kn-desc {
+  font-size: 11.5px;
+  color: #8C7D75;
+  line-height: 1.35;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-kn-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mc-kn-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  border: 1.5px solid #fff;
+}
+.mc-kn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #E67E22;
+  color: #FFFFFF;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 7px 11px;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(230, 126, 34, 0.28);
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+@media (max-width: 360px) {
+  .mc-kn-desc { display: none; }
+  .mc-kn-thumb { width: 36px; height: 36px; }
+  .mc-kn-btn { font-size: 11px; padding: 6px 9px; }
+}
+
+/* 💜 네이티브 인피드 시안 3대 실시간 비교 스위처 FAB (원길아 사장님 2026-11-10 "둘 다 목업 보내" 지시) */
+.infeed-switcher-fab {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(25, 31, 40, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 30px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.32);
+  border: 1px solid rgba(255,255,255,0.18);
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
+}
+.infeed-sw-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #B0B8C1;
+  padding: 0 4px 0 6px;
+  white-space: nowrap;
+}
+.infeed-sw-btn {
+  border: none;
+  background: transparent;
+  color: #C1C7CD;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.infeed-sw-btn.active {
+  background: #7C54C4;
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(124,84,196,0.45);
+}
+@media (max-width: 380px) {
+  .infeed-sw-label { display: none; }
+  .infeed-sw-btn { font-size: 11px; padding: 5px 8px; }
+}
 </style>
 <script>
 // 세시간전(클룩) 키카/테마파크 365일 데일리 롤링 풀
@@ -1558,32 +1714,80 @@ var IN_FEED_PROMOS = [
   {
     id: 'klook_kids_hotdeal',
     title: _todayKlook.title.replace(' 패밀리 자유이용권', ''),
+    brand: '세시간전 × 맘캘',
+    category: '키즈 핫플',
+    desc: '전국 테마파크 & 키즈카페 40% 단독 특가',
     cta: '특가 확인',
+    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=200&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=800&auto=format&fit=crop&q=80',
     url: 'https://3hoursahead.com/s/140703'
   },
   {
     id: 'cleaninglab_30k',
     title: '가사청소 3만 원 할인 쿠폰팩',
+    brand: '청소연구소',
+    category: '생활/가사',
+    desc: '첫 이용 고객 전원 3만 원 쿠폰 즉시 지급',
     cta: '쿠폰 받기',
+    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80',
     url: 'https://www.cleaninglab.co.kr/'
   },
   {
     id: 'wink_free_trial',
     title: '윙크 4~7세 놀이학습 7일 무료체험',
+    brand: '윙크 학습',
+    category: '유아교육',
+    desc: '전용 학습 단말기 + 필수 교재 7일 무료 배송',
     cta: '무료체험',
+    thumb: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=200&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
     url: 'https://m.wink.co.kr/client/mobile/hpage/apply_point/?teacher=6947648'
   },
   {
     id: 'child_insurance_quote',
     title: '태아·어린이보험 1분 다이렉트 비교',
+    brand: '리더스CPA',
+    category: '금융/보험',
+    desc: '국내 주요 보험사 실시간 비교 & 무료 상담',
     cta: '비교하기',
+    thumb: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
     url: 'https://momcalendar.com/terms.html'
   }
 ];
+
+// URL query ?mode=1, ?mode=2, ?mode=3 또는 localStorage
+var _infeedMode = (function(){
+  try {
+    var p = new URLSearchParams(window.location.search).get('mode');
+    if (p && (p === '1' || p === '2' || p === '3')) return p;
+    var saved = localStorage.getItem('mc_infeed_mode');
+    if (saved && (saved === '1' || saved === '2' || saved === '3')) return saved;
+  } catch(e) {}
+  return '1'; // 기본값 1안 (당근/토스형 일체형)
+})();
+
+window.setInfeedMode = function(m) {
+  _infeedMode = String(m);
+  try { localStorage.setItem('mc_infeed_mode', _infeedMode); } catch(e) {}
+  updateInfeedSwitcherUi();
+  try {
+    if (typeof renderList === 'function') renderList();
+    if (typeof renderHotdeals === 'function') renderHotdeals();
+    if (typeof renderSearchAll === 'function' && typeof searchAllOn === 'function' && searchAllOn()) renderSearchAll();
+  } catch(e) {}
+};
+
+function updateInfeedSwitcherUi() {
+  for (var i = 1; i <= 3; i++) {
+    var b = document.getElementById('swBtn' + i);
+    if (b) {
+      if (_infeedMode === String(i)) b.classList.add('active');
+      else b.classList.remove('active');
+    }
+  }
+}
 
 function getInFeedPromo(slotIdx) {
   return IN_FEED_PROMOS[slotIdx % IN_FEED_PROMOS.length];
@@ -1601,9 +1805,67 @@ function handleInFeedPromoClick(id, url, event) {
 
 function renderInFeedPromoCard(promo, context) {
   var isGrid = (context === 'hotdeal');
+  var oc = 'handleInFeedPromoClick(\'' + promo.id + '\', \'' + promo.url + '\', event)';
+
+  // ── [1안] 당근/토스형 피드 일체형 카드 ──
+  if (_infeedMode === '1') {
+    if (isGrid) {
+      return '<div class="card card-infeed-native" onclick="' + oc + '" style="grid-column: 1 / -1; margin: 10px 0; background:#FAF8FF; border:1px solid #E8E0F5; padding:12px 14px; border-radius:12px; cursor:pointer; box-sizing:border-box;">'
+        + '<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">'
+          + '<span class="cat-tag" style="background:#7C54C4; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px;">혜택</span>'
+          + '<span class="cat-sub" style="font-size:11.5px; color:#8B95A1;">' + promo.category + '</span>'
+          + '<span class="partner-chip" style="background:#EDE7F6; color:#7C54C4; font-size:11px; padding:2px 6px; border-radius:4px;">맘캘 제휴혜택</span>'
+          + '<span style="margin-left:auto; font-size:9.5px; color:#A39CAE; border:1px solid #E2D9F3; padding:1px 4px; border-radius:3px;">AD</span>'
+        + '</div>'
+        + '<div style="font-size:14.5px; font-weight:800; color:#191F28; line-height:1.3; margin-bottom:4px; letter-spacing:-0.2px;">' + promo.title + '</div>'
+        + '<div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">'
+          + '<span style="font-size:12px; color:#4E5968;"><strong style="color:#7C54C4;">' + promo.brand + '</strong> · ' + promo.desc + '</span>'
+          + '<span style="font-size:12.5px; font-weight:800; color:#7C54C4; white-space:nowrap; margin-left:8px;">' + promo.cta + ' ›</span>'
+        + '</div>'
+      + '</div>';
+    } else {
+      // 공구 리스트 (.card 일체형)
+      return '<div class="card card-infeed-native" onclick="' + oc + '" style="background:#FAF8FF; border:1px solid #E8E0F5; cursor:pointer; margin:8px 0; box-sizing:border-box;">'
+        + '<div class="card-top">'
+          + '<span class="cat-tag" style="background:#EDE7F6; color:#7C54C4; font-weight:700;">혜택</span>'
+          + '<span class="cat-sub">' + promo.category + '</span>'
+          + '<span class="partner-chip" style="background:#7C54C4; color:#fff;">단독 혜택</span>'
+          + '<span style="margin-left:auto; font-size:9.5px; color:#A39CAE; border:1px solid #E2D9F3; padding:1px 4px; border-radius:3px;">AD</span>'
+        + '</div>'
+        + '<div class="card-name" style="padding-right:68px;">' + promo.title + '</div>'
+        + '<div class="card-sellerline" style="padding-right:68px;">'
+          + '<span class="card-seller-strong" style="color:#7C54C4;">' + promo.brand + '</span> · ' + promo.desc
+        + '</div>'
+        + '<span class="card-right">'
+          + '<span class="card-status-txt" style="color:#7C54C4; font-weight:800;">' + promo.cta + '</span>'
+          + '<span class="card-go">›</span>'
+        + '</span>'
+      + '</div>';
+    }
+  }
+
+  // ── [2안] 키즈노트형 웜베이지 원형 복제 카드 (티켓/쿠폰 바) ──
+  if (_infeedMode === '2') {
+    var knGrid = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0;"' : ' style="margin: 10px 0;"';
+    return '<div class="mc-infeed-kidsnote"' + knGrid + ' onclick="' + oc + '">'
+      + '<div class="mc-kn-body">'
+        + '<div class="mc-kn-header">'
+          + '<span class="mc-kn-badge">🎁 맘캘 특별 혜택</span>'
+          + '<span class="mc-kn-ad">AD</span>'
+        + '</div>'
+        + '<div class="mc-kn-title">' + promo.title + '</div>'
+        + '<div class="mc-kn-desc">' + promo.desc + '</div>'
+      + '</div>'
+      + '<div class="mc-kn-right">'
+        + '<img class="mc-kn-thumb" src="' + promo.thumb + '" alt="" loading="lazy" />'
+        + '<span class="mc-kn-btn">' + promo.cta + ' ›</span>'
+      + '</div>'
+    + '</div>';
+  }
+
+  // ── [3안] 키즈노트형 풀블리드 포토 배너 ──
   var gridStyle = isGrid ? ' style="grid-column: 1 / -1; margin: 12px 0 10px;"' : '';
-  
-  return '<div class="mc-infeed-promo" data-promo-id="' + promo.id + '"' + gridStyle + ' onclick="handleInFeedPromoClick(\'' + promo.id + '\', \'' + promo.url + '\', event)">'
+  return '<div class="mc-infeed-promo" data-promo-id="' + promo.id + '"' + gridStyle + ' onclick="' + oc + '">'
     + '<div class="mc-infeed-bg" style="background-image: url(\'' + promo.bgImg + '\');"></div>'
     + '<div class="mc-infeed-overlay"></div>'
     + '<div class="mc-infeed-content">'
@@ -11018,6 +11280,17 @@ async function registerKeywordAlertFromSearch(kw) {
 
 
 
+
+<!-- 💜 네이티브 인피드 시안 3대 실시간 비교 스위처 FAB (원길아 사장님 2026-11-10 "둘 다 목업 보내" 지시) -->
+<div id="infeedSwitcherFab" class="infeed-switcher-fab">
+  <span class="infeed-sw-label">시안 비교:</span>
+  <button type="button" class="infeed-sw-btn" id="swBtn1" onclick="setInfeedMode('1')">1안 당근·토스 일체형</button>
+  <button type="button" class="infeed-sw-btn" id="swBtn2" onclick="setInfeedMode('2')">2안 키즈노트 웜베이지</button>
+  <button type="button" class="infeed-sw-btn" id="swBtn3" onclick="setInfeedMode('3')">3안 포토배너</button>
+</div>
+<script>
+try { updateInfeedSwitcherUi(); } catch(e) {}
+</script>
 
 </body>
 </html>
