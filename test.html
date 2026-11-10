@@ -6265,11 +6265,17 @@ function toggleWish(id, btn, ev){
   if(on){
     // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트. 알림이 꺼져 있으면 「알려드려요」라고 약속하지 않는다
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){}
-    try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
-      mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
-    try{ if(window.__mcAppIn && window.__mcAppIn()) mcToast('내 찜에 담았어요 💜', 2000); }catch(_){}   // 앱 로그인 손님: 바텀시트 없이 토스트만(사장님 2026-11-02)
-    // 하트 한 번에 바로 시트가 뜨면 부담스러움 → 찜 2개째부터, 그것도 하루에 하나만.
-    if(WISH.size >= 2){
+
+    // 🔴 2026-11-10 사장님 긴급 직격 지시: 비로그인은 찜하면 즉시 로그인 바텀시트 호출 (WISH는 로컬 보존 유지)
+    if(!isLoggedIn()){
+      window.__kkoAutoOpen = true;
+      setTimeout(function(){
+        openLoginSheet('찜 보관 & 오픈 알림', '로그인하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요', '', 'wish');
+      }, 250);
+    } else {
+      try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
+        mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
+      try{ if(window.__mcAppIn && window.__mcAppIn()) mcToast('내 찜에 담았어요 💜', 2000); }catch(_){}
       if(!(typeof maybeAskLogin==='function' && maybeAskLogin())) maybeAskNoti();
     }
   }
