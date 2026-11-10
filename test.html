@@ -1928,23 +1928,16 @@ function _injectInFeedGonggu(cards, startIdx, totalCount) {
 </div>
 
 
-<!-- 💛 카카오 로그인 바텀시트 (찜 저장용 · 소프트 게이트) -->
-<!-- 💛 카카오 로그인 바텀시트 (찜 보관 & 오픈 알림 통합 시트) -->
+<!-- 💛 카카오 로그인 바텀시트 (찜 보관 간편 로그인) -->
 <div id="kkoBg" onclick="kkoLater()" style="display:none;position:fixed;inset:0;background:rgba(20,10,30,.5);z-index:9992"></div>
 <div id="kkoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:24px 20px calc(26px + env(safe-area-inset-bottom));z-index:9993;transition:bottom .32s cubic-bezier(.4,0,.2,1);box-sizing:border-box">
   <div style="width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#FF9DC0,#7C54C4);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 5px 16px rgba(123,63,181,.28)">💜</div>
-  <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜 보관 & 오픈 알림</div>
-  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:16px;word-break:keep-all;text-wrap:balance">
-    카카오로 시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요
-  </div>
-  <div id="kkoNotiOpt" onclick="toggleKkoNoti(event)" style="background:#F8F6FC;border:1px solid #ECE5F6;border-radius:13px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
-    <div style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:#232326">
-      <span style="font-size:16px">🔔</span><span>오픈 예정 공구 알림 받기</span>
-    </div>
-    <input type="checkbox" id="kkoNotiChk" checked style="width:18px;height:18px;accent-color:#7C54C4;cursor:pointer;margin:0">
+  <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구 보관하기</div>
+  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.6;margin-bottom:18px;word-break:keep-all;text-wrap:balance">
+    로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요
   </div>
   <div id="kkoBtns">
-  <button data-kko-main onclick="startKakaoWithNoti()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
+  <button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
     <span style="font-size:17px">💬</span> 카카오로 한 번에 시작하기
   </button>
   </div>
@@ -6595,8 +6588,8 @@ setTimeout(async function(){
 function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(KKO_JS_KEY); return !!window.Kakao; }catch(_){ return false; } }
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
-var KKO_DEFAULT_T='찜 보관 & 오픈 알림';
-var KKO_DEFAULT_S='카카오로 시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요';
+var KKO_DEFAULT_T='찜한 공구 보관하기';
+var KKO_DEFAULT_S='로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요';
 var KKO_DEFAULT_F='';
 
 function toggleKkoNoti(ev){
@@ -6659,22 +6652,13 @@ function openLoginSheet(title, sub, fine, intent){
     if(s && /카카오로 시작하면/.test(s.innerHTML)) s.innerHTML = '시작하면 기기가 바뀌어도 찜이 유지되고 오픈일 아침 9시에 알려드려요';
     if(f && /닉네임만 받아요/.test(f.textContent)) f.textContent = f.textContent.replace(/닉네임만 받아요( · )?/, '');
   } }catch(_){}
-  // 알림 옵션 박스 노출 분기: 출석/ics 등 특수 로그인이면 숨김, 일반 온보딩/찜 저장이면 표시
-  try{ var opt=document.getElementById('kkoNotiOpt');
-    var can=_kkoNotiPossible() && !(intent==='attend' || intent==='ics');
-    if(opt){ opt.style.display=can?'flex':'none'; var _c=document.getElementById('kkoNotiChk'); if(_c) _c.checked=true; }
-    // 알림을 못 받는 곳이면 「알려드려요」 약속을 문구에서 뺀다
-    if(!can && s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요');
-    if(can && typeof _isNativeApp==='function' && _isNativeApp()){   // 앱: OS 가 이미 거부한 기기면 체크칸을 숨긴다(저장값만으로는 모른다)
-      var _P=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
-      if(_P && _P.checkPermissions) _P.checkPermissions().then(function(st){ if(st && st.receive==='denied'){ var o2=document.getElementById('kkoNotiOpt'); if(o2) o2.style.display='none'; if(s) s.innerHTML = s.innerHTML.replace('유지되고 오픈일 아침 9시에 알려드려요','유지돼요'); } }).catch(function(){});
-    }
-  }catch(_){}
+  // 알림 옵션 박스 전면 제거 (매니저님 2026-11-10: 의미없는 체크박스 박멸, 로그인에만 집중)
+  try{ var opt=document.getElementById('kkoNotiOpt'); if(opt) opt.style.display='none'; }catch(_){}
   var wasOpen=(bg.style.display==='block');
   // ⚠ 인앱 안내(kkoInAppGuide)가 버튼을 통째로 바꿔놓는다 → 시트를 열 때마다 원래 버튼으로 되돌린다.
   try{ var _bx=document.getElementById("kkoBtns");
     if(_bx && !_bx.querySelector("[data-kko-main]")) _bx.innerHTML =
-      '<button data-kko-main onclick="startKakaoWithNoti()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 한 번에 시작하기</button>';
+      '<button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:17px">💬</span> 카카오로 한 번에 시작하기</button>';
   }catch(_){}
   try{ _applePaint(); }catch(_){}
   try{ if(typeof _nvPaint==='function') _nvPaint(); }catch(_){}   // 앱 전용 네이버 버튼(카카오 → 애플 → 네이버 순서)
