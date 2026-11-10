@@ -1402,9 +1402,9 @@ body[data-ct="mypage"] .unused_cseg {
   align-items: center;
 }
 .mc-kn-thumb {
-  width: 86px;
-  height: 62px;
-  border-radius: 10px;
+  width: 72px;
+  height: 54px;
+  border-radius: 9px;
   object-fit: cover;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   border: 1px solid rgba(0,0,0,0.05);
@@ -1420,7 +1420,7 @@ body[data-ct="mypage"] .unused_cseg {
   .mc-infeed-kidsnote { padding: 11px 12px; gap: 10px; }
   .mc-kn-title { font-size: 14px; }
   .mc-kn-desc { font-size: 11.5px; }
-  .mc-kn-thumb { width: 78px; height: 56px; border-radius: 8px; }
+  .mc-kn-thumb { width: 68px; height: 50px; border-radius: 8px; }
 }
 </style>
 <!-- 🔎 구조화 데이터 (2026-09-23) — 크롤러·AI 답변엔진이 이 사이트가 무엇인지 알게 한다.
@@ -3239,49 +3239,43 @@ function updateStatCounts(){
 // ── [인피드 혜택 카드: 키즈노트 100% 원형 확정안] ──
 var IN_FEED_PROMOS = [
   {
-    id: 'klook_themepark',
-    title: '"주말에 아이랑 뭐 하지?" 고민 끝 40% 특가',
-    brand: '서울랜드·롯데월드',
-    category: '나들이/테마파크',
-    desc: '줄 안 서고 모바일 즉시입장 특가 예매',
-    cta: '특가 확인',
-    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=300&auto=format&fit=crop&q=80',
-    url: 'https://www.klook.com/ko/activity/48485-seoul-land-gyeonggido/?aid=15500&aff_pid=140703_momcal&utm_source=3hoursahead&utm_medium=affiliate&utm_campaign=140703'
+    id: 'klook_seoulland',
+    title: '"주말 뭐 하지?" 서울랜드 40%',
+    desc: '줄 안 서고 모바일 즉시입장 예매',
+    tag: '테마파크',
+    thumb: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=320&auto=format&fit=crop&q=80',
+    url: 'https://www.klook.com/ko/activity/118314-seoul-land-ticket-gwacheon/'
   },
   {
     id: 'cleaninglab_30k',
-    title: '육아도 벅찬데 청소까지? 오늘 쉬세요',
-    brand: '청소연구소',
-    category: '생활/가사',
-    desc: '주방·욕실부터 쓰레기 배출까지 3만 원 할인',
-    cta: '쿠폰 받기',
-    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&auto=format&fit=crop&q=80',
+    title: '육아도 벅찬 날, 청소는 쉬세요',
+    desc: '주방·욕실 청소 3만 원 할인 쿠폰',
+    tag: '청소특가',
+    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=320&auto=format&fit=crop&q=80',
     url: 'https://res.cleaninglab.co.kr/u/web_to_app.html'
   },
   {
     id: 'wink_free_trial',
-    title: '공부 잔소리 끝! 4~7세 한글 윙크 0원',
-    brand: '단비교육 윙크',
-    category: '유아교육',
-    desc: '스스로 앉아 끝내는 공부! 교재 4권 무료증정',
-    cta: '신청하기',
+    title: '4~7세 한글·수학 윙크 0원',
+    desc: '스스로 끝내는 공부! 교재 4권 무료',
+    tag: '유아학습',
     thumb: 'momcal-wink-device.png',
-    url: 'https://m.wink.co.kr/client/mobile/experience'
+    contain: true,
+    url: 'https://www.wink.co.kr/client/mobile/apply/free_experience.html'
   },
   {
-    id: 'child_insurance_quote',
-    title: '지인 눈치 안 보고! 어린이보험 1분',
-    brand: '보험다모아',
-    category: '금융/보험',
-    desc: '불필요한 특약 쏙 뺀 8개사 다이렉트 최저가',
-    cta: '견적 확인',
-    thumb: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=300&auto=format&fit=crop&q=80',
+    id: 'bohum_damoa',
+    title: '지인 눈치 없는 어린이보험 1분',
+    desc: '불필요한 특약 쏙 뺀 다이렉트 최저가',
+    tag: '어린이보험',
+    thumb: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=320&auto=format&fit=crop&q=80',
     url: 'https://e-insmarket.or.kr/guaranteeIns/guaranteeInsList.knia?menuId=C005'
   }
 ];
 
+var _promoRandomSeed = Math.floor(Math.random() * IN_FEED_PROMOS.length);
 function getInFeedPromo(slotIdx) {
-  return IN_FEED_PROMOS[slotIdx % IN_FEED_PROMOS.length];
+  return IN_FEED_PROMOS[(slotIdx + _promoRandomSeed) % IN_FEED_PROMOS.length];
 }
 
 function handleInFeedPromoClick(id, event) {
@@ -3347,18 +3341,25 @@ function renderInFeedPromoCard(promo, context) {
 function _injectInFeedGonggu(cards, startIdx, totalCount) {
   if (!cards || !cards.length) return '';
   var out = '';
+  var s = (typeof startIdx === 'number') ? startIdx : 0;
   for (var j = 0; j < cards.length; j++) {
-    var globalIdx = startIdx + j;
+    var globalIdx = s + j;
     out += cards[j];
+    // 공구 1열 리스트: 40번째(index 39) 1차 노출, 이후 40개마다 (79, 119, 159...)
     if (globalIdx === 39 || (globalIdx > 39 && (globalIdx - 39) % 40 === 0)) {
-      var promoSlot = Math.floor(globalIdx / 40);
+      var promoSlot = Math.floor((globalIdx - 39) / 40);
       out += renderInFeedPromoCard(getInFeedPromo(promoSlot), 'gonggu');
     }
   }
   return out;
 }
 
-function _appJoin(cards){ return cards.join(''); }
+function _appJoin(cards) {
+  if (typeof _injectInFeedGonggu === 'function') {
+    return _injectInFeedGonggu(cards, 0, cards.length);
+  }
+  return cards.join('');
+}
 function renderList(){
   const el=document.getElementById('cardList');
   _listStop(); const _gen=++_listGen; const _prevKey=_listKey; _listKey='';   // 나눠 그리기: 옛 감시자·늦게 온 콜백이 새 목록에 붙지 않게. 찜 탭·날짜 필터를 거치면 열쇠가 비어 120장부터(검증자 지적)
@@ -3381,7 +3382,7 @@ function renderList(){
       return item.openDate===dayFilter; // 그날 오픈만
     }).sort(cmpDatePartner);
     el.innerHTML=arr.length
-      ?arr.map(item=>renderCard(item,dayFilter)).join('')
+      ?_appJoin(arr.map(item=>renderCard(item,dayFilter)))
       :`<div class="empty">이 날 오픈하는 공구가 없어요 🙅</div>`;
     return;
   }
@@ -3470,12 +3471,11 @@ function _listMore(gen){
 // y 위치로 되돌아갈 때: 문서가 거기까지 자라도록 남은 카드를 먼저 그린다(나눠 그리면 저절로 안 자란다)
 function _listFillTo(y){ for(let k=0;k<40;k++){ const max=(document.documentElement.scrollHeight||0)-window.innerHeight; if(max>=y-2) return; if(!_listMore(_listGen)) return; } }
 // _appJoin 의 조각판 — 중간 배너 자리는 전체 순번 기준(5번째, 그 뒤 50장마다), 「5장 미만이면 맨 아래」는 전체 장수로
-function _appJoinPart(cards,start,total){
-  if(typeof _appOn!=='function' || !_appOn() || !cards.length) return cards.join('');
-  const b=appMidBanner(); let out='';
-  cards.forEach((c,j)=>{ const i=start+j; out+=c; if(i===4 || (i>4 && (i-4)%50===0)) out+=b; });
-  if(total<5 && start+cards.length===total) out+=b;
-  return out;
+function _appJoinPart(cards, start, total) {
+  if (typeof _injectInFeedGonggu === 'function') {
+    return _injectInFeedGonggu(cards, start, total);
+  }
+  return cards.join('');
 }
 // ── 목록 정렬 (사장님 2026-10-23 앱 디벨롭: 인기순·방금 오픈순·마감임박순) — 기본은 지금 순서(오픈일순·파트너 우선)
 let _listSort='open';
