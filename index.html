@@ -3308,13 +3308,21 @@ function handleInFeedPromoClick(id, event) {
       window.location.href = 'https://res.cleaninglab.co.kr/u/web_to_app.html';
       return;
     } else {
-      window.open('https://res.cleaninglab.co.kr/u/web_to_app.html', '_blank');
+      if (typeof openLink === 'function') {
+        openLink('https://res.cleaninglab.co.kr/u/web_to_app.html');
+      } else {
+        window.open('https://res.cleaninglab.co.kr/u/web_to_app.html', '_blank');
+      }
       return;
     }
   }
 
   var targetUrl = (promo && promo.url) ? promo.url : 'https://momcalendar.com';
-  window.open(targetUrl, '_blank');
+  if (typeof openLink === 'function') {
+    openLink(targetUrl);
+  } else {
+    window.open(targetUrl, '_blank');
+  }
 }
 
 function renderInFeedPromoCard(promo, context) {
