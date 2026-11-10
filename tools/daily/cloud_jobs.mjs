@@ -47,6 +47,10 @@ const JOBS = {
   //   한국 07:42~22:42 30분마다(UTC 22~13시). 클라우드는 창 없는 브라우저라 지마켓·옥션은 못 읽을 수 있다(그 딜은 unknown → 봇이 보내지 않는다, 안전 쪽)
   hotdeal_price_gate: { cron: '-',   // 2026-11-04 끔: 핫딜 가이드(몰 페이지 가격으로 판단 금지) — 옛 일정 '12,42 22,23,0-13 * * *'
                        script: 'tools/daily/hotdeal_price_gate.mjs', gate: 'pc-off', pw: true, pc: 'momcal-hotdeal-price-gate 30분(PC 꺼졌을 때만 대신)' },
+  // ── 링크인바이오 5곳(링크온·링크셀러·와이어디·링크트리·lnk.bio) 수확 → 승인표 → 게이트 → 무인 등록 (2026-11-10 사장님 「서버자동실행·고정규칙」). 로그인 불필요한 공개 페이지라 서버 몫.
+  //   코드·제외 셀러 명단·분류 사전은 공개 저장소에 없다 → cloud_pack.mjs 가 비공개 버킷에 올린 묶음(pack)을 받아 푼다. 한국시각 14:40·04:40
+  linkinbio:       { cron: '40 5,19 * * *', script: 'tools/daily/linkinbio_all.mjs', pack: 'linkinbio', pc: 'momcal-littly 04:20 꼬리(서버로 이관, PC 쪽 호출은 뺌)',
+                     out: [/^scratchpad\/linkinbio_all_log\.txt$/, /^scratchpad\/register_table_log\.txt$/, /^scratchpad\/handoff-log\/register_table_ids_.*\.tsv$/] },
   date_audit_dry:  { cron: '-', script: 'tools/daily/gonggu_date_audit.mjs', bundle: true, pc: '(시험용 · 고치지 않고 보고서만)', out: [/^scratchpad\/date_audit\/report_.*\.md$/] },
   period_fill_dry: { cron: '-', script: 'tools/daily/period_fill.mjs', bundle: true, pc: '(시험용 · 확인만)', out: [/^scratchpad\/date_audit\/period_fill_.*\.md$/] },
 };
@@ -104,8 +108,17 @@ if (needBundle.length) {
   bundleOk = b.status === 0;
 }
 
+// 코드+명단 묶음(pack)이 필요한 작업은 한 번 받아 둔다(비공개 버킷) — 못 받으면 그 작업은 돌지 않고 경보
+const packOk = {};
+for (const pk of new Set(names.map((n) => JOBS[n].pack).filter(Boolean))) {
+  const b = spawnSync(process.execPath, [path.join(REPO, 'tools/daily/cloud_pack_get.mjs'), pk], { cwd: REPO, encoding: 'utf8', timeout: 5 * 60e3, env: process.env });
+  console.log((b.stdout || '').trim()); if (b.stderr) console.log(b.stderr.trim().slice(0, 300));
+  packOk[pk] = b.status === 0;
+}
+
 for (const name of names) {
   const j = JOBS[name];
+  if (j.pack && packOk[j.pack] === false) { console.log(`🔴 ${name} — 코드 묶음을 못 받아 못 돌림`); results.push({ name, ok: false, status: 2, sec: 0, tail: `코드 묶음(${j.pack}) 없음/너무 낡음 — PC 에서 node tools/daily/cloud_pack.mjs ${j.pack}` }); continue; }
   if (j.gate === 'pc-off' && pcAge != null && pcAge < PC_ALIVE_MIN) { console.log(`⏭ ${name} — PC 가 ${pcAge}분 전에 살아 있어 PC 몫으로 둠`); results.push({ name, ok: true, status: 0, sec: 0, tail: 'PC 살아 있음 — 건너뜀', skipped: true }); continue; }
   if (j.bundle && bundleOk === false) { console.log(`⏭ ${name} — 피드 묶음을 못 받았거나 낡음`); results.push({ name, ok: true, status: 0, sec: 0, tail: '묶음 없음/낡음 — 건너뜀', skipped: true }); continue; }
   const t0 = Date.now();
