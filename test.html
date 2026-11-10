@@ -1701,7 +1701,7 @@ var IN_FEED_PROMOS = [
     cta: '쿠폰 받기',
     thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&auto=format&fit=crop&q=80',
     bgImg: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80',
-    url: 'https://play.google.com/store/apps/details?id=kr.co.cleaninglab.user'
+    url: 'https://res.cleaninglab.co.kr/u/web_to_app.html'
   },
   {
     id: 'wink_free_trial',
@@ -1770,16 +1770,26 @@ function handleInFeedPromoClick(id, url, event) {
       trackEvent('infeed_promo_click', id);
     }
   } catch(e) {}
-  var targetUrl = url;
+
   if (id === 'cleaninglab_30k') {
     var ua = navigator.userAgent || '';
-    if (/iPad|iPhone|iPod/.test(ua)) {
-      targetUrl = 'https://apps.apple.com/kr/app/id1215174815';
+    if (/Android/i.test(ua)) {
+      // 🚀 안드로이드: 청소연구소 공식 인텐트 스킴 직접 실행 (앱 설치 시 즉시 자동 실행, 미설치 시 플레이스토어로 자동 이동)
+      var intentUri = 'intent://launch?#Intent;scheme=cleaninglab-user;package=kr.co.cleaninglab.user;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dkr.co.cleaninglab.user;end;';
+      window.location.href = intentUri;
+      return;
+    } else if (/iPad|iPhone|iPod/i.test(ua)) {
+      // 🍏 iOS: 청소연구소 공식 web_to_app 브릿지 (앱 설치 시 즉시 자동 실행, 미설치 시 앱스토어 직결)
+      window.location.href = 'https://res.cleaninglab.co.kr/u/web_to_app.html';
+      return;
     } else {
-      targetUrl = 'https://play.google.com/store/apps/details?id=kr.co.cleaninglab.user';
+      // PC/기타: 브릿지 페이지 열기
+      window.open('https://res.cleaninglab.co.kr/u/web_to_app.html', '_blank');
+      return;
     }
   }
-  window.open(targetUrl, '_blank');
+
+  window.open(url, '_blank');
 }
 
 function renderInFeedPromoCard(promo, context) {
