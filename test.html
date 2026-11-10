@@ -6511,20 +6511,22 @@ function toggleWish(id, btn, ev){
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
 
   if(on){
-    // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트. 알림이 꺼져 있으면 「알려드려요」라고 약속하지 않는다
+    // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트.
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){}
 
-    // 🔴 2026-11-10 사장님 긴급 직격 지시: 비로그인은 찜하면 즉시 로그인 바텀시트 호출 (WISH는 로컬 보존 유지, 매니저님 클린 시트)
+    // 🔴 2026-11-10 사장님·매니저님 긴급 직격 지시: 비로그인은 찜하면 즉시 로그인 바텀시트만 호출!
     if(!isLoggedIn()){
       window.__kkoAutoOpen = true;
       setTimeout(function(){
         openLoginSheet('찜한 공구 보관하기', '로그인하면 기기가 바뀌어도 찜 목록이 안전하게 유지돼요', '', 'wish');
       }, 250);
     } else {
-      try{ var _pon=false; try{ _pon=localStorage.getItem('mc_push_on')==='1' && (typeof Notification==='undefined' || Notification.permission==='granted'); }catch(_){}
-        mcToast(_pon ? '💜 찜 목록에 담겼어요!\n오픈일 아침에 알려드려요' : '💜 찜 목록에 담겼어요!\n알림을 켜면 오픈일 아침에 알려드려요', 2000); }catch(_){}
-      try{ if(window.__mcAppIn && window.__mcAppIn()) mcToast('내 찜에 담았어요 💜', 2000); }catch(_){}
-      if(!(typeof maybeAskLogin==='function' && maybeAskLogin())) maybeAskNoti();
+      // 💜 로그인 상태
+      mcToast('내 찜에 담았어요 💜', 2000);
+      // 알림은 앱에서만 가능: 앱이고 알림 권한이 꺼져 있으면 찐 폰 설정 직결
+      if(typeof _isNativeApp==='function' && _isNativeApp() && !(typeof notiGranted==='function' && notiGranted())){
+        _appPushAsk(false);
+      }
     }
   }
   else if(fSt==='wish') renderList();       // 내 찜 화면에서 해제하면 목록 갱신
@@ -7425,8 +7427,8 @@ async function wnAllow(){
 }
 
 // 실제 푸시 구독 → 서버 저장
-// ── 📲 웹 알림 → 앱에서만 (2026-10-26) — 앱 출시하는 날 WEB_PUSH_APP_ONLY=true ──
-const WEB_PUSH_APP_ONLY=false;
+// ── 📲 웹 알림 → 앱에서만 (매니저님 2026-11-10: 알림은 앱에서만 가능, 웹은 로그인·찜 저장만) ──
+const WEB_PUSH_APP_ONLY=true;
 const APP_STORE_URL={ ios:'https://apps.apple.com/kr/app/id6826126083', android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar' };
 // 📲 앱 다운로드 띠 (2026-11-01) — 모바일 웹에만. 앱 안·홈화면 앱(standalone)·PC 는 안 띄움. 닫기 7일(mc_appbn_next). 누르면 push_app_banner_go
 function appBnClose(){ try{ localStorage.setItem('mc_appbn_next', String(Date.now()+7*864e5)); }catch(_){} var el=document.getElementById('appBn'); if(el) el.style.display='none'; try{ trackEvent('app_banner_close',''); }catch(_){} }
@@ -8366,35 +8368,11 @@ function _appSettingsResume(){
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') back(); });
   try{ Capacitor.Plugins.App.addListener('appStateChange', function(st){ if(st && st.isActive) back(); }); }catch(_){}
 }
-function _appAlarmCss(){
-  if(document.getElementById('mc-alarm-css')) return;
-  var st=document.createElement('style'); st.id='mc-alarm-css';
-  st.textContent='#mcAlarm{position:fixed;inset:0;z-index:99998;display:none}#mcAlarm.open{display:block}#mcAlarm .al-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}'
-  +'#mcAlarm .al-sh{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.22,1,.36,1)}#mcAlarm.open .al-sh{transform:none}'
-  +'#mcAlarm .al-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-10px auto 18px}#mcAlarm .al-t{font-size:18px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.02em}'
-  +'#mcAlarm .al-s{margin-top:8px;font-size:14px;line-height:1.5;color:#4E5968;word-break:keep-all}#mcAlarm .al-row{margin-top:18px;background:#F2F4F6;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#191F28}'
-  +'#mcAlarm .al-row img{width:38px;height:38px;border-radius:10px;display:block}#mcAlarm .al-tg{margin-left:auto;width:48px;height:28px;border-radius:14px;background:#C9CDD2;position:relative}#mcAlarm .al-tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff}'
-  +'#mcAlarm .al-go{display:block;width:100%;height:52px;margin-top:28px;border:0;border-radius:26px;background:#7C54C4;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}#mcAlarm .al-go:active{transform:scale(.97)}'
-  +'#mcAlarm .al-later{display:flex;align-items:center;justify-content:center;width:100%;height:44px;margin-top:6px;border:0;background:none;color:#8B95A1;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}';
-  document.head.appendChild(st);
-}
-// 「휴대폰 앱 알림이 꺼져 있어요」 시트 — 맘맘 12번 구성(제목 · 앱 아이콘+알림 허용 스위치 · 큰 버튼 · 작은 「나중에」)
+function _appAlarmCss(){ /* deprecated - mcAlarm removed */ }
+// 「휴대폰 앱 알림이 꺼져 있어요」 가짜 흉내 시트 전면 박멸 (매니저님 2026-11-10 지시)
+// 가짜 시트(#mcAlarm)를 일절 띄우지 않고 찐 휴대폰 설정 / 시스템 허용창으로 바로 직결한다.
 function _appAlarmSheet(src){
-  try{
-    _appAlarmCss();
-    var m=document.getElementById('mcAlarm');
-    if(!m){
-      m=document.createElement('div'); m.id='mcAlarm'; m.setAttribute('role','dialog');
-      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에 알려 드려요</div>'
-        +'<button type="button" class="al-go">알림 켜기</button><button type="button" class="al-later">나중에</button></div>';
-      document.body.appendChild(m);
-    }
-    var close=function(){ m.classList.remove('open'); };
-    m.querySelector('.al-bg').onclick=m.querySelector('.al-later').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','later|'+(src||'')); }catch(_){} };
-    m.querySelector('.al-go').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','go|'+(src||'')); }catch(_){} _appAlarmGo(); };
-    m.classList.add('open');
-    try{ trackEvent('app_alarm_sheet','show|'+(src||'')); }catch(_){}
-  }catch(_){}
+  _appAlarmGo();
 }
 // 「알림 켜기」 — 안드로이드: 폰 알림 설정 화면으로 바로 · 아이폰: 허용창 한 번 → 거부했으면 설정(애플은 허용창을 한 번 띄워야 설정에 알림 줄이 생긴다)
 async function _appAlarmGo(){
@@ -8420,27 +8398,28 @@ async function _appAlarmGo(){
     }
   }catch(_){}
 }
-// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 3일에 한 번, 소개(로그인) 화면이 떠 있으면 안 띄운다
+// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 매니저님 지침: 비로그인은 절대 안 띄우고, 로그인 상태에서만 찐 설정 직결
 function _appAlarmAuto(state){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(!isLoggedIn()) return false;
     if(state==='granted' || (typeof notiGranted==='function' && notiGranted())) return false;
     if(document.getElementById('appOnboardingWrap')) return false;
-    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
+    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;
     var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false;
     try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}
-    _appAlarmSheet('auto'); return true;
+    _appAlarmGo(); return true;
   }catch(_){ return false; }
 }
-// 알림 신청 순간(벨·하트) — force=벨은 항상, 하트 등은 3일에 한 번. 시트만 띄운다(시스템 허용창은 시트의 「알림 켜기」 뒤)
+// 알림 신청 순간(벨·하트) — 매니저님 지시: 가짜 시트 전면 제거, 비로그인은 로그인만, 로그인 후 찐 폰 설정 직결!
 function _appPushAsk(force){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
+    if(!isLoggedIn()) return false;
     if(typeof notiGranted==='function' && notiGranted()) return false;
-    if(!force){
-    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;   // __uniAlarmGuard 로그인 시트가 떠 있으면 알림 시트를 겹쳐 띄우지 않는다
-      var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){} }
-    _appAlarmSheet(force?'bell':'heart'); return true;
+    var _k=document.getElementById('kkoSheet');
+    if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0'||window.__kkoAutoOpen)) return false;
+    _appAlarmGo(); return true;
   }catch(_){ return false; }
 }
 function nxdBell(id,btn,ev){
@@ -8457,53 +8436,29 @@ function nxdBell(id,btn,ev){
     return;
   }
 
-  // 2. 찜 즉시 등록 (버튼 보라색 활성화 + 카운트 +1)
+  // 2. 🔴 매니저님 2026-11-10 철칙: 비로그인이면 오직 로그인 바텀시트만 깔끔하게 호출하고 즉시 반환! (2중 바텀시트 원천 박멸)
+  if(!isLoggedIn()){
+    _nxOn(id);
+    return;
+  }
+
+  // 3. 로그인이 된 상태: 찜 등록
   _nxOn(id);
 
-  // 3. 브라우저 알림이 이미 허용된 기기 -> 토스트만 띄우고 종료
+  // 4. 🔴 매니저님 철칙: 웹은 로그인 & 찜 저장만 가능! 알림은 앱에서만 가능하므로 웹은 토스트만 띄우고 가짜 팝업 일체 없이 종료!
+  if(!(typeof _isNativeApp==='function' && _isNativeApp())){
+    try{ mcToast(`💜 ${md} 오픈 예정 공구를 찜했어요!`); }catch(_){}
+    return;
+  }
+
+  // 5. 앱 환경: 이미 알림 권한이 켜져 있으면 안내 토스트
   if(typeof notiGranted==='function' && notiGranted()){
     try{ mcToast(`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`); }catch(_){}
     return;
   }
 
-  // 3-1. 앱(안드·아이폰): 웹용 팝업 말고 시스템 허용창 → 꺼져 있으면 휴대폰 설정 열기 시트 (2026-11-05)
-  if(typeof _isNativeApp==='function' && _isNativeApp()){ _appPushAsk(true); return; }
-
-  // 4. 카톡·인스타·스레드 인앱 브라우저 -> 2중 팝업 없이 1개의 명확한 안내 팝업만 표시
-  const _inApp=(typeof _isInApp==='function' && _isInApp());
-  if(_inApp){
-    _nxGuide(location.origin+'/?nxbell='+id, navigator.userAgent||'');
-    return;
-  }
-
-  // 5. 일반 브라우저(크롬·사파리 등) 알림 허용 팝업
-  let m=document.getElementById('nxdAsk');
-  if(!m){
-    m=document.createElement('div'); m.id='nxdAsk';
-    m.innerHTML='<div class="nxa-bg"></div><div class="nxa-box"><div class="nxa-ico">🔔</div><div class="nxa-t"></div><div class="nxa-s"></div><div class="nxa-btns"><button class="nxa-no">다음에</button><button class="nxa-yes">알림 받을게요</button></div></div>';
-    document.body.appendChild(m);
-    m.querySelector('.nxa-bg').onclick=m.querySelector('.nxa-no').onclick=function(){ m.classList.remove('open'); };
-  }
-  m.querySelector('.nxa-t').textContent='오픈 알림 설정할까요?';
-  m.querySelector('.nxa-s').innerHTML=`${md} 오픈일 아침 9시에 알림을 보내드려요`;
-  m.querySelector('.nxa-yes').textContent='알림 받을게요';
-  m.querySelector('.nxa-no').onclick=m.querySelector('.nxa-bg').onclick=function(){
-    m.classList.remove('open');
-    try{ mcToast('찜해 두었어요'); }catch(_){}
-  };
-  m.querySelector('.nxa-yes').onclick=async function(){
-    m.classList.remove('open');
-    try{
-      if(typeof iosNeedsInstall==='function' && iosNeedsInstall()){ openWnSheet(); return; }
-      if(typeof pushSupported==='function' && pushSupported() && !(window.Notification && Notification.permission==='denied')){
-        const ok=await enablePush();
-        mcToast(ok?`🔔 ${md} 오픈 날 아침 9시에 알려드릴게요`:'알림 권한이 꺼져 있어요 · 찜은 해 두었어요');
-      } else {
-        mcToast(window.Notification && Notification.permission==='denied' ? '알림이 차단돼 있어요 · 주소창 ⚙️에서 허용할 수 있어요' : '찜해 두었어요');
-      }
-    }catch(_){}
-  };
-  m.classList.add('open');
+  // 6. 앱 환경: 알림 권한이 꺼져 있으면 가짜 시트 없이 찐 폰 알림 설정 화면 / 시스템 허용창으로 바로 직행!
+  _appAlarmGo();
 }
 
 function _nxOutside(id){
