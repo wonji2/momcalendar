@@ -1771,10 +1771,7 @@ var IN_FEED_PROMOS = [
 // URL query ?mode=1, ?mode=2, ?mode=3 또는 localStorage (키즈노트 100% 원형 기본 활성화)
 var _infeedMode = (function(){
   try {
-    var p = new URLSearchParams(window.location.search).get('mode');
-    if (p && (p === '1' || p === '2' || p === '3')) return p;
-    var saved = localStorage.getItem('mc_infeed_mode');
-    if (saved && (saved === '1' || saved === '2' || saved === '3')) return saved;
+    localStorage.removeItem('mc_infeed_mode');   // 시안 막대를 눌러 1안·3안이 저장된 손님도 확정 시안으로 되돌린다(2026-11-11)
   } catch(e) {}
   return '2'; // 💜 키즈노트 원형 100% 싱크로율 기본 활성화
 })();
@@ -11298,16 +11295,7 @@ async function registerKeywordAlertFromSearch(kw) {
 
 
 
-<!-- 💜 네이티브 인피드 시안 3대 실시간 비교 스위처 FAB (원길아 사장님 2026-11-10 "둘 다 목업 보내" 지시) -->
-<div id="infeedSwitcherFab" class="infeed-switcher-fab">
-  <span class="infeed-sw-label">시안 비교:</span>
-  <button type="button" class="infeed-sw-btn" id="swBtn1" onclick="setInfeedMode('1')">1안 당근·토스 일체형</button>
-  <button type="button" class="infeed-sw-btn" id="swBtn2" onclick="setInfeedMode('2')">2안 키즈노트 웜베이지 (확정)</button>
-  <button type="button" class="infeed-sw-btn" id="swBtn3" onclick="setInfeedMode('3')">3안 포토배너</button>
-</div>
-<script>
-try { updateInfeedSwitcherUi(); } catch(e) {}
-</script>
+<!-- 시안 비교 막대 제거(사장님 2026-11-11 「라이브 하단에 1안 2안 뜨는 건 뭐야? 없애」) — 손님 화면에 시안 고르는 막대가 나갔다. 확정 시안(2안)으로 고정 -->
 
 </body>
 </html>
