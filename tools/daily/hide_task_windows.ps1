@@ -8,7 +8,8 @@
 #   ⚠ 적용 전에 XML 백업을 뜬다(-Backup 경로, 기본 tools\daily\tasks\_hide_<날짜>).
 param(
   [switch]$Apply,
-  [string]$Pattern = 'momcal*',
+  # 2026-11-11: 'momcal*' 만 봐서 아빠 블로그(dad-*)·엔잡(njob-*) 11개가 파란 창을 띄웠다(사장님 「겜하는데 방해됨」) → 우리 사업 전부
+  [string]$Pattern = 'momcal*|dad-*|njob-*|gijil-*|blogauto-*|econ-*|smartstore-*|work-backup*|eatlittle*|threads-*',
   [string]$Backup = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -29,10 +30,12 @@ function Split-Args([string]$s) {
   return $out
 }
 function Is-Hidden($a) {
-  return ($a.Execute -match 'wscript') -or ($a.Arguments -match 'run_hidden|_hidden\.vbs') -or ($a.Arguments -match '-WindowStyle\s+Hidden')
+  # ⚠ powershell -WindowStyle Hidden 은 숨김이 아니다 — 콘솔이 먼저 떴다가 숨는다(파란 창이 번쩍인다, 2026-11-11 실측)
+  return ($a.Execute -match 'wscript') -or ($a.Arguments -match 'run_hidden|_hidden\.vbs')
 }
+function Is-Ours([string]$n) { foreach ($p in ($Pattern -split '\|')) { if ($n -like $p) { return $true } }; return $false }
 
-$tasks = Get-ScheduledTask | Where-Object { $_.TaskName -like $Pattern }
+$tasks = Get-ScheduledTask | Where-Object { Is-Ours $_.TaskName }
 $todo = @()
 foreach ($t in $tasks) {
   foreach ($a in $t.Actions) {
@@ -84,7 +87,7 @@ if ($fail) { Write-Output "🔴 실패:"; $fail | ForEach-Object { Write-Output 
 
 # 3) 되읽어 확인 — 바꿨다고 믿지 않고 다시 묻는다
 $left = @()
-foreach ($t in (Get-ScheduledTask | Where-Object { $_.TaskName -like $Pattern })) {
+foreach ($t in (Get-ScheduledTask | Where-Object { Is-Ours $_.TaskName })) {
   foreach ($a in $t.Actions) { if ($a.Execute -and -not (Is-Hidden $a)) { $left += $t.TaskName } }
 }
 if ($left) { Write-Output "🔴 아직 창을 띄우는 작업: $($left -join ', ')"; exit 1 }
