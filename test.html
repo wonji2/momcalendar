@@ -1818,8 +1818,9 @@ function getInFeedPromo(slotIdx) {
   return IN_FEED_PROMOS[(slotIdx + _promoRandomSeed) % IN_FEED_PROMOS.length];
 }
 
-function handleInFeedPromoClick(id, event) {
-  if (event) { event.stopPropagation(); }
+function handleInFeedPromoClick(id, arg2, arg3) {
+  var event = (arg3 && typeof arg3.stopPropagation === 'function') ? arg3 : ((arg2 && typeof arg2.stopPropagation === 'function') ? arg2 : null);
+  if (event) { try { event.stopPropagation(); } catch(_) {} }
   try {
     if (typeof trackEvent === 'function') {
       trackEvent('infeed_promo_click', id);
@@ -1863,7 +1864,7 @@ function handleInFeedPromoClick(id, event) {
 
 function renderInFeedPromoCard(promo, context) {
   var isGrid = (context === 'hotdeal');
-  var oc = 'handleInFeedPromoClick(\'' + promo.id + '\', \'' + promo.url + '\', event)';
+  var oc = 'handleInFeedPromoClick(\'' + promo.id + '\', event)';
 
   // ── [1안] 당근/토스형 피드 일체형 카드 ──
   if (_infeedMode === '1') {
