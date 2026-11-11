@@ -3981,8 +3981,32 @@ async function renderSearchAll(){
     <div style="height:12px"></div>
   ` : '';
 
+  // 💜 인피드 혜택 배너: 공구와 핫딜 사이 배치 (원길아 사장님 2026-11-11 지침: 공구-핫딜 사이 전진 배치 및 최하단 중복 제거)
   const promoSearch = (total >= 1) ? renderInFeedPromoCard(getInFeedPromo(0), 'search') : '';
-  const html = secGonggu + secHotdeal + secExp + secComm + promoSearch;
+  let html = '';
+  let promoPlaced = false;
+
+  if (secGonggu) {
+    html += secGonggu;
+    if (promoSearch) {
+      html += promoSearch;
+      promoPlaced = true;
+    }
+  }
+
+  if (secHotdeal) {
+    if (!promoPlaced && promoSearch) {
+      html += promoSearch;
+      promoPlaced = true;
+    }
+    html += secHotdeal;
+  }
+
+  html += secExp + secComm;
+
+  if (!promoPlaced && promoSearch) {
+    html += promoSearch;
+  }
 
   const meta = total ? `<div class="sa-meta"><div><b>${total}건</b> 결과</div>
     <div class="sa-sort">
