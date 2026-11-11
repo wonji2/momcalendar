@@ -5355,9 +5355,9 @@ async function openHdSheet(id){
       :(V.mode==='page'?`<div class="hdx-tip gray">판매 페이지 가격에 ${hdCondKind(cond)} 할인이 붙는 딜이에요</div>`
       :(h.source==='goldbox'?'<div class="hdx-tip gold">쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>':''))}
     ${V.mode==='deal'?`<div class="hdx-sum">
-        <div class="hdx-row"><span>현재가</span><b>${wonFmt(V.cur)}</b></div>
+        <div class="hdx-row"><span>${V.curLabel}</span><b>${wonFmt(V.cur)}</b></div>
         <div class="hdx-row"><span>역대 최저가</span><b class="red">${wonFmt(V.lo)}</b></div>
-        <div class="hdx-row last"><span>최저가 대비</span><b class="${V.lowest?'red':''}">${V.lowest?'지금이 최저가':'+'+wonFmt(V.cur-V.lo)}</b></div>
+        <div class="hdx-row last"><span>최저가 대비</span><b class="${V.lowest?'red':''}">${V.lowest?'지금이 최저가':(V.cur>V.lo?'+'+wonFmt(V.cur-V.lo):'최저가와 같아요')}</b></div>
       </div>`
       :(V.mode==='page'?`<div class="hdx-sum">
         <div class="hdx-row"><span>판매 페이지</span><b>${wonFmt(V.cur)}</b></div>
@@ -10831,14 +10831,15 @@ function hdMD(s){
   return m+'/'+d;
 }
 // 카드·쿠폰·앱 조건가 딜 — 제목 [ ] 안에서 조건 글자를 뽑는다(PC 기록기 COND_RE 와 같은 판정)
-var HD_COND_RE=/카드|결제\s*시|쿠폰|APP|앱\s*전용|와우|혜택가|적용가|페이\s*결제/i;
+// 제목의 [ ] 안 글자만 본다 — 「포토카드 바인더」「Apple 에어팟」「와우스낵」 같은 상품명은 조건가가 아니다(검증 2026-11-11)
+var HD_COND_RE=/카드|결제\s*시|쿠폰|APP\s*전용|앱\s*전용|와우|혜택가|적용가|페이/i;
 function hdCond(h){
-  var t=String((h&&h.title)||''); if(!HD_COND_RE.test(t)) return '';
+  var t=String((h&&h.title)||'');
   var m=t.match(/\[([^\]]{1,24})\]/g)||[];
   for(var i=0;i<m.length;i++){ var x=m[i].slice(1,-1).trim(); if(HD_COND_RE.test(x)) return x.replace(/결제시$/,'결제 시'); }
-  return '조건가';
+  return '';
 }
-function hdCondKind(c){ return /카드|페이/.test(c)?'카드':/쿠폰/.test(c)?'쿠폰':/APP|앱/i.test(c)?'앱':'조건'; }
+function hdCondKind(c){ return /쿠폰/.test(c)?'쿠폰':/카드/.test(c)?'카드':/페이/.test(c)?'간편결제':/APP|앱/i.test(c)?'앱':'조건'; }
 // 시트에 보여 줄 숫자 한 벌 — 그래프·회색 칸·칩이 같은 값을 쓰게(사장님 2026-11-10 「가격 오른 건 싸요 안 됨」)
 function hdView(h,pts,ppts){
   var norm=function(a){ return (a||[]).filter(function(p){ return p&&p.day&&p.price; }).map(function(p){ var pr=Number(p.price); return {day:String(p.day).slice(0,10),price:pr,pmin:Number(p.pmin||pr),pmax:Number(p.pmax||pr)}; }).sort(function(a,b){ return a.day.localeCompare(b.day); }); };
@@ -10846,9 +10847,17 @@ function hdView(h,pts,ppts){
   var d=norm(pts);
   if(d.length>=2){
     var last=d[d.length-1];
-    var cur=(reg && last.day>=reg)?last.price:h.price;            // 등록 뒤에 잰 값이 있으면 그 값, 아니면 카드 가격
-    var lo=Math.min(cur, Math.min.apply(null,d.map(function(p){ return p.pmin; })));
-    return {mode:'deal', series:d, cur:cur, lo:lo, lowest:cur<=lo};
+    var today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+    var yday=new Date(Date.now()+9*3600e3-864e5).toISOString().slice(0,10);
+    // 「현재가」는 등록 뒤에 잰 값이 어제·오늘 것일 때만. 아니면 「등록가」(카드 가격)로 쓰고 최저 판정은 하지 않는다(검증 2026-11-11 C·D)
+    var fresh=!!(reg && last.day>=reg && last.day>=yday);
+    var cur=fresh?last.price:h.price;
+    var lo=Math.min.apply(null,d.map(function(p){ return p.pmin; }));
+    var hiAll=Math.max.apply(null,d.map(function(p){ return p.pmax; }));
+    var span=(hdDays(last.day)-hdDays(d[0].day));
+    // 「역대 최저가」: 조건가 딜 아님 · 지금 값 · 7일 넘게 7번 이상 기록 · 그보다 비싼 날이 있었고 지금이 기록 최저(검증 B·A)
+    var lowest=fresh && !hdCond(h) && d.length>=7 && span>=7 && hiAll>cur && cur<=lo;
+    return {mode:'deal', series:d, cur:cur, curLabel:fresh?'현재가':'등록가', lo:Math.min(lo,cur), lowest:lowest};
   }
   var g=norm(ppts);
   if(hdCond(h) && g.length>=2){
@@ -10883,7 +10892,8 @@ function hdChartBox(h,pts,period){
   for(var v=lo; v<=hi+0.5; v+=step){ var y=Y(v).toFixed(1); g+='<line x1="'+PL+'" x2="'+(W-PR)+'" y1="'+y+'" y2="'+y+'" stroke="#E9EBEE" stroke-width="1"/><text x="'+(PL-6)+'" y="'+(+y+3.5)+'" font-size="10" fill="#6B7684" text-anchor="end">'+Number(v).toLocaleString('ko-KR')+'</text>'; }
   g+='<line x1="'+PL+'" x2="'+PL+'" y1="'+PT+'" y2="'+(H-PB)+'" stroke="#E9EBEE" stroke-width="1"/>';
   var span=t1-t0, iv=Math.max(5,Math.ceil(span/10/5)*5);
-  for(var k=0;k<=span;k+=iv){ var dd=new Date((t0+k)*864e5); var lb=(dd.getUTCMonth()+1)+'/'+dd.getUTCDate(); var x=PL+(W-PL-PR)*(k/dt); g+='<text transform="translate('+(x+3).toFixed(1)+','+(H-PB+14)+') rotate(-45)" font-size="9.5" fill="#6B7684" text-anchor="end">'+lb+'</text>'; }
+  var ks=[]; for(var k=0;k<=span;k+=iv) ks.push(k); if(span-ks[ks.length-1]>=iv/2) ks.push(span); else ks[ks.length-1]=span;   // 마지막 눈금은 마지막 기록 날짜
+  for(var ki=0;ki<ks.length;ki++){ var k=ks[ki]; var dd=new Date((t0+k)*864e5); var lb=(dd.getUTCMonth()+1)+'/'+dd.getUTCDate(); var x=PL+(W-PL-PR)*(k/dt); g+='<text transform="translate('+(x+3).toFixed(1)+','+(H-PB+14)+') rotate(-45)" font-size="9.5" fill="#6B7684" text-anchor="end">'+lb+'</text>'; }
   var path=function(key){ return win.map(function(p,i){ return (i?'L':'M')+X(p).toFixed(1)+','+Y(p[key]).toFixed(1); }).join(' '); };
   g+='<path d="'+path('pmax')+'" fill="none" stroke="#3FA34D" stroke-width="2" stroke-linejoin="round"/>';
   g+='<path d="'+path('pmin')+'" fill="none" stroke="#F0625A" stroke-width="2" stroke-linejoin="round"/>';
