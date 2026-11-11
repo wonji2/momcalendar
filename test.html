@@ -9916,7 +9916,8 @@ window.KKO_APP_S='';   // 앱: 설명 문장 없음(사장님 2026-11-02 「쓸�
 function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp(); }catch(_){ return false; } }
 window.__mcAppIn=function(){ try{ return isApp() && isLoggedIn(); }catch(_){ return false; } };
 // 네이버 버튼: 안드로이드 앱만(앱 안에서 열리게 LinkRouter 가 이미 허용). 아이폰은 allowNavigation 에 nid.naver.com 을 넣은 앱을 다시 빌드한 뒤 'ios' 를 더한다
-function nvAvail(){ try{ return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
+function nvAvail(){ try{ if(/[?&]nv=1/.test(location.search)) return true;   // 2026-11-11 사장님 휴대폰 시험용: test.html?nv=1 이면 웹에서도 네이버 버튼
+  return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
 var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';
 var NV_CLIENT_ID='b7KajUAIzrC4cfBxr6zO';   // OAuth client_id 는 공개값(시크릿은 서버 naver-auth 에만)
 var NV_BTN='<button data-nv-main type="button" onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px"><span style="font-size:17px">💚</span> 네이버로 시작하기</button>';
