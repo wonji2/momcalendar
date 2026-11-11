@@ -1543,16 +1543,16 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   .mc-infeed-content { padding: 0 12px; }
 }
 
-/* 💜 2안 키즈노트 원형 100% 싱크로율 (원길아 사장님 & 매니저님 최종 합의안: 배지·버튼 완전 삭제, 본론 2줄 + 54px 썸네일) */
+/* 💜 2안 키즈노트 원형 시인성 대폭 강화 (원길아 사장님 2026-11-11 "공구카드 내리다 눈에 띄게 해봐" 지침) */
 .mc-infeed-kidsnote {
   position: relative;
   width: 100%;
-  background: #FFFDF9;
-  border: 1px solid #EFE5D8;
+  background: #FFF9EC;
+  border: 1.5px solid #F3DFC1;
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 11px 13px;
   box-sizing: border-box;
-  box-shadow: 0 2px 6px rgba(180, 140, 100, 0.05);
+  box-shadow: 0 3px 10px rgba(220, 160, 80, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1564,7 +1564,7 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 }
 .mc-infeed-kidsnote:active {
   transform: scale(0.985);
-  background: #FDF6EC;
+  background: #FDF0DB;
 }
 .mc-kn-body {
   flex: 1;
@@ -1573,8 +1573,30 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   flex-direction: column;
   justify-content: center;
 }
+.mc-kn-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.mc-kn-badge {
+  background: #FFE8CC;
+  color: #D96B00;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+}
+.mc-kn-sub {
+  font-size: 11px;
+  color: #998060;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
 .mc-kn-title {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   color: #2D2725;
   line-height: 1.35;
@@ -1587,7 +1609,7 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   font-size: 12px;
   color: #8C7D75;
   line-height: 1.4;
-  margin-top: 4px;
+  margin-top: 3px;
   letter-spacing: -0.2px;
   white-space: nowrap;
   overflow: hidden;
@@ -1615,12 +1637,18 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 }
 @media (max-width: 480px) {
   .mc-infeed-kidsnote { padding: 10px 12px; gap: 10px; }
+  .mc-kn-badge-row { margin-bottom: 3px; gap: 5px; }
+  .mc-kn-badge { font-size: 10px; padding: 1.5px 5px; }
+  .mc-kn-sub { font-size: 10.5px; }
   .mc-kn-title { font-size: 13.5px; letter-spacing: -0.35px; }
-  .mc-kn-desc { font-size: 11.5px; letter-spacing: -0.2px; margin-top: 3px; }
+  .mc-kn-desc { font-size: 11.5px; letter-spacing: -0.2px; margin-top: 2px; }
   .mc-kn-thumb { width: 68px; height: 50px; border-radius: 8px; }
 }
 @media (max-width: 360px) {
   .mc-infeed-kidsnote { padding: 9px 11px; gap: 9px; }
+  .mc-kn-badge-row { margin-bottom: 2px; gap: 4px; }
+  .mc-kn-badge { font-size: 9.5px; padding: 1px 4.5px; }
+  .mc-kn-sub { font-size: 10px; }
   .mc-kn-title { font-size: 12.5px; letter-spacing: -0.4px; }
   .mc-kn-desc { font-size: 11px; letter-spacing: -0.25px; }
   .mc-kn-thumb { width: 64px; height: 48px; border-radius: 8px; }
@@ -1690,6 +1718,7 @@ var _todayKlook = _klookPool[_doy % _klookPool.length];
 var IN_FEED_PROMOS = [
   {
     id: 'wink_free_trial',
+    badge: '🎁 0원체험',
     title: '윙크 0원 체험! 플리츠마마백 증정',
     desc: '한글·수학 학습기 7일+교재 4권 무료배송',
     tag: '유아학습',
@@ -1699,6 +1728,7 @@ var IN_FEED_PROMOS = [
   },
   {
     id: 'elyhigh_elem_10day',
+    badge: '🎁 무료체험',
     title: '초등 엘리하이 0원+학습팩 증정',
     desc: '예비초~초6 전과목 강좌+전용 탭 무료배송',
     tag: '초등인강',
@@ -1708,6 +1738,7 @@ var IN_FEED_PROMOS = [
   },
   {
     id: 'bebecook_trial',
+    badge: '🎁 100%증정',
     title: '베베쿡 첫 이유식 3세트 무료 증정',
     desc: '초기·중기 한우 이유식 3일분 집 앞 신선 배송',
     tag: '시판이유식',
@@ -1717,6 +1748,7 @@ var IN_FEED_PROMOS = [
   },
   {
     id: 'dousiki_clean',
+    badge: '🎁 0원견적',
     title: '이사청소 시 피톤치드 살균케어 무료',
     desc: '전문가 신축 하자체크+친환경 세제 0원 견적',
     tag: '청소특가',
@@ -1726,6 +1758,7 @@ var IN_FEED_PROMOS = [
   },
   {
     id: 'modooisa_quote',
+    badge: '🎁 최저가비교',
     title: '포장이사 3곳 비교, 최대 30만 절감',
     desc: '평점 4.8 우수업체 실시간 방문견적 0원',
     tag: '이사특가',
@@ -1857,13 +1890,18 @@ function renderInFeedPromoCard(promo, context) {
     }
   }
 
-  // ── [2안] 키즈노트 100% 원형 (매니저님 2026-11-10: 직사각형 86x62px 썸네일 + 여백 없이 꽉 찬 2줄) ──
+  // ── [2안] 키즈노트 100% 원형 (원길아 사장님 2026-11-11: 시인성 강화 상단 뱃지 라인 + 직관적 실물 썸네일) ──
   if (_infeedMode === '2') {
     var knGrid = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0;"' : ' style="margin: 10px 0;"';
-    var thumbFallback = (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src=\'https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png\';"' : '';
+    var thumbFallback = (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png';"' : '';
     var thumbExtraClass = promo.contain ? ' mc-kn-thumb-contain' : '';
+    var badgeText = promo.badge || '🎁 특별혜택';
     return '<div class="mc-infeed-kidsnote"' + knGrid + ' onclick="' + oc + '">'
       + '<div class="mc-kn-body">'
+        + '<div class="mc-kn-badge-row">'
+          + '<span class="mc-kn-badge">' + badgeText + '</span>'
+          + '<span class="mc-kn-sub">맘캘 단독 혜택</span>'
+        + '</div>'
         + '<div class="mc-kn-title">' + promo.title + '</div>'
         + '<div class="mc-kn-desc">' + promo.desc + '</div>'
       + '</div>'
