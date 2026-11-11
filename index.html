@@ -9981,7 +9981,7 @@ function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp()
 window.__mcAppIn=function(){ try{ return isApp() && isLoggedIn(); }catch(_){ return false; } };
 // 네이버 버튼: 안드로이드 앱만(앱 안에서 열리게 LinkRouter 가 이미 허용). 아이폰은 allowNavigation 에 nid.naver.com 을 넣은 앱을 다시 빌드한 뒤 'ios' 를 더한다
 // 🔴 네이버 로그인 잠금(2026-11-10): 앱에서 30일 95번 눌렀는데 완료 4번·최근 7일 0번(가입 1명) — 네이버 개발자센터 앱이 「개발 중」이라 일반 사용자는 막히는 것으로 추정. 검수 통과를 확인하면 NAVER_LOGIN_OPEN=true. 시험은 ?nv=1
-var NAVER_LOGIN_OPEN=false;
+var NAVER_LOGIN_OPEN=true;   // 2026-11-11 네이버 개발자센터 검수 「승인」 메일 확인(사장님) → 잠금 해제
 function _nvOpen(){ try{ return NAVER_LOGIN_OPEN || /[?&]nv=1/.test(location.search); }catch(_){ return false; } }
 function nvAvail(){ try{ if(!_nvOpen()) return false; return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
 var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';
