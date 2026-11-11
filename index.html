@@ -7767,15 +7767,21 @@ function goHome(){
   window.scrollTo({top:0, behavior:'smooth'});
   fSt='all'; fMajor='전체'; fMinors=[]; fSearch='';
   selWeekDate=todayStr;
-  document.getElementById('sInput').value='';
-  document.getElementById('sClear').style.display='none';
+  var sIn = document.getElementById('sInput');
+  if(sIn) sIn.value='';
+  var sClr = document.getElementById('sClear');
+  if(sClr) sClr.style.display='none';
   _suggestOpen=false;
-  applySearchMode();   // 통합검색 화면이 떠 있었으면 닫기 (검색모드 클래스도 여기서 회수)
+  if(typeof exitSearchMode==='function') exitSearchMode();
+  else if(typeof applySearchMode==='function') applySearchMode();
   document.querySelectorAll('.stab').forEach(b=>b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'));
-  document.getElementById('stab-all').classList.add('on-all');
-  document.getElementById('sideAllBtn').classList.add('on');
-  switchTab('list');
-  renderList();
+  var stabAll = document.getElementById('stab-all');
+  if(stabAll) stabAll.classList.add('on-all');
+  var sideAll = document.getElementById('sideAllBtn');
+  if(sideAll) sideAll.classList.add('on');
+  if(typeof switchContent==='function') switchContent('gonggu');
+  if(typeof switchTab==='function') switchTab('list');
+  if(typeof renderList==='function') renderList();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function clearSearch(){ exitSearchMode(); }   // ✕도 취소도 원래 화면 복귀 (스펙 1번)
@@ -9946,7 +9952,10 @@ window.KKO_APP_S='';   // 앱: 설명 문장 없음(사장님 2026-11-02 「쓸�
 function isApp(){ try{ return typeof _isNativeApp==='function' && _isNativeApp(); }catch(_){ return false; } }
 window.__mcAppIn=function(){ try{ return isApp() && isLoggedIn(); }catch(_){ return false; } };
 // 네이버 버튼: 안드로이드 앱만(앱 안에서 열리게 LinkRouter 가 이미 허용). 아이폰은 allowNavigation 에 nid.naver.com 을 넣은 앱을 다시 빌드한 뒤 'ios' 를 더한다
-function nvAvail(){ try{ return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
+// 🔴 네이버 로그인 잠금(2026-11-10): 앱에서 30일 95번 눌렀는데 완료 4번·최근 7일 0번(가입 1명) — 네이버 개발자센터 앱이 「개발 중」이라 일반 사용자는 막히는 것으로 추정. 검수 통과를 확인하면 NAVER_LOGIN_OPEN=true. 시험은 ?nv=1
+var NAVER_LOGIN_OPEN=false;
+function _nvOpen(){ try{ return NAVER_LOGIN_OPEN || /[?&]nv=1/.test(location.search); }catch(_){ return false; } }
+function nvAvail(){ try{ if(!_nvOpen()) return false; return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
 var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';
 var NV_CLIENT_ID='b7KajUAIzrC4cfBxr6zO';   // OAuth client_id 는 공개값(시크릿은 서버 naver-auth 에만)
 var NV_BTN='<button data-nv-main type="button" onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px"><span style="font-size:17px">💚</span> 네이버로 시작하기</button>';
@@ -10478,7 +10487,7 @@ function shouldShow(){
   }catch(_){ return false; }
 }
 // 네이버 버튼: 안드로이드 앱(앱 안에서 열리게 LinkRouter 허용) — 아이폰은 앱 재빌드 뒤 켠다. 확인용(?onb=1)으로 웹에서 열 때도 보인다
-function nvShow(){ try{ if(isApp()) return !!(window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'); return forced(); }catch(_){ return false; } }
+function nvShow(){ try{ if(!_nvOpen()) return false; if(isApp()) return !!(window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'); return forced(); }catch(_){ return false; } }
 function apShow(){ try{ return typeof _appleAvail==='function' && _appleAvail(); }catch(_){ return false; } }   // 아이폰 앱: 카카오·네이버를 두면 애플 로그인도 같이(App Review 4.8)
 function close(done){
   clearTimeout(T); T=null;
