@@ -6573,7 +6573,7 @@ function toggleWish(id, btn, ev){
       // 💜 로그인 상태
       mcToast('내 찜에 담았어요 💜', 2000);
       // 알림은 앱에서만 가능: 앱이고 알림 권한이 꺼져 있으면 찐 폰 설정 직결
-      if(typeof _isNativeApp==='function' && _isNativeApp() && !(typeof notiGranted==='function' && notiGranted())){
+      if(!window._nxNoAsk && typeof _isNativeApp==='function' && _isNativeApp() && !(typeof notiGranted==='function' && notiGranted())){
         _appPushAsk(false);
       }
     }
@@ -7772,6 +7772,7 @@ window.addEventListener('popstate',()=>{
   function _capApp(){ try{ return window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App; }catch(_){ return null; } }
   var _lastBack=0;
   function closeTopLayer(){
+    var al=document.getElementById('mcAlarm'); if(al && al.classList.contains('open')){ al.classList.remove('open'); try{ trackEvent('app_alarm_sheet','back'); }catch(_){} return true; }
     var sh=document.querySelector('.mc-sheet.open'); if(sh){ sh.classList.remove('open'); return true; }
     var bs=[['kkoSheet','closeLoginSheet'],['wnSheet','closeWnSheet'],['infoSheet','closeInfoSheet']];   // 이 시트들은 on/open 클래스가 아니라 style.bottom='0' 으로 열린다(2026-11-02 코덱스 지적)
     for(var j=0;j<bs.length;j++){ var b=document.getElementById(bs[j][0]); if(b && /^0(px)?$/.test(b.style.bottom||'') && typeof window[bs[j][1]]==='function'){ window[bs[j][1]](); return true; } }
@@ -8417,11 +8418,36 @@ function _appSettingsResume(){
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') back(); });
   try{ Capacitor.Plugins.App.addListener('appStateChange', function(st){ if(st && st.isActive) back(); }); }catch(_){}
 }
-function _appAlarmCss(){ /* deprecated - mcAlarm removed */ }
-// 「휴대폰 앱 알림이 꺼져 있어요」 가짜 흉내 시트 전면 박멸 (매니저님 2026-11-10 지시)
-// 가짜 시트(#mcAlarm)를 일절 띄우지 않고 찐 휴대폰 설정 / 시스템 허용창으로 바로 직결한다.
+function _appAlarmCss(){
+  if(document.getElementById('mc-alarm-css')) return;
+  var st=document.createElement('style'); st.id='mc-alarm-css';
+  st.textContent='#mcAlarm{position:fixed;inset:0;z-index:99998;display:none}#mcAlarm.open{display:block}#mcAlarm .al-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}'
+  +'#mcAlarm .al-sh{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.22,1,.36,1)}#mcAlarm.open .al-sh{transform:none}'
+  +'#mcAlarm .al-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-10px auto 18px}#mcAlarm .al-t{font-size:18px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.02em}'
+  +'#mcAlarm .al-s{margin-top:8px;font-size:14px;line-height:1.5;color:#4E5968;word-break:keep-all}#mcAlarm .al-row{margin-top:18px;background:#F2F4F6;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#191F28}'
+  +'#mcAlarm .al-row img{width:38px;height:38px;border-radius:10px;display:block}#mcAlarm .al-tg{margin-left:auto;width:48px;height:28px;border-radius:14px;background:#C9CDD2;position:relative}#mcAlarm .al-tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff}'
+  +'#mcAlarm .al-go{display:block;width:100%;height:52px;margin-top:28px;border:0;border-radius:26px;background:#7C54C4;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}#mcAlarm .al-go:active{transform:scale(.97)}'
+  +'#mcAlarm .al-later{display:flex;align-items:center;justify-content:center;width:100%;height:44px;margin-top:6px;border:0;background:none;color:#8B95A1;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}';
+  document.head.appendChild(st);
+}
+// 「휴대폰 앱 알림이 꺼져 있어요」 시트 — 맘맘 12번 구성(제목 · 앱 아이콘+알림 허용 스위치 · 큰 버튼 · 작은 「나중에」)
 function _appAlarmSheet(src){
-  _appAlarmGo();
+  try{
+    _appAlarmCss();
+    var m=document.getElementById('mcAlarm');
+    if(!m){
+      m=document.createElement('div'); m.id='mcAlarm'; m.setAttribute('role','dialog');
+      m.innerHTML='<div class="al-bg"></div><div class="al-sh"><div class="al-grab"></div><div class="al-t">휴대폰 앱 알림이 꺼져 있어요</div><div class="al-s">찜한 공구는 오픈 날 아침 9시에 알려 드려요</div>'
+        +'<button type="button" class="al-go">알림 켜기</button><button type="button" class="al-later">나중에</button></div>';
+      document.body.appendChild(m);
+    }
+    var close=function(){ m.classList.remove('open'); };
+    m.querySelector('.al-bg').onclick=m.querySelector('.al-later').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','later|'+(src||'')); }catch(_){} };
+    m.querySelector('.al-go').onclick=function(){ close(); try{ trackEvent('app_alarm_sheet','go|'+(src||'')); }catch(_){} _appAlarmGo(); };
+    m.classList.add('open');
+    try{ var _tb=document.getElementById('mcToastBox'), _sh=m.querySelector('.al-sh'); if(_tb && _sh) _tb.style.bottom=(_sh.offsetHeight+12)+'px'; }catch(_){}   // 「내 찜에 담았어요」 토스트는 시트 위로
+    try{ trackEvent('app_alarm_sheet','show|'+(src||'')); }catch(_){}
+  }catch(_){}
 }
 // 「알림 켜기」 — 안드로이드: 폰 알림 설정 화면으로 바로 · 아이폰: 허용창 한 번 → 거부했으면 설정(애플은 허용창을 한 번 띄워야 설정에 알림 줄이 생긴다)
 async function _appAlarmGo(){
@@ -8447,28 +8473,30 @@ async function _appAlarmGo(){
     }
   }catch(_){}
 }
-// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 매니저님 지침: 비로그인은 절대 안 띄우고, 로그인 상태에서만 찐 설정 직결
+// 자동으로 띄우는 경우(로그인한 기기·앱을 열 때) — 3일에 한 번, 소개(로그인) 화면이 떠 있으면 안 띄운다. 설정 화면으로 바로 보내지 않고 우리 시트부터(사장님 2026-11-05 확정 · 11-11 복구)
 function _appAlarmAuto(state){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
     if(!isLoggedIn()) return false;
     if(state==='granted' || (typeof notiGranted==='function' && notiGranted())) return false;
     if(document.getElementById('appOnboardingWrap')) return false;
-    var _k=document.getElementById('kkoSheet'); if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0')) return false;
+    if(typeof busySheet==='function' && busySheet()) return false;   // 로그인 시트·출석 팝업 등 다른 시트가 떠 있으면 덮지 않는다(다음에 앱을 열 때 다시 본다)
     var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false;
     try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}
-    _appAlarmGo(); return true;
+    _appAlarmSheet('auto'); return true;
   }catch(_){ return false; }
 }
-// 알림 신청 순간(벨·하트) — 매니저님 지시: 가짜 시트 전면 제거, 비로그인은 로그인만, 로그인 후 찐 폰 설정 직결!
+// 알림 신청 순간(벨·하트) — force=벨은 항상, 하트 등은 3일에 한 번. 시트만 띄운다(휴대폰 설정·허용창은 시트의 「알림 켜기」 뒤 — 사장님 2026-11-05 확정 · 11-11 복구)
 function _appPushAsk(force){
   try{
     if(!(typeof _isNativeApp==='function' && _isNativeApp())) return false;
     if(!isLoggedIn()) return false;
     if(typeof notiGranted==='function' && notiGranted()) return false;
     var _k=document.getElementById('kkoSheet');
-    if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0'||window.__kkoAutoOpen)) return false;
-    _appAlarmGo(); return true;
+    if(_k && (_k.style.bottom==='0px'||_k.style.bottom==='0'||window.__kkoAutoOpen)) return false;   // 로그인 시트와 겹쳐 띄우지 않는다
+    if(!force){ var nx=+(localStorage.getItem('mc_alarm_next')||0); if(nx && Date.now()<nx) return false; }
+    try{ localStorage.setItem('mc_alarm_next', String(Date.now()+3*864e5)); }catch(_){}   // 벨로 띄운 뒤에도 3일 쉰다(벨 → 「나중에」 직후 하트에 또 뜨지 않게)
+    _appAlarmSheet(force?'bell':'heart'); return true;
   }catch(_){ return false; }
 }
 function nxdBell(id,btn,ev){
@@ -8506,8 +8534,8 @@ function nxdBell(id,btn,ev){
     return;
   }
 
-  // 6. 앱 환경: 알림 권한이 꺼져 있으면 가짜 시트 없이 찐 폰 알림 설정 화면 / 시스템 허용창으로 바로 직행!
-  _appAlarmGo();
+  // 6. 앱 환경: 알림이 꺼져 있으면 우리 시트(「알림 켜기」·「나중에」) — 휴대폰 설정으로 바로 보내지 않는다(사장님 2026-11-05 확정 · 11-11 복구)
+  _appPushAsk(true);
 }
 
 function _nxOutside(id){
