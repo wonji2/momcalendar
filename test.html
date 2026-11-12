@@ -1805,7 +1805,9 @@ var IN_FEED_PROMOS = [
       var now=Date.now(), isTest=/\/test\.html$/.test(location.pathname);
       var rows=(all||[]).filter(function(x){ if(!x||x.type!=='infeed'||!x.title||!x.link) return false; if(x.stage==='test'&&!isTest) return false;
         var f=x.show_from?new Date(x.show_from).getTime():null, u=x.show_until?new Date(x.show_until).getTime():null; return (f===null||f<=now)&&(u===null||u>=now); });
-      if(!rows.length) return;
+      var cf=(all||[]).filter(function(x){ return x&&x.type==='config'&&x.title==='infeed'; })[0], cfOn=false;
+      if(cf){ try{ window._INFEED_CFG=JSON.parse(cf.subtitle||'{}'); cfOn=true; }catch(_){} }
+      if(!rows.length){ if(cfOn){ try{ if(typeof renderList==='function'&&document.querySelector('#cardList .card')) renderList(); }catch(_){} } return; }
       var list=rows.map(function(b){ return { id:'ad_'+b.id, badge:(b.cta&&b.cta.trim())||'🎁 혜택', title:String(b.title), desc:String(b.subtitle||''), tag:'', cta:'보러가기', thumb:b.img_url||'', thumbFb:'momcal-dousik-thumb.png', contain:false, url:String(b.link) }; });
       IN_FEED_PROMOS.splice.apply(IN_FEED_PROMOS,[0,IN_FEED_PROMOS.length].concat(list));
       try{ if(typeof _promoRandomSeed!=='undefined') _promoRandomSeed=Math.floor(Math.random()*IN_FEED_PROMOS.length); }catch(_){}
@@ -1845,6 +1847,9 @@ function updateInfeedSwitcherUi() {
 }
 
 var _promoRandomSeed = Math.floor(Math.random() * IN_FEED_PROMOS.length);
+// 사이 광고 간격 — 관리자(배너 탭 › 사이광고 › 간격)에서 바꾼 값(window._INFEED_CFG). 없으면 지금 값 그대로: 공구 15번째 뒤·60장마다, 핫딜 40개마다, 검색 1개. 0 = 그 자리 끔
+function _infeedCfg(){ var c=window._INFEED_CFG||{}, n=function(v,d,min){ v=parseInt(v,10); if(isNaN(v)||v<0) return d; if(v===0) return 0; return v<min?min:v; };
+  return { gFirst:n(c.gFirst,15,1), gEvery:n(c.gEvery,60,5)||60, hEvery:n(c.hEvery,40,4), search:c.search!==false }; }
 function getInFeedPromo(slotIdx) {
   return IN_FEED_PROMOS[(slotIdx + _promoRandomSeed) % IN_FEED_PROMOS.length];
 }
@@ -1981,8 +1986,9 @@ function _injectInFeedGonggu(cards, startIdx, totalCount) {
     var globalIdx = s + j;
     out += cards[j];
     // 공구 1열 리스트: 사장님 2026-11-11 긴급 지침 - 첫 배너 15번째(index 14) 즉시 1차 노출, 이후 60개 간격 (74, 134, 194...)
-    if (globalIdx === 14 || (globalIdx > 14 && (globalIdx - 14) % 60 === 0)) {
-      var promoSlot = Math.floor((globalIdx - 14) / 60);
+    var _ic = _infeedCfg(), _g0 = _ic.gFirst - 1;
+    if (_ic.gFirst > 0 && (globalIdx === _g0 || (globalIdx > _g0 && (globalIdx - _g0) % _ic.gEvery === 0))) {
+      var promoSlot = Math.floor((globalIdx - _g0) / _ic.gEvery);
       out += renderInFeedPromoCard(getInFeedPromo(promoSlot), 'gonggu');
     }
   }
@@ -2452,7 +2458,7 @@ window._mcBanners=(function(){
   return function(){
     if(!p){
       var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller,infeed)&select=*&order=sort_order.asc.nullslast',
+      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller,infeed,config)&select=*&order=sort_order.asc.nullslast',
               {headers:{apikey:K,Authorization:'Bearer '+K}})
         .then(function(r){ return r.ok?r.json():null; })
         .catch(function(){ return null; });
@@ -4087,7 +4093,7 @@ async function renderSearchAll(){
   ` : '';
 
   // 💜 인피드 혜택 배너: 공구와 핫딜 사이 배치 (원길아 사장님 2026-11-11 지침: 공구-핫딜 사이 전진 배치 및 최하단 중복 제거)
-  const promoSearch = (total >= 1) ? renderInFeedPromoCard(getInFeedPromo(0), 'search') : '';
+  const promoSearch = (total >= 1 && _infeedCfg().search) ? renderInFeedPromoCard(getInFeedPromo(0), 'search') : '';
   let html = '';
   let promoPlaced = false;
 
@@ -5195,7 +5201,8 @@ function renderHotdeals(){
     }
     // 핫딜 2열 그리드 전폭 인피드 슬롯: Top 10 뒤 14번째에서 1차 노출, 그 후 10개마다(24, 34...)
     // 핫딜 2열 그리드 전폭 인피드 슬롯: 40번째에서 1차 노출, 그 후 40개마다 (간격 40개로 2배 확대)
-    if (idx === 39 || (idx > 39 && (idx - 39) % 40 === 0)) {
+    var _ih = _infeedCfg().hEvery, _h0 = _ih - 1;
+    if (_ih > 0 && (idx === _h0 || (idx > _h0 && (idx - _h0) % _ih === 0))) {
       cards.push(renderInFeedPromoCard(getInFeedPromo(hdPromoCount++), 'hotdeal'));
     }
     cards.push(hdGridCardHtml(h));
