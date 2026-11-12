@@ -2473,10 +2473,39 @@ try{ window._mcNxEarly(); }catch(_){}
     var m=(b.bg||'').match(/#[0-9a-fA-F]{3,6}/); var bg=m?m[0]:'#7C54C4';
     var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
     var stageTag=(b.stage==='test')?'<div style="font-size:10px;font-weight:800;color:#8A6100;background:#FFF3D6;border-radius:6px;padding:2px 7px;display:inline-block;margin-bottom:4px">🧪 테스트 전용 배너 (실제 사이트엔 안 보임)</div>':'';
-    el.innerHTML=stageTag+'<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
-      +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
-      +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
-      +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
+    // 모양(사장님 2026-11-12): banners.img_size 가 A·B·C 이고 사진이 있으면 사진 띠배너, 아니면 지금의 글자 띠배너
+    //   A = 왼쪽 정사각 사진 + 꼬리표 + 한 줄(높이 56) · B = 광고주 가로 사진 통째(높이 80) · C = 글 두 줄 + 오른쪽 사진(높이 72)
+    var shape=String(b.img_size||'').toUpperCase(), pic=b.img_url?String(b.img_url):''; if(!/^[ABC]$/.test(shape)||!pic) shape='';
+    var AD='<span style="font-size:9px;font-weight:600;color:#999;border:1px solid #DDD;border-radius:3px;padding:1px 3px;line-height:1.2;flex-shrink:0;background:#fff">AD</span>';
+    var open='<div onclick="slimAdClick('+b.id+')" data-lnk="'+esc(b.link)+'" ', body;
+    if(shape==='A'){
+      body=open+'style="display:flex;align-items:center;gap:10px;height:56px;background:#F6F3FA;border:1px solid #EDE8F3;border-radius:12px;padding:0 12px 0 8px;cursor:pointer;box-sizing:border-box">'
+        +'<img src="'+esc(pic)+'" alt="" onerror="this.style.display=\'none\'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0">'
+        +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:5px;margin-bottom:2px"><span style="background:'+bg+';color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;white-space:nowrap">'+esc(tag)+'</span>'+AD+'</div>'
+        +'<div style="font-size:13.5px;font-weight:700;color:#191F28;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.title)+'</div></div>'
+        +'<span style="color:#8B95A1;font-size:15px;flex-shrink:0">›</span></div>';
+    }else if(shape==='B'){
+      body=open+'style="position:relative;border-radius:12px;overflow:hidden;line-height:0;cursor:pointer;background:'+bg+'">'
+        +'<img src="'+esc(pic)+'" alt="'+esc(b.title)+'" onerror="this.parentNode.parentNode.style.display=\'none\'" style="width:100%;height:80px;object-fit:cover;display:block">'
+        +'<span style="position:absolute;right:8px;top:8px;line-height:1.2">'+AD+'</span></div>';
+    }else if(shape==='C'){
+      body=open+'style="display:flex;align-items:center;gap:10px;height:72px;background:#fff;border:1px solid #EDE8F3;border-radius:12px;padding:0 8px 0 14px;cursor:pointer;box-sizing:border-box">'
+        +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><span style="background:#F6F3FA;color:'+bg+';font-size:10px;font-weight:800;padding:2px 7px;border-radius:100px;white-space:nowrap">'+esc(tag)+'</span>'+AD+'</div>'
+        +'<div style="font-size:14px;font-weight:800;color:#191F28;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.title)+'</div>'
+        +(b.subtitle?'<div style="font-size:11.5px;color:#8B95A1;letter-spacing:-0.02em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.subtitle)+'</div>':'')+'</div>'
+        +'<img src="'+esc(pic)+'" alt="" onerror="this.style.display=\'none\'" style="width:72px;height:54px;border-radius:9px;object-fit:cover;flex-shrink:0"></div>';
+    }else{
+      body=open+'style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
+        +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
+        +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:13px;font-weight:700">'+esc(b.title)+'</span>'
+        +'<span style="font-size:9px;color:rgba(255,255,255,.5);flex-shrink:0">AD</span></div>';
+    }
+    el.innerHTML=stageTag+body;
+    // 위치: banners.img_position = 'list'(분류 칩 아래·목록 바로 위) · 'hotdeal'(핫딜 탭 맨 위) · 그 밖 = 지금 자리(이웃셀러 아래)
+    try{ var pos=String(b.img_position||'');
+      if(pos==='list'){ var cl=document.getElementById('cardList'), pz=cl&&cl.parentNode?cl.parentNode.querySelector('.promo-zone'):null; if(pz&&pz.parentNode){ pz.parentNode.insertBefore(el,pz); el.style.padding='8px 14px 4px'; } }
+      else if(pos==='hotdeal'){ var hv=document.getElementById('hotdealView'); if(hv){ hv.insertBefore(el,hv.firstChild); el.style.padding='0 0 10px'; var hs=document.createElement('style'); hs.textContent='#hotdealView #slimAdSlot{display:block!important}'; document.head.appendChild(hs); } }   // 공구 외 탭에서 위쪽 배너를 숨기는 규칙(body[data-ct] #slimAdSlot)보다 앞서게
+    }catch(_){}
     el.style.display='block';
     // 노출 1회 집계 (CTR 계산용) — 같은 배너는 하루 1회만
     try{

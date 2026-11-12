@@ -612,6 +612,23 @@ details summary::-webkit-details-marker{display:none}
       </div>
       <div class="modal-field"><label id="bTitleLbl">제목 *</label><input id="bTitle" type="text" placeholder="예) 맘캘린더 공구 함께해요 💚" oninput="bLenTick()"><div id="bTitleLen" style="font-size:11px;color:#999;margin-top:3px"></div></div>
       <div class="modal-field"><label id="bCtaLbl">브랜드명 (기획전용, 작은 글씨)</label><input id="bCta" type="text" placeholder="예) botellafit · 쿠팡 파트너스"></div>
+      <div class="modal-field" id="bSlimOpts" style="display:none">
+        <label>띠배너 모양 · 위치</label>
+        <div style="display:flex;gap:8px">
+          <select id="bSlimShape" onchange="syncBannerTypeUI()" style="flex:1;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
+            <option value="">글자만 (사진 없음)</option>
+            <option value="A">A · 왼쪽 작은 사진 + 한 줄</option>
+            <option value="B">B · 가로 사진 통째</option>
+            <option value="C">C · 글 두 줄 + 오른쪽 사진</option>
+          </select>
+          <select id="bSlimPos" style="flex:1;padding:9px 10px;border:1px solid #D9CCF0;border-radius:8px;font-size:13px;font-family:inherit">
+            <option value="">공구 탭 · 이웃셀러 아래</option>
+            <option value="list">공구 탭 · 목록 바로 위</option>
+            <option value="hotdeal">핫딜 탭 · 맨 위</option>
+          </select>
+        </div>
+        <div id="bSlimHint" style="font-size:11px;color:#7B3FB5;margin-top:4px;line-height:1.6"></div>
+      </div>
       <div class="modal-field" id="bSubField"><label>부제목 <span style="font-weight:400;color:#999">(사진 아래 한 줄 설명)</span></label><input id="bSubtitle" type="text" placeholder="예) 방학에 쟁여두는 국내산 간식" oninput="bLenTick()"><div id="bSubLen" style="font-size:11px;color:#999;margin-top:3px"></div></div>
       <div class="modal-field">
         <label>링크 URL</label>
@@ -4371,8 +4388,14 @@ function syncBannerTypeUI(){
   const t=(document.getElementById('bType')||{}).value||'main';
   const slim=(t==='slim');
   const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  show('bImgField',!slim);        // 슬림은 이미지 불필요
-  show('bSubField',!slim);        // 부제목도 안 씀
+  // 띠배너: 모양(A·B·C)을 고르면 사진 칸이, C 면 둘째 줄(부제목) 칸이 열린다 (2026-11-12)
+  const shp=slim?((document.getElementById('bSlimShape')||{}).value||''):'';
+  show('bSlimOpts',slim);
+  show('bImgField',!slim||!!shp);
+  show('bSubField',!slim||shp==='C');
+  { const h=document.getElementById('bSlimHint'); if(h) h.innerHTML=shp==='A'?'사진 <b>정사각 200×200</b> · 문구 한글 15자':shp==='B'?'사진 <b>가로 1041 × 세로 240</b>(화면엔 347×80) · 문구는 화면에 안 나오고 사진만 나와요':shp==='C'?'사진 <b>가로 288 × 세로 216</b> · 문구 한글 14자 · 둘째 줄(부제목) 16자':'사진 없이 꼬리표 + 한 줄 문구(한글 15자)'; }
+  // 새 띠배너는 기본 7일(지금 ~ 7일 뒤) — 비어 있을 때만 채운다
+  if(slim && !document.getElementById('bId').value){ const f=document.getElementById('bShowFrom'), u=document.getElementById('bShowUntil'); if(f&&u&&!f.value&&!u.value){ const loc=(d)=>{ d=new Date(d); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); }; f.value=loc(Date.now()); u.value=loc(Date.now()+7*864e5); } }
   show('bLinkOpenField',!slim);   // 링크 공개일시도 안 씀
   const pre=document.getElementById('bBgPresets'); if(pre) pre.style.display=slim?'flex':'none';
   // 슬림인데 색이 기본 초록(예전 기본값)이면 사이트 톤(보라)로 자동 교체
@@ -4590,6 +4613,7 @@ function openBannerAdd(){
   document.getElementById('bannerModalTitle').textContent='🖼️ 배너 추가';
   document.getElementById('bId').value='';
   document.getElementById('bType').value=bannerFilter||'main';   // 보고 있던 종류로 기본 선택
+  { const a=document.getElementById('bSlimShape'), p=document.getElementById('bSlimPos'); if(a)a.value=''; if(p)p.value=''; }
   document.getElementById('bCta').value='';
   document.getElementById('bTitle').value='';
   document.getElementById('bSubtitle').value='';
@@ -4621,6 +4645,7 @@ function openBannerEdit(id){
   document.getElementById('bannerModalTitle').textContent='🖼️ 배너 수정';
   document.getElementById('bId').value=id;
   document.getElementById('bType').value=b.type||'main';
+  { const a=document.getElementById('bSlimShape'), p=document.getElementById('bSlimPos'); if(a)a.value=(b.type==='slim'&&/^[ABC]$/.test(String(b.img_size||'').toUpperCase()))?String(b.img_size).toUpperCase():''; if(p)p.value=(b.type==='slim'&&/^(list|hotdeal)$/.test(b.img_position||''))?b.img_position:''; }
   document.getElementById('bCta').value=b.cta||'';
   document.getElementById('bTitle').value=b.title||'';
   document.getElementById('bSubtitle').value=b.subtitle||'';
@@ -4700,6 +4725,12 @@ async function saveBanner(){
     ad_price:(function(){ var v=((document.getElementById('bAdPrice')||{}).value||'').trim(); return v?parseInt(v,10):null; })(),
   };
 
+  if(payload.type==='slim'){   // 띠배너: 모양·위치를 img_size·img_position 칸에 담는다(새 칸 없음)
+    const shp=(document.getElementById('bSlimShape')||{}).value||'', pos=(document.getElementById('bSlimPos')||{}).value||'';
+    if(shp && !imgUrl){ alert('모양 '+shp+' 는 사진이 필요해요. 사진을 올리거나 모양을 「글자만」으로 바꿔 주세요.'); return; }
+    payload.img_size=shp||'text'; payload.img_position=pos||'top';
+    if(!shp) payload.img_url=null;
+  }
   if(!id){
     // 신규: 맨 끝 순서로
     payload.sort_order=(bannerData.reduce((m,b)=>Math.max(m,b.sort_order||0),0))+1;
