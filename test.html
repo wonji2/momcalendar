@@ -10908,6 +10908,7 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 .my-hint{font-size:12px;color:#8B95A1;padding:8px 4px 0}.my-hint.err{color:#E5484D}
 .my-qt{gap:8px;cursor:default}.my-qt span{flex:0 0 auto;font-size:13px;color:#4E5968}
 .my-qt select{flex:1;min-width:0;height:40px;border:1px solid #EDE8F3;border-radius:100px;background:#fff;padding:0 12px;font-size:14px;font-weight:600;color:#333D4B;font-family:inherit}
+@media(max-width:340px){.my-qt{gap:6px}.my-qt select{font-size:13px;padding:0 2px 0 8px}}
 .mc-sheet.my-full{align-items:stretch;background:#F9FAFB}
 .mc-sheet.my-full .mc-pnl{width:100%!important;max-width:480px!important;height:100%!important;max-height:none!important;margin:0 auto!important;border-radius:0!important;background:#F9FAFB!important;padding:0!important;transform:none!important;display:flex;flex-direction:column;box-sizing:border-box;letter-spacing:-.02em}
 .my-sub-h{flex:0 0 auto;display:flex;align-items:center;gap:4px;height:52px;padding:0 8px;padding-top:env(safe-area-inset-top,0px);background:#fff;border-bottom:1px solid #F2F4F6}
@@ -10924,7 +10925,7 @@ function myPrefSet(k,on,el){
   var p=notiPrefs(), old=p[k]; p[k]=!!on; try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){}
   var back=function(){ p[k]=old; try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){} if(el) el.checked=old; mcToast("저장하지 못했어요"); };
   fetch(SUPABASE_URL+"/rest/v1/rpc/push_set_prefs",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_device:deviceId(),p_prefs:p})})
-    .then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j||!j.ok){ back(); return; } try{ trackEvent("noti_pref", k+"="+(on?1:0)+"|"+(j.rows==null?"":j.rows)); }catch(_){} })
+    .then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j||!j.ok){ back(); return; } myPrefMark(j.rows); try{ trackEvent("noti_pref", k+"="+(on?1:0)+"|"+(j.rows==null?"":j.rows)); }catch(_){} })
     .catch(back).then(function(){ try{ renderMypage(); }catch(_){} });
 }
 // 폰 알림 권한의 실제 상태: on · off · ask(아직 안 물음) · none(이 환경은 알림 없음)
@@ -10959,29 +10960,34 @@ function myRefresh(){ var go=function(){ try{ trackEvent("my_refresh",""); }catc
 function myWishList(){ try{ switchContent("gonggu"); switchTab("list"); if(fSt!=="wish") toggleStab("wish", document.getElementById("stab-wish")); mcScrollToContent(); }catch(e){ try{ console.error(e); }catch(_){} } }
 function myKakao(){ try{ trackEvent("my_kakao",""); }catch(_){} openLink("https://pf.kakao.com/_zGfxnX/chat"); }
 function myMail(){ var a="app@momcalendar.com"; try{ trackEvent("my_mail",""); }catch(_){} try{ navigator.clipboard.writeText(a).then(function(){ mcToast("메일 주소를 복사했어요\n"+a); }, function(){ shareFallback(a); }); }catch(_){ shareFallback(a); } }
+// 서버 기기 표에 아직 없는 기기(알림 켜기 전)는 rows 0 → 표시를 남겨 두고 화면을 열 때 다시 보낸다(6시간에 한 번)
+function myPrefMark(n){ try{ localStorage.setItem("mc_noti_prefs_ok", n>0?"1":"0"); }catch(_){} }
+function myPrefResync(){ try{ if(localStorage.getItem("mc_noti_prefs_ok")!=="0" || !localStorage.getItem(MY_PREF_K)) return; var at=parseInt(localStorage.getItem("mc_noti_prefs_try")||"0",10)||0; if(Date.now()-at<21600000) return; localStorage.setItem("mc_noti_prefs_try", String(Date.now()));
+  fetch(SUPABASE_URL+"/rest/v1/rpc/push_set_prefs",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_device:deviceId(),p_prefs:notiPrefs()})}).then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(j&&j.ok&&j.rows>0) myPrefMark(j.rows); }).catch(function(){}); }catch(_){} }
+setTimeout(myPrefResync, 6000);
 // ── 방해금지 시간: 키워드 핫딜·라방 알림만 쉰다(서버 _push_quiet). 공구 오픈·세일 알림은 아침 9시 하루 한 번이라 해당 없음 ──
 function myQuietCard(p){
-  var on=Number.isInteger(p.quiet_from), a=on?p.quiet_from:12, b=on?p.quiet_to:14, opt=function(sel){ var o=""; for(var h=0;h<24;h++) o+='<option value="'+h+'"'+(h===sel?" selected":"")+'>'+(h<12?"오전 ":"오후 ")+(h%12===0?12:h%12)+'시</option>'; return o; };
+  var on=Number.isInteger(p.quiet_from), a=on?p.quiet_from:12, b=on?p.quiet_to:14, opt=function(sel,lo,hi){ var o=""; if(sel<lo||sel>hi) hi=Math.max(hi,sel), lo=Math.min(lo,sel); for(var h=lo;h<=hi;h++) o+='<option value="'+h+'"'+(h===sel?" selected":"")+'>'+(h<12?"오전 ":"오후 ")+(h%12===0?12:h%12)+'시</option>'; return o; };
   return '<div class="my-card"><label class="my-row my-tg"><span class="my-lab">방해금지 시간<small>키워드 핫딜 · 라방 알림을 쉬어요</small></span><input type="checkbox" class="my-sw" id="myQtOn"'+(on?" checked":"")+' onchange="myQuiet()"></label>'
-    +'<div class="my-row my-qt" id="myQtRow"'+(on?"":' style="display:none"')+'><select id="myQtA" aria-label="시작" onchange="myQuiet()">'+opt(a)+'</select><span>부터</span><select id="myQtB" aria-label="끝" onchange="myQuiet()">'+opt(b)+'</select><span>까지</span></div></div>';
+    +'<div class="my-row my-qt" id="myQtRow"'+(on?"":' style="display:none"')+'><select id="myQtA" aria-label="시작" onchange="myQuiet()">'+opt(a,9,20)+'</select><span>부터</span><select id="myQtB" aria-label="끝" onchange="myQuiet()">'+opt(b,10,21)+'</select><span>까지</span></div></div>';
 }
 function myQuiet(){
   var g=function(id){ return document.getElementById(id); }, sw=g("myQtOn"), A=g("myQtA"), B=g("myQtB"), row=g("myQtRow"); if(!sw||!A||!B) return;
   var p=notiPrefs(), oldOn=Number.isInteger(p.quiet_from), oa=oldOn?p.quiet_from:12, ob=oldOn?p.quiet_to:14, on=sw.checked, a=parseInt(A.value,10), b=parseInt(B.value,10);
   var paint=function(o,x,y){ sw.checked=o; A.value=String(x); B.value=String(y); if(row) row.style.display=o?"":"none"; };
-  if(on && a===b){ paint(oldOn,oa,ob); if(!oldOn){ sw.checked=true; row.style.display=""; } mcToast("시작과 끝이 같아요"); return; }
+  if(on && a>=b){ paint(oldOn,oa,ob); if(!oldOn){ sw.checked=true; row.style.display=""; } mcToast("끝을 시작보다 늦게 골라 주세요"); return; }
   var q={gonggu:p.gonggu,hotdeal:p.hotdeal,sale:p.sale,event:p.event}; if(on){ q.quiet_from=a; q.quiet_to=b; }
   paint(on,a,b); try{ localStorage.setItem(MY_PREF_K, JSON.stringify(q)); }catch(_){}
   var back=function(){ try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){} paint(oldOn,oa,ob); mcToast("저장하지 못했어요"); };
   fetch(SUPABASE_URL+"/rest/v1/rpc/push_set_prefs",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_device:deviceId(),p_prefs:q})})
-    .then(function(r){ return r.ok?r.json():null; }).then(function(j){ var sv=j&&j.ok&&j.prefs; if(!sv || (on && (sv.quiet_from!==a || sv.quiet_to!==b)) || (!on && sv.quiet_from!=null)){ back(); return; } try{ trackEvent("noti_quiet", on?(a+"-"+b):"off"); }catch(_){} })
+    .then(function(r){ return r.ok?r.json():null; }).then(function(j){ var sv=j&&j.ok&&j.prefs; if(!sv || (on && (sv.quiet_from!==a || sv.quiet_to!==b)) || (!on && sv.quiet_from!=null)){ back(); return; } myPrefMark(j.rows); try{ trackEvent("noti_quiet", on?(a+"-"+b):"off"); }catch(_){} })
     .catch(back);
 }
 // 알림음·진동: 안드로이드는 앱 알림 설정 화면에서 바꾼다. 그 화면을 열 수 있는 앱에서만 줄을 그린다
 function mySoundRow(){ try{ var P=window._mcNative&&window._mcNative(); if(P&&P.openNotificationSettings) return '<button type="button" class="my-row" onclick="myPermGo()"><span class="my-ico">🔊</span><span class="my-lab">알림음 · 진동</span><span class="my-sub">폰 설정</span><span class="my-arr">›</span></button>'; }catch(_){} return ""; }
 // ── 닉네임 수정: rpc member_set_nickname → members.nick_custom(로그인해도 유지) ──
 var MY_NICK_MSG={len:"2~10자로 적어 주세요",chars:"한글 · 영문 · 숫자만 쓸 수 있어요",reserved:"쓸 수 없는 이름이에요",auth:"다시 로그인해 주세요"};
-function myNickCheck(v){ if(v.length<2||v.length>10) return "len"; if(!/^[가-힣A-Za-z0-9_]+$/.test(v)) return "chars"; if(/(맘캘|momcal|관리자|운영자|방장|admin|official)/i.test(v)) return "reserved"; return ""; }
+function myNickCheck(v){ if(v.length<2||v.length>10) return "len"; if(!/^[가-힣A-Za-z0-9]+$/.test(v)) return "chars"; if(/(맘캘|momcal|관리자|운영자|운영진|방장|매니저|스탭|스태프|admin|official|manager|staff)/i.test(v)) return "reserved"; return ""; }
 function myNickEdit(){
   var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){} if(!inn){ try{ openLoginSheet(); }catch(_){} return; }
   var cur=(m&&m.nickname)?String(m.nickname):"";
@@ -11001,10 +11007,10 @@ function myNickSave(){
     myNickStore(j.nickname); try{ trackEvent("my_nick","ok"); }catch(_){} mySubClose(); mcToast("닉네임을 바꿨어요");
   });
 }
-function myNickStore(n){ try{ var m=memberGet(); if(!m) return; m.nickname=String(n||""); m.nick_ok=1; localStorage.setItem("mc_member", JSON.stringify(m)); }catch(_){} try{ paintMemberUI(); }catch(_){} try{ renderMypage(); }catch(_){} }
+function myNickStore(n){ try{ var m=memberGet(); if(!m) return; m.nickname=String(n||""); m.nick_ok=1; m.nick_at=Date.now(); localStorage.setItem("mc_member", JSON.stringify(m)); }catch(_){} try{ paintMemberUI(); }catch(_){} try{ renderMypage(); }catch(_){} }
 // 로그인 응답의 이름은 카카오·네이버 이름이다 → 로그인마다 한 번 서버에 저장된 이름으로 맞춘다
-var _myProfBusy=false;
-function myProfSync(){ try{ if(_myProfBusy||!isLoggedIn()) return; var m=memberGet(); if(!m||!m.token||m.nick_ok===1) return; _myProfBusy=true; memberRpc("member_profile").then(function(j){ _myProfBusy=false; if(j&&j.ok) myNickStore(j.nickname||m.nickname); }); }catch(_){ _myProfBusy=false; } }
+var _myProfBusy=false, _myProfFail=0;
+function myProfSync(){ try{ if(_myProfBusy||!isLoggedIn()) return; var m=memberGet(); if(!m||!m.token||(m.nick_ok===1 && Date.now()-(m.nick_at||0)<86400000)||Date.now()-_myProfFail<600000) return; _myProfBusy=true; memberRpc("member_profile").then(function(j){ _myProfBusy=false; if(j&&j.ok) myNickStore(j.nickname||m.nickname); else _myProfFail=Date.now(); }); }catch(_){ _myProfBusy=false; } }
 setTimeout(myProfSync, 2500);
 var _myAtt=null, _myAttAt=0;
 function renderMypage(){
