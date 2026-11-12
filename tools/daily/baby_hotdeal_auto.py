@@ -9,6 +9,32 @@ import urllib.parse
 import random
 from datetime import datetime, timezone, timedelta
 
+# ── 내부 수집기 인증 머리말 (2026-11-12) — 우리 주소(momcalendar.com·api.·r.)를 부를 때만 「아군」 표시를 붙인다. 클라우드플레어 방화벽이 파이썬 기계 요청을 막아도 이 스크립트는 지나가게.
+#    비밀값은 환경변수 MOMCAL_INTERNAL_SECRET 에서만 읽는다(코드에 적지 않는다). 남의 서버로는 보내지 않는다. context= 를 따로 넘기는 urlopen 은 이 설정을 타지 않는다.
+def _momcal_internal_install():
+    import urllib.request as _ur, urllib.parse as _up
+    _sec = (os.environ.get('MOMCAL_INTERNAL_SECRET') or '').strip()
+    class _MomcalInternal(_ur.BaseHandler):
+        handler_order = 400
+        def _add(self, req):
+            try:
+                host = (_up.urlsplit(req.full_url).hostname or '').lower()
+                if host == 'momcalendar.com' or host.endswith('.momcalendar.com'):
+                    req.add_unredirected_header('User-agent', 'MomcalInternalEngine/1.0 (+https://momcalendar.com)')
+                    if _sec:
+                        req.add_unredirected_header('X-momcal-internal-secret', _sec)
+            except Exception:
+                pass
+            return req
+        http_request = _add
+        https_request = _add
+    try:
+        _ur.install_opener(_ur.build_opener(_MomcalInternal()))
+    except Exception:
+        pass
+_momcal_internal_install()
+
+
 # 🛡️ 사장님 지침(11-09): 안티봇 크롤링 방지망 회피를 위한 무작위 시간차 지터 (5~35초)
 _jitter = random.uniform(5.0, 35.0)
 print(f"[anti-bot] 봇 탐지 회피 무작위 시간차 지터: {_jitter:.1f}초 대기...")
