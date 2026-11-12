@@ -1620,7 +1620,22 @@ async function runAiParse(){
     return null;
   }
 
-  function guessCat(name){
+  // 🧠 0단계: 셀러·관리자가 손으로 고친 분류(DB gonggu_cat_learned) — 같은 이름 > 같은 셀러+브랜드 > 브랜드 (2026-11-11 셀러 민원)
+  let _catFixLearned=new Map();
+  try{
+    const _r=await fetch(SB_URL+'/rest/v1/rpc/cat_learned_all',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+ACCESS_TOKEN},body:'{}'});
+    if(_r.ok) ((await _r.json())||[]).forEach(x=>_catFixLearned.set(x.key_type+'|'+x.key,{major:x.major,minor:x.minor||''}));
+  }catch(_e){}
+  const catNormName=(p)=>String(p||'').toLowerCase().replace(/\s*\d+\s*차\s*$/,'').replace(/[^가-힣a-z0-9]/g,'');
+  const catBrandTok=(p)=>{ const t=String(p||'').trim(); const m=t.match(/^[[(（【]\s*([^\])）】]+?)\s*[\])）】]/); const raw=m?m[1]:t.replace(/^[[(（【][^\])）】]*[\])）】]\s*/,'').split(' ')[0]; return raw.toLowerCase().replace(/[^가-힣a-z0-9]/g,'')||null; };
+  function guessCatFixed(name, insta){
+    const b=catBrandTok(name), h=String(insta||'').replace('@','').toLowerCase();
+    const hit=_catFixLearned.get('name|'+catNormName(name)) || (h&&b?_catFixLearned.get('seller_brand|'+h+'|'+b):null) || (b?_catFixLearned.get('brand|'+b):null);
+    return hit&&CATS_LIST[hit.major]?{major:hit.major,minor:hit.minor,_learned:true,_fixed:true}:null;
+  }
+  function guessCat(name, insta){
+    const fixed=guessCatFixed(name, insta);
+    if(fixed) return fixed;
     // 1단계: 기존 등록 데이터로 학습된 분류 우선
     const learned=guessCatLearned(name);
     if(learned) return learned;
@@ -1731,7 +1746,7 @@ async function runAiParse(){
         }
       }
     }
-    const cat=guessCat((catHint?catHint[1]+' ':'')+name);
+    const cat=guessCatFixed(name, ig)||guessCat((catHint?catHint[1]+' ':'')+name);   // 셀러가 고친 분류 먼저(같은 셀러+브랜드)
     return {influencer:(infl||''), insta:(ig||'').replace('@',''), name, major:cat.major, minor:cat.minor, open_date:openDate, end_date:endDate, _conn:conn, _checked:true, _capped:capped};
   }
 

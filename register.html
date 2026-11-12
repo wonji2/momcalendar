@@ -423,15 +423,15 @@ const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
 const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 const H={apikey:KEY,'Authorization':'Bearer '+KEY};
 const CATS={
-  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','방꾸미기','스킨로션','유모차카시트','육아용품'],
-  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','테이블웨어','헬스케어'],
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','목욕/세정','외출용품','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','욕실용품','테이블웨어','헬스케어'],
   '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
   '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
   '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
-  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
   '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
   '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
-  '여행':['호텔/숙소','항공권','패키지/투어'],
+  '여행':['호텔/숙소','항공권','패키지/투어','체험/티켓','여행용품'],
   '반려동물':['강아지','고양이','사료','간식'],
 };
 const CAT_COLORS={'육아':'#9B6FD4','리빙':'#26A69A','식품':'#66BB6A','건강':'#26C6DA','인테리어':'#8D6E63','가전':'#5C6BC0','뷰티':'#EC407A','패션':'#FFA726','여행':'#42A5F5','반려동물':'#AB47BC'};
@@ -889,7 +889,18 @@ function guessCat(name){
   if(/소파|책상|의자|침대|커튼|조명|수납|책장|매트/.test(n)) return{major:'인테리어',minor:'가구'};
   return{major:'리빙',minor:'생활용품'};
 }
-function parseText(){
+// 🧠 셀러들이 고친 분류 학습값 — 같은 이름·같은 셀러+브랜드·브랜드 순(DB cat_learn_guess_many, 2026-11-11)
+async function learnedCats(names){
+  try{
+    const insta=((_seller&&(_seller.seller_insta||_seller.login_insta))||'').replace('@','');
+    const r=await fetch(`${SB}/rest/v1/rpc/cat_learn_guess_many`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_insta:insta,p_names:names})});
+    if(!r.ok) return {};
+    const m={}; (await r.json()).forEach(x=>{ if(x&&x.major&&CATS[x.major]) m[x.name]={major:x.major,minor:x.minor||''}; });
+    return m;
+  }catch(e){ return {}; }
+}
+async function smartCat(name){ const m=await learnedCats([name]); return m[name]||guessCat(name); }
+async function parseText(){
   const text=document.getElementById('parseText').value.trim();
   if(!text){showToast('텍스트를 입력해주세요!');return;}
   const year=new Date().getFullYear();
@@ -926,6 +937,8 @@ function parseText(){
     }
   }
   if(!rows.length){showToast('파싱된 항목이 없어요. 형식을 확인해주세요.');return;}
+  const lm=await learnedCats(rows.map(r=>r.name));
+  rows.forEach(r=>{ const l=lm[r.name]; if(l){ r.major=l.major; r.minor=l.minor; } r.auto_major=r.major; r.auto_minor=r.minor; });
   document.getElementById('regRows').innerHTML='';
   rows.forEach(r=>addRow(r));
   document.getElementById('parseText').value='';
@@ -947,12 +960,13 @@ function addRow(preset={}){
   const div=document.createElement('div');
   div.className='rrow';div.id=id;
   div.dataset.color=defColor;
+  if(preset.auto_major){ div.dataset.autoMaj=preset.auto_major; div.dataset.autoMin=preset.auto_minor||''; }
   div.innerHTML=`
     <button class="rdel" onclick="document.getElementById('${id}').remove()">✕</button>
-    <input class="ri rn" type="text" placeholder="제품명 *" value="${preset.name||''}">
+    <input class="ri rn" type="text" placeholder="제품명 *" value="${preset.name||''}" onchange="rowAutoCat(this)">
     <div class="rg">
-      <select class="rmaj" onchange="rowSyncMin(this)">${majOpts}</select>
-      <select class="rmin">${minOpts}</select>
+      <select class="rmaj" onchange="this.closest('.rrow').dataset.touched='1';rowSyncMin(this)">${majOpts}</select>
+      <select class="rmin" onchange="this.closest('.rrow').dataset.touched='1'">${minOpts}</select>
     </div>
     <div class="rd">
       <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">오픈일</div><input type="date" class="rop" value="${preset.open_date||today}"></div>
@@ -970,6 +984,15 @@ function pickRowColor(btn){
   row.dataset.color=btn.dataset.color;
   row.querySelectorAll('.rcolor-dot').forEach(d=>d.style.border='2px solid transparent');
   btn.style.border='2px solid #602090';
+}
+async function rowAutoCat(inp){
+  const row=inp.closest('.rrow'); const name=inp.value.trim();
+  if(!name||row.dataset.touched==='1') return;          // 셀러가 분류를 이미 골랐으면 건드리지 않는다
+  const c=await smartCat(name); if(!c||!CATS[c.major]) return;
+  if(row.dataset.touched==='1') return;
+  const maj=row.querySelector('.rmaj'); maj.value=c.major; rowSyncMin(maj);
+  if(c.minor) row.querySelector('.rmin').value=c.minor;
+  row.dataset.autoMaj=c.major; row.dataset.autoMin=c.minor||'';
 }
 function rowSyncMin(sel){
   const row=sel.closest('.rrow');
@@ -994,6 +1017,7 @@ async function saveAll(){
     };
     const pl=r.querySelector('.rpay')?r.querySelector('.rpay').value.trim():'';
     if(pl) obj.pay_link=pl;
+    if(r.dataset.autoMaj){ obj.auto_major=r.dataset.autoMaj; obj.auto_minor=r.dataset.autoMin||''; }   // 셀러가 바꿨으면 서버가 배운다
     return obj;
   }).filter(x=>x.name&&x.open_date);
   if(!rows.length){showToast('제품명을 입력한 항목이 없어요!');return;}
@@ -1018,9 +1042,13 @@ function openEdit(id){
   document.getElementById('eEnd').value=g.end_date||'';
   document.getElementById('ePay').value=g.pay_link||'';
   fillMajor('eMajor');
-  if(g.major)document.getElementById('eMajor').value=g.major;
+  const eMj=document.getElementById('eMajor');
+  if(g.major&&![...eMj.options].some(o=>o.value===g.major)) eMj.add(new Option(g.major,g.major));
+  if(g.major)eMj.value=g.major;
   syncEM();
-  if(g.minor)document.getElementById('eMinor').value=g.minor;
+  const eMn=document.getElementById('eMinor');
+  if(g.minor&&![...eMn.options].some(o=>o.value===g.minor)) eMn.add(new Option(g.minor,g.minor));   // 목록에 없는 기존 분류도 그대로(조용히 바뀌지 않게)
+  if(g.minor)eMn.value=g.minor;
   renderEColors();
   document.getElementById('editModal').classList.add('on');
 }
