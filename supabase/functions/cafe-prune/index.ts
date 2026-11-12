@@ -87,7 +87,7 @@ async function boardIds(menuid: number, needBack: number): Promise<{ ids: Set<nu
 }
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
+  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
   const dry = new URL(req.url).searchParams.get("dry") === "1";
   const t0 = Date.now(), deadline = t0 + BUDGET_MS;
   const out: Record<string, unknown> = { dry };

@@ -379,12 +379,19 @@ Deno.serve(async (req) => {
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
   try {
-    if (mode === "convert" && !(await isAdmin(req))) {
+    // 보안 감사 2026-11-13 F5: convert 만 막혀 있어 collect·track(핫딜·가격이력 쓰기)·link(제휴 링크 발급)·newtoken 을 누구나 부를 수 있었다
+    //   → health(상태만 보기, 토큰 새로 받기 없음) 말고는 크론 비밀값(x-cron-secret) 또는 관리자 로그인이 있어야 한다.
+    //   부르는 곳: pg_cron toss-track·toss-hotdeal·toss-track-pm(비밀값) · tools card_preflight·hotdeal_price_gate·hotdeal_chat(비밀값, health 만 손님 키) · admin.html convert(관리자)
+    const CRON = Deno.env.get("PUSH_CRON_SECRET") ?? "";
+    const byCron = !!CRON && req.headers.get("x-cron-secret") === CRON;
+    const authed = byCron || (await isAdmin(req));
+    if (mode === "convert" && !authed) {
       return json({ error: "관리자만 쓸 수 있습니다. 관리자 로그인 후 다시 시도해 주세요." }, 401);
     }
+    if (mode !== "health" && !authed) return json({ error: "권한이 없습니다" }, 401);
     if (!AK || !SK) return json({ error: "TOSS_ACCESS_KEY / TOSS_SECRET_KEY 가 비어 있다" }, 400);
 
-    const token = await getToken(u.searchParams.get("newtoken") === "1");
+    const token = await getToken(authed && u.searchParams.get("newtoken") === "1");
 
     if (mode === "health") {
       const r = await call("GET", "/health", token);

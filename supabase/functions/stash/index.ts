@@ -9,7 +9,7 @@ const SB  = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CORS = {
   "Access-Control-Allow-Origin": "https://www.instagram.com",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const okDate = (s: unknown) => typeof s === "string" && /^\d{1,2}-\d{1,2}$/.test(s);
@@ -21,6 +21,10 @@ Deno.serve(async (req) => {
 
   const origin = req.headers.get("origin") ?? "";
   if (!/^https:\/\/(www\.)?instagram\.com$/.test(origin)) return json({ error: "허용되지 않은 출처" }, 403);
+  // 보안 감사 2026-11-13 F3: Origin 머리말은 curl 로 흉내 낼 수 있어 누구나 셀러 external_url·소개글을 덮어쓸 수 있었다(수확기가 그 링크를 읽는다).
+  //   최근 30일 이 통로로 들어온 것이 0건이고 부르는 코드도 없다(11-13 확인) → 크론 비밀값이 있어야만 받는다. 브라우저 콘솔에서 다시 쓰려면 비밀값을 머리말로 보낸다.
+  const CRON = Deno.env.get("PUSH_CRON_SECRET") ?? "";
+  if (!CRON || req.headers.get("x-cron-secret") !== CRON) return json({ error: "권한이 없습니다" }, 401);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }

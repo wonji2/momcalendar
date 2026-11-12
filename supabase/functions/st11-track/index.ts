@@ -47,7 +47,7 @@ function parsePrices(html: string): { now: number; spec: number } | null {
 }
 
 Deno.serve(async (req) => {
-  if (SECRET && req.headers.get("x-cron-secret") !== SECRET) {
+  if (!SECRET || req.headers.get("x-cron-secret") !== SECRET) {
     return new Response("no", { status: 401 });
   }
   const u = new URL(req.url);

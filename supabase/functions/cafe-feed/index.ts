@@ -32,7 +32,7 @@ const cleanSummary = (s: unknown) => {
 };
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
+  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
   const u = new URL(req.url);
   const per = Math.min(50, Number(u.searchParams.get("per") || (u.searchParams.get("latest") === "1" ? 50 : 30)));
   const dry = u.searchParams.get("dry") === "1";
