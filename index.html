@@ -2484,7 +2484,11 @@ window._mcNative=function(){ try{ if(!window._mcCapAndroid()) return null; var P
     var h=a.href||''; if(!/^(blob:|data:)/.test(h)) return;
     e.preventDefault(); e.stopPropagation();
     var name=a.getAttribute('download')||'momcal', ics=/\.ics$/i.test(name);
-    fetch(h).then(function(r){ return r.blob(); }).then(function(bl){ return b64(bl).then(function(v){ return P.saveFile({name:name, mime:bl.type||(ics?'text/calendar':'application/octet-stream'), base64:v, open:ics}); }); })
+    fetch(h).then(function(r){ return r.blob(); }).then(function(bl){ return b64(bl).then(function(v){ return P.saveFile({name:name, mime:bl.type||(ics?'text/calendar':'application/octet-stream'), base64:v, open:ics}).then(function(res){
+        // 캘린더 파일을 여는 앱이 없으면(opened=false) 아무 일도 안 일어난다 → 공유 시트로 넘겨 캘린더 앱을 고르게 하고, 그것도 안 되면 저장 위치를 알려 준다(2026-11-12)
+        if(ics && res && res.opened===false){ try{ trackEvent('ics_noopen','android'); }catch(_){}
+          return P.share({title:'맘캘린더 내 공구', text:'', url:'', files:[{name:name, mime:'text/calendar', base64:v}]}).then(function(){ try{ mcToast('캘린더 앱을 골라 주세요'); }catch(_){} }, function(){ try{ mcToast('내 파일 > Download > 맘캘린더 에 저장했어요\n파일을 눌러 캘린더에 넣어 주세요', 6000); }catch(_){} }); }
+        return res; }); }); })
       .catch(function(){ try{ mcToast('저장하지 못했어요. 다시 눌러 주세요'); }catch(_){} });
   }, true);
 })();
@@ -6177,12 +6181,15 @@ async function saveCalImage(){
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
     const name='momcal_wish_'+calMonth.getFullYear()+pad(calMonth.getMonth()+1)+'.png';
     const file=new File([blob],name,{type:'image/png'});
-    let shared=false;
-    try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
+    let shared=false, album=false;
+    // 안드 앱: 공유 창 대신 앨범에 바로 저장(2026-11-12). 실패했을 때만 아래 공유 창으로
+    const _nat=(window._mcNative && window._mcNative());
+    if(_nat && _nat.saveFile){ try{ const b64=await new Promise((r,j)=>{ const fr=new FileReader(); fr.onload=()=>r(String(fr.result).split(',')[1]||''); fr.onerror=j; fr.readAsDataURL(blob); }); const res=await _nat.saveFile({name:name, mime:'image/png', base64:b64, open:false}); if(res && res.uri){ album=true; shared=true; try{ mcToast('앨범에 저장했어요'); }catch(_){} } }catch(_){} }
+    try{ if(!album && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
     const noDl=/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i.test(navigator.userAgent) || !('download' in HTMLAnchorElement.prototype);   // 인앱 웹뷰는 파일 내려받기가 안 된다(2026-11-02 코덱스 지적)
     if(!shared && noDl){ _calImgOverlay(URL.createObjectURL(blob)); }
     else if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
-    try{ trackEvent('cal_image', shared?'share':(noDl?'longpress':'download')); }catch(_){}
+    try{ trackEvent('cal_image', album?'album':shared?'share':(noDl?'longpress':'download')); }catch(_){}
     window._lastCalImage=blob;
   }catch(e){ try{ mcToast('사진 만들기에 실패했어요. 다시 눌러 주세요'); }catch(_){} }
   if(btn){ btn.textContent=t0; btn.disabled=false; }
@@ -6208,12 +6215,12 @@ async function exportWishIcs(){
     if(e < todayStr) return false;                            // 마감 지남
     return !isExpired(it);
   });
-  if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
+  if(!items.length){ mcToast(_all.some(it=>isWished(it.id))?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
 
   // 이미 내보낸 건 또 내보내면 캘린더 앱에 따라 중복으로 쌓인다(네이버·삼성은 UID를 안 봐줌).
   // → 내보낸 목록을 서버에 기록해서 폰을 바꿔도 유지되게 한다.
   let sent=[];
-  const srv=await memberRpc('member_ics_sent');
+  const srv=await Promise.race([memberRpc('member_ics_sent'), new Promise(r=>setTimeout(()=>r(null),4000))]);   // 서버가 늦으면 기기 기록으로 진행(2026-11-12)
   if(srv && srv.ok) sent=srv.ids||[];
   else { try{ sent=JSON.parse(localStorage.getItem('mc_ics_sent')||'[]'); }catch(_){} }  // 서버 실패 시 기기 기록으로 대체
   const sentSet=new Set(sent);
@@ -6294,6 +6301,16 @@ async function exportWishIcs(){
     return;
   }
   const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  // 아이폰 앱(웹뷰)은 파일 내려받기가 동작하지 않는다 → 공유 시트로 파일을 넘긴다. 안 되면 안 된다고 말한다(2026-11-12)
+  if(typeof _isNativeApp==='function' && _isNativeApp() && !(window._mcCapAndroid && window._mcCapAndroid())){
+    let done=false;
+    try{ const f=new File([blob],'momcal_'+items.length+'.ics',{type:'text/calendar'}); if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'맘캘린더 내 공구'}); done=true; } }catch(e){ if(e && e.name==='AbortError'){ try{ trackEvent('ics_cancel','ios'); }catch(_){} return; } }
+    if(!done){ try{ trackEvent('ics_fail','ios_noshare'); }catch(_){} mcToast('이 기기에서는 캘린더 파일을 넘길 수 없어요\n달력을 사진으로 저장해 주세요'); return; }
+    memberRpc('member_ics_mark', {p_ids: items.map(it=>it.id)});
+    try{ localStorage.setItem('mc_ics_sent', JSON.stringify(Array.from(new Set(sent.concat(items.map(it=>it.id)))))); }catch(_){}
+    try{ trackEvent('ics_export', items.length+'|ios_share'); }catch(_){}
+    return;
+  }
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   // 🔴 파일명이 늘 같아서 안드로이드가 "이미 존재하는 이름입니다" 를 띄웠다 (사장님 지적 2026-08-20)
@@ -6311,7 +6328,7 @@ async function exportWishIcs(){
   try{ trackEvent('ics_export', String(items.length)); }catch(_){}
   // 마감된 공구는 위에서 isExpired 로 이미 걸러진다 — 손님이 알 수 있게 문구로 밝힌다.
   //   (사장님 지적 2026-08-20: "이미 마감된 건은 자동으로 빼고 미래 일정만 나온다고 알려줘야")
-  mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);
+  if(!(window._mcCapAndroid && window._mcCapAndroid())) mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);   // 안드 앱은 파일을 연 결과를 본 뒤에만 말한다(위 저장 연결부)
 }
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
