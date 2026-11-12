@@ -1589,6 +1589,23 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   line-height: 1.2;
   letter-spacing: -0.2px;
 }
+/* 340px 아래(320px 폰): 설명 한 줄 유지 — 베베쿡·두식이 설명이 2~8px 넘쳐 말줄임이 되던 것(2026-11-12 실측) */
+@media (max-width: 340px) {
+  .mc-infeed-kidsnote .mc-kn-desc { font-size: 10.5px; letter-spacing: -0.45px; }
+  .mc-infeed-kidsnote .mc-kn-sub { font-size: 9.5px; }
+}
+.mc-kn-ad {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  color: #999999;
+  border: 1px solid #DDDDDD;
+  border-radius: 3px;
+  padding: 1px 3px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
 .mc-kn-sub {
   font-size: 11px;
   color: #998060;
@@ -1767,26 +1784,16 @@ var IN_FEED_PROMOS = [
     url: 'https://iryan.kr/t8hcvn4ouh'
   },
   {
-    id: 'baby_insurance_compare',
-    badge: '🎁 상담혜택',
-    title: '태아·어린이보험 3곳 실시간 비교 견적',
-    desc: '현대해상·KB 1:1 맞춤 견적+상담 시 사은품 증정',
-    tag: '보험비교',
-    cta: '비교하기',
-    thumb: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=320&h=228&fit=crop&q=80',
-    contain: false,
-    url: 'https://momcalendar.com'   // 제휴 링크 발급 전 임시(기획 지시서 2026-11-11) — 라이브 승격 전 교체
-  },
-  {
     id: 'miso_cleaning_helper',
     badge: '🎁 3만원쿠폰',
-    title: '가사도우미 첫 이용 시 3만 원 할인쿠폰',
-    desc: '전문 매니저 안심 가사청소+세탁 0원 견적',
+    title: '가사도우미 첫 이용 3만 원 할인쿠폰',
+    desc: '전문 매니저 가사청소 3만 원 할인',
     tag: '가사청소',
     cta: '쿠폰받기',
-    thumb: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=320&h=228&fit=crop&q=80',
+    thumb: 'momcal-cleaning-thumb.jpg',   // 로컬 사진. 안 뜨면 thumbFb 로 바꾼다
+    thumbFb: 'momcal-dousik-thumb.png',
     contain: false,
-    url: 'https://momcalendar.com'   // 제휴 링크 발급 전 임시(기획 지시서 2026-11-11) — 라이브 승격 전 교체
+    url: 'https://miso.kr'   // 제휴 링크 발급 전 임시 외부 주소(앱에서 momcalendar.com 을 열면 홈으로 다시 로드된다) — 라이브 승격 전 정식 링크로 교체
   }
 ];
 
@@ -1912,7 +1919,7 @@ function renderInFeedPromoCard(promo, context) {
   // ── [2안] 키즈노트 100% 원형 (원길아 사장님 2026-11-11: 시인성 강화 상단 뱃지 라인 + 직관적 실물 썸네일) ──
   if (_infeedMode === '2') {
     var knGrid = isGrid ? ' style="grid-column: 1 / -1; margin: 10px 0;"' : ' style="margin: 10px 0;"';
-    var thumbFallback = (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src=\'https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png\';"' : '';
+    var thumbFallback = promo.thumbFb ? ' onerror="this.onerror=null;this.src=\'' + promo.thumbFb + '\';"' : (promo.id === 'wink_free_trial') ? ' onerror="this.onerror=null;this.src=\'https://raw.githubusercontent.com/wonji2/momcalendar/main/momcal-wink-device.png\';"' : '';
     var thumbExtraClass = promo.contain ? ' mc-kn-thumb-contain' : '';
     var badgeText = promo.badge || '🎁 특별혜택';
     return '<div class="mc-infeed-kidsnote"' + knGrid + ' onclick="' + oc + '">'
@@ -1920,6 +1927,7 @@ function renderInFeedPromoCard(promo, context) {
         + '<div class="mc-kn-badge-row">'
           + '<span class="mc-kn-badge">' + badgeText + '</span>'
           + '<span class="mc-kn-sub">맘캘 단독 혜택</span>'
+          + '<span class="mc-kn-ad">AD</span>'
         + '</div>'
         + '<div class="mc-kn-title">' + promo.title + '</div>'
         + '<div class="mc-kn-desc">' + promo.desc + '</div>'
