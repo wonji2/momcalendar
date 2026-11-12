@@ -639,6 +639,9 @@ body.srch-suggest #searchDrop{display:block}
 .sale-chips::-webkit-scrollbar{display:none}
 .sale-chip{flex:0 0 auto;border:1px solid #D5E3F2;background:#fff;color:#185FA5;border-radius:18px;min-height:38px;padding:0 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .sale-chip.on{background:#185FA5;border-color:#185FA5;color:#fff}
+/* 오프라인 행사 카드(베이비페어·패밀리세일) — 기존 세일 카드 틀 그대로, 다른 점만 · 2026-11-12 */
+.sale-logo.off-logo{background:#F6F3FA;border-color:#F6F3FA;color:#7C54C4;font-size:12px;font-weight:800;letter-spacing:-.02em}
+.sale-m.off-m{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sale-sec{font-size:12.5px;font-weight:800;color:#2B3A4A;margin:14px 2px 7px;display:flex;align-items:center;gap:6px}
 .sale-sec i{font-style:normal;font-size:11px;font-weight:600;color:#7A8794}
 .sale-card{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #E6EBF1;border-radius:13px;padding:11px 11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -4693,8 +4696,43 @@ function renderLive(){
   list.innerHTML=html;
   _lvStageStart();
 }
+// ── 🎪 오프라인 행사(베이비페어·패밀리세일) — 정적 파일 data/offline_sales.json 만 읽는다(DB·API 0건) · 2026-11-12 ──
+let _offData=null, _offBusy=false;
+function _offLoad(){ if(_offData||_offBusy) return; _offBusy=true;
+  fetch('data/offline_sales.json?d='+todayStr,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{ _offData=(j&&Array.isArray(j.items))?j.items:[]; }).catch(()=>{ _offData=[]; }).then(()=>{ _offBusy=false; try{ if(document.getElementById('saleList')) renderSale(); }catch(_){} }); }
+// 끝나지 않은 것만(끝 날짜가 없으면 시작일 기준), 날짜 꼴이 아니면 버린다
+function _offLive(cat){ const ok=/^\d{4}-\d{2}-\d{2}$/; return (_offData||[]).filter(e=>e&&e.category===cat&&e.title&&ok.test(e.startDate||'')&&(!e.endDate||ok.test(e.endDate))&&((e.endDate||e.startDate)>=todayStr)); }
+function _offHas(cat){ return _offLive(cat).length>0; }
+function _offDay(s){ const [y,m,d]=s.split('-').map(Number); const [ty,tm,td]=todayStr.split('-').map(Number); return Math.round((new Date(y,m-1,d)-new Date(ty,tm-1,td))/864e5); }
+function _offMD(s){ const [y,m,d]=s.split('-').map(Number); return m+'/'+d; }
+function _offUrl(u){ u=String(u||'').trim(); return /^https?:\/\//i.test(u)?u:''; }
+function _offGo(i){ const e=(window._offShown||[])[i]; if(!e) return; const u=_offUrl(e.link)||_offUrl(e.newsUrl); if(!u) return; try{ trackEvent('offline_sale_go', e.category+'|'+String(e.title).slice(0,40)); }catch(_){} openLink(u); }
+function _offRender(cat){
+  const rows=_offLive(cat).map(e=>({e, ds:_offDay(e.startDate), de:_offDay(e.endDate||e.startDate)})).sort((a,b)=>(a.ds<=0?0:1)-(b.ds<=0?0:1)||(a.ds<=0?a.de-b.de:a.ds-b.ds)||String(a.e.title).localeCompare(String(b.e.title)));
+  window._offShown=rows.map(r=>r.e);
+  if(!rows.length) return '<div class="sale-empty">예정된 '+escHtml(cat)+' 일정이 아직 없어요</div>';
+  const card=(r,i)=>{ const e=r.e, loc=String(e.location||'').trim();
+    const w0=loc.split(/\s+/)[0]||'', hasCity=/^[가-힣]{2}$/.test(w0)&&loc.length>w0.length;
+    const city=hasCity?w0:(cat==='베이비페어'?'베페':'세일');   // 왼쪽 칸 = 지역 두 글자(서울·일산·수원·대구·인천). 지역을 모르면 분류 이름
+    const place=hasCity?loc.slice(w0.length).trim():loc;
+    let pill, bar='';
+    if(r.ds>0) pill=`<div class="sale-d ${r.ds<=7?'soon':'later'}">D-${r.ds}<small>시작</small></div>`;
+    else{ pill=r.de===0?'<div class="sale-d on">오늘<small>마감</small></div>':`<div class="sale-d on">D-${r.de}<small>종료</small></div>`;
+      const tot=Math.max(1,r.de-r.ds), done=Math.min(tot,Math.max(0,-r.ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
+    const when=_offMD(e.startDate)+(e.endDate&&e.endDate!==e.startDate?' ~ '+_offMD(e.endDate):'');
+    const tag=e.preRegister===true?'<em>사전등록</em>':'';
+    const can=_offUrl(e.link)||_offUrl(e.newsUrl);
+    return `<div class="sale-card off-card"${can?` onclick="_offGo(${i})"`:' style="cursor:default"'}><div class="sale-logo off-logo">${escHtml(city)}</div><div class="sale-body"><div class="sale-t">${escHtml(e.title)}${tag}</div><div class="sale-m off-m">${when}${place?' · '+escHtml(place):''}</div>${bar}</div><div class="sale-r">${pill}</div></div>`; };
+  const ing=rows.filter(r=>r.ds<=0), soon=rows.filter(r=>r.ds>0&&r.ds<=7), later=rows.filter(r=>r.ds>7);
+  let h='', n=0;
+  if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(r=>card(r,n++)).join('');
+  if(soon.length) h+=`<div class="sale-sec">🟠 이번 주 시작 <i>${soon.length}</i></div>`+soon.map(r=>card(r,n++)).join('');
+  if(later.length) h+=`<div class="sale-sec">⚪ 이후 예정 <i>${later.length}</i></div>`+later.map(r=>card(r,n++)).join('');
+  return h;
+}
 async function loadSale(){
   _slApply();
+  _offLoad();
   if(_slMode==='live'){ loadLive(); }
   if(_saleData){ renderSale(); return; }
   _saleWLoad();
@@ -4725,12 +4763,13 @@ function renderSale(){
     // 분류 칩: 문센 행은 「문화센터」 하나로, 해외(미국·중국) 행은 「해외 세일」 하나로 묶는다 (사장님 2026-10-23)
     const isMun=e=>e.tag==='문센', isOvs=e=>e.tag==='해외';
     const brands=[...new Set(all.filter(e=>!isMun(e)&&!isOvs(e)).map(e=>e.brand))];
-    const names=['',...(wishN?['__wish']:[]),...(all.some(isMun)?['__munsen']:[]),...(all.some(isOvs)?['__overseas']:[]),...brands];
+    const names=['',...(wishN?['__wish']:[]),...(_offHas('베이비페어')?['__befe']:[]),...(_offHas('패밀리세일')?['__family']:[]),...(all.some(isMun)?['__munsen']:[]),...(all.some(isOvs)?['__overseas']:[]),...brands];
     chips.innerHTML=names.map(b=>{
-      const lab=b===''?'전체':b==='__wish'?`💜 내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
+      const lab=b===''?'전체':b==='__befe'?'🎪 베이비페어':b==='__family'?'🏷️ 패밀리세일':b==='__wish'?`💜 내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
       return `<button class="sale-chip${_saleBrand===b?' on':''}" data-b="${escHtml(b)}" onclick="saleFilter(this.dataset.b)">${escHtml(lab)}</button>`;
     }).join('');
   }
+  if(_saleBrand==='__befe'||_saleBrand==='__family'){ list.innerHTML=_offRender(_saleBrand==='__befe'?'베이비페어':'패밀리세일'); return; }
   const rows=all.filter(e=>{
     if(!_saleBrand) return true;
     if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }
