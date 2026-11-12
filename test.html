@@ -640,8 +640,10 @@ body.srch-suggest #searchDrop{display:block}
 .sale-chip{flex:0 0 auto;border:1px solid #D5E3F2;background:#fff;color:#185FA5;border-radius:18px;min-height:38px;padding:0 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .sale-chip.on{background:#185FA5;border-color:#185FA5;color:#fff}
 /* 오프라인 행사 카드(베이비페어·패밀리세일) — 기존 세일 카드 틀 그대로, 다른 점만 · 2026-11-12 */
-.sale-logo.off-logo{background:#F6F3FA;border-color:#F6F3FA;color:#7C54C4;font-size:12px;font-weight:800;letter-spacing:-.02em}
-.sale-m.off-m{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sale-logo.off-logo{background:#F6F3FA;border-color:#F6F3FA;font-size:19px;line-height:1}
+.sale-m.off-m{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.off-card .sale-t{font-size:13px!important}
+.off-card .sale-d{font-size:12px}
 .sale-sec{font-size:12.5px;font-weight:800;color:#2B3A4A;margin:14px 2px 7px;display:flex;align-items:center;gap:6px}
 .sale-sec i{font-style:normal;font-size:11px;font-weight:600;color:#7A8794}
 .sale-card{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #E6EBF1;border-radius:13px;padding:11px 11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -4713,8 +4715,8 @@ function _offRender(cat){
   if(!rows.length) return '<div class="sale-empty">예정된 '+escHtml(cat)+' 일정이 아직 없어요</div>';
   const card=(r,i)=>{ const e=r.e, loc=String(e.location||'').trim();
     const w0=loc.split(/\s+/)[0]||'', hasCity=/^[가-힣]{2}$/.test(w0)&&loc.length>w0.length;
-    const city=hasCity?w0:(cat==='베이비페어'?'베페':'세일');   // 왼쪽 칸 = 지역 두 글자(서울·일산·수원·대구·인천). 지역을 모르면 분류 이름
-    const place=hasCity?loc.slice(w0.length).trim():loc;
+    const city=cat==='베이비페어'?'🎪':'🏷️';   // 왼쪽 칸 = 분류 이모티콘(사진이 없는 자료라 글자 대신)
+    const place=loc;
     let pill, bar='';
     if(r.ds>0) pill=`<div class="sale-d ${r.ds<=7?'soon':'later'}">D-${r.ds}<small>시작</small></div>`;
     else{ pill=r.de===0?'<div class="sale-d on">오늘<small>마감</small></div>':`<div class="sale-d on">D-${r.de}<small>종료</small></div>`;
