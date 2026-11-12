@@ -68,9 +68,25 @@ function pickTitle(html: string): string {
   return m?.[1]?.replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim() ?? '';
 }
 
+// 관리자만 (보안 감사 2026-11-13 F2: 로그인 없이 아무 주소의 파일을 공개 banners 버킷에 8MB 까지 올릴 수 있었다 — 사장님 「이미지 못 올리게」)
+//   관리자 화면(admin.html)은 sbHeaders() 로 로그인 토큰을 보낸다. 토큰 주인이 app_admins 에 있어야 통과.
+async function isAdmin(req: Request): Promise<boolean> {
+  const tok = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!tok || tok.startsWith('sb_publishable_')) return false;
+  const SB = Deno.env.get('SUPABASE_URL')!, SKEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const r = await fetch(`${SB}/auth/v1/user`, { headers: { apikey: SKEY, Authorization: `Bearer ${tok}` } });
+  if (!r.ok) return false;
+  const u = await r.json().catch(() => null);
+  if (!u?.id || !/^[0-9a-f-]{36}$/i.test(u.id)) return false;
+  const a = await fetch(`${SB}/rest/v1/app_admins?user_id=eq.${u.id}&select=user_id`, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } });
+  const rows = a.ok ? await a.json().catch(() => []) : [];
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
+    if (!(await isAdmin(req))) return J({ ok: false, error: '관리자 로그인이 필요해요' }, 401);
     const { link, probe, image } = await req.json().catch(() => ({}));
 
     // ── 사진 주소를 직접 받은 경우 (네이버·쿠팡처럼 상품 페이지가 막힌 곳의 우회로) ──
