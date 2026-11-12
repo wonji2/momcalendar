@@ -20,7 +20,7 @@ if (!LIST && !AD) { console.error('사용법: node scripts/get_ad_report.mjs --a
 for (const [k, v] of [['ad', AD], ['from', FROM], ['to', TO]]) if (v && !/^[A-Za-z0-9_.\-]+$/.test(v)) { console.error(`--${k} 값에 쓸 수 없는 글자가 있습니다: ${v}`); process.exit(1); }
 
 const CLI = process.env.SUPABASE_CLI || (process.platform === 'win32' ? 'C:/Users/FAMILY/supabase-cli/supabase.exe' : 'supabase');
-const sql = (q) => { const out = execFileSync(CLI, ['db', 'query', q, '--linked'], { encoding: 'utf8', timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 50e6 }); const j = JSON.parse(out.slice(out.search(/[\[{]/))); return Array.isArray(j) ? j : j.rows; };
+const sql = (q) => { const out = execFileSync(CLI, ['db', 'query', q, '--linked', '--output-format', 'json']   /* 예약작업에서는 이 플래그가 없으면 JSON 이 아닌 표가 나온다(sb_query.mjs 의 경고 — 2026-11-12 ops_autofix 가 두 회차를 헛돌았다) */, { encoding: 'utf8', timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 50e6 }); const j = JSON.parse(out.slice(out.search(/[\[{]/))); return Array.isArray(j) ? j : j.rows; };
 
 if (LIST) {
   const rows = sql("select split_part(event_data,':',1) ad, count(*) filter (where event_type='sponsored_ad_impression') imp, count(*) filter (where event_type='sponsored_ad_click') clk, to_char(min(visited_at at time zone 'Asia/Seoul'),'YYYY-MM-DD') first_day, to_char(max(visited_at at time zone 'Asia/Seoul'),'YYYY-MM-DD') last_day from events where event_type in ('sponsored_ad_impression','sponsored_ad_click') and visited_at > now() - interval '30 days' group by 1 order by 2 desc");
