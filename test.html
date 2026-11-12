@@ -2931,87 +2931,35 @@ window.slimAdClick=function(id){
 </div>
 
 <!-- [👤 마이] 탭 신설 (ORDER_INDEX_MYPAGE_COMMUNITY_MASTER.md) -->
-<div id="mypageWrap" style="display:none;padding:14px 16px 80px;background:#F8F9FA;">
-  <!-- 1. 프로필 요약 카드 -->
-  <div style="background:#fff;border-radius:16px;padding:18px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.04);margin-bottom:14px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-      <div style="width:46px;height:46px;border-radius:50%;background:#ECE7F5;color:#7858A6;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;">맘</div>
-      <div>
-        <div style="font-size:16px;font-weight:700;color:#191F28;display:flex;align-items:center;gap:6px;">
-          <span>맘캘러 님</span>
-          <span style="background:#F2EDFC;color:#7858A6;font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:6px;">일반회원</span>
-        </div>
-        <div style="font-size:12px;color:#8B95A1;margin-top:2px;">실속 육아 핫딜을 모아보고 있어요</div>
-      </div>
-    </div>
-    <div style="display:flex;border-top:1px solid #F2F4F6;padding-top:12px;text-align:center;">
-      <div style="flex:1;cursor:pointer;" onclick="switchContent('gonggu');stabClick('wish')">
-        <div style="font-size:16px;font-weight:700;color:#7858A6;" id="myWishCount">0</div>
-        <div style="font-size:11px;color:#8B95A1;margin-top:2px;">내 찜 공구</div>
-      </div>
-      <div style="flex:1;border-left:1px solid #F2F4F6;border-right:1px solid #F2F4F6;cursor:pointer;" onclick="openKeywordSheet()">
-        <div style="font-size:16px;font-weight:700;color:#191F28;" id="myKeywordCount">2</div>
-        <div style="font-size:11px;color:#8B95A1;margin-top:2px;">키워드 알림</div>
-      </div>
-      <div style="flex:1;cursor:pointer;" onclick="openAttendSheet()">
-        <div style="font-size:16px;font-weight:700;color:#3182F6;">출석</div>
-        <div style="font-size:11px;color:#8B95A1;margin-top:2px;">매일 출첵</div>
-      </div>
+<div id="mypageWrap" style="display:none">
+  <div class="my-card my-prof">
+    <div class="my-top"><div class="my-av" id="myAv">맘</div><div class="my-who"><div class="my-name" id="myName"></div><div class="my-desc" id="myDesc"></div></div><button type="button" class="my-login" id="myLoginBtn" onclick="openLoginSheet()" style="display:none">로그인</button></div>
+    <div class="my-stats">
+      <button type="button" class="my-stat" onclick="goCalMine()"><b id="myWishCount">0</b><span>내 찜 공구</span></button>
+      <button type="button" class="my-stat" onclick="myGoSaleWish()"><b id="mySaleWishCount">0</b><span>세일 찜</span></button>
+      <button type="button" class="my-stat" onclick="openAttendSheet()"><b>출석</b><span>매일 출첵</span></button>
     </div>
   </div>
-
-  <!-- 2. 나의 활동 -->
-  <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);margin-bottom:14px;">
-    <div style="padding:14px 16px 8px;font-size:13px;font-weight:700;color:#8B95A1;">나의 쇼핑 활동</div>
-    <div onclick="switchContent('gonggu');stabClick('wish')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">💜 찜한 공구 모아보기</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
-    <div onclick="openKeywordSheet()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">🔔 특가 키워드 알림 관리</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
-    <div onclick="openAttendSheet()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">📅 매일 출석체크 & 리워드</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
+  <div class="my-card">
+    <div class="my-sec">내 활동 &amp; 일정</div>
+    <button type="button" class="my-row" onclick="goCalMine()"><span class="my-ico">📅</span><span class="my-lab">내 공구 캘린더</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openAttendSheet()"><span class="my-ico">💜</span><span class="my-lab">매일 출석체크</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openWnSheet()"><span class="my-ico">🔔</span><span class="my-lab">오픈 알림 설정</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="exportWishIcs()"><span class="my-ico">📥</span><span class="my-lab">내 폰 캘린더 저장</span><span class="my-arr">›</span></button>
   </div>
-
-  <!-- 3. 고객지원 & 제보 -->
-  <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);margin-bottom:14px;">
-    <div style="padding:14px 16px 8px;font-size:13px;font-weight:700;color:#8B95A1;">고객지원 & 제보</div>
-    <a href="mailto:app@momcalendar.com?subject=[맘캘린더%20앱%20문의]" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;text-decoration:none;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:14px;font-weight:600;color:#333D4B;">✉️ 앱 문의 메일</span>
-        <span style="font-size:12px;color:#7C54C4;font-weight:700;">app@momcalendar.com</span>
-      </div>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </a>
-    <div onclick="openInqSheet()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:14px;font-weight:600;color:#333D4B;">🛠️ 건의 · 오류 제보</span>
-        <span style="background:#F04452;color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:6px;">1초 간편</span>
-      </div>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
-    <div onclick="window.open('https://pf.kakao.com/_zGfxnX/chat', '_blank')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F8F9FA;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">💬 카카오톡 채널 문의</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
-    <div onclick="openPartnerModal()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;color:#333D4B;">📩 제휴 · 입점 문의</span>
-      <span style="font-size:13px;color:#B0B8C1;">›</span>
-    </div>
+  <div class="my-card">
+    <div class="my-sec">고객지원 &amp; 제보</div>
+    <button type="button" class="my-row" onclick="openInqSheet()"><span class="my-ico">🛠️</span><span class="my-lab">건의 · 오류 제보</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openPartnerModal()"><span class="my-ico">🤝</span><span class="my-lab">셀러 입점 · 제휴 문의</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="mcShare()"><span class="my-ico">🔗</span><span class="my-lab">친구에게 맘캘 추천하기</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openAboutSheet()"><span class="my-ico">📘</span><span class="my-lab">맘캘린더 소개</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openHowSheet()"><span class="my-ico">📖</span><span class="my-lab">이용 방법</span><span class="my-arr">›</span></button>
   </div>
-
-  <!-- 서비스 정보 -->
-  <div style="text-align:center;padding:16px 0;font-size:11.5px;color:#8B95A1;">
-    <div style="margin-bottom:6px;">
-      <a href="terms.html" style="color:#8B95A1;text-decoration:none;margin:0 6px;">이용약관</a> ·
-      <a href="privacy.html" style="color:#8B95A1;text-decoration:none;margin:0 6px;">개인정보처리방침</a>
-    </div>
-    <div>맘캘린더 v2.4 · 실시간 특가 수집 서비스</div>
+  <div class="my-card" id="myAcct" style="display:none">
+    <button type="button" class="my-row" onclick="kkoLogout()"><span class="my-ico">🚪</span><span class="my-lab">로그아웃</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row my-out" onclick="openWithdrawSheet()"><span class="my-ico">⚠️</span><span class="my-lab">회원 탈퇴</span><span class="my-arr">›</span></button>
   </div>
+  <div class="my-foot"><a href="terms.html">이용약관</a> · <a href="privacy.html">개인정보처리방침</a></div>
 </div>
 
 
@@ -4488,6 +4436,7 @@ function switchContent(ct){
   { const cv=document.getElementById('commView'); if(cv) cv.style.display = ct==='community'?'block':'none'; if(ct==='community'){ try{ loadCommunity(); }catch(e){ console.error(e); } } }
   { const mv=document.getElementById('mypageWrap'); if(mv) mv.style.display = ct==='mypage'?'block':'none'; }   // 💬 커뮤니티(카페 글)
   if(ct==='sale') loadSale();
+  if(ct==='mypage'){ try{ renderMypage(); }catch(_){} }
   if(ct==='hotdeal') loadHotdeals();
   if(ct==='exp') loadExperiences();
   trackEvent('content_tab', ct);
@@ -7369,6 +7318,7 @@ function kkoLoginFailed(why){
 }
 // 로그인 상태를 사이드메뉴 등에 반영
 function paintMemberUI(){
+  try{ if(typeof renderMypage==='function') renderMypage(); }catch(_){}
   // 계정 링크(로그아웃 | 회원탈퇴)는 로그인한 사람에게만 — 푸터 글자 링크 (2026-11-01, 전엔 1depth 「회원 탈퇴」 버튼)
   try{ var _w=document.getElementById("sideAcct"); if(_w) _w.style.display = isLoggedIn() ? "block" : "none"; }catch(_){}
   var m=memberGet(), el=document.getElementById('kkoWho');
@@ -10840,9 +10790,53 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   <button class="bni" type="button" data-ct="hotdeal" onclick="appNavGo('hotdeal')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg></span><span class="bni-lbl">핫딜</span></button>
   <button class="bni" type="button" data-ct="sale" onclick="appNavGo('sale')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg></span><span class="bni-lbl">세일/라방</span></button>
   <button class="bni" type="button" data-ct="community" onclick="appNavGo('community')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span class="bni-lbl">커뮤니티</span></button>
-  <!-- [사장님 지침 2026-11-03: 마이페이지 완성 전까지 하단바 마이 버튼 임시 보류, 3지창만 유지]
-  <button class="bni" type="button" data-ct="mypage" onclick="appNavGo('mypage')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="bni-lbl">마이</span></button> -->
+  <!-- 마이 버튼: 2026-11-12 내정보 화면 정리 뒤 다시 켬(11-03 「완성 전까지 보류」) -->
+  <button class="bni" type="button" data-ct="mypage" onclick="appNavGo('mypage')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="bni-lbl">마이</span></button>
 </nav>
+<style id="mc-mypage">
+#mypageWrap{padding:14px 20px 96px;background:#F9FAFB;letter-spacing:-.02em}
+.my-card{background:#fff;border:1px solid #EDE8F3;border-radius:16px;margin-bottom:12px;overflow:hidden}
+.my-prof{padding:18px 16px 14px}
+.my-top{display:flex;align-items:center;gap:12px}
+.my-av{flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#7C54C4;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+.my-who{flex:1;min-width:0}
+.my-name{font-size:16px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-desc{font-size:12px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-login{flex:0 0 auto;height:40px;padding:0 18px;border:0;border-radius:100px;background:#7C54C4;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.my-stats{display:flex;margin-top:14px;background:#F9FAFB;border-radius:12px;padding:10px 0}
+.my-stat{flex:1;min-width:0;background:none;border:0;border-left:1px solid #EDE8F3;padding:2px 4px;font-family:inherit;cursor:pointer;text-align:center}
+.my-stat:first-child{border-left:0}
+.my-stat b{display:block;font-size:16px;font-weight:700;color:#7C54C4;line-height:1.3}
+.my-stat span{display:block;font-size:11px;color:#8B95A1;margin-top:2px}
+.my-sec{padding:14px 16px 4px;font-size:12px;font-weight:700;color:#8B95A1}
+.my-row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;background:#fff;border:0;border-top:1px solid #F2F4F6;font-family:inherit;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent}
+.my-sec+.my-row,.my-card>.my-row:first-child{border-top:0}
+.my-row:active,.my-stat:active{background:#F6F3FA}
+.my-ico{flex:0 0 22px;font-size:17px;line-height:1;text-align:center}
+.my-lab{flex:1;min-width:0;font-size:14px;font-weight:600;color:#333D4B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-sub{flex:0 0 auto;font-size:12px;color:#8B95A1}
+.my-arr{flex:0 0 auto;font-size:14px;color:#B0B8C1}
+.my-out .my-lab{color:#8B95A1;font-weight:500}
+.my-foot{text-align:center;padding:10px 0 0;font-size:11.5px;color:#8B95A1}
+.my-foot a{color:#8B95A1;text-decoration:none;margin:0 4px}
+</style>
+<script>
+// ── 내정보(마이) 탭: 로그인 상태·닉네임·찜 수를 실제 값으로 그린다 (2026-11-12) ──
+function renderMypage(){
+  var g=function(id){ return document.getElementById(id); }; if(!g("mypageWrap")) return;
+  var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){}
+  var nick=(inn&&m&&m.nickname)?String(m.nickname):"";
+  g("myName").textContent=inn?((nick||"회원")+" 님"):"로그인 전";
+  g("myDesc").textContent=inn?"로그인됨":"로그인하면 찜 보관";
+  g("myAv").textContent=nick?nick.slice(0,1):"맘";
+  g("myLoginBtn").style.display=inn?"none":"";
+  g("myAcct").style.display=inn?"":"none";
+  var w=0; try{ w=WISH.size; }catch(_){}
+  var sw=0; try{ for(var k in SALEW){ var x=SALEW[k]; if(x&&(x.w||x.b)) sw++; } }catch(_){}
+  g("myWishCount").textContent=w; g("mySaleWishCount").textContent=sw;
+}
+function myGoSaleWish(){ try{ _slMode="sale"; }catch(_){} try{ switchContent("sale"); if(typeof saleFilter==="function") saleFilter(""); }catch(e){} try{ mcScrollToContent(); }catch(_){} }
+</script>
 <style id="mc-bnav">
 /* ── 하단 탭바: 웹은 숨김, 앱(native-app)만 표시 ── */
 #appBottomNav{display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(480px,100vw);background:#fff;border-top:1px solid #F2F4F6;padding:5px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:298;box-shadow:0 -2px 10px rgba(0,0,0,.03)}
