@@ -2938,33 +2938,34 @@ window.slimAdClick=function(id){
 <!-- [👤 마이] 탭 신설 (ORDER_INDEX_MYPAGE_COMMUNITY_MASTER.md) -->
 <div id="mypageWrap" style="display:none">
   <div class="my-card my-prof">
-    <div class="my-top"><div class="my-av" id="myAv">맘</div><div class="my-who"><div class="my-name" id="myName"></div><div class="my-desc" id="myDesc"></div></div><button type="button" class="my-login" id="myLoginBtn" onclick="openLoginSheet()" style="display:none">로그인</button></div>
+    <div class="my-top"><div class="my-av" id="myAv">맘</div><div class="my-who"><div class="my-name" id="myName"></div><div class="my-desc" id="myDesc"></div></div><button type="button" class="my-login" id="myLoginBtn" onclick="openLoginSheet()" style="display:none">로그인</button><button type="button" class="my-set" onclick="mySettings()">설정</button></div>
     <div class="my-stats">
-      <button type="button" class="my-stat" onclick="goCalMine()"><b id="myWishCount">0</b><span>내 찜 공구</span></button>
+      <button type="button" class="my-stat" onclick="myWishList()"><b id="myWishCount">0</b><span>찜한 공구</span></button>
       <button type="button" class="my-stat" onclick="openNotiCenterSheet('kw')"><b id="myKwCount">0</b><span>알림 키워드</span></button>
-      <button type="button" class="my-stat" onclick="openAttendSheet()"><b>출석</b><span>매일 출첵</span></button>
+      <button type="button" class="my-stat" onclick="openAttendSheet()"><b id="myAttStat">출석</b><span>매일 출석</span></button>
     </div>
   </div>
   <div class="my-card">
-    <div class="my-sec">내 활동 &amp; 일정</div>
     <button type="button" class="my-row" onclick="goCalMine()"><span class="my-ico">📅</span><span class="my-lab">내 공구 캘린더</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="openAttendSheet()"><span class="my-ico">💜</span><span class="my-lab">매일 출석체크</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="openWnSheet()"><span class="my-ico">🔔</span><span class="my-lab">오픈 알림 설정</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="openNotiCenterSheet('kw')"><span class="my-ico">🔎</span><span class="my-lab">키워드 알림 설정</span><span class="my-sub" id="myKwSub"></span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="exportWishIcs()"><span class="my-ico">📥</span><span class="my-lab">내 폰 캘린더 저장</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="shareMyCal()"><span class="my-ico">🔗</span><span class="my-lab">내 캘린더 친구에게 공유</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="exportWishIcs()"><span class="my-ico">📥</span><span class="my-lab">내 폰 캘린더 저장</span><span class="my-arr">›</span></button>
   </div>
   <div class="my-card">
-    <div class="my-sec">고객지원 &amp; 제보</div>
-    <button type="button" class="my-row" onclick="openInqSheet()"><span class="my-ico">🛠️</span><span class="my-lab">건의 · 오류 제보</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="openPartnerModal()"><span class="my-ico">🤝</span><span class="my-lab">셀러 입점 · 제휴 문의</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row" onclick="mcShare()"><span class="my-ico">🔗</span><span class="my-lab">친구에게 맘캘 추천하기</span><span class="my-arr">›</span></button>
+    <div class="my-sec">알림 관리</div>
+    <button type="button" class="my-row" onclick="myNotiDetail()"><span class="my-ico">🔔</span><span class="my-lab">알림 세부 설정</span><span class="my-sub" id="myNotiSub"></span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openNotiCenterSheet('kw')"><span class="my-ico">🔎</span><span class="my-lab">키워드 알림 설정</span><span class="my-sub" id="myKwSub"></span><span class="my-arr">›</span></button>
+  </div>
+  <div class="my-card">
+    <button type="button" class="my-row" onclick="mcShare()"><span class="my-ico">🎁</span><span class="my-lab">친구에게 공유</span><span class="my-arr">›</span></button>
+  </div>
+  <div class="my-card">
+    <div class="my-sec">고객지원 &amp; 안내</div>
     <button type="button" class="my-row" onclick="openAboutSheet()"><span class="my-ico">📘</span><span class="my-lab">맘캘린더 소개</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="openHowSheet()"><span class="my-ico">📖</span><span class="my-lab">이용 방법</span><span class="my-arr">›</span></button>
-  </div>
-  <div class="my-card" id="myAcct" style="display:none">
-    <button type="button" class="my-row" onclick="kkoLogout()"><span class="my-ico">🚪</span><span class="my-lab">로그아웃</span><span class="my-arr">›</span></button>
-    <button type="button" class="my-row my-out" onclick="openWithdrawSheet()"><span class="my-ico">⚠️</span><span class="my-lab">회원 탈퇴</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="myKakao()"><span class="my-ico">💬</span><span class="my-lab">카카오톡 문의</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openInqSheet()"><span class="my-ico">🛠️</span><span class="my-lab">건의 · 오류 제보</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openPartnerModal()"><span class="my-ico">🤝</span><span class="my-lab">제휴 · 입점 문의</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="myMail()"><span class="my-ico">✉️</span><span class="my-lab">앱 문의 메일</span><span class="my-arr">›</span></button>
   </div>
   <div class="my-foot"><a href="terms.html">이용약관</a> · <a href="privacy.html">개인정보처리방침</a></div>
 </div>
@@ -10891,27 +10892,85 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 .my-out .my-lab{color:#8B95A1;font-weight:500}
 .my-foot{text-align:center;padding:10px 0 0;font-size:11.5px;color:#8B95A1}
 .my-foot a{color:#8B95A1;text-decoration:none;margin:0 4px}
+.my-set{flex:0 0 auto;height:32px;padding:0 12px;border:0;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.my-set:active,.my-back:active{transform:scale(.97)}
+.my-lab small{display:block;font-size:11.5px;font-weight:400;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-tg{min-height:60px;cursor:pointer}
+.my-sw{flex:0 0 auto;appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:100px;background:#D1D6DB;position:relative;margin:0;cursor:pointer;transition:background .15s;outline:0}
+.my-sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}
+.my-sw:checked{background:#7C54C4}.my-sw:checked::after{transform:translateX(18px)}
+.my-note{font-size:12px;color:#8B95A1;text-align:center;padding:4px 0 0}
+.mc-sheet.my-full{align-items:stretch;background:#F9FAFB}
+.mc-sheet.my-full .mc-pnl{width:100%!important;max-width:480px!important;height:100%!important;max-height:none!important;margin:0 auto!important;border-radius:0!important;background:#F9FAFB!important;padding:0!important;transform:none!important;display:flex;flex-direction:column;box-sizing:border-box;letter-spacing:-.02em}
+.my-sub-h{flex:0 0 auto;display:flex;align-items:center;gap:4px;height:52px;padding:0 8px;padding-top:env(safe-area-inset-top,0px);background:#fff;border-bottom:1px solid #F2F4F6}
+.my-sub-h b{font-size:16px;font-weight:700;color:#191F28}
+.my-back{width:44px;height:44px;border:0;background:none;font-size:20px;color:#191F28;font-family:inherit;cursor:pointer}
+.my-sub-b{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 20px calc(24px + env(safe-area-inset-bottom,0px))}
 </style>
 <script>
-// ── 내정보(마이) 탭: 로그인 상태·닉네임·찜 수를 실제 값으로 그린다 (2026-11-12) ──
+// ── 내정보(마이) 탭 — 최종 시안 C안. 줄마다의 뒷단은 scratchpad/patch_mypage_c.cjs 머리말 (2026-11-12) ──
+var MY_PREF_K="mc_noti_prefs", MY_KINDS=[["gonggu","공구 오픈 알림","찜한 공구가 열리는 날"],["hotdeal","키워드 핫딜 알림","등록한 키워드의 새 핫딜"],["sale","세일 · 라방 알림","찜한 세일·라방 시작"]];   // 「이벤트·공지」 칸(prefs.event)은 서버 발송 함수 어디서도 읽지 않아 스위치를 두지 않는다(2026-11-12 DB 확인)
+function notiPrefs(){ var d={gonggu:true,hotdeal:true,sale:true,event:true}; try{ var j=JSON.parse(localStorage.getItem(MY_PREF_K)||"null"); if(j) for(var k in d) if(typeof j[k]==="boolean") d[k]=j[k]; }catch(_){} return d; }
+window.notiPrefs=notiPrefs;
+function myPrefSet(k,on,el){
+  var p=notiPrefs(), old=p[k]; p[k]=!!on; try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){}
+  var back=function(){ p[k]=old; try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){} if(el) el.checked=old; mcToast("저장하지 못했어요"); };
+  fetch(SUPABASE_URL+"/rest/v1/rpc/push_set_prefs",{method:"POST",headers:{apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_device:deviceId(),p_prefs:p})})
+    .then(function(r){ return r.ok?r.json():null; }).then(function(j){ if(!j||!j.ok){ back(); return; } try{ trackEvent("noti_pref", k+"="+(on?1:0)+"|"+(j.rows==null?"":j.rows)); }catch(_){} })
+    .catch(back).then(function(){ try{ renderMypage(); }catch(_){} });
+}
+// 폰 알림 권한의 실제 상태: on · off · ask(아직 안 물음) · none(이 환경은 알림 없음)
+function myPerm(){
+  try{ if(typeof _isNativeApp==="function" && _isNativeApp() && window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications && Capacitor.Plugins.PushNotifications.checkPermissions)
+    return Capacitor.Plugins.PushNotifications.checkPermissions().then(function(r){ return r && r.receive==="granted"?"on":(r && r.receive==="denied"?"off":"ask"); }, function(){ return "ask"; }); }catch(_){}
+  try{ if("Notification" in window) return Promise.resolve(Notification.permission==="granted"?"on":Notification.permission==="denied"?"off":"ask"); }catch(_){}
+  return Promise.resolve("none");
+}
+function myPermGo(){ try{ var P=window._mcNative&&window._mcNative(); if(P&&P.openNotificationSettings){ P.openNotificationSettings(); try{ trackEvent("my_perm","settings"); }catch(_){} return; } }catch(_){} try{ mySubClose(); }catch(_){} try{ openWnSheet(); }catch(_){} }
+function myPermRow(){ return '<button type="button" class="my-row" onclick="myPermGo()"><span class="my-ico">📱</span><span class="my-lab">폰 알림 권한</span><span class="my-sub" id="myPermTxt"></span><span class="my-arr">›</span></button>'; }
+function myPermPaint(){ myPerm().then(function(v){ var e=document.getElementById("myPermTxt"); if(e){ e.textContent=v==="on"?"허용됨":v==="off"?"꺼짐":v==="ask"?"아직 안 켬":"앱에서만"; e.style.color=v==="on"?"#7C54C4":"#8B95A1"; } }); }
+// 속 화면(전체 화면) — mcSheet 를 써서 휴대폰 뒤로가기로도 닫힌다
+function mySub(title, body){ var el=mcSheet("mySub", '<div class="my-sub-h"><button type="button" class="my-back" aria-label="뒤로" onclick="mySubClose()">←</button><b>'+title+'</b></div><div class="my-sub-b">'+body+'</div>'); el.classList.add("my-full"); return el; }
+function mySubClose(){ var e=document.getElementById("mySub"); if(e) e.classList.remove("open"); try{ renderMypage(); }catch(_){} }
+function myNotiDetail(){
+  var p=notiPrefs();
+  var h='<div class="my-card">'+MY_KINDS.map(function(x){ return '<label class="my-row my-tg"><span class="my-lab">'+x[1]+'<small>'+x[2]+'</small></span><input type="checkbox" class="my-sw" data-k="'+x[0]+'"'+(p[x[0]]?" checked":"")+' onchange="myPrefSet(this.dataset.k,this.checked,this)"></label>'; }).join("")+'</div>'
+    +'<div class="my-card">'+myPermRow()+'</div><div class="my-note">밤 9시 ~ 아침 9시에는 알림을 보내지 않아요</div>';
+  mySub("알림 세부 설정", h); myPermPaint(); try{ trackEvent("my_open","noti"); }catch(_){}
+}
+function mySettings(){
+  var inn=false; try{ inn=isLoggedIn(); }catch(_){}
+  var h='<div class="my-card">'+myPermRow()+'<button type="button" class="my-row" onclick="myRefresh()"><span class="my-ico">🧹</span><span class="my-lab">화면 새로 받기</span><span class="my-arr">›</span></button></div>'
+    +'<div class="my-card"><div class="my-sec">계정</div>'+(inn
+      ?'<button type="button" class="my-row" onclick="mySubClose();kkoLogout()"><span class="my-ico">🚪</span><span class="my-lab">로그아웃</span><span class="my-arr">›</span></button><button type="button" class="my-row my-out" onclick="mySubClose();openWithdrawSheet()"><span class="my-ico">⚠️</span><span class="my-lab">회원 탈퇴</span><span class="my-arr">›</span></button>'
+      :'<button type="button" class="my-row" onclick="mySubClose();openLoginSheet()"><span class="my-ico">🔑</span><span class="my-lab">로그인</span><span class="my-arr">›</span></button>')+'</div>';
+  mySub("설정", h); myPermPaint(); try{ trackEvent("my_open","settings"); }catch(_){}
+}
+// 저장된 화면 자료(CacheStorage)를 지우고 다시 불러온다 — 찜·로그인·키워드는 건드리지 않는다
+function myRefresh(){ var go=function(){ try{ trackEvent("my_refresh",""); }catch(_){} mcToast("새로 받는 중…"); setTimeout(function(){ location.reload(); }, 500); }; try{ if(window.caches && caches.keys){ caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).then(go, go); return; } }catch(_){} go(); }
+function myWishList(){ try{ switchContent("gonggu"); switchTab("list"); if(fSt!=="wish") toggleStab("wish", document.getElementById("stab-wish")); mcScrollToContent(); }catch(e){ try{ console.error(e); }catch(_){} } }
+function myKakao(){ try{ trackEvent("my_kakao",""); }catch(_){} openLink("https://pf.kakao.com/_zGfxnX/chat"); }
+function myMail(){ var a="app@momcalendar.com"; try{ trackEvent("my_mail",""); }catch(_){} try{ navigator.clipboard.writeText(a).then(function(){ mcToast("메일 주소를 복사했어요\n"+a); }, function(){ shareFallback(a); }); }catch(_){ shareFallback(a); } }
+var _myAtt=null, _myAttAt=0;
 function renderMypage(){
   var g=function(id){ return document.getElementById(id); }; if(!g("mypageWrap")) return;
   var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){}
   var nick=(inn&&m&&m.nickname)?String(m.nickname):"";
   g("myName").textContent=inn?((nick||"회원")+" 님"):"로그인 전";
-  g("myDesc").textContent=inn?"로그인됨":"로그인하면 찜 보관";
   g("myAv").textContent=nick?nick.slice(0,1):"맘";
   g("myLoginBtn").style.display=inn?"none":"";
-  g("myAcct").style.display=inn?"":"none";
   var w=0; try{ w=WISH.size; }catch(_){}
   var kw=[]; try{ kw=(window.getKwAlarms?getKwAlarms():[]).filter(function(a){ return a && a.kw; }); }catch(_){}
   g("myWishCount").textContent=w; g("myKwCount").textContent=kw.length;
   g("myKwSub").textContent=kw.length?(String(kw[0].kw).slice(0,8)+(kw.length>1?" 외 "+(kw.length-1)+"건":"")):"";
+  var p=notiPrefs(), on=MY_KINDS.filter(function(x){ return p[x[0]]; }).length; g("myNotiSub").textContent=on===MY_KINDS.length?"모두 켬":on===0?"모두 끔":on+"개 켬";
+  var paintAtt=function(){ var d=inn?_myAtt:null; g("myDesc").textContent=!inn?"":(d?"출석 "+d.month_days+"일 · 연속 "+d.streak+"일":"로그인됨"); g("myAttStat").textContent=d?(d.checked_today?"출첵완료":"출석하기"):"출석"; };
+  paintAtt();
+  if(inn && Date.now()-_myAttAt>15000){ _myAttAt=Date.now(); try{ memberRpc("member_attendance").then(function(d){ if(d && d.ok){ _myAtt=d; try{ paintAtt(); }catch(_){} } }); }catch(_){} }
 }
-// 키워드 화면에서 등록·삭제한 뒤 닫으면 내정보 숫자를 다시 그린다
-document.addEventListener("click", function(e){ try{ if(e.target && e.target.closest && e.target.closest("#notiCenterSheet") && document.body.getAttribute("data-ct")==="mypage") setTimeout(renderMypage, 350); }catch(_){} }, true);
+// 키워드 화면·출석 시트를 닫으면 숫자를 다시 그린다
+document.addEventListener("click", function(e){ try{ if(document.body.getAttribute("data-ct")!=="mypage") return; var t=e.target; if(t && t.closest && (t.closest("#notiCenterSheet")||t.closest("#infoSheet"))){ _myAttAt=0; setTimeout(renderMypage, 400); } }catch(_){} }, true);
 try{ var _nsC=window.nsClose; if(typeof _nsC==="function") window.nsClose=function(){ var r=_nsC.apply(this,arguments); try{ setTimeout(renderMypage,60); }catch(_){} return r; }; }catch(_){}
-function myGoSaleWish(){ try{ _slMode="sale"; }catch(_){} try{ switchContent("sale"); if(typeof saleFilter==="function") saleFilter(""); }catch(e){} try{ mcScrollToContent(); }catch(_){} }
 </script>
 <style id="mc-bnav">
 /* ── 하단 탭바: 웹은 숨김, 앱(native-app)만 표시 ── */
