@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { sbArgs, parseRows } from './sb_query.mjs';
 import { checkSpec } from './kakao_spec.mjs';
+import { botHeaders } from './bot_secret.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);                 // ⚠ 예약작업 cwd 는 System32 — supabase --linked 가 프로젝트를 못 찾는다
@@ -60,7 +61,7 @@ let slowest = 0, slowestSay = '';
 const ask = async (utterance) => {
   const _t0 = Date.now();
   const j = await fetch(`${SB}/functions/v1/kakao-skill`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: botHeaders(),
     // botai:true — 감시는 손님이 보는 그대로의 봇(AI 포함)을 봐야 한다. 같은 말은 사전에 저장돼 두 번째부터 AI 를 안 타므로 비용은 새 말에만 든다 (2026-09-08)
     body: JSON.stringify({ userRequest: { utterance, user: { id: 'BOTGUARD' } }, botai: true }),
   }).then((r) => r.json());

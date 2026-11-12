@@ -10,6 +10,7 @@
  *      그래서 bad 낱말(나오면 안 되는 말)도 함께 검사한다.
  */
 import { checkSpec } from './kakao_spec.mjs';
+import { botHeaders } from './bot_secret.mjs';
 const U = process.env.BOT_URL || 'https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-skill';   // BOT_URL 로 임시 함수(kakao-skill-test)를 겨눌 수 있다
 const ONLY = process.argv[2] || '';
 
@@ -176,7 +177,7 @@ CASES.push(
 
 const run = async ([grp, say, want, need, headWord]) => {
   try {
-    const j = await fetch(U, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const j = await fetch(U, { method: 'POST', headers: botHeaders(),
       // botai: 로봇(BOT*)은 기본으로 AI 를 안 탄다(비용) — '문장' 묶음(🐤 카나리아 포함)과 BOT_AI=1 일 때만 연다 (2026-09-08)
       //   ⚠ 카나리아가 AI 를 못 타면 매시간 가짜 회귀 경보가 나고 진짜 AI 장애는 아무도 모른다 (검증 지적)
       body: JSON.stringify({ userRequest: { utterance: say, user: { id: 'BOTPROBE' } }, botai: !!process.env.BOT_AI || grp === '문장' }) }).then((r) => r.json());

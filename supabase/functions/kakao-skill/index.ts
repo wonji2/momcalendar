@@ -252,15 +252,34 @@ async function withDeadline<T>(p: Promise<T>, ms: number, u: string): Promise<T 
 //   실측 실손님 AI 는 하루 1~2건, 도구 포함 최대 70건이었다. 600 이면 정상 운영의 8배다. 넘으면 그날은 규칙만으로 답한다.
 //   ⚠ events 는 anon 이 못 읽는다(RLS) → 서비스 키로 센다. 세지 못하면 0 으로 보고 AI 를 허용한다(막는 쪽이 아니라 답하는 쪽으로).
 const AI_DAILY_CAP = Number(Deno.env.get("BOT_AI_DAILY_CAP") || 600);
-async function aiCalledToday(): Promise<number> {
+// 2026-11-13 사장님 「친구 추가 수가 늘고 있는데 사용량 바닥 안 나게 해」: 10/30~11/4 우리 점검 로봇이 600건을 다 써서 손님이 엿새간 AI 없이 답을 받았다(실측).
+//   → 손님 몫(AI_DAILY_CAP)은 손님 호출만 센다 · 로봇은 따로 ROBOT_AI_CAP · 한 사람은 하루 USER_AI_CAP 까지(한 명이 다 못 쓰게).
+//   실손님 AI 는 하루 10~27건(11-05~12)이라 600 은 지금의 20배 넘는 여유다.
+let BOT_ID_LOGGED = false;
+const ROBOT_AI_CAP = Number(Deno.env.get("BOT_ROBOT_AI_CAP") || 60);
+const USER_AI_CAP = Number(Deno.env.get("BOT_USER_AI_CAP") || 20);
+async function aiCount(extra: string): Promise<number> {
   try {
     const d = kst(); d.setUTCHours(0, 0, 0, 0);                       // KST 자정
     const since = new Date(d.getTime() - 9 * 3600e3).toISOString();  // → UTC 시각
-    const r = await fetch(`${SB}/rest/v1/events?select=id&event_type=in.(kakao_bot_ai,kakao_bot_ai_err)&visited_at=gte.${since}&limit=1`,
+    const r = await fetch(`${SB}/rest/v1/events?select=id&event_type=in.(kakao_bot_ai,kakao_bot_ai_err)&visited_at=gte.${since}${extra}&limit=1`,
       { headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, Prefer: "count=exact" } });
     const n = Number((r.headers.get("content-range") || "").split("/")[1]);
     return Number.isFinite(n) ? n : 0;
   } catch { return 0; }
+}
+// 남은 몫이 있으면 null, 없으면 막힌 까닭
+async function aiBudgetBlock(uid: string): Promise<string | null> {
+  const robot = /^BOT[A-Z]/.test(uid);
+  if (robot) return (await aiCount("&event_data=like.*uid%3DBOT*")) >= ROBOT_AI_CAP ? `로봇 ${ROBOT_AI_CAP}건` : null;
+  const who = uid.split(":")[0];
+  const [all, me] = await Promise.all([
+    aiCount("&event_data=not.like.*uid%3DBOT*"),
+    who && who !== "?" ? aiCount(`&event_data=like.*uid%3D${encodeURIComponent(who)}%3A*`) : Promise.resolve(0),
+  ]);
+  if (all >= AI_DAILY_CAP) return `손님 ${AI_DAILY_CAP}건`;
+  if (me >= USER_AI_CAP) return `한 사람 ${USER_AI_CAP}건`;
+  return null;
 }
 // ⚠ uid 를 받는다 — 이 로그로 "돈 나간 호출이 실손님인지 우리 로봇인지" 를 가린다 (2026-09-21).
 async function interpAI(u: string, tReq: number, uid = "?"): Promise<Interp | null | typeof AI_FAIL> {
@@ -269,7 +288,7 @@ async function interpAI(u: string, tReq: number, uid = "?"): Promise<Interp | nu
   // ⚠ "콜드스타트 직후면 건너뛰기"(모듈 시각 기준)는 넣었다가 뺐다 (2026-09-08) — 엣지는 요청마다 새 인스턴스라 전 요청이 cold 로 보여 AI 가 꺼졌다.
   if (Date.now() - tReq > 3500) return null;
   // 공짜 검사(위) 뒤에 상한 조회(REST 1회 ≈ 80ms) — 안 태울 요청에는 조회도 안 나가게 (검증 지적)
-  if (await aiCalledToday() >= AI_DAILY_CAP) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${AI_DAILY_CAP}건 상한 — 규칙만 | uid=${uid}`); return null; }
+  { const why = await aiBudgetBlock(uid); if (why) { logEv("kakao_bot_ai_cap", `${u.slice(0, 40)} | 오늘 ${why} 상한 — 규칙만 | uid=${uid}`); return null; } }
   const t0 = Date.now();
   try {
     const { default: Anthropic } = await import("npm:@anthropic-ai/sdk@0.124.0");
@@ -486,8 +505,15 @@ async function handle(req: Request): Promise<Response> {
     //   2026-09-08 실측: AI 호출 70건 중 실손님 2건 — 나머지는 전부 도구였다. 로봇은 AI 를 안 태우고 사전 hits 도 안 올린다.
     //   회귀에서 AI 경로를 시험할 때만 body.botai=true 로 연다 (bot_probe BOT_AI=1).
     const robot = /^BOT[A-Z]/.test(uid);
-    const robotAI = robot && body?.botai === true;
-    const aiAllowed = !robot || robotAI;
+    // 보안 점검 2026-11-13 F9: 이 함수는 누구나 부를 수 있다 → 카카오가 보낸 요청(본문 bot.id 가 우리 봇)만 AI 를 태운다. 아니면 규칙 답만(돈이 안 든다).
+    //   KAKAO_BOT_ID 시크릿이 없으면 예전처럼 다 허용하고, 처음 본 bot.id 를 kakao_bot_id_seen 으로 남긴다(그 값을 시크릿으로 넣는다).
+    const BOT_ID = Deno.env.get("KAKAO_BOT_ID") || "";
+    const botId = String(body?.bot?.id ?? "").slice(0, 64);
+    if (!BOT_ID && botId && !robot && !BOT_ID_LOGGED) { BOT_ID_LOGGED = true; logEv("kakao_bot_id_seen", botId); }
+    const fromKakao = !BOT_ID || botId === BOT_ID;
+    const CRON = Deno.env.get("PUSH_CRON_SECRET") || "";
+    const robotAI = robot && body?.botai === true && !!CRON && req.headers.get("x-cron-secret") === CRON;
+    const aiAllowed = (!robot && fromKakao) || robotAI;
     const hit = (ok: boolean) => { if (!robot) interpHit(u, ok); };
     let aiLate = false;   // AI 가 마감을 넘겼다 — "없어요" 대신 "찾는 중" 으로 답한다 (②)
     const uz = deJong(u);   // 말끝 ㅇ 을 벗긴 판정용 사본 (고마웡→고마워)

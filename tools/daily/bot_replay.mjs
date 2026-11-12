@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { checkSpec } from './kakao_spec.mjs';
+import { botHeaders } from './bot_secret.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);
@@ -35,7 +36,7 @@ const sql = (text) => {
 };
 const ask = async (utterance) => {
   const t0 = Date.now();
-  const j = await fetch(U, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const j = await fetch(U, { method: 'POST', headers: botHeaders(),
     body: JSON.stringify({ userRequest: { utterance, user: { id: 'BOTREPLAY' } }, botai: true }) }).then((r) => r.json());
   const o = j?.template?.outputs?.[0] || {};
   const text = o.textCard?.text || '';
