@@ -2941,7 +2941,7 @@ window.slimAdClick=function(id){
     <div class="my-top"><div class="my-av" id="myAv">맘</div><div class="my-who"><div class="my-name" id="myName"></div><div class="my-desc" id="myDesc"></div></div><button type="button" class="my-login" id="myLoginBtn" onclick="openLoginSheet()" style="display:none">로그인</button></div>
     <div class="my-stats">
       <button type="button" class="my-stat" onclick="goCalMine()"><b id="myWishCount">0</b><span>내 찜 공구</span></button>
-      <button type="button" class="my-stat" onclick="myGoSaleWish()"><b id="mySaleWishCount">0</b><span>세일 찜</span></button>
+      <button type="button" class="my-stat" onclick="openNotiCenterSheet('kw')"><b id="myKwCount">0</b><span>알림 키워드</span></button>
       <button type="button" class="my-stat" onclick="openAttendSheet()"><b>출석</b><span>매일 출첵</span></button>
     </div>
   </div>
@@ -2950,6 +2950,7 @@ window.slimAdClick=function(id){
     <button type="button" class="my-row" onclick="goCalMine()"><span class="my-ico">📅</span><span class="my-lab">내 공구 캘린더</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="openAttendSheet()"><span class="my-ico">💜</span><span class="my-lab">매일 출석체크</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="openWnSheet()"><span class="my-ico">🔔</span><span class="my-lab">오픈 알림 설정</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="openNotiCenterSheet('kw')"><span class="my-ico">🔎</span><span class="my-lab">키워드 알림 설정</span><span class="my-sub" id="myKwSub"></span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="exportWishIcs()"><span class="my-ico">📥</span><span class="my-lab">내 폰 캘린더 저장</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="shareMyCal()"><span class="my-ico">🔗</span><span class="my-lab">내 캘린더 친구에게 공유</span><span class="my-arr">›</span></button>
   </div>
@@ -6304,12 +6305,15 @@ async function saveCalImage(){
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
     const name='momcal_wish_'+calMonth.getFullYear()+pad(calMonth.getMonth()+1)+'.png';
     const file=new File([blob],name,{type:'image/png'});
-    let shared=false;
-    try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
+    let shared=false, album=false;
+    // 안드 앱: 공유 창 대신 앨범에 바로 저장(2026-11-12). 실패했을 때만 아래 공유 창으로
+    const _nat=(window._mcNative && window._mcNative());
+    if(_nat && _nat.saveFile){ try{ const b64=await new Promise((r,j)=>{ const fr=new FileReader(); fr.onload=()=>r(String(fr.result).split(',')[1]||''); fr.onerror=j; fr.readAsDataURL(blob); }); const res=await _nat.saveFile({name:name, mime:'image/png', base64:b64, open:false}); if(res && res.uri){ album=true; shared=true; try{ mcToast('앨범에 저장했어요'); }catch(_){} } }catch(_){} }
+    try{ if(!album && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'내 찜 캘린더'}); shared=true; } }catch(e){ if(e && e.name==='AbortError') shared=true; }
     const noDl=/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i.test(navigator.userAgent) || !('download' in HTMLAnchorElement.prototype);   // 인앱 웹뷰는 파일 내려받기가 안 된다(2026-11-02 코덱스 지적)
     if(!shared && noDl){ _calImgOverlay(URL.createObjectURL(blob)); }
     else if(!shared){ const a=document.createElement('a'); a.download=name; a.href=URL.createObjectURL(blob); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
-    try{ trackEvent('cal_image', shared?'share':(noDl?'longpress':'download')); }catch(_){}
+    try{ trackEvent('cal_image', album?'album':shared?'share':(noDl?'longpress':'download')); }catch(_){}
     window._lastCalImage=blob;
   }catch(e){ try{ mcToast('사진 만들기에 실패했어요. 다시 눌러 주세요'); }catch(_){} }
   if(btn){ btn.textContent=t0; btn.disabled=false; }
@@ -10900,9 +10904,13 @@ function renderMypage(){
   g("myLoginBtn").style.display=inn?"none":"";
   g("myAcct").style.display=inn?"":"none";
   var w=0; try{ w=WISH.size; }catch(_){}
-  var sw=0; try{ for(var k in SALEW){ var x=SALEW[k]; if(x&&(x.w||x.b)) sw++; } }catch(_){}
-  g("myWishCount").textContent=w; g("mySaleWishCount").textContent=sw;
+  var kw=[]; try{ kw=(window.getKwAlarms?getKwAlarms():[]).filter(function(a){ return a && a.kw; }); }catch(_){}
+  g("myWishCount").textContent=w; g("myKwCount").textContent=kw.length;
+  g("myKwSub").textContent=kw.length?(String(kw[0].kw).slice(0,8)+(kw.length>1?" 외 "+(kw.length-1)+"건":"")):"";
 }
+// 키워드 화면에서 등록·삭제한 뒤 닫으면 내정보 숫자를 다시 그린다
+document.addEventListener("click", function(e){ try{ if(e.target && e.target.closest && e.target.closest("#notiCenterSheet") && document.body.getAttribute("data-ct")==="mypage") setTimeout(renderMypage, 350); }catch(_){} }, true);
+try{ var _nsC=window.nsClose; if(typeof _nsC==="function") window.nsClose=function(){ var r=_nsC.apply(this,arguments); try{ setTimeout(renderMypage,60); }catch(_){} return r; }; }catch(_){}
 function myGoSaleWish(){ try{ _slMode="sale"; }catch(_){} try{ switchContent("sale"); if(typeof saleFilter==="function") saleFilter(""); }catch(e){} try{ mcScrollToContent(); }catch(_){} }
 </script>
 <style id="mc-bnav">
