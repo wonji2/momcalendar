@@ -223,7 +223,7 @@ def hall_suwon():
             link = l.group(1) if l else ''
         except Exception:
             pass
-        out.append(item(title, ds[0], ds[-1], '수원 수원메쎄', hall, brand, link, detail))
+        out.append(item(title, ds[0], ds[-1], '수원메쎄', hall, brand, link, detail))
     return out
 
 
@@ -250,10 +250,11 @@ def hall_songdo():
 
 
 HALLS = [('coex', '서울 코엑스', hall_coex), ('kintex', '일산 킨텍스', hall_kintex), ('setec', '서울 세텍(SETEC)', hall_setec),
-         ('exco', '대구 엑스코', hall_exco), ('suwon', '수원 수원메쎄', hall_suwon), ('songdo', '인천 송도컨벤시아', hall_songdo)]
+         ('exco', '대구 엑스코', hall_exco), ('suwon', '수원메쎄', hall_suwon), ('songdo', '인천 송도컨벤시아', hall_songdo)]
 
 # ───────────────────────── 언론 보도(네이버 뉴스 검색 공식 API) ─────────────────────────
-NEWS_Q = [('패밀리세일', q) for q in ('아동복 패밀리세일', '유아 패밀리세일', '키즈 패밀리세일', '아가방 패밀리세일', '서양네트웍스 패밀리세일', '블루독 패밀리세일', '밍크뮤 패밀리세일', '압소바 패밀리세일', '모이몰른 패밀리세일', '유아동 창고대방출')]
+FAMILY_ON = False   # 사장님 2026-11-12 「일단 베이비페어만」 — 패밀리세일 보도 수집은 꺼 둔다(켜려면 True)
+NEWS_Q = [('패밀리세일', q) for q in ('아동복 패밀리세일', '유아 패밀리세일', '키즈 패밀리세일', '아가방 패밀리세일', '서양네트웍스 패밀리세일', '블루독 패밀리세일', '밍크뮤 패밀리세일', '압소바 패밀리세일', '모이몰른 패밀리세일', '유아동 창고대방출')] if FAMILY_ON else []
 NEWS_Q += [('베이비페어', q) for q in ('베이비페어 개최', '베페 개막', '유아교육전 개최')]
 FAMILY_RE = re.compile(r'패밀리\s*세일|창고\s*대방출|창고\s*개방')
 KID_RE = re.compile(r'아동|유아|키즈|베이비|주니어|아가방|블루독|밍크뮤|압소바|모이몰른|서양네트웍스|에뜨와|해피랜드|알로앤루|포래즈|쁘띠|리틀|토들러')
