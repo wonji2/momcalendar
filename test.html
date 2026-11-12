@@ -2595,7 +2595,11 @@ window._mcNative=function(){ try{ if(!window._mcCapAndroid()) return null; var P
     var h=a.href||''; if(!/^(blob:|data:)/.test(h)) return;
     e.preventDefault(); e.stopPropagation();
     var name=a.getAttribute('download')||'momcal', ics=/\.ics$/i.test(name);
-    fetch(h).then(function(r){ return r.blob(); }).then(function(bl){ return b64(bl).then(function(v){ return P.saveFile({name:name, mime:bl.type||(ics?'text/calendar':'application/octet-stream'), base64:v, open:ics}); }); })
+    fetch(h).then(function(r){ return r.blob(); }).then(function(bl){ return b64(bl).then(function(v){ return P.saveFile({name:name, mime:bl.type||(ics?'text/calendar':'application/octet-stream'), base64:v, open:ics}).then(function(res){
+        // 캘린더 파일을 여는 앱이 없으면(opened=false) 아무 일도 안 일어난다 → 공유 시트로 넘겨 캘린더 앱을 고르게 하고, 그것도 안 되면 저장 위치를 알려 준다(2026-11-12)
+        if(ics && res && res.opened===false){ try{ trackEvent('ics_noopen','android'); }catch(_){}
+          return P.share({title:'맘캘린더 내 공구', text:'', url:'', files:[{name:name, mime:'text/calendar', base64:v}]}).then(function(){ try{ mcToast('캘린더 앱을 골라 주세요'); }catch(_){} }, function(){ try{ mcToast('내 파일 > Download > 맘캘린더 에 저장했어요\n파일을 눌러 캘린더에 넣어 주세요', 6000); }catch(_){} }); }
+        return res; }); }); })
       .catch(function(){ try{ mcToast('저장하지 못했어요. 다시 눌러 주세요'); }catch(_){} });
   }, true);
 })();
@@ -2785,6 +2789,7 @@ window.slimAdClick=function(id){
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
     <!-- 2026-11-01 사장님 「이대로 사진으로 저장하기」 — 보이는 달력(막대)을 그대로 PNG 로. 공유 시트(갤러리 저장)가 되면 그걸로, 아니면 내려받기 -->
     <button id="calImgBtn" onclick="saveCalImage()" style="width:100%;margin-top:8px;background:#7C54C4;border:0;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🖼 이대로 사진으로 저장</button>
+    <button id="calShareBtn" onclick="shareMyCal()" style="width:100%;margin-top:8px;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🔗 친구에게 내 캘린더 공유</button>
     <!-- 마감된 건 자동으로 빠진다는 걸 누르기 전에 알려준다 (사장님 지적 2026-08-20) -->
     <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
     <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
@@ -2946,6 +2951,7 @@ window.slimAdClick=function(id){
     <button type="button" class="my-row" onclick="openAttendSheet()"><span class="my-ico">💜</span><span class="my-lab">매일 출석체크</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="openWnSheet()"><span class="my-ico">🔔</span><span class="my-lab">오픈 알림 설정</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="exportWishIcs()"><span class="my-ico">📥</span><span class="my-lab">내 폰 캘린더 저장</span><span class="my-arr">›</span></button>
+    <button type="button" class="my-row" onclick="shareMyCal()"><span class="my-ico">🔗</span><span class="my-lab">내 캘린더 친구에게 공유</span><span class="my-arr">›</span></button>
   </div>
   <div class="my-card">
     <div class="my-sec">고객지원 &amp; 제보</div>
@@ -6329,12 +6335,12 @@ async function exportWishIcs(){
     if(e < todayStr) return false;                            // 마감 지남
     return !isExpired(it);
   });
-  if(!items.length){ mcToast('찜한 공구가 없어요 💜'); return; }
+  if(!items.length){ mcToast(_all.some(it=>isWished(it.id))?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
 
   // 이미 내보낸 건 또 내보내면 캘린더 앱에 따라 중복으로 쌓인다(네이버·삼성은 UID를 안 봐줌).
   // → 내보낸 목록을 서버에 기록해서 폰을 바꿔도 유지되게 한다.
   let sent=[];
-  const srv=await memberRpc('member_ics_sent');
+  const srv=await Promise.race([memberRpc('member_ics_sent'), new Promise(r=>setTimeout(()=>r(null),4000))]);   // 서버가 늦으면 기기 기록으로 진행(2026-11-12)
   if(srv && srv.ok) sent=srv.ids||[];
   else { try{ sent=JSON.parse(localStorage.getItem('mc_ics_sent')||'[]'); }catch(_){} }  // 서버 실패 시 기기 기록으로 대체
   const sentSet=new Set(sent);
@@ -6415,6 +6421,16 @@ async function exportWishIcs(){
     return;
   }
   const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  // 아이폰 앱(웹뷰)은 파일 내려받기가 동작하지 않는다 → 공유 시트로 파일을 넘긴다. 안 되면 안 된다고 말한다(2026-11-12)
+  if(typeof _isNativeApp==='function' && _isNativeApp() && !(window._mcCapAndroid && window._mcCapAndroid())){
+    let done=false;
+    try{ const f=new File([blob],'momcal_'+items.length+'.ics',{type:'text/calendar'}); if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'맘캘린더 내 공구'}); done=true; } }catch(e){ if(e && e.name==='AbortError'){ try{ trackEvent('ics_cancel','ios'); }catch(_){} return; } }
+    if(!done){ try{ trackEvent('ics_fail','ios_noshare'); }catch(_){} mcToast('이 기기에서는 캘린더 파일을 넘길 수 없어요\n달력을 사진으로 저장해 주세요'); return; }
+    memberRpc('member_ics_mark', {p_ids: items.map(it=>it.id)});
+    try{ localStorage.setItem('mc_ics_sent', JSON.stringify(Array.from(new Set(sent.concat(items.map(it=>it.id)))))); }catch(_){}
+    try{ trackEvent('ics_export', items.length+'|ios_share'); }catch(_){}
+    return;
+  }
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   // 🔴 파일명이 늘 같아서 안드로이드가 "이미 존재하는 이름입니다" 를 띄웠다 (사장님 지적 2026-08-20)
@@ -6432,8 +6448,60 @@ async function exportWishIcs(){
   try{ trackEvent('ics_export', String(items.length)); }catch(_){}
   // 마감된 공구는 위에서 isExpired 로 이미 걸러진다 — 손님이 알 수 있게 문구로 밝힌다.
   //   (사장님 지적 2026-08-20: "이미 마감된 건은 자동으로 빼고 미래 일정만 나온다고 알려줘야")
-  mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);
+  if(!(window._mcCapAndroid && window._mcCapAndroid())) mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);   // 안드 앱은 파일을 연 결과를 본 뒤에만 말한다(위 저장 연결부)
 }
+// ── 내 공구 캘린더 친구에게 공유 (2026-11-12) — 설계는 scratchpad/patch_cal_share.cjs 머리말 ──
+function _calSharePage(){ return location.origin+(/\/test\.html$/.test(location.pathname)?'/test.html':'/'); }
+function _calShareItems(){
+  const all=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+  return all.filter(it=>{ if(!isWished(it.id)) return false; const e=realEnd(it); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e||'') && e>=todayStr && !isExpired(it); })
+    .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id).slice(0,60);
+}
+async function shareMyCal(){
+  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,3000))]); }catch(_){}
+  const items=_calShareItems();
+  if(!items.length){ mcToast(WISH.size?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
+  const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.');
+  const title='내가 찜한 공구 '+items.length+'개', text=items.slice(0,3).map(it=>it.name).join(', ')+(items.length>3?' 외 '+(items.length-3)+'개':'');
+  const log=how=>{ try{ trackEvent('cal_share', items.length+'|'+how); }catch(_){} };
+  if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){
+    try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:title+' 📅', description:text, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); log('kakao'); return; }catch(_){}
+  }
+  if(navigator.share){ try{ await navigator.share({title:title, text:text, url:url}); log('sheet'); }catch(e){ if(!(e && e.name==='AbortError')){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); }catch(_){ shareFallback(url); log('prompt'); } } } return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); return; }catch(_){} }
+  shareFallback(url); log('prompt');
+}
+// 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
+async function _calShareOpen(){
+  let raw=''; try{ raw=new URLSearchParams(location.search).get('mycal')||''; }catch(_){}
+  if(!raw) return;
+  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
+  if(!/^[0-9a-z]+(\.[0-9a-z]+){0,79}$/.test(raw)) return;
+  const ids=[...new Set(raw.split('.').map(x=>parseInt(x,36)).filter(n=>Number.isSafeInteger(n)&&n>0))].slice(0,60);
+  if(!ids.length) return;
+  const have=new Map(DATA.map(d=>[d.id,d])); _wishExtra.forEach(x=>{ if(!have.has(x.id)) have.set(x.id,x); });
+  const miss=ids.filter(id=>!have.has(id));
+  if(miss.length){ try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&approved=eq.true&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,always`,{headers:wishHeaders()});
+    if(r.ok){ (await r.json()).forEach(x=>{ const it={id:x.id, influencer:_noTag(x.influencer), insta:(x.insta||'').replace('@','').trim().replace(/[^A-Za-z0-9._]/g,''), major:_noTag(x.major), minor:_noTag(x.minor), name:_noTag(x.name), openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim(), always:x.always===true, openTime:''}; have.set(it.id,it); if(!_wishExtra.some(w=>w.id===it.id)) _wishExtra.push(it); }); }
+  }catch(_){} }
+  const items=ids.map(id=>have.get(id)).filter(it=>{ if(!it) return false; const e=realEnd(it); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e||'') && e>=todayStr && !isExpired(it); })
+    .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id);
+  try{ trackEvent('cal_share_open', items.length+'/'+ids.length); }catch(_){}
+  if(!items.length){ mcToast('공유받은 공구가 모두 끝났어요'); return; }
+  const md=s=>{ const q=String(s||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; };
+  const fresh=items.filter(it=>!isWished(it.id));
+  const rows=items.map(it=>{ const end=realEnd(it)||''; return `<div class="ip-row" style="cursor:default"><span class="ip-m"><b>${escHtml(it.name||'')}</b><small>${md(it.openDate)}${end&&end!==it.openDate?' ~ '+md(end):''}${it.influencer?' · '+escHtml(it.influencer):''}${isWished(it.id)?' · 찜함':''}</small></span></div>`; }).join('');
+  const el=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
+  el.querySelector('.cs-go').onclick=()=>{
+    const did=deviceId();
+    fresh.forEach(it=>{ WISH.add(Number(it.id)); fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:Number(it.id), p_on:true, p_token:_wishTok()})}).catch(()=>{}); });
+    if(fresh.length){ saveWishLocal(); updateWishBadge(); try{ paintHearts(); }catch(_){} try{ trackEvent('cal_share_add', String(fresh.length)); }catch(_){} mcToast(fresh.length+'개를 찜에 담았어요 💜'); }
+    el.classList.remove('open'); try{ goCalMine(); }catch(_){}
+    try{ if(typeof renderMypage==='function') renderMypage(); }catch(_){}
+  };
+}
+(function(){ if(!/[?&]mycal=/.test(location.search)) return; var n=0, t=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined' && DATA.length>0; }catch(_){} if(ok||n>60){ clearInterval(t); _calShareOpen(); } },250); })();
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
 
