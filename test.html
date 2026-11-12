@@ -6458,7 +6458,7 @@ function _calShareItems(){
     .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id).slice(0,60);
 }
 async function shareMyCal(){
-  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,3000))]); }catch(_){}
+  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다(없으면 바로)
   const items=_calShareItems();
   if(!items.length){ mcToast(WISH.size?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
   const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.');
