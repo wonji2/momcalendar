@@ -4,7 +4,8 @@
 #   .gitignore 만으로는 `git add -f` 와 옛 .gitignore 를 쓰는 워크트리를 못 막는다.
 # 되살리는 법:  git config core.hooksPath .githooks
 # 지우는 변경(D)은 막지 않는다 — 공개 저장소에서 빼는 커밋까지 막히던 것을 고쳤다(2026-11-02)
-BLOCKED='^(tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md|CLAUDE\.md)'
+# 2026-11-13 추가: scratchpad 안 문서·작업규칙.md·references/·HANDOVER/ORDER_ 지시서 — 서버 원격접속 비밀번호가 담긴 인계 문서가 11-02 부터 공개돼 있던 사고(보안 감사 F1·F2)
+BLOCKED='^(scratchpad/[^/]+\.md$|작업규칙\.md$|references/|(.*/)?[^/]*(HANDOVER|ORDER_)[^/]*\.md$|tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md|CLAUDE\.md)'
 HIT=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -E "$BLOCKED")
 if [ -n "$HIT" ]; then
   echo ""
