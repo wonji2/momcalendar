@@ -4,6 +4,14 @@ name: 핫딜 24시간 무인 자동 수집
 #   · tools/daily/baby_hotdeal_auto.py: bbhd 새 글 → 상품 링크 → 우리 수익링크(쿠팡 딥링크·링크프라이스·오늘의집) → hotdeals 등록. 진행 번호는 DB ops_status 'bbhd-last-id'.
 #   · 비밀값은 깃허브 시크릿으로만: SUPABASE_TRIAGE_TOKEN(관리 API 로 SQL) · PUSH_CRON_SECRET(coupang-hotdeal 함수 호출). 코드에 박지 않는다(11-01 공개 저장소 유출 사고).
 #   · 같은 글을 두 길이 동시에 처리하지 않게 PC 예약 momcal-baby-hotdeal 은 끈다(이 워크플로가 첫 회차를 통과한 뒤).
+#
+# 🔴 2026-11-12 사장님 「핫딜 최근 등록이 119분 전인데 멈춘 거 아녀? · PC 꺼져도 돌게 해야지」
+#   15분 예약(schedule)을 깃허브가 건너뛰어 실제로는 5~6시간에 한 번만 돌았다(11-11~12 실측 01:31 → 07:56 → 12:43). 깃허브 schedule 은 믿을 수 없다.
+#   → 한 번 깨면 **그 안에서 15분마다 수집을 반복하며 5시간 20분 살아 있고**, 끝날 때 **다음 회차를 스스로 깨운다**(workflow_dispatch —
+#     GITHUB_TOKEN 으로 부른 workflow_dispatch 는 새 실행을 만든다는 깃허브 예외 규칙, actions: write 권한). 그래서 PC·개인 토큰 없이 24시간 이어진다.
+#   · schedule 은 사슬이 끊겼을 때 다시 잇는 예비로 남긴다. concurrency 로 한 번에 하나만 돈다(대기는 하나만 남는다).
+#   · 공개 저장소라 실행 시간은 무료. 쿠팡 딥링크는 새 쿠팡 핫딜이 있을 때만 부르고 회차당 10회·2초 간격(수집기 안) — 자주 돌려도 호출 수는 새 핫딜 수만큼.
+#   · PC 대타(tools/daily/hotdeal_cloud_fallback.mjs, 20분)는 이 실행이 도는 중이면 건너뛴다. 서버 크론 hotdeal-stall-watch 가 3시간 무등록을 경보한다.
 on:
   schedule:
     - cron: '8,23,38,53 * * * *'
@@ -15,11 +23,12 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 345
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,9 +38,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: 핫딜 수집 및 수익링크 자동 등록
+      - name: 핫딜 수집 15분마다 반복(5시간 20분)
         env:
           SUPABASE_TRIAGE_TOKEN: ${{ secrets.SUPABASE_TRIAGE_TOKEN }}
           PUSH_CRON_SECRET: ${{ secrets.PUSH_CRON_SECRET }}
           MOMCAL_INTERNAL_SECRET: ${{ secrets.MOMCAL_INTERNAL_SECRET }}   # 우리 주소를 부를 때 붙는 아군 인증 머리말(없으면 빈 값)
-        run: python3 tools/daily/baby_hotdeal_auto.py
+        run: |
+          end=$(( $(date +%s) + 320*60 ))
+          n=0
+          while :; do
+            n=$((n+1))
+            echo "=== 회차 $n · $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST ==="
+            timeout 600 python3 tools/daily/baby_hotdeal_auto.py || echo "회차 $n 실패 — 다음 회차는 계속"
+            [ $(( $(date +%s) + 900 )) -ge $end ] && break
+            sleep 900
+          done
+          echo "총 $n 회차"
+      - name: 다음 회차 깨우기(사슬 잇기)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run hotdeal-cloud.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
