@@ -24,7 +24,7 @@ create table if not exists public.app_admins (
 alter table public.app_admins enable row level security;
 revoke all on public.app_admins from anon, authenticated;
 
--- 사장님 계정 (dnjswltjs123@naver.com, 2026-06-01 생성)
+-- 사장님 계정 (2026-06-01 생성)
 insert into public.app_admins (user_id, note)
 values ('5fe760b7-c418-494a-a148-ca0eabc8e8e8', '사장님 계정')
 on conflict (user_id) do nothing;

@@ -71,7 +71,7 @@ async function mayReply(): Promise<{ ok: boolean; why?: string; waitMs?: number 
 }
 // 메타 서명 확인 (앱 시크릿이 설정돼 있으면 필수)
 async function sigOk(raw: string, header: string | null): Promise<boolean> {
-  if (!APP_SECRET) { console.warn("[IG_BOT] INSTAGRAM_APP_SECRET 미설정 — 서명 확인 건너뜀(설정 권장)"); return true; }
+  if (!APP_SECRET) { console.warn("[IG_BOT] INSTAGRAM_APP_SECRET 미설정 — 서명을 확인할 수 없어 거절"); return false; } // 보안 점검 2026-11-13 F13: 시크릿이 없으면 통과시키던 것을 거절로
   if (!header || !header.startsWith("sha256=")) return false;
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(APP_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(raw)));
