@@ -639,6 +639,9 @@ body.srch-suggest #searchDrop{display:block}
 .sale-chips::-webkit-scrollbar{display:none}
 .sale-chip{flex:0 0 auto;border:1px solid #D5E3F2;background:#fff;color:#185FA5;border-radius:18px;min-height:38px;padding:0 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .sale-chip.on{background:#185FA5;border-color:#185FA5;color:#fff}
+/* 오프라인 행사 카드(베이비페어·패밀리세일) — 기존 세일 카드 틀 그대로, 다른 점만 · 2026-11-12 */
+.sale-logo.off-logo{background:#F6F3FA;border-color:#F6F3FA;font-size:19px;line-height:1}
+.sale-m.off-m{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sale-sec{font-size:12.5px;font-weight:800;color:#2B3A4A;margin:14px 2px 7px;display:flex;align-items:center;gap:6px}
 .sale-sec i{font-style:normal;font-size:11px;font-weight:600;color:#7A8794}
 .sale-card{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #E6EBF1;border-radius:13px;padding:11px 11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -2670,6 +2673,7 @@ window.slimAdClick=function(id){
     <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
     <!-- 2026-11-01 사장님 「이대로 사진으로 저장하기」 — 보이는 달력(막대)을 그대로 PNG 로. 공유 시트(갤러리 저장)가 되면 그걸로, 아니면 내려받기 -->
     <button id="calImgBtn" onclick="saveCalImage()" style="width:100%;margin-top:8px;background:#7C54C4;border:0;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🖼 이대로 사진으로 저장</button>
+    <button id="calShareBtn" onclick="shareMyCal()" style="width:100%;margin-top:8px;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🔗 친구에게 내 캘린더 공유</button>
     <!-- 마감된 건 자동으로 빠진다는 걸 누르기 전에 알려준다 (사장님 지적 2026-08-20) -->
     <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
     <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
@@ -4581,8 +4585,54 @@ function renderLive(){
   list.innerHTML=html;
   _lvStageStart();
 }
+// ── 🎪 오프라인 행사(베이비페어·패밀리세일) — 정적 파일 data/offline_sales.json 만 읽는다(DB·API 0건) · 2026-11-12 ──
+let _offData=null, _offBusy=false;
+function _offLoad(){ if(_offData||_offBusy) return; _offBusy=true;
+  fetch('data/offline_sales.json?d='+todayStr,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{ _offData=(j&&Array.isArray(j.items))?j.items:[]; }).catch(()=>{ _offData=[]; }).then(()=>{ _offBusy=false; try{ if(document.getElementById('saleList')) renderSale(); }catch(_){} }); }
+// 끝나지 않은 것만(끝 날짜가 없으면 시작일 기준), 날짜 꼴이 아니면 버린다
+function _offLive(cat){ const ok=/^\d{4}-\d{2}-\d{2}$/; return (_offData||[]).filter(e=>e&&e.category===cat&&e.title&&ok.test(e.startDate||'')&&(!e.endDate||ok.test(e.endDate))&&((e.endDate||e.startDate)>=todayStr)); }
+function _offHas(cat){ return _offLive(cat).length>0; }
+function _offDay(s){ const [y,m,d]=s.split('-').map(Number); const [ty,tm,td]=todayStr.split('-').map(Number); return Math.round((new Date(y,m-1,d)-new Date(ty,tm-1,td))/864e5); }
+function _offMD(s){ const [y,m,d]=s.split('-').map(Number); return m+'/'+d; }
+function _offUrl(u){ u=String(u||'').trim(); return /^https?:\/\//i.test(u)?u:''; }
+function _offGo(i){ const e=(window._offShown||[])[i]; if(!e) return; const u=_offUrl(e.link)||_offUrl(e.newsUrl); if(!u) return; try{ trackEvent('offline_sale_go', e.category+'|'+String(e.title).slice(0,40)); }catch(_){} openLink(u); }
+function _offCard(e){   // 「전체」 목록용 한 장 — _offRender 의 카드와 같은 꼴
+  const ds=_offDay(e.startDate), de=_offDay(e.endDate||e.startDate), loc=String(e.location||'').trim();
+  (window._offShown=window._offShown||[]).push(e); const i=window._offShown.length-1;
+  let pill, bar='';
+  if(ds>0) pill=`<div class="sale-d ${ds<=7?'soon':'later'}">D-${ds}<small>시작</small></div>`;
+  else{ pill=de===0?'<div class="sale-d on">오늘<small>마감</small></div>':`<div class="sale-d on">D-${de}<small>종료</small></div>`;
+    const tot=Math.max(1,de-ds), done=Math.min(tot,Math.max(0,-ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
+  const when=_offMD(e.startDate)+(e.endDate&&e.endDate!==e.startDate?' ~ '+_offMD(e.endDate):'');
+  const can=_offUrl(e.link)||_offUrl(e.newsUrl);
+  return `<div class="sale-card off-card"${can?` onclick="_offGo(${i})"`:' style="cursor:default"'}><div class="sale-logo off-logo">${e.category==='베이비페어'?'🎪':'🏷️'}</div><div class="sale-body"><div class="sale-t"><span class="sale-tx">${escHtml(e.title)}</span>${e.preRegister===true?'<em>사전등록</em>':''}</div><div class="sale-m off-m">${when}${loc?' · '+escHtml(loc):''}</div>${bar}</div><div class="sale-r">${pill}</div></div>`;
+}
+function _offRender(cat){
+  const rows=_offLive(cat).map(e=>({e, ds:_offDay(e.startDate), de:_offDay(e.endDate||e.startDate)})).sort((a,b)=>(a.ds<=0?0:1)-(b.ds<=0?0:1)||(a.ds<=0?a.de-b.de:a.ds-b.ds)||String(a.e.title).localeCompare(String(b.e.title)));
+  window._offShown=rows.map(r=>r.e);
+  if(!rows.length) return '<div class="sale-empty">예정된 '+escHtml(cat)+' 일정이 아직 없어요</div>';
+  const card=(r,i)=>{ const e=r.e, loc=String(e.location||'').trim();
+    const w0=loc.split(/\s+/)[0]||'', hasCity=/^[가-힣]{2}$/.test(w0)&&loc.length>w0.length;
+    const city=cat==='베이비페어'?'🎪':'🏷️';   // 왼쪽 칸 = 분류 이모티콘(사진이 없는 자료라 글자 대신)
+    const place=loc;
+    let pill, bar='';
+    if(r.ds>0) pill=`<div class="sale-d ${r.ds<=7?'soon':'later'}">D-${r.ds}<small>시작</small></div>`;
+    else{ pill=r.de===0?'<div class="sale-d on">오늘<small>마감</small></div>':`<div class="sale-d on">D-${r.de}<small>종료</small></div>`;
+      const tot=Math.max(1,r.de-r.ds), done=Math.min(tot,Math.max(0,-r.ds)); bar=`<div class="sale-bar"><b style="width:${Math.round(done/tot*100)}%"></b></div>`; }
+    const when=_offMD(e.startDate)+(e.endDate&&e.endDate!==e.startDate?' ~ '+_offMD(e.endDate):'');
+    const tag=e.preRegister===true?'<em>사전등록</em>':'';
+    const can=_offUrl(e.link)||_offUrl(e.newsUrl);
+    return `<div class="sale-card off-card"${can?` onclick="_offGo(${i})"`:' style="cursor:default"'}><div class="sale-logo off-logo">${escHtml(city)}</div><div class="sale-body"><div class="sale-t"><span class="sale-tx">${escHtml(e.title)}</span>${tag}</div><div class="sale-m off-m">${when}${place?' · '+escHtml(place):''}</div>${bar}</div><div class="sale-r">${pill}</div></div>`; };
+  const ing=rows.filter(r=>r.ds<=0), soon=rows.filter(r=>r.ds>0&&r.ds<=7), later=rows.filter(r=>r.ds>7);
+  let h='', n=0;
+  if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(r=>card(r,n++)).join('');
+  if(soon.length) h+=`<div class="sale-sec">🟠 이번 주 시작 <i>${soon.length}</i></div>`+soon.map(r=>card(r,n++)).join('');
+  if(later.length) h+=`<div class="sale-sec">⚪ 이후 예정 <i>${later.length}</i></div>`+later.map(r=>card(r,n++)).join('');
+  return h;
+}
 async function loadSale(){
   _slApply();
+  _offLoad();
   if(_slMode==='live'){ loadLive(); }
   if(_saleData){ renderSale(); return; }
   _saleWLoad();
@@ -4613,12 +4663,13 @@ function renderSale(){
     // 분류 칩: 문센 행은 「문화센터」 하나로, 해외(미국·중국) 행은 「해외 세일」 하나로 묶는다 (사장님 2026-10-23)
     const isMun=e=>e.tag==='문센', isOvs=e=>e.tag==='해외';
     const brands=[...new Set(all.filter(e=>!isMun(e)&&!isOvs(e)).map(e=>e.brand))];
-    const names=['',...(wishN?['__wish']:[]),...(all.some(isMun)?['__munsen']:[]),...(all.some(isOvs)?['__overseas']:[]),...brands];
+    const names=['',...(wishN?['__wish']:[]),...(_offHas('베이비페어')?['__befe']:[]),...(all.some(isMun)?['__munsen']:[]),...(all.some(isOvs)?['__overseas']:[]),...brands];
     chips.innerHTML=names.map(b=>{
-      const lab=b===''?'전체':b==='__wish'?`💜 내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
+      const lab=b===''?'전체':b==='__befe'?'🎪 베이비페어':b==='__family'?'🏷️ 패밀리세일':b==='__wish'?`💜 내 찜 ${wishN}`:b==='__munsen'?'문화센터':b==='__overseas'?'해외 세일':b;
       return `<button class="sale-chip${_saleBrand===b?' on':''}" data-b="${escHtml(b)}" onclick="saleFilter(this.dataset.b)">${escHtml(lab)}</button>`;
     }).join('');
   }
+  if(_saleBrand==='__befe'||_saleBrand==='__family'){ list.innerHTML=_offRender(_saleBrand==='__befe'?'베이비페어':'패밀리세일'); return; }
   const rows=all.filter(e=>{
     if(!_saleBrand) return true;
     if(_saleBrand==='__wish'){ const s=SALEW[e.id]; return _saleCanWish(e)&&s&&(s.w||s.b); }
@@ -4626,10 +4677,15 @@ function renderSale(){
     if(_saleBrand==='__overseas') return e.tag==='해외';
     return e.brand===_saleBrand;
   });
-  if(!rows.length){ list.innerHTML='<div class="sale-empty">'+(_saleBrand==='__wish'?'💜 하트를 눌러 두면 여기 모여요':'예정된 세일이 아직 없어요')+'</div>'; return; }
+  const _offAll=!_saleBrand?_offLive('베이비페어'):[];
+  if(!rows.length&&!_offAll.length){ list.innerHTML='<div class="sale-empty">'+(_saleBrand==='__wish'?'💜 하트를 눌러 두면 여기 모여요':'예정된 세일이 아직 없어요')+'</div>'; return; }
   const ing=[], soon=[], later=[];
   rows.forEach(e=>{ const d=_saleDay(e.start_date); (d<=0?ing:d<=7?soon:later).push(e); });
+  if(_offAll.length){ window._offShown=[];   // 베이비페어를 같은 구역에 날짜순으로 끼운다(같은 날이면 기존 세일이 먼저)
+    _offAll.forEach(o=>{ const d=_offDay(o.startDate); (d<=0?ing:d<=7?soon:later).push({_off:o,start_date:o.startDate}); });
+    [ing,soon,later].forEach(a=>{ if(a.some(x=>x._off)){ const k=a.map((x,i)=>[x,i]); k.sort((p,q)=>String(p[0].start_date).localeCompare(String(q[0].start_date))||p[1]-q[1]); a.splice(0,a.length,...k.map(x=>x[0])); } }); }
   const card=(e,kind)=>{
+    if(e._off) return _offCard(e._off);
     const ds=_saleDay(e.start_date), de=e.end_date?_saleDay(e.end_date):null;
     const mun=e.tag==='문센';   // 문센은 접수 기간이 아니라 **접수 당일 하루**만 보여 준다 (사장님 2026-10-23·24)
     const range=mun?_saleMD(e.start_date)+' 접수':_saleMD(e.start_date)+(e.end_date?' ~ '+_saleMD(e.end_date):' ~ 종료일 미정');
@@ -4645,7 +4701,7 @@ function renderSale(){
     //    시작 전 세일을 찜하면 시작일 아침 9시 알림도 같이 켜진다(b). 서버는 시작일 아침 한 번만 보낸다(sale_wish_89.sql)
     const on=!!(s.w||s.b);
     const wishBtn=_saleCanWish(e)?`<button class="sale-wish" aria-label="찜하기" aria-pressed="${on?'true':'false'}" onclick="saleWish(${e.id},event,this)">${heartSvg(on)}</button>`:'';   // 시작한 건 하트 자리도 비우지 않는다 — 제목이 옆까지 쓰게(2026-10-25)
-    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t">${escHtml(e.brand)} ${escHtml(e.title)}${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
+    return `<div class="sale-card" onclick="saleGo(${e.id})">${_saleLogo(e)}<div class="sale-body"><div class="sale-t"><span class="sale-tx">${escHtml(e.brand)} ${escHtml(e.title)}</span>${tag}</div><div class="sale-m">${range}</div>${bar}</div><div class="sale-r">${wishBtn}${pill}</div></div>`;
   };
   let h='';
   if(ing.length) h+=`<div class="sale-sec">🔵 지금 진행 중 <i>${ing.length}</i></div>`+ing.map(e=>card(e,'ing')).join('');
@@ -6330,6 +6386,58 @@ async function exportWishIcs(){
   //   (사장님 지적 2026-08-20: "이미 마감된 건은 자동으로 빼고 미래 일정만 나온다고 알려줘야")
   if(!(window._mcCapAndroid && window._mcCapAndroid())) mcToast(`아직 안 끝난 공구 ${items.length}개만 담았어요 📅`);   // 안드 앱은 파일을 연 결과를 본 뒤에만 말한다(위 저장 연결부)
 }
+// ── 내 공구 캘린더 친구에게 공유 (2026-11-12) — 설계는 scratchpad/patch_cal_share.cjs 머리말 ──
+function _calSharePage(){ return location.origin+(/\/test\.html$/.test(location.pathname)?'/test.html':'/'); }
+function _calShareItems(){
+  const all=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
+  return all.filter(it=>{ if(!isWished(it.id)) return false; const e=realEnd(it); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e||'') && e>=todayStr && !isExpired(it); })
+    .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id).slice(0,60);
+}
+async function shareMyCal(){
+  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다(없으면 바로)
+  const items=_calShareItems();
+  if(!items.length){ mcToast(WISH.size?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
+  const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.');
+  const title='내가 찜한 공구 '+items.length+'개', text=items.slice(0,3).map(it=>it.name).join(', ')+(items.length>3?' 외 '+(items.length-3)+'개':'');
+  const log=how=>{ try{ trackEvent('cal_share', items.length+'|'+how); }catch(_){} };
+  if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){
+    try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:title+' 📅', description:text, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); log('kakao'); return; }catch(_){}
+  }
+  if(navigator.share){ try{ await navigator.share({title:title, text:text, url:url}); log('sheet'); }catch(e){ if(!(e && e.name==='AbortError')){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); }catch(_){ shareFallback(url); log('prompt'); } } } return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); return; }catch(_){} }
+  shareFallback(url); log('prompt');
+}
+// 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
+async function _calShareOpen(){
+  let raw=''; try{ raw=new URLSearchParams(location.search).get('mycal')||''; }catch(_){}
+  if(!raw) return;
+  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
+  if(!/^[0-9a-z]+(\.[0-9a-z]+){0,79}$/.test(raw)) return;
+  const ids=[...new Set(raw.split('.').map(x=>parseInt(x,36)).filter(n=>Number.isSafeInteger(n)&&n>0))].slice(0,60);
+  if(!ids.length) return;
+  const have=new Map(DATA.map(d=>[d.id,d])); _wishExtra.forEach(x=>{ if(!have.has(x.id)) have.set(x.id,x); });
+  const miss=ids.filter(id=>!have.has(id));
+  if(miss.length){ try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/gonggu?id=in.(${miss.join(',')})&approved=eq.true&select=id,influencer,insta,major,minor,name,open_date,end_date,pay_link,always`,{headers:wishHeaders()});
+    if(r.ok){ (await r.json()).forEach(x=>{ const it={id:x.id, influencer:_noTag(x.influencer), insta:(x.insta||'').replace('@','').trim().replace(/[^A-Za-z0-9._]/g,''), major:_noTag(x.major), minor:_noTag(x.minor), name:_noTag(x.name), openDate:x.open_date||'', endDate:x.end_date||'', payLink:(x.pay_link||'').trim(), always:x.always===true, openTime:''}; have.set(it.id,it); if(!_wishExtra.some(w=>w.id===it.id)) _wishExtra.push(it); }); }
+  }catch(_){} }
+  const items=ids.map(id=>have.get(id)).filter(it=>{ if(!it) return false; const e=realEnd(it); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e||'') && e>=todayStr && !isExpired(it); })
+    .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id);
+  try{ trackEvent('cal_share_open', items.length+'/'+ids.length); }catch(_){}
+  if(!items.length){ mcToast('공유받은 공구가 모두 끝났어요'); return; }
+  const md=s=>{ const q=String(s||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; };
+  const fresh=items.filter(it=>!isWished(it.id));
+  const rows=items.map(it=>{ const end=realEnd(it)||''; return `<div class="ip-row" style="cursor:default"><span class="ip-m"><b>${escHtml(it.name||'')}</b><small>${md(it.openDate)}${end&&end!==it.openDate?' ~ '+md(end):''}${it.influencer?' · '+escHtml(it.influencer):''}${isWished(it.id)?' · 찜함':''}</small></span></div>`; }).join('');
+  const el=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
+  el.querySelector('.cs-go').onclick=()=>{
+    const did=deviceId();
+    fresh.forEach(it=>{ WISH.add(Number(it.id)); fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:Number(it.id), p_on:true, p_token:_wishTok()})}).catch(()=>{}); });
+    if(fresh.length){ saveWishLocal(); updateWishBadge(); try{ paintHearts(); }catch(_){} try{ trackEvent('cal_share_add', String(fresh.length)); }catch(_){} mcToast(fresh.length+'개를 찜에 담았어요 💜'); }
+    el.classList.remove('open'); try{ goCalMine(); }catch(_){}
+    try{ if(typeof renderMypage==='function') renderMypage(); }catch(_){}
+  };
+}
+(function(){ if(!/[?&]mycal=/.test(location.search)) return; var n=0, t=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined' && DATA.length>0; }catch(_){} if(ok||n>60){ clearInterval(t); _calShareOpen(); } },250); })();
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
 
@@ -9571,7 +9679,9 @@ html,body{background:#fff;color:#191F28}
 body{letter-spacing:-0.02em;line-height:1.45}
 .main-banner-title,.seller-title,.promo-head{font-size:17px;font-weight:700;color:#191F28}
 .card-name,.hc-tit,.sub-t1,.sale-t,.comm-post .t,.cp-t{font-size:14px;font-weight:600;color:#191F28}   /* 사장님 2026-11-01 「상품명 14px」 */
-.sale-t{-webkit-line-clamp:1;line-clamp:1;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}   /* 세일 제목 한 줄만 */
+.sale-t{-webkit-line-clamp:1;line-clamp:1;white-space:nowrap;display:flex;align-items:center;overflow:hidden}
+.sale-tx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sale-t em{flex:0 0 auto}   /* 꼬리표는 줄어들지 않는다 — 제목만 … 으로(2026-11-12 빈 보라 칸) */   /* 세일 제목 한 줄만 */
 .lv-p{font-size:14px;font-weight:700}
 .comm-post .p,.card-status-txt,.sa-empty-note,.wd-sub,.mc-sub{font-size:13.5px;font-weight:500;color:#4E5968}
 .card-sellerline,.hc-cat,.hc-ago,.comm-post .m,.sub-sel,.date-sep-lbl,.hc-mall{font-size:11.5px;font-weight:400;color:#8B95A1}
