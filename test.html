@@ -1796,6 +1796,24 @@ var IN_FEED_PROMOS = [
     url: 'https://miso.kr'   // 제휴 링크 발급 전 임시 외부 주소(앱에서 momcalendar.com 을 열면 홈으로 다시 로드된다) — 라이브 승격 전 정식 링크로 교체
   }
 ];
+// 🧩 사이 광고를 관리자에서 바로 고친다 (사장님 2026-11-12 「토큰 없이 링크 수정·온오프」) — banners 표 type=infeed 에 켜진 광고가 1건이라도 있으면
+//    위의 코드 안 목록 대신 그 목록만 돈다(전부 끄면 코드 안 목록 그대로). 테스트 전용(stage=test) 광고는 test.html 에서만 보인다.
+(function go(n){
+  try{
+    if(typeof window._mcBanners!=='function'){ if(n<60) setTimeout(function(){ go(n+1); },150); return; }   // 배너 불러오기(_mcBanners)는 이 줄보다 아래에서 정의된다 — 생길 때까지 기다린다
+    window._mcBanners().then(function(all){
+      var now=Date.now(), isTest=/\/test\.html$/.test(location.pathname);
+      var rows=(all||[]).filter(function(x){ if(!x||x.type!=='infeed'||!x.title||!x.link) return false; if(x.stage==='test'&&!isTest) return false;
+        var f=x.show_from?new Date(x.show_from).getTime():null, u=x.show_until?new Date(x.show_until).getTime():null; return (f===null||f<=now)&&(u===null||u>=now); });
+      if(!rows.length) return;
+      var list=rows.map(function(b){ return { id:'ad_'+b.id, badge:(b.cta&&b.cta.trim())||'🎁 혜택', title:String(b.title), desc:String(b.subtitle||''), tag:'', cta:'보러가기', thumb:b.img_url||'', thumbFb:'momcal-dousik-thumb.png', contain:false, url:String(b.link) }; });
+      IN_FEED_PROMOS.splice.apply(IN_FEED_PROMOS,[0,IN_FEED_PROMOS.length].concat(list));
+      try{ if(typeof _promoRandomSeed!=='undefined') _promoRandomSeed=Math.floor(Math.random()*IN_FEED_PROMOS.length); }catch(_){}
+      try{ if(document.querySelector('.mc-infeed-kidsnote') && typeof renderList==='function') renderList(); }catch(_){}   // 이미 그려진 목록이 있으면 새 광고로 다시 그린다
+      try{ if(document.querySelector('#hotdealList .mc-infeed-kidsnote') && typeof renderHotdeals==='function') renderHotdeals(); }catch(_){}
+    }).catch(function(){});
+  }catch(_){}
+})(0);
 
 // URL query ?mode=1, ?mode=2, ?mode=3 또는 localStorage (키즈노트 100% 원형 기본 활성화)
 var _infeedMode = (function(){
@@ -2434,7 +2452,7 @@ window._mcBanners=(function(){
   return function(){
     if(!p){
       var U='https://hycaqsqeogjtbscmzrtm.supabase.co', K='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
-      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller)&select=*&order=sort_order.asc.nullslast',
+      p=fetch(U+'/rest/v1/banners_public?active=eq.true&type=in.(slim,main,promo,seller,infeed)&select=*&order=sort_order.asc.nullslast',
               {headers:{apikey:K,Authorization:'Bearer '+K}})
         .then(function(r){ return r.ok?r.json():null; })
         .catch(function(){ return null; });
