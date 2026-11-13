@@ -6466,7 +6466,8 @@ async function shareMyCal(){
   try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다(없으면 바로)
   const items=_calShareItems();
   if(!items.length){ mcToast(WISH.size?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
-  const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.');
+  let _by=''; try{ const _m=memberGet(); _by=(_m&&_m.nickname?String(_m.nickname):'').replace(/[<>&"'\s]+/g,' ').trim(); _by=Array.from(_by).slice(0,12).join(''); _by=_by?'&by='+encodeURIComponent(_by):''; }catch(_){ _by=''; }
+  const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.')+_by;
   const title='내가 찜한 공구 '+items.length+'개', text=items.slice(0,3).map(it=>it.name).join(', ')+(items.length>3?' 외 '+(items.length-3)+'개':'');
   const log=how=>{ try{ trackEvent('cal_share', items.length+'|'+how); }catch(_){} };
   if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){
@@ -6478,9 +6479,9 @@ async function shareMyCal(){
 }
 // 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
 async function _calShareOpen(){
-  let raw=''; try{ raw=new URLSearchParams(location.search).get('mycal')||''; }catch(_){}
+  let raw='', by=''; try{ const sp=new URLSearchParams(location.search); raw=sp.get('mycal')||''; by=(sp.get('by')||'').replace(/[<>&"']/g,'').replace(/\s+/g,' ').trim(); by=Array.from(by).slice(0,12).join(''); }catch(_){}
   if(!raw) return;
-  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
+  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); u.searchParams.delete('by'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
   if(!/^[0-9a-z]+(\.[0-9a-z]+){0,79}$/.test(raw)) return;
   const ids=[...new Set(raw.split('.').map(x=>parseInt(x,36)).filter(n=>Number.isSafeInteger(n)&&n>0))].slice(0,60);
   if(!ids.length) return;
@@ -6497,15 +6498,56 @@ async function _calShareOpen(){
   const md=s=>{ const q=String(s||'').split('-'); return q.length>=3?(+q[1])+'/'+(+q[2]):''; };
   const fresh=items.filter(it=>!isWished(it.id));
   const rows=items.map(it=>{ const end=realEnd(it)||''; return `<div class="ip-row" style="cursor:default"><span class="ip-m"><b>${escHtml(it.name||'')}</b><small>${md(it.openDate)}${end&&end!==it.openDate?' ~ '+md(end):''}${it.influencer?' · '+escHtml(it.influencer):''}${isWished(it.id)?' · 찜함':''}</small></span></div>`; }).join('');
-  const el=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
-  el.querySelector('.cs-go').onclick=()=>{
-    const did=deviceId();
-    fresh.forEach(it=>{ WISH.add(Number(it.id)); fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:Number(it.id), p_on:true, p_token:_wishTok()})}).catch(()=>{}); });
-    if(fresh.length){ saveWishLocal(); updateWishBadge(); try{ paintHearts(); }catch(_){} try{ trackEvent('cal_share_add', String(fresh.length)); }catch(_){} mcToast(fresh.length+'개를 찜에 담았어요 💜'); }
-    el.classList.remove('open'); try{ goCalMine(); }catch(_){}
+  let sheetEl=null;
+  const add=()=>{
+    const did=deviceId(), now=items.filter(it=>!isWished(it.id));
+    now.forEach(it=>{ WISH.add(Number(it.id)); fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:Number(it.id), p_on:true, p_token:_wishTok()})}).catch(()=>{}); });
+    if(now.length){ saveWishLocal(); updateWishBadge(); try{ paintHearts(); }catch(_){} try{ trackEvent('cal_share_add', String(now.length)); }catch(_){} }
+    _calBarOff(); if(sheetEl) sheetEl.classList.remove('open');
+    mcToast(now.length?now.length+'개 공구가 내 맘캘에 추가되었어요!':'이미 내 맘캘에 담겨 있어요');
+    try{ goCalMine(); }catch(_){}
     try{ if(typeof renderMypage==='function') renderMypage(); }catch(_){}
+    if(!isLoggedIn()) setTimeout(()=>{ try{ openLoginSheet('카카오로 1초 저장하고 오픈 알림 받기','오픈일 아침 9시에 알려드려요'); trackEvent('cal_share_bar','login_sheet'); }catch(_){} },1200);
   };
+  const list=()=>{
+    sheetEl=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
+    sheetEl.querySelector('.cs-go').onclick=add;
+  };
+  _calBarOn((by?by+'님이':'친구가')+' 공유한 공구 '+items.length+'개', fresh.length?'⭐️ 내 맘캘에도 한 번에 담기 ('+fresh.length+'개)':'내 맘캘 보기', add, list);
+  try{ trackEvent('cal_share_bar','show|'+fresh.length+(by?'|by':'')); }catch(_){}
 }
+// 하단 고정 바 (2026-11-13) — 설계는 scratchpad/patch_mycal_bar.cjs 머리말
+function _calBarOff(){ const b=document.getElementById('mcCalBar'); if(b){ b.style.transform='translate(-50%,110%)'; setTimeout(()=>{ try{ b.remove(); }catch(_){} },260); } document.body.classList.remove('mc-calbar-on'); }
+function _calBarOn(label, btnText, onAdd, onList){
+  try{ const o=document.getElementById('mcCalBar'); if(o) o.remove(); }catch(_){}
+  if(!document.getElementById('mcCalBarCss')){ const st=document.createElement('style'); st.id='mcCalBarCss'; st.textContent=
+    '#mcCalBar{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:min(480px,100vw);box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -6px 24px rgba(25,31,40,.12);padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px));z-index:340;transition:transform .26s cubic-bezier(.2,.8,.2,1)}'+
+    '#mcCalBar .cb-top{display:flex;align-items:center;gap:4px;min-width:0}'+
+    '#mcCalBar .cb-lab{flex:1 1 0;min-width:0;font-size:13px;font-weight:600;color:#4E5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.02em}'+
+    '#mcCalBar .cb-list{flex:none;border:0;background:none;font-family:inherit;font-size:13px;font-weight:700;color:#7C54C4;padding:8px 6px;cursor:pointer}'+
+    '#mcCalBar .cb-x{flex:none;border:0;background:none;width:32px;height:32px;margin-right:-8px;font-size:18px;line-height:1;color:#8B95A1;cursor:pointer}'+
+    '#mcCalBar .mc-btn{margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(14px,4.4vw,16px);letter-spacing:-.02em;transition:transform .12s}'+
+    '#mcCalBar .mc-btn:active{transform:scale(.97)}'+
+    'html body.mc-calbar-on .chat-fab-wrap,html body.mc-calbar-on .totop-fab,html body.mc-calbar-on .comm-fab{bottom:calc(var(--mc-calbar-h,130px) + 12px) !important}';
+    document.head.appendChild(st); }
+  const b=document.createElement('div'); b.id='mcCalBar'; b.setAttribute('role','region'); b.setAttribute('aria-label','공유받은 공구');
+  b.innerHTML='<div class="cb-top"><span class="cb-lab"></span><button class="cb-list" type="button">목록</button><button class="cb-x" type="button" aria-label="닫기">✕</button></div><button class="mc-btn cb-go" type="button"></button>';
+  b.querySelector('.cb-lab').textContent=label; b.querySelector('.cb-go').textContent=btnText;
+  b.querySelector('.cb-go').onclick=onAdd; b.querySelector('.cb-list').onclick=onList;
+  b.querySelector('.cb-x').onclick=()=>{ try{ trackEvent('cal_share_bar','close'); }catch(_){} _calBarOff(); };
+  // 앱 하단 탭바·웹 하단 탭이 보이면 그 위에 붙인다
+  let nav=0; try{ ['appTabbar','appBottomNav'].forEach(id=>{ const e=document.getElementById(id); if(!e) return; const cs=getComputedStyle(e), r=e.getBoundingClientRect(); if(cs.display!=='none' && r.height && r.top<window.innerHeight) nav=Math.max(nav, window.innerHeight-r.top); }); }catch(_){}
+  if(nav){ b.style.bottom=nav+'px'; b.style.paddingBottom='14px'; }
+  document.body.appendChild(b);
+  setTimeout(()=>{ b.style.transform='translate(-50%,0)'; try{ document.body.style.setProperty('--mc-calbar-h',(b.getBoundingClientRect().height+nav)+'px'); }catch(_){} document.body.classList.add('mc-calbar-on'); },30);
+}
+// 제보 #21 (아이폰 앱 「알림에 아무것도 없는데 어플에 1이 안 사라져요」 2026-11-12): 오픈 알림이 앱 아이콘 숫자를 올리는데(서버 aps.badge) 지우는 곳이 없었다 → 아이폰 앱을 열 때·돌아올 때 지운다. 안드·웹은 그대로
+(function(){
+  function clr(){ try{ if(!(typeof _isNativeApp==='function' && _isNativeApp()) || (window._mcCapAndroid && window._mcCapAndroid())) return; var p=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications; if(p && p.removeAllDeliveredNotifications) Promise.resolve(p.removeAllDeliveredNotifications()).catch(function(){}); }catch(_){} }
+  if(document.readyState==='complete') setTimeout(clr,800); else window.addEventListener('load',function(){ setTimeout(clr,800); });
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') clr(); });
+  try{ if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) Capacitor.Plugins.App.addListener('appStateChange',function(st){ if(st && st.isActive) clr(); }); }catch(_){}
+})();
 (function(){ if(!/[?&]mycal=/.test(location.search)) return; var n=0, t=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined' && DATA.length>0; }catch(_){} if(ok||n>60){ clearInterval(t); _calShareOpen(); } },250); })();
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}

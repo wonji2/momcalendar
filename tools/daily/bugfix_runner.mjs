@@ -64,8 +64,16 @@ function sql(text, name = 'q') {
   fs.mkdirSync(path.join(REPO, 'scratchpad'), { recursive: true });
   fs.writeFileSync(path.join(REPO, rel), text, 'utf8');
   try {
-    const raw = execFileSync(CLI, sbArgs(rel), { encoding: 'utf8', cwd: REPO, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
-    const r = parseRows(raw); if (!r.ok) throw new Error(r.why); return r.rows;
+    // CLI 가 DB 에 붙지도 못한 실패(임시 역할 접속 실패 LegacyDbConfigConnectTempRoleError 등)만 3번까지 다시 한다 — 붙지 못했으니 SQL 은 실행되지 않았다. 성공한 출력에는 이 판정을 걸지 않는다(2026-11-13)
+    for (let i = 0; ; i++) {
+      let raw = '', err = null;
+      try { raw = execFileSync(CLI, sbArgs(rel), { encoding: 'utf8', cwd: REPO, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 }); }
+      catch (e) { err = e; raw = String(e.stdout || '') + String(e.stderr || ''); }
+      const r0 = err ? null : parseRows(raw);
+      if (i < 2 && (err || !r0.ok) && /ConnectTempRole|failed to connect/i.test(raw)) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 8000 * (i + 1)); continue; }
+      if (err) throw err;
+      if (!r0.ok) throw new Error(r0.why); return r0.rows;
+    }
   } finally { try { fs.unlinkSync(path.join(REPO, rel)); } catch {} }
 }
 // 상태는 DB(ops_status 'bugfix-state')에 둔다 — 깃허브 서버 회차는 매번 새 컴퓨터라 파일은 사라진다. 읽기에 실패하면 올리는 모드는 멈춘다(한도·정지·스위치를 못 보고 돌지 않게)
