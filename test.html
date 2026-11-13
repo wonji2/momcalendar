@@ -10975,7 +10975,7 @@ function myQuiet(){
   var g=function(id){ return document.getElementById(id); }, sw=g("myQtOn"), A=g("myQtA"), B=g("myQtB"), row=g("myQtRow"); if(!sw||!A||!B) return;
   var p=notiPrefs(), oldOn=Number.isInteger(p.quiet_from), oa=oldOn?p.quiet_from:12, ob=oldOn?p.quiet_to:14, on=sw.checked, a=parseInt(A.value,10), b=parseInt(B.value,10);
   var paint=function(o,x,y){ sw.checked=o; A.value=String(x); B.value=String(y); if(row) row.style.display=o?"":"none"; };
-  if(on && a>=b){ paint(oldOn,oa,ob); if(!oldOn){ sw.checked=true; row.style.display=""; } mcToast("끝을 시작보다 늦게 골라 주세요"); return; }
+  if(on && a>=b){ /*qt-follow*/ if(b!==ob && a===oa) a=Math.max(9,b-2); else b=Math.min(21,a+2); }
   var q={gonggu:p.gonggu,hotdeal:p.hotdeal,sale:p.sale,event:p.event}; if(on){ q.quiet_from=a; q.quiet_to=b; }
   paint(on,a,b); try{ localStorage.setItem(MY_PREF_K, JSON.stringify(q)); }catch(_){}
   var back=function(){ try{ localStorage.setItem(MY_PREF_K, JSON.stringify(p)); }catch(_){} paint(oldOn,oa,ob); mcToast("저장하지 못했어요"); };
