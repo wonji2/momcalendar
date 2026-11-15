@@ -6523,7 +6523,7 @@ function _calBarOn(label, btnText, onAdd, onList){
   if(!document.getElementById('mcCalBarCss')){ const st=document.createElement('style'); st.id='mcCalBarCss'; st.textContent=
     '#mcCalBar{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:min(480px,100vw);box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -6px 24px rgba(25,31,40,.12);padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px));z-index:340;transition:transform .26s cubic-bezier(.2,.8,.2,1)}'+
     '#mcCalBar .cb-top{display:flex;align-items:center;gap:4px;min-width:0}'+
-    '#mcCalBar .cb-lab{flex:1 1 0;min-width:0;font-size:13px;font-weight:600;color:#4E5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.02em}'+
+    '#mcCalBar .cb-lab{flex:1 1 0;min-width:0;font-size:13px;font-weight:600;color:#4E5968;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere;letter-spacing:-.02em}'+
     '#mcCalBar .cb-list{flex:none;border:0;background:none;font-family:inherit;font-size:13px;font-weight:700;color:#7C54C4;padding:8px 6px;cursor:pointer}'+
     '#mcCalBar .cb-x{flex:none;border:0;background:none;width:32px;height:32px;margin-right:-8px;font-size:18px;line-height:1;color:#8B95A1;cursor:pointer}'+
     '#mcCalBar .mc-btn{margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(14px,4.4vw,16px);letter-spacing:-.02em;transition:transform .12s}'+
@@ -6543,7 +6543,11 @@ function _calBarOn(label, btnText, onAdd, onList){
 }
 // 제보 #21 (아이폰 앱 「알림에 아무것도 없는데 어플에 1이 안 사라져요」 2026-11-12): 오픈 알림이 앱 아이콘 숫자를 올리는데(서버 aps.badge) 지우는 곳이 없었다 → 아이폰 앱을 열 때·돌아올 때 지운다. 안드·웹은 그대로
 (function(){
-  function clr(){ try{ if(!(typeof _isNativeApp==='function' && _isNativeApp()) || (window._mcCapAndroid && window._mcCapAndroid())) return; var p=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications; if(p && p.removeAllDeliveredNotifications) Promise.resolve(p.removeAllDeliveredNotifications()).catch(function(){}); }catch(_){} }
+  // 앱이 켜진 직후에는 알림 등록(nativeBoot 의 register)이 끝나기 전이라 플러그인이 지우기를 거절한다(capacitor push-notifications 6.x: appDelegateRegistrationCalled) → 될 때까지 5번 다시 시도. 결과는 기기당 하루 한 번 events 에 남겨 실제 아이폰에서 됐는지 서버에서 본다
+  var n=0, busy=false;
+  function log(v){ try{ var k='mc_badge_log', d=new Date().toISOString().slice(0,10)+v; if(localStorage.getItem(k)===d) return; localStorage.setItem(k,d); trackEvent('badge_clear', v); }catch(_){} }
+  function clr(){ try{ if(!(typeof _isNativeApp==='function' && _isNativeApp()) || (window._mcCapAndroid && window._mcCapAndroid())) return; var p=window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications; if(!p || !p.removeAllDeliveredNotifications || busy) return; busy=true;
+    Promise.resolve(p.removeAllDeliveredNotifications()).then(function(){ busy=false; n=0; log('ok'); }).catch(function(){ busy=false; if(n<5){ n++; setTimeout(clr, 1500*n); } else { n=0; log('fail'); } }); }catch(_){ busy=false; } }
   if(document.readyState==='complete') setTimeout(clr,800); else window.addEventListener('load',function(){ setTimeout(clr,800); });
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') clr(); });
   try{ if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) Capacitor.Plugins.App.addListener('appStateChange',function(st){ if(st && st.isActive) clr(); }); }catch(_){}
