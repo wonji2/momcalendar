@@ -23,6 +23,16 @@ Deno.serve(async (req) => {
   const json = (o: unknown, status = 200) =>
     new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+  // 요청 횟수 제한(2026-11-16, supabase/sql/login_hardening_150.sql): IP 당 10분 60회(워커 경유는 600회). 세는 데 실패하면 막지 않는다
+  //   IP 는 맨 끝 x-forwarded-for(플랫폼이 붙인 값) — 맨 앞은 손님이 지어 보낼 수 있다
+  try {
+    const xff = (req.headers.get('x-forwarded-for') || '').split(',').map((x) => x.trim()).filter(Boolean)
+    const ip = req.headers.get('cf-connecting-ip') || xff[xff.length - 1] || 'none'
+    const rl = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const { data: okRate, error: rlErr } = await rl.rpc('login_rate_ok', { p_ip: ip, p_fn: 'kakao' })
+    if (!rlErr && okRate === false) return json({ error: 'too_many', msg: '잠시 뒤 다시 시도해 주세요' }, 429)
+  } catch (_) { /* 막지 않는다 */ }
+
   try {
     const { code, redirect_uri, device_id, code_verifier, auto } = await req.json()
     if (!code || !redirect_uri) return json({ error: 'code/redirect_uri 필요' }, 400)

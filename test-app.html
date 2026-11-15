@@ -1281,6 +1281,7 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
   </div>
   <button onclick="kkoLater()" style="width:100%;background:none;border:1px solid #EDE7F5;border-radius:13px;color:#8A8194;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:12px;min-height:44px">나중에 할게요</button>
   <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">카카오·네이버 별명과 회원번호만 받아요. 로그인 안 해도 찜은 계속 쓸 수 있어요<br><a href="privacy.html" target="_blank" rel="noopener" style="color:#9a8fb0">개인정보처리방침</a> / <a href="terms.html" target="_blank" rel="noopener" style="color:#9a8fb0">이용약관</a></div>
+  <div id="kkoLegal" style="font-size:10.5px;color:#8B95A1;text-align:center;line-height:1.6;margin-top:10px"><a href="terms.html" style="color:#8B95A1;text-decoration:underline">이용약관</a> / <a href="privacy.html" style="color:#8B95A1;text-decoration:underline">개인정보처리방침</a> / 만 14세 이상</div>
 </div>
 
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
@@ -6114,6 +6115,8 @@ async function _appleRevokeFlush(){
 }
 function kkoLogout(){
   if(!confirm((typeof _isNativeApp==='function'&&_isNativeApp())?'로그아웃할까요?':'로그아웃할까요?\n(찜은 이 기기에 그대로 남아요)')) return;
+  // 서버 세션도 지운다(2026-11-16, supabase/sql/login_hardening_150.sql — 전에는 토큰이 180일 살아 있었다). 실패해도 로그아웃은 그대로 된다
+  try{ var _lm=(typeof memberGet==='function')?memberGet():null; if(_lm&&_lm.token) fetch(SUPABASE_URL+'/rest/v1/rpc/member_logout',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({p_token:_lm.token})}).catch(function(){}); }catch(_){}
   try{ localStorage.removeItem('mc_member'); }catch(_){}
   // 스스로 로그아웃한 사람에게 "로그인이 중단됐었어요" 안내가 뜨면 엉뚱하다 → 대상에서 제외
   try{

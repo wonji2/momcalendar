@@ -14,6 +14,16 @@ Deno.serve(async (req) => {
   const json = (o: unknown, status = 200) =>
     new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+  // 요청 횟수 제한(2026-11-16, supabase/sql/login_hardening_150.sql): IP 당 10분 60회(워커 경유는 600회). 세는 데 실패하면 막지 않는다
+  //   IP 는 맨 끝 x-forwarded-for(플랫폼이 붙인 값) — 맨 앞은 손님이 지어 보낼 수 있다
+  try {
+    const xff = (req.headers.get('x-forwarded-for') || '').split(',').map((x) => x.trim()).filter(Boolean)
+    const ip = req.headers.get('cf-connecting-ip') || xff[xff.length - 1] || 'none'
+    const rl = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const { data: okRate, error: rlErr } = await rl.rpc('login_rate_ok', { p_ip: ip, p_fn: 'naver' })
+    if (!rlErr && okRate === false) return json({ error: 'too_many', msg: '잠시 뒤 다시 시도해 주세요' }, 429)
+  } catch (_) { /* 막지 않는다 */ }
+
   try {
     const { op, code, state, redirect_uri, device_id } = await req.json()
     const ID = Deno.env.get('NAVER_CLIENT_ID')
@@ -28,7 +38,7 @@ Deno.serve(async (req) => {
     if (redirect_uri) qs.set('redirect_uri', redirect_uri)
     const tokenRes = await fetch('https://nid.naver.com/oauth2.0/token?' + qs.toString())
     const token = await tokenRes.json()
-    if (!token.access_token) return json({ error: '토큰 교환 실패', detail: token }, 400)
+    if (!token.access_token) return json({ error: '토큰 교환 실패', detail: { error: token.error } }, 400)   // 네이버 응답을 통째로 싣지 않는다(2026-11-16)
 
     // 2) 토큰 → 사용자 정보(별명)
     const meRes = await fetch('https://openapi.naver.com/v1/nid/me', {
@@ -37,7 +47,7 @@ Deno.serve(async (req) => {
     const me = await meRes.json()
     const nid = String(me?.response?.id || '')
     const nickname = me?.response?.nickname || me?.response?.name || ''
-    if (!nid) return json({ error: '사용자 정보 조회 실패', detail: me }, 400)
+    if (!nid) return json({ error: '사용자 정보 조회 실패', detail: { resultcode: me?.resultcode } }, 400)
     // 추가(선택) 동의 항목 — 손님이 동의했을 때만 온다. 안 오면 null 로 둔다(이전 값은 지우지 않는다)
     const g = me?.response?.gender
     const gender = (g === 'F' || g === 'M' || g === 'U') ? g : null
