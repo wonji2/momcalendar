@@ -25,6 +25,9 @@ const JOBS = {
   app_e2e_watch:   { cron: '10 20 * * *', script: 'tools/daily/app_e2e_watch.mjs',       pc: 'momcal-app-e2e-watch 05:30' },
   cat_guard:       { cron: '20 22 * * *', script: 'tools/daily/cat_guard.mjs',           pc: 'momcal-cat-guard 07:20' },
   my_gonggu_guard: { cron: '20 22 * * *', script: 'tools/daily/my_gonggu_guard.mjs',     pc: 'momcal-my-gonggu-guard 07:25' },
+  // 한 번짜리(2026-11-16 사장님 「로지오가닉 내꺼빼고 다 빼」) — cron '-' 라 예약으론 안 돈다. 손으로 job=logio_check / logio_apply
+  logio_check:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs',            pc: '(한 번짜리 · 보기만)' },
+  logio_apply:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs', args: ['--apply', '--ids=36225,36340'], pc: '(한 번짜리 · 내리기)' },
   dup_guard:       { cron: '20 0 * * *',  script: 'tools/daily/dup_guard.mjs',           pc: 'momcal-dup-guard 09:20' },
   winner_notify:   { cron: '20 0 * * *',  script: 'tools/daily/winner_notify.mjs',       pc: 'momcal-winner-notify 09:20' },
   seller_banner:   { cron: '-',   script: 'tools/daily/seller_banner.mjs',       pc: 'momcal-seller-banner 10:05(PC 는 끔)' },
