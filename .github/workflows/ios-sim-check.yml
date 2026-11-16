@@ -55,13 +55,21 @@ jobs:
           # 앱의 print(카패시터가 사이트 console.log 를 옮겨 적는 곳)를 파일로 받는다. NSUnbufferedIO 없으면 버퍼에 갇혀 0바이트(2026-10-26 1회차)
           #   --console-pty 를 백그라운드로 돌리면 앱이 아예 안 켜지는 회차가 있었다(3회차) → 보통 launch 로
           export SIMCTL_CHILD_NSUnbufferedIO=YES
-          xcrun simctl launch --terminate-running-process --stdout="$PWD/sim-out/app_console.txt" --stderr="$PWD/sim-out/app_console_err.txt" "$UDID" "$BID" | tee sim-out/launch.txt
-          sleep 8
-          xcrun simctl io "$UDID" screenshot sim-out/01_home.png
-          sleep 12
-          xcrun simctl io "$UDID" screenshot sim-out/02_after20s.png
-          sleep 25   # 자체 시험(9초 뒤 시작, 마지막에 바깥 링크로 사파리가 앞에 온다)
-          xcrun simctl io "$UDID" screenshot sim-out/03_after_selftest.png
+          run_once(){
+            xcrun simctl launch --terminate-running-process --stdout="$PWD/sim-out/app_console.txt" --stderr="$PWD/sim-out/app_console_err.txt" "$UDID" "$BID" | tee sim-out/launch.txt
+            sleep 8
+            xcrun simctl io "$UDID" screenshot sim-out/01_home.png
+            sleep 12
+            xcrun simctl io "$UDID" screenshot sim-out/02_after20s.png
+            sleep 25   # 자체 시험(9초 뒤 시작, 마지막에 바깥 링크로 사파리가 앞에 온다)
+            xcrun simctl io "$UDID" screenshot sim-out/03_after_selftest.png
+          }
+          run_once
+          # 2026-11-17: 러너가 느린 날 첫 실행에 사이트가 45초 안에 안 떠서(머리 0/754 · 자체 시험 0개) 실패로 떨어졌다(run 43774381616, 2시간 뒤 같은 코드로 통과).
+          #   자체 시험 기록(E2E|)이 한 줄도 없으면 한 번만 다시 켠다. 사이트가 정말 고장이면 두 번째도 실패한다.
+          if ! grep -qs 'E2E|' sim-out/app_console.txt sim-out/app_console_err.txt; then
+            echo "자체 시험 기록이 없어 한 번 더 켠다"; echo 1 > sim-out/retried.txt; sleep 20; run_once
+          fi
       - name: 판정
         run: |
           pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
@@ -90,6 +98,7 @@ jobs:
           jserr=len(re.findall(r'(?i)(\[error\]|TypeError|ReferenceError|SyntaxError)', log))
           rec('앱 기록에 강제 종료 없음', crash==0, f'{crash}건')
           rows.append(f"| ℹ️ | 앱 기록의 자바스크립트 오류 줄 | {jserr}건(자세한 건 app_log.txt) |")
+          if os.path.exists('sim-out/retried.txt'): rows.append('| ℹ️ | 첫 실행에 사이트가 안 떠서 한 번 더 켰다 | 러너 지연 |')
           # 앱 안 자체 시험 결과(E2E|항목|1/0|메모) — 사이트가 앱 화면 안에서 스스로 본 것
           out=''
           for fn in ('sim-out/app_console.txt','sim-out/app_console_err.txt','sim-out/app_log.txt'):

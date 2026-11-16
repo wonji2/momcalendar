@@ -324,7 +324,9 @@ async function expectTab(name, url, run) {
   }
   // (맨 끝에서 — 폰 설정을 바꾸고 앱을 두 번 다시 켜서 에뮬레이터 화면이 흔들려 뒤 시험이 깨졌다, 빌드 #38) 폰 글자 크기를 키워도 앱 글자는 웹(브라우저)과 같은 크기 — 사장님 2026-10-27 「웹이랑 비교해서 묘하게 확대된 듯 큰 거 같애」
   {
-    const measure = async () => Number(await js(`(function(){var s=document.createElement('span');s.textContent='가나다';s.style.cssText='font-size:16px;line-height:normal;position:absolute;left:-999px;top:0';document.body.appendChild(s);var h=s.getBoundingClientRect().height;s.remove();return String(h)})()`));
+    // 2026-11-17: 앱을 다시 켠 직후엔 화면이 아직 없어 NaN 이 나왔다(73번 2차 실패 「130%=NaNpx」) → 값이 나올 때까지 2.5초 간격으로 8번까지 다시 잰다
+    const measure1 = async () => Number(await js(`(function(){var s=document.createElement('span');s.textContent='가나다';s.style.cssText='font-size:16px;line-height:normal;position:absolute;left:-999px;top:0';document.body.appendChild(s);var h=s.getBoundingClientRect().height;s.remove();return String(h)})()`));
+    const measure = async () => { let h = NaN; for (let k = 0; k < 8 && !(h > 0); k++) { if (k) await sleep(2500); try { h = await measure1(); } catch (_) { h = NaN; } } return h; };
     const h1 = await measure();
     sh('shell', 'settings', 'put', 'system', 'font_scale', '1.3');
     reset(); await launch();

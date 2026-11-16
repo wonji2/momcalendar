@@ -30,32 +30,52 @@ const LOG = join(ROOT, 'scratchpad', 'my_gonggu_guard_log.txt');
 const DRY = process.argv.includes('--dry');
 const NL = String.fromCharCode(10);
 
+// 🔴 2026-10-26 — 예약작업(07:25)이 exit 1 로 끝났다. 같은 날 04:35 vocab-refresh 도 CLI 가 비정상 종료(stderr 는 「Initialising login role...」 뿐).
+//   원인(추정 — 당시 stderr 를 못 남겨 확정 못 함)은 CLI 의 일시 실패(임시 로그인 역할 발급 경합·동시 호출) — 같은 명령이 몇 시간 뒤 손으로 돌리면 통과한다.
+//   한 번 실패했다고 회차를 통째로 잃지 않도록 **3번까지 다시 시도**하고, 그래도 안 되면 stderr 꼬리를 로그에 남기고 exit 1 로 끝낸다.
+const sleepMs = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const q = (sql) => {
   writeFileSync(TMP, sql, 'utf8');
-  const r = parseRows(execFileSync(CLI, sbArgs(TMP), { encoding: 'utf8', timeout: 120000, cwd: ROOT }));
-  if (!r.ok) throw new Error('CLI 출력을 못 읽었다 — ' + r.why);
-  return r.rows;
+  let last;
+  for (let i = 1; i <= 3; i++) {
+    try {
+      const r = parseRows(execFileSync(CLI, sbArgs(TMP), { encoding: 'utf8', timeout: 120000, cwd: ROOT }));
+      if (!r.ok) throw new Error('CLI 출력을 못 읽었다 — ' + r.why);
+      return r.rows;
+    } catch (e) {
+      last = e;
+      try { appendFileSync(LOG, '[재시도 ' + i + '/3] ' + String((e && (e.stderr || e.message)) || e).slice(-200).replace(/\s+/g, ' ') + NL); } catch (_) {}
+      if (i < 3) sleepMs(15000 * i);
+    }
+  }
+  throw last;
 };
 
+// ⚡ 2026-11-17 — 깃허브 회차(run 43790981371)가 120초 제한에 걸려 실패했다. 예전 질의는 내 공구마다 노출 중인 공구 전체(1.5만 행)에
+//   정규식을 돌린 뒤에야 날짜로 걸렀다. 이제 「아직 안 끝난 타 셀러 행」을 먼저 추리고(수백 행) 이름 정규화도 한 번만 한다. 판정은 같다.
 const WINDOW = `
 with mine as (
   select id, name, open_date, end_date,
          lower(regexp_replace(name, '[^가-힣a-z0-9]', '', 'g')) k,
          lower(split_part(btrim(name), ' ', 1)) brand
     from public.gonggu where insta = 'momcal_' and approved
+),
+o as materialized (
+  select id, influencer, name, open_date, end_date,
+         lower(regexp_replace(name, '[^가-힣a-z0-9]', '', 'g')) k, lower(name) ln
+    from public.gonggu
+   where approved and insta is distinct from 'momcal_'
+     and end_date >= to_char((now() at time zone 'Asia/Seoul')::date, 'YYYY-MM-DD')
+     and open_date <= (select max(end_date) from mine)
 )
 select o.id, o.influencer, o.name, o.open_date, o.end_date,
        m.name mine_name, m.open_date mine_open, m.end_date mine_end,
-       case when lower(regexp_replace(o.name, '[^가-힣a-z0-9]', '', 'g')) = m.k
-            then 'exact' else 'brand' end kind
+       case when o.k = m.k then 'exact' else 'brand' end kind
   from mine m
-  join public.gonggu o
-    on o.insta is distinct from 'momcal_' and o.approved
-   and (lower(regexp_replace(o.name, '[^가-힣a-z0-9]', '', 'g')) = m.k
-        or (length(m.brand) >= 3 and lower(o.name) like m.brand || '%'))
+  join o
+    on (o.k = m.k or (length(m.brand) >= 3 and o.ln like m.brand || '%'))
    and o.open_date >= to_char(m.open_date::date - 14, 'YYYY-MM-DD')
    and o.open_date <= m.end_date
- where o.end_date >= to_char((now() at time zone 'Asia/Seoul')::date, 'YYYY-MM-DD')
  order by o.open_date;`;
 
 const rows = q(WINDOW);
@@ -81,6 +101,26 @@ if (brand.length && !DRY) {
   q(`insert into public.health_alerts(kind, detail) values ('내공구창_브랜드겹침', '${d.split("'").join("''")}');`);
   console.log('⚠ health_alerts 에 남겼다 — 같은 물건이면 손으로 내릴 것');
 }
+
+// ⏰ 맘캘 공구·배너가 2일 안에 끝나면 미리 알린다 (2026-10-26 사장님 「상신데 왜 내려갔어 애초에」)
+//   상시(always) 공구 3개가 처음 넣은 끝나는 날(10/25)을 그대로 갖고 있어 자정에 일정 카드·메인 배너가 같이 내려갔다.
+//   자동으로 늘리지는 않는다(끝나는 날을 일부러 정한 공구도 있다) — 알리기만 하고, 늘릴지는 사장님이 정한다.
+try {
+  const soon = q(`select g.id, g.name, g.end_date, g.always,
+      (select string_agg(b.id::text, ',') from public.banners b where b.active and b.title ilike '%' || split_part(g.name, ' ', 1) || '%'
+         and b.show_until is not null and b.show_until < (now() + interval '3 days')) as banners
+    from public.gonggu g
+    where g.approved and g.insta = 'momcal_'
+      and g.end_date between to_char((now() at time zone 'Asia/Seoul')::date, 'YYYY-MM-DD')
+                         and to_char((now() at time zone 'Asia/Seoul')::date + 2, 'YYYY-MM-DD')
+    order by g.end_date, g.id;`);
+  if (soon.length) {
+    const d = `맘캘 공구 ${soon.length}건이 2일 안에 내려간다(상시 포함 — 계속 띄우려면 끝나는 날을 늘릴 것): ` +
+      soon.slice(0, 8).map((r) => `id${r.id} ${String(r.name).slice(0, 14)} ~${r.end_date}${r.always ? '(상시)' : ''}${r.banners ? ' 배너' + r.banners : ''}`).join(', ');
+    console.log('⏰ ' + d);
+    if (!DRY) q(`insert into public.health_alerts(kind, detail) values ('내공구_곧내려감', '${d.split("'").join("''")}');`);
+  }
+} catch (e) { console.log('⏰ 곧 내려감 점검 실패: ' + (e && e.message)); }
 
 try {
   const body = head + (rows.length ? NL + rows.map((r) => `  ${r.kind} id${r.id} ${r.influencer} ${r.name}`).join(NL) : '') + NL;

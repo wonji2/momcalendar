@@ -167,6 +167,7 @@ body.srch-mode #subZone,body.srch-mode #contentSeg,body.srch-mode #slimAdSlot,
 body.srch-mode #reloginStrip,body.srch-mode #pwaStrip,body.srch-mode #hotTagRow{display:none!important}
 /* 앱으로 들어온 사람에게 "앱으로 추가하세요" 안내는 무의미하다 */
 body.native-app #pwaStrip,body.native-app #reloginStrip{display:none!important}
+#pwaStrip{display:none!important}
 /* 🔥 핫 키워드 칩 (검색 스펙 6번) — 배너 아래·콘텐츠탭 위, 소분류 기반 상품군 태그 가로 스크롤 */
 .sdrop-tags{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-right:-16px;padding-right:16px}   /* 토스형 회색 알약 한 줄 · 옆으로 넘기기 (사장님 2026-10-24) */
 .sdrop-tags::-webkit-scrollbar{display:none}
@@ -6826,7 +6827,7 @@ async function loadWishCounts(_try){
     try{ const _s=document.getElementById('nextSheet'); if(_s&&_s.classList.contains('open')) _nxSheetBody(); }catch(_){}   // 열려 있는 시트도
     if(fSt==='top100') renderList();
     if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
-  }catch(_){ if(!_wishCountsReady || !Object.keys(_wishCounts).length) _wcRetry(_try); }
+  }catch(_){ _wcRetry(_try); }   // 통신 오류면 보관값이 있어도 5·15·40초 뒤 다시(2026-11-17)
 }
 
 function isWished(id){ return WISH.has(Number(id)); }
