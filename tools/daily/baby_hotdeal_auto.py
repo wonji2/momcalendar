@@ -88,7 +88,7 @@ LINKPRICE_MERCHANTS = {
     'ohou.se': ('ohou', '오늘의집', '리빙'),
 }
 
-ALL_CPA_DOMAINS = list(LINKPRICE_MERCHANTS.keys()) + ['coupang.com', 'linkprice.com', 'app.ac', 'bitl.bz', 'deg.kr']
+ALL_CPA_DOMAINS = list(LINKPRICE_MERCHANTS.keys()) + ['coupang.com', 'linkprice.com', 'app.ac', 'bitl.bz', 'deg.kr', 'toss.shopping', 'ozip.me']
 
 LINKPRICE_MCODE_ALIAS = {'gmarket2': '지마켓', 'gmarket': '지마켓'}   # 링크프라이스가 같은 머천트를 다른 코드로 내보내는 경우(gmarket2)
 
@@ -321,6 +321,84 @@ def tidy_title(raw):
     return t2 or t
 
 _CP_DL_CALLS = 0
+
+# 사이트에 공개돼 있는 손님용 키(비밀값 아님) — 함수 문지기 통과용
+SB_PUBLIC_KEY = os.environ.get('SUPABASE_ANON_KEY') or 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'
+
+def resolve_toss_id(url):
+    """토스 쉐어링크 → ('item'|'taca', 번호). 못 찾으면 (None, None). hotdeal_chat.mjs resolveToss 와 같은 규칙."""
+    u = url
+    for _ in range(3):
+        m = re.search(r'toss\.shopping/([ti])/(\d+)', u)
+        if m:
+            return ('item' if m.group(1) == 'i' else 'taca'), m.group(2)
+        try:
+            req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                final = resp.geturl() or u
+                body = resp.read().decode('utf-8', errors='ignore')
+        except Exception as e:
+            print(f'[bbhd] 토스 쉐어링크를 못 열었다: {u} {e}')
+            return None, None
+        if final != u:
+            u = final
+            continue
+        m = re.search(r'toss\.shopping/([ti])/(\d+)', body)
+        if m:
+            return ('item' if m.group(1) == 'i' else 'taca'), m.group(2)
+        break
+    return None, None
+
+def get_toss_link(kind, tid):
+    """우리 토스 수익 링크(shortUrl) — toss-sync?mode=link 를 크론 비밀값으로 부른다. 실패하면 None."""
+    if not CRON_SECRET:
+        return None
+    key = 'tacaItemId' if kind == 'item' else 'tacaId'
+    try:
+        req = urllib.request.Request(f'{SUPABASE_URL}/functions/v1/toss-sync?mode=link&{key}={tid}',
+                                     headers={'x-cron-secret': CRON_SECRET, 'apikey': SB_PUBLIC_KEY, 'Authorization': 'Bearer ' + SB_PUBLIC_KEY})
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            j = json.loads(resp.read().decode('utf-8'))
+        link = (((j.get('body') or {}).get('success') or {}).get('shortUrl') or '') if isinstance(j.get('body'), dict) else ''
+        return link if link.startswith('https://') and 'toss' in link else None
+    except Exception as e:
+        print(f'[토스 링크 실패] {kind} {tid} {e}')
+        return None
+
+def resolve_ohouse(first, links):
+    """오늘의집 짧은 주소 → (상품 번호, 우리 제휴 링크). 못 찾으면 (None, '')."""
+    cands = [first] + [l for l in links if ('ozip.me' in l or 'ohou.se' in l) and l != first]
+    seen = set()
+    for u in cands[:4]:
+        if u in seen:
+            continue
+        seen.add(u)
+        locs = []
+        try:
+            res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-m', '20', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', u],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
+            locs = re.findall(r'(?im)^location:\s*(\S+)', res.stdout)
+        except Exception as e:
+            print(f'[bbhd] 오늘의집 주소 추적 실패: {u} {e}')
+        for loc in [u] + locs:
+            if 'link.ohou.se/@ohouse/affiliate' in loc:
+                m = re.search(r'content=[Pp]roduction_(\d+)', loc)
+                if m:
+                    ours = re.sub(r'ad_creative=\d+', 'ad_creative=40570', loc)
+                    ours = re.sub(r'ad_group=\d+', 'ad_group=1120105', ours)
+                    ours = re.sub(r'[&?]term=[^&]*', '', ours)
+                    if 'ad_creative=40570' in ours and 'ad_group=1120105' in ours:
+                        return m.group(1), ours
+            m = re.search(r'ohou\.se/(?:productions|goods)/(\d+)', loc)
+            if m:
+                opid = m.group(1)
+                kind = 'goods' if '/goods/' in loc else 'productions'
+                host = 'store.ohou.se' if kind == 'goods' else 'ohou.se'
+                tail = f'{host}%2F{kind}%2F{opid}' + ('' if kind == 'goods' else '%2Fselling')
+                return opid, ("https://link.ohou.se/@ohouse/affiliate?channel=affiliate&sub_id_2=affiliate&sub_id_3=inorganic&campaign=brand_affiliate"
+                              f"&ad_creative=40570&ad_group=1120105&content=production_{opid}"
+                              f"&deeplink_url=ohouseapp%3A%2F%2F{tail}&fallback_desktop=https%3A%2F%2F{tail}")
+    return None, ''
 
 def get_coupang_deeplink(clean_url):
     # 🔴 쿠팡 정식 딥링크(coupang-hotdeal?deeplink=) — 「간이 변환」 주소는 쿠팡 첫 화면으로 가서 쓰지 않는다(2026-11-04 실측)
@@ -623,6 +701,7 @@ def collect_from_bbhd():
                     break
 
             if not target_link:
+                print(f'[bbhd] {wr_id} 다루는 몰 링크 없음 — 건너뜀: {raw_title[:40]}')
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
@@ -649,6 +728,33 @@ def collect_from_bbhd():
                     aff_link = get_coupang_deeplink(clean_cp) or ''
                 else:
                     aff_link = ''   # 상품번호를 못 찾은 쿠팡 링크는 남의 수익 링크일 수 있다 — 넣지 않는다
+            elif 'toss.shopping' in target_link:
+                # 토스쇼핑 (2026-11-16): 클라우드로 옮긴 뒤 토스 글이 조용히 빠졌다(11/14~16 베이비핫딜 46건 중 6건).
+                #   쉐어링크를 따라가 상품 번호(t=상품 · i=옵션)를 찾고, toss-sync?mode=link 로 우리 링크를 받는다. 남의 링크는 넣지 않는다.
+                mall = '토스쇼핑'
+                source = 'toss'
+                tkind, tid = resolve_toss_id(target_link)
+                if not tid:
+                    print(f'[bbhd] {wr_id} 토스 상품 번호를 못 찾음: {target_link}')
+                    new_max_id = max(new_max_id, wr_id)
+                    continue
+                prod_id = f'toss_{tid}'
+                aff_link = get_toss_link(tkind, tid) or ''
+                if not aff_link:
+                    print(f'[bbhd] {wr_id} 토스 우리 링크 발급 실패(toss_{tid}) — 등록 안 함')
+            elif 'ohou.se' in target_link or 'ozip.me' in target_link:
+                # 오늘의집 (사장님 2026-11-01 틀 · 2026-11-16 클라우드 판에 다시 넣음 — 11/14~16 6건이 빠졌다)
+                #   ozip.me 는 link.ohou.se 제휴 주소로 넘어간다(최종 상품 쪽은 403 이라 넘김 주소만 읽는다).
+                #   그 주소의 광고 번호만 우리 것(40570·1120105)으로 바꾼다 — goods/productions 어느 꼴이든 딥링크가 그대로 맞는다.
+                #   글에 ozip 링크가 여럿이면(기획전 + 상품) 상품 번호가 나오는 것을 쓴다.
+                mall = '오늘의집'
+                source = 'ohouse'
+                opid, aff_link = resolve_ohouse(target_link, links)
+                if not opid:
+                    print(f'[bbhd] {wr_id} 오늘의집 상품 번호 없음: {target_link}')
+                    new_max_id = max(new_max_id, wr_id)
+                    continue
+                prod_id = f'oh_{opid}'
             elif any(dom in target_link for dom in ['app.ac', 'bitl.bz', 'deg.kr']):
                 try:
                     res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '5', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', target_link], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
@@ -673,6 +779,7 @@ def collect_from_bbhd():
 
             aff_link = clean_link_or_none(aff_link) or ''
             if not aff_link:
+                print(f'[bbhd] {wr_id} 우리 링크를 못 만듦 — 건너뜀: {target_link[:80]}')
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
