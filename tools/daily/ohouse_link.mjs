@@ -6,8 +6,8 @@
 //
 // 실행:  node tools/daily/ohouse_link.mjs "https://ozip.me/XXXX" ["https://store.ohou.se/goods/3934303" 또는 상품번호 3934303 …]
 // 출력:  입력마다 한 줄 JSON — { ok, input, goods, name, price, before, img, link, soldout, endsToday, lines, note }
-//   link 가 `https://ozip.me/…` 로 시작하면 **우리 링크**다. hotdeals.link 에 그대로 넣는다(product_id='oh_<goods>', mall='오늘의집', source='ohouse').
-// 종료코드: 0 전부 발급 · 1 일부 실패 · 3 로그아웃(health_alerts 에 경보를 남긴다 — 그때만 ohouse_login.mjs 를 다시)
+//   link 가 `https://ozip.me/…`(로그인 상태) 또는 `https://link.ohou.se/@ohouse/affiliate…ad_creative=40570…`(로그아웃 상태, 2026-11-16) 이면 **우리 링크**다. hotdeals.link 에 그대로 넣는다(product_id='oh_<goods>', mall='오늘의집', source='ohouse').
+// 종료코드: 0 전부 발급 · 1 일부 실패. 로그아웃이어도 멈추지 않는다(2026-11-16 — 로그인은 더 이상 필요 없다, ohouse_login.mjs 를 사장님께 부탁하지 않는다)
 //
 // 🔴 안 하는 것: 팝업 버튼을 눌러보며 찾기. 스크랩·장바구니·구매·문의 버튼을 건드리지 않는다
 //    (aria-label 이 「공유하기」 「주소 복사」 인 버튼만 누른다 — 2026-09-06 사장님 계정에 스크랩이 생긴 사고).
@@ -28,10 +28,16 @@ function raiseAlert(msg) {
   } catch { /* 경보 실패는 삼킨다 — 종료코드 3 이 이미 신호다 */ }
 }
 
+// 로그인 없이 만드는 우리 제휴 링크(CLAUDE.md 규칙 0-DS 표 · 클라우드 수집기 baby_hotdeal_auto.py resolve_ohouse 와 같은 틀). 2026-11-16 사장님 「한번 로그인하면 안풀리게」 —
+//   오늘의집 세션은 며칠마다 풀리고 카카오 간편로그인까지 풀리면 사람이 필요했다 → 로그아웃이어도 멈추지 않고 이 링크로 끝낸다. 사람을 부르지 않는다.
+const affLink = (id, kind = 'goods') => { const tail = (kind === 'goods' ? 'store.ohou.se' : 'ohou.se') + '%2F' + kind + '%2F' + id + (kind === 'goods' ? '' : '%2Fselling'); return 'https://link.ohou.se/@ohouse/affiliate?channel=affiliate&sub_id_2=affiliate&sub_id_3=inorganic&campaign=brand_affiliate&ad_creative=40570&ad_group=1120105&content=production_' + id + '&deeplink_url=ohouseapp%3A%2F%2F' + tail + '&fallback_desktop=https%3A%2F%2F' + tail; };
 const goodsOf = (s) => (String(s).match(/goods\/(\d+)/) || String(s).match(/^(\d{4,9})$/) || [])[1] || null;
 
 const rc = await openRealChrome({ visible: false });
 let exitCode = 0;
+// 2026-10-27: 로그인이 풀려 있으면 먼저 카카오 간편로그인으로 다시 들어간다(ohouse_relogin.mjs) — 사람을 부르는 건 그게 안 될 때만
+let reloginTried = false;
+const { ohouseRelogin } = await import('./ohouse_relogin.mjs');
 try {
   for (const input of inputs) {
     const out = { ok: false, input, goods: null, name: null, price: null, before: null, img: null, link: null, soldout: false, endsToday: false, lines: null, note: '' };
@@ -69,15 +75,17 @@ try {
           lines: idx >= 0 ? flat.slice(Math.max(0, idx - 80), idx + 260) : null,
         };
       });
-      if (state.loggedOut) {
-        out.note = '로그아웃 상태 — node tools/daily/ohouse_login.mjs 로 한 번 로그인';
-        console.log(JSON.stringify(out));
-        raiseAlert('오늘의집 로그인이 풀렸습니다 — 사장님이 한 번 로그인해 주셔야 오늘의집 핫딜 자동 등록이 다시 됩니다(node tools/daily/ohouse_login.mjs)');
-        await pg.close();
-        exitCode = 3;
-        break;
+      if (state.loggedOut && !reloginTried) {
+        reloginTried = true;
+        const rl = await ohouseRelogin(rc).catch((e) => ({ ok: false, why: String(e.message || e) }));
+        if (rl.ok) { await pg.close(); inputs.splice(inputs.indexOf(input) + 1, 0, input); continue; }   // 다시 로그인됐으면 이 입력을 한 번 더
       }
       Object.assign(out, { name: state.name, img: state.img, price: state.price, before: state.before && state.price && state.before > state.price ? state.before : null, soldout: state.soldout, endsToday: state.endsToday, lines: state.lines });
+      if (state.loggedOut) {   // 로그인 없이도 끝낸다 — 경보·종료코드 3 없음(2026-11-16)
+        out.link = affLink(goods); out.ok = !!(out.name && out.price); out.note = '로그인 없이 만든 우리 제휴 링크' + (out.ok ? '' : ' · 상품명·가격을 못 읽었다');
+        if (!out.ok) exitCode ||= 1;
+        console.log(JSON.stringify(out)); await pg.close(); await new Promise((r) => setTimeout(r, 1500)); continue;
+      }
       if (!state.hasShare) { out.note = '공유하기 버튼이 없다(기획전·판매종료 페이지일 수 있다)'; console.log(JSON.stringify(out)); await pg.close(); exitCode ||= 1; continue; }
       // 3) 복사 가로채기 → 공유하기 → 주소 복사
       const link = await pg.evaluate(async () => {
