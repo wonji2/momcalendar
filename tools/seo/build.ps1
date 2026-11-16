@@ -26,9 +26,19 @@ if($DataFile){
   # 🔒 2026-10-27: seo_dataset(공개 공구 전체를 한 번에 주는 함수)은 공개 키로 못 부르게 막았다 — 서버 열쇠(GitHub Secret SUPABASE_SERVICE_KEY)로 부른다
   $sk = $env:SUPABASE_SERVICE_KEY
   if(-not $sk){ throw 'SUPABASE_SERVICE_KEY 가 없다 — GitHub Secrets(또는 로컬은 tools/daily/.env 의 SB_SERVICE_KEY 를 이 이름으로) 확인' }
-  $r = Invoke-WebRequest -Uri $api -Method POST -TimeoutSec 180 `
-        -Headers @{ apikey=$sk; Authorization="Bearer $sk"; 'Content-Type'='application/json' } -Body '{}'
-  $D = SquashSpaces ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json
+  # DB 가 다른 크론과 겹쳐 잠깐 바쁘면 「statement timeout」이 난다(2026-11-16 21:14 실측) → 40초 쉬고 세 번까지 다시 부른다
+  $r = $null
+  for($try = 1; $try -le 3 -and -not $r; $try++){
+    try{
+      $r = Invoke-WebRequest -Uri $api -Method POST -TimeoutSec 180 `
+            -Headers @{ apikey=$sk; Authorization="Bearer $sk"; 'Content-Type'='application/json' } -Body '{}'
+    }catch{
+      if($try -ge 3){ throw }
+      Write-Output "seo_dataset 읽기 실패($try/3): $($_.Exception.Message) — 40초 뒤 다시"
+      Start-Sleep -Seconds 40
+    }
+  }
+  $D =SquashSpaces ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json
 }
 
 # ── 활성 핫딜 — 한 번만 읽는다 (2026-11-16 ORDER_SEO_AEO_GEO_RECOVERY §5-3) ──
