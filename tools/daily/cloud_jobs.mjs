@@ -30,7 +30,7 @@ const JOBS = {
   logio_why2:      { cron: '-', script: 'tools/daily/logio_why2.mjs',             pc: '(한 번짜리 · 진단2)' },
   logio_why:       { cron: '-', script: 'tools/daily/logio_why.mjs',              pc: '(한 번짜리 · 진단)' },
   logio_seo_refresh: { cron: '-', script: 'tools/daily/logio_seo_refresh.mjs',     pc: '(한 번짜리 · 캐시 갱신)' },
-  logio_apply:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs', args: ['--apply', '--ids=32568,36225,36340,40303'], pc: '(한 번짜리 · 내리기)' },
+  logio_apply:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs', args: ['--apply', '--window'], pc: '(한 번짜리 · 내리기)' },
   dup_guard:       { cron: '20 0 * * *',  script: 'tools/daily/dup_guard.mjs',           pc: 'momcal-dup-guard 09:20' },
   winner_notify:   { cron: '20 0 * * *',  script: 'tools/daily/winner_notify.mjs',       pc: 'momcal-winner-notify 09:20' },
   seller_banner:   { cron: '-',   script: 'tools/daily/seller_banner.mjs',       pc: 'momcal-seller-banner 10:05(PC 는 끔)' },

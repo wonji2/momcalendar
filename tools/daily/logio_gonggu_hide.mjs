@@ -28,6 +28,9 @@ const TMP = join(TMPDIR, '_logio_hide.sql');
 const APPLY = process.argv.includes('--apply');
 const IDS = ((process.argv.find((a) => a.startsWith('--ids=')) || '').slice(6))
   .split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
+// --window (2026-11-17 사장님 「내 공구 기간과 겹치는 타인 로지오 전부 숨김」): 번호를 손으로 고르지 않고
+//   내 로지오 공구 창(오픈−14일 ~ 마감, 규칙 0-M)과 기간이 겹치는 타 셀러 행 전부(끝난 행·이미 내렸지만 잠금 없는 행 포함)를 내리고 잠근다.
+const WINDOW = process.argv.includes('--window');
 const REASON = '사장님 지시 2026-11-16 「로지오가닉 내꺼빼고 다 빼」 — 사장님 로지오가닉 공구 기간(11/13~11/22) 중 타셀러 로지오가닉 비노출(규칙 0-M)';
 const q = (s) => "'" + String(s == null ? '' : s).replace(/'/g, "''") + "'";
 
@@ -54,6 +57,17 @@ const LIST = `select g.id, g.insta, g.influencer, g.name, g.brand, g.item,
 
 const rows = sql(LIST);
 const mine = (r) => String(r.insta || '').toLowerCase() === 'momcal_';
+const day = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const KST = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const myNow = rows.filter((r) => mine(r) && r.approved && r.end_date && r.end_date >= KST);
+const WIN = myNow.length ? { lo: day(myNow.map((r) => r.open_date).sort()[0], -14), hi: myNow.map((r) => r.end_date).sort().pop() } : null;
+const inWin = (r) => WIN && !mine(r) && String(r.open_date || '') <= WIN.hi && String(r.end_date || r.open_date || '') >= WIN.lo;
+if (WINDOW) {
+  if (!WIN) { console.log('🔴 진행 중인 내 로지오 공구가 없다 — 창을 못 정해 아무것도 하지 않는다'); process.exit(1); }
+  IDS.length = 0; for (const r of rows) if (inWin(r) && (r.approved || !r.held)) IDS.push(Number(r.id));
+  console.log(`창 ${WIN.lo}~${WIN.hi} — 겹치는 타 셀러 행 중 노출 또는 잠금 없는 것 ${IDS.length}건`);
+  if (APPLY && !IDS.length) { console.log('검증 ✅ 통과 — 내릴 것이 없다(이미 전부 내려가 잠겨 있다)'); process.exit(0); }
+}
 const say = (r) => `id${r.id} ${mine(r) ? '🟣내것' : '⚪타인'} insta=${r.insta || '(없음)'} influencer=${r.influencer || '(없음)'} 「${String(r.name).slice(0, 40)}」 brand=${r.brand || '-'} item=${r.item || '-'} ${r.open_date}~${r.end_date || '-'} approved=${r.approved} held=${r.held} source=${r.source || '-'}`;
 
 console.log(`■ 로지오 매칭 ${rows.length}행 (그중 내 것 ${rows.filter(mine).length} · 타인 ${rows.filter((r) => !mine(r)).length})`);
@@ -75,7 +89,7 @@ if (!IDS.length) { console.log('🔴 --apply 인데 --ids 가 없다 — 아무�
 // ① 만질 행을 다시 읽어 내 것·로지오가 아닌 것이 섞였는지 확인한다
 const target = sql(`select g.id, g.insta, g.influencer, g.name, g.open_date, g.end_date, g.approved
   from public.gonggu g where g.id in (${IDS.join(',')}) order by g.id;`);
-const bad = target.filter((r) => mine(r) || !/로지오/.test(String(r.name || '')));
+const bad = target.filter((r) => mine(r) || !rows.some((x) => Number(x.id) === Number(r.id)));
 if (bad.length) {
   console.log('🔴 내 공구이거나 로지오가 아닌 행이 섞였다 — 전부 멈춘다: ' + bad.map((r) => 'id' + r.id).join(', '));
   process.exit(1);
@@ -109,7 +123,8 @@ const TODAY = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const mineAfter = after.filter(mine);
 const mineLive = mineAfter.filter((r) => r.approved);
 const mineEnd = mineLive.reduce((m, r) => (r.end_date && r.end_date > m ? r.end_date : m), TODAY);
-const clash = after.filter((r) => !mine(r) && r.approved
+const clash = WINDOW ? after.filter((r) => inWin(r) && (r.approved || !r.held))
+  : after.filter((r) => !mine(r) && r.approved
   && r.end_date && r.end_date >= TODAY && String(r.open_date || '') <= mineEnd);
 const future = after.filter((r) => !mine(r) && r.approved && r.end_date && r.end_date >= TODAY
   && String(r.open_date || '') > mineEnd);
