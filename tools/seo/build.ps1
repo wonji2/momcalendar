@@ -228,6 +228,58 @@ if(@($D.brands).Count -lt 100 -or @($D.sellers).Count -lt 50){
   throw "데이터가 비정상이다 (브랜드 $(@($D.brands).Count) · 셀러 $(@($D.sellers).Count)). 페이지를 만들지 않는다"
 }
 
+# ── 보관분(gonggu_archive) 이력 합치기 (2026-11-16) ──
+#   seo_dataset() 은 gonggu 표만 집계한다. 두 달 지나 보관 표로 간 공구(1~9월 약 1만 8천 건)는 빠져서
+#   브랜드·제품·셀러·월별 페이지가 「최근 두 달 이력」만 갖거나 아예 다시 안 만들어졌다(옛 내용으로 굳음).
+#   보관분은 DB 가 따로 한 번 집계해 둔다(seo_dataset_archive · supabase/sql/seo_archive_cache_152.sql, 매주 갱신).
+#   여기서 열쇠(브랜드·제품·셀러·분류·달)로 합친다. 못 읽으면 합치지 않고 그대로 간다(빌드를 막지 않는다).
+#   stat·live·soon 은 합치지 않는다(지금 진행 중인 것은 gonggu 표에만 있다).
+function ArchMerge($live, $arch, [scriptblock]$keyOf, [int]$instaCol, [bool]$asc){
+  $idx = @{}; $out = New-Object System.Collections.ArrayList
+  foreach($x in @($live)){ if($null -eq $x){ continue }; $idx[(& $keyOf $x)] = $x; [void]$out.Add($x) }
+  foreach($y in @($arch)){
+    if($null -eq $y){ continue }
+    $k = & $keyOf $y
+    if(-not $k){ continue }
+    if(-not $idx.ContainsKey($k)){ $idx[$k] = $y; [void]$out.Add($y); continue }
+    $x = $idx[$k]
+    $x.cnt = [int]$x.cnt + [int]$y.cnt
+    if($y.rows){ $x.rows = $(if(-not $x.rows){ "$($y.rows)" } elseif($asc){ "$($y.rows)`n$($x.rows)" } else { "$($x.rows)`n$($y.rows)" }) }
+    if($x.PSObject.Properties['first_open'] -and $y.first_open -and (-not $x.first_open -or [string]::CompareOrdinal("$($y.first_open)", "$($x.first_open)") -lt 0)){ $x.first_open = $y.first_open }
+    if($x.PSObject.Properties['last_open'] -and $y.last_open -and (-not $x.last_open -or [string]::CompareOrdinal("$($y.last_open)", "$($x.last_open)") -gt 0)){ $x.last_open = $y.last_open }
+    if($x.PSObject.Properties['topprods'] -and -not $x.topprods -and $y.topprods){ $x.topprods = $y.topprods }
+    if($x.PSObject.Properties['sellers']){
+      if($instaCol -ge 0){
+        $set = @{}
+        foreach($ln in ("$($x.rows)" -split "`n")){ $pp = $ln -split "`t"; if($pp.Count -gt $instaCol -and $pp[$instaCol]){ $set[$pp[$instaCol].Trim().ToLower()] = 1 } }
+        if($set.Count -gt 0){ $x.sellers = $set.Count }
+      } elseif([int]$y.sellers -gt [int]$x.sellers){ $x.sellers = [int]$y.sellers }
+    }
+  }
+  return ,$out
+}
+$ARCH = $null
+try{
+  if($DataFile){
+    $af = "$DataFile.archive.json"
+    if(Test-Path -LiteralPath $af){ $ARCH = SquashSpaces ([IO.File]::ReadAllText($af)) | ConvertFrom-Json }
+  } else {
+    $ra = Invoke-WebRequest -Uri ($api + '_archive') -Method POST -TimeoutSec 180 `
+          -Headers @{ apikey=$sk; Authorization="Bearer $sk"; 'Content-Type'='application/json' } -Body '{}'
+    $ta = [Text.Encoding]::UTF8.GetString($ra.RawContentStream.ToArray())
+    if($ta -and $ta.Trim() -ne 'null'){ $ARCH = SquashSpaces $ta | ConvertFrom-Json }
+  }
+}catch{ Write-Output "보관분 이력 읽기 실패(합치지 않고 계속): $($_.Exception.Message)" }
+if($ARCH -and @($ARCH.brands).Count -gt 0){
+  $b0 = @($D.brands).Count; $p0 = @($D.products).Count; $s0 = @($D.sellers).Count; $m0 = @($D.months).Count
+  $D.brands   = (ArchMerge $D.brands   $ARCH.brands   { param($o) "$($o.brand)".ToLower() } 4 $false).ToArray()
+  $D.products = (ArchMerge $D.products $ARCH.products { param($o) ("$($o.brand)|$($o.prod)").ToLower() } 4 $false).ToArray()
+  $D.sellers  = (ArchMerge $D.sellers  $ARCH.sellers  { param($o) "$($o.insta)".Trim().ToLower() } -1 $false).ToArray()
+  $D.minors   = (ArchMerge $D.minors   $ARCH.minors   { param($o) "$($o.major)|$($o.minor)" } -1 $false).ToArray()
+  $D.months   = (ArchMerge $D.months   $ARCH.months   { param($o) "$($o.ym)" } -1 $true).ToArray()
+  Write-Output "보관분 이력 합침: 브랜드 $b0 → $(@($D.brands).Count) · 제품 $p0 → $(@($D.products).Count) · 셀러 $s0 → $(@($D.sellers).Count) · 달 $m0 → $(@($D.months).Count)"
+} else { Write-Output '보관분 이력 없음 — 합치지 않는다' }
+
 $N_TOTAL = [int]$D.stat.total; $N_SELLERS = [int]$D.stat.sellers
 $fmtTotal = '{0:N0}' -f $N_TOTAL; $fmtSellers = '{0:N0}' -f $N_SELLERS
 

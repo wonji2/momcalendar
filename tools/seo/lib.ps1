@@ -20,6 +20,7 @@ $GA4_SNIPPET = "<script async src=${Q}https://www.googletagmanager.com/gtag/js?i
 $ROBOTS_NOINDEX = 'noindex,follow,max-image-preview:large'
 $RX_ROBOTS = [regex]'<meta name="robots" content="([^"]*)">'
 $RX_EVENT = [regex]'<script type="application/ld\+json">\{"@context":"https://schema\.org","@type":"Event",[^<]*?"endDate":"(\d{4}-\d{2}-\d{2})"[^<]*</script>\r?\n?'
+$RX_GGPERIOD = [regex]'<h1>[^<]*</h1><p>(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})'
 
 # 페이지에 noindex 가 있는가 — 경로는 사이트맵 주소 꼴(퍼센트 인코딩 가능), 뿌리 폴더는 인자로 받는다(이 파일은 $Root 를 모른다)
 function HasNoindex([string]$rel, [string]$root0){
@@ -48,6 +49,15 @@ function PatchHeadText([string]$t){
   # 끝난 공구의 Event 마크업을 걷는다 — 진행·예정 때 만든 페이지가 집계에서 빠져 굳으면 Event 를 단 채 남는다(끝난 이벤트 마크업은 구글 가이드 위반)
   if($o.IndexOf('"@type":"Event"', [StringComparison]::Ordinal) -ge 0){
     $o = $RX_EVENT.Replace($o, [Text.RegularExpressions.MatchEvaluator]{ param($m) if($m.Groups[1].Value -lt $ASOF){ return '' } return $m.Value })
+  }
+  # 끝난 공구인데 「지금 진행 중입니다」「오픈 예정입니다」로 굳은 옛 공구 상세(gg) — 머리의 기간(오픈 ~ 마감)으로 끝났는지 보고 지난 일로 고쳐 쓴다(2026-11-16 검증자 지적 531장)
+  if($o.IndexOf('공동구매가 지금 진행 중입니다', [StringComparison]::Ordinal) -ge 0 -or $o.IndexOf('오픈 예정입니다. 마감은', [StringComparison]::Ordinal) -ge 0){
+    $mp = $RX_GGPERIOD.Match($o)
+    if($mp.Success -and $mp.Groups[2].Value -lt $ASOF){
+      $o = [regex]::Replace($o, '공동구매가 지금 진행 중입니다\. (\d{2}/\d{2}) 에 열렸고 (\d{2}/\d{2}) 마감입니다\.( 아래 카드를 누르면 진행 셀러의 인스타그램으로 이동합니다\.)?', '공동구매는 $1 에 열려 $2 에 마감되었습니다. 아래는 그때의 일정 기록입니다.')
+      $o = [regex]::Replace($o, '공동구매는 (\d{2}/\d{2}) 오픈 예정입니다\. 마감은 (\d{2}/\d{2}) 입니다\.( 오픈일에 셀러 계정 공지로 신청할 수 있습니다\.)?', '공동구매는 $1 에 열려 $2 에 마감되었습니다. 아래는 그때의 일정 기록입니다.')
+      $o = $o.Replace('<a class="card live" ', '<a class="card" ')
+    }
   }
   if($o.IndexOf($GA4_ID, [StringComparison]::Ordinal) -lt 0){
     $ix = $o.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
@@ -121,7 +131,7 @@ function LdDealList([string]$name, $deals, [string]$canon){
   foreach($h in $deals){
     if([int]$h.price -le 0 -or -not $h.title){ continue }
     $i++
-    $offer = "{${Q}@type${Q}:${Q}Offer${Q},${Q}price${Q}:${Q}$([int]$h.price)${Q},${Q}priceCurrency${Q}:${Q}KRW${Q},${Q}availability${Q}:${Q}https://schema.org/InStock${Q}" +
+    $offer = "{${Q}@type${Q}:${Q}Offer${Q},${Q}price${Q}:${Q}$([int]$h.price)${Q},${Q}priceCurrency${Q}:${Q}KRW${Q}" +   # 재고(availability)는 적지 않는다 — 이 빌드는 품절을 다시 재지 않는다(단정 금지)
              $(if("$($h.link)" -match '^https?://'){ ",${Q}url${Q}:${Q}$(JsonEsc "$($h.link)")${Q}" }) +
              ",${Q}seller${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}$(JsonEsc "$($h.mall)")${Q}}}"
     [void]$el.Add("{${Q}@type${Q}:${Q}ListItem${Q},${Q}position${Q}:$i,${Q}item${Q}:{${Q}@type${Q}:${Q}Product${Q},${Q}name${Q}:${Q}$(JsonEsc "$($h.title)")${Q},${Q}offers${Q}:$offer}}")
