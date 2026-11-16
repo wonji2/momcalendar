@@ -1,10 +1,18 @@
 # ORDER — 무토큰 카드뉴스 파이프라인 (배치 생성 + 스탭 승인 게이트)
 
-작성 2026-11-16 (월) · 자비스 · 기준 커밋 `origin/main` 최신 (2026-11-16 15:20 KST)
+작성 2026-11-16 (월) · 자비스 · 기준 커밋 `cacb6d49`(main) 위에 오더·시드 커밋 `2241cec1`으로 올림
 대상 저장소 `wonji2/momcalendar` · 작업자 = 클로드 코드
 관련 문서 `orders/ORDER_STAFF_CARDNEWS.md`(다운로드 화면 최초 설계), `orders/ORDER_STAFF_CARDNEWS_PROMOTE.md`(staff_test → 라이브 반영)
 
 ---
+
+## 실행 명령 (길아 님이 클로드 코드에 붙여넣는 1줄)
+
+```
+claude "orders/ORDER_CARDNEWS_PIPELINE.md 읽고 §2~§9 그대로 구현한 뒤 §11 검증 V1~V12 실제로 돌려서 표로 보고해"
+```
+
+레포 루트에서 실행한다. 이 오더의 최종 기준 문서는 이 파일 하나다(디자인·캡션·승인 규칙 전부 여기 들어 있음).
 
 ## 0. 한 줄 요약
 
