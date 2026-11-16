@@ -11081,7 +11081,7 @@ function renderMypage(){
   var p=notiPrefs(), on=MY_KINDS.filter(function(x){ return p[x[0]]; }).length; g("myNotiSub").textContent=on===MY_KINDS.length?"모두 켬":on===0?"모두 끔":on+"개 켬";
   var paintAtt=function(){ var d=inn?_myAtt:null; g("myDesc").textContent=!inn?"":(d?"출석 "+d.month_days+"일 · 연속 "+d.streak+"일":"로그인됨"); g("myAttStat").textContent=d?(d.checked_today?"출첵완료":"출석하기"):"출석"; };
   paintAtt();
-  if(inn && Date.now()-_myAttAt>15000){ _myAttAt=Date.now(); try{ memberRpc("member_attendance").then(function(d){ if(d && d.ok){ _myAtt=d; try{ paintAtt(); }catch(_){} } }); }catch(_){} }
+  if(inn && g("mypageWrap").offsetParent!==null && Date.now()-_myAttAt>15000){ _myAttAt=Date.now(); try{ memberRpc("member_attendance").then(function(d){ if(d && d.ok){ _myAtt=d; try{ paintAtt(); }catch(_){} } }); }catch(_){} }
 }
 // 키워드 화면·출석 시트를 닫으면 숫자를 다시 그린다
 document.addEventListener("click", function(e){ try{ if(document.body.getAttribute("data-ct")!=="mypage") return; var t=e.target; if(t && t.closest && (t.closest("#notiCenterSheet")||t.closest("#infoSheet"))){ _myAttAt=0; setTimeout(renderMypage, 400); } }catch(_){} }, true);
