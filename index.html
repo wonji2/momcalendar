@@ -10129,9 +10129,12 @@ window._nvPaint=function(){
   if(have) return;
   var t=document.createElement('div'); t.innerHTML=NV_BTN; bx.appendChild(t.firstChild);   // 순서: 카카오 → 애플(아이폰) → 네이버
 };
+function _nvWhere(){ try{ if(/[?&]e2e=nv(&|$)/.test(location.search)) return 'e2e'; if(!isApp()) return 'web'; var p=(window.Capacitor && Capacitor.getPlatform) ? Capacitor.getPlatform() : ''; return p==='ios' ? 'app_ios' : (p==='android' ? 'app_android' : 'app'); }catch(_){ return 'web'; } }   // 네이버 로그인 기록에 어디서 눌렀는지(2026-11-16 — 아이폰만 따로 지켜보려고)
+// 앱 자동 시험(ios-sim-check): 주소에 ?e2e=nv 가 있으면 7초 뒤 네이버 로그인을 시작해 네이버 화면이 앱 안에서 열리는지 본다. 손님 주소에는 이 값이 없다
+try{ if(/[?&]e2e=nv(&|$)/.test(location.search) && isApp()) setTimeout(function(){ try{ console.log('E2E|nv_start|1|'); window.startNaverLogin(); }catch(e){ console.log('E2E|nv_start|0|'+String(e).slice(0,60)); } }, 7000); }catch(_){}
 window.startNaverLogin=function(){
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); localStorage.setItem('mc_login_intent', window.__loginIntent||''); localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname, v:'naver'})); }catch(_){}
-  try{ trackEvent('naver_login_start', isApp()?'app':'web'); }catch(_){}
+  try{ trackEvent('naver_login_start', _nvWhere()); }catch(_){}
   var st='nv_'+_kkoRand(16);   // 네이버 보안 권장: 추측 못 하는 state — 돌아온 값과 대조(로그인 CSRF 방지)
   try{ localStorage.setItem('mc_nv_state', JSON.stringify({s:st,at:Date.now()})); }catch(_){ toast('로그인을 시작하지 못했어요'); return; }
   location.href='https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id='+encodeURIComponent(NV_CLIENT_ID)+'&redirect_uri='+encodeURIComponent(kkoRedirect())+'&state='+encodeURIComponent(st);
@@ -10155,7 +10158,7 @@ window.startNaverLogin=function(){
       try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:'naver'})); }catch(_){}
       try{ localStorage.removeItem('mc_login_fail'); localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}
       try{ if(typeof reloginStripHide==='function') reloginStripHide(); }catch(_){}
-      try{ trackEvent('naver_login_done',''); }catch(_){}
+      try{ trackEvent('naver_login_done', _nvWhere()); }catch(_){}
       try{ if(typeof paintMemberUI==='function') paintMemberUI(); }catch(_){}
       setTimeout(function(){ try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){} },1200);   // 첫 화면이 그려진 뒤에 동기화(렉 방지)
       var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}

@@ -112,6 +112,43 @@ jobs:
           open('sim-out/report.md','w',encoding='utf-8').write(md); print(md)
           raise SystemExit(1 if fail else 0)
           PY
+      - name: 네이버 로그인 화면이 앱 안에서 열리는가 (2026-11-16 사장님 「니가 계속 지켜봐 나 아이폰없어」)
+        # 아이폰 앱의 네이버 버튼은 스토어 1.0.1 부터 뜬다. 네이버 화면(nid.naver.com)이 앱 안에서 안 열리고 사파리로 튀면 로그인이 앱에 안 남는다.
+        #   사이트를 ?e2e=nv 로 띄우면 7초 뒤 스스로 네이버 로그인을 시작한다(index.html _nvWhere 옆). 30초 뒤 사파리가 떠 있으면 실패.
+        #   앱 안 이동 허용 목록(capacitor.config.json allowNavigation)은 스토어 빌드와 같은 파일이다. 실패하면 서버 health_alerts 'ios:네이버로그인' 에 남긴다(통과하면 지운다).
+        if: always()
+        continue-on-error: true
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 -c "import json,os;p=os.environ['APP_PATH']+'/capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/?e2e=nv';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          xcrun simctl terminate "$UDID" "$BID" || true
+          xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+          xcrun simctl install "$UDID" "$APP_PATH"
+          export SIMCTL_CHILD_NSUnbufferedIO=YES
+          xcrun simctl launch --terminate-running-process --stdout="$PWD/sim-out/nv_console.txt" --stderr="$PWD/sim-out/nv_console_err.txt" "$UDID" "$BID" || true
+          sleep 30
+          xcrun simctl io "$UDID" screenshot sim-out/05_naver.png || true
+          SAF=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "com.apple.mobilesafari" || true)
+          ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
+          xcrun simctl spawn "$UDID" log show --last 1m --style compact --predicate 'process == "App"' > sim-out/nv_app_log.txt 2>/dev/null || true
+          STARTED=$(cat sim-out/nv_console.txt sim-out/nv_console_err.txt sim-out/nv_app_log.txt 2>/dev/null | grep -c "E2E|nv_start|1" || true)
+          RES=ok; WHY=""
+          if [ "${ALIVE:-0}" = "0" ]; then RES=fail; WHY="앱이 꺼졌다"; fi
+          if [ "${SAF:-0}" != "0" ]; then RES=fail; WHY="네이버 화면이 사파리로 넘어갔다"; fi
+          if [ "${STARTED:-0}" = "0" ] && [ "$RES" = "ok" ]; then RES=unknown; WHY="시작 기록이 없다(사이트가 네이버 로그인을 시작했는지 모름)"; fi
+          echo "nv_inapp=$RES safari=$SAF alive=$ALIVE started=$STARTED $WHY" | tee sim-out/naver.txt
+          echo "### 네이버 로그인 화면이 앱 안에서 열리는가: $RES (사파리 $SAF · 앱 $ALIVE · 시작 기록 $STARTED) $WHY" >> "$GITHUB_STEP_SUMMARY"
+          # 다음 단계(Maestro)를 위해 주소는 그 단계가 다시 바꾼다. 서버에 결과를 남긴다(키는 환경변수로만)
+          if [ -n "$SB_KEY" ]; then
+            U=https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/health_alerts
+            curl -s -o /dev/null -X DELETE "$U?kind=eq.ios:%EB%84%A4%EC%9D%B4%EB%B2%84%EB%A1%9C%EA%B7%B8%EC%9D%B8" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" || true
+            if [ "$RES" != "ok" ]; then
+              python3 -c "import json,os,sys;print(json.dumps({'kind':'ios:네이버로그인','detail':'아이폰 시뮬레이터: '+sys.argv[1]+' — '+sys.argv[2]+' (ios-sim-check 실행 '+os.environ.get('GITHUB_RUN_ID','')+', 사파리로 넘어간 것이면 index.html nvAvail 의 ios 를 끈다)'},ensure_ascii=False))" "$RES" "$WHY" > sim-out/nv_alert.json
+              curl -s -o /dev/null -X POST "$U" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" --data-binary @sim-out/nv_alert.json || true
+            fi
+          fi
+          [ "$RES" = "ok" ]
       - name: Maestro 화면 시험 (.maestro/ — 처음엔 결과만 남기고 판정은 안 막음)
         if: always()
         continue-on-error: true
