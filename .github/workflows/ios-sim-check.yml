@@ -133,11 +133,15 @@ jobs:
           ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
           xcrun simctl spawn "$UDID" log show --last 1m --style compact --predicate 'process == "App"' > sim-out/nv_app_log.txt 2>/dev/null || true
           STARTED=$(cat sim-out/nv_console.txt sim-out/nv_console_err.txt sim-out/nv_app_log.txt 2>/dev/null | grep -c "E2E|nv_start|1" || true)
+          # 네이버 화면을 눈으로 확인하는 대신 캡처로: 위쪽 우리 머리띠(보라)가 사라지고, 화면에 네이버 초록(로그인 단추·로고)이 보여야 한다(Codex 지적 2026-11-16 — 사파리가 안 뜬 것만으로는 통과가 아니다)
+          pip3 install --quiet --break-system-packages pillow >/dev/null 2>&1 || pip3 install --quiet pillow >/dev/null 2>&1 || true
+          SEEN=$(python3 -c "from PIL import Image;im=Image.open('sim-out/05_naver.png').convert('RGB');w,h=im.size;band=[im.getpixel((x,y)) for y in range(int(h*0.06),int(h*0.12),6) for x in range(20,w-20,40)];pur=sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200);grn=sum(1 for y in range(0,h,8) for x in range(0,w,8) if (lambda r,g,b: g>170 and r<80 and b<140 and g-r>110)(*im.getpixel((x,y))));print('1' if (pur < len(band)*0.1 and grn >= 6) else '0', pur, len(band), grn)" 2>/dev/null || echo "0 err")
           RES=ok; WHY=""
           if [ "${ALIVE:-0}" = "0" ]; then RES=fail; WHY="앱이 꺼졌다"; fi
           if [ "${SAF:-0}" != "0" ]; then RES=fail; WHY="네이버 화면이 사파리로 넘어갔다"; fi
           if [ "${STARTED:-0}" = "0" ] && [ "$RES" = "ok" ]; then RES=unknown; WHY="시작 기록이 없다(사이트가 네이버 로그인을 시작했는지 모름)"; fi
-          echo "nv_inapp=$RES safari=$SAF alive=$ALIVE started=$STARTED $WHY" | tee sim-out/naver.txt
+          if [ "${SEEN%% *}" != "1" ] && [ "$RES" = "ok" ]; then RES=unknown; WHY="캡처에서 네이버 화면을 못 봤다($SEEN)"; fi
+          echo "nv_inapp=$RES safari=$SAF alive=$ALIVE started=$STARTED seen=$SEEN $WHY" | tee sim-out/naver.txt
           echo "### 네이버 로그인 화면이 앱 안에서 열리는가: $RES (사파리 $SAF · 앱 $ALIVE · 시작 기록 $STARTED) $WHY" >> "$GITHUB_STEP_SUMMARY"
           # 다음 단계(Maestro)를 위해 주소는 그 단계가 다시 바꾼다. 서버에 결과를 남긴다(키는 환경변수로만)
           if [ -n "$SB_KEY" ]; then

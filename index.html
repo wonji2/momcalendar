@@ -10136,7 +10136,7 @@ window.startNaverLogin=function(){
   try{ localStorage.setItem('mc_login_from', location.pathname+location.search); localStorage.setItem('mc_login_intent', window.__loginIntent||''); localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname, v:'naver'})); }catch(_){}
   try{ trackEvent('naver_login_start', _nvWhere()); }catch(_){}
   var st='nv_'+_kkoRand(16);   // 네이버 보안 권장: 추측 못 하는 state — 돌아온 값과 대조(로그인 CSRF 방지)
-  try{ localStorage.setItem('mc_nv_state', JSON.stringify({s:st,at:Date.now()})); }catch(_){ toast('로그인을 시작하지 못했어요'); return; }
+  try{ localStorage.setItem('mc_nv_state', JSON.stringify({s:st,at:Date.now(),w:_nvWhere()})); }catch(_){ toast('로그인을 시작하지 못했어요'); return; }
   location.href='https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id='+encodeURIComponent(NV_CLIENT_ID)+'&redirect_uri='+encodeURIComponent(kkoRedirect())+'&state='+encodeURIComponent(st);
 };
 // 네이버에서 돌아왔을 때(?code&state=nv_…) — 카카오 처리 코드는 nv_ 를 만나면 return 하므로 여기서 따로 받는다
@@ -10158,7 +10158,7 @@ window.startNaverLogin=function(){
       try{ localStorage.setItem('mc_member', JSON.stringify({kakao_id:d.kakao_id, nickname:d.nickname||'', token:d.token||'', provider:'naver'})); }catch(_){}
       try{ localStorage.removeItem('mc_login_fail'); localStorage.removeItem('mc_relogin_done'); localStorage.removeItem('mc_withdrawn'); }catch(_){}
       try{ if(typeof reloginStripHide==='function') reloginStripHide(); }catch(_){}
-      try{ trackEvent('naver_login_done', _nvWhere()); }catch(_){}
+      try{ trackEvent('naver_login_done', (want && want.w) || _nvWhere()); }catch(_){}   // 시작할 때 적어 둔 곳 그대로(자동 시험 e2e 가 진짜 완료로 세이지 않게)
       try{ if(typeof paintMemberUI==='function') paintMemberUI(); }catch(_){}
       setTimeout(function(){ try{ syncWishFromServer(); if(typeof saleWSync==='function') saleWSync(); if(typeof liveWSync==='function') liveWSync(); }catch(_){} },1200);   // 첫 화면이 그려진 뒤에 동기화(렉 방지)
       var back=null; try{ back=localStorage.getItem('mc_login_from'); }catch(_){}
