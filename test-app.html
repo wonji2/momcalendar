@@ -1268,10 +1268,7 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
 <div id="kkoSheet" style="position:fixed;left:50%;transform:translateX(-50%);width:min(480px,100%);bottom:-110%;background:#fff;border-radius:22px 22px 0 0;padding:24px 20px calc(26px + env(safe-area-inset-bottom));z-index:9993;transition:bottom .32s cubic-bezier(.4,0,.2,1)">
   <div style="width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#FF9DC0,#7C54C4);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 5px 16px rgba(123,63,181,.28)">💜</div>
   <div id="kkoTitle" style="font-size:16.5px;font-weight:800;text-align:center;margin-bottom:7px;color:#232326">찜한 공구, 안전하게 보관할까요?</div>
-  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.7;margin-bottom:18px">
-    지금은 <b style="color:#7C54C4">이 기기에만</b> 저장돼요<br>
-    카카오·네이버로 시작하면 폰을 바꿔도 찜이 그대로예요
-  </div>
+  <div id="kkoSub" style="font-size:12.5px;color:#888;text-align:center;line-height:1.7;margin-bottom:18px"></div>
   <style>#kkoBtns>button{height:52px;box-sizing:border-box}</style>
   <div id="kkoBtns">
   <button data-kko-main onclick="startKakaoLogin()" style="width:100%;background:#FEE500;color:#191919;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px">
@@ -1279,9 +1276,10 @@ document.addEventListener('click', function(e){ if(e.target && (e.target.id==='a
   </button>
   <button data-nv-main onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="font-size:15px;font-weight:900;font-family:Arial,sans-serif;line-height:1">N</span> 네이버로 3초 만에 시작</button>
   </div>
-  <div id="kkoLegal" style="font-size:12px;color:#8B95A1;text-align:center;line-height:1.5;margin:6px 0 10px;word-break:keep-all">로그인하면 <a href="terms.html" style="display:inline-block;padding:6px 0;color:#4E5968;text-decoration:underline">이용약관</a>, <a href="privacy.html" style="display:inline-block;padding:6px 0;color:#4E5968;text-decoration:underline">개인정보처리방침</a>에 동의하게 돼요<br>만 14세 이상만 가입할 수 있어요</div>
   <button onclick="kkoLater()" style="width:100%;background:none;border:1px solid #EDE7F5;border-radius:13px;color:#8A8194;font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer;padding:12px;min-height:44px">나중에 할게요</button>
-  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px">카카오·네이버 별명과 회원번호만 받아요. 로그인 안 해도 찜은 계속 쓸 수 있어요</div>
+  <div id="kkoFine" style="font-size:10.5px;color:#b5adc4;text-align:center;line-height:1.6;margin-top:10px"></div>
+  <div id="kkoLegal" style="font-size:10.5px;color:#B0B8C1;text-align:center;line-height:1;margin-top:8px"><a href="terms.html" style="display:inline-block;padding:8px 5px;color:#B0B8C1;text-decoration:none">이용약관</a><a href="privacy.html" style="display:inline-block;padding:8px 5px;color:#B0B8C1;text-decoration:none">개인정보처리방침</a><span style="display:inline-block;padding:8px 5px">만 14세 이상</span></div>
+  <style>#kkoSub:empty,#kkoFine:empty{display:none!important}#kkoTitle{margin-bottom:18px!important}#kkoSub{margin-top:-11px}</style>
 </div>
 
 <!-- 🔥 핫딜 근거 시트 (가격 추이 그래프) -->
@@ -5583,8 +5581,8 @@ function kkoInit(){ try{ if(window.Kakao && !Kakao.isInitialized()) Kakao.init(K
 
 // 기능별로 로그인 이유를 다르게 보여준다 (그냥 "로그인하세요"보다 전환이 잘 됨)
 var KKO_DEFAULT_T='찜한 공구, 안전하게 보관할까요?';
-var KKO_DEFAULT_S='지금은 <b style="color:#7C54C4">이 기기에만</b> 저장돼요<br>카카오·네이버로 시작하면 폰을 바꿔도 찜이 그대로예요';
-var KKO_DEFAULT_F='닉네임만 받아요 · 로그인 안 해도 찜은 계속 쓸 수 있어요';
+var KKO_DEFAULT_S='';   // 설명 문장 없음(사장님 2026-11-16 「쓸데없는 멘트 다 지우고」)
+var KKO_DEFAULT_F='';
 function openLoginSheet(title, sub, fine, intent){
   window.__loginIntent = intent || '';        // 로그인 끝나고 돌아왔을 때 이어서 할 일
   var m=document.getElementById('kkoSheet'), bg=document.getElementById('kkoBg');
