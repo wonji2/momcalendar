@@ -118,4 +118,4 @@ grant execute on function public.widget_feed(text) to anon, authenticated;
 
 select public.widget_feed_refresh();
 select cron.unschedule('widget-feed-cache') where exists (select 1 from cron.job where jobname = 'widget-feed-cache');
-select cron.schedule('widget-feed-cache', '*/5 * * * *', $c$select public.widget_feed_refresh()$c$);
+select cron.schedule('widget-feed-cache', '2-59/5 * * * *', $c$select public.widget_feed_refresh()$c$);
