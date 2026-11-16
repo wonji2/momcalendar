@@ -10226,7 +10226,7 @@ window.__mcAppIn=function(){ try{ return isApp() && isLoggedIn(); }catch(_){ ret
 // 🔴 네이버 로그인 잠금(2026-11-10): 앱에서 30일 95번 눌렀는데 완료 4번·최근 7일 0번(가입 1명) — 네이버 개발자센터 앱이 「개발 중」이라 일반 사용자는 막히는 것으로 추정. 검수 통과를 확인하면 NAVER_LOGIN_OPEN=true. 시험은 ?nv=1
 var NAVER_LOGIN_OPEN=true;   // 2026-11-11 네이버 개발자센터 검수 「승인」 메일 확인(사장님) → 잠금 해제
 function _nvOpen(){ try{ return NAVER_LOGIN_OPEN || /[?&]nv=1/.test(location.search); }catch(_){ return false; } }
-function nvAvail(){ try{ if(!_nvOpen()) return false; return isApp() && window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'; }catch(_){ return false; } }
+function nvAvail(){ try{ if(!_nvOpen()) return false; if(!isApp()) return true;   /* 웹도 버튼(2026-11-16 사장님) — 같은 콜백 주소로 돌아온다 */ return !!(window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform()==='android'); }catch(_){ return false; } }
 var NV_FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/naver-auth';
 var NV_CLIENT_ID='b7KajUAIzrC4cfBxr6zO';   // OAuth client_id 는 공개값(시크릿은 서버 naver-auth 에만)
 var NV_BTN='<button data-nv-main type="button" onclick="startNaverLogin()" style="width:100%;background:#03C75A;color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px"><span style="font-size:17px">💚</span> 네이버로 시작하기</button>';
