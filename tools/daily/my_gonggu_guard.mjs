@@ -57,8 +57,10 @@ const WINDOW = `
 with mine as (
   select id, name, open_date, end_date,
          lower(regexp_replace(name, '[^가-힣a-z0-9]', '', 'g')) k,
-         lower(split_part(btrim(name), ' ', 1)) brand
-    from public.gonggu where insta = 'momcal_' and approved
+         lower(split_part(btrim(name), ' ', 1)) brand,
+         r.item_re, r.from_date, r.to_date
+    from public.gonggu g0 left join public.own_window_item_rule r on r.mine_id = g0.id
+   where insta = 'momcal_' and approved
 ),
 o as materialized (
   select id, influencer, name, open_date, end_date,
@@ -70,16 +72,20 @@ o as materialized (
 )
 select o.id, o.influencer, o.name, o.open_date, o.end_date,
        m.name mine_name, m.open_date mine_open, m.end_date mine_end,
-       case when o.k = m.k then 'exact' else 'brand' end kind
+       case when o.k = m.k then 'exact' when m.item_re is not null then 'item' else 'brand' end kind
   from mine m
   join o
     on (o.k = m.k or (length(m.brand) >= 3 and o.ln like m.brand || '%'))
    and o.open_date >= to_char(m.open_date::date - 14, 'YYYY-MM-DD')
    and o.open_date <= m.end_date
+   -- 품목 예외(own_window_item_rule, 2026-11-17 사장님 「로지오가닉은 배도라지 품목만 내 공구 기간 동안 숨김」):
+   --   줄이 있는 내 공구는 그 품목이고 기간이 겹치는 행만 본다 — 같은 브랜드의 다른 품목(떡뻥·퓨레)은 경보에도 안 올린다
+   and (m.item_re is null or o.k = m.k
+        or (o.name ~* m.item_re and o.open_date <= m.to_date and coalesce(nullif(o.end_date,''), o.open_date) >= m.from_date))
  order by o.open_date;`;
 
 const rows = q(WINDOW);
-const exact = rows.filter((r) => r.kind === 'exact');
+const exact = rows.filter((r) => r.kind === 'exact' || r.kind === 'item');   // item = 품목 예외 줄에 맞는 행(브랜드+품목) — 완전일치처럼 내린다
 const brand = rows.filter((r) => r.kind === 'brand');
 const stamp = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const head = `[${stamp}] 노출중 창 안 ${rows.length}건 — 완전일치 ${exact.length} · 브랜드만 ${brand.length}`;
@@ -92,7 +98,9 @@ for (const r of rows) {
 if (exact.length && !DRY) {
   const ids = exact.map((r) => r.id).join(',');
   const done = q(`update public.gonggu set approved = false where id in (${ids}) and approved returning id;`);
-  console.log(`🔴 완전일치 ${done.length}건을 내렸다 (approved=false · 창이 지나면 되살릴 수 있다)`);
+  console.log(`🔴 완전일치·품목 ${done.length}건을 내렸다 (approved=false · 창이 지나면 되살릴 수 있다)`);
+  const itemIds = exact.filter((r) => r.kind === 'item').map((r) => r.id);
+  if (itemIds.length) q(`insert into public.gonggu_hold(id, reason) select g.id, '규칙 0-M 품목 예외 — 내 공구 기간 동안 같은 브랜드·같은 품목 비노출(own_window_item_rule)' from public.gonggu g where g.id in (${itemIds.join(',')}) and g.insta is distinct from 'momcal_' on conflict (id) do nothing returning id;`);
 }
 // 브랜드만 같은 것은 **사람이 봐야 한다** — 다른 물건일 수 있다
 if (brand.length && !DRY) {
