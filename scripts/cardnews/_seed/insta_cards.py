@@ -63,7 +63,7 @@ def dt_right(draw, y, text, fnt, fill, tr=-0.02, margin=80):
 def fit_size(draw, text, path, size, max_w, tr=-0.02):
     """shrink until it fits max_w"""
     s = size
-    while s > 40:
+    while s > 18:
         f = font(path, s)
         if tw(draw, text, f, tr) <= max_w:
             return f
@@ -133,21 +133,21 @@ def cover_photo(bg_path, lead, l1, l2, accent, out_path, dark_text=True, sub="�
     img = Image.alpha_composite(bg, ov).convert("RGB")
     d = ImageDraw.Draw(img)
     logo(d, dark=True)
-    dt(d, (80, 114), "공구 · 핫딜 · 세일 · 육아정보 커뮤니티 맘캘린더", font(F_BLD, 32), WHITE, -0.02)
-    date_pill(d, dark=True)
+    f_tag = fit_size(d, "공구 · 핫딜 · 세일 · 육아정보 커뮤니티 맘캘린더", F_BLD, 36, W - 160)
+    dt(d, (80, 114), "공구 · 핫딜 · 세일 · 육아정보 커뮤니티 맘캘린더", f_tag, WHITE, -0.02)
 
     # @dorimomnurse editorial style: left-aligned, crisp text, muted pastel accent, thin rule
     x = 80
-    y_lead = 690
-    f_lead = fit_size(d, lead, F_BLD, 48, W - 160)
+    y_lead = 675
+    f_lead = fit_size(d, lead, F_BLD, 54, W - 160)
     dt(d, (x, y_lead), lead, f_lead, (238, 240, 244), -0.02)
 
-    y1 = y_lead + 68
-    f1 = fit_size(d, l1, F_EXB, 118, W - 160)
+    y1 = y_lead + 74
+    f1 = fit_size(d, l1, F_EXB, 122, W - 160)
     _dt_stroke(d, x, y1, l1, f1, WHITE, tr=-0.035)
 
     y2 = y1 + int(f1.size * 1.12)
-    f2 = fit_size(d, l2, F_EXB, 118, W - 160)
+    f2 = fit_size(d, l2, F_EXB, 122, W - 160)
     # Toned-down trendy pastel (mint / warm peach) like @dorimomnurse & @kkiri.home
     pastel = (128, 212, 206) if accent == CORAL else (243, 196, 184)
     _dt_stroke(d, x, y2, l2, f2, pastel, tr=-0.035)
@@ -155,7 +155,8 @@ def cover_photo(bg_path, lead, l1, l2, accent, out_path, dark_text=True, sub="�
     # Thin editorial rule + clear readable sub-line
     y_rule = y2 + int(f2.size * 1.15) + 24
     d.line([(x, y_rule), (W - 80, y_rule)], fill=(255, 255, 255, 110), width=2)
-    dt(d, (x, y_rule + 24), sub, font(F_BLD, 34), (225, 228, 234), -0.02)
+    f_sub = fit_size(d, sub, F_BLD, 40, W - 160)
+    dt(d, (x, y_rule + 24), sub, f_sub, (225, 228, 234), -0.02)
 
     img.save(out_path, quality=95)
     return out_path
@@ -212,9 +213,11 @@ def chrome(d, page, total, footer=DATE, dark=False):
     line = DARK_LINE if dark else LINE_GRAY
     sub = (140, 140, 145) if dark else LIGHT_GRAY
     logo(d, dark=dark)
+    tag = "공구 · 핫딜 · 육아정보 · 맘캘린더"
+    ftag = font(F_MED, 21)
+    dt_right(d, 74, tag, ftag, (175, 175, 180) if dark else (150, 148, 145))
     d.line([(80, 118), (W - 80, 118)], fill=line, width=1)
     d.line([(80, H - 118), (W - 80, H - 118)], fill=line, width=1)
-    dt(d, (80, H - 88), footer, font(F_MED, 24), sub)
     pg = f"{page}/{total}"
     pw = tw(d, pg, font(F_MED, 24))
     dt(d, (W - 80 - pw, H - 88), pg, font(F_MED, 24), sub)
@@ -254,10 +257,10 @@ def info_card(out_path, page, total, label, title, rows, accent, tint,
     chrome(d, page, total, footer, dark)
 
     y = label_box(d, label, accent, tint, dark)
-    y += 34
+    y += 38
     f_title = fit_size(d, title, F_EXB, 60, W - 160)
     dt(d, (80, y), title, f_title, ink)
-    y += 96
+    y += 124
 
     def _h(r):
         t = r['t']
@@ -341,7 +344,7 @@ def info_card(out_path, page, total, label, title, rows, accent, tint,
     if bridge:
         d.line([(80, H - 200), (W - 80, H - 200)], fill=line, width=1)
         f = fit_size(d, bridge, F_BLD, 32, W - 160)
-        dt(d, (80, H - 168), bridge, f, accent)
+        dt(d, (80, H - 175), bridge, f, accent)
     img.save(out_path, quality=95)
     return y
 
@@ -431,14 +434,25 @@ def visual_grid_card(out_path, page_num, total_pages, label, title, items, accen
 def ending(out_path):
     img = Image.new("RGB", (W, H), WHITE)
     d = ImageDraw.Draw(img)
-    cx, cy = W // 2, 400
-    d.rounded_rectangle([cx - 32, cy - 28, cx + 32, cy + 32], radius=10, outline=INK, width=2)
-    d.line([(cx - 32, cy - 8), (cx + 32, cy - 8)], fill=INK, width=2)
-    d.line([(cx - 14, cy - 36), (cx - 14, cy - 22)], fill=INK, width=2)
-    d.line([(cx + 14, cy - 36), (cx + 14, cy - 22)], fill=INK, width=2)
-    d.ellipse([cx - 5, cy + 7, cx + 5, cy + 17], fill=PURPLE)
+    cx = W // 2
+    logo_path = os.path.join(os.path.dirname(__file__), "momcal-channel-640.png")
+    if not os.path.exists(logo_path):
+        logo_path = "scratchpad/momcal-channel-640.png"
+    if os.path.exists(logo_path):
+        sz = 140
+        lg = Image.open(logo_path).convert("RGBA").resize((sz, sz), Image.Resampling.LANCZOS)
+        mask = Image.new("L", (sz, sz), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, sz, sz], radius=32, fill=255)
+        img.paste(lg, (cx - sz // 2, 305), mask)
+    else:
+        cy = 390
+        d.rounded_rectangle([cx - 32, cy - 28, cx + 32, cy + 32], radius=10, outline=INK, width=2)
+        d.line([(cx - 32, cy - 8), (cx + 32, cy - 8)], fill=INK, width=2)
+        d.line([(cx - 14, cy - 36), (cx - 14, cy - 22)], fill=INK, width=2)
+        d.line([(cx + 14, cy - 36), (cx + 14, cy - 22)], fill=INK, width=2)
+        d.ellipse([cx - 5, cy + 7, cx + 5, cy + 17], fill=PURPLE)
 
-    dtc(d, 470, "육아맘이 매일 1분 만에 챙기는", font(F_MED, 34), GRAY)
+    dtc(d, 480, "육아맘이 매일 1분 만에 챙기는", font(F_MED, 34), GRAY)
     dtc(d, 528, "공구 · 세일 · 육아 정보", font(F_EXB, 56), INK)
     d.line([(W // 2 - 60, 640), (W // 2 + 60, 640)], fill=LINE_GRAY, width=1)
     dtc(d, 686, "M O M C A L   M A G A Z I N E", font(F_MED, 26), LIGHT_GRAY, 0.02)
@@ -454,6 +468,216 @@ def ending(out_path):
     img.save(out_path, quality=95)
 
 
+# ---------------- timeline card (vertical step flow) ----------------
+def timeline_card(out_path, page, total, label, title, steps, accent, tint,
+                  bridge=None, footer=DATE):
+    img = Image.new("RGB", (W, H), BG_WARM)
+    d = ImageDraw.Draw(img)
+    chrome(d, page, total, footer, False)
+    y = label_box(d, label, accent, tint, False) + 38
+    f_title = fit_size(d, title, F_EXB, 60, W - 160)
+    dt(d, (80, y), title, f_title, INK)
+    y += 130
+
+    n = len(steps)
+    limit = H - 236 if bridge else H - 180
+    step_h = (limit - y) // max(1, n)
+    cx = 112
+    # Vertical connector line
+    if n > 1:
+        d.line([(cx, y + 28), (cx, y + (n - 1) * step_h + 28)], fill=(220, 214, 206), width=4)
+
+    for i, st in enumerate(steps):
+        sy = y + i * step_h
+        # Circle badge
+        r = 28
+        fill_c = accent if i == 0 else WHITE
+        txt_c = WHITE if i == 0 else accent
+        d.ellipse([cx - r, sy, cx + r, sy + r * 2], fill=fill_c, outline=accent, width=3)
+        f_num = font(F_EXB, 26)
+        nw = tw(d, f"0{i+1}", f_num)
+        dt(d, (cx - nw // 2, sy + 14), f"0{i+1}", f_num, txt_c)
+
+        # Card box on the right
+        bx1, bx2 = 172, W - 80
+        by2 = sy + step_h - 22
+        d.rounded_rectangle([bx1, sy - 6, bx2, by2], radius=18, fill=WHITE, outline=(232, 227, 220), width=2)
+        if st.get("tag"):
+            ftg = font(F_BLD, 24)
+            dt_right(d, sy + 18, st["tag"], ftg, accent, margin=108)
+        fh = fit_size(d, st["head"], F_BLD, 38, bx2 - bx1 - 190)
+        dt(d, (bx1 + 28, sy + 14), st["head"], fh, INK)
+        fd = fit_size(d, st["desc"], F_MED, 30, bx2 - bx1 - 76)
+        dt(d, (bx1 + 28, sy + 72), st["desc"], fd, GRAY)
+
+    if bridge:
+        d.line([(80, H - 200), (W - 80, H - 200)], fill=LINE_GRAY, width=1)
+        dt(d, (80, H - 175), bridge, fit_size(d, bridge, F_BLD, 32, W - 160), accent)
+    img.save(out_path, quality=95)
+
+
+# ---------------- table card (@kokoko_3sis 2-col table style) ----------------
+def table_card(out_path, page, total, label, title, rows, accent, tint,
+               note=None, bridge=None, footer=DATE, rh_max=176):
+    img = Image.new("RGB", (W, H), BG_WARM)
+    d = ImageDraw.Draw(img)
+    chrome(d, page, total, footer, False)
+    y = label_box(d, label, accent, tint, False) + 38
+    f_title = fit_size(d, title, F_EXB, 60, W - 160)
+    dt(d, (80, y), title, f_title, INK)
+    y += 126
+
+    tx1, tx2 = 80, W - 80
+    lw = 270
+    n = len(rows)
+    avail_h = (H - 280 if note else H - 230) - y
+    rh = min(rh_max, max(128, avail_h // max(1, n)))
+
+    # Outer border
+    table_h = rh * n
+    d.rounded_rectangle([tx1, y, tx2, y + table_h], radius=18, fill=WHITE, outline=(224, 219, 212), width=2)
+    # Left tinted column background
+    d.rounded_rectangle([tx1, y, tx1 + lw, y + table_h], radius=18, fill=(244, 241, 236))
+    d.rectangle([tx1 + lw - 18, y, tx1 + lw, y + table_h], fill=(244, 241, 236))
+
+    for i, r in enumerate(rows):
+        ry = y + i * rh
+        if i > 0:
+            d.line([(tx1, ry), (tx2, ry)], fill=(230, 226, 220), width=2)
+        # Left label centered vertically
+        fl = fit_size(d, r["left"], F_BLD, 32, lw - 36)
+        l_w = tw(d, r["left"], fl)
+        dt(d, (tx1 + (lw - l_w) // 2, ry + (rh - 34) // 2), r["left"], fl, INK)
+
+        # Right main + sub
+        rx = tx1 + lw + 32
+        rw = tx2 - rx - 24
+        main_col = accent if i == 0 else INK
+        fm = fit_size(d, r["right"], F_EXB, 34, rw)
+        if r.get("sub"):
+            dt(d, (rx, ry + rh // 2 - 42), r["right"], fm, main_col)
+            fs = fit_size(d, r["sub"], F_MED, 28, rw)
+            dt(d, (rx, ry + rh // 2 + 8), r["sub"], fs, GRAY)
+        else:
+            dt(d, (rx, ry + (rh - 36) // 2), r["right"], fm, main_col)
+
+    if note:
+        dt(d, (80, y + table_h + 32), note, fit_size(d, note, F_MED, 29, W - 160), GRAY)
+
+    if bridge:
+        d.line([(80, H - 200), (W - 80, H - 200)], fill=LINE_GRAY, width=1)
+        dt(d, (80, H - 175), bridge, fit_size(d, bridge, F_BLD, 32, W - 160), accent)
+    img.save(out_path, quality=95)
+
+
+# ---------------- 2x2 rounded cards grid ----------------
+def cards_grid_card(out_path, page, total, label, title, boxes, accent, tint,
+                    tip=None, bridge=None, footer=DATE):
+    img = Image.new("RGB", (W, H), BG_WARM)
+    d = ImageDraw.Draw(img)
+    chrome(d, page, total, footer, False)
+    y = label_box(d, label, accent, tint, False) + 38
+    f_title = fit_size(d, title, F_EXB, 60, W - 160)
+    dt(d, (80, y), title, f_title, INK)
+    y += 128
+
+    gap = 24
+    cw = (W - 160 - gap) // 2
+    ch = 330
+    for i, b in enumerate(boxes[:4]):
+        col = i % 2
+        row = i // 2
+        cx = 80 + col * (cw + gap)
+        cy = y + row * (ch + gap)
+        d.rounded_rectangle([cx, cy, cx + cw, cy + ch], radius=22, fill=WHITE, outline=(228, 223, 216), width=2)
+        # Number badge
+        num_txt = b.get("badge", f"0{i+1}")
+        fn = font(F_EXB, 26)
+        nw = tw(d, num_txt, fn)
+        d.rounded_rectangle([cx + 28, cy + 28, cx + 28 + nw + 28, cy + 72], radius=10, fill=tint)
+        dt(d, (cx + 42, cy + 36), num_txt, fn, accent)
+        # Head (up to 2 lines)
+        hy = cy + 98
+        for ln in b["head"].split("\n")[:2]:
+            fh = fit_size(d, ln, F_EXB, 38, cw - 56)
+            dt(d, (cx + 28, hy), ln, fh, INK)
+            hy += 48
+        # Desc lines
+        dy = cy + 212
+        for ln in b["desc"].split("\n")[:2]:
+            fd = fit_size(d, ln, F_MED, 28, cw - 56)
+            dt(d, (cx + 28, dy), ln, fd, GRAY)
+            dy += 38
+
+    if tip:
+        ty = y + ch * 2 + gap + 22
+        d.rounded_rectangle([80, ty, W - 80, ty + 88], radius=14, fill=tint)
+        f_tip = fit_size(d, tip, F_BLD, 28, W - 220)
+        dt(d, (110, ty + 29), tip, f_tip, accent)
+
+    if bridge:
+        d.line([(80, H - 200), (W - 80, H - 200)], fill=LINE_GRAY, width=1)
+        dt(d, (80, H - 175), bridge, fit_size(d, bridge, F_BLD, 32, W - 160), accent)
+    img.save(out_path, quality=95)
+
+
+# ---------------- editorial card (@dorimomnurse pastel + highlight + KEY POINT) ----------------
+def editorial_card(out_path, page, total, label, title_lines, body_paras, highlight,
+                   key_points, accent, tint, bridge=None, footer=DATE):
+    # Soft pastel tinted editorial background
+    bg_pastel = (250, 243, 241) if accent == CORAL else (242, 245, 248)
+    box_pastel = (242, 229, 225) if accent == CORAL else (228, 234, 240)
+    img = Image.new("RGB", (W, H), bg_pastel)
+    d = ImageDraw.Draw(img)
+    chrome(d, page, total, footer, False)
+
+    y = label_box(d, label, accent, WHITE, False) + 42
+    for ln in title_lines[:2]:
+        ft = fit_size(d, ln, F_EXB, 66, W - 160)
+        dt(d, (80, y), ln, ft, INK, -0.03)
+        y += 82
+    y += 18
+    # Short editorial rule
+    d.line([(80, y), (168, y)], fill=accent, width=5)
+    y += 48
+
+    # Body paragraphs with optional highlighter phrase
+    fb = font(F_MED, 36)
+    for para in body_paras:
+        if highlight and highlight in para:
+            pre, post = para.split(highlight, 1)
+            px = 80
+            if pre:
+                dt(d, (px, y), pre, fb, (55, 55, 60))
+                px += tw(d, pre, fb)
+            hw = tw(d, highlight, font(F_EXB, 36))
+            d.rectangle([px - 4, y + 6, px + hw + 6, y + 46], fill=(255, 232, 130))
+            dt(d, (px, y), highlight, font(F_EXB, 36), INK)
+            px += hw + 4
+            if post:
+                dt(d, (px, y), post, fb, (55, 55, 60))
+        else:
+            dt(d, (80, y), para, fb, (55, 55, 60))
+        y += 58
+    y += 28
+
+    # KEY POINT box
+    ky1 = max(y + 12, 820)
+    ky2 = min(H - 232 if bridge else H - 170, ky1 + 100 + len(key_points) * 62)
+    d.rounded_rectangle([80, ky1, W - 80, ky2], radius=20, fill=box_pastel)
+    dt(d, (118, ky1 + 34), "KEY POINT", font(F_BLD, 25), accent)
+    py = ky1 + 88
+    for kp in key_points:
+        fk = fit_size(d, kp, F_BLD, 33, W - 236)
+        dt(d, (118, py), kp, fk, INK)
+        py += 60
+
+    if bridge:
+        d.line([(80, H - 200), (W - 80, H - 200)], fill=LINE_GRAY, width=1)
+        dt(d, (80, H - 175), bridge, fit_size(d, bridge, F_BLD, 32, W - 160), accent)
+    img.save(out_path, quality=95)
+
+
 # =====================================================================
 # episode builders
 # =====================================================================
@@ -464,12 +688,31 @@ def build(day, cover_fn, cards, total_pages):
     n = 1
     for c in cards:
         n += 1
-        if c.get('kind') == 'ending':
+        kind = c.get('kind', 'info')
+        if kind == 'ending':
             ending(os.path.join(out, f"card_{n}_ending.png"))
-        elif c.get('kind') == 'visual_grid':
+        elif kind == 'visual_grid':
             visual_grid_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
                              c['label'], c['title'], c['items'], c['accent'], c['tint'],
                              bridge=c.get('bridge'), footer=c.get('footer', DATE))
+        elif kind == 'timeline':
+            timeline_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
+                          c['label'], c['title'], c['steps'], c['accent'], c['tint'],
+                          bridge=c.get('bridge'), footer=c.get('footer', DATE))
+        elif kind == 'table':
+            table_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
+                       c['label'], c['title'], c['rows'], c['accent'], c['tint'],
+                       note=c.get('note'), bridge=c.get('bridge'), footer=c.get('footer', DATE),
+                       rh_max=c.get('rh_max', 176))
+        elif kind == 'cards_grid':
+            cards_grid_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
+                            c['label'], c['title'], c['boxes'], c['accent'], c['tint'],
+                            tip=c.get('tip'), bridge=c.get('bridge'), footer=c.get('footer', DATE))
+        elif kind == 'editorial':
+            editorial_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
+                           c['label'], c['title_lines'], c['body_paras'], c.get('highlight'),
+                           c['key_points'], c['accent'], c['tint'],
+                           bridge=c.get('bridge'), footer=c.get('footer', DATE))
         else:
             info_card(os.path.join(out, f"card_{n}.png"), n, total_pages,
                       c['label'], c['title'], c['rows'], c['accent'], c['tint'],

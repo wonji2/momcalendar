@@ -13,7 +13,7 @@ CS = CORAL_SOFT
 PS = PURPLE_SOFT
 
 
-def cov_photo(bg, lead, l1, l2, accent, dark=False, sub="육아동지한테 당장 공유해 두세요"):
+def cov_photo(bg, lead, l1, l2, accent, dark=False, sub=""):
     def f(path):
         cover_photo(bg, lead, l1, l2, accent, path, sub=sub)
     return f
@@ -112,43 +112,56 @@ EP.append(dict(
 # ---------------------------------------------------------------- DAY2 화
 EP.append(dict(
     day="day2_tue",
-    cover=cov_photo("scratchpad/bg_daycare.png", "3월 입소 생각 중이면", "지금 대기 안 걸면", "봄에 못 들어가요", C),
+    cover=cov_photo("scratchpad/bg_daycare.png", "3월 입소 생각 중이면", "지금 대기 안 걸면", "봄에 못 들어가요", C,
+                    sub="저장 안 하면 순서 밀려요 · 출생신고하면 바로 ㄱㄱ"),
     total=6,
     cards=[
-        dict(label="1 · 언제 걸까", title="출생신고 직후가 시작이에요", accent=P, tint=PS,
-             bridge="동점(같은 순위)이면 결국 신청한 순서대로 들어가요 →", rows=[
-                 dict(t='check', text="출생신고 직후 주민번호 나오면 바로 대기", value="출생 직후"),
-                 dict(t='check', text="3월 신학기 입소는 전년 9~10월이 마지노선", value="9~10월"),
-                 dict(t='check', text="희망 입소월 최소 6개월 전에는 신청 필수", value="D-6M"),
-                 dict(t='check', text="태아 상태 사전 대기는 불가(출생 후 가능)", value="출생 후"),
-                 dict(t='check', text="동순위(예: 맞벌이 200점)끼리는 100% 선착순", value="선착순"),
-                 dict(t='note', text="지역·원마다 신학기 반 편성 시기가 달라 공고 확인이 먼저예요."),
+        dict(kind='timeline', label="1 · 언제 걸까", title="출생신고 직후가 시작이에요", accent=P, tint=PS,
+             bridge="동점(같은 순위)이면 결국 신청한 순서대로 들어가요 →",
+             steps=[
+                 dict(head="출생신고 직후 바로 대기", tag="출생 직후",
+                      desc="태아 사전 대기는 불가! 주민번호 나오자마자 신청하세요"),
+                 dict(head="입소 희망 6개월 전부터 미리", tag="D-6개월",
+                      desc="동네마다 다르지만 학군지 인기 국공립은 9~10월 선착순이 마지노선!"),
+                 dict(head="동순위면 100% 선착순", tag="선착순",
+                      desc="같은 맞벌이 200점끼리는 대기 걸린 날짜·시간 순"),
+                 dict(head="지역·원별 공고 먼저 확인", tag="사전 체크",
+                      desc="신학기 반 편성 시기가 원마다 달라 전화 문의가 빨라요"),
              ]),
-        dict(label="2 · 1순위 점수", title="아이사랑에서 가점 챙겨요", accent=C, tint=CS,
-             bridge="맞벌이·다자녀 등 1순위 서류가 있어야 앞번호로 올라가요 →", rows=[
-                 dict(t='kv', head="아이사랑 웹·앱", desc=["임신육아종합포털 아이사랑에서 온라인 통합 신청"], value="childcare"),
-                 dict(t='kv', head="맞벌이 200점", desc=["부부 모두 재직·사업자·육아휴직 증빙 시 1순위"], value="1순위"),
-                 dict(t='kv', head="다자녀 · 외동", desc=["자녀 2명 이상·한부모·기초생활 등 1순위 100점"], value="100점+"),
-                 dict(t='kv', head="서류 누락 주의", desc=["체크만 하고 서류 미제출 시 3순위(0점)로 밀림"], value="필수 확인"),
-                 dict(t='kv', head="직장·협동 별도", desc=["직장·부모협동 어린이집은 원 자체 모집 공고 확인"], value="별도 신청"),
+        dict(kind='table', label="2 · 1순위 점수", title="아이사랑에서 가점 챙겨요", accent=C, tint=CS,
+             note="※ 직장·부모협동 어린이집은 아이사랑 외 원 자체 모집 공고도 별도로 확인하세요.",
+             bridge="맞벌이·다자녀 등 1순위 서류가 있어야 앞번호로 올라가요 →",
+             rows=[
+                 dict(left="신청 경로", right="임신육아종합포털 아이사랑", sub="웹·앱에서 통합 신청 (직장·협동은 별도)"),
+                 dict(left="맞벌이 200점", right="1순위 최상위 점수", sub="부부 모두 재직·사업자·육아휴직 증빙 필수"),
+                 dict(left="다자녀·외동", right="1순위 가점 100점+", sub="자녀 2명 이상·한부모·기초생활 등 중복 합산"),
+                 dict(left="서류 누락", right="미제출 시 3순위(0점)", sub="체크만 하고 서류 안 올리면 순번이 뒤로 밀려요"),
              ]),
-        dict(label="3 · 몇 곳 · 유지", title="한 곳만 쓰면 못 들어가요", accent=P, tint=PS,
-             bridge="신청 후에도 대기 연장·순번 관리까지 챙겨야 안 날아가요 →", rows=[
-                 dict(t='check', text="미재원 최대 3곳 · 재원 중이면 최대 2곳 신청", value="3곳 / 2곳"),
-                 dict(t='check', text="집 근처 + 출퇴근 동선까지 통학 범위 넓히기", value="동선 분산"),
-                 dict(t='check', text="신청일 기준 1년 지나면 대기 자동 만료(연장 필수)", value="1년 만료"),
-                 dict(t='check', text="입소 확정 후 7일 내 미등록 시 다음 대기자에게 이동", value="7일 기한"),
-                 dict(t='check', text="원에 전화해 결원·반 편성 일정 직접 문의하기", value="전화 확인"),
-                 dict(t='note', text="원아 연락처·주소 변경 시 아이사랑 정보도 바로 수정하세요."),
+        dict(kind='cards_grid', label="3 · 몇 곳 · 유지", title="한 곳만 쓰면 못 들어가요", accent=P, tint=PS,
+             tip="TIP · 연락처·주소 바뀌면 아이사랑 정보 수정하고, 원에 결원 문의 전화해 두세요!",
+             bridge="신청 후에도 대기 연장·순번 관리까지 챙겨야 안 날아가요 →",
+             boxes=[
+                 dict(badge="최대 3곳", head="미재원 3곳\n재원 중 2곳", desc="집 근처 + 출퇴근 동선까지\n3곳 꽉 채워 분산 신청"),
+                 dict(badge="1년 만료", head="신청 1년 지나면\n대기 자동 삭제", desc="만료 알림 오기 전에\n아이사랑에서 연장 버튼 필수"),
+                 dict(badge="7일 기한", head="입소 연락 후\n7일 내 등록", desc="기한 내 미등록 시\n다음 대기자로 바로 넘어가요"),
+                 dict(badge="알림 ON", head="수시 결원은\n연중 발생", desc="입소 대기 알림 문자·전화\n수신 차단 안 되게 켜두기"),
              ]),
-        dict(label="4 · 기다리는 동안", title="대기 중에 바로 쓰는 대안", accent=C, tint=CS,
-             bridge="댓글에 「얼집」 남기면 가점표·체크리스트 DM 보내드려요 →", rows=[
-                 dict(t='kv', head="시간제보육", desc=["6~36개월, 시간당 5,000원 중 부모 부담 2,000원"], value="월 60시간"),
-                 dict(t='kv', head="독립반 당일예약", desc=["당일 오후 2시까지 아이사랑 온라인 예약 가능"], value="14시 마감"),
-                 dict(t='kv', head="가정·민간 병행", desc=["국공립 대기 걸어두고 민간·가정 0~1세반 병행"], value="투트랙"),
-                 dict(t='kv', head="아이돌봄서비스", desc=["만 12세 이하 가정 방문 돌봄(소득별 정부지원)"], value="정부지원"),
-                 dict(t='kv', head="입소 연락 팁", desc=["수시 결원은 상시 빠지므로 알림 문자·전화 켜두기"], value="알림 ON"),
-             ]),
+        dict(kind='editorial', label="4 · 기다리는 동안",
+             title_lines=["대기 걸어두고", "바로 쓰는 현실 대안"],
+             body_paras=[
+                 "국공립 대기만 바라보다 발 동동 구르지 마세요.",
+                 "만 6~36개월 아기라면 시간당 부모 부담 2,000원인",
+                 "시간제보육을 월 60시간까지 바로 쓸 수 있어요.",
+                 "독립반은 당일 오후 2시까지 아이사랑 예약도 됩니다.",
+             ],
+             highlight="부모 부담 2,000원",
+             key_points=[
+                 "① 시간제보육 : 당일 14시 전 아이사랑 예약 (월 60시간)",
+                 "② 투트랙 전략 : 국공립 대기 + 민간·가정 0~1세반 병행",
+                 "③ 아이돌봄서비스 : 만 12세 이하 정부지원 방문 돌봄",
+             ],
+             accent=C, tint=CS,
+             bridge="댓글에 「얼집」 남기면 가점표·체크리스트 DM 보내드려요 →"),
         dict(kind='ending'),
     ],
     caption="""[ 공유/저장 필수 ] 어린이집 대기, 지금 안 걸어두면 봄에 못 들어가요
@@ -179,22 +192,31 @@ EP.append(dict(
     total=5,
     cards=[
         dict(label="1 · 누가", title="6~36개월, 이 조건이면 돼요", accent=P, tint=PS, rows=[
-            dict(t='check', text="생후 6개월 ~ 36개월", value="6~36개월"),
-            dict(t='check', text="어린이집·유치원 안 다니는 아이", value="미취원"),
-            dict(t='check', text="부모급여·양육수당 받는 아이", value="대상"),
-            dict(t='check', text="이미 다니면 대상 아니에요", value="제외"),
+            dict(t='kv', head="생후 6개월 ~ 36개월", desc=["이번 시간제보육 지원의 대상 연령이에요"], value="연령"),
+            dict(t='kv', head="미취원 아이", desc=["어린이집·유치원 안 다니는 아이"], value="미취원"),
+            dict(t='kv', head="부모급여·양육수당", desc=["받고 있는 아이면 바로 대상이에요"], value="대상"),
+            dict(t='kv', head="이미 다니는 아이", desc=["어린이집에 다니면 대상이 아니에요"], value="제외"),
+            dict(t='note', text="생후 6개월 미만·36개월 넘긴 아이는 이번 지원 대상이 아니에요."),
         ]),
-        dict(label="2 · 얼마", title="5,000원 중 2,000원만 내요", accent=C, tint=CS, rows=[
-            dict(t='kv', head="정부 지원", desc=["시간당 5,000원 중 3,000원을 정부가 지원"], value="3,000원"),
-            dict(t='kv', head="부모 부담", desc=["나머지 2,000원만 결제하면 돼요"], value="2,000원"),
-            dict(t='kv', head="지원 한도", desc=["한 달 60시간까지 지원"], value="월 60시간"),
-            dict(t='kv', head="결제 수단", desc=["국민행복카드로 결제해야 적용"], value="행복카드"),
-        ]),
-        dict(label="3 · 어떻게", title="예약하고 카드로 결제", accent=P, tint=PS,
-             bridge="댓글에 「보육」 남기면 신청·준비물 가이드 보내드려요 →", rows=[
-                 dict(t='kv', head="이용 기관", desc=["어린이집·육아종합지원센터 등 지정 제공기관"], value="지정기관"),
-                 dict(t='kv', head="운영 시간", desc=["독립반 09~18시, 통합반 09~16시 (기관별 상이)"], value="기관별"),
-                 dict(t='kv', head="예약", desc=["독립반 당일 예약 마감 14:00까지 연장"], value="당일 14시"),
+        dict(kind='table', label="2 · 얼마", title="5,000원 중 2,000원만 내요", accent=C, tint=CS,
+             note="※ 국민행복카드로 결제해야 시간당 2,000원이 적용돼요.",
+             rows=[
+                 dict(left="정부 지원", right="시간당 3,000원", sub="시간당 5,000원 중 3,000원을 정부가 지원"),
+                 dict(left="부모 부담", right="시간당 2,000원", sub="나머지 2,000원만 결제하면 돼요"),
+                 dict(left="지원 한도", right="월 60시간", sub="한 달 60시간까지 정부 지원"),
+                 dict(left="결제 수단", right="국민행복카드", sub="행복카드 결제에만 시간제 지원 적용"),
+             ]),
+        dict(kind='timeline', label="3 · 어떻게", title="예약하고 카드로 결제", accent=P, tint=PS,
+             bridge="댓글에 「보육」 남기면 신청·준비물 가이드 보내드려요 →",
+             steps=[
+                 dict(head="지정 기관 확인", tag="기관 확인",
+                      desc="어린이집·육아종합지원센터 등 지정 제공기관"),
+                 dict(head="운영 시간 확인", tag="09~18시",
+                      desc="독립반 09~18시 · 통합반 09~16시 (기관별 상이)"),
+                 dict(head="아이사랑에서 예약", tag="당일 14시",
+                      desc="독립반은 당일 예약 마감 14시까지 연장"),
+                 dict(head="국민행복카드로 결제", tag="결제 필수",
+                      desc="행복카드로 결제해야 시간당 2,000원 적용"),
              ]),
         dict(kind='ending'),
     ],
@@ -221,26 +243,34 @@ EP.append(dict(
 # ---------------------------------------------------------------- DAY4 목
 EP.append(dict(
     day="day4_thu",
-    cover=cov_photo("scratchpad/bg_schoolbag.png", "어린이집 선생님이 먼저 보는", "엄마들이 꼭 빠뜨리는", "첫날 준비물 8가지", C),
+    cover=cov_photo("scratchpad/bg_schoolbag.png", "어린이집 선생님이 먼저 보는", "엄마들이 꼭 빠뜨리는", "첫날 준비물 8가지", C,
+                    sub="등원 전날 밤 허둥대기 싫으면 지금 저장하세요"),
     total=5,
     cards=[
-        dict(label="1 · 이름 붙이는 것", title="이름 없으면 돌아옵니다", accent=P, tint=PS, rows=[
-            dict(t='check', text="가방·옷·수건에 이름표", value="필수"),
-            dict(t='check', text="물통·수저에 이름 적기", value="필수"),
-            dict(t='check', text="여벌옷·이불에도 이름", value="필수"),
-        ]),
+        dict(kind='cards_grid', label="1 · 이름 붙이는 것", title="이름 없으면 돌아옵니다", accent=P, tint=PS,
+             tip="TIP · 원마다 준비물이 달라요. 입소 안내문 목록이 먼저예요!",
+             boxes=[
+                 dict(badge="01", head="가방·옷·수건", desc="이름표 미리\n달아두세요"),
+                 dict(badge="02", head="물통·수저", desc="이름 직접\n적어두세요"),
+                 dict(badge="03", head="여벌옷", desc="여기에도\n이름 필요해요"),
+                 dict(badge="04", head="낮잠 이불·베개", desc="이름 달고\n사이즈는 원 안내 기준"),
+             ]),
         dict(label="2 · 채워 넣는 것", title="하루치 + 여분이 답", accent=C, tint=CS, rows=[
-            dict(t='check', text="기저귀·물티슈 하루치 + 여분", value="+1"),
-            dict(t='check', text="여벌옷 2벌, 계절에 맞춰", value="2벌"),
-            dict(t='check', text="낮잠 이불·베개", value="사이즈"),
-            dict(t='check', text="여분 마스크", value="여분"),
+            dict(t='kv', head="기저귀·물티슈", desc=["하루치 + 여분까지 준비"], value="+여분"),
+            dict(t='kv', head="여벌옷", desc=["2벌, 계절에 맞춰"], value="2벌"),
+            dict(t='kv', head="낮잠 이불·베개", desc=["사이즈는 원 안내 기준"], value="사이즈"),
+            dict(t='kv', head="여분 마스크", desc=["가방에 몇 장 더"], value="여분"),
+            dict(t='note', text="첫 주는 여벌옷을 한 벌 더 넣어두면 마음이 편해요."),
         ]),
-        dict(label="3 · 전날 밤 3분", title="아침에 찾지 않으려면", accent=P, tint=PS,
-             bridge="오늘 마감 공구는 프로필 링크 →", rows=[
-                 dict(t='check', text="출입문 비번·원 연락처 저장", value="저장"),
-                 dict(t='check', text="하원 시간·데려갈 사람 합의", value="합의"),
-                 dict(t='check', text="가방은 문 앞에 세팅", value="세팅"),
-                 dict(t='note', text="원마다 준비물이 달라요. 입소 안내문 목록이 먼저예요."),
+        dict(kind='timeline', label="3 · 전날 밤 3분", title="아침에 찾지 않으려면", accent=P, tint=PS,
+             bridge="오늘 마감 공구는 프로필 링크 →",
+             steps=[
+                 dict(head="출입문 비번·원 연락처 저장", tag="미리 저장",
+                      desc="첫 등원 날 헤매지 않게 미리 저장해두세요"),
+                 dict(head="하원 시간·데려갈 사람 합의", tag="합의",
+                      desc="누가 데려갈지 미리 정해두면 원에서도 편해요"),
+                 dict(head="가방은 문 앞에 세팅", tag="전날 세팅",
+                      desc="아침에 찾지 않게 전날 밤 문 앞에 세팅"),
              ]),
         dict(kind='ending'),
     ],
@@ -273,30 +303,32 @@ EP.append(dict(
 # ---------------------------------------------------------------- DAY5 금
 EP.append(dict(
     day="day5_fri",
-    cover=cov_photo("scratchpad/bg_fri_deals.png", "오늘 밤 12시면 끝나요", "엄마들이 제일 많이 담은", "마감 임박 공구 TOP 5", C),
-    total=6,
+    cover=cov_photo("scratchpad/bg_fri_deals.png", "오늘 밤 12시면 끝나요", "엄마들이 제일 많이 담은", "마감 임박 공구 TOP 5", C,
+                    sub="오늘 자정 지나면 끝나요 · 마감 전에 담아두세요"),
+    total=5,
     cards=[
-        dict(label="1 · 오늘 숫자", title="11/16 맘캘 집계", accent=C, tint=CS,
-             footer="26.11.16 07:40 집계 · 발행일 아침 재집계", rows=[
-                 dict(t='kv', head="오늘 오픈", desc=["오늘 새로 열린 공구"], value="326건"),
-                 dict(t='kv', head="오늘 마감", desc=["오늘 자정에 닫혀요"], value="167건"),
-                 dict(t='kv', head="진행 중", desc=["지금 참여할 수 있는 전체"], value="585건"),
+        dict(kind='table', label="1 · 오늘 숫자", title="오늘 맘캘 집계", accent=C, tint=CS, rh_max=238,
+             note="※ 발행일 아침에 숫자를 다시 집계해요.",
+             rows=[
+                 dict(left="오늘 오픈", right="326건", sub="오늘 새로 열린 공구"),
+                 dict(left="오늘 마감", right="167건", sub="오늘 자정에 닫혀요"),
+                 dict(left="진행 중", right="585건", sub="지금 참여할 수 있는 전체"),
              ]),
-        dict(label="2 · 인기 1~3위", title="오늘 가장 많이 본 공구", accent=C, tint=CS, rows=[
+        dict(label="2 · 인기 1~5위", title="오늘 가장 많이 본 공구", accent=C, tint=CS, rows=[
             dict(t='rank', num="01", name="두리 변기 모음전", sub="켈리맘 · 오늘 마감"),
             dict(t='rank', num="02", name="무아스 세정제 디스펜서", sub="mukohobra · 오늘 마감"),
             dict(t='rank', num="03", name="글리엔 가습기", sub="해피엘 · 오늘 마감"),
-        ]),
-        dict(label="3 · 인기 4~5위", title="마감이 조금 더 남은 것", accent=P, tint=PS, rows=[
             dict(t='rank', num="04", name="슈메르 미끄럼방지 양말", sub="맘캘린더 · 11/17까지"),
             dict(t='rank', num="05", name="로지오가닉 배도라지쥬스&보라차", sub="맘캘린더 · 11/22까지"),
             dict(t='note', text="마감 지나면 다음 공구는 2~4주 뒤예요."),
         ]),
-        dict(label="4 · 왜 지금", title="재오픈은 보장이 없어요", accent=C, tint=CS,
-             bridge="전체 마감 리스트는 프로필 링크 →", rows=[
-                 dict(t='check', text="마감 다음 공구는 2~4주 뒤", value="2~4주"),
-                 dict(t='check', text="같은 가격으로 다시 안 열려요", value="가격"),
-                 dict(t='check', text="셀러 사정으로 일정이 당겨져요", value="변동"),
+        dict(kind='cards_grid', label="3 · 왜 지금", title="재오픈은 보장이 없어요", accent=P, tint=PS,
+             bridge="전체 마감 리스트는 프로필 링크 →",
+             boxes=[
+                 dict(badge="오늘 밤", head="오늘 자정 지나면\n끝나요", desc="마감 전에\n미리 담아두세요"),
+                 dict(badge="2~4주", head="다음 공구는\n2~4주 뒤", desc="마감 지나면\n한동안 없어요"),
+                 dict(badge="가격", head="같은 가격으로\n다시 안 열려요", desc="재오픈은\n보장이 없어요"),
+                 dict(badge="일정", head="셀러 사정으로\n당겨지기도 해요", desc="마감일 하루 전에\n다시 확인하세요"),
              ]),
         dict(kind='ending'),
     ],
@@ -323,23 +355,34 @@ EP.append(dict(
 # ---------------------------------------------------------------- DAY6 토
 EP.append(dict(
     day="day6_sat",
-    cover=cov_photo("scratchpad/bg_sat_calendar.png", "이번 주 공구 언제 열려요?", "날짜별로 딱 정리한", "11월 공구 캘린더", P),
+    cover=cov_photo("scratchpad/bg_sat_calendar.png", "이번 주 공구 언제 열려요?", "날짜별로 딱 정리한", "11월 공구 캘린더", P,
+                    sub="매주 까먹기 전에 저장하고 일정 챙기세요"),
     total=5,
     cards=[
-        dict(label="1 · 16~17일", title="오늘 열고 오늘 닫는 것", accent=C, tint=CS, rows=[
-            dict(t='kv', head="11/16 오늘", desc=["오픈 326건 · 마감 167건"], value="오늘"),
-            dict(t='kv', head="11/17", desc=["슈메르 미끄럼방지 양말 마지막 날"], value="~17일"),
-        ]),
-        dict(label="2 · 18~19일", title="주 중반에 닫히는 것", accent=P, tint=PS, rows=[
-            dict(t='kv', head="11/18 크렛", desc=["랜쥬"], value="~18일"),
-            dict(t='kv', head="11/19 남코 유모차 핸드머프", desc=["다니맘"], value="~19일"),
-            dict(t='kv', head="11/19 세이팬", desc=["crayon.mom_siha"], value="~19일"),
-        ]),
-        dict(label="3 · 20~22일", title="주말까지 남은 것", accent=C, tint=CS,
-             bridge="전체 일정 표는 프로필 링크 →", rows=[
-                 dict(t='kv', head="11/20 쿠진아트 에어프라이어", desc=["승빈맘"], value="~20일"),
-                 dict(t='kv', head="11/22 로지오가닉 주스", desc=["맘캘린더"], value="~22일"),
-                 dict(t='kv', head="11/22 허니북 마더구스", desc=["워니맘맥"], value="~22일"),
+        dict(kind='table', label="1 · 16~17일", title="오늘 열고 오늘 닫는 것", accent=C, tint=CS, rh_max=238,
+             note="※ 오늘 오픈 326건 · 오늘 마감 167건 (발행일 아침 재집계)",
+             rows=[
+                 dict(left="11/16 오늘", right="오픈 326 · 마감 167", sub="오늘 열리고 오늘 닫는 공구"),
+                 dict(left="11/17", right="슈메르 미끄럼방지 양말", sub="맘캘린더 공구 · 마지막 날"),
+                 dict(left="진행 중", right="585건", sub="지금 참여할 수 있는 전체"),
+             ]),
+        dict(kind='timeline', label="2 · 18~19일", title="주 중반에 닫히는 것", accent=P, tint=PS,
+             bridge="전체 일정 표는 프로필 링크 →",
+             steps=[
+                 dict(head="크렛 · 랜쥬", tag="11/18 마감",
+                      desc="수요일 자정에 닫혀요"),
+                 dict(head="남코 유모차 핸드머프 · 다니맘", tag="11/19 마감",
+                      desc="목요일 자정에 닫혀요"),
+                 dict(head="세이팬 · crayon.mom_siha", tag="11/19 마감",
+                      desc="목요일 자정에 닫혀요"),
+             ]),
+        dict(kind='table', label="3 · 20~22일", title="주말까지 남은 것", accent=C, tint=CS, rh_max=238,
+             note="※ 일정은 셀러 사정으로 하루이틀 앞당겨지기도 해요.",
+             bridge="전체 일정 표는 프로필 링크 →",
+             rows=[
+                 dict(left="11/20", right="쿠진아트 에어프라이어", sub="승빈맘 · 금요일 마감"),
+                 dict(left="11/22", right="로지오가닉 배도라지쥬스", sub="맘캘린더 · 일요일 마감"),
+                 dict(left="11/22", right="허니북 마더구스", sub="워니맘맥 · 일요일 마감"),
              ]),
         dict(kind='ending'),
     ],
@@ -367,22 +410,31 @@ EP.append(dict(
 # ---------------------------------------------------------------- DAY7 일
 EP.append(dict(
     day="day7_sun",
-    cover=cov_photo("scratchpad/bg_sun_lowest.png", "아직도 제값 주고 사세요?", "지금 바로 담아야 할", "오늘 핫딜 TOP 5", C),
-    total=5,
+    cover=cov_photo("scratchpad/bg_sun_lowest.png", "아직도 제값 주고 사세요?", "지금 바로 담아야 할", "오늘 핫딜 TOP 5", C,
+                    sub="품절되기 전에 먼저 확인하세요 · 저장 필수"),
+    total=4,
     cards=[
-        dict(label="1 · 오늘 1위", title="가장 많이 내려간 것", accent=C, tint=CS, rows=[
-            dict(t='rank', num="01", name="네이버 SOS 리페어 앤 케어 바디로션 400ml 2개", sub="환절기 보습 · 오늘 네이버 최저가", value="18,600원"),
-            dict(t='note', text="20건 중 할인율 1위, 53% 내렸어요."),
-        ]),
-        dict(label="2 · 2~3위", title="뒤이어 내려온 것", accent=P, tint=PS, rows=[
-            dict(t='rank', num="02", name="엑사이더 문틀철봉 EC202 단축", sub="47% 내림", value="21,000원"),
-            dict(t='rank', num="03", name="뉴트로지나 고보습 바디로션 세트", sub="45% 내림", value="32,800원"),
-        ]),
-        dict(label="3 · 4~5위와 생활템", title="같이 내려온 생활템", accent=C, tint=CS,
+        dict(kind='editorial', label="1 · 오늘 1위", title_lines=["가장 많이", "내려간 것"], accent=C, tint=CS,
+             body_paras=[
+                 "네이버 SOS 리페어 앤 케어 바디로션 400ml 2개가",
+                 "오늘 20건 중 할인율 1위예요.",
+                 "환절기 보습템인데 53%나 내려왔어요.",
+             ],
+             highlight="53%",
+             key_points=[
+                 "① 18,600원 · 오늘 네이버 최저가",
+                 "② 400ml 2개 구성 · 환절기 보습",
+                 "③ 오늘 밤이면 품절되는 것도 있어요",
+             ],
+             bridge=None),
+        dict(label="2 · 2~6위와 생활템", title="뒤이어 내려온 것들", accent=P, tint=PS,
              bridge="오늘 20건 링크는 댓글 '핫딜' →", rows=[
+                 dict(t='rank', num="02", name="엑사이더 문틀철봉 EC202 단축", sub="47% 내림", value="21,000원"),
+                 dict(t='rank', num="03", name="뉴트로지나 고보습 바디로션 세트", sub="45% 내림", value="32,800원"),
                  dict(t='rank', num="04", name="유니트 브로우 무드 스위치", sub="44% 내림", value="32,900원"),
                  dict(t='rank', num="05", name="꽃보다오징어 오리지날", sub="41% 내림", value="30,620원"),
-                 dict(t='rank', num="06", name="심리스 쿠션 양말 5켤레", sub="38% 내림", value="3,380원"),
+                 dict(t='rank', num="06", name="심리스 쿠션 양말 5켤레", sub="38% 내림 · 생활템", value="3,380원"),
+                 dict(t='note', text="가격은 수시로 바뀌고 오늘 밤이면 품절되는 것도 있어요."),
              ]),
         dict(kind='ending'),
     ],
