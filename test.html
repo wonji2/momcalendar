@@ -8097,6 +8097,7 @@ window.addEventListener('popstate',()=>{
         return true; } }
     if(typeof _cpOpen!=='undefined' && _cpOpen && typeof cpClose==='function'){ cpClose(true); return true; }
     if(document.body.classList.contains('srch-mode')){ exitSearchMode(); return true; }
+    if(window._myBack && document.body.getAttribute('data-ct')!=='mypage' && typeof appNavGo==='function'){ window._myBack=0; try{ trackEvent('my_back',''); }catch(_){} appNavGo('mypage'); return true; }
     return false;
   }
   function onBack(){
@@ -11045,7 +11046,7 @@ function myNotiDetail(){
 // 내 공구 캘린더 속 화면 — 보기 · 친구 공유 · 내 폰 저장(.ics)
 function myCalMenu(){
   var r=function(fn,ico,lab){ return '<button type="button" class="my-row" onclick="mySubClose();'+fn+'"><span class="my-ico">'+ico+'</span><span class="my-lab">'+lab+'</span><span class="my-arr">›</span></button>'; };
-  mySub("내 공구 캘린더", '<div class="my-card">'+r("goCalMine()","📅","캘린더 보기")+r("shareMyCal()","🔗","친구 공유")+r("exportWishIcs()","📥","내 폰 저장 (.ics)")+'</div>');
+  mySub("내 공구 캘린더", '<div class="my-card">'+r("window._myBack=1;goCalMine()","📅","캘린더 보기")+r("shareMyCal()","🔗","친구 공유")+r("exportWishIcs()","📥","내 폰 저장 (.ics)")+'</div>');
   try{ trackEvent("my_open","cal"); }catch(_){}
 }
 // 고객센터 · 오류 제보 속 화면 — 카톡 문의 · 건의·오류 제보 · 앱 문의 메일
@@ -11064,7 +11065,7 @@ function mySettings(){
 }
 // 저장된 화면 자료(CacheStorage)를 지우고 다시 불러온다 — 찜·로그인·키워드는 건드리지 않는다
 function myRefresh(){ var go=function(){ try{ trackEvent("my_refresh",""); }catch(_){} mcToast("새로 받는 중…"); setTimeout(function(){ location.reload(); }, 500); }; try{ if(window.caches && caches.keys){ caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }).then(go, go); return; } }catch(_){} go(); }
-function myWishList(){ try{ switchContent("gonggu"); switchTab("list"); if(fSt!=="wish") toggleStab("wish", document.getElementById("stab-wish")); mcScrollToContent(); }catch(e){ try{ console.error(e); }catch(_){} } }
+function myWishList(){ try{ window._myBack=1; switchContent("gonggu"); switchTab("list"); if(fSt!=="wish") toggleStab("wish", document.getElementById("stab-wish")); mcScrollToContent(); }catch(e){ try{ console.error(e); }catch(_){} } }
 function myKakao(){ try{ trackEvent("my_kakao",""); }catch(_){} openLink("https://pf.kakao.com/_zGfxnX/chat"); }
 function myMail(){ var a="app@momcalendar.com"; try{ trackEvent("my_mail",""); }catch(_){} try{ navigator.clipboard.writeText(a).then(function(){ mcToast("메일 주소를 복사했어요\n"+a); }, function(){ shareFallback(a); }); }catch(_){ shareFallback(a); } }
 // 서버 기기 표에 아직 없는 기기(알림 켜기 전)는 rows 0 → 표시를 남겨 두고 화면을 열 때 다시 보낸다(6시간에 한 번)
@@ -11181,6 +11182,7 @@ function mcScrollToContent(){
 (function(){ try{ var sv=Element.prototype.scrollIntoView; Element.prototype.scrollIntoView=function(o){ if(this.id==='contentSeg' && getComputedStyle(this).display==='none'){ mcScrollToContent(); return; } return sv.apply(this,arguments); }; }catch(_){} })();
 // 하단 탭 누름 — 전환 + 콘텐츠 시작 위치로
 function appNavGo(ct){
+  try{ window._myBack=0; }catch(_){}
   try{
     if(ct==='mypage' && typeof isLoggedIn==='function' && !isLoggedIn() && typeof openLoginSheet==='function'){ openLoginSheet('로그인', '', '', 'mypage'); return; }   // 로그인 전: 로그인 화면만(2026-11-16)
     if(document.body.classList.contains('srch-mode') && typeof exitSearchMode==='function'){ try{ exitSearchMode(); }catch(_){} }
