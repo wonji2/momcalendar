@@ -27,7 +27,7 @@ if(-not $Csv -or -not (Test-Path -LiteralPath $Csv)){
   exit 0
 }
 $LIVE = @('index.html','admin.html','staff.html','test.html','test-app.html','register.html','kktest.html','reelcard.html')
-$DEST = @{ g=(Enc '공구브랜드.html'); gg=(Enc '지금공구.html'); p=(Enc '공구제품.html'); s=(Enc '공구셀러.html') }
+$DESTMAP = @{ g=(Enc '공구브랜드.html'); gg=(Enc '지금공구.html'); p=(Enc '공구제품.html'); s=(Enc '공구셀러.html') }
 
 $made = 0; $alive = 0; $already = 0; $skip = 0; $skipList = New-Object System.Collections.ArrayList
 foreach($line in [IO.File]::ReadAllLines($Csv)){
@@ -47,7 +47,7 @@ foreach($line in [IO.File]::ReadAllLines($Csv)){
     if(IsTombstoneText ([IO.File]::ReadAllText($fp))){ $already++ } else { $alive++ }
     continue
   }
-  $dest = $(if($parts.Count -eq 2 -and $DEST.ContainsKey($parts[0])){ $DEST[$parts[0]] } else { '' })
+  $dest = $(if($parts.Count -eq 2 -and $DESTMAP.ContainsKey($parts[0])){ $DESTMAP[$parts[0]] } else { '' })
   if($dest -and -not (Test-Path -LiteralPath (Join-Path $Root ([uri]::UnescapeDataString($dest))))){ $dest = '' }
   if(-not $DryRun){
     $dir = Split-Path $fp -Parent
