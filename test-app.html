@@ -5272,7 +5272,10 @@ function mcShare(){
   // 카카오 도구를 늦게 받는다 → 카톡 인앱에서 아직이면 잠깐 기다렸다가 카카오 공유창(없으면 08-20 처럼 「복사됐어요」로 빠진다, 검증자 2026-10-27)
   if(_isInApp() && !window.Kakao && !window.__shareWaited){ window.__shareWaited=1; var _n=0; var _t=setInterval(function(){ _n++; if(window.Kakao||_n>=100){ clearInterval(_t); mcShare(); window.__shareWaited=0; } },100); return; }
   var url='https://momcalendar.com/';
-  var data={ title:'맘캘린더', text:'공구 핫딜 정보 공유 커뮤니티 맘캘린더', url:url };
+  var _st=(typeof _UPD_STORE_URL!=='undefined'&&_UPD_STORE_URL)||{ios:'https://apps.apple.com/kr/app/id6826126083',android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar'};
+  var appUrl='https://momcalendar.com/app.html';
+  var shareText='공구 핫딜 정보 공유 커뮤니티 맘캘린더\n웹 '+url+'\n아이폰 앱 '+_st.ios+'\n갤럭시 앱 '+_st.android;   // 앱 설치 링크도 같이(2026-11-16)
+  var data={ title:'맘캘린더', text:shareText };
   try{ trackEvent('share_click',''); }catch(_){}
 
   // 🔴 카톡 인앱에는 navigator.share 가 아예 없다 (사장님 지적 2026-08-20)
@@ -5289,7 +5292,7 @@ function mcShare(){
           imageUrl:'https://momcalendar.com/momcal-appicon.png',
           link:{ mobileWebUrl:url, webUrl:url }
         },
-        buttons:[{ title:'일정 보러가기', link:{ mobileWebUrl:url, webUrl:url } }]
+        buttons:[{ title:'일정 보러가기', link:{ mobileWebUrl:url, webUrl:url } },{ title:'앱 설치', link:{ mobileWebUrl:appUrl, webUrl:appUrl } }]
       });
       return;
     }catch(_){ /* 실패하면 아래 복사 폴백으로 */ }
@@ -5298,13 +5301,13 @@ function mcShare(){
   if(navigator.share){
     navigator.share(data).catch(function(){});          // 카톡·문자 등 네이티브 공유 시트
   } else if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(function(){ mcToast('링크가 복사됐어요! 친구에게 붙여넣기 하세요 📋'); })
-      .catch(function(){ shareFallback(url); });
+    navigator.clipboard.writeText(shareText).then(function(){ mcToast('링크가 복사됐어요! 친구에게 붙여넣기 하세요 📋'); })
+      .catch(function(){ shareFallback(shareText); });
   } else {
-    shareFallback(url);
+    shareFallback(shareText);
   }
 }
-function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', url); }catch(_){ alert(url); } }
+function shareFallback(url){ try{ window.prompt('아래 링크를 복사해서 공유하세요', String(url).replace(/\n/g,' ')); }catch(_){ alert(url); } }
 // 「A · B」 캡션의 가운데 점이 줄 머리에 오지 않게 — 점 앞을 붙임표로 묶는다 (사장님 2026-10-23 "줄바꿈 애매")
 function mcDot(s){ return String(s==null?'':s).replace(/\s*·\s*/g,'\u00a0· '); }
 // 목록을 불러오는 동안 글자 대신 스켈레톤 칸(n개)을 보여 준다 (2026-11-01)
