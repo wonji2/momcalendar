@@ -27,6 +27,7 @@ const JOBS = {
   my_gonggu_guard: { cron: '20 22 * * *', script: 'tools/daily/my_gonggu_guard.mjs',     pc: 'momcal-my-gonggu-guard 07:25' },
   // 한 번짜리(2026-11-16 사장님 「로지오가닉 내꺼빼고 다 빼」) — cron '-' 라 예약으론 안 돈다. 손으로 job=logio_check / logio_apply
   logio_check:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs',            pc: '(한 번짜리 · 보기만)' },
+  logio_why2:      { cron: '-', script: 'tools/daily/logio_why2.mjs',             pc: '(한 번짜리 · 진단2)' },
   logio_why:       { cron: '-', script: 'tools/daily/logio_why.mjs',              pc: '(한 번짜리 · 진단)' },
   logio_seo_refresh: { cron: '-', script: 'tools/daily/logio_seo_refresh.mjs',     pc: '(한 번짜리 · 캐시 갱신)' },
   logio_apply:     { cron: '-', script: 'tools/daily/logio_gonggu_hide.mjs', args: ['--apply', '--ids=32568,36225,36340,40303'], pc: '(한 번짜리 · 내리기)' },
