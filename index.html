@@ -6587,7 +6587,9 @@ let WISH=new Set();            // 찜한 공구 id
 let _wishCounts={};            // 공구별 찜 수(TOP100 정렬 보조)
 let _wishCountsReady=false;    // 찜 수가 왔나 — 오기 전엔 스포 띠를 그리지 않는다(바탕값만 보였다가 30 으로 튀었다, 2026-10-25)
 let _wcEarlyUsed=false;
-function _applyWishCounts(rows){ const m={}; (rows||[]).forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; }); _wishCounts=m; _wishCountsReady=true; }
+function _applyWishCounts(rows){ const m={}; (rows||[]).forEach(x=>{ m[x.gonggu_id]=Number(x.cnt)||0; }); _wishCounts=m; _wishCountsReady=true; try{ if(rows&&rows.length) localStorage.setItem('mc_wc_last',JSON.stringify({t:Date.now(),m:m})); }catch(_){} }
+try{ const _o=JSON.parse(localStorage.getItem('mc_wc_last')||'null'); if(_o&&_o.m&&typeof _o.m==='object'&&Date.now()-_o.t<48*3600*1000) _wishCounts=_o.m; }catch(_){}   // 마지막으로 받은 찜 수를 먼저 깐다 — 이번에 못 받아도 숫자가 바탕값으로 내려가지 않게(2026-11-16)
+function _wcRetry(n){ n=n||0; if(n>=3) return; setTimeout(()=>loadWishCounts(n+1),[5000,15000,40000][n]); }
 function _nxDrawWhenReady(n){ if(typeof renderNextGonggu==='function'){ try{ renderNextGonggu(); }catch(_){} return; } if((n||0)<200) setTimeout(()=>_nxDrawWhenReady((n||0)+1),30); }   // 띠 그리는 코드가 아직 안 읽혔으면 읽힐 때까지 기다렸다 그린다(재방문 땐 찜 수가 먼저 와서 그리기를 놓쳤다)
 try{ (window._mcWcEarly?window._mcWcEarly():Promise.resolve(null)).then(rows=>{ if(Array.isArray(rows) && !_wishCountsReady){ _applyWishCounts(rows); _nxDrawWhenReady(0); } }); }catch(_){}
 setTimeout(()=>{ if(_wishCountsReady) return; _wishCountsReady=true; _nxDrawWhenReady(0); },3000);   // 3초 안에 못 받으면 바탕값으로라도 띠를 보인다
@@ -6672,16 +6674,18 @@ async function syncWishFromServer(){
   }catch(_){}
 }
 // 찜 수 집계 (TOP100 정렬에 합산)
-async function loadWishCounts(){
+async function loadWishCounts(_try){
   try{
     let rows=null;
     if(!_wcEarlyUsed && window._mcWcEarly){ _wcEarlyUsed=true; rows=await window._mcWcEarly(); }   // 첫 번째는 먼저 출발한 요청을 받아 쓴다(같은 요청 두 번 안 보냄)
-    if(!Array.isArray(rows)){ const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'}); if(!r.ok) return; rows=await r.json(); }
+    if(!Array.isArray(rows)){ const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_counts`,{method:'POST',headers:wishHeaders(),body:'{}'}); if(r.ok) rows=await r.json(); }
+    if(!Array.isArray(rows)){ _wcRetry(_try); return; }   // 못 받았으면 5·15·40초 뒤 다시(2026-11-16)
     _applyWishCounts(rows);
     try{ renderNextGonggu(); }catch(_){}   // 🔔 찜 수가 오면 스포 숫자도 다시
+    try{ const _s=document.getElementById('nextSheet'); if(_s&&_s.classList.contains('open')) _nxSheetBody(); }catch(_){}   // 열려 있는 시트도
     if(fSt==='top100') renderList();
     if(searchAllOn() && _saSort==='pop') renderSearchAll();   // 검색 인기순 정렬 중이면 반영 (2026-08-31)
-  }catch(_){}
+  }catch(_){ if(!_wishCountsReady || !Object.keys(_wishCounts).length) _wcRetry(_try); }
 }
 
 function isWished(id){ return WISH.has(Number(id)); }
