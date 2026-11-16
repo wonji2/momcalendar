@@ -6996,6 +6996,7 @@ async function startAppleLogin(){
     var intent=window.__loginIntent||null; try{ intent=intent||localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
     if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
     else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
   }catch(e){ _appleFail('network'); }
   finally{ window.__appleBusy=false; }
 }
@@ -7256,6 +7257,7 @@ function _kkoRestartOnce(why){
         var intent=null; try{ if(!kkoAuto){ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); } }catch(_){}
         if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
         else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
       }else{
         // ⚠️ 여기가 비어 있었다. 카카오에서 돌아왔는데 서버 처리가 실패하면
         //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
@@ -10167,6 +10169,7 @@ window.startNaverLogin=function(){
       var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
       if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
       else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
     }else{ try{ trackEvent('naver_login_fail', 'server_'+String((d&&d.error)||'none').slice(0,30)); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); }
   }).catch(function(){ try{ trackEvent('naver_login_fail','net'); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); });
 }catch(e){} })();
@@ -10807,9 +10810,7 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
   <button class="bni" type="button" data-ct="sale" onclick="appNavGo('sale')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg></span><span class="bni-lbl">세일/라방</span></button>
   <button class="bni" type="button" data-ct="community" onclick="appNavGo('community')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span><span class="bni-lbl">커뮤니티</span></button>
   <!-- 마이 버튼: 2026-11-12 내정보 화면 정리 뒤 다시 켬(11-03 「완성 전까지 보류」) -->
-  <!-- [2026-11-16 사장님 「라이브 아직 올리란말 안했는데」 — 하단 마이 버튼 다시 보류. 「올려」 하시면 이 주석만 푼다
   <button class="bni" type="button" data-ct="mypage" onclick="appNavGo('mypage')"><span class="bni-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="bni-lbl">마이</span></button>
-  -->
 </nav>
 <style id="mc-mypage">
 #mypageWrap{padding:14px 20px 96px;background:#F9FAFB;letter-spacing:-.02em}
@@ -10962,6 +10963,7 @@ var _myAtt=null, _myAttAt=0;
 function renderMypage(){
   var g=function(id){ return document.getElementById(id); }; if(!g("mypageWrap")) return;
   var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){}
+  if(!inn && document.body.getAttribute("data-ct")==="mypage"){ setTimeout(function(){ try{ switchContent("gonggu"); }catch(_){} },0); return; }   // 로그인이 풀리면(로그아웃·탈퇴) 내정보에 머물지 않는다(2026-11-16 — 로그인 전에는 로그인 화면만)
   var nick=(inn&&m&&m.nickname)?String(m.nickname):"";
   g("myName").textContent=inn?((nick||"회원")+" 님"):"로그인 전";
   g("myAv").textContent=nick?nick.slice(0,1):"맘";
@@ -11018,6 +11020,7 @@ function mcScrollToContent(){
 // 하단 탭 누름 — 전환 + 콘텐츠 시작 위치로
 function appNavGo(ct){
   try{
+    if(ct==='mypage' && typeof isLoggedIn==='function' && !isLoggedIn() && typeof openLoginSheet==='function'){ openLoginSheet('로그인', '', '', 'mypage'); return; }   // 로그인 전: 로그인 화면만(2026-11-16)
     if(document.body.classList.contains('srch-mode') && typeof exitSearchMode==='function'){ try{ exitSearchMode(); }catch(_){} }
     switchContent(ct);
     mcScrollToContent();

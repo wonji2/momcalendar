@@ -7113,6 +7113,7 @@ async function startAppleLogin(){
     var intent=window.__loginIntent||null; try{ intent=intent||localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
     if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
     else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
   }catch(e){ _appleFail('network'); }
   finally{ window.__appleBusy=false; }
 }
@@ -7373,6 +7374,7 @@ function _kkoRestartOnce(why){
         var intent=null; try{ if(!kkoAuto){ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); } }catch(_){}
         if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
         else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
       }else{
         // ⚠️ 여기가 비어 있었다. 카카오에서 돌아왔는데 서버 처리가 실패하면
         //    손님은 아무 안내도 못 받고 로그인 안 된 화면만 봤다. "됐나?" 하고 그냥 떠난다.
@@ -10284,6 +10286,7 @@ window.startNaverLogin=function(){
       var intent=null; try{ intent=localStorage.getItem('mc_login_intent'); localStorage.removeItem('mc_login_intent'); }catch(_){}
       if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
       else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
+      else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
     }else{ try{ trackEvent('naver_login_fail', 'server_'+String((d&&d.error)||'none').slice(0,30)); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); }
   }).catch(function(){ try{ trackEvent('naver_login_fail','net'); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); });
 }catch(e){} })();
@@ -11077,6 +11080,7 @@ var _myAtt=null, _myAttAt=0;
 function renderMypage(){
   var g=function(id){ return document.getElementById(id); }; if(!g("mypageWrap")) return;
   var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){}
+  if(!inn && document.body.getAttribute("data-ct")==="mypage"){ setTimeout(function(){ try{ switchContent("gonggu"); }catch(_){} },0); return; }   // 로그인이 풀리면(로그아웃·탈퇴) 내정보에 머물지 않는다(2026-11-16 — 로그인 전에는 로그인 화면만)
   var nick=(inn&&m&&m.nickname)?String(m.nickname):"";
   g("myName").textContent=inn?((nick||"회원")+" 님"):"로그인 전";
   g("myAv").textContent=nick?nick.slice(0,1):"맘";
@@ -11133,6 +11137,7 @@ function mcScrollToContent(){
 // 하단 탭 누름 — 전환 + 콘텐츠 시작 위치로
 function appNavGo(ct){
   try{
+    if(ct==='mypage' && typeof isLoggedIn==='function' && !isLoggedIn() && typeof openLoginSheet==='function'){ openLoginSheet('로그인', '', '', 'mypage'); return; }   // 로그인 전: 로그인 화면만(2026-11-16)
     if(document.body.classList.contains('srch-mode') && typeof exitSearchMode==='function'){ try{ exitSearchMode(); }catch(_){} }
     switchContent(ct);
     mcScrollToContent();
