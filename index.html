@@ -18,7 +18,7 @@
     var save=function(o){ try{ LS.setItem(K, JSON.stringify(o)); }catch(_){} };
     var back=function(b){ try{ var u=new URL(b||'/', location.origin); if(u.origin===location.origin && u.pathname.charAt(0)==='/') return u.pathname+u.search+u.hash; }catch(_){} return '/'; };
     // ⚠ window.stop() 은 쓰지 않는다 — 크롬에선 방금 건 이동까지 취소해 빈 화면에 멈춘다(2026-11-06 시험). 대신 떠나는 중 표시 → 방문 기록이 건너뛰고, 화면은 가린다
-    var leave=function(url){ window.__mcLeaving=true; try{ document.documentElement.style.visibility='hidden'; }catch(_){} location.replace(url); };
+    var leave=function(url){ window.__mcLeaving=true; try{ document.documentElement.style.visibility='hidden'; }catch(_){} setTimeout(function(){ try{ document.documentElement.style.visibility=''; window.__mcLeaving=false; }catch(_){} },4000); location.replace(url); };
     if(a && a.ret && now-a.ret < 60e3){ window.__mcRef=a.ref||''; delete a.ret; save(a); }   // 실패해 되돌아온 화면 — 방문 기록의 유입 경로는 처음 들어온 곳으로
     var p=new URLSearchParams(location.search), st=p.get('state')||'', code=p.get('code'), err=p.get('error');
     var waiting = !!(a && a.r==='go' && now-a.at < 3*60e3);
@@ -4290,6 +4290,7 @@ const CT_COLOR={gonggu:['#F2F4F6','#7C54C4'],hotdeal:['#F2F4F6','#7C54C4'],exp:[
 let _ctPrev='gonggu';   // 검색 끝냈을 때 돌아갈 탭
 function switchContent(ct){
   _ctPrev=ct;
+  try{ if(ct!=='gonggu' && document.getElementById('mcCalBar') && typeof _calBarOff==='function') _calBarOff(); }catch(_){}
   try{
     document.body.dataset.ct=ct;
     if(ct!=='gonggu') window.scrollTo(0,0);
@@ -6655,13 +6656,16 @@ function loadWishLocal(){
 function saveWishLocal(){
   try{ localStorage.setItem('mc_wish', JSON.stringify([...WISH])); }catch(_){}
 }
+let _wishTouch=0;   // 마지막으로 하트를 누른 시각 — 그 전에 출발한 동기화 응답이 방금 누른 하트를 덮지 않게
 async function syncWishFromServer(){
+  const _t0=Date.now();
   try{
     // wishes 테이블 직접 접근은 차단돼 있음 → 항상 내 기기 것만 주는 함수로 조회
     const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_list`,{method:'POST',headers:wishHeaders(),
       body:JSON.stringify({p_device:deviceId(), p_token:_wishTok()})});
     if(!r.ok) return;
     const rows=await r.json();
+    if(_wishTouch>=_t0) return;
     WISH=new Set(rows.map(x=>Number(x.gonggu_id)));
     saveWishLocal(); paintHearts(); updateWishBadge();
     if(fSt==='wish') renderList();
@@ -6698,7 +6702,7 @@ function updateWishBadge(){
 // ── 하트 토글 ──
 function toggleWish(id, btn, ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
-  id=Number(id);
+  id=Number(id); _wishTouch=Date.now();
   const on=!isWished(id);
   if(on) WISH.add(id); else WISH.delete(id);
   saveWishLocal(); updateWishBadge();
@@ -7695,7 +7699,7 @@ async function enablePush(){
 async function disablePush(){
   if(_isNativeApp()){
     try{
-      localStorage.setItem('mc_push_on','0');
+      localStorage.setItem('mc_push_on','0'); localStorage.setItem('mc_push_user_off','1');   // 내가 끈 것 — 앱을 다시 켜도 저절로 켜지 않는다
       await fetch(SUPABASE_URL+'/functions/v1/'+((window._mcCapAndroid&&window._mcCapAndroid())?'save-fcm-token':'save-ios-token'),{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:'off', device_id:deviceId()})}).catch(function(){});
@@ -7735,7 +7739,7 @@ async function enablePushNative(){
       P.register().catch(function(){ if(!done){ done=true; clearTimeout(t); res(null); } }); });
     window.__mcPushTokWait=null;
     if(!tok){ try{ trackEvent('push_err', plat+'_app|no_token'); }catch(_){} return false; }
-    localStorage.setItem('mc_push_on','1');
+    localStorage.setItem('mc_push_on','1'); try{ localStorage.removeItem('mc_push_user_off'); }catch(_){}
     try{ trackEvent('push_on', plat+'_app'); }catch(_){}
     return true;
   }catch(e){ return false; }
@@ -7779,7 +7783,7 @@ function nativeBoot(){
         // 2026-11-05 사장님 「설치하자마자 허용창 없애고 로그인한 뒤에 띄워」 — 설치 직후(로그인 전)에는 아무것도 안 띄운다. 로그인한 기기에만 우리 시트(3일에 한 번)
         try{ if(typeof isLoggedIn==='function' && isLoggedIn()) return _appAlarmAuto(st.receive); }catch(_){}
         return false; }; setTimeout(function(){ if(!_ask()) setTimeout(_ask, 6000); }, 2500); }
-      else if(st && st.receive==='granted' && localStorage.getItem('mc_push_on')!=='1'){ setTimeout(function(){ try{ window._appReachLate=1; Promise.resolve(enablePush()).then(function(ok){ try{ trackEvent('app_push_reach', ok?'on':'off'); }catch(_){} }).catch(function(){}); }catch(_){} }, 2500); }
+      else if(st && st.receive==='granted' && localStorage.getItem('mc_push_on')!=='1' && localStorage.getItem('mc_push_user_off')!=='1'){ setTimeout(function(){ try{ window._appReachLate=1; Promise.resolve(enablePush()).then(function(ok){ try{ trackEvent('app_push_reach', ok?'on':'off'); }catch(_){} }).catch(function(){}); }catch(_){} }, 2500); }
     }).catch(function(){}); }catch(_){}
     P.addListener('registrationError', function(){ try{ if(window.__mcPushTokWait) window.__mcPushTokWait(null); }catch(_){} try{ trackEvent('push_err', (function(){ try{ return Capacitor.getPlatform(); }catch(_){ return 'ios'; } })()+'_app'); }catch(_){} });
     // 알림을 눌러서 앱이 열린 경우 — 그 공구로 보낸다 (링크는 항상 맘캘린더 경유)
@@ -7936,7 +7940,7 @@ window.addEventListener('popstate',()=>{
   var _lastBack=0;
   function closeTopLayer(){
     var al=document.getElementById('mcAlarm'); if(al && al.classList.contains('open')){ al.classList.remove('open'); try{ trackEvent('app_alarm_sheet','back'); }catch(_){} return true; }
-    var sh=document.querySelector('.mc-sheet.open'); if(sh){ sh.classList.remove('open'); return true; }
+    var shs=document.querySelectorAll('.mc-sheet.open'), sh=shs.length?shs[shs.length-1]:null; if(sh){ sh.classList.remove('open'); return true; }
     var bs=[['kkoSheet','closeLoginSheet'],['wnSheet','closeWnSheet'],['infoSheet','closeInfoSheet']];   // 이 시트들은 on/open 클래스가 아니라 style.bottom='0' 으로 열린다(2026-11-02 코덱스 지적)
     for(var j=0;j<bs.length;j++){ var b=document.getElementById(bs[j][0]); if(b && /^0(px)?$/.test(b.style.bottom||'') && typeof window[bs[j][1]]==='function'){ window[bs[j][1]](); return true; } }
     var ids=['sideMenu','partnerModal','infoSheet','wnSheet','kkoSheet','loginSheet'];
