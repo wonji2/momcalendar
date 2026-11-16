@@ -11035,7 +11035,7 @@ function myQuiet(){
 // 알림음·진동: 안드로이드는 앱 알림 설정 화면에서 바꾼다. 그 화면을 열 수 있는 앱에서만 줄을 그린다
 function mySoundRow(){ try{ var P=window._mcNative&&window._mcNative(); if(P&&P.openNotificationSettings) return '<button type="button" class="my-row" onclick="myPermGo()"><span class="my-ico">🔊</span><span class="my-lab">알림음 · 진동</span><span class="my-sub">폰 설정</span><span class="my-arr">›</span></button>'; }catch(_){} return ""; }
 // ── 닉네임 수정: rpc member_set_nickname → members.nick_custom(로그인해도 유지) ──
-var MY_NICK_MSG={len:"2~10자로 적어 주세요",chars:"한글 · 영문 · 숫자만 쓸 수 있어요",reserved:"쓸 수 없는 이름이에요",auth:"다시 로그인해 주세요"};
+var MY_NICK_MSG={len:"2~10자로 적어 주세요",chars:"한글 · 영문 · 숫자만 쓸 수 있어요",reserved:"쓸 수 없는 이름이에요",taken:"이미 있는 이름이에요",auth:"다시 로그인해 주세요"};
 function myNickCheck(v){ if(v.length<2||v.length>10) return "len"; if(!/^[가-힣A-Za-z0-9]+$/.test(v)) return "chars"; if(/(맘캘|momcal|관리자|운영자|운영진|방장|매니저|스탭|스태프|admin|official|manager|staff)/i.test(v)) return "reserved"; return ""; }
 function myNickEdit(){
   var inn=false, m=null; try{ inn=isLoggedIn(); m=memberGet(); }catch(_){} if(!inn){ try{ openLoginSheet(); }catch(_){} return; }
@@ -11052,6 +11052,7 @@ function myNickSave(){
   btn.disabled=true;
   memberRpc("member_set_nickname",{p_nick:v}).then(function(j){
     btn.disabled=false;
+    if(j&&j.reason==="taken"&&j.suggest){ i.value=String(j.suggest); say("이미 있는 이름이에요 · 이 이름은 쓸 수 있어요"); try{ trackEvent("my_nick","fail:taken"); }catch(_){} return; }
     if(!j||!j.ok){ say(j&&MY_NICK_MSG[j.reason]?MY_NICK_MSG[j.reason]:"저장하지 못했어요"); try{ trackEvent("my_nick","fail:"+((j&&j.reason)||"net")); }catch(_){} return; }
     myNickStore(j.nickname); try{ trackEvent("my_nick","ok"); }catch(_){} mySubClose(); mcToast("닉네임을 바꿨어요");
   });
