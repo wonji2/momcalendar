@@ -673,6 +673,41 @@ on:
 **가드 5중**
 
 1. **큐 시드(가장 중요)**: 위 5행은 `publish_owner='jarvis_web'`, `ig_state='native_scheduled'`, `ig_scheduled_at`=위 시각으로 **`daily/cardnews/queue.json` 시드 + Supabase upsert**에 반드시 넣는다. `publish_ig.py`는 `publish_owner='pipeline' AND ig_state='api_pending'`인 행만 본다 → 이 5편은 **코드 수준에서 대상이 아니다.**
+
+   `queue.json`에 들어갈 5행의 정확한 모양(그대로 복사해 쓴다. `slides`는 이미지가 저장소에 있으면 채우고 없으면 `[]` + `needs_assets:true`):
+
+```json
+[
+  {"date":"2026-11-16","slot":"main","kind":"fixed","status":"published",
+   "publish_owner":"jarvis_web","ig_state":"native_scheduled",
+   "ig_scheduled_at":"2026-11-16T20:00:00+09:00","threads_state":"none",
+   "title":"2027년 출산 예정이면 나라에서 총 얼마 받을까?","slides":["01.png","…","08.png"],
+   "note":"인스타·스레드 직접 예약 완료(11/16 20:00). 파이프라인 발행 제외."},
+  {"date":"2026-11-17","slot":"main","kind":"fixed","status":"approved",
+   "publish_owner":"jarvis_web","ig_state":"native_scheduled",
+   "ig_scheduled_at":"2026-11-17T11:15:00+09:00","threads_state":"none",
+   "note":"직접 예약 완료(11/17 11:15). 파이프라인 발행 제외."},
+  {"date":"2026-11-18","slot":"main","kind":"fixed","status":"approved",
+   "publish_owner":"jarvis_web","ig_state":"native_scheduled",
+   "ig_scheduled_at":"2026-11-18T11:40:00+09:00","threads_state":"none",
+   "slides":[],"needs_assets":true,
+   "note":"직접 예약 완료(11/18 11:40). 이미지는 자비스 로컬에만 있음 → 저장소 이관은 별건."},
+  {"date":"2026-11-19","slot":"main","kind":"fixed","status":"approved",
+   "publish_owner":"jarvis_web","ig_state":"native_scheduled",
+   "ig_scheduled_at":"2026-11-19T12:10:00+09:00","threads_state":"none",
+   "slides":[],"needs_assets":true,
+   "note":"직접 예약 완료(11/19 12:10). 이미지는 자비스 로컬에만 있음."},
+  {"date":"2026-11-23","slot":"main","kind":"fixed","status":"approved",
+   "publish_owner":"jarvis_web","ig_state":"native_scheduled",
+   "ig_scheduled_at":"2026-11-23T11:20:00+09:00","threads_state":"none",
+   "slides":[],"needs_assets":true,
+   "episode_key":"2027_child_credit",
+   "title":"2027년 자녀장려금, 기준 그대로예요",
+   "note":"직접 예약 완료(11/23 11:20). 원고·이미지는 자비스가 별도 이관."}
+]
+```
+
+   Supabase upsert도 같은 값으로 넣는다(`on conflict (date,slot) do update set publish_owner=excluded.publish_owner, ig_state=excluded.ig_state, ig_scheduled_at=excluded.ig_scheduled_at` — 단 `status`·`caption`은 덮지 않는다).
 2. **시각 게이트**: `ig_scheduled_at`이 없거나 미래면 발행하지 않는다. 5편은 `native_scheduled`라 여기서도 걸린다.
 3. **발행 직전 원격 대조**: 인스타 `GET /{IG_USER_ID}/media?fields=id,caption,timestamp&limit=10`, 스레드 `GET /{THREADS_USER_ID}/threads?fields=id,text,timestamp&limit=10`을 읽어, **최근 12시간 안에 같은 캡션 첫 줄(후킹 문장) 또는 같은 제목을 가진 글이 있으면 발행 취소**하고 `ig_state='native_scheduled'`로 정정한다. (사람이 앱에서 먼저 올린 경우까지 잡는다.)
 4. **발행 로그(멱등성)**: `daily/cardnews/publish_log.jsonl`에 `{date, slot, platform, container_id, media_id, at}`를 append. 같은 `(date, slot, platform)`이 이미 있으면 발행하지 않는다. 이 파일은 커밋되어 git 이력이 감사 기록이 된다.
