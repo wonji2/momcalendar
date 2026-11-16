@@ -6818,7 +6818,7 @@ async function renderHome(){
 // 💬 커뮤니티 보류 글 (2026-11-17) — 외부 링크가 든 카페 글은 DB 가 자동 보류한다(community_hold_155.sql). 여기서 「노출」을 눌러야 손님에게 보인다
 async function hmCommLoad(){
   const el=document.getElementById('hmComm'); if(!el) return;
-  let rows=[]; try{ rows=await adminRpc('admin_community_hold_list',{})||[]; }catch(_){ el.hidden=true; return; }
+  let rows=[]; try{ rows=await adminRpc('admin_community_hold_list',{})||[]; }catch(_){ el.hidden=false; el.innerHTML='<h3>커뮤니티 보류 글</h3><div class="hm-empty">못 불러왔어요 · 새로 고침</div>'; return; }
   const held=rows.filter(x=>x.hold), shown=rows.filter(x=>!x.hold);
   if(!rows.length){ el.hidden=true; return; }
   const btn=(id,show,lab,bg,fg)=>`<button onclick="hmCommSet(${Number(id)},${show})" style="background:${bg};color:${fg};border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${lab}</button>`;

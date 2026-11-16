@@ -72,3 +72,45 @@ grant execute on function public.admin_community_set(bigint, boolean) to authent
 
 -- 기존 글 다시 판정(최근 45일) — 트리거가 판정한다
 update public.community_posts set fetched_at = fetched_at where posted_at > now() - interval '45 days';
+
+-- ── 2026-11-17 검증자 지적 반영 ──
+--   A 우리 주소 글자만 붙이면 보류를 피함(srok.kr/cafe.naver.com · evil-momcalendar.com) → 주소를 먼저 뽑고 「호스트」가 우리 것인지 본다
+--   B http 없는 단축 주소(me2.do · coupa.ng · han.gl …)와 경로 없는 주소(srok.kr)를 놓침 → 경로가 있으면 어떤 끝자리든, 경로가 없으면 아는 끝자리만
+--   E 30일 지난 글은 목록·경보에서 빠지거나 매일 경보가 다시 생김 → 목록은 보류 글 전부, 경보는 최근 30일 글만
+create or replace function public.community_ext_url(p text) returns text language plpgsql immutable as $$
+declare m text[]; u text; host text;
+begin
+  for m in select regexp_matches(coalesce(p,''),
+      '((?:https?://|www\.)[^[:space:]]+|(?:[a-z0-9-]+\.)+[a-z]{2,}/[^[:space:]]+|(?:[a-z0-9-]+\.)+(?:kr|com|net|me|ly|do|gl|la|ng|im|gle|be|co|io|link|shop|store|page|site|app)(?![a-z0-9-]))', 'gi') loop
+    u := m[1];
+    host := lower(regexp_replace(regexp_replace(u, '^https?://', '', 'i'), '[/?#:].*$', ''));
+    if host ~ '^([a-z0-9-]+\.)*(cafe\.naver\.com|momcalendar\.com)$' then continue; end if;
+    return u;
+  end loop;
+  return null;
+end $$;
+
+create or replace function public.community_hold_alert() returns trigger language plpgsql security definer set search_path to 'public' as $$
+begin
+  if new.hold and new.hold_reason like '외부 링크:%' and (tg_op = 'INSERT' or not coalesce(old.hold, false))
+     and new.posted_at > now() - interval '30 days' then
+    begin
+      insert into health_alerts(kind, detail) values ('커뮤니티글보류', '글 ' || new.article_id || ' 「' || left(coalesce(new.title,''), 30) || '」 ' || coalesce(new.nick,'') || ' · ' || new.hold_reason || ' — 관리자 홈 「커뮤니티 보류 글」에서 노출/숨김');
+    exception when others then null; end;
+  end if;
+  return null;
+end $$;
+
+create or replace function public.admin_community_hold_list() returns json language plpgsql stable security definer set search_path to 'public' as $$
+begin
+  if not is_app_admin() then raise exception 'forbidden' using errcode='28000'; end if;
+  return coalesce((select json_agg(x order by x.posted_at desc) from (
+    select article_id, board, title, nick, left(summary, 200) summary, url, posted_at, hold, hold_reason, approved_at
+      from community_posts
+     where hold or (approved_at is not null and posted_at > now() - interval '45 days')
+     order by posted_at desc limit 100) x), '[]'::json);
+end $$;
+
+delete from public.health_alerts h where h.kind = '커뮤니티글보류'
+  and not exists (select 1 from public.community_posts c where c.hold and c.posted_at > now() - interval '30 days' and h.detail like '글 ' || c.article_id || ' %');
+update public.community_posts set fetched_at = fetched_at;
