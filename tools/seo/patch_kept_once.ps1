@@ -6,7 +6,8 @@
 #   pwsh tools/seo/patch_kept_once.ps1 -DryRun         ← 바뀔 파일 수만 센다(쓰지 않는다)
 #
 # 왜: 한 번 만든 페이지는 지우지 않는다(보존 원칙). 오늘 집계에 없는 옛 페이지는 다시 만들어지지 않아서 템플릿만 고쳐서는 GA4 가 안 붙는다.
-# 무엇을: ① 구글 애널리틱스(G-NRCP2FVRSB) 스니펫이 없으면 </head> 앞에 넣는다 ② robots 메타의 noai·noimageai 를 뗀다.
+# 무엇을: ① 구글 애널리틱스(G-NRCP2FVRSB) 스니펫이 없으면 </head> 앞에 넣는다 ② robots 메타의 noai·noimageai 를 뗀다
+#         ③ 옛 문장 「지금 진행 중인 공구는 없습니다 …」를 「아래는 맘캘린더에 남아 있는 지난 일정 기록입니다.」로 바꾼다 ④ 끝난 공구의 Event 마크업을 걷는다.
 #         noindex 가 이미 있는 페이지의 robots 는 건드리지 않는다. 툼스톤(바로 넘기는 쪽지)은 건드리지 않는다. 바뀐 게 없으면 쓰지 않는다(여러 번 돌려도 같다).
 # 손질 규칙은 lib.ps1 의 PatchHeadText 한 곳에 있다 — 매일 빌드(build.ps1)도 같은 함수를 쓴다(이 도구를 안 돌려도 다음 빌드가 마저 한다).
 # 🔴 라이브 파일(index·admin·staff·test·test-app·register·kktest·reelcard)은 대상에서 뺀다(고정 규칙 0-A).

@@ -19,6 +19,7 @@ $GA4_SNIPPET = "<script async src=${Q}https://www.googletagmanager.com/gtag/js?i
                "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','$GA4_ID');</script>"
 $ROBOTS_NOINDEX = 'noindex,follow,max-image-preview:large'
 $RX_ROBOTS = [regex]'<meta name="robots" content="([^"]*)">'
+$RX_EVENT = [regex]'<script type="application/ld\+json">\{"@context":"https://schema\.org","@type":"Event",[^<]*?"endDate":"(\d{4}-\d{2}-\d{2})"[^<]*</script>\r?\n?'
 
 # 페이지에 noindex 가 있는가 — 경로는 사이트맵 주소 꼴(퍼센트 인코딩 가능), 뿌리 폴더는 인자로 받는다(이 파일은 $Root 를 모른다)
 function HasNoindex([string]$rel, [string]$root0){
@@ -42,7 +43,11 @@ function PatchHeadText([string]$t){
   }
   # 옛 페이지에 남은 「지금 진행 중인 공구는 없습니다 …」 문장(검색 스니펫에 이 문장이 잡혔다)을 사실 문장으로 바꾼다
   if($o.IndexOf('지금 진행 중인 공구는 없습니다', [StringComparison]::Ordinal) -ge 0){
-    $o = [regex]::Replace($o, '지금 진행 중인 공구는 없습니다.( 지난 일정[^.<]*.)?', '아래는 맘캘린더에 남아 있는 지난 일정 기록입니다.')
+    $o = [regex]::Replace($o, '지금 진행 중인 공구는 없습니다\.( 지난 일정[^.<"]*\.)?', '아래는 맘캘린더에 남아 있는 지난 일정 기록입니다.')
+  }
+  # 끝난 공구의 Event 마크업을 걷는다 — 진행·예정 때 만든 페이지가 집계에서 빠져 굳으면 Event 를 단 채 남는다(끝난 이벤트 마크업은 구글 가이드 위반)
+  if($o.IndexOf('"@type":"Event"', [StringComparison]::Ordinal) -ge 0){
+    $o = $RX_EVENT.Replace($o, [Text.RegularExpressions.MatchEvaluator]{ param($m) if($m.Groups[1].Value -lt $ASOF){ return '' } return $m.Value })
   }
   if($o.IndexOf($GA4_ID, [StringComparison]::Ordinal) -lt 0){
     $ix = $o.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
@@ -85,7 +90,7 @@ function CycleOf($ods, [string]$upto = ''){
   $g = @($gaps | Sort-Object)
   $med = $(if($g.Count % 2 -eq 1){ [int]$g[($g.Count-1)/2] } else { [int][Math]::Round(($g[$g.Count/2-1] + $g[$g.Count/2]) / 2.0) })
   # 여러 셀러가 번갈아 여는 브랜드는 간격이 며칠이다 — 그걸 「한 달 안팎」이라고 뭉개지 않는다
-  $lab = $(if($med -le 3){ '며칠' } elseif($med -lt 14){ '1~2주' } elseif($med -lt 30){ '한 달 안팎' } elseif($med -lt 90){ '1~3개월' } else { '3개월 이상' })
+  $lab = $(if($med -le 3){ '며칠' } elseif($med -le 10){ '일주일 안팎' } elseif($med -lt 30){ '2~4주' } elseif($med -lt 90){ '1~3개월' } else { '3개월 이상' })
   return [pscustomobject]@{ n=$ds.Count; days=$med; label=$lab; first=$ds[0]; last=$ds[$ds.Count-1] }
 }
 
@@ -415,6 +420,8 @@ $script:PROD_NOUN = @(
 ) | Sort-Object -Property @{e={$_.Length};Descending=$true}
 
 function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms, $moreFaq = @()){
+  # 2026-11-16 검증자: 예정이 2건 이상이면 더 먼 날짜를 「다음 공구」라고 답하고 있었다 → 예정은 가까운 날부터, 지난 것은 최근부터 본다
+  $soon = @($soon | Sort-Object @{e='od';Descending=$false}); $past = @($past | Sort-Object @{e='od';Descending=$true})
   $nearest = ''
   if($live.Count -gt 0){ $nearest = "$($live[0].od)" }
   elseif($soon.Count -gt 0){ $nearest = "$($soon[0].od)" }
