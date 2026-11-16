@@ -41,7 +41,9 @@ export async function rankOf(q) {
     const links = [...b.matchAll(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]{0,400}?)<\/a>/g)].map((x) => ({ u: x[1], t: strip(x[2]) })).filter((x) => x.t.length > 6 && !SKIP.test(x.u));
     if (!links.length) return;
     const first = links.find((x) => !/^(네이버|Keep)/.test(x.t)) || links[0];
-    const our = links.find((x) => OURS.test(x.u));
+    // 블록 머리의 출처 링크(https://momcalendar.com/)가 먼저 나온다 → 우리 링크 중 경로가 가장 긴 것(실제 결과 문서)을 적는다
+    //   (2026-11-16: 브랜드 페이지가 1번째 웹문서인데 로그엔 「/」만 남아 「브랜드 페이지가 사라졌다」고 오판했다)
+    const our = links.filter((x) => OURS.test(x.u)).sort((a, b) => b.u.split(/[?#]/)[0].length - a.u.split(/[?#]/)[0].length)[0];
     const isAd = /ader\.naver/.test(b.slice(0, 3000)) && !our;
     rows.push({ dom: first.u.replace(/^https?:\/\/(www\.|m\.)?/, '').split('/')[0], ours: !!our, ad: isAd, url: our?.u || '' });
   });
