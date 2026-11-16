@@ -2988,7 +2988,7 @@ window.slimAdClick=function(id){
     <button type="button" class="my-row" onclick="openPartnerModal()"><span class="my-ico">🤝</span><span class="my-lab">제휴 · 입점 문의</span><span class="my-arr">›</span></button>
     <button type="button" class="my-row" onclick="mcShare()"><span class="my-ico">🎁</span><span class="my-lab">친구에게 맘캘린더 공유</span><span class="my-arr">›</span></button>
   </div>
-  <div class="my-foot"><a href="terms.html">이용약관</a> · <a href="privacy.html">개인정보처리방침</a><span id="myFootAcct" style="display:none"> · <button type="button" class="my-flnk" onclick="kkoLogout()">로그아웃</button> · <button type="button" class="my-flnk" onclick="openWithdrawSheet()">회원탈퇴</button></span></div>
+  <div class="my-foot"><a href="terms.html" onclick="return myDoc('terms.html','이용약관')">이용약관</a> · <a href="privacy.html" onclick="return myDoc('privacy.html','개인정보처리방침')">개인정보처리방침</a><span id="myFootAcct" style="display:none"> · <button type="button" class="my-flnk" onclick="kkoLogout()">로그아웃</button> · <button type="button" class="my-flnk" onclick="openWithdrawSheet()">회원탈퇴</button></span></div>
 </div>
 
 
@@ -10984,6 +10984,8 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 .my-out .my-lab{color:#8B95A1;font-weight:500}
 .my-foot{text-align:center;padding:10px 0 0;font-size:11.5px;color:#8B95A1}
 .my-foot a{color:#8B95A1;text-decoration:none;margin:0 4px}
+.my-sub-b.my-docb{position:relative;padding:0;overflow:hidden;background:#fff}
+.my-docf{position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#fff}
 .my-flnk{background:none;border:0;padding:0;margin:0 4px;font:inherit;color:#8B95A1;cursor:pointer}
 .my-ch{display:flex;align-items:flex-start;justify-content:space-around;padding:10px 6px 14px}
 .my-ch>a{flex:1;min-width:0}.my-ch>a>span:last-child{white-space:nowrap}
@@ -11055,6 +11057,13 @@ function mySupport(){
   mySub("고객센터 · 오류 제보", '<div class="my-card">'+r("myKakao()","💬","카카오톡 문의")+r("mySubClose();openInqSheet()","🛠️","건의 · 오류 제보")+r("myMail()","✉️","앱 문의 메일","app@momcalendar.com")+'</div>');
   try{ trackEvent("my_open","support"); }catch(_){}
 }
+// 약관·개인정보처리방침: 앱에서는 페이지를 떠나지 않고 속 화면으로(뒤로가기 = 마이). 웹은 평소 링크
+function myDoc(file, title){
+  try{ if(!document.body.classList.contains("native-app")) return true; }catch(_){ return true; }
+  try{ mySub(title, '<iframe class="my-docf" title="'+title+'" src="'+file+'" onload="myDocLoad(this)"></iframe>'); var b=document.querySelector("#mySub .my-sub-b"); if(b) b.classList.add("my-docb"); try{ trackEvent("my_open","doc:"+file); }catch(_){} }catch(_){ return true; }
+  return false;
+}
+function myDocLoad(f){ try{ var d=f.contentDocument, s=d.createElement("style"); s.textContent=".back{display:none!important}"; d.head.appendChild(s); }catch(_){} }
 function mySettings(){
   var inn=false; try{ inn=isLoggedIn(); }catch(_){}
   var h='<div class="my-card">'+myPermRow()+'<button type="button" class="my-row" onclick="myRefresh()"><span class="my-ico">🧹</span><span class="my-lab">화면 새로 받기</span><span class="my-arr">›</span></button></div>'
