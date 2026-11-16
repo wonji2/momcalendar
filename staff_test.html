@@ -83,6 +83,7 @@
     <div class="tab on" id="t-exp" onclick="showTab('exp')">🎁 체험단</div>
     <div class="tab" id="t-fix" onclick="showTab('fix')" style="display:none">🏷 분류 수정</div>
     <div class="tab" id="t-card" onclick="showTab('card')">📸 인스타 카드</div>
+    <div class="tab" id="t-news" onclick="showTab('news')">📰 카드뉴스</div>
     <div class="tab" id="t-staff" onclick="showTab('staff')" style="display:none">👥 스탭 관리</div>
   </div>
 
@@ -189,6 +190,16 @@
             style="display:block;width:100%;height:calc(100vh - 96px);border:0;background:#3A3145"></iframe>
     <div id="cardFallback" style="display:none;padding:14px;font-size:12px;color:#666">
       화면이 안 뜨면 <a href="#" onclick="openReelCard();return false" style="color:var(--p);font-weight:700">새 탭에서 열기</a>를 눌러주세요.
+    </div>
+  </div>
+
+  <!-- ── 📰 카드뉴스 ── 매일 생성되는 인스타 카드뉴스(3:4 1080×1440) 8장 + 캡션·해시태그를
+       여기서 바로 내려받고 복사한다. 화면은 cardnews.html 하나만 고치면 된다. -->
+  <div class="view" id="v-news" style="display:none;padding:0">
+    <iframe id="newsFrame" title="오늘의 카드뉴스"
+            style="display:block;width:100%;height:calc(100vh - 96px);border:0;background:#F5F2FB"></iframe>
+    <div id="newsFallback" style="display:none;padding:14px;font-size:12px;color:#666">
+      화면이 안 뜨면 <a href="#" onclick="openNews();return false" style="color:var(--p);font-weight:700">새 탭에서 열기</a>를 눌러주세요.
     </div>
   </div>
 </div>
@@ -335,7 +346,7 @@ window.addEventListener('DOMContentLoaded',restoreSession);
 
 // ───────── 탭 ─────────
 function showTab(t){
-  ['gonggu','hotdeal','exp','fix','card','staff'].forEach(x=>{
+  ['gonggu','hotdeal','exp','fix','card','news','staff'].forEach(x=>{
     const tb=document.getElementById('t-'+x), vw=document.getElementById('v-'+x);
     if(!tb||!vw) return;
     tb.classList.toggle('on',x===t);
@@ -345,6 +356,7 @@ function showTab(t){
   if(t==='exp') loadExpAdmin();
   if(t==='fix') fxLoad();
   if(t==='card') mountReelCard();
+  if(t==='news') mountNews();
   if(t==='staff') stLoad();
 }
 
@@ -498,6 +510,22 @@ function reelCardUrl(){
   return base+'/instastudio.html?d='+kst+'&fmt=auto&t='+Date.now();   // 🔴 reelcard(시안 1종) → instastudio(요일별 7종). 2026-09-02
 }
 function openReelCard(){ window.open(reelCardUrl(),'_blank'); }
+
+// ───────── 📰 카드뉴스 (매일 생성되는 3:4 카드뉴스 8장 다운로드) ─────────
+// 데이터: daily/cardnews/YYYY-MM-DD/{manifest.json, 카드 PNG, caption.txt, comment_tags.txt}
+// 최신 날짜는 daily/cardnews/latest.json 이 알려준다. 화면·저장 로직은 cardnews.html 안에만 있다.
+function newsUrl(){
+  const base=location.origin.indexOf('http')===0 ? location.origin : 'https://momcalendar.com';
+  return base+'/cardnews.html?t='+Date.now();
+}
+function mountNews(){
+  const f=document.getElementById('newsFrame');
+  if(!f || f.dataset.on==='1') return;
+  f.dataset.on='1';
+  f.src=newsUrl();
+  f.onerror=function(){ document.getElementById('newsFallback').style.display='block'; };
+}
+function openNews(){ window.open(newsUrl(),'_blank'); }
 
 // ───────── 공구: 카테고리/셀러 ─────────
 function fillCats(pfx){
