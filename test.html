@@ -7149,7 +7149,7 @@ function startKakaoLogin(){
   try{ localStorage.setItem('mc_login_intent', window.__loginIntent||''); }catch(_){}
   // 돌아오지 못하면 이 흔적이 남는다 → 다음 방문 때 checkLoginFail 이 '실패'로 확정해 기록
   try{ localStorage.setItem('mc_login_try', JSON.stringify({t:Date.now(), p:location.pathname})); }catch(_){}
-  try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })()); }catch(_){}
+  try{ trackEvent('kakao_login_start', ((typeof _isNativeApp==='function'&&_isNativeApp())?'app':_isStandalone()?'pwa':(_isInApp()?'inapp':'web')) + (function(){ try{ return '|d=' + String(deviceId()).slice(0,8); }catch(_){ return ''; } })() + (function(){ try{ return _isInApp() ? '|k=' + ((typeof _appName==='function')?_appName():'inapp') + '|' + (_isIOS()?'ios':'android') : ''; }catch(_){ return ''; } })()); }catch(_){}
   // 🔴 2026-10-27: 앱은 카카오톡 앱으로 바로 로그인(_appTalkLogin). 크롬 창을 띄우지 않는다(사장님 지시 「바로 카톡 로그인이돼야지」)
   if(_kkoNative()){ _appTalkLogin(); return; }
   // ⚠️ throughTalk 기본값은 true = "카카오톡 앱을 띄워서 인증".
