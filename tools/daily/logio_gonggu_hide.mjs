@@ -31,7 +31,7 @@ const IDS = ((process.argv.find((a) => a.startsWith('--ids=')) || '').slice(6))
 // --window (2026-11-17 사장님 「내 공구 기간과 겹치는 타인 로지오 전부 숨김」): 번호를 손으로 고르지 않고
 //   내 로지오 공구 창(오픈−14일 ~ 마감, 규칙 0-M)과 기간이 겹치는 타 셀러 행 전부(끝난 행·이미 내렸지만 잠금 없는 행 포함)를 내리고 잠근다.
 const WINDOW = process.argv.includes('--window');
-const REASON = '사장님 지시 2026-11-16 「로지오가닉 내꺼빼고 다 빼」 — 사장님 로지오가닉 공구 기간(11/13~11/22) 중 타셀러 로지오가닉 비노출(규칙 0-M)';
+const REASON = WINDOW ? '사장님 지시 2026-11-17 「로지오가닉 배도라지 품목만 내 공구 기간 동안 숨김」(규칙 0-M 품목 기준)' : '사장님 지시 2026-11-16 「로지오가닉 내꺼빼고 다 빼」 — 사장님 로지오가닉 공구 기간(11/13~11/22) 중 타셀러 로지오가닉 비노출(규칙 0-M)';
 const q = (s) => "'" + String(s == null ? '' : s).replace(/'/g, "''") + "'";
 
 function sql(text) {
@@ -60,12 +60,15 @@ const mine = (r) => String(r.insta || '').toLowerCase() === 'momcal_';
 const day = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const KST = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const myNow = rows.filter((r) => mine(r) && r.approved && r.end_date && r.end_date >= KST);
-const WIN = myNow.length ? { lo: day(myNow.map((r) => r.open_date).sort()[0], -14), hi: myNow.map((r) => r.end_date).sort().pop() } : null;
-const inWin = (r) => WIN && !mine(r) && String(r.open_date || '') <= WIN.hi && String(r.end_date || r.open_date || '') >= WIN.lo;
+const WIN = myNow.length ? { lo: myNow.map((r) => r.open_date).sort()[0], hi: myNow.map((r) => r.end_date).sort().pop() } : null;
+// 2026-11-17 사장님: 로지오가닉 전체가 아니라 「로지오가닉 + 배도라지(배·도라지·배도라지즙)」 품목만, 내 공구 기간(오픈~마감) 동안만 내린다.
+//   떡뻥·퓨레·쌀과자·보리차는 그대로 노출. DB 쪽 같은 규칙 = own_window_item_rule(supabase/sql/own_window_item_rule_156.sql)
+const ITEM = /도라지|배즙/;
+const inWin = (r) => WIN && !mine(r) && ITEM.test(String(r.name || '')) && String(r.open_date || '') <= WIN.hi && String(r.end_date || r.open_date || '') >= WIN.lo;
 if (WINDOW) {
   if (!WIN) { console.log('🔴 진행 중인 내 로지오 공구가 없다 — 창을 못 정해 아무것도 하지 않는다'); process.exit(1); }
   IDS.length = 0; for (const r of rows) if (inWin(r) && (r.approved || !r.held)) IDS.push(Number(r.id));
-  console.log(`창 ${WIN.lo}~${WIN.hi} — 겹치는 타 셀러 행 중 노출 또는 잠금 없는 것 ${IDS.length}건`);
+  console.log(`내 공구 기간 ${WIN.lo}~${WIN.hi} — 겹치는 타 셀러 배도라지 품목 중 노출 또는 잠금 없는 것 ${IDS.length}건`);
   if (APPLY && !IDS.length) { console.log('검증 ✅ 통과 — 내릴 것이 없다(이미 전부 내려가 잠겨 있다)'); process.exit(0); }
 }
 const say = (r) => `id${r.id} ${mine(r) ? '🟣내것' : '⚪타인'} insta=${r.insta || '(없음)'} influencer=${r.influencer || '(없음)'} 「${String(r.name).slice(0, 40)}」 brand=${r.brand || '-'} item=${r.item || '-'} ${r.open_date}~${r.end_date || '-'} approved=${r.approved} held=${r.held} source=${r.source || '-'}`;
