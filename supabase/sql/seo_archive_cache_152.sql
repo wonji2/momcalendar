@@ -5,7 +5,7 @@
 --   · seo_archive_rows : 보관분 중 내보낼 행만 옮겨 둔 가벼운 표(차단 셀러·브랜드, 아직 gonggu 에 있는 행, 앞날 날짜 제외). 뷰로 두면 차단 함수가 집계 안에서 여러 번 불려 120초를 넘긴다(실측).
 --   · seo_build_archive() : seo_build() 정의를 DB 안에서 그대로 베껴 읽는 표만 바꾼다(정규식의 한글이 밖으로 나갔다 들어오며 깨지지 않게).
 --     🔴 seo_build() 를 고치면 아래 do 블록을 다시 돌려야 보관분 쪽도 같은 규칙이 된다.
---   · 갱신: pg_cron seo-refresh-archive 매주 일요일 03:35 KST. 실측 119초 → 크론 명령에서 문장 제한을 400초로 올린다(함수 속성 set 은 이미 시작된 문장에 안 먹는다).
+--   · 갱신: pg_cron seo-refresh-archive 매주 일요일 03:50 KST. 실측 119초 → 크론 명령에서 문장 제한을 400초로 올린다(함수 속성 set 은 이미 시작된 문장에 안 먹는다).
 --   한도: seo_cache 한 줄(약 2.6MB) + seo_archive_rows 약 3MB.
 --   되돌리기: select cron.unschedule('seo-refresh-archive'); delete from seo_cache where id=2; (빌드는 없으면 합치지 않는다)
 create table if not exists public.seo_archive_rows (
@@ -54,4 +54,5 @@ $f$;
 revoke execute on function public.seo_dataset_archive() from public, anon, authenticated;
 grant execute on function public.seo_dataset_archive() to service_role;
 
-select cron.schedule('seo-refresh-archive', '35 18 * * 6', $c$set statement_timeout='400s'; select public.seo_refresh_archive();$c$);
+-- 시각: 일요일 03:50 KST. 매시 33·34분(검색어·클릭 통계)·03:20(site-search-stats)·04:20(seo-refresh)·04:40(DB 내보내기)와 안 겹치는 자리(2026-11-16 확인)
+select cron.schedule('seo-refresh-archive', '50 18 * * 6', $c$set statement_timeout='400s'; select public.seo_refresh_archive();$c$);
