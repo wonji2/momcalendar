@@ -12,6 +12,131 @@ $ORG_LD = "{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}맘캘린더${Q}
           "${Q}sameAs${Q}:[${Q}https://www.instagram.com/momcal_/${Q},${Q}https://www.threads.com/@momcal_official${Q},${Q}https://cafe.naver.com/momcal${Q},${Q}https://blog.naver.com/momcal${Q}]," +
           "${Q}parentOrganization${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}원츠비${Q}}}"
 
+# ── 2026-11-16 구글 색인 복구 (orders/ORDER_SEO_AEO_GEO_RECOVERY.md) ──
+# GA4: index.html 과 같은 측정 ID 를 생성 페이지 전부에 넣는다(전에는 홈 1장에만 있어 g·gg 유입이 안 잡혔다)
+$GA4_ID = 'G-NRCP2FVRSB'
+$GA4_SNIPPET = "<script async src=${Q}https://www.googletagmanager.com/gtag/js?id=$GA4_ID${Q}></script>`n" +
+               "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','$GA4_ID');</script>"
+$ROBOTS_NOINDEX = 'noindex,follow,max-image-preview:large'
+$RX_ROBOTS = [regex]'<meta name="robots" content="([^"]*)">'
+
+# 페이지에 noindex 가 있는가 — 경로는 사이트맵 주소 꼴(퍼센트 인코딩 가능), 뿌리 폴더는 인자로 받는다(이 파일은 $Root 를 모른다)
+function HasNoindex([string]$rel, [string]$root0){
+  $fp = Join-Path $root0 ([uri]::UnescapeDataString($rel))
+  if(-not (Test-Path -LiteralPath $fp)){ return $false }
+  return ([IO.File]::ReadAllText($fp) -match '<meta name="robots" content="[^"]*noindex')
+}
+function TextHasNoindex([string]$t){ return ($t -match '<meta name="robots" content="[^"]*noindex') }
+function IsTombstoneText([string]$t){ return ($t.IndexOf('http-equiv="refresh"', [StringComparison]::Ordinal) -ge 0 -and (TextHasNoindex $t)) }
+
+# 보존 페이지(다시 안 만들어지는 옛 페이지)의 <head> 고치기 — GA4 넣기 + noai 메타 걷기. 바뀐 게 없으면 원문 그대로 돌려준다(멱등)
+#   · noindex 가 이미 있는 페이지의 robots 는 건드리지 않는다(툼스톤·장기 마감)
+#   · 툼스톤(바로 넘기는 페이지)에는 GA4 를 넣지 않는다
+function PatchHeadText([string]$t){
+  if(IsTombstoneText $t){ return $t }
+  $o = $t
+  if(-not (TextHasNoindex $o)){
+    $o = $RX_ROBOTS.Replace($o, [Text.RegularExpressions.MatchEvaluator]{ param($m)
+      $parts = @($m.Groups[1].Value -split '\s*,\s*' | Where-Object { $_ -and $_ -notmatch '^(noai|noimageai)$' })
+      return "<meta name=${Q}robots${Q} content=${Q}$($parts -join ',')${Q}>" }, 1)
+  }
+  # 옛 페이지에 남은 「지금 진행 중인 공구는 없습니다 …」 문장(검색 스니펫에 이 문장이 잡혔다)을 사실 문장으로 바꾼다
+  if($o.IndexOf('지금 진행 중인 공구는 없습니다', [StringComparison]::Ordinal) -ge 0){
+    $o = [regex]::Replace($o, '지금 진행 중인 공구는 없습니다.( 지난 일정[^.<]*.)?', '아래는 맘캘린더에 남아 있는 지난 일정 기록입니다.')
+  }
+  if($o.IndexOf($GA4_ID, [StringComparison]::Ordinal) -lt 0){
+    $ix = $o.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
+    if($ix -ge 0){ $o = $o.Substring(0,$ix) + $GA4_SNIPPET + "`n" + $o.Substring($ix) }
+  }
+  return $o
+}
+# robots 메타만 바꾼다(보존 gg 페이지를 장기 마감 = noindex 로, 또는 되돌릴 때). 메타가 없으면 그대로
+function SetRobotsText([string]$t, [string]$val){
+  return $RX_ROBOTS.Replace($t, "<meta name=${Q}robots${Q} content=${Q}$val${Q}>", 1)
+}
+
+# 사이트맵 lastmod 용 「본문 해시」 — 날마다 저절로 바뀌는 것(기준일 도장·dateModified·GA4 스니펫·noai 메타·핫딜 구간·줄바꿈 꼴)을 빼고 잰다.
+#   이 값이 어제와 같으면 lastmod 는 옛 날짜 그대로다. 내용이 안 바뀐 페이지를 날마다 「오늘 수정」이라고 하면 크롤러가 lastmod 를 안 믿는다(구글·빙 공통)
+$RX_CORE = [regex]'(?s)"dateModified":"\d{4}-\d{2}-\d{2}"|<p class="asof">\d{4}-\d{2}-\d{2}|<dt>기준일</dt><dd>[^<]*</dd>|<script async src="https://www\.googletagmanager\.com/gtag/js[^<]*</script>\s*<script>window\.dataLayer[^<]*</script>\s*|,\s*noai,\s*noimageai|<!--hd-->.*?<!--/hd-->|\r'
+function CoreHash([string]$path){
+  $t = $RX_CORE.Replace([IO.File]::ReadAllText($path), '')
+  $md5 = [Security.Cryptography.MD5]::Create()
+  try{ return [BitConverter]::ToString($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes($t))) } finally { $md5.Dispose() }
+}
+
+# gg 색인 계층 — A 진행 중·예정 / B 최근 마감($cut 이후 마감) / C 그 밖(사이트맵 제외 + noindex,follow, 페이지는 200 유지)
+function GgTier($x, [string]$today, [string]$cut){
+  if("$($x.od)" -gt $today){ return 'A' }
+  if("$($x.od)" -le $today -and "$($x.ed)" -ge $today){ return 'A' }
+  if("$($x.ed)" -ge $cut){ return 'B' }
+  return 'C'
+}
+
+# 재공구 주기 — 오픈일(yyyy-MM-dd) 목록의 서로 다른 날짜 간격 중위값. 이력이 2회 미만이면 $null(추정하지 않는다)
+#   $upto(오늘)를 주면 그 뒤 날짜(예정)는 빼고 잰다 — 아직 안 열린 공구를 「열렸습니다」로 세지 않는다
+function CycleOf($ods, [string]$upto = ''){
+  $ds = @($ods | Where-Object { "$_".Length -ge 10 } | ForEach-Object { "$_".Substring(0,10) } | Where-Object { -not $upto -or $_ -le $upto } | Sort-Object -Unique)
+  if($ds.Count -lt 2){ return $null }
+  $gaps = New-Object System.Collections.ArrayList
+  for($i = 1; $i -lt $ds.Count; $i++){
+    try{ [void]$gaps.Add([int]([DateTime]::ParseExact($ds[$i],'yyyy-MM-dd',$null) - [DateTime]::ParseExact($ds[$i-1],'yyyy-MM-dd',$null)).TotalDays) }catch{}
+  }
+  if($gaps.Count -eq 0){ return $null }
+  $g = @($gaps | Sort-Object)
+  $med = $(if($g.Count % 2 -eq 1){ [int]$g[($g.Count-1)/2] } else { [int][Math]::Round(($g[$g.Count/2-1] + $g[$g.Count/2]) / 2.0) })
+  # 여러 셀러가 번갈아 여는 브랜드는 간격이 며칠이다 — 그걸 「한 달 안팎」이라고 뭉개지 않는다
+  $lab = $(if($med -le 3){ '며칠' } elseif($med -lt 14){ '1~2주' } elseif($med -lt 30){ '한 달 안팎' } elseif($med -lt 90){ '1~3개월' } else { '3개월 이상' })
+  return [pscustomobject]@{ n=$ds.Count; days=$med; label=$lab; first=$ds[0]; last=$ds[$ds.Count-1] }
+}
+
+# Event JSON-LD — 진행 중·예정 공구에만(끝난 이벤트 마크업은 구글 가이드 위반). offers·price 는 넣지 않는다(공구 가격을 수집하지 않는다)
+#   location = 셀러 인스타(온라인), organizer = 셀러(없으면 브랜드). 맘캘린더는 주최자가 아니다. 시각은 지어내지 않는다(날짜만)
+function LdEvent($x, [string]$canon, [string]$brand){
+  if("$($x.od)".Length -lt 10 -or "$($x.ed)".Length -lt 10){ return $null }
+  $md = "$([int]"$($x.od)".Substring(5,2))/$([int]"$($x.od)".Substring(8,2))"
+  $ig = $(if($x.PSObject.Properties['insta'] -and $x.insta){ "https://www.instagram.com/$($x.insta)" } else { '' })
+  $who = $(if($x.PSObject.Properties['who'] -and $x.who){ "$($x.who)" } else { '' })
+  $loc = $(if($ig){ "{${Q}@type${Q}:${Q}VirtualLocation${Q},${Q}name${Q}:${Q}인스타그램 @$(JsonEsc "$($x.insta)")${Q},${Q}url${Q}:${Q}$ig${Q}}" } else { "{${Q}@type${Q}:${Q}VirtualLocation${Q},${Q}name${Q}:${Q}인스타그램${Q}}" })
+  $orgName = $(if($who){ $who } else { $brand })
+  $org = "{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}$(JsonEsc $orgName)${Q}$(if($ig){ ",${Q}url${Q}:${Q}$ig${Q}" })}"
+  $desc = "$($x.name) 인스타 공동구매. $($x.od) 오픈, $($x.ed) 마감.$(if($who){ " 진행 셀러 $who." })"
+  return "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}Event${Q}," +
+    "${Q}name${Q}:${Q}$(JsonEsc "$($x.name) 공구 ($md 오픈)")${Q}," +
+    "${Q}startDate${Q}:${Q}$($x.od)${Q},${Q}endDate${Q}:${Q}$($x.ed)${Q}," +
+    "${Q}eventStatus${Q}:${Q}https://schema.org/EventScheduled${Q}," +
+    "${Q}eventAttendanceMode${Q}:${Q}https://schema.org/OnlineEventAttendanceMode${Q}," +
+    "${Q}location${Q}:$loc,${Q}organizer${Q}:$org,${Q}isAccessibleForFree${Q}:true," +
+    "${Q}url${Q}:${Q}$SITE/$canon${Q},${Q}image${Q}:${Q}$SITE/og-image.png${Q}," +
+    "${Q}description${Q}:${Q}$(JsonEsc $desc)${Q}}"
+}
+
+# 핫딜 목록 JSON-LD — 핫딜 페이지에만(실가격이 있는 것). Product + Offer, price 는 문자열·원 단위 정수. image·review·aggregateRating 은 넣지 않는다(없는 것을 만들지 않는다)
+function LdDealList([string]$name, $deals, [string]$canon){
+  $el = New-Object System.Collections.ArrayList; $i = 0
+  foreach($h in $deals){
+    if([int]$h.price -le 0 -or -not $h.title){ continue }
+    $i++
+    $offer = "{${Q}@type${Q}:${Q}Offer${Q},${Q}price${Q}:${Q}$([int]$h.price)${Q},${Q}priceCurrency${Q}:${Q}KRW${Q},${Q}availability${Q}:${Q}https://schema.org/InStock${Q}" +
+             $(if("$($h.link)" -match '^https?://'){ ",${Q}url${Q}:${Q}$(JsonEsc "$($h.link)")${Q}" }) +
+             ",${Q}seller${Q}:{${Q}@type${Q}:${Q}Organization${Q},${Q}name${Q}:${Q}$(JsonEsc "$($h.mall)")${Q}}}"
+    [void]$el.Add("{${Q}@type${Q}:${Q}ListItem${Q},${Q}position${Q}:$i,${Q}item${Q}:{${Q}@type${Q}:${Q}Product${Q},${Q}name${Q}:${Q}$(JsonEsc "$($h.title)")${Q},${Q}offers${Q}:$offer}}")
+  }
+  if($el.Count -eq 0){ return $null }
+  return "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}ItemList${Q},${Q}name${Q}:${Q}$(JsonEsc $name)${Q},${Q}url${Q}:${Q}$SITE/$canon${Q},${Q}numberOfItems${Q}:$($el.Count),${Q}itemListElement${Q}:[$($el -join ',')]}"
+}
+
+# 툼스톤 — 지워야 하는 페이지 자리에 남기는 「넘김 쪽지」. GitHub Pages 는 서버 301 을 못 해서 200 + noindex + canonical + meta refresh 로 대신한다.
+#   🔴 브랜드·상품 이름을 쓰지 않는다(brand_block 으로 지워 달라고 한 브랜드의 흔적을 남기지 않는다). $dest 는 사이트 안 경로(퍼센트 인코딩된 꼴, 앞 슬래시 없이)
+function TombstoneHtml([string]$dest){
+  $u = "$SITE/$dest"
+  return "<!DOCTYPE html><html lang=${Q}ko${Q}><head><meta charset=${Q}UTF-8${Q}>`n" +
+         "<meta name=${Q}robots${Q} content=${Q}noindex,follow${Q}>`n" +
+         "<link rel=${Q}canonical${Q} href=${Q}$u${Q}>`n" +
+         "<meta http-equiv=${Q}refresh${Q} content=${Q}0; url=$u${Q}>`n" +
+         "<title>정리된 일정 · 맘캘린더</title></head>`n" +
+         "<body><p>이 일정은 정리되었습니다. <a href=${Q}/$dest${Q}>최근 공구 일정 보기</a></p></body></html>`n"
+}
+
 function HtmlEsc([string]$s){
   if($null -eq $s){ return '' }
   return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace([string][char]34,'&quot;')
@@ -114,7 +239,12 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<link rel=${Q}apple-touch-icon${Q} href=${Q}/momcal-appicon.png${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:image${Q} content=${Q}$SITE/og-image.png${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:image:width${Q} content=${Q}1200${Q}><meta property=${Q}og:image:height${Q} content=${Q}630${Q}>")   # 2026-10-27 AI 답·메신저 링크 미리보기를 크게(홈과 같은 그림)
-  [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}index,follow,max-image-preview:large,noai,noimageai${Q}>")   # noai·noimageai = AI 학습 금지 표시(2026-10-27). 검색·AI 인용은 그대로
+  # 2026-11-16 (ORDER_SEO_AEO_GEO_RECOVERY §6-1): 계층별 robots — noindex 는 gg C 계층(장기 마감)·툼스톤에만 붙는다.
+  #   noai·noimageai 는 뺐다 — AI 학습 차단은 robots.txt 의 Content-Signal: ai-train=no 와 학습봇 Disallow 가 하고 있고, 이 메타는 「AI 인용 환영」 신호와 부딪힌다
+  $rb = $(if($o.robots){ "$($o.robots)" } else { 'index,follow,max-image-preview:large' })
+  [void]$sb.AppendLine("<meta name=${Q}robots${Q} content=${Q}$rb${Q}>")
+  # GA4 — index.html 과 같은 측정 ID. async 유지(LCP 보호). verify.ps1 이 「페이지마다 정확히 1회」를 본다
+  [void]$sb.AppendLine($GA4_SNIPPET)
   [void]$sb.AppendLine("<meta property=${Q}og:title${Q} content=${Q}$tE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:description${Q} content=${Q}$dE${Q}>")
   [void]$sb.AppendLine("<meta property=${Q}og:type${Q} content=${Q}website${Q}>")
@@ -284,7 +414,7 @@ $script:PROD_NOUN = @(
   '오메가','비타민','영양제','효소','콜라겐','철분','마그네슘','아연','루테인','프로바이오틱스','휴지통','에어건','밧드','냄비세트','조리도구','이유식','간식세트'
 ) | Sort-Object -Property @{e={$_.Length};Descending=$true}
 
-function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
+function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms, $moreFaq = @()){
   $nearest = ''
   if($live.Count -gt 0){ $nearest = "$($live[0].od)" }
   elseif($soon.Count -gt 0){ $nearest = "$($soon[0].od)" }
@@ -376,6 +506,9 @@ function ExtraBody([string]$name, [string]$kind, $live, $soon, $past, $terms){
     $faq += @{ q="지난 $name 공구도 볼 수 있나요?";
                a="네, 이 페이지 아래에 지난 일정이 날짜순으로 남아 있습니다. 어느 셀러가 언제 진행했는지 확인할 수 있습니다." }
   }
+
+  # 2026-11-16: 페이지마다 다른 질문(재공구 주기·다음 공구 등)을 부르는 쪽에서 더 얹는다 — 같은 질문은 한 번만
+  foreach($mf in @($moreFaq)){ if($mf -and $mf.q -and $mf.a -and @($faq | Where-Object { $_.q -eq $mf.q }).Count -eq 0){ $faq += @{ q="$($mf.q)"; a="$($mf.a)" } } }
 
   $h += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
   foreach($f in $faq){ $h += "<div class=${Q}faq${Q}><b>$(HtmlEsc $f.q)</b><span>$(HtmlEsc $f.a)</span></div>" }

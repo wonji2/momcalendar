@@ -7,7 +7,8 @@
 # 전부 사이트에 그대로 공개되는 내용이다. 그래서 GitHub Secret 이 필요 없다.
 param(
   [string]$Root = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
-  [string]$DataFile = ''
+  [string]$DataFile = '',
+  [int]$GgKeepDays = 30      # gg 색인 계층 B(최근 마감) 창. 사이트맵이 12,000 을 넘으면 빌드가 스스로 줄인다. 되돌리기: 365
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -30,20 +31,65 @@ if($DataFile){
   $D = SquashSpaces ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json
 }
 
-# ── 활성 핫딜 (브랜드 페이지 연동 — "OO 공구 핫딜" 검색 수요, 자동완성 실측 2026-08-14) ──
-# 공개 REST 만 쓴다(핫딜 목록은 어차피 사이트에 공개되는 내용). 실패해도 페이지 생성은 계속한다.
-$HotDeals = @()
+# ── 활성 핫딜 — 한 번만 읽는다 (2026-11-16 ORDER_SEO_AEO_GEO_RECOVERY §5-3) ──
+#   전에는 여기서 id·title·link 80건($HotDeals)을, 아래 핫딜 페이지 자리에서 가격 포함 400건($HD2)을 따로 읽었다.
+#   브랜드(g)·공구(gg) 페이지 루프가 「연관 핫딜」에 가격을 쓰려면 $HD2 가 그 루프보다 먼저 있어야 한다(아래에 두면 전 페이지 0건).
+#   공개 REST 만 쓴다(핫딜 목록은 사이트에 공개되는 내용). 실패해도 페이지 생성은 계속한다.
+# 🔴 2026-10-24 검증 불통과 반영 — 핫딜은 사이트 화면과 **같은 말**만 한다:
+#   · 쿠팡·링크프라이스의 price_before 는 정가가 아니라 우리가 기록한 90일 평균이다(coupang-hotdeal·linkprice-hotdeal) → 「평균」 이라 부른다
+#   · 할인율은 판매가·비교가로 **다시 계산**하고, 65% 를 넘으면 쓰지 않는다(index.html 「정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다」)
+#   · 몰 이름 「토스」 와 「토스쇼핑」 은 같은 몰이다(둘 다 source=toss) → 하나로 센다
+#   · 가격은 이 빌드가 다시 잰 값이 아니다 — 「등록 때 확인한 가격」이라 적는다. 「오늘 핫딜」 이 아니라 「지금 노출 중」
+$HotDeals = @(); $HD2 = @(); $HdByMajor = @{}
 try{
-  $hApi = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals'
   # ⚠ PostgREST 는 값 자리의 now() 를 문자열로 취급한다(실측: 핫딜 15개가 1개로 줄었다) → 실제 시각을 넣는다
   $nowUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-  $hQ   = "?select=id,title,link&or=(expires_at.is.null,expires_at.gte.$nowUtc)&order=id.desc&limit=80"
-  $hr = Invoke-WebRequest -Uri ($hApi + $hQ) -TimeoutSec 30 `
-        -Headers @{ apikey=$key; Authorization="Bearer $key" }
+  $q2 = "?select=id,title,link,mall,price,price_before,discount_rate,is_lowest,deal_day,source,major,minor&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=id.desc&limit=400"
+  $r2 = Invoke-WebRequest -Uri ('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals' + $q2) -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
   # ⚠ PS 5.1 ConvertFrom-Json 은 JSON 배열을 한 덩어리로 준다 → 파이프로 한 번 풀어야 개수가 맞는다(실측 31→1)
-  $HotDeals = @(([Text.Encoding]::UTF8.GetString($hr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
-  Write-Output "활성 핫딜 $($HotDeals.Count)개 확보"
-}catch{ Write-Output "핫딜 조회 실패(무시): $($_.Exception.Message)" }
+  $HD2 = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 } | ForEach-Object {
+    $m = "$($_.mall)".Trim(); if($m -eq '토스'){ $m = '토스쇼핑' }
+    $pb = [int]$_.price_before; $pp = [int]$_.price
+    $isAvg = ("$($_.source)" -match '^(coupang|linkprice)$')
+    $rt = 0; if($pb -gt $pp -and $pb -gt 0){ $rt = [int][Math]::Round(($pb - $pp) * 100.0 / $pb) }
+    if($rt -gt 65){ $rt = 0 }   # 사이트와 같은 기준 — 부풀려진 정가로 보고 할인율을 쓰지 않는다
+    [pscustomobject]@{ id="$($_.id)"; title="$($_.title)"; link="$($_.link)"; mall=$m; price=$pp; ref=$(if($rt -gt 0){ $pb } else { 0 }); refLabel=$(if($isAvg){ '최근 평균' } else { '정가' }); rate=$rt; is_lowest=[bool]$_.is_lowest; major="$($_.major)"; minor="$($_.minor)" }
+  } | Sort-Object @{e={$_.rate};Descending=$true}, @{e='title';Descending=$false})
+  $HotDeals = $HD2
+  foreach($h in $HD2){ if($h.major){ if(-not $HdByMajor.ContainsKey($h.major)){ $HdByMajor[$h.major] = New-Object System.Collections.ArrayList }; [void]$HdByMajor[$h.major].Add($h) } }
+  Write-Output "활성 핫딜(가격 있음) $($HD2.Count)건 확보"
+}catch{ Write-Output "핫딜 조회 실패(무시 — 연관 핫딜·핫딜 페이지 건너뜀): $($_.Exception.Message)" }
+
+# 「연관 핫딜」 — 공구 페이지(g·gg)에 싣는 지금 노출 중인 핫딜 3건. 그 브랜드 이름이 든 딜 먼저, 모자라면 같은 분야 딜(페이지마다 다른 자리에서 시작).
+#   가격은 핫딜의 실가격이다(공구 가격이 아니다 — 공구 가격은 수집하지 않는다).
+function RelDeals([string]$brand, [string]$major, [string]$seed){
+  $out = New-Object System.Collections.ArrayList
+  if($HD2.Count -eq 0){ return @() }
+  if($brand -and $brand.Length -ge 2){
+    foreach($h in $HD2){ if($out.Count -ge 3){ break }; if("$($h.title)".IndexOf($brand, [StringComparison]::OrdinalIgnoreCase) -ge 0){ [void]$out.Add($h) } }
+  }
+  if($out.Count -lt 3 -and $major -and $HdByMajor.ContainsKey($major)){
+    $pool = $HdByMajor[$major]; $n = $pool.Count
+    $st = 0; foreach($ch in "$seed".ToCharArray()){ $st = ($st * 31 + [int]$ch) % 100003 }
+    for($i = 0; $i -lt $n -and $out.Count -lt 3; $i++){ $h = $pool[($st + $i) % $n]; if(-not $out.Contains($h)){ [void]$out.Add($h) } }
+  }
+  return @($out)
+}
+function RelDealsHtml($deals, [string]$h2){
+  $deals = @($deals)
+  if($deals.Count -eq 0){ return '' }
+  # <!--hd--> 표식: 핫딜은 날마다 바뀐다 — 사이트맵 lastmod 를 정할 때 이 구간은 빼고 본다(CoreHash)
+  $s = "<!--hd--><div class=${Q}sec${Q}><h2>$(HtmlEsc $h2)</h2>"
+  foreach($h in $deals){
+    $pz = ('{0:N0}' -f [int]$h.price) + '원'
+    if($h.rate -gt 0){ $pz += " ($($h.refLabel) $('{0:N0}' -f [int]$h.ref)원 대비 $($h.rate)%↓)" }
+    $inner = "<b>$(HtmlEsc $h.title)</b><span>$(HtmlEsc $h.mall) · $pz</span>"
+    if("$($h.link)" -match '^https?://'){ $s += "<a class=${Q}card${Q} href=${Q}$(HtmlEsc $h.link)${Q} rel=${Q}nofollow sponsored noopener${Q} target=${Q}_blank${Q}>$inner</a>" }
+    else { $s += "<div class=${Q}card${Q}>$inner</div>" }
+  }
+  $s += "<p style=${Q}margin-top:8px;font-size:11px;color:#B5AFBD${Q}>핫딜 가격은 등록할 때 확인한 값이라 판매처에서 바뀌거나 끝날 수 있습니다. 공구 가격과는 다른 쇼핑몰 특가입니다. 제휴 활동으로 일정액의 수수료를 받을 수 있습니다</p></div><!--/hd-->"
+  return $s
+}
 
 # ── 공구 캡션 (셀러 공지 원문 — 건별 상세 페이지의 고유 본문, 사장님 지시 2026-08-31 "다 수집해") ──
 # 저장 단계에서 전화·이메일·계좌열은 이미 제거돼 있다(caption_attach.mjs). 렌더 때 외부 링크를 추가로 걷어낸다.
@@ -53,7 +99,12 @@ try{
   $off = 0
   while($true){
     $cq = "?select=name,open_date,caption&approved=eq.true&caption=not.is.null&order=id.asc&offset=$off&limit=1000"
-    $cr = Invoke-WebRequest -Uri ($cApi + $cq) -TimeoutSec 60 -Headers @{ apikey=$key; Authorization="Bearer $key" }
+    # 2026-11-16: 한 쪽이 500(무료 DB 순간 실패)이면 세 번까지 다시 받는다 — 전에는 한 번 실패로 캡션 전체를 포기했다
+    $cr = $null
+    for($try = 1; $try -le 3 -and -not $cr; $try++){
+      try{ $cr = Invoke-WebRequest -Uri ($cApi + $cq) -TimeoutSec 60 -Headers @{ apikey=$key; Authorization="Bearer $key" } }
+      catch{ if($try -eq 3){ throw }; Start-Sleep -Seconds (5 * $try) }
+    }
     $cj = @(([Text.Encoding]::UTF8.GetString($cr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
     if($cj.Count -eq 0){ break }
     foreach($c0 in $cj){ $CapMap[("$($c0.name)|$($c0.open_date)").ToLower()] = "$($c0.caption)" }
@@ -61,7 +112,12 @@ try{
     $off += 1000
   }
   Write-Output "공구 캡션 $($CapMap.Count)건 확보"
-}catch{ Write-Output "캡션 조회 실패(무시): $($_.Exception.Message)" }
+}catch{
+  # 🔴 2026-11-16: 「실패(무시)」로 넘어가면 그날 건별 페이지 1만 5천 장이 **셀러 공지 없이** 다시 써진다(본문이 절반 아래로 얇아지고 lastmod 까지 오늘로 바뀐다).
+  #   캡션은 건별 페이지의 고유 본문이다 → 못 받으면 페이지를 만들지 않고 멈춘다(어제 판이 그대로 남는다 — 보존 원칙). Actions 가 실패로 떠서 사람이 안다.
+  throw "공구 캡션을 못 받았다($($_.Exception.Message)) — 셀러 공지 없는 페이지로 덮어쓰지 않으려고 멈춘다"
+}
+if($CapMap.Count -lt 1000){ throw "공구 캡션이 $($CapMap.Count)건뿐이다 — 비정상. 셀러 공지 없는 페이지로 덮어쓰지 않으려고 멈춘다" }
 
 # ── GSC 실측 보강어 (2026-08-31) ──
 # 서치콘솔에서 '노출은 있는데 순위·클릭이 처지는' 검색어의 제품어를 브랜드별로 적어두면
@@ -141,6 +197,16 @@ $today = $D.today
 if(-not $today){ throw '데이터에 today 가 없다' }
 Write-Output "데이터 기준일: $today (캐시 $($D.cached_at))"
 
+# ── gg 색인 계층 (2026-11-16 크롤 예산 회수 — ORDER_SEO_AEO_GEO_RECOVERY §4) ──
+# A = 진행 중·예정 : 사이트맵 등재 + index,follow + 풀 템플릿(Event 포함)
+# B = 최근 마감($GG_KEEP_DAYS 일) : 사이트맵 등재 + index,follow + 풀 템플릿
+# C = 그 밖(장기 마감) : 사이트맵 제외 + noindex,follow + 페이지는 200 유지(보존 원칙 — 지우지 않는다)
+# 되돌리기: -GgKeepDays 365 로 한 번 돌리면 전부 B 로 돌아온다(파일을 지우는 게 아니라 사이트맵·메타만 바뀐다).
+$GG_KEEP_DAYS = $GgKeepDays
+$GG_SITEMAP_MAX = 11500   # 목표: sitemap-gonggu 12,000 이하 · 전체 28,000 이하(g·p·s 는 줄이지 않는다) — 여유를 두고 11,500 에 맞춘다
+function GgCutOf([int]$days){ return ([DateTime]::ParseExact($today,'yyyy-MM-dd',$null)).AddDays(-$days).ToString('yyyy-MM-dd') }
+$ggCutoff = GgCutOf $GG_KEEP_DAYS
+
 # 조용히 낡는 것을 막는 가드.
 # 캐시를 만드는 pg_cron 이 멎으면 매일 '어제 페이지'를 다시 만들면서 아무 표시도 안 난다.
 # 여기서 멈춰야 Actions 가 실패로 뜨고 사람이 알아챈다.
@@ -178,7 +244,8 @@ foreach($sm in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','s
 }
 foreach($rel in @($PrevMod.Keys)){
   $fp = Join-Path $Root $rel
-  if(Test-Path -LiteralPath $fp){ $PrevHash[$rel] = (Get-FileHash -LiteralPath $fp -Algorithm MD5).Hash }
+  # 2026-11-16: 파일 통째 해시가 아니라 CoreHash — 페이지마다 박힌 기준일 한 줄 때문에 43,844 URL 중 25,904 개가 날마다 lastmod=오늘 로 나가고 있었다(내용은 그대로)
+  if(Test-Path -LiteralPath $fp){ $PrevHash[$rel] = (CoreHash $fp) }
 }
 Write-Output "옛 lastmod $($PrevMod.Count)개 · 해시 $($PrevHash.Count)개 확보"
 
@@ -304,13 +371,38 @@ foreach($b in $brandList){
       $n2 = [int]$ggSeen[$slug.ToLower()] + 1; $ggSeen[$slug.ToLower()] = $n2; $slug = "$slug-$n2"
     } else { $ggSeen[$slug.ToLower()] = 1 }
     $GgSlug[$k] = $slug
-    $o2 = [pscustomobject]@{ slug=$slug; brand=$b.brand; who=$r.who; name=$r.name; od=$r.od; ed=$r.ed; insta=$r.insta }
+    # nk = 같은 상품의 다른 회차를 묶는 키(공백·N차·앵콜을 뗀 소문자 이름)
+    $o2 = [pscustomobject]@{ slug=$slug; brand=$b.brand; who=$r.who; name=$r.name; od=$r.od; ed=$r.ed; insta=$r.insta; nk=([regex]::Replace("$($r.name)".ToLower(), '\s+|\d+\s*차|앵콜', '')) }
     [void]$ggRows.Add($o2)
     if(-not $GgByBrand.ContainsKey($b.brand)){ $GgByBrand[$b.brand] = New-Object System.Collections.ArrayList }
     [void]$GgByBrand[$b.brand].Add($o2)
   }
 }
 Write-Output "공구 건별 상세 대상: $($ggRows.Count)건"
+# 브랜드별 회차를 최근순으로 한 번만 정렬해 둔다(건별 페이지마다 다시 정렬하지 않게)
+$GgSorted = @{}
+foreach($bk in @($GgByBrand.Keys)){ $GgSorted[$bk] = @($GgByBrand[$bk] | Sort-Object @{e='od';Descending=$true}, @{e='slug';Descending=$false}) }
+# 보존 gg 페이지(오늘 집계에 없는 옛 페이지)의 마감일 — 파일 머리의 「오픈 ~ 마감」에서 읽는다. 계층을 정하고 사이트맵 수를 미리 센다
+$ggToday = @{}; foreach($x in $ggRows){ $ggToday[("$($x.slug).html").ToLower()] = 1 }
+$KeptGgEd = @{}; $keptGgUnknown = 0
+$rxGgHead = [regex]'<h1>[^<]*</h1><p>(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})'
+foreach($fp in [IO.Directory]::EnumerateFiles((Join-Path $Root 'gg'), '*.html')){
+  $fn = [IO.Path]::GetFileName($fp)
+  if($ggToday.ContainsKey($fn.ToLower())){ continue }
+  $hd = [IO.File]::ReadAllText($fp)   # 머리띠(h1)는 CSS·JSON-LD 뒤 7~8KB 쯤에 있어 파일을 통째로 읽는다
+  if($hd.IndexOf('http-equiv="refresh"', [StringComparison]::Ordinal) -ge 0){ continue }   # 툼스톤
+  $mh = $rxGgHead.Match($hd)
+  if($mh.Success){ $KeptGgEd[$fn] = $mh.Groups[2].Value } else { $keptGgUnknown++ }
+}
+# 사이트맵에 남을 gg 수(오늘 집계 A·B + 보존분 중 최근 마감)가 상한을 넘으면 B 창을 스스로 줄인다(30 → 25 → 21 → 14 → 10 → 7)
+foreach($tryDays in @($GG_KEEP_DAYS, 25, 21, 14, 10, 7)){
+  if($tryDays -gt $GG_KEEP_DAYS){ continue }
+  $cutTry = GgCutOf $tryDays
+  $nKeep = @($ggRows | Where-Object { (GgTier $_ $today $cutTry) -ne 'C' }).Count + @($KeptGgEd.Values | Where-Object { $_ -ge $cutTry }).Count + $keptGgUnknown
+  $GG_KEEP_DAYS = $tryDays; $ggCutoff = $cutTry
+  if($nKeep -le $GG_SITEMAP_MAX){ break }
+}
+Write-Output "gg 색인 계층: 최근 마감 창 $GG_KEEP_DAYS 일(마감 $ggCutoff 이후) · 사이트맵 예정 $nKeep 건 · 보존 gg $($KeptGgEd.Count)건(날짜 못 읽음 $keptGgUnknown)"
 
 # ══ 브랜드 페이지 ══
 foreach($b in $brandList){
@@ -346,9 +438,17 @@ foreach($b in $brandList){
   #   사장님이 크몽에 팔 데이터 자산이다(사장님 지시 2026-08-11). 일정 목록만 보여준다.
   $lead = "$($b.brand) 공동구매 일정입니다. 인스타 셀러들이 진행하는 $($b.brand) 공구를 날짜순으로 모았습니다."
   if($tpTxt){ $lead += " $tpTxt 등 $($b.brand) 제품의 공구 일정을 아래에서 확인하세요." }
+  # 2026-11-16: 「지금 진행 중인 공구는 없습니다」 문장을 없앴다(검색 스니펫에 이 문장만 잡혔다) — 그 브랜드의 실제 날짜·셀러·주기로 말한다. 이력이 2회 미만이면 주기는 쓰지 않는다
+  $cycB = CycleOf (@($rows | ForEach-Object { $_.od })) $today
+  $pastTop = $(if($past.Count -gt 0){ @($past | Sort-Object @{e='od';Descending=$true})[0] } else { $null })
+  $soonTop = $(if($soon.Count -gt 0){ @($soon | Sort-Object @{e='od';Descending=$false})[0] } else { $null })
   if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
-  elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
-  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정을 보면 다음 공구 시기를 가늠할 수 있습니다." }
+  elseif($soonTop){ $lead += " 지금 열려 있는 건은 없고, 가장 가까운 일정은 $($soonTop.od) 오픈하는 $($soonTop.name)$(if($soonTop.who){ "($($soonTop.who))" })입니다." }
+  else {
+    $lead += " $($b.brand) 공구는 지금 열려 있는 건이 없습니다."
+    if($pastTop){ $lead += " 가장 최근 공구는 $($pastTop.od)에 $(if($pastTop.who){ "$($pastTop.who) 셀러가" } else { '셀러가' }) 열었습니다." }
+    if($cycB){ $lead += " 이 브랜드 공구는 맘캘린더 기록 기준 서로 다른 날짜로 $($cycB.n)회 열렸고, 보통 $($cycB.label) 간격입니다." }
+  }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){
@@ -363,28 +463,45 @@ foreach($b in $brandList){
       $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 제품별 공구</h2><div class=${Q}rel${Q}>"
       foreach($p in ($ps | Select-Object -First 30)){ $body += "<a href=${Q}/p/$(Enc $p.slug).html${Q}>$(HtmlEsc $p.key) 공구</a>" }
       $body += '</div></div>'
+      # ① 이 브랜드에서 자주 열린 제품 3개 + 각 제품의 최근 오픈일 (2026-11-16)
+      $p3 = @($ps | Where-Object { $_.last } | Select-Object -First 3)
+      if($p3.Count -gt 0){
+        $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구에서 자주 열린 제품</h2>"
+        foreach($q3 in $p3){ $body += "<a class=${Q}card${Q} href=${Q}/p/$(Enc $q3.slug).html${Q}><b>$(HtmlEsc $q3.key)</b><span>최근 오픈 $($q3.last)$(if($q3.first -and "$($q3.first)" -ne "$($q3.last)"){ " · 첫 기록 $($q3.first)" })</span></a>" }
+        $body += '</div>'
+      }
     }
   }
   if($past.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
-  # 건별 상세 페이지로 가는 크롤 경로 (최근 일정 8건)
-  if($GgByBrand.ContainsKey($b.brand)){
-    $gl = @($GgByBrand[$b.brand] | Sort-Object @{e='od';Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 8)
+  # 건별 상세 페이지로 가는 크롤 경로 (최근 일정 8건) — 장기 마감(C 계층)으로는 링크하지 않는다(크롤 예산이 그쪽으로 샌다)
+  if($GgSorted.ContainsKey($b.brand)){
+    $gl = @($GgSorted[$b.brand] | Where-Object { (GgTier $_ $today $ggCutoff) -ne 'C' } | Select-Object -First 8)
     if($gl.Count -gt 0){
       $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 일정 상세</h2><div class=${Q}rel${Q}>"
       foreach($x2 in $gl){ $body += "<a href=${Q}/gg/$(Enc $x2.slug).html${Q}>$(HtmlEsc $x2.name) ($($x2.od.Substring(5).Replace('-','/')))</a>" }
       $body += '</div></div>'
     }
   }
-  # ── 이 브랜드 상품이 핫딜에 떠 있으면 연결 ("세이펜 공구 핫딜" 류 검색 수요) ──
-  $hd = @($HotDeals | Where-Object { $_.title -and ("$($_.title)").Contains($b.brand) } | Select-Object -First 3)
-  if($hd.Count -gt 0){
-    $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $b.brand) 핫딜</h2><div class=${Q}rel${Q}>"
-    foreach($x in $hd){ $body += "<a href=${Q}$(HtmlEsc $x.link)${Q} rel=${Q}nofollow sponsored${Q} target=${Q}_blank${Q}>🔥 $(HtmlEsc $x.title)</a>" }
-    $body += "</div><p style=${Q}margin-top:8px;font-size:11px;color:#B5AFBD${Q}>제휴 활동으로 일정액의 수수료를 받을 수 있습니다</p></div>"
+  # ③ 연관 핫딜 3건 — 이 브랜드 이름이 든 딜 먼저, 모자라면 같은 분야 ("세이펜 공구 핫딜" 류 검색 수요)
+  $rd = @(RelDeals "$($b.brand)" "$($b.major)" "$($b.slug)")
+  if($rd.Count -gt 0){
+    $rdOwn = ("$($rd[0].title)".IndexOf("$($b.brand)", [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    $body += (RelDealsHtml $rd $(if($rdOwn){ "지금 노출 중인 $($b.brand) 핫딜" } else { "$($b.major) 분야 지금 노출 중인 핫딜" }))
   }
-  $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp
+  # ④ 공구 이력·재공구 주기 + ⑤ 질문 더하기
+  $moreFaq = @()
+  if($cycB){
+    $hist = "맘캘린더 기록으로 $($b.brand) 공구는 $($cycB.first)부터 $($cycB.last)까지 서로 다른 날짜로 $($cycB.n)회 열렸습니다. 오픈일 사이 간격의 중간값은 $($cycB.days)일로, 보통 $($cycB.label) 간격으로 다시 열렸습니다."
+    if($soonTop){ $hist += " 다음 일정은 $($soonTop.od) 오픈입니다." }
+    $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 이력과 재공구 주기</h2><p>$(HtmlEsc $hist)</p></div>"
+    $moreFaq += @{ q="$($b.brand) 공구는 얼마 만에 다시 열리나요?"; a="맘캘린더 기록 기준 $($b.brand) 공구는 서로 다른 날짜로 $($cycB.n)회 열렸고 오픈 간격의 중간값은 $($cycB.days)일($($cycB.label))입니다. 가장 최근 오픈은 $($cycB.last)입니다. 셀러마다 일정이 달라 다음 날짜는 셀러 공지로 확정됩니다." }
+  }
+  if($soon.Count -eq 0 -and $live.Count -eq 0){
+    $moreFaq += @{ q="$($b.brand) 다음 공구 언제예요?"; a="지금 등록된 다음 일정은 없습니다.$(if($pastTop){ " 가장 최근 공구는 $($pastTop.od) 오픈$(if($pastTop.who){ "($($pastTop.who))" })이었습니다." })$(if($cycB){ " 보통 $($cycB.label) 간격으로 다시 열렸습니다." }) 새 일정이 등록되면 이 페이지 맨 위에 표시됩니다." }
+  }
+  $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp $moreFaq
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>다른 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($t in $topBrands){ if($t.slug -ne $b.slug){ $body += "<a href=${Q}/g/$(Enc $t.slug).html${Q}>$(HtmlEsc $t.brand) 공구</a>" } }
@@ -396,6 +513,9 @@ foreach($b in $brandList){
   $lf = LdFaq $ex.faq
   if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($b.brand) 공구" $canon))
+  # Event — 진행 중이거나 가장 가까운 예정 1건만(끝난 공구는 마크업하지 않는다). 가격·offers 없음
+  $evRow = $(if($live.Count -gt 0){ $live[0] } elseif($soonTop){ $soonTop } else { $null })
+  if($evRow){ $le = LdEvent $evRow $canon "$($b.brand)"; if($le){ [void]$ld.Add($le) } }
   # 🔎 라벨-값 사실 표 (NEO — 네이버 AI 브리핑이 인용하는 형태)
   # ⚠ 위 주석대로 **집계는 넣지 않는다** — 셀러 수·진행 횟수는 사장님이 파는 데이터 자산이다.
   #   여기 적는 것은 이미 화면 카드에 보이는 값을 기계가 읽기 좋게 옮긴 것뿐이다.
@@ -415,7 +535,9 @@ foreach($b in $brandList){
     @{ k='기준일'; v=$ASOF }
   )
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구"; facts=$facts }
+    h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구"; facts=$facts
+    # ② /?q= 는 사이트 검색 딥링크다(알림이 켜지는 길이 아니다 — 2026-11-16 확인). 그래서 「알림」이 아니라 「찾아보기」라고 쓴다
+    cta="/?q=$(Enc "$($b.brand)")"; ctaText="지금 「$($b.brand)」 공구 찾아보기 →" }
 }
 
 # ══ 브랜드 × 제품 페이지 ══
@@ -450,7 +572,13 @@ foreach($p in $prodList){
   $lead = "$($p.key) 공동구매 일정입니다. 인스타 셀러들이 진행하는 $($p.key) 공구를 날짜순으로 모았습니다."
   if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
   elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
-  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
+  else {
+    $lead += " $($p.key) 공구는 지금 열려 있는 건이 없습니다."
+    $pt = $(if($past.Count -gt 0){ @($past | Sort-Object @{e='od';Descending=$true})[0] } else { $null })
+    if($pt){ $lead += " 가장 최근 공구는 $($pt.od)에 $(if($pt.who){ "$($pt.who) 셀러가" } else { '셀러가' }) 열었습니다." }
+    $cy = CycleOf (@($rows | ForEach-Object { $_.od })) $today
+    if($cy){ $lead += " 맘캘린더 기록 기준 서로 다른 날짜로 $($cy.n)회 열렸고, 보통 $($cy.label) 간격입니다." }
+  }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){
@@ -484,7 +612,13 @@ foreach($p in $prodList){
 }
 
 # ══ 공구 건별 상세 페이지 (gg/) ══
+# 2026-11-16 (ORDER_SEO_AEO_GEO_RECOVERY §4·§5·§7): 계층(A·B·C) + 다섯 블록(① 요약 ② 찾아보기 ③ 연관 핫딜 ④ 이력·주기 ⑤ 질문 6~8개) + Event(A 만)
+#   블록은 전부 데이터에서만 만든다 — 데이터가 없으면 그 블록을 뺀다(문장으로 분량을 채우지 않는다). 공구 금액·깎아 준 폭은 쓰지 않는다(수집하지 않는 값)
+$brandMajor = @{}; foreach($b in $brandList){ $brandMajor["$($b.brand)"] = "$($b.major)" }
+$ggTierN = @{ A=0; B=0; C=0 }
 foreach($x in $ggRows){
+  $tier = GgTier $x $today $ggCutoff
+  $ggTierN[$tier] = [int]$ggTierN[$tier] + 1
   $isLive = ($x.od -le $today -and $x.ed -ge $today)
   $isSoon = ($x.od -gt $today)
   $odK = $x.od.Substring(5).Replace('-','/'); $edK = $x.ed.Substring(5).Replace('-','/')
@@ -496,9 +630,26 @@ foreach($x in $ggRows){
   $desc = "$($x.name) 공구 일정 — $($x.od) 오픈, $($x.ed) 마감. $($whoTxt)인스타그램 공동구매의 날짜와 참여 방법을 확인하세요."
   $canon = "gg/$(Enc $x.slug).html"
 
+  # 같은 브랜드의 회차(최근순) · 같은 상품의 회차 · 재공구 주기(이력 2회 미만이면 쓰지 않는다)
+  $bro = @(); if($GgSorted.ContainsKey($x.brand)){ $bro = @($GgSorted[$x.brand]) }
+  $others = @($bro | Where-Object { $_.slug -ne $x.slug })
+  $othersPast = @($others | Where-Object { $_.od -le $today })   # 이미 열린 회차만(이력·「있었습니다」 문장용 — 예정 건은 「다음 공구」로 따로 말한다)
+  $same = @($bro | Where-Object { $_.nk -eq $x.nk })
+  $cyc = CycleOf (@($same | ForEach-Object { $_.od })) $today; $cycSame = $true
+  if(-not $cyc){ $cyc = CycleOf (@($bro | ForEach-Object { $_.od })) $today; $cycSame = $false }
+  $cycTxt = ''
+  if($cyc){ $cycTxt = "$(if($cycSame){ '같은 상품은' } else { "$($x.brand) 공구는" }) 맘캘린더 기록 기준 보통 $($cyc.label) 간격으로 다시 열렸습니다(오픈 간격 중간값 $($cyc.days)일)." }
+  $nextB = @($others | Where-Object { $_.od -gt $today } | Sort-Object @{e='od';Descending=$false} | Select-Object -First 1)
+  $nextTxt = ''
+  if($nextB.Count -gt 0){ $nextTxt = "다음 $($x.brand) 공구는 $($nextB[0].od) 오픈 예정인 $($nextB[0].name)$(if($nextB[0].who){ "($($nextB[0].who))" })입니다." }
+
   if($isLive){ $lead = "$($x.name) 공동구매가 지금 진행 중입니다. $odK 에 열렸고 $edK 마감입니다. 아래 카드를 누르면 진행 셀러의 인스타그램으로 이동합니다." }
   elseif($isSoon){ $lead = "$($x.name) 공동구매는 $odK 오픈 예정입니다. 마감은 $edK 입니다. 오픈일에 셀러 계정 공지로 신청할 수 있습니다." }
-  else { $lead = "$($x.name) 공동구매는 $($x.od) ~ $($x.ed) 에 진행된 일정입니다. 같은 상품은 보통 몇 주~몇 달 간격으로 다시 열립니다. 브랜드 페이지에서 다음 일정을 확인하세요." }
+  else {
+    $lead = "$($x.name) 공구는 $($x.od) ~ $($x.ed)에 $(if($x.who){ "$($x.who) 셀러가 " })진행한 일정입니다."
+    if($cycTxt){ $lead += " $cycTxt" }
+    if($nextTxt){ $lead += " $nextTxt" } else { $lead += " 다음 회차가 등록되면 $($x.brand) 브랜드 페이지에 표시됩니다." }
+  }
 
   $item = [pscustomobject]@{ name=$x.name; who=$x.who; od=$x.od; ed=$x.ed; insta=$x.insta }
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
@@ -514,26 +665,61 @@ foreach($x in $ggRows){
       $d1 = ([regex]::Replace($cap, '\s+', ' ')).Trim()
       if($d1.Length -gt 140){ $d1 = $d1.Substring(0,140) + '…' }
       $desc = "$($x.name) 공구 ($($x.od) 오픈) — $d1"
+      # ① 이 공구 요약 — 상품명에서 브랜드를 뗀 제품어 + 셀러 공지의 첫 대목 2~3문장(공지가 없으면 이 블록은 없다)
+      $rest = "$($x.name)"; if($rest.ToLower().StartsWith("$($x.brand)".ToLower())){ $rest = $rest.Substring("$($x.brand)".Length) }
+      $rest = ([regex]::Replace($rest, '^[\s·,&/\-\+\(\)\[\]]+', '')).Trim()
+      $sents = @([regex]::Split($cap, '[\r\n]+|(?<=[.!?])\s+') | ForEach-Object { ([regex]::Replace("$_", '\s+', ' ')).Trim() } | Where-Object { $_.Length -ge 12 -and $_.Length -le 110 -and $_ -notmatch '[@#]|www\.' } | Select-Object -First 3)
+      if($sents.Count -gt 0){
+        $sum = "$(if($x.who){ "$($x.who) 셀러가 " })$($x.od)에 $(if($isSoon){ '여는' } else { '연' }) $($x.brand)$(if($rest){ " $rest" }) 공동구매입니다. 셀러 공지의 첫 대목: " + (($sents | ForEach-Object { "「$_」" }) -join ' ')
+        $body += "<div class=${Q}sec${Q}><h2>이 공구 요약</h2><p>$(HtmlEsc $sum)</p></div>"
+      }
       $capHtml = (HtmlEsc $cap) -replace "`n",'<br>'
       $body += "<div class=${Q}sec${Q}><h2>셀러 공지</h2><div class=${Q}faq${Q}><span>$capHtml</span></div>"
       $body += "<p style=${Q}font-size:11px;color:#B5AFBD;margin-top:6px${Q}>진행 셀러$(if($x.who){ ' ' + (HtmlEsc $x.who) })가 인스타그램에 게시한 공지 원문입니다.</p></div>"
     }
   }
 
+  # ④ 공구 이력 — 같은 브랜드의 다른 회차(이 건뿐이면 블록 없음). 여기 줄에는 링크를 걸지 않는다(링크는 아래 「관련 일정」에서 A·B 계층만)
+  if($othersPast.Count -gt 0){
+    $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $x.brand) 공구 이력</h2>"
+    foreach($o4 in @($othersPast | Select-Object -First 8)){ $body += "<div class=${Q}card${Q}><b>$(HtmlEsc $o4.name)</b><span>$(if($o4.who){ (HtmlEsc $o4.who) + ' · ' })$($o4.od) ~ $($o4.ed)</span></div>" }
+    if($cycTxt){ $body += "<p style=${Q}margin-top:8px${Q}>$(HtmlEsc $cycTxt)</p>" }
+    $body += '</div>'
+  }
+
+  # ③ 연관 핫딜 3건 (핫딜의 실가격 — 공구 가격이 아니다)
+  $bmj = $(if($brandMajor.ContainsKey("$($x.brand)")){ $brandMajor["$($x.brand)"] } else { '' })
+  $rd = @(RelDeals "$($x.brand)" $bmj "$($x.slug)")
+  if($rd.Count -gt 0){
+    $rdOwn = ("$($rd[0].title)".IndexOf("$($x.brand)", [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    $body += (RelDealsHtml $rd $(if($rdOwn){ "지금 노출 중인 $($x.brand) 핫딜" } else { "$bmj 분야 지금 노출 중인 핫딜" }))
+  }
+
+  # ⑤ 질문 — 데이터가 있는 것만(언제·어디서·가격·셀러·다음 공구·재공구 주기·지난 일정)
   $faq = @()
   $faq += @{ q="$($x.name) 공구는 언제 하나요?"; a="이 일정은 $($x.od) 오픈, $($x.ed) 마감입니다. 기간이 지나면 정가로 돌아가므로 마감일 안에 신청해야 합니다." }
   $faq += @{ q="어디서 신청하나요?"; a=$(if($x.who){ "$($x.who) 셀러가 인스타그램 계정에서 진행합니다. 위 카드를 누르면 해당 계정으로 이동하고, 프로필 링크나 공지 게시물에서 신청할 수 있습니다." } else { "진행 셀러의 인스타그램 계정 공지에서 신청합니다. 위 카드를 누르면 이동합니다." }) }
   $faq += @{ q="$($x.name) 공구 가격은 얼마인가요?"; a="공구 가격은 오픈일에 셀러가 인스타그램 공지로 공개합니다. 구성에 따라 다를 수 있으니 셀러 계정에서 확인하세요." }
+  if($x.who){ $faq += @{ q="$($x.name) 공구 셀러는 누구인가요?"; a="$($x.who)$(if($x.insta){ "(인스타그램 @$($x.insta))" }) 셀러가 $($x.od)에 $(if($isSoon){ '여는' } else { '연' }) 공구입니다.$(if($tier -ne 'C' -and $x.insta -and $SellerSlug.ContainsKey($x.insta)){ " 이 셀러의 다른 공구는 아래 「관련 일정」에서 볼 수 있습니다." })" } }
+  $faq += @{ q="$($x.brand) 다음 공구는 언제인가요?"; a=$(if($nextTxt){ $nextTxt } else { "지금 등록된 다음 $($x.brand) 공구 일정은 없습니다.$(if($cyc){ " $cycTxt" }) 새 일정이 등록되면 $($x.brand) 브랜드 페이지에 표시됩니다." }) }
+  if($cyc){
+    $ds4 = @($(if($cycSame){ $same } else { $bro }) | ForEach-Object { "$($_.od)" } | Where-Object { $_ -le $today } | Sort-Object -Unique -Descending | Select-Object -First 4)
+    $faq += @{ q="$(if($cycSame){ "$($x.name)" } else { "$($x.brand)" }) 공구는 다시 열리나요?"; a="맘캘린더 기록으로 $(if($cycSame){ '이 상품은' } else { "$($x.brand) 공구는" }) 서로 다른 날짜로 $($cyc.n)회 열렸습니다(최근 오픈 $($ds4 -join ', ')). 오픈 간격의 중간값은 $($cyc.days)일($($cyc.label))입니다. 다음 날짜는 셀러 공지로 확정됩니다." }
+  }
+  if($othersPast.Count -gt 0){
+    $faq += @{ q="지난 $($x.brand) 공구 일정도 볼 수 있나요?"; a="네. 이 페이지의 「$($x.brand) 공구 이력」과 $($x.brand) 브랜드 페이지에 날짜순으로 남아 있습니다. 최근에는 " + ((@($othersPast | Select-Object -First 3) | ForEach-Object { "$($_.od) $($_.name)" }) -join ', ') + " 일정이 있었습니다." }
+  }
   $body += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
   foreach($f in $faq){ $body += "<div class=${Q}faq${Q}><b>$(HtmlEsc $f.q)</b><span>$(HtmlEsc $f.a)</span></div>" }
   $body += '</div>'
 
+  # 관련 일정 — 장기 마감(C) 페이지로는 링크하지 않는다. C 페이지 자신은 브랜드 페이지 하나만 링크한다(막다른 페이지 방지 + 크롤 예산)
   $body += "<div class=${Q}sec${Q}><h2>관련 일정</h2><div class=${Q}rel${Q}>"
   if($brandSlug.ContainsKey($x.brand)){ $body += "<a href=${Q}/g/$(Enc $brandSlug[$x.brand]).html${Q}>$(HtmlEsc $x.brand) 전체 공구 일정</a>" }
-  if($x.insta -and $SellerSlug.ContainsKey($x.insta)){ $body += "<a href=${Q}/s/$(Enc $SellerSlug[$x.insta]).html${Q}>$(HtmlEsc $x.who) 셀러의 다른 공구</a>" }
-  if($GgByBrand.ContainsKey($x.brand)){
-    foreach($o3 in (@($GgByBrand[$x.brand] | Sort-Object @{e='od';Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 6))){
-      if($o3.slug -ne $x.slug){ $body += "<a href=${Q}/gg/$(Enc $o3.slug).html${Q}>$(HtmlEsc $o3.name) ($($o3.od.Substring(5).Replace('-','/')))</a>" }
+  if($tier -ne 'C'){
+    if($x.insta -and $SellerSlug.ContainsKey($x.insta)){ $body += "<a href=${Q}/s/$(Enc $SellerSlug[$x.insta]).html${Q}>$(HtmlEsc $x.who) 셀러의 다른 공구</a>" }
+    foreach($o3 in @($others | Where-Object { (GgTier $_ $today $ggCutoff) -ne 'C' } | Select-Object -First 6)){
+      $body += "<a href=${Q}/gg/$(Enc $o3.slug).html${Q}>$(HtmlEsc $o3.name) ($($o3.od.Substring(5).Replace('-','/')))</a>"
     }
   }
   $body += '</div></div>'
@@ -542,9 +728,14 @@ foreach($x in $ggRows){
   $lf = LdFaq @($faq | ForEach-Object { [pscustomobject]@{ q=$_.q; a=$_.a } })
   if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($x.name) 공구" $canon))
+  # Event 는 진행 중·예정(A 계층)에만. 끝난 공구(B·C)는 WebPage + FAQPage + BreadcrumbList 만
+  if($isLive -or $isSoon){ $le = LdEvent $item $canon "$($x.brand)"; if($le){ [void]$ld.Add($le) } }
   WritePage @{ path=(Join-Path $Root "gg/$($x.slug).html"); title=$title; desc=$desc; canon=$canon;
-    h1="$($x.name) 공구"; sub="$($x.od) ~ $($x.ed)$(if($x.who){ ' · ' + $x.who })"; body=$body; jsonld=$ld; bcName="$($x.name) 공구" }
+    h1="$($x.name) 공구"; sub="$($x.od) ~ $($x.ed)$(if($x.who){ ' · ' + $x.who })"; body=$body; jsonld=$ld; bcName="$($x.name) 공구"
+    robots=$(if($tier -eq 'C'){ $ROBOTS_NOINDEX } else { '' })
+    cta="/?q=$(Enc "$($x.brand)")"; ctaText="지금 「$($x.brand)」 공구 찾아보기 →" }
 }
+Write-Output "gg 계층: A(진행·예정) $($ggTierN.A) · B(최근 마감) $($ggTierN.B) · C(장기 마감, noindex) $($ggTierN.C)"
 
 # ══ 셀러 페이지 ══
 # ⚠ 슬러그를 여기서 다시 만들면 안 된다. 위에서 만든 $SellerSlug 를 그대로 써야
@@ -586,7 +777,11 @@ foreach($s in $D.sellers){
   $lead = "$($s.kor)(@$($s.insta))의 인스타 공구 일정입니다."
   if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다. 카드를 누르면 인스타그램으로 이동합니다." }
   elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
-  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정으로 다음 공구 시기를 가늠해 보세요." }
+  else {
+    $lead += " $($s.kor) 셀러가 지금 열어 둔 공구는 없습니다."
+    $pt = $(if($past.Count -gt 0){ @($past | Sort-Object @{e='od';Descending=$true})[0] } else { $null })
+    if($pt){ $lead += " 가장 최근 공구는 $($pt.od)에 연 $($pt.name)입니다." }
+  }
 
   # ⚠ 통계 상자(진행 횟수·팔로워·주력 분야)는 넣지 않는다.
   #   사장님이 크몽에 팔 데이터 자산이라 공개하지 않는다(사장님 지시 2026-08-11).
@@ -627,7 +822,11 @@ foreach($m in $D.minors){
   $lead = "$($m.major) 분야 중 $($m.minor) 공구 일정입니다. 인스타 셀러들이 진행하는 $($m.minor) 공동구매를 날짜순으로 모았습니다."
   if($live.Count -gt 0){ $lead += " 지금 진행 중인 공구는 맨 위에 있습니다." }
   elseif($soon.Count -gt 0){ $lead += " 지금 진행 중인 공구는 없고, 곧 열릴 일정이 아래에 있습니다." }
-  else { $lead += " 지금 진행 중인 공구는 없습니다. 지난 일정을 참고하세요." }
+  else {
+    $lead += " $($m.minor) 공구는 지금 열려 있는 건이 없습니다."
+    $pt = $(if($past.Count -gt 0){ @($past | Sort-Object @{e='od';Descending=$true})[0] } else { $null })
+    if($pt){ $lead += " 가장 최근에는 $($pt.od)에 $($pt.name) 공구가 열렸습니다." }
+  }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
   if($live.Count -gt 0){ $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $m.minor) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>' }
@@ -851,26 +1050,9 @@ foreach($k in $kw){
 #   🔴 「최저가」는 사이트(index.html 「추적 기간 중 가장 싼 가격」)와 같은 뜻으로만 쓴다 = hotdeals.is_lowest. 「최저가 보장」 같은 말은 쓰지 않는다.
 #   🔴 가격은 수집 시각 기준이다 — 화면·FAQ 에 「판매처에서 바뀔 수 있다」를 같이 적는다(바뀐 가격을 사실처럼 인용당하지 않게).
 #   데이터를 못 받으면 페이지를 만들지 않는다(빈 페이지·0건 사실표 금지) → 보존 원칙상 어제 판이 남는다.
-$HD2 = @(); $SALE = @(); $CLASS = @()
-# 🔴 2026-10-24 검증 불통과 반영 — 이 페이지들은 사이트 화면과 **같은 말**만 한다:
-#   · 쿠팡·링크프라이스의 price_before 는 정가가 아니라 우리가 기록한 90일 평균이다(coupang-hotdeal·linkprice-hotdeal) → 「평균」 이라 부른다
-#   · 할인율은 판매가·비교가로 **다시 계산**하고, 65% 를 넘으면 쓰지 않는다(index.html 「정가는 파는 쪽이 부르는 값이라 부풀려진 경우가 많다」)
-#   · 몰 이름 「토스」 와 「토스쇼핑」 은 같은 몰이다(둘 다 source=toss) → 하나로 센다
-#   · 가격은 이 빌드가 다시 잰 값이 아니다 — 「등록 때 확인한 가격」이라 적는다. 「오늘 핫딜」 이 아니라 「지금 노출 중」
+$SALE = @(); $CLASS = @()   # $HD2 는 맨 위에서 한 번만 읽는다(2026-11-16)
 #   · 세일 표의 문화센터 학기 접수(tag 문센)는 세일이 아니다 → 따로 묶고 세일 건수에서 뺀다
-try{
-  $q2 = "?select=title,mall,price,price_before,discount_rate,is_lowest,deal_day,source,major,minor&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=id.desc&limit=400"
-  $r2 = Invoke-WebRequest -Uri ('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals' + $q2) -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
-  $HD2 = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 } | ForEach-Object {
-    $m = "$($_.mall)".Trim(); if($m -eq '토스'){ $m = '토스쇼핑' }
-    $pb = [int]$_.price_before; $pp = [int]$_.price
-    $isAvg = ("$($_.source)" -match '^(coupang|linkprice)$')
-    $rt = 0; if($pb -gt $pp -and $pb -gt 0){ $rt = [int][Math]::Round(($pb - $pp) * 100.0 / $pb) }
-    if($rt -gt 65){ $rt = 0 }   # 사이트와 같은 기준 — 부풀려진 정가로 보고 할인율을 쓰지 않는다
-    [pscustomobject]@{ title="$($_.title)"; mall=$m; price=$pp; ref=$(if($rt -gt 0){ $pb } else { 0 }); refLabel=$(if($isAvg){ '최근 평균' } else { '정가' }); rate=$rt; is_lowest=[bool]$_.is_lowest; major="$($_.major)"; minor="$($_.minor)" }
-  } | Sort-Object @{e={$_.rate};Descending=$true}, @{e='title';Descending=$false})
-  Write-Output "핫딜 정보 페이지: 노출 중 $($HD2.Count)건"
-}catch{ Write-Output "핫딜 정보 데이터 실패(페이지 건너뜀): $($_.Exception.Message)" }
+Write-Output "핫딜 정보 페이지: 노출 중 $($HD2.Count)건"
 try{
   $r3 = Invoke-WebRequest -Uri 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/sale_events?select=brand,title,tag,start_date,end_date,url&approved=eq.true&order=start_date.asc,id.asc&limit=300' -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
   $soonEdge = ([DateTime]::ParseExact($today,'yyyy-MM-dd',$null)).AddDays(30).ToString('yyyy-MM-dd')
@@ -1066,7 +1248,8 @@ foreach($dp in $dealPages){
   $ld = New-Object System.Collections.ArrayList
   [void]$ld.Add((LdFaq @($dp.faq | ForEach-Object { [pscustomobject]@{ q=$_.q; a=$_.a } })))
   [void]$ld.Add((LdCrumb $dp.h1 $canon))
-  if($dp.list){ [void]$ld.Add((LdNames $dp.h1 @($dp.list | Select-Object -First 30 | ForEach-Object { "$($_.title)" }) $canon)) }
+  # 2026-11-16: 핫딜 목록은 Product + Offer(실가격) 로 — 가격이 있는 핫딜 페이지에만. 세일·라방 페이지는 list 가 없어 해당 없음. 공구 페이지에는 넣지 않는다
+  if($dp.list){ $ldl = LdDealList $dp.h1 @($dp.list | Select-Object -First 30) $canon; if($ldl){ [void]$ld.Add($ldl) } }
   WritePage @{ path=(Join-Path $Root "$($dp.slug).html"); title=$dp.title; desc=$dp.desc; canon=$canon;
     h1=$dp.h1; sub=$dp.sub; body=$body; jsonld=$ld; bcName=$dp.h1; answer=$dp.answer; facts=$dp.facts
     cta=$(if($dp.cta){ $dp.cta } else { '/' }); ctaText=$(if($dp.cta){ '세일 탭 보러 가기 →' } else { '맘캘린더 핫딜 보러 가기 →' })
@@ -1135,7 +1318,7 @@ function WriteSitemap([string]$file, $urls, [string]$pri, [string]$freq){
     if($PrevMod.ContainsKey($rel) -and $PrevHash.ContainsKey($rel)){
       $fp = Join-Path $Root $rel
       if(Test-Path -LiteralPath $fp){
-        $h = (Get-FileHash -LiteralPath $fp -Algorithm MD5).Hash
+        $h = (CoreHash $fp)
         if($h -eq $PrevHash[$rel]){ $lm = $PrevMod[$rel] }   # 내용 그대로 → 옛 날짜 유지
       }
     }
@@ -1148,29 +1331,63 @@ function WriteSitemap([string]$file, $urls, [string]$pri, [string]$freq){
 # 빼먹으면 verify 의 "sitemap 에 빠진 페이지(고아)" 검사에 걸리고,
 # sitemap 에서 사라진 URL 은 색인 자산이 깎인다. lastmod 는 WriteSitemap 이
 # 해시 대조로 옛 날짜를 유지해 준다(내용이 안 바뀐 보존 페이지는 안 바뀐 날짜 그대로).
+# 2026-11-16 (ORDER §8-1): 지워야 하는 보존 페이지(차단 브랜드·브랜드 아님·내려놓은 공구)는 **지우지 않고 툼스톤으로 바꾼다**.
+#   지우면 그 주소가 404 가 되고(서치콘솔 404 619건), 이 사이트는 GitHub Pages 라 서버 301 을 못 한다.
+#   툼스톤 = 200 + noindex + canonical + meta refresh. 브랜드·상품 이름은 한 글자도 남기지 않는다. 사이트맵에는 싣지 않는다.
+$TombSet = @{}        # 이번 실행에서 확인한 툼스톤 경로(dir/파일명) — 사이트맵 제외·내부 링크 걷기에 쓴다
+$TombNew = 0
+$DEST_BRANDS = (Enc '공구브랜드.html'); $DEST_PRODS = (Enc '공구제품.html'); $DEST_NOW = (Enc '지금공구.html')
+function PutTombstone($f, [string]$dir2, [string]$dest){
+  $html = TombstoneHtml $dest
+  $old = ''
+  try{ if($f.Length -lt 4000){ $old = [IO.File]::ReadAllText($f.FullName) } }catch{}
+  if($old -ne $html){ [IO.File]::WriteAllText($f.FullName, $html, [Text.UTF8Encoding]::new($false)); if(-not (IsTombstoneText $old)){ $script:TombNew++ } }
+  $script:TombSet["$dir2/$($f.Name)"] = 1
+}
+function TombDestFor([string]$dir2, $f, [bool]$brandSafe){
+  if($dir2 -eq 'g'){ return $DEST_BRANDS }
+  if($dir2 -eq 'p'){ return $DEST_PRODS }
+  if($dir2 -eq 'gg'){
+    # 내려놓은 공구(중복 등)는 그 브랜드 페이지로 — 옛 파일에 남아 있는 「○○ 전체 공구 일정」 링크에서 읽는다. 차단 브랜드는 브랜드 페이지로 보내지 않는다
+    if($brandSafe){
+      try{
+        $t0 = [IO.File]::ReadAllText($f.FullName)
+        $m0 = [regex]::Match($t0, '<a href="/(g/[^"#?]+\.html)"[^>]*>[^<]*전체 공구 일정</a>')
+        if($m0.Success){
+          $rp = [uri]::UnescapeDataString($m0.Groups[1].Value)
+          $bn = [IO.Path]::GetFileNameWithoutExtension($rp)
+          if([IO.File]::Exists((Join-Path $Root $rp)) -and -not (IsBlocked $bn) -and -not $JunkBrands.ContainsKey($bn.ToLower()) -and -not $TombSet.ContainsKey($rp)){ return $m0.Groups[1].Value }
+        }
+      }catch{}
+    }
+    return $(if([IO.File]::Exists((Join-Path $Root '지금공구.html'))){ $DEST_NOW } else { $DEST_BRANDS })
+  }
+  return ''
+}
 function KeptUrls([string]$dir2, $todayUrls){
   $have = @{}
   foreach($u in $todayUrls){ $have[[uri]::UnescapeDataString("$u")] = 1 }
-  $extra = @()
+  $extra = New-Object System.Collections.ArrayList
   $dp = Join-Path $Root $dir2
   if(Test-Path $dp){
     foreach($f in (Get-ChildItem $dp -Filter *.html -File | Sort-Object Name)){
-      # 🚫 차단 브랜드의 보존 페이지는 지운다 — 보존 원칙의 유일한 예외 (파일명에 브랜드가 들어간다: g/브랜드 · gg/상품명-MMDD · p/브랜드-제품)
-      if(IsBlocked $f.BaseName){ Remove-Item $f.FullName -Force; $script:BlockedRemoved++; continue }
-      if($dir2 -eq 'g' -and $JunkBrands.ContainsKey(([uri]::UnescapeDataString($f.BaseName)).ToLower())){ Remove-Item $f.FullName -Force; $script:JunkRemoved++; continue }
-      # 🚫 중복이라 내려놓은 공구(gonggu_hold)의 건별 페이지 — 보존 원칙의 두 번째 예외 (2026-10-06)
-      #    gg/ 에만 적용한다. g(브랜드)·p(제품)·s(셀러) 집계 페이지는 행 하나가 빠져도 살아 있어야 한다.
-      #    🔴 2026-10-24: **오늘 만든 페이지는 지우지 않는다** — 중복 쌍에서 남긴 행도 이름·오픈일이 같아 슬러그가 같다.
-      #       그 페이지까지 지워 sitemap 에만 남았고(「sitemap 에 있으나 파일 없음」 40여 건), verify 가 열이레 동안 커밋을 막았다
       $rel = "$dir2/$($f.Name)"
-      if($dir2 -eq 'gg' -and -not $have.ContainsKey($rel) -and (IsHeldGg $f.BaseName)){ Remove-Item $f.FullName -Force; $script:HeldRemoved++; continue }
-      if(-not $have.ContainsKey($rel)){ $extra += "$dir2/$(Enc $f.BaseName).html" }
+      # 🚫 차단 브랜드의 보존 페이지 — 보존 원칙의 예외였던 자리. 이제 지우지 않고 툼스톤으로(파일명에 브랜드가 들어간다: g/브랜드 · gg/상품명-MMDD · p/브랜드-제품)
+      if(IsBlocked $f.BaseName){ $wasT = ($f.Length -lt 4000 -and (IsTombstoneText ([IO.File]::ReadAllText($f.FullName)))); PutTombstone $f $dir2 (TombDestFor $dir2 $f $false); if(-not $wasT){ $script:BlockedRemoved++ }; continue }
+      if($dir2 -eq 'g' -and $JunkBrands.ContainsKey(([uri]::UnescapeDataString($f.BaseName)).ToLower())){ $wasT = ($f.Length -lt 4000 -and (IsTombstoneText ([IO.File]::ReadAllText($f.FullName)))); PutTombstone $f $dir2 $DEST_BRANDS; if(-not $wasT){ $script:JunkRemoved++ }; continue }
+      # 🚫 중복이라 내려놓은 공구(gonggu_hold)의 건별 페이지 (2026-10-06)
+      #    gg/ 에만 적용한다. g(브랜드)·p(제품)·s(셀러) 집계 페이지는 행 하나가 빠져도 살아 있어야 한다.
+      #    🔴 2026-10-24: **오늘 만든 페이지는 건드리지 않는다** — 중복 쌍에서 남긴 행도 이름·오픈일이 같아 슬러그가 같다.
+      if($dir2 -eq 'gg' -and -not $have.ContainsKey($rel) -and (IsHeldGg $f.BaseName)){ $wasT = ($f.Length -lt 4000 -and (IsTombstoneText ([IO.File]::ReadAllText($f.FullName)))); if(-not $wasT){ PutTombstone $f $dir2 (TombDestFor $dir2 $f $true); $script:HeldRemoved++ } else { $script:TombSet[$rel] = 1 }; continue }
+      # 다른 길로 만들어진 툼스톤(tombstone.ps1 — 서치콘솔 404 목록)도 사이트맵에 싣지 않는다. 툼스톤은 1KB 가 안 되므로 작은 파일만 열어 본다
+      if(-not $have.ContainsKey($rel) -and $f.Length -lt 1500 -and (IsTombstoneText ([IO.File]::ReadAllText($f.FullName)))){ $script:TombSet[$rel] = 1; continue }
+      if(-not $have.ContainsKey($rel)){ [void]$extra.Add("$dir2/$(Enc $f.BaseName).html") }
     }
   }
   # ⚠ 함수 안에서 Write-Output 을 쓰면 반환값에 섞인다 → Write-Host 로만 알린다.
   # ⚠ `return ,$extra` 도 금지 — 중첩 배열이 되어 1,764개 URL 이 sitemap 한 줄에 뭉쳐 들어갔다(실측).
   Write-Host "보존 페이지 합류($dir2): $($extra.Count)개"
-  return $extra
+  return @($extra)
 }
 
 $uMain = New-Object System.Collections.ArrayList
@@ -1191,31 +1408,62 @@ WriteSitemap 'sitemap-product.xml' $uP '0.7' 'weekly'
 $uS = @(); foreach($s in $sellerMade){ $uS += "s/$(Enc $s.slug).html" }
 $uS = @($uS) + @(KeptUrls 's' $uS)
 WriteSitemap 'sitemap-seller.xml' $uS '0.7' 'weekly'
-$uGG = @(); foreach($x in $ggRows){ $uGG += "gg/$(Enc $x.slug).html" }
-$uGG = @($uGG) + @(KeptUrls 'gg' $uGG)
+# 2026-11-16 (ORDER §4-2): gg 는 A·B 계층만 사이트맵에 싣는다. 페이지는 지우지 않는다(C 는 200 + noindex,follow 로 남는다).
+#   llms.txt 의 「공구 건별 상세 N개」「사이트맵 총 N개」가 이만큼 줄어드는 것은 의도한 것이다.
+$uGG = New-Object System.Collections.ArrayList
+$ggAll = New-Object System.Collections.ArrayList      # 오늘 만든 gg 전부(C 포함) — KeptUrls 가 「오늘 만든 것」을 가리는 데 쓴다
+foreach($x in $ggRows){
+  [void]$ggAll.Add("gg/$(Enc $x.slug).html")
+  if((GgTier $x $today $ggCutoff) -eq 'C'){ continue }
+  [void]$uGG.Add("gg/$(Enc $x.slug).html")
+}
+# 보존 gg 페이지(오늘 집계에 없는 옛 페이지)도 같은 계층 규칙으로 — 마감일은 파일 머리에서 읽어 둔 값($KeptGgEd).
+#   마감이 창 밖이면 robots 메타를 noindex,follow 로 바꾸고 사이트맵에서 뺀다. 창 안이면(되돌리기 포함) index 로 되돌리고 싣는다. 날짜를 못 읽은 페이지는 그대로 둔다
+$keptC = 0; $keptB = 0; $keptFlip = 0
+foreach($u in (KeptUrls 'gg' $ggAll)){
+  $fn = [uri]::UnescapeDataString(("$u" -replace '^gg/',''))
+  $fp = Join-Path $Root "gg/$fn"
+  $wantNo = $false
+  if($KeptGgEd.ContainsKey($fn)){ $wantNo = ("$($KeptGgEd[$fn])" -lt $ggCutoff) }
+  else { if(HasNoindex $u $Root){ $keptC++; continue } else { $keptB++; [void]$uGG.Add($u); continue } }
+  $t = [IO.File]::ReadAllText($fp)
+  $isNo = (TextHasNoindex $t)
+  if($wantNo -ne $isNo){
+    $t = SetRobotsText $t $(if($wantNo){ $ROBOTS_NOINDEX } else { 'index,follow,max-image-preview:large' })
+    [IO.File]::WriteAllText($fp, $t, [Text.UTF8Encoding]::new($false)); $keptFlip++
+  }
+  if($wantNo){ $keptC++ } else { $keptB++; [void]$uGG.Add($u) }
+}
+Write-Output "보존 gg 계층: 사이트맵 유지 $keptB · 장기 마감(noindex) $keptC · 이번에 메타 바꾼 것 $keptFlip"
 WriteSitemap 'sitemap-gonggu.xml' $uGG '0.6' 'weekly'
 
 # 🔗 보존 페이지 안의 죽은 링크를 글자로 바꾼다 (2026-10-24)
 #   보존 원칙상 지난 페이지(g·p·s·gg)는 다시 만들지 않고 그대로 둔다. 그런데 내려놓은 공구(gonggu_hold)·차단 브랜드의 gg 페이지는
 #   위 KeptUrls 가 지우므로, 그 페이지를 가리키던 보존 페이지의 링크가 404 가 된다(10-23 상품명 정리 뒤 62건 → verify 불통과).
 #   페이지는 지우지 않고 **링크만** 걷는다(<a …>글자</a> → 글자). 오늘 새로 만든 페이지는 원래 살아 있는 링크만 가지므로 바뀌지 않는다
-$deadFixed = 0; $deadPages = 0
+#   2026-11-16: ① 툼스톤으로 바뀐 페이지를 가리키는 링크도 같이 걷는다(차단 브랜드 이름이 링크로 남지 않게 — 글자는 원래도 남는다)
+#               ② 보존 페이지 <head> 에 GA4 를 넣고 noai 메타를 걷는다(PatchHeadText — 이미 된 파일은 그대로, 멱등). 1회성 도구 patch_kept_once.ps1 과 같은 함수
+$deadFixed = 0; $deadPages = 0; $headPatched = 0
 $aRe = [regex]'<a href="/((?:gg|g|p|s)/[^"#?]+\.html)"[^>]*>(.*?)</a>'
-foreach($dd in @('g','p','s','gg')){
+foreach($dd in @('g','p','s','gg','m','d','c')){
   $dp2 = Join-Path $Root $dd
   if(-not (Test-Path $dp2)){ continue }
   foreach($fp in [IO.Directory]::EnumerateFiles($dp2, '*.html')){
     $t = [IO.File]::ReadAllText($fp)
-    if($t.IndexOf('href="/', [StringComparison]::Ordinal) -lt 0){ continue }
+    $t2 = $t
     $n0 = $deadFixed
-    $t2 = $aRe.Replace($t, [Text.RegularExpressions.MatchEvaluator]{ param($m)
-      $rp = [uri]::UnescapeDataString($m.Groups[1].Value)
-      if([IO.File]::Exists((Join-Path $Root $rp))){ return $m.Value }
-      $script:deadFixed++; return $m.Groups[2].Value })
-    if($deadFixed -ne $n0){ [IO.File]::WriteAllText($fp, $t2, [Text.UTF8Encoding]::new($false)); $deadPages++ }
+    if($t.IndexOf('href="/', [StringComparison]::Ordinal) -ge 0 -and -not (IsTombstoneText $t)){
+      $t2 = $aRe.Replace($t, [Text.RegularExpressions.MatchEvaluator]{ param($m)
+        $rp = [uri]::UnescapeDataString($m.Groups[1].Value)
+        if([IO.File]::Exists((Join-Path $Root $rp)) -and -not $TombSet.ContainsKey($rp)){ return $m.Value }
+        $script:deadFixed++; return $m.Groups[2].Value })
+    }
+    $t3 = PatchHeadText $t2
+    if($t3 -ne $t2){ $headPatched++ }
+    if($deadFixed -ne $n0 -or $t3 -ne $t2){ [IO.File]::WriteAllText($fp, $t3, [Text.UTF8Encoding]::new($false)); if($deadFixed -ne $n0){ $deadPages++ } }
   }
 }
-Write-Output "보존 페이지 죽은 링크 정리: $deadFixed 개 ($deadPages 쪽)"
+Write-Output "보존 페이지 죽은 링크 정리: $deadFixed 개 ($deadPages 쪽) · GA4·noai 머리 손질 $headPatched 쪽"
 
 $sm = New-Object System.Text.StringBuilder
 [void]$sm.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
@@ -1300,7 +1548,7 @@ if($curMonth.Count -gt 0){ [void]$ll.AppendLine("- [$($curMonth[0].label) 공구
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine('## Optional')
 [void]$ll.AppendLine('')
-[void]$ll.AppendLine('- 페이지에는 JSON-LD(WebPage·Organization·FAQPage·BreadcrumbList·ItemList) 구조화 데이터와 「기준일」이 들어 있습니다')
+[void]$ll.AppendLine('- 페이지에는 JSON-LD(WebPage·Organization·FAQPage·BreadcrumbList·ItemList, 진행 중·예정 공구는 Event, 핫딜 목록은 Product·Offer) 구조화 데이터와 「기준일」이 들어 있습니다')
 [void]$ll.AppendLine("- [이용약관]($SITE/terms.html) · [개인정보처리방침]($SITE/privacy.html)")
 # 🤖 AI 가 제일 먼저 읽는 파일이라 이용 조건을 여기에도 밝힌다(2026-10-27 사장님 지시 「AI 한테 긁지 말라는 경고문」, /검증 지적). 인용은 환영·학습·재배포는 금지
 [void]$ll.AppendLine('- 이용 조건: 검색·AI 답변에서 출처(맘캘린더, momcalendar.com)를 밝혀 인용하는 것은 환영합니다. 자동 수집·복제, AI·기계학습 모델의 학습 자료 이용, 다른 사이트·데이터 상품으로의 재배포는 금지합니다(이용약관 제13조, https://momcalendar.com/terms.html). robots.txt 의 Content-Signal: search=yes, ai-input=yes, ai-train=no 가 같은 뜻입니다.')
@@ -1316,6 +1564,9 @@ foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html'))
 
 $total = $uMain.Count + $uB.Count + $uP.Count + $uS.Count + $uGG.Count
 Write-Output "브랜드 $($brandList.Count) · 제품 $($prodList.Count) · 셀러 $($sellerMade.Count) · 소분류 $($minorMade.Count) · 월별 $($monthMade.Count) · 카테고리 $($catMade.Count) · 키워드 $($kwMade.Count) · 허브 3"
-if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 삭제: $BlockedRemoved 개" }
-if($JunkRemoved -gt 0){ Write-Output "🧹 브랜드 아닌 보존 페이지 삭제: $JunkRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
+if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 → 툼스톤: $BlockedRemoved 개" }
+if($JunkRemoved -gt 0){ Write-Output "🧹 브랜드 아닌 보존 페이지 → 툼스톤: $JunkRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
+if($HeldRemoved -gt 0){ Write-Output "🚫 내려놓은 공구 건별 페이지 → 툼스톤: $HeldRemoved 개" }
+Write-Output "툼스톤: 이번에 새로 $TombNew 개 · 사이트맵 제외 $($TombSet.Count)개"
+Write-Output "sitemap: main $($uMain.Count) · brand $($uB.Count) · product $($uP.Count) · seller $($uS.Count) · gonggu $($uGG.Count)"
 Write-Output "sitemap URL 합계 = $total"
