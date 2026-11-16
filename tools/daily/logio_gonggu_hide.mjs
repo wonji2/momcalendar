@@ -101,12 +101,21 @@ const held = sql(`insert into public.gonggu_hold(id, reason)
   returning id;`);
 console.log(`🔒 잠금(gonggu_hold) ${held.length}행: ${held.map((r) => 'id' + r.id).join(', ')}`);
 
-// ④ 다시 읽어 확인 — 내 것은 그대로, 타인 것은 내려가고 잠겼는지
+// ④ 다시 읽어 확인 — 내 것은 그대로, **내 창(오늘~내 마감)과 겹치는 타인**은 내려가고 잠겼는지
 const after = sql(LIST);
 console.log(`\n■ 처리 후 로지오 매칭 ${after.length}행`);
 for (const r of after) console.log('  ' + say(r));
+const TODAY = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const mineAfter = after.filter(mine);
-const othersLive = after.filter((r) => !mine(r) && r.approved);
-console.log(`\n검증 — 내 공구 노출 ${mineAfter.filter((r) => r.approved).length}건(그대로여야 함) · 타인 로지오 노출 ${othersLive.length}건(0이어야 함)`);
-if (othersLive.length) { console.log('🔴 아직 노출 중: ' + othersLive.map((r) => 'id' + r.id).join(', ')); process.exit(1); }
-console.log('✅ 완료');
+const mineLive = mineAfter.filter((r) => r.approved);
+const mineEnd = mineLive.reduce((m, r) => (r.end_date && r.end_date > m ? r.end_date : m), TODAY);
+const clash = after.filter((r) => !mine(r) && r.approved
+  && r.end_date && r.end_date >= TODAY && String(r.open_date || '') <= mineEnd);
+const future = after.filter((r) => !mine(r) && r.approved && r.end_date && r.end_date >= TODAY
+  && String(r.open_date || '') > mineEnd);
+const past = after.filter((r) => !mine(r) && r.approved && !(r.end_date && r.end_date >= TODAY));
+const heldNow = after.filter((r) => r.held).length;
+console.log(`\n검증 — 내 공구 노출 ${mineLive.length}건(1이어야) · 오늘~${mineEnd} 겹치는 타인 노출 ${clash.length}건(0이어야) · 내 창 뒤 예정 ${future.length}건(그대로 둠) · 지난 공구 ${past.length}건(그대로 둠) · 잠금 ${heldNow}건`);
+if (clash.length) console.log('🔴 아직 노출 중: ' + clash.map((r) => 'id' + r.id).join(', '));
+console.log(`\n검증 ${mineLive.length === 1 && !clash.length ? '✅ 통과' : '🔴 실패'} — 로지오 매칭 ${after.length} · 내것노출 ${mineLive.length} · 겹침노출 ${clash.length} · 잠금 ${heldNow}`);
+process.exit(mineLive.length === 1 && !clash.length ? 0 : 1);
