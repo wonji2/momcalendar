@@ -1215,7 +1215,6 @@ async function saveAllPages(){
   const btn = document.getElementById('btnSave');
   const Z = window.__DEDUP;
   btn.disabled = true;
-  window.__IOSF = [];
   try{
     let O = Z[0].slice(), E = Z[1].slice();
     const pages = []; let p = 0;
@@ -1242,7 +1241,6 @@ async function saveAllPages(){
     await goPage(1);
     document.getElementById('st').innerHTML = '사진 <b>' + PGN + '장</b> 저장 완료 ✅ 1080×1920'
       + (left ? ' · 🔴 ' + left + '건을 못 실었습니다 (' + MAXPG + '장 상한)' : ' · 빠진 건 없습니다');
-    if(_iosSave()) _iosSheet();
   }catch(e){
     document.getElementById('st').textContent = '저장 실패: ' + e.message;
   }
@@ -1296,14 +1294,8 @@ async function savePng(quiet, pageNo){
     const day=document.getElementById('day').value||todayKST();
     const a=document.createElement('a');
     a.download=`momcal_${day.replace(/-/g,'')}${pageNo ? '_' + pageNo + '장' : ''}.png`;
-    if(_iosSave()){
-      const blob=await new Promise(function(r){ canvas.toBlob(r,'image/png'); });
-      (window.__IOSF=window.__IOSF||[]).push(new File([blob], a.download, {type:'image/png'}));
-      if(!quiet) _iosSheet();
-    } else {
-      a.href=canvas.toDataURL('image/png');
-      a.click();
-    }
+    a.href=canvas.toDataURL('image/png');
+    a.click();
     document.getElementById('st').innerHTML='사진을 저장했습니다 ✅ <b>1080×1920</b>';
   }catch(e){
     document.getElementById('st').textContent='저장 실패: '+e.message;
@@ -1328,26 +1320,6 @@ function setV(v){
   // 글자 크기가 바뀌면 한 장 용량이 달라진다 → 쪽을 다시 센다 (2026-09-22)
   if(window.__DATA){ if(typeof calcPages==="function"){ calcPages().then(()=>{ PG=1; goPage(1); }); }
                      else render.apply(null, window.__DATA); }
-}
-
-// 아이폰 저장 길 (2026-11-17) — 사파리는 프레임 안 data: 내려받기를 막는다. 사진을 모아 띄우고 공유 시트로 한 번에 저장한다
-function _iosSave(){ const u=navigator.userAgent||''; return /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints>1); }
-function _iosSheet(){
-  const fs=window.__IOSF||[]; if(!fs.length) return;
-  let o=document.getElementById('iosSave'); if(o) o.remove();
-  o=document.createElement('div'); o.id='iosSave';
-  o.style.cssText='position:fixed;inset:0;z-index:99999;background:#1E1926;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;font-family:inherit';
-  const can=!!(navigator.canShare && navigator.canShare({files:fs}));
-  o.innerHTML='<div style="display:flex;gap:8px;position:sticky;top:0;background:#1E1926;padding:6px 0 12px;z-index:1">'
-    +(can?'<button id="iosSaveGo" style="flex:1;height:52px;border:0;border-radius:14px;background:#7C54C4;color:#fff;font-size:16px;font-weight:800;font-family:inherit">사진 앱에 저장 ('+fs.length+'장)</button>':'<div style="flex:1;color:#fff;font-size:14px;font-weight:700;align-self:center">사진을 길게 눌러 저장</div>')
-    +'<button id="iosSaveX" style="width:52px;height:52px;border:0;border-radius:14px;background:#3A3145;color:#fff;font-size:18px;font-family:inherit">✕</button></div>'
-    +(can?'<div style="color:#B8AEC8;font-size:12px;margin:0 0 12px">「이미지 저장」을 누르면 전부 저장 · 안 되면 사진을 길게 눌러 저장</div>':'');
-  const urls=[];
-  fs.forEach(function(f){ const u=URL.createObjectURL(f); urls.push(u); const im=document.createElement('img'); im.src=u; im.alt=f.name; im.style.cssText='display:block;width:72%;max-width:360px;margin:0 auto 14px;border-radius:10px;-webkit-touch-callout:default;user-select:auto'; o.appendChild(im); });
-  document.body.appendChild(o);
-  document.getElementById('iosSaveX').onclick=function(){ urls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(_){} }); o.remove(); };
-  const go=document.getElementById('iosSaveGo');
-  if(go) go.onclick=function(){ navigator.share({files:fs}).then(function(){ document.getElementById('st').innerHTML='사진 <b>'+fs.length+'장</b> 저장 ✅'; }).catch(function(e){ if(e && e.name!=='AbortError') go.textContent='사진을 길게 눌러 저장'; }); };
 }
 
 (function init(){
