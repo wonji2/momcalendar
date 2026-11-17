@@ -61,6 +61,12 @@ jobs:
           git add g p s m d c gg sitemap.xml sitemap-main.xml sitemap-brand.xml sitemap-product.xml sitemap-seller.xml sitemap-gonggu.xml robots.txt
           git add --pathspec-from-file=tools/seo/generated.txt
           git reset -q -- index.html admin.html test.html test-app.html staff.html register.html kktest.html reelcard.html
+          # 2026-11-18 (사장님 승인): 홈 원본 HTML 의 「오늘 공구 목록」만 예외로 올린다.
+          #   빌드(HomeInject)는 index.html·test.html 의 <!--seo-today--> 표식 사이만 고친다. home_guard 가 「표식 밖은 HEAD 와 똑같다」를 확인한 파일만 add 하고,
+          #   하나라도 어긋나면 그 파일을 되돌린다(홈은 어제 것 그대로 남는다 — 나머지 페이지 커밋은 계속).
+          for f in index.html test.html; do
+            if node tools/seo/home_guard.mjs "$f"; then git add "$f"; else git checkout -- "$f"; echo "::warning::홈 목록 가드 불통과 — $f 는 올리지 않았다"; fi
+          done
           if git diff --cached --quiet; then
             echo "바뀐 것 없음 — 커밋 생략"
           else

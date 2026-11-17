@@ -1080,6 +1080,212 @@ function ShowSection([string]$k){
   return $h
 }
 
+
+# ══ 허브 페이지 실데이터 목록 (사장님 지시 2026-11-18 「공통 설명문 위주면 구글이 중복 페이지로 본다 · 실제 목록 30건 이상을 정적 HTML 에」) ══
+#   keywords.json 의 show 에 opentoday · endtoday · top20 · week · endsoon · newlive · bycat · hubseller 를 적으면 그 페이지 본문에
+#   공구 건별 행(상품명 → /gg/ 상세 · 셀러 → /s/ · 기간 · 셀러 인스타)을 그린다. 전부 그날 집계($ggRows)에서만 만든다 — 문장으로 분량을 채우지 않는다.
+#   · 한 페이지 안에서 같은 공구를 두 번 싣지 않는다($script:hubUsed) · 페이지마다 시작 자리를 달리해(seed) 허브끼리 목록이 같아지지 않게 한다
+#   · show 에 허브 구간이 하나라도 있는 페이지는 행이 30건이 될 때까지 「진행 중인 공구」로 채운다(HubFill)
+$hubSellerSlug = @{}; foreach($hsm in $sellerMade){ if(-not $hubSellerSlug.ContainsKey("$($hsm.kor)")){ $hubSellerSlug["$($hsm.kor)"] = "$($hsm.slug)" } }
+$hubDay0 = [DateTime]::ParseExact("$today",'yyyy-MM-dd',$null)
+$hubPlus2 = $hubDay0.AddDays(2).ToString('yyyy-MM-dd'); $hubPlus7 = $hubDay0.AddDays(7).ToString('yyyy-MM-dd'); $hubMinus3 = $hubDay0.AddDays(-3).ToString('yyyy-MM-dd')
+#   · 셀러 칸이 빈 공구는 싣지 않는다(셀러 없으면 노출 제외)
+$hubLive = @($ggRows | Where-Object { $_.who -and "$($_.od)" -le "$today" -and "$($_.ed)" -ge "$today" } | Sort-Object @{e='od';Descending=$true}, @{e='name';Descending=$false}, @{e='slug';Descending=$false})
+$hubOpen = @($hubLive | Where-Object { "$($_.od)" -eq "$today" })
+$hubEnd  = @($hubLive | Where-Object { "$($_.ed)" -eq "$today" } | Sort-Object @{e='name';Descending=$false}, @{e='slug';Descending=$false})
+$hubEndSoon = @($hubLive | Where-Object { "$($_.ed)" -gt "$today" -and "$($_.ed)" -le $hubPlus2 } | Sort-Object @{e='ed';Descending=$false}, @{e='name';Descending=$false}, @{e='slug';Descending=$false})
+$hubNew  = @($hubLive | Where-Object { "$($_.od)" -lt "$today" -and "$($_.od)" -ge $hubMinus3 })
+$hubWeek = @($ggRows | Where-Object { $_.who -and "$($_.od)" -gt "$today" -and "$($_.od)" -le $hubPlus7 } | Sort-Object @{e='od';Descending=$false}, @{e='name';Descending=$false}, @{e='slug';Descending=$false})
+$hubTop20 = @($brandList | Where-Object { @('가성비','인기','신상','특가','최저가','국내산','무료배송') -notcontains "$($_.brand)" } | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 20)
+Write-Output "허브 목록 재료: 오늘 오픈 $($hubOpen.Count) · 오늘 마감 $($hubEnd.Count) · 진행 중 $($hubLive.Count) · 7일 안 오픈 $($hubWeek.Count)"
+# TOP 20 은 페이지마다 다른 기준으로 뽑는다(같은 20줄이 7장에 깔리면 그 구간이 통째로 중복이 된다 — 사장님 2026-11-18)
+#   pop 검색 많은 순 · cnt 자주 열린 순 · live 진행 건수 순 · new 최근 오픈 순 · end 마감 빠른 순 · soon 오픈 빠른 순 · cat 분야별 대표
+#   각 줄에 적는 공구도 그 기준에 맞는 한 건(곧 열리는 것 / 마감이 가장 빠른 것 / 가장 최근에 열린 것)
+$HUB_NOT_BRAND = @('가성비','인기','신상','특가','최저가','국내산','무료배송')   # 꾸밈말이 브랜드로 잡힌 것 — 허브의 TOP 20·전체 목록에는 올리지 않는다(브랜드 페이지는 그대로)
+$hubBrandObj = @{}; foreach($hb in $brandList){ if($HUB_NOT_BRAND -notcontains "$($hb.brand)"){ $hubBrandObj["$($hb.brand)"] = $hb } }
+function HubBrandRank($rows, [scriptblock]$keyOf, [bool]$desc){
+  # 브랜드마다 대표 공구 한 건(정렬 기준에서 맨 앞)을 고르고, 그 값으로 브랜드를 줄 세운다. 이력이 3번 이상인 브랜드를 먼저, 모자라면 나머지로 채운다
+  $best = @{}
+  foreach($r0 in $rows){
+    $bk0 = "$($r0.brand)"; if(-not $hubBrandObj.ContainsKey($bk0)){ continue }
+    $kv = & $keyOf $r0
+    if(-not $best.ContainsKey($bk0)){ $best[$bk0] = $r0 }
+    else { $cv = & $keyOf $best[$bk0]; if(($desc -and "$kv" -gt "$cv") -or (-not $desc -and "$kv" -lt "$cv")){ $best[$bk0] = $r0 } }
+  }
+  $all = @($best.Keys | ForEach-Object { [pscustomobject]@{ b=$hubBrandObj[$_]; g=$best[$_]; k=("" + (& $keyOf $best[$_])); big=$(if([int]$hubBrandObj[$_].cnt -ge 3){ 0 } else { 1 }) } })
+  return @($all | Sort-Object @{e='big';Descending=$false}, @{e='k';Descending=$desc}, @{e={[int]$_.b.cnt};Descending=$true}, @{e={"$($_.b.slug)"};Descending=$false} | Select-Object -First 20)
+}
+function HubBrandLatest($brands){
+  return @($brands | ForEach-Object { $g0 = $null; if($GgSorted.ContainsKey("$($_.brand)") -and $GgSorted["$($_.brand)"].Count -gt 0){ $g0 = $GgSorted["$($_.brand)"][0] }; [pscustomobject]@{ b=$_; g=$g0 } })
+}
+$hubSoonAll = @($ggRows | Where-Object { $_.who -and "$($_.od)" -gt "$today" })
+$hubLiveCnt = @{}; foreach($r1 in $hubLive){ $hubLiveCnt["$($r1.brand)"] = [int]$hubLiveCnt["$($r1.brand)"] + 1 }
+$hubCatTop = New-Object System.Collections.ArrayList
+foreach($cg in @($brandList | Where-Object { $_.major -and $hubBrandObj.ContainsKey("$($_.brand)") } | Group-Object major | Sort-Object @{e={$_.Count};Descending=$true}, @{e='Name';Descending=$false} | Select-Object -First 10)){
+  foreach($cb in @($cg.Group | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 2)){ [void]$hubCatTop.Add($cb) }
+}
+$HUB_TOP = @{
+  'top20'     = @{ h2='인기 공구 브랜드 TOP 20 (많이 찾는 순)'; p='사람들이 많이 검색하는 공구 브랜드 순서입니다. 브랜드마다 가장 최근 공구를 함께 적었습니다.'; rows=@(HubBrandLatest @($hubTop20 | Where-Object { $hubBrandObj.ContainsKey("$($_.brand)") })) }
+  'top20cnt'  = @{ h2='자주 공구하는 브랜드 TOP 20 (공구가 자주 열린 순)'; p='공구가 자주 열리는 브랜드 순서입니다. 한 번 놓쳐도 다시 열릴 가능성이 높은 곳들입니다.'; rows=@(HubBrandLatest @($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 20)) }
+  'top20live' = @{ h2='지금 공구가 많은 브랜드 TOP 20 (진행 건수 순)'; p="$todayKo 기준으로 여러 셀러가 동시에 공구 중인 브랜드 순서입니다."; rows=@(HubBrandLatest @($brandList | Where-Object { $hubLiveCnt.ContainsKey("$($_.brand)") } | Sort-Object @{e={[int]$hubLiveCnt["$($_.brand)"]};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 20)) }
+  'top20new'  = @{ h2='새로 열린 공구 브랜드 TOP 20 (최근 오픈 순)'; p='가장 최근에 공구가 열린 브랜드 순서입니다. 브랜드마다 방금 열린 공구를 적었습니다.'; rows=@(HubBrandRank $hubLive { param($r) "$($r.od)" } $true) }
+  'top20end'  = @{ h2='마감 임박 공동구매 브랜드 TOP 20 (마감 빠른 순)'; p='진행 중인 공동구매 가운데 마감이 가까운 브랜드 순서입니다. 브랜드마다 가장 먼저 닫히는 공구를 적었습니다.'; rows=@(HubBrandRank $hubLive { param($r) "$($r.ed)" } $false) }
+  'top20soon' = @{ h2='곧 열리는 공구 브랜드 TOP 20 (오픈일 빠른 순)'; p='앞으로 공구 일정이 잡힌 브랜드를 오픈일이 가까운 순서로 적었습니다.'; rows=@(HubBrandRank $hubSoonAll { param($r) "$($r.od)" } $false) }
+  'top20cat'  = @{ h2='분야별 인기 공동구매 브랜드 TOP 20'; p='공구가 많이 열리는 분야 10곳에서 많이 찾는 브랜드를 두 곳씩 골랐습니다.'; rows=@(HubBrandLatest @($hubCatTop | Select-Object -First 20)) }
+}
+# 「전체」 링크 구간 — TOP 20 아래에 그 기준의 브랜드(셀러)를 빠짐없이 싣는다. 페이지마다 기준이 달라 목록이 겹치지 않는다. 한 구간 최대 600개
+$hubPlus7b = $hubDay0.AddDays(7).ToString('yyyy-MM-dd'); $hubMinus7 = $hubDay0.AddDays(-7).ToString('yyyy-MM-dd')
+function HubBrandsOf($rows){
+  $seenB = @{}; $outB = New-Object System.Collections.ArrayList
+  foreach($r2 in $rows){ $bk2 = "$($r2.brand)"; if($bk2 -and -not $seenB.ContainsKey($bk2) -and $hubBrandObj.ContainsKey($bk2)){ $seenB[$bk2] = 1; [void]$outB.Add($hubBrandObj[$bk2]) } }
+  return @($outB)
+}
+$HUB_ALL = @{
+  'livebrands' = @{ h2='지금 공구 중인 브랜드 전체'; kind='g'; items=@(HubBrandsOf $hubLive | Sort-Object @{e={"$($_.brand)"};Descending=$false}, @{e={"$($_.slug)"};Descending=$false}) }
+  'soonbrands' = @{ h2='오픈 예정 공구 브랜드 전체 (오픈일 빠른 순)'; kind='g'; items=@(HubBrandsOf @($hubSoonAll | Sort-Object @{e='od';Descending=$false}, @{e='name';Descending=$false}, @{e='slug';Descending=$false})) }
+  'endbrands'  = @{ h2='이번 주 마감하는 공동구매 브랜드 전체 (마감 빠른 순)'; kind='g'; items=@(HubBrandsOf @($hubLive | Where-Object { "$($_.ed)" -le $hubPlus7b } | Sort-Object @{e='ed';Descending=$false}, @{e='name';Descending=$false}, @{e='slug';Descending=$false})) }
+  'newbrands'  = @{ h2='최근 일주일 새 공구가 열린 브랜드 전체 (최근 오픈 순)'; kind='g'; items=@(HubBrandsOf @($hubLive | Where-Object { "$($_.od)" -ge $hubMinus7 })) }
+  'livesellers'= @{ h2='지금 공구하는 셀러 전체'; kind='s'; items=@($hubLive | Group-Object who | Where-Object { $hubSellerSlug.ContainsKey("$($_.Name)") } | Sort-Object @{e={$_.Count};Descending=$true}, @{e='Name';Descending=$false} | ForEach-Object { [pscustomobject]@{ brand="$($_.Name)"; slug=$hubSellerSlug["$($_.Name)"] } }) }
+}
+function HubAllSection([string]$kind){
+  $ha = $HUB_ALL[$kind]; $its = @($ha.items | Select-Object -First 600)
+  if($its.Count -lt 5){ return '' }
+  $hx = "<div class=${Q}sec${Q}><h2>$($ha.h2) ($(if(@($ha.items).Count -gt $its.Count){ "$(@($ha.items).Count)곳 중 $($its.Count)곳" } else { "$($its.Count)곳" }))</h2><div class=${Q}rel${Q}>"
+  foreach($it in $its){ $hx += "<a href=${Q}/$($ha.kind)/$(Enc $it.slug).html${Q}>$(HtmlEsc $it.brand)$(if($ha.kind -eq 'g'){ ' 공구' })</a>" }
+  return $hx + '</div></div>'
+}
+$HUB_KINDS = @('opentoday','endtoday','week','endsoon','newlive','bycat','hubseller') + @($HUB_TOP.Keys) + @($HUB_ALL.Keys)
+$HUB_A = "style=${Q}color:#5B3A8C;text-decoration:none${Q}"
+$script:hubUsed = @{}; $script:hubCount = 0; $script:hubItems = New-Object System.Collections.ArrayList
+function HubReset(){ $script:hubUsed = @{}; $script:hubCount = 0; $script:hubItems = New-Object System.Collections.ArrayList }
+function WeekDayKo([string]$ymd){ try { return '일월화수목금토'.Substring([int]([DateTime]::ParseExact($ymd,'yyyy-MM-dd',$null).DayOfWeek),1) } catch { return '' } }
+# 공구 한 줄: 상품명(상세 페이지) / 셀러(셀러 페이지) · 기간 · 셀러 인스타
+function HubRow($gx){
+  $per = "$(MonDay "$($gx.od)") ~ $(MonDay "$($gx.ed)")"
+  $whoH = ''
+  if($gx.who){
+    if($hubSellerSlug.ContainsKey("$($gx.who)")){ $whoH = "<a $HUB_A href=${Q}/s/$(Enc $hubSellerSlug["$($gx.who)"]).html${Q}>$(HtmlEsc $gx.who)</a> · " } else { $whoH = "$(HtmlEsc $gx.who) · " }
+  }
+  $igH = ''
+  if($gx.insta){ $igH = " · <a $HUB_A href=${Q}https://www.instagram.com/$($gx.insta)${Q} rel=${Q}nofollow noopener${Q}>셀러 인스타</a>" }
+  $script:hubUsed["$($gx.slug)"] = 1; $script:hubCount++
+  [void]$script:hubItems.Add($gx)
+  return "<div class=${Q}stp${Q}><b><a $HUB_A href=${Q}/gg/$(Enc $gx.slug).html${Q}>$(HtmlEsc $gx.name)</a></b><span>${whoH}기간 $per$igH</span></div>"
+}
+# 목록에서 아직 안 실린 것만, seed 만큼 돌려서 max 건
+function HubPick($rows, [int]$max, [int]$seed){
+  $arr = @($rows | Where-Object { -not $script:hubUsed.ContainsKey("$($_.slug)") })
+  if($arr.Count -gt $max -and $seed -gt 0){
+    $st = ($seed * $max) % $arr.Count   # 회전 폭 = 뽑는 수 — 이웃 허브(seed 가 1 차이)가 같은 목록을 내지 않게
+    if($st -gt 0){ $arr = @($arr[$st..($arr.Count - 1)]) + @($arr[0..($st - 1)]) }
+  }
+  return @($arr | Select-Object -First $max)
+}
+function HubSection([string]$kind, [int]$seed){
+  $hh = ''
+  if($HUB_ALL.ContainsKey($kind)){ return (HubAllSection $kind) }
+  if($HUB_TOP.ContainsKey($kind)){
+    $tp = $HUB_TOP[$kind]; $trs = @($tp.rows | Where-Object { $_ -and $_.b })
+    if($trs.Count -lt 10){ $tp = $HUB_TOP['top20']; $trs = @($tp.rows | Where-Object { $_ -and $_.b }) }   # 재료가 모자란 날은 기본(많이 찾는 순)으로
+    if($trs.Count -eq 0){ return '' }
+    $hh = "<div class=${Q}sec${Q}><h2>$($tp.h2)</h2><p>$(HtmlEsc $tp.p)</p>"
+    $rk = 0
+    foreach($tr in $trs){
+      $rk++; $tb = $tr.b; $lg = $tr.g; $lastH = ''
+      if($lg){
+        $stT = $(if("$($lg.od)" -gt "$today"){ '오픈 예정' } elseif("$($lg.ed)" -ge "$today"){ '진행 중' } else { '최근 공구' })
+        # 장기 마감(C 계층 = noindex) 상세로는 링크를 걸지 않는다 — 이름만 적는다
+        $lgA = $(if((GgTier $lg $today $ggCutoff) -ne 'C'){ "<a $HUB_A href=${Q}/gg/$(Enc $lg.slug).html${Q}>$(HtmlEsc $lg.name)</a>" } else { HtmlEsc $lg.name })
+        $lastH = "${stT}: $lgA$(if($lg.who){ ' · ' + (HtmlEsc $lg.who) }) · 기간 $(MonDay "$($lg.od)") ~ $(MonDay "$($lg.ed)")"
+      }
+      $hh += "<div class=${Q}stp${Q}><b>${rk}. <a $HUB_A href=${Q}/g/$(Enc $tb.slug).html${Q}>$(HtmlEsc $tb.brand) 공구</a></b><span>$lastH</span></div>"
+    }
+    return $hh + '</div>'
+  }
+  switch($kind){
+    'opentoday' {
+      $pk = @(HubPick $hubOpen 30 $seed)
+      if($pk.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>오늘 오픈 공구 ($todayKo)</h2><p>$todayKo 오늘 열린 공구 $($hubOpen.Count)건 가운데 $($pk.Count)건입니다. 상품명을 누르면 그 공구의 일정 상세로 이동합니다.</p>"
+        foreach($gx in $pk){ $hh += (HubRow $gx) }
+        $hh += '</div>'
+      } }
+    'endtoday' {
+      $pk = @(HubPick $hubEnd 20 $seed)
+      if($pk.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>오늘 마감 공구 ($todayKo)</h2><p>$todayKo 오늘 닫히는 공구 $($hubEnd.Count)건 가운데 $($pk.Count)건입니다.</p>"
+        foreach($gx in $pk){ $hh += (HubRow $gx) }
+        $hh += '</div>'
+      } }
+    'endsoon' {
+      $pk = @(HubPick $hubEndSoon 15 $seed)
+      if($pk.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>마감 임박 공동구매 (이틀 안)</h2>"
+        foreach($gx in $pk){ $hh += (HubRow $gx) }
+        $hh += '</div>'
+      } }
+    'newlive' {
+      $pk = @(HubPick $hubNew 15 $seed)
+      if($pk.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>최근 사흘 사이 열린 인스타 공구</h2>"
+        foreach($gx in $pk){ $hh += (HubRow $gx) }
+        $hh += '</div>'
+      } }
+    'week' {
+      $wk = @($hubWeek | Where-Object { -not $script:hubUsed.ContainsKey("$($_.slug)") })
+      if($wk.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>이번 주 오픈 예정 공구 일정</h2>"
+        $wn = 0
+        foreach($wg in @($wk | Group-Object od | Sort-Object Name)){
+          if($wn -ge 25){ break }
+          $hh += "<p><b>$(MonDay "$($wg.Name)")($(WeekDayKo "$($wg.Name)")) 오픈 $($wg.Count)건</b></p>"
+          foreach($gx in @($wg.Group | Select-Object -First 5)){ if($wn -ge 25){ break }; $hh += (HubRow $gx); $wn++ }
+        }
+        $hh += '</div>'
+      } }
+    'bycat' {
+      $bc2 = @($hubLive | Where-Object { -not $script:hubUsed.ContainsKey("$($_.slug)") -and $brandMajor["$($_.brand)"] })
+      if($bc2.Count -gt 0){
+        $hh = "<div class=${Q}sec${Q}><h2>분야별 진행 중인 공구</h2>"
+        $bn = 0
+        foreach($bg in @($bc2 | Group-Object { $brandMajor["$($_.brand)"] } | Sort-Object @{e={$_.Count};Descending=$true}, @{e='Name';Descending=$false})){
+          if($bn -ge 24){ break }
+          $hh += "<p><b>$(HtmlEsc $bg.Name) 공구 $($bg.Count)건</b></p>"
+          foreach($gx in @($bg.Group | Select-Object -First 4)){ if($bn -ge 24){ break }; $hh += (HubRow $gx); $bn++ }
+        }
+        $hh += '</div>'
+      } }
+    'hubseller' {
+      $sg = @($hubLive | Where-Object { $_.who } | Group-Object who | Sort-Object @{e={$_.Count};Descending=$true}, @{e='Name';Descending=$false})
+      if($sg.Count -gt 0){
+        if($sg.Count -gt 20 -and $seed -gt 0){ $st2 = ($seed * 20) % $sg.Count; if($st2 -gt 0){ $sg = @($sg[$st2..($sg.Count - 1)]) + @($sg[0..($st2 - 1)]) } }
+        $hh = "<div class=${Q}sec${Q}><h2>지금 공구하는 곳 (셀러별)</h2>"
+        foreach($g2s in @($sg | Select-Object -First 20)){
+          $nmH = $(if($hubSellerSlug.ContainsKey("$($g2s.Name)")){ "<a $HUB_A href=${Q}/s/$(Enc $hubSellerSlug["$($g2s.Name)"]).html${Q}>$(HtmlEsc $g2s.Name)</a>" } else { HtmlEsc $g2s.Name })
+          $itH = (@($g2s.Group | Select-Object -First 3 | ForEach-Object { "<a $HUB_A href=${Q}/gg/$(Enc $_.slug).html${Q}>$(HtmlEsc $_.name)</a> ($(MonDay "$($_.ed)") 마감)" }) -join ' · ')
+          $hh += "<div class=${Q}stp${Q}><b>$nmH · 진행 중 $($g2s.Count)건</b><span>$itH</span></div>"
+        }
+        $hh += '</div>'
+      } }
+  }
+  return $hh
+}
+# 30건이 안 되면 진행 중인 공구로 채운다
+function HubFill([int]$seed){
+  if($script:hubCount -ge 30){ return '' }
+  $pk = @(HubPick $hubLive (30 - $script:hubCount) $seed)
+  if($pk.Count -eq 0){ return '' }
+  $hh = "<div class=${Q}sec${Q}><h2>지금 진행 중인 공구</h2>"
+  foreach($gx in $pk){ $hh += (HubRow $gx) }
+  return $hh + '</div>'
+}
+function LdHubList([string]$nm){
+  $el = New-Object System.Collections.ArrayList; $ix = 1
+  foreach($gx in $script:hubItems){ [void]$el.Add("{${Q}@type${Q}:${Q}ListItem${Q},${Q}position${Q}:$ix,${Q}name${Q}:${Q}$(JsonEsc $gx.name)${Q},${Q}url${Q}:${Q}$SITE/gg/$(Enc $gx.slug).html${Q}}"); $ix++ }
+  if($el.Count -eq 0){ return $null }
+  return "{${Q}@context${Q}:${Q}https://schema.org${Q},${Q}@type${Q}:${Q}ItemList${Q},${Q}name${Q}:${Q}$(JsonEsc $nm)${Q},${Q}numberOfItems${Q}:$($el.Count),${Q}itemListElement${Q}:[$($el -join ',')]}"
+}
+
 $kwMade = New-Object System.Collections.ArrayList
 # 🔎 2026-10-24 GEO: 질문형 랜딩마다 같은 「사이트 사실 표」 — 답변 엔진이 「맘캘린더는 셀러 몇 명·공구 몇 건」을 그대로 인용할 수 있게 숫자를 항목-값으로
 $SiteFacts = @(
@@ -1091,6 +1297,15 @@ $SiteFacts = @(
   @{ k='갱신'; v='매일 새벽 자동 갱신' },
   @{ k='운영'; v='원츠비 (momcalendar.com)' }
 )
+# 오늘 오픈·오늘 마감이 둘 다 0건인 날 — 목록 구간은 저절로 빠진다(HubSection). 제목·설명에 「오늘 오픈·마감」만 남지 않게 그 문구도 걷는다
+$hubQuiet = ($hubOpen.Count -eq 0 -and $hubEnd.Count -eq 0)
+function HubQuietText([string]$s){
+  if(-not $s){ return $s }
+  $q2 = [regex]::Replace($s, '(\d+월 \d+일 )?오늘 오픈·(오늘 )?마감(·(마감 임박|최근 열린|셀러별로))?', '진행 중인')
+  $q2 = $q2.Replace('오늘 열린 공동구매사이트 일정', '공동구매사이트 일정').Replace('오늘 열린 공동구매와 마감 임박 공동구매', '진행 중인 공동구매').Replace('진행 중인 인스타 공구 모음과', '진행 중인 인스타 공구 모음과')
+  return [regex]::Replace($q2, ' {2,}', ' ')
+}
+$kwIx = 0
 foreach($k in $kw){
   $canon = "$(Enc $k.slug).html"
   $body = ''
@@ -1100,7 +1315,11 @@ foreach($k in $kw){
     foreach($s in $k.steps){ $body += "<div class=${Q}stp${Q}><b>$(HtmlEsc (Sub3 $s.t))</b><span>$(HtmlEsc (Sub3 $s.d))</span></div>" }
     $body += '</div>'
   }
-  foreach($sh in $k.show){ $body += (ShowSection $sh) }
+  HubReset; $kwIx++; $hubOn = $false
+  foreach($sh in $k.show){
+    if($HUB_KINDS -contains "$sh"){ $hubOn = $true; $body += (HubSection "$sh" $kwIx) } else { $body += (ShowSection $sh) }
+  }
+  if($hubOn){ $body += (HubFill $kwIx) }
   if($k.faq){
     $body += "<div class=${Q}sec${Q}><h2>자주 묻는 질문</h2>"
     foreach($f in $k.faq){ $body += "<div class=${Q}faq${Q}><b>$(HtmlEsc (Sub3 $f.q))</b><span>$(HtmlEsc (Sub3 $f.a))</span></div>" }
@@ -1116,9 +1335,12 @@ foreach($k in $kw){
   if($k.faq){ $faqSub = @($k.faq | ForEach-Object { [pscustomobject]@{ q=(Sub3 $_.q); a=(Sub3 $_.a) } }) }
   $lf = LdFaq $faqSub
   if($lf){ [void]$ld.Add($lf) }
+  if($hubOn){ $lh = LdHubList "$(Sub3 $k.h1) $todayKo 공구 목록"; if($lh){ [void]$ld.Add($lh) }; Write-Output "허브 $($k.slug): 공구 행 $($script:hubCount)건" }
   [void]$ld.Add((LdCrumb (Sub3 $k.h1) $canon))
-  WritePage @{ path=(Join-Path $Root "$($k.slug).html"); title=(Sub3 $k.title); desc=(Sub3 $k.desc); canon=$canon;
-    h1=(Sub3 $k.h1); sub=(Sub3 $k.sub); body=$body; jsonld=$ld; bcName=(Sub3 $k.h1); answer=(Sub3 $k.answer); facts=$SiteFacts }
+  $kT = (Sub3 $k.title); $kD = (Sub3 $k.desc); $kS = (Sub3 $k.sub); $kA = (Sub3 $k.answer)
+  if($hubOn -and $hubQuiet){ $kT = HubQuietText $kT; $kD = HubQuietText $kD; $kS = HubQuietText $kS; $kA = HubQuietText $kA }
+  WritePage @{ path=(Join-Path $Root "$($k.slug).html"); title=$kT; desc=$kD; canon=$canon;
+    h1=(Sub3 $k.h1); sub=$kS; body=$body; jsonld=$ld; bcName=(Sub3 $k.h1); answer=$kA; facts=$SiteFacts }
   [void]$kwMade.Add($k.slug)
 }
 
@@ -1644,6 +1866,59 @@ if($curMonth.Count -gt 0){ [void]$ll.AppendLine("- [$($curMonth[0].label) 공구
 [IO.File]::WriteAllText((Join-Path $Root 'llms.txt'), $ll.ToString(), [Text.UTF8Encoding]::new($false))
 
 # 루트에 만든 HTML 목록을 남긴다.
+# ══ 홈 원본 HTML 에 오늘 공구 목록 (사장님 승인 2026-11-18) ══
+#   구글 1위 사이트(인공·공구모아)는 홈 원본 HTML 에 공구 이름이 들어 있다. 우리 홈은 목록을 스크립트로 그려 원본에는 한 줄도 없었다.
+#   index.html·test.html 의 <!--seo-today--> ~ <!--/seo-today--> 사이만 다시 쓴다. 표식이 없거나 둘 이상이면 건드리지 않는다.
+#   🔴 이 함수는 표식 밖을 절대 고치지 않는다. 자동 커밋은 tools/seo/home_guard.mjs 가 그것을 다시 확인했을 때만 홈을 올린다(seo-daily.yml)
+function HomeChip($gx){
+  return "<a href=${Q}/gg/$(Enc $gx.slug).html${Q}>$(HtmlEsc $gx.name) · $(HtmlEsc $gx.who) · $(MonDay "$($gx.od)")~$(MonDay "$($gx.ed)")</a>"
+}
+function HomeInject([string]$file){
+  $hp = Join-Path $Root $file
+  if(-not (Test-Path -LiteralPath $hp)){ return }
+  $ht = [IO.File]::ReadAllText($hp)
+  $m1 = '<!--seo-today-->'; $m2 = '<!--/seo-today-->'
+  $i1 = $ht.IndexOf($m1, [StringComparison]::Ordinal); $i2 = $ht.IndexOf($m2, [StringComparison]::Ordinal)
+  if($i1 -lt 0 -or $i2 -lt $i1 -or $ht.IndexOf($m1, $i1 + 1, [StringComparison]::Ordinal) -ge 0 -or $ht.IndexOf($m2, $i2 + 1, [StringComparison]::Ordinal) -ge 0){ Write-Output "홈 목록: $file 표식 없음(또는 여러 개) — 건드리지 않는다"; return }
+  $nl = $(if($ht.IndexOf("`r`n", [StringComparison]::Ordinal) -ge 0){ "`r`n" } else { "`n" })
+  $hb = New-Object System.Text.StringBuilder
+  $secs = @(
+    @{ t="오늘 오픈 공구 · $todayKo"; rows=@($hubOpen | Sort-Object @{e='name';Descending=$false}, @{e='slug';Descending=$false} | Select-Object -First 250); all=$hubOpen.Count },
+    @{ t="오늘 마감 공구 · $todayKo"; rows=@($hubEnd | Select-Object -First 250); all=$hubEnd.Count },
+    @{ t='이번 주 오픈 예정 공구'; rows=@($hubWeek | Select-Object -First 120); all=$hubWeek.Count }
+  )
+  $hn = 0
+  foreach($sc in $secs){
+    if($sc.rows.Count -eq 0){ continue }
+    [void]$hb.Append("$nl  <div class=${Q}seolinks-t${Q}>$($sc.t) ($($sc.all)건 중 $($sc.rows.Count)건)</div>$nl  <div class=${Q}seolinks-row${Q}>")
+    foreach($gx in $sc.rows){ [void]$hb.Append("$nl    " + (HomeChip $gx)); $hn++ }
+    [void]$hb.Append("$nl  </div>")
+  }
+  if($hn -eq 0){ Write-Output "홈 목록: 오늘 실을 공구 0건 — $file 그대로 둔다"; return }
+  # 많이 찾는 브랜드 30곳의 「○○ 공구 언제 하나요?」 — 답은 오늘 집계의 실제 일정(진행 중 → 오픈 예정 → 최근 공구 순으로 한 건)
+  $fq = 0
+  $fqB = @($brandList | Where-Object { $hubBrandObj.ContainsKey("$($_.brand)") -and $GgSorted.ContainsKey("$($_.brand)") } | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false} | Select-Object -First 30)
+  if($fqB.Count -gt 0){
+    [void]$hb.Append("$nl  <div class=${Q}seolinks-t${Q}>많이 찾는 브랜드 공구 일정 ($todayKo 기준)</div>")
+    foreach($fb in $fqB){
+      $gs = @($GgSorted["$($fb.brand)"] | Where-Object { $_.who })
+      if($gs.Count -eq 0){ continue }
+      $gl = @($gs | Where-Object { "$($_.od)" -le "$today" -and "$($_.ed)" -ge "$today" } | Select-Object -First 1)
+      $gn = @($gs | Where-Object { "$($_.od)" -gt "$today" } | Sort-Object @{e='od';Descending=$false} | Select-Object -First 1)
+      $ans = ''
+      if($gl.Count){ $ans = "지금 진행 중입니다. $(HtmlEsc $gl[0].name), $(HtmlEsc $gl[0].who), $(MonDay "$($gl[0].od)")~$(MonDay "$($gl[0].ed)")." }
+      if($gn.Count){ $ans = ("$ans 다음 오픈 예정은 $(MonDay "$($gn[0].od)") $(HtmlEsc $gn[0].name)($(HtmlEsc $gn[0].who))입니다.").Trim() }
+      if(-not $ans){ $ans = "가장 최근 공구는 $(MonDay "$($gs[0].od)")~$(MonDay "$($gs[0].ed)") $(HtmlEsc $gs[0].name)($(HtmlEsc $gs[0].who))였습니다. 지금 잡힌 일정은 없습니다." }
+      [void]$hb.Append("$nl  <div class=${Q}seolinks-q${Q}><a href=${Q}/g/$(Enc $fb.slug).html${Q}>$(HtmlEsc $fb.brand) 공구 언제 하나요?</a> $ans</div>")
+      $fq++
+    }
+  }
+  $new = $ht.Substring(0, $i1 + $m1.Length) + $hb.ToString() + "$nl  " + $ht.Substring($i2)
+  if($new -ne $ht){ [IO.File]::WriteAllText($hp, $new, [Text.UTF8Encoding]::new($false)) }
+  Write-Output "홈 목록: $file 에 공구 $hn 건 · 브랜드 질문 $fq 개"
+}
+HomeInject 'index.html'; HomeInject 'test.html'
+
 # 자동 커밋이 이 목록만 add 하도록 해서 index.html 같은 라이브 파일을 절대 건드리지 않게 한다.
 $genRoot = New-Object System.Collections.ArrayList
 [void]$genRoot.Add('tools/seo/gg_window.txt')   # 2026-11-16: gg 색인 창(일수) — 다음 날 빌드가 읽는다

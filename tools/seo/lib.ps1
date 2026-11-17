@@ -59,6 +59,16 @@ function PatchHeadText([string]$t){
       $o = $o.Replace('<a class="card live" ', '<a class="card" ')
     }
   }
+  $kfNow = KwFootHtml
+  if($o.IndexOf($kfNow, [StringComparison]::Ordinal) -lt 0){
+    $mk = $RX_KWFOOT.Match($o)
+    if($mk.Success){ $o = $o.Substring(0, $mk.Index) + $kfNow + $o.Substring($mk.Index + $mk.Length) }
+    else {
+      # 키워드 줄이 아예 없는 옛 틀(2026-09-07 이전에 만든 페이지) — 하단 안내(.foot) 끝에 줄을 붙인다. .foot 안에는 div 가 없다
+      $fx = $o.IndexOf("<div class=${Q}foot${Q}>", [StringComparison]::Ordinal)
+      if($fx -ge 0){ $fe = $o.IndexOf('</div>', $fx, [StringComparison]::Ordinal); if($fe -gt $fx){ $o = $o.Substring(0, $fe) + '<br>' + $kfNow + $o.Substring($fe) } }
+    }
+  }
   if($o.IndexOf($GA4_ID, [StringComparison]::Ordinal) -lt 0){
     $ix = $o.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
     if($ix -ge 0){ $o = $o.Substring(0,$ix) + $GA4_SNIPPET + "`n" + $o.Substring($ix) }
@@ -72,7 +82,7 @@ function SetRobotsText([string]$t, [string]$val){
 
 # 사이트맵 lastmod 용 「본문 해시」 — 날마다 저절로 바뀌는 것(기준일 도장·dateModified·GA4 스니펫·noai 메타·핫딜 구간·줄바꿈 꼴)을 빼고 잰다.
 #   이 값이 어제와 같으면 lastmod 는 옛 날짜 그대로다. 내용이 안 바뀐 페이지를 날마다 「오늘 수정」이라고 하면 크롤러가 lastmod 를 안 믿는다(구글·빙 공통)
-$RX_CORE = [regex]'(?s)"dateModified":"\d{4}-\d{2}-\d{2}"|<p class="asof">\d{4}-\d{2}-\d{2}|<dt>기준일</dt><dd>[^<]*</dd>|<script async src="https://www\.googletagmanager\.com/gtag/js[^<]*</script>\s*<script>window\.dataLayer[^<]*</script>\s*|,\s*noai,\s*noimageai|<!--hd-->.*?<!--/hd-->|\r'
+$RX_CORE = [regex]'(?s)"dateModified":"\d{4}-\d{2}-\d{2}"|<p class="asof">\d{4}-\d{2}-\d{2}|<dt>기준일</dt><dd>[^<]*</dd>|<script async src="https://www\.googletagmanager\.com/gtag/js[^<]*</script>\s*<script>window\.dataLayer[^<]*</script>\s*|,\s*noai,\s*noimageai|<!--hd-->.*?<!--/hd-->|<div class="foot">.*?</div>|\r'
 function CoreHash([string]$path){
   $t = $RX_CORE.Replace([IO.File]::ReadAllText($path), '')
   $md5 = [Security.Cryptography.MD5]::Create()
@@ -232,6 +242,24 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .note a{color:#7B3FB5;font-weight:700;text-decoration:none}
 '@
 
+# 하단 키워드 내부 링크 (모든 생성 페이지 + 보존 페이지 공통). 앵커 문구 = 노리는 검색어 그대로 (사장님 2026-09-07 · 2026-11-18 정확한 키워드로)
+$KW_FOOT = @(
+  @('인스타공구.html','인스타 공구'), @('인스타공구모음.html','인스타공구모음'), @('인스타공구사이트.html','인스타 공구 사이트'),
+  @('공구일정.html','공구 일정'), @('공구일정사이트.html','공구일정사이트'), @('공구사이트.html','공구 사이트'),
+  @('공구모음사이트.html','공구모음사이트'), @('공동구매사이트.html','공동구매 사이트'), @('공동구매하는곳.html','공동구매하는곳'),
+  @('공구하는곳.html','공구하는 곳'), @('오늘공구.html','오늘 공구'), @('인스타공구어플.html','인스타 공구 어플')
+)
+$script:KwFootCache = ''
+function KwFootHtml(){
+  if(-not $script:KwFootCache){
+    $kl = @(); foreach($kf in $KW_FOOT){ $kl += "<a href=${Q}/$(Enc($kf[0]))${Q}>$(HtmlEsc $kf[1])</a>" }
+    $script:KwFootCache = ($kl -join ' · ')
+  }
+  return $script:KwFootCache
+}
+# 보존 페이지(다시 안 만드는 옛 g·p·s·gg)의 하단 키워드 줄 — 옛 앵커(「공구 일정 사이트」 등)를 지금 줄로 바꾼다. 줄이 없는 아주 옛 페이지는 그대로 둔다
+$RX_KWFOOT = [regex]'<a href="/%EC%9D%B8%EC%8A%A4%ED%83%80%EA%B3%B5%EA%B5%AC\.html">인스타 공구</a> · <a href="/[^<]*</a>(?: · <a href="/[^<]*</a>)*(?=</div>)'
+
 # 페이지 하나를 쓴다. $o 는 해시테이블:
 #   path title desc canon h1 sub body(html) jsonld(문자열배열) bcName
 function WritePage([hashtable]$o){
@@ -314,14 +342,8 @@ function WritePage([hashtable]$o){
   # 검색 유입 키워드 페이지로 가는 내부 링크 (2026-09-07 사장님 지시 "관련 검색어 다 1위로").
   # 실측: 키워드 랜딩 28장을 링크하는 곳이 홈의 2개뿐이라(나머지는 사이트맵만) 구글·네이버가 '중요하지 않은 페이지'로 본다.
   # 생성 페이지 1.8만 장이 전부 이 줄을 달면 내부 링크가 생긴다. 앵커 문구 = 노리는 검색어 그대로.
-  $kwFoot = @(
-    @('인스타공구.html','인스타 공구'), @('인스타공구모음.html','인스타 공구 모음'), @('인스타공구사이트.html','인스타 공구 사이트'),
-    @('인스타공구어플.html','인스타 공구 어플'), @('공구일정.html','공구 일정'), @('공구일정사이트.html','공구 일정 사이트'),
-    @('공구사이트.html','공구 사이트'), @('오늘공구.html','오늘 공구'), @('공구하는곳.html','공구하는 곳'), @('공구모음사이트.html','공구 모음 사이트')
-  )
-  $kwLinks = @()
-  foreach($kf in $kwFoot){ $kwLinks += "<a href=${Q}/$(Enc($kf[0]))${Q}>$(HtmlEsc $kf[1])</a>" }
-  [void]$sb.AppendLine(($kwLinks -join ' · ') + '</div>')
+  # 2026-11-18: 앵커 = 노리는 검색어 글자 그대로(공구일정사이트·공구모음사이트·공동구매 사이트·공동구매하는곳·인스타 공구 사이트·인스타공구모음). 목록은 위 $KW_FOOT 한 곳
+  [void]$sb.AppendLine((KwFootHtml) + '</div>')
   [void]$sb.AppendLine('</div></body></html>')
   [IO.File]::WriteAllText($o.path, $sb.ToString(), [Text.UTF8Encoding]::new($false))
 }
