@@ -32,9 +32,15 @@ let rows = [];
 try {
   const rel = 'scratchpad/_error_guard.sql';
   fs.writeFileSync(path.join(REPO, rel), 'select kind, h1, h24, 임계, 상태 from public.error_radar();', 'utf8');
-  const raw = execFileSync(CLI, sbArgs(rel), { encoding: 'utf8', cwd: REPO, timeout: 90000, stdio: ['ignore', 'pipe', 'pipe'] });
-  const r = parseRows(raw);
-  if (!r.ok) throw new Error('레이더를 못 읽었다');
+  // 2026-11-17 08:41: 다른 작업이 같은 순간 CLI 를 쓰고 있어 90초를 넘겨 「못 읽었어요」 알림이 나갔다(서버는 정상).
+  //   한 번 실패로 알리지 않는다 — 20초 쉬고 3번까지 다시 읽고, 세 번 다 실패해야 알린다.
+  let r = null, lastErr = null;
+  for (let i = 1; i <= 3 && !(r && r.ok); i++) {
+    try { r = parseRows(execFileSync(CLI, sbArgs(rel), { encoding: 'utf8', cwd: REPO, timeout: 90000, stdio: ['ignore', 'pipe', 'pipe'] })); }
+    catch (e) { lastErr = e; r = null; }
+    if (!(r && r.ok) && i < 3) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20000);
+  }
+  if (!(r && r.ok)) throw (lastErr || new Error('레이더를 못 읽었다'));
   rows = r.rows;
 } catch (e) {
   // 읽기 실패는 그 자체가 알림감 — 조용히 "이상 없음"으로 보이면 이 도구가 없던 때와 같다
