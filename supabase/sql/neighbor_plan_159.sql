@@ -166,6 +166,8 @@ begin
     'end_date', case when v_manual then s.end_date when v_state = 'none' then null else r.end_date end,
     'dday', case when v_manual then s.end_date - v_today when v_state = 'none' or r.end_date is null then null else r.end_date - v_today end,
     'bank', v_bank,
+    -- 카드결제(스룩페이 상품 링크) — 설정 표에 링크가 있을 때만 화면에 카드 칸이 나온다. 값은 계좌이체와 같다(여신전문금융업법 제19조)
+    'card_url', case when v_state = 'pending' then (select nullif(value, '') from app_private_config where key = 'plan_card_url_' || r.months) end,
     'clicks', (select coalesce(sum(c.clicks), 0) from gonggu_click_stats c join gonggu g on g.id = c.id where g.insta = v_handle),
     'wishes', (select count(*) from wishes w join gonggu g on g.id = w.gonggu_id
                 where g.insta = v_handle and w.created_at > now() - interval '30 days')
@@ -224,15 +226,36 @@ begin
   if p_receipt_kind = 'expense' and length(v_no) <> 10 then return json_build_object('ok', false, 'msg', 'bad_no'); end if;
   select * into r from seller_plan_requests where seller_id = v_id and status = 'pending' for update;
   if not found then return json_build_object('ok', false, 'msg', 'no_pending'); end if;
+  if r.method = 'card' then p_receipt_kind := 'none'; end if;      -- 카드 결제는 카드 전표가 증빙이라 현금영수증을 받지 않는다
   update seller_plan_requests
      set claimed_at = coalesce(claimed_at, now()), receipt_kind = p_receipt_kind,
          receipt_no = case when p_receipt_kind = 'none' then null else v_no end
    where id = r.id;
   if r.claimed_at is null then            -- 알림은 처음 누를 때 한 번만(누를 때마다 쌓이지 않게)
     insert into health_alerts (kind, detail)
-    values ('이웃셀러입금', format('@%s 가 입금했다고 누름 · %s원 · 현금영수증 %s', r.login_insta, r.amount,
-            case p_receipt_kind when 'income' then '소득공제' when 'expense' then '지출증빙' else '안 함' end));
+    values ('이웃셀러입금', case when r.method = 'card'
+            then format('@%s 가 카드로 결제했다고 누름 · %s원 · 스룩 주문 확인', r.login_insta, r.amount)
+            else format('@%s 가 입금했다고 누름 · %s원 · 현금영수증 %s', r.login_insta, r.amount,
+                 case p_receipt_kind when 'income' then '소득공제' when 'expense' then '지출증빙' else '안 함' end) end);
   end if;
+  return json_build_object('ok', true);
+end $$;
+
+-- 대기 중인 신청의 결제 방법 바꾸기(계좌이체 ↔ 카드). 「입금했어요/결제했어요」를 누른 뒤에는 못 바꾼다(관리자가 보는 값이 뒤바뀌지 않게)
+create or replace function public.seller_plan_method(p_token text, p_method text) returns json
+language plpgsql security definer set search_path to 'public', 'extensions', 'pg_temp' as $$
+declare v_id bigint; r seller_plan_requests%rowtype;
+begin
+  v_id := public._plan_seller_id(p_token);
+  if v_id is null then raise exception 'unauthorized' using errcode = '28000'; end if;
+  if p_method not in ('bank', 'card') then return json_build_object('ok', false, 'msg', 'bad_method'); end if;
+  select * into r from seller_plan_requests where seller_id = v_id and status = 'pending' for update;
+  if not found then return json_build_object('ok', false, 'msg', 'no_pending'); end if;
+  if r.claimed_at is not null then return json_build_object('ok', false, 'msg', 'claimed'); end if;
+  if p_method = 'card' and not exists (select 1 from app_private_config where key = 'plan_card_url_' || r.months and coalesce(value, '') <> '') then
+    return json_build_object('ok', false, 'msg', 'no_card');
+  end if;
+  update seller_plan_requests set method = p_method where id = r.id;
   return json_build_object('ok', true);
 end $$;
 
@@ -326,6 +349,8 @@ revoke all on function public._plan_today(), public._plan_price(int), public._pl
 revoke all on function public.seller_plan_status(text), public.seller_plan_start(text, int, text), public.seller_plan_claim(text, text, text),
   public.admin_plan_list(), public.admin_plan_confirm(bigint), public.admin_plan_cancel(bigint, text) from public;
 grant execute on function public.seller_plan_status(text), public.seller_plan_start(text, int, text), public.seller_plan_claim(text, text, text) to anon, authenticated;
+revoke all on function public.seller_plan_method(text, text) from public;
+grant execute on function public.seller_plan_method(text, text) to anon, authenticated;
 grant execute on function public.admin_plan_list(), public.admin_plan_confirm(bigint), public.admin_plan_cancel(bigint, text) to authenticated;
 
 select cron.unschedule('neighbor-plan-tick') where exists (select 1 from cron.job where jobname = 'neighbor-plan-tick');

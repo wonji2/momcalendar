@@ -1813,7 +1813,7 @@ var IN_FEED_PROMOS = [
       var cf=(all||[]).filter(function(x){ return x&&x.type==='config'&&x.title==='infeed'; })[0], cfOn=false;
       if(cf){ try{ window._INFEED_CFG=JSON.parse(cf.subtitle||'{}'); cfOn=true; }catch(_){} }
       if(!rows.length){ if(cfOn){ try{ if(typeof renderList==='function'&&document.querySelector('#cardList .card')) renderList(); }catch(_){} } return; }
-      var list=rows.map(function(b){ return { id:'ad_'+b.id, badge:(b.cta&&b.cta.trim())||'🎁 혜택', title:String(b.title), desc:String(b.subtitle||''), tag:'', cta:'보러가기', thumb:b.img_url||'', thumbFb:'momcal-dousik-thumb.png', contain:false, url:String(b.link) }; });
+      var list=rows.map(function(b){ return { id:'ad_'+b.id, badge:_e((b.cta&&b.cta.trim())||'🎁 혜택'), title:_e(b.title), desc:_e(b.subtitle||''), tag:'', cta:'보러가기', thumb:_e(b.img_url||'momcal-dousik-thumb.png'), thumbFb:'momcal-dousik-thumb.png', contain:false, url:String(b.link) }; }); function _e(v){ return String(v==null?'':v).replace(/[&<>\x22\x27]/g,function(c){ return '&#'+c.charCodeAt(0)+';'; }); }   // DB 값은 광고주 문구라 그대로 넣지 않는다(그리는 쪽에 이스케이프가 없다 · 검증 2026-11-17)
       IN_FEED_PROMOS.splice.apply(IN_FEED_PROMOS,[0,IN_FEED_PROMOS.length].concat(list));
       try{ if(typeof _promoRandomSeed!=='undefined') _promoRandomSeed=Math.floor(Math.random()*IN_FEED_PROMOS.length); }catch(_){}
       try{ if(document.querySelector('.mc-infeed-kidsnote') && typeof renderList==='function') renderList(); }catch(_){}   // 이미 그려진 목록이 있으면 새 광고로 다시 그린다
