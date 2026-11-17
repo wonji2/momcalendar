@@ -128,9 +128,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pn-h span.left{color:#E8457F;font-weight:800}
 .pn-chev{display:inline-block;width:7px;height:7px;border-right:2px solid var(--p);border-bottom:2px solid var(--p);transform:rotate(-45deg);margin:0 2px 1px 6px}
 .pn-in{padding:0 16px 16px}
-.pn-avs{display:flex;gap:12px;padding:12px 14px;border-radius:12px;background:#F6F3FA}
-.pn-av{width:44px;height:44px;border-radius:50%;flex:none}
-.pn-av.me{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#B58BE6,#602090);color:#fff;font-size:16px;font-weight:800;box-shadow:0 0 0 2px #F6F3FA,0 0 0 4px var(--p)}
+/* 메인 화면 예시 — 라이브 「⭐ 맘캘린더 이웃셀러」 줄·이웃셀러 카드와 같은 값(index.html .seller-ring · .partner-chip). 고르는 칸처럼 보이지 않게 실제 화면 꼴로 (사장님 2026-11-17) */
+.pn-shot{position:relative;border:1px solid #EDE8F3;border-radius:12px;background:#fff;overflow:hidden;pointer-events:none}
+.pn-shot-tag{position:absolute;top:10px;right:10px;height:20px;line-height:20px;padding:0 8px;border-radius:100px;background:#F2F4F6;color:#8B95A1;font-size:10px;font-weight:700}
+.pn-shot-t{font-size:13px;font-weight:700;padding:12px 14px 0}
+.pn-shot-r{display:flex;gap:7px;padding:10px 14px 14px;overflow:hidden}
+.pn-ring{flex:none;width:54px;height:54px;border-radius:50%;background:#E3D5F5;display:flex;align-items:center;justify-content:center;position:relative;font-size:9.5px;font-weight:800;letter-spacing:-.5px;color:var(--p)}
+.pn-ring.host{background:linear-gradient(135deg,#9B6FD4,#6B45B3);color:#fff}
+.pn-ring.host i{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-style:normal;font-size:8px;background:#2a2a2a;color:#fff;padding:2px 8px;border-radius:10px;letter-spacing:0}
+.pn-ring.me{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--p)}
+.pn-ring.etc{opacity:.5}
+.pn-shot-c{display:flex;align-items:center;gap:8px;height:48px;margin:0 14px 12px;padding:0 12px;border:1px solid #C9A8E8;border-radius:12px;background:#F0E6FA}
+.pn-shot-c b{font-size:13px;font-weight:700}
+.pn-shot-c span{flex:1;min-width:0;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis}
+.pn-shot-c em{flex:none;font-style:normal;font-size:10px;font-weight:800;color:var(--p);background:#fff;padding:3px 8px;border-radius:100px}
 .pn-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .pn-tile{height:44px;line-height:44px;text-align:center;border-radius:10px;background:#F9FAFB;font-size:13px;font-weight:700}
 .pn-opt{display:flex;align-items:center;gap:12px;height:68px;padding:0 16px;border:1.5px solid var(--bd);border-radius:12px;margin-top:8px;cursor:pointer}
@@ -686,7 +697,9 @@ function planRender(){
   box.innerHTML=
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
     '<div class="pn-in">'+
-      '<div class="pn-avs"><div class="pn-av me">'+planEsc([...nm][0]||'')+'</div><div class="pn-av" style="background:#FFD9E4"></div><div class="pn-av" style="background:#D6ECFF"></div><div class="pn-av" style="background:#FFEFC2"></div><div class="pn-av" style="background:#D9F2E3"></div></div>'+
+      '<div class="pn-shot"><span class="pn-shot-tag">메인 화면 예시</span><div class="pn-shot-t">⭐ 맘캘린더 이웃셀러</div>'+
+        '<div class="pn-shot-r"><div class="pn-ring host">맘캘린더<i>방장</i></div><div class="pn-ring me">'+planEsc([...nm].slice(0,6).join(''))+'</div><div class="pn-ring etc">이웃셀러</div><div class="pn-ring etc">이웃셀러</div><div class="pn-ring etc">이웃셀러</div></div>'+
+        '<div class="pn-shot-c"><b>내 공구</b><span>'+planEsc(nm)+'</span><em>맘캘 이웃셀러</em></div></div>'+
       '<div class="pn-tiles"><div class="pn-tile">메인 상단 노출</div><div class="pn-tile">목록 맨 위</div><div class="pn-tile">일정 자동 등록</div><div class="pn-tile">내 배너 1구좌</div></div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
