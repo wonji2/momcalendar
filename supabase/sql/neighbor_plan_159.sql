@@ -261,6 +261,10 @@ begin
   if r.status = 'expired' and exists (select 1 from seller_plan_requests where seller_id = r.seller_id and status = 'pending') then
     return json_build_object('ok', false, 'msg', 'has_newer');     -- 그 셀러가 이미 새로 신청했다 → 새 신청을 확인한다
   end if;
+  -- 만료 건을 되살리는데 그 셀러가 이미 다른 신청으로 이용 중이면 막는다(기간을 옛 신청 개월수로 덮어쓰는 사고 방지 · 검증 2026-11-17)
+  if r.status = 'expired' and exists (select 1 from seller_plan_requests where seller_id = r.seller_id and id <> r.id and status = 'paid' and end_date >= v_today) then
+    return json_build_object('ok', false, 'msg', 'already_active');
+  end if;
   if r.status = 'pending' and r.activated then
     update seller_plan_requests set status = 'paid', paid_at = now() where id = p_id;
     return json_build_object('ok', true);

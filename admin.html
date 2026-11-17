@@ -6801,6 +6801,7 @@ async function renderHome(){
     +'<div class="hm-dash"><div class="hm-col">'
     +`<div class="hm-sec"><h3>오늘 할 일 <span>누르면 그 탭으로</span></h3><div class="hm-grid hm-todo" id="hmTodo"></div></div>`
     +`<div class="hm-sec" id="hmInq">${window._inqPanelHtml||''}</div>`
+    +`<div class="hm-sec" id="hmPlan" hidden></div>`
     +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3><div class="hm-list">${_hmRows(red)}</div></div>`
     +`<div class="hm-sec" id="hmComm" hidden></div>`
     +(radarAcked.length?`<div class="hm-sec"><h3>처리한 것 <span>새로 생기면 다시 빨갛게</span></h3><div class="hm-list">${_hmRows(radarAcked)}</div></div>`:'')
@@ -6814,6 +6815,75 @@ async function renderHome(){
   hmTodo();
   loadInqPanel();
   hmCommLoad();
+  hmPlanLoad();
+}
+// 💜 이웃셀러 신청 (2026-11-17) — 셀러가 셀러 페이지에서 신청하면 여기 뜬다. 통장을 보고 「입금 확인」을 누른다(neighbor_plan_159.sql)
+//   입금 대기: 입금 확인 · 취소 / 만료(기한 지남): 입금 확인하면 오늘부터 다시 노출 / 이용 중: 취소(노출 내림)
+async function hmPlanLoad(){
+  const el=document.getElementById('hmPlan'); if(!el) return;
+  let d=null; try{ d=await adminRpc('admin_plan_list',{}); }catch(_){ el.hidden=false; el.innerHTML='<h3>이웃셀러 신청</h3><div class="hm-empty">못 불러왔어요 · 새로 고침</div>'; return; }
+  if(!d||!d.ok){ el.hidden=false; el.innerHTML='<h3>이웃셀러 신청</h3><div class="hm-empty">'+(d&&d.msg==='forbidden'?'관리자 권한이 없어요 · 다시 로그인':'못 불러왔어요 · 새로 고침')+'</div>'; return; }
+  try{
+  const all=d.rows||[], won=n=>(Number(n)||0).toLocaleString('ko-KR');
+  const kst=t=>{ if(!t) return ''; const x=new Date(new Date(t).getTime()+9*3600e3).toISOString(); return Number(x.slice(5,7))+'/'+Number(x.slice(8,10))+' '+x.slice(11,16); };
+  const recent=t=>t&&(Date.now()-new Date(t).getTime())<14*86400e3;
+  const pend=all.filter(x=>x.status==='pending').sort((a,b)=>(b.claimed_at?1:0)-(a.claimed_at?1:0));
+  // 만료 줄은 셀러마다 가장 최근 한 건만, 그 셀러에게 입금 대기·이용 중 건이 없을 때만(옛 건을 눌러 기간을 덮어쓰지 않게 · 서버도 already_active 로 막는다)
+  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+  const live=new Set(all.filter(x=>x.status==='pending'||(x.status==='paid'&&(!x.end_date||x.end_date>=today))).map(x=>x.login_insta));
+  const seenExp=new Set();
+  const exp=all.filter(x=>x.status==='expired'&&recent(x.created_at)&&!live.has(x.login_insta)&&!seenExp.has(x.login_insta)&&seenExp.add(x.login_insta));
+  window._hmPlanRows={}; all.forEach(x=>{ window._hmPlanRows[x.id]=x; });
+  const paid=all.filter(x=>x.status==='paid'&&(!x.end_date||x.end_date>=new Date(Date.now()+9*3600e3).toISOString().slice(0,10)));
+  if(!pend.length&&!exp.length&&!paid.length){ el.hidden=true; return; }
+  const btn=(fn,id,lab,bg,fg)=>'<button onclick="'+fn+'('+Number(id)+',this)" style="flex:none;background:'+bg+';color:'+fg+';border:none;border-radius:7px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">'+lab+'</button>';
+  const rk={income:'소득공제',expense:'지출증빙',none:'현금영수증 안 함'};
+  const row=x=>{
+    const who=_hmEsc(x.name||x.login_insta)+' <span style="font-weight:400;color:#8B95A1">@'+_hmEsc(x.login_insta)+'</span>';
+    const pay=x.months+'개월 '+won(x.amount)+'원 · '+(x.method==='card'?'카드':'계좌이체');
+    let lv='lv-u', sub='', acts='';
+    if(x.status==='pending'){
+      lv=x.claimed_at?'lv-r':'lv-y';
+      sub=(x.claimed_at?'입금했다고 함 '+kst(x.claimed_at):'입금 전')+' · 기한 '+kst(x.pay_due)+(x.activated?' · 노출 중':' · 입금 뒤 노출');
+      if(x.receipt_kind) sub+=' · '+(rk[x.receipt_kind]||x.receipt_kind)+(x.receipt_no?' '+_hmEsc(x.receipt_no):'');
+      acts=btn('hmPlanCancel',x.id,'취소','#F2F4F6','#4E5968')+btn('hmPlanConfirm',x.id,x.method==='card'?'결제 확인':'입금 확인','#7C54C4','#fff');
+    }else if(x.status==='expired'){
+      sub='기한 지나 내려감 · 신청 '+kst(x.created_at)+(x.claimed_at?' · 입금했다고 함':'');
+      acts=btn('hmPlanConfirm',x.id,'입금 확인','#F0E6FA','#7C54C4');
+    }else{
+      lv='lv-g'; sub='이용 중 · '+_hmEsc(x.start_date||'')+' ~ '+_hmEsc(x.end_date||'')+' · 입금 확인 '+kst(x.paid_at);
+      if(x.receipt_kind&&x.receipt_no) sub+=' · '+(rk[x.receipt_kind]||'')+' '+_hmEsc(x.receipt_no);
+      acts=btn('hmPlanCancel',x.id,'취소','#F2F4F6','#4E5968');
+    }
+    // 좁은 화면에서는 금액·현금영수증 번호가 잘리지 않게 글은 줄을 바꾸고, 버튼은 아래 줄 오른쪽으로 내려간다
+    return '<div class="hm-row" style="flex-wrap:wrap;row-gap:8px"><i class="'+lv+'"></i><div style="min-width:0;flex:1 1 230px;word-break:keep-all;overflow-wrap:anywhere"><div style="font-weight:700">'+who+'</div><div style="font-weight:700">'+pay+'</div><div style="font-size:11px;color:#8B95A1">'+sub+'</div></div><div style="display:flex;gap:16px;margin-left:auto;align-self:center">'+acts+'</div></div>';
+  };
+  const html='<h3>이웃셀러 신청 <span>입금 대기 '+pend.length+'건 · 이용 중 '+paid.length+'명 · 자리 '+Number(d.slots_used||0)+'/12</span></h3><div class="hm-list">'+pend.concat(exp,paid).map(row).join('')+'</div>';
+  el.innerHTML=html; el.hidden=false;
+  }catch(_){ el.hidden=false; el.innerHTML='<h3>이웃셀러 신청</h3><div class="hm-empty">목록을 그리지 못했어요 · 새로 고침</div>'; }
+}
+function _hmPlanWho(id){ const x=(window._hmPlanRows||{})[id]; return x?('「'+(x.name||x.login_insta)+' (@'+x.login_insta+')」 '+x.months+'개월 '+(Number(x.amount)||0).toLocaleString('ko-KR')+'원'):null; }
+function _hmPlanErr(r){ return r&&r.msg==='forbidden'?'관리자 권한이 없어요. 다시 로그인해 주세요.':r&&r.msg==='notfound'?'없는 신청이에요. 새로 고침해 주세요.':r&&r.msg==='already_active'?'이 셀러는 이미 다른 신청으로 이용 중이에요.':null; }
+async function hmPlanConfirm(id,b){
+  const who=_hmPlanWho(id), x=(window._hmPlanRows||{})[id]; if(!who){ hmPlanLoad(); return; }
+  if(!confirm(who+'\n\n이 금액이 들어온 것을 확인했나요?\n'+(x.status==='expired'||!x.activated?'누르면 오늘부터 '+x.months+'개월 노출이 시작돼요.':'누르면 이용 기간이 확정돼요.')+'\n확정한 뒤에는 취소만 할 수 있어요.')) return;
+  b.disabled=true;
+  try{
+    const r=await adminRpc('admin_plan_confirm',{p_id:id});
+    if(!r||!r.ok){ alert(_hmPlanErr(r)||(r&&r.msg==='full'?'자리가 다 찼어요(12명). 다른 셀러 기간이 끝나야 켤 수 있어요.':r&&r.msg==='has_newer'?'이 셀러가 새로 신청한 건이 있어요. 그 건을 확인해 주세요.':r&&r.msg==='closed'?'이미 처리된 신청이에요.':'확인하지 못했어요. 다시 눌러 주세요.')); }
+  }catch(_){ alert('확인하지 못했어요. 다시 눌러 주세요.'); }
+  hmPlanLoad();
+}
+async function hmPlanCancel(id,b){
+  const who=_hmPlanWho(id), x=(window._hmPlanRows||{})[id]; if(!who){ hmPlanLoad(); return; }
+  if(!confirm(who+'\n\n'+(x.status==='paid'?'입금 확인이 끝난 이용 중 셀러예요.\n정말 취소할까요? 노출이 바로 내려가고, 되돌리려면 셀러가 다시 신청해야 해요.':'이 신청을 취소할까요?'+(x.activated?'\n이웃셀러 노출이 내려가요.':'')))) return;
+  b.disabled=true;
+  try{
+    const r=await adminRpc('admin_plan_cancel',{p_id:id,p_reason:null});
+    if(!r||!r.ok) alert(_hmPlanErr(r)||(r&&r.msg==='closed'?'이미 끝난 신청이에요.':'취소하지 못했어요. 다시 눌러 주세요.'));
+    else if(r.msg==='still_showing') alert('취소는 됐지만 노출을 내리지 못했어요.\n이웃셀러 탭에서 그 셀러를 직접 꺼 주세요.');
+  }catch(_){ alert('취소하지 못했어요. 다시 눌러 주세요.'); }
+  hmPlanLoad();
 }
 // 💬 커뮤니티 보류 글 (2026-11-17) — 외부 링크가 든 카페 글은 DB 가 자동 보류한다(community_hold_155.sql). 여기서 「노출」을 눌러야 손님에게 보인다
 async function hmCommLoad(){
