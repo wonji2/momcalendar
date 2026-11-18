@@ -2504,7 +2504,7 @@ try{ window._mcNxEarly(); }catch(_){}
       var _pic=function(w,h,t){ return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7C54C4"/><stop offset="1" stop-color="#F08CAE"/></linearGradient></defs><rect width="'+w+'" height="'+h+'" fill="url(#g)"/><text x="50%" y="57%" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="'+Math.round(h*0.22)+'" fill="#fff">'+t+'</text></svg>'); };
       b={id:0, ad_id:'adtest_sample', title:'아기 비타민D 12/7 공구', subtitle:'12/10까지 공구 기간 한정 혜택', cta:'공구 오픈', link:'https://example.com/product', bg:'#7C54C4', stage:'live', img_position:'top',
          img_size:_sv==='T'?'text':_sv, img_url:'banners/adtest_'+(_sv==='T'?'A':_sv)+'.png'};
-      if(_sv==='C'){ b.bg='#FFE6D5'; b.title='아기 비타민D 공구 오픈'; b.subtitle='12/7(월)~12/10(목) 단 4일'; }
+      if(_sv==='C'){ var _ex=[['#FCD9F5','아기 비타민D 공구 오픈','오직 맘캘린더에서만 이 가격','banners/adtest_C.png'],['#FF8A2B','신제품 *비타민D* 출시!','공구 기간 최대 30% 혜택','banners/adtest_C3.png'],['#F1F1F1','아기 비타민D 공구','맘캘린더 단독 12/7(월) OPEN','banners/adtest_C2.png'],['#FFCF33','우리 아이 첫 비타민D','12/7~12/10 단 4일 특가 혜택','banners/adtest_C.png']][((+((location.search.match(/[?&]ex=(\d)/)||[])[1]||1))+3)%4]; b.bg=_ex[0]; b.title=_ex[1]; b.subtitle=_ex[2]; b.img_url=_ex[3]; }
     }
     if(!b){ el.style.display='none'; return; }
     var tag=(b.cta&&b.cta.trim())||'오늘만 특가';
@@ -2528,13 +2528,14 @@ try{ window._mcNxEarly(); }catch(_){}
         +'<img src="'+esc(pic)+'" alt="'+esc(b.title)+'" onerror="this.parentNode.parentNode.style.display=\'none\'" style="width:100%;aspect-ratio:3/1;height:auto;object-fit:cover;display:block">'
         +'</div>';
     }else if(shape==='C'){
-      // 키즈노트 홈 배너 꼴(2026-11-18): 색 바탕 + 제목 16/800 + 설명 12 + 오른쪽 사진(상자 없이, 비율 유지)
+      // 키즈노트 홈 배너 꼴 v2(2026-11-18): 색 바탕 + 제목 15/700 + 설명 12 + 오른쪽 사진(상자 없이, 비율 유지) · 높이는 화면 폭에 비례
       var _h=String(bg||'').replace('#',''); if(_h.length===3) _h=_h.replace(/(.)/g,'$1$1'); var _lum=/^[0-9a-fA-F]{6}$/.test(_h)?(parseInt(_h.slice(0,2),16)*299+parseInt(_h.slice(2,4),16)*587+parseInt(_h.slice(4,6),16)*114)/1000:255;
-      var _dk=_lum<150, _c1=_dk?'#fff':'#191F28', _c2=_dk?'rgba(255,255,255,.88)':'#4E5968';
-      body=open+'style="display:flex;align-items:center;gap:8px;height:84px;background:'+bg+';border:1px solid rgba(0,0,0,.06);border-radius:16px;padding:0 14px 0 16px;cursor:pointer;box-sizing:border-box;overflow:hidden">'
-        +'<div style="flex:1;min-width:0"><div style="font-size:clamp(14px,4.27vw,16px);font-weight:800;color:'+_c1+';letter-spacing:-0.02em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.title)+'</div>'
-        +(b.subtitle?'<div style="font-size:clamp(11px,3.2vw,12px);font-weight:400;color:'+_c2+';letter-spacing:-0.02em;line-height:1.3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.subtitle)+'</div>':'')+'</div>'
-        +'<img src="'+esc(pic)+'" alt="" onerror="this.style.display=\'none\'" style="width:auto;height:auto;max-height:68px;max-width:min(124px,36%);object-fit:contain;border-radius:8px;flex-shrink:0"></div>';
+      var _dk=_lum<170, _c1=_dk?'#fff':'#191F28', _c2=_dk?'rgba(255,255,255,.92)':'#4E5968', _ac=_dk?'#FFE45C':'#E8590C';
+      var _ttl=esc(b.title).replace(/\*([^*]+)\*/g,'<span style="color:'+_ac+'">$1</span>');
+      body=open+'style="display:flex;align-items:center;gap:8px;height:clamp(72px,22.4vw,92px);background:'+bg+';border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:0 0 0 16px;cursor:pointer;box-sizing:border-box;overflow:hidden">'
+        +'<div style="flex:1;min-width:0"><div style="font-size:clamp(13px,3.64vw,15px);font-weight:700;color:'+_c1+';letter-spacing:-0.02em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_ttl+'</div>'
+        +(b.subtitle?'<div style="font-size:clamp(11px,2.95vw,12px);font-weight:400;color:'+_c2+';letter-spacing:-0.02em;line-height:1.3;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.subtitle)+'</div>':'')+'</div>'
+        +'<img src="'+esc(pic)+'" alt="" onload="slimPicFit(this)" onerror="this.style.display=\'none\'" style="width:auto;height:auto;max-height:clamp(52px,16.6vw,68px);max-width:36%;object-fit:contain;border-radius:6px;flex-shrink:0;margin-right:16px"></div>';
     }else{
       body=open+'style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
         +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
@@ -2694,6 +2695,7 @@ document.addEventListener('visibilitychange', function(){
     })();
   }catch(_){}
 });
+window.slimPicFit=function(im){ try{ var c=document.createElement('canvas'); c.width=c.height=16; var x=c.getContext('2d'); x.drawImage(im,0,0,16,16); var d=x.getImageData(0,0,16,16).data, a=function(px,py){ return d[(py*16+px)*4+3]; }; if(Math.min(a(0,0),a(15,0),a(0,15),a(0,8))<200){ im.style.maxHeight='100%'; im.style.height='100%'; im.style.maxWidth='44%'; im.style.borderRadius='0'; im.style.marginRight='8px'; im.style.objectPosition='right center'; } }catch(_){} }
 window.slimAdClick=function(id){
   var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
   var A=window.SPONSORED_AD||{id:'slim_'+id,type:'T'};
@@ -3909,13 +3911,10 @@ function _sortRest(arr){
 const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
 // 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
 function _sortChipsHtml(){
-  // 한 줄로 합침(사장님 2026-11-18): 전체(기본 정렬) · 내 찜 · 인기순 · 방금 오픈순 · 마감 임박순 — 위에 있던 전체/내 찜/TOP100 줄은 숨겼다
+  // 단추 하나(사장님 2026-11-18): 지금 고른 것 + ⌄ → 누르면 정렬 시트(전체·내 찜·인기순·방금 오픈순·마감 임박순)
   var wish=(fSt==='wish'), n=0; try{ n=WISH.size; }catch(_){}
-  var chip=function(on,k,label){ return '<button type="button" class="gs-chip'+(on?' on':'')+'" data-gs="'+k+'" aria-pressed="'+on+'" onclick="gsPick(\''+k+'\')">'+label+'</button>'; };
-  return '<div class="gs-chips" role="group" aria-label="정렬">'
-    +chip(!wish&&_listSort==='open','all','전체')
-    +chip(wish,'wish','내 찜 <span class="gs-n">'+n+'</span>')
-    +SORT_OPTS.filter(function(o){ return o[0]!=='open'; }).map(function(o){ return chip(!wish&&_listSort===o[0],o[0],o[1]); }).join('')+'</div>';
+  var cur=wish?'wish':(_listSort==='open'?'all':_listSort), lab=wish?('내 찜 <span class="gs-n">'+n+'</span>'):(cur==='all'?'전체':((SORT_OPTS.filter(function(o){ return o[0]===cur; })[0]||[])[1]||'전체'));
+  return '<div class="gs-chips" role="group" aria-label="정렬"><button type="button" class="gs-chip gs-dd" data-gs="'+cur+'" aria-haspopup="dialog" onclick="openSortSheet()">'+lab+'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>';
 }
 function gsPick(k){
   if(k==='wish'){ if(fSt!=='wish'){ _listSort='open'; toggleStab('wish',document.getElementById('stab-wish')); return; } k='all'; }
@@ -3929,7 +3928,8 @@ function sortGonggu(k){ setListSort(_listSort===k?'open':k); }
 function openSortSheet(){
   let sh=document.getElementById('sortSheet');
   if(!sh){ sh=document.createElement('div'); sh.id='sortSheet'; sh.className='srt-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','정렬'); sh.onclick=e=>{ if(e.target===sh) closeSortSheet(); }; document.body.appendChild(sh); }
-  sh.innerHTML=`<div class="srt-box"><div class="srt-h">정렬</div>${SORT_OPTS.map(([k,t])=>`<button type="button" class="srt-it${_listSort===k?' on':''}" onclick="closeSortSheet();setListSort('${k}')"><span>${t}</span>${_listSort===k?'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>`).join('')}</div>`;
+  var _cur=(fSt==='wish')?'wish':(_listSort==='open'?'all':_listSort), _wn=0; try{ _wn=WISH.size; }catch(_){}
+  sh.innerHTML='<div class="srt-box"><div class="srt-h">정렬</div>'+[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" class="srt-it'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(\''+o[0]+'\')"><span>'+o[1]+'</span>'+(on?'<svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>':'')+'</button>'; }).join('')+'</div>';
   sh.classList.add('open'); try{ trackEvent('sort_sheet','open'); }catch(_){}
 }
 function closeSortSheet(){ const sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
@@ -11227,6 +11227,8 @@ function appNavGo(ct){
 .gs-chip.on{background:#7C54C4;color:#fff;font-weight:700}
 .gs-chip .gs-n{margin-left:3px;font-weight:700;color:#7C54C4}
 .gs-chip.on .gs-n{color:#fff}
+.gs-chip.gs-dd{display:inline-flex;align-items:center;gap:4px;padding:0 10px 0 13px;color:#191F28;font-weight:700}
+.gs-chip.gs-dd svg{color:#8B95A1}
 #statusTabs{display:none!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
