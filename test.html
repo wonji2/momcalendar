@@ -3933,7 +3933,7 @@ function openSortSheet(){
   var m=document.createElement('div'); m.id='gsMenu'; m.className='gs-menu'; m.setAttribute('role','menu');
   m.style.left=Math.round(r.left+(window.pageXOffset||0))+'px'; m.style.top=Math.round(r.bottom+(window.pageYOffset||0)+6)+'px';
   m.innerHTML=[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(\''+o[0]+'\')"><span>'+o[1]+'</span>'+(on?'<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>':'')+'</button>'; }).join('');
-  document.body.appendChild(m); bt.setAttribute('aria-expanded','true');
+  document.body.appendChild(m); bt.setAttribute('aria-expanded','true'); m.style.left=Math.max(8,Math.round(r.right+(window.pageXOffset||0)-m.offsetWidth))+'px';
   // 목록이 화면 아래(하단 탭바 포함 80px)로 넘치면 그만큼만 올려 준다
   var _ov=m.getBoundingClientRect().bottom-(window.innerHeight-80); if(_ov>0){ try{ window.scrollBy({top:_ov,behavior:'smooth'}); }catch(_){ window.scrollBy(0,_ov); } }
   setTimeout(function(){ document.addEventListener('click',_gsOut,true); },0);
@@ -11244,6 +11244,7 @@ function appNavGo(ct){
 .gs-mi{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;border:0;background:none;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#333D4B;padding:11px 14px;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .gs-mi:active{background:#F6F3FA}
 .gs-mi.on{color:#7C54C4;font-weight:700}
+.gs-chips{justify-content:flex-end}
 #statusTabs{display:none!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
