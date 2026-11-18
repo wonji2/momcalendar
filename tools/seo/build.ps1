@@ -394,11 +394,19 @@ foreach($b in $brandList){ if(-not $brandSlug.ContainsKey($b.brand)){ $brandSlug
 $topBrands = $brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 24
 # 🏷 인기 브랜드 상설 허브 (사장님 2026-11-18 「단기 종료 공구를 억지로 색인시키지 말고 인기 브랜드 상설 페이지를 1위용으로」)
 #   검색량 1순위·건수 2순위 상위 $HubTopN 개 브랜드 페이지(/g/, 주소 그대로) 맨 위에 ① 진행 횟수·평균 간격 ② 지난 공구 기록 표 ③ 「다음 공구 오픈 알림 받기」 를 넣는다.
-#   가격대 칸은 없다 — 공구 가격을 수집하지 않는다(지어내지 않는다). 기록이 2회 미만인 브랜드는 넣지 않는다(얇은 표를 만들지 않는다)
+#   가격대 칸은 없다 — 공구 가격을 수집하지 않는다(지어내지 않는다). 기록이 3회 미만인 브랜드는 넣지 않는다(얇은 표를 만들지 않는다)
 #   되돌리기: $HubTopN = 0
 $HubTopN = 300
+#   고르는 법: 검색량 큰 순(같으면 건수 순)으로 내려가며 「서로 다른 오픈일 3회 이상」인 브랜드만 $HubTopN 개까지. 브랜드가 아닌 흔한 낱말(검색량 표에 섞여 있다)은 뺀다
 $HubTop = @{}
-foreach($t in ($brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First $HubTopN)){ $HubTop[$t.slug] = 1 }
+$HubSkip = @('오일','가성비','자전거','대구','부산','스마트','멀티','리얼','코끼리')
+foreach($t in ($brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false})){
+  if($HubTop.Count -ge $HubTopN){ break }
+  if([int]$t.cnt -lt 3 -or $HubSkip -contains "$($t.brand)"){ continue }
+  $hd0 = @(ParseRows $t.raw @('who','name','od','ed','insta') | Where-Object { "$($_.od)".Length -ge 10 -and "$($_.od)".Substring(0,10) -le $today } | ForEach-Object { "$($_.od)".Substring(0,10) } | Sort-Object -Unique)
+  if($hd0.Count -ge 3){ $HubTop[$t.slug] = 1 }
+}
+Write-Output "인기 브랜드 상설 허브: $($HubTop.Count)개"
 
 # ══ 셀러 슬러그 먼저 ══
 # 카드에서 셀러 페이지로 링크하려면 주소를 미리 알아야 한다.
@@ -540,7 +548,7 @@ foreach($b in $brandList){
     $hRows = @($rows | Where-Object { "$($_.od)".Length -ge 10 -and "$($_.ed)".Length -ge 10 } | Sort-Object @{e='od';Descending=$true}, @{e='name';Descending=$false})
     $hOds = @($hRows | ForEach-Object { "$($_.od)".Substring(0,10) } | Where-Object { $_ -le $today } | Sort-Object -Unique)
     $hN = $hOds.Count
-    if($hN -ge 2){
+    if($hN -ge 3){
       $hAvg = 0
       try{ $hAvg = [int][Math]::Round((([DateTime]::ParseExact($hOds[$hN-1],'yyyy-MM-dd',$null) - [DateTime]::ParseExact($hOds[0],'yyyy-MM-dd',$null)).TotalDays) / ($hN - 1)) }catch{}
       if($hAvg -lt 1){ $hAvg = 1 }
