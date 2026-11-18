@@ -591,7 +591,36 @@ Deno.serve(async (req) => {
     }
     if (mode === "collect") {
       const dry = u.searchParams.get("dry") === "1";
-      return json({ mode, dry, ...(await collectDeals(token, dry)) });
+      // 🔴 2026-11-18: 크론(pg_net) → 이 함수 → 다시 pg_net → 토스 구조라, 여기서 응답을 기다리면
+      //   pg_net 이 이 함수의 응답을 기다리느라 토스 요청을 못 내보내 「응답 없음」으로 끝난다.
+      //   9/22 이후 자동 등록이 0건이었다(크론은 「성공」으로만 찍혔다). 바깥에서 직접 부르면 14초에 12건이 들어간다.
+      //   → 크론은 bg=1 로 부른다: 바로 응답하고 수집은 뒤에서 돈다. 결과는 ops_status 'toss-collect' 에 남는다.
+      const saveRun = async (p: Record<string, unknown>) => {
+        await sb("ops_status?on_conflict=id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify([{ id: "toss-collect", payload: p, updated_at: new Date().toISOString() }]),
+        });
+      };
+      if (u.searchParams.get("bg") === "1") {
+        const job = (async () => {
+          try {
+            const r = await collectDeals(token, dry);
+            await saveRun({ ok: true, dry, fetched: r.fetched, passed: r.passed, picked: r.picked,
+                            skipped: (r.skipped ?? []).slice(0, 20), at: new Date().toISOString() });
+          } catch (e) {
+            await saveRun({ ok: false, error: String(e).slice(0, 300), at: new Date().toISOString() });
+          }
+        })();
+        // deno-lint-ignore no-explicit-any
+        const ER = (globalThis as any).EdgeRuntime;
+        if (ER?.waitUntil) ER.waitUntil(job);
+        return json({ mode, queued: true });
+      }
+      const out = await collectDeals(token, dry);
+      if (!dry) await saveRun({ ok: true, dry, fetched: out.fetched, passed: out.passed, picked: out.picked,
+                                skipped: (out.skipped ?? []).slice(0, 20), at: new Date().toISOString() });
+      return json({ mode, dry, ...out });
     }
     if (mode === "deals") {
       const r = await call("GET", "/products/today-deals?size=20", token);
