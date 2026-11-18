@@ -562,9 +562,9 @@ foreach($b in $brandList){
       $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 지난 공구 기록</h2><div class=${Q}tblw${Q}><table class=${Q}hist${Q}><thead><tr><th>오픈 ~ 마감</th><th>상품명</th><th>진행 셀러</th></tr></thead><tbody>"
       $hShow = @($hRows | Select-Object -First 30)
       foreach($hr in $hShow){
-        $hTag = $(if("$($hr.od)" -gt $today){ ' <i>예정</i>' } elseif("$($hr.ed)" -ge $today){ ' <i>진행 중</i>' } else { '' })
+        $hTag = $(if("$($hr.od)" -gt $today){ '<br><i>예정</i>' } elseif("$($hr.ed)" -ge $today){ '<br><i>진행 중</i>' } else { '' })
         $hSel = $(if($hr.who -and $hr.insta){ "<a href=${Q}https://www.instagram.com/$($hr.insta)${Q} rel=${Q}nofollow noopener${Q}>$(HtmlEsc $hr.who)</a>" } elseif($hr.who){ HtmlEsc "$($hr.who)" } else { '-' })
-        $body += "<tr><td>$($hr.od) ~ $("$($hr.ed)".Substring(5))$hTag</td><td>$(HtmlEsc $hr.name)</td><td>$hSel</td></tr>"
+        $body += "<tr><td>$("$($hr.od)".Substring(2).Replace('-','.')) ~ $("$($hr.ed)".Substring(5).Replace('-','.'))$hTag</td><td>$(HtmlEsc $hr.name)</td><td>$hSel</td></tr>"
       }
       $body += "</tbody></table></div>"
       if($hRows.Count -gt $hShow.Count){ $body += "<p class=${Q}asof${Q}>최근 $($hShow.Count)건을 실었습니다. 전체 기록은 $($hRows.Count)건입니다.</p>" }

@@ -228,7 +228,8 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .hist th,.hist td{padding:9px 11px;border-bottom:1px solid #F4F0F9;text-align:left;vertical-align:top}
 .hist tr:last-child td{border-bottom:none}
 .hist th{font-size:12px;color:#7A7286;font-weight:700;white-space:nowrap}
-.hist td:first-child{white-space:nowrap;color:#4A4356}
+.hist td:first-child{white-space:nowrap;color:#4A4356;font-size:12.5px;width:1%}
+.hist td:last-child{width:28%;word-break:break-all}
 .hist td a{color:#5B3A8C;text-decoration:none}
 .hist i{font-style:normal;font-size:11px;color:#7C54C4;font-weight:700}
 .cta{display:block;text-align:center;background:#602090;color:#fff;text-decoration:none;border-radius:12px;padding:15px;font-weight:800;margin-top:22px}
