@@ -10488,9 +10488,8 @@ function commGo(url, ev){
 const COMM_HOT_ID=-2;
 // 상단 고정 공지(최대 3건) 기본값 — 관리자 화면에서 한 번이라도 저장하면 그 내용으로 바뀐다(_commNoticeLoad)
 const COMM_PINNED_NOTICES=[
-  {badge:'공지', title:'공구알림방에서 오늘 오픈 소식 받기', url:'https://open.kakao.com/o/gJ3NIKCh'},
-  {badge:'안내', title:'맘캘린더 공식 인스타그램 @momcal_official', url:'https://instagram.com/momcal_official'},
-  {badge:'안내', title:'맘캘린더 네이버 카페 바로가기', url:'https://cafe.naver.com/momcal/'}
+  // 실제 공지가 아직 없어, 처음 온 분이 첫 글을 쓰러 가는 안내 한 장을 기본으로 둔다(사장님 2026-11-18) — 자유수다 글쓰기 화면으로
+  {badge:'환영', title:'처음 오셨나요? 첫 글을 남겨 보세요', url:'https://m.cafe.naver.com/ca-fe/web/cafes/31499187/articles/write?boardType=L&menuId=14'}
 ];
 // 영상 광고(16:9). 비워 두면 자리째 안 보인다. 꼴: {src:'영상 주소', poster:'첫 화면 사진', url:'눌렀을 때 갈 곳', cta:'더 알아보기'}
 let COMM_VIDEO_AD=null;
@@ -10576,7 +10575,7 @@ function _commSliderHtml(){
   return `<div class="comm-hs"><div class="comm-hs-h"><b>최신 인기글</b><button type="button" onclick="commHotMore()">더보기</button></div><div class="comm-hs-sc">${l.map(p=>`<a class="comm-hs-c" href="${_commHref(p)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${_commId(p)}))}catch(_){} return commOpenPost(${_commId(p)},event)"><div class="comm-chips"><span class="comm-chip hot">🔥인기</span><span class="comm-chip">${escHtml(p.board)}</span></div><p class="tt">${escHtml(p.title)}</p><div class="mm">👁 ${_commNum(p.views)} · 💬 ${_commNum(p.comments)}</div></a>`).join('')}</div></div>`;
 }
 function _commPinnedHtml(){
-  return COMM_PINNED_NOTICES.slice(0,3).map((n,i)=>`<a class="comm-pin" href="${escHtml(n.url)}" target="_blank" rel="noopener" onclick="return commNotice(${i},event)"><p class="pt">${n.badge?`<span class="pb">${escHtml(n.badge)}</span>`:''}${escHtml(n.title)}</p><span class="pg">보러가기 ›</span></a>`).join('');
+  return COMM_PINNED_NOTICES.slice(0,3).map((n,i)=>`<a class="comm-pin" href="${escHtml(n.url)}" target="_blank" rel="noopener" onclick="return commNotice(${i},event)"><p class="pt">${n.badge?`<span class="pb">${escHtml(n.badge)}</span>`:''}${escHtml(n.title)}</p><span class="pg">${/\/articles\/write/.test(n.url)?'글 쓰러 가기':'보러가기'} ›</span></a>`).join('');
 }
 // 커뮤니티 글 카드 한 장 — 커뮤니티 탭과 통합검색이 같이 쓴다. mode 'hot' = 인기 탭(보라 [인기] 뱃지 + 제목 옆 (댓글수))
 function _commCardHtml(p, mode){
