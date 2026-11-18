@@ -3821,7 +3821,7 @@ function renderList(){
       : '';
     const banner2 = loginStripHtml() + banner + icsBtn;   // 로그인 권유는 시트 대신 이 조용한 띠로
     if(!WISH.size){
-      el.innerHTML=banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
+      el.innerHTML=_sortChipsHtml()+banner+`<div class="empty">아직 찜한 공구가 없어요 💜<br><span style="font-size:12px;color:#bbb">공구 카드의 하트를 눌러 찜해보세요</span></div>`;
       return;
     }
     const pool=DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id)));
@@ -3837,7 +3837,7 @@ function renderList(){
     if(live.length) h+=`<div class="wish-sec">진행 중 · 예정</div>`+live.map(item=>renderCard(item)).join('');
     if(gone.length) h+=`<div class="wish-sec wish-sec-row"><span>마감됨 ${gone.length}</span>${gone.length>=2?'<button type="button" class="wish-clear" onclick="removeEndedWishes()">모두 지우기</button>':''}</div>`+gone.map(item=>renderEndedWish(item)).join('');
     if(!live.length && !gone.length) h+=`<div class="empty">찜한 공구를 불러오는 중이에요…</div>`;
-    el.innerHTML=h;
+    el.innerHTML=_sortChipsHtml()+h;
     return;
   }
 
@@ -3909,8 +3909,21 @@ function _sortRest(arr){
 const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
 // 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
 function _sortChipsHtml(){
-  // 칩 3개 — 인기순·방금 오픈순·마감 임박순. 고른 칩을 다시 누르면 기본(오픈일순)으로
-  return '<div class="gs-chips" role="group" aria-label="정렬">'+SORT_OPTS.filter(function(o){ return o[0]!=='open'; }).map(function(o){ var on=_listSort===o[0]; return '<button type="button" class="gs-chip'+(on?' on':'')+'" aria-pressed="'+on+'" onclick="sortGonggu(\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>';
+  // 한 줄로 합침(사장님 2026-11-18): 전체(기본 정렬) · 내 찜 · 인기순 · 방금 오픈순 · 마감 임박순 — 위에 있던 전체/내 찜/TOP100 줄은 숨겼다
+  var wish=(fSt==='wish'), n=0; try{ n=WISH.size; }catch(_){}
+  var chip=function(on,k,label){ return '<button type="button" class="gs-chip'+(on?' on':'')+'" data-gs="'+k+'" aria-pressed="'+on+'" onclick="gsPick(\''+k+'\')">'+label+'</button>'; };
+  return '<div class="gs-chips" role="group" aria-label="정렬">'
+    +chip(!wish&&_listSort==='open','all','전체')
+    +chip(wish,'wish','내 찜 <span class="gs-n">'+n+'</span>')
+    +SORT_OPTS.filter(function(o){ return o[0]!=='open'; }).map(function(o){ return chip(!wish&&_listSort===o[0],o[0],o[1]); }).join('')+'</div>';
+}
+function gsPick(k){
+  if(k==='wish'){ if(fSt!=='wish'){ _listSort='open'; toggleStab('wish',document.getElementById('stab-wish')); return; } k='all'; }
+  var was=fSt;
+  if(k==='all') _listSort='open';
+  else{ _listSort=(_listSort===k&&was!=='wish')?'open':k; if(_listSort==='pop') ensureViewCounts(); try{ trackEvent('list_sort',_listSort); }catch(_){} }
+  if(was!=='all'){ fSt='all'; document.querySelectorAll('.stab').forEach(function(b){ b.className=(b.id==='stab-wish'?'stab wish-tab':'stab'); }); var sa=document.getElementById('stab-all'); if(sa) sa.classList.add('on-all'); }
+  renderList();
 }
 function sortGonggu(k){ setListSort(_listSort===k?'open':k); }
 function openSortSheet(){
@@ -4414,7 +4427,8 @@ function toggleStab(v,el){
   scrollToResults();
 }
 function scrollToResults(){
-  const target=document.getElementById('statusTabs');
+  let target=document.getElementById('statusTabs');
+  if(target&&!target.offsetParent) target=document.querySelector('#gongguWrap .tabs');   // 줄을 숨긴 뒤(2026-11-18)엔 리스트/캘린더 줄 기준
   if(!target) return;
   const hd=document.querySelector('.hd');
   const off=(hd?hd.offsetHeight:60)+8;
@@ -6845,7 +6859,7 @@ function paintHearts(){
   });
 }
 function updateWishBadge(){
-  const el=document.getElementById('wishBadge'); if(el) el.textContent=WISH.size;
+  const el=document.getElementById('wishBadge'); if(el) el.textContent=WISH.size; const gn=document.querySelector('.gs-chips .gs-n'); if(gn) gn.textContent=WISH.size;
 }
 
 // ── 하트 토글 ──
@@ -11211,6 +11225,9 @@ function appNavGo(ct){
 .gs-chip{flex:none;height:30px;padding:0 13px;border:0;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:13px;font-weight:600;font-family:inherit;letter-spacing:-.02em;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease}
 .gs-chip:active{transform:scale(.97)}
 .gs-chip.on{background:#7C54C4;color:#fff;font-weight:700}
+.gs-chip .gs-n{margin-left:3px;font-weight:700;color:#7C54C4}
+.gs-chip.on .gs-n{color:#fff}
+#statusTabs{display:none!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
 <script id="mc-notisync">
