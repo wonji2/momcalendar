@@ -7639,8 +7639,8 @@ async function icfgSave(){ const n=(id,min)=>{ const v=parseInt(document.getElem
   const body={type:'config',title:'infeed',subtitle:JSON.stringify(c),active:true,stage:'live',link:'',bg:'#fff',sort_order:9999};
   const j=await _slWrite('banners',_icfgId?'PATCH':'POST',_icfgId?('?id=eq.'+_icfgId):'',body); if(j){ _icfgId=j[0].id; alert('간격을 저장했어요.\n공구 '+(c.gFirst?c.gFirst+'번째 뒤 첫 광고, 그 뒤 '+c.gEvery+'장마다':'끔')+' · 핫딜 '+(c.hEvery?c.hEvery+'개마다':'끔')+' · 검색 '+(c.search?'켬':'끔')+'\n(지금은 테스트 페이지에만 반영 — 라이브는 배포 뒤)'); } }
 // ── 커뮤니티 고정 공지(배너 탭) — banners 표의 설정 줄(type=config, title=comm_notice, subtitle=JSON 배열 [{badge,title,url}] 최대 3)에 담는다
-//    손님 화면: 커뮤니티 탭 전체·인기 맨 위 고정 카드. 설정 줄이 없을 땐 사이트 기본(「첫 글 쓰기」 안내 1개)이 보인다(아래 CN_DEFAULT 와 같은 내용)
-const CN_DEFAULT=[{badge:'환영',title:'처음 오셨나요? 첫 글을 남겨 보세요',url:'https://m.cafe.naver.com/ca-fe/web/cafes/31499187/articles/write?boardType=L&menuId=14'}];
+//    손님 화면: 커뮤니티 탭 전체·인기 맨 위 고정 카드. 설정 줄이 없을 땐 공지가 없다(아래 CN_DEFAULT 와 같은 내용)
+const CN_DEFAULT=[];
 let _cnId=null, _cnRows=[], _cnLoaded=false;
 function _cnEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){ return '&#'+c.charCodeAt(0)+';'; }); }
 function _cnState(t,bad){ const e=document.getElementById('cnState'); if(e){ e.textContent=t||''; e.style.color=bad?'#C62828':'#999'; } }
@@ -7656,7 +7656,7 @@ function cnRender(){ const el=document.getElementById('cnList'); if(!el) return;
 async function cnLoad(force){ if(!document.getElementById('commNoticeBox')) return; if(_cnLoaded&&!force) return; _cnLoaded=true;
   try{ const r=await fetch(SL_URL+'banners?type=eq.config&title=eq.comm_notice&select=id,subtitle&order=id.asc&limit=1',{headers:sbHeaders()}); if(!r.ok) throw new Error(String(r.status)); const j=await r.json();
     if(j[0]){ _cnId=j[0].id; let a=[]; try{ a=JSON.parse(j[0].subtitle||'[]'); }catch(_){} _cnRows=(Array.isArray(a)?a:[]).slice(0,3).map(function(n){ return {badge:String((n&&n.badge)||''),title:String((n&&n.title)||''),url:String((n&&n.url)||'')}; }); _cnState('저장된 공지 '+_cnRows.length+'개'); }
-    else{ _cnId=null; _cnRows=CN_DEFAULT.map(function(n){ return {badge:n.badge,title:n.title,url:n.url}; }); _cnState('아직 저장한 적 없음 · 지금은 「첫 글 쓰기」 안내 1개가 보여요'); } }
+    else{ _cnId=null; _cnRows=CN_DEFAULT.map(function(n){ return {badge:n.badge,title:n.title,url:n.url}; }); _cnState('아직 저장한 적 없음 · 지금은 공지 없음'); } }
   catch(e){ _cnLoaded=false; _cnRows=[]; _cnState('공지를 못 불러왔어요 ('+e.message+') · 다시 열어 주세요',true); const el=document.getElementById('cnList'); if(el) el.innerHTML=''; return; }
   cnRender(); }
 function cnAdd(){ _cnRead(); if(_cnRows.length>=3){ alert('고정 공지는 최대 3개예요.'); return; } _cnRows.push({badge:'공지',title:'',url:''}); cnRender(); _cnState('제목과 주소를 쓰고 「저장」을 눌러 주세요'); }
@@ -7670,7 +7670,7 @@ async function cnSave(){ _cnRead();
   if(!_cnId){ try{ const r0=await fetch(SL_URL+'banners?type=eq.config&title=eq.comm_notice&select=id&order=id.asc&limit=1',{headers:sbHeaders()}); const j0=r0.ok?await r0.json():[]; if(j0[0]) _cnId=j0[0].id; }catch(_){} }   // 설정 줄이 이미 있으면 그 줄을 고친다(두 줄 생기지 않게)
   const body={type:'config',title:'comm_notice',subtitle:JSON.stringify(rows),active:true,stage:'live',link:'',bg:'#fff',sort_order:9999};
   const j=await _slWrite('banners',_cnId?'PATCH':'POST',_cnId?('?id=eq.'+_cnId):'',body);
-  if(j){ _cnId=j[0].id; _cnRows=rows; cnRender(); _cnState('저장됨 · 공지 '+rows.length+'개'); alert('고정 공지 '+rows.length+'개를 저장했어요.\n손님 화면에는 최대 10분쯤 뒤에 바뀌어요(캐시).\n(지금은 테스트 페이지 커뮤니티 탭에만 보여요 — 라이브는 배포 뒤)'); } }
+  if(j){ _cnId=j[0].id; _cnRows=rows; cnRender(); _cnState('저장됨 · 공지 '+rows.length+'개'); alert('고정 공지 '+rows.length+'개를 저장했어요.\n손님 화면에는 최대 10분쯤 뒤에 바뀌어요(캐시).'); } }
 // 손님 화면에 보이는가 — 사이트와 같은 조건(고정 노출 pin_random · 만료 없음 · 만료가 아직 안 옴)
 function _hdLive(h){ return h.pin_random===true || !h.expires_at || new Date(h.expires_at).getTime()>Date.now(); }
 // 내리기 = 만료를 지금으로(지우지 않는다) · 올리기 = 만료를 7일 뒤로 (사장님 2026-11-12 「핫딜도 온오프」)

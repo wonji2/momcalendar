@@ -4048,7 +4048,7 @@ async function renderSearchAll(){
   if(!_commData){
     try{
       const since=new Date(Date.now()-30*86400000).toISOString();
-      const cr=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,
+      const cr=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,likes,is_notice,head,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,
         {headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},signal:AbortSignal.timeout?AbortSignal.timeout(6000):undefined});
       if(cr.ok) _commData=await cr.json();   // 실패하면 null 로 둔다 — 커뮤니티 탭이 다시 받을 수 있게
     }catch(_){}
@@ -10282,6 +10282,52 @@ function closeChatMenu(){
 .comm-local button{flex:none;height:40px;padding:0 14px;border-radius:999px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
 .comm-local button.on{background:#191F28;border-color:#191F28;color:#fff}
 .comm-empty{padding:40px 0;text-align:center;color:#aaa;font-size:13px}
+/* 마미톡형 고도화(2026-11-18) — 포인트 #7C54C4 · 틴트 #F7F2FD · 글자 #191F28/#4E5968/#8B95A1 · 테두리 #EDE8F3 · 구분선 #F2F4F6 · 자간 -0.02em */
+#commListWrap{letter-spacing:-.02em}
+.comm-ticker{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:0 12px;height:40px;border-radius:12px;background:#F7F2FD;text-decoration:none;color:#191F28;-webkit-tap-highlight-color:transparent}
+.comm-ticker b{flex:none;font-size:13px;font-weight:700;color:#7C54C4}
+.comm-ticker .tk-w{flex:1;min-width:0;height:40px;overflow:hidden}
+.comm-ticker .tk-l{will-change:transform}
+.comm-ticker .tk-i{display:block;height:40px;line-height:40px;font-size:13.5px;font-weight:600;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.comm-ticker i{flex:none;font-style:normal;font-size:16px;color:#8B95A1;line-height:1}
+.comm-nstrip{display:block;padding:11px 0;border-bottom:1px solid #F2F4F6;text-decoration:none;color:#4E5968;font-size:13px;font-weight:500;-webkit-tap-highlight-color:transparent}
+.comm-nstrip span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comm-pin{display:block;padding:14px 0;border-bottom:1px solid #F2F4F6;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.comm-pin .pt{margin:0;font-size:15px;font-weight:700;color:#191F28;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.comm-pin .pb{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:5px;background:#F7F2FD;color:#7C54C4;font-size:11px;font-weight:700;vertical-align:1px}
+.comm-pin .pg{display:block;margin-top:5px;font-size:13px;color:#8B95A1}
+.comm-chips{display:flex;gap:5px;margin:0 0 6px;min-width:0}
+.comm-chip{flex:none;max-width:100%;padding:3px 7px;border-radius:6px;background:#F4F4F6;color:#4E5968;font-size:11px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comm-chip.hot{color:#7C54C4;background:#F7F2FD}
+.comm-chips .comm-chip:last-child{flex:0 1 auto;min-width:0}
+.comm-post .t .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comm-post .t .n{color:#7C54C4}
+.comm-post .t .comm-hotb{flex:none;align-self:center;padding:2px 6px;border-radius:5px;background:#7C54C4;color:#fff;font-size:11px;font-weight:700;line-height:1.3;overflow:visible}
+.comm-hf{position:relative;display:flex;gap:8px;padding:10px 0 2px}
+.comm-hchip{flex:none;height:40px;padding:0 13px;border-radius:999px;border:1px solid #EDE8F3;background:#fff;color:#4E5968;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:-.02em;cursor:pointer;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.comm-hchip.on{border-color:#7C54C4;color:#7C54C4;background:#F7F2FD}
+.comm-hchip:active{transform:scale(.97)}
+.comm-hdd{position:absolute;left:0;top:54px;z-index:20;min-width:170px;max-width:calc(100% - 4px);max-height:300px;overflow-y:auto;background:#fff;border:1px solid #EDE8F3;border-radius:12px;box-shadow:0 6px 20px rgba(25,31,40,.12);padding:6px 0}
+.comm-hdd button{display:block;width:100%;border:0;background:none;text-align:left;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#4E5968;padding:11px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comm-hdd button.on{color:#7C54C4;font-weight:700}
+.comm-hdd.comm-ldd{display:grid;grid-template-columns:1fr 1fr;min-width:232px;max-height:none;left:auto;right:0}
+.comm-hf.comm-hf-r{justify-content:flex-end}
+.comm-hdd.comm-ldd.comm-ldd1{grid-template-columns:1fr;min-width:168px;max-height:320px;overflow-y:auto}
+.comm-hdd.comm-ldd button{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.comm-hdd.comm-ldd button i{font-style:normal;font-size:12px;font-weight:500;color:#8B95A1}
+.comm-hs{padding:18px 0 16px;border-bottom:1px solid #F2F4F6}
+.comm-hs-h{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+.comm-hs-h b{font-size:16px;font-weight:700;color:#191F28}
+.comm-hs-h button{border:0;background:none;font-family:inherit;font-size:13px;color:#8B95A1;padding:6px 0 6px 12px;cursor:pointer}
+.comm-hs-sc{display:flex;gap:10px;overflow-x:auto;margin:0 -12px;padding:0 12px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scroll-padding:0 12px}
+.comm-hs-sc::-webkit-scrollbar{display:none}
+.comm-hs-c{flex:none;width:158px;box-sizing:border-box;border:1px solid #EDE8F3;border-radius:14px;padding:14px;background:#fff;text-decoration:none;scroll-snap-align:start;-webkit-tap-highlight-color:transparent}
+.comm-hs-c .tt{margin:0;height:58.8px;font-size:14px;font-weight:700;color:#191F28;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.comm-hs-c .mm{margin-top:10px;font-size:12px;color:#8B95A1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.comm-vad{position:relative;margin:14px 0;border-radius:14px;overflow:hidden;background:#191F28;height:0;padding-top:56.25%;line-height:0}
+.comm-vad video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.comm-vad-mute{position:absolute;left:10px;bottom:10px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.comm-vad-cta{position:absolute;right:10px;bottom:10px;height:34px;padding:0 14px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;font-weight:600;line-height:34px;letter-spacing:-.02em;text-decoration:none;white-space:nowrap}
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .comm-fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
 @media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
@@ -10303,21 +10349,21 @@ function commLocalPick(id){ _commLocal=Number(id)||0; _commShown=30; renderCommu
 async function loadCommunity(force){
   const v=document.getElementById('commView'); if(!v) return;
   try{ _goRulesLoad(); }catch(_){}
-  if(_commData && !force){ renderCommunity(); return; }
+  if(_commData && !force && (!_commData.length || ('head' in _commData[0]))){ renderCommunity(); return; }
   let list=document.getElementById('commListWrap');
   if(!list){ list=document.createElement('div'); list.id='commListWrap'; v.appendChild(list); }
   list.innerHTML=skelHtml(4);
   try{
     const since=new Date(Date.now()-30*86400000).toISOString();
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/community_posts?select=article_id,board_id,board,title,nick,comments,views,likes,is_notice,head,has_image,summary,image_url,posted_at,url&posted_at=gte.${encodeURIComponent(since)}&order=posted_at.desc&limit=1000`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
     const rawList=r.ok?await r.json():[];
     _commData=rawList.filter(p=>p && p.article_id!==44088 && !/초강대국|박시구/.test(p.title||''));
   }catch(_){ _commData=[]; }
   renderCommunity();
 }
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
-function commPick(b){ _commBoard=Number(b)||0; _commShown=30; renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
-function commMore(){ _commShown+=30; renderCommunity(); }
+function commPick(b){ _commBoard=Number(b)||0; _commShown=30; try{ _commHotDd=false; _commLocalDd=false; _commLocalHdd=false; }catch(_){} renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
+function commMore(){ _commShown+=30; try{ _commHotDd=false; }catch(_){} renderCommunity(); }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3), n=new Date(Date.now()+9*3600e3); if(d.getUTCFullYear()===n.getUTCFullYear()&&d.getUTCMonth()===n.getUTCMonth()&&d.getUTCDate()===n.getUTCDate()) return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }   // 오늘 글은 시각, 지난 글은 날짜(한국 시간, 사장님 2026-10-27)
 // 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
 //   · 안드로이드(크롬·카톡/인스타 인앱·홈화면 앱·우리 앱): 네이버 앱(로그인 살아 있음) 인앱브라우저로. 앱이 없으면 S.browser_fallback_url 로 기본 브라우저(카페 모바일 웹)
@@ -10382,10 +10428,108 @@ function commGo(url, ev){
   _goRun(s,url,env,id);
   return false;
 }
-// 커뮤니티 글 카드 한 장 — 커뮤니티 탭과 통합검색이 같이 쓴다
-function _commCardHtml(p){
+// ── 커뮤니티 마미톡형 고도화 (사장님 오더 2026-11-18 · test.html 선반영) ──
+//   따른 화면: references/mamitalk_2026-10-25/01.jpg (인기 칩·「다들 이런 얘기하는 중」·조회/댓글 메타). 민트는 전부 맘캘 라일락(#7C54C4 · 틴트 #F7F2FD)으로
+//   구성: ① 인기글 띠(탭 위 · 인기글 5개가 돌아가며) ② 탭 [전체][인기][게시판…] ③ (공지 한 줄은 없앰 2026-11-18) ④ 상단 고정 공지 카드(전체·인기, 최대 3 · 관리자 화면에서 작성) ⑤ 전체 탭 3번째 글 뒤 「최신 인기글」 가로 슬라이드 ⑥ 전체 탭 4번째 글 뒤 영상 광고(COMM_VIDEO_AD 가 비면 안 보임)
+//   인기 점수 = 댓글×3 + 조회×0.05 + 좋아요×2 · 인기글 기준 = 최근 7일 점수 상위 10개(점수 10 이상) · 공지글(is_notice)은 순위에서 뺀다
+const COMM_HOT_ID=-2;
+// 상단 고정 공지(최대 3건) — 기본은 없음(사장님 2026-11-18 「공지 아예 빼고」). 관리자 화면에서 저장하면 그 내용이 보인다(_commNoticeLoad)
+const COMM_PINNED_NOTICES=[];
+// 영상 광고(16:9). 비워 두면 자리째 안 보인다. 꼴: {src:'영상 주소', poster:'첫 화면 사진', url:'눌렀을 때 갈 곳', cta:'더 알아보기'}
+let COMM_VIDEO_AD=null;
+// 🧪 시험: test.html?commad=1 일 때만 예시 영상(파일 이름이 test.html 이 아니면 절대 안 켜진다)
+if(/\/test\.html$/.test(location.pathname)&&/[?&]commad=1(&|$)/.test(location.search)) COMM_VIDEO_AD={src:'banners/commad_test.webm', poster:'', url:'https://example.com/?from=comm_video', cta:'더 알아보기'};
+let _commHotWin='72h', _commHotBoard=0, _commHotDd=false, _commHotIds=new Set();
+let _commAdIO=null, _commAdSeen=null, _commAdHold=false;
+// 우리동네 지역: 고른 곳을 기기에 기억해 다음에 우리동네를 열면 그 지역부터
+let _commLocalDd=false, _commLocalHead='', _commLocalHdd=false;
+try{ const _lv=Number(localStorage.getItem('mc_comm_local')); if(_lv&&COMM_LOCAL[_lv]){ _commLocal=_lv; _commLocalHead=String(localStorage.getItem('mc_comm_local_head')||'').slice(0,30); } }catch(_){}
+function commLocalDd(){ _commLocalDd=!_commLocalDd; _commLocalHdd=false; renderCommunity(); }
+function commLocalHdd(){ _commLocalHdd=!_commLocalHdd; _commLocalDd=false; renderCommunity(); }
+function commLocalHeadSel(h){ _commLocalHdd=false; _commLocalHead=String(h||''); try{ if(_commLocalHead) localStorage.setItem('mc_comm_local_head',_commLocalHead); else localStorage.removeItem('mc_comm_local_head'); }catch(_){} _commShown=30; renderCommunity(); try{ trackEvent('community_local_head',_commLocalHead||'all'); }catch(_){} }
+function commLocalSel(id){ _commLocalDd=false; _commLocalHdd=false; id=Number(id)||0; if(id!==_commLocal){ _commLocalHead=''; try{ localStorage.removeItem('mc_comm_local_head'); }catch(_){} } try{ if(id) localStorage.setItem('mc_comm_local',String(id)); else localStorage.removeItem('mc_comm_local'); }catch(_){} commLocalPick(id); }
+// 글·공지·광고 링크를 누르면 영상 소리를 끈다(글 읽기 화면·인앱 브라우저 뒤에서 소리가 계속 나지 않게). 인기 탭 게시판 목록은 바깥을 누르면 닫는다
+function _commAdQuiet(){ const v=document.getElementById('commAdVideo'); if(!v) return; try{ v.muted=true; const b=document.querySelector('.comm-vad-mute'); if(b){ b.textContent='🔇'; b.setAttribute('aria-label','소리 켜기'); b.setAttribute('aria-pressed','false'); } }catch(_){} }
+document.addEventListener('click', function(e){ try{
+  const t=e.target; if(!t||!t.closest) return;
+  if(t.closest('#commListWrap a')) _commAdQuiet();
+  if(_commLocalHdd&&!t.closest('.comm-hf')){ _commLocalHdd=false; const d1=document.querySelector('#commListWrap .comm-ldd1'); if(d1) d1.remove(); const c1=document.querySelector('#commListWrap .comm-hchip[data-k=lhead]'); if(c1) c1.setAttribute('aria-expanded','false'); }
+  if(_commLocalDd&&!t.closest('.comm-hf')){ _commLocalDd=false; const d0=document.querySelector('#commListWrap .comm-ldd:not(.comm-ldd1)'); if(d0) d0.remove(); const c0=document.querySelector('#commListWrap .comm-hchip[data-k=local]'); if(c0) c0.setAttribute('aria-expanded','false'); }
+  if(_commHotDd&&!t.closest('.comm-hf')){ _commHotDd=false; const d=document.querySelector('#commListWrap .comm-hdd'); if(d) d.remove(); const c=document.querySelector('#commListWrap .comm-hchip[aria-expanded]'); if(c) c.setAttribute('aria-expanded','false'); }
+}catch(_){} }, true);
+function _commScore(p){ return (Number(p.comments)||0)*3+(Number(p.views)||0)*0.05+(Number(p.likes)||0)*2; }
+function _commBoardKey(p){ return COMM_LOCAL[p.board_id]?COMM_LOCAL_ID:p.board_id; }
+function _commHotList(hours, board){
+  const t=Date.now()-hours*3600e3;
+  return (_commData||[]).filter(p=>!p.is_notice&&new Date(p.posted_at).getTime()>=t&&(!board||_commBoardKey(p)===board)).map(p=>[_commScore(p),p]).filter(x=>x[0]>0)
+    .sort((a,b)=>b[0]-a[0]||new Date(b[1].posted_at)-new Date(a[1].posted_at)).map(x=>x[1]);
+}
+function _commHotCalc(){ const l=_commHotList(168,0).filter(p=>_commScore(p)>=10).slice(0,10); _commHotIds=new Set(l.map(p=>p.article_id)); return l; }
+// 띠에 돌릴 인기글: 최근 72시간에서, 3개가 안 되면 최근 7일, 그래도 없으면 30일
+function _commTopN(n){ let l=_commHotList(72,0); if(l.length<3) l=_commHotList(168,0); if(!l.length) l=_commHotList(720,0); return l.slice(0,n); }
+let _commTkT=null, _commTkI=0;
+function _commTickerRun(n){
+  clearInterval(_commTkT); _commTkT=null; _commTkI=0;
+  if(!document.getElementById('commTkL')||n<2) return;
+  try{ if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(_){}   // 움직임 줄이기를 켠 폰은 멈춰 둔다
+  _commTkT=setInterval(function(){
+    const el=document.getElementById('commTkL'); if(!el){ clearInterval(_commTkT); _commTkT=null; return; }
+    if(document.hidden||!el.offsetParent) return;   // 안 보일 땐 쉰다
+    _commTkI++; el.style.transition='transform .45s cubic-bezier(.4,0,.2,1)'; el.style.transform='translateY(-'+(_commTkI*40)+'px)';
+    if(_commTkI>=n) setTimeout(function(){ const e2=document.getElementById('commTkL'); if(!e2) return; e2.style.transition='none'; e2.style.transform='translateY(0)'; _commTkI=0; },520);   // 끝(첫 글 복사본)까지 가면 소리 없이 처음으로
+  }, 2800);
+}
+// 고정 공지는 관리자 화면(배너 탭 › 커뮤니티 고정 공지)에서 쓴다 — banners 표의 설정 줄(type=config, title=comm_notice, subtitle=JSON 배열 [{badge,title,url}])
+//   설정 줄이 아직 없으면 위 COMM_PINNED_NOTICES 기본값, 있으면 그 내용(빈 배열이면 공지 없음). 주소는 https 만 받는다
+let _commNoticeAsked=false;
+function _commNoticeLoad(){
+  if(_commNoticeAsked||typeof window._mcBanners!=='function') return; _commNoticeAsked=true;
+  try{ window._mcBanners().then(function(all){
+    const cf=(all||[]).filter(function(x){ return x&&x.type==='config'&&x.title==='comm_notice'; })[0]; if(!cf) return;
+    let a=null; try{ a=JSON.parse(cf.subtitle||'[]'); }catch(_){ return; } if(!Array.isArray(a)) return;
+    const ok=a.filter(function(n){ return n&&typeof n.title==='string'&&n.title.trim()&&/^https:\/\/[^\s"'<>]+$/.test(String(n.url||'')); }).slice(0,3).map(function(n){ return {badge:String(n.badge||'').trim().slice(0,6), title:n.title.trim().slice(0,60), url:String(n.url)}; });
+    COMM_PINNED_NOTICES.splice.apply(COMM_PINNED_NOTICES,[0,COMM_PINNED_NOTICES.length].concat(ok));
+    const v=document.getElementById('commView'); if(v&&v.style.display!=='none'&&_commData) renderCommunity();
+  }).catch(function(){ _commNoticeAsked=false; }); }catch(_){ _commNoticeAsked=false; }
+}
+function _commNum(n){ try{ return Number(n||0).toLocaleString('ko-KR'); }catch(_){ return String(n||0); } }
+function _commId(p){ return Number(p.article_id)||0; }
+function _commHref(p){ const u=String(p.url||''); return escHtml(/^https:\/\//.test(u)?u:('https://cafe.naver.com/momcal/'+_commId(p))); }
+function commHotWin(){ _commHotWin=(_commHotWin==='72h')?'7d':'72h'; _commHotDd=false; _commShown=30; renderCommunity(); try{ trackEvent('community_hot_win',_commHotWin); }catch(_){} }
+function commHotMore(){ _commHotWin='7d'; _commHotBoard=0; commPick(COMM_HOT_ID); }   // 슬라이드(최근 7일)와 같은 기준으로 연다
+function commHotDd(){ _commHotDd=!_commHotDd; renderCommunity(); }
+function commHotBoard(id){ _commHotBoard=Number(id)||0; _commHotDd=false; _commShown=30; renderCommunity(); try{ trackEvent('community_hot_board',String(_commHotBoard)); }catch(_){} }
+// 공지·광고 링크 열기: 네이버 주소는 네이버 앱으로 여는 길(commGo), 그 밖은 사이트 공용 열기(openLink — 카톡 인앱·앱 웹뷰에서도 열린다)
+function _commOpenUrl(url, ev){ if(/(^|\.)naver\.com\//.test(String(url).replace(/^https?:\/\//,''))) return commGo(url, ev); if(ev) ev.preventDefault(); try{ if(typeof openLink==='function') openLink(url); else window.open(url,'_blank'); }catch(_){ location.href=url; } return false; }
+function commNotice(i, ev){ const n=COMM_PINNED_NOTICES[i]; if(!n) return false; try{ trackEvent('community_notice',String(i)); }catch(_){} return _commOpenUrl(n.url, ev); }
+function commAdMute(btn){
+  const v=document.getElementById('commAdVideo'); if(!v) return false;
+  v.muted=!v.muted; btn.textContent=v.muted?'🔇':'🔊'; btn.setAttribute('aria-label', v.muted?'소리 켜기':'소리 끄기'); btn.setAttribute('aria-pressed', String(!v.muted));
+  if(!v.muted){ try{ const pr=v.play(); if(pr&&pr.catch) pr.catch(function(){}); }catch(_){} }
+  try{ trackEvent('community_video_mute', v.muted?'mute':'sound'); }catch(_){}
+  return false;
+}
+function commAdGo(ev){ if(!COMM_VIDEO_AD||!COMM_VIDEO_AD.url) return false; try{ trackEvent('community_video_ad_click', COMM_VIDEO_AD.url); }catch(_){} return _commOpenUrl(COMM_VIDEO_AD.url, ev); }
+function _commVideoAdHtml(){
+  const a=COMM_VIDEO_AD; if(!a||!a.src) return '';
+  return `<div class="comm-vad"><video id="commAdVideo" src="${escHtml(a.src)}"${a.poster?` poster="${escHtml(a.poster)}"`:''} autoplay muted loop playsinline preload="metadata" onerror="this.parentNode.style.display='none'"></video><button type="button" class="comm-vad-mute" aria-label="소리 켜기" aria-pressed="false" onclick="return commAdMute(this)">🔇</button>${a.url?`<a class="comm-vad-cta" href="${escHtml(a.url)}" target="_blank" rel="noopener sponsored" onclick="return commAdGo(event)">${escHtml(a.cta||'더 알아보기')}</a>`:''}</div>`;
+}
+function _commSliderHtml(){
+  const l=_commHotList(168,0).slice(0,8); if(l.length<3) return '';
+  return `<div class="comm-hs"><div class="comm-hs-h"><b>최신 인기글</b><button type="button" onclick="commHotMore()">더보기</button></div><div class="comm-hs-sc">${l.map(p=>`<a class="comm-hs-c" href="${_commHref(p)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${_commId(p)}))}catch(_){} return commOpenPost(${_commId(p)},event)"><div class="comm-chips"><span class="comm-chip hot">🔥인기</span><span class="comm-chip">${escHtml(p.board)}</span></div><p class="tt">${escHtml(p.title)}</p><div class="mm">👁 ${_commNum(p.views)} · 💬 ${_commNum(p.comments)}</div></a>`).join('')}</div></div>`;
+}
+function _commPinnedHtml(){
+  return COMM_PINNED_NOTICES.slice(0,3).map((n,i)=>`<a class="comm-pin" href="${escHtml(n.url)}" target="_blank" rel="noopener" onclick="return commNotice(${i},event)"><p class="pt">${n.badge?`<span class="pb">${escHtml(n.badge)}</span>`:''}${escHtml(n.title)}</p><span class="pg">${/\/articles\/write/.test(n.url)?'글 쓰러 가기':'보러가기'} ›</span></a>`).join('');
+}
+// 커뮤니티 글 카드 한 장 — 커뮤니티 탭과 통합검색이 같이 쓴다. mode 'hot' = 인기 탭(보라 [인기] 뱃지 + 제목 옆 (댓글수))
+function _commCardHtml(p, mode){
   const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" onerror="_imgFail(this)" loading="lazy" referrerpolicy="no-referrer">`:'';
-  return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
+  const hot=_commHotIds.has(p.article_id), c=Number(p.comments||0);
+  const chips=(mode==='feed'&&hot)?`<div class="comm-chips"><span class="comm-chip hot">🔥인기</span><span class="comm-chip">${escHtml(p.board)}</span></div>`:'';
+  const title=(mode==='hot')
+    ?`<p class="t"><span class="comm-hotb">인기</span><span class="tt">${escHtml(p.title)}</span>${c?`<span class="n">(${c})</span>`:''}</p>`
+    :`<p class="t"><span class="tt">${escHtml(p.title)}</span>${c?`<span class="n">${c}</span>`:''}</p>`;
+  return `<a class="comm-post" href="${_commHref(p)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${_commId(p)}))}catch(_){} return commOpenPost(${_commId(p)},event)"><div class="bx">${chips}${title}${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span>${(p.head&&COMM_LOCAL[p.board_id])?`<span>${escHtml(p.head)}</span>`:''}<span>${_commMD(p.posted_at)}</span><span>조회 ${_commNum(p.views)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
 }
 function renderCommunity(){
   const v=document.getElementById('commView'); if(!v) return;
@@ -10393,27 +10537,63 @@ function renderCommunity(){
   if(!list){ list=document.createElement('div'); list.id='commListWrap'; v.appendChild(list); }
   const all=_commData||[];
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
-  const cnt={}; all.forEach(p=>{ const k=COMM_LOCAL[p.board_id]?COMM_LOCAL_ID:p.board_id; cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
+  const cnt={}; all.forEach(p=>{ const k=_commBoardKey(p); cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
   if(!cnt[COMM_LOCAL_ID]) cnt[COMM_LOCAL_ID]={id:COMM_LOCAL_ID,name:'우리동네',n:0};   // 동네 글이 아직 없어도 탭은 둔다(고를 수 있게)
-  const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
-  const rows=(_commBoard===COMM_LOCAL_ID)?all.filter(p=>COMM_LOCAL[p.board_id]&&(!_commLocal||p.board_id===_commLocal)):(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
+  const boards=Object.values(cnt).sort((a,b)=>((a.id===COMM_LOCAL_ID)-(b.id===COMM_LOCAL_ID))||(b.n-a.n));   // 글 많은 순 · 우리동네는 맨 끝(사장님 2026-11-18)
+  _commHotCalc(); _commNoticeLoad();
+  const isHot=(_commBoard===COMM_HOT_ID), isAll=!_commBoard;
+  if(isHot&&_commHotBoard&&!cnt[_commHotBoard]) _commHotBoard=0;
+  const rows=isHot?_commHotList(_commHotWin==='72h'?72:168, _commHotBoard)
+    :(_commBoard===COMM_LOCAL_ID)?all.filter(p=>COMM_LOCAL[p.board_id]&&(!_commLocal||p.board_id===_commLocal)&&(!_commLocal||!_commLocalHead||p.head===_commLocalHead)):(_commBoard?all.filter(p=>p.board_id===_commBoard):all);
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
-  const _wb=(_commBoard===COMM_LOCAL_ID)?_commLocal:_commBoard; const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_wb>0?`&menuId=${_wb}`:''}`;
-  let h=`<div class="comm-tabs"><div class="comm-sc">${['',...boards].map(b=>b===''?`<button class="${_commBoard?'':'on'}" onclick="commPick(0)">전체</button>`:`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
+  const _wb=isHot?0:((_commBoard===COMM_LOCAL_ID)?_commLocal:_commBoard); const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_wb>0?`&menuId=${_wb}`:''}`;
+  let h='';
+  // ① 인기글 띠 — 인기글 여러 개가 위로 넘어가며 바뀐다(마미톡처럼 · 사장님 2026-11-18 「슉슉 바뀌는 거였는데 우리껀 멈춰있어」). 누르면 그 글
+  const tops=_commTopN(5);
+  if(tops.length){ const it=(p,dup)=>`<a class="tk-i"${dup?' aria-hidden="true" tabindex="-1"':''} href="${_commHref(p)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_ticker',String(${_commId(p)}))}catch(_){} return commOpenPost(${_commId(p)},event)">${escHtml(p.title)}</a>`;
+    h+=`<div class="comm-ticker"><b>🔥 인기글</b><div class="tk-w"><div class="tk-l" id="commTkL">${tops.map(p=>it(p,false)).join('')}${tops.length>1?it(tops[0],true):''}</div></div><i aria-hidden="true">›</i></div>`; }
+  // ② 탭: 전체 · 인기 · 게시판…
+  h+=`<div class="comm-tabs"><div class="comm-sc"><button class="${isAll?'on':''}" onclick="commPick(0)">전체</button><button class="${isHot?'on':''}" onclick="commPick(${COMM_HOT_ID})">인기</button>${boards.map(b=>`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(_commBoard===COMM_LOCAL_ID){
+    // 지역 고르기 — 공구 탭 대분류처럼 단추 하나를 누르면 아래로 펼쳐진다(카페의 지역 수다방 17개 순서 그대로 · 사장님 2026-11-18)
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
-    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${_commLocal===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
+    // 시·구(카페 말머리): 지역을 골랐고 그 지역 글에 말머리가 있을 때만 단추가 나온다. 글 많은 순
+    const hc={}; if(_commLocal) all.forEach(p=>{ if(p.board_id===_commLocal&&p.head) hc[p.head]=(hc[p.head]||0)+1; });
+    const heads=Object.keys(hc).sort((a,b)=>hc[b]-hc[a]||a.localeCompare(b,'ko'));
+    if(_commLocalHead&&!hc[_commLocalHead]) _commLocalHead='';
+    h+=`<div class="comm-hf comm-hf-r"><button type="button" class="comm-hchip${_commLocal?' on':''}" data-k="local" aria-haspopup="menu" aria-expanded="${_commLocalDd}" onclick="commLocalDd()">${_commLocal?escHtml(COMM_LOCAL[_commLocal]||'지역'):'지역 전체'} ∨</button>`
+      +(heads.length?`<button type="button" class="comm-hchip${_commLocalHead?' on':''}" data-k="lhead" aria-haspopup="menu" aria-expanded="${_commLocalHdd}" onclick="commLocalHdd()">${_commLocalHead?escHtml(_commLocalHead):'시·구 전체'} ∨</button>`:'')
+      +(_commLocalDd?`<div class="comm-hdd comm-ldd" role="menu">${[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button type="button" role="menuitem" class="${_commLocal===id?'on':''}" onclick="commLocalSel(${Number(id)})">${escHtml(nm)}${ln[id]?`<i>${ln[id]}</i>`:''}</button>`).join('')}</div>`:'')
+      +(_commLocalHdd&&heads.length?`<div class="comm-hdd comm-ldd comm-ldd1" role="menu"><button type="button" role="menuitem" class="${_commLocalHead?'':'on'}" data-h="" onclick="commLocalHeadSel(this.dataset.h)">전체</button>${heads.map(hd=>`<button type="button" role="menuitem" class="${_commLocalHead===hd?'on':''}" data-h="${escHtml(hd)}" onclick="commLocalHeadSel(this.dataset.h)">${escHtml(hd)}<i>${hc[hd]}</i></button>`).join('')}</div>`:'')+'</div>';
   }
-  if(!rows.length){ h+='<div class="comm-empty">아직 글이 없어요</div>'; }
-  else h+=rows.slice(0,_commShown).map(p=>{
-    // 사진: 네이버는 다른 사이트에서 부르면 403 → referrerpolicy=no-referrer, 작은 정사각(?type=f160_160 ≈30KB)
-    const img=p.image_url?`<img class="comm-thumb" src="${escHtml(p.image_url)}?type=f160_160" alt="" onerror="_imgFail(this)" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
-    return `<a class="comm-post" href="${p.url||('https://cafe.naver.com/momcal/'+p.article_id)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_open',String(${p.article_id}))}catch(_){} return commOpenPost(${p.article_id},event)"><div class="bx"><p class="t"><span>${escHtml(p.title)}</span>${p.comments?`<span class="n">${p.comments}</span>`:''}</p>${p.summary?`<p class="p">${escHtml(p.summary)}</p>`:''}<div class="m"><span>${escHtml(p.board)}</span><span>${_commMD(p.posted_at)}</span><span>조회 ${Number(p.views||0)}</span>${p.nick?`<span>${escHtml(p.nick)}</span>`:''}</div></div>${img}</a>`;
-  }).join('');
+  if(isHot){
+    const bn=_commHotBoard?((cnt[_commHotBoard]||{}).name||'전체'):'전체';
+    h+=`<div class="comm-hf"><button type="button" class="comm-hchip on" aria-pressed="${_commHotWin==='7d'}" onclick="commHotWin()">${_commHotWin==='72h'?'실시간':'주간'} ∨</button><button type="button" class="comm-hchip${_commHotBoard?' on':''}" aria-haspopup="menu" aria-expanded="${_commHotDd}" onclick="commHotDd()">${escHtml(bn)} ∨</button>`
+      +(_commHotDd?`<div class="comm-hdd" role="menu">${[{id:0,name:'전체'}].concat(boards).map(b=>`<button type="button" role="menuitem" class="${_commHotBoard===b.id?'on':''}" onclick="commHotBoard(${b.id})">${escHtml(b.name)}</button>`).join('')}</div>`:'')+'</div>';
+  }
+  // ④ 상단 고정 공지 카드(전체·인기)
+  if(isAll||isHot) h+=_commPinnedHtml();
+  if(!rows.length){ h+=`<div class="comm-empty">${isHot?(_commHotWin==='72h'?'최근 3일 인기글이 아직 없어요':'이번 주 인기글이 아직 없어요'):'아직 글이 없어요'}</div>`; }
+  else{
+    const cards=rows.slice(0,_commShown).map(p=>_commCardHtml(p, isHot?'hot':'feed'));
+    if(isAll){   // ⑤⑥ 전체 탭: 3번째 글 뒤 가로 슬라이드, 4번째 글 뒤 영상 광고(뒤쪽부터 끼워야 자리가 안 밀린다)
+      const ad=_commVideoAdHtml(), sl=_commSliderHtml();
+      if(ad) cards.splice(Math.min(4,cards.length),0,ad);
+      if(sl) cards.splice(Math.min(3,cards.length),0,sl);
+    }
+    h+=cards.join('');
+  }
   if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>글쓰기</a>`;
+  const _oldVad=list.querySelector('.comm-vad');
   list.innerHTML=h;
+  const _newVad=list.querySelector('.comm-vad'); if(_oldVad&&_newVad&&_oldVad.querySelector('video')&&_oldVad.querySelector('video').getAttribute('src')===_newVad.querySelector('video').getAttribute('src')) _newVad.replaceWith(_oldVad);
+  _commTickerRun(tops.length);
   const on=list.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
+  // 영상 광고: 화면에 보일 때만 돌린다(안 보이면 멈춤 — 데이터·배터리). 감시자는 하나만 두고 영상이 바뀔 때만 다시 건다
+  const vd=document.getElementById('commAdVideo');
+  if(vd!==_commAdSeen){ try{ if(_commAdIO) _commAdIO.disconnect(); }catch(_){} _commAdIO=null; _commAdSeen=vd||null;
+    if(vd&&('IntersectionObserver' in window)){ try{ _commAdIO=new IntersectionObserver(function(es){ es.forEach(function(e){ try{ if(e.isIntersecting&&!_commAdHold){ const pr=vd.play(); if(pr&&pr.catch) pr.catch(function(){}); } else vd.pause(); }catch(_){} }); },{threshold:.35}); _commAdIO.observe(vd); }catch(_){} } }
 }
 </script>
 <style id="mc-cpost">
