@@ -20,7 +20,7 @@ const SB_SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 // ── 핫딜 판정 기준 ──────────────────────────────────────────
 const MIN_POINTS = 7;      // 이력이 최소 7일은 쌓여야 판정
 const LOOKBACK   = 90;     // 최근 90일 기준
-const MIN_DROP   = 0.10;   // 역대최저 + 평균 대비 최소 10% 저렴
+const MIN_DROP   = 0.05;   // 역대최저 + 평균 대비 최소 5% 저렴 (사장님 2026-11-18 「쿠팡 많이 가져와야지」 — 10% 일 땐 하루 0~2건, 호출 40회는 그대로)
 const BIG_DROP   = 0.25;   // 역대최저 아니어도 평균 대비 25% 이상이면 핫딜
 const MAX_PER_RUN = 20;    // 가격근거 기반 핫딜 하루 상한
 const REPOST_COOLDOWN = 3; // 같은 상품을 며칠 안에는 다시 안 올림 (매일 같은 상품 도배 방지)
