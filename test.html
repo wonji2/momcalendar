@@ -3926,13 +3926,21 @@ function gsPick(k){
 }
 function sortGonggu(k){ setListSort(_listSort===k?'open':k); }
 function openSortSheet(){
-  let sh=document.getElementById('sortSheet');
-  if(!sh){ sh=document.createElement('div'); sh.id='sortSheet'; sh.className='srt-sheet'; sh.setAttribute('role','dialog'); sh.setAttribute('aria-label','정렬'); sh.onclick=e=>{ if(e.target===sh) closeSortSheet(); }; document.body.appendChild(sh); }
+  // 단추 바로 아래로 펼침(2026-11-18) — 이름은 옛 호출 자리 때문에 그대로
+  if(document.getElementById('gsMenu')){ closeSortSheet(); return; }
+  var bt=document.querySelector('.gs-chips .gs-dd'); if(!bt) return; var r=bt.getBoundingClientRect();
   var _cur=(fSt==='wish')?'wish':(_listSort==='open'?'all':_listSort), _wn=0; try{ _wn=WISH.size; }catch(_){}
-  sh.innerHTML='<div class="srt-box"><div class="srt-h">정렬</div>'+[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" class="srt-it'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(\''+o[0]+'\')"><span>'+o[1]+'</span>'+(on?'<svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>':'')+'</button>'; }).join('')+'</div>';
-  sh.classList.add('open'); try{ trackEvent('sort_sheet','open'); }catch(_){}
+  var m=document.createElement('div'); m.id='gsMenu'; m.className='gs-menu'; m.setAttribute('role','menu');
+  m.style.left=Math.round(r.left+(window.pageXOffset||0))+'px'; m.style.top=Math.round(r.bottom+(window.pageYOffset||0)+6)+'px';
+  m.innerHTML=[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(\''+o[0]+'\')"><span>'+o[1]+'</span>'+(on?'<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>':'')+'</button>'; }).join('');
+  document.body.appendChild(m); bt.setAttribute('aria-expanded','true');
+  // 목록이 화면 아래(하단 탭바 포함 80px)로 넘치면 그만큼만 올려 준다
+  var _ov=m.getBoundingClientRect().bottom-(window.innerHeight-80); if(_ov>0){ try{ window.scrollBy({top:_ov,behavior:'smooth'}); }catch(_){ window.scrollBy(0,_ov); } }
+  setTimeout(function(){ document.addEventListener('click',_gsOut,true); },0);
+  try{ trackEvent('sort_sheet','open'); }catch(_){}
 }
-function closeSortSheet(){ const sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
+function _gsOut(e){ var m=document.getElementById('gsMenu'), t=e.target; if(m&&!m.contains(t)&&!(t.closest&&t.closest('.gs-dd'))) closeSortSheet(); }
+function closeSortSheet(){ var m=document.getElementById('gsMenu'); if(m) m.remove(); document.removeEventListener('click',_gsOut,true); var bt=document.querySelector('.gs-chips .gs-dd'); if(bt) bt.removeAttribute('aria-expanded'); var sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 // 검색결과는 접지 않고 전부 바로 보여준다 (사장님 지시 2026-08-31 "몇 건 되지도 않는데 한번에 다 뜨게")
@@ -11229,6 +11237,13 @@ function appNavGo(ct){
 .gs-chip.on .gs-n{color:#fff}
 .gs-chip.gs-dd{display:inline-flex;align-items:center;gap:4px;padding:0 10px 0 13px;color:#191F28;font-weight:700}
 .gs-chip.gs-dd svg{color:#8B95A1}
+.gs-chip.gs-dd svg{transition:transform .15s ease}
+.gs-chip.gs-dd[aria-expanded=true] svg{transform:rotate(180deg)}
+.gs-menu{position:absolute;z-index:990;min-width:156px;background:#fff;border:1px solid #EDE8F3;border-radius:12px;box-shadow:0 6px 20px rgba(25,31,40,.12);padding:6px 0;animation:gsDrop .14s ease}
+@keyframes gsDrop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.gs-mi{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;border:0;background:none;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#333D4B;padding:11px 14px;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gs-mi:active{background:#F6F3FA}
+.gs-mi.on{color:#7C54C4;font-weight:700}
 #statusTabs{display:none!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
