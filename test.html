@@ -3621,8 +3621,7 @@ function getFiltered(dateStr){
     return DATA.filter(item=>{
       if(isExpired(item))return false;
       if(denyHit(fSearch, item.name))return false;   // 🚫 「다른 브랜드」 는 빼고 보여준다 (2026-09-21)
-      if(fMajor!=='전체'&&item.major!==fMajor)return false;
-      if(fMinors.length>0 && !fMinors.includes(item.minor))return false;
+      // 검색은 고른 분류와 상관없이 전체에서(2026-11-18)
       const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
@@ -3910,12 +3909,124 @@ function _sortRest(arr){
 }
 const SORT_OPTS=[['open','오픈일순'],['pop','인기순'],['new','방금 오픈순'],['end','마감 임박순']];
 // 정렬은 버튼 하나(지금 기준 이름) — 누르면 아래에서 세로 목록이 올라온다 (사장님 2026-10-24 「가로로 늘어놓지 말고 정렬 필터 아이콘 하나로」)
+// ── 분류·정렬 한 줄(사장님 2026-11-18): [대분류 ⌄][소분류 ⌄ 여러 개] ……… [정렬 ⌄] — 각 단추 바로 아래로 목록이 펼쳐진다. 위에 있던 대분류 칩 줄·소분류 줄은 숨겼다
+//   고른 분류는 그대로 기억한다(호갱노노 필터 줄 꼴 · 「고정」 글자·스위치 없음 — 사장님 2026-11-18): 로그인 계정이면 서버(member_filter_get/set, supabase/sql/member_filter_pin_160.sql) → 앱을 껐다 켜도·폰을 바꿔도 그 분류만. 로그인 전이면 이 기기에만
+//   맨 앞 ↻ = 초기화(분류 전체 + 정렬 기본 + 저장분 지움)
+var _GS_CHEV='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+var _GS_RST='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg>';
+var _GS_CK='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+var _fpin=null, _fpinT=null, _fpinTouched=false, _gsKind=null;
+function _gsEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){ return '&#'+c.charCodeAt(0)+';'; }); }
+function _gsBtn(kind,label,cls,extra){ return '<button type="button" class="gs-chip gs-dd'+(cls||'')+'" data-k="'+kind+'"'+(extra||'')+' aria-haspopup="menu" onclick="gsOpen(\''+kind+'\')"><span class="gs-t">'+label+'</span>'+_GS_CHEV+'</button>'; }
 function _sortChipsHtml(){
-  // 단추 하나(사장님 2026-11-18): 지금 고른 것 + ⌄ → 누르면 정렬 시트(전체·내 찜·인기순·방금 오픈순·마감 임박순)
+  try{ _fpinSync(); }catch(_){}
   var wish=(fSt==='wish'), n=0; try{ n=WISH.size; }catch(_){}
   var cur=wish?'wish':(_listSort==='open'?'all':_listSort), lab=wish?('내 찜 <span class="gs-n">'+n+'</span>'):(cur==='all'?'전체':((SORT_OPTS.filter(function(o){ return o[0]===cur; })[0]||[])[1]||'전체'));
-  return '<div class="gs-chips" role="group" aria-label="정렬"><button type="button" class="gs-chip gs-dd" data-gs="'+cur+'" aria-haspopup="dialog" onclick="openSortSheet()">'+lab+'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>';
+  var left='';
+  if(!wish){
+    var pin='', hasMaj=(fMajor!=='전체'&&typeof CATS!=='undefined'&&Object.prototype.hasOwnProperty.call(CATS,fMajor));
+    var act=(fMajor!=='전체'||_listSort!=='open');
+    left+='<button type="button" class="gs-chip gs-rst'+(act?' act':'')+'" aria-label="필터 초기화" onclick="fpinReset()">'+_GS_RST+'</button>';
+    left+=_gsBtn('maj', hasMaj?_gsEsc(fMajor):'대분류', hasMaj?(' sel'+pin):'');
+    if(hasMaj){ var ms=fMinors||[]; left+=_gsBtn('min', ms.length?(_gsEsc(ms[0])+(ms.length>1?' 외 '+(ms.length-1):'')):'소분류', ms.length?(' sel'+pin):''); }
+  }
+  return '<div class="gs-chips gs-bar" role="group" aria-label="분류와 정렬"><div class="gs-l">'+left+'</div>'+_gsBtn('sort', lab, '', ' data-gs="'+cur+'"')+'</div>';
 }
+function _gsFoot(){ return ''; }   // 고정 스위치·초기화 줄은 없앴다(2026-11-18) — 고르면 그대로 저장, 초기화는 줄 맨 앞 ↻
+function _gsFill(){
+  var m=document.getElementById('gsMenu'); if(!m) return; var h='';
+  if(_gsKind==='sort'){
+    var _cur=(fSt==='wish')?'wish':(_listSort==='open'?'all':_listSort), _wn=0; try{ _wn=WISH.size; }catch(_){}
+    h='<div class="gs-ml">'+[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(this.dataset.gs)"><span>'+o[1]+'</span>'+(on?_GS_CK:'')+'</button>'; }).join('')+'</div>';
+  }else if(_gsKind==='maj'){
+    h='<div class="gs-ml">'+['전체'].concat(Object.keys(CATS)).map(function(c){ var on=fMajor===c; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-v="'+_gsEsc(c)+'" onclick="gsCat(this.dataset.v)"><span>'+_gsEsc(c)+'</span>'+(on?_GS_CK:'')+'</button>'; }).join('')+'</div>'+_gsFoot();
+  }else{
+    h='<div class="gs-ml">'+liveMinors(fMajor,fMinors).map(function(mn){ var on=fMinors.indexOf(mn)>=0; return '<button type="button" role="menuitemcheckbox" aria-checked="'+on+'" class="gs-mi gs-ck'+(on?' on':'')+'" data-v="'+_gsEsc(mn)+'" onclick="gsMinor(this.dataset.v)"><span class="gs-box">'+_GS_CK+'</span><span>'+_gsEsc(mn)+'</span></button>'; }).join('')+'</div>'+_gsFoot();
+  }
+  m.innerHTML=h;
+}
+function _gsPlace(){
+  var m=document.getElementById('gsMenu'), bt=document.querySelector('.gs-chips .gs-dd[data-k="'+_gsKind+'"]'); if(!m||!bt) return;
+  var r=bt.getBoundingClientRect(), px=(window.pageXOffset||0), w=m.offsetWidth, left=(_gsKind==='sort')?(r.right+px-w):(r.left+px);
+  left=Math.max(px+8, Math.min(left, px+window.innerWidth-w-8));
+  m.style.left=Math.round(left)+'px'; m.style.top=Math.round(r.bottom+(window.pageYOffset||0)+6)+'px'; bt.setAttribute('aria-expanded','true');
+}
+function gsOpen(kind){
+  if(document.getElementById('gsMenu')){ var same=(_gsKind===kind); closeSortSheet(); if(same) return; }
+  if(!document.querySelector('.gs-chips .gs-dd[data-k="'+kind+'"]')) return;
+  _gsKind=kind; var m=document.createElement('div'); m.id='gsMenu'; m.className='gs-menu gs-menu-'+kind; m.setAttribute('role','menu'); document.body.appendChild(m);
+  _gsFill(); _gsPlace();
+  // 목록이 화면 아래(하단 탭바 포함 80px)로 넘치면 그만큼만 올려 준다
+  var _ov=m.getBoundingClientRect().bottom-(window.innerHeight-80); if(_ov>0){ try{ window.scrollBy({top:_ov,behavior:'smooth'}); }catch(_){ window.scrollBy(0,_ov); } }
+  setTimeout(function(){ document.addEventListener('click',_gsOut,true); },0);
+  try{ trackEvent('filter_menu',kind); }catch(_){}
+}
+function gsCat(c){ closeSortSheet(); if(c===fMajor) return; _fpinTouched=true; pickCat(c); }
+function gsMinor(v){
+  _fpinTouched=true; var i=fMinors.indexOf(v); if(i>=0) fMinors.splice(i,1); else fMinors.push(v);
+  try{ buildSubCats(); }catch(_){}
+  renderList(); _gsFill(); _gsPlace();
+  try{ trackEvent('subcat_pick',v); }catch(_){}
+}
+// ── 고른 분류 기억하기 ──
+//   지금 보이는 분류가 곧 기억하는 분류다: 목록을 그릴 때마다 맞춰 본다(_fpinSync) → 새 단추·옆 메뉴·필터 창·홈 어디서 바꿔도 같고, 거짓 표시가 생기지 않는다
+//   기기 저장분 mc_fpin = {k: 계정(로그인 전이면 ''), major, minors, d: 서버로 아직 못 보냄 1}. 다른 계정·로그아웃 때 것은 쓰지 않는다
+var _fpinSeen='전체|', _fpinOwner=null, _fpinGen=0;
+function _fpinSig(){ return fMajor+'|'+(fMinors||[]).join(','); }
+function _fpinKey(){ try{ var mm=memberGet(); return (mm&&mm.kakao_id&&mm.token)?String(mm.kakao_id):''; }catch(_){ return ''; } }
+function _fpinCache(v, dirty){ try{ var k=_fpinKey(); if(v) localStorage.setItem('mc_fpin', JSON.stringify({k:k, major:v.major, minors:v.minors||[], d:(dirty&&k)?1:0})); else if(k&&dirty) localStorage.setItem('mc_fpin', JSON.stringify({k:k, major:null, minors:[], d:1})); else localStorage.removeItem('mc_fpin'); }catch(_){} }
+function _fpinCall(fn, body){ return fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},body:JSON.stringify(body)}).then(function(r){ return r.json(); }); }
+// 서버 저장. 실패하면 기기 저장분에 「아직 못 보냄」 표시가 남아 다음에 열 때 다시 보낸다(fpinLoad)
+function _fpinSave(v){
+  var mm=memberGet(); if(!mm||!mm.token) return; var key=_fpinKey(), sig=v?(v.major+'|'+(v.minors||[]).join(',')):'전체|';
+  _fpinCall('member_filter_set',{p_token:mm.token, p_major:v?v.major:null, p_minors:v?(v.minors||[]):[]}).then(function(d){ if(d&&d.ok===true&&_fpinKey()===key&&_fpinSig()===sig) _fpinCache(v,false); }).catch(function(){});
+}
+function _fpinChips(){ try{ document.querySelectorAll('.cchip').forEach(function(b){ b.classList.toggle('on', b.dataset.cat===fMajor); }); paintCatChips(); buildSubCats(); var sa=document.getElementById('sideAllBtn'); if(sa) sa.classList.toggle('on', fMajor==='전체'); }catch(_){} }
+function _fpinSync(){
+  var key=_fpinKey(); if(_fpinOwner===null) _fpinOwner=key;
+  if(key!==_fpinOwner){   // 같은 화면에서 로그인·로그아웃·계정이 바뀜 → 앞 사람이 고른 분류를 넘기지 않는다
+    _fpinOwner=key; _fpinGen++; clearTimeout(_fpinT); _fpin=null;
+    try{ var c=JSON.parse(localStorage.getItem('mc_fpin')||'null'); if(c&&(c.k||'')!==key) localStorage.removeItem('mc_fpin'); }catch(_){}
+    fMajor='전체'; fMinors=[]; _fpinSeen='전체|'; _fpinChips();
+    setTimeout(function(){ try{ renderList(); }catch(_){} fpinLoad(); },0); return;
+  }
+  if(fSearch) return;
+  var sig=_fpinSig(); if(sig===_fpinSeen) return; _fpinSeen=sig; _fpinGen++; clearTimeout(_fpinT);
+  if(fMajor==='전체'){ _fpin=null; _fpinCache(null,true); if(key) _fpinT=setTimeout(function(){ _fpinSave(null); },300); return; }
+  _fpin={major:fMajor, minors:fMinors.slice()}; _fpinCache(_fpin,true);
+  var v=_fpin; if(key) _fpinT=setTimeout(function(){ if(_fpin===v) _fpinSave(v); },800);
+}
+function fpinReset(){
+  closeSortSheet(); fMinors=[]; _listSort='open';
+  if(fMajor!=='전체') pickCat('전체'); else{ try{ buildSubCats(); }catch(_){} renderList(); }
+  try{ trackEvent('filter_reset','1'); }catch(_){}
+}
+function _fpinApply(p){
+  if(!p||!p.major||typeof CATS==='undefined'||!Object.prototype.hasOwnProperty.call(CATS,p.major)) return false;
+  fMajor=p.major; fMinors=(p.minors||[]).filter(function(x){ return CATS[p.major].indexOf(x)>=0; }); _fpin={major:fMajor, minors:fMinors.slice()}; _fpinSeen=_fpinSig();
+  _fpinChips();
+  if(typeof DATA!=='undefined'&&DATA&&DATA.length){ try{ renderList(); }catch(_){} }   // 공구가 아직 안 왔으면 그리지 않는다(「공구가 없어요」가 먼저 뜨지 않게) — 도착하면 원래 그리는 곳이 그린다
+  return true;
+}
+function fpinLoad(){
+  try{
+    if(/[?&]q=/.test(location.search)) return;
+    var key=_fpinKey(); if(_fpinOwner===null) _fpinOwner=key;
+    var c=null; try{ c=JSON.parse(localStorage.getItem('mc_fpin')||'null'); }catch(_){}
+    if(!c||(c.k||'')!==key) c=null;
+    var fresh=(_fpinSig()==='전체|'&&_fpinSeen==='전체|');   // 카드 왕복 복원 등으로 이미 다른 분류를 보고 있으면 덮지 않는다
+    if(c&&c.major&&fresh) _fpinApply(c);
+    if(!key) return;
+    if(c&&c.d){ _fpinSave(c.major?{major:c.major, minors:c.minors||[]}:null); return; }   // 지난번에 서버로 못 보낸 것이 최신 → 다시 보내고 서버 값으로 덮지 않는다
+    var gen=_fpinGen;
+    _fpinCall('member_filter_get',{p_token:memberGet().token}).then(function(d){
+      if(!d||d.ok!==true||gen!==_fpinGen||_fpinKey()!==key||fSearch) return;   // 그 사이 분류를 바꿨거나 계정이 바뀌었거나 검색 중이면 덮지 않는다
+      if(d.pinned){ var sv={major:d.major, minors:d.minors||[]}; if(_fpinSig()===(sv.major+'|'+sv.minors.join(','))) _fpinCache(sv,false); else if(fresh||c){ if(_fpinApply(sv)) _fpinCache(sv,false); } }
+      else if(c&&c.major&&_fpinSig()===(c.major+'|'+(c.minors||[]).join(','))){ _fpinCache(null,false); _fpin=null; fMajor='전체'; fMinors=[]; _fpinSeen='전체|'; _fpinChips(); try{ renderList(); }catch(_){} }
+    }).catch(function(){});
+  }catch(_){}
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(fpinLoad, 0); }); else setTimeout(fpinLoad, 0);
 function gsPick(k){
   if(k==='wish'){ if(fSt!=='wish'){ _listSort='open'; toggleStab('wish',document.getElementById('stab-wish')); return; } k='all'; }
   var was=fSt;
@@ -3925,22 +4036,9 @@ function gsPick(k){
   renderList();
 }
 function sortGonggu(k){ setListSort(_listSort===k?'open':k); }
-function openSortSheet(){
-  // 단추 바로 아래로 펼침(2026-11-18) — 이름은 옛 호출 자리 때문에 그대로
-  if(document.getElementById('gsMenu')){ closeSortSheet(); return; }
-  var bt=document.querySelector('.gs-chips .gs-dd'); if(!bt) return; var r=bt.getBoundingClientRect();
-  var _cur=(fSt==='wish')?'wish':(_listSort==='open'?'all':_listSort), _wn=0; try{ _wn=WISH.size; }catch(_){}
-  var m=document.createElement('div'); m.id='gsMenu'; m.className='gs-menu'; m.setAttribute('role','menu');
-  m.style.left=Math.round(r.left+(window.pageXOffset||0))+'px'; m.style.top=Math.round(r.bottom+(window.pageYOffset||0)+6)+'px';
-  m.innerHTML=[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(\''+o[0]+'\')"><span>'+o[1]+'</span>'+(on?'<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>':'')+'</button>'; }).join('');
-  document.body.appendChild(m); bt.setAttribute('aria-expanded','true'); m.style.left=Math.max(8,Math.round(r.right+(window.pageXOffset||0)-m.offsetWidth))+'px';
-  // 목록이 화면 아래(하단 탭바 포함 80px)로 넘치면 그만큼만 올려 준다
-  var _ov=m.getBoundingClientRect().bottom-(window.innerHeight-80); if(_ov>0){ try{ window.scrollBy({top:_ov,behavior:'smooth'}); }catch(_){ window.scrollBy(0,_ov); } }
-  setTimeout(function(){ document.addEventListener('click',_gsOut,true); },0);
-  try{ trackEvent('sort_sheet','open'); }catch(_){}
-}
+function openSortSheet(){ gsOpen('sort'); }   // 옛 호출 자리용
 function _gsOut(e){ var m=document.getElementById('gsMenu'), t=e.target; if(m&&!m.contains(t)&&!(t.closest&&t.closest('.gs-dd'))) closeSortSheet(); }
-function closeSortSheet(){ var m=document.getElementById('gsMenu'); if(m) m.remove(); document.removeEventListener('click',_gsOut,true); var bt=document.querySelector('.gs-chips .gs-dd'); if(bt) bt.removeAttribute('aria-expanded'); var sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
+function closeSortSheet(){ var m=document.getElementById('gsMenu'); if(m) m.remove(); _gsKind=null; document.removeEventListener('click',_gsOut,true); document.querySelectorAll('.gs-chips .gs-dd[aria-expanded]').forEach(function(x){ x.removeAttribute('aria-expanded'); }); var sh=document.getElementById('sortSheet'); if(sh) sh.classList.remove('open'); }
 
 // ══ 통합검색: 검색어가 있으면 공구·핫딜·체험단을 한 화면에 섹션으로 ══
 // 검색결과는 접지 않고 전부 바로 보여준다 (사장님 지시 2026-08-31 "몇 건 되지도 않는데 한번에 다 뜨게")
@@ -11244,7 +11342,33 @@ function appNavGo(ct){
 .gs-mi{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;border:0;background:none;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#333D4B;padding:11px 14px;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .gs-mi:active{background:#F6F3FA}
 .gs-mi.on{color:#7C54C4;font-weight:700}
-.gs-chips{justify-content:flex-end}
+.gs-chips.gs-bar{justify-content:space-between;align-items:center;gap:6px;overflow:visible}
+.gs-l{display:flex;gap:6px;min-width:0;flex:1 1 auto;overflow-x:auto;scrollbar-width:none}
+.gs-l::-webkit-scrollbar{display:none}
+.gs-chips.gs-bar>.gs-dd{flex:none}
+.gs-chip.gs-dd .gs-t{display:inline-block;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.gs-chip.gs-dd.sel{background:#F0E6FA;color:#6B45B3}
+.gs-chip.gs-dd.sel svg{color:#6B45B3}
+.gs-chip.gs-rst{width:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;color:#B0B8C1;flex:none}
+.gs-chip.gs-rst.act{color:#4E5968}
+.gs-menu{display:flex;flex-direction:column;max-height:min(62vh,430px)}
+.gs-menu-min{min-width:188px}
+.gs-menu-maj{min-width:236px}
+.gs-menu-maj .gs-ml{display:grid;grid-template-columns:1fr 1fr}
+.gs-ml{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.gs-mi.gs-ck{justify-content:flex-start;gap:10px}
+.gs-mi .gs-box{width:18px;height:18px;border-radius:5px;border:1.5px solid #D1D6DB;flex:none;display:flex;align-items:center;justify-content:center;color:transparent;box-sizing:border-box}
+.gs-mi.on .gs-box{background:#7C54C4;border-color:#7C54C4;color:#fff}
+.gs-mi .gs-box svg{width:12px;height:12px}
+.gs-mf{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #F2F4F6;margin-top:4px;padding:6px 10px 0 14px;flex:none}
+.gs-pin{display:flex;align-items:center;gap:8px;border:0;background:none;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:-.02em;color:#4E5968;padding:8px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gs-pin i{width:34px;height:20px;border-radius:100px;background:#D1D6DB;position:relative;transition:background .15s ease;flex:none}
+.gs-pin i:after{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s ease}
+.gs-pin.on{color:#6B45B3}
+.gs-pin.on i{background:#7C54C4}
+.gs-pin.on i:after{transform:translateX(14px)}
+.gs-rs{border:0;background:none;font-family:inherit;font-size:13px;letter-spacing:-.02em;color:#8B95A1;padding:8px 4px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+#catChipRow,#subCatRow{display:none!important}
 #statusTabs{display:none!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
