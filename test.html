@@ -10363,6 +10363,9 @@ function closeChatMenu(){
 .comm-hdd{position:absolute;left:0;top:54px;z-index:20;min-width:170px;max-width:calc(100% - 4px);max-height:300px;overflow-y:auto;background:#fff;border:1px solid #EDE8F3;border-radius:12px;box-shadow:0 6px 20px rgba(25,31,40,.12);padding:6px 0}
 .comm-hdd button{display:block;width:100%;border:0;background:none;text-align:left;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#4E5968;padding:11px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comm-hdd button.on{color:#7C54C4;font-weight:700}
+.comm-hdd.comm-ldd{display:grid;grid-template-columns:1fr 1fr;min-width:232px;max-height:none}
+.comm-hdd.comm-ldd button{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.comm-hdd.comm-ldd button i{font-style:normal;font-size:12px;font-weight:500;color:#8B95A1}
 .comm-hs{padding:18px 0 16px;border-bottom:1px solid #F2F4F6}
 .comm-hs-h{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
 .comm-hs-h b{font-size:16px;font-weight:700;color:#191F28}
@@ -10410,7 +10413,7 @@ async function loadCommunity(force){
   renderCommunity();
 }
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
-function commPick(b){ _commBoard=Number(b)||0; _commShown=30; try{ _commHotDd=false; }catch(_){} renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
+function commPick(b){ _commBoard=Number(b)||0; _commShown=30; try{ _commHotDd=false; _commLocalDd=false; }catch(_){} renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
 function commMore(){ _commShown+=30; try{ _commHotDd=false; }catch(_){} renderCommunity(); }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3), n=new Date(Date.now()+9*3600e3); if(d.getUTCFullYear()===n.getUTCFullYear()&&d.getUTCMonth()===n.getUTCMonth()&&d.getUTCDate()===n.getUTCDate()) return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }   // 오늘 글은 시각, 지난 글은 날짜(한국 시간, 사장님 2026-10-27)
 // 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
@@ -10493,11 +10496,17 @@ let COMM_VIDEO_AD=null;
 if(/\/test\.html$/.test(location.pathname)&&/[?&]commad=1(&|$)/.test(location.search)) COMM_VIDEO_AD={src:'banners/commad_test.webm', poster:'', url:'https://example.com/?from=comm_video', cta:'더 알아보기'};
 let _commHotWin='72h', _commHotBoard=0, _commHotDd=false, _commHotIds=new Set();
 let _commAdIO=null, _commAdSeen=null, _commAdHold=false;
+// 우리동네 지역: 고른 곳을 기기에 기억해 다음에 우리동네를 열면 그 지역부터
+let _commLocalDd=false;
+try{ const _lv=Number(localStorage.getItem('mc_comm_local')); if(_lv&&COMM_LOCAL[_lv]) _commLocal=_lv; }catch(_){}
+function commLocalDd(){ _commLocalDd=!_commLocalDd; renderCommunity(); }
+function commLocalSel(id){ _commLocalDd=false; id=Number(id)||0; try{ if(id) localStorage.setItem('mc_comm_local',String(id)); else localStorage.removeItem('mc_comm_local'); }catch(_){} commLocalPick(id); }
 // 글·공지·광고 링크를 누르면 영상 소리를 끈다(글 읽기 화면·인앱 브라우저 뒤에서 소리가 계속 나지 않게). 인기 탭 게시판 목록은 바깥을 누르면 닫는다
 function _commAdQuiet(){ const v=document.getElementById('commAdVideo'); if(!v) return; try{ v.muted=true; const b=document.querySelector('.comm-vad-mute'); if(b){ b.textContent='🔇'; b.setAttribute('aria-label','소리 켜기'); b.setAttribute('aria-pressed','false'); } }catch(_){} }
 document.addEventListener('click', function(e){ try{
   const t=e.target; if(!t||!t.closest) return;
   if(t.closest('#commListWrap a')) _commAdQuiet();
+  if(_commLocalDd&&!t.closest('.comm-hf')){ _commLocalDd=false; const d0=document.querySelector('#commListWrap .comm-ldd'); if(d0) d0.remove(); const c0=document.querySelector('#commListWrap .comm-hchip[data-k=local]'); if(c0) c0.setAttribute('aria-expanded','false'); }
   if(_commHotDd&&!t.closest('.comm-hf')){ _commHotDd=false; const d=document.querySelector('#commListWrap .comm-hdd'); if(d) d.remove(); const c=document.querySelector('#commListWrap .comm-hchip[aria-expanded]'); if(c) c.setAttribute('aria-expanded','false'); }
 }catch(_){} }, true);
 function _commScore(p){ return (Number(p.comments)||0)*3+(Number(p.views)||0)*0.05+(Number(p.likes)||0)*2; }
@@ -10598,8 +10607,10 @@ function renderCommunity(){
   // ② 탭: 전체 · 인기 · 게시판…
   h+=`<div class="comm-tabs"><div class="comm-sc"><button class="${isAll?'on':''}" onclick="commPick(0)">전체</button><button class="${isHot?'on':''}" onclick="commPick(${COMM_HOT_ID})">인기</button>${boards.map(b=>`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
   if(_commBoard===COMM_LOCAL_ID){
+    // 지역 고르기 — 공구 탭 대분류처럼 단추 하나를 누르면 아래로 펼쳐진다(카페의 지역 수다방 17개 순서 그대로 · 사장님 2026-11-18)
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
-    h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${_commLocal===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
+    h+=`<div class="comm-hf"><button type="button" class="comm-hchip${_commLocal?' on':''}" data-k="local" aria-haspopup="menu" aria-expanded="${_commLocalDd}" onclick="commLocalDd()">${_commLocal?escHtml(COMM_LOCAL[_commLocal]||'지역'):'지역 전체'} ∨</button>`
+      +(_commLocalDd?`<div class="comm-hdd comm-ldd" role="menu">${[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button type="button" role="menuitem" class="${_commLocal===id?'on':''}" onclick="commLocalSel(${Number(id)})">${escHtml(nm)}${ln[id]?`<i>${ln[id]}</i>`:''}</button>`).join('')}</div>`:'')+'</div>';
   }
   if(isHot){
     const bn=_commHotBoard?((cnt[_commHotBoard]||{}).name||'전체'):'전체';
