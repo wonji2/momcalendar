@@ -10363,7 +10363,8 @@ function closeChatMenu(){
 .comm-hdd{position:absolute;left:0;top:54px;z-index:20;min-width:170px;max-width:calc(100% - 4px);max-height:300px;overflow-y:auto;background:#fff;border:1px solid #EDE8F3;border-radius:12px;box-shadow:0 6px 20px rgba(25,31,40,.12);padding:6px 0}
 .comm-hdd button{display:block;width:100%;border:0;background:none;text-align:left;font-family:inherit;font-size:14px;letter-spacing:-.02em;color:#4E5968;padding:11px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .comm-hdd button.on{color:#7C54C4;font-weight:700}
-.comm-hdd.comm-ldd{display:grid;grid-template-columns:1fr 1fr;min-width:232px;max-height:none}
+.comm-hdd.comm-ldd{display:grid;grid-template-columns:1fr 1fr;min-width:232px;max-height:none;left:auto;right:0}
+.comm-hf.comm-hf-r{justify-content:flex-end}
 .comm-hdd.comm-ldd button{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .comm-hdd.comm-ldd button i{font-style:normal;font-size:12px;font-weight:500;color:#8B95A1}
 .comm-hs{padding:18px 0 16px;border-bottom:1px solid #F2F4F6}
@@ -10591,7 +10592,7 @@ function renderCommunity(){
   // 게시판 탭: 최근 30일 글 수 많은 순 (사장님 2026-10-23) · 모양은 앱 시안(밑줄 탭)
   const cnt={}; all.forEach(p=>{ const k=_commBoardKey(p); cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
   if(!cnt[COMM_LOCAL_ID]) cnt[COMM_LOCAL_ID]={id:COMM_LOCAL_ID,name:'우리동네',n:0};   // 동네 글이 아직 없어도 탭은 둔다(고를 수 있게)
-  const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
+  const boards=Object.values(cnt).sort((a,b)=>((a.id===COMM_LOCAL_ID)-(b.id===COMM_LOCAL_ID))||(b.n-a.n));   // 글 많은 순 · 우리동네는 맨 끝(사장님 2026-11-18)
   _commHotCalc(); _commNoticeLoad();
   const isHot=(_commBoard===COMM_HOT_ID), isAll=!_commBoard;
   if(isHot&&_commHotBoard&&!cnt[_commHotBoard]) _commHotBoard=0;
@@ -10609,7 +10610,7 @@ function renderCommunity(){
   if(_commBoard===COMM_LOCAL_ID){
     // 지역 고르기 — 공구 탭 대분류처럼 단추 하나를 누르면 아래로 펼쳐진다(카페의 지역 수다방 17개 순서 그대로 · 사장님 2026-11-18)
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
-    h+=`<div class="comm-hf"><button type="button" class="comm-hchip${_commLocal?' on':''}" data-k="local" aria-haspopup="menu" aria-expanded="${_commLocalDd}" onclick="commLocalDd()">${_commLocal?escHtml(COMM_LOCAL[_commLocal]||'지역'):'지역 전체'} ∨</button>`
+    h+=`<div class="comm-hf comm-hf-r"><button type="button" class="comm-hchip${_commLocal?' on':''}" data-k="local" aria-haspopup="menu" aria-expanded="${_commLocalDd}" onclick="commLocalDd()">${_commLocal?escHtml(COMM_LOCAL[_commLocal]||'지역'):'지역 전체'} ∨</button>`
       +(_commLocalDd?`<div class="comm-hdd comm-ldd" role="menu">${[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button type="button" role="menuitem" class="${_commLocal===id?'on':''}" onclick="commLocalSel(${Number(id)})">${escHtml(nm)}${ln[id]?`<i>${ln[id]}</i>`:''}</button>`).join('')}</div>`:'')+'</div>';
   }
   if(isHot){
