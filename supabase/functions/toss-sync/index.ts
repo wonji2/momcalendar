@@ -103,15 +103,25 @@ async function getToken(force = false): Promise<string> {
 
 const T_CAT: [RegExp, string, string][] = [
   [/기저귀|분유|이유식|아기|유아|젖병|유모차|카시트|아동|키즈|어린이|장난감|물티슈/, "육아", "육아용품"],
-  [/유산균|오메가|비타민|홍삼|루테인|콜라겐|영양제|프로바이오|밀크씨슬|단백질|프로틴/, "건강", "건강기능성"],
-  [/라면|과자|음료|커피|생수|한우|삼겹|쌀|즉석|간편식|반찬|견과|과일|우유|만두|김치|닭가슴살|베이글|치즈|두유|볶음밥|돼지|소고기/, "식품", "간편식/밀키트"],
+  [/유산균|오메가|비타민|홍삼|루테인|콜라겐|영양제|프로바이오|밀크씨슬|단백질|프로틴|마그네슘|효소|포스파티딜|징코|칼슘|아연|철분/, "건강", "건강기능성"],
+  // 2026-11-18: 먹을거리가 기본값(리빙/생활용품)으로 떨어지던 것 — 낱말을 넓히고 소분류를 가른다. 건강식품은 위 줄에서 먼저 걸린다
+  [/생수|아메리카노|커피|음료|주스|두유|우유|콜라|사이다|(?![가-힣])|티백|레몬즙|착즙/, "식품", "음료/차/즙"],
+  [/고등어|굴비|갈치|오징어|새우|전복|장어|명란|생선|(?![가-힣])|멸치|황태/, "식품", "수산물/건해산"],
+  [/한우|삼겹|돼지|소고기|막창|족발|순대|닭가슴살|닭갈비|닭다리|오리|계란|유정란|구운란|달걀|갈비/, "식품", "정육/계란"],
+  [/고구마|감자|사과|귤|(?![가-힣])|딸기|과일|야채|채소|잡곡|쌀|현미|햇반/, "식품", "과일/야채"],
+  [/참기름|들기름|올리브오일|간장|된장|고추장|소스|쯔유|식초/, "식품", "장류/오일/소스"],
+  [/겉절이|김치|반찬|젓갈|장아찌/, "식품", "반찬"],
+  [/과자|칩스|파이|쿠키|초콜릿|젤리|사탕|빵|베이글|떡|견과|아몬드|치즈/, "식품", "간식/구황작물"],
+  [/라면|즉석|간편식|만두|볶음밥|감자탕|국밥|곰탕|찌개|(?![가-힣])|밀키트|돈까스/, "식품", "간편식/밀키트"],
   [/휴지|세제|섬유유연제|샴푸|치약|칫솔|세정|위생|마스크팩?|락스|수세미|지퍼백|비닐장갑/, "리빙", "청소/세제"],
   [/스킨케어|스킨토너|로션|크림|앰플|에센스|선크림|쿠션|틴트|립스틱|향수|클렌징|토너/, "뷰티", "스킨케어"],
   [/청소기|밥솥|에어프라이어|냉장고|세탁기|건조기|이어폰|노트북|모니터|선풍기|가습기|정수기/, "가전", "생활가전"],
   [/강아지|고양이|사료|반려|펫/, "반려동물", "사료"],
   [/수납|매트|이불|베개|커튼|블라인드|행거|정리함|러그/, "리빙", "침구/패브릭"],
 ];
-const T_BLOCK = /성인용|담배|전자담배|주류|와인|위스키/;
+// 2026-11-18 사장님 「이상한 건 거르게」: 속옷, 할인율 80% 이상(정가를 부풀린 묶음 — 40만원→4만원대 영양제 같은 것)은 안 올린다
+const T_BLOCK = /성인용|담배|전자담배|주류|와인|위스키|팬티|브라(자|렛)(?![가-힣])|속옷|보정속옷|란제리/;
+const T_MAX_DROP = 80;
 function tCat(name: string): [string, string] | null {
   if (T_BLOCK.test(name)) return null;
   for (const [re, a, b] of T_CAT) if (re.test(name)) return [a, b];
@@ -153,12 +163,17 @@ async function collectDeals(token: string, dry: boolean) {
     const org = Number(p.originalPrice ?? 0);
     const drop = Number(p.discountRate ?? 0);
     if (!name || !price || p.isSoldOut) continue;
+    if (drop >= T_MAX_DROP) continue;
     const cat = tCat(name);
     if (!cat) continue;
     const k = baseKey(name);
     if (seen.has(k)) continue;
     seen.add(k);
-    cands.push({ id: String(p.tacaItemId), name, price, org, drop, cat,
+    // 🔴 저장 키는 상품 주소(toss.shopping/t/<번호>)의 번호다. tacaItemId 로 저장하면 가격 추적(track)이 그 번호를
+    //   다른 상품으로 읽어 남의 가격을 덮는다(2026-11-18 고구마 9,070원 → 95,800원으로 덮임). 링크 발급만 tacaItemId 로 한다
+    const pid = (String(p.productUrl ?? "").match(/toss\.shopping\/t\/(\d+)/) || [])[1] || "";
+    if (!pid) continue;
+    cands.push({ id: String(p.tacaItemId), pid, name, price, org, drop, cat,
                  img: p.thumbnailUrl ?? "", endAt: p.endAt ?? (p._best ? midnight : null) });
   }
   log.passed = cands.length;
@@ -186,7 +201,7 @@ async function collectDeals(token: string, dry: boolean) {
   const picks: any[] = [];
   for (const c of cands) {
     if (ggKeys.has(baseKey(c.name))) { log.skipped.push(`공구중복:${c.name.slice(0, 20)}`); continue; }
-    if (recentIds.has(`toss_${c.id}`) || recentKeys.has(baseKey(c.name))) {
+    if (recentIds.has(`toss_${c.pid}`) || recentIds.has(`toss_${c.id}`) || recentKeys.has(baseKey(c.name))) {
       log.skipped.push(`최근등록:${c.name.slice(0, 20)}`); continue;
     }
     picks.push(c);
@@ -197,7 +212,7 @@ async function collectDeals(token: string, dry: boolean) {
     await sb("price_history?on_conflict=product_id,day", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(cands.map((c) => ({ product_id: `toss_${c.id}`, day: today, price: c.price }))),
+      body: JSON.stringify(cands.map((c) => ({ product_id: `toss_${c.pid}`, day: today, price: c.price }))),
     });
   }
 
@@ -215,7 +230,7 @@ async function collectDeals(token: string, dry: boolean) {
     const row = {
       title: c.name, link, major: c.cat[0], minor: c.cat[1],
       price: c.price, price_before: c.org > c.price ? c.org : null, discount_rate: c.drop > 0 ? c.drop : null,
-      img_url: c.img, source: "toss", product_id: `toss_${c.id}`,
+      img_url: c.img, source: "toss", product_id: `toss_${c.pid}`,
       is_lowest: false, deal_day: today, mall: "토스쇼핑",
       expires_at: c.endAt,
     };
