@@ -6934,6 +6934,7 @@ function toggleWish(id, btn, ev){
   fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),
     body:JSON.stringify({p_device:did, p_gonggu:id, p_on:on, p_token:_wishTok()})}).catch(()=>{});
   try{ trackEvent(on?'wish_add':'wish_del', String(id)); }catch(_){}
+  if(on && WISH.size>=(window.MC_REVIEW_WISH_MIN||3)){ try{ if(window.mcReviewMaybe) mcReviewMaybe('wish3'); }catch(_){} }   // ⭐ 인앱 리뷰(앱에서만 · 90일에 한 번)
 
   if(on){
     // 찜 피드백(위시버니·당근 방식, 2026-11-01): 하트 팝(.pop) + 짧은 진동 + 2초 토스트.
@@ -10859,6 +10860,110 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 <script id="mc-kw-js">
 (function(){
 'use strict';
+// ⭐ 인앱 리뷰 요청 + 🔔 ?kwadd=브랜드 (사장님 2026-11-18 「구글 플레이 첫 리뷰 확보용 인앱 리뷰 유도」「이 브랜드 다음 공구 오픈 알림 받기」)
+//   원본: scratchpad/review_kwadd_block.js · 끼우는 도구: scratchpad/patch_review_kwadd.cjs
+//   ── 인앱 리뷰 ──
+//   앱(안드로이드·아이폰 Capacitor)에서만, 좋은 행동 바로 뒤에만 OS 의 리뷰 창을 부탁한다.
+//     · 안드로이드 = Play In-App Review API · 아이폰 = SKStoreReviewController (둘 다 @capacitor-community/in-app-review 플러그인이 부른다)
+//     · 부르는 때: ① 공구 찜이 3개 이상이 된 순간(wish3) ② 키워드 알림을 등록한 직후(kw_add)
+//     · 쉬는 기간: 한 번 부탁하면 90일 동안 다시 안 부른다 · 한 기기에서 평생 3번까지 · 한 번 화면을 열 때(세션) 1번까지
+//     · 안 부르는 때: 웹·카톡 인앱·옛 버전 앱(플러그인 없음) · 화면이 가려져 있을 때 · 찜 직후 로그인 시트·알림 켜기 시트 등 무엇이든 떠 있을 때(그땐 쉬는 기간을 쓰지 않고 다음 기회로)
+//     · 이미 찜이 3개 넘는 손님도 다음 찜 때 한 번 부탁한다(첫 리뷰를 모으는 게 목적) — 「2개→3개가 된 순간」만이 아니다
+//     · 창이 실제로 떴는지는 OS 가 알려 주지 않는다(구글·애플이 스스로 횟수를 제한한다) → 우리 기록은 「부탁한 시각」이다
+//     · 끄기: MC_REVIEW_ON=false 한 줄
+//   기기 저장: localStorage mc_review {last, n, why}
+var MC_REVIEW_ON=true;
+(function(){
+  var K='mc_review', DAY=86400000, COOL=90*DAY, MAX=3, WAIT=2500, asked=false, busy=false;
+  window.MC_REVIEW_WISH_MIN=3;
+  function st(){ try{ var j=JSON.parse(localStorage.getItem(K)||'{}'); if(!j||typeof j!=='object'||Array.isArray(j)) return {}; return {last:Number(j.last)||0, n:Math.max(0,parseInt(j.n,10)||0), why:String(j.why||'')}; }catch(_){ return {}; } }
+  // 화면 위에 무엇이 떠 있는가 — 로그인 시트(#kkoSheet·#kkoBg), 부품 시트(.mc-sheet), 스포 시트·핫딜 시트·옆 메뉴·맘캘봇처럼 화면을 덮는 것 전부.
+  //   부품마다 클래스가 달라 이름으로 세지 않고, 화면 한가운데에 지금 보이는 것이 「고정으로 떠 있는 것」의 안쪽인지로 본다(검증자 2026-11-18: 로그인 시트 위로 리뷰 창이 불렸다)
+  function overlayUp(){
+    try{
+      if(window.__kkoAutoOpen) return true;
+      var k=document.getElementById('kkoSheet'); if(k && (k.style.bottom==='0px'||k.style.bottom==='0')) return true;
+      if(document.querySelector('.mc-sheet.open')) return true;
+      var pts=[[0.5,0.5],[0.5,0.8]];
+      for(var i=0;i<pts.length;i++){
+        var e=document.elementFromPoint(Math.round(innerWidth*pts[i][0]), Math.round(innerHeight*pts[i][1]));
+        while(e && e!==document.body && e!==document.documentElement){ if(getComputedStyle(e).position==='fixed') return true; e=e.parentElement; }
+      }
+      return false;
+    }catch(_){ return true; }   // 모르겠으면 안 부른다
+  }
+  function plug(){
+    try{
+      if(!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())) return null;
+      if(!(Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable('InAppReview'))) return null;   // 옛 버전 앱엔 없다 — 없으면 부탁 기록도 남기지 않는다
+      var P=Capacitor.Plugins&&Capacitor.Plugins.InAppReview; if(!P&&Capacitor.registerPlugin) P=Capacitor.registerPlugin('InAppReview');
+      return (P&&typeof P.requestReview==='function')?P:null;
+    }catch(_){ return null; }
+  }
+  // 지금 부탁해도 되는가(사유를 돌려준다 — 시험·점검용)
+  window.mcReviewCheck=function(){
+    if(!MC_REVIEW_ON) return 'off';
+    if(!plug()) return 'no_plugin';
+    if(asked) return 'session';
+    var s=st(), now=Date.now();
+    if((s.n||0)>=MAX) return 'max';
+    if(s.last && now-s.last<COOL) return 'cooldown';
+    return 'ok';
+  };
+  window.mcReviewMaybe=function(why, opt){
+    try{
+      if(busy || window.mcReviewCheck()!=='ok') return false;
+      busy=true;
+      setTimeout(function(){
+        busy=false;
+        try{
+          if(window.mcReviewCheck()!=='ok') return;
+          if(document.hidden) return;
+          if(!(opt&&opt.inSheet) && overlayUp()) return;   // 찜 직후 로그인·알림 시트 등이 떠 있으면 이번엔 넘긴다(쉬는 기간을 쓰지 않는다)
+          var P=plug(); if(!P) return;
+          var s=st(); s.last=Date.now(); s.n=(s.n||0)+1; s.why=String(why||'');
+          try{ localStorage.setItem(K, JSON.stringify(s)); }catch(_){ return; }   // 기록을 못 남기면 부르지 않는다(매번 뜨는 일을 막는다)
+          asked=true;
+          try{ trackEvent('review_ask', String(why||'')); }catch(_){}
+          var r=P.requestReview(); if(r&&r.catch) r.catch(function(e){ try{ trackEvent('review_err', String((e&&e.message)||e).slice(0,60)); }catch(_){} });
+        }catch(_){}
+      }, WAIT);
+      return true;
+    }catch(_){ busy=false; return false; }
+  };
+  // ── ?kwadd=브랜드 : 검색 페이지(브랜드 허브)의 「다음 공구 오픈 알림 받기」가 여는 화면 ──
+  //   앱: 키워드 알림 화면을 열고 입력칸에 브랜드를 채워 둔다. 등록은 손님이 「등록」을 눌러야 된다(자동 등록 안 함). 주소의 kwadd 는 한 번 쓰고 지운다
+//   웹: 키워드 알림은 앱 전용이라 「앱에서 받을 수 있어요」 시트 + 스토어 버튼(기기에 맞는 것)
+  function kwAdd(){
+    var kw='';
+    try{ kw=(new URLSearchParams(location.search).get('kwadd')||'').replace(/[<>"'&]/g,'').trim().slice(0,20); }catch(_){}
+    if(!kw) return;
+    try{ var u=new URL(location.href); u.searchParams.delete('kwadd'); history.replaceState(null,'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash); }catch(_){}
+    var isApp=false; try{ isApp=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(_){}
+    if(!isApp){ webGuide(kw); return; }   // 웹은 키워드 알림을 받을 길이 없다(알림 종·서버 동기화가 앱 전용) → 등록 화면 대신 앱 설치로
+    var tries=0;
+    (function go(){
+      tries++;
+      if(typeof window.openNotiCenterSheet!=='function'){ if(tries<40) setTimeout(go,250); return; }
+      try{ window.openNotiCenterSheet('kw'); }catch(_){ return; }
+      var n=0; (function fill(){ var inp=document.getElementById('kwInput'); if(inp){ inp.value=kw; try{ inp.focus(); }catch(_){} try{ trackEvent('kwadd_open', kw); }catch(_){} return; } if(++n<20) setTimeout(fill,150); })();
+    })();
+  }
+  function webGuide(kw){
+    var n=0; (function go(){
+      if(typeof mcSheet!=='function'||typeof escHtml!=='function'){ if(++n<40) setTimeout(go,250); return; }
+      var U={ios:'https://apps.apple.com/kr/app/id6826126083',android:'https://play.google.com/store/apps/details?id=com.wantsb.momcalendar'};
+      var ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
+      var btn=function(u,t,sub){ return '<a class="mc-btn'+(sub?' sub':'')+'" href="'+u+'" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:8px">'+t+'</a>'; };
+      var h='<div><div style="font-size:18px;font-weight:800;color:#191F28">'+escHtml(kw)+' 공구 오픈 알림</div>'
+        +'<div style="font-size:14px;color:#4E5968;margin-top:6px">알림은 맘캘린더 앱에서 받을 수 있어요</div><div style="margin-top:16px">'
+        +(ios?btn(U.ios,'앱스토어에서 받기'):and?btn(U.android,'구글 플레이에서 받기'):(btn(U.android,'구글 플레이에서 받기')+btn(U.ios,'앱스토어에서 받기',true)))
+        +'</div></div>';
+      try{ mcSheet('kwaddWebSheet', h); trackEvent('kwadd_web', kw); }catch(_){}
+    })();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', kwAdd); else kwAdd();
+})();
 var KW_NOTI_ON=true;     // 🔴 한 줄 킬스위치: false 면 🔔 숨김·타이머 정지 (롤백은 이 값 또는 패치 역적용)
 var APP_ONB_ON=true;     // 앱 첫 실행 로그인 온보딩 (앱에서만 동작)
 var K_AL='mc_kw_alarms', K_HIST='mc_noti_hist', K_SEEN='mc_noti_seen', K_KS='mc_kw_seen';
@@ -11109,7 +11214,7 @@ window.addKeywordAlarm=function(){
     al.push({kw:raw,nk:nk,types:['all'],on:true,created_at:Date.now(),base:{}}); added++;
   }
   if(!added){ toast(msg||'키워드를 입력해 주세요'); return; }
-  if(!lset(K_AL,al)) toast('저장하지 못했어요'); else toast('키워드를 등록했어요');
+  if(!lset(K_AL,al)) toast('저장하지 못했어요'); else { toast('키워드를 등록했어요'); try{ if(window.mcReviewMaybe) mcReviewMaybe('kw_add',{inSheet:true}); }catch(_){} }
   inp.value=''; renderKw();
   try{ trackEvent('kw_add', String(added)); }catch(_){}
   ensure().then(function(){ try{ scan(); }catch(_){} });

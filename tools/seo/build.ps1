@@ -392,6 +392,21 @@ $brandSlug = @{}
 foreach($b in $brandList){ if(-not $brandSlug.ContainsKey($b.brand)){ $brandSlug[$b.brand] = $b.slug } }
 # 검색량 1순위 · 건수 2순위 (검색되는 브랜드에 내부 링크 힘을 몰아준다, 2026-08-31)
 $topBrands = $brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false} | Select-Object -First 24
+# 🏷 인기 브랜드 상설 허브 (사장님 2026-11-18 「단기 종료 공구를 억지로 색인시키지 말고 인기 브랜드 상설 페이지를 1위용으로」)
+#   검색량 1순위·건수 2순위 상위 $HubTopN 개 브랜드 페이지(/g/, 주소 그대로) 맨 위에 ① 진행 횟수·평균 간격 ② 지난 공구 기록 표 ③ 「다음 공구 오픈 알림 받기」 를 넣는다.
+#   가격대 칸은 없다 — 공구 가격을 수집하지 않는다(지어내지 않는다). 기록이 3회 미만인 브랜드는 넣지 않는다(얇은 표를 만들지 않는다)
+#   되돌리기: $HubTopN = 0
+$HubTopN = 300
+#   고르는 법: 검색량 큰 순(같으면 건수 순)으로 내려가며 「서로 다른 오픈일 3회 이상」인 브랜드만 $HubTopN 개까지. 브랜드가 아닌 흔한 낱말(검색량 표에 섞여 있다)은 뺀다
+$HubTop = @{}
+$HubSkip = @('오일','가성비','자전거','대구','부산','스마트','멀티','리얼','코끼리')
+foreach($t in ($brandList | Sort-Object @{e={VolOf $_.brand};Descending=$true}, @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false})){
+  if($HubTop.Count -ge $HubTopN){ break }
+  if([int]$t.cnt -lt 3 -or $HubSkip -contains "$($t.brand)"){ continue }
+  $hd0 = @(ParseRows $t.raw @('who','name','od','ed','insta') | Where-Object { "$($_.od)".Length -ge 10 -and "$($_.od)".Substring(0,10) -le $today } | ForEach-Object { "$($_.od)".Substring(0,10) } | Sort-Object -Unique)
+  if($hd0.Count -ge 3){ $HubTop[$t.slug] = 1 }
+}
+Write-Output "인기 브랜드 상설 허브: $($HubTop.Count)개"
 
 # ══ 셀러 슬러그 먼저 ══
 # 카드에서 셀러 페이지로 링크하려면 주소를 미리 알아야 한다.
@@ -527,6 +542,37 @@ foreach($b in $brandList){
   }
 
   $body = "<div class=${Q}sec${Q}><p>$(HtmlEsc $lead)</p></div>"
+  # 🏷 인기 브랜드 상설 허브 — 맨 위: 진행 횟수·평균 간격 → 알림 받기 → 지난 공구 기록 표
+  $hubShown = $false; $hubFaq = @()
+  if($HubTop.ContainsKey($b.slug)){
+    $hRows = @($rows | Where-Object { "$($_.od)".Length -ge 10 -and "$($_.ed)".Length -ge 10 } | Sort-Object @{e='od';Descending=$true}, @{e='name';Descending=$false})
+    $hOds = @($hRows | ForEach-Object { "$($_.od)".Substring(0,10) } | Where-Object { $_ -le $today } | Sort-Object -Unique)
+    $hN = $hOds.Count
+    if($hN -ge 3){
+      $hAvg = 0
+      try{ $hAvg = [int][Math]::Round((([DateTime]::ParseExact($hOds[$hN-1],'yyyy-MM-dd',$null) - [DateTime]::ParseExact($hOds[0],'yyyy-MM-dd',$null)).TotalDays) / ($hN - 1)) }catch{}
+      if($hAvg -lt 1){ $hAvg = 1 }
+      $hWho = @($hRows | Where-Object { $_.who } | ForEach-Object { "$($_.who)" } | Sort-Object -Unique)
+      $hubShown = $true
+      $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 주기와 진행 횟수</h2><div class=${Q}stat${Q}>"
+      $body += "<div><b>$($hN)회</b>진행 횟수</div><div><b>약 $($hAvg)일</b>평균 간격</div><div><b>$($hOds[$hN-1])</b>최근 오픈</div>"
+      # 진행 셀러 수는 싣지 않는다 — 벤더용 영업 정보(판매 자산)다. 브랜드 한 곳의 횟수·간격·기록 표만 공개 (사장님 2026-11-19)
+      $body += "</div><p class=${Q}asof${Q}>맘캘린더 기록 $($hOds[0]) ~ $($hOds[$hN-1]) 기준 · 서로 다른 오픈일을 1회로 셉니다 · 기준일 $today</p>"
+      $body += "<a class=${Q}cta${Q} href=${Q}/?kwadd=$(Enc $b.brand)${Q}>$(HtmlEsc $b.brand) 다음 공구 오픈 알림 받기</a></div>"
+      $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 지난 공구 기록</h2><div class=${Q}tblw${Q}><table class=${Q}hist${Q}><thead><tr><th>오픈 ~ 마감</th><th>상품명</th><th>진행 셀러</th></tr></thead><tbody>"
+      $hShow = @($hRows | Select-Object -First 30)
+      foreach($hr in $hShow){
+        $hTag = $(if("$($hr.od)" -gt $today){ '<br><i>예정</i>' } elseif("$($hr.ed)" -ge $today){ '<br><i>진행 중</i>' } else { '' })
+        $hSel = $(if($hr.who -and $hr.insta){ "<a href=${Q}https://www.instagram.com/$($hr.insta)${Q} rel=${Q}nofollow noopener${Q}>$(HtmlEsc $hr.who)</a>" } elseif($hr.who){ HtmlEsc "$($hr.who)" } else { '-' })
+        $body += "<tr><td>$("$($hr.od)".Substring(2).Replace('-','.')) ~ $("$($hr.ed)".Substring(5).Replace('-','.'))$hTag</td><td>$(HtmlEsc $hr.name)</td><td>$hSel</td></tr>"
+      }
+      $body += "</tbody></table></div>"
+      if($hRows.Count -gt $hShow.Count){ $body += "<p class=${Q}asof${Q}>최근 $($hShow.Count)건을 실었습니다. 전체 기록은 $($hRows.Count)건입니다.</p>" }
+      $body += '</div>'
+      $hubFaq += @{ q="$($b.brand) 공구는 얼마나 자주 열리나요?"; a="맘캘린더 기록 기준 $($b.brand) 공구는 $($hOds[0])부터 $($hOds[$hN-1])까지 서로 다른 날짜로 $($hN)회 열렸고, 평균 약 $($hAvg)일 간격입니다. 셀러 일정에 따라 달라질 수 있습니다." }
+      $hubFaq += @{ q="$($b.brand) 다음 공구 알림은 어떻게 받나요?"; a="이 페이지의 「$($b.brand) 다음 공구 오픈 알림 받기」를 누르면 맘캘린더 키워드 알림 화면이 열립니다. 「$($b.brand)」를 등록해 두면 새 공구가 올라왔을 때 맘캘린더 알림함에서 알려 드립니다." }
+    }
+  }
   if($live.Count -gt 0){
     $body += "<div class=${Q}sec${Q}><h2>지금 진행 중인 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $live 20 $true $true) + '</div>'
   }
@@ -548,7 +594,7 @@ foreach($b in $brandList){
       }
     }
   }
-  if($past.Count -gt 0){
+  if($past.Count -gt 0 -and -not $hubShown){   # 허브 브랜드는 위의 기록 표가 같은 내용이다
     $body += "<div class=${Q}sec${Q}><h2>지난 $(HtmlEsc $b.brand) 공구</h2>" + (CardsHtml $past 40 $false $true) + '</div>'
   }
   # 건별 상세 페이지로 가는 크롤 경로 (최근 일정 8건) — 장기 마감(C 계층)으로는 링크하지 않는다(크롤 예산이 그쪽으로 샌다)
@@ -571,12 +617,13 @@ foreach($b in $brandList){
   if($cycB){
     $hist = "맘캘린더 기록으로 $($b.brand) 공구는 $($cycB.first)부터 $($cycB.last)까지 서로 다른 날짜로 $($cycB.n)회 열렸습니다. 오픈일 사이 간격의 중간값은 $($cycB.days)일로, 보통 $($cycB.label) 간격으로 다시 열렸습니다."
     if($soonTop){ $hist += " 다음 일정은 $($soonTop.od) 오픈입니다." }
-    $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 이력과 재공구 주기</h2><p>$(HtmlEsc $hist)</p></div>"
+    if(-not $hubShown){ $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구 이력과 재공구 주기</h2><p>$(HtmlEsc $hist)</p></div>" }
     $moreFaq += @{ q="$($b.brand) 공구는 얼마 만에 다시 열리나요?"; a="맘캘린더 기록 기준 $($b.brand) 공구는 서로 다른 날짜로 $($cycB.n)회 열렸고 오픈 간격의 중간값은 $($cycB.days)일($($cycB.label))입니다. 가장 최근 오픈은 $($cycB.last)입니다. 셀러마다 일정이 달라 다음 날짜는 셀러 공지로 확정됩니다." }
   }
   if($soon.Count -eq 0 -and $live.Count -eq 0){
     $moreFaq += @{ q="$($b.brand) 다음 공구 언제예요?"; a="지금 등록된 다음 일정은 없습니다.$(if($pastTop){ " 가장 최근 공구는 $($pastTop.od) 오픈$(if($pastTop.who){ "($($pastTop.who))" })이었습니다." })$(if($cycB){ " 보통 $($cycB.label) 간격으로 다시 열렸습니다." }) 새 일정이 등록되면 이 페이지 맨 위에 표시됩니다." }
   }
+  $moreFaq = @($hubFaq) + @($moreFaq)
   $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp $moreFaq
   $body += $ex.html
   $body += "<div class=${Q}sec${Q}><h2>다른 브랜드 공구</h2><div class=${Q}rel${Q}>"

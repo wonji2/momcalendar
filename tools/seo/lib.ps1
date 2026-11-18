@@ -223,6 +223,15 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .stat{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}
 .stat div{background:#fff;border:1px solid #ECE7F3;border-radius:10px;padding:9px 13px;font-size:12.5px}
 .stat b{display:block;font-size:16px;color:#5B3A8C}
+.tblw{overflow-x:auto;background:#fff;border:1px solid #ECE7F3;border-radius:12px}
+.hist{width:100%;border-collapse:collapse;font-size:13px}
+.hist th,.hist td{padding:9px 11px;border-bottom:1px solid #F4F0F9;text-align:left;vertical-align:top}
+.hist tr:last-child td{border-bottom:none}
+.hist th{font-size:12px;color:#7A7286;font-weight:700;white-space:nowrap}
+.hist td:first-child{white-space:nowrap;color:#4A4356;font-size:12.5px;width:1%}
+.hist td:last-child{width:28%;word-break:break-all}
+.hist td a{color:#5B3A8C;text-decoration:none}
+.hist i{font-style:normal;font-size:11px;color:#7C54C4;font-weight:700}
 .cta{display:block;text-align:center;background:#602090;color:#fff;text-decoration:none;border-radius:12px;padding:15px;font-weight:800;margin-top:22px}
 .rel{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .rel a{font-size:12.5px;background:#fff;border:1px solid #E3DCEF;border-radius:20px;padding:6px 12px;color:#5B3A8C;text-decoration:none}

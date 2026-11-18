@@ -251,6 +251,7 @@ async function expectTab(name, url, run) {
     const ls = sh('shell', 'ls', '/sdcard/Pictures/맘캘린더/');
     rec('카드 이미지 저장(Pictures/맘캘린더)', /e2e_card/.test(ls), ls.trim());
   }
+  { const rvp = await js(`String(!!(window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable('InAppReview')))`); rec('인앱 리뷰 플러그인(InAppReview) 앱에 들어 있음', rvp === 'true', rvp); }   // 2026-11-18 리뷰 요청 — 창 자체는 스토어로 깐 앱에서만 뜬다(여기선 플러그인 유무만)
   info('알림 설정 파일', await js(`(Capacitor.Plugins.MomcalLink.pushReady().then(x=>JSON.stringify(x)).catch(e=>'ERR '+e))`));
   {
     const r = await js(`(Capacitor.Plugins.MomcalLink.widgetId().then(x=>x.id).catch(e=>'ERR '+e))`);
