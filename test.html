@@ -2733,7 +2733,6 @@ window.slimAdClick=function(id){
 <div id="listView">
   <div class="week-wrap" id="weekWrap">
     <div class="week-scroll" id="weekTabs"></div>
-    <div style="font-size:10.5px;color:#9a9aa5;padding:2px 14px 0;text-align:center">날짜를 누르면 그날 오픈 공구만 보여요 · 한 번 더 누르면 전체</div>
     <div class="cat-chip-row" id="catChipRow">
       <button class="cchip on" data-cat="전체" onclick="pickCat('전체',this)">전체</button>
       <button class="cchip" data-cat="육아" onclick="pickCat('육아',this)">육아</button>
@@ -3795,9 +3794,10 @@ function renderList(){
       if(!filterCat(item))return false;
       return item.openDate===dayFilter; // 그날 오픈만
     }).sort(cmpDatePartner);
-    el.innerHTML=arr.length
-      ?_appJoin(arr.map(item=>renderCard(item,dayFilter)))
-      :`<div class="empty">이 날 오픈하는 공구가 없어요 🙅</div>`;
+    const arr2=_applyListSort(arr);   // 날짜를 고른 채로도 정렬(2026-11-18)
+    el.innerHTML=_sortChipsHtml()+(arr2.length
+      ?_appJoin(arr2.map(item=>renderCard(item,dayFilter)))
+      :`<div class="empty">이 날 오픈하는 공구가 없어요 🙅</div>`);
     return;
   }
 
