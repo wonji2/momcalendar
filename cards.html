@@ -13,6 +13,7 @@
           그 자리에서 DB 를 읽어 그리고(= 실시간), html2canvas 로 1080×1920 PNG 를 만들어 내려받기 단추를 붙인다.
           서버가 미리 만들어 두는 daily/today.png(07:40 판)와 달리 **누른 그 시각 기준**이다.
   쪽수:   공구카드는 1쪽부터 그려 보고 항목이 없는 쪽이 나오면 멈춘다(최대 4쪽). 핫딜은 오늘 올라온 딜이 0건이면 안 만든다.
+          핫딜은 9칸 꽉 찬 장만 여러 장(18건↑ 2장 · 27건↑ 3장 …, 사장님 2026-11-18).
   내려받기: PNG 는 blob 주소 + download 속성(크롬·사파리·삼성 인터넷 OK). 카톡·인스타 안 브라우저는 파일 저장이 안 되므로 바깥 브라우저로 여는 단추를 띄운다.
   주소:   https://momcalendar.com/cards.html            ← 오늘
           https://momcalendar.com/cards.html?d=2026-11-05 ← 다른 날(공구카드만 의미 있음. 핫딜은 그날 올라온 것)
@@ -144,13 +145,28 @@ async function run(){
     const todayN=(w.__DATA&&w.__DATA[1]&&w.__DATA[1].length)||w.document.querySelectorAll('#L1 .th').length;
     if(!todayN){ rmPlaceholder(); $('out').insertAdjacentHTML('beforeend','<div class="card"><div class="t">핫딜카드<span>오늘 올라온 핫딜 0건 · 만들지 않음</span></div></div>'); }
     else{
-      await waitFor(()=>[...w.document.querySelectorAll('#L1 img.th')].every(i=>i.complete),20000,'핫딜 사진').catch(()=>{});
-      // 다른 몰 사진은 CORS 머리말이 없어 캔버스에 못 싣는다(11-01 실측: 11번가·쿠팡·오늘의집 빈 칸) → 우리 서버 중계(img-proxy)로 바꿔 다시 받는다
-      await Promise.all([...w.document.querySelectorAll('#L1 img.th')].map(i=>new Promise(res=>{ const src=i.getAttribute('src')||''; if(!/^https?:/.test(src)||src.includes('/functions/v1/img-proxy')){ res(); return; }
-        i.crossOrigin='anonymous'; i.onload=()=>res(); i.onerror=()=>res(); i.src=IMG_PROXY+'?u='+encodeURIComponent(src); setTimeout(res,15000); })));
-      await sleep(500);
-      const blob=await snap(w,'card',true); rmPlaceholder();
-      addCard(`${md} 핫딜카드`, `오늘 ${todayN}건`, blob, `hotdeal_${day}.png`);
+      // 📄 여러 장(사장님 2026-11-18 「핫딜 쌓인 카드도 18개 이상이면 사진 2장 이렇게 누적돼서 뽑히게」): 한 장 9칸(3×3), 꽉 찬 장만 —
+      //    17건까지 1장 · 18~26건 2장 · 27건~ 3장 … 남는 딜은 마지막 장의 「+N건 더」. 쪽 나누는 식은 tools/daily/make-hotdeal-card.mjs 와 같다
+      const PER=9, pages=Math.max(1,Math.floor(todayN/PER));
+      rmPlaceholder();
+      for(let p=1;p<=pages;p++){
+        placeholder(`${md} 핫딜카드${pages>1?' '+p:''}`); setSt(`핫딜카드 ${pages>1?p+'/'+pages+'장 ':''}그리는 중…`);
+        if(pages>1){
+          const all=w.__DATA[1].map(h=>({...h,isNew:true})), part=all.slice((p-1)*PER,p*PER);
+          w.document.getElementById('L1').innerHTML=w.eval('listHTML')(part);
+          const rest=all.length-p*PER;
+          w.document.getElementById('M1').textContent=rest>0?(p<pages?`+ ${rest}건 더 (다음 장)`:`+ ${rest}건 더`):'';
+          const cn=w.document.querySelector('.col-n'); if(cn) cn.textContent=`오늘 올라온 핫딜 ${all.length}건 · ${p}/${pages}`;
+        }
+        await waitFor(()=>[...w.document.querySelectorAll('#L1 img.th')].every(i=>i.complete),20000,'핫딜 사진').catch(()=>{});
+        // 다른 몰 사진은 CORS 머리말이 없어 캔버스에 못 싣는다(11-01 실측: 11번가·쿠팡·오늘의집 빈 칸) → 우리 서버 중계(img-proxy)로 바꿔 다시 받는다
+        await Promise.all([...w.document.querySelectorAll('#L1 img.th')].map(i=>new Promise(res=>{ const src=i.getAttribute('src')||''; if(!/^https?:/.test(src)||src.includes('/functions/v1/img-proxy')){ res(); return; }
+          i.crossOrigin='anonymous'; i.onload=()=>res(); i.onerror=()=>res(); i.src=IMG_PROXY+'?u='+encodeURIComponent(src); setTimeout(res,15000); })));
+        await sleep(500);
+        const blob=await snap(w,'card',true); rmPlaceholder();
+        const shown=pages>1?`${(p-1)*PER+1}~${Math.min(p*PER,todayN)}번째 · 오늘 ${todayN}건`:`오늘 ${todayN}건`;
+        addCard(`${md} 핫딜카드${pages>1?' '+p:''}`, shown, blob, `hotdeal_${day}${p>1?'_'+p:''}.png`);
+      }
     }
     setSt(`완료 · ${made.length}장 · ${new Date(Date.now()+9*3600e3).toISOString().slice(11,16)} 기준`);
     if(made.length>1) $('zip').style.display='block';
