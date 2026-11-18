@@ -97,10 +97,9 @@ async function getToken(force = false): Promise<string> {
 // ─────────── 하루특가 수집 → 핫딜 등록 ───────────
 // 토스는 할인율을 주므로 가격이력 없이도 그날 바로 판정할 수 있다.
 // 동시에 매일 같은 상품을 다시 조회할 수 있어 이력도 쌓인다(쿠팡은 둘 다 안 된다).
-const T_MIN_DROP = 30;      // 사장님 지시(2026-08-06): 찐핫딜만. 30% 미만은 안 올린다
-const T_MAX_DROP = 70;      // 이 이상은 정가 뻥튀기 의심
-const T_MAX_PRICE = 150000;
-const T_MAX_PER_RUN = 12;   // 하루 상한(도배 방지)
+// 🔴 사장님 지시 2026-11-18: 「수집조건 니가 맘대로 정하지 말고 토스 메인에서 띄워주는 핫딜·지금 인기상품 그대로 퍼와」
+//   → 할인율 30~70%·15만원 이하·회당 12건 조건을 없앴다(8/6 「30% 미만은 안 올린다」 판 폐기).
+//   남긴 것: 품절 제외 · 같은 상품 두 번 안 올림 · 공구 중인 상품 제외(사장님 지시) · 성인·담배·주류.
 
 const T_CAT: [RegExp, string, string][] = [
   [/기저귀|분유|이유식|아기|유아|젖병|유모차|카시트|아동|키즈|어린이|장난감|물티슈/, "육아", "육아용품"],
@@ -112,10 +111,9 @@ const T_CAT: [RegExp, string, string][] = [
   [/강아지|고양이|사료|반려|펫/, "반려동물", "사료"],
   [/수납|매트|이불|베개|커튼|블라인드|행거|정리함|러그/, "리빙", "침구/패브릭"],
 ];
-const T_BLOCK = /브라(자|렛)?[\s\-(]|팬티|속옷|보정속옷|성인|담배|전자담배|주류|와인|위스키|상품권|기프티콘/;
-const T_LUXURY = /루이비통|샤넬|구찌|프라다|디올|에르메스|버버리|보테가|셀린느|생로랑|발렌시아가|몽클레어|명품/;
+const T_BLOCK = /성인용|담배|전자담배|주류|와인|위스키/;
 function tCat(name: string): [string, string] | null {
-  if (T_BLOCK.test(name) || T_LUXURY.test(name)) return null;
+  if (T_BLOCK.test(name)) return null;
   for (const [re, a, b] of T_CAT) if (re.test(name)) return [a, b];
   return ["리빙", "생활용품"];
 }
@@ -133,9 +131,18 @@ async function collectDeals(token: string, dry: boolean) {
   const log: any = { fetched: 0, passed: 0, picked: 0, skipped: [] as string[], deals: [] as any[] };
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
-  const r = await call("GET", "/products/today-deals?size=50", token);
-  const items: any[] = r.body?.success?.items ?? [];
-  log.fetched = items.length;
+  // 토스 메인의 「오늘의 특가」 전부 + 「지금 인기상품」 — 토스가 보여 주는 순서 그대로
+  const r = await call("GET", "/products/today-deals?size=50", token, undefined, 45000);
+  const deals: any[] = r.body?.success?.items ?? [];
+  let best: any[] = [];
+  try {
+    const rb = await call("GET", "/products/best-selling?size=20", token, undefined, 45000);
+    best = (rb.body?.success?.items ?? []).map((p: any) => ({ ...p, _best: true }));
+  } catch (_) { /* 인기상품을 못 읽어도 특가는 올린다 */ }
+  const items: any[] = [...deals, ...best];
+  log.fetched = items.length; log.deals_n = deals.length; log.best_n = best.length;
+  // 인기상품은 마감 시각이 없다 → 오늘 자정(한국)에 내린다. 다음 날 또 인기면 다시 올라온다
+  const midnight = new Date(`${today}T23:59:59+09:00`).toISOString();
 
   // 1) 필터 + 중복 제거
   const seen = new Set<string>();
@@ -146,18 +153,15 @@ async function collectDeals(token: string, dry: boolean) {
     const org = Number(p.originalPrice ?? 0);
     const drop = Number(p.discountRate ?? 0);
     if (!name || !price || p.isSoldOut) continue;
-    if (drop < T_MIN_DROP || drop > T_MAX_DROP) continue;
-    if (price > T_MAX_PRICE) continue;
     const cat = tCat(name);
     if (!cat) continue;
     const k = baseKey(name);
     if (seen.has(k)) continue;
     seen.add(k);
     cands.push({ id: String(p.tacaItemId), name, price, org, drop, cat,
-                 img: p.thumbnailUrl ?? "", endAt: p.endAt ?? null });
+                 img: p.thumbnailUrl ?? "", endAt: p.endAt ?? (p._best ? midnight : null) });
   }
   log.passed = cands.length;
-  cands.sort((a, b) => b.drop - a.drop);
 
   // 2) 공구로 파는 상품은 핫딜에서 뺀다 (사장님 지시)
   const gg = await sb(`gonggu?select=name&approved=eq.true&open_date=gte.${today}`);
@@ -181,7 +185,6 @@ async function collectDeals(token: string, dry: boolean) {
 
   const picks: any[] = [];
   for (const c of cands) {
-    if (picks.length >= T_MAX_PER_RUN) break;
     if (ggKeys.has(baseKey(c.name))) { log.skipped.push(`공구중복:${c.name.slice(0, 20)}`); continue; }
     if (recentIds.has(`toss_${c.id}`) || recentKeys.has(baseKey(c.name))) {
       log.skipped.push(`최근등록:${c.name.slice(0, 20)}`); continue;
@@ -202,13 +205,16 @@ async function collectDeals(token: string, dry: boolean) {
   for (const c of picks) {
     let link = "";
     if (!dry) {
-      const lr = await call("POST", "/links", token, { tacaItemId: Number(c.id), publisherId: PUB });
-      link = lr.body?.success?.shortUrl ?? "";
+      // 한 건의 응답이 늦어도(pg_net 이 바쁠 때 22초를 넘긴다) 나머지는 계속 올린다 — 못 올린 건 다음 회차가 다시 집는다
+      try {
+        const lr = await call("POST", "/links", token, { tacaItemId: Number(c.id), publisherId: PUB }, 40000);
+        link = lr.body?.success?.shortUrl ?? "";
+      } catch (_) { link = ""; }
       if (!link) { log.skipped.push(`링크실패:${c.name.slice(0, 20)}`); continue; }
     }
     const row = {
       title: c.name, link, major: c.cat[0], minor: c.cat[1],
-      price: c.price, price_before: c.org, discount_rate: c.drop,
+      price: c.price, price_before: c.org > c.price ? c.org : null, discount_rate: c.drop > 0 ? c.drop : null,
       img_url: c.img, source: "toss", product_id: `toss_${c.id}`,
       is_lowest: false, deal_day: today, mall: "토스쇼핑",
       expires_at: c.endAt,
