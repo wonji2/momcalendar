@@ -118,6 +118,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 /* 토스트 */
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#222;color:#fff;font-size:13px;font-weight:600;padding:9px 18px;border-radius:20px;z-index:999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap}
 #toast.on{opacity:1}
+.btn-ok{display:block;width:100%;height:44px;margin:10px 0 8px;border:none;border-radius:10px;background:var(--p);color:#fff;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;cursor:pointer}
+.btn-ok:disabled{opacity:.5}
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
@@ -646,6 +648,7 @@ function renderList(){
       </div>
       <div class="gname">${g.name}</div>
       <div class="gdate">📅 ${g.open_date}${g.end_date?' ~ '+g.end_date:''}</div>
+      ${pen&&!exp?`<button class="btn-ok" onclick="confirmG(${g.id},this)">✅ 이 일정 맞아요, 올려주세요</button>`:''}
       <div class="acts">
         <button class="btn-ed" onclick="openEdit(${g.id})">✏️ 수정</button>
         <button class="btn-dl" onclick="delG(${g.id})">삭제</button>
@@ -1078,6 +1081,16 @@ async function doEdit(){
 }
 
 // ── 삭제 ──
+// 승인대기 공구를 셀러 본인이 「맞다」고 확인하면 그 자리에서 올린다(서버 seller_confirm_gonggu, 2026-11-18)
+async function confirmG(id,btn){
+  if(btn){ if(btn.disabled) return; btn.disabled=true; }
+  const d=await sellerRpc('seller_confirm_gonggu',{p_id:id});
+  if(!d){ if(btn) btn.disabled=false; showToast('올리지 못했어요. 다시 눌러 주세요.'); return; }
+  if(d.ok&&d.approved) showToast('✅ 올렸어요! 사이트에 바로 보여요');
+  else if(d.msg==='ended') showToast('이미 끝난 일정이에요');
+  else showToast('방장이 확인한 뒤 올려드릴게요');
+  await loadData();
+}
 async function delG(id){
   if(!confirm('이 공구를 삭제할까요?'))return;
   try{

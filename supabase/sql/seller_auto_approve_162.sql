@@ -14,6 +14,13 @@ set search_path to 'public'
 as $fn$
 declare n int;
 begin
+  -- 집계 사이트 단서로 들어와 「셀러 원본 확인 전」(집계미확인)으로 보류된 행을 셀러가 자기 페이지에서 직접 고쳤으면(source='seller')
+  -- 셀러 본인이 확인한 것이다 → 그 보류만 푼다. 다른 사유의 보류(내 공구 창·공식 계정·손으로 내린 것)는 건드리지 않는다.
+  -- (2026-11-18 나도살림: 셀러 화면엔 승인대기 2건, 관리자 대기 목록엔 0건이던 원인)
+  delete from gonggu_hold h using gonggu g
+   where g.id = h.id and g.source = 'seller' and g.approved = false and h.reason like '집계미확인%'
+     and coalesce(g.end_date, g.open_date) >= to_char((now() at time zone 'Asia/Seoul')::date, 'YYYY-MM-DD')
+     and not seller_blocked(g.insta, g.influencer);
   update gonggu g
      set approved = true
    where g.source = 'seller'
