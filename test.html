@@ -10339,7 +10339,9 @@ function closeChatMenu(){
 #commListWrap{letter-spacing:-.02em}
 .comm-ticker{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:0 12px;height:40px;border-radius:12px;background:#F7F2FD;text-decoration:none;color:#191F28;-webkit-tap-highlight-color:transparent}
 .comm-ticker b{flex:none;font-size:13px;font-weight:700;color:#7C54C4}
-.comm-ticker span{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comm-ticker .tk-w{flex:1;min-width:0;height:40px;overflow:hidden}
+.comm-ticker .tk-l{will-change:transform}
+.comm-ticker .tk-i{display:block;height:40px;line-height:40px;font-size:13.5px;font-weight:600;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .comm-ticker i{flex:none;font-style:normal;font-size:16px;color:#8B95A1;line-height:1}
 .comm-nstrip{display:block;padding:11px 0;border-bottom:1px solid #F2F4F6;text-decoration:none;color:#4E5968;font-size:13px;font-weight:500;-webkit-tap-highlight-color:transparent}
 .comm-nstrip span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -10476,10 +10478,10 @@ function commGo(url, ev){
 }
 // ── 커뮤니티 마미톡형 고도화 (사장님 오더 2026-11-18 · test.html 선반영) ──
 //   따른 화면: references/mamitalk_2026-10-25/01.jpg (인기 칩·「다들 이런 얘기하는 중」·조회/댓글 메타). 민트는 전부 맘캘 라일락(#7C54C4 · 틴트 #F7F2FD)으로
-//   구성: ① 인기글 티커(탭 위) ② 탭 [전체][인기][게시판…] ③ 공지 한 줄 ④ 상단 고정 공지 카드(전체·인기, 최대 3) ⑤ 전체 탭 3번째 글 뒤 「최신 인기글」 가로 슬라이드 ⑥ 전체 탭 4번째 글 뒤 영상 광고(COMM_VIDEO_AD 가 비면 안 보임)
+//   구성: ① 인기글 띠(탭 위 · 인기글 5개가 돌아가며) ② 탭 [전체][인기][게시판…] ③ (공지 한 줄은 없앰 2026-11-18) ④ 상단 고정 공지 카드(전체·인기, 최대 3 · 관리자 화면에서 작성) ⑤ 전체 탭 3번째 글 뒤 「최신 인기글」 가로 슬라이드 ⑥ 전체 탭 4번째 글 뒤 영상 광고(COMM_VIDEO_AD 가 비면 안 보임)
 //   인기 점수 = 댓글×3 + 조회×0.05 + 좋아요×2 · 인기글 기준 = 최근 7일 점수 상위 10개(점수 10 이상) · 공지글(is_notice)은 순위에서 뺀다
 const COMM_HOT_ID=-2;
-// 상단 고정 공지(최대 3건) — 여기만 고치면 티커 아래 공지 한 줄·고정 카드가 같이 바뀐다
+// 상단 고정 공지(최대 3건) 기본값 — 관리자 화면에서 한 번이라도 저장하면 그 내용으로 바뀐다(_commNoticeLoad)
 const COMM_PINNED_NOTICES=[
   {badge:'공지', title:'공구알림방에서 오늘 오픈 소식 받기', url:'https://open.kakao.com/o/gJ3NIKCh'},
   {badge:'안내', title:'맘캘린더 공식 인스타그램 @momcal_official', url:'https://instagram.com/momcal_official'},
@@ -10506,7 +10508,33 @@ function _commHotList(hours, board){
     .sort((a,b)=>b[0]-a[0]||new Date(b[1].posted_at)-new Date(a[1].posted_at)).map(x=>x[1]);
 }
 function _commHotCalc(){ const l=_commHotList(168,0).filter(p=>_commScore(p)>=10).slice(0,10); _commHotIds=new Set(l.map(p=>p.article_id)); return l; }
-function _commTop1(){ return _commHotList(72,0)[0]||_commHotList(168,0)[0]||_commHotList(720,0)[0]||null; }
+// 띠에 돌릴 인기글: 최근 72시간에서, 3개가 안 되면 최근 7일, 그래도 없으면 30일
+function _commTopN(n){ let l=_commHotList(72,0); if(l.length<3) l=_commHotList(168,0); if(!l.length) l=_commHotList(720,0); return l.slice(0,n); }
+let _commTkT=null, _commTkI=0;
+function _commTickerRun(n){
+  clearInterval(_commTkT); _commTkT=null; _commTkI=0;
+  if(!document.getElementById('commTkL')||n<2) return;
+  try{ if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(_){}   // 움직임 줄이기를 켠 폰은 멈춰 둔다
+  _commTkT=setInterval(function(){
+    const el=document.getElementById('commTkL'); if(!el){ clearInterval(_commTkT); _commTkT=null; return; }
+    if(document.hidden||!el.offsetParent) return;   // 안 보일 땐 쉰다
+    _commTkI++; el.style.transition='transform .45s cubic-bezier(.4,0,.2,1)'; el.style.transform='translateY(-'+(_commTkI*40)+'px)';
+    if(_commTkI>=n) setTimeout(function(){ const e2=document.getElementById('commTkL'); if(!e2) return; e2.style.transition='none'; e2.style.transform='translateY(0)'; _commTkI=0; },520);   // 끝(첫 글 복사본)까지 가면 소리 없이 처음으로
+  }, 2800);
+}
+// 고정 공지는 관리자 화면(배너 탭 › 커뮤니티 고정 공지)에서 쓴다 — banners 표의 설정 줄(type=config, title=comm_notice, subtitle=JSON 배열 [{badge,title,url}])
+//   설정 줄이 아직 없으면 위 COMM_PINNED_NOTICES 기본값, 있으면 그 내용(빈 배열이면 공지 없음). 주소는 https 만 받는다
+let _commNoticeAsked=false;
+function _commNoticeLoad(){
+  if(_commNoticeAsked||typeof window._mcBanners!=='function') return; _commNoticeAsked=true;
+  try{ window._mcBanners().then(function(all){
+    const cf=(all||[]).filter(function(x){ return x&&x.type==='config'&&x.title==='comm_notice'; })[0]; if(!cf) return;
+    let a=null; try{ a=JSON.parse(cf.subtitle||'[]'); }catch(_){ return; } if(!Array.isArray(a)) return;
+    const ok=a.filter(function(n){ return n&&typeof n.title==='string'&&n.title.trim()&&/^https:\/\/[^\s"'<>]+$/.test(String(n.url||'')); }).slice(0,3).map(function(n){ return {badge:String(n.badge||'').trim().slice(0,6), title:n.title.trim().slice(0,60), url:String(n.url)}; });
+    COMM_PINNED_NOTICES.splice.apply(COMM_PINNED_NOTICES,[0,COMM_PINNED_NOTICES.length].concat(ok));
+    const v=document.getElementById('commView'); if(v&&v.style.display!=='none'&&_commData) renderCommunity();
+  }).catch(function(){ _commNoticeAsked=false; }); }catch(_){ _commNoticeAsked=false; }
+}
 function _commNum(n){ try{ return Number(n||0).toLocaleString('ko-KR'); }catch(_){ return String(n||0); } }
 function _commId(p){ return Number(p.article_id)||0; }
 function _commHref(p){ const u=String(p.url||''); return escHtml(/^https:\/\//.test(u)?u:('https://cafe.naver.com/momcal/'+_commId(p))); }
@@ -10555,7 +10583,7 @@ function renderCommunity(){
   const cnt={}; all.forEach(p=>{ const k=_commBoardKey(p); cnt[k]=cnt[k]||{id:k,name:(k===COMM_LOCAL_ID?'우리동네':p.board),n:0}; cnt[k].n++; });
   if(!cnt[COMM_LOCAL_ID]) cnt[COMM_LOCAL_ID]={id:COMM_LOCAL_ID,name:'우리동네',n:0};   // 동네 글이 아직 없어도 탭은 둔다(고를 수 있게)
   const boards=Object.values(cnt).sort((a,b)=>b.n-a.n);
-  _commHotCalc();
+  _commHotCalc(); _commNoticeLoad();
   const isHot=(_commBoard===COMM_HOT_ID), isAll=!_commBoard;
   if(isHot&&_commHotBoard&&!cnt[_commHotBoard]) _commHotBoard=0;
   const rows=isHot?_commHotList(_commHotWin==='72h'?72:168, _commHotBoard)
@@ -10563,13 +10591,12 @@ function renderCommunity(){
   // 모바일 카페 글쓰기 화면(게시판을 고른 상태면 그 게시판으로). PC 글쓰기 주소는 휴대폰에서 작게 깨져 보였다(사장님 2026-10-24 캡처)
   const _wb=isHot?0:((_commBoard===COMM_LOCAL_ID)?_commLocal:_commBoard); const writeUrl=`https://m.cafe.naver.com/ca-fe/web/cafes/${COMM_CLUB}/articles/write?boardType=L${_wb>0?`&menuId=${_wb}`:''}`;
   let h='';
-  // ① 인기글 티커 — 지금 1위 글
-  const top=_commTop1();
-  if(top) h+=`<a class="comm-ticker" href="${_commHref(top)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_ticker',String(${_commId(top)}))}catch(_){} return commOpenPost(${_commId(top)},event)"><b>🔥 인기글</b><span>${escHtml(top.title)}</span><i aria-hidden="true">›</i></a>`;
+  // ① 인기글 띠 — 인기글 여러 개가 위로 넘어가며 바뀐다(마미톡처럼 · 사장님 2026-11-18 「슉슉 바뀌는 거였는데 우리껀 멈춰있어」). 누르면 그 글
+  const tops=_commTopN(5);
+  if(tops.length){ const it=(p,dup)=>`<a class="tk-i"${dup?' aria-hidden="true" tabindex="-1"':''} href="${_commHref(p)}" target="_blank" rel="noopener" onclick="try{trackEvent('community_ticker',String(${_commId(p)}))}catch(_){} return commOpenPost(${_commId(p)},event)">${escHtml(p.title)}</a>`;
+    h+=`<div class="comm-ticker"><b>🔥 인기글</b><div class="tk-w"><div class="tk-l" id="commTkL">${tops.map(p=>it(p,false)).join('')}${tops.length>1?it(tops[0],true):''}</div></div><i aria-hidden="true">›</i></div>`; }
   // ② 탭: 전체 · 인기 · 게시판…
   h+=`<div class="comm-tabs"><div class="comm-sc"><button class="${isAll?'on':''}" onclick="commPick(0)">전체</button><button class="${isHot?'on':''}" onclick="commPick(${COMM_HOT_ID})">인기</button>${boards.map(b=>`<button class="${_commBoard===b.id?'on':''}" onclick="commPick(${b.id})">${escHtml(b.name)}</button>`).join('')}</div></div>`;
-  // ③ 공지 한 줄
-  if(COMM_PINNED_NOTICES[0]) h+=`<a class="comm-nstrip" href="${escHtml(COMM_PINNED_NOTICES[0].url)}" target="_blank" rel="noopener" onclick="return commNotice(0,event)"><span>📢 ${escHtml(COMM_PINNED_NOTICES[0].title)}</span></a>`;
   if(_commBoard===COMM_LOCAL_ID){
     const ln={}; all.forEach(p=>{ if(COMM_LOCAL[p.board_id]) ln[p.board_id]=(ln[p.board_id]||0)+1; });
     h+='<div class="comm-local">'+[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button class="${_commLocal===id?'on':''}" onclick="commLocalPick(${id})">${nm}${ln[id]?` ${ln[id]}`:''}</button>`).join('')+'</div>';
@@ -10596,6 +10623,7 @@ function renderCommunity(){
   const _oldVad=list.querySelector('.comm-vad');
   list.innerHTML=h;
   const _newVad=list.querySelector('.comm-vad'); if(_oldVad&&_newVad&&_oldVad.querySelector('video')&&_oldVad.querySelector('video').getAttribute('src')===_newVad.querySelector('video').getAttribute('src')) _newVad.replaceWith(_oldVad);
+  _commTickerRun(tops.length);
   const on=list.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
   // 영상 광고: 화면에 보일 때만 돌린다(안 보이면 멈춤 — 데이터·배터리). 감시자는 하나만 두고 영상이 바뀔 때만 다시 건다
   const vd=document.getElementById('commAdVideo');
