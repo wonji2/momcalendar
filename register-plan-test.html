@@ -383,7 +383,8 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
     <div class="modal-title">공구 등록</div>
     <!-- 같은 오픈일 3건 한도 안내 (사장님 지시 2026-09-01 — 한 셀러가 하루를 도배하는 것 방지) -->
     <div style="background:#FFF6E5;border:1px solid #F5D9A0;border-radius:10px;padding:10px 11px;margin-bottom:12px">
-      <div style="font-size:11.5px;color:#8A5A00;line-height:1.65"><b>📌 같은 오픈일에는 최대 3건까지</b> 등록할 수 있어요.<br>여러 날짜로 나눠서 올려주시면 더 많은 분들께 노출됩니다.</div>
+      <div style="font-size:11.5px;color:#8A5A00;line-height:1.65"><b>📌 같은 오픈일에는 최대 3건까지</b> 등록할 수 있어요.</div>
+      <div style="font-size:11.5px;color:#8A5A00;line-height:1.65;margin-top:6px"><b>✅ 별도로 연락하지 않으셔도 48시간 이내 자동 승인돼요.</b></div>
     </div>
     <!-- 텍스트 파싱 -->
     <div style="background:#F0E6FA;border-radius:10px;padding:11px;margin-bottom:12px">
@@ -669,6 +670,7 @@ function planDue(iso){
   return Number(day.slice(5,7))+'/'+Number(day.slice(8,10))+' '+hm+'까지';
 }
 async function planLoad(){
+  await planTossBack();   // 토스 결제창에서 돌아온 길이면 먼저 승인을 마친다
   const d=await sellerRpc('seller_plan_status');
   const box=document.getElementById('planBox');
   if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
@@ -733,21 +735,20 @@ async function planStart(){
   await planLoad();
   planSheetOpen();
 }
-function planCard(){ return !!(_plan&&_plan.method==='card'&&_plan.card_url); }
+function planCard(){ return !!(_plan&&_plan.method==='card'&&_plan.card); }
 function planSheetOpen(){
   if(!_plan||_plan.state!=='pending') return;
   const b=_plan.bank||{}, has=b.no&&b.name, card=planCard();
   _planKind=_plan.receipt_kind||'income';
   // 카드 링크가 있고 아직 「입금했어요/결제했어요」를 누르기 전일 때만 방법을 고를 수 있다
-  const seg=(_plan.card_url&&!_plan.claimed)?'<div class="pn-seg"><button class="'+(card?'':'on')+'" onclick="planMethod(0)">계좌이체</button><button class="'+(card?'on':'')+'" onclick="planMethod(1)">카드결제</button></div>':'';
+  const seg=(_plan.card&&!_plan.claimed)?'<div class="pn-seg"><button class="'+(card?'':'on')+'" onclick="planMethod(0)">계좌이체</button><button class="'+(card?'on':'')+'" onclick="planMethod(1)">카드결제</button></div>':'';
   const head='<div class="pn-grab"></div>'+
     '<div class="pn-st"><b>이웃셀러 '+planEsc(_plan.months)+'개월</b><span>'+planWon(_plan.amount)+'원</span></div>'+seg;
   document.getElementById('planSheet').innerHTML=card?
     head+
-    '<a class="pn-cta" id="planCardGo" href="'+planEsc(_plan.card_url)+'" target="_blank" rel="noopener">카드로 결제하기</a>'+
+    '<button class="pn-cta" id="planCardGo" onclick="planTossPay()">카드로 결제하기</button>'+
     '<div class="pn-row last"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
-    '<div class="pn-err" id="planErr"></div>'+
-    '<button class="pn-cta s" id="planClaimBtn" onclick="planClaim()"'+(_plan.claimed?' disabled':'')+'>'+(_plan.claimed?'결제 확인 중':'결제했어요')+'</button>'
+    '<div class="pn-err" id="planErr"></div>'
     :
     head+
     (has?'<div class="pn-acct"><b>'+planEsc(b.name)+' '+planEsc(b.no)+'</b><button class="pn-pill p" onclick="planCopy()">복사</button></div>':
@@ -800,6 +801,104 @@ async function planClaim(){
   await planLoad();
 }
 
+/* ── 카드결제 = 토스페이먼츠 결제창 (2026-11-18, supabase/functions/plan-pay) ──
+   금액·주문번호는 서버(seller_plan_card_order)가 정해 먼저 저장한다. 화면은 그 값을 결제창에 넘기기만 한다.
+   결제창은 이 화면을 떠났다 돌아온다 → 로그인 정보는 메모리에만 있으므로 떠나기 직전에 잠깐 맡겨 두고(20분) 돌아오면 되살린다. */
+const PLAN_STASH='mc_plan_pay', PLAN_BACK='mc_plan_back';
+function planStashDel(){ try{ localStorage.removeItem(PLAN_STASH); }catch(e){} }
+// 맡긴 값은 20분이 지났으면 읽는 자리에서 지운다
+function planStashGet(){ try{ const v=JSON.parse(localStorage.getItem(PLAN_STASH)||'null'); if(v&&Date.now()-v.at<20*60e3) return v; planStashDel(); return null; }catch(e){ return null; } }
+function planNonce(){ try{ const a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a,function(x){ return ('0'+x.toString(16)).slice(-2); }).join(''); }catch(e){ return String(Date.now())+String(Math.random()).slice(2); } }
+function planSdk(){ return new Promise(function(res,rej){ if(window.TossPayments) return res(); const t=document.createElement('script'); t.src='https://js.tosspayments.com/v2/standard'; t.onload=function(){ res(); }; t.onerror=function(){ rej(new Error('sdk')); }; document.head.appendChild(t); }); }
+async function planTossPay(){
+  if(_planBusy) return;
+  const err=document.getElementById('planErr'), btn=document.getElementById('planCardGo');
+  if(err) err.textContent='';
+  _planBusy=true; if(btn) btn.disabled=true;
+  const stop=function(t){ _planBusy=false; if(btn) btn.disabled=false; if(err) err.textContent=t||''; };
+  const d=await sellerRpc('seller_plan_card_order');
+  if(!d||!d.ok){
+    const m=d&&d.msg;
+    stop(m==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':m==='full'?'자리가 방금 다 찼어요.':m==='claimed'?'이미 입금 확인을 요청했어요.':m==='in_progress'?'결제를 확인하고 있어요. 잠시 뒤 다시 열어 주세요.':m==='no_card'?'지금은 계좌이체만 돼요.':'결제창을 열지 못했어요. 다시 눌러 주세요.');
+    if(m==='no_pending'||m==='no_card'){ await planLoad(); if(m==='no_pending') planSheetClose(); }
+    return;
+  }
+  if(d.demo){ _planBusy=false; planSheetClose(); showToast('결제가 완료됐어요'); await planLoad(); return; }
+  try{
+    await planSdk();
+    // 일회용 값(n)을 돌아올 주소에 실어 보낸다 — 돌아온 주소의 n 이 맡긴 값과 같을 때만 로그인을 되살린다(남이 주소만 흉내 내 로그인하지 못하게)
+    const n=planNonce();
+    try{ localStorage.setItem(PLAN_STASH,JSON.stringify({at:Date.now(),tok:_tok,seller:_seller,n:n})); }catch(e){}
+    const back=location.origin+location.pathname;
+    await TossPayments(d.client_key).payment({customerKey:d.customer_key}).requestPayment({
+      method:'CARD', amount:{currency:'KRW',value:d.amount}, orderId:d.order_id, orderName:d.order_name,
+      successUrl:back+'?tpay=ok&n='+n, failUrl:back+'?tpay=fail&n='+n, windowTarget:'self'
+    });
+  }catch(e){
+    planStashDel();
+    stop(e&&(e.code==='USER_CANCEL'||e.code==='PAY_PROCESS_CANCELED')?'':'결제창을 열지 못했어요. 다시 눌러 주세요.');
+  }
+}
+let _planBack=null;
+function planTossRead(){
+  const q=new URLSearchParams(location.search), t=q.get('tpay');
+  if(!t){
+    planStashDel();                           // 결제창에서 돌아온 길이 아니면 맡긴 로그인 값은 쓸 일이 없다 → 지운다
+    // 지난번에 서버에 닿지 못해 못 끝낸 결제 확인이 있으면(10분 안) 로그인 뒤 이어서 한다
+    try{ const k=JSON.parse(localStorage.getItem(PLAN_BACK)||'null'); if(k&&Date.now()-k.at<10*60e3) _planBack=k; else localStorage.removeItem(PLAN_BACK); }catch(e){}
+    return;
+  }
+  _planBack={t:t,n:q.get('n'),code:q.get('code'),paymentKey:q.get('paymentKey'),orderId:q.get('orderId'),amount:Number(q.get('amount')),at:Date.now()};
+  // 성공으로 돌아온 값은 서버 답을 받을 때까지 남겨 둔다(답을 못 받으면 다시 열었을 때 이어서 확인 — 승인은 인증 뒤 10분 안에만 된다)
+  if(t==='ok'&&_planBack.paymentKey) try{ localStorage.setItem(PLAN_BACK,JSON.stringify(_planBack)); }catch(e){}
+  try{ ['tpay','n','paymentKey','orderId','amount','paymentType','code','message'].forEach(function(k){ q.delete(k); }); const r=q.toString(); history.replaceState(null,'',location.pathname+(r?'?'+r:'')); }catch(e){}
+}
+// 서버가 뒤에서 확인을 이어 가는 동안 화면을 몇 번 다시 읽는다(확정되면 「이용 중」으로 바뀐다)
+function planRecheck(){ [20,60,150].forEach(function(s){ setTimeout(function(){ if(_tok&&_plan&&_plan.state!=='active') planLoad(); },s*1000); }); }
+async function planTossBack(){
+  const b=_planBack; if(!b) return; _planBack=null;
+  planStashDel();
+  if(b.t!=='ok'){ if(b.code!=='PAY_PROCESS_CANCELED'&&b.code!=='USER_CANCEL') showToast('결제가 완료되지 않았어요. 다시 시도해 주세요.',5000); return; }
+  if(!b.paymentKey||!b.orderId||!(b.amount>0)) return;
+  showToast('결제를 확인하고 있어요',8000);
+  // 서버에 닿지 못하면(끊김·서버 오류) 세 번까지 다시 부른다. 그래도 안 되면 값을 남겨 두고, 다시 열었을 때 이어서 확인한다
+  let d=null;
+  for(let i=0;i<3;i++){
+    // 승인은 서버에서 길게는 1분 가까이 걸린다 → 우리 신호(70초)를 직접 줘서 공용 호출 장치가 몇 초 만에 끊지 않게 한다
+    const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },70000):null;
+    try{ const r=await fetch(SB+'/functions/v1/plan-pay',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify({token:_tok,paymentKey:b.paymentKey,orderId:b.orderId,amount:b.amount})}); d=await r.json(); }catch(e){ d=null; }
+    if(tm) clearTimeout(tm);
+    if(d&&d.msg!=='server') break;
+    d=null; if(i<2) await new Promise(function(res){ setTimeout(res,3000); });
+  }
+  if(!d){ showToast('결제 확인이 끝나지 않았어요. 10분 안에 이 화면을 다시 열어 주세요.',10000); return; }
+  try{ localStorage.removeItem(PLAN_BACK); }catch(e){}
+  const m=d&&d.msg;
+  if(d&&d.ok){ showToast('결제가 완료됐어요. 이웃셀러로 올라갔어요.',5000); return; }
+  // 승인 전에 걸러진 것(돈이 나가지 않았다)
+  if(m==='full') showToast('자리가 방금 다 찼어요. 결제되지 않았어요.',7000);
+  else if(m==='closed'||m==='notfound') showToast('신청이 끝나 결제되지 않았어요. 다시 신청해 주세요.',7000);
+  else if(m==='unauthorized') showToast('로그인이 만료돼 결제되지 않았어요. 다시 시도해 주세요.',7000);
+  else if(m==='amount'||m==='bad'||m==='not_configured') showToast('결제되지 않았어요. 다시 시도해 주세요.',6000);
+  // 승인 뒤
+  else if(m==='declined') showToast('결제가 승인되지 않았어요. 다시 시도해 주세요.',6000);
+  else if(m==='refunded') showToast('자리가 마감돼 결제를 바로 취소했어요.',7000);
+  else if(m==='mismatch') showToast('결제 정보가 맞지 않아 바로 취소했어요.',7000);
+  else if(m==='refund_pending'){ showToast('결제 취소를 처리하고 있어요. 조금만 기다려 주세요.',9000); planRecheck(); }
+  // 아직 모름(서버가 3분마다 이어서 확인한다) — 다시 결제하지 않게 안내한다
+  else { showToast('결제를 확인하고 있어요. 몇 분 안에 자동으로 반영돼요. 다시 결제하지 마세요.',10000); planRecheck(); }
+}
+// 로그아웃하면 맡긴 값도 지운다
+const _planLogout0=doLogout; doLogout=function(){ planStashDel(); return _planLogout0.apply(this,arguments); };
+// 결제창에서 돌아온 길: 주소의 값을 먼저 거둬 두고, 맡겨 둔 로그인 정보가 있으면 되살린다(없으면 로그인 뒤 planLoad 가 이어서 승인한다)
+planTossRead();
+window.addEventListener('load',function(){
+  if(!_planBack||_tok) return;
+  const v=planStashGet();
+  if(v&&v.tok&&v.seller&&v.n&&_planBack.n===v.n){ _seller=v.seller; _tok=v.tok; planStashDel(); onLogin(); }
+  else { planStashDel(); if(_planBack.t==='ok') showToast('로그인하면 결제가 마무리돼요.',8000); }
+});
+
 /* ── 테스트 페이지 전용 「화면만 보기」 (?demo=1) — 라이브 패치에는 들어가지 않는다 ── */
 (function(){
   if(!/[?&]demo=/.test(location.search)) return;
@@ -812,13 +911,14 @@ async function planClaim(){
     if(fn==='seller_logout') return {ok:true};
     if(fn==='seller_plan_status'){
       const o=JSON.parse(JSON.stringify(st));
-      if(st.state==='pending') o.card_url=st.months===3?'https://srok.kr/ghkti':'https://srok.kr/ghktj';
+      if(st.state==='pending') o.card=true;
       if(st.state!=='none'){ o.end_date=end(); o.dday=Math.round((new Date(o.end_date)-new Date(new Date(Date.now()+9*3600e3).toISOString().slice(0,10)))/86400e3); }
       return o;
     }
     if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
     if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
     if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
+    if(fn==='seller_plan_card_order'){ if(st.state!=='pending') return {ok:false,msg:'no_pending'}; st.state='active'; st.method='card'; return {ok:true,demo:true}; }
     return real(fn,p);
   };
   window.planDemo=function(s){
