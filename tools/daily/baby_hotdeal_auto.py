@@ -439,103 +439,431 @@ def purge_old_history():
     """
     run_sql(sql)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 지름알림(커뮤니티 16곳 핫딜 모음) 수집 — RSS 길 (사장님 지시 2026-11-18)
+#   옛 길 cdn.jirum-alarm.com/d/h/<날짜>.json 은 11-02 이후 403(AccessDenied)이라 버렸다. 그동안 로그 한 줄만 찍히고 아무도 몰랐다.
+#   새 길: 공개 RSS https://jirum-alarm.com/rss.xml (최신 50건) → 각 /products/<id> 상세(robots.txt 허용) →
+#          상세의 구매 주소(detailUrl)는 지름알림의 제휴 링크다(쿠팡 lptag·애드픽 bitl.bz·링크프라이스·알리) → **절대 그대로 저장하지 않는다.**
+#          넘어가는 길을 따라가 **상품 번호만** 뽑고, 그 번호로 깨끗한 상품 주소를 새로 만든 뒤 베이비핫딜과 같은 변환기
+#          (쿠팡 딥링크·링크프라이스 A100706561·토스·오늘의집)에 태운다. 번호를 못 뽑는 주소(기획전·게이트웨이·모르는 꼬리표)는 올리지 않는다.
+#          우리 링크로 못 바꾸는 몰(알리·카카오·스마트스토어 등)도 올리지 않는다.
+#   🔴 검증자 지적(2026-11-18)으로 고친 것: ① 꼬리표를 「빼는 목록」이 아니라 「남기는 목록」으로(모르는 값은 전부 버림) ② 상세 값은 정규식 창이 아니라
+#      그 상품 레코드를 JSON 으로 통째로 읽는다(가격이 빈 글에서 옆 딜의 가격을 읽던 것) ③ 형식이 반만 바뀌어 전부 건너뛰는 것도 실패로 본다
+#      ④ 쿠팡 상한·일시 실패로 못 올린 딜은 seen 에 넣지 않는다(다음 회차에 다시) ⑤ 상태를 못 읽으면 그 회차는 쉰다(이력·하루 상한을 덮어쓰지 않게)
+#   진행 상태: ops_status 'jirum-state' {seen:[최근 600개 id], day, cp(오늘 쿠팡 딥링크 수), last_reg} · 회차 결과: ops_status 'jirum-collect'
+#   실패(RSS 403/404·0건·상세 전부 실패·형식 바뀜·비밀값 없음) → health_alerts 'hotdeal:지름알림'(6시간에 한 번) + 프로세스 종료 코드 1.
+#      깃허브 워크플로는 종료 코드를 「회차 실패 — 다음 회차는 계속」으로만 찍으므로 실제 경보 길은 health_alerts 다.
+#      서버 크론 jirum-collect-watch 가 「6시간 성공 기록 없음」「24시간 등록 0건」도 잡는다(supabase/sql/jirum_collect_watch_135.sql).
+#   쿠팡 API 는 하루 40회 불변이라 지름알림 몫 딥링크는 하루 JIRUM_CP_DAILY 건·회차 JIRUM_CP_RUN 건까지만.
+#   시험: JIRUM_DRY=1 JIRUM_LIMIT=5 python tools/daily/baby_hotdeal_auto.py  (DB 에 안 쓰고 [제목/원본 주소/우리 링크] 만 찍는다)
+# ─────────────────────────────────────────────────────────────────────────────
+JIRUM_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+JIRUM_DRY = os.environ.get('JIRUM_DRY') == '1'
+JIRUM_LIMIT = int(os.environ.get('JIRUM_LIMIT') or 0)
+JIRUM_MAX_NEW = 20          # 한 회차에 새로 여는 상세 쪽 상한(15분마다 도니 충분하다 — RSS 50건이 약 50분 치)
+JIRUM_CP_RUN = 5            # 한 회차 쿠팡 딥링크 상한
+JIRUM_CP_DAILY = 15         # 하루 쿠팡 딥링크 상한
+# 우리 핫딜 품목과 겹치지 않는 분류(사장님 2026-11-18 「그 품목들 위주로 · 뜬금없는 건 빼」) — 맘이베베 글은 분류와 상관없이 본다
+JIRUM_SKIP_CATS = ('디지털', '컴퓨터', '게임', 'PC', '자동차', '상품권', '등산', '캠핑', '골프')
+_JIRUM_FAILED = False
+
+def jirum_get(url, timeout=20):
+    req = urllib.request.Request(url, headers={'User-Agent': JIRUM_UA, 'Accept-Language': 'ko-KR,ko;q=0.9', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode('utf-8', errors='ignore')
+
+def jirum_fail(reason):
+    """조용히 끝내지 않는다 — 관리자 「고장 난 것」에 올리고(6시간에 한 번) 종료 코드 1."""
+    global _JIRUM_FAILED
+    _JIRUM_FAILED = True
+    print(f'[source:jirum] 🔴 실패: {reason}')
+    if JIRUM_DRY:
+        return
+    try:
+        detail = '지름알림 수집 실패 — ' + str(reason)[:200] + ' · 수집기 tools/daily/baby_hotdeal_auto.py collect_from_jirum_alarm · RSS https://jirum-alarm.com/rss.xml'
+        run_sql(f"""
+        INSERT INTO public.health_alerts (kind, detail)
+        SELECT 'hotdeal:지름알림', {sql_quote(detail)}
+        WHERE NOT EXISTS (SELECT 1 FROM public.health_alerts WHERE kind = 'hotdeal:지름알림' AND created_at > now() - interval '6 hours');
+        INSERT INTO public.ops_status (id, payload, updated_at)
+        VALUES ('jirum-collect', jsonb_build_object('ok', false, 'error', {sql_quote(str(reason)[:200])}, 'at', to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI')), now())
+        ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();
+        """)
+    except Exception as e:
+        print(f'[source:jirum] 경보 기록 실패: {e}')
+
+def _json_object_at(s, start):
+    """s[start] 가 '{' 일 때 짝이 맞는 '}' 까지의 조각(문자열 안의 중괄호·따옴표는 건너뛴다). 못 찾으면 ''."""
+    depth, i, n, in_str = 0, start, len(s), False
+    while i < n:
+        ch = s[i]
+        if in_str:
+            if ch == '\\':
+                i += 2
+                continue
+            if ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return s[start:i + 1]
+        i += 1
+    return ''
+
+def jirum_record(html_src, pid):
+    """상세 HTML 의 넥스트 직렬화 조각을 한 겹 풀어, 이 상품의 레코드(JSON 객체)만 통째로 읽는다. 없으면 None.
+       (창을 잘라 정규식으로 집으면 가격이 빈 글에서 뒤따르는 가격 이력의 다른 딜 값을 읽는다 — 검증자 2026-11-18)"""
+    key = f'"id":"{pid}"'
+    for m in re.finditer(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)', html_src):
+        raw = m.group(1)
+        if pid not in raw:
+            continue
+        try:
+            s = json.loads('"' + raw + '"')     # 바깥 JS 문자열을 한 겹만 정확히 푼다
+        except Exception:
+            continue
+        pos = s.find(key)
+        while pos >= 0:
+            st = s.rfind('{', 0, pos)
+            if st >= 0 and s[st + 1:pos].strip() == '':
+                frag = _json_object_at(s, st)
+                if frag:
+                    try:
+                        o = json.loads(frag)
+                    except Exception:
+                        o = None
+                    if isinstance(o, dict) and str(o.get('id')) == str(pid) and 'detailUrl' in o and 'title' in o:
+                        prov = o.get('provider') if isinstance(o.get('provider'), dict) else {}
+                        def sv(k):
+                            v = o.get(k)
+                            return v if isinstance(v, str) else ''
+                        return {
+                            'title': sv('title'), 'detailUrl': sv('detailUrl'), 'price': sv('price'), 'thumbnail': sv('thumbnail'),
+                            'mallName': sv('mallName'), 'category': sv('categoryName'), 'post': sv('url'),
+                            'provider': prov.get('nameKr') if isinstance(prov.get('nameKr'), str) else '',
+                            'isEnd': o.get('isEnd') is True, 'profit': sv('profitLinkProvider'),
+                        }
+            pos = s.find(key, pos + 1)
+    return None
+
+def _unq_all(u):
+    """겹겹이 인코딩된 주소를 층마다 풀어 전부 돌려준다(게이트웨이 주소 안에 상품 주소가 2~3겹으로 들어 있다)."""
+    out, cur = [], u or ''
+    for _ in range(4):
+        out.append(cur)
+        nxt = urllib.parse.unquote(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    return out
+
+def _host_is(u, dom):
+    try:
+        h = (urllib.parse.urlsplit(u).hostname or '').lower()
+        return h == dom or h.endswith('.' + dom)
+    except Exception:
+        return False
+
+# 상품 번호로 깨끗한 주소를 새로 만들 수 있는 몰만 올린다(= 남의 꼬리표가 남을 자리가 없다). 여기 없는 몰은 '우리 링크로 못 바꾸는 몰'로 건너뛴다.
+#   (정규식, 깨끗한 주소 틀) — 주소 어디에 들어 있든(게이트웨이의 2~3겹 안) 번호만 있으면 된다
+_JIRUM_ID_RULES = [
+    (re.compile(r'gmarket\.co\.kr/[^\s"]*?[?&]goodscode=(\d{6,})', re.I), 'https://item.gmarket.co.kr/Item?goodscode={0}'),
+    (re.compile(r'11st\.co\.kr/products/(\d{6,})'), 'https://www.11st.co.kr/products/{0}'),
+    (re.compile(r'ssg\.com/item/itemView\.ssg\?(?:[^\s"]*?&)?itemId=(\d{8,})'), 'https://m.ssg.com/item/itemView.ssg?itemId={0}'),
+    (re.compile(r'lotteon\.com/p/product/(LO\d{6,}|[A-Z]{2}\d{6,})'), 'https://www.lotteon.com/p/product/{0}'),
+    (re.compile(r'auction\.co\.kr/[^\s"]*?[?&]itemno=([A-Z]\d{6,})', re.I), 'https://itempage3.auction.co.kr/DetailView.aspx?itemno={0}'),
+    (re.compile(r'cjonstyle\.com/p/item/(\d{6,})'), 'https://display.cjonstyle.com/p/item/{0}'),
+    (re.compile(r'oliveyoung\.co\.kr/store/goods/getGoodsDetail\.do\?(?:[^\s"]*?&)?goodsNo=(A\d{9,})'), 'https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo={0}'),
+    (re.compile(r'gsshop\.com/prd/prd\.gs\?(?:[^\s"]*?&)?prdid=(\d{6,})', re.I), 'https://www.gsshop.com/prd/prd.gs?prdid={0}'),
+]
+
+def jirum_origin_url(detail_url):
+    """지름알림 구매 주소 → (번호로 새로 만든 쇼핑몰 원본 상품 주소, 몰 종류). 못 만들면 (None, 사유).
+       몰 종류: 'coupang' | 'toss' | 'ohouse' | 'linkprice'. 돌려주는 주소에는 지름알림·애드픽·링크프라이스의 값이 한 글자도 남지 않는다."""
+    du = unamp(detail_url or '').strip()
+    if not re.match(r'^https?://\S+$', du):
+        return None, '구매 주소 없음'
+    chain = [du]
+    if _host_is(du, 'click.linkprice.com'):
+        # 링크프라이스 제휴 링크 — tu= 안의 원본 주소만 본다(따라가지 않는다)
+        m = re.search(r'[?&]tu=([^&]+)', du)
+        if not m:
+            return None, '링크프라이스 링크에 tu 없음'
+        chain = [urllib.parse.unquote(m.group(1))]
+    else:
+        # 그 밖의 단축·제휴 링크 — 넘어가는 주소(Location)만 읽는다
+        try:
+            res = subprocess.run(['curl', '-sIL', '--http1.1', '--max-redirs', '6', '-m', '20', '-A', JIRUM_UA, du],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=40)
+            chain += [unamp(l) for l in locations_from_headers(res.stdout)]
+        except Exception as e:
+            print(f'[source:jirum] 넘김 주소 추적 실패: {du[:80]} {e}')
+    cands = []
+    for c in chain:
+        cands += _unq_all(c)
+    for c in cands:
+        m = re.search(r'coupang\.com/vp/products/(\d{5,})', c)
+        if m:
+            return f'https://www.coupang.com/vp/products/{m.group(1)}', 'coupang'
+    for c in cands:
+        m = re.search(r'toss\.shopping/([ti])/(\d+)', c)
+        if m:
+            return f'https://toss.shopping/{m.group(1)}/{m.group(2)}', 'toss'
+    for c in cands:
+        m = re.search(r'ohou\.se/(productions|goods)/(\d+)', c)
+        if m:
+            return (f'https://store.ohou.se/goods/{m.group(2)}' if m.group(1) == 'goods' else f'https://ohou.se/productions/{m.group(2)}/selling'), 'ohouse'
+        m = re.search(r'content=[Pp]roduction_(\d+)', c)
+        if m and 'ohou.se' in c:
+            return (f'https://store.ohou.se/goods/{m.group(1)}' if 'goods' in c else f'https://ohou.se/productions/{m.group(1)}/selling'), 'ohouse'
+    for c in cands:
+        for rx, tpl in _JIRUM_ID_RULES:
+            m = rx.search(c)
+            if m:
+                return tpl.format(m.group(1)), 'linkprice'
+    last = chain[-1]
+    if any(_host_is(last, d) for d in ('bitl.bz', 'deg.kr', 'app.ac', 'link.coupang.com', 'click.linkprice.com', 's.click.aliexpress.com', 'ozip.me')):
+        return None, '원본 주소까지 못 따라감'
+    return None, '우리 링크로 못 바꾸는 몰·주소'
+
+def jirum_ohouse_link(origin):
+    """오늘의집 우리 제휴 링크를 번호로 새로 짠다(남의 링크를 고쳐 쓰지 않는다)."""
+    m = re.search(r'ohou\.se/(productions|goods)/(\d+)', origin or '')
+    if not m:
+        return None, ''
+    kind, opid = m.group(1), m.group(2)
+    host = 'store.ohou.se' if kind == 'goods' else 'ohou.se'
+    tail = f'{host}%2F{kind}%2F{opid}' + ('' if kind == 'goods' else '%2Fselling')
+    return opid, ("https://link.ohou.se/@ohouse/affiliate?channel=affiliate&sub_id_2=affiliate&sub_id_3=inorganic&campaign=brand_affiliate"
+                  f"&ad_creative=40570&ad_group=1120105&content=production_{opid}"
+                  f"&deeplink_url=ohouseapp%3A%2F%2F{tail}&fallback_desktop=https%3A%2F%2F{tail}")
+
+def jirum_is_ours(aff_link, source, origin):
+    """저장 직전 검사 — 주소를 풀어 호스트·값으로 본다(글자 포함 검사 아님)."""
+    try:
+        sp = urllib.parse.urlsplit(aff_link)
+        host = (sp.hostname or '').lower()
+        q = dict(urllib.parse.parse_qsl(sp.query, keep_blank_values=True))
+    except Exception:
+        return False
+    if source == 'coupang':
+        return host == 'link.coupang.com' and bool(re.match(r'^/a/[A-Za-z0-9]+$', sp.path)) and not sp.query
+    if source == 'linkprice':
+        return host == 'click.linkprice.com' and q.get('a') == LINKPRICE_ID and q.get('tu') == origin and set(q) <= {'m', 'a', 'l', 'l_cd1', 'l_cd2', 'tu'}
+    if source == 'ohouse':
+        return host == 'link.ohou.se' and q.get('ad_creative') == '40570' and q.get('ad_group') == '1120105' and set(q) <= {'channel', 'sub_id_2', 'sub_id_3', 'campaign', 'ad_creative', 'ad_group', 'content', 'deeplink_url', 'fallback_desktop'}
+    if source == 'toss':
+        return host in ('toss.shopping', 'www.toss.shopping', 'shopping.toss.im', 'toss.im')
+    return False
+
+_JIRUM_TRAVEL_MALLS = ('세시간전', '야놀자', '여기어때', '마이리얼트립', '클룩', '아고다', '호텔스닷컴', '익스피디아', '트립닷컴', 'KKday', '에어비앤비', '부킹닷컴')
+_JIRUM_BABY = re.compile(r'기저귀|분유|이유식|아기|유아|젖병|유모차|카시트|아동|키즈|주니어|어린이|장난감|물티슈|신생아|베이비|아기띠|내복|티니핑|블럭|웨건|손수건')
+_JIRUM_FOOD = [
+    (r'생수|커피|아메리카노|음료|주스|두유|콜라|사이다|탄산수|티백|즙', '음료/차/즙'),
+    (r'고등어|굴비|갈치|오징어|새우|전복|장어|명란|멸치|황태|액젓|젓갈', '수산물/건해산'),
+    (r'한우|삼겹|돼지|소고기|막창|족발|순대|닭가슴살|닭갈비|닭다리|오리|계란|유정란|달걀|갈비|목살', '정육/계란'),
+    (r'고구마|감자|사과|귤|딸기|토마토|토망고|과일|야채|채소|잡곡|쌀|현미|햇반|고춧가루|마늘|양파', '과일/야채'),
+    (r'참기름|들기름|올리브오일|간장|된장|고추장|소스|식초', '장류/오일/소스'),
+    (r'김치|겉절이|반찬|장아찌', '반찬'),
+    (r'과자|칩|파이|쿠키|초콜릿|젤리|사탕|빵|떡|견과|아몬드|치즈', '간식/구황작물'),
+    (r'라면|즉석|간편식|만두|볶음밥|국밥|곰탕|찌개|밀키트|돈까스|피자|떡볶이', '간편식/밀키트'),
+]
+
+def jirum_category(title, mall, cat_override, provider):
+    """지름알림 몫 분류. 기존 분류기는 「스파오」「여행용 샴푸」를 여행으로, 모르는 것을 전부 육아로 잡는다 — 지름알림 몫만 바로잡는다(베이비핫딜 동작은 그대로)."""
+    major, minor = classify_category(title, mall=mall, cat_override=cat_override)
+    if cat_override:
+        return major, minor
+    if major == '여행' and mall not in _JIRUM_TRAVEL_MALLS:
+        major, minor = '육아', '육아용품'          # 아래에서 다시 가른다
+    if (major, minor) == ('육아', '육아용품') and not _JIRUM_BABY.search(title):
+        for pat, sub_minor in _JIRUM_FOOD:
+            if re.search(pat, title):
+                return '식품', sub_minor
+        if re.search(r'샴푸|린스|바디워시|로션|크림|치약|칫솔|클렌징|선크림', title):
+            return '뷰티', '바디케어'
+        if provider == '맘이베베':
+            return '육아', '육아용품'
+        return '리빙', '생활용품'
+    return major, minor
+
+def jirum_state_load():
+    """진행 상태. 못 읽으면 None — 그 회차는 쉰다(빈 상태로 돌면 이력 600개와 하루 쿠팡 상한을 덮어쓴다)."""
+    st = {'seen': [], 'day': '', 'cp': 0, 'last_reg': ''}
+    if JIRUM_DRY:
+        return st
+    try:
+        r = run_sql("SELECT payload FROM ops_status WHERE id = 'jirum-state';")
+    except Exception as e:
+        print(f'[source:jirum] 상태 읽기 실패: {e}')
+        return None
+    if not isinstance(r, list):
+        print(f'[source:jirum] 상태 응답이 이상하다: {str(r)[:120]}')
+        return None
+    if r and isinstance(r[0].get('payload'), dict):
+        st.update(r[0]['payload'])
+    return st
+
+def jirum_state_save(st, stats, seen):
+    if JIRUM_DRY:
+        return
+    old = [str(x) for x in st.get('seen', [])]
+    have = set(old)
+    st['seen'] = (old + sorted(p for p in seen if p not in have))[-600:]
+    stats = dict(stats, last_reg=st.get('last_reg', ''))
+    try:
+        run_sql(f"""
+        INSERT INTO public.ops_status (id, payload, updated_at) VALUES ('jirum-state', {sql_quote(json.dumps(st, ensure_ascii=False))}::jsonb, now())
+        ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();
+        INSERT INTO public.ops_status (id, payload, updated_at) VALUES ('jirum-collect', {sql_quote(json.dumps(stats, ensure_ascii=False))}::jsonb, now())
+        ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();
+        """)
+    except Exception as e:
+        print(f'[source:jirum] 상태 저장 실패: {e}')
+
 def collect_from_jirum_alarm():
+    global _CP_DL_CALLS
     today = datetime.now(KST)
     today_str = today.strftime('%Y-%m-%d')
-    today_num = today.strftime('%Y%m%d')
-
-    print(f'[source:jirum] 16대 핫딜 커뮤니티 지름알림 피드 조회...')
-    url = f'https://cdn.jirum-alarm.com/d/h/{today_num}.json'
-    try:
-        raw_json = fetch_html(url)
-        data = json.loads(raw_json)
-    except Exception as e:
-        print(f'[source:jirum] 피드 다운로드 오류: {e}')
+    print('[source:jirum] 지름알림 RSS 조회...')
+    if not JIRUM_DRY and not CRON_SECRET:
+        jirum_fail('PUSH_CRON_SECRET 이 없다 — 쿠팡·토스 우리 링크를 못 만든다')
         return
-
-    post_list = data if isinstance(data, list) else data.get('list', [])
-    print(f'[source:jirum] 총 {len(post_list)}개 핫딜 분석 시작')
-
-    registered = 0
-    for p_path in post_list:
+    try:
+        rss = jirum_get('https://jirum-alarm.com/rss.xml')
+    except Exception as e:
+        jirum_fail(f'RSS 를 못 읽음: {e}')
+        return
+    items = re.findall(r'<item>\s*<title>(.*?)</title>\s*<link>\s*(https://jirum-alarm\.com/products/(\d+))\s*</link>', rss, re.S)
+    if not items:
+        jirum_fail(f'RSS 에 딜이 0건(응답 {len(rss)}자) — 형식이 바뀌었을 수 있다')
+        return
+    st = jirum_state_load()
+    if st is None:
+        jirum_fail('진행 상태(ops_status jirum-state)를 못 읽어 이번 회차는 쉰다')
+        return
+    if st.get('day') != today_str:
+        st['day'], st['cp'] = today_str, 0
+    seen = set(str(x) for x in st.get('seen', []))
+    fresh = [(html.unescape(t).strip(), link, pid) for t, link, pid in items if pid not in seen]
+    print(f'[source:jirum] RSS {len(items)}건 · 새 글 {len(fresh)}건')
+    stats = {'ok': True, 'rss': len(items), 'new': len(fresh), 'opened': 0, 'registered': 0, 'skip': {}, 'at': today.strftime('%Y-%m-%d %H:%M')}
+    def skip(pid, why, note='', keep=False):
+        """keep=True 는 다음 회차에 다시 본다(상한·일시 실패) — seen 에 넣지 않는다."""
+        stats['skip'][why] = stats['skip'].get(why, 0) + 1
+        if not keep:
+            seen.add(pid)
+        print(f'[source:jirum] {pid} 건너뜀({why}) {note[:70]}')
+    opened_ok = opened_fail = cp_run = shown = no_url = 0
+    for n, (rss_title, link, pid) in enumerate(fresh[:(50 if JIRUM_DRY else JIRUM_MAX_NEW)]):
+        if JIRUM_LIMIT and shown >= JIRUM_LIMIT:
+            break
+        if n and n % 5 == 0:
+            jirum_state_save(st, stats, seen)        # 회차가 시간 제한에 죽어도 여기까지는 남는다
+        time.sleep(random.uniform(1.0, 2.0))   # 상세 요청 사이 1~2초
         try:
-            m = re.search(r'(\d+)\.html$', p_path)
-            if not m:
-                continue
-            jid = m.group(1)
-            p_url = f'https://cdn.jirum-alarm.com/d/p/{p_path}'
-            p_html = fetch_html(p_url)
+            page = jirum_get(link)
+        except Exception as e:
+            opened_fail += 1
+            print(f'[source:jirum] {pid} 상세를 못 엶: {e}')
+            continue
+        rec = jirum_record(page, pid)
+        if not rec or not rec['title']:
+            opened_fail += 1
+            print(f'[source:jirum] {pid} 상세에서 값을 못 읽음')
+            continue
+        opened_ok += 1
+        stats['opened'] = opened_ok
+        called_api = False
+        try:
+            raw_title = html.unescape(rec['title']).strip()
+            if not rec['detailUrl']:
+                no_url += 1
+                skip(pid, '구매 주소 없음', raw_title); continue
+            if rec['isEnd']:
+                skip(pid, '종료된 딜', raw_title); continue
+            pm = re.search(r'([0-9][0-9,]{2,})\s*원', rec['price'] or '')
+            price = int(pm.group(1).replace(',', '')) if pm else 0
+            if price <= 0:
+                skip(pid, '가격 없음', raw_title); continue
+            if rec['provider'] != '맘이베베' and any(k in (rec['category'] or '') for k in JIRUM_SKIP_CATS):
+                skip(pid, '품목 밖 분류', f"{rec['category']} · {raw_title}"); continue
+            origin, kind = jirum_origin_url(rec['detailUrl'])
+            if not origin:
+                skip(pid, kind, raw_title); continue
 
-            # 제목 추출
-            title_m = re.search(r'<title>([^<]+)</title>', p_html)
-            raw_title = title_m.group(1).replace(' - 지름알림', '').strip() if title_m else ''
-            if not raw_title:
-                continue
-
-            # 가격 추출
-            price_m = re.search(r'([0-9,]+)\s*원', p_html)
-            price = int(price_m.group(1).replace(',', '')) if price_m else 0
-
-            # 커뮤니티 출처 및 이미지
-            comm_m = re.search(r'cdn\.jirum-alarm\.com/community/([a-z0-9_-]+)/(\d+)\.webp', p_html)
-            comm_source = comm_m.group(1) if comm_m else 'community'
-            img_url = f'https://cdn.jirum-alarm.com/community/{comm_m.group(1)}/{comm_m.group(2)}.webp' if comm_m else ''
-
-            # 아웃바운드 링크 탐색
-            ext_links = re.findall(r'href=[\"\'](https?://[^\"\']+)[\"\']', p_html)
-            target_link = ''
-            for el in ext_links:
-                if any(k in el for k in ALL_CPA_DOMAINS):
-                    target_link = el
-                    break
-
-            if not target_link:
-                continue
-
-            # 링크 및 몰 변환
-            mall = '온라인몰'
-            source = 'linkprice'
-            prod_id = f'jirum_{jid}'
-            aff_link = ''
-            cat_override = None
-
-            target_link = unamp(target_link)
-
-            if 'coupang.com' in target_link:
-                mall = '쿠팡'
-                source = 'coupang'
-                cpid = resolve_coupang_pid(target_link)
-                if cpid:
-                    prod_id = f'cp_{cpid}'
-                    clean_cp = f'https://www.coupang.com/vp/products/{cpid}'
-                    aff_link = get_coupang_deeplink(clean_cp) or ''
-                else:
-                    aff_link = ''   # 상품번호를 못 찾은 쿠팡 링크는 남의 수익 링크일 수 있다 — 넣지 않는다
+            mall, source, prod_id, aff_link, cat_override = '온라인몰', 'linkprice', f'jirum_{pid}', '', None
+            if kind == 'coupang':
+                mall, source = '쿠팡', 'coupang'
+                cpid = resolve_coupang_pid(origin)
+                if not cpid:
+                    skip(pid, '쿠팡 상품번호 없음', raw_title); continue
+                prod_id = f'cp_{cpid}'
+                if not JIRUM_DRY:
+                    dup = run_sql(f"SELECT 1 AS x FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price} LIMIT 1;")
+                    if dup and isinstance(dup, list) and len(dup) > 0:
+                        skip(pid, '이미 있는 상품', raw_title); continue   # 딥링크를 부르기 전에 거른다(쿠팡 호출 아낌)
+                if cp_run >= JIRUM_CP_RUN or int(st.get('cp', 0)) >= JIRUM_CP_DAILY or _CP_DL_CALLS >= 10:
+                    skip(pid, '쿠팡 딥링크 상한(다음 회차에 다시)', raw_title, keep=True); continue
+                before = _CP_DL_CALLS
+                aff_link = get_coupang_deeplink(origin) or ''
+                if _CP_DL_CALLS > before:                 # 실제로 부른 만큼만 센다
+                    cp_run += 1
+                    st['cp'] = int(st.get('cp', 0)) + 1
+                    called_api = True
+                if not aff_link:
+                    skip(pid, '쿠팡 딥링크 실패(다음 회차에 다시)', raw_title, keep=True); continue
+            elif kind == 'toss':
+                mall, source = '토스쇼핑', 'toss'
+                tkind, tid = resolve_toss_id(origin)
+                if not tid:
+                    skip(pid, '토스 상품번호 없음', raw_title); continue
+                prod_id = f'toss_{tid}'
+                aff_link = get_toss_link(tkind, tid) or ''
+                if not aff_link:
+                    skip(pid, '토스 링크 발급 실패(다음 회차에 다시)', raw_title, keep=True); continue
+            elif kind == 'ohouse':
+                mall, source = '오늘의집', 'ohouse'
+                opid, aff_link = jirum_ohouse_link(origin)
+                if not opid:
+                    skip(pid, '오늘의집 상품번호 없음', raw_title); continue
+                prod_id = f'oh_{opid}'
             else:
-                lp_link, lp_mall, lp_cat = resolve_linkprice_or_cpa(target_link)
+                lp_link, lp_mall, lp_cat = resolve_linkprice_or_cpa(origin)
                 if lp_link:
-                    aff_link = lp_link
-                    mall = lp_mall
-                    cat_override = lp_cat
-                    source = 'linkprice'
+                    # 변환기가 주소를 다시 다듬을 수 있으므로 우리 틀로 한 번 더 고정한다: tu 는 번호로 만든 origin 그대로
+                    mcode = (re.search(r'[?&]m=([A-Za-z0-9_-]+)', lp_link) or [None, ''])[1]
+                    aff_link = f'https://click.linkprice.com/click.php?m={mcode}&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(origin, safe="")}'
+                    mall, cat_override = lp_mall, lp_cat
 
             aff_link = clean_link_or_none(aff_link) or ''
-            if not aff_link:
-                continue
+            # 🔴 우리 링크인지 마지막으로 한 번 더 본다 — 남의 제휴 주소는 어떤 길로도 저장하지 않는다
+            if not aff_link or not jirum_is_ours(aff_link, source, origin):
+                skip(pid, '우리 링크 변환 실패', f'{origin[:60]} · {raw_title}'); continue
 
-            # 단위가격 및 제목 정제
-            unit_str = calculate_unit_price(raw_title, price)
             clean_title = tidy_title(raw_title)
-            major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
-
-            # DB 중복 검사 및 등록
+            major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'])
+            if JIRUM_DRY:
+                shown += 1
+                print(f'\n[시험 {shown}] {rec["provider"]} · {rec["mallName"] or mall} · {price:,}원')
+                print(f'  원본 제목  : {raw_title}')
+                print(f'  원본 주소  : {origin}')
+                print(f'  우리 링크  : {aff_link}')
+                print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id})')
+                continue
+            main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
+            card_img = main_img or (rec['thumbnail'] if rec['thumbnail'].startswith('https://') else '')
             ins_sql = f'''
             INSERT INTO public.hotdeals (
               title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
             )
             SELECT
               {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
-              {price}, {sql_quote(img_url)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
+              {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
               {sql_quote(today_str)}, true, false, now() + interval '3 days'
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
@@ -543,17 +871,32 @@ def collect_from_jirum_alarm():
             AND NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
             )
+            AND NOT EXISTS (
+              SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND expires_at > now() AND price <= {price}
+            )
             RETURNING id;
             '''
+            seen.add(pid)          # 여기부터는 다시 열지 않는다(INSERT 가 실패해도 딥링크를 또 부르지 않게)
             res = run_sql(ins_sql)
             if res and isinstance(res, list) and len(res) > 0:
-                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price > {price};")
-                print(f'[source:jirum] 신규 등록 성공! [{comm_source}/{mall}] {clean_title} ({price:,}원 {unit_str}) id={res[0].get("id")}')
-                registered += 1
+                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND id <> {int(res[0].get('id'))} AND expires_at > now() AND price > {price};")
+                stats['registered'] += 1
+                st['last_reg'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                print(f'[source:jirum] 등록 [{rec["provider"]}/{mall}] {clean_title} ({price:,}원) id={res[0].get("id")}')
+            else:
+                stats['skip']['이미 있는 상품'] = stats['skip'].get('이미 있는 상품', 0) + 1
         except Exception as e:
-            print(f'[source:jirum] {p_path} 처리 오류: {e}')
-
-    print(f'[source:jirum] 16대 커뮤니티 신규 등록 완결: {registered}건')
+            if called_api:
+                seen.add(pid)
+            print(f'[source:jirum] {pid} 처리 오류: {e}')
+    if opened_fail >= 3 and opened_ok == 0:
+        jirum_fail(f'상세 쪽 {opened_fail}건을 전부 못 읽음 — 막혔거나 형식이 바뀌었다')
+        return
+    if opened_ok >= 5 and no_url == opened_ok:
+        jirum_fail(f'상세 {opened_ok}건 모두 구매 주소가 비어 있다 — 형식이 바뀌었다')
+        return
+    jirum_state_save(st, stats, seen)
+    print(f'[source:jirum] 끝 — 새 글 {len(fresh)} · 연 것 {opened_ok} · 등록 {stats["registered"]} · 건너뜀 {json.dumps(stats["skip"], ensure_ascii=False)}')
 
 # 🖼 상품 대표 사진(2026-11-06 사장님 「핫딜 카드사진이 상품 메인 사진만 떴는데 왜 캡쳐사진으로 떠서 뭔 상품인지가 안보여」)
 #   11-02 클라우드로 옮긴 뒤 bbhd 글 본문의 첫 사진(글쓴이가 올린 몰 앱 캡처)을 그대로 넣어 카드에 상품이 안 보였다.
@@ -964,6 +1307,12 @@ def run_fix_thumbnails():
     print('[fix_thumbnails] DB 복구 결과:', res)
 
 def main():
+    if JIRUM_DRY:
+        print('=== [지름알림 시험 실행 — DB 에 쓰지 않는다] ===')
+        collect_from_jirum_alarm()
+        if _JIRUM_FAILED:
+            raise SystemExit(1)
+        return
     try:
         run_fix_thumbnails()
     except Exception as e:
@@ -985,20 +1334,25 @@ def main():
     except Exception as e:
         print(f'[expire duplicates error] {e}')
 
-    try:
-        collect_from_jirum_alarm()
-    except Exception as e:
-        print(f'[collect_from_jirum_alarm error] {e}')
-
+    # 베이비핫딜을 먼저 돈다 — 쿠팡 딥링크 회차 상한(10)을 지름알림이 먼저 쓰지 않게
     try:
         collect_from_bbhd()
     except Exception as e:
         print(f'[collect_from_bbhd error] {e}')
 
     try:
+        collect_from_jirum_alarm()
+    except Exception as e:
+        jirum_fail(f'수집 함수 오류: {e}')
+
+    try:
         collect_from_3ha_klook()
     except Exception as e:
         print(f'[collect_from_3ha_klook error] {e}')
+
+    # 지름알림이 실패했으면 종료 코드 1 (워크플로는 「회차 실패 — 다음 회차는 계속」으로 찍고 계속 돈다. 실제 경보는 health_alerts)
+    if _JIRUM_FAILED:
+        raise SystemExit(1)
 
 if __name__ == '__main__':
     main()
