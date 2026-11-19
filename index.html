@@ -10661,6 +10661,7 @@ function renderCommunity(){
 .cp-c img{display:block;max-width:140px;border-radius:10px;margin-top:6px}
 .cp-c small{display:block;font-size:12px;color:#8B95A1;margin-top:4px}
 .cp-c.del p{color:#B0B8C1}
+.cp-a{color:#7C54C4;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
 .cp-empty{padding:28px 0;text-align:center;color:#8B95A1;font-size:13.5px}
 .cp-foot{flex:none;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #F2F4F6;display:flex;gap:8px;background:#fff}
 .cp-foot a{flex:1;display:block;text-align:center;text-decoration:none;border-radius:12px;padding:13px 8px;font-size:14.5px;font-weight:700}
@@ -10679,6 +10680,14 @@ body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!im
 const _cpCache={};
 let _cpOpen=false, _cpHist=false;
 function _cpEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _cpLink(s){ // 본문·댓글 글자 속 주소를 누를 수 있게 (사장님 2026-11-19 「댓글에 링크단거 타고 바로가기」)
+  const t=String(s==null?'':s), re=/https?:\/\/[^\s<>"'()\[\]{}]+/g; let out='', i=0, m;
+  while((m=re.exec(t))){ const u=m[0].replace(/[.,!?;:…。]+$/,''); out+=_cpEsc(t.slice(i,m.index))+'<a class="cp-a" href="'+_cpEsc(u)+'" target="_blank" rel="noopener nofollow" onclick="return _cpGo(this,event)">'+_cpEsc(u)+'</a>'; i=m.index+u.length; re.lastIndex=i; }
+  return out+_cpEsc(t.slice(i));
+}
+function _cpGo(a,e){ const u=a.getAttribute('href')||''; try{ trackEvent('community_link',u.slice(0,120)); }catch(_){}
+  if(/^https?:\/\/(www\.)?momcalendar\.com(\/|$)/.test(u)){ if(e) e.preventDefault(); cpClose(true); location.href=u; return false; }   // 우리 사이트 주소는 이 화면에서 바로
+  return commGo(u,e); }   // 네이버·스토어 주소는 카페 링크와 같은 길(네이버 앱 넘김 포함)
 function _cpWhen(t){ if(!t) return ''; const d=new Date(t+9*3600e3); const now=new Date(Date.now()+9*3600e3); const hm=String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); return (d.getUTCFullYear()===now.getUTCFullYear()?'':d.getUTCFullYear()+'.')+(d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0')+' '+hm; }
 function commOpenPost(id, ev){
   if(ev){ ev.preventDefault(); ev.stopPropagation(); }
@@ -10710,8 +10719,8 @@ function _cpHtml(d,row,url){
   let h='<h2 class="cp-t">'+_cpEsc(d.subject)+'</h2>';
   h+='<div class="cp-m"><span>'+_cpEsc(d.nick)+(d.host?'<em class="cp-badge">방장</em>':'')+'</span><span>'+_cpWhen(d.at)+'</span><span>조회 '+(d.read||0)+'</span></div>';
   (d.blocks||[]).forEach(b=>{
-    if(b.t==='p') h+='<p class="cp-p">'+_cpEsc(b.text)+'</p>';
-    else if(b.t==='quote') h+='<p class="cp-p cp-q">'+_cpEsc(b.text)+'</p>';
+    if(b.t==='p') h+='<p class="cp-p">'+_cpLink(b.text)+'</p>';
+    else if(b.t==='quote') h+='<p class="cp-p cp-q">'+_cpLink(b.text)+'</p>';
     else if(b.t==='img') h+='<img class="cp-img" src="'+_cpEsc(b.src)+'?type=w800" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">';
     else if(b.t==='link') h+='<a class="cp-link" href="'+_cpEsc(b.url)+'" target="_blank" rel="noopener nofollow">'+_cpEsc(b.title||b.url)+'<small>'+_cpEsc(b.url)+'</small></a>';
     else if(b.t==='video') h+='<button class="cp-vid" onclick="return commGo(\''+url+'\',event)">▶ 동영상은 카페에서 볼 수 있어요</button>';
@@ -10723,7 +10732,7 @@ function _cpHtml(d,row,url){
   if(!cs.length) h+='<div class="cp-empty">아직 댓글이 없어요. 첫 댓글은 카페에서 남겨 주세요</div>';
   cs.forEach(c=>{
     h+='<div class="cp-c'+(c.reply?' r':'')+(c.deleted?' del':'')+'"><b>'+_cpEsc(c.nick||'')+(c.host?'<em class="cp-badge">방장</em>':'')+'</b>'
-      +'<p>'+(c.deleted?'삭제된 댓글이에요':_cpEsc(c.text||''))+'</p>'
+      +'<p>'+(c.deleted?'삭제된 댓글이에요':_cpLink(c.text||''))+'</p>'
       +(c.image?'<img src="'+_cpEsc(c.image)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')
       +'<small>'+_cpWhen(c.at)+'</small></div>';
   });
