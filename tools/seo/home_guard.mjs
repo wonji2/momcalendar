@@ -18,9 +18,14 @@ const lf = (s) => s.split('\r').join('');
 const now = cut(lf(readFileSync(file, 'utf8')), '작업본');
 const head = cut(lf(execFileSync('git', ['show', `HEAD:${file}`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })), 'HEAD');
 if (now.out !== head.out) fail('표식 밖이 바뀌었다 — 자동 커밋하지 않는다');
-const rest = now.inner
+// 2026-11-20: 핫딜 TOP 5·브랜드 세일 요약이 붙으면서 루트 페이지 링크 두 개(핫딜정보·세일정보)만 더 받는다 — 루트 .html 전체를 열지 않는다
+const ROOT_OK = ['핫딜정보', '세일정보'].map((s) => `<a href="/${encodeURIComponent(s)}.html">`);
+if (now.inner.includes('\u0000')) fail('표식 안에 NUL 글자가 있다');
+let rest = now.inner
   .replace(/<div class="seolinks-(t|row|q)">/g, '').replace(/<\/div>/g, '')
   .replace(/<a href="\/(gg|g)\/[A-Za-z0-9%._~-]+\.html">[^<>]*<\/a>/g, '');
+for (const a of ROOT_OK) rest = rest.split(a).join('\u0000').replace(/\u0000[^<>\u0000]*<\/a>/g, '');
+if (rest.includes('\u0000')) fail('핫딜정보·세일정보 링크가 닫히지 않았다');
 if (/[<>]/.test(rest)) fail('표식 안에 허용하지 않는 태그가 있다: ' + rest.trim().slice(0, 120));
 if (now.inner.length > 400000) fail('표식 안이 너무 크다');
 console.log(`home_guard ${file}: 통과 (표식 안 ${now.inner.length}자)`);
