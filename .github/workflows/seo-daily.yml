@@ -28,10 +28,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 📉 2026-11-19: 캡션 사본을 회차 사이에 넘겨 준다 — 빌드는 바뀐 행의 캡션만 다시 받는다(매일 23MB → 1MB 안팎, tools/seo/build.ps1 캡션 구간).
+      #   사본은 저장소에 올리지 않는다(실행기 임시 폴더). 캐시는 열쇠마다 한 번만 써지므로 회차 번호로 새 열쇠를 만들고, 읽을 땐 가장 최근 것을 받는다.
+      #   캐시가 없거나 7일 넘게 안 쓰여 지워졌으면 빌드가 알아서 전체를 받는다.
+      - name: 캡션 사본 받기
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/seo_cap_cache.jsonl
+          key: seo-cap-${{ github.run_id }}
+          restore-keys: |
+            seo-cap-
+
       - name: 페이지 생성
         shell: pwsh
         run: ./tools/seo/build.ps1
         env:
+          SEO_CAP_CACHE: ${{ runner.temp }}/seo_cap_cache.jsonl
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}   # seo_dataset 은 공개 키로 못 부른다(2026-10-27)
 
       # 보존 페이지(다시 안 만들어지는 옛 브랜드 페이지)에 남은 깨진 내부링크를 걷어낸다.

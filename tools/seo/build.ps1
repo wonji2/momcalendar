@@ -109,24 +109,92 @@ function RelDealsHtml($deals, [string]$h2){
 # ── 공구 캡션 (셀러 공지 원문 — 건별 상세 페이지의 고유 본문, 사장님 지시 2026-08-31 "다 수집해") ──
 # 저장 단계에서 전화·이메일·계좌열은 이미 제거돼 있다(caption_attach.mjs). 렌더 때 외부 링크를 추가로 걷어낸다.
 $CapMap = @{}
-try{
-  $cApi = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/gonggu'
-  $off = 0
-  while($true){
-    $cq = "?select=name,open_date,caption&approved=eq.true&caption=not.is.null&order=id.asc&offset=$off&limit=1000"
-    # 2026-11-16: 한 쪽이 500(무료 DB 순간 실패)이면 세 번까지 다시 받는다 — 전에는 한 번 실패로 캡션 전체를 포기했다
-    $cr = $null
-    for($try = 1; $try -le 3 -and -not $cr; $try++){
-      try{ $cr = Invoke-WebRequest -Uri ($cApi + $cq) -TimeoutSec 60 -Headers @{ apikey=$key; Authorization="Bearer $key" } }
-      catch{ if($try -eq 3){ throw }; Start-Sleep -Seconds (5 * $try) }
-    }
-    $cj = @(([Text.Encoding]::UTF8.GetString($cr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
-    if($cj.Count -eq 0){ break }
-    foreach($c0 in $cj){ $CapMap[("$($c0.name)|$($c0.open_date)").ToLower()] = "$($c0.caption)" }
-    if($cj.Count -lt 1000){ break }
-    $off += 1000
+# 📉 2026-11-19 (전송량 절감): 전에는 매일 승인 공구의 캡션 1만 2천 건(약 23MB)을 통째로 받았다 — 월 0.7GB, 무료 한도 5GB 의 14%.
+#   이제 어제 받아 둔 사본(환경변수 SEO_CAP_CACHE 가 가리키는 파일 · 깃허브에서는 actions/cache 가 회차 사이에 넘겨 준다)을 읽고,
+#   DB 함수 seo_caption_sigs(행마다 「이름|오픈일|캡션」 지문, 전체 0.7MB)로 바뀐 행만 골라 그 캡션만 다시 받는다(하루 100~200건).
+#   사본이 없거나(첫 회차·캐시 만료) 증분이 한 군데라도 어긋나면 예전처럼 전체를 받는다 — 결과(CapMap)는 어느 길이든 같다.
+#   사본은 저장소에 올리지 않는다(생성물 add 목록 밖 · 실행기 임시 폴더).
+$capCacheFile = "$($env:SEO_CAP_CACHE)"
+$capApi = 'https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/gonggu'
+function CapGet([string]$uri){
+  # 한 쪽이 500(무료 DB 순간 실패)이면 세 번까지 다시 받는다(2026-11-16)
+  $cr = $null
+  for($try = 1; $try -le 3 -and -not $cr; $try++){
+    try{ $cr = Invoke-WebRequest -Uri $uri -TimeoutSec 60 -Headers @{ apikey=$key; Authorization="Bearer $key" } }
+    catch{ if($try -eq 3){ throw }; Start-Sleep -Seconds (5 * $try) }
   }
-  Write-Output "공구 캡션 $($CapMap.Count)건 확보"
+  return ,@(([Text.Encoding]::UTF8.GetString($cr.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
+}
+function CapSig([string]$n, [string]$o, [string]$c){
+  $md5 = [Security.Cryptography.MD5]::Create()
+  try{ return ([BitConverter]::ToString($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes("$n|$o|$c")))).Replace('-','').ToLower() } finally { $md5.Dispose() }
+}
+try{
+  $capRows = @{}      # id(문자열) → @{ i; s(지문); n; o; c }
+  $capMode = '전체'
+  if($capCacheFile -and (Test-Path $capCacheFile)){
+    try{
+      foreach($ln in [IO.File]::ReadLines($capCacheFile, [Text.Encoding]::UTF8)){
+        if(-not $ln){ continue }
+        $x = $ln | ConvertFrom-Json
+        $capRows["$($x.i)"] = $x
+      }
+    }catch{ Write-Output "캡션 사본을 못 읽음($($_.Exception.Message)) — 전체를 받는다"; $capRows = @{} }
+  }
+  $incrOk = $false
+  if($capRows.Count -ge 1000){
+    try{
+      $sigs = @{}; $soff = 0
+      while($true){
+        $sj = CapGet ("https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/rpc/seo_caption_sigs?p_offset=$soff&p_limit=1000")
+        if($sj.Count -eq 0){ break }
+        foreach($s0 in $sj){ $sigs["$($s0.id)"] = "$($s0.sig)" }
+        if($sj.Count -lt 1000){ break }
+        $soff += 1000
+      }
+      if($sigs.Count -lt 1000){ throw "지문이 $($sigs.Count)건뿐" }
+      $need = @($sigs.Keys | Where-Object { -not $capRows.ContainsKey($_) -or "$($capRows[$_].s)" -ne $sigs[$_] })
+      if($need.Count -gt [int]($sigs.Count * 0.5)){ throw "바뀐 행이 절반을 넘는다($($need.Count)/$($sigs.Count)) — 전체로 받는 편이 낫다" }
+      for($bi = 0; $bi -lt $need.Count; $bi += 150){
+        $ids = ($need[$bi..([Math]::Min($bi + 149, $need.Count - 1))]) -join ','
+        $bj = CapGet ($capApi + "?select=id,name,open_date,caption&approved=eq.true&caption=not.is.null&id=in.($ids)&limit=1000")
+        foreach($c0 in $bj){
+          $capRows["$($c0.id)"] = [pscustomobject]@{ i = $c0.id; s = (CapSig "$($c0.name)" "$($c0.open_date)" "$($c0.caption)"); n = "$($c0.name)"; o = "$($c0.open_date)"; c = "$($c0.caption)" }
+        }
+      }
+      foreach($k in @($capRows.Keys)){ if(-not $sigs.ContainsKey($k)){ $capRows.Remove($k) } }     # 내려간 공구·캡션 지워진 행
+      # 그사이(지문을 받은 뒤) 또 바뀐 행은 내일 다시 잡힌다. 다만 못 채운 행이 많으면 증분을 믿지 않는다
+      $miss = @($sigs.Keys | Where-Object { -not $capRows.ContainsKey($_) }).Count
+      if($miss -gt 20){ throw "증분 뒤에도 $miss 건이 비어 있다" }
+      $incrOk = $true
+      $capMode = "증분(바뀐 $($need.Count)건만 다시 받음 · 지문 $($sigs.Count)건)"
+    }catch{ Write-Output "캡션 증분 실패($($_.Exception.Message)) — 전체를 받는다"; $incrOk = $false }
+  }
+  if(-not $incrOk){
+    $capRows = @{}
+    $off = 0
+    while($true){
+      $cj = CapGet ($capApi + "?select=id,name,open_date,caption&approved=eq.true&caption=not.is.null&order=id.asc&offset=$off&limit=1000")
+      if($cj.Count -eq 0){ break }
+      foreach($c0 in $cj){
+        $capRows["$($c0.id)"] = [pscustomobject]@{ i = $c0.id; s = (CapSig "$($c0.name)" "$($c0.open_date)" "$($c0.caption)"); n = "$($c0.name)"; o = "$($c0.open_date)"; c = "$($c0.caption)" }
+      }
+      if($cj.Count -lt 1000){ break }
+      $off += 1000
+    }
+  }
+  # 예전과 같은 순서(id 오름차순)로 채운다 — 이름·오픈일이 같은 행이 둘이면 id 가 큰 쪽이 남는다
+  foreach($x in ($capRows.Values | Sort-Object { [long]$_.i })){ $CapMap[("$($x.n)|$($x.o)").ToLower()] = "$($x.c)" }
+  Write-Output "공구 캡션 $($CapMap.Count)건 확보 — $capMode"
+  if($capCacheFile -and $capRows.Count -ge 1000){
+    try{
+      $cdir = Split-Path -Parent $capCacheFile
+      if($cdir -and -not (Test-Path $cdir)){ New-Item -ItemType Directory -Force -Path $cdir | Out-Null }
+      $sw = New-Object IO.StreamWriter($capCacheFile, $false, (New-Object Text.UTF8Encoding($false)))
+      try{ foreach($x in $capRows.Values){ $sw.WriteLine(($x | ConvertTo-Json -Compress -Depth 3)) } } finally { $sw.Dispose() }
+      Write-Output "캡션 사본 저장 $($capRows.Count)건 → $capCacheFile"
+    }catch{ Write-Output "캡션 사본 저장 실패(무시 — 다음 회차는 전체를 받는다): $($_.Exception.Message)" }
+  }
 }catch{
   # 🔴 2026-11-16: 「실패(무시)」로 넘어가면 그날 건별 페이지 1만 5천 장이 **셀러 공지 없이** 다시 써진다(본문이 절반 아래로 얇아지고 lastmod 까지 오늘로 바뀐다).
   #   캡션은 건별 페이지의 고유 본문이다 → 못 받으면 페이지를 만들지 않고 멈춘다(어제 판이 그대로 남는다 — 보존 원칙). Actions 가 실패로 떠서 사람이 안다.
