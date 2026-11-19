@@ -239,6 +239,21 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .lk-f input.lk-ig{padding-left:118px}
 .lk-ok{font-size:12px;font-weight:700;color:#0E9F6E;margin:6px 2px 0;min-height:16px}
 .lk-ok.w{color:#B7791F}
+
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ── */
+.pd-ic{width:56px;height:56px;margin:8px auto 14px;border-radius:50%;background:#E8F7EF;display:flex;align-items:center;justify-content:center}
+.pd-ic i{width:22px;height:12px;border-left:3.5px solid #0E9F6E;border-bottom:3.5px solid #0E9F6E;transform:translateY(-3px) rotate(-45deg)}
+.pd-t{font-size:20px;font-weight:800;color:#191F28;text-align:center;letter-spacing:-.02em}
+.pd-s{font-size:14px;font-weight:600;color:#4E5968;text-align:center;margin-top:6px}
+.pd-box{margin-top:20px;border-radius:12px;background:#F9FAFB;padding:4px 16px}
+.pd-r{display:flex;gap:12px;padding:14px 0;border-top:1px solid #EEF0F3;font-size:14px;line-height:1.45;color:#191F28}
+.pd-r:first-child{border-top:none}
+.pd-r .k{flex:none;width:64px;font-weight:800;color:#7C54C4;white-space:nowrap}
+.pd-r .v{flex:1;min-width:0;font-weight:600;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.pd-t,.pd-s{white-space:normal;word-break:keep-all}
+.pd-r.warn .k{color:#E8336F}
+.pd-r.warn .v b{color:#E8336F}
+.pd-btns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
@@ -710,7 +725,7 @@ async function planLoad(){
   const d=await sellerRpc('seller_plan_status');
   const box=document.getElementById('planBox');
   if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
-  _plan=d; planRender();
+  _plan=d; planRender(); planPaidCheck();
 }
 function planRender(){
   const box=document.getElementById('planBox'); if(!box||!_plan) return;
@@ -966,6 +981,34 @@ async function lkSave(){
   if(d.bio){ b.textContent='연결됨'; document.getElementById('lkBio').value=d.bio; }
   showToast(d.insta_pending?'저장했어요. 인스타 계정은 확인 뒤 반영돼요':'저장했어요');
 }
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ─────────────────────────
+   「이용 중」이 처음 보일 때 한 번 띄운다. 스룩 결제 창에서 돌아오면 상태를 다시 읽는다. */
+function planPaidKey(){ return 'mc_plan_paid_'+((_seller&&(_seller.seller_insta||_seller.login_insta))||'')+'_'+((_plan&&_plan.end_date)||''); }
+function planPaidCheck(){
+  if(!_plan||_plan.state!=='active'||!_plan.end_date) return;
+  let seen=false; try{ seen=!!localStorage.getItem(planPaidKey()); }catch(e){}
+  if(seen||document.getElementById('planDim').classList.contains('on')) return;
+  planPaidOpen();
+}
+function planPaidOpen(){
+  try{ localStorage.setItem(planPaidKey(),'1'); }catch(e){}
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-ic"><i></i></div>'+
+    '<div class="pd-t">결제가 완료되었습니다</div>'+
+    '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
+    '<div class="pd-box">'+
+      '<div class="pd-r"><div class="k">배너</div><div class="v">따로 꾸미지 않으면 등록한 공구 일정의 판매 링크로 자동 연결돼요</div></div>'+
+      '<div class="pd-r warn"><div class="k">판매 링크</div><div class="v">일정마다 <b>꼭 넣어 주세요</b><br>없으면 배너가 자동으로 안 걸려요</div></div>'+
+    '</div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" onclick="planSheetClose();setTimeout(openAddModal,250)">공구 일정 등록</button>'+
+      '<button class="pn-cta s" onclick="planSheetClose();setTimeout(bnOpen,250)">배너 직접 꾸미기</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+// 스룩 결제 창에서 돌아오면 다시 읽는다(대기 중일 때만)
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&_plan&&_plan.state==='pending'&&_tok) planLoad(); });
 async function planClaim(){
   if(_planBusy) return;
   const err=document.getElementById('planErr'); err.textContent='';
@@ -1008,13 +1051,14 @@ async function planClaim(){
   window.planDemo=function(s){
     if(s==='none') Object.assign(st,{state:'none',claimed:false});
     if(s==='pending') Object.assign(st,{state:'pending',months:6,amount:490000,method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}});
-    if(s==='active') Object.assign(st,{state:'active',months:6,amount:490000});
+    if(s==='active'||s==='paid') Object.assign(st,{state:'active',months:6,amount:490000});
+    try{ if(s==='paid') localStorage.removeItem('mc_plan_paid_ttotto_mom_'+end()); if(s==='active') localStorage.setItem('mc_plan_paid_ttotto_mom_'+end(),'1'); }catch(e){}
     planSheetClose(); _planOpen=false; planLoad();
   };
   window.addEventListener('load',function(){
     const bar=document.createElement('div');
     bar.style.cssText='position:sticky;top:0;z-index:300;display:flex;gap:6px;align-items:center;padding:8px 12px;background:#FFF8E1;font-size:12px;font-weight:700;color:#5B3A00;white-space:nowrap';
-    bar.innerHTML='<span style="flex:1">화면만 보기</span>'+[['none','신청 전'],['pending','입금 대기'],['active','이용 중']].map(function(x){return '<button onclick="planDemo(\''+x[0]+'\')" style="height:28px;padding:0 10px;border:none;border-radius:100px;background:#FFE08A;color:#5B3A00;font-size:12px;font-weight:700;font-family:inherit">'+x[1]+'</button>';}).join('');
+    bar.innerHTML='<span style="flex:1">화면만 보기</span>'+[['none','신청 전'],['pending','입금 대기'],['paid','결제 완료'],['active','이용 중']].map(function(x){return '<button onclick="planDemo(\''+x[0]+'\')" style="height:28px;padding:0 10px;border:none;border-radius:100px;background:#FFE08A;color:#5B3A00;font-size:12px;font-weight:700;font-family:inherit">'+x[1]+'</button>';}).join('');
     document.body.insertBefore(bar,document.body.firstChild);
     _seller={seller_influencer:'또또맘',seller_insta:'ttotto_mom',login_insta:'ttotto_mom'}; _tok='demo';
     onLogin();
