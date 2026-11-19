@@ -94,6 +94,8 @@ function GgTier($x, [string]$today, [string]$cut){
   if("$($x.od)" -gt $today){ return 'A' }
   if("$($x.od)" -le $today -and "$($x.ed)" -ge $today){ return 'A' }
   if("$($x.ed)" -ge $cut){ return 'B' }
+  # 2026-11-19: 최근 90일 구글 노출이 있던 페이지는 색인을 지킨다(명단 tools/seo/gg_keep_index.txt — build.ps1 이 $GgKeepIdx 로 읽는다)
+  if($GgKeepIdx -and $GgKeepIdx.Contains("$($x.slug).html")){ return 'B' }
   return 'C'
 }
 

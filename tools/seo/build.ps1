@@ -547,9 +547,15 @@ foreach($fp in [IO.Directory]::EnumerateFiles((Join-Path $Root 'gg'), '*.html'))
 # 사이트맵에 남을 gg 수(오늘 집계 A·B + 보존분 중 최근 마감)가 상한을 넘으면 B 창을 스스로 줄인다(30 → 25 → 21 → 14 → 10 → 7)
 #   · 흔들림 방지: 어제 쓴 창(tools/seo/gg_window.txt)보다 넓히는 것은 상한보다 800 건 넘게 여유가 있을 때만 — 경계에 걸린 1천여 장이 하루는 index, 다음 날은 noindex 로 오가지 않게
 #   · 되돌리기(-GgKeepDays 365)는 이 자동 조정을 건너뛴다. 그때는 verify.ps1 의 13,000 가드도 같이 풀어야 커밋된다
+# 2026-11-19 (사장님 「고쳐」 — 서치콘솔 「NOINDEX 태그에 의해 제외」 메일): 최근 90일 구글 노출이 있던 gg 페이지는 장기 마감이어도 C(noindex)로 보내지 않는다.
+#   명단은 seo-daily.yml 이 빌드 전에 tools/seo/gg_keep_index.mjs 로 갱신한다(실패하면 어제 명단 그대로). GgTier(lib.ps1)와 아래 보존 gg 계층이 같이 본다.
+$GgKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+$ggKeepFile = Join-Path $PSScriptRoot 'gg_keep_index.txt'
+if(Test-Path $ggKeepFile){ foreach($ln in [IO.File]::ReadAllLines($ggKeepFile)){ $ln = $ln.Trim(); if($ln -and -not $ln.StartsWith('#')){ [void]$GgKeepIdx.Add($ln) } } }
+Write-Output "gg 색인 지킴 명단(구글 노출 90일): $($GgKeepIdx.Count)장"
 $ggWinFile = Join-Path $PSScriptRoot 'gg_window.txt'
 $prevDays = 0; try{ if(Test-Path $ggWinFile){ $prevDays = [int]([IO.File]::ReadAllText($ggWinFile).Trim()) } }catch{}
-function GgKeepCount([int]$days){ $c0 = GgCutOf $days; return @($ggRows | Where-Object { (GgTier $_ $today $c0) -ne 'C' }).Count + @($KeptGgEd.Values | Where-Object { $_ -ge $c0 }).Count + $keptGgUnknown }
+function GgKeepCount([int]$days){ $c0 = GgCutOf $days; return @($ggRows | Where-Object { (GgTier $_ $today $c0) -ne 'C' }).Count + @($KeptGgEd.Keys | Where-Object { $KeptGgEd[$_] -ge $c0 -or $GgKeepIdx.Contains($_) }).Count + $keptGgUnknown }
 if($GgKeepDays -ge 365){ $nKeep = GgKeepCount $GG_KEEP_DAYS }
 else {
   foreach($tryDays in @($GG_KEEP_DAYS, 25, 21, 14, 10, 7)){
@@ -1850,7 +1856,7 @@ foreach($u in (KeptUrls 'gg' $ggAll)){
   $fn = [uri]::UnescapeDataString(("$u" -replace '^gg/',''))
   $fp = Join-Path $Root "gg/$fn"
   $wantNo = $false
-  if($KeptGgEd.ContainsKey($fn)){ $wantNo = ("$($KeptGgEd[$fn])" -lt $ggCutoff) }
+  if($KeptGgEd.ContainsKey($fn)){ $wantNo = ("$($KeptGgEd[$fn])" -lt $ggCutoff) -and -not $GgKeepIdx.Contains($fn) }
   else { if(HasNoindex $u $Root){ $keptC++; continue } else { $keptB++; [void]$uGG.Add($u); continue } }
   $t = [IO.File]::ReadAllText($fp)
   $isNo = (TextHasNoindex $t)
@@ -2037,6 +2043,7 @@ HomeInject 'index.html'; HomeInject 'test.html'
 # 자동 커밋이 이 목록만 add 하도록 해서 index.html 같은 라이브 파일을 절대 건드리지 않게 한다.
 $genRoot = New-Object System.Collections.ArrayList
 [void]$genRoot.Add('tools/seo/gg_window.txt')   # 2026-11-16: gg 색인 창(일수) — 다음 날 빌드가 읽는다
+[void]$genRoot.Add('tools/seo/gg_keep_index.txt')   # 2026-11-19: 구글 노출 있던 gg 색인 지킴 명단(빌드 전 단계가 쓴다)
 [void]$genRoot.Add('llms.txt')   # 2026-10-24: 매일 새로 쓰는 llms.txt 도 자동 커밋 대상(pathspec)
 foreach($k in $kwMade){ [void]$genRoot.Add("$k.html") }
 foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html')){ [void]$genRoot.Add($h) }
