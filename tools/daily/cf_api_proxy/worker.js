@@ -26,8 +26,9 @@ const ANON = 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
 //   5분이면 공구·핫딜만 월 3.3GB(한도 5GB 의 2/3). 실제 갱신 주기에 맞춰 늘렸다 — 공구는 밤 파싱이 3시간마다, 핫딜은 크론이 하루 몇 번이라
 //   30분·15분이어도 손님 화면이 늦어 보이지 않는다(월 1.1GB). 별칭은 거의 안 바뀌어 6시간.
 //   🔑 급히 반영하려면 **node tools/daily/cf_api_proxy.mjs purge** (2026-10-14 신설). 배포만으로는 아래 공유 캐시단이 안 비워진다.
-const CACHE_TTL = { hotdeals: 900, gonggu: 900, banners_public: 180, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600, live_shows: 3600 };   // live_shows: 라방 편성표(6시간마다 수집, 2026-10-24)
-const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block|live_shows)(?:\?|$)/;
+// 2026-11-19(전송량 절감): 커뮤니티 글 목록(날짜 단위 주소)·찜 수·클릭 수(GET 으로 부르는 STABLE 함수)도 캐시한다. 찜 수는 화면이 내 찜을 ±1 로 바로 고쳐 그려 5분 늦어도 티가 안 난다
+const CACHE_TTL = { hotdeals: 900, gonggu: 900, banners_public: 180, bot_alias: 21600, bot_alias_deny: 21600, sellers: 1800, experiences: 1800, brand_block: 21600, live_shows: 3600, community_posts: 600, 'rpc/wish_counts': 300, 'rpc/gonggu_click_counts': 1800 };   // live_shows: 라방 편성표(6시간마다 수집, 2026-10-24)
+const CACHE_RE = /^\/rest\/v1\/(hotdeals|gonggu|banners_public|bot_alias|bot_alias_deny|sellers|experiences|brand_block|live_shows|community_posts|rpc\/wish_counts|rpc\/gonggu_click_counts)(?:\?|$)/;
 // 🪣 Worker 요청 줄이기(2026-11-02, 어제 91,116건/10만): 손님 브라우저가 이 목록을 잠깐 쥐고 있으면 다시 열 때 Worker 를 안 부른다. 핫딜·체험단은 제외 —
 //    2026-09-29 마감 핫딜이 오래 남은 사고가 있어 계속 「매번 물어본다」. 여기 있는 표는 몇 분 늦어도 손님이 알 수 없는 것들이다. 0/없음 = 예전 그대로
 const BROWSER_TTL = { gonggu: 180, sellers: 300, banners_public: 120, bot_alias: 600, bot_alias_deny: 600, brand_block: 600, live_shows: 600 };

@@ -180,6 +180,54 @@ def resolve_linkprice_or_cpa(target_link):
 
     return None, None, None
 
+# ── 등록 전 공통 거르기 (사장님 지시 2026-11-19) ─────────────────────────────
+#   ① 0원(가격을 못 읽은 글)은 올리지 않는다 — 핫딜 탭에 야놀자 「0원」 5건이 떠 있었다.
+#   ② 제목에 적힌 기간이 이미 지난 딜은 올리지 않는다 — 롯데온 「~11/8 …」 이 11/19 에도 떠 있었다.
+#      기간으로 보는 꼴은 딱 이것뿐이다(용량·분수 「1/2 하프」「26/27 시즌」「4단계 ~ 7단계」를 기간으로 읽지 않게):
+#        물결 바로 뒤 날짜  「~11/8」「~ 11.8」「~11월 8일」
+#        날짜 바로 뒤 「까지」「마감」  「11/8까지」「11.8 마감」「11월 8일까지」
+#      소비기한·유통기한 옆 날짜는 기간이 아니다. 11~12월에 본 1~2월 날짜는 내년으로 본다.
+_HD_PERIOD_PATS = [
+    re.compile(r'~\s*(\d{1,2})\s*[/.]\s*(\d{1,2})(?![\d/.])'),
+    re.compile(r'~\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일'),
+    re.compile(r'(?<![\d/.])(\d{1,2})\s*[/.]\s*(\d{1,2})\s*(?:\([월화수목금토일]\)\s*)?(?:까지|마감)'),
+    re.compile(r'(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(?:\([월화수목금토일]\)\s*)?(?:까지|마감)'),
+]
+
+def hd_period_end(title, today=None):
+    """제목의 기간 문구가 가리키는 마지막 날(date). 없으면 None. 여러 개면 가장 늦은 날."""
+    today = today or datetime.now(KST).date()
+    best = None
+    for rx in _HD_PERIOD_PATS:
+        for m in rx.finditer(title or ''):
+            head = (title or '')[max(0, m.start() - 8):m.start()]
+            if re.search(r'소비기한|유통기한|제조', head):
+                continue
+            mo, dd = int(m.group(1)), int(m.group(2))
+            if not (1 <= mo <= 12 and 1 <= dd <= 31):
+                continue
+            yy = today.year + (1 if (today.month >= 11 and mo <= 2) else 0)
+            try:
+                d = today.replace(year=yy, month=mo, day=dd)
+            except ValueError:
+                continue
+            if best is None or d > best:
+                best = d
+    return best
+
+def hd_block_reason(title, price, today=None):
+    """등록하면 안 되는 사유(문자열) 또는 ''."""
+    try:
+        if price is None or int(price) <= 0:
+            return '가격 0원(못 읽음)'
+    except Exception:
+        return '가격 0원(못 읽음)'
+    today = today or datetime.now(KST).date()
+    end = hd_period_end(title, today)
+    if end and end < today:
+        return f'제목의 기간이 지남(~{end.month}/{end.day})'
+    return ''
+
 def run_sql(query):
     url = 'https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query'
     req = urllib.request.Request(
@@ -790,6 +838,9 @@ def collect_from_jirum_alarm():
             price = int(pm.group(1).replace(',', '')) if pm else 0
             if price <= 0:
                 skip(pid, '가격 없음', raw_title); continue
+            block = hd_block_reason(raw_title, price)
+            if block:
+                skip(pid, block, raw_title); continue
             if rec['provider'] != '맘이베베' and any(k in (rec['category'] or '') for k in JIRUM_SKIP_CATS):
                 skip(pid, '품목 밖 분류', f"{rec['category']} · {raw_title}"); continue
             origin, kind = jirum_origin_url(rec['detailUrl'])
@@ -1126,6 +1177,11 @@ def collect_from_bbhd():
                 new_max_id = max(new_max_id, wr_id)
                 continue
 
+            block = hd_block_reason(raw_title, price)
+            if block:
+                print(f'[bbhd] {wr_id} 등록 안 함({block}): {raw_title[:50]}')
+                new_max_id = max(new_max_id, wr_id)
+                continue
             clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
             main_img = product_main_image(mall, aff_link, target_link, cpid if mall == '쿠팡' else None, clean_title)
