@@ -221,6 +221,21 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .bn-f input{width:100%;padding-right:52px}
 .bn-f i{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-style:normal;font-size:11px;color:#8B95A1}
 .bn-inp{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;color:#191F28;box-sizing:border-box}
+
+/* ── 이웃셀러 띠 다듬기 · 내 링크 (2026-11-19) ── */
+.pn-h.pn-big{height:68px;padding:0 18px;border-radius:11px;background:linear-gradient(135deg,#7C54C4,#5B2E8C)}
+.pn-h.pn-big b{font-size:16px;font-weight:800;color:#fff}
+.pn-h.pn-big span{font-size:14px;font-weight:800;color:#FFE08A}
+.pn-h.pn-big .pn-chev{border-color:#fff}
+.pn-ex{display:block;width:100%;height:auto;border-radius:12px;border:1px solid #EDE8F3;background:#F6F3FA;aspect-ratio:1125/1068}
+.pn-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+.pn-chips span{height:30px;line-height:30px;padding:0 12px;border-radius:100px;background:#F6F3FA;color:#5B2E8C;font-size:12px;font-weight:800}
+.pn-chips span.r{background:#FDEBF2;color:#D6336C}
+.lk-f{position:relative;margin-top:8px}
+.lk-f .lk-pre{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:#8B95A1;pointer-events:none}
+.lk-f input.lk-ig{padding-left:118px}
+.lk-ok{font-size:12px;font-weight:700;color:#0E9F6E;margin:6px 2px 0;min-height:16px}
+.lk-ok.w{color:#B7791F}
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
@@ -715,7 +730,7 @@ function planRender(){
   }
   const left=Number(_plan.slots_left||0);
   if(!_planOpen){
-    box.innerHTML='<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span>월 '+planMonthly(6)+'만원부터<i class="pn-chev"></i></span></div>';
+    box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
     return;
   }
   const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
@@ -723,10 +738,9 @@ function planRender(){
   box.innerHTML=
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
     '<div class="pn-in">'+
-      '<div class="pn-shot"><span class="pn-shot-tag">메인 화면 예시</span><div class="pn-shot-t">⭐ 맘캘린더 이웃셀러</div>'+
-        '<div class="pn-shot-r"><div class="pn-ring host">맘캘린더<i>방장</i></div><div class="pn-ring me">'+planEsc([...nm].slice(0,6).join(''))+'</div><div class="pn-ring etc">이웃셀러</div><div class="pn-ring etc">이웃셀러</div><div class="pn-ring etc">이웃셀러</div></div>'+
-        '<div class="pn-shot-c"><b>내 공구</b><span>'+planEsc(nm)+'</span><em>맘캘 이웃셀러</em></div></div>'+
-      '<div class="pn-tiles"><div class="pn-tile">메인 상단 노출</div><div class="pn-tile">목록 맨 위</div><div class="pn-tile">일정 자동 등록</div><div class="pn-tile">내 배너 1구좌</div></div>'+
+      '<img class="pn-ex" src="banners/plan_example_v1.jpg" alt="메인 화면 예시" width="1125" height="1068">'+
+      '<div class="pn-chips"><span class="r">자리 매번 랜덤</span><span class="r">공평 노출</span><span>목록 맨 위</span><span>일정 자동 등록</span></div>'+
+      '<div class="pn-ln" style="border-top:none"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
       '<div class="pn-fine">부가세 포함</div>'+
@@ -736,7 +750,8 @@ function planWays(top){
   return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
     '<div class="pn-ln"><div class="k">카톡</div><div class="v">활동명·인스타·일정 보내기</div><a class="pn-pill y" href="'+PLAN_CHANNEL+'" target="_blank" rel="noopener">채널</a></div>'+
-    '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>';
+    '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
+    '<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>';
 }
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
 function planPick(m){ _planMonths=m; planRender(); }
@@ -906,6 +921,50 @@ async function bnSave(){
   if(!d||!d.ok){ const m=d&&d.msg; return stop(m==='bad_name'?'상품명은 20자까지예요.':m==='bad_desc'?'멘트는 24자까지예요.':m==='bad_link'?'이 링크는 쓸 수 없어요.':m==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'저장하지 못했어요. 다시 눌러 주세요.'); }
   _bn=null; planSheetClose(); showToast('배너를 올렸어요');
 }
+/* ── 내 링크: 인스타 아이디 · 인포크/리틀리 주소 (2026-11-19) ─────────
+   서버 seller_links_get(DB) · Edge seller-links 가 실제로 열리는지 확인하고 저장한다.
+   인스타 아이디는 메인 화면 이웃셀러 동그라미가 여는 주소(instagram.com/아이디)다. */
+let _lkBusy=false;
+async function lkApi(body){
+  if(_tok==='demo') return new Promise(function(res){ setTimeout(function(){ const h=String(body.insta||'').replace(/^.*instagram\.com\//i,'').replace(/^@+/,'').replace(/[\/?#].*$/,'').toLowerCase(); res(/^[a-z0-9._]{1,30}$/.test(h)?{ok:true,insta:'ttotto_mom',insta_state:h==='ttotto_mom'?'same':'unknown',insta_pending:h==='ttotto_mom'?null:h,bio:body.bio||'',bio_state:body.bio?'ok':'skip',bio_has_insta:!!body.bio}:{ok:false,msg:'bad_insta'}); },400); });
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-links',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+async function lkOpen(){
+  const d=await sellerRpc('seller_links_get');
+  if(!d||!d.ok){ showToast('불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 링크</b><span></span></div>'+
+    '<div class="lk-f"><span class="lk-pre">instagram.com/</span><input class="bn-inp lk-ig" id="lkIg" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="아이디" value="'+planEsc(d.insta_pending||d.insta||'')+'"></div>'+
+    '<div class="lk-ok'+(d.insta_pending?' w':'')+'" id="lkIgOk">'+(d.insta_pending?'확인 중':'')+'</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="lkBio" type="url" inputmode="url" maxlength="300" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="인포크·리틀리 주소" value="'+planEsc(d.bio||'')+'"></div>'+
+    '<div class="lk-ok" id="lkBioOk"></div>'+
+    '<div class="pn-err" id="lkErr"></div>'+
+    '<button class="pn-cta" id="lkSave" style="margin-top:8px" onclick="lkSave()">확인하고 저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function lkSave(){
+  if(_lkBusy) return;
+  const err=document.getElementById('lkErr'), a=document.getElementById('lkIgOk'), b=document.getElementById('lkBioOk'), btn=document.getElementById('lkSave');
+  err.textContent=''; a.textContent=''; b.textContent=''; a.className='lk-ok'; b.className='lk-ok';
+  const ig=(document.getElementById('lkIg').value||'').trim(), bio=(document.getElementById('lkBio').value||'').trim();
+  if(!ig){ err.textContent='인스타 아이디를 적어 주세요.'; return; }
+  _lkBusy=true; btn.disabled=true; btn.textContent='확인하는 중';
+  const d=await lkApi({insta:ig,bio:bio});
+  _lkBusy=false; if(!document.getElementById('lkSave')) return; btn.disabled=false; btn.textContent='확인하고 저장';
+  if(!d||!d.ok){
+    const m=d&&d.msg;
+    err.textContent=m==='bad_insta'?'인스타 아이디를 확인해 주세요.':m==='insta_taken'?'다른 셀러가 쓰는 아이디예요.':m==='bio_none'?'열리지 않는 주소예요.':m==='bad_bio'?'주소를 확인해 주세요.':m==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.';
+    return;
+  }
+  if(d.insta_pending){ a.className='lk-ok w'; a.textContent='확인 중 · instagram.com/'+d.insta_pending; }
+  else { a.textContent='연결됨 · instagram.com/'+d.insta; document.getElementById('lkIg').value=d.insta; }
+  if(d.bio){ b.textContent='연결됨'; document.getElementById('lkBio').value=d.bio; }
+  showToast(d.insta_pending?'저장했어요. 인스타 계정은 확인 뒤 반영돼요':'저장했어요');
+}
 async function planClaim(){
   if(_planBusy) return;
   const err=document.getElementById('planErr'); err.textContent='';
@@ -940,6 +999,7 @@ async function planClaim(){
     if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
     if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
     if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
+    if(fn==='seller_links_get') return {ok:true,insta:'ttotto_mom',insta_pending:null,bio:'',checked:false};
     if(fn==='seller_banner_get') return {ok:true,can:st.state==='active'||st.state==='pending',seller:'또또맘',banner:st.banner||null};
     if(fn==='seller_banner_save'){ st.banner={name:p.p_name,desc:p.p_desc,link:p.p_link,img:p.p_img,active:true}; return {ok:true}; }
     return real(fn,p);
