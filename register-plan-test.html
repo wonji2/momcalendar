@@ -223,10 +223,13 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .bn-inp{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;color:#191F28;box-sizing:border-box}
 
 /* ── 이웃셀러 띠 다듬기 · 내 링크 (2026-11-19) ── */
-.pn-h.pn-big{height:68px;padding:0 18px;border-radius:11px;background:linear-gradient(135deg,#7C54C4,#5B2E8C)}
-.pn-h.pn-big b{font-size:16px;font-weight:800;color:#fff}
-.pn-h.pn-big span{font-size:14px;font-weight:800;color:#FFE08A}
-.pn-h.pn-big .pn-chev{border-color:#fff}
+/* 눌러 보고 싶은 홍보 배너처럼: 보라색 화면에서 튀는 분홍·주황 (사장님 2026-11-19 「보라색 말고 더 튀는 색으로」) */
+.pn-box.pn-promo{border:none;box-shadow:0 6px 18px rgba(255,77,141,.32)}
+.pn-h.pn-big{height:72px;padding:0 18px;border-radius:12px;background:linear-gradient(120deg,#FF4D8D 0%,#FF7A45 100%)}
+.pn-h.pn-big:active{transform:scale(.97)}
+.pn-h.pn-big b{font-size:17px;font-weight:800;color:#fff}
+.pn-h.pn-big span{display:flex;align-items:center;height:34px;padding:0 6px 0 14px;border-radius:100px;background:#fff;font-size:14px;font-weight:800;color:#E8336F}
+.pn-h.pn-big .pn-chev{border-color:#E8336F}
 .pn-ex{display:block;width:100%;height:auto;border-radius:12px;border:1px solid #EDE8F3;background:#F6F3FA;aspect-ratio:1125/1068}
 .pn-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
 .pn-chips span{height:30px;line-height:30px;padding:0 12px;border-radius:100px;background:#F6F3FA;color:#5B2E8C;font-size:12px;font-weight:800}
@@ -711,6 +714,7 @@ async function planLoad(){
 }
 function planRender(){
   const box=document.getElementById('planBox'); if(!box||!_plan) return;
+  box.classList.remove('pn-promo');
   box.style.display='block';
   const nm=(_seller&&(_seller.seller_influencer||_seller.login_insta))||'';
   const star=document.getElementById('pbName');
@@ -730,7 +734,7 @@ function planRender(){
   }
   const left=Number(_plan.slots_left||0);
   if(!_planOpen){
-    box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
+    box.classList.add('pn-promo'); box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
     return;
   }
   const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
@@ -739,7 +743,7 @@ function planRender(){
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
     '<div class="pn-in">'+
       '<img class="pn-ex" src="banners/plan_example_v1.jpg" alt="메인 화면 예시" width="1125" height="1068">'+
-      '<div class="pn-chips"><span class="r">자리 매번 랜덤</span><span class="r">공평 노출</span><span>목록 맨 위</span><span>일정 자동 등록</span></div>'+
+      '<div class="pn-chips"><span class="r">자리 매번 랜덤</span><span>목록 맨 위</span><span>일정 자동 등록</span></div>'+
       '<div class="pn-ln" style="border-top:none"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
@@ -749,7 +753,6 @@ function planRender(){
 function planWays(top){
   return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
-    '<div class="pn-ln"><div class="k">카톡</div><div class="v">활동명·인스타·일정 보내기</div><a class="pn-pill y" href="'+PLAN_CHANNEL+'" target="_blank" rel="noopener">채널</a></div>'+
     '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
     '<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>';
 }
@@ -787,7 +790,7 @@ function planSheetOpen(){
     :
     head+
     (has?'<div class="pn-acct"><b>'+planEsc(b.name)+' '+planEsc(b.no)+'</b><button class="pn-pill p" onclick="planCopy()">복사</button></div>':
-         '<div class="pn-acct"><b>계좌는 카톡 채널로 안내</b><a class="pn-pill y" href="'+PLAN_CHANNEL+'" target="_blank" rel="noopener">채널</a></div>')+
+         '<div class="pn-acct"><b>계좌 준비 중 · 잠시 뒤 다시 열어 주세요</b></div>')+
     (has&&b.holder?'<div class="pn-row"><span>예금주</span><b>'+planEsc(b.holder)+'</b></div>':'')+
     '<div class="pn-row"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
     '<div class="pn-row last"><span>현금영수증</span><div class="pn-chips" id="planKinds"></div></div>'+
