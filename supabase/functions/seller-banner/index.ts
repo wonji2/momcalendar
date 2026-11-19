@@ -18,6 +18,95 @@ const cors = (req: Request) => {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 };
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+
+// ── 상품명 20자 · 멘트 24자로 줄이기 (사장님 2026-11-19 「링크 읽고 글자수에 맞게 니가 나름 해석해서 줄여야지」) ──
+//   ① AI(Haiku, 챗봇·name-clean 과 같은 ANTHROPIC_API_KEY): 상품명 = 원문 낱말에서 브랜드+품목만(지어내기·순서 바꾸기 금지) · 멘트 = 원문 사실로 짧게
+//   ② 검사에 걸리거나 AI 가 안 되면 낱말 단위로 끊는다(글자 중간에서 자르지 않는다)
+//   하루 상한 BANNER_AI_PER_DAY(기본 300) — 셈은 app_private_config 'banner_ai_day' = 'YYYY-MM-DD:N'
+const AI_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
+const AI_MODEL = Deno.env.get('BOT_AI_MODEL') || 'claude-haiku-4-5';
+const AI_PER_DAY = Number(Deno.env.get('BANNER_AI_PER_DAY') || 300);
+const glen = (t: string) => [...t].length;
+const toks = (t: string) => t.split(/\s+/).filter(Boolean);
+function fitWords(t: string, n: number): string {
+  let out = '';
+  for (const w of toks(String(t || '').replace(/[\[\]【】()（）]/g, ' ').replace(/\s+/g, ' '))) {
+    const next = out ? out + ' ' + w : w;
+    if (glen(next) > n) break;
+    out = next;
+  }
+  return out.replace(/[,·/&+\-]+$/g, '').trim();
+}
+// 상품명: 원문 낱말을 원문 순서대로만 썼는가
+function nameOk(orig: string, name: string): boolean {
+  const a = toks(orig.replace(/[,()\[\]]/g, ' ')), b = toks(name.replace(/[,()\[\]]/g, ' '));
+  if (!b.length || glen(name) > 20 || glen(name.replace(/\s/g, '')) < 2) return false;
+  if (/(와|과|및|의|을|를|은|는|이|가|에|로|도|랑|하고|공동구매|공구|오픈|특가)$/.test(name.trim())) return false;   // 조사·행사 말로 끝나면 안 된다
+  if (/(한|운|던|된|하는|마시는|먹는|쓰는)$/.test(toks(name).pop() || '')) return false;   // 꾸밈말로 끝나면 안 된다(「…유기농 진한」)
+  const base = (w: string) => w.replace(/(와|과|및|의|을|를|은|는|이|가)$/, '');   // 원문 낱말에서 조사를 뗀 꼴도 같은 낱말로 본다(「보리차와」→「보리차」)
+  let i = 0; for (const w of a) if (i < b.length && (w === b[i] || (glen(base(w)) >= 2 && base(w) === b[i]))) i++;
+  return i === b.length;
+}
+// 멘트: 24자 안 · 원문에 없는 숫자(가격·날짜·%)를 넣지 않았는가
+function descOk(src: string, d: string): boolean {
+  if (!d) return true;
+  if (glen(d) > 24) return false;
+  for (const m of d.match(/\d+/g) || []) if (!src.includes(m)) return false;
+  return !/https?:|[<>]/.test(d);
+}
+async function aiBudget(sb: SupabaseClient): Promise<boolean> {
+  try {
+    const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const r = await sb.from('app_private_config').select('value').eq('key', 'banner_ai_day').maybeSingle();
+    const [d, n] = String(r.data?.value || '').split(':');
+    const used = d === day ? Number(n) || 0 : 0;
+    if (used >= AI_PER_DAY) return false;
+    await sb.from('app_private_config').upsert({ key: 'banner_ai_day', value: `${day}:${used + 1}`, updated_at: new Date().toISOString() });
+    return true;
+  } catch { return false; }
+}
+// 「셀러명 x 브랜드」 꼴의 앞부분(판매처 이름)과 끝의 행사 말은 뗀다
+const dropSeller = (t: string) => t.replace(/^\S+(\s+\S+)?\s+[xX×]\s+/, '');
+function cleanTitle(t: string): string { return dropSeller(t).replace(/\s*(공동구매|공구|오픈|특가)\s*$/g, '').trim(); }
+// 실패했을 때: 조사로 끝나는 낱말은 빼고 낱말 단위로 끊는다
+function fbNameOf(title: string): string {
+  const w = toks(cleanTitle(title)).map((x) => x.replace(/(와|과|및)$/, ''));
+  let out = fitWords(w.join(' '), 20).split(' ');
+  while (out.length > 1 && /(한|운|던|된|하는|마시는|먹는|쓰는)$/.test(out[out.length - 1])) out.pop();   // 꾸밈말로 끝나지 않게
+  return out.join(' ');
+}
+async function shorten(sb: SupabaseClient, title: string, desc: string, body = ''): Promise<{ name: string; desc: string; by: string }> {
+  const fbName = fbNameOf(title), fbDesc = fitWords(desc, 24);
+  const plain = cleanTitle(title);
+  if (!AI_KEY || (!title && !desc) || (glen(plain) <= 20 && glen(desc) <= 24 && !body)) return { name: glen(plain) <= 20 && nameOk(title, plain) ? plain : fbName, desc: glen(desc) <= 24 ? desc : fbDesc, by: 'cut' };
+  if (!(await aiBudget(sb))) return { name: fbName, desc: fbDesc, by: 'cut' };
+  const system = [
+    '맘캘린더 이웃셀러 배너 문구 만들기. 상품 판매 페이지의 제목과 설명을 받아 배너 카드에 들어갈 두 줄을 만든다.',
+    'name: 20자 이하(공백 포함). 제목에 있는 낱말만 원래 순서대로 골라 「브랜드 + 품목」으로. 낱말을 깎거나 바꾸거나 새 말을 넣지 않는다. 자랑·수식어·행사 문구는 뺀다.',
+    'name 에는 「셀러명 x 브랜드」의 앞 「셀러명 x」(판매처 이름)를 넣지 않는다. 괄호 속 옵션(크기·구성)은 name 대신 desc 재료로 쓴다.',
+    'name 은 조사(와·과·의·을·를 등)나 「공동구매·공구·특가」로 끝나면 안 된다. 예: 「로지오가닉 처음마시는 유기농 보리차와 진한 배도라지즙 공동구매」 → 「로지오가닉 유기농 보리차」.',
+    '설명이 이 상품이 아니라 가게 전체 소개일 수 있다. 본문(상품 정보·옵션)을 우선해 이 상품에 대한 사실만 쓴다.',
+    'desc: 반드시 24자 이하(공백 포함, 15~22자가 좋다). 본문·설명·제목에 있는 이 상품의 사실(구성·용량·대상·특징)만으로 한 줄로. 쓸 재료가 조금이라도 있으면 빈칸으로 두지 않는다. 가격·할인율·날짜·기간·「최저가」 같은 말은 넣지 않는다. 문장 중간에서 끊지 말고 자연스럽게 끝맺는다(명사형이나 「~요」). 줄표(—)·느낌표·이모지 금지. 쓸 말이 없으면 빈 문자열.',
+    '출력: JSON 한 개만 {"name":"…","desc":"…"}. 다른 말 금지.',
+  ].join('\n');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers: { 'x-api-key': AI_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 200, system, messages: [{ role: 'user', content: JSON.stringify({ 제목: title, 설명: desc, 본문: body.slice(0, 700) }) }] }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const j = await res.json().catch(() => ({}));
+    const m = String(j?.content?.[0]?.text || '').match(/\{[\s\S]*\}/);
+    const o = m ? JSON.parse(m[0]) : {};
+    const n = typeof o.name === 'string' ? dropSeller(o.name.trim()) : '', d = typeof o.desc === 'string' ? o.desc.trim().replace(/[—!]+/g, '').replace(/[.。]+$/, '').trim() : '';
+    const src = title + ' ' + desc + ' ' + body;
+    // 멘트가 24자를 넘으면 버리지 않고 낱말 단위로 줄여 다시 본다(끝이 꾸밈말·조사면 한 낱말씩 더 뺀다)
+    let d2 = d;
+    if (glen(d2) > 24) { const w = fitWords(d2, 24).split(' '); while (w.length > 1 && /(와|과|및|의|을|를|은|는|이|가|에|로|한|운|던|된|하는|있는|좋은)$/.test(w[w.length - 1])) w.pop(); d2 = w.join(' '); }
+    return { name: nameOk(title, n) ? n : fbName, desc: descOk(src, d2) ? d2 : fbDesc, by: 'ai' };
+  } catch { return { name: fbName, desc: fbDesc, by: 'cut' }; }
+}
+
 const rnd = () => crypto.randomUUID().replace(/-/g, '').slice(0, 20);
 
 function safeUrl(u: string): URL | null {
@@ -34,7 +123,7 @@ const meta = (html: string, keys: string[]): string => {
   for (const k of keys) {
     const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${k}["'][^>]+content=["']([^"']+)["']`, 'i'))
       || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${k}["']`, 'i'));
-    if (m?.[1]) return m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+    if (m?.[1]) return m[1].replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
   }
   return '';
 };
@@ -107,8 +196,8 @@ Deno.serve(async (req) => {
       if (!safeUrl(finalUrl)) return J({ ok: false, msg: 'bad_link' }, 400);
       html = (await r.text()).slice(0, 600000);
     } catch { return J({ ok: false, msg: 'blocked' }); } finally { clearTimeout(t); }
-    const title = (meta(html, ['og:title', 'twitter:title']) || (html.match(/<title[^>]*>([^<]{2,120})<\/title>/i)?.[1] || '')).replace(/\s+/g, ' ').trim().slice(0, 80);
-    let desc = meta(html, ['og:description', 'description', 'twitter:description']).slice(0, 120);
+    const title = (meta(html, ['og:title', 'twitter:title']) || (html.match(/<title[^>]*>([^<]{2,120})<\/title>/i)?.[1] || '')).replace(/\s+/g, ' ').trim().slice(0, 120);
+    let desc = meta(html, ['og:description', 'description', 'twitter:description']).slice(0, 300);
     if (desc.replace(/\s+/g, '') === title.replace(/\s+/g, '') || /^(스룩페이|셀럽샵|네이버 스마트스토어|쿠팡)$/.test(desc)) desc = '';   // 제목 되풀이·사이트 이름뿐이면 비운다
     const raw = meta(html, ['og:image:secure_url', 'og:image', 'twitter:image']);
     let image = '';
@@ -125,8 +214,20 @@ Deno.serve(async (req) => {
         if (!up.error) { image = pub(name); await tidy(sb, sid, [name]); }
       }
     }
-    if (/^(스룩페이|셀럽샵|스마트스토어|쿠팡|instagram)$/i.test(title)) return J({ ok: true, title: '', desc, image });
-    return J({ ok: true, title, desc, image });
+    const t0 = /^(스룩페이|셀럽샵|스마트스토어|쿠팡|instagram)$/i.test(title) ? '' : title;
+    // 설명 태그가 제목과 겹치는 낱말(2자 이상)이 하나도 없으면 가게 전체 소개로 보고 버린다(2026-11-19 로지오가닉: 「아기 퓨레」 가게 소개)
+    const tw = new Set(toks(t0).map((w) => w.replace(/(와|과|의|을|를)$/, '')).filter((w) => glen(w) >= 2));
+    if (desc && tw.size && !toks(desc).some((w) => [...tw].some((x) => w.includes(x) || x.includes(w.replace(/[,.]/g, ''))))) desc = '';
+    // 본문에서 상품 이름 주변 글(옵션·용량 등)을 조금 떼어 함께 읽힌다
+    let body = '';
+    try {
+      const txt = html.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+      const key = [...tw].sort((a, b) => glen(b) - glen(a))[0] || '';
+      const at = key ? txt.indexOf(key) : -1;
+      if (at >= 0) body = txt.slice(Math.max(0, at - 80), at + 700).trim();
+    } catch { body = ''; }
+    const sh = await shorten(sb, t0, desc, body);
+    return J({ ok: true, title: sh.name, desc: sh.desc, image, full_title: t0, by: sh.by });
   }
   return J({ ok: false, msg: 'bad' }, 400);
 });
