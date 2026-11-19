@@ -72,8 +72,11 @@ Deno.serve(async (req) => {
   try { b = await req.json(); } catch { return J({ ok: false, msg: 'bad' }, 400); }
   const token = typeof b.token === 'string' ? b.token : '';
   if (!token || token.length > 400) return J({ ok: false, msg: 'bad' }, 400);
+  // 테스트 페이지 「화면만 보기」(token='demo'): 링크를 실제로 읽어 보여만 준다 — 저장소에 올리지 않고 사진은 data 주소로(800KB 이하만)
+  //   (사장님 2026-11-19 「이 링크를 직접 읽어서 맞게 나와야지」 — 화면만 보기에서 가짜 예시가 채워지던 것)
+  const demo = token === 'demo' && b.op === 'probe';
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const can = await sb.rpc('seller_banner_can', { p_token: token });
+  const can = demo ? { error: null, data: { ok: true, seller_id: 0 } } : await sb.rpc('seller_banner_can', { p_token: token });
   if (can.error) return J({ ok: false, msg: 'server' }, 500);
   if (!can.data?.ok) return J({ ok: false, msg: can.data?.msg || 'not_partner' }, can.data?.msg === 'unauthorized' ? 401 : 403);
   const sid = Number(can.data.seller_id);
@@ -105,20 +108,24 @@ Deno.serve(async (req) => {
       html = (await r.text()).slice(0, 600000);
     } catch { return J({ ok: false, msg: 'blocked' }); } finally { clearTimeout(t); }
     const title = (meta(html, ['og:title', 'twitter:title']) || (html.match(/<title[^>]*>([^<]{2,120})<\/title>/i)?.[1] || '')).replace(/\s+/g, ' ').trim().slice(0, 80);
-    const desc = meta(html, ['og:description', 'description', 'twitter:description']).slice(0, 120);
+    let desc = meta(html, ['og:description', 'description', 'twitter:description']).slice(0, 120);
+    if (desc.replace(/\s+/g, '') === title.replace(/\s+/g, '') || /^(스룩페이|셀럽샵|네이버 스마트스토어|쿠팡)$/.test(desc)) desc = '';   // 제목 되풀이·사이트 이름뿐이면 비운다
     const raw = meta(html, ['og:image:secure_url', 'og:image', 'twitter:image']);
     let image = '';
     if (raw) {
       let iu: URL | null = null;
       try { iu = safeUrl(new URL(raw, finalUrl).toString()); } catch { iu = null; }
       const got = iu ? await getImage(iu, finalUrl) : null;
-      if (got) {
+      if (got && demo) {
+        if (got.buf.byteLength <= 800 * 1024) { let bin = ''; for (let i = 0; i < got.buf.length; i += 32768) bin += String.fromCharCode(...got.buf.subarray(i, i + 32768)); image = `data:${got.ct};base64,` + btoa(bin); }
+      } else if (got) {
         const ext = got.ct === 'image/png' ? 'png' : got.ct === 'image/webp' ? 'webp' : 'jpg';
         const name = `tmp${sid}_${rnd()}.${ext}`;
         const up = await sb.storage.from('banners').upload('seller/' + name, got.buf, { contentType: got.ct, upsert: false });
         if (!up.error) { image = pub(name); await tidy(sb, sid, [name]); }
       }
     }
+    if (/^(스룩페이|셀럽샵|스마트스토어|쿠팡|instagram)$/i.test(title)) return J({ ok: true, title: '', desc, image });
     return J({ ok: true, title, desc, image });
   }
   return J({ ok: false, msg: 'bad' }, 400);

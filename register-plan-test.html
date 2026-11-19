@@ -828,7 +828,7 @@ function planCopy(){
    사진은 800×800 캔버스에 그려 끌어서 위치, 막대로 크기를 맞춘 뒤 그대로 JPEG 로 올린다. */
 let _bn=null;   // {img, z, x, y, dirty, cur, busy}
 async function bnApi(body){
-  if(_tok==='demo') return bnDemoApi(body);
+  if(_tok==='demo'&&body.op!=='probe') return bnDemoApi(body);   // 화면만 보기: 링크 읽기는 실제로(서버가 저장 없이 보여만 준다), 올리기만 흉내
   try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
     const r=await fetch(SB+'/functions/v1/seller-banner',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
     if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
@@ -837,7 +837,6 @@ function bnDemoApi(body){
   const c=document.createElement('canvas'); c.width=900; c.height=600; const g=c.getContext('2d');
   const gr=g.createLinearGradient(0,0,900,600); gr.addColorStop(0,'#F7C8D8'); gr.addColorStop(1,'#B9A7F0'); g.fillStyle=gr; g.fillRect(0,0,900,600);
   g.fillStyle='#fff'; g.beginPath(); g.arc(450,300,150,0,7); g.fill(); g.fillStyle='#7C54C4'; g.font='800 54px sans-serif'; g.textAlign='center'; g.fillText('상품 사진',450,318);
-  if(body.op==='probe') return Promise.resolve({ok:true,title:'리라 그루브 트리플원 색연필 12색 세트',desc:'아이 첫 색연필로 좋은 삼각 그립',image:c.toDataURL('image/jpeg',.8)});
   return Promise.resolve({ok:true,image:body.data?('data:image/jpeg;base64,'+body.data):''});
 }
 function bnErr(t){ const e=document.getElementById('bnErr'); if(e) e.textContent=t||''; }
@@ -1635,6 +1634,39 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
     const lp=document.getElementById('liPw');
     if(lp) setTimeout(()=>lp.focus(),100);
   }
+})();
+</script>
+<script>
+/* 휴대폰 뒤로가기 → 열린 창 닫기 (2026-11-19, scratchpad/patch_seller_back.cjs) */
+(function mcBackClose(){
+  if(!window.history||!history.pushState) return;
+  var pushed=0, skip=0, byBack=false;
+  function opened(){ return [].slice.call(document.querySelectorAll('.mb.on, #planDim.on')); }
+  function closeEl(el){
+    try{
+      if(el.id==='addModal'&&typeof closeAddModal==='function') return closeAddModal();
+      if(el.id==='editModal'&&typeof closeEditModal==='function') return closeEditModal();
+      if(el.id==='pwModal'&&typeof closePwModal==='function') return closePwModal();
+      if(el.id==='planDim'&&typeof planSheetClose==='function') return planSheetClose();
+    }catch(e){}
+    el.classList.remove('on');
+  }
+  function sync(){
+    var n=opened().length;
+    if(n>pushed){ while(pushed<n){ try{ history.pushState({mcSheet:pushed+1},''); }catch(e){} pushed++; } }
+    else if(n<pushed){
+      var d=pushed-n; pushed=n;
+      if(byBack){ byBack=false; return; }          // 뒤로가기로 닫힌 것 — 기록은 이미 한 칸 빠졌다
+      skip+=d; try{ history.go(-d); }catch(e){ skip-=d; }   // 버튼으로 닫힌 것 — 넣었던 칸을 되돌린다
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(skip>0){ skip--; return; }
+    var o=opened(); if(!o.length) return;
+    byBack=true; closeEl(o[o.length-1]);
+    if(opened().length===o.length){ byBack=false; }   // 못 닫았으면(드문 경우) 표시만 되돌린다
+  });
+  try{ new MutationObserver(sync).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']}); }catch(e){}
 })();
 </script>
 
