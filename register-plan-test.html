@@ -204,6 +204,23 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .pn-inp{width:100%;height:48px;padding:0 14px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-top:8px;font-family:inherit;outline:none}
 .pn-inp:focus{border-color:var(--p)}
 .pn-err{font-size:12px;color:var(--red);text-align:center;min-height:15px;margin-top:6px}
+
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ── */
+.bn-wrap{max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bn-wrap *{white-space:nowrap}
+.bn-go{display:flex;gap:8px;margin-top:4px}
+.bn-go input{flex:1;min-width:0}
+.bn-go button{flex:none;height:48px;padding:0 16px;border:none;border-radius:12px;background:#F1EAFB;color:var(--p);font-size:13px;font-weight:800;font-family:inherit}
+.bn-ph{position:relative;width:200px;height:200px;margin:16px auto 0;border-radius:14px;overflow:hidden;background:#ECE8FA;touch-action:none}
+.bn-ph canvas{display:block;width:200px;height:200px}
+.bn-ph .bn-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#8B7BB8}
+.bn-tools{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+.bn-tools input[type=range]{flex:1;min-width:0;accent-color:var(--p)}
+.bn-tools label{flex:none;height:36px;padding:0 14px;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer}
+.bn-f{position:relative;margin-top:8px}
+.bn-f input{width:100%;padding-right:52px}
+.bn-f i{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-style:normal;font-size:11px;color:#8B95A1}
+.bn-inp{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;color:#191F28;box-sizing:border-box}
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
@@ -718,7 +735,8 @@ function planRender(){
 function planWays(top){
   return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
-    '<div class="pn-ln"><div class="k">카톡</div><div class="v">활동명·인스타·일정 보내기</div><a class="pn-pill y" href="'+PLAN_CHANNEL+'" target="_blank" rel="noopener">채널</a></div>';
+    '<div class="pn-ln"><div class="k">카톡</div><div class="v">활동명·인스타·일정 보내기</div><a class="pn-pill y" href="'+PLAN_CHANNEL+'" target="_blank" rel="noopener">채널</a></div>'+
+    '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>';
 }
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
 function planPick(m){ _planMonths=m; planRender(); }
@@ -788,6 +806,106 @@ function planCopy(){
   const old=()=>{ try{ const t=document.createElement('textarea'); t.value=no; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }catch(e){ showToast(no); } };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(no).then(done,old); else old();
 }
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ─────────────────────────────
+   서버: seller_banner_get · seller_banner_save (supabase/sql/seller_banner_170.sql) · Edge seller-banner(probe·upload)
+   사진은 800×800 캔버스에 그려 끌어서 위치, 막대로 크기를 맞춘 뒤 그대로 JPEG 로 올린다. */
+let _bn=null;   // {img, z, x, y, dirty, cur, busy}
+async function bnApi(body){
+  if(_tok==='demo') return bnDemoApi(body);
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-banner',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+function bnDemoApi(body){
+  const c=document.createElement('canvas'); c.width=900; c.height=600; const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,900,600); gr.addColorStop(0,'#F7C8D8'); gr.addColorStop(1,'#B9A7F0'); g.fillStyle=gr; g.fillRect(0,0,900,600);
+  g.fillStyle='#fff'; g.beginPath(); g.arc(450,300,150,0,7); g.fill(); g.fillStyle='#7C54C4'; g.font='800 54px sans-serif'; g.textAlign='center'; g.fillText('상품 사진',450,318);
+  if(body.op==='probe') return Promise.resolve({ok:true,title:'리라 그루브 트리플원 색연필 12색 세트',desc:'아이 첫 색연필로 좋은 삼각 그립',image:c.toDataURL('image/jpeg',.8)});
+  return Promise.resolve({ok:true,image:body.data?('data:image/jpeg;base64,'+body.data):''});
+}
+function bnErr(t){ const e=document.getElementById('bnErr'); if(e) e.textContent=t||''; }
+function bnCount(){ [['bnName',20],['bnDesc',24]].forEach(function(x){ const i=document.getElementById(x[0]), c=document.getElementById(x[0]+'N'); if(i&&c) c.textContent=[...i.value].length+'/'+x[1]; }); }
+async function bnOpen(){
+  const d=await sellerRpc('seller_banner_get');
+  if(!d||!d.ok){ showToast('배너를 불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  if(!d.can){ showToast('이웃셀러로 노출 중일 때 쓸 수 있어요'); return; }
+  const b=d.banner||{};
+  _bn={img:null,z:1,x:0,y:0,dirty:false,cur:b.img||'',busy:false};
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 배너</b><span>'+planEsc(d.seller||'')+'</span></div>'+
+    '<div class="bn-go"><input class="bn-inp" id="bnLink" type="url" inputmode="url" autocomplete="off" placeholder="공구 링크" maxlength="480" value="'+planEsc(b.link||'')+'"><button id="bnGet" onclick="bnProbe()">가져오기</button></div>'+
+    '<div class="bn-ph" id="bnPh"><canvas id="bnCv" width="800" height="800"></canvas><div class="bn-empty" id="bnEmpty">사진</div></div>'+
+    '<div class="bn-tools"><input type="range" id="bnZoom" min="100" max="300" value="100" oninput="bnZoom(this.value)"><label>사진첩<input type="file" id="bnFile" accept="image/*" style="display:none" onchange="bnPick(this)"></label></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnName" maxlength="20" autocomplete="off" placeholder="상품명" value="'+planEsc(b.name||'')+'" oninput="bnCount()"><i id="bnNameN"></i></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnDesc" maxlength="24" autocomplete="off" placeholder="한 줄 멘트" value="'+planEsc(b.desc||'')+'" oninput="bnCount()"><i id="bnDescN"></i></div>'+
+    '<div class="pn-err" id="bnErr"></div>'+
+    '<button class="pn-cta" id="bnSave" style="margin-top:8px" onclick="bnSave()">저장하고 올리기</button>'+
+    '</div>';
+  bnCount(); bnDrag();
+  document.getElementById('planDim').classList.add('on');
+  if(b.img) bnLoad(b.img,false);
+}
+function bnLoad(src,dirty){
+  const im=new Image(); if(!/^data:/.test(src)) im.crossOrigin='anonymous';
+  im.onload=function(){ if(!_bn) return; _bn.img=im; _bn.z=1; _bn.x=0; _bn.y=0; _bn.dirty=!!dirty; const z=document.getElementById('bnZoom'); if(z) z.value=100; const e=document.getElementById('bnEmpty'); if(e) e.style.display='none'; bnDraw(); };
+  im.onerror=function(){ bnErr('사진을 불러오지 못했어요. 사진첩에서 골라 주세요.'); };
+  im.src=src;
+}
+// 캔버스(800×800)에 지금 위치·크기로 그린다. 빈 곳이 생기지 않게 위치를 가둔다.
+function bnDraw(){
+  const cv=document.getElementById('bnCv'); if(!cv||!_bn||!_bn.img) return;
+  const g=cv.getContext('2d'), im=_bn.img, sc=Math.max(800/im.naturalWidth,800/im.naturalHeight)*_bn.z, w=im.naturalWidth*sc, h=im.naturalHeight*sc;
+  const mx=(w-800)/2, my=(h-800)/2; _bn.x=Math.max(-mx,Math.min(mx,_bn.x)); _bn.y=Math.max(-my,Math.min(my,_bn.y));
+  g.fillStyle='#fff'; g.fillRect(0,0,800,800); g.drawImage(im,(800-w)/2+_bn.x,(800-h)/2+_bn.y,w,h);
+}
+function bnZoom(v){ if(!_bn||!_bn.img) return; _bn.z=Math.max(1,Math.min(3,Number(v)/100)); _bn.dirty=true; bnDraw(); }
+function bnDrag(){
+  const ph=document.getElementById('bnPh'); if(!ph) return; let on=false,px=0,py=0;
+  ph.addEventListener('pointerdown',function(e){ if(!_bn||!_bn.img) return; on=true; px=e.clientX; py=e.clientY; try{ ph.setPointerCapture(e.pointerId); }catch(_){} });
+  ph.addEventListener('pointermove',function(e){ if(!on||!_bn) return; const k=800/ph.clientWidth; _bn.x+=(e.clientX-px)*k; _bn.y+=(e.clientY-py)*k; px=e.clientX; py=e.clientY; _bn.dirty=true; bnDraw(); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){ ph.addEventListener(t,function(){ on=false; }); });
+}
+function bnPick(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return; bnErr('');
+  if(!/^image\//.test(f.type)){ bnErr('사진 파일을 골라 주세요.'); return; }
+  const rd=new FileReader(); rd.onload=function(){ bnLoad(rd.result,true); }; rd.onerror=function(){ bnErr('사진을 읽지 못했어요.'); }; rd.readAsDataURL(f); inp.value='';
+}
+// 링크의 대표 사진·제목·설명을 가져와 채운다(채운 뒤 고칠 수 있다)
+async function bnProbe(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnGet'); btn.disabled=true; btn.textContent='가져오는 중';
+  const d=await bnApi({op:'probe',link:link});
+  _bn.busy=false; btn.disabled=false; btn.textContent='가져오기';
+  if(!document.getElementById('bnName')) return;      // 그사이 시트를 닫았다
+  if(!d||!d.ok){ bnErr(d&&d.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':d&&d.msg==='bad_link'?'이 링크는 쓸 수 없어요.':'이 링크에서는 못 가져왔어요. 사진첩에서 골라 주세요.'); return; }
+  const cutN=function(t,n){ return [...String(t||'').replace(/\s+/g,' ').trim()].slice(0,n).join(''); };
+  if(d.title) document.getElementById('bnName').value=cutN(d.title,20);
+  if(d.desc) document.getElementById('bnDesc').value=cutN(d.desc,24);
+  bnCount();
+  if(d.image) bnLoad(d.image,true); else bnErr('사진은 못 가져왔어요. 사진첩에서 골라 주세요.');
+}
+async function bnSave(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const name=(document.getElementById('bnName').value||'').trim(), desc=(document.getElementById('bnDesc').value||'').trim(), link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  if(!_bn.img){ bnErr('사진을 넣어 주세요.'); return; }
+  if(!name){ bnErr('상품명을 적어 주세요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnSave'); btn.disabled=true;
+  const stop=function(t){ _bn.busy=false; btn.disabled=false; bnErr(t); };
+  let img=_bn.cur;
+  if(_bn.dirty||!img){
+    let data=''; try{ const cv=document.getElementById('bnCv'); data=cv.toDataURL('image/jpeg',.86); if(data.length>900000) data=cv.toDataURL('image/jpeg',.7); }catch(e){ return stop('이 사진은 쓸 수 없어요. 사진첩에서 골라 주세요.'); }
+    const u=await bnApi({op:'upload',data:data.replace(/^data:image\/jpeg;base64,/,'')});
+    if(!u||!u.ok||!u.image) return stop(u&&u.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':u&&u.msg==='too_big'?'사진이 너무 커요. 다른 사진을 골라 주세요.':'사진을 올리지 못했어요. 다시 눌러 주세요.');
+    img=u.image;
+  }
+  const d=await sellerRpc('seller_banner_save',{p_name:name,p_desc:desc,p_link:link,p_img:img});
+  if(!d||!d.ok){ const m=d&&d.msg; return stop(m==='bad_name'?'상품명은 20자까지예요.':m==='bad_desc'?'멘트는 24자까지예요.':m==='bad_link'?'이 링크는 쓸 수 없어요.':m==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'저장하지 못했어요. 다시 눌러 주세요.'); }
+  _bn=null; planSheetClose(); showToast('배너를 올렸어요');
+}
 async function planClaim(){
   if(_planBusy) return;
   const err=document.getElementById('planErr'); err.textContent='';
@@ -822,6 +940,8 @@ async function planClaim(){
     if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
     if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
     if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
+    if(fn==='seller_banner_get') return {ok:true,can:st.state==='active'||st.state==='pending',seller:'또또맘',banner:st.banner||null};
+    if(fn==='seller_banner_save'){ st.banner={name:p.p_name,desc:p.p_desc,link:p.p_link,img:p.p_img,active:true}; return {ok:true}; }
     return real(fn,p);
   };
   window.planDemo=function(s){
