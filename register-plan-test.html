@@ -164,6 +164,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pn-cta.s{background:#F6F3FA;color:var(--p);margin-top:8px}
 .pn-cta.s:disabled{background:#F2F4F6;color:#8B95A1}
 a.pn-cta{text-decoration:none;box-sizing:border-box}
+.cf-join{background:#F6F3FA;color:#6B45B3;margin-top:4px}
+.cf-lb{font-size:13px;font-weight:700;color:#4E5968;margin:18px 0 8px}
+.pn-ln .cf-v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pn-seg{display:flex;gap:8px;margin-top:16px}
 .pn-seg button{flex:1;height:40px;border-radius:100px;border:1px solid var(--bd);background:#fff;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit}
 .pn-seg button.on{border-color:var(--p);background:#FAF6FE;color:var(--p);font-weight:700}
@@ -713,6 +716,7 @@ async function doLogin(){
 /* ── 이웃셀러 패키지 (2026-11-17) ─────────────────────────────────
    서버 함수만 부른다: seller_plan_status · seller_plan_start · seller_plan_claim (supabase/sql/neighbor_plan_159.sql)
    상태 none(신청 전) · pending(입금 대기) · active(이용 중). 값·자리 수·계좌는 전부 서버가 내려 준다. */
+let _cafeNick=null,_cfBusy=false;
 let _plan=null,_planOpen=false,_planMonths=6,_planKind='income',_planBusy=false;
 const PLAN_CHANNEL='https://pf.kakao.com/_zGfxnX/chat';
 function planEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -732,6 +736,7 @@ async function planLoad(){
   const box=document.getElementById('planBox');
   if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
   _plan=d; planRender(); planPaidCheck();
+  if(_cafeNick===null&&(d.state==='pending'||d.state==='active')){ _cafeNick=''; sellerRpc('seller_cafe_get').then(x=>{ if(x&&x.ok){ _cafeNick=x.nick||''; planRender(); } else _cafeNick=null; }); }
 }
 function planRender(){
   const box=document.getElementById('planBox'); if(!box||!_plan) return;
@@ -778,6 +783,7 @@ function planWays(top){
   return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
     '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
+    '<div class="pn-ln"><div class="k">카페</div><div class="v cf-v">'+(_cafeNick?'맘카페 · '+planEsc(_cafeNick):'맘카페 가입 · 닉네임')+'</div><button class="pn-pill'+(_cafeNick?'':' p')+'" onclick="cfOpen()">'+(_cafeNick?'수정':'입력')+'</button></div>'+
     (_plan&&_plan.state==='active'?'<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>':'');
 }
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
@@ -951,6 +957,29 @@ async function bnSave(){
 /* ── 내 링크: 인스타 아이디 · 인포크/리틀리 주소 (2026-11-19) ─────────
    서버 seller_links_get(DB) · Edge seller-links 가 실제로 열리는지 확인하고 저장한다.
    인스타 아이디는 메인 화면 이웃셀러 동그라미가 여는 주소(instagram.com/아이디)다. */
+function cfOpen(){
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>맘카페 가입</b><span></span></div>'+
+    '<a class="pn-cta cf-join" href="https://cafe.naver.com/momcal" target="_blank" rel="noopener">맘카페 가입하기</a>'+
+    '<div class="cf-lb">가입한 카페 닉네임</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="cfNick" maxlength="30" autocomplete="off" spellcheck="false" placeholder="카페 닉네임" value="'+planEsc(_cafeNick||'')+'"></div>'+
+    '<div class="pn-err" id="cfErr"></div>'+
+    '<button class="pn-cta" id="cfSave" style="margin-top:8px" onclick="cfSave()">저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function cfSave(){
+  if(_cfBusy) return;
+  const err=document.getElementById('cfErr'), btn=document.getElementById('cfSave');
+  const v=(document.getElementById('cfNick').value||'').trim(); err.textContent='';
+  if(!v){ err.textContent='카페 닉네임을 적어 주세요.'; return; }
+  _cfBusy=true; btn.disabled=true;
+  const d=await sellerRpc('seller_cafe_save',{p_nick:v});
+  _cfBusy=false; if(!document.getElementById('cfSave')) return; btn.disabled=false;
+  if(!d||!d.ok){ err.textContent=d&&d.msg==='bad_nick'?'닉네임을 확인해 주세요.':d&&d.msg==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.'; return; }
+  _cafeNick=d.nick||v; planSheetClose(); planRender(); showToast('카페 닉네임을 저장했어요');
+}
 let _lkBusy=false;
 async function lkApi(body){
   if(_tok==='demo') return new Promise(function(res){ setTimeout(function(){ const h=String(body.insta||'').replace(/^.*instagram\.com\//i,'').replace(/^@+/,'').replace(/[\/?#].*$/,'').toLowerCase(); res(/^[a-z0-9._]{1,30}$/.test(h)?{ok:true,insta:'ttotto_mom',insta_state:h==='ttotto_mom'?'same':'unknown',insta_pending:h==='ttotto_mom'?null:h,bio:body.bio||'',bio_state:body.bio?'ok':'skip',bio_has_insta:!!body.bio}:{ok:false,msg:'bad_insta'}); },400); });
@@ -1047,7 +1076,7 @@ async function planClaim(){
   if(!/[?&]demo=/.test(location.search)) return;
   const due=()=>{ const k=new Date(Date.now()+9*3600e3+86400e3).toISOString().slice(0,10); return new Date(k+'T23:59:59+09:00').toISOString(); };
   const end=()=>{ const d=new Date(Date.now()+9*3600e3); d.setUTCMonth(d.getUTCMonth()+(st.months||6)); d.setUTCDate(d.getUTCDate()-1); return d.toISOString().slice(0,10); };
-  const st={state:'none',prices:{3:290000,6:490000},slots_left:5,clicks:386,wishes:57};
+  const st={state:'none',prices:{3:290000,6:490000},slots_left:12,clicks:386,wishes:57};
   const real=sellerRpc;
   sellerRpc=async function(fn,p){
     if(fn==='seller_list_gonggu') return [];
@@ -1061,6 +1090,8 @@ async function planClaim(){
     if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
     if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
     if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
+    if(fn==='seller_cafe_get') return {ok:true,nick:st.cafe||'',cafe_url:'https://cafe.naver.com/momcal'};
+    if(fn==='seller_cafe_save'){ st.cafe=String(p.p_nick||'').trim(); return {ok:true,nick:st.cafe}; }
     if(fn==='seller_links_get') return {ok:true,insta:'ttotto_mom',insta_pending:null,bio:'',checked:false};
     if(fn==='seller_banner_get') return {ok:true,can:st.state==='active'||st.state==='pending',seller:'또또맘',banner:st.banner||null};
     if(fn==='seller_banner_reset'){ st.banner=null; return {ok:true,removed:1}; }
@@ -1095,7 +1126,7 @@ async function onLogin(){
 function doLogout(){
   if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
   _seller=null;_tok=null;_data=[];
-  _plan=null;_planOpen=false; { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
+  _plan=null;_planOpen=false;_cafeNick=null; { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
   // 아이디는 저장된 값으로 유지, 비밀번호만 비움
