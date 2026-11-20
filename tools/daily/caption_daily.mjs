@@ -34,8 +34,20 @@ const log = (s) => {
   try { appendFileSync(LOG, `[${t}] ${s}\n`); } catch (_) {}
   console.log(s);
 };
-const runSql = (file) => execFileSync(SB, sbArgs(file),
-  { encoding: 'utf8', timeout: 120000, cwd: ROOT });
+// 🔁 2026-11-20: 04:30 회차가 첫 건수 질의에서 CLI 120초 ETIMEDOUT 으로 통째로 실패했다(11-19 청크 1개·11-20 전체, 낮엔 3.7초).
+//   04:30 은 다른 예약작업이 몰리는 시각이라 한 번 걸려도 다시 하면 된다 — 최대 3번, 사이에 30·60초 쉰다.
+//   적재 SQL 은 `where id=… and caption is null` 이라 다시 돌려도 안전하다.
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const runSql = (file) => {
+  for (let i = 1; ; i++) {
+    try { return execFileSync(SB, sbArgs(file), { encoding: 'utf8', timeout: 120000, cwd: ROOT }); }
+    catch (e) {
+      if (i >= 3) throw e;
+      log(`  ⚠ DB 질의 ${i}번째 실패(${String(e.message || e).slice(0, 70)}) — ${30 * i}초 뒤 다시`);
+      sleepSync(30000 * i);
+    }
+  }
+};
 
 function countCaptions() {
   const f = path.join(ROOT, 'scratchpad', '_cap_count.sql');

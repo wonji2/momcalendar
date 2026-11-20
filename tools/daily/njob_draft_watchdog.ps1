@@ -12,12 +12,15 @@ New-Item -ItemType Directory -Force (Split-Path $log) | Out-Null
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 
 $n = 0
-if (Test-Path $draft) { $n = @(Get-ChildItem $draft -Filter '*.txt' | Where-Object { $_.Name -match '^\d\d_' }).Count }
+if (Test-Path $draft) { $n = @(Get-ChildItem $draft -Filter '*.txt' | Where-Object { $_.Name -match '^\d\d_' -and $_.Name -notmatch '^00_' }).Count }   # 2026-11-20: 00_ 은 편성계획·규칙검수 같은 작업 파일이라 원고가 아니다(6편인 날 13편으로 셌다)
 $p = 0
 if (Test-Path $pub) { $p = @(Get-ChildItem $pub -Directory).Count }
 $need = 8
 
-if ($n -ge $need) {
+# 2026-11-06: 11-04 05 two days with 0 posts went unnoticed because only draft count was checked. After 10:00 also require published/scheduled folders.
+$late = ((Get-Date).Hour -ge 10)
+$pubOk = (-not $late) -or ($p -ge $need)
+if ($n -ge $need -and $pubOk) {
   Add-Content -Path $log -Value "$stamp 정상 — 원고 $n 편 / 발행폴더 $p 개" -Encoding utf8
   if (Test-Path $alert) { Remove-Item $alert -Force }
   exit 0

@@ -44,6 +44,7 @@ if echo "$OUT" | grep -q '"already_in_db": [1-9]'; then
   sed '/^select count/,$d' scratchpad/_chk.sql > scratchpad/_chk_list_we09.sql
   echo "select insta||'/'||open_date||'/'||name as row from j where insta is not null and dup order by 1;" >> scratchpad/_chk_list_we09.sql
   "$SB" db query --linked --output-format json -f scratchpad/_chk_list_we09.sql 2>/dev/null | grep -o '"row": "[^"]*"' | sed 's/"row": "//; s/"$//' > "$RAW.dup"
+  cat scratchpad/_chk_exact_dup.txt >> "$RAW.dup" 2>/dev/null   # 게이트가 글자까지 같다고 먼저 센 행(2026-11-20, 빠지면 총≠신규로 멈춘다)
   awk 'BEGIN{FS=" [|] "} FILENAME==ARGV[1]{split($0,a,"/"); d[a[1]"/"a[2]]=1; next} /^\| [0-9]/{h=$8; sub(/ \|$/,"",h); if(d[h"/"$4]) next} {print}' "$RAW.dup" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
   grep -q '^| [0-9]' "$f" || { log "전부 DB 에 있음 — 끝"; exit 0; }
   OUT=$(gate)

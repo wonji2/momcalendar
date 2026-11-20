@@ -45,11 +45,20 @@ const say = (s) => { console.log(s); out.push(s); };
 const sql = (text) => {
   const f = path.join(ROOT, 'scratchpad', '_dupguard_tmp.sql');
   fs.writeFileSync(f, text, 'utf8');
+  // 🔁 2026-11-20: 11-19·11-20 09:20 회차가 조회 실패로 exit 1 — 손으로 돌리면 13초에 정상이라 순간 접속 실패로 본다.
+  //   한 번 실패로 하루를 거르지 않게 최대 3번(사이 20·40초), 질의마다 2분 제한. 지우기 질의도 같은 id 라 다시 해도 같다.
   try {
-    const o = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', maxBuffer: 1 << 24 });
-    const p = parseRows(o);
-    if (!p.ok) throw new Error('CLI 출력을 못 읽었다 — ' + p.why);   // 못 읽은 것과 0건을 구분한다
-    return p.rows;
+    for (let i = 1; ; i++) {
+      try {
+        const o = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', maxBuffer: 1 << 24, timeout: 120000 });
+        const p = parseRows(o);
+        if (!p.ok) throw new Error('CLI 출력을 못 읽었다 — ' + p.why);   // 못 읽은 것과 0건을 구분한다
+        return p.rows;
+      } catch (e) {
+        if (i >= 3) throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20000 * i);
+      }
+    }
   } finally { try { fs.unlinkSync(f); } catch (_) {} }
 };
 
@@ -102,7 +111,13 @@ try {
 
 let rows;
 try { rows = sql(Q); }
-catch (e) { console.error('🔴 조회 실패: ' + String(e.message || e).slice(0, 200)); process.exit(1); }
+catch (e) {
+  // 예약작업은 stderr 를 버린다 — 11-19·11-20 실패가 로그에 한 줄도 없었다. 로그 맨 위에 남기고 끝낸다.
+  const msg = `🔴 조회 실패 ${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ')}: ` + String(e.message || e).slice(0, 300);
+  console.error(msg);
+  try { const prev = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : ''; fs.writeFileSync(LOG, [...out, msg].join('\n') + '\n\n' + prev.split('\n').slice(0, 500).join('\n'), 'utf8'); } catch (_) {}
+  process.exit(1);
+}
 
 const seen = ALL ? {} : (fs.existsSync(SEEN) ? JSON.parse(fs.readFileSync(SEEN, 'utf8')) : {});
 // 🔴 "한 번 보면 영영 안 뜬다" 를 막는다 (2026-09-09 검증자 지적)
