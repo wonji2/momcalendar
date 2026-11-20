@@ -54,17 +54,20 @@ function descOk(src: string, d: string): boolean {
   for (const m of d.match(/\d+/g) || []) if (!src.includes(m)) return false;
   return !/https?:|[<>]/.test(d);
 }
-async function aiBudget(sb: SupabaseClient): Promise<boolean> {
+async function dayBudget(sb: SupabaseClient, key: string, cap: number): Promise<boolean> {
   try {
     const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    const r = await sb.from('app_private_config').select('value').eq('key', 'banner_ai_day').maybeSingle();
+    const r = await sb.from('app_private_config').select('value').eq('key', key).maybeSingle();
     const [d, n] = String(r.data?.value || '').split(':');
     const used = d === day ? Number(n) || 0 : 0;
-    if (used >= AI_PER_DAY) return false;
-    await sb.from('app_private_config').upsert({ key: 'banner_ai_day', value: `${day}:${used + 1}`, updated_at: new Date().toISOString() });
+    if (used >= cap) return false;
+    await sb.from('app_private_config').upsert({ key, value: `${day}:${used + 1}`, updated_at: new Date().toISOString() });
     return true;
   } catch { return false; }
 }
+const aiBudget = (sb: SupabaseClient) => dayBudget(sb, 'banner_ai_day', AI_PER_DAY);
+// 테스트 페이지 「화면만 보기」(token='demo')는 로그인 없이 부를 수 있다 → 하루 상한을 따로 둔다(남의 사이트를 대신 여는 통로·AI 한도 소진 방지 · 코덱스 검사 2026-11-20)
+const DEMO_PER_DAY = Number(Deno.env.get('BANNER_DEMO_PER_DAY') || 60);
 // 「셀러명 x 브랜드」 꼴의 앞부분(판매처 이름)과 끝의 행사 말은 뗀다
 const dropSeller = (t: string) => t.replace(/^\S+(\s+\S+)?\s+[xX×]\s+/, '');
 function cleanTitle(t: string): string { return dropSeller(t).replace(/\s*(공동구매|공구|오픈|특가)\s*$/g, '').trim(); }
@@ -109,15 +112,79 @@ async function shorten(sb: SupabaseClient, title: string, desc: string, body = '
 
 const rnd = () => crypto.randomUUID().replace(/-/g, '').slice(0, 20);
 
+// ── 남의 주소를 대신 열 때의 안전장치 (코덱스 검사 2026-11-20 — seller-banner·seller-banner-auto 같은 코드) ──
+//   ① 사설·예약 IP 는 어떤 표기든 거절: new URL 이 10진(2130706433)·16진(0x7f000001)·8진 IPv4 를 점 표기로 바꿔 주므로 점 표기로 판정한다
+//      끝에 점이 붙은 이름(localhost.)·IPv6 표기·80/443 밖 포트도 거절
+//   ② 이름이 사설 IP 로 풀리면 거절(Deno.resolveDns — 못 쓰는 환경이면 건너뛰고 fetch 가 판단)
+//   ③ 리다이렉트는 자동으로 따라가지 않는다 — 한 단계씩 ①② 를 다시 보고 최대 5번
+//   ④ 본문은 흘려 읽으며 상한에서 끊는다(통째로 받은 뒤 자르지 않는다)
+function privV4(h: string): boolean {
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/); if (!m) return false;
+  const a = +m[1], b = +m[2];
+  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+}
+function privV6(h: string): boolean {
+  h = h.toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === '::' || h === '::1' || /^(fc|fd|fe8|fe9|fea|feb|ff)/.test(h)) return true;
+  const v4 = h.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/); if (v4) return privV4(v4[1]);
+  return /^::ffff:/.test(h) || /^64:ff9b:/.test(h);
+}
 function safeUrl(u: string): URL | null {
   try {
     const x = new URL(u);
     if (x.protocol !== 'http:' && x.protocol !== 'https:') return null;
-    const h = x.hostname.toLowerCase();
-    if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal') || !h.includes('.')) return null;
-    if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h.includes(':')) return null;
+    if (x.username || x.password) return null;
+    if (x.port && x.port !== '80' && x.port !== '443') return null;
+    const h = x.hostname.toLowerCase().replace(/\.+$/, '');
+    if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || !h.includes('.')) return null;
+    if (h.includes(':') || h.startsWith('[')) return null;
+    if (/^[\d.]+$/.test(h) && (!/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || privV4(h))) return null;
     return x;
   } catch { return null; }
+}
+async function hostOk(u: URL): Promise<boolean> {
+  const h = u.hostname.replace(/\.+$/, '');
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) return !privV4(h);
+  try {
+    const rd = (Deno as any).resolveDns; if (typeof rd !== 'function') return true;
+    const [a, aaaa] = await Promise.all([rd(h, 'A').catch(() => []), rd(h, 'AAAA').catch(() => [])]);
+    return !(a as string[]).some(privV4) && !(aaaa as string[]).some(privV6);
+  } catch { return true; }
+}
+// 한 단계씩 따라가며 열기. 실패·내부 주소면 null. 돌려준 응답의 본문은 부른 쪽이 읽거나 cancel 한다
+async function safeFetch(u0: URL, init: RequestInit): Promise<{ r: Response; url: string } | null> {
+  let u: URL | null = u0;
+  for (let hop = 0; hop <= 5 && u; hop++) {
+    if (!safeUrl(u.toString()) || !(await hostOk(u))) return null;
+    const r = await fetch(u, { ...init, redirect: 'manual' });
+    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
+      const loc = r.headers.get('location')!; try { await r.body?.cancel(); } catch { /* */ }
+      try { u = safeUrl(new URL(loc, u).toString()); } catch { u = null; }
+      continue;
+    }
+    return { r, url: u.toString() };
+  }
+  return null;
+}
+// 본문을 max 바이트까지만 읽는다. hard=true 면 넘는 순간 null(사진), false 면 앞 max 바이트만(HTML)
+async function readCapped(r: Response, max: number, hard: boolean): Promise<Uint8Array | null> {
+  const len = Number(r.headers.get('content-length') || 0);
+  if (hard && len > max) { try { await r.body?.cancel(); } catch { /* */ } return null; }
+  if (!r.body) return new Uint8Array(0);
+  const rd = r.body.getReader(); const parts: Uint8Array[] = []; let n = 0;
+  try {
+    while (true) {
+      const { done, value } = await rd.read(); if (done) break;
+      if (n + value.byteLength > max) {
+        if (hard) { try { await rd.cancel(); } catch { /* */ } return null; }
+        parts.push(value.subarray(0, max - n)); n = max; try { await rd.cancel(); } catch { /* */ } break;
+      }
+      parts.push(value); n += value.byteLength;
+    }
+  } catch { if (hard) return null; }
+  const out = new Uint8Array(n); let o = 0; for (const p of parts) { out.set(p, o); o += p.byteLength; }
+  return out;
 }
 const meta = (html: string, keys: string[]): string => {
   for (const k of keys) {
@@ -130,12 +197,14 @@ const meta = (html: string, keys: string[]): string => {
 async function getImage(u: URL, referer: string): Promise<{ buf: Uint8Array; ct: string } | null> {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
   try {
-    const r = await fetch(u, { headers: { 'User-Agent': UA, Referer: referer }, signal: ctl.signal });
-    if (!r.ok) return null;
+    const got = await safeFetch(u, { headers: { 'User-Agent': UA, Referer: referer }, signal: ctl.signal });
+    if (!got) return null;
+    const r = got.r;
+    if (!r.ok) { try { await r.body?.cancel(); } catch { /* */ } return null; }
     const ct = (r.headers.get('content-type') || '').split(';')[0];
-    if (!/^image\/(jpeg|png|webp)$/.test(ct)) return null;
-    const buf = new Uint8Array(await r.arrayBuffer());
-    if (buf.byteLength < 1024 || buf.byteLength > 6 * 1024 * 1024) return null;
+    if (!/^image\/(jpeg|png|webp)$/.test(ct)) { try { await r.body?.cancel(); } catch { /* */ } return null; }
+    const buf = await readCapped(r, 6 * 1024 * 1024, true);
+    if (!buf || buf.byteLength < 1024) return null;
     return { buf, ct };
   } catch { return null; } finally { clearTimeout(t); }
 }
@@ -167,6 +236,7 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const can = demo ? { error: null, data: { ok: true, seller_id: 0 } } : await sb.rpc('seller_banner_can', { p_token: token });
   if (can.error) return J({ ok: false, msg: 'server' }, 500);
+  if (demo && !(await dayBudget(sb, 'banner_demo_day', DEMO_PER_DAY))) return J({ ok: false, msg: 'demo_limit' }, 429);
   if (!can.data?.ok) return J({ ok: false, msg: can.data?.msg || 'not_partner' }, can.data?.msg === 'unauthorized' ? 401 : 403);
   const sid = Number(can.data.seller_id);
   const pub = (name: string) => sb.storage.from('banners').getPublicUrl('seller/' + name).data.publicUrl;
@@ -190,11 +260,13 @@ Deno.serve(async (req) => {
     let html = '', finalUrl = u.toString();
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
     try {
-      const r = await fetch(u, { redirect: 'follow', signal: ctl.signal, headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'ko-KR,ko;q=0.9' } });
-      if (!r.ok) return J({ ok: false, msg: 'blocked', status: r.status });
-      finalUrl = r.url || finalUrl;
-      if (!safeUrl(finalUrl)) return J({ ok: false, msg: 'bad_link' }, 400);
-      html = (await r.text()).slice(0, 600000);
+      // 리다이렉트는 한 단계씩 내부 주소인지 보고 따라간다 · 본문은 600KB 에서 끊는다(코덱스 검사 2026-11-20)
+      const got = await safeFetch(u, { signal: ctl.signal, headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'ko-KR,ko;q=0.9' } });
+      if (!got) return J({ ok: false, msg: 'bad_link' }, 400);
+      const r = got.r;
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* */ } return J({ ok: false, msg: 'blocked', status: r.status }); }
+      finalUrl = got.url;
+      html = new TextDecoder().decode((await readCapped(r, 600000, false)) || new Uint8Array(0));
     } catch { return J({ ok: false, msg: 'blocked' }); } finally { clearTimeout(t); }
     const title = (meta(html, ['og:title', 'twitter:title']) || (html.match(/<title[^>]*>([^<]{2,120})<\/title>/i)?.[1] || '')).replace(/\s+/g, ' ').trim().slice(0, 120);
     let desc = meta(html, ['og:description', 'description', 'twitter:description']).slice(0, 300);
@@ -221,7 +293,7 @@ Deno.serve(async (req) => {
     // 본문에서 상품 이름 주변 글(옵션·용량 등)을 조금 떼어 함께 읽힌다
     let body = '';
     try {
-      const txt = html.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+      const txt = html.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
       const key = [...tw].sort((a, b) => glen(b) - glen(a))[0] || '';
       const at = key ? txt.indexOf(key) : -1;
       if (at >= 0) body = txt.slice(Math.max(0, at - 80), at + 700).trim();
