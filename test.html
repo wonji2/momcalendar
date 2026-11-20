@@ -10621,11 +10621,12 @@ function renderCommunity(){
     // 시·구(카페 말머리): 지역을 골랐고 그 지역 글에 말머리가 있을 때만 단추가 나온다. 글 많은 순
     const hc={}; if(_commLocal) all.forEach(p=>{ if(p.board_id===_commLocal&&p.head) hc[p.head]=(hc[p.head]||0)+1; });
     const heads=Object.keys(hc).sort((a,b)=>hc[b]-hc[a]||a.localeCompare(b,'ko'));
-    if(_commLocalHead&&!hc[_commLocalHead]) _commLocalHead='';
+    // 고른 시·구가 지금 받아 온 글(30일·1000건)에 없어도 고른 값은 지우지 않는다 — 단추·목록에 0건으로 남겨 손님이 직접 「전체」로 바꾸게(코덱스 검사 2026-11-20)
+    if(_commLocalHead&&!hc[_commLocalHead]) heads.push(_commLocalHead);
     h+=`<div class="comm-hf comm-hf-r"><button type="button" class="comm-hchip${_commLocal?' on':''}" data-k="local" aria-haspopup="menu" aria-expanded="${_commLocalDd}" onclick="commLocalDd()">${_commLocal?escHtml(COMM_LOCAL[_commLocal]||'지역'):'지역 전체'} ∨</button>`
       +(heads.length?`<button type="button" class="comm-hchip${_commLocalHead?' on':''}" data-k="lhead" aria-haspopup="menu" aria-expanded="${_commLocalHdd}" onclick="commLocalHdd()">${_commLocalHead?escHtml(_commLocalHead):'시·구 전체'} ∨</button>`:'')
       +(_commLocalDd?`<div class="comm-hdd comm-ldd" role="menu">${[[0,'전체']].concat(COMM_LOCAL_LIST).map(([id,nm])=>`<button type="button" role="menuitem" class="${_commLocal===id?'on':''}" onclick="commLocalSel(${Number(id)})">${escHtml(nm)}${ln[id]?`<i>${ln[id]}</i>`:''}</button>`).join('')}</div>`:'')
-      +(_commLocalHdd&&heads.length?`<div class="comm-hdd comm-ldd comm-ldd1" role="menu"><button type="button" role="menuitem" class="${_commLocalHead?'':'on'}" data-h="" onclick="commLocalHeadSel(this.dataset.h)">전체</button>${heads.map(hd=>`<button type="button" role="menuitem" class="${_commLocalHead===hd?'on':''}" data-h="${escHtml(hd)}" onclick="commLocalHeadSel(this.dataset.h)">${escHtml(hd)}<i>${hc[hd]}</i></button>`).join('')}</div>`:'')+'</div>';
+      +(_commLocalHdd&&heads.length?`<div class="comm-hdd comm-ldd comm-ldd1" role="menu"><button type="button" role="menuitem" class="${_commLocalHead?'':'on'}" data-h="" onclick="commLocalHeadSel(this.dataset.h)">전체</button>${heads.map(hd=>`<button type="button" role="menuitem" class="${_commLocalHead===hd?'on':''}" data-h="${escHtml(hd)}" onclick="commLocalHeadSel(this.dataset.h)">${escHtml(hd)}<i>${hc[hd]||0}</i></button>`).join('')}</div>`:'')+'</div>';
   }
   if(isHot){
     const bn=_commHotBoard?((cnt[_commHotBoard]||{}).name||'전체'):'전체';
