@@ -206,10 +206,16 @@ def hd_period_end(title, today=None):
             mo, dd = int(m.group(1)), int(m.group(2))
             if not (1 <= mo <= 12 and 1 <= dd <= 31):
                 continue
-            yy = today.year + (1 if (today.month >= 11 and mo <= 2) else 0)
-            try:
-                d = today.replace(year=yy, month=mo, day=dd)
-            except ValueError:
+            # 연도는 오늘과 가장 가까운 쪽(작년·올해·내년 중) — 11~2월 넘김만 보던 것을 모든 달로(코덱스 검사 2026-11-20)
+            d = None
+            for yy in (today.year - 1, today.year, today.year + 1):
+                try:
+                    c = today.replace(year=yy, month=mo, day=dd)
+                except ValueError:
+                    continue
+                if d is None or abs((c - today).days) < abs((d - today).days):
+                    d = c
+            if d is None:
                 continue
             if best is None or d > best:
                 best = d
