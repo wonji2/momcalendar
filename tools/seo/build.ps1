@@ -163,9 +163,10 @@ try{
         }
       }
       foreach($k in @($capRows.Keys)){ if(-not $sigs.ContainsKey($k)){ $capRows.Remove($k) } }     # 내려간 공구·캡션 지워진 행
-      # 그사이(지문을 받은 뒤) 또 바뀐 행은 내일 다시 잡힌다. 다만 못 채운 행이 많으면 증분을 믿지 않는다
+      # 지문에 있는 행은 하나도 빠지면 안 된다 — 지문을 받은 뒤 그사이 내려가거나 캡션이 지워진 행이 하나라도 비면 그날 페이지 본문이 빠지므로 전체로 받는다
+      #   (전에는 20건까지 비어도 증분을 믿고 사본까지 저장했다 — 코덱스 검사 2026-11-20)
       $miss = @($sigs.Keys | Where-Object { -not $capRows.ContainsKey($_) }).Count
-      if($miss -gt 20){ throw "증분 뒤에도 $miss 건이 비어 있다" }
+      if($miss -gt 0){ throw "증분 뒤에도 $miss 건이 비어 있다" }
       $incrOk = $true
       $capMode = "증분(바뀐 $($need.Count)건만 다시 받음 · 지문 $($sigs.Count)건)"
     }catch{ Write-Output "캡션 증분 실패($($_.Exception.Message)) — 전체를 받는다"; $incrOk = $false }
