@@ -12,7 +12,8 @@
 //   고장이 없으면 claude 를 부르지 않는다(사용량 규칙: 할 일이 없으면 AI 호출 0).
 //
 //   한도: 하루 수리 시도 12회 · 같은 고장 하루 2회 · 같은 고장 다시 보기까지 3시간 · 한 번에 하나(잠금) · 시도당 25분
-//   제외: njob-draft-watchdog(원고가 적다는 경보 — 글을 써야 풀리는 것), 카페 발행기, 스레드 발행·답글(밖으로 나가는 작업)
+//   범위: 맘캘린더 예약작업(momcal-*·work-backup*)만. 엔잡 블로그(njob-*)·기질·아빠 작업은 맘캘 일이 아니라 보지 않는다(사장님 2026-11-20 「넌 맘캘린더 블로그만 봐야지」)
+//   제외: 카페 발행기, 스레드 발행·답글(밖으로 나가는 작업)
 //
 //   실행: node tools/daily/red_autofix.mjs           (한 회차: 보고 고침)
 //         node tools/daily/red_autofix.mjs --dry     (목록만 보고 claude 안 부름)
@@ -71,7 +72,7 @@ select 'report', split_part(sc->>'role',' — ',1), r->>'t' from ops_status, jso
 }
 
 function failedTasks() {
-  const ps = `$ErrorActionPreference='SilentlyContinue'; Get-ScheduledTask | Where-Object { $_.State -ne 'Disabled' -and ($_.TaskName -like 'momcal-*' -or $_.TaskName -like 'njob-*' -or $_.TaskName -like 'work-backup*' -or $_.TaskName -like 'dad-*') } | ForEach-Object { $i = $_ | Get-ScheduledTaskInfo; [pscustomobject]@{ n=$_.TaskName; r=[int64]$i.LastTaskResult; t=$i.LastRunTime.ToString('yyyy-MM-dd HH:mm'); s=[string]$_.State } } | ConvertTo-Json -Compress`;
+  const ps = `$ErrorActionPreference='SilentlyContinue'; Get-ScheduledTask | Where-Object { $_.State -ne 'Disabled' -and ($_.TaskName -like 'momcal-*' -or $_.TaskName -like 'work-backup*') } | ForEach-Object { $i = $_ | Get-ScheduledTaskInfo; [pscustomobject]@{ n=$_.TaskName; r=[int64]$i.LastTaskResult; t=$i.LastRunTime.ToString('yyyy-MM-dd HH:mm'); s=[string]$_.State } } | ConvertTo-Json -Compress`;
   const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', windowsHide: true, timeout: 120000 });
   let a = []; try { a = JSON.parse(r.stdout || '[]'); } catch { return []; }
   if (!Array.isArray(a)) a = [a];
