@@ -7892,12 +7892,13 @@ function _webPushAppOnly(){ try{ if(typeof _isNativeApp==='function' && _isNativ
 //   웹(휴대폰 브라우저·카톡 인앱·PC)에서 로그인 안 한 손님은 새 찜·알림을 못 건다 → 앱 받기 시트(로그인하면 웹에서도 된다).
 //   이미 이 기기에 있던 찜은 그대로 보이고 지울 수도 있다. 앱(Capacitor)은 막지 않는다.
 //   pend('g:<공구번호>')를 주면 30분 안에 로그인하고 돌아왔을 때 그 공구를 이어서 담는다(_wishPendingRun).
+// 🔴🔴 2026-11-20 오후 사장님 「찜 자체는 무조건 앱만 되게 · 웹은 검색 조회 눈팅만 되고 찜이나 알림은 무조건 앱유도」
+//   → 로그인한 웹 손님도 막는다(로그인하고 웹에서 찜하기 버튼 없앰). 지우기·이미 있던 찜 보기는 그대로.
 function _webWishGate(where, pend){
   try{
     if(typeof _isNativeApp==='function' && _isNativeApp()) return false;
-    if(isLoggedIn()) return false;
   }catch(_){ return false; }
-  try{ if(pend) localStorage.setItem('mc_wish_pending', JSON.stringify({t:Date.now(), k:pend})); else localStorage.removeItem('mc_wish_pending'); }catch(_){}
+  try{ localStorage.removeItem('mc_wish_pending'); }catch(_){}
   window.__wishGateWhere=where||'';
   _appOnlyBell('wishgate_'+(where||''), true, 'wish');
   return true;
@@ -7935,7 +7936,7 @@ function _appOnlyBell(where, force, mode){
   const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
   const btn=k=>`<a class="ao-btn${k==='ios'?' i':''}" href="${APP_STORE_URL[k]}" target="_blank" rel="noopener" onclick="try{trackEvent('push_app_only_go','${k}|${where||''}')}catch(_){}">${k==='ios'?'App Store':'Google Play'}</a>`;
   const wish=(mode==='wish');
-  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}${wish?'<button class="ao-btn l" type="button" onclick="_wishGateLogin()">로그인하고 웹에서 찜하기</button>':''}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
+  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
   requestAnimationFrame(()=>el.classList.add('open'));
   return true;
 }
@@ -8949,8 +8950,8 @@ function nxdBell(id,btn,ev){
   }
 
   // 2. 🔴 매니저님 2026-11-10 철칙: 비로그인이면 오직 로그인 바텀시트만 깔끔하게 호출하고 즉시 반환! (2중 바텀시트 원천 박멸)
+  if(_webWishGate('nxbell')) return;   // 웹은 로그인과 상관없이 앱으로(2026-11-20 오후). 앱은 아래 그대로
   if(!isLoggedIn()){
-    if(_webWishGate('nxbell', 'g:'+id)) return;   // 웹 비로그인 → 앱으로(2026-11-20). 앱은 아래 로그인 시트 그대로
     _nxOn(id);
     return;
   }
