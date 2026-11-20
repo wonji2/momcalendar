@@ -6738,12 +6738,13 @@ async function hmAck(btn){
   catch(e){ btn.disabled=false; alert('처리 표시를 못 했어요: '+e.message); }
 }
 // 🔧 고장 자동 수리기(tools/daily/red_autofix.mjs, 10분) 상황 — 사장님 2026-11-20 「왜 실시간으로 안고치고 쌓아두냐」
-function _hmFix(a){
-  if(!a || !a.at) return '<div class="hm-empty" style="margin-bottom:8px">🔧 자동 수리기 소식 없음</div>';
+function _hmFix(a, who, lim){   // who = 서버(깃허브 15분 · PC 꺼져도 돎) | PC(PC 예약작업 담당)
+  who=who||''; lim=lim||30;
+  if(!a || !a.at) return `<div class="hm-empty" style="margin-bottom:8px">🔧 ${who} 자동 수리기 소식 없음</div>`;
   const age=a.age_min, l=a.last||{};
-  const stale=(age!=null && age>30) ? ` · <b style="color:#F04452">${age}분째 소식 없음(PC 꺼짐?)</b>` : '';
+  const stale=(age!=null && age>lim) ? ` · <b style="color:#F04452">${age}분째 소식 없음${who==='PC'?'(PC 꺼짐 — PC 작업도 쉬는 중)':''}</b>` : '';
   const last=l.at ? `<br>마지막 수리 ${_hmEsc(l.at)} — ${l.fixed?'✅ 고침':'🟡 못 고침'}: ${_hmEsc(String(l.item||'').slice(0,60))}${l.need_human?' · 사람 필요: '+_hmEsc(l.need_human):''}` : '';
-  return `<div style="font-size:12px;color:#4E5968;background:#F6F3FA;border-radius:10px;padding:9px 11px;margin-bottom:8px;line-height:1.5">🔧 자동 수리기 ${_hmEsc(a.at)} 확인 · 오늘 수리 ${_hmN(a.today_tries)}회${stale}${last}</div>`;
+  return `<div style="font-size:12px;color:#4E5968;background:#F6F3FA;border-radius:10px;padding:9px 11px;margin-bottom:8px;line-height:1.5">🔧 ${who} 자동 수리기 ${_hmEsc(a.at)} 확인 · 고장 ${_hmN(a.open)}건 · 오늘 수리 ${_hmN(a.today_tries!=null?a.today_tries:a.dayN)}회${stale}${last}</div>`;
 }
 function hmMore(btn){ const l=btn.previousElementSibling; l.querySelectorAll('.hm-row[hidden]').forEach(x=>x.hidden=false); btn.remove(); }
 async function renderHome(){
@@ -6817,7 +6818,7 @@ async function renderHome(){
     +`<div class="hm-sec"><h3>오늘 할 일 <span>누르면 그 탭으로</span></h3><div class="hm-grid hm-todo" id="hmTodo"></div></div>`
     +`<div class="hm-sec" id="hmInq">${window._inqPanelHtml||''}</div>`
     +`<div class="hm-sec" id="hmPlan" hidden></div>`
-    +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3>${_hmFix(d.autofix)}<div class="hm-list">${_hmRows(red)}</div></div>`
+    +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3>${_hmFix(d.autofix_cloud,'서버',20)}${_hmFix(d.autofix,'PC',30)}<div class="hm-list">${_hmRows(red)}</div></div>`
     +`<div class="hm-sec" id="hmComm" hidden></div>`
     +(radarAcked.length?`<div class="hm-sec"><h3>처리한 것 <span>새로 생기면 다시 빨갛게</span></h3><div class="hm-list">${_hmRows(radarAcked)}</div></div>`:'')
     +`<div class="hm-sec"><h3>확인 필요 <span>${chk.length}건 · 노랑 = 지켜볼 것 · 회색 = 못 잰 것</span></h3><div class="hm-list">${chk.length?chk.map((r,i)=>`<div class="hm-row"${i>=chkShow?' hidden':''}><i class="${_hmLv(r.lv)}"></i><span class="rl">${_hmEsc(r.role)}</span><div>${_hmEsc(r.t)}</div></div>`).join(''):'<div class="hm-empty">없음</div>'}</div>${chk.length>chkShow?`<button class="hm-more" onclick="hmMore(this)">${chk.length-chkShow}건 더 보기</button>`:''}</div>`

@@ -1,3 +1,5 @@
+// 🔧 고장 자동 수리기 PC판 — PC 예약작업 실패·/현황 줄 담당. 본체는 서버판 tools/daily/red_autofix_cloud.mjs(깃허브 15분 · 레이더·서버 작업·pg_cron)
+//    PC 가 꺼지면 PC 예약작업도 안 도니 이 판도 쉬어도 된다. 서버 쪽 고장은 PC 와 상관없이 서버판이 고친다.
 // 🔧 고장 자동 수리기 — 관리자 홈 「고장 난 것」이 생기면 쌓아 두지 않고 바로 고친다
 //   사장님 2026-11-20 「16개나 고장인데 왜 실시간으로 안고치고 16개가 될때까지 쌓아두냐고」
 //
@@ -130,7 +132,8 @@ function main() {
   if (S.day !== TODAY) { S.day = TODAY; S.dayN = 0; for (const k of Object.keys(S.keys)) S.keys[k].dayN = 0; }
 
   let items = [];
-  try { items = items.concat(radarAndReport()); } catch (e) { log('⚪ 레이더·현황을 못 읽음: ' + String(e.message).slice(0, 120)); }
+  // 오류 레이더는 서버판(red_autofix_cloud.mjs · 깃허브 15분)이 본다 — PC판은 PC 예약작업과 /현황 줄만(둘이 같은 고장을 동시에 고치지 않게)
+  try { items = items.concat(radarAndReport().filter((it) => it.src !== 'radar')); } catch (e) { log('⚪ 레이더·현황을 못 읽음: ' + String(e.message).slice(0, 120)); }
   items = items.concat(failedTasks());
   const seen = new Set(); items = items.filter((it) => { const k = keyOf(it); if (seen.has(k)) return false; seen.add(k); it.key = k; return true; });
   // 예약작업 → 레이더 → 현황 순으로(예약작업이 제일 확실하게 다시 돌려 확인된다)
