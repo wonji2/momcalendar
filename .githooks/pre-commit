@@ -1,19 +1,85 @@
 #!/bin/sh
-# 공개 저장소(momcalendar)에 내부 자료가 다시 들어가는 것을 막는다.
-#   2026-09-18~21 사고: tools/vendor/ 가 사흘간 공개돼 셀러 실명·과세유형·요율이 노출됐다.
-#   .gitignore 만으로는 `git add -f` 와 옛 .gitignore 를 쓰는 워크트리를 못 막는다.
-# 되살리는 법:  git config core.hooksPath .githooks
-# 지우는 변경(D)은 막지 않는다 — 공개 저장소에서 빼는 커밋까지 막히던 것을 고쳤다(2026-11-02)
-# 2026-11-13 추가: scratchpad 안 문서·작업규칙.md·references/·HANDOVER/ORDER_ 지시서 — 서버 원격접속 비밀번호가 담긴 인계 문서가 11-02 부터 공개돼 있던 사고(보안 감사 F1·F2)
-BLOCKED='^(scratchpad/[^/]+\.md$|작업규칙\.md$|references/|(.*/)?[^/]*(HANDOVER|ORDER_)[^/]*\.md$|tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md|CLAUDE\.md)'
-HIT=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -E "$BLOCKED")
+# ─────────────────────────────────────────────────────────────────────────────
+# .githooks/pre-commit — 2026-11-22 저장소 대량 삭제 사고(5e8e886·d32c334) 뒤 1중 방어선
+#   적용:     git config core.hooksPath .githooks     (tools/setup_hooks.sh · .ps1)
+#   끄기:     git config --unset core.hooksPath
+#   되돌리기 어려운 것만 막는다. 정상 삭제(툼스톤·브랜드 페이지 정리)는 그대로 통과시킨다.
+#   ※ 깃허브 액션의 자동 커밋은 이 훅을 타지 않는다 → 라이브 보호는 deploy-pages.yml(2중)이 맡는다.
+# ─────────────────────────────────────────────────────────────────────────────
+set -u
+
+FLOOR=45000     # 2026-11-22 기준 추적 파일 54,825. 이 아래면 '부분 체크아웃 폴더'로 본다
+DROP_MIN=1000   # 직전 커밋보다 1,000개 넘게 줄면 차단(툼스톤 수십 장은 통과)
+
+stop() {
+  echo ""
+  echo "🔴 $1"
+  echo ""
+  shift
+  for line in "$@"; do echo "   $line  "; done
+  echo ""
+  echo "   되돌리기 어려운 변경이라 커밋을 멈췄습니다. 우회(--no-verify)하지 말고 원인을 확인하세요."
+  echo ""
+  exit 1
+}
+
+# ── 1) 공개 저장소에 올리면 안 되는 파일 (2026-09-18 · 2026-11-13 규칙 그대로)
+#    2026-11-22 예외 두 가지:
+#      · CLAUDE.md      — 저장소 안전 규칙 문서(비밀 없음). 아래에서 내용을 따로 검사한다.
+#      · orders/ORDER_*.md — 사장님이 클코에 주는 지시서(이미 공개 저장소의 작업 흐름이다)
+BLOCKED='^(scratchpad/[^/]+\.md$|작업규칙\.md$|references/|(.*/)?[^/]*(HANDOVER|ORDER_)[^/]*\.md$|tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md)'
+HIT=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' \
+      | grep -E "$BLOCKED" | grep -vE '^orders/ORDER_[A-Za-z0-9_-]+\.md$')
 if [ -n "$HIT" ]; then
   echo ""
   echo "🔴 공개 저장소에 올리면 안 되는 파일이 올라가려 합니다 — 커밋을 멈췄습니다."
   echo "$HIT" | sed 's/^/   · /'
   echo ""
   echo "   이 파일들은 비공개 백업(work-backup)에만 둡니다."
-  echo "   정말 올려야 하면:  git commit --no-verify   (되도록 쓰지 마세요)"
   echo ""
   exit 1
 fi
+
+# ── 1-b) CLAUDE.md 는 허용하되, 비밀값이 들어가면 막는다
+#   2026-11-22 덧붙임: 이 PC 의 맘캘린더 폴더에는 같은 이름의 **비공개** CLAUDE.md(운영 규칙·접속 정보)가 있다.
+#   그 파일이 실수로 올라가지 않게, 첫 줄이 공개용 머리말이고 8KB 이하인 것만 받는다.
+if git diff --cached --name-only | grep -qx 'CLAUDE.md'; then
+  CM_HEAD=$(git show :CLAUDE.md 2>/dev/null | head -1 | tr -d '\r')
+  CM_SIZE=$(git cat-file -s ":CLAUDE.md" 2>/dev/null || echo 0)
+  if [ "$CM_HEAD" != "# 맘캘린더 — 작업 안전 규칙" ] || [ "${CM_SIZE:-0}" -gt 8000 ]; then
+    stop "CLAUDE.md 가 공개용 안전 규칙 문서가 아닙니다 (첫 줄 「$CM_HEAD」 · ${CM_SIZE}바이트)"          "공개용은 첫 줄이 「# 맘캘린더 — 작업 안전 규칙」이고 8KB 이하입니다. 비공개 운영 CLAUDE.md 는 올리지 않습니다."
+  fi
+  if git show :CLAUDE.md 2>/dev/null | grep -qEi '(password|passwd|비밀번호|secret|api[_-]?key|private key)[[:space:]]*[:=][[:space:]]*[^[:space:]]'; then
+    stop "CLAUDE.md 에 비밀값처럼 보이는 줄이 있습니다" \
+         "공개 저장소입니다. 계정·서버·키 값은 GitHub Secret 으로 옮기세요."
+  fi
+fi
+
+# ── 2) 핵심 보호 경로 삭제 차단 (삭제는 어떤 이유로도 사람이 확인해야 한다)
+PROTECTED='^(index\.html|test\.html|404\.html|sitemap\.xml|robots\.txt|CLAUDE\.md)$|^\.github/workflows/|^\.githooks/|^tools/'
+DEL=$(git diff --cached --name-status --no-renames --diff-filter=D | cut -f2 | grep -E "$PROTECTED")
+if [ -n "$DEL" ]; then
+  stop "핵심 파일이 커밋에서 삭제됩니다" "$(echo "$DEL" | sed 's/^/· /')" \
+       "이 파일들은 라이브·배포·안전장치의 뼈대입니다. 정말 지워야 하면 사장님 확인을 받고 --no-verify 대신 훅의 PROTECTED 목록을 고치세요."
+fi
+
+# ── 3) 전체 추적 파일 수 급감 차단 (이 사고의 본질)
+HEAD_N=$(git ls-tree -r --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')
+IDX_N=$(git ls-files | wc -l | tr -d ' ')
+echo "   추적 파일: HEAD ${HEAD_N:-0} → 이번 커밋 ${IDX_N}"
+if [ "${HEAD_N:-0}" -gt 0 ]; then
+  if [ "$IDX_N" -lt "$FLOOR" ]; then
+    stop "이 작업 폴더에 파일이 $IDX_N 개뿐입니다 (기준 54,825 · 하한 $FLOOR)" \
+         "일부만 꺼낸 폴더(sparse checkout)입니다. 그대로 커밋하면 저장소가 지워집니다." \
+         "고치기: git sparse-checkout disable  또는 전체를 다시 클론"
+  fi
+  if [ $((HEAD_N - IDX_N)) -gt "$DROP_MIN" ]; then
+    stop "이번 커밋에서 파일이 $((HEAD_N - IDX_N)) 개 사라집니다" \
+         "5만 파일 삭제 사고(5e8e886·d32c334)와 같은 모양입니다. 삭제 목록을 먼저 확인하세요."
+  fi
+  if [ "$IDX_N" -lt $((HEAD_N * 9 / 10)) ]; then
+    stop "파일이 직전 커밋의 90% 아래로 줄었습니다 ($HEAD_N → $IDX_N)"
+  fi
+fi
+
+exit 0

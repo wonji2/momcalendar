@@ -1,0 +1,51 @@
+#!/bin/sh
+# ─────────────────────────────────────────────────────────────────────────────
+# .githooks/pre-push — main 으로 나가는 force-push · 브랜치 삭제 · 파일 수 급감 차단
+#   git 이 stdin 으로 주는 줄: <지역 ref> <지역 sha> <원격 ref> <원격 sha>
+#   main 이 아닌 브랜치(backup/last-good · 실험 브랜치)는 통과시킨다.
+# ─────────────────────────────────────────────────────────────────────────────
+set -u
+
+FLOOR=45000
+DROP_MIN=1000
+ZERO=0000000000000000000000000000000000000000
+
+stop() {
+  echo ""
+  echo "🔴 $1"
+  echo "   $2"
+  echo "   되돌리기 어려운 변경이라 푸시를 멈췄습니다. 복구가 필요하면 tools/emergency_restore.sh 를 쓰세요."
+  echo ""
+  exit 1
+}
+
+while read -r lref lsha rref rsha; do
+  [ "$rref" = "refs/heads/main" ] || continue
+
+  if [ "$lsha" = "$ZERO" ]; then
+    stop "main 브랜치를 지우려 합니다" "main 은 저장소의 기준선입니다. 지우지 않습니다."
+  fi
+
+  if [ "$rsha" != "$ZERO" ]; then
+    if ! git merge-base --is-ancestor "$rsha" "$lsha" 2>/dev/null; then
+      stop "main 에 force-push(이전 판 덮어쓰기)입니다" "이력이 사라지면 무엇이 지워졌는지 다시 알 수 없습니다."
+    fi
+  fi
+
+  N=$(git ls-tree -r --name-only "$lsha" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$N" -lt "$FLOOR" ]; then
+    stop "푸시할 판의 파일이 $N 개뿐입니다 (기준 54,825)" "부분 체크아웃에서 만든 판으로 보입니다."
+  fi
+
+  if [ "$rsha" != "$ZERO" ]; then
+    M=$(git ls-tree -r --name-only "$rsha" 2>/dev/null | wc -l | tr -d ' ')
+    if [ $((M - N)) -gt "$DROP_MIN" ]; then
+      stop "푸시하면 파일이 $((M - N)) 개 사라집니다 ($M → $N)" "5만 파일 삭제 사고와 같은 모양입니다."
+    fi
+    echo "   main 푸시 확인: 파일 $N 개 (원격 $M)"
+  else
+    echo "   main 첫 푸시 확인: 파일 $N 개"
+  fi
+done
+
+exit 0
