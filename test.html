@@ -9302,8 +9302,10 @@ function buildMainSlider(){
       (_,i)=>`<div class="main-dot${i===0?' on':''}" onclick="goMainBanner(${i})"></div>`).join('');
   mainIdx=0;
   loadSlideBg(0); loadSlideBg(1%MAIN_BANNERS.length);   // 첫 배너(+다음) 이미지만 우선 로드
-  clearInterval(window._mainTimer);
-  window._mainTimer=setInterval(()=>goMainBanner((mainIdx+1)%MAIN_BANNERS.length),4000);
+  clearInterval(window._mainTimer); clearTimeout(window._mainTimer0);
+  // 2026-11-22 사장님 「방장보증배너 맨 처음 켜지고 두번째 넘어갈 때 쫌만 더 길게 · 걔만」 — 첫 장만 6초, 그다음부터 4초
+  window._mainTimer0=setTimeout(()=>{ goMainBanner((mainIdx+1)%MAIN_BANNERS.length);
+    window._mainTimer=setInterval(()=>goMainBanner((mainIdx+1)%MAIN_BANNERS.length),4000); },6000);
 }
 
 // 슬라이드가 실제로 보일 때만 배경 이미지 로드 (전송량 절약)
