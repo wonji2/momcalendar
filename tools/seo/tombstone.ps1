@@ -32,6 +32,14 @@ $DESTMAP = @{ g=(Enc '공구브랜드.html'); gg=(Enc '지금공구.html'); p=(E
 $made = 0; $alive = 0; $already = 0; $skip = 0; $skipList = New-Object System.Collections.ArrayList
 foreach($line in [IO.File]::ReadAllLines($Csv)){
   $cell = ("$line" -split ',')[0].Trim().Trim('"')
+  # 2026-11-22 (orders/ORDER_GA4_SEO_HOTDEAL_ALERT_2026-11-22.md §3-2): GA4 내보내기(첫 칸이 「페이지 제목」 등)도 받는다.
+  #   첫 칸이 주소가 아니면 줄의 모든 칸을 훑어 momcalendar.com/… 또는 / 로 시작하고 .html 로 끝나는 첫 값을 주소로 삼는다. 아래 규칙은 그대로.
+  if(-not $cell -or $cell -notmatch 'momcalendar\.com/|^/'){
+    foreach($c0 in ("$line" -split ',')){
+      $c1 = $c0.Trim().Trim('"')
+      if($c1 -match '^(https?://(www\.)?momcalendar\.com/|/)' -and ($c1 -split '[?#]')[0] -match '\.html$'){ $cell = $c1; break }
+    }
+  }
   if(-not $cell -or $cell -notmatch 'momcalendar\.com/|^/'){ continue }      # 머리줄·빈 줄
   $rel = $cell -replace '^https?://(www\.)?momcalendar\.com/','' -replace '^/',''
   $rel = ($rel -split '[?#]')[0]
