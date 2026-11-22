@@ -50,7 +50,7 @@ PowerShell 스크립트(`.ps1`)는 **UTF-8 BOM** 으로 저장한다(한글 리�
 
 | 항목 | 실측 | 판정 |
 | --- | --- | --- |
-| `main` 추적 파일 수 | **54,825** (`git ls-tree -r origin/main --name-only \| wc -l`) | 이 수가 기준선. **줄면 사고** |
+| `main` 추적 파일 수 | **54,825** (`git ls-tree -r origin/main --name-only \| wc -l`) | 이 수가 기준선. **줄면 사고**. (이 오더서가 올라가면 54,826 — 문서 1개 늘어난 것이 정상) |
 | 사이트 크기(추적 파일 합) | **1,098,921,545 바이트 = 1,049MB(1.02GiB)** — 트리 API 실측 | ⚠️ GitHub Pages 「1GB」 선을 **넘는다**. 이 legacy 빌드는 되지만 Actions 배포(§4-3)는 실패할 수 있다 → §4-3 관문·§4-5 폴백 |
 | `main` HEAD | `b9d5d8e` (10:09 KST) | 작업 시작 시 `git fetch origin main` 으로 최신 확인 |
 | `.githooks/` | **있다 — `pre-commit` 한 개뿐** | `pre-push` 는 없다(§3-2 에서 신설) |
@@ -891,7 +891,7 @@ exit $LASTEXITCODE
 
 - 커밋 해시 4개 + GitHub 파일 URL(`.githooks/pre-commit`·`deploy-pages.yml`·`emergency_restore.sh`·`CLAUDE.md`)
 - §6 V1~V14 표 — **실측값 그대로**, 못 한 것은 "못 함 + 이유"
-- 각 커밋 전후 `git ls-files | wc -l` 값(기준 54,825)
+- 각 커밋 전후 `git ls-files | wc -l` 값(기준 54,825 · 이 문서가 올라간 뒤에는 54,826)
 - §4-3 전환 결과: `build_type` 전후 값 · 첫 실배포 run id · `pages/deployments` sha · 라이브 4주소 코드
 - §4-4 결과: `allow_force_pushes`·`allow_deletions` 값 (403 이면 그 사실 + 화면 절차를 남겼다는 말)
 - `backup/last-good` sha · 파일 수
