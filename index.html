@@ -9046,7 +9046,7 @@ function _nxAutoStart(sc){
     if(document.querySelector('#nxdAsk.open, #nextSheet.open')) return;
     const r=sc.getBoundingClientRect(); if(!r.width || r.bottom<0 || r.top>innerHeight) return;   // 화면 밖이면 그대로
     const k=_nxPage(); _nxGo(k>=n-1?0:k+1);
-  },4000);
+  },2500);   // 2026-11-22 사장님 「방장보증배너보다 오픈알림 배너가 더 빨리 넘어가게」 — 메인배너(_mainTimer)는 4초 그대로, 이 띠만 2.5초
 }
 function renderNextGonggu(){
   const zone=document.getElementById('nextZone'); if(!zone) return;
@@ -9249,8 +9249,10 @@ function buildMainSlider(){
       (_,i)=>`<div class="main-dot${i===0?' on':''}" onclick="goMainBanner(${i})"></div>`).join('');
   mainIdx=0;
   loadSlideBg(0); loadSlideBg(1%MAIN_BANNERS.length);   // 첫 배너(+다음) 이미지만 우선 로드
-  clearInterval(window._mainTimer);
-  window._mainTimer=setInterval(()=>goMainBanner((mainIdx+1)%MAIN_BANNERS.length),4000);
+  clearInterval(window._mainTimer); clearTimeout(window._mainTimer0);
+  // 2026-11-22 사장님 「방장보증배너 맨 처음 켜지고 두번째 넘어갈 때 쫌만 더 길게 · 걔만」 — 첫 장만 6초, 그다음부터 4초
+  window._mainTimer0=setTimeout(()=>{ goMainBanner((mainIdx+1)%MAIN_BANNERS.length);
+    window._mainTimer=setInterval(()=>goMainBanner((mainIdx+1)%MAIN_BANNERS.length),4000); },6000);
 }
 
 // 슬라이드가 실제로 보일 때만 배경 이미지 로드 (전송량 절약)
