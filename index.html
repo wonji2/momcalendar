@@ -10219,6 +10219,7 @@ function closeChatMenu(){
 .comm-vad video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .comm-vad-mute{position:absolute;left:10px;bottom:10px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .comm-vad-cta{position:absolute;right:10px;bottom:10px;height:34px;padding:0 14px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;font-weight:600;line-height:34px;letter-spacing:-.02em;text-decoration:none;white-space:nowrap}
+.comm-sent{height:1px}
 .comm-more{display:block;width:100%;margin:12px 0 0;background:#F2F4F6;color:#4E5968;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
 .comm-fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:block;width:max-content;background:#191F28;color:#fff;border-radius:999px;padding:11px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(25,31,40,.18);z-index:5}
 @media(min-width:480px){.comm-fab{right:calc(50% - 240px + 16px)}}
@@ -10255,6 +10256,9 @@ async function loadCommunity(force){
 function _commAgo(t){ const d=(Date.now()-new Date(t).getTime())/60000; if(d<60) return Math.max(1,Math.round(d))+'분 전'; if(d<1440) return Math.round(d/60)+'시간 전'; if(d<43200) return Math.round(d/1440)+'일 전'; const x=new Date(t); return (x.getMonth()+1)+'/'+x.getDate(); }
 function commPick(b){ _commBoard=Number(b)||0; _commShown=30; try{ _commHotDd=false; _commLocalDd=false; _commLocalHdd=false; }catch(_){} renderCommunity(); try{ trackEvent('community_board', String(_commBoard)); }catch(_){} }
 function commMore(){ _commShown+=30; try{ _commHotDd=false; }catch(_){} renderCommunity(); }
+// 무한 내리기: 목록 끝 표지(.comm-sent)가 화면 아래 600px 안에 들어오면 30개 더 그린다. 감시자는 하나, 그릴 때마다 새 표지에 다시 건다
+let _commIO=null, _commIOBusy=false;
+function _commWatchEnd(list){ try{ if(_commIO){ _commIO.disconnect(); } const el=list&&list.querySelector('.comm-sent'); if(!el) return; if(!('IntersectionObserver' in window)){ el.outerHTML=`<button class="comm-more" onclick="commMore()">더 보기</button>`; return; } if(!_commIO) _commIO=new IntersectionObserver(function(es){ if(_commIOBusy) return; if(es.some(function(e){return e.isIntersecting;})){ _commIOBusy=true; requestAnimationFrame(function(){ _commShown+=30; renderCommunity(); _commIOBusy=false; }); } },{rootMargin:'0px 0px 600px 0px'}); _commIO.observe(el); }catch(_){} }
 function _commMD(t){ const d=new Date(new Date(t).getTime()+9*3600e3), n=new Date(Date.now()+9*3600e3); if(d.getUTCFullYear()===n.getUTCFullYear()&&d.getUTCMonth()===n.getUTCMonth()&&d.getUTCDate()===n.getUTCDate()) return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); return (d.getUTCMonth()+1)+'.'+String(d.getUTCDate()).padStart(2,'0'); }   // 오늘 글은 시각, 지난 글은 날짜(한국 시간, 사장님 2026-10-27)
 // 카페 글·글쓰기 열기 — 재로그인 없이 (사장님 2026-10-25 「오류없고 계속 재로그인 안해도되게 최대한 사용자에게 편한 방법으로」)
 //   · 안드로이드(크롬·카톡/인스타 인앱·홈화면 앱·우리 앱): 네이버 앱(로그인 살아 있음) 인앱브라우저로. 앱이 없으면 S.browser_fallback_url 로 기본 브라우저(카페 모바일 웹)
@@ -10474,12 +10478,13 @@ function renderCommunity(){
     }
     h+=cards.join('');
   }
-  if(rows.length>_commShown) h+=`<button class="comm-more" onclick="commMore()">더 보기 (${rows.length-_commShown})</button>`;
+  if(rows.length>_commShown) h+=`<div class="comm-sent" aria-hidden="true"></div>`;   // 더 보기 단추 대신: 끝에 닿기 전에 저절로 30개씩 더(사장님 2026-11-22)
   h+=`<a class="comm-fab" href="${writeUrl}" target="_blank" rel="noopener" onclick="try{trackEvent('community_write',String(_commBoard))}catch(_){} return commGo(this.href,event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>글쓰기</a>`;
   const _oldVad=list.querySelector('.comm-vad');
   list.innerHTML=h;
   const _newVad=list.querySelector('.comm-vad'); if(_oldVad&&_newVad&&_oldVad.querySelector('video')&&_oldVad.querySelector('video').getAttribute('src')===_newVad.querySelector('video').getAttribute('src')) _newVad.replaceWith(_oldVad);
   _commTickerRun(tops.length);
+  _commWatchEnd(list);
   const on=list.querySelector('.comm-tabs button.on'); if(on){ const sc=on.parentElement; if(on.offsetLeft+on.offsetWidth>sc.clientWidth) sc.scrollLeft=on.offsetLeft-24; }
   // 영상 광고: 화면에 보일 때만 돌린다(안 보이면 멈춤 — 데이터·배터리). 감시자는 하나만 두고 영상이 바뀔 때만 다시 건다
   const vd=document.getElementById('commAdVideo');
