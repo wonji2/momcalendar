@@ -125,7 +125,8 @@ const mmdd = (s) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? `${+s.slice(5, 7)}/${
 const BRAND_STOP = new Set(['국민','만능','오늘','미니','역시즌','특가','신상','베스트','국산','유아','아기','키즈',
   '시그니처','프리미엄','여름','겨울','간식','분리수거함','목욕놀이','새치컷팅기','고구마','돌반지','가족여행','부모님','추석선물','명절선물',
   '일본','마그네틱','원목','유기농','국내산','수입','무료','한정','도서','난각번호',
-  '카시트','휴대용','스텐','심발기','이유식','비타민','마스크','유아식','단백질','주방','아보카도','이유식용기']);   // 2026-09-28 검증 2차: 일반어 첫 낱말이 검색량 점수를 받던 것   // 2026-09-28: 검색량 정렬로 앞에 나오던 일반어("일본 공구"·"마그네틱 공구") 차단
+  '카시트','휴대용','스텐','심발기','이유식','비타민','마스크','유아식','단백질','주방','아보카도','이유식용기',
+  '기저귀','매트','탄소매트','한글','칫솔','돌잡이','크리스마스','가습기','리빙','가열식','이동식','백화점','자석','철분제','낙산균','오일스프레이','바디드라이어','전집','그림책','유산균','물티슈','텀블러','빨대컵']);   // 2026-09-28 검증 2차: 일반어 첫 낱말이 검색량 점수를 받던 것   // 2026-09-28: 검색량 정렬로 앞에 나오던 일반어("일본 공구"·"마그네틱 공구") 차단
 const brandOf = (n) => {
   const t = (String(n).replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/)[0] || '').replace(/\d+차$/, '').replace(/([가-힣])\d+$/, '$1');   // 회차 잔해 제거("빠이염4차"·"니가드키즈4", 2026-09-28)
   return (t.length >= 2 && t.length <= 7 && !BRAND_STOP.has(t) && !/^\d/.test(t)) ? t : '';
@@ -145,7 +146,7 @@ const siteSearch = await (async () => {
     const { join } = await import('node:path');
     const CLI = 'C:/Users/FAMILY/supabase-cli/supabase.exe';
     const f = join(tmpdir(), 'mc_site_search.sql');
-    writeFileSync(f, 'select term, c30 from public.site_search_stats order by c30 desc limit 600;');
+    writeFileSync(f, 'select term, c30 from public.site_search_stats order by c30 desc limit 3000;');
     const out = execFileSync(CLI, sbArgs(f), { encoding: 'utf8', timeout: 60e3, stdio: ['ignore', 'pipe', 'pipe'] });
     const p = parseRows(out);
     if (!p.ok) throw new Error('CLI 출력 못 읽음');
@@ -167,7 +168,32 @@ for (const o of opens) { const b = brandOf(o.name); if (!b || b in brandScore) c
 const allBrands = [...new Set(opens.map((o) => brandOf(o.name)).filter(Boolean))].sort((a, b) => (brandScore[b] || 0) - (brandScore[a] || 0));
 const searchedBrands = allBrands.filter((b) => brandScore[b] > 0);
 if (searchedBrands.length) console.log('사이트 검색량 반영 브랜드:', searchedBrands.map((b) => `${b}(${brandScore[b]})`).join(' · '));
-const brands = allBrands.slice(0, 8);   // 브랜드+공구가 실제 유입 검색어 — 8개 나열 (사장님 지시). 검색량 많은 브랜드가 앞이다
+// 🔴 2026-11-22 사장님 「브랜드명은 매일 다르게해야지 브랜드명 더 넓혀봐」 — 검색량 순으로만 고르니 주니·봄달·퍼기·탁가온이
+//    거의 매일 제목에 실려, 날짜만 다른 비슷한 제목이 쌓였다(11/12~ 새 글이 블로그 검색에서 옛 글에 밀림).
+//    → 지난 7일 제목(daily/<날>_blog.txt 첫 줄 「|」 뒤)에 나온 브랜드는 뒤로 보내고, 그날 처음 쓰는 브랜드를 앞에 둔다.
+//      새 브랜드가 4개 미만일 때만 지난 브랜드로 채운다. 주간 묶음은 날짜순으로 만들어지니 앞날 원고도 같이 본다.
+const recentTitleWords = (() => {
+  const set = new Set();
+  for (let k = 1; k <= 7; k++) {
+    const t = new Date(day + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - k);
+    try {
+      const first = readFileSync(`daily/${t.toISOString().slice(0, 10)}_blog.txt`, 'utf8').split('\n')[0];
+      const tail = first.includes('|') ? first.slice(first.indexOf('|') + 1) : '';
+      for (const seg of tail.split('·')) { const w = seg.trim().split(/\s+/)[0]; if (w) set.add(w); }
+    } catch {}
+  }
+  return set;
+})();
+// 순서: ①최근 7일 제목에 안 쓴·손님이 검색한 브랜드 → ②안 쓴 브랜드 중 셀러 2명 넘게 쓴 것 → ③최근 쓴·검색된 브랜드 → ④나머지.
+//   검색량 0 인 일반어(리빙·가열식·자석·철분제)가 앞에 오지 않게 한다. 검색어 표는 600→3000 줄로 넓혀 검색된 브랜드 폭을 늘렸다(2026-11-22).
+const freshBrands = allBrands.filter((b) => !recentTitleWords.has(b));
+const usedBrands = allBrands.filter((b) => recentTitleWords.has(b));
+const sellersOf = {}; for (const o of opens) { const b = brandOf(o.name); if (!b) continue; (sellersOf[b] ||= new Set()).add(seller(o)); }
+const tier1 = freshBrands.filter((b) => brandScore[b] > 0);
+const tier2 = freshBrands.filter((b) => !(brandScore[b] > 0) && (sellersOf[b]?.size || 0) >= 2);
+const tier3 = usedBrands.filter((b) => brandScore[b] > 0);
+const brands = [...new Set([...tier1, ...tier2, ...tier3, ...freshBrands, ...usedBrands])].slice(0, 8);   // 브랜드+공구가 실제 유입 검색어 — 8개 나열 (사장님 지시). 새 브랜드 먼저, 그 안에선 검색량 순
+console.log(`제목 브랜드: 새+검색 ${tier1.length} · 새+여러셀러 ${tier2.length} · 최근 7일 반복 ${usedBrands.length} → ${brands.slice(0, 8).join('·')}`);
 
 // ── 브랜드+제품어 (사장님 지시 2026-08-27: A+B 조합 — "무아스 디스펜서 공구"형이 실제 유입) ──
 // 앞쪽 브랜드 2개에만 상품명 둘째 낱말을 붙인다. 8개 전부 붙이면 제목이 넘쳐 뒷브랜드가 잘린다.
