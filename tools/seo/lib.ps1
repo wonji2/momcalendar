@@ -251,6 +251,10 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .note span{display:block;font-size:13.5px;color:#6B5533}
 .note .lnk{margin-top:7px}
 .note a{color:#7B3FB5;font-weight:700;text-decoration:none}
+.appcta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #DCCBF2;border-left:4px solid #7C54C4;border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12.5px;line-height:1.4;color:#4A4356}
+.appcta b{font-size:13.5px;color:#5B3A8C}
+.appcta .ap{margin-left:auto;padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:800;text-decoration:none;background:#602090;color:#fff;white-space:nowrap}
+.appcta .ap.g{margin-left:0;background:#fff;color:#4A35A0;border:1px solid #DCCBF2}
 '@
 
 # 하단 키워드 내부 링크 (모든 생성 페이지 + 보존 페이지 공통). 앵커 문구 = 노리는 검색어 그대로 (사장님 2026-09-07 · 2026-11-18 정확한 키워드로)
@@ -323,6 +327,8 @@ function WritePage([hashtable]$o){
   [void]$sb.AppendLine("<div class=${Q}hd${Q}><div class=${Q}wrap${Q}><a class=${Q}bk${Q} href=${Q}/${Q}>← 맘캘린더</a>")
   [void]$sb.AppendLine("<h1>$(HtmlEsc $o.h1)</h1><p>$(HtmlEsc $o.sub)</p></div></div>")
   [void]$sb.AppendLine("<div class=${Q}wrap${Q}>")
+  # 📲 앱 전환 배너 (2026-11-22 ORDER §4) — 문구·숫자는 build.ps1 이 계산한 $AppCta (noindex 페이지엔 넣지 않는다)
+  if($AppCta -and (("$($o.robots)") -notmatch 'noindex')){ [void]$sb.AppendLine($AppCta) }
   if($o.bcName){
     [void]$sb.AppendLine("<div class=${Q}bc${Q}><a href=${Q}/${Q}>맘캘린더</a> › $(HtmlEsc $o.bcName)</div>")
   }
