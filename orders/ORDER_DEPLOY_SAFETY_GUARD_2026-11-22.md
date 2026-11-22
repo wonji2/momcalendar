@@ -60,7 +60,7 @@ PowerShell 스크립트(`.ps1`)는 **UTF-8 BOM** 으로 저장한다(한글 리�
 | `.github/workflows/` | **17개**, `deploy-pages.yml` 없음 | §4-2 에서 신설 |
 | 워크플로의 `git add` | 17개 전부 **경로 지정**(`git add -A`·`git add .` **0건**) | 이미 안전. 단 7개는 `sparse-checkout` 을 쓴다(§4-7) |
 | GitHub Pages 설정 | `build_type: legacy` · `source: main /` · `cname: momcalendar.com` · `https_enforced: true` · `custom_404: true` | 지금은 **main 에 푸시되면 자동 빌드** = 망가진 main 이 그대로 라이브가 된다 → §4-3 에서 게이트 배포로 바꾼다 |
-| Pages 빌드 이력 | `b9d5d8e` built · `c3c7515` **errored** | legacy 빌드는 실패도 한다(그때는 직전 판이 남는다) |
+| Pages 빌드 이력 | `b9d5d8e` built(111초) · `c3c7515` errored · **`c62f3d1` 는 API 가 `errored` 라 했지만 실제 run 은 `success`(2분)** | ⚠️ `pages/builds` 상태는 못 믿는다 — **워크플로 run 결론**으로 본다(§4-3 ①). 1,049MB 업로드라 2~3분 걸린다 |
 | 브랜치 보호 | **없음** (`/rulesets` = `[]`, `/protection` 은 권한 403) | force-push·브랜치 삭제가 지금은 열려 있다 → §4-4 |
 | `backup/last-good` | 없다 | §5 에서 만든다 |
 | `tools/` | `daily/`·`seo/`·`gmail_intake/`·`dev_server.mjs` | §3~§5 의 새 스크립트는 여기 들어간다 |
@@ -510,7 +510,7 @@ exit 1
 
 | 단계 | 하는 일 | 확인 |
 | --- | --- | --- |
-| ① | 위 파일들(워크플로 2개 + 스크립트 2개)을 커밋·푸시(**아직 Pages 는 legacy 그대로** — 이 시점엔 라이브가 그대로다) | 푸시 후 legacy 빌드가 정상 통과(`gh api repos/wonji2/momcalendar/pages/builds?per_page=1` → `built`) |
+| ① | 위 파일들(워크플로 2개 + 스크립트 2개)을 커밋·푸시(**아직 Pages 는 legacy 그대로** — 이 시점엔 라이브가 그대로다) | 푸시 후 legacy 빌드 통과를 **run 결론**으로 확인: `gh run list -w "pages build and deployment" -L 1` → `success` (⚠️ `pages/builds` API 는 11-22 실측에서 성공한 빌드를 `errored` 로 잘못 보고했다. 1,049MB 업로드라 바로 확인하면 아직 `in_progress` — 2~3분 기다린다) |
 | ② | `gh workflow run "라이브 배포 (안전 게이트)" -f dry_run=true` | 게이트 로그에 `=== 통과` + `추적 파일 5xxxx · index.html …B · 사이트 …MB` · deploy 스텝은 **건너뜀** |
 | ③ | Pages Source 를 **GitHub Actions** 로 전환 (§ 아래 명령) | `gh api repos/wonji2/momcalendar/pages` → `"build_type": "workflow"`, `cname` 이 여전히 `momcalendar.com` |
 | ④ | `gh workflow run "라이브 배포 (안전 게이트)"` (실배포) | run 성공 · `deploy`·`backup` 두 잡 통과 · `gh api repos/wonji2/momcalendar/pages/deployments?per_page=1` 의 sha == `git rev-parse origin/main` |
