@@ -1,0 +1,122 @@
+# 라이브 배포의 유일한 길 — 2중 방어선 (2026-11-22 사고 뒤)
+#   main 이 망가져도 게이트(tools/deploy_gate_check.sh)를 못 넘으면 배포하지 않는다
+#   → 라이브는 '마지막으로 성공한 배포'를 계속 서비스한다(404 로 내려가지 않는다).
+#   ⚠ Pages 설정의 Source 가 「GitHub Actions」 여야 이 워크플로가 라이브를 올린다(§4-3).
+#   ⚠ GITHUB_TOKEN 으로 만든 푸시는 다른 워크플로를 깨우지 못한다. 그래서 자동 작업이 올린 판은
+#      workflow_run 으로 받는다. 아래 이름을 바꾸면 그 자동 작업의 배포가 끊긴다 → 이름 바꿀 땐 여기도 같이.
+name: 라이브 배포 (안전 게이트)
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows:
+      - 검색 노출 페이지 매일 갱신
+      - PC 작업 클라우드 실행
+      - 아침 인스타 카드 만들기
+      - 손님 화면 실시간 검사
+      - 제보 자동 코드 수정
+      - 고장 자동 수리
+      - 손님 제보 클라우드 처리
+      - 핫딜 24시간 무인 자동 수집
+      - befe-sale-auto
+      - 검색 페이지 1회성 손질 (GA4·noai)
+      - 구글 순위 주간 측정
+    types: [completed]
+  schedule:
+    - cron: '35 20 * * *'      # UTC 20:35 = KST 05:35 — 05:10 빌드 뒤 하루 한 번 보정(위 목록이 끊겨도 하루 안에 반영)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '검증만 하고 배포는 건너뛴다'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write      # backup/last-good 갱신(§5-2)
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      go: ${{ steps.mode.outputs.go }}
+    steps:
+      # 2026-11-22 덧붙임: Pages 가 아직 legacy(브랜치에서 빌드)면 이 워크플로는 아무것도 올리지 않는다.
+      #   그대로 두면 이 파일이 올라가는 순간부터 main 푸시·자동 작업마다 1GB 실배포를 시도한다(전환은 dry_run 통과 뒤에만 — 사장님 지시).
+      #   dry_run 은 legacy 에서도 끝까지(게이트·아티팩트 업로드) 돌려 전환해도 되는지 본다.
+      - id: mode
+        name: Pages 방식 확인 (legacy 면 건너뜀)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BT=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/pages" | python3 -c "import json,sys;print(json.load(sys.stdin).get('build_type',''))" || echo '')
+          echo "Pages build_type=$BT · dry_run=${{ github.event.inputs.dry_run }}"
+          if [ "$BT" = "workflow" ] || [ "${{ github.event.inputs.dry_run }}" = "true" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "go=0" >> "$GITHUB_OUTPUT"; echo "::notice::Pages 가 workflow 방식이 아니라 배포를 건너뛴다(라이브는 legacy 빌드가 올린다)"; fi
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.mode.outputs.go == '1' }}
+        with:
+          ref: main          # 트리거와 무관하게 '지금 main' 을 올린다
+          fetch-depth: 1
+
+      - id: meta
+        if: ${{ steps.mode.outputs.go == '1' }}
+        name: 올릴 판 기록
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git log -1 --format='판: %h %s'
+
+      - name: 게이트 검증 (망가진 판이면 여기서 멈춘다)
+        if: ${{ steps.mode.outputs.go == '1' }}
+        run: bash tools/deploy_gate_check.sh
+
+      - uses: actions/configure-pages@v5
+        if: ${{ steps.mode.outputs.go == '1' }}
+      - uses: actions/upload-pages-artifact@v3
+        if: ${{ steps.mode.outputs.go == '1' }}
+        with:
+          path: .
+
+      - id: deployment
+        name: 배포
+        if: ${{ steps.mode.outputs.go == '1' && github.event.inputs.dry_run != 'true' }}
+        uses: actions/deploy-pages@v4
+
+      - name: 배포 직후 라이브 확인 (실패해도 배포 자체는 유지 — 백업은 다음 잡이 판단)
+        if: ${{ steps.mode.outputs.go == '1' && github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
+        run: bash tools/live_verify.sh
+
+  backup:
+    needs: deploy
+    if: ${{ needs.deploy.outputs.go == '1' && github.event.inputs.dry_run != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.deploy.outputs.sha }}
+          fetch-depth: 1
+
+      - name: 라이브 재확인 — 여기서 통과해야만 '정상 판'으로 인정한다
+        run: bash tools/live_verify.sh
+
+      - name: backup/last-good 갱신 (고정 브랜치 1개만 유지)
+        run: |
+          SHA=$(git rev-parse HEAD)
+          N=$(git ls-files | wc -l)
+          echo "정상 판: $SHA · 파일 $N 개"
+          [ "$N" -ge 45000 ] || { echo "::error::파일 $N 개 — 백업하지 않는다"; exit 1; }
+          git push --force origin "$SHA:refs/heads/backup/last-good"
+          echo "✅ backup/last-good → $SHA"

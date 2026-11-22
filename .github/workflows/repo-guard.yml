@@ -1,0 +1,69 @@
+name: 저장소 즉시 되돌림 (repo-guard)
+
+# 2중 방어 B — main 이 '통째로 망가진' 판이면 backup/last-good 트리로 새 커밋을 얹어 즉시 되돌린다.
+#   · deploy-pages 게이트(§4-2)를 켜지 못한 legacy 모드에서도 라이브 404 를 1~2분으로 줄인다.
+#   · 판정은 명백한 파국만(파일 45,000 미만 / index.html 없음·500KB 미만 / 워크플로 10개 미만).
+#   · 정상 정리(툼스톤·브랜드 페이지 수백 장)는 건드리지 않는다.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none          # 트리만 받는다(파일 수를 세려고 54k 파일을 꺼내지 않는다)
+          sparse-checkout: .github/workflows   # 2026-11-22 덧붙임: 꺼내는 파일도 이것만(blob:none 만으로는 작업 폴더를 채우느라 1GB 를 받는다). 이 잡은 커밋을 commit-tree 로 만들어 작업 폴더와 무관하다
+
+      - id: chk
+        name: 파국인가
+        run: |
+          N=$(git ls-tree -r --name-only HEAD | wc -l | tr -d ' ')
+          SZ=$(git cat-file -s HEAD:index.html 2>/dev/null || echo 0)
+          W=$(git ls-tree -r --name-only HEAD -- .github/workflows | grep -c '\.yml$' || true)
+          W=${W:-0}
+          echo "파일 $N · index.html ${SZ}B · 워크플로 $W개"
+          bad=0
+          [ "${N:-0}" -ge 45000 ] || bad=1
+          [ "${SZ:-0}" -ge 500000 ] || bad=1
+          [ "$W" -ge 10 ] || bad=1
+          echo "bad=$bad" >> "$GITHUB_OUTPUT"
+
+      - name: 되돌리기
+        if: ${{ steps.chk.outputs.bad == '1' }}
+        run: |
+          set -e
+          git fetch -q --filter=blob:none origin refs/heads/backup/last-good
+          GOOD=$(git rev-parse FETCH_HEAD)
+          GT=$(git rev-parse "$GOOD^{tree}")
+          GN=$(git ls-tree -r --name-only "$GOOD" | wc -l | tr -d ' ')
+          echo "정상 판 $GOOD · 파일 $GN개"
+          [ "$GN" -ge 45000 ] || { echo "::error::백업 판이 $GN개 — 되돌리지 않는다(사장님 확인 필요)"; exit 1; }
+          for i in 1 2 3; do
+            CUR=$(git ls-remote origin refs/heads/main | cut -f1)
+            NEW=$(GIT_AUTHOR_NAME=momcal-bot GIT_AUTHOR_EMAIL=noreply@momcalendar.com \
+                  GIT_COMMITTER_NAME=momcal-bot GIT_COMMITTER_EMAIL=noreply@momcalendar.com \
+                  git commit-tree "$GT" -p "$CUR" -m "🔴 자동 되돌림: main 이 파국 상태(파일 45,000 미만 또는 핵심 파일 없음) — backup/last-good($GOOD) 트리로 복구 (repo-guard)")
+            if git push origin "$NEW:refs/heads/main"; then
+              echo "✅ 되돌림 완료: $NEW"
+              exit 0
+            fi
+            echo "푸시 거절 — 다시 (${i}/3)"; sleep 5
+          done
+          echo "::error::자동 되돌림 실패 — 사람이 tools/emergency_restore.sh --yes 로 처리해야 한다"
+          exit 1
