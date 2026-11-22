@@ -22,7 +22,8 @@ SZ=$(wc -c < index.html 2>/dev/null | tr -d ' ' || echo 0)
 W=$(ls .github/workflows/*.yml 2>/dev/null | wc -l | tr -d ' ')
 [ "${W:-0}" -ge 10 ] || bad ".github/workflows 가 $W 개 — 워크플로가 지워졌다"
 
-MB=$(du -sm --exclude=.git . 2>/dev/null | cut -f1)
+# 2026-11-22 사장님 승인: 디스크 블록이 아니라 실제 바이트로 잰다(블록으로 재면 1,156MB, 실제 1,099MB — 작은 파일 5만 개가 블록마다 부풀려졌다)
+MB=$(du -sm --apparent-size --exclude=.git . 2>/dev/null | cut -f1)
 [ -n "${MB:-}" ] || MB=0
 MAX_MB="${MAX_MB:-1200}"     # 2026-11-22 실측 1,049MB — 1GB 선을 넘은 채로 legacy 가 돌고 있다. 그래서 '파국'만 막는다
 [ "$MB" -le "$MAX_MB" ] || bad "사이트 ${MB}MB — MAX_MB($MAX_MB) 초과(아티팩트·Pages 한도 위험)"
