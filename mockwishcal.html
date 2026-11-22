@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>내 찜 달력 시안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{--ink:#1E1A24;--sub:#8B95A1;--line:#F2F4F6;--main:#602090}
+body{margin:0;background:#F7F5FA;font-family:"IBM Plex Sans KR",system-ui,sans-serif;color:var(--ink)}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:20px;margin:6px 0 4px}
+.lead{font-size:13px;color:var(--sub);line-height:1.6;margin:0 0 18px}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 14px}
+.tabs button{flex:0 0 auto;border:0;background:#EDE8F3;color:#4A3D5C;border-radius:999px;padding:8px 14px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff}
+.v{margin:0 0 28px}
+.v h2{font-size:16px;margin:0 0 2px}
+.v p{font-size:12.5px;color:var(--sub);margin:0 0 10px;line-height:1.5}
+.frame{width:100%;aspect-ratio:1080/1350;position:relative;overflow:hidden;border-radius:14px;box-shadow:0 4px 18px rgba(30,26,36,.08);background:#fff}
+.card{width:1080px;height:1350px;transform-origin:0 0;position:absolute;left:0;top:0;box-sizing:border-box;padding:60px 48px 40px;display:flex;flex-direction:column;background:#fff}
+.mh{display:flex;align-items:baseline;justify-content:space-between;padding:0 12px 20px}
+.mh b{font-size:76px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.mh small{font-size:27px;color:var(--sub)}
+.wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:25px;color:var(--sub);text-align:center;padding-bottom:10px;border-bottom:2px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.c{text-align:center;position:relative;border-bottom:2px solid var(--line);min-width:0;overflow:hidden}
+.n{font-size:33px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;margin-top:12px}
+.su{color:#E8445A}.sa{color:#3182F6}.out .n{color:#D5D8DD}.past .n{color:#C9CDD3}
+.today .n{box-shadow:inset 0 0 0 3px var(--ink)}
+.dots{display:flex;justify-content:center;align-items:center;gap:7px;height:30px;margin-top:6px}
+.dots i{width:14px;height:14px;border-radius:50%;display:block}
+.more{font-size:21px;color:var(--sub);font-weight:600;margin-left:2px}
+.list{margin-top:26px;display:flex;flex-direction:column;gap:4px}
+.lh{font-size:27px;color:var(--sub);font-weight:600;padding:0 12px 8px}
+.li{display:flex;align-items:center;gap:18px;padding:12px 12px;font-size:29px}
+.li i{width:16px;height:16px;border-radius:50%;flex:none}
+.li .d{width:150px;flex:none;font-weight:600;color:var(--main)}
+.li .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .k{color:var(--sub);font-size:25px;flex:none}
+.ft{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding:18px 12px 0;font-size:23px;color:var(--sub)}
+.ft b{color:#8E7CC3;font-weight:500;background:#F3EFFA;border-radius:999px;padding:8px 20px}
+.cnt{position:absolute;top:8px;right:14px;font-size:19px;font-weight:600;color:#fff;background:var(--ink);border-radius:999px;min-width:30px;height:30px;line-height:30px;padding:0 6px;box-sizing:border-box}
+.chip{font-size:20px;line-height:1;padding:9px 8px;border-radius:10px;margin:6px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#3A3342;text-align:left}
+.big .c{min-height:0}
+.big .bn{font-size:30px;font-weight:600;text-align:left;padding:18px 14px 6px}
+.big .bc{font-size:22px;line-height:1.1;padding:11px 12px;border-radius:12px;margin:6px 8px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;color:#3A3342}
+.big .bm{font-size:21px;color:var(--sub);text-align:left;padding:10px 14px 0;font-weight:600}
+</style></head><body><div class="wrap">
+<h1>내 찜 달력 시안 4가지</h1>
+<p class="lead">기간 막대 대신 <b>오픈일</b>만 표시합니다. 점은 3개까지, 넘치면 「+N」. 지난 날은 흐리게, 오늘은 테두리.<br>위 버튼으로 경우를 바꿔 보세요. (이름은 실제 공구 예시)</p>
+<div class="tabs" id="tabs"></div>
+<div id="out"></div>
+</div>
+<script>
+const ITEMS=[["모에브 샴푸","2026-11-02"],["오보기 수유앞치마 2차","2026-10-26"],["미르 회전책장","2026-10-28"],["베베스완 아기띠","2026-10-27"],["프로쉬","2026-10-27"],["무무슈 낮잠이불 시리즈","2026-10-28"],["맘스보드","2026-10-29"],["핀일로 고메시리즈 15차","2026-10-27"],["노부영 마더구스&위씽","2026-11-02"],["닥터점키","2026-11-04"],["이뮨파파","2026-11-09"],["은하수 세계명작","2026-11-13"],["바바북스 터치앤필 사운드북","2026-11-02"],["베비몽 블럭","2026-11-11"],["벨로아이녹스 커트러리","2026-11-04"],["미스터데코 빨래바구니 2차","2026-10-27"],["슬림이펙터","2026-11-05"],["304 접시 정리대","2026-11-30"],["바야 동결건조 트릿","2026-11-09"],["유기농 생리대","2026-11-03"],["닌자 크리스피 에어프라이어","2026-11-16"],["이지듀","2026-10-27"],["복부벨트&ems벨트","2026-11-10"],["자일로드림 무첨가 자일리톨사탕","2026-11-05"],["우디베이크 저당 통밀빵","2026-11-23"],["평창 휘닉스","2026-11-01"],["마카오 5차","2026-11-11"],["더앤리조트","2026-11-23"],["플러메리아 테이블매트","2026-11-16"],["퓨어젠 오메가3","2026-10-27"],["베투키 오메가3","2026-11-30"],["탁가온 식기류 골라담기","2026-11-03"],["밧드야 분리수거함","2026-11-17"],["푸른들 후리가케&동결건조국","2026-11-20"],["망고라이언 왜안돼요 2차","2026-10-26"],["노리터보드 양면보드","2026-11-02"],["미끄럼하우스 소파미끄럼틀","2026-11-16"],["킨더픽 애플박스","2026-10-26"],["120 인치 스마트 티비","2026-11-12"],["넘버블록스 보드북","2026-10-26"],["추피 영문판","2026-10-26"],["추피베베","2026-10-29"],["맘스보드 러버피노 회전책장","2026-11-05"],["세이펜 통통 자연 동화","2026-11-12"],["허니북 마더구스","2026-11-16"],["킨더랜드 컵","2026-11-22"],["팬트리","2026-11-20"],["리라 울리 베베","2026-11-03"],["닥터노아 칫솔 & 워시","2026-11-09"],["요미몬 와우펜","2026-11-13"],["보림 베스트 보드북","2026-11-18"],["신일 무선 초퍼","2026-11-23"],["휴비닉 네블라이저 콧물흡입기","2026-11-24"],["라이크 앤 라이크 카시트 커버","2026-11-30"],["자동세척 가열식 가습기","2026-10-29"],["퍼기 치발기 쪽쪽이","2026-11-02"],["오보기 포대기","2026-11-05"],["블루래빗 골라담기","2026-11-09"],["나리몽 침대가드","2026-11-19"],["라이브오랄스 셀프불소","2026-11-10"],["바이오가이아","2026-11-16"],["폴레드 웜시트","2026-11-23"],["보이로 전기요","2026-10-29"],["아이마음 헴철베타","2026-11-02"],["따맛촌 아기 사골국","2026-11-11"],["맘스보드 리셰 전면책장","2026-11-19"],["웰리힐리","2026-11-16"],["프레벨롱","2026-11-04"],["뚜뚜낱말카드","2026-11-05"],["아기발도장 스탬프","2026-11-10"],["맘스보드 코코보드","2026-11-16"],["칩소칩소","2026-11-17"],["미니깜찍팝업북 시리즈","2026-11-26"],["엔퍼센트 가습기 2차","2026-11-03"],["이누이에디션 FW 에코백","2026-10-26"],["유별난 과학시간","2026-10-28"],["라자가구 쇼파","2026-10-26"],["프린 4차","2026-11-20"],["엠오오 손목보호대","2026-11-12"],["오가닉그라운드","2026-11-09"],["비트리 냉장고 정리용기","2026-11-11"],["추피 한글판","2026-10-27"],["미소다 냉동제품","2026-11-16"],["프레벨롱 요거트","2026-11-27"],["힐텀스카겔 3차","2026-10-27"],["베빙송 소프트 말랑 블럭","2026-10-26"],["아티바바 실리콘블럭 5종 2차","2026-11-24"],["킨즈 마이 베이비북 & 비지북","2026-11-30"],["별똥별 퐁퐁퐁 그림책","2026-11-02"],["또또맘 유아 간식 모음","2026-10-27"]];
+const DOT=['#FF8A80','#F48FB1','#CE93D8','#9FA8DA','#80CBC4','#A5D6A7','#FFCC80','#BCAAA4','#90CAF9','#E6EE9C'];
+const PAS=['#FFE8DC','#FFE1E7','#EFE3F9','#E2EAFB','#DDF1F4','#E3F5E9','#FFF4D6','#F3E8DF','#E9E6FB','#DDF3EE'];
+const TODAY='2026-10-25';
+const pad=n=>String(n).padStart(2,'0');
+const ymd=(y,m,d)=>y+'-'+pad(m)+'-'+pad(d);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const wk='일월화수목금토';
+// 경우: A 찜 3개(이번 달 말) · B 15개 고르게(다음 달) · C 60개(한 날에 12개 몰림)
+function caseItems(k){
+  if(k==='A') return [['프로쉬 주방세제','2026-10-27'],['맘스보드','2026-10-29'],['베베스완 아기띠','2026-10-31']].map(([n,d],i)=>({n,d,i}));
+  if(k==='B'){ const days=[2,3,4,5,9,10,11,13,16,18,20,23,24,26,30]; return days.map((d,i)=>({n:ITEMS[i][0],d:ymd(2026,11,d),i})); }
+  const out=[]; for(let i=0;i<12;i++) out.push({n:ITEMS[i][0],d:'2026-11-02',i});
+  const days=[3,4,4,5,6,9,9,9,10,11,12,13,13,16,16,17,18,18,19,20,23,23,24,25,25,26,27,27,30,30,3,5,10,12,17,19,24,26,11,20,4,9,16,23,30,6,13,18];
+  days.forEach((d,j)=>out.push({n:ITEMS[(12+j)%ITEMS.length][0],d:ymd(2026,11,d),i:12+j}));
+  return out;
+}
+function monthOf(k){ return k==='A'?[2026,10]:[2026,11]; }
+function byDay(items){ const m={}; items.forEach(it=>{(m[it.d]=m[it.d]||[]).push(it);}); return m; }
+function cells(y,m){ const first=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate(); const a=[]; for(let i=0;i<first;i++) a.push(null); for(let d=1;d<=days;d++) a.push(d); while(a.length%7) a.push(null); return a; }
+function head(y,m,sub){ return '<div class="mh"><b>'+m+'월</b><small>'+sub+'</small></div><div class="wd">'+[...wk].map(w=>'<span>'+w+'</span>').join('')+'</div>'; }
+function cls(y,m,d,i){ if(!d) return 'c out'; const s=ymd(y,m,d); return 'c'+(s<TODAY?' past':'')+(s===TODAY?' today':'')+(i%7===0?' su':i%7===6?' sa':''); }
+function dotsHtml(list){ if(!list||!list.length) return '<div class="dots"></div>'; const sh=list.slice(0,3).map(it=>'<i style="background:'+DOT[it.i%DOT.length]+'"></i>').join(''); return '<div class="dots">'+sh+(list.length>3?'<span class="more">+'+(list.length-3)+'</span>':'')+'</div>'; }
+function upcoming(items,max){ const m=byDay(items.filter(it=>it.d>=TODAY)); return Object.keys(m).sort().slice(0,max).map(d=>[d,m[d]]); }
+function md(s){ const d=new Date(s+'T00:00:00'); return (d.getMonth()+1)+'/'+d.getDate()+' ('+wk[d.getDay()]+')'; }
+const FT='<div class="ft"><span>공구 핫딜 정보 공유 커뮤니티 맘캘린더</span><b>momcalendar.com</b></div>';
+// 1) 점 + 다가오는 오픈 목록
+function v1(k){ const [y,m]=monthOf(k), it=caseItems(k), bd=byDay(it), cs=cells(y,m), rows=cs.length/7, h=rows>5?96:112;
+  let g='<div class="grid">'+cs.map((d,i)=>'<div class="'+cls(y,m,d,i)+'" style="height:'+h+'px"><span class="n">'+(d||'')+'</span>'+(d?dotsHtml(bd[ymd(y,m,d)]):'')+'</div>').join('')+'</div>';
+  const up=upcoming(it,6);
+  const l='<div class="list"><div class="lh">다가오는 오픈</div>'+up.map(([d,a])=>'<div class="li"><i style="background:'+DOT[a[0].i%DOT.length]+'"></i><span class="d">'+md(d)+'</span><span class="t">'+esc(a[0].n)+'</span>'+(a.length>1?'<span class="k">외 '+(a.length-1)+'개</span>':'')+'</div>').join('')+'</div>';
+  return head(y,m,'찜한 공구 '+it.length+'개 · 오픈일')+g+l+FT; }
+// 2) 날짜 동그라미 + 개수
+function v2(k){ const [y,m]=monthOf(k), it=caseItems(k), bd=byDay(it), cs=cells(y,m), rows=cs.length/7, h=rows>5?140:166;
+  let g='<div class="grid">'+cs.map((d,i)=>{ const a=d?bd[ymd(y,m,d)]:null; const st=a?' style="background:'+PAS[a[0].i%PAS.length]+';color:#1E1A24;font-weight:600"':''; return '<div class="'+cls(y,m,d,i)+'" style="height:'+h+'px"><span class="n"'+st+'>'+(d||'')+'</span>'+(a&&a.length>1?'<span class="cnt">'+a.length+'</span>':'')+'</div>'; }).join('')+'</div>';
+  const up=upcoming(it,3);
+  const l='<div class="list">'+up.map(([d,a])=>'<div class="li"><span class="d">'+md(d)+'</span><span class="t">'+esc(a.map(x=>x.n).slice(0,2).join(', '))+'</span>'+(a.length>2?'<span class="k">외 '+(a.length-2)+'개</span>':'')+'</div>').join('')+'</div>';
+  return head(y,m,'찜한 공구 '+it.length+'개 · 색칠한 날 오픈')+g+l+FT; }
+// 3) 칸 안에 이름 한 줄 + 점
+function v3(k){ const [y,m]=monthOf(k), it=caseItems(k), bd=byDay(it), cs=cells(y,m), rows=cs.length/7, h=rows>5?166:196;
+  let g='<div class="grid">'+cs.map((d,i)=>{ const a=d?bd[ymd(y,m,d)]:null; let x=''; if(a){ x='<div class="chip" style="background:'+PAS[a[0].i%PAS.length]+'">'+esc(a[0].n)+'</div>'+(a.length>1?dotsHtml(a.slice(1)):''); } return '<div class="'+cls(y,m,d,i)+'" style="height:'+h+'px"><span class="n" style="margin-top:8px;height:50px">'+(d||'')+'</span>'+x+'</div>'; }).join('')+'</div>';
+  return head(y,m,'찜한 공구 '+it.length+'개 · 오픈일')+g+FT; }
+// 4) 다가오는 2주 크게
+function v4(k){ const it=caseItems(k), bd=byDay(it); const start=new Date(k==='A'?'2026-10-25T00:00:00':'2026-11-01T00:00:00'); const ds=[]; for(let i=0;i<14;i++){ const d=new Date(start.getTime()+i*864e5); ds.push(ymd(d.getFullYear(),d.getMonth()+1,d.getDate())); }
+  const g='<div class="grid big">'+ds.map((s,i)=>{ const a=bd[s]||[]; const dd=Number(s.slice(8,10)); return '<div class="c'+(s<TODAY?' past':'')+(i%7===0?' su':i%7===6?' sa':'')+'" style="height:440px;border-right:'+(i%7<6?'2px solid #F2F4F6':'0')+'"><div class="bn">'+(dd===1||i===0?Number(s.slice(5,7))+'/'+dd:dd)+'</div>'+a.slice(0,4).map(x=>'<div class="bc" style="background:'+PAS[x.i%PAS.length]+'">'+esc(x.n)+'</div>').join('')+(a.length>4?'<div class="bm">+'+(a.length-4)+'</div>':'')+'</div>'; }).join('')+'</div>';
+  return '<div class="mh"><b>다가오는 2주</b><small>찜한 공구 오픈일</small></div><div class="wd">'+[...wk].map(w=>'<span>'+w+'</span>').join('')+'</div>'+g+FT; }
+const V=[['1안 · 점 + 다가오는 오픈 목록','오픈일에 색 점(최대 3개 +N), 아래에 날짜별 첫 공구 이름. 날짜와 이름을 다 알 수 있다.',v1],
+ ['2안 · 날짜 동그라미 + 개수','오픈일 숫자를 파스텔로 칠하고, 2개 이상이면 오른쪽 위에 개수. 가장 단순. 아래 3줄만 이름.',v2],
+ ['3안 · 칸 안에 이름 한 줄 + 점','첫 공구 이름을 칸 안 작은 칩으로, 나머지는 점·+N. 목록 없이 달력만.',v3],
+ ['4안 · 다가오는 2주 크게','한 달 대신 2주만 크게, 칸마다 이름 4개 + N. 가까운 일정 위주.',v4]];
+const CASES=[['A','찜 3개 (이번 달 말)'],['B','찜 15개 (고르게)'],['C','찜 60개 (11/2에 12개 몰림)']];
+let cur='B';
+function draw(){ document.getElementById('tabs').innerHTML=CASES.map(([k,t])=>'<button class="'+(k===cur?'on':'')+'" onclick="cur=\''+k+'\';draw()">'+t+'</button>').join('');
+  document.getElementById('out').innerHTML=V.map(([t,p,f])=>'<div class="v"><h2>'+t+'</h2><p>'+p+'</p><div class="frame"><div class="card">'+f(cur)+'</div></div></div>').join('');
+  fit(); }
+function fit(){ document.querySelectorAll('.frame').forEach(fr=>{ const c=fr.querySelector('.card'); c.style.transform='scale('+(fr.clientWidth/1080)+')'; }); }
+addEventListener('resize',fit); draw();
+</script></body></html>

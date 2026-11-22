@@ -1,0 +1,81 @@
+# 고장 자동 수리 — PC·채팅과 상관없이 깃허브 서버에서 15분마다 (사장님 2026-11-20 「Pc예약상관없이 만드는게 고정규칙」, 규칙 0-Y-PC)
+#   ① 고장 목록(AI 없음): 오류 레이더 🔴 미처리 · 서버 작업(이 저장소 Actions) 마지막 회차 실패 · pg_cron 최근 2시간 실패
+#   ② 고칠 게 있을 때만 클로드를 설치해 tools/daily/red_autofix_cloud.mjs 가 하나 고치고 → 자동 검사 → push·서버 함수 배포·실패 작업 다시 돌림
+#   비밀값: CLAUDE_CODE_OAUTH_TOKEN · SUPABASE_SERVICE_KEY · SUPABASE_TRIAGE_TOKEN (제보 수정기 bugfix-cloud 와 같은 것)
+#   결과: DB ops_status 'red-autofix-cloud' → 관리자 홈 「고장 난 것」 위에 보임
+#   끄기: 이 파일의 schedule 을 지우거나 Actions 화면에서 Disable workflow
+name: 고장 자동 수리
+on:
+  schedule:
+    - cron: '2,17,32,47 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: red-autofix-cloud
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SB_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_TRIAGE_TOKEN }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SUPABASE_CLI: supabase
+      MOMCAL_CLOUD: '1'
+    steps:
+      - name: 비밀값 확인
+        id: chk
+        run: |
+          if [ -z "$SB_SERVICE_KEY" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "DB 비밀값 없음 — 건너뜀"; echo "go=0" >> $GITHUB_OUTPUT; else echo "go=1" >> $GITHUB_OUTPUT; fi
+      - uses: actions/checkout@v4
+        if: steps.chk.outputs.go == '1'
+        with:
+          fetch-depth: 50
+          sparse-checkout: |
+            tools
+            supabase
+            .github
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-node@v4
+        if: steps.chk.outputs.go == '1'
+        with:
+          node-version: '20'
+      - uses: supabase/setup-cli@v1
+        if: steps.chk.outputs.go == '1'
+        with:
+          version: 2.109.1
+      - name: DB 연결
+        if: steps.chk.outputs.go == '1'
+        run: |
+          mkdir -p scratchpad supabase/.temp
+          echo -n hycaqsqeogjtbscmzrtm > supabase/.temp/project-ref
+          echo '{"ref":"hycaqsqeogjtbscmzrtm","name":"wonji2'"'"'s Project","organization_id":"lgnkcdsqsaksvrzxeexg","organization_slug":"lgnkcdsqsaksvrzxeexg"}' > supabase/.temp/linked-project.json
+          echo -n postgresql://postgres.hycaqsqeogjtbscmzrtm@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres > supabase/.temp/pooler-url
+          echo -n 17.6.1.127 > supabase/.temp/postgres-version
+          git config --global user.name wonji2 && git config --global user.email wonji2@users.noreply.github.com
+      - name: 고장 목록
+        id: list
+        if: steps.chk.outputs.go == '1'
+        run: |
+          node tools/daily/red_autofix_cloud.mjs --dry | tee /tmp/list.txt
+          if grep -q '이번에 고칠 것' /tmp/list.txt && [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then echo "go=1" >> $GITHUB_OUTPUT; else echo "go=0" >> $GITHUB_OUTPUT; fi
+      - name: 클로드 설치
+        if: steps.list.outputs.go == '1'
+        run: |
+          npm i -g @anthropic-ai/claude-code@2.1.303 || npm i -g @anthropic-ai/claude-code
+          claude --version
+      - name: 수리
+        if: steps.list.outputs.go == '1'
+        run: node tools/daily/red_autofix_cloud.mjs
+      - name: 기록 남기기
+        if: always() && steps.list.outputs.go == '1'
+        run: |
+          for f in scratchpad/red_autofix_cloud_log.txt scratchpad/red_autofix_cloud_last.md; do
+            [ -f "$f" ] || continue
+            curl -s -o /dev/null -w "$f %{http_code}\n" -X POST "https://hycaqsqeogjtbscmzrtm.supabase.co/storage/v1/object/cloud-bundle/red-autofix/${GITHUB_RUN_ID}/$(basename $f)" \
+              -H "apikey: $SB_SERVICE_KEY" -H "Authorization: Bearer $SB_SERVICE_KEY" -H "Content-Type: text/plain; charset=utf-8" -H "x-upsert: true" --data-binary @"$f"
+          done

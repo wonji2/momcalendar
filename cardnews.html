@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>맘캘린더 · 오늘의 카드뉴스</title>
+<style>
+  :root{--p:#602090;--p2:#4A35A0;--bd:#E4DBF7;--tx:#222;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F2FB;color:var(--tx)}
+  .topbar{position:sticky;top:0;z-index:20;background:var(--p);color:#fff;padding:12px 15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .topbar b{font-size:15px;font-weight:800}
+  .topbar .dt{font-size:11px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 9px;border-radius:20px;white-space:nowrap}
+  main{max-width:680px;margin:0 auto;padding:13px 13px 60px}
+  .card{background:#fff;border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px}
+  .hd{display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
+  .ttl{font-size:15px;font-weight:800;line-height:1.4;color:var(--p2)}
+  .cta{flex-shrink:0;font-size:10px;font-weight:800;color:#fff;background:#E8622B;padding:4px 8px;border-radius:20px;white-space:nowrap}
+  .sub{font-size:12.5px;color:#666;margin-top:5px;line-height:1.5}
+  .meta{font-size:11px;color:#999;margin-top:7px;font-weight:700}
+  .meta b{color:var(--p);font-weight:800}
+  .row{display:flex;gap:7px;margin-bottom:8px}
+  .btn{flex:1;padding:13px 8px;border:none;border-radius:11px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;line-height:1.25}
+  .btn.main{background:var(--p);color:#fff}
+  .btn.ghost{background:#fff;color:var(--p);border:1.5px solid var(--p)}
+  .btn:active{opacity:.85}
+  .btn:disabled{opacity:.55;cursor:default}
+  @media(max-width:430px){ #rowCopy{flex-direction:column} #rowCopy .btn{width:100%} }
+  .prog{font-size:11.5px;color:var(--p);font-weight:700;text-align:center;min-height:16px;margin:2px 0 6px}
+  .hint{font-size:11px;color:#8b7ca6;line-height:1.65;margin:-1px 2px 9px}
+  .hint b{color:var(--p)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+  @media(min-width:520px){ .grid{grid-template-columns:repeat(4,1fr)} }
+  .slide{position:relative;background:#fff;border:1.5px solid var(--bd);border-radius:11px;overflow:hidden;aspect-ratio:3/4}
+  .slide img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
+  .slide .num{position:absolute;left:6px;top:6px;background:rgba(96,32,144,.88);color:#fff;font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:20px}
+  .slide .dl{position:absolute;right:6px;bottom:6px;width:31px;height:31px;border:none;border-radius:50%;background:rgba(96,32,144,.92);color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  details.card{padding:0;overflow:hidden}
+  details.card summary{padding:13px 14px;font-size:13px;font-weight:800;color:var(--p2);cursor:pointer;list-style:none}
+  details.card summary::-webkit-details-marker{display:none}
+  details.card summary:after{content:'▾';float:right;color:#bbb}
+  details.card[open] summary:after{content:'▴'}
+  .cap{padding:0 14px 13px;font-size:12.5px;line-height:1.75;color:#444;white-space:pre-wrap;word-break:break-word;border-top:1px solid #F1ECFA;margin-top:-1px;padding-top:11px}
+  .tip{font-size:12px;color:#5b4a78;line-height:1.85;background:#FAF7FF}
+  .tip b{color:var(--p)}
+  .tip ol{margin:6px 0 0;padding-left:18px}
+  .dateRow{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:11.5px;color:#999;font-weight:700;margin-top:14px}
+  .dateRow input{border:1.5px solid var(--bd);border-radius:9px;padding:6px 8px;font-size:12px;font-family:inherit;color:#444;background:#fff}
+  .empty{text-align:center;color:#8b7ca6;font-size:13px;line-height:1.8;padding:40px 14px;font-weight:700}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#2B2440;color:#fff;font-size:13px;font-weight:700;padding:11px 18px;border-radius:24px;opacity:0;pointer-events:none;transition:.22s;z-index:99;max-width:88vw;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .zoom{position:fixed;inset:0;background:rgba(24,18,36,.94);z-index:100;display:none;align-items:center;justify-content:center;padding:10px}
+  .zoom.on{display:flex}
+  .zoom img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  .zoom .x{position:absolute;top:10px;right:14px;background:none;border:none;color:#fff;font-size:30px;cursor:pointer;line-height:1}
+</style>
+</head>
+<body>
+
+<div class="topbar"><b>📰 오늘의 카드뉴스</b><span class="dt" id="dtTag">불러오는 중…</span></div>
+
+<main>
+  <div class="card" id="hero">
+    <div class="hd">
+      <div class="ttl" id="ttl">카드뉴스 불러오는 중…</div>
+      <span class="cta" id="cta" style="display:none"></span>
+    </div>
+    <div class="sub" id="sub"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <div class="row" id="rowAll" style="display:none">
+    <button class="btn main" id="btnAll">📥 8장 전체 저장</button>
+  </div>
+  <div class="hint" id="saveHint" style="display:none">처음 한 번은 브라우저가 <b>여러 파일 다운로드 허용</b>을 물어봐요 → <b>허용</b>을 누르면 8장이 한 번에 저장돼요. 막히면 카드마다 <b>⬇</b>로 한 장씩 저장하면 됩니다.</div>
+  <div class="row" id="rowCopy" style="display:none">
+    <button class="btn ghost" id="btnCap">📋 캡션 복사</button>
+    <button class="btn ghost" id="btnTag">📋 첫 댓글 해시태그 복사</button>
+  </div>
+  <div class="prog" id="prog"></div>
+
+  <div class="grid" id="slides"></div>
+
+  <div id="empty" class="empty" style="display:none"></div>
+
+  <div id="below" style="display:none">
+    <details class="card" id="capBox" style="margin-top:10px">
+      <summary>캡션 미리보기</summary>
+      <div class="cap" id="capPrev"></div>
+    </details>
+    <details class="card" id="tagBox">
+      <summary>첫 댓글 해시태그 미리보기</summary>
+      <div class="cap" id="tagPrev"></div>
+    </details>
+
+    <div class="card tip">
+      <b>인스타 업로드 순서</b>
+      <ol>
+        <li>인스타 앱 → <b>+</b> → 사진 <b>8장</b>을 위에서부터 차례로 선택</li>
+        <li>다음 화면에서 <b>노래 추가</b> → 원하는 음악 선택</li>
+        <li><b>캡션 복사</b> 버튼 → 붙여넣기</li>
+        <li>게시 직후 <b>첫 댓글 해시태그 복사</b> → 댓글로 달기</li>
+      </ol>
+      카드는 <b>1080×1440(3:4)</b>이라 인스타에서 잘리지 않아요.
+    </div>
+  </div>
+
+  <div class="dateRow">
+    <span>다른 날짜</span>
+    <input type="date" id="dayPick">
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<div class="zoom" id="zoom"><button class="x" id="zoomX">×</button><img id="zoomImg" alt="카드 크게 보기"></div>
+
+<script>
+(function(){
+  'use strict';
+  var BASE = 'daily/cardnews/';
+  var MAN = null;
+  var DOW = ['일','월','화','수','목','금','토'];
+
+  function $(id){ return document.getElementById(id); }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function pad(n){ return (n<10?'0':'')+n; }
+  function todayKST(){
+    var t = new Date(Date.now() + 9*3600*1000);
+    return t.getUTCFullYear()+'-'+pad(t.getUTCMonth()+1)+'-'+pad(t.getUTCDate());
+  }
+  function dowOf(d){
+    var p = String(d).split('-');
+    if(p.length !== 3) return '';
+    return DOW[new Date(Number(p[0]), Number(p[1])-1, Number(p[2])).getDay()];
+  }
+  function getJSON(url){
+    return fetch(url, {cache:'no-cache'}).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    });
+  }
+  function toast(msg){
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ t.classList.remove('on'); }, 2300);
+  }
+
+  // 캡처 없이 바로 PNG 저장 — 파일명은 momcal_cardnews_20261116_01.png 꼴
+  function fileName(i){
+    return 'momcal_cardnews_' + String(MAN.date).replace(/-/g,'') + '_' + pad(i+1) + '.png';
+  }
+  function slideUrl(i){
+    return BASE + MAN.date + '/' + MAN.slides[i];
+  }
+  function dlOne(i){
+    var a = document.createElement('a');
+    a.href = slideUrl(i);
+    a.download = fileName(i);
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function dlAll(){
+    if(!MAN || !MAN.slides || !MAN.slides.length) return;
+    var btn = $('btnAll'), prog = $('prog'), n = MAN.slides.length;
+    var label = btn.textContent;
+    btn.disabled = true;
+    for(var i=0;i<n;i++){
+      prog.textContent = '저장 중… ' + (i+1) + '/' + n + '  (브라우저가 한 장씩 내려받아요)';
+      dlOne(i);
+      await sleep(650);          // 브라우저 연속 다운로드 제한 회피
+    }
+    prog.textContent = '';
+    btn.textContent = label;
+    btn.disabled = false;
+    toast(n + '장 저장 완료! 다운로드 폴더를 확인해 주세요');
+  }
+
+  function copyText(txt){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(txt).then(function(){ return true; }).catch(function(){ return legacyCopy(txt); });
+    }
+    return Promise.resolve(legacyCopy(txt));
+  }
+  function legacyCopy(txt){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly','');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.left = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, txt.length);
+      var ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    }catch(e){ return false; }
+  }
+  function copyBtn(btn, txt, okMsg){
+    if(!txt){ toast('복사할 내용이 없어요'); return; }
+    copyText(txt).then(function(ok){
+      toast(ok ? okMsg : '복사가 안 되면 미리보기를 길게 눌러 직접 복사해 주세요');
+    });
+  }
+
+  function render(man){
+    MAN = man;
+    var slides = (man.slides || []);
+    $('dtTag').textContent = man.date + ' (' + dowOf(man.date) + ') · ' + slides.length + '장';
+    $('ttl').textContent = man.title || '오늘의 카드뉴스';
+    if(man.subtitle){ $('sub').textContent = man.subtitle; } else { $('sub').textContent = ''; }
+    if(man.cta_type){
+      $('cta').textContent = man.cta_type;
+      $('cta').style.display = '';
+    }
+    $('meta').innerHTML = '<b>1080×1440</b> 인스타 3:4 · 잘림 없음 · <b>' + slides.length + '장</b>' +
+      (man.size ? ' · 원본 ' + man.size : '');
+
+    var grid = $('slides');
+    grid.innerHTML = '';
+    slides.forEach(function(name, i){
+      var d = document.createElement('div');
+      d.className = 'slide';
+
+      var im = document.createElement('img');
+      im.src = slideUrl(i);
+      im.alt = '카드뉴스 ' + (i+1) + '장';
+      im.loading = 'lazy';
+      im.addEventListener('click', function(){ zoom(slideUrl(i)); });
+      d.appendChild(im);
+
+      var num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = (i+1) + ' / ' + slides.length;
+      d.appendChild(num);
+
+      var b = document.createElement('button');
+      b.className = 'dl';
+      b.type = 'button';
+      b.textContent = '⬇';
+      b.title = fileName(i) + ' 저장';
+      b.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        dlOne(i);
+        toast((i+1) + '장 저장 — ' + fileName(i));
+      });
+      d.appendChild(b);
+
+      grid.appendChild(d);
+    });
+
+    var cap = (man.caption || (man.captions && man.captions.body) || '');
+    var tag = (man.comment_tags || (man.captions && man.captions.comment_tags) || '');
+    $('capPrev').textContent = cap;
+    $('tagPrev').textContent = tag;
+
+    $('rowAll').style.display = '';
+    $('rowCopy').style.display = '';
+    $('below').style.display = '';
+    $('saveHint').style.display = '';
+    $('btnAll').textContent = '📥 ' + slides.length + '장 전체 저장';
+
+    $('btnCap').disabled = !cap;
+    $('btnTag').disabled = !tag;
+    if(cap){
+      $('btnCap').onclick = function(){ copyBtn($('btnCap'), cap, '캡션 복사 완료! 인스타에 붙여넣으세요'); };
+    }
+    if(tag){
+      $('btnTag').onclick = function(){ copyBtn($('btnTag'), tag, '첫 댓글 해시태그 20개 복사 완료!'); };
+    }
+  }
+
+  function clearAll(){
+    MAN = null;
+    $('slides').innerHTML = '';
+    $('rowAll').style.display = 'none';
+    $('rowCopy').style.display = 'none';
+    $('below').style.display = 'none';
+    $('saveHint').style.display = 'none';
+    $('prog').textContent = '';
+    $('hero').style.display = 'none';
+  }
+
+  async function show(d){
+    var empty = $('empty');
+    try{
+      var man = await getJSON(BASE + d + '/manifest.json');
+      empty.style.display = 'none';
+      $('hero').style.display = '';
+      $('dtTag').textContent = d;
+      render(man);
+    }catch(e){
+      clearAll();
+      empty.style.display = '';
+      empty.innerHTML = '<b>' + d + ' (' + dowOf(d) + ')</b><br>이 날짜 카드뉴스는 아직 준비 중이에요.<br><span style="font-size:11.5px;color:#a99bbf">매일 아침 새 카드뉴스가 올라옵니다.</span>';
+      $('dtTag').textContent = d;
+    }
+  }
+
+  function zoom(src){
+    $('zoomImg').src = src;
+    $('zoom').classList.add('on');
+  }
+
+  async function init(){
+    $('zoomX').addEventListener('click', function(){ $('zoom').classList.remove('on'); });
+    $('zoom').addEventListener('click', function(ev){ if(ev.target.id === 'zoom') $('zoom').classList.remove('on'); });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') $('zoom').classList.remove('on'); });
+    $('btnAll').addEventListener('click', dlAll);
+    document.getElementById('dayPick').addEventListener('change', function(){
+      var v = this.value;
+      if(v) show(v);
+    });
+
+    var q = new URLSearchParams(location.search).get('d');
+    var d = q || '';
+    if(!d){
+      try{
+        var l = await getJSON(BASE + 'latest.json');
+        d = l.latest || l.date || '';
+      }catch(e){ d = ''; }
+    }
+    if(!d) d = todayKST();
+    $('dayPick').value = d;
+    await show(d);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

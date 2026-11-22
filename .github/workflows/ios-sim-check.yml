@@ -1,0 +1,182 @@
+# 아이폰 앱 시뮬레이터 자동 점검 (사장님 2026-10-26 「앱 버그 스스로 검증」 — 스레드 댓글 「클로드로 시뮬레이터 조작 가능」)
+#   맥 러너에서 아이폰 앱(Capacitor)을 시뮬레이터용으로 만들어 깔고 켠 뒤 확인:
+#     ① 앱이 켜진 채로 살아 있나(60초)  ② 화면이 사이트(보라 머리)인가 — 오프라인 대기 화면(연회색)이면 실패
+#     ③ 앱 기록(log)에 강제 종료·자바스크립트 오류가 있나 — 기록 파일은 산출물로 남긴다
+#   매일 KST 04:10 + 손으로(Actions → 이 워크플로 → Run workflow). 공개 저장소라 맥 러너 비용 없음.
+#   한계: 시뮬레이터엔 카카오톡·푸시가 없다 → 로그인 앱 전환·알림 도착은 실기기 몫(TestFlight).
+
+name: 아이폰 앱 시뮬레이터 점검
+
+on:
+  schedule:
+    - cron: '10 19 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-sim-check
+  cancel-in-progress: true
+
+jobs:
+  sim:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: iOS 프로젝트 만들기
+        working-directory: ios-app
+        run: |
+          npm install --no-audit --no-fund
+          # 앱 안 자체 시험: 사이트를 ?e2e=selftest 로 띄워 사이트가 스스로 보고 앱 기록에 E2E|항목|1/0 을 적게 한다(손님용 설정은 안 바뀐다 — 이 러너 안에서만)
+          python3 -c "import json;p='capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/?e2e=selftest';c['loggingBehavior']='debug';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          npx cap add ios
+          npx cap sync ios
+          python3 ci/add_push_appdelegate.py ios/App/App/AppDelegate.swift
+          python3 ci/add_crash_reporter.py ios/App/App/AppDelegate.swift
+      - name: 시뮬레이터용 빌드
+        working-directory: ios-app/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build | tail -5
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products" -name 'App.app' -maxdepth 3 | head -1)
+          test -d "$APP" || (echo "🔴 App.app 없음"; exit 1)
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+      - name: 시뮬레이터 켜고 앱 실행
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')];print(c[-1]['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP_PATH"
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist"); echo "BID=$BID" >> "$GITHUB_ENV"
+          mkdir -p sim-out
+          # 앱의 print(카패시터가 사이트 console.log 를 옮겨 적는 곳)를 파일로 받는다. NSUnbufferedIO 없으면 버퍼에 갇혀 0바이트(2026-10-26 1회차)
+          #   --console-pty 를 백그라운드로 돌리면 앱이 아예 안 켜지는 회차가 있었다(3회차) → 보통 launch 로
+          export SIMCTL_CHILD_NSUnbufferedIO=YES
+          run_once(){
+            xcrun simctl launch --terminate-running-process --stdout="$PWD/sim-out/app_console.txt" --stderr="$PWD/sim-out/app_console_err.txt" "$UDID" "$BID" | tee sim-out/launch.txt
+            sleep 8
+            xcrun simctl io "$UDID" screenshot sim-out/01_home.png
+            sleep 12
+            xcrun simctl io "$UDID" screenshot sim-out/02_after20s.png
+            sleep 25   # 자체 시험(9초 뒤 시작, 마지막에 바깥 링크로 사파리가 앞에 온다)
+            xcrun simctl io "$UDID" screenshot sim-out/03_after_selftest.png
+          }
+          run_once
+          # 2026-11-17: 러너가 느린 날 첫 실행에 사이트가 45초 안에 안 떠서(머리 0/754 · 자체 시험 0개) 실패로 떨어졌다(run 43774381616, 2시간 뒤 같은 코드로 통과).
+          #   자체 시험 기록(E2E|)이 한 줄도 없으면 한 번만 다시 켠다. 사이트가 정말 고장이면 두 번째도 실패한다.
+          if ! grep -qs 'E2E|' sim-out/app_console.txt sim-out/app_console_err.txt; then
+            echo "자체 시험 기록이 없어 한 번 더 켠다"; echo 1 > sim-out/retried.txt; sleep 20; run_once
+          fi
+      - name: 판정
+        run: |
+          pip3 install --quiet --break-system-packages pillow || pip3 install --quiet pillow
+          export PID_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
+          xcrun simctl spawn "$UDID" log show --last 3m --style compact --predicate 'process == "App"' > sim-out/app_log.txt 2>/dev/null || true
+          python3 - <<'PY'
+          import os, re
+          from PIL import Image
+          rows=[]; fail=0
+          def rec(name, ok, note=''):
+              global fail
+              rows.append(f"| {'✅' if ok else '❌'} | {name} | {note} |"); fail += (not ok)
+          alive=int(os.environ.get('PID_ALIVE','0') or 0)
+          rec('앱이 45초 뒤에도 살아 있다', alive>0, f'launchctl {alive}')
+          # 머리띠는 바깥 링크 시험(약 11초) 전 화면으로 본다 — 바깥 링크가 열리면 뒤 화면은 사파리다(Codex 리뷰 2026-10-26)
+          # 머리띠: 8초 캡처(01)에 아직 안 떴으면 20초 캡처(02)로 다시 본다 — 2026-10-31 러너가 느려 8초엔 빈 화면, 20초엔 정상·자체 시험 header_visible 도 통과였는데 ❌ 로 떨어졌다(19회)
+          def purple_ratio(path):
+              im=Image.open(path).convert('RGB'); w,h=im.size
+              band=[im.getpixel((x, y)) for y in range(int(h*0.06), int(h*0.12), 6) for x in range(20, w-20, 40)]
+              return sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200), len(band), w, h
+          p1,n1,w,h=purple_ratio('sim-out/01_home.png')
+          p2,n2,_,_=purple_ratio('sim-out/02_after20s.png') if os.path.exists('sim-out/02_after20s.png') else (0,1,0,0)
+          rec('화면 위쪽에 사이트 머리(보라)가 보인다', p1 > n1*0.4 or p2 > n2*0.4, f'8초 {p1}/{n1} · 20초 {p2}/{n2} · {w}x{h}')
+          log=open('sim-out/app_log.txt',encoding='utf-8',errors='ignore').read()
+          crash=len(re.findall(r'Terminating app|EXC_|SIGABRT|fatal error', log))
+          jserr=len(re.findall(r'(?i)(\[error\]|TypeError|ReferenceError|SyntaxError)', log))
+          rec('앱 기록에 강제 종료 없음', crash==0, f'{crash}건')
+          rows.append(f"| ℹ️ | 앱 기록의 자바스크립트 오류 줄 | {jserr}건(자세한 건 app_log.txt) |")
+          if os.path.exists('sim-out/retried.txt'): rows.append('| ℹ️ | 첫 실행에 사이트가 안 떠서 한 번 더 켰다 | 러너 지연 |')
+          # 앱 안 자체 시험 결과(E2E|항목|1/0|메모) — 사이트가 앱 화면 안에서 스스로 본 것
+          out=''
+          for fn in ('sim-out/app_console.txt','sim-out/app_console_err.txt','sim-out/app_log.txt'):
+              try: out+=open(fn,encoding='utf-8',errors='ignore').read()+chr(10)
+              except Exception: pass
+          seen={}
+          for line in out.splitlines():
+              i=line.find('E2E|')
+              if i<0: continue
+              parts=line[i:].split('|')
+              if len(parts)>=3: seen[parts[1]]=(parts[2].strip()[:1]=='1', '|'.join(parts[3:])[:120])
+          rec('앱 안 자체 시험이 끝까지 돌았다', 'done' in seen, f'{len(seen)}개 항목')
+          for k,(ok,note) in seen.items():
+              if k=='done': continue
+              # 시스템 알림 허용창이 떠 있으면(CI 에선 누를 사람이 없다) 다른 앱으로 넘어가지 못한다 — 실기기 몫으로 적는다
+              if k=='open_external' and not ok and seen.get('push_perm_api',(0,''))[1].strip()=='prompt':
+                  rows.append(f'| ℹ️ | 자체 시험: {k} | 알림 허용창이 떠 있어 확인 불가(실기기 몫) · {note} |'); continue
+              rec('자체 시험: '+k, ok, note)
+          md='# 아이폰 앱 시뮬레이터 점검\n\n| 결과 | 항목 | 메모 |\n|---|---|---|\n'+'\n'.join(rows)+f'\n\n실패 {fail}개\n'
+          open('sim-out/report.md','w',encoding='utf-8').write(md); print(md)
+          raise SystemExit(1 if fail else 0)
+          PY
+      - name: 네이버 로그인 화면이 앱 안에서 열리는가 (2026-11-16 사장님 「니가 계속 지켜봐 나 아이폰없어」)
+        # 아이폰 앱의 네이버 버튼은 스토어 1.0.1 부터 뜬다. 네이버 화면(nid.naver.com)이 앱 안에서 안 열리고 사파리로 튀면 로그인이 앱에 안 남는다.
+        #   사이트를 ?e2e=nv 로 띄우면 7초 뒤 스스로 네이버 로그인을 시작한다(index.html _nvWhere 옆). 30초 뒤 사파리가 떠 있으면 실패.
+        #   앱 안 이동 허용 목록(capacitor.config.json allowNavigation)은 스토어 빌드와 같은 파일이다. 실패하면 서버 health_alerts 'ios:네이버로그인' 에 남긴다(통과하면 지운다).
+        if: always()
+        continue-on-error: true
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 -c "import json,os;p=os.environ['APP_PATH']+'/capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/?e2e=nv';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          xcrun simctl terminate "$UDID" "$BID" || true
+          xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+          xcrun simctl install "$UDID" "$APP_PATH"
+          export SIMCTL_CHILD_NSUnbufferedIO=YES
+          xcrun simctl launch --terminate-running-process --stdout="$PWD/sim-out/nv_console.txt" --stderr="$PWD/sim-out/nv_console_err.txt" "$UDID" "$BID" || true
+          sleep 30
+          xcrun simctl io "$UDID" screenshot sim-out/05_naver.png || true
+          SAF=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "com.apple.mobilesafari" || true)
+          ALIVE=$(xcrun simctl spawn "$UDID" launchctl list | grep -c "$BID" || true)
+          xcrun simctl spawn "$UDID" log show --last 1m --style compact --predicate 'process == "App"' > sim-out/nv_app_log.txt 2>/dev/null || true
+          STARTED=$(cat sim-out/nv_console.txt sim-out/nv_console_err.txt sim-out/nv_app_log.txt 2>/dev/null | grep -c "E2E|nv_start|1" || true)
+          # 네이버 화면을 눈으로 확인하는 대신 캡처로: 위쪽 우리 머리띠(보라)가 사라지고, 화면에 네이버 초록(로그인 단추·로고)이 보여야 한다(Codex 지적 2026-11-16 — 사파리가 안 뜬 것만으로는 통과가 아니다)
+          pip3 install --quiet --break-system-packages pillow >/dev/null 2>&1 || pip3 install --quiet pillow >/dev/null 2>&1 || true
+          SEEN=$(python3 -c "from PIL import Image;im=Image.open('sim-out/05_naver.png').convert('RGB');w,h=im.size;band=[im.getpixel((x,y)) for y in range(int(h*0.06),int(h*0.12),6) for x in range(20,w-20,40)];pur=sum(1 for r,g,b in band if b>r>g and b-g>40 and r<200);grn=sum(1 for y in range(0,h,8) for x in range(0,w,8) if (lambda r,g,b: g>170 and r<80 and b<140 and g-r>110)(*im.getpixel((x,y))));print('1' if (pur < len(band)*0.1 and grn >= 6) else '0', pur, len(band), grn)" 2>/dev/null || echo "0 err")
+          RES=ok; WHY=""
+          if [ "${ALIVE:-0}" = "0" ]; then RES=fail; WHY="앱이 꺼졌다"; fi
+          if [ "${SAF:-0}" != "0" ]; then RES=fail; WHY="네이버 화면이 사파리로 넘어갔다"; fi
+          if [ "${STARTED:-0}" = "0" ] && [ "$RES" = "ok" ]; then RES=unknown; WHY="시작 기록이 없다(사이트가 네이버 로그인을 시작했는지 모름)"; fi
+          if [ "${SEEN%% *}" != "1" ] && [ "$RES" = "ok" ]; then RES=unknown; WHY="캡처에서 네이버 화면을 못 봤다($SEEN)"; fi
+          echo "nv_inapp=$RES safari=$SAF alive=$ALIVE started=$STARTED seen=$SEEN $WHY" | tee sim-out/naver.txt
+          echo "### 네이버 로그인 화면이 앱 안에서 열리는가: $RES (사파리 $SAF · 앱 $ALIVE · 시작 기록 $STARTED) $WHY" >> "$GITHUB_STEP_SUMMARY"
+          # 다음 단계(Maestro)를 위해 주소는 그 단계가 다시 바꾼다. 서버에 결과를 남긴다(키는 환경변수로만)
+          if [ -n "$SB_KEY" ]; then
+            U=https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/health_alerts
+            curl -s -o /dev/null -X DELETE "$U?kind=eq.ios:%EB%84%A4%EC%9D%B4%EB%B2%84%EB%A1%9C%EA%B7%B8%EC%9D%B8" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" || true
+            if [ "$RES" != "ok" ]; then
+              python3 -c "import json,os,sys;print(json.dumps({'kind':'ios:네이버로그인','detail':'아이폰 시뮬레이터: '+sys.argv[1]+' — '+sys.argv[2]+' (ios-sim-check 실행 '+os.environ.get('GITHUB_RUN_ID','')+', 사파리로 넘어간 것이면 index.html nvAvail 의 ios 를 끈다)'},ensure_ascii=False))" "$RES" "$WHY" > sim-out/nv_alert.json
+              curl -s -o /dev/null -X POST "$U" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" --data-binary @sim-out/nv_alert.json || true
+            fi
+          fi
+          [ "$RES" = "ok" ]
+      - name: Maestro 화면 시험 (.maestro/ — 처음엔 결과만 남기고 판정은 안 막음)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p sim-out/maestro
+          # 위 자체 시험용 앱은 켤 때마다 ?e2e=selftest 로 떠서 바깥 브라우저를 연다 → 손님과 같은 주소로 바꿔 다시 깐다(이 러너 안에서만)
+          python3 -c "import json,os;p=os.environ['APP_PATH']+'/capacitor.config.json';c=json.load(open(p));c['server']['url']='https://momcalendar.com/';json.dump(c,open(p,'w'),ensure_ascii=False,indent=2)"
+          xcrun simctl terminate "$UDID" "$BID" || true
+          xcrun simctl install "$UDID" "$APP_PATH"
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          # (10-26 진단 결과: 판정 중엔 웹 글자가 접근성 목록에 안 잡힌다 → 흐름은 자리 누르기+캡처, .maestro/common/start.yaml)
+          "$HOME/.maestro/bin/maestro" --udid "$UDID" test --env APP_ID="$BID" --test-output-dir sim-out/maestro --format junit --output sim-out/maestro.xml .maestro/ || touch sim-out/maestro_failed.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-sim-report
+          path: sim-out/
+          retention-days: 14

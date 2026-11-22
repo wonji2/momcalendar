@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="robots" content="noindex">
+<title>[테스트] 맘캘린더 셀러 마이페이지</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--p:#602090;--pd:#4A1A78;--pl:#9B6FD4;--pp:#F0E6FA;--bd:#ECECEC;--t1:#111;--t2:#444;--t3:#888;--bg:#FFFFFF;--green:#0F6E56;--red:#C62828;--amber:#F57F17}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;max-width:480px;margin:0 auto}
+/* 헤더 */
+.hd{background:var(--pd);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hd-title{color:#fff;font-size:15px;font-weight:800}
+.hd-btn{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px;cursor:pointer;font-family:inherit}
+/* 뷰 */
+#signupView,#loginView,#pendingView{padding:28px 16px}
+#myView{display:none;padding-bottom:90px}
+/* 카드 */
+.card{background:#fff;border-radius:18px;padding:24px 20px;box-shadow:0 3px 16px rgba(96,32,144,.09);margin-bottom:12px}
+.logo-txt{font-size:22px;font-weight:800;color:var(--p);text-align:center;margin-bottom:4px}
+.logo-sub{font-size:12px;color:var(--t3);text-align:center;margin-bottom:22px}
+/* 폼 */
+.fl{margin-bottom:11px}
+.fl label{font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px}
+.fl .pfx{position:relative}
+.fl .pfx span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px}
+.fl .pfx input{padding-left:24px}
+.fl input,.fl select,.fl textarea{width:100%;padding:11px 13px;border:1.5px solid var(--bd);border-radius:10px;font-size:13px;font-family:inherit;outline:none;background:#fff;transition:.15s}
+.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--p)}
+.btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.1s}
+.btn:active{transform:scale(.98)}
+.btn-p{background:var(--p);color:#fff}
+.btn-o{background:var(--pp);color:var(--p)}
+.btn-g{background:#F0F0F0;color:#555}
+.err{font-size:12px;color:var(--red);text-align:center;margin-top:7px;min-height:15px}
+.ok{font-size:12px;color:var(--green);text-align:center;margin-top:7px}
+.divider{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--t3);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--bd)}
+/* DM 버튼 */
+.dm-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;text-decoration:none;padding:12px;border-radius:12px;font-size:13px;font-weight:700;margin-top:10px}
+/* 프로필바 */
+.pb{background:var(--pd);padding:14px 16px;color:#fff}
+.pb-name{font-size:16px;font-weight:800}
+.pb-insta{font-size:12px;opacity:.7;margin-top:2px}
+.stats{display:flex;gap:8px;margin-top:11px}
+.stat{background:rgba(255,255,255,.12);border-radius:9px;padding:7px 0;text-align:center;flex:1}
+.stat-n{font-size:18px;font-weight:800}
+.stat-l{font-size:10px;opacity:.7;margin-top:1px}
+/* 탭 */
+.seg{display:flex;background:#EEE8F5;border-radius:10px;padding:3px;margin:12px 14px 0}
+.seg button{flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--t3);font-family:inherit;transition:.15s}
+.seg button.on{background:var(--p);color:#fff}
+/* 섹션 */
+.sec{padding:12px 14px 0}
+.sec-title{font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.btn-add{background:var(--p);color:#fff;border:none;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+/* 공구 카드 */
+.gc{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 13px;margin-bottom:7px}
+.gc .tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
+.tag-app{background:#E1F5EE;color:var(--green)}
+.tag-pen{background:#FFF8E1;color:var(--amber)}
+.tag-exp{background:#F5F5F5;color:#999}
+.tag-cat{background:var(--pp);color:var(--p)}
+.gc .gname{font-size:14px;font-weight:700;margin-bottom:3px}
+.gc .gdate{font-size:12px;color:var(--t3)}
+.gc .acts{display:flex;gap:5px;margin-top:9px}
+.btn-ed{flex:1;padding:7px;background:var(--pp);color:var(--p);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-dl{padding:7px 12px;background:#FEEBEE;color:var(--red);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+/* 캘린더 */
+.cal-wrap{padding:0 14px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:10px 4px;margin-bottom:6px}
+.cal-head span{font-size:15px;font-weight:700}
+.cal-head button{background:none;border:1px solid var(--bd);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:15px}
+.cal-grid{display:flex;flex-direction:column}
+.cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dh-row{margin-bottom:6px}
+.cal-dh{text-align:center;font-size:14px;color:#B2B2BC;padding:9px 0 5px;font-weight:500;letter-spacing:.5px}
+.cal-week{padding:8px 0 15px}
+.cal-week-first{padding-top:5px}
+.cal-num-row{}
+.cal-cell-num{text-align:center;padding-top:3px;min-height:26px}
+.cal-cell-num .cn{font-size:15px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px}
+.cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
+.cal-holi{font-size:8.5px;color:#E2718B;font-weight:500;line-height:1.15;margin-top:1px;white-space:nowrap;letter-spacing:-.2px}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px;min-height:20px}
+.cal-bar-gap{}
+.cal-bar{border-radius:7px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;font-weight:400;line-height:1.55;margin:0 1px;text-align:center}
+.cal-bar-start{border-radius:7px;margin-left:0}
+.cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-more{font-size:9px;color:var(--t3);text-align:center;font-weight:500}
+/* 빈 */
+.empty{text-align:center;padding:36px 16px;color:var(--t3);font-size:13px}
+/* 모달 */
+.mb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.mb.on{display:flex}
+.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:18px 16px 40px}
+.modal-title{font-size:15px;font-weight:800;margin-bottom:15px}
+/* 파싱 입력 */
+.parse-box{width:100%;height:110px;padding:10px;border:1.5px solid var(--bd);border-radius:10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;resize:vertical;line-height:1.7;outline:none}
+.parse-box:focus{border-color:var(--p)}
+/* 등록 행 */
+.rrow{background:#FAFAFA;border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:7px;position:relative}
+.rrow .ri{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:12px;font-family:inherit;outline:none;margin-bottom:5px;background:#fff}
+.rrow .ri:focus{border-color:var(--p)}
+.rrow .rg{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px}
+.rrow select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:#fff}
+.rrow select:focus{border-color:var(--p)}
+.rrow .rd{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.rrow input[type=date]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:12px;font-family:inherit;outline:none}
+.rrow input[type=date]:focus{border-color:var(--p)}
+.rrow .rdel{position:absolute;top:8px;right:8px;background:#FEEBEE;color:var(--red);border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center}
+.modal-acts{display:flex;gap:7px;margin-top:13px}
+.hint{font-size:10px;color:var(--t3);margin-top:2px}
+/* 토스트 */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#222;color:#fff;font-size:13px;font-weight:600;padding:9px 18px;border-radius:20px;z-index:999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap}
+#toast.on{opacity:1}
+.btn-ok{display:block;width:100%;height:44px;margin:10px 0 8px;border:none;border-radius:10px;background:var(--p);color:#fff;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;cursor:pointer}
+.btn-ok:disabled{opacity:.5}
+
+/* ── 이웃셀러 패키지 (2026-11-17) ── */
+.pn-box{margin:12px 14px 0;border:1px solid #E4D6F3;border-radius:12px;background:#fff}
+.pn-box *{white-space:nowrap}
+.pn-h{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;cursor:pointer}
+.pn-h b{font-size:14px;font-weight:800}
+.pn-h span{font-size:12px;font-weight:700;color:var(--p)}
+.pn-h span.left{color:#E8457F;font-weight:800}
+.pn-chev{display:inline-block;width:7px;height:7px;border-right:2px solid var(--p);border-bottom:2px solid var(--p);transform:rotate(-45deg);margin:0 2px 1px 6px}
+.pn-in{padding:0 16px 16px}
+/* 메인 화면 예시 — 라이브 「⭐ 맘캘린더 이웃셀러」 줄·이웃셀러 카드와 같은 값(index.html .seller-ring · .partner-chip). 고르는 칸처럼 보이지 않게 실제 화면 꼴로 (사장님 2026-11-17) */
+.pn-shot{position:relative;border:1px solid #EDE8F3;border-radius:12px;background:#fff;overflow:hidden;pointer-events:none}
+.pn-shot-tag{position:absolute;top:10px;right:10px;height:20px;line-height:20px;padding:0 8px;border-radius:100px;background:#F2F4F6;color:#8B95A1;font-size:10px;font-weight:700}
+.pn-shot-t{font-size:13px;font-weight:700;padding:12px 14px 0}
+.pn-shot-r{display:flex;gap:7px;padding:10px 14px 14px;overflow:hidden}
+.pn-ring{flex:none;width:54px;height:54px;border-radius:50%;background:#E3D5F5;display:flex;align-items:center;justify-content:center;position:relative;font-size:9.5px;font-weight:800;letter-spacing:-.5px;color:var(--p)}
+.pn-ring.host{background:linear-gradient(135deg,#9B6FD4,#6B45B3);color:#fff}
+.pn-ring.host i{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-style:normal;font-size:8px;background:#2a2a2a;color:#fff;padding:2px 8px;border-radius:10px;letter-spacing:0}
+.pn-ring.me{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--p)}
+.pn-ring.etc{opacity:.5}
+.pn-shot-c{display:flex;align-items:center;gap:8px;height:48px;margin:0 14px 12px;padding:0 12px;border:1px solid #C9A8E8;border-radius:12px;background:#F0E6FA}
+.pn-shot-c b{font-size:13px;font-weight:700}
+.pn-shot-c span{flex:1;min-width:0;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis}
+.pn-shot-c em{flex:none;font-style:normal;font-size:10px;font-weight:800;color:var(--p);background:#fff;padding:3px 8px;border-radius:100px}
+.pn-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.pn-tile{height:44px;line-height:44px;text-align:center;border-radius:10px;background:#F9FAFB;font-size:13px;font-weight:700}
+.pn-opt{display:flex;align-items:center;gap:12px;height:68px;padding:0 16px;border:1.5px solid var(--bd);border-radius:12px;margin-top:8px;cursor:pointer}
+.pn-tiles + .pn-opt{margin-top:16px}
+.pn-opt.on{border-color:var(--p);background:#FAF6FE}
+.pn-rd{width:20px;height:20px;border-radius:50%;border:2px solid #D1D6DB;flex:none;position:relative}
+.pn-opt.on .pn-rd{border-color:var(--p)}
+.pn-opt.on .pn-rd:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--p)}
+.pn-m{flex:1;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.pn-m em{font-style:normal;font-size:10px;font-weight:800;color:#fff;background:#E8457F;padding:2px 7px;border-radius:100px}
+.pn-r{flex:none;width:96px;text-align:right}
+.pn-p{font-size:17px;font-weight:800}
+.pn-opt.on .pn-p{color:var(--p)}
+.pn-t{font-size:12px;color:var(--t3);margin-top:1px}
+.pn-cta{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:none;border-radius:100px;background:var(--p);color:#fff;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;font-family:inherit;transition:transform .1s}
+.pn-cta:active{transform:scale(.97)}
+.pn-cta:disabled{background:#D1D6DB;cursor:default}
+.pn-cta.s{background:#F6F3FA;color:var(--p);margin-top:8px}
+.pn-cta.s:disabled{background:#F2F4F6;color:#8B95A1}
+a.pn-cta{text-decoration:none;box-sizing:border-box}
+.cf-join{background:#F6F3FA;color:#6B45B3;margin-top:4px}
+.cf-lb{font-size:13px;font-weight:700;color:#4E5968;margin:18px 0 8px}
+.pn-ln .cf-v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn-seg{display:flex;gap:8px;margin-top:16px}
+.pn-seg button{flex:1;height:40px;border-radius:100px;border:1px solid var(--bd);background:#fff;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit}
+.pn-seg button.on{border-color:var(--p);background:#FAF6FE;color:var(--p);font-weight:700}
+.pn-fine{font-size:11px;color:var(--t3);text-align:center;margin-top:8px}
+.pn-use{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 0}
+.pn-use b{font-size:14px;font-weight:800}
+.pn-use span{display:block;font-size:12px;color:var(--t3);margin-top:2px}
+.pn-use em{font-style:normal;font-size:20px;font-weight:800;color:var(--p)}
+.pn-kp{display:flex;gap:8px;padding:12px 16px 4px}
+.pn-kp div{flex:1;display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 14px;background:#F9FAFB;border-radius:10px}
+.pn-kp span{font-size:12px;color:var(--t3)}
+.pn-kp b{font-size:15px;font-weight:800}
+.pn-ln{display:flex;align-items:center;gap:10px;height:52px;margin:0 16px;border-top:1px solid #F2F4F6}
+.pn-ln .k{width:32px;flex:none;font-size:12px;font-weight:800;color:var(--p)}
+.pn-ln .v{flex:1;min-width:0;font-size:13px;font-weight:600}
+.pn-ln .on{font-size:12px;font-weight:700;color:#0F6E56}
+.pn-pill{flex:none;height:32px;line-height:32px;padding:0 12px;border:none;border-radius:100px;background:var(--pp);color:var(--p);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}
+.pn-pill.p{background:var(--p);color:#fff}
+.pn-pill.y{background:#FEE500;color:#191600}
+.pn-star{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:6px;border-radius:100px;background:#FFE08A;color:#5B3A00;font-size:10px;font-weight:800;vertical-align:2px}
+.pn-dim{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+.pn-dim.on{display:flex}
+.pn-sheet{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+.pn-sheet *{white-space:nowrap}
+.pn-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-12px auto 16px}
+.pn-st{display:flex;justify-content:space-between;align-items:baseline}
+.pn-st b{font-size:16px;font-weight:800}
+.pn-st span{font-size:17px;font-weight:800;color:var(--p)}
+.pn-acct{display:flex;align-items:center;gap:8px;margin-top:16px;padding:0 8px 0 16px;height:56px;border-radius:12px;background:#F6F3FA}
+.pn-acct b{flex:1;font-size:16px;font-weight:800;letter-spacing:0;overflow:hidden;text-overflow:ellipsis}
+.pn-row{display:flex;justify-content:space-between;align-items:center;height:48px;border-bottom:1px solid #F2F4F6;font-size:13px}
+.pn-row span{color:var(--t3)}
+.pn-row b{font-weight:700}
+.pn-row.last{border-bottom:none}
+.pn-chips{display:flex;gap:6px}
+.pn-chips button{height:32px;padding:0 10px;border-radius:100px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit}
+.pn-chips button.on{border-color:var(--p);background:#FAF6FE;color:var(--p);font-weight:700}
+.pn-inp{width:100%;height:48px;padding:0 14px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-top:8px;font-family:inherit;outline:none}
+.pn-inp:focus{border-color:var(--p)}
+.pn-err{font-size:12px;color:var(--red);text-align:center;min-height:15px;margin-top:6px}
+
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ── */
+.bn-wrap{max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bn-wrap *{white-space:nowrap}
+.bn-go{display:flex;gap:8px;margin-top:4px}
+.bn-go input{flex:1;min-width:0}
+.bn-go button{flex:none;height:48px;padding:0 16px;border:none;border-radius:12px;background:#F1EAFB;color:var(--p);font-size:13px;font-weight:800;font-family:inherit}
+.bn-ph{position:relative;width:200px;height:200px;margin:16px auto 0;border-radius:14px;overflow:hidden;background:#ECE8FA;touch-action:none}
+.bn-ph canvas{display:block;width:200px;height:200px}
+.bn-ph .bn-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#8B7BB8}
+.bn-tools{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+.bn-tools input[type=range]{flex:1;min-width:0;accent-color:var(--p)}
+.bn-tools label{flex:none;height:36px;padding:0 14px;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer}
+.bn-f{position:relative;margin-top:8px}
+.bn-f input{width:100%;padding-right:52px}
+.bn-f i{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-style:normal;font-size:11px;color:#8B95A1}
+.bn-inp{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;color:#191F28;box-sizing:border-box}
+
+/* ── 이웃셀러 띠 다듬기 · 내 링크 (2026-11-19) ── */
+/* 눌러 보고 싶은 홍보 배너처럼: 보라색 화면에서 튀는 분홍·주황 (사장님 2026-11-19 「보라색 말고 더 튀는 색으로」) */
+.pn-box.pn-promo{border:none;box-shadow:0 6px 18px rgba(255,77,141,.32)}
+.pn-h.pn-big{height:72px;padding:0 18px;border-radius:12px;background:linear-gradient(120deg,#FF4D8D 0%,#FF7A45 100%)}
+.pn-h.pn-big:active{transform:scale(.97)}
+.pn-h.pn-big b{font-size:17px;font-weight:800;color:#fff}
+.pn-h.pn-big span{display:flex;align-items:center;height:34px;padding:0 6px 0 14px;border-radius:100px;background:#fff;font-size:14px;font-weight:800;color:#E8336F}
+.pn-h.pn-big .pn-chev{border-color:#E8336F}
+.pn-ex{display:block;width:100%;height:auto;border-radius:12px;border:1px solid #EDE8F3;background:#F6F3FA;aspect-ratio:1125/1068}
+.pn-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+.pn-chips span{height:30px;line-height:30px;padding:0 12px;border-radius:100px;background:#F6F3FA;color:#5B2E8C;font-size:12px;font-weight:800}
+.pn-chips span.r{background:#FDEBF2;color:#D6336C}
+.lk-f{position:relative;margin-top:8px}
+.lk-f .lk-pre{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:#8B95A1;pointer-events:none}
+.lk-f input.lk-ig{padding-left:118px}
+.lk-ok{font-size:12px;font-weight:700;color:#0E9F6E;margin:6px 2px 0;min-height:16px}
+.lk-ok.w{color:#B7791F}
+
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ── */
+.pd-ic{width:56px;height:56px;margin:8px auto 14px;border-radius:50%;background:#E8F7EF;display:flex;align-items:center;justify-content:center}
+.pd-ic i{width:22px;height:12px;border-left:3.5px solid #0E9F6E;border-bottom:3.5px solid #0E9F6E;transform:translateY(-3px) rotate(-45deg)}
+.pd-t{font-size:20px;font-weight:800;color:#191F28;text-align:center;letter-spacing:-.02em}
+.pd-s{font-size:14px;font-weight:600;color:#4E5968;text-align:center;margin-top:6px}
+.pd-box{margin-top:20px;border-radius:12px;background:#F9FAFB;padding:4px 16px}
+.pd-r{display:flex;gap:12px;padding:14px 0;border-top:1px solid #EEF0F3;font-size:14px;line-height:1.45;color:#191F28}
+.pd-r:first-child{border-top:none}
+.pd-r .k{flex:none;width:64px;font-weight:800;color:#7C54C4;white-space:nowrap}
+.pd-r .v{flex:1;min-width:0;font-weight:600;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.pd-t,.pd-s{white-space:normal;word-break:keep-all}
+.pd-r.warn .k{color:#E8336F}
+.pd-r.warn .v b{color:#E8336F}
+.pd-btns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+
+.bn-auto{margin-top:10px;text-align:center;font-size:13px;font-weight:700;color:#0E9F6E}
+.bn-reset{display:block;width:100%;height:44px;margin-top:6px;border:none;background:none;font-size:13px;font-weight:700;color:#8B95A1;text-decoration:underline;font-family:inherit;cursor:pointer}
+.pn-cafe{display:flex;flex-direction:column;gap:2px;margin:18px 2px 8px}
+.pn-cafe b{font-size:15px;font-weight:800;color:#191F28;letter-spacing:-.02em}
+.pn-cafe span{font-size:12px;font-weight:600;color:#8B95A1}
+</style>
+<script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
+<style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
+</head>
+<body>
+<div class="hd">
+  <div class="hd-title">🛍️ 맘캘린더 셀러</div>
+  <button class="hd-btn" id="logoutBtn" style="display:none" onclick="doLogout()">로그아웃</button>
+</div>
+
+<!-- 가입 -->
+<div id="signupView" style="display:none">
+  <div class="card">
+    <div class="logo-txt">맘캘린더</div>
+    <div class="logo-sub">이웃셀러 마이페이지</div>
+    <div style="background:#F6F0FC;border-radius:10px;padding:9px 12px;font-size:11.5px;color:var(--p);font-weight:700;text-align:center;margin-bottom:14px;line-height:1.5">
+      🎁 일정 등록은 평생 무료! 이웃셀러님의 공구를 응원해요 😊
+    </div>
+    <div class="fl">
+      <label>인스타그램 아이디 *</label>
+      <div class="pfx"><span>@</span><input id="suInsta" type="text" placeholder="momcal_" autocapitalize="none"></div>
+    </div>
+    <div class="fl"><label>활동명 / 채널명</label><input id="suName" type="text" placeholder="예) 크롱맘"></div>
+    <div class="fl"><label>담당자 성함 (실명)</label><input id="suContactName" type="text" placeholder="예) 홍길동"></div>
+    <div class="fl"><label>연락처 (휴대폰) *</label><input id="suPhone" type="tel" inputmode="numeric" placeholder="010-0000-0000"></div>
+    <div class="fl"><label>이메일 주소 *</label><input id="suEmail" type="email" placeholder="contact@example.com" autocapitalize="none"></div>
+    <div class="fl">
+      <label>비밀번호 * <span style="font-weight:400;color:var(--t3)">(6자 이상)</span></label>
+      <input id="suPw" type="password" placeholder="비밀번호를 설정해주세요">
+    </div>
+    <div class="fl"><label>비밀번호 확인 *</label><input id="suPw2" type="password" placeholder="비밀번호를 한 번 더 입력해주세요" onkeydown="if(event.key==='Enter')doSignup()"></div>
+    <button class="btn btn-p" onclick="doSignup()" style="margin-top:4px">가입 신청하기</button>
+    <div class="err" id="suErr"></div>
+    <div style="background:#FFF8E1;border-radius:10px;padding:11px 13px;font-size:11px;color:#7A5C00;line-height:1.7;margin-top:10px">
+      ⚠️ <b>가입 후 반드시 인증이 필요해요!</b><br>
+      가입 신청 후, <b>본인이 운영하는 인스타그램 계정</b>으로<br>
+      맘캘린더 공식 계정(@momcal_)에 <b>DM</b>을 보내주셔야<br>
+      방장이 인증 후 승인해드려요. 승인되면 일정 등록이 가능해요.
+    </div>
+    <div style="font-size:10.5px;color:var(--t3);text-align:center;margin-top:9px;line-height:1.5">
+      연락처와 이메일은 공구 일정 승인 안내와 이웃셀러 지원 혜택 소식을 전해드리기 위해 소중히 보관돼요.
+    </div>
+    <div class="divider">이미 계정이 있으신가요?</div>
+    <button class="btn btn-o" onclick="showLogin()">로그인하기</button>
+    <a class="dm-btn" href="https://ig.me/m/momcal_" target="_blank" style="margin-top:12px">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>
+      @momcal_ 인스타로 DM 보내기
+    </a>
+  </div>
+</div>
+
+<!-- 로그인 -->
+<div id="loginView">
+  <div class="card">
+    <div class="logo-txt">맘캘린더</div>
+    <div class="logo-sub">셀러 전용 마이페이지</div>
+    <div class="fl">
+      <label>인스타그램 아이디</label>
+      <div class="pfx"><span>@</span><input id="liInsta" type="text" placeholder="momcal_" autocapitalize="none"></div>
+    </div>
+    <div class="fl"><label>비밀번호</label><input id="liPw" type="password" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-p" onclick="doLogin()" style="margin-top:4px">로그인</button>
+    <div class="err" id="liErr"></div>
+    <div class="divider">아직 가입을 안 하셨나요?</div>
+    <button class="btn btn-o" onclick="showSignup()">가입하기</button>
+  </div>
+  <div style="padding:18px 16px 8px">
+    <div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:10px">맘캘린더 둘러보기</div>
+    <div style="display:flex;gap:8px">
+      <a href="https://momcalendar.com" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">📅</span>
+        <span style="font-size:11px;font-weight:700;color:var(--p)">웹사이트</span>
+      </a>
+      <a href="https://cafe.naver.com/momcal" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">☕</span>
+        <span style="font-size:11px;font-weight:700;color:#03C75A">네이버카페</span>
+      </a>
+      <a href="https://www.instagram.com/momcal_" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+        <span style="font-size:20px">📷</span>
+        <span style="font-size:11px;font-weight:700;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);-webkit-background-clip:text;-webkit-text-fill-color:transparent">인스타그램</span>
+      </a>
+    </div>
+  </div>
+  <div style="text-align:center;padding:8px 16px 24px">
+    <div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px">일정 등록은 무료예요 😊</div>
+    <a href="https://ig.me/m/momcal_" target="_blank" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">유료 협업·광고·제휴 문의</a>
+  </div>
+</div>
+
+<!-- 승인 대기 -->
+<div id="pendingView" style="display:none">
+  <div class="card" style="text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">⏳</div>
+    <div style="font-size:17px;font-weight:800;color:var(--p);margin-bottom:10px">가입 신청 완료!</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.8">
+      마지막 단계가 남았어요!<br>
+      <b style="color:var(--p)">본인이 운영하는 인스타그램 계정</b>으로<br>
+      맘캘린더 공식 계정에 <b>DM</b>을 보내주세요.<br>
+      방장이 본인 확인 후 승인해드려요.<br>
+      <span style="font-size:12px;color:var(--t3)">승인되면 바로 로그인해서 일정을 등록할 수 있어요</span>
+    </div>
+    <a class="dm-btn" href="https://ig.me/m/momcal_" target="_blank" style="margin-top:16px">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>
+      @momcal_ 인스타로 DM 보내기
+    </a>
+    <div id="loginLinkBox" style="margin-top:18px;padding:14px 12px;background:#F6F3FA;border:1px solid #E4DAF3;border-radius:12px;text-align:left">
+      <div style="font-size:13px;font-weight:800;color:#6B45B3;margin-bottom:6px">승인 후 이 링크로 바로 로그인</div>
+      <div style="font-size:12px;color:#4E5968;word-break:break-all;margin-bottom:10px">https://momcalendar.com/register.html#login</div>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="copyLoginLink()" style="flex:1;height:44px;border:1px solid #7C54C4;background:#fff;color:#6B45B3;border-radius:100px;font-size:13px;font-weight:700;font-family:inherit">링크 복사</button>
+        <button type="button" onclick="shareLoginLink()" style="flex:1;height:44px;border:0;background:#7C54C4;color:#fff;border-radius:100px;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap">카톡에 저장</button>
+      </div>
+    </div>
+    <button class="btn btn-o" onclick="showLogin()" style="margin-top:10px">로그인 화면으로</button>
+  </div>
+</div>
+
+<!-- 마이페이지 -->
+<div id="myView">
+  <div class="pb">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="pb-name" id="pbName">-</div>
+        <div class="pb-insta" id="pbInsta"></div>
+      </div>
+      <button onclick="openPwModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:11px;font-weight:600;padding:6px 11px;border-radius:16px;cursor:pointer;font-family:inherit;flex-shrink:0">🔒 비밀번호 변경</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-n" id="stAll">0</div><div class="stat-l">전체</div></div>
+      <div class="stat"><div class="stat-n" id="stAct">0</div><div class="stat-l">진행중</div></div>
+      <div class="stat"><div class="stat-n" id="stPen">0</div><div class="stat-l">승인대기</div></div>
+      <div class="stat"><div class="stat-n" id="stDone">0</div><div class="stat-l">마감</div></div>
+    </div>
+  </div>
+
+  <!-- 이웃셀러 패키지 (2026-11-17) -->
+  <div class="pn-box" id="planBox" style="display:none"></div>
+  <div class="seg" id="viewSeg">
+    <button class="on" onclick="switchView('list',this)">📋 목록</button>
+    <button onclick="switchView('cal',this)">📅 캘린더</button>
+  </div>
+  <!-- 목록 -->
+  <div id="listSec">
+    <div class="sec">
+      <div class="sec-title">내 공구 목록 <button class="btn-add" onclick="openAddModal()">＋ 공구 추가</button></div>
+      <div class="seg" id="listSeg" style="margin:0 0 10px">
+        <button class="on" onclick="setListFilter('active',this)">예정·진행중</button>
+        <button onclick="setListFilter('done',this)">마감</button>
+      </div>
+      <div id="gList"><div class="empty">불러오는 중...</div></div>
+    </div>
+  </div>
+  <!-- 캘린더 -->
+  <div id="calSec" style="display:none">
+    <div class="cal-wrap">
+      <div class="cal-head">
+        <button onclick="moveCal(-1)">◀</button>
+        <span id="calTitle"></span>
+        <button onclick="moveCal(1)">▶</button>
+      </div>
+      <div id="calCapture">
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);margin-top:10px;text-align:center">🎨 색상은 자동으로 알록달록하게 배정돼요 · 개별 색 변경은 각 공구 수정에서</div>
+      <button onclick="saveCalImage()" style="width:100%;margin-top:10px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📷 캘린더 이미지로 저장</button>
+    </div>
+  </div>
+
+  <!-- 하단 안내 -->
+  <div style="text-align:center;padding:24px 16px 12px;margin-top:8px">
+    <div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px">일정 등록은 무료예요 😊</div>
+    <a href="https://ig.me/m/momcal_" target="_blank" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">유료 협업·광고·제휴 문의</a>
+  </div>
+</div>
+
+<!-- 추가/수정 모달 -->
+<div class="mb" id="addModal">
+  <div class="modal">
+    <div class="modal-title">공구 등록</div>
+    <!-- 같은 오픈일 3건 한도 안내 (사장님 지시 2026-09-01 — 한 셀러가 하루를 도배하는 것 방지) -->
+    <div style="background:#FFF6E5;border:1px solid #F5D9A0;border-radius:10px;padding:10px 11px;margin-bottom:12px">
+      <div style="font-size:11.5px;color:#8A5A00;line-height:1.65"><b>📌 같은 오픈일에는 최대 3건까지</b> 등록할 수 있어요.</div>
+      <div style="font-size:11.5px;color:#8A5A00;line-height:1.65;margin-top:6px"><b>✅ 별도로 연락하지 않으셔도 48시간 이내 자동 승인돼요.</b></div>
+    </div>
+    <!-- 텍스트 파싱 -->
+    <div style="background:#F0E6FA;border-radius:10px;padding:11px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;color:var(--pd);margin-bottom:6px">📋 텍스트로 한 번에 등록</div>
+      <div style="font-size:11px;color:var(--pd);margin-bottom:6px;line-height:1.7">날짜+상품명 형식으로 붙여넣으세요. (한 줄에 하나씩)<br>예) <b>6/5 라무르 선크림</b> · <b>6/5~6/10 선크림</b> · <b>6/5-6/10 선크림</b><br>📌 마감일을 안 적으면 <b>자동 4일간</b> · 길게 잡아도 <b>최대 7일</b>까지 등록돼요</div>
+      <textarea class="parse-box" id="parseText" placeholder="6/5 라무르 선크림 모음전&#10;6/8~6/12 허그봉봉 아기욕조&#10;6/15 에어메이드 제습기"></textarea>
+      <button class="btn btn-p" onclick="parseText()" style="margin-top:7px;padding:10px">자동 분석하기 ✨</button>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">또는 직접 입력</div>
+    <div id="regRows"></div>
+    <button onclick="addRow()" style="width:100%;padding:9px;background:#fff;color:var(--p);border:1.5px dashed var(--pl);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:4px">＋ 줄 추가</button>
+    <div class="modal-acts">
+      <button class="btn btn-g" onclick="closeAddModal()">취소</button>
+      <button class="btn btn-p" onclick="saveAll()">전체 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 수정 모달 -->
+<div class="mb" id="editModal">
+  <div class="modal">
+    <div class="modal-title">공구 수정</div>
+    <div class="fl"><label>제품명</label><input id="eName" type="text"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fl"><label>대분류</label><select id="eMajor" onchange="syncEM()"></select></div>
+      <div class="fl"><label>소분류</label><select id="eMinor"></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fl"><label>오픈일</label><input id="eOpen" type="date"></div>
+      <div class="fl"><label>마감일</label><input id="eEnd" type="date"></div>
+    </div>
+    <div class="fl"><label>결제링크 (선택)</label><input id="ePay" type="url" placeholder="입력 시 카드 클릭이 인스타 대신 이 링크로 연결"></div>
+    <div class="fl">
+      <label>캘린더 색상</label>
+      <div id="eColors" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-g" onclick="closeEditModal()">취소</button>
+      <button class="btn btn-p" onclick="doEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 모달 -->
+<div class="mb" id="pwModal">
+  <div class="modal">
+    <div class="modal-title">🔒 비밀번호 변경</div>
+    <div class="fl"><label>현재 비밀번호</label><input id="pwOld" type="password" placeholder="현재 비밀번호"></div>
+    <div class="fl"><label>새 비밀번호 (6자 이상)</label><input id="pwNew" type="password" placeholder="새 비밀번호"></div>
+    <div class="fl"><label>새 비밀번호 확인</label><input id="pwNew2" type="password" placeholder="새 비밀번호 다시 입력" onkeydown="if(event.key==='Enter')doChangePw()"></div>
+    <div class="err" id="pwErr"></div>
+    <div class="modal-acts">
+      <button class="btn btn-g" onclick="closePwModal()">취소</button>
+      <button class="btn btn-p" onclick="doChangePw()">변경</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 🛟 데이터 서버 우회로 (2026-09-22 회원 제보 · v2 검증자 지적 시정 · v3 이미지·경로 기록 · 09-24 첫 시도 15초로: 사장님 결정) ──
+// 일부 손님 망(공유기 DNS 필터·보안앱·통신사)이 supabase.co 를 통째로 막는다. 그러면 배너·공구목록·로그인·기록이 전부 죽는데
+// 우리 쪽엔 아무 흔적도 안 남는다. 사이트의 모든 서버 호출이 fetch 라서 fetch 하나만 감싼다:
+//   ① 먼저 가는 길(직행 supabase.co, 우회로를 기억 중이면 우회로)로 보낸다 → 망 오류·15초 무응답·5xx 면
+//   ② 다른 길(api.momcalendar.com = 같은 서버로 가는 우리 도메인 Worker / 또는 직행)로 다시 보낸다 (15초 제한)
+//   ③ 다른 길이 5xx 아니게 답하면 그 길을 6시간 기억(mc_api_base — 직행이면 기억 삭제)하고 net_fallback 이벤트로 남겨 원인을 센다
+//   ④ 둘 다 안 되면 첫 결과(오류·응답)를 그대로 돌려준다 → 호출부의 기존 폴백(캐시·안내)이 이어받는다
+//   ⑤ mcApiSrc(url): <img>·CSS 배경은 fetch 가 아니라 감싸기 밖 → 우회로를 기억 중이면 supabase.co 이미지 주소를 우회로로 바꿔 준다
+// ⚠ kakao-auth(카카오 인가코드 교환)는 **1회용**이라 시간제한·중단 재시도를 걸지 않는다 — 끊고 다시 보내면 서버가 이미 쓴 code 라 반드시 KOE320.
+//    망 오류(TypeError = 연결 자체가 안 됨)일 때만 다른 길로 다시 보낸다.
+// ⚠ 이 블록은 서버를 부르는 첫 <script> 보다 앞에 있어야 한다. 순서를 바꾸면 그 앞의 호출은 감싸지지 않는다.
+// ⚠ 브라우저에서 이 코드를 시험하면 net_fallback 이 진짜로 쌓인다 → UA 에 Claude/ 가 있으면 기록하지 않는다.
+// 원본은 index.html 의 이 블록. 다른 페이지엔 scratchpad/_patch_fallback_v3.mjs --attach 로 같은 블록을 넣는다.
+(function(){
+  var PRIMARY='https://hycaqsqeogjtbscmzrtm.supabase.co', FALLBACK='https://api.momcalendar.com';
+  var KEY='mc_api_base', TTL=6*3600*1000, FIRST_TIMEOUT=15000, SECOND_TIMEOUT=15000;
+  var _fetch=window.fetch && window.fetch.bind(window);
+  if(!_fetch) return;   // 아주 옛 브라우저는 원래대로
+  function remembered(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||'null'); if(o && o.base===FALLBACK && Date.now()-o.t<TTL) return FALLBACK; }catch(_){} return PRIMARY; }
+  function remember(base){ try{ if(base===FALLBACK) localStorage.setItem(KEY, JSON.stringify({base:base,t:Date.now()})); else localStorage.removeItem(KEY); }catch(_){} }
+  function isNetErr(e){ return !!e && (e.name==='TypeError' || e.name==='AbortError'); }
+  function broken(r){ return !r || r.status>=500; }   // 5xx = 그 길이 고장(Worker 502·Cloudflare 1027 한도 등). 4xx 는 서버가 답한 것 — 길은 살아 있다
+  var reported=false;
+  function report(via, why, path){   // 우회로로 살아난 기기가 몇이고 왜·어느 요청이었는지 — 원인 추적의 유일한 창구
+    if(reported) return; reported=true;
+    try{ if(/Claude\//.test(navigator.userAgent||'')) return; }catch(_){}
+    try{ _fetch(via+'/rest/v1/events',{method:'POST',keepalive:true,
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE','Prefer':'return=minimal'},
+      body:JSON.stringify({event_type:'net_fallback',event_data:(via===FALLBACK?'to_fallback':'back_to_primary')+'|'+String(why).slice(0,30)+'|'+(navigator.userAgent||'').slice(0,110)+'|'+String(path||'').split('?')[0].slice(0,50)+'|'+(typeof location!=='undefined'?(location.pathname||''):'')})}).catch(function(){}); }catch(_){}
+  }
+  // 이미지·CSS 배경 주소용 — 우회로 기억 중이면 supabase.co 만 바꾼다. 나머지 주소는 그대로
+  window.mcApiSrc=function(u){ try{ if(typeof u==='string' && u.indexOf(PRIMARY)===0 && remembered()===FALLBACK) return FALLBACK+u.slice(PRIMARY.length); }catch(_){} return u; };
+  window.fetch=function(input, init){
+    var url=(typeof input==='string')?input:(input && typeof input.url==='string'?input.url:'');
+    var base = url.indexOf(PRIMARY)===0 ? PRIMARY : (url.indexOf(FALLBACK)===0 ? FALLBACK : null);
+    if(!base || typeof input!=='string') return _fetch(input, init);       // 우리 서버가 아니거나 Request 객체면 그대로
+    var rest=url.slice(base.length), first=remembered(), second=(first===PRIMARY)?FALLBACK:PRIMARY;
+    var oneShot = rest.indexOf('/functions/v1/kakao-auth')===0;
+    function attempt(b, ms){
+      var i=Object.assign({}, init||{}), ac=null, timer=null;
+      if(!i.signal && !oneShot && typeof AbortController!=='undefined'){ ac=new AbortController(); i.signal=ac.signal; timer=setTimeout(function(){ ac.abort(); }, ms); }
+      return _fetch(b+rest, i).then(function(r){ if(timer) clearTimeout(timer); return r; }, function(e){ if(timer) clearTimeout(timer); throw e; });
+    }
+    return attempt(first, FIRST_TIMEOUT).then(function(r){
+      if(!broken(r)) return r;                                   // 정상 답 (4xx 포함) → 그대로
+      return attempt(second, SECOND_TIMEOUT).then(function(r2){
+        if(broken(r2)) return r;                                 // 둘 다 5xx → 첫 응답 그대로
+        remember(second); report(second, 'http'+r.status, rest); return r2;
+      }, function(){ return r; });
+    }, function(e){
+      if(!isNetErr(e)) throw e;
+      return attempt(second, SECOND_TIMEOUT).then(function(r2){
+        if(broken(r2)) throw e;                                  // 다른 길도 고장 → 원래 오류 그대로
+        remember(second); report(second, e.name, rest); return r2;
+      }, function(){ throw e; });
+    });
+  };
+})();
+</script>
+<script>
+const SB='https://hycaqsqeogjtbscmzrtm.supabase.co';
+const KEY='sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE';
+const H={apikey:KEY,'Authorization':'Bearer '+KEY};
+const CATS={
+  '육아':['장난감/놀이','교구/교육','책','이유아식','의류잡화','목욕/세정','외출용품','방꾸미기','스킨로션','유모차카시트','육아용품'],
+  '리빙':['생활용품','주방용품','침구/패브릭','청소/세제','욕실용품','테이블웨어','헬스케어'],
+  '식품':['음료/차/즙','간식/구황작물','수산물/건해산','과일/야채','정육/계란','간편식/밀키트','유제품','장류/오일/소스','반찬','떡/베이커리','견과류','선물세트'],
+  '건강':['유산균','비타민','오메가','철분제','키즈영양제','홍삼/면역','다이어트','건강기능성'],
+  '인테리어':['가구','패브릭','조명','데코소품','수납정리','홈오피스'],
+  '가전':['생활가전','주방가전','청소가전','계절가전','영상가전','취미/디지털기기','컴퓨터용품','헬스케어'],
+  '뷰티':['스킨케어','메이크업','헤어케어','바디케어','구강케어','향수','뷰티디바이스'],
+  '패션':['이너웨어','신발','가방','스포츠웨어','액세서리','의류','키즈'],
+  '여행':['호텔/숙소','항공권','패키지/투어','체험/티켓','여행용품'],
+  '반려동물':['강아지','고양이','사료','간식'],
+};
+const CAT_COLORS={'육아':'#9B6FD4','리빙':'#26A69A','식품':'#66BB6A','건강':'#26C6DA','인테리어':'#8D6E63','가전':'#5C6BC0','뷰티':'#EC407A','패션':'#FFA726','여행':'#42A5F5','반려동물':'#AB47BC'};
+// 셀러가 고를 수 있는 색상 팔레트 (파스텔)
+const PALETTE=[
+  {name:'보라',bar:'#F1EAFA',txt:'#6A45A6',lead:'#9B6FD4'},
+  {name:'연보라',bar:'#F5F0FB',txt:'#7857AE',lead:'#B89BE0'},
+  {name:'노랑',bar:'#FDF6DD',txt:'#9A7414',lead:'#F0C84A'},
+  {name:'핑크',bar:'#FCECF1',txt:'#B24E72',lead:'#E89BB5'},
+  {name:'블루',bar:'#EAF1FB',txt:'#3F69A6',lead:'#8FB5E5'},
+  {name:'그린',bar:'#ECF6E9',txt:'#4F8B3D',lead:'#92C585'},
+  {name:'코랄',bar:'#FCEFE8',txt:'#B05E37',lead:'#EBA585'},
+  {name:'민트',bar:'#E8F5F1',txt:'#2F8870',lead:'#85C7B5'},
+];
+// 자동 배정 순서: 인접 공구끼리 색이 안 겹치도록 색상(hue)이 멀리 떨어지게 배치
+// (보라/연보라, 그린/민트, 핑크/코랄 같은 비슷한 색이 이웃하지 않도록)
+const AUTO_ORDER=['보라','노랑','블루','코랄','연보라','민트','핑크','그린'];
+function paletteByName(name){return PALETTE.find(x=>x.name===name)||null;}
+// 2026년 한국 공휴일
+const HOLIDAYS={
+  '2026-01-01':'신정','2026-02-16':'설날','2026-02-17':'설날','2026-02-18':'설날',
+  '2026-03-01':'삼일절','2026-03-02':'대체공휴일','2026-05-05':'어린이날','2026-05-24':'석가탄신일','2026-05-25':'대체공휴일',
+  '2026-06-03':'지방선거','2026-06-06':'현충일','2026-08-15':'광복절','2026-08-17':'대체공휴일',
+  '2026-09-24':'추석','2026-09-25':'추석','2026-09-26':'추석',
+  '2026-10-03':'개천절','2026-10-05':'대체공휴일','2026-10-09':'한글날','2026-12-25':'성탄절',
+  '2027-01-01':'신정',
+};
+
+let _seller=null, _tok=null, _data=[], _editId=null, _calYear=new Date().getFullYear(), _calMonth=new Date().getMonth();
+
+// 셀러 작업은 전부 서버 함수를 거친다. 공구 테이블에 직접 쓰지 않는다.
+// 서버가 토큰으로 본인 확인 후 "본인 공구인지"까지 검사한다.
+async function sellerRpc(fn, payload){
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({p_token:_tok}, payload||{}))
+    });
+    if(r.status===401||r.status===403){          // 토큰 만료·폐기
+      showToast('로그인이 만료됐어요. 다시 로그인해주세요.');
+      doLogout();
+      return null;
+    }
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+// ── 화면 전환 ──
+var LOGIN_LINK='https://momcalendar.com/register.html#login';
+function copyLoginLink(){
+  var done=function(){showToast('링크를 복사했어요. 카톡 나에게 보내기에 붙여넣어 두세요');};
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(LOGIN_LINK).then(done,function(){prompt('링크를 복사해 주세요',LOGIN_LINK);});return;} }catch(e){}
+  try{ var t=document.createElement('textarea');t.value=LOGIN_LINK;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);done(); }catch(e){ prompt('링크를 복사해 주세요',LOGIN_LINK); }
+}
+function shareLoginLink(){
+  if(navigator.share){navigator.share({title:'맘캘린더 셀러 로그인',text:'맘캘린더 셀러 로그인 바로가기',url:LOGIN_LINK}).catch(function(){});return;}
+  copyLoginLink();
+}
+function showLogin(){document.getElementById('signupView').style.display='none';document.getElementById('loginView').style.display='block';document.getElementById('pendingView').style.display='none';}
+function showSignup(){document.getElementById('signupView').style.display='block';document.getElementById('loginView').style.display='none';document.getElementById('pendingView').style.display='none';}
+function showPending(){document.getElementById('signupView').style.display='none';document.getElementById('loginView').style.display='none';document.getElementById('pendingView').style.display='block';}
+function showMy(){['signupView','loginView','pendingView'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('myView').style.display='block';document.getElementById('logoutBtn').style.display='block';}
+
+// ── 가입 ──
+async function doSignup(){
+  const insta=document.getElementById('suInsta').value.trim().replace('@','');
+  const name=document.getElementById('suName').value.trim();
+  const contactName=(document.getElementById('suContactName')||{}).value?document.getElementById('suContactName').value.trim():'';
+  const phone=(document.getElementById('suPhone')||{}).value?document.getElementById('suPhone').value.trim():'';
+  const email=(document.getElementById('suEmail')||{}).value?document.getElementById('suEmail').value.trim():'';
+  const pw=document.getElementById('suPw').value;
+  const pw2=document.getElementById('suPw2').value;
+  const err=document.getElementById('suErr');
+  err.textContent='';
+  if(!insta){err.textContent='인스타 아이디를 입력해주세요.';return;}
+  if(!phone){err.textContent='연락처(휴대폰 번호)를 입력해주세요.';return;}
+  if(!email){err.textContent='이메일 주소를 입력해주세요.';return;}
+  if(!pw||pw.length<6){err.textContent='비밀번호는 6자 이상이어야 해요.';return;}
+  if(pw!==pw2){err.textContent='비밀번호가 일치하지 않아요.';return;}
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/seller_signup`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        p_insta:insta,
+        p_pw:pw,
+        p_name:name||insta,
+        p_phone:phone,
+        p_email:email,
+        p_contact_name:contactName
+      })
+    });
+    const d=await r.json();
+    if(!r.ok){err.textContent='가입 실패: '+(d.message||JSON.stringify(d));return;}
+    if(!d.ok){
+      err.textContent=d.msg==='exists'?'이미 가입된 아이디예요. 로그인 해주세요.':'가입 실패. 다시 시도해주세요.';
+      return;
+    }
+    showPending();
+  }catch(e){err.textContent='오류: '+e.message;}
+}
+
+// ── 로그인 ──
+async function doLogin(){
+  const insta=document.getElementById('liInsta').value.trim().replace('@','');
+  const pw=document.getElementById('liPw').value;
+  const err=document.getElementById('liErr');
+  err.textContent='';
+  if(!insta||!pw){err.textContent='아이디와 비밀번호를 입력해주세요.';return;}
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/seller_login`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify({p_insta:insta,p_pw:pw})
+    });
+    const d=await r.json();
+    if(!r.ok){err.textContent='로그인 오류. 다시 시도해주세요.';return;}
+    if(!d.ok){
+      if(d.msg==='notfound') err.textContent='등록되지 않은 아이디예요.';
+      else if(d.msg==='wrongpw') err.textContent='비밀번호가 틀렸어요.';
+      else if(d.msg==='pending') err.textContent='아직 승인 대기 중이에요. 잠시만 기다려주세요.';
+      else err.textContent='로그인 실패.';
+      return;
+    }
+    _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta};
+    _tok=d.token||null;
+    try{localStorage.setItem('mc_seller_id',insta);}catch(e){}
+    onLogin();
+  }catch(e){err.textContent='오류: '+e.message;}
+}
+
+/* ── 이웃셀러 패키지 (2026-11-17) ─────────────────────────────────
+   서버 함수만 부른다: seller_plan_status · seller_plan_start · seller_plan_claim (supabase/sql/neighbor_plan_159.sql)
+   상태 none(신청 전) · pending(입금 대기) · active(이용 중). 값·자리 수·계좌는 전부 서버가 내려 준다. */
+let _cafeNick=null,_cfBusy=false;
+let _plan=null,_planOpen=false,_planMonths=6,_planKind='income',_planBusy=false;
+const PLAN_CHANNEL='https://pf.kakao.com/_zGfxnX/chat';
+function planEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function planWon(n){return Number(n||0).toLocaleString('ko-KR');}
+function planMan(n){return String(Math.round(n/1000)/10).replace(/\.0$/,'');}          // 290000 → 29 · 81667 → 8.2
+function planMonthly(m){return planMan(Math.round(_plan.prices[m]/m));}
+function planDue(iso){
+  const d=new Date(iso), k=x=>new Date(x.getTime()+9*3600e3).toISOString().slice(0,10);
+  const day=k(d), today=k(new Date()), tom=k(new Date(Date.now()+86400e3));
+  const hm=new Date(d.getTime()+9*3600e3).toISOString().slice(11,16);
+  if(day===today) return '오늘 '+hm+'까지';
+  if(day===tom) return '내일 '+hm+'까지';
+  return Number(day.slice(5,7))+'/'+Number(day.slice(8,10))+' '+hm+'까지';
+}
+async function planLoad(){
+  const d=await sellerRpc('seller_plan_status');
+  const box=document.getElementById('planBox');
+  if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
+  _plan=d; planRender(); planPaidCheck();
+  if(_cafeNick===null&&(d.state==='pending'||d.state==='active')){ _cafeNick=''; sellerRpc('seller_cafe_get').then(x=>{ if(x&&x.ok){ _cafeNick=x.nick||''; planRender(); } else _cafeNick=null; }); }
+}
+function planRender(){
+  const box=document.getElementById('planBox'); if(!box||!_plan) return;
+  box.classList.remove('pn-promo');
+  box.style.display='block';
+  const nm=(_seller&&(_seller.seller_influencer||_seller.login_insta))||'';
+  const star=document.getElementById('pbName');
+  if(star){ star.textContent=nm; if(_plan.state==='active'||(_plan.state==='pending'&&_plan.showing)){ const b=document.createElement('span'); b.className='pn-star'; b.textContent='이웃셀러'; star.appendChild(b); } }
+  if(_plan.state==='active'){
+    box.innerHTML=
+      '<div class="pn-use"><div><b>이웃셀러</b><span>'+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</span></div><em>D-'+planEsc(_plan.dday)+'</em></div>'+
+      '<div class="pn-kp"><div><span>공구 클릭</span><b>'+planWon(_plan.clicks)+'</b></div><div><span>찜</span><b>'+planWon(_plan.wishes)+'</b></div></div>'+
+      planWays(true);
+    return;
+  }
+  if(_plan.state==='pending'){
+    box.innerHTML=
+      '<div class="pn-use"><div><b>'+(planCard()?'결제':'입금')+(_plan.claimed?' 확인 중':' 대기')+'</b><span>'+planEsc(planDue(_plan.pay_due))+'</span></div><button class="pn-pill p" onclick="planSheetOpen()">'+(planCard()?'결제':'입금')+' 안내</button></div>'+
+      '<div style="height:12px"></div>'+(_plan.showing?planWays(false):'');
+    return;
+  }
+  const left=Number(_plan.slots_left||0);
+  if(!_planOpen){
+    box.classList.add('pn-promo'); box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
+    return;
+  }
+  const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
+  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월 '+planMonthly(m)+'만원</div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
+  box.innerHTML=
+    '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
+    '<div class="pn-in">'+
+      '<img class="pn-ex" src="banners/plan_example_v1.jpg" alt="메인 화면 예시" width="1125" height="1068">'+
+      '<img class="pn-ex" src="banners/plan_example_list_v1.jpg" alt="공구 목록 예시" width="1125" height="978" style="margin-top:10px;aspect-ratio:1125/978">'+
+      '<div class="pn-cafe"><b>회원 2만2천명 맘카페에 일정 자동 공유</b><span>오픈 3일 전 자동 게시 · 결제 링크(없으면 인스타) 연결</span></div>'+
+      '<img class="pn-ex" src="banners/plan_example_cafe_top_v1.jpg" alt="맘캘린더 카페 메인" width="1125" height="792" loading="lazy" style="aspect-ratio:1125/792">'+
+      '<div class="pn-cafe"><b>맘카페 단독게시판 생성</b><span>한 달 글 20개까지 자유롭게</span></div>'+
+      '<img class="pn-ex" src="banners/plan_example_cafe_board_v1.jpg" alt="카페 인플루언서 단독 게시판" width="957" height="294" loading="lazy" style="aspect-ratio:957/294;background:#fff;margin-bottom:24px">'+
+      opt(3)+opt(6)+
+      '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
+      '<div class="pn-fine">부가세 포함</div>'+
+    '</div>';
+}
+function planWays(top){
+  return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
+    '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
+    '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
+    '<div class="pn-ln"><div class="k">카페</div><div class="v cf-v">'+(_cafeNick?'맘카페 · '+planEsc(_cafeNick):'맘카페 가입 · 닉네임')+'</div><button class="pn-pill'+(_cafeNick?'':' p')+'" onclick="cfOpen()">'+(_cafeNick?'수정':'입력')+'</button></div>'+
+    (_plan&&_plan.state==='active'?'<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>':'');
+}
+function planToggle(){ _planOpen=!_planOpen; planRender(); }
+function planPick(m){ _planMonths=m; planRender(); }
+async function planStart(){
+  if(_planBusy) return; _planBusy=true;
+  const btn=document.getElementById('planStartBtn'); if(btn) btn.disabled=true;
+  const d=await sellerRpc('seller_plan_start',{p_months:_planMonths,p_method:'bank'});
+  _planBusy=false;
+  if(!d){ if(btn) btn.disabled=false; showToast('신청하지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  if(!d.ok){
+    if(btn) btn.disabled=false;
+    showToast(d.msg==='full'?'자리가 방금 다 찼어요.':d.msg==='already_active'?'이미 이웃셀러예요.':'신청하지 못했어요.');
+    await planLoad(); return;
+  }
+  await planLoad();
+  planSheetOpen();
+}
+function planCard(){ return !!(_plan&&_plan.method==='card'&&_plan.card_url); }
+function planSheetOpen(){
+  if(!_plan||_plan.state!=='pending') return;
+  const b=_plan.bank||{}, has=b.no&&b.name, card=planCard();
+  _planKind=_plan.receipt_kind||'income';
+  // 카드 링크가 있고 아직 「입금했어요/결제했어요」를 누르기 전일 때만 방법을 고를 수 있다
+  const seg=(_plan.card_url&&!_plan.claimed)?'<div class="pn-seg"><button class="'+(card?'':'on')+'" onclick="planMethod(0)">계좌이체</button><button class="'+(card?'on':'')+'" onclick="planMethod(1)">카드결제</button></div>':'';
+  const head='<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>이웃셀러 '+planEsc(_plan.months)+'개월</b><span>'+planWon(_plan.amount)+'원</span></div>'+seg;
+  document.getElementById('planSheet').innerHTML=card?
+    head+
+    '<a class="pn-cta" id="planCardGo" href="'+planEsc(_plan.card_url)+'" target="_blank" rel="noopener">카드로 결제하기</a>'+
+    '<div class="pn-row last"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
+    '<div class="pn-err" id="planErr"></div>'+
+    '<button class="pn-cta s" id="planClaimBtn" onclick="planClaim()"'+(_plan.claimed?' disabled':'')+'>'+(_plan.claimed?'결제 확인 중':'결제했어요')+'</button>'
+    :
+    head+
+    (has?'<div class="pn-acct"><b>'+planEsc(b.name)+' '+planEsc(b.no)+'</b><button class="pn-pill p" onclick="planCopy()">복사</button></div>':
+         '<div class="pn-acct"><b>계좌 준비 중 · 잠시 뒤 다시 열어 주세요</b></div>')+
+    (has&&b.holder?'<div class="pn-row"><span>예금주</span><b>'+planEsc(b.holder)+'</b></div>':'')+
+    '<div class="pn-row"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
+    '<div class="pn-row last"><span>현금영수증</span><div class="pn-chips" id="planKinds"></div></div>'+
+    '<input class="pn-inp" id="planNo" inputmode="numeric" maxlength="13" autocomplete="off">'+
+    '<div class="pn-err" id="planErr"></div>'+
+    '<button class="pn-cta" id="planClaimBtn" style="margin-top:8px" onclick="planClaim()">'+(_plan.claimed?'다시 보내기':'입금했어요')+'</button>';
+  if(!card) planKind(_planKind);
+  document.getElementById('planDim').classList.add('on');
+}
+async function planMethod(i){
+  const m=i?'card':'bank'; if(_planBusy||!_plan||_plan.method===m) return;
+  _planBusy=true;
+  const d=await sellerRpc('seller_plan_method',{p_method:m});
+  _planBusy=false;
+  if(!d||!d.ok){ const e=document.getElementById('planErr'); if(e) e.textContent=d&&d.msg==='claimed'?'이미 보냈어요.':d&&d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'바꾸지 못했어요. 다시 눌러 주세요.'; if(d&&d.msg==='no_pending'){ planSheetClose(); await planLoad(); } return; }
+  await planLoad(); planSheetOpen();
+}
+function planSheetClose(){ document.getElementById('planDim').classList.remove('on'); }
+function planKind(k){
+  _planKind=k;
+  const names={income:'소득공제',expense:'지출증빙',none:'안 함'};
+  document.getElementById('planKinds').innerHTML=Object.keys(names).map(x=>'<button class="'+(x===k?'on':'')+'" onclick="planKind(\''+x+'\')">'+names[x]+'</button>').join('');
+  const i=document.getElementById('planNo');
+  i.style.display=k==='none'?'none':'block';
+  i.placeholder=k==='expense'?'사업자번호':'휴대폰 번호';
+  document.getElementById('planErr').textContent='';
+}
+function planCopy(){
+  const no=(_plan&&_plan.bank&&_plan.bank.no)||''; if(!no) return;
+  const done=()=>showToast('계좌번호를 복사했어요');
+  const old=()=>{ try{ const t=document.createElement('textarea'); t.value=no; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }catch(e){ showToast(no); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(no).then(done,old); else old();
+}
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ─────────────────────────────
+   서버: seller_banner_get · seller_banner_save (supabase/sql/seller_banner_170.sql) · Edge seller-banner(probe·upload)
+   사진은 800×800 캔버스에 그려 끌어서 위치, 막대로 크기를 맞춘 뒤 그대로 JPEG 로 올린다. */
+let _bn=null;   // {img, z, x, y, dirty, cur, busy}
+async function bnApi(body){
+  if(_tok==='demo'&&body.op!=='probe') return bnDemoApi(body);   // 화면만 보기: 링크 읽기는 실제로(서버가 저장 없이 보여만 준다), 올리기만 흉내
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-banner',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+function bnDemoApi(body){
+  const c=document.createElement('canvas'); c.width=900; c.height=600; const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,900,600); gr.addColorStop(0,'#F7C8D8'); gr.addColorStop(1,'#B9A7F0'); g.fillStyle=gr; g.fillRect(0,0,900,600);
+  g.fillStyle='#fff'; g.beginPath(); g.arc(450,300,150,0,7); g.fill(); g.fillStyle='#7C54C4'; g.font='800 54px sans-serif'; g.textAlign='center'; g.fillText('상품 사진',450,318);
+  return Promise.resolve({ok:true,image:body.data?('data:image/jpeg;base64,'+body.data):''});
+}
+function bnErr(t){ const e=document.getElementById('bnErr'); if(e) e.textContent=t||''; }
+function bnCount(){ [['bnName',20],['bnDesc',24]].forEach(function(x){ const i=document.getElementById(x[0]), c=document.getElementById(x[0]+'N'); if(i&&c) c.textContent=[...i.value].length+'/'+x[1]; }); }
+async function bnOpen(){
+  const d=await sellerRpc('seller_banner_get');
+  if(!d||!d.ok){ showToast('배너를 불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  if(!d.can){ showToast('이웃셀러로 노출 중일 때 쓸 수 있어요'); return; }
+  const b=d.banner||{};
+  _bn={img:null,z:1,x:0,y:0,dirty:false,cur:b.img||'',busy:false};
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 배너</b><span>'+planEsc(d.seller||'')+'</span></div>'+
+    '<div class="bn-go"><input class="bn-inp" id="bnLink" type="url" inputmode="url" autocomplete="off" placeholder="공구 링크" maxlength="480" value="'+planEsc(b.link||'')+'"><button id="bnGet" onclick="bnProbe()">가져오기</button></div>'+
+    '<div class="bn-ph" id="bnPh"><canvas id="bnCv" width="800" height="800"></canvas><div class="bn-empty" id="bnEmpty">사진</div></div>'+
+    '<div class="bn-tools"><input type="range" id="bnZoom" min="100" max="300" value="100" oninput="bnZoom(this.value)"><label>사진첩<input type="file" id="bnFile" accept="image/*" style="display:none" onchange="bnPick(this)"></label></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnName" maxlength="20" autocomplete="off" placeholder="상품명" value="'+planEsc(b.name||'')+'" oninput="bnCount()"><i id="bnNameN"></i></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnDesc" maxlength="24" autocomplete="off" placeholder="한 줄 멘트" value="'+planEsc(b.desc||'')+'" oninput="bnCount()"><i id="bnDescN"></i></div>'+
+    '<div class="pn-err" id="bnErr"></div>'+
+    '<button class="pn-cta" id="bnSave" style="margin-top:8px" onclick="bnSave()">저장하고 올리기</button>'+
+    (d.banner?'<button class="bn-reset" id="bnReset" onclick="bnReset()">자동 연동으로 되돌리기</button>':'<div class="bn-auto">저장 안 하면 오늘 공구로 자동 연동</div>')+
+    '</div>';
+  bnCount(); bnDrag();
+  document.getElementById('planDim').classList.add('on');
+  if(b.img) bnLoad(b.img,false);
+}
+function bnLoad(src,dirty){
+  const im=new Image(); if(!/^data:/.test(src)) im.crossOrigin='anonymous';
+  im.onload=function(){ if(!_bn) return; _bn.img=im; _bn.z=1; _bn.x=0; _bn.y=0; _bn.dirty=!!dirty; const z=document.getElementById('bnZoom'); if(z) z.value=100; const e=document.getElementById('bnEmpty'); if(e) e.style.display='none'; bnDraw(); };
+  im.onerror=function(){ bnErr('사진을 불러오지 못했어요. 사진첩에서 골라 주세요.'); };
+  im.src=src;
+}
+// 캔버스(800×800)에 지금 위치·크기로 그린다. 빈 곳이 생기지 않게 위치를 가둔다.
+function bnDraw(){
+  const cv=document.getElementById('bnCv'); if(!cv||!_bn||!_bn.img) return;
+  const g=cv.getContext('2d'), im=_bn.img, sc=Math.max(800/im.naturalWidth,800/im.naturalHeight)*_bn.z, w=im.naturalWidth*sc, h=im.naturalHeight*sc;
+  const mx=(w-800)/2, my=(h-800)/2; _bn.x=Math.max(-mx,Math.min(mx,_bn.x)); _bn.y=Math.max(-my,Math.min(my,_bn.y));
+  g.fillStyle='#fff'; g.fillRect(0,0,800,800); g.drawImage(im,(800-w)/2+_bn.x,(800-h)/2+_bn.y,w,h);
+}
+function bnZoom(v){ if(!_bn||!_bn.img) return; _bn.z=Math.max(1,Math.min(3,Number(v)/100)); _bn.dirty=true; bnDraw(); }
+function bnDrag(){
+  const ph=document.getElementById('bnPh'); if(!ph) return; let on=false,px=0,py=0;
+  ph.addEventListener('pointerdown',function(e){ if(!_bn||!_bn.img) return; on=true; px=e.clientX; py=e.clientY; try{ ph.setPointerCapture(e.pointerId); }catch(_){} });
+  ph.addEventListener('pointermove',function(e){ if(!on||!_bn) return; const k=800/ph.clientWidth; _bn.x+=(e.clientX-px)*k; _bn.y+=(e.clientY-py)*k; px=e.clientX; py=e.clientY; _bn.dirty=true; bnDraw(); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){ ph.addEventListener(t,function(){ on=false; }); });
+}
+function bnPick(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return; bnErr('');
+  if(!/^image\//.test(f.type)){ bnErr('사진 파일을 골라 주세요.'); return; }
+  const rd=new FileReader(); rd.onload=function(){ bnLoad(rd.result,true); }; rd.onerror=function(){ bnErr('사진을 읽지 못했어요.'); }; rd.readAsDataURL(f); inp.value='';
+}
+// 링크의 대표 사진·제목·설명을 가져와 채운다(채운 뒤 고칠 수 있다)
+async function bnProbe(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnGet'); btn.disabled=true; btn.textContent='가져오는 중';
+  const d=await bnApi({op:'probe',link:link});
+  _bn.busy=false; btn.disabled=false; btn.textContent='가져오기';
+  if(!document.getElementById('bnName')) return;      // 그사이 시트를 닫았다
+  if(!d||!d.ok){ bnErr(d&&d.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':d&&d.msg==='bad_link'?'이 링크는 쓸 수 없어요.':'이 링크에서는 못 가져왔어요. 사진첩에서 골라 주세요.'); return; }
+  const cutN=function(t,n){ return [...String(t||'').replace(/\s+/g,' ').trim()].slice(0,n).join(''); };
+  if(d.title) document.getElementById('bnName').value=cutN(d.title,20);
+  if(d.desc) document.getElementById('bnDesc').value=cutN(d.desc,24);
+  bnCount();
+  if(d.image) bnLoad(d.image,true); else bnErr('사진은 못 가져왔어요. 사진첩에서 골라 주세요.');
+}
+async function bnSave(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const name=(document.getElementById('bnName').value||'').trim(), desc=(document.getElementById('bnDesc').value||'').trim(), link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  if(!_bn.img){ bnErr('사진을 넣어 주세요.'); return; }
+  if(!name){ bnErr('상품명을 적어 주세요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnSave'); btn.disabled=true;
+  const stop=function(t){ _bn.busy=false; btn.disabled=false; bnErr(t); };
+  let img=_bn.cur;
+  if(_bn.dirty||!img){
+    let data=''; try{ const cv=document.getElementById('bnCv'); data=cv.toDataURL('image/jpeg',.86); if(data.length>900000) data=cv.toDataURL('image/jpeg',.7); }catch(e){ return stop('이 사진은 쓸 수 없어요. 사진첩에서 골라 주세요.'); }
+    const u=await bnApi({op:'upload',data:data.replace(/^data:image\/jpeg;base64,/,'')});
+    if(!u||!u.ok||!u.image) return stop(u&&u.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':u&&u.msg==='too_big'?'사진이 너무 커요. 다른 사진을 골라 주세요.':'사진을 올리지 못했어요. 다시 눌러 주세요.');
+    img=u.image;
+  }
+  const d=await sellerRpc('seller_banner_save',{p_name:name,p_desc:desc,p_link:link,p_img:img});
+  if(!d||!d.ok){ const m=d&&d.msg; return stop(m==='bad_name'?'상품명은 20자까지예요.':m==='bad_desc'?'멘트는 24자까지예요.':m==='bad_link'?'이 링크는 쓸 수 없어요.':m==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'저장하지 못했어요. 다시 눌러 주세요.'); }
+  _bn=null; planSheetClose(); showToast('배너를 올렸어요');
+}
+/* ── 내 링크: 인스타 아이디 · 인포크/리틀리 주소 (2026-11-19) ─────────
+   서버 seller_links_get(DB) · Edge seller-links 가 실제로 열리는지 확인하고 저장한다.
+   인스타 아이디는 메인 화면 이웃셀러 동그라미가 여는 주소(instagram.com/아이디)다. */
+function cfOpen(){
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>맘카페 가입</b><span></span></div>'+
+    '<a class="pn-cta cf-join" href="https://cafe.naver.com/momcal" target="_blank" rel="noopener">맘카페 가입하기</a>'+
+    '<div class="cf-lb">가입한 카페 닉네임</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="cfNick" maxlength="30" autocomplete="off" spellcheck="false" placeholder="카페 닉네임" value="'+planEsc(_cafeNick||'')+'"></div>'+
+    '<div class="pn-err" id="cfErr"></div>'+
+    '<button class="pn-cta" id="cfSave" style="margin-top:8px" onclick="cfSave()">저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function cfSave(){
+  if(_cfBusy) return;
+  const err=document.getElementById('cfErr'), btn=document.getElementById('cfSave');
+  const v=(document.getElementById('cfNick').value||'').trim(); err.textContent='';
+  if(!v){ err.textContent='카페 닉네임을 적어 주세요.'; return; }
+  _cfBusy=true; btn.disabled=true;
+  const d=await sellerRpc('seller_cafe_save',{p_nick:v});
+  _cfBusy=false; if(!document.getElementById('cfSave')) return; btn.disabled=false;
+  if(!d||!d.ok){ err.textContent=d&&d.msg==='bad_nick'?'닉네임을 확인해 주세요.':d&&d.msg==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.'; return; }
+  _cafeNick=d.nick||v; planSheetClose(); planRender(); showToast('카페 닉네임을 저장했어요');
+}
+let _lkBusy=false;
+async function lkApi(body){
+  if(_tok==='demo') return new Promise(function(res){ setTimeout(function(){ const h=String(body.insta||'').replace(/^.*instagram\.com\//i,'').replace(/^@+/,'').replace(/[\/?#].*$/,'').toLowerCase(); res(/^[a-z0-9._]{1,30}$/.test(h)?{ok:true,insta:'ttotto_mom',insta_state:h==='ttotto_mom'?'same':'unknown',insta_pending:h==='ttotto_mom'?null:h,bio:body.bio||'',bio_state:body.bio?'ok':'skip',bio_has_insta:!!body.bio}:{ok:false,msg:'bad_insta'}); },400); });
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-links',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+async function lkOpen(){
+  const d=await sellerRpc('seller_links_get');
+  if(!d||!d.ok){ showToast('불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 링크</b><span></span></div>'+
+    '<div class="lk-f"><span class="lk-pre">instagram.com/</span><input class="bn-inp lk-ig" id="lkIg" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="아이디" value="'+planEsc(d.insta_pending||d.insta||'')+'"></div>'+
+    '<div class="lk-ok'+(d.insta_pending?' w':'')+'" id="lkIgOk">'+(d.insta_pending?'확인 중':'')+'</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="lkBio" type="url" inputmode="url" maxlength="300" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="인포크·리틀리 주소" value="'+planEsc(d.bio||'')+'"></div>'+
+    '<div class="lk-ok" id="lkBioOk"></div>'+
+    '<div class="pn-err" id="lkErr"></div>'+
+    '<button class="pn-cta" id="lkSave" style="margin-top:8px" onclick="lkSave()">확인하고 저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function lkSave(){
+  if(_lkBusy) return;
+  const err=document.getElementById('lkErr'), a=document.getElementById('lkIgOk'), b=document.getElementById('lkBioOk'), btn=document.getElementById('lkSave');
+  err.textContent=''; a.textContent=''; b.textContent=''; a.className='lk-ok'; b.className='lk-ok';
+  const ig=(document.getElementById('lkIg').value||'').trim(), bio=(document.getElementById('lkBio').value||'').trim();
+  if(!ig){ err.textContent='인스타 아이디를 적어 주세요.'; return; }
+  _lkBusy=true; btn.disabled=true; btn.textContent='확인하는 중';
+  const d=await lkApi({insta:ig,bio:bio});
+  _lkBusy=false; if(!document.getElementById('lkSave')) return; btn.disabled=false; btn.textContent='확인하고 저장';
+  if(!d||!d.ok){
+    const m=d&&d.msg;
+    err.textContent=m==='bad_insta'?'인스타 아이디를 확인해 주세요.':m==='insta_taken'?'다른 셀러가 쓰는 아이디예요.':m==='bio_none'?'열리지 않는 주소예요.':m==='bad_bio'?'주소를 확인해 주세요.':m==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.';
+    return;
+  }
+  if(d.insta_pending){ a.className='lk-ok w'; a.textContent='확인 중 · instagram.com/'+d.insta_pending; }
+  else { a.textContent='연결됨 · instagram.com/'+d.insta; document.getElementById('lkIg').value=d.insta; }
+  if(d.bio){ b.textContent='연결됨'; document.getElementById('lkBio').value=d.bio; }
+  showToast(d.insta_pending?'저장했어요. 인스타 계정은 확인 뒤 반영돼요':'저장했어요');
+}
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ─────────────────────────
+   「이용 중」이 처음 보일 때 한 번 띄운다. 스룩 결제 창에서 돌아오면 상태를 다시 읽는다. */
+function planPaidKey(){ return 'mc_plan_paid_'+((_seller&&(_seller.seller_insta||_seller.login_insta))||'')+'_'+((_plan&&_plan.end_date)||''); }
+function planPaidCheck(){
+  if(!_plan||_plan.state!=='active'||!_plan.end_date) return;
+  let seen=false; try{ seen=!!localStorage.getItem(planPaidKey()); }catch(e){}
+  if(seen||document.getElementById('planDim').classList.contains('on')) return;
+  planPaidOpen();
+}
+function planPaidOpen(){
+  try{ localStorage.setItem(planPaidKey(),'1'); }catch(e){}
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-ic"><i></i></div>'+
+    '<div class="pd-t">결제가 완료되었습니다</div>'+
+    '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
+    '<div class="pd-box">'+
+      '<div class="pd-r"><div class="k">배너</div><div class="v">따로 꾸미지 않으면 등록한 공구 일정의 판매 링크로 자동 연결돼요</div></div>'+
+      '<div class="pd-r warn"><div class="k">판매 링크</div><div class="v">일정마다 <b>꼭 넣어 주세요</b><br>없으면 배너가 자동으로 안 걸려요</div></div>'+
+    '</div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" onclick="planSheetClose();setTimeout(openAddModal,250)">공구 일정 등록</button>'+
+      '<button class="pn-cta s" onclick="planSheetClose();setTimeout(bnOpen,250)">배너 직접 꾸미기</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+// 스룩 결제 창에서 돌아오면 다시 읽는다(대기 중일 때만)
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&_plan&&_plan.state==='pending'&&_tok) planLoad(); });
+async function bnReset(){
+  if(!_bn||_bn.busy) return; if(!confirm('직접 꾸민 배너를 지우고 자동 연동으로 바꿀까요?')) return; _bn.busy=true; const btn=document.getElementById('bnReset'); if(btn) btn.disabled=true;
+  const d=await sellerRpc('seller_banner_reset');
+  if(_bn) _bn.busy=false; if(btn) btn.disabled=false;
+  if(!d||!d.ok){ bnErr(d&&d.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'바꾸지 못했어요. 다시 눌러 주세요.'); return; }
+  _bn=null; planSheetClose(); showToast('30분 안에 오늘 공구로 바뀌어요');
+}
+async function planClaim(){
+  if(_planBusy) return;
+  const err=document.getElementById('planErr'); err.textContent='';
+  const card=planCard(); if(card) _planKind='none';
+  const no=card?'':(document.getElementById('planNo').value||'').replace(/[^0-9]/g,'');
+  if(_planKind==='income'&&(no.length<10||no.length>11)){ err.textContent='휴대폰 번호를 확인해 주세요.'; return; }
+  if(_planKind==='expense'&&no.length!==10){ err.textContent='사업자번호 10자리를 확인해 주세요.'; return; }
+  _planBusy=true; const btn=document.getElementById('planClaimBtn'); btn.disabled=true;
+  const d=await sellerRpc('seller_plan_claim',{p_receipt_kind:_planKind,p_receipt_no:_planKind==='none'?null:no});
+  _planBusy=false; btn.disabled=false;
+  if(!d||!d.ok){ err.textContent=d&&d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'보내지 못했어요. 다시 눌러 주세요.'; if(d&&d.msg==='no_pending'){ await planLoad(); } return; }
+  planSheetClose(); showToast(card?'결제 확인을 기다리고 있어요':'입금 확인을 기다리고 있어요');
+  await planLoad();
+}
+
+/* ── 테스트 페이지 전용 「화면만 보기」 (?demo=1) — 라이브 패치에는 들어가지 않는다 ── */
+(function(){
+  if(!/[?&]demo=/.test(location.search)) return;
+  const due=()=>{ const k=new Date(Date.now()+9*3600e3+86400e3).toISOString().slice(0,10); return new Date(k+'T23:59:59+09:00').toISOString(); };
+  const end=()=>{ const d=new Date(Date.now()+9*3600e3); d.setUTCMonth(d.getUTCMonth()+(st.months||6)); d.setUTCDate(d.getUTCDate()-1); return d.toISOString().slice(0,10); };
+  const st={state:'none',prices:{3:290000,6:490000},slots_left:12,clicks:386,wishes:57};
+  const real=sellerRpc;
+  sellerRpc=async function(fn,p){
+    if(fn==='seller_list_gonggu') return [];
+    if(fn==='seller_logout') return {ok:true};
+    if(fn==='seller_plan_status'){
+      const o=JSON.parse(JSON.stringify(st));
+      if(st.state==='pending') o.card_url=st.months===3?'https://srok.kr/ghkti':'https://srok.kr/ghktj';
+      if(st.state!=='none'){ o.end_date=end(); o.dday=Math.round((new Date(o.end_date)-new Date(new Date(Date.now()+9*3600e3).toISOString().slice(0,10)))/86400e3); }
+      return o;
+    }
+    if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
+    if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
+    if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
+    if(fn==='seller_cafe_get') return {ok:true,nick:st.cafe||'',cafe_url:'https://cafe.naver.com/momcal'};
+    if(fn==='seller_cafe_save'){ st.cafe=String(p.p_nick||'').trim(); return {ok:true,nick:st.cafe}; }
+    if(fn==='seller_links_get') return {ok:true,insta:'ttotto_mom',insta_pending:null,bio:'',checked:false};
+    if(fn==='seller_banner_get') return {ok:true,can:st.state==='active'||st.state==='pending',seller:'또또맘',banner:st.banner||null};
+    if(fn==='seller_banner_reset'){ st.banner=null; return {ok:true,removed:1}; }
+    if(fn==='seller_banner_save'){ st.banner={name:p.p_name,desc:p.p_desc,link:p.p_link,img:p.p_img,active:true}; return {ok:true}; }
+    return real(fn,p);
+  };
+  window.planDemo=function(s){
+    if(s==='none') Object.assign(st,{state:'none',claimed:false});
+    if(s==='pending') Object.assign(st,{state:'pending',months:6,amount:490000,method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}});
+    if(s==='active'||s==='paid') Object.assign(st,{state:'active',months:6,amount:490000});
+    try{ if(s==='paid') localStorage.removeItem('mc_plan_paid_ttotto_mom_'+end()); if(s==='active') localStorage.setItem('mc_plan_paid_ttotto_mom_'+end(),'1'); }catch(e){}
+    planSheetClose(); _planOpen=false; planLoad();
+  };
+  window.addEventListener('load',function(){
+    const bar=document.createElement('div');
+    bar.style.cssText='position:sticky;top:0;z-index:300;display:flex;gap:6px;align-items:center;padding:8px 12px;background:#FFF8E1;font-size:12px;font-weight:700;color:#5B3A00;white-space:nowrap';
+    bar.innerHTML='<span style="flex:1">화면만 보기</span>'+[['none','신청 전'],['pending','입금 대기'],['paid','결제 완료'],['active','이용 중']].map(function(x){return '<button onclick="planDemo(\''+x[0]+'\')" style="height:28px;padding:0 10px;border:none;border-radius:100px;background:#FFE08A;color:#5B3A00;font-size:12px;font-weight:700;font-family:inherit">'+x[1]+'</button>';}).join('');
+    document.body.insertBefore(bar,document.body.firstChild);
+    _seller={seller_influencer:'또또맘',seller_insta:'ttotto_mom',login_insta:'ttotto_mom'}; _tok='demo';
+    onLogin();
+  });
+})();
+
+async function onLogin(){
+  document.getElementById('pbName').textContent=_seller.seller_influencer||_seller.login_insta;
+  document.getElementById('pbInsta').textContent='@'+(_seller.seller_insta||_seller.login_insta);
+  showMy();
+  await loadData();
+  planLoad();   // 이웃셀러 패키지 상태(실패해도 나머지 화면은 그대로)
+}
+
+function doLogout(){
+  if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
+  _seller=null;_tok=null;_data=[];
+  _plan=null;_planOpen=false;_cafeNick=null; { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
+  document.getElementById('myView').style.display='none';
+  document.getElementById('logoutBtn').style.display='none';
+  // 아이디는 저장된 값으로 유지, 비밀번호만 비움
+  let saved='';try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  document.getElementById('liInsta').value=saved;
+  document.getElementById('liPw').value='';
+  showLogin();
+}
+
+// ── 데이터 로드 ──
+async function loadData(){
+  const rows=await sellerRpc('seller_list_gonggu');
+  _data=Array.isArray(rows)?rows:[];
+  updateStats();
+  renderList();
+  buildCal();
+}
+
+function updateStats(){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('stAll').textContent=_data.length;
+  document.getElementById('stAct').textContent=_data.filter(x=>x.approved&&(!x.end_date||x.end_date>=today)).length;
+  document.getElementById('stPen').textContent=_data.filter(x=>!x.approved).length;
+  document.getElementById('stDone').textContent=_data.filter(x=>x.end_date&&x.end_date<today).length;
+}
+
+// ── 뷰 전환 ──
+function switchView(v,btn){
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('listSec').style.display=v==='list'?'block':'none';
+  document.getElementById('calSec').style.display=v==='cal'?'block':'none';
+}
+
+// ── 목록 렌더 ──
+let _listFilter='active'; // 'active'=예정·진행중 / 'done'=마감
+function setListFilter(f,btn){
+  _listFilter=f;
+  document.querySelectorAll('#listSeg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderList();
+}
+function renderList(){
+  const today=new Date().toISOString().slice(0,10);
+  const el=document.getElementById('gList');
+  const isDone=g=> !!(g.end_date && g.end_date<today);
+  const rows=_data.filter(g=> _listFilter==='done' ? isDone(g) : !isDone(g));
+  if(!rows.length){
+    el.innerHTML=_listFilter==='done'
+      ? '<div class="empty">📭 마감된 공구가 없어요</div>'
+      : '<div class="empty">📭 예정된 공구가 없어요<br>공구 추가 버튼을 눌러보세요!</div>';
+    return;
+  }
+  // 예정: 임박순(오름차순) / 마감: 최근순(내림차순)
+  const sorted=[...rows].sort((a,b)=> _listFilter==='done'
+    ? ((b.open_date||'').localeCompare(a.open_date||'')||b.id-a.id)
+    : ((a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id));
+  el.innerHTML=sorted.map(g=>{
+    const exp=g.end_date&&g.end_date<today;
+    const pen=!g.approved;
+    const label=pen?'승인대기':exp?'마감':'진행중';
+    const cls=pen?'tag-pen':exp?'tag-exp':'tag-app';
+    return `<div class="gc">
+      <div class="tags">
+        <span class="tag ${cls}">${label}</span>
+        ${g.major?`<span class="tag tag-cat">${g.major}</span>`:''}
+        ${g.minor?`<span style="font-size:10px;color:var(--t3)">${g.minor}</span>`:''}
+      </div>
+      <div class="gname">${g.name}</div>
+      <div class="gdate">📅 ${g.open_date}${g.end_date?' ~ '+g.end_date:''}</div>
+      ${pen&&!exp?`<button class="btn-ok" onclick="confirmG(${g.id},this)">✅ 이 일정 맞아요, 올려주세요</button>`:''}
+      <div class="acts">
+        <button class="btn-ed" onclick="openEdit(${g.id})">✏️ 수정</button>
+        <button class="btn-dl" onclick="delG(${g.id})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 캘린더 ──
+// 색상 모드: 'random'(알록달록, 기본). 개별 지정 색이 있으면 그게 우선
+let _colorMode='random';
+let _autoColorMap={};
+function buildAutoColors(){
+  // 알록달록: open_date 순으로 정렬해 인접 공구끼리 hue가 멀리 떨어진 색 순환 배정
+  _autoColorMap={};
+  const sorted=[..._data].sort((a,b)=>(a.open_date||'').localeCompare(b.open_date||'')||a.id-b.id);
+  let i=0;
+  sorted.forEach(g=>{ _autoColorMap[g.id]=AUTO_ORDER[i%AUTO_ORDER.length]; i++; });
+}
+// hex → 가장 가까운 팔레트 색으로 스냅 (글씨색이 검정/회색으로 죽지 않고 항상 또렷한 색이 되도록)
+function hexToRgb(h){
+  h=String(h).replace('#','');
+  if(h.length===3) h=h.split('').map(c=>c+c).join('');
+  if(h.length!==6) return null;
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function rgbToHue([r,g,b]){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  if(d===0) return -1; // 무채색
+  let h; if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4;
+  h*=60; if(h<0)h+=360; return h;
+}
+const _palHue=PALETTE.map(p=>({p,hue:rgbToHue(hexToRgb(p.bar))}));
+function nearestPalette(hex){
+  const rgb=hexToRgb(hex); if(!rgb) return null;
+  const hue=rgbToHue(rgb); if(hue<0) return PALETTE[0];
+  let best=_palHue[0].p, bd=999;
+  for(const x of _palHue){ let dd=Math.abs(x.hue-hue); if(dd>180)dd=360-dd; if(dd<bd){bd=dd;best=x.p;} }
+  return best;
+}
+// 공구 → {bar,txt,lead} 항상 같은 계열(또렷한 글씨색)로 짝지어 반환
+function resolveColor(g){
+  const cn=g.color||_autoColorMap[g.id];
+  const p=paletteByName(cn);
+  if(p) return p; // 팔레트 이름이면 미리 맞춰둔 글씨색 사용
+  // 구버전 hex 데이터 등은 가장 가까운 팔레트 파스텔로 스냅 → 글씨색도 자동으로 또렷하게
+  if(typeof cn==='string'&&/^#?[0-9a-fA-F]{3,6}$/.test(cn)){
+    const snap=nearestPalette(cn); if(snap) return snap;
+  }
+  return paletteByName(AUTO_ORDER[0])||PALETTE[0];
+}
+function barStyle(g){
+  const p=resolveColor(g);
+  return `background:${p.bar};color:${p.txt};`;
+}
+function barLead(g){
+  return resolveColor(g).lead;
+}
+// end_date 없을 때 안전하게 open+3일로 간주 (null이 모든 날짜에 뜨는 버그 방지)
+function effEnd(g){
+  if(g.end_date) return g.end_date;
+  return addDays(g.open_date,3);
+}
+function buildCal(){
+  buildAutoColors();
+  const y=_calYear, m=_calMonth;
+  document.getElementById('calTitle').textContent=`${y}년 ${m+1}월`;
+  const grid=document.getElementById('calGrid');
+  const days=['일','월','화','수','목','금','토'];
+  const today=new Date().toISOString().slice(0,10);
+
+  const first=new Date(y,m,1).getDay();
+  const last=new Date(y,m+1,0).getDate();
+  let cells=[];
+  for(let i=first-1;i>=0;i--){ cells.push({date:new Date(y,m,-i),cur:false}); }
+  for(let d=1;d<=last;d++){ cells.push({date:new Date(y,m,d),cur:true}); }
+  let nextd=1;
+  while(cells.length%7!==0){   // 마지막 날이 포함된 주까지만 (6주 강제 안 함)
+    cells.push({date:new Date(y,m+1,nextd++),cur:false});
+  }
+  const ds=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+
+  // 요일 헤더
+  let html=`<div class="cal-row cal-dh-row">`+days.map((d,i)=>`<div class="cal-dh"${i===0?' style="color:#E25555"':i===6?' style="color:#4A77C9"':''}>${d}</div>`).join('')+`</div>`;
+
+  // 주 단위로 끊기
+  const MAX_BARS=4; // 한 셀에 표시할 최대 바 수
+  for(let w=0; w<cells.length/7; w++){
+    const week=cells.slice(w*7,w*7+7);
+    const weekStart=ds(week[0].date), weekEnd=ds(week[6].date);
+
+    // 1) 날짜 숫자 줄
+    let numRow=`<div class="cal-row cal-num-row">`;
+    week.forEach((c,i)=>{
+      const dateStr=ds(c.date);
+      const isToday=dateStr===today;
+      const holiday=HOLIDAYS[dateStr];
+      let nc='';
+      if(holiday||i===0) nc='color:#E25555'; else if(i===6) nc='color:#4A77C9';
+      if(!c.cur) nc+=';opacity:.35';
+      numRow+=`<div class="cal-cell-num">
+        <div class="cn${isToday?' today':''}" style="${nc}">${c.date.getDate()}</div>
+        ${holiday?`<div class="cal-holi">${holiday}</div>`:''}
+      </div>`;
+    });
+    numRow+=`</div>`;
+
+    // 2) 이 주에 걸치는 공구를 레인(겹침 방지)에 배치
+    const segs=[]; // {start:0~6, end:0~6, g}
+    _data.forEach(g=>{
+      if(!g.open_date) return;
+      const o=g.open_date, e=effEnd(g);
+      if(e<weekStart || o>weekEnd) return; // 이 주와 안 겹침
+      // 주 내 시작/끝 칸 인덱스
+      let si=week.findIndex(c=>ds(c.date)>=o);
+      if(si<0) si=0;
+      // o가 주 시작보다 이전이면 0부터
+      if(o<weekStart) si=0;
+      let ei=6;
+      for(let i=6;i>=0;i--){ if(ds(week[i].date)<=e){ ei=i; break; } }
+      if(e>weekEnd) ei=6;
+      const isStart=(o>=weekStart&&o<=weekEnd); // 이 주에서 실제로 시작
+      segs.push({si,ei,g,isStart});
+    });
+    // 레인 배정 (같은 행에 안 겹치게)
+    const lanes=[]; // 각 레인은 [{si,ei}] 점유 구간
+    segs.sort((a,b)=>a.si-b.si||a.ei-b.ei);
+    segs.forEach(seg=>{
+      let placed=false;
+      for(let L=0;L<lanes.length;L++){
+        if(lanes[L].every(o=>seg.si>o.ei||seg.ei<o.si)){
+          lanes[L].push(seg); seg.lane=L; placed=true; break;
+        }
+      }
+      if(!placed){ seg.lane=lanes.length; lanes.push([seg]); }
+    });
+    const laneCount=Math.min(lanes.length,MAX_BARS);
+
+    // 3) 바 줄 (그리드 위에 절대 배치)
+    let barRows='';
+    for(let L=0;L<laneCount;L++){
+      let row=`<div class="cal-bar-row">`;
+      const inLane=segs.filter(s=>s.lane===L).sort((a,b)=>a.si-b.si);
+      let cursor=0;
+      inLane.forEach(s=>{
+        if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
+        const showName=(s.isStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
+        const lead=s.isStart?`border-left:5px solid ${barLead(s.g)};`:'';
+        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?s.g.name:'&nbsp;'}</div>`;
+        cursor=s.ei+1;
+      });
+      row+=`</div>`;
+      barRows+=row;
+    }
+    // 초과 표시
+    let overflow='';
+    if(lanes.length>MAX_BARS){
+      overflow=`<div class="cal-more-row">`;
+      for(let i=0;i<7;i++){
+        const cnt=segs.filter(s=>s.lane>=MAX_BARS&&s.si<=i&&s.ei>=i).length;
+        overflow+=`<div class="cal-more">${cnt?'+'+cnt:''}</div>`;
+      }
+      overflow+=`</div>`;
+    }
+
+    html+=`<div class="cal-week${w===0?' cal-week-first':''}">${numRow}${barRows}${overflow}</div>`;
+  }
+  grid.innerHTML=html;
+}
+
+// ── 캘린더 이미지 저장 ──
+async function saveCalImage(){
+  showToast('이미지 생성 중...');
+  const target=document.getElementById('calCapture');
+  try{
+    const canvas=await html2canvas(target,{backgroundColor:'#ffffff',scale:2,useCORS:true});
+    const link=document.createElement('a');
+    const name=(_seller.seller_influencer||_seller.login_insta);
+    link.download=`맘캘린더_${name}_${_calYear}년${_calMonth+1}월.png`;
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+    showToast('✅ 이미지로 저장됐어요!');
+  }catch(e){showToast('이미지 저장 실패. 다시 시도해주세요.');}
+}
+function moveCal(d){
+  _calMonth+=d;
+  if(_calMonth<0){_calMonth=11;_calYear--;}
+  if(_calMonth>11){_calMonth=0;_calYear++;}
+  buildCal();
+}
+
+// ── 카테고리 ──
+function fillMajor(selId){
+  const s=document.getElementById(selId);
+  s.innerHTML=Object.keys(CATS).map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+function syncMinor(majId,minId){
+  const maj=document.getElementById(majId).value;
+  document.getElementById(minId).innerHTML=(CATS[maj]||[]).map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+function syncEM(){syncMinor('eMajor','eMinor');}
+
+// ── 텍스트 파싱 ──
+function parseDate(str,year){
+  if(!str)return null;
+  str=str.trim().replace(/[日]/g,'');
+  // 6/1, 6.1, 6-1, 6월1일, 6 1 등 다양한 구분자 허용
+  const m=str.match(/^(\d{1,2})\s*[\/\.\-월]\s*(\d{1,2})\s*일?$/);
+  if(!m)return null;
+  const mo=parseInt(m[1]), da=parseInt(m[2]);
+  if(mo<1||mo>12||da<1||da>31) return null;
+  let y=year;
+  // 연도 밀기(2026-11-03): 11월에 「1/3」을 쓰면 올해 1월(이미 지난 날)로 저장돼 마감으로 보였다.
+  // 올해로 붙였을 때 60일 넘게 지난 날짜는 내년으로 본다(방금 지난 공구를 늦게 올리는 건 올해 그대로).
+  const cand=new Date(y,mo-1,da);
+  if(cand.getMonth()!==mo-1) return null;          // 2/31 같은 없는 날
+  if(Date.now()-cand.getTime()>60*86400000) y=year+1;
+  return `${y}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+}
+function addDays(dateStr,n){
+  const d=new Date(dateStr);d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+// 셀러 일정 마감일 규칙: 미입력→오픈+3(4일간), 최대 7일간(오픈일 포함)까지만
+function capEnd(op,en){
+  if(!op) return en;
+  if(!en) return addDays(op,3);                       // 기본 4일간
+  if(en<op) return addDays(op,3);                      // 마감<오픈(역전) → 4일간
+  const diff=(new Date(en)-new Date(op))/86400000;
+  if(diff>6) return addDays(op,6);                     // 최대 7일간 초과분 캡
+  return en;
+}
+function guessCat(name){
+  const n=name.toLowerCase();
+  if(/아기|유아|아이|키즈|유모차|이유|젖|분유|기저귀|빨대|젖병|교구|장난감|블록/.test(n)) return{major:'육아',minor:'육아용품'};
+  if(/크림|세럼|앰플|토너|선크림|스킨|로션|에센스|마스크팩|클렌|폼/.test(n)) return{major:'뷰티',minor:'스킨케어'};
+  if(/선풍기|에어컨|청소기|제습기|공기청정|세탁기|건조기|냉장|가전|에어건|드라이기/.test(n)) return{major:'가전',minor:'생활가전'};
+  if(/식빵|닭|소고기|돼지|곰탕|국밥|김치|나물|반찬|쌀|채소|과일|사과|딸기|우유|치즈|곡물|간식/.test(n)) return{major:'식품',minor:'간편식/밀키트'};
+  if(/비타민|유산균|오메가|철분|홍삼|건강|영양제/.test(n)) return{major:'건강',minor:'건강기능성'};
+  if(/팬츠|티셔츠|원피스|자켓|코트|가디건|레깅스|신발|가방|실내복|외출복|샌들|반바지/.test(n)) return{major:'패션',minor:'의류'};
+  if(/소파|책상|의자|침대|커튼|조명|수납|책장|매트/.test(n)) return{major:'인테리어',minor:'가구'};
+  return{major:'리빙',minor:'생활용품'};
+}
+// 🧠 셀러들이 고친 분류 학습값 — 같은 이름·같은 셀러+브랜드·브랜드 순(DB cat_learn_guess_many, 2026-11-11)
+async function learnedCats(names){
+  try{
+    const insta=((_seller&&(_seller.seller_insta||_seller.login_insta))||'').replace('@','');
+    const r=await fetch(`${SB}/rest/v1/rpc/cat_learn_guess_many`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_insta:insta,p_names:names})});
+    if(!r.ok) return {};
+    const m={}; (await r.json()).forEach(x=>{ if(x&&x.major&&CATS[x.major]) m[x.name]={major:x.major,minor:x.minor||''}; });
+    return m;
+  }catch(e){ return {}; }
+}
+async function smartCat(name){ const m=await learnedCats([name]); return m[name]||guessCat(name); }
+async function parseText(){
+  const text=document.getElementById('parseText').value.trim();
+  if(!text){showToast('텍스트를 입력해주세요!');return;}
+  const year=new Date().getFullYear();
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+  const rows=[];
+  // 날짜 토큰: 6/1, 6.1, 6-1, 6월1일, 6월1 등 허용
+  const DT='\\d{1,2}\\s*[\\/\\.월]\\s*\\d{1,2}\\s*일?';
+  const DT_END='\\d{1,2}(?:\\s*[\\/\\.월]\\s*\\d{1,2})?\\s*일?'; // 끝날짜는 일(day)만도 허용
+  const SEP='[~～\\-–—]'; // 범위 구분자: ~ ～ - – —
+  // 날짜와 상품명 사이 공백이 없어도(6/1-6/2a) 인식되도록 \\s* 사용
+  const reRange=new RegExp('^('+DT+')\\s*'+SEP+'\\s*('+DT_END+')\\s*(.+)$');
+  const reSingle=new RegExp('^('+DT+')\\s*(.+)$');
+  for(const line of lines){
+    const range=line.match(reRange);
+    if(range){
+      const open=parseDate(range[1],year);
+      let endStr=range[2].trim().replace(/[日]/g,'');
+      // 끝날짜가 일(day)만 있으면 시작월 붙이기 (6/5~10 → 6/10)
+      if(!/[\/\.월]/.test(endStr)&&open) endStr=(parseInt(open.slice(5,7)))+'/'+endStr.replace(/일/g,'');
+      let end=parseDate(endStr,year);
+      // 12/30~1/2 처럼 해를 넘는 기간: 마감이 오픈보다 앞서면 마감은 다음 해
+      if(open&&end&&end<open&&parseInt(end.slice(5,7))<parseInt(open.slice(5,7))) end=(parseInt(end.slice(0,4))+1)+end.slice(4);
+      const name=range[3].trim().replace(/^[~～\-–—\s]+/,'').trim();
+      const cat=guessCat(name);
+      if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:capEnd(open,end)});
+      continue;
+    }
+    const single=line.match(reSingle);
+    if(single){
+      const open=parseDate(single[1],year);
+      const name=single[2].trim().replace(/^[~～\-–—\s]+/,'').trim();
+      const cat=guessCat(name);
+      if(open&&name) rows.push({name,major:cat.major,minor:cat.minor,open_date:open,end_date:addDays(open,3)});
+    }
+  }
+  if(!rows.length){showToast('파싱된 항목이 없어요. 형식을 확인해주세요.');return;}
+  const lm=await learnedCats(rows.map(r=>r.name));
+  rows.forEach(r=>{ const l=lm[r.name]; if(l){ r.major=l.major; r.minor=l.minor; } r.auto_major=r.major; r.auto_minor=r.minor; });
+  document.getElementById('regRows').innerHTML='';
+  rows.forEach(r=>addRow(r));
+  document.getElementById('parseText').value='';
+  showToast(`✨ ${rows.length}건 자동 분석 완료! 확인 후 등록하세요.`);
+}
+
+// ── 등록 행 ──
+let _rowSeq=0;
+function addRow(preset={}){
+  const id='row_'+(++_rowSeq);
+  const today=new Date().toISOString().slice(0,10);
+  const defMaj=Object.keys(CATS)[0];
+  // 색 미지정 시 추가 순서대로 hue가 떨어진 색을 기본 배정 (여러 줄이 다 같은 색 되는 문제 방지)
+  const idx=document.querySelectorAll('#regRows .rrow').length;
+  const defColor=preset.color||AUTO_ORDER[idx%AUTO_ORDER.length];
+  const majOpts=Object.keys(CATS).map(c=>`<option value="${c}"${c===(preset.major||defMaj)?' selected':''}>${c}</option>`).join('');
+  const minOpts=(CATS[preset.major||defMaj]||[]).map(m=>`<option value="${m}"${m===(preset.minor||'')?' selected':''}>${m}</option>`).join('');
+  const colorDots=PALETTE.map((p,i)=>`<button type="button" class="rcolor-dot" data-color="${p.name}" onclick="pickRowColor(this)" style="width:24px;height:24px;border-radius:50%;background:${p.bar};border:2px solid ${defColor===p.name?'#602090':'transparent'};cursor:pointer"></button>`).join('');
+  const div=document.createElement('div');
+  div.className='rrow';div.id=id;
+  div.dataset.color=defColor;
+  if(preset.auto_major){ div.dataset.autoMaj=preset.auto_major; div.dataset.autoMin=preset.auto_minor||''; }
+  div.innerHTML=`
+    <button class="rdel" onclick="document.getElementById('${id}').remove()">✕</button>
+    <input class="ri rn" type="text" placeholder="제품명 *" value="${preset.name||''}" onchange="rowAutoCat(this)">
+    <div class="rg">
+      <select class="rmaj" onchange="this.closest('.rrow').dataset.touched='1';rowSyncMin(this)">${majOpts}</select>
+      <select class="rmin" onchange="this.closest('.rrow').dataset.touched='1'">${minOpts}</select>
+    </div>
+    <div class="rd">
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">오픈일</div><input type="date" class="rop" value="${preset.open_date||today}"></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">마감일 (비우면 4일·최대 7일)</div><input type="date" class="ren" value="${preset.end_date||''}"></div>
+    </div>
+    <input class="ri rpay" type="url" placeholder="결제링크 (선택 · 입력 시 카드 클릭이 인스타 대신 이 링크로 연결)" value="${preset.pay_link||''}">
+    <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+      <span style="font-size:11px;color:var(--t3);font-weight:600">색상</span>
+      ${colorDots}
+    </div>`;
+  document.getElementById('regRows').appendChild(div);
+}
+function pickRowColor(btn){
+  const row=btn.closest('.rrow');
+  row.dataset.color=btn.dataset.color;
+  row.querySelectorAll('.rcolor-dot').forEach(d=>d.style.border='2px solid transparent');
+  btn.style.border='2px solid #602090';
+}
+async function rowAutoCat(inp){
+  const row=inp.closest('.rrow'); const name=inp.value.trim();
+  if(!name||row.dataset.touched==='1') return;          // 셀러가 분류를 이미 골랐으면 건드리지 않는다
+  const c=await smartCat(name); if(!c||!CATS[c.major]) return;
+  if(row.dataset.touched==='1') return;
+  const maj=row.querySelector('.rmaj'); maj.value=c.major; rowSyncMin(maj);
+  if(c.minor) row.querySelector('.rmin').value=c.minor;
+  row.dataset.autoMaj=c.major; row.dataset.autoMin=c.minor||'';
+}
+function rowSyncMin(sel){
+  const row=sel.closest('.rrow');
+  const maj=sel.value;
+  row.querySelector('.rmin').innerHTML=(CATS[maj]||[]).map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+// ── 저장 ──
+async function saveAll(){
+  // 셀러명(insta/influencer)과 승인여부는 서버가 토큰 기준으로 강제한다 — 여기서 보내지 않는다
+  const rows=[...document.querySelectorAll('#regRows .rrow')].map(r=>{
+    const op=r.querySelector('.rop').value;
+    let en=r.querySelector('.ren').value||null;
+    if(op) en=capEnd(op,en); // 기본 4일간 + 최대 7일 캡
+    const obj={
+      name:r.querySelector('.rn').value.trim(),
+      major:r.querySelector('.rmaj').value,
+      minor:r.querySelector('.rmin').value,
+      open_date:op,
+      end_date:en,
+      color:r.dataset.color||null
+    };
+    const pl=r.querySelector('.rpay')?r.querySelector('.rpay').value.trim():'';
+    if(pl) obj.pay_link=pl;
+    if(r.dataset.autoMaj){ obj.auto_major=r.dataset.autoMaj; obj.auto_minor=r.dataset.autoMin||''; }   // 셀러가 바꿨으면 서버가 배운다
+    return obj;
+  }).filter(x=>x.name&&x.open_date);
+  if(!rows.length){showToast('제품명을 입력한 항목이 없어요!');return;}
+  try{
+    const d=await sellerRpc('seller_add_gonggu',{p_rows:rows});
+    if(!d||!d.ok)throw 0;
+    closeAddModal();
+    // 같은 오픈일 3건 한도에 걸려 일부가 빠질 수 있다 (2026-09-01) → 왜 빠졌는지 반드시 알려준다
+    if (d.skipped > 0) showToast(`✅ ${d.count}건 등록 · ⚠️ ${d.msg}`, 7000);
+    else showToast(`✅ ${d.count}건 등록! 방장 승인 후 노출돼요`);
+    await loadData();
+  }catch(e){showToast('등록 실패. 다시 시도해주세요.');}
+}
+
+// ── 수정 ──
+function openEdit(id){
+  const g=_data.find(x=>x.id===id);if(!g)return;
+  _editId=id;
+  _editColor=g.color||PALETTE[0].name;
+  document.getElementById('eName').value=g.name||'';
+  document.getElementById('eOpen').value=g.open_date||'';
+  document.getElementById('eEnd').value=g.end_date||'';
+  document.getElementById('ePay').value=g.pay_link||'';
+  fillMajor('eMajor');
+  const eMj=document.getElementById('eMajor');
+  if(g.major&&![...eMj.options].some(o=>o.value===g.major)) eMj.add(new Option(g.major,g.major));
+  if(g.major)eMj.value=g.major;
+  syncEM();
+  const eMn=document.getElementById('eMinor');
+  if(g.minor&&![...eMn.options].some(o=>o.value===g.minor)) eMn.add(new Option(g.minor,g.minor));   // 목록에 없는 기존 분류도 그대로(조용히 바뀌지 않게)
+  if(g.minor)eMn.value=g.minor;
+  renderEColors();
+  document.getElementById('editModal').classList.add('on');
+}
+let _editColor=PALETTE[0].name;
+function renderEColors(){
+  document.getElementById('eColors').innerHTML=PALETTE.map(p=>
+    `<button type="button" onclick="_editColor='${p.name}';renderEColors()" style="width:28px;height:28px;border-radius:50%;background:${p.bar};border:2px solid ${_editColor===p.name?'#602090':'transparent'};cursor:pointer"></button>`
+  ).join('');
+}
+async function doEdit(){
+  const name=document.getElementById('eName').value.trim();
+  const open_date=document.getElementById('eOpen').value;
+  const end_date=capEnd(open_date, document.getElementById('eEnd').value||null);
+  const major=document.getElementById('eMajor').value;
+  const minor=document.getElementById('eMinor').value;
+  if(!name||!open_date){showToast('필수 항목을 입력해주세요!');return;}
+  try{
+    const body={name,major,minor,open_date,end_date,color:_editColor};
+    body.pay_link=document.getElementById('ePay').value.trim();
+    const d=await sellerRpc('seller_update_gonggu',{p_id:_editId,p_body:body});
+    if(!d||!d.ok)throw 0;
+    closeEditModal();
+    showToast('✅ 수정됐어요! 방장 승인 후 반영돼요');
+    await loadData();
+  }catch(e){showToast('수정 실패.');}
+}
+
+// ── 삭제 ──
+// 승인대기 공구를 셀러 본인이 「맞다」고 확인하면 그 자리에서 올린다(서버 seller_confirm_gonggu, 2026-11-18)
+async function confirmG(id,btn){
+  if(btn){ if(btn.disabled) return; btn.disabled=true; }
+  const d=await sellerRpc('seller_confirm_gonggu',{p_id:id});
+  if(!d){ if(btn) btn.disabled=false; showToast('올리지 못했어요. 다시 눌러 주세요.'); return; }
+  if(d.ok&&d.approved) showToast('✅ 올렸어요! 사이트에 바로 보여요');
+  else if(d.msg==='ended') showToast('이미 끝난 일정이에요');
+  else showToast('방장이 확인한 뒤 올려드릴게요');
+  await loadData();
+}
+async function delG(id){
+  if(!confirm('이 공구를 삭제할까요?'))return;
+  try{
+    const d=await sellerRpc('seller_delete_gonggu',{p_id:id});
+    if(!d||!d.ok)throw 0;
+    showToast('삭제됐어요 🗑️');
+    await loadData();
+  }catch(e){showToast('삭제 실패.');}
+}
+
+// ── 모달 ──
+function openAddModal(){
+  document.getElementById('regRows').innerHTML='';
+  document.getElementById('parseText').value='';
+  addRow();
+  document.getElementById('addModal').classList.add('on');
+}
+function closeAddModal(){document.getElementById('addModal').classList.remove('on');}
+function closeEditModal(){document.getElementById('editModal').classList.remove('on');_editId=null;}
+document.getElementById('addModal').addEventListener('click',function(e){if(e.target===this)closeAddModal();});
+document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeEditModal();});
+
+// ── 토스트 ──
+function showToast(msg, ms){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('on');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),ms||2800);
+}
+
+// ── 비밀번호 변경 ──
+function openPwModal(){
+  ['pwOld','pwNew','pwNew2'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pwErr').textContent='';
+  document.getElementById('pwModal').classList.add('on');
+}
+function closePwModal(){document.getElementById('pwModal').classList.remove('on');}
+async function doChangePw(){
+  const oldPw=document.getElementById('pwOld').value;
+  const newPw=document.getElementById('pwNew').value;
+  const newPw2=document.getElementById('pwNew2').value;
+  const err=document.getElementById('pwErr');
+  err.textContent='';
+  if(!oldPw||!newPw){err.textContent='모든 항목을 입력해주세요.';return;}
+  if(newPw.length<6){err.textContent='새 비밀번호는 6자 이상이어야 해요.';return;}
+  if(newPw!==newPw2){err.textContent='새 비밀번호가 일치하지 않아요.';return;}
+  const insta=(_seller.login_insta||_seller.seller_insta||'').replace('@','');
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/seller_change_pw`,{
+      method:'POST',
+      headers:{...H,'Content-Type':'application/json'},
+      body:JSON.stringify({p_insta:insta,p_old:oldPw,p_new:newPw})
+    });
+    const d=await r.json();
+    if(!r.ok){err.textContent='변경 실패. 다시 시도해주세요.';return;}
+    if(!d.ok){
+      err.textContent=d.msg==='wrongpw'?'현재 비밀번호가 틀렸어요.':(d.msg==='notfound'?'계정을 찾을 수 없어요.':'변경 실패.');
+      return;
+    }
+    closePwModal();
+    showToast('✅ 비밀번호가 변경됐어요!');
+  }catch(e){err.textContent='오류: '+e.message;}
+}
+document.getElementById('pwModal').addEventListener('click',function(e){if(e.target===this)closePwModal();});
+
+// ── 페이지 로드 시: 저장된 아이디 복원 ──
+(function initSavedId(){
+  let saved='';
+  try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  // 로그인 바로가기 — 이미 가입한 셀러에게 주는 주소: https://momcalendar.com/register.html#login (카톡 나에게 보내기·즐겨찾기·홈 화면에 저장해 두고 쓴다. 2026-11-04 샤샤툰 건의)
+  if((location.hash||'').toLowerCase()==='#login' || /(^|[?&])login(=1|=true)?(&|$)/i.test(location.search||'')){
+    showLogin();
+    const li0=document.getElementById('liInsta');
+    if(li0 && saved) li0.value=saved;
+    setTimeout(()=>{ const f=(li0 && li0.value)?document.getElementById('liPw'):li0; if(f) f.focus(); },100);
+    return;
+  }
+  if((location.hash||'').toLowerCase()==='#signup'){
+    showSignup();   // 메인 '셀러 가입하기'로 들어온 경우 가입 화면을 바로 보여줌
+    return;
+  }
+  if(saved){
+    // 가입 화면 대신 로그인 화면을 먼저 보여주고 아이디 자동 입력
+    showLogin();
+    const li=document.getElementById('liInsta');
+    if(li) li.value=saved;
+    const lp=document.getElementById('liPw');
+    if(lp) setTimeout(()=>lp.focus(),100);
+  }
+})();
+</script>
+<script>
+/* 휴대폰 뒤로가기 → 열린 창 닫기 (2026-11-19, scratchpad/patch_seller_back.cjs) */
+(function mcBackClose(){
+  if(!window.history||!history.pushState) return;
+  var pushed=0, skip=0, byBack=false;
+  function opened(){ return [].slice.call(document.querySelectorAll('.mb.on, #planDim.on')); }
+  function closeEl(el){
+    try{
+      if(el.id==='addModal'&&typeof closeAddModal==='function') return closeAddModal();
+      if(el.id==='editModal'&&typeof closeEditModal==='function') return closeEditModal();
+      if(el.id==='pwModal'&&typeof closePwModal==='function') return closePwModal();
+      if(el.id==='planDim'&&typeof planSheetClose==='function') return planSheetClose();
+    }catch(e){}
+    el.classList.remove('on');
+  }
+  function sync(){
+    var n=opened().length;
+    if(n>pushed){ while(pushed<n){ try{ history.pushState({mcSheet:pushed+1},''); }catch(e){} pushed++; } }
+    else if(n<pushed){
+      var d=pushed-n; pushed=n;
+      if(byBack){ byBack=false; return; }          // 뒤로가기로 닫힌 것 — 기록은 이미 한 칸 빠졌다
+      skip+=d; try{ history.go(-d); }catch(e){ skip-=d; }   // 버튼으로 닫힌 것 — 넣었던 칸을 되돌린다
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(skip>0){ skip--; return; }
+    var o=opened(); if(!o.length) return;
+    byBack=true; closeEl(o[o.length-1]);
+    if(opened().length===o.length){ byBack=false; }   // 못 닫았으면(드문 경우) 표시만 되돌린다
+  });
+  try{ new MutationObserver(sync).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']}); }catch(e){}
+})();
+</script>
+
+<!-- 이웃셀러 결제 시트 (2026-11-17) -->
+<div class="pn-dim" id="planDim" onclick="if(event.target===this)planSheetClose()">
+  <div class="pn-sheet" id="planSheet"></div>
+</div>
+</body>
+</html>

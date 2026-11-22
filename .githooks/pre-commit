@@ -1,0 +1,19 @@
+#!/bin/sh
+# 공개 저장소(momcalendar)에 내부 자료가 다시 들어가는 것을 막는다.
+#   2026-09-18~21 사고: tools/vendor/ 가 사흘간 공개돼 셀러 실명·과세유형·요율이 노출됐다.
+#   .gitignore 만으로는 `git add -f` 와 옛 .gitignore 를 쓰는 워크트리를 못 막는다.
+# 되살리는 법:  git config core.hooksPath .githooks
+# 지우는 변경(D)은 막지 않는다 — 공개 저장소에서 빼는 커밋까지 막히던 것을 고쳤다(2026-11-02)
+# 2026-11-13 추가: scratchpad 안 문서·작업규칙.md·references/·HANDOVER/ORDER_ 지시서 — 서버 원격접속 비밀번호가 담긴 인계 문서가 11-02 부터 공개돼 있던 사고(보안 감사 F1·F2)
+BLOCKED='^(scratchpad/[^/]+\.md$|작업규칙\.md$|references/|(.*/)?[^/]*(HANDOVER|ORDER_)[^/]*\.md$|tools/vendor/|사업문서/|supabase/supabase/|복원된_채팅기록/|HANDOFF\.md|CLAUDE\.md)'
+HIT=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' | grep -E "$BLOCKED")
+if [ -n "$HIT" ]; then
+  echo ""
+  echo "🔴 공개 저장소에 올리면 안 되는 파일이 올라가려 합니다 — 커밋을 멈췄습니다."
+  echo "$HIT" | sed 's/^/   · /'
+  echo ""
+  echo "   이 파일들은 비공개 백업(work-backup)에만 둡니다."
+  echo "   정말 올려야 하면:  git commit --no-verify   (되도록 쓰지 마세요)"
+  echo ""
+  exit 1
+fi

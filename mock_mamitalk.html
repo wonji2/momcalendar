@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>맘캘린더 × 마미톡 리디자인 목업</title>
+<style>
+  :root {
+    --primary: #7C54C4;
+    --primary-light: #F3EEFA;
+    --coral-red: #FF4742;
+    --text-main: #191F28;
+    --text-sub: #4E5968;
+    --text-muted: #8B95A1;
+    --bg-gray: #F8F9FA;
+    --border-line: #E5E8EB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: #f0f2f5; color: var(--text-main); display: flex; justify-content: center; }
+  
+  /* 모바일 프레임 (390px 표준 아이폰/갤럭시 뷰) */
+  .phone-frame {
+    width: 100%;
+    max-width: 412px;
+    background: #ffffff;
+    min-height: 100vh;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+    padding-bottom: 70px;
+  }
+
+  /* 상단 헤더 */
+  .app-header {
+    background: var(--primary);
+    padding: 12px 16px 14px;
+    color: #fff;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .app-logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .header-icons {
+    display: flex;
+    gap: 14px;
+    font-size: 18px;
+    align-items: center;
+  }
+  .search-box {
+    background: #ffffff;
+    border-radius: 20px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* 상단 띠 배너 */
+  .sub-notice {
+    background: #F3EEFA;
+    text-align: center;
+    padding: 7px 16px;
+    font-size: 11.5px;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* 🏷️ 마미톡식 좌측 정렬 모던 섹션 헤더 */
+  .sec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 16px 10px;
+  }
+  .sec-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.3px;
+  }
+  .sec-more {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  /* 1. 맘캘 방장 보증 공구 (가로 카드 슬라이더) */
+  .banner-slider {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .banner-slider::-webkit-scrollbar { display: none; }
+  .b-card {
+    flex: 0 0 calc((100% - 10px) / 2);
+    border: 1px solid #EDE8F3;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .b-card-img {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #f4f4f4;
+    position: relative;
+    object-fit: cover;
+  }
+  .b-card-cnt {
+    padding: 9px 10px 10px;
+  }
+  .b-card-seller {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .b-card-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.35;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .b-card-sub {
+    font-size: 11.5px;
+    color: var(--text-sub);
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 2. 오픈 예정 스포 (마미톡형 D-day 캐러셀) */
+  .spo-slider {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .spo-slider::-webkit-scrollbar { display: none; }
+  .spo-card {
+    flex: 0 0 290px;
+    display: flex;
+    height: 130px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #EDE8F3;
+  }
+  .spo-left {
+    flex: 1.1;
+    background: var(--primary);
+    color: #fff;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .spo-dday {
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .spo-tit {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-top: 4px;
+  }
+  .spo-date {
+    font-size: 10.5px;
+    opacity: 0.85;
+  }
+  .spo-btn {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.22);
+    border: 0;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .spo-img {
+    flex: 0.9;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* 3. 이웃셀러 동그라미 */
+  .seller-row {
+    display: flex;
+    gap: 14px;
+    padding: 0 16px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seller-row::-webkit-scrollbar { display: none; }
+  .seller-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .seller-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7C54C4, #9D74DE);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    position: relative;
+  }
+  .seller-badge {
+    position: absolute;
+    bottom: -2px;
+    background: #191F28;
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 100px;
+  }
+  .seller-name {
+    font-size: 11px;
+    color: var(--text-main);
+    font-weight: 500;
+  }
+
+  /* 4. 마미톡식 슬림 필터 칩 (1줄) - 거대 중간버튼 영구 삭제! */
+  .chip-bar {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-top: 1px solid #F2F4F6;
+  }
+  .chip-bar::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border-line);
+    background: #fff;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chip.on {
+    background: #191F28;
+    color: #fff;
+    border-color: #191F28;
+    font-weight: 600;
+  }
+
+  /* 5. 마미톡식 2열 공구 카드 그리드 */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 6px 16px 20px;
+  }
+  .prod-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .prod-thumb-wrap {
+    width: 100%;
+    aspect-ratio: 1/1;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f6f6f6;
+  }
+  .prod-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .wish-heart {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+  }
+  .prod-body {
+    padding: 8px 2px 4px;
+  }
+  .prod-seller {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .prod-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main);
+    line-height: 1.35;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 35px;
+  }
+  .prod-price-area {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .prod-discount {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--coral-red);
+  }
+  .prod-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .prod-tags {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .mini-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #F2F4F6;
+    color: var(--text-sub);
+  }
+  .mini-tag.purple {
+    background: #F3EEFA;
+    color: var(--primary);
+  }
+
+  /* 6. 하단 네비게이션바 (마미톡형 슬림 SVG 라인) */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 412px;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid #E6EBF1;
+    display: flex;
+    z-index: 1000;
+  }
+  .nav-btn {
+    flex: 1;
+    border: 0;
+    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #8D95A1;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .nav-btn.on {
+    color: var(--primary);
+  }
+  .nav-btn svg {
+    stroke-width: 1.8;
+  }
+  .nav-btn.on svg {
+    stroke-width: 2.2;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <!-- 상단 앱 헤더 -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="app-logo">맘캘린더</div>
+      <div class="header-icons">
+        <span>🔍</span>
+        <span>🔔</span>
+        <span>👤</span>
+      </div>
+    </div>
+    <div class="search-box">
+      <span>🔍</span>
+      <span>브랜드, 상품명 검색</span>
+    </div>
+  </header>
+
+  <div class="sub-notice">공구 핫딜 정보 공유 커뮤니티 맘캘린더</div>
+
+  <!-- ① 맘캘 방장 보증 공구 (마미톡식 좌측 정렬 16px) -->
+  <section>
+    <div class="sec-header">
+      <h2 class="sec-title">맘캘 방장 보증 공구</h2>
+      <a href="#" class="sec-more">더보기 ›</a>
+    </div>
+    <div class="banner-slider">
+      <div class="b-card">
+        <img class="b-card-img" src="https://momcalendar.com/banners/banner_mckingdom_1793081202000.jpg" alt="호주 UGG">
+        <div class="b-card-cnt">
+          <div class="b-card-seller">방장 PICK</div>
+          <div class="b-card-name">정품 호주UGG 어그</div>
+          <div class="b-card-sub">아이랑 엄마 같이 신는 호주 정품</div>
+        </div>
+      </div>
+      <div class="b-card">
+        <img class="b-card-img" src="https://momcalendar.com/banners/banner_woorittk_1792760000000.jpg" alt="얼려먹는 젤리">
+        <div class="b-card-cnt">
+          <div class="b-card-seller">방장 PICK</div>
+          <div class="b-card-name">얼려먹는 아기상어 젤리</div>
+          <div class="b-card-sub">우뭇가사리젤리 색소 무첨가✓</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 오픈 예정 라이브/공구 (마미톡식 D-day 카드) -->
+  <section>
+    <div class="sec-header">
+      <h2 class="sec-title">오픈 예정 라이브/공구</h2>
+      <a href="#" class="sec-more">전체일정 ›</a>
+    </div>
+    <div class="spo-slider">
+      <div class="spo-card">
+        <div class="spo-left">
+          <div>
+            <div class="spo-dday">D-2</div>
+            <div class="spo-tit">룰라러브<br>천연해면스펀지</div>
+          </div>
+          <div>
+            <div class="spo-date">11/4(수) 오픈</div>
+            <button class="spo-btn" style="margin-top:4px">🔔 38</button>
+          </div>
+        </div>
+        <div class="spo-img" style="background-image:url('https://momcalendar.com/banners/banner_woorittk_1792760000000.jpg')"></div>
+      </div>
+      <div class="spo-card">
+        <div class="spo-left" style="background:#5B418A">
+          <div>
+            <div class="spo-dday">D-10</div>
+            <div class="spo-tit">슈메르<br>미끄럼방지 양말</div>
+          </div>
+          <div>
+            <div class="spo-date">11/12 오픈</div>
+            <button class="spo-btn" style="margin-top:4px">🔔 32</button>
+          </div>
+        </div>
+        <div class="spo-img" style="background-image:url('https://momcalendar.com/banners/banner_mckingdom_1793081202000.jpg')"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 이웃셀러 -->
+  <section>
+    <div class="sec-header">
+      <h2 class="sec-title">이웃셀러 인기 공구</h2>
+      <a href="#" class="sec-more">더보기 ›</a>
+    </div>
+    <div class="seller-row">
+      <div class="seller-item">
+        <div class="seller-avatar">맘캘<span class="seller-badge">방장</span></div>
+        <span class="seller-name">맘캘방장</span>
+      </div>
+      <div class="seller-item">
+        <div class="seller-avatar" style="background:#4A90E2">하나맘</div>
+        <span class="seller-name">하나맘</span>
+      </div>
+      <div class="seller-item">
+        <div class="seller-avatar" style="background:#E05C97">유딘살림</div>
+        <span class="seller-name">유딘살림</span>
+      </div>
+      <div class="seller-item">
+        <div class="seller-avatar" style="background:#50B83C">메종드엘라</div>
+        <span class="seller-name">메종드엘라</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ 마미톡식 슬림 필터 칩 (1줄 가로스크롤) - 중간 거대 버튼 삭제! -->
+  <div class="chip-bar">
+    <button class="chip on">전체</button>
+    <button class="chip">💜 내 찜 1</button>
+    <button class="chip">방금오픈</button>
+    <button class="chip">마감임박</button>
+    <button class="chip">인기순</button>
+  </div>
+
+  <!-- ⑤ 마미톡식 2열 공구 카드 그리드 -->
+  <div class="card-grid">
+    <!-- 카드 1 -->
+    <div class="prod-card">
+      <div class="prod-thumb-wrap">
+        <img class="prod-thumb" src="https://momcalendar.com/banners/banner_mckingdom_1793081202000.jpg" alt="">
+        <div class="wish-heart">♡</div>
+      </div>
+      <div class="prod-body">
+        <div class="prod-seller">밤부베베</div>
+        <div class="prod-name">★최종가99,000원★ [밤부베베] 올인원 세트 기획전</div>
+        <div class="prod-price-area">
+          <span class="prod-discount">59%</span>
+          <span class="prod-price">99,000원</span>
+        </div>
+        <div class="prod-tags">
+          <span class="mini-tag purple">맘캘특가</span>
+          <span class="mini-tag">무료배송</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2 -->
+    <div class="prod-card">
+      <div class="prod-thumb-wrap">
+        <img class="prod-thumb" src="https://momcalendar.com/banners/banner_woorittk_1792760000000.jpg" alt="">
+        <div class="wish-heart">♡</div>
+      </div>
+      <div class="prod-body">
+        <div class="prod-seller">디펜드</div>
+        <div class="prod-name">디펜드 산모전용 맘스 안심팬티 8P 단독특가</div>
+        <div class="prod-price-area">
+          <span class="prod-discount">22%</span>
+          <span class="prod-price">12,900원</span>
+        </div>
+        <div class="prod-tags">
+          <span class="mini-tag purple">맘캘특가</span>
+          <span class="mini-tag">쿠폰할인</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 하단 네비게이션바 (마미톡형 슬림 라인 SVG) -->
+  <nav class="bottom-nav">
+    <button class="nav-btn on">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+      <span>공구</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5"/></svg>
+      <span>핫딜</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg>
+      <span>세일</span>
+    </button>
+    <button class="nav-btn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+      <span>커뮤니티</span>
+    </button>
+  </nav>
+</div>
+
+</body>
+</html>
