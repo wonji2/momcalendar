@@ -12,10 +12,10 @@ name: 핫딜 24시간 무인 자동 수집
 #   · schedule 은 사슬이 끊겼을 때 다시 잇는 예비로 남긴다. concurrency 로 한 번에 하나만 돈다(대기는 하나만 남는다).
 #   · 공개 저장소라 실행 시간은 무료. 쿠팡 딥링크는 새 쿠팡 핫딜이 있을 때만 부르고 회차당 10회·2초 간격(수집기 안) — 자주 돌려도 호출 수는 새 핫딜 수만큼.
 #   · PC 대타(tools/daily/hotdeal_cloud_fallback.mjs, 20분)는 이 실행이 도는 중이면 건너뛴다. 서버 크론 hotdeal-stall-watch 가 3시간 무등록을 경보한다.
-# 2026-11-22: schedule 15분 → 2시간. 24시간 유지는 사슬(workflow_dispatch)이 하고, schedule 은 사슬이 끊겼을 때의 예비다(복구 상한 2시간 < 서버 크론 hotdeal-stall-watch 3시간 경보).
+# 2026-11-22: schedule 15분 → 1시간(사장님 「1시간으로해 예비는」 — 오더서의 2시간을 바꿈). 24시간 유지·15분 수집은 사슬(workflow_dispatch)이 하고, schedule 은 사슬이 끊겼을 때의 예비다(복구 상한 1시간 < 서버 크론 hotdeal-stall-watch 3시간 경보).
 on:
   schedule:
-    - cron: '8 */2 * * *'          # 2026-11-22 사장님 지시: 320분 루프와 겹쳐 15분마다 대기·취소가 쌓였다
+    - cron: '8 * * * *'            # 2026-11-22 사장님 지시 예비 1시간: 320분 루프와 겹쳐 15분마다 대기·취소가 쌓였다
   workflow_dispatch:
   push:   # 이 파일을 고쳐 올리면 바로 한 번 돌아 사슬을 (다시) 시작한다
     branches: [main]
