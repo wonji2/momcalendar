@@ -1128,7 +1128,11 @@ def collect_from_jirum_alarm():
             print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id} · 상품키 {pkey or "없음"})')
             return
         main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
-        card_img = main_img or (rec['thumbnail'] if rec['thumbnail'].startswith('https://') else '')
+        # 사장님 2026-11-24 「다 막아야지」 — 지름알림 커뮤니티 사진은 쓰지 않는다(남의 서버 사진). 몰 대표 사진이 없으면 올리지 않는다.
+        if not main_img:
+            print(f'[지름알림] 몰 대표 사진 없음 — 건너뜀: {mall} {clean_title[:40]}')
+            return
+        card_img = main_img
         ins_sql = f'''
         INSERT INTO public.hotdeals (
           title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at, product_key, mall_code, option_no, key_src, price_status
@@ -1550,9 +1554,11 @@ def collect_from_bbhd():
             clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
             main_img = product_main_image(mall, aff_link, target_link, cpid if mall == '쿠팡' else None, clean_title)
+            # 사장님 2026-11-24 「다 막아야지」 — bbhd 글 사진은 쓰지 않는다(남의 서버 사진). 몰 대표 사진이 없으면 올리지 않는다.
             if not main_img:
-                print(f'[bbhd] {wr_id} 대표 사진을 못 찾아 글 사진으로 둔다: {editor_img[:80]}')
-            card_img = main_img or editor_img
+                print(f'[bbhd] {wr_id} 몰 대표 사진 없음 — 건너뜀: {clean_title[:40]}')
+                continue
+            card_img = main_img
 
             ins_sql = f'''
             INSERT INTO public.hotdeals (
@@ -1686,11 +1692,6 @@ def collect_from_3ha_klook():
 
 
 FIX_THUMBNAILS_DICT = {
-    1817: 'https://bbhd.kr/bbs/data/editor/2611/20261102224247_c3671a7fcd8eff99faf0d70f3e02b999_z7sq.png',  # 다이슨 에어랩
-    1816: 'https://bbhd.kr/bbs/data/editor/2611/20261102213457_c3671a7fcd8eff99faf0d70f3e02b999_9afp.png',  # 닌자 크리스피
-    1814: 'https://bbhd.kr/bbs/data/editor/2611/20261102202136_c3671a7fcd8eff99faf0d70f3e02b999_9jsm.png',  # 뽀로로 보리차
-    1812: 'https://bbhd.kr/bbs/data/editor/2610/20261015112255_a75103f52b72bff00e84c13c437a9f84_7z2h.png',  # 스탠리 텀블러
-    1808: 'https://bbhd.kr/bbs/data/editor/2611/20261102172441_c3671a7fcd8eff99faf0d70f3e02b999_gwel.png',  # 대패삼겹살
     1768: 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9718376800/B.jpg',
     1777: 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/492842757/B.jpg',
     1735: 'https://cdn.011st.com/11dims/resize/600x600/quality/75/11src/product/9712622434/B.jpg',
