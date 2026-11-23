@@ -158,11 +158,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pn-rd{width:20px;height:20px;border-radius:50%;border:2px solid #D1D6DB;flex:none;position:relative}
 .pn-opt.on .pn-rd{border-color:var(--p)}
 .pn-opt.on .pn-rd:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--p)}
-.pn-m{flex:1;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.pn-m{flex:1;min-width:0;font-size:14px;font-weight:800;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
 .pn-m em{font-style:normal;font-size:10px;font-weight:800;color:#fff;background:#E8457F;padding:2px 7px;border-radius:100px}
-.pn-r{flex:none;margin-left:auto;text-align:right;white-space:nowrap}
+.pn-r{flex:0 1 auto;min-width:0;margin-left:auto;text-align:right} /* pn-vat-wrap */
 .pn-p{font-size:17px;font-weight:800}
-.pn-vat{margin-left:2px;font-size:11px;font-weight:600;color:var(--t3)}
+.pn-vat{display:inline-block;margin-left:2px;font-size:11px;font-weight:600;color:var(--t3);white-space:nowrap}
 .pn-opt.on .pn-p{color:var(--p)}
 .pn-t{font-size:12px;color:var(--t3);margin-top:1px}
 .pn-cta{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:none;border-radius:100px;background:var(--p);color:#fff;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;font-family:inherit;transition:transform .1s}
@@ -278,6 +278,7 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .pn-bf-txt>span{display:flex}
 .pn-bf-txt>.pn-bf-s{display:block}
 .pn-nb{white-space:nowrap}
+@media (max-width:353px){.pn-nb{white-space:normal}}
 .pn-bf-more{flex:none;display:inline-flex;align-items:center;height:28px;padding:0 8px 0 10px;border-radius:100px;background:#F6F3FA;color:#7C54C4;font-size:12px;font-weight:700}
 .pn-bf-more .pn-chev{width:5px;height:5px;margin:0 2px 3px 5px;border-color:#7C54C4;transform:rotate(45deg);transition:transform .2s}
 .pn-bf-row[aria-expanded="true"] .pn-bf-more .pn-chev{transform:rotate(-135deg);margin-bottom:-2px}
@@ -809,7 +810,7 @@ function planRender(){
     return;
   }
   const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
-  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월 '+planMonthly(m)+'만원<small class="pn-vat">(VAT 포함)</small></div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
+  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월&nbsp;'+planMonthly(m)+'만원<small class="pn-vat">(VAT 포함)</small></div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
   box.innerHTML=
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러 혜택</b>'+(left>0?'':'<span class="left">자리 없음</span>')+'</div>'+
     '<div class="pn-in">'+
