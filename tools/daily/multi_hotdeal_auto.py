@@ -61,7 +61,7 @@ def classify_category(title):
     if re.search(r'세제|유연제|휴지|치약|칫솔', t):
         return '리빙', '생활용품'
     if re.search(r'세탁기|건조기|로봇청소기|청소기|공기청정기|냉장고|모니터|노트북|tv|제습기|가습기', t):
-        return '디지털/가전', '생활가전'
+        return '가전', '생활가전'
     return '육아', '육아용품'
 
 def calculate_unit_price(title, price):

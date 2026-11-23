@@ -259,12 +259,19 @@ def sql_quote(val):
 
 def classify_category(title, mall=None, cat_override=None):
     if cat_override:
-        return cat_override, '기획특가'
+        # 사이트 필터(CATS)에 없는 「기획특가」를 내지 않는다(2026-11-23 — 어느 칩에도 안 잡혔다). 여행 몰은 여행으로,
+        # 나머지는 제목으로 먼저 가르고(보리보리의 영양제·책 등), 제목으로 모르면 그 몰의 대분류 + 기본 소분류.
+        if cat_override == '여행':
+            return '여행', '호텔/숙소'
+        mj, mn = classify_category(title, mall=mall)
+        if (mj, mn) != ('육아', '육아용품'):
+            return mj, mn
+        return cat_override, {'패션': '의류', '식품': '간편식/밀키트', '뷰티': '스킨케어', '리빙': '생활용품'}.get(cat_override, '생활용품')
     t = title.lower()
     if re.search(r'호텔|리조트|풀빌라|펜션|숙박|워터파크|스파|아쿠아리움|키즈카페|입장권|테마파크|항공권|렌터카|투어|패키지|여행|글램핑|캠핑장|티켓|패스|유심|이용권|원더박스|오월드|에버랜드|롯데월드|레고랜드|서울랜드|케이블카|뮤지엄|전시회|스키장|리프트권|숙박권', t):
-        return '여행', '숙박/레저' 
+        return '여행', '호텔/숙소' 
     if mall in ['세시간전', '야놀자', '여기어때', '마이리얼트립', '클룩', '아고다', '호텔스닷컴', '익스피디아', '트립닷컴', 'KKday', '에어비앤비', '부킹닷컴']:
-        return '여행', '숙박/레저'
+        return '여행', '호텔/숙소'
     if re.search(r'우유|분유|치즈|요거트|두유', t):
         return '식품', '유제품'
     if re.search(r'유모차|유모자|카시트|아기띠|웨건|트라이크|보행기', t):
@@ -285,8 +292,12 @@ def classify_category(title, mall=None, cat_override=None):
         return '리빙', '주방용품'
     if re.search(r'세제|유연제|휴지|치약|칫솔', t):
         return '리빙', '생활용품'
+    if re.search(r'유산균|프로바이오틱스', t):
+        return '건강', '유산균'
+    if re.search(r'영양제|칼슘|마그네슘|아연|철분|루테인|오메가|홍삼|멀티비타민|비타민\s*[a-d]', t):
+        return '건강', '건강기능성'
     if re.search(r'세탁기|건조기|로봇청소기|청소기|공기청정기|냉장고|모니터|노트북|tv|제습기|가습기', t):
-        return '디지털/가전', '생활가전'
+        return '가전', '생활가전'
     return '육아', '육아용품'
 
 def calculate_unit_price(title, price):

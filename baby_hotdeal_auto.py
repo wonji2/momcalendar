@@ -67,7 +67,7 @@ def sql_quote(val):
 def classify_category(title):
     t = title.lower()
     if re.search(r'호텔|리조트|풀빌라|펜션|숙박|워터파크|스파|아쿠아리움|키즈카페|입장권|테마파크|항공권|렌터카|투어|패키지|여행|글램핑|캠핑장', t):
-        return '여행', '숙박/레저' 
+        return '여행', '호텔/숙소' 
     if re.search(r'우유|분유|치즈|요거트|두유', t):
         return '식품', '유제품'
     if re.search(r'유모차|유모자|카시트|아기띠|웨건|트라이크|보행기', t):
@@ -89,7 +89,7 @@ def classify_category(title):
     if re.search(r'세제|유연제|휴지|치약|칫솔', t):
         return '리빙', '생활용품'
     if re.search(r'세탁기|건조기|로봇청소기|청소기|공기청정기|냉장고|모니터|노트북|tv|제습기|가습기', t):
-        return '디지털/가전', '생활가전'
+        return '가전', '생활가전'
     return '육아', '육아용품'
 
 def calculate_unit_price(title, price):
