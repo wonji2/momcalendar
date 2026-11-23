@@ -258,6 +258,33 @@ def sql_quote(val):
         return 'NULL'
     return "'" + str(val).replace("'", "''") + "'"
 
+# 분류 기본값 보강(2026-11-23) — 「리빙/생활용품」이 사실상 분류 실패 칸이었다(42%). 소분류는 사이트 CATS 에 있는 이름만 쓴다.
+_EXTRA_CATS = [
+    (r'배변패드|고양이\s*모래|사료', ('반려동물', '사료')),
+    (r'펫\s*간식|강아지\s*간식|고양이\s*간식|츄르', ('반려동물', '간식')),
+    (r'커피|원두|생수|탄산수|주스|두유', ('식품', '음료/차/즙')),
+    (r'미역|건어물|멸치|황태|참치캔|(?<![가-힣])김(?![가-힣])|조미김|도시락김|곱창김|김밥김', ('식품', '수산물/건해산')),
+    (r'계란|달걀|닭가슴살|삼겹|소고기', ('식품', '정육/계란')),
+    (r'견과|아몬드', ('식품', '견과류')),
+    (r'(?<![가-힣])쌀(?![가-힣])|잡곡|현미', ('식품', '과일/야채')),
+    (r'세제|섬유유연제|얼룩제거', ('리빙', '청소/세제')),
+    (r'휴지|키친타올|행주|수세미', ('리빙', '생활용품')),
+    (r'수납|정리함|행거|선반', ('인테리어', '수납정리')),
+    (r'커튼|러그|이불|베개', ('인테리어', '패브릭')),
+    (r'드라이기|고데기|전기면도기', ('가전', '생활가전')),
+    (r'에어프라이어|전기밥솥|믹서기', ('가전', '주방가전')),
+    (r'세럼|앰플|토너|마스크팩|수분\s*크림|영양\s*크림|(?<![가-힣])크림(?![가-힣])', ('뷰티', '스킨케어')),
+    (r'샴푸|컨디셔너|트리트먼트', ('뷰티', '헤어케어')),
+    (r'문구|(?<![가-힣])노트(?![북가-힣])|필기구', ('리빙', '생활용품')),
+]
+
+def extra_category(title):
+    """제목 낱말로 한 번 더 가른다. 모르면 None(지어내지 않는다)."""
+    for pat, cat in _EXTRA_CATS:
+        if re.search(pat, title or ''):
+            return cat
+    return None
+
 def classify_category(title, mall=None, cat_override=None):
     if cat_override:
         # 사이트 필터(CATS)에 없는 「기획특가」를 내지 않는다(2026-11-23 — 어느 칩에도 안 잡혔다). 여행 몰은 여행으로,
@@ -557,6 +584,35 @@ def resolve_ohouse(first, links):
                               f"&deeplink_url=ohouseapp%3A%2F%2F{tail}&fallback_desktop=https%3A%2F%2F{tail}")
     return None, ''
 
+def hd_expires_sql(rec, raw_title):
+    """만료 시각(SQL 값). 제목의 기간 문구가 있으면 그날 23:59:59 KST · 지름알림 게시 시각이 있으면 +36시간 · 그 밖은 지금+36시간. 상한 지금+72시간.
+       (2026-11-23 — 전에는 3일 고정이라 끝난 딜이 사흘 남고 긴 딜은 사흘 만에 사라졌다)"""
+    now = datetime.now(timezone.utc)
+    exp = None
+    try:
+        d = hd_period_end(raw_title or '')
+        if d:
+            exp = datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=KST).astimezone(timezone.utc)
+    except Exception:
+        exp = None
+    if exp is None:
+        base = now
+        pa = (rec or {}).get('postedAt') if isinstance(rec, dict) else ''
+        if pa:
+            try:
+                p = datetime.fromisoformat(str(pa).replace('Z', '+00:00'))
+                if p.tzinfo is None:
+                    p = p.replace(tzinfo=timezone.utc)
+                if now - timedelta(hours=72) < p <= now + timedelta(minutes=10):
+                    base = p
+            except Exception:
+                pass
+        exp = base + timedelta(hours=36)
+    exp = min(exp, now + timedelta(hours=72))
+    if exp <= now:                       # 이미 지난 값이면(옛 글) 지금+1시간만 보여 준다
+        exp = now + timedelta(hours=1)
+    return "'" + exp.strftime('%Y-%m-%dT%H:%M:%SZ') + "'::timestamptz"
+
 def get_coupang_deeplink(clean_url):
     # 🔴 쿠팡 정식 딥링크(coupang-hotdeal?deeplink=) — 「간이 변환」 주소는 쿠팡 첫 화면으로 가서 쓰지 않는다(2026-11-04 실측)
     #    간격 2.1초 불변. 실패하면 None (부르는 쪽이 등록을 건너뛴다) — 못 부른 까닭은 _CP_WHY
@@ -641,7 +697,7 @@ def purge_old_history():
 JIRUM_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 JIRUM_DRY = os.environ.get('JIRUM_DRY') == '1'
 JIRUM_LIMIT = int(os.environ.get('JIRUM_LIMIT') or 0)
-JIRUM_MAX_NEW = 20          # 한 회차에 새로 여는 상세 쪽 상한(15분마다 도니 충분하다 — RSS 50건이 약 50분 치)
+JIRUM_MAX_NEW = 30          # 한 회차에 새로 여는 상세 쪽 상한(2026-11-23 20→30: 새 글의 44%를 열어 보지도 못했다. 쿠팡 쿼터와는 무관)
 JIRUM_CP_RUN = 5            # 한 회차 쿠팡 딥링크 상한
 JIRUM_CP_DAILY = 19         # (참고값) 하루 쿠팡 상한 — 실제 방어선은 서버 카운터 coupang_budget_take 와 CP_DAY_CAP
 # 우리 핫딜 품목과 겹치지 않는 분류(사장님 2026-11-18 「그 품목들 위주로 · 뜬금없는 건 빼」) — 맘이베베 글은 분류와 상관없이 본다
@@ -727,6 +783,7 @@ def jirum_record(html_src, pid):
                             'mallName': sv('mallName'), 'category': sv('categoryName'), 'post': sv('url'),
                             'provider': prov.get('nameKr') if isinstance(prov.get('nameKr'), str) else '',
                             'isEnd': o.get('isEnd') is True, 'profit': sv('profitLinkProvider'),
+                            'postedAt': sv('postedAt'), 'isYearLowest': o.get('isYearLowest') is True,
                         }
             pos = s.find(key, pos + 1)
     return None
@@ -854,13 +911,18 @@ _JIRUM_FOOD = [
     (r'라면|즉석|간편식|만두|볶음밥|국밥|곰탕|찌개|밀키트|돈까스|피자|떡볶이', '간편식/밀키트'),
 ]
 
-def jirum_category(title, mall, cat_override, provider):
+def jirum_category(title, mall, cat_override, provider, category=''):
     """지름알림 몫 분류. 기존 분류기는 「스파오」「여행용 샴푸」를 여행으로, 모르는 것을 전부 육아로 잡는다 — 지름알림 몫만 바로잡는다(베이비핫딜 동작은 그대로)."""
     major, minor = classify_category(title, mall=mall, cat_override=cat_override)
     if cat_override:
         return major, minor
     if major == '여행' and mall not in _JIRUM_TRAVEL_MALLS:
         major, minor = '육아', '육아용품'          # 아래에서 다시 가른다
+    # 2026-11-23 보강 낱말을 먼저 본다(두유·세제·샴푸·아몬드가 옛 규칙의 넓은 칸으로 빠지던 것). 육아 낱말이 있거나 이미 육아 세부 분류면 건드리지 않는다
+    if not _JIRUM_BABY.search(title) and not (major == '육아' and minor != '육아용품'):
+        ex = extra_category(title)
+        if ex:
+            return ex
     if (major, minor) == ('육아', '육아용품') and not _JIRUM_BABY.search(title):
         for pat, sub_minor in _JIRUM_FOOD:
             if re.search(pat, title):
@@ -869,6 +931,8 @@ def jirum_category(title, mall, cat_override, provider):
             return '뷰티', '바디케어'
         if provider == '맘이베베':
             return '육아', '육아용품'
+        if '디지털' in (category or ''):
+            return '가전', '취미/디지털기기'
         return '리빙', '생활용품'
     return major, minor
 
@@ -895,6 +959,8 @@ def jirum_state_save(st, stats, seen):
     old = [str(x) for x in st.get('seen', [])]
     have = set(old)
     st['seen'] = (old + sorted(p for p in seen if p not in have))[-600:]
+    kp = st.get('keep') if isinstance(st.get('keep'), dict) else {}
+    st['keep'] = dict(sorted(kp.items(), key=lambda kv: str((kv[1] or {}).get('first', '')))[-200:])   # 상태 크기 상한
     stats = dict(stats, last_reg=st.get('last_reg', ''))
     try:
         run_sql(f"""
@@ -936,8 +1002,23 @@ def collect_from_jirum_alarm():
     def skip(pid, why, note='', keep=False):
         """keep=True 는 다음 회차에 다시 본다(상한·일시 실패) — seen 에 넣지 않는다."""
         stats['skip'][why] = stats['skip'].get(why, 0) + 1
+        kp = st.setdefault('keep', {})
+        if keep:
+            # 무한정 붙잡지 않는다(2026-11-23): 3회 또는 6시간을 넘기면 못 올린 것으로 세고 넘어간다
+            e = kp.get(pid) if isinstance(kp.get(pid), dict) else {'n': 0, 'first': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
+            e['n'] = int(e.get('n') or 0) + 1
+            try:
+                age_h = (datetime.now(timezone.utc) - datetime.strptime(e['first'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)).total_seconds() / 3600
+            except Exception:
+                age_h = 99
+            if e['n'] > 3 or age_h > 6:
+                keep = False
+                stats['재시도 초과 폐기'] = stats.get('재시도 초과 폐기', 0) + 1
+            else:
+                kp[pid] = e
         if not keep:
             seen.add(pid)
+            kp.pop(pid, None)
         print(f'[source:jirum] {pid} 건너뜀({why}) {note[:70]}')
     opened_ok = opened_fail = cp_run = shown = no_url = 0
     cp_cands = []
@@ -950,7 +1031,7 @@ def collect_from_jirum_alarm():
             skip(pid, '우리 링크 변환 실패', f'{origin[:60]} · {raw_title}'); return
 
         clean_title = tidy_title(raw_title)
-        major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'])
+        major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'], rec['category'])
         if JIRUM_DRY:
             shown += 1
             print(f'\n[시험 {shown}] {rec["provider"]} · {rec["mallName"] or mall} · {price:,}원')
@@ -968,15 +1049,15 @@ def collect_from_jirum_alarm():
         SELECT
           {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
           {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
-          {sql_quote(today_str)}, true, false, now() + interval '3 days'
+          {sql_quote(today_str)}, true, false, {hd_expires_sql(rec, raw_title)}
         WHERE NOT EXISTS (
           SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
         )
         AND NOT EXISTS (
-          SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
+          SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND created_at > now() - interval '72 hours' AND price <= {price}
         )
         AND NOT EXISTS (
-          SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND expires_at > now() AND price <= {price}
+          SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND created_at > now() - interval '72 hours' AND price <= {price}
         )
         RETURNING id;
         '''
@@ -1038,7 +1119,7 @@ def collect_from_jirum_alarm():
                     skip(pid, '쿠팡 상품번호 없음', raw_title); continue
                 prod_id = f'cp_{cpid}'
                 if not JIRUM_DRY:
-                    dup = run_sql(f"SELECT 1 AS x FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price} LIMIT 1;")
+                    dup = run_sql(f"SELECT 1 AS x FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND created_at > now() - interval '72 hours' AND price <= {price} LIMIT 1;")
                     if dup and isinstance(dup, list) and len(dup) > 0:
                         skip(pid, '이미 있는 상품', raw_title); continue   # 딥링크를 부르기 전에 거른다(쿠팡 호출 아낌)
                 if JIRUM_DRY:
@@ -1385,12 +1466,12 @@ def collect_from_bbhd():
             SELECT
               {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
               {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
-              {sql_quote(today_str)}, true, false, now() + interval '3 days'
+              {sql_quote(today_str)}, true, false, {hd_expires_sql(None, raw_title)}
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
             )
             AND NOT EXISTS (
-              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
+              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND created_at > now() - interval '72 hours' AND price <= {price}
             )
             RETURNING id;
             '''
