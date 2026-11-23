@@ -308,7 +308,7 @@ Play 설명은 이미 `공구일정`·`공동구매`·`공구모음`·`핫딜` �
 
 `g/` 10,561장 중 **매일 다시 만들어지는 페이지만** CTA 를 받는다. 오늘 집계에 없는 옛 브랜드 페이지는 「보존 페이지」로 남아 옛 HTML 그대로다(예: `g/00PM.html`, dateModified 2026-10-01, CTA 0). 표본 39장 중 2장 = **약 5%(≈500장)**.
 
-이미 같은 자리에 GA4·noai 를 넣는 **멱등 손질 루프**가 있다 — `build.ps1` **1944~1964행**이 `g·p·s·gg·m·d·c` 를 훑으며 `PatchHeadText`(lib.ps1 37행)를 부른다. 여기에 CTA 주입을 **한 겹 더** 붙인다.
+이미 같은 자리에 GA4·noai 를 넣는 **멱등 손질 루프**가 있다 — `build.ps1` **1879~1887행**(사이트맵 쓰기 전)이 `g·p·s·gg·m·d·c` 를 훑으며 `PatchHeadText`(lib.ps1 37행)를 부른다. 여기에 CTA 주입을 **한 겹 더** 붙인다.
 
 **(a) 날짜·숫자 없는 고정 CTA 를 하나 더 만든다** — `build.ps1` 446행(`}catch{...}`) 바로 아래:
 
@@ -338,15 +338,26 @@ function PatchCtaText([string]$t){
 }
 ```
 
-**(c) 루프에 연결** — `build.ps1` 1960행 `$t3 = PatchHeadText $t2` 바로 아래:
+**(c) 루프에 연결** — 보존 페이지를 훑는 루프가 **두 개**다. 둘 다 `PatchHeadText` 를 부르는데, **먼저 도는 쪽(사이트맵 쓰기 전)** 에만 붙이면 된다.
+
+| 루프 | 위치 | 역할 |
+| --- | --- | --- |
+| ① 보존 페이지 손질(본 루프) | **1879~1887행** — 1883행 `$t = … ; $t3 = PatchHeadText $t` | 사이트맵 쓰기 **전**. lastmod·IndexNow 에 반영된다 |
+| ② 죽은 링크 정리(나중 루프) | **1941~1960행** — 1956행 `$t3 = PatchHeadText $t2` | 죽은 링크를 걷는 김에 한 번 더 손질(둘 다 멱등) |
+
+①의 1883~1884행을 이렇게 바꾸고, 1887행 출력에 한 칸을 더한다:
 
 ```powershell
-    $t4 = PatchCtaText $t3
+    $t = [IO.File]::ReadAllText($fp); $t3 = PatchHeadText $t; $t4 = PatchCtaText $t3
+    if($t4 -ne $t){ [IO.File]::WriteAllText($fp, $t4, [Text.UTF8Encoding]::new($false)); $headPatched0++; if($t4 -ne $t3){ $ctaPatched++ } }
 ```
-그리고 같은 블록의 쓰기·비교(`if($deadFixed -ne $n0 -or $t3 -ne $t2)` … `[IO.File]::WriteAllText($fp, $t3, …)`)를 `$t3` → `$t4` 로 바꾸고, 세는 변수 `$ctaPatched` 를 하나 더 둔다. 마지막 출력 줄(1965행)에 `· 앱 CTA $ctaPatched 쪽` 을 덧붙인다.
 
+- `$ctaPatched = 0` 을 1880행(`$headPatched0 = 0`) 옆에 함께 둔다.
+- 1887행 출력을 `"보존 페이지 손질(옛 문장·끝난 Event·GA4·noai): $headPatched0 쪽 · 앱 CTA $ctaPatched 쪽"` 로 바꾼다.
+- ② 루프는 **손대지 않는다** — ①이 이미 CTA 를 넣었으므로 `class="appcta"` 검사에서 걸러져 아무 일도 하지 않는다(그게 `PatchCtaText` 가 멱등인 이유다).
+- **왜 ②에 안 붙이나**: ②는 사이트맵을 쓴 **뒤**에 돌아 lastmod·IndexNow 에 반영되지 않는다(11-16 검증자 지적). CTA 도 「오늘 바뀐 것」으로 잡혀야 처음 들어간 판에서 색인 재방문이 빨라진다.
 - 첫 실행에서 **몇 장에 붙었는지 출력으로 확인**한다(예상 400~600장). 1,000장을 넘으면 `$t.IndexOf('<div class="wrap">')` 조건이 너무 넓은 것이니 **멈추고 보고**한다(옛 틀 비중이 큰 것 = 다른 사고).
-- 되돌리기: `PatchCtaText` 호출 한 줄을 지우면 끝. 파일은 지우지 않는다.
+- 되돌리기: ①의 `$t4` 를 `$t3` 로 되돌리고 `PatchCtaText` 를 빼면 끝. **이미 붙은 CTA 는 지우지 않는다**(해가 없다).
 
 **주의**: `$AppCtaStatic` 은 `$AppCta` 와 **같은 CSS 클래스**를 쓴다. CSS(`lib.ps1` 254~257행)는 손대지 않는다.
 
