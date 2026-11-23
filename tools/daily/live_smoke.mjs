@@ -6,7 +6,7 @@
 // 길마다 보는 것
 //   ① 열기: 페이지 오류(pageerror)·우리 서버(supabase·api.momcalendar.com) 4xx/5xx·공구 카드 수
 //   ② 앱(아이폰·안드)이면: 앱 표시(body.native-app)·머리가 상태바 아래에 있는지(아이폰 안전영역 59px 흉내)
-//   ③ 핫딜·세일 탭 내용 · ④ 검색 「파스퇴르」 결과 · ⑤ 찜 켜고 끄기(서버 200) · ⑥ 옆 메뉴
+//   ③ 핫딜·세일 탭 내용 · ④ 검색(목록 첫 카드 낱말) 결과 · ⑤ 찜 켜고 끄기(서버 200) · ⑥ 옆 메뉴
 //   ⑦ 카카오 로그인 누르면 어디로 가나: 앱·인앱은 kauth.kakao.com(카톡 앱 전환 금지), 웹은 카카오 어디든
 //   ⑧ 다른 쪽(register·privacy·terms·test·todaycard) 200·페이지 오류 없음  ⑨ 위젯·찜 RPC 200
 // 실행
@@ -99,7 +99,7 @@ try {
     await tab('gonggu'); await p.waitForTimeout(1500);
     // ④ 검색
     const s = await p.$('input[placeholder*="검색"]');
-    if (s) { await s.fill('파스퇴르'); await s.press('Enter'); await p.waitForTimeout(2500); const hit = await p.evaluate(() => [...document.querySelectorAll('.card')].filter((c) => c.offsetParent && /파스퇴르/.test(c.textContent)).length); ok(who, '검색 「파스퇴르」', hit > 0, `${hit}건`); await s.fill(''); await s.press('Enter'); await p.waitForTimeout(1500); }
+    if (s) { /* 특정 상품이 마감하면 0건이 되어 오경보(2026-11-23 파스퇴르 마감) → 지금 목록 첫 카드의 첫 낱말로 검색 */ const term = await p.evaluate(() => { try { for (const it of DATA) { if (isExpired(it)) continue; const w = (String(it.name || '').split(/\s+/).map((x) => x.replace(/[^0-9A-Za-z가-힣]/g, '')).find((x) => x.length >= 3) || '').slice(0, 3); if (w.length >= 3) return w; /* 공백 낱말 경계 넘는 조각(정품호) 방지 2026-11-23 */ } } catch (e) { return 'ERR' + e.message; } return '파스퇴르'; }); await s.fill(term); await s.press('Enter'); await p.waitForTimeout(2500); const hit = await p.evaluate((tm) => [...document.querySelectorAll('.card')].filter((c) => c.offsetParent && c.textContent.includes(tm)).length, term); ok(who, `검색 「${term}」`, hit > 0, `${hit}건`); await s.fill(''); await s.press('Enter'); await p.waitForTimeout(1500); }
     else ok(who, '검색창', false, '못 찾음');
     // ⑤ 찜 켜고 끄기
     const wishRes = [];
@@ -108,7 +108,9 @@ try {
     const wid = await p.evaluate(() => { const b = document.querySelector('#cardList .card .wbtn[data-wid]') || [...document.querySelectorAll('.wbtn[data-wid]')].find((x) => x.offsetParent); if (!b) return null; const id = b.getAttribute('data-wid'); const was = isWished(id); toggleWish(Number(id), b); const now = isWished(id); toggleWish(Number(id), b); return { was, now, after: isWished(id) }; });
     await p.waitForTimeout(2000);
     // 웹(앱 아님)은 찜이 앱 전용이다(사장님 2026-11-02): 누르면 찜은 안 되고 「앱에서만」 시트(구글플레이·앱스토어)가 떠야 한다
-    if (!cfg.native) { const sh = await p.evaluate(() => { const e = document.getElementById('mcWoSheet'); return !!(e && e.classList.contains('open') && /Google Play/.test(e.textContent) && /App Store/.test(e.textContent)); }); ok(who, '웹 찜 → 앱 안내 시트', !!wid && wid.was === wid.now && sh, JSON.stringify(wid) + ' 시트 ' + sh); await p.evaluate(() => { const e = document.getElementById('mcWoSheet'); e && e.classList.remove('open'); }); }
+    if (!cfg.native) { const sh = await p.evaluate(() => [document.getElementById('mcWoSheet'), document.getElementById('aoSheet')].some((e) => !!(e && e.classList.contains('open') && /Google Play/.test(e.textContent) && /App Store/.test(e.textContent)))); // 2026-11-20: 웹 비로그인 찜은 앱 받기 시트 #aoSheet(_webWishGate) // 2026-11-12: 11-10 라이브 변경으로 웹에서도 찜이 켜지고 꺼진다(다른 작업자 변경, 사장님이 유지·되돌림을 아직 안 정함). 어느 쪽이든 「찜을 눌렀는데 아무 일도 없는」 고장만 잡는다 — 앱 안내 시트가 뜨거나, 찜이 켜졌다 꺼지거나.
+      const webOld = !!wid && wid.was === wid.now && sh, webNew = !!wid && wid.was !== wid.now && wid.after === wid.was;
+      ok(who, '웹 찜 → 켜짐·꺼짐 또는 앱 안내 시트', webOld || webNew, JSON.stringify(wid) + ' 시트 ' + sh); await p.evaluate(() => { ['mcWoSheet', 'aoSheet'].forEach((k) => { const e = document.getElementById(k); e && e.classList.remove('open'); }); }); }
     else ok(who, '찜 켜고 끄기', !!wid && wid.was !== wid.now && wid.after === wid.was && wishRes.length >= 2 && wishRes.every((x) => x === 200), JSON.stringify(wid) + ' 서버 ' + wishRes.join(','));
     await p.evaluate(() => { document.querySelectorAll('.app-pop.open,.app-sheet.open').forEach((e) => e.classList.remove('open')); });
     // ⑥ 옆 메뉴

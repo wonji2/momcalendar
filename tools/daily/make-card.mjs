@@ -188,7 +188,7 @@ const recentTitleWords = (() => {
 //   검색량 0 인 일반어(리빙·가열식·자석·철분제)가 앞에 오지 않게 한다. 검색어 표는 600→3000 줄로 넓혀 검색된 브랜드 폭을 늘렸다(2026-11-22).
 const freshBrands = allBrands.filter((b) => !recentTitleWords.has(b));
 const usedBrands = allBrands.filter((b) => recentTitleWords.has(b));
-const sellersOf = {}; for (const o of opens) { const b = brandOf(o.name); if (!b) continue; (sellersOf[b] ||= new Set()).add(seller(o)); }
+const sellersOf = {}; for (const o of opens) { const b = brandOf(o.name); if (!b) continue; const set = (sellersOf[b] ||= new Set()); const sv = seller(o); if (sv) set.add(sv); }   // 셀러 칸이 빈 행은 「셀러 여러 명」으로 세지 않는다(코덱스 검사 2026-11-23)
 const tier1 = freshBrands.filter((b) => brandScore[b] > 0);
 const tier2 = freshBrands.filter((b) => !(brandScore[b] > 0) && (sellersOf[b]?.size || 0) >= 2);
 const tier3 = usedBrands.filter((b) => brandScore[b] > 0);

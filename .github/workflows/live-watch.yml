@@ -8,12 +8,9 @@
 name: 손님 화면 실시간 검사
 on:
   # 2026-11-06: 예약을 다시 걸어도 짧은 간격 예약이 안 돌았다(40분 0회) → 제때 도는 핫딜 수집(17·47분)이 끝날 때마다 이어서 돈다(약 30분 간격)
-  workflow_run:
-    workflows: ["핫딜 24시간 무인 자동 수집"]
-    types: [completed]
   schedule:
     # 2026-11-06: '*/10' 이 11/1 저장소 사고 뒤 6~8시간에 한 번만 돌았다(같은 날 다시 올린 hotdeal-cloud 는 제때) → 정각을 피한 분으로 바꿔 예약을 다시 건다
-    - cron: '5,15,25,35,45,55 * * * *'
+    - cron: '25 * * * *'            # 예비 — 사슬이 끊겼을 때만 다시 잇는다(대기는 하나만 남는다)
   workflow_dispatch:
     inputs:
       selftest:
@@ -26,10 +23,11 @@ concurrency:
 permissions:
   contents: write
   pages: write
+  actions: write        # 다음 회차를 스스로 깨운다(사슬)
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 345
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,15 +45,27 @@ jobs:
         env:
           SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NODE_PATH: /tmp/pw/node_modules
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 2026-11-23: 한 번 깨면 10분마다 검사를 되풀이하며 5시간 20분 살아 있고, 끝날 때 다음 회차를 스스로 깨운다(핫딜 수집과 같은 사슬).
+        #   전에는 「핫딜 수집이 끝날 때」 이어 돌았는데, 핫딜 수집이 5시간 20분짜리 한 실행으로 바뀐 뒤(11-12) 검사가 몇 시간에 한 번만 돌아
+        #   「40분 무소식」 경보가 늘 떠 있었다. 깃허브의 짧은 예약(schedule)은 건너뛰기 일쑤라 예비로만 둔다.
         run: |
           mkdir -p scratchpad daily
           ln -s /tmp/pw/node_modules node_modules
-          node tools/daily/live_smoke.mjs --ci || echo "실패 항목 있음 — site_watch 에 기록됨(경보는 서버가 2회 연속일 때)"
-      - name: 깨졌으면 바로 되돌리기
+          END=$((SECONDS + 19200)); n=0
+          while :; do
+            n=$((n + 1)); echo "=== 검사 $n 회차 $(date -u +%H:%M)Z ==="
+            node tools/daily/live_smoke.mjs --ci || echo "실패 항목 있음 — site_watch 에 기록됨(경보는 서버가 2회 연속일 때)"
+            node tools/daily/watch_autofix.mjs || echo "자동 되돌림 단계 오류(다음 회차 계속)"   # 2회 연속 실패이고 직전 통과 판이면 되돌린다
+            [ $((SECONDS + 600)) -ge $END ] && break
+            sleep 600
+          done
+          echo "총 $n 회차"
+      - name: 다음 회차 깨우기(사슬 잇기)
+        if: always() && (github.event.inputs.selftest == '' || github.event.inputs.selftest == null)
         env:
-          SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node tools/daily/watch_autofix.mjs   # 2026-10-27 켬: 검증 3회 지적 반영 · 쓰기 경로 자체 시험 통과(10분 20초)
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run live-watch.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
       - name: 자동 되돌림 자체 시험(손으로 selftest 를 줄 때만)
         if: github.event.inputs.selftest != '' && github.event.inputs.selftest != null
         env:
