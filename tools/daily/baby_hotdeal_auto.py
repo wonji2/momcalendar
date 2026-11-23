@@ -1639,28 +1639,26 @@ def main():
         if _JIRUM_FAILED:
             raise SystemExit(1)
         return
-    try:
-        run_fix_thumbnails()
-    except Exception as e:
-        print(f'[fix_thumbnails error] {e}')
     print('=== [맘캘린더 24시간 멀티 핫딜 엔진 가동] ===')
+    # 정비 3종(사진 교체·공구 제목 정리·180일 지난 핫딜 삭제)은 하루 1회만(2026-11-23 — 15분마다 공구 표를 만지던 것). 로직은 그대로, 빈도만.
+    #   상태: ops_status 'hotdeal-housekeeping' {day}. KST 날짜가 바뀐 첫 회차에만 돈다. 상태를 못 읽으면 이번 회차는 건너뛴다.
     try:
-        clean_polluted_gonggu_titles()
+        hk_day = datetime.now(KST).strftime('%Y-%m-%d')
+        r = run_sql("SELECT payload FROM public.ops_status WHERE id = 'hotdeal-housekeeping';")
+        last = (r[0].get('payload') or {}).get('day') if isinstance(r, list) and r and isinstance(r[0].get('payload'), dict) else ''
+        if isinstance(r, list) and last != hk_day:
+            for name, fn in (('fix_thumbnails', run_fix_thumbnails), ('clean', clean_polluted_gonggu_titles), ('purge', purge_old_history)):
+                try:
+                    fn()
+                except Exception as e:
+                    print(f'[{name} error] {e}')
+            run_sql(f"""INSERT INTO public.ops_status (id, payload, updated_at) VALUES ('hotdeal-housekeeping', {sql_quote(json.dumps({'day': hk_day}))}::jsonb, now())
+                        ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now();""")
+            print(f'[housekeeping] 오늘({hk_day}) 정비 1회 실행')
     except Exception as e:
-        print(f'[clean error] {e}')
+        print(f'[housekeeping error] {e}')
 
-    try:
-        purge_old_history()
-    except Exception as e:
-        print(f'[purge error] {e}')
-
-    try:
-        # 중복 핫딜 만료 정리 (2026-11-09 냠이 개발팀 점검 건: #2012, #1885, #1884, #1936)
-        run_sql("UPDATE public.hotdeals SET expires_at = now() WHERE id IN (2012, 1885, 1884, 1936) AND expires_at > now();")
-    except Exception as e:
-        print(f'[expire duplicates error] {e}')
-
-    # 베이비핫딜을 먼저 돈다 — 쿠팡 딥링크 회차 상한(10)을 지름알림이 먼저 쓰지 않게
+    # 베이비핫딜을 먼저 돈다 — 쿠팡 예산(서버 카운터 · 시간대 누적 상한)을 지름알림이 먼저 쓰지 않게
     try:
         collect_from_bbhd()
     except Exception as e:
