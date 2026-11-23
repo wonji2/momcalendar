@@ -6874,7 +6874,7 @@ async function hmPlanLoad(){
     // 좁은 화면에서는 금액·현금영수증 번호가 잘리지 않게 글은 줄을 바꾸고, 버튼은 아래 줄 오른쪽으로 내려간다
     return '<div class="hm-row" style="flex-wrap:wrap;row-gap:8px"><i class="'+lv+'"></i><div style="min-width:0;flex:1 1 230px;word-break:keep-all;overflow-wrap:anywhere"><div style="font-weight:700">'+who+'</div><div style="font-weight:700">'+pay+'</div><div style="font-size:11px;color:#8B95A1">'+sub+'</div></div><div style="display:flex;gap:16px;margin-left:auto;align-self:center">'+acts+'</div></div>';
   };
-  const html='<h3>이웃셀러 신청 <span>입금 대기 '+pend.length+'건 · 이용 중 '+paid.length+'명 · 자리 '+Number(d.slots_used||0)+'/12</span></h3><div class="hm-list">'+pend.concat(exp,paid).map(row).join('')+'</div>';
+  const html='<h3>이웃셀러 신청 <span>입금 대기 '+pend.length+'건 · 이용 중 '+paid.length+'명</span></h3><div class="hm-list">'+pend.concat(exp,paid).map(row).join('')+'</div>';
   el.innerHTML=html; el.hidden=false;
   }catch(_){ el.hidden=false; el.innerHTML='<h3>이웃셀러 신청</h3><div class="hm-empty">목록을 그리지 못했어요 · 새로 고침</div>'; }
 }
@@ -6886,7 +6886,7 @@ async function hmPlanConfirm(id,b){
   b.disabled=true;
   try{
     const r=await adminRpc('admin_plan_confirm',{p_id:id});
-    if(!r||!r.ok){ alert(_hmPlanErr(r)||(r&&r.msg==='full'?'자리가 다 찼어요(12명). 다른 셀러 기간이 끝나야 켤 수 있어요.':r&&r.msg==='has_newer'?'이 셀러가 새로 신청한 건이 있어요. 그 건을 확인해 주세요.':r&&r.msg==='closed'?'이미 처리된 신청이에요.':'확인하지 못했어요. 다시 눌러 주세요.')); }
+    if(!r||!r.ok){ alert(_hmPlanErr(r)||(r&&r.msg==='full'?'정원이 다 찼어요(설정 plan_cap). 정원을 늘리거나 다른 셀러 기간이 끝나야 켤 수 있어요.':r&&r.msg==='has_newer'?'이 셀러가 새로 신청한 건이 있어요. 그 건을 확인해 주세요.':r&&r.msg==='closed'?'이미 처리된 신청이에요.':'확인하지 못했어요. 다시 눌러 주세요.')); }
   }catch(_){ alert('확인하지 못했어요. 다시 눌러 주세요.'); }
   hmPlanLoad();
 }

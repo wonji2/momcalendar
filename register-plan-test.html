@@ -122,6 +122,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .btn-ok:disabled{opacity:.5}
 
 /* ── 이웃셀러 패키지 (2026-11-17) ── */
+.wz-box{display:flex;width:calc(100% - 28px);align-items:center;justify-content:space-between;gap:12px;margin:12px 14px 0;padding:16px;border:1px solid #E4D6F3;border-radius:12px;background:#fff;font-family:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.wz-box:active{transform:scale(.98)}
+.wz-box div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wz-box b{font-size:15px;font-weight:700;color:#191F28;letter-spacing:-.02em}
+.wz-box span{font-size:13px;color:#6B7684;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wz-box em{flex:none;height:36px;padding:0 16px;border-radius:100px;background:#7C54C4;color:#fff;font-size:13.5px;font-weight:700;font-style:normal;display:flex;align-items:center}
+.wz-list{display:flex;flex-direction:column;margin-top:8px}
+.wz-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 2px;border-top:1px solid #F2F4F6;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.wz-row:first-child{border-top:none}
+.wz-row:active{background:#F9FAFB}
+.wz-row div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.wz-row b{font-size:15px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wz-row span{font-size:13px;color:#6B7684}
+.wz-row em{flex:none;min-width:52px;height:30px;padding:0 10px;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:800;font-style:normal;display:flex;align-items:center;justify-content:center}
 .pn-box{margin:12px 14px 0;border:1px solid #E4D6F3;border-radius:12px;background:#fff}
 .pn-box *{white-space:nowrap}
 .pn-h{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;cursor:pointer}
@@ -422,6 +436,7 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 
   <!-- 이웃셀러 패키지 (2026-11-17) -->
   <div class="pn-box" id="planBox" style="display:none"></div>
+  <button type="button" class="wz-box" id="wzBox" onclick="wzOpen()"><div><b>공구할 상품 찾기</b><span>원츠비 브랜드 7곳 · 셀러 수수료 10~16%</span></div><em>보기</em></button>
   <div class="seg" id="viewSeg">
     <button class="on" onclick="switchView('list',this)">📋 목록</button>
     <button onclick="switchView('cal',this)">📅 캘린더</button>
@@ -791,7 +806,7 @@ function planRender(){
   const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
   const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월 '+planMonthly(m)+'만원</div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
   box.innerHTML=
-    '<div class="pn-h" onclick="planToggle()"><b>이웃셀러 혜택</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
+    '<div class="pn-h" onclick="planToggle()"><b>이웃셀러 혜택</b>'+(left>0?'':'<span class="left">자리 없음</span>')+'</div>'+
     '<div class="pn-in">'+
       planBf(1,[['banners/plan_example_v1.jpg',1125,1068],['banners/plan_example_list_v1.jpg',1125,978]],'메인 배너·목록 맨 위 노출','열 때마다 자리 랜덤 · 보라색 강조 카드',PLAN_SITE,'맘캘린더에서 보기')+
       planBf(2,[['banners/plan_example_cafe_top_v1.jpg',1125,792],['banners/plan_example_cafe_board_v2.jpg',957,236,'fit']],'맘카페 2만2천명에 자동 공유','3일 전 자동 게시 · 단독게시판 월 20글','https://cafe.naver.com/momcal','카페에서 보기')+
@@ -811,6 +826,26 @@ function planWays(top){
     '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
     '<div class="pn-ln"><div class="k">카페</div><div class="v cf-v">'+(_cafeNick?'맘카페 · '+planEsc(_cafeNick):'맘카페 가입 · 닉네임')+'</div><button class="pn-pill'+(_cafeNick?'':' p')+'" onclick="cfOpen()">'+(_cafeNick?'수정':'입력')+'</button></div>'+
     (_plan&&_plan.state==='active'?'<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>':'');
+}
+/* 원츠비 벤더 브랜드 목록 (2026-11-23 점검값 — patch_plan_wantsbe_notion.cjs 머리 주석) */
+const WZ_BASE='https://vagabond-macrame-f0f.notion.site/';
+const WZ=[
+  ['또또맘 인기 간식','9,900~52,900원','12~13%','3d55643eb8f081869558d607b4b88b8f'],
+  ['리라그루브 연필·색연필','5,500~40,000원','10%','3d55643eb8f0817a870df501efe5211c'],
+  ['아이누오 베개·수면매트','19,900~136,000원','10%','3d55643eb8f081f6869fc8f9b0107c73'],
+  ['Amoo 정리함·가방','8,200~59,300원','15%','3d55643eb8f0811685d2f9036e016355'],
+  ['아푸푸하우스 발매트·룸슈즈','13,000~35,000원','16%','3d55643eb8f08182b75bfc4a970a0b98'],
+  ['엄마랑아기랑 세제·소독제','13,900~44,900원','15%','3d85643eb8f081019fe2e0e34cca7222'],
+  ['포렉스 깔창·발건강','11,520~64,900원','15%','3db5643eb8f08146918dfe1c82705d89']
+];
+function wzOpen(){
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>공구할 상품 찾기</b><span>원츠비</span></div>'+
+    '<div class="wz-list">'+WZ.map(function(w){ return '<a class="wz-row" href="'+WZ_BASE+w[3]+'" onclick="planGoMark()"><div><b>'+planEsc(w[0])+'</b><span>공구가 '+planEsc(w[1])+'</span></div><em>'+planEsc(w[2])+'</em></a>'; }).join('')+'</div>'+
+    '<div class="pn-fine">수수료는 판매가 기준 · 부가세 포함 · 정산 공구 마감 D+14</div>';
+  document.getElementById('planDim').classList.add('on');
+  try{ trackEvent('seller_wantsbe_open',''); }catch(e){}
 }
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
 /* 혜택 「직접 보기」 — 같은 창으로 가고, 돌아오면 펼친 채 그 자리 (2026-11-23) */
