@@ -1,0 +1,66 @@
+# 웹(GA4)·안드로이드(Play)·애플(App Store) 통합 지표 수집 — 매일 아침 (2026-11-23)
+#   · 저장소에 아무것도 커밋하지 않는다(Supabase 에만 쓴다) → 배포·용량·backup/last-good 에 영향 0
+#   · 키가 없어도 잡은 성공한다(각 소스 '미설정' 으로 남김) → 화면은 수동값으로 계속 뜬다
+#   · 비용 0원: 공개 저장소 Actions + 각 API 무료 범위
+#   · 시크릿: GA4_SA_KEY(base64 또는 JSON 원문) · GA4_PROPERTY_ID · PLAY_BUCKET · SUPABASE_SERVICE_KEY
+#             APPLE_API_KEY_ID · APPLE_API_ISSUER_ID · APPLE_API_KEY_P8  ← 이미 등록돼 있음
+name: 통합 지표 수집 (웹·앱)
+
+on:
+  schedule:
+    - cron: '40 23 * * *'      # UTC 23:40 = KST 08:40 (사장님 아침 확인 시각 앞)
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'ga4 | play | apple (비우면 셋 다)'
+        required: false
+        default: ''
+      days:
+        description: '며칠치'
+        required: false
+        default: '28'
+
+permissions:
+  contents: read          # ⚠ write 아님 — 커밋하지 않는다
+
+concurrency:
+  group: analytics-daily
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:                    # 키 점검·수집·요약 세 단계가 같이 쓴다(점검 단계가 키를 못 보면 전부 「없음」으로 찍힌다)
+      SB_URL: https://hycaqsqeogjtbscmzrtm.supabase.co
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
+      GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+      PLAY_BUCKET: ${{ secrets.PLAY_BUCKET }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 의존성 설치 단계가 없다 — 스크립트는 node: 내장 모듈만 쓴다(§6-1)
+
+      - name: 키 점검 (값은 절대 출력하지 않는다)
+        run: node tools/analytics/collect.mjs --dry
+
+      - name: 수집
+        env:                # 입력값은 환경변수로만 넘긴다(셸 글에 직접 끼우지 않는다)
+          IN_ONLY: ${{ inputs.only }}
+          IN_DAYS: ${{ inputs.days || '28' }}
+        run: |
+          ARGS="--days $IN_DAYS"
+          if [ -n "$IN_ONLY" ]; then ARGS="$ARGS --only $IN_ONLY"; fi
+          node tools/analytics/collect.mjs $ARGS
+
+      - name: 결과 요약
+        if: always()
+        run: node tools/analytics/collect.mjs --report
