@@ -5,6 +5,7 @@ import json
 import html
 import subprocess
 import urllib.request
+import urllib.error
 import urllib.parse
 import random
 from datetime import datetime, timezone, timedelta
@@ -386,6 +387,97 @@ def tidy_title(raw):
     return t2 or t
 
 _CP_DL_CALLS = 0
+# ── 쿠팡 호출 예산 관문 (2026-11-23 사장님 「쿠팡은 보수적으로 · 한 번만 더 걸리면 영정」) ──
+#   쿠팡 예산(2026-11-23): 판정엔진 함수 40(키워드20+재추적20) + 수집기 19(딥링크·사진·재확인 합계) = 하루 59 하드 캡.
+#   서버 카운터 coupang_budget_take(supabase/sql/hotdeal_polcent_185.sql)가 최종 방어선. 영정 위험으로 19건을 절대 초과하지 않는다.
+#   🔴 cp_take() 를 통과하지 않은 쿠팡 호출은 이 파일에 없어야 한다(딥링크·사진검색 둘 다). 서버에 못 물어보면 부르지 않는다(닫힌 쪽으로 실패).
+#   시간대 누적 상한(KST): 06시 전 0 · 06~12시 5 · 12~18시 12 · 18~24시 19 — 오전에 다 써서 오후 딜을 못 올리던 것을 막는다.
+#   429·한도 문구를 보면 6시간, 타임아웃·5xx 가 3번 연달면 3시간 서버에 차단을 적고(coupang_budget_block) 그 회차 쿠팡 호출을 전부 멈춘다.
+CP_DAY_CAP = 19
+_CP_STOP = False            # 이 회차 쿠팡 호출 전면 중단
+_CP_FAILS = 0               # 연속 실패(타임아웃·5xx)
+_CP_WHY = ''                # 마지막으로 못 부른 까닭: cap | blocked | fail | nosecret | stop
+_CP_USED = 0                # 서버가 알려 준 오늘 사용량(마지막 응답)
+_CP_LIMIT_RX = re.compile(r'429|Too Many|rate limit|quota|LIMIT_EXCEEDED', re.I)
+
+def cp_cap_now(now=None):
+    h = (now or datetime.now(KST)).hour
+    return 0 if h < 6 else 5 if h < 12 else 12 if h < 18 else CP_DAY_CAP
+
+def cp_take(kind='deeplink', cap=None):
+    """서버 원자 카운터에서 한 건을 받는다. 못 받으면 False(부르지 않는다)."""
+    global _CP_STOP, _CP_WHY, _CP_USED
+    if _CP_STOP:
+        _CP_WHY = 'stop'
+        return False
+    cap = cp_cap_now() if cap is None else cap
+    cap = max(0, min(int(cap), CP_DAY_CAP))
+    if kind not in ('deeplink', 'image', 'recheck'):
+        return False
+    try:
+        r = run_sql(f"select public.coupang_budget_take('{kind}', {cap}) as r;")
+        j = r[0].get('r') if isinstance(r, list) and r and isinstance(r[0], dict) else None
+        if isinstance(j, str):
+            j = json.loads(j)
+    except Exception as e:
+        print(f'[쿠팡 예산] 서버에 못 물어봄 — 부르지 않는다: {e}')
+        _CP_WHY = 'fail'
+        return False
+    if not isinstance(j, dict):
+        print(f'[쿠팡 예산] 응답이 이상하다 — 부르지 않는다: {str(r)[:120]}')
+        _CP_WHY = 'fail'
+        return False
+    _CP_USED = int(j.get('used') or 0)
+    if j.get('ok') is True:
+        return True
+    _CP_WHY = 'blocked' if j.get('reason') == 'blocked' else 'cap'
+    if _CP_WHY == 'blocked':
+        _CP_STOP = True
+    print(f"[쿠팡 예산] 거절({j.get('reason')}) 사용 {j.get('used')}/{j.get('cap')}")
+    return False
+
+def cp_block(reason, hours):
+    """서버에 차단을 적고 이 회차 쿠팡 호출을 멈춘다."""
+    global _CP_STOP
+    _CP_STOP = True
+    print(f'[쿠팡 예산] 🔴 호출 중단 {hours}시간 — {reason}')
+    try:
+        run_sql(f"select public.coupang_budget_block({sql_quote(str(reason)[:200])}, {int(hours)}) as r;")
+    except Exception as e:
+        print(f'[쿠팡 예산] 차단 기록 실패: {e}')
+
+def _cp_result(ok, err_text='', status=0):
+    """쿠팡 호출 한 번의 결과를 본다 — 한도 문구면 6시간, 타임아웃·5xx 3연속이면 3시간 멈춘다."""
+    global _CP_FAILS
+    if ok:
+        _CP_FAILS = 0
+        return
+    t = str(err_text or '')
+    if status == 429 or _CP_LIMIT_RX.search(t):
+        cp_block(f'429 또는 한도 문구: {t[:120]}', 6)
+        return
+    if status >= 500 or status == 0:
+        _CP_FAILS += 1
+        if _CP_FAILS >= 3:
+            cp_block(f'연속 실패 3회: {t[:120]}', 3)
+
+_CP_BABY_RX = re.compile(r'기저귀|분유|이유식|물티슈|젖병|유모차|카시트|아기|유아|키즈|장난감')
+_CP_DAILY_RX = re.compile(r'커피|생수|휴지|세제|샴푸|치약|계란|김|미역|쌀|라면|참치|간식|생활')
+
+def cp_score(title, price, category='', mall_today=0):
+    """쿼터 19건을 어디에 쓸지 — 점수 0 이하는 부르지 않는다."""
+    s = 0
+    if _CP_BABY_RX.search(title or ''):
+        s += 3
+    if _CP_DAILY_RX.search(title or ''):
+        s += 2
+    if 10000 <= int(price or 0) <= 70000:
+        s += 1
+    if any(k in (category or '') for k in JIRUM_SKIP_CATS):
+        s -= 3
+    if int(mall_today or 0) >= 3:
+        s -= 2
+    return s
 
 # 사이트에 공개돼 있는 손님용 키(비밀값 아님) — 함수 문지기 통과용
 SB_PUBLIC_KEY = os.environ.get('SUPABASE_ANON_KEY') or 'sb_publishable_u4hR4mdNTSss3kdjFH6R5Q_iuJ2MuGE'
@@ -467,24 +559,48 @@ def resolve_ohouse(first, links):
 
 def get_coupang_deeplink(clean_url):
     # 🔴 쿠팡 정식 딥링크(coupang-hotdeal?deeplink=) — 「간이 변환」 주소는 쿠팡 첫 화면으로 가서 쓰지 않는다(2026-11-04 실측)
-    #    쿠팡 API 하루 40회·간격 2초 불변 → 한 회차 10건 상한·2초 간격. 실패하면 None (부르는 쪽이 등록을 건너뛴다)
-    global _CP_DL_CALLS
-    if not CRON_SECRET or _CP_DL_CALLS >= 10:
+    #    간격 2.1초 불변. 실패하면 None (부르는 쪽이 등록을 건너뛴다) — 못 부른 까닭은 _CP_WHY
+    #    2026-11-23: 서버 예산 관문(cp_take)을 통과해야만 부른다. _CP_DL_CALLS >= 10 은 보조 방어선(주 방어선은 서버 카운터).
+    global _CP_DL_CALLS, _CP_WHY
+    if not CRON_SECRET:
+        _CP_WHY = 'nosecret'
+        return None
+    if _CP_STOP or _CP_DL_CALLS >= 10:
+        _CP_WHY = 'stop' if _CP_STOP else 'cap'
+        return None
+    if not cp_take('deeplink'):
         return None
     if _CP_DL_CALLS:
-        time.sleep(2.1)
+        time.sleep(2.1)             # 🔴 2초 미만 금지(분당 한도 — 2026-08-03 사고)
     _CP_DL_CALLS += 1
+    _CP_WHY = 'fail'
     try:
         req = urllib.request.Request(
             f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?deeplink={urllib.parse.quote(clean_url, safe="")}',
             headers={'x-cron-secret': CRON_SECRET})
         with urllib.request.urlopen(req, timeout=20) as resp:
-            j = json.loads(resp.read().decode('utf-8'))
+            body = resp.read().decode('utf-8')
+        j = json.loads(body)
         data = ((j.get('body') or {}).get('data') or []) if isinstance(j.get('body'), dict) else []
         link = (data[0].get('shortenUrl') or '') if data else ''
-        return link if link.startswith('https://link.coupang.com/a/') else None
+        if link.startswith('https://link.coupang.com/a/'):
+            _cp_result(True)
+            _CP_WHY = ''
+            return link
+        st_code = int(j.get('status') or 0) if isinstance(j, dict) and str(j.get('status') or '').isdigit() else 200
+        _cp_result(False, body[:300], st_code if st_code >= 400 else 200)   # 링크가 없을 때만 한도 문구를 본다
+        return None
+    except urllib.error.HTTPError as e:
+        try:
+            txt = e.read().decode('utf-8', 'ignore')[:300]
+        except Exception:
+            txt = ''
+        print(f'[쿠팡 딥링크 실패] {clean_url} HTTP {e.code}')
+        _cp_result(False, f'HTTP {e.code} {txt}', int(e.code))
+        return None
     except Exception as e:
         print(f'[쿠팡 딥링크 실패] {clean_url} {e}')
+        _cp_result(False, str(e), 0)
         return None
 
 def clean_polluted_gonggu_titles():
@@ -519,7 +635,7 @@ def purge_old_history():
 #   실패(RSS 403/404·0건·상세 전부 실패·형식 바뀜·비밀값 없음) → health_alerts 'hotdeal:지름알림'(6시간에 한 번) + 프로세스 종료 코드 1.
 #      깃허브 워크플로는 종료 코드를 「회차 실패 — 다음 회차는 계속」으로만 찍으므로 실제 경보 길은 health_alerts 다.
 #      서버 크론 jirum-collect-watch 가 「6시간 성공 기록 없음」「24시간 등록 0건」도 잡는다(supabase/sql/jirum_collect_watch_135.sql).
-#   쿠팡 API 는 하루 40회 불변이라 지름알림 몫 딥링크는 하루 JIRUM_CP_DAILY 건·회차 JIRUM_CP_RUN 건까지만.
+#   쿠팡 예산(2026-11-23): 판정엔진 함수 40(키워드20+재추적20) + 수집기 19(딥링크·사진·재확인 합계) = 하루 59 하드 캡. 서버 카운터 coupang_budget_take 가 최종 방어선. 영정 위험으로 19건을 절대 초과하지 않는다.
 #   시험: JIRUM_DRY=1 JIRUM_LIMIT=5 python tools/daily/baby_hotdeal_auto.py  (DB 에 안 쓰고 [제목/원본 주소/우리 링크] 만 찍는다)
 # ─────────────────────────────────────────────────────────────────────────────
 JIRUM_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
@@ -527,7 +643,7 @@ JIRUM_DRY = os.environ.get('JIRUM_DRY') == '1'
 JIRUM_LIMIT = int(os.environ.get('JIRUM_LIMIT') or 0)
 JIRUM_MAX_NEW = 20          # 한 회차에 새로 여는 상세 쪽 상한(15분마다 도니 충분하다 — RSS 50건이 약 50분 치)
 JIRUM_CP_RUN = 5            # 한 회차 쿠팡 딥링크 상한
-JIRUM_CP_DAILY = 15         # 하루 쿠팡 딥링크 상한
+JIRUM_CP_DAILY = 19         # (참고값) 하루 쿠팡 상한 — 실제 방어선은 서버 카운터 coupang_budget_take 와 CP_DAY_CAP
 # 우리 핫딜 품목과 겹치지 않는 분류(사장님 2026-11-18 「그 품목들 위주로 · 뜬금없는 건 빼」) — 맘이베베 글은 분류와 상관없이 본다
 JIRUM_SKIP_CATS = ('디지털', '컴퓨터', '게임', 'PC', '자동차', '상품권', '등산', '캠핑', '골프')
 _JIRUM_FAILED = False
@@ -824,6 +940,56 @@ def collect_from_jirum_alarm():
             seen.add(pid)
         print(f'[source:jirum] {pid} 건너뜀({why}) {note[:70]}')
     opened_ok = opened_fail = cp_run = shown = no_url = 0
+    cp_cands = []
+    def finish(pid, rec, raw_title, price, origin, mall, source, prod_id, aff_link, cat_override):
+        """우리 링크 마지막 확인 → 분류 → 사진 → 등록. 지름알림 한 건의 끝 부분(쿠팡 후보도 회차 끝에 이걸 탄다)."""
+        nonlocal shown
+        aff_link = clean_link_or_none(aff_link) or ''
+        # 🔴 우리 링크인지 마지막으로 한 번 더 본다 — 남의 제휴 주소는 어떤 길로도 저장하지 않는다
+        if not aff_link or not jirum_is_ours(aff_link, source, origin):
+            skip(pid, '우리 링크 변환 실패', f'{origin[:60]} · {raw_title}'); return
+
+        clean_title = tidy_title(raw_title)
+        major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'])
+        if JIRUM_DRY:
+            shown += 1
+            print(f'\n[시험 {shown}] {rec["provider"]} · {rec["mallName"] or mall} · {price:,}원')
+            print(f'  원본 제목  : {raw_title}')
+            print(f'  원본 주소  : {origin}')
+            print(f'  우리 링크  : {aff_link}')
+            print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id})')
+            return
+        main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
+        card_img = main_img or (rec['thumbnail'] if rec['thumbnail'].startswith('https://') else '')
+        ins_sql = f'''
+        INSERT INTO public.hotdeals (
+          title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
+        )
+        SELECT
+          {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
+          {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
+          {sql_quote(today_str)}, true, false, now() + interval '3 days'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND expires_at > now() AND price <= {price}
+        )
+        RETURNING id;
+        '''
+        seen.add(pid)          # 여기부터는 다시 열지 않는다(INSERT 가 실패해도 딥링크를 또 부르지 않게)
+        res = run_sql(ins_sql)
+        if res and isinstance(res, list) and len(res) > 0:
+            run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND id <> {int(res[0].get('id'))} AND expires_at > now() AND price > {price};")
+            stats['registered'] += 1
+            st['last_reg'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            print(f'[source:jirum] 등록 [{rec["provider"]}/{mall}] {clean_title} ({price:,}원) id={res[0].get("id")}')
+        else:
+            stats['skip']['이미 있는 상품'] = stats['skip'].get('이미 있는 상품', 0) + 1
+
     for n, (rss_title, link, pid) in enumerate(fresh[:(50 if JIRUM_DRY else JIRUM_MAX_NEW)]):
         if JIRUM_LIMIT and shown >= JIRUM_LIMIT:
             break
@@ -875,16 +1041,16 @@ def collect_from_jirum_alarm():
                     dup = run_sql(f"SELECT 1 AS x FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price} LIMIT 1;")
                     if dup and isinstance(dup, list) and len(dup) > 0:
                         skip(pid, '이미 있는 상품', raw_title); continue   # 딥링크를 부르기 전에 거른다(쿠팡 호출 아낌)
-                if cp_run >= JIRUM_CP_RUN or int(st.get('cp', 0)) >= JIRUM_CP_DAILY or _CP_DL_CALLS >= 10:
-                    skip(pid, '쿠팡 딥링크 상한(다음 회차에 다시)', raw_title, keep=True); continue
-                before = _CP_DL_CALLS
-                aff_link = get_coupang_deeplink(origin) or ''
-                if _CP_DL_CALLS > before:                 # 실제로 부른 만큼만 센다
-                    cp_run += 1
-                    st['cp'] = int(st.get('cp', 0)) + 1
-                    called_api = True
-                if not aff_link:
-                    skip(pid, '쿠팡 딥링크 실패(다음 회차에 다시)', raw_title, keep=True); continue
+                if JIRUM_DRY:
+                    shown += 1
+                    print(f'\n[시험 {shown}] {rec["provider"]} · 쿠팡 · {price:,}원')
+                    print(f'  원본 제목  : {raw_title}')
+                    print(f'  원본 주소  : {origin}')
+                    print(f'  우리 링크  : (시험에서는 쿠팡 딥링크를 부르지 않는다 — 예산 보호) · 키 {prod_id} · 점수 {cp_score(tidy_title(raw_title), price, rec["category"])}')
+                    continue
+                # 쿠팡은 바로 부르지 않고 모아 둔다 — 회차 끝에 점수 높은 것부터 예산 안에서만 부른다(§2-5)
+                cp_cands.append({'pid': pid, 'rec': rec, 'raw_title': raw_title, 'price': price, 'origin': origin, 'prod_id': prod_id})
+                continue
             elif kind == 'toss':
                 mall, source = '토스쇼핑', 'toss'
                 tkind, tid = resolve_toss_id(origin)
@@ -908,55 +1074,58 @@ def collect_from_jirum_alarm():
                     aff_link = f'https://click.linkprice.com/click.php?m={mcode}&a={LINKPRICE_ID}&l=9999&l_cd1=3&l_cd2=0&tu={urllib.parse.quote(origin, safe="")}'
                     mall, cat_override = lp_mall, lp_cat
 
-            aff_link = clean_link_or_none(aff_link) or ''
-            # 🔴 우리 링크인지 마지막으로 한 번 더 본다 — 남의 제휴 주소는 어떤 길로도 저장하지 않는다
-            if not aff_link or not jirum_is_ours(aff_link, source, origin):
-                skip(pid, '우리 링크 변환 실패', f'{origin[:60]} · {raw_title}'); continue
-
-            clean_title = tidy_title(raw_title)
-            major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'])
-            if JIRUM_DRY:
-                shown += 1
-                print(f'\n[시험 {shown}] {rec["provider"]} · {rec["mallName"] or mall} · {price:,}원')
-                print(f'  원본 제목  : {raw_title}')
-                print(f'  원본 주소  : {origin}')
-                print(f'  우리 링크  : {aff_link}')
-                print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id})')
-                continue
-            main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
-            card_img = main_img or (rec['thumbnail'] if rec['thumbnail'].startswith('https://') else '')
-            ins_sql = f'''
-            INSERT INTO public.hotdeals (
-              title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
-            )
-            SELECT
-              {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
-              {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
-              {sql_quote(today_str)}, true, false, now() + interval '3 days'
-            WHERE NOT EXISTS (
-              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price <= {price}
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND expires_at > now() AND price <= {price}
-            )
-            RETURNING id;
-            '''
-            seen.add(pid)          # 여기부터는 다시 열지 않는다(INSERT 가 실패해도 딥링크를 또 부르지 않게)
-            res = run_sql(ins_sql)
-            if res and isinstance(res, list) and len(res) > 0:
-                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND id <> {int(res[0].get('id'))} AND expires_at > now() AND price > {price};")
-                stats['registered'] += 1
-                st['last_reg'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-                print(f'[source:jirum] 등록 [{rec["provider"]}/{mall}] {clean_title} ({price:,}원) id={res[0].get("id")}')
-            else:
-                stats['skip']['이미 있는 상품'] = stats['skip'].get('이미 있는 상품', 0) + 1
+            finish(pid, rec, raw_title, price, origin, mall, source, prod_id, aff_link, cat_override)
         except Exception as e:
             if called_api:
                 seen.add(pid)
             print(f'[source:jirum] {pid} 처리 오류: {e}')
+    # ── 쿠팡 후보: 점수 내림차순으로 예산 안에서만 딥링크를 부른다(회차 5 · 시간대 누적 · 하루 19 · 서버 카운터) ──
+    if cp_cands and not JIRUM_DRY:
+        try:
+            r = run_sql(f"SELECT count(*) AS n FROM public.hotdeals WHERE mall = '쿠팡' AND deal_day = {sql_quote(today_str)};")
+            cp_today = int(r[0].get('n') or 0) if isinstance(r, list) and r else 0
+        except Exception:
+            cp_today = 0
+        for c in cp_cands:
+            c['score'] = cp_score(tidy_title(c['raw_title']), c['price'], c['rec']['category'], cp_today)
+        cp_cands.sort(key=lambda c: -c['score'])
+        for i, c in enumerate(cp_cands):
+            pid, raw_title = c['pid'], c['raw_title']
+            if c['score'] <= 0:
+                skip(pid, '쿠팡 쿼터 아껴 건너뜀', f"점수 {c['score']} · {raw_title}"); continue
+            if _CP_STOP:
+                skip(pid, '쿠팡 호출 중단(차단·오류)', raw_title); continue
+            if cp_run >= JIRUM_CP_RUN:
+                skip(pid, '쿠팡 딥링크 상한(다음 회차에 다시)', raw_title, keep=True); continue
+            before = _CP_DL_CALLS
+            aff_link = get_coupang_deeplink(c['origin']) or ''
+            if _CP_DL_CALLS > before:                 # 실제로 부른 만큼만 센다
+                cp_run += 1
+                st['cp'] = int(st.get('cp', 0)) + 1
+            if aff_link:
+                try:
+                    finish(pid, c['rec'], raw_title, c['price'], c['origin'], '쿠팡', 'coupang', c['prod_id'], aff_link, None)
+                except Exception as e:
+                    seen.add(pid)                     # 딥링크를 이미 받았으니 다시 부르지 않는다
+                    print(f'[source:jirum] {pid} 처리 오류: {e}')
+                continue
+            if _CP_WHY == 'cap':
+                if _CP_USED >= CP_DAY_CAP:            # 오늘 몫을 다 썼다 — 못 올린 것은 버린다(지름알림 주소를 그대로 쓰는 우회 금지)
+                    left = len(cp_cands) - i
+                    stats['쿠팡 쿼터 소진'] = datetime.now(KST).strftime('%H:%M')
+                    if st.get('cp_alert') != today_str:
+                        st['cp_alert'] = today_str
+                        try:
+                            run_sql(f"INSERT INTO public.health_alerts(kind, detail) VALUES ('hotdeal:쿠팡쿼터', {sql_quote(f'{_CP_USED}/{CP_DAY_CAP} 소진 ' + stats['쿠팡 쿼터 소진'] + f' — 남은 쿠팡 후보 {left}건 폐기')});")
+                        except Exception as e:
+                            print(f'[쿠팡 예산] 소진 경보 기록 실패: {e}')
+                    skip(pid, '쿠팡 쿼터 소진', raw_title)
+                else:                                 # 시간대 누적 상한 — 다음 시간대에 다시(재시도 상한 안에서)
+                    skip(pid, '쿠팡 시간대 상한(다음 회차에 다시)', raw_title, keep=True)
+            elif _CP_WHY in ('blocked', 'stop') or _CP_STOP:
+                skip(pid, '쿠팡 호출 중단(차단·오류)', raw_title)
+            else:
+                skip(pid, '쿠팡 딥링크 실패(다음 회차에 다시)', raw_title, keep=True)
     if opened_fail >= 3 and opened_ok == 0:
         jirum_fail(f'상세 쪽 {opened_fail}건을 전부 못 읽음 — 막혔거나 형식이 바뀌었다')
         return
@@ -991,16 +1160,19 @@ def _product_url_from(aff_link, target_link=''):
 
 def coupang_main_image(cpid, title):
     # 검색 API 1회(딥링크와 같은 호출 상한·2초 간격을 나눠 쓴다). 같은 productId 가 있을 때만 쓴다(다른 상품 사진 금지)
+    #   2026-11-23: 사진검색도 같은 서버 예산(하루 19 안에서 사진은 최대 3)을 받아야 부른다.
     global _CP_DL_CALLS
-    if not CRON_SECRET or not cpid or _CP_DL_CALLS >= 10:
+    if not CRON_SECRET or not cpid or _CP_STOP or _CP_DL_CALLS >= 10:
         return ''
-    if _CP_DL_CALLS:
-        time.sleep(2.1)
-    _CP_DL_CALLS += 1
     kw = re.sub(r'\[[^\]]*\]|\([^)]*\)|[0-9,]+원.*$', ' ', title or '')
     kw = re.sub(r'\s+', ' ', kw).strip()[:40]
     if not kw:
         return ''
+    if not cp_take('image'):
+        return ''
+    if _CP_DL_CALLS:
+        time.sleep(2.1)             # 🔴 2초 미만 금지
+    _CP_DL_CALLS += 1
     try:
         req = urllib.request.Request(f'{SUPABASE_URL}/functions/v1/coupang-hotdeal?test=search&limit=10&kw={urllib.parse.quote(kw)}', headers={'x-cron-secret': CRON_SECRET})
         with urllib.request.urlopen(req, timeout=20) as resp:
