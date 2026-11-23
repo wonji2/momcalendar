@@ -425,7 +425,7 @@ $soonRows = ParseRows $D.soon @('name','who','od','ed','major')
 #   문구의 숫자는 이 빌드가 잰 값만 쓴다(사장님 정확도 원칙: 못 잰 숫자는 말하지 않는다).
 # 두 스토어 버튼이 늘 같이 보이면 아이폰 손님에게 Play 버튼이, 안드로이드 손님에게 App Store 버튼이 같이 보인다. (2026-11-23 ORDER_STORE_SEO_CONVERSION §6-3)
 #   UA 로 「표시만」 가른다 — PC·판별 불가(아이패드 데스크톱 모드 등)는 그대로 둘 다 보인다. 크롤러 본문은 안 바뀐다.
-$CtaOs = "<script>(function(){try{var ua=navigator.userAgent||'';var ios=/iPhone|iPad|iPod/i.test(ua),and=/Android/i.test(ua);if(!ios&&!and)return;var d=document.querySelectorAll('.appcta');for(var i=0;i<d.length;i++)d[i].className+=(ios?' os-ios':' os-and');}catch(e){}})();</script>"
+$CtaOs = "<script>(function(){try{var ua=navigator.userAgent||'';var ios=/iPhone|iPad|iPod/i.test(ua),and=/Android/i.test(ua);if(!ios&&!and)return;document.documentElement.className+=(ios?' os-ios':' os-and');}catch(e){}})();</script>"   # 2026-11-23: html 에 단다 — 하단 CTA(cta2)는 스크립트보다 뒤에 있어 .appcta 에 달면 못 잡는다(라이브 V6 에서 발견)
 $AppCta = ''
 try{
   $tom = ([datetime]::ParseExact($D.today, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)).AddDays(1)
