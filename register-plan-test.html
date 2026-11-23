@@ -160,8 +160,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pn-opt.on .pn-rd:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--p)}
 .pn-m{flex:1;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
 .pn-m em{font-style:normal;font-size:10px;font-weight:800;color:#fff;background:#E8457F;padding:2px 7px;border-radius:100px}
-.pn-r{flex:none;width:96px;text-align:right}
+.pn-r{flex:none;margin-left:auto;text-align:right;white-space:nowrap}
 .pn-p{font-size:17px;font-weight:800}
+.pn-vat{margin-left:2px;font-size:11px;font-weight:600;color:var(--t3)}
 .pn-opt.on .pn-p{color:var(--p)}
 .pn-t{font-size:12px;color:var(--t3);margin-top:1px}
 .pn-cta{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:none;border-radius:100px;background:var(--p);color:#fff;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;font-family:inherit;transition:transform .1s}
@@ -808,7 +809,7 @@ function planRender(){
     return;
   }
   const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
-  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월 '+planMonthly(m)+'만원</div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
+  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월 '+planMonthly(m)+'만원<small class="pn-vat">(VAT 포함)</small></div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
   box.innerHTML=
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러 혜택</b>'+(left>0?'':'<span class="left">자리 없음</span>')+'</div>'+
     '<div class="pn-in">'+
@@ -818,7 +819,6 @@ function planRender(){
       '<div class="pn-lb pn-lb2">가격</div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
-      '<div class="pn-fine">부가세 포함</div>'+
     '</div>';
 }
 function planKakaoRow(top){ return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">카톡</div><div class="v">'+(_kakao&&_kakao.connected?'결제·만료 알림':'결제·만료 알림 받기')+'</div>'+(_kakao&&_kakao.connected?'<div class="on">연결됨</div>':'<button class="pn-pill p" onclick="planKakaoStart()">연결</button>')+'</div>'; }
