@@ -129,7 +129,7 @@ try {
   // ⑧ 다른 쪽
   const ctx = await b.newContext({ viewport: { width: 393, height: 852 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   for (const pg of ['register.html', 'privacy.html', 'terms.html', 'test.html', 'todaycard.html', 'hotdealcard.html']) {
-    errs.length = 0; const r = await p.goto(SITE + pg + '?smoke=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null);
+    errs.length = 0; const r = await p.goto(SITE + pg + (pg === 'test.html' ? '?preview=1&smoke=' : '?smoke=') + Date.now(),   /* 2026-11-23: test.html 접근 게이트 — 미리보기 키 없으면 홈을 검사하게 된다 */ { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null);
     await p.waitForTimeout(3500);
     ok('다른 쪽', pg, r && r.status() === 200 && errs.length === 0, (r ? r.status() : '응답 없음') + (errs.length ? ' · ' + errs[0].slice(0, 80) : ''));
   }

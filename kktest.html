@@ -2,7 +2,24 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<!-- 🚧 2026-11-23 접근 게이트 (ORDER_TEST_BLOCK_AND_SEO_TOP3 §3-1) — head 최상단. 미리보기 키·OAuth 콜백·E2E 쿼리만 통과, 나머지는 홈으로 -->
+<script>
+(function(){
+  var HOME='https://momcalendar.com/';
+  try{
+    var P=new URLSearchParams(location.search);
+    if(P.get('preview')==='1'){ try{ sessionStorage.setItem('mc_test_ok','1'); }catch(_){} return; }   // ?preview=1 로 한 번 들어오면 그 탭 안에서는 계속 열린다
+    try{ if(sessionStorage.getItem('mc_test_ok')==='1') return; }catch(_){}
+    try{ if(localStorage.getItem('mc_test_ok')==='1') return; }catch(_){}   // 사장님·클코가 개발자도구로 직접 켜 둘 수 있는 칸
+    // 아래는 이 페이지가 스스로 쓰는 파라미터다 — 없애면 카톡 로그인 복귀·위시 딥링크·E2E 가 깨진다
+    var OK=['code','state','error','e2e','kktest','flowtest'];
+    for(var i=0;i<OK.length;i++){ if(P.has(OK[i])) return; }
+    location.replace(HOME);
+  }catch(_){ try{ location.replace(HOME); }catch(__){} }
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
 <title>맘캘린더 · 카카오 로그인 테스트</title>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <style>

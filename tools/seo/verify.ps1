@@ -174,11 +174,22 @@ foreach($p in $files){
 }
 Write-Output "내부링크 검사 $checked 개 중 깨진 것 $brokenL"
 
-# 5) robots
+# 5) robots + 테스트 페이지 색인 차단 (2026-11-23 ORDER §3)
 $rb = [IO.File]::ReadAllText((Join-Path $root 'robots.txt'))
 if($rb -notmatch 'Sitemap: https://momcalendar\.com/sitemap\.xml'){ Bad 'robots.txt 에 sitemap 없음' }
-foreach($d in @('/admin.html','/staff.html','/test.html')){
+foreach($d in @('/admin.html','/staff.html','/register.html')){
   if($rb -notmatch [regex]::Escape("Disallow: $d")){ Bad "robots.txt 에 $d 차단 없음" }
+}
+# 테스트 3종은 Disallow 대신 (게이트 + noindex + GA4 없음)으로 막는다.
+#   Disallow 가 있으면 구글이 noindex 를 못 읽어 URL 만 색인된다(2026-11-23 실측 상태).
+foreach($d in @('test.html','test-app.html','kktest.html')){
+  if($rb -match [regex]::Escape("Disallow: /$d")){ Bad "robots.txt 가 /$d 를 막고 있다 — noindex 를 못 읽는다" }
+  $tp = Join-Path $root $d
+  if(-not (Test-Path -LiteralPath $tp)){ Bad "테스트 페이지가 없다: $d"; continue }
+  $tt = [IO.File]::ReadAllText($tp)
+  if($tt -notmatch '<meta name="robots" content="[^"]*noindex'){ Bad "$d 에 noindex 메타가 없다" }
+  if($tt -notmatch 'mc_test_ok'){ Bad "$d 에 접근 게이트가 없다" }
+  if($tt -match 'G-NRCP2FVRSB'){ Bad "$d 에 GA4 가 남아 있다" }
 }
 
 Write-Output ''

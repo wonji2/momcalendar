@@ -1952,7 +1952,7 @@ foreach($f in @('sitemap-main.xml','sitemap-brand.xml','sitemap-product.xml','si
 # 🔴 robots.txt 는 **매일 이 빌드가 통째로 다시 쓴다** — 손으로 고쳐 봐야 다음 새벽에 지워진다.
 #   2026-09-24 에 손으로 넣은 Yeti 블록이 09-25 빌드(986bddfd92)에 그대로 날아갔다. 바꿀 것은 여기서 바꾼다.
 #   네이버 크롤러(Yeti)는 * 규칙으로도 허용되지만, 서치어드바이저가 이름으로 확인하므로 명시한다.
-$blockRules = "Allow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /test.html`nDisallow: /kktest.html`nDisallow: /rest/`nDisallow: /functions/"   # 2026-11-22 ORDER §3-3: 서치콘솔 404 로 잡힌 API 주소(rest/v1·functions/v1) 크롤 막기
+$blockRules = "Allow: /`nDisallow: /admin.html`nDisallow: /staff.html`nDisallow: /register.html`nDisallow: /rest/`nDisallow: /functions/"   # 2026-11-22 ORDER §3-3: 서치콘솔 404 로 잡힌 API 주소(rest/v1·functions/v1) 크롤 막기 · 2026-11-23 ORDER §3-4: 테스트 3종은 Disallow 해제 — noindex 를 읽히게 한다
 # 🤖 AI 수집 금지 표지판(2026-10-27 사장님 지시 「우리 거 긁지 말라고 AI 한테 말하는 경고문」)
 #   · Content-Signal(Cloudflare 콘텐츠 신호 규약): 검색 색인 yes · AI 답변에 넣기(ai-input) yes · AI 학습(ai-train) no. 검색엔진·AI 검색이 우리 글을 인용해 손님을 보내는 길은 열어 둔다.
 #   · 🔴 사장님 2026-10-27 「AI 인용 검색에 맘캘린더 홍보해야 하는데 상충하면 안 돼」 → **학습 전용 봇만** 막는다. 각 회사 공식 문서로 확인한 것:

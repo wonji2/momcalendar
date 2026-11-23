@@ -2,6 +2,22 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- 🚧 2026-11-23 접근 게이트 (ORDER_TEST_BLOCK_AND_SEO_TOP3 §3-1) — head 최상단. 미리보기 키·OAuth 콜백·E2E 쿼리만 통과, 나머지는 홈으로 -->
+<script>
+(function(){
+  var HOME='https://momcalendar.com/';
+  try{
+    var P=new URLSearchParams(location.search);
+    if(P.get('preview')==='1'){ try{ sessionStorage.setItem('mc_test_ok','1'); }catch(_){} return; }   // ?preview=1 로 한 번 들어오면 그 탭 안에서는 계속 열린다
+    try{ if(sessionStorage.getItem('mc_test_ok')==='1') return; }catch(_){}
+    try{ if(localStorage.getItem('mc_test_ok')==='1') return; }catch(_){}   // 사장님·클코가 개발자도구로 직접 켜 둘 수 있는 칸
+    // 아래는 이 페이지가 스스로 쓰는 파라미터다 — 없애면 카톡 로그인 복귀·위시 딥링크·E2E 가 깨진다
+    var OK=['code','state','error','e2e','flowtest','nxbell','app','ct','from','mvt','sale','src','week','wish','q','wdid','wlink'];
+    for(var i=0;i<OK.length;i++){ if(P.has(OK[i])) return; }
+    location.replace(HOME);
+  }catch(_){ try{ location.replace(HOME); }catch(__){} }
+})();
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/toss/tossface@main/dist/tossface.css" media="print" onload="this.media='all'"><!-- Tossface 이모지 서체 (OFL 1.1, 상업 이용 가능) — unicode-range 로 이모지 글자에만 적용. 앱 모드 body 에서 스택 맨 앞 -->
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async onload="try{kkoInit()}catch(_){}"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -36,15 +52,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="맘캘린더">
-<!-- Google Analytics -->
 <link rel="preconnect" href="https://api.momcalendar.com" crossorigin>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NRCP2FVRSB"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-NRCP2FVRSB');
-</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"><!-- 글꼴은 막는 채로 둔다: 늦게 붙이면 첫 그림은 빨라도 첫 카드가 0.5~1초 늦어졌다(2026-10-27 실측) -->
 <style>
