@@ -709,7 +709,9 @@ function productTags(names,rnd,want){
    구성 = 계정 태그 1 + 대표 태그 2(돌려씀) + 날짜 태그 1 + 주제 태그 5~7(풀 48개서 셔플)
           + **상품 태그 3~5**(그날 캡션에 실린 상품에서) → 매일 12~16개, 조합이 매일 다르다.
    개수도 날짜로 흔들어 똑같이 보이지 않게 한다. */
-function pickTags(day,names){
+/* 이웃셀러 태그 — 셀러 이름 + 상품 브랜드(상품명 첫 낱말). 맘캘린더 자체 공구는 #맘캘린더 로 이미 걸린다 */
+function partnerTags(items){ const out=[]; (items||[]).filter(x=>x&&x.partner&&!x.own).forEach(x=>{ const a=String(x.seller||'').replace(/[^가-힣A-Za-z0-9_]/g,''); const b=String(x.name||'').split(/\s+/)[0].replace(/[^가-힣A-Za-z0-9_]/g,''); if(a.length>=2) out.push(a); if(b.length>=2&&!TAG_STOP.has(b)) out.push(b); }); return out; }
+function pickTags(day,names,ptags){
   const d=new Date(day+'T00:00:00');
   const dateTag=`${d.getMonth()+1}월${d.getDate()}일공구`;
   const rnd=srand(day,7);
@@ -718,7 +720,7 @@ function pickTags(day,names){
   const topic=shuffleR(TAG_POOL,rnd).slice(0,nTopic);
   const nProd=3+Math.floor(rnd()*3);                   // 3~5개
   const prod=productTags(names||[],rnd,nProd);
-  const all=[...TAG_FIXED,...head,dateTag,...topic,...prod];
+  const all=[...TAG_FIXED,...(ptags||[]),...head,dateTag,...topic,...prod];
   return [...new Set(all)].map(t=>'#'+t).join(' ');
 }
 const pickHook=(arr,day,off)=>pickR(arr,srand(day,off||1));
@@ -736,14 +738,14 @@ function cycleHook(arr,day,off){
 }
 
 /* 캡션 공통 꼬리 — 매일 조합이 바뀐다 (CTA·앱/카페 안내·댓글유도·인사 각각 랜덤) */
-function capTail(day,names){
+function capTail(day,names,ptags){
   const rnd=srand(day,3);
   /* 🔑 댓글 유도를 **두 곳**에 둔다 — 리스트 직후(구분선 앞)와 꼬리.
      꼬리까지 안 내려가는 사람이 대부분이다. capTail 이 모든 시안의 공통 관문이라 여기 둔다
      (buildCap 안에 두면 TOP10·핫딜 시안이 빠진다 — 2026-09-30 실측). */
   /* ⚠ 🔎 줄은 **구분선 아래**에 둔다. 위에 뒀더니 길이 조절이 본문 끝줄로 보고 잘라냈다(2026-09-30 실측).
      공구줍줍도 구분선 아래에 「🔎 찾으시는 공구가 있다면…」을 둔다. */
-  return `\n\n━━━━━━━━━━━━━━\n\n${pickR(ASKS_TOP,srand(day,11))}\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names)}`;
+  return `\n\n━━━━━━━━━━━━━━\n\n${pickR(ASKS_TOP,srand(day,11))}\n\n${pickR(CLOSERS,rnd)}\n\n${pickR(ABOUTS,rnd)}\n\n${pickR(ASKS,rnd)}\n\n${pickR(BYES,rnd)}\n\n⚠️ 공구 일정은 판매자 사정에 따라 변경·조기마감될 수 있어요.\n\n${pickTags(day,names,ptags)}`;
 }
 const capLine=x=>`· ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''}`;
 function setCaption(s){
@@ -779,7 +781,7 @@ function setCaption(s){
    @핸들은 **이웃셀러·맘캘린더에만** 건다 (사장님 지시 2026-08-31 재확인 — 2026-08-04 규칙 유지).
    섹션들을 라운드로빈으로 한 줄씩 채워 한도 직전까지 넣는다(카테고리 균형 유지). */
 function buildCap(day,{hook,head,sections}){
-  const tail=capTail(day,sections.flatMap(x=>x.items.map(i=>i.name)));
+  const tail=capTail(day,sections.flatMap(x=>x.items.map(i=>i.name)),partnerTags(sections.flatMap(x=>x.items)));
   /* 🔴🔴 2026-09-30 사장님 지시: "캡션에 쓸데없이 너무 잘릴정도로 많은 정보 줄 필요 없어
        공구줍줍처럼 어느 정도만 주고 댓글로 궁금한거 남겨주면 답글 달아준다고 하고
        우리도 걔처럼 댓글 유도를 많이 해야해"
@@ -919,7 +921,7 @@ async function tTop10(day){
     top.slice(0,n).map((x,i)=>`${i+1}. ${x.name} — ${x.seller}${x.partner&&x.insta?' @'+x.insta:''} (${dd(x)})`).join('\n');
   // 🔴 TOP10 만 넣으면 캡션이 737자로 다른 날의 1/3 이다 (사장님 지시 2026-09-01 "내용 더 많이").
   //    남는 자리를 오늘 오픈 공구로 채운다 — buildCap 과 같은 2185자 한도.
-  const _tail=capTail(day, top.slice(0,n).map(x=>x.name)), _LIMIT=2185;
+  const _tail=capTail(day, top.slice(0,n).map(x=>x.name), partnerTags(top.slice(0,n))), _LIMIT=2185;
   try{
     const {opens:_to}=await fetchDay(day);
     const _picked=new Set(top.slice(0,n).map(x=>x.id));
