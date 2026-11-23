@@ -1747,12 +1747,14 @@ var _klookPool = [
 ];
 var _todayKlook = _klookPool[_doy % _klookPool.length];
 
-var IN_FEED_PROMOS = [
+// 인피드 혜택 카드 — 수익이 검증된 링크만 둔다 (길아 님 2026-11-23 "다 지금 수익나는 걸로 바꿔놔")
+// 손대지 말 것: 유지 4종의 id·url·thumb. 수익 0원이던 베베쿡과 임시주소 미소(test 전용)는 2026-11-23 삭제.
+var _IN_FEED_ALL = [
   {
     id: 'wink_free_trial',
     badge: '🎁 0원체험',
     title: '윙크 0원 체험! 플리츠마마백 증정',
-    desc: '한글·수학 학습기 7일+교재 4권 무료배송',
+    desc: '한글 수학 학습기 7일+교재 4권 무료배송',
     tag: '유아학습',
     thumb: 'momcal-wink-device.png',
     contain: true,
@@ -1769,14 +1771,45 @@ var IN_FEED_PROMOS = [
     url: 'https://iryan.kr/t8hcvn4oui'
   },
   {
-    id: 'bebecook_trial',
-    badge: '🎁 100%증정',
-    title: '베베쿡 첫 이유식 3세트 무료 증정',
-    desc: '초기·중기 한우 이유식 3일분 집 앞 신선 배송',
-    tag: '시판이유식',
-    thumb: 'https://m.bebecook.com/assets/img/common/prod-free-baby.jpg',
+    id: 'daegu_babyfair',
+    badge: '🎁 무료입장',
+    title: '12월 대구 베이비페어 무료입장',
+    desc: '12월 3일 엑스코, 사전등록 0원',
+    tag: '베이비페어',
+    thumb: 'momcal-daegu-fair-thumb.png',
+    contain: false,
+    url: 'https://iryan.kr/t8hdfn2ool'
+  },
+  {
+    id: 'suwon_covex',
+    badge: '🎁 무료입장',
+    title: '수원 코베 베이비페어 무료입장',
+    desc: '11월 26일 수원메쎄, 사전등록 0원',
+    tag: '베이비페어',
+    thumb: 'momcal-suwon-fair-thumb.png',
+    contain: false,
+    until: '2026-11-25T23:59:59+09:00',
+    url: 'https://iryan.kr/t8hdfn11i9'
+  },
+  {
+    id: 'momq_cps',
+    badge: '🎁 3.6% 적립',
+    title: '기저귀 맘큐에서 3.6% 적립',
+    desc: '하기스 대용량 기획전도 결제금액 적립',
+    tag: '육아쇼핑',
+    thumb: 'momcal-momq-thumb.png',
     contain: true,
-    url: 'https://www.bebecook.com/'
+    url: 'https://iryan.kr/t8hdfn2wel'
+  },
+  {
+    id: 'pulmuone_cps',
+    badge: '🎁 3.5% 적립',
+    title: '풀무원 장보면 3.5% 적립',
+    desc: '콩나물 두부 살 때 결제금액 그대로 적립',
+    tag: '식품적립',
+    thumb: 'momcal-pulmuone-thumb.png',
+    contain: true,
+    url: 'https://iryan.kr/t8hdfn2wem'
   },
   {
     id: 'dousiki_clean',
@@ -1797,20 +1830,14 @@ var IN_FEED_PROMOS = [
     thumb: 'momcal-modooisa-thumb.png',
     contain: false,
     url: 'https://iryan.kr/t8hcvn4ouh'
-  },
-  {
-    id: 'miso_cleaning_helper',
-    badge: '🎁 3만원쿠폰',
-    title: '가사도우미 첫 이용 3만 원 할인쿠폰',
-    desc: '전문 매니저 가사청소 3만 원 할인',
-    tag: '가사청소',
-    cta: '쿠폰받기',
-    thumb: 'momcal-cleaning-thumb.jpg',   // 로컬 사진. 안 뜨면 thumbFb 로 바꾼다
-    thumbFb: 'momcal-dousik-thumb.png',
-    contain: false,
-    url: 'https://miso.kr'   // 제휴 링크 발급 전 임시 외부 주소(앱에서 momcalendar.com 을 열면 홈으로 다시 로드된다) — 라이브 승격 전 정식 링크로 교체
   }
 ];
+var IN_FEED_PROMOS = _IN_FEED_ALL.filter(function(p){
+  if (!p || !p.until) return true;
+  var t = new Date(p.until).getTime();
+  return isNaN(t) || Date.now() < t;
+});
+if (!IN_FEED_PROMOS.length) IN_FEED_PROMOS = _IN_FEED_ALL.slice();   // 전부 만료돼도 카드·클릭이 죽지 않게
 // 🧩 사이 광고를 관리자에서 바로 고친다 (사장님 2026-11-12 「토큰 없이 링크 수정·온오프」) — banners 표 type=infeed 에 켜진 광고가 1건이라도 있으면
 //    위의 코드 안 목록 대신 그 목록만 돈다(전부 끄면 코드 안 목록 그대로). 테스트 전용(stage=test) 광고는 test.html 에서만 보인다.
 (function go(n){
