@@ -492,7 +492,7 @@ _CP_BABY_RX = re.compile(r'기저귀|분유|이유식|물티슈|젖병|유모차
 _CP_DAILY_RX = re.compile(r'커피|생수|휴지|세제|샴푸|치약|계란|김|미역|쌀|라면|참치|간식|생활')
 
 def cp_score(title, price, category='', mall_today=0):
-    """쿼터 19건을 어디에 쓸지 — 점수 0 이하는 부르지 않는다."""
+    """쿼터 19건을 어디에 먼저 쓸지 정하는 순서 점수(높을수록 먼저). 점수로 버리지는 않는다."""
     s = 0
     if _CP_BABY_RX.search(title or ''):
         s += 3
@@ -1264,8 +1264,8 @@ def collect_from_jirum_alarm():
         cp_cands.sort(key=lambda c: -c['score'])
         for i, c in enumerate(cp_cands):
             pid, raw_title = c['pid'], c['raw_title']
-            if c['score'] <= 0:
-                skip(pid, '쿠팡 쿼터 아껴 건너뜀', f"점수 {c['score']} · {raw_title}"); continue
+            # 2026-11-23 사장님 「왜 버려져 쿠팡 그럼 안되지」: 점수는 「먼저 부를 순서」로만 쓴다. 점수가 낮다고 버리지 않는다 —
+            #   예산(회차 5 · 시간대 누적 · 하루 19, 서버 카운터)이 남아 있으면 부르고, 못 부른 것은 다음 회차에 다시 본다(재시도 3회/6시간).
             if _CP_STOP:
                 skip(pid, '쿠팡 호출 중단(차단·오류)', raw_title); continue
             if cp_run >= JIRUM_CP_RUN:
