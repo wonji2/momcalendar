@@ -67,8 +67,8 @@ async function accessToken(c: ReturnType<typeof sb>): Promise<string> {
   return t.access_token as string;
 }
 
-async function memo(at: string, text: string) {
-  const tpl = { object_type: 'text', text: text.slice(0, 200), link: { web_url: LINK, mobile_web_url: LINK }, button_title: '관리자 열기' };
+async function memo(at: string, text: string, link = LINK, btn = '관리자 열기') {
+  const tpl = { object_type: 'text', text: text.slice(0, 200), link: { web_url: link, mobile_web_url: link }, button_title: btn };
   const r = await fetch('https://kapi.kakao.com/v2/api/talk/memo/default/send', { signal: AbortSignal.timeout(10000),
     method: 'POST',
     headers: { Authorization: `Bearer ${at}`, 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
@@ -80,10 +80,97 @@ async function memo(at: string, text: string) {
 
 const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, '0')).join('');
 
+// ── 셀러 카카오 연결 (2026-11-23, supabase/sql/seller_kakao_178.sql · 설계 scratchpad/designs/2026-11-23_셀러_카카오연결_자동로그인.md) ──
+//   길: POST ?op=seller_start {token, back}   (셀러 토큰 — 크론 비밀 없음) → 카카오 동의 주소
+//       POST ?op=seller_callback {code, state, error, token}  (kktest.html 이 같은 브라우저의 셀러 토큰을 실어 부른다) → {back, kakao, why}
+//       POST ?op=seller_send · ?op=seller_keep (x-cron-secret)
+//   리다이렉트 = https://momcalendar.com/kktest.html (JavaScript 키에 이미 등록된 주소 — 콘솔 변경 없음, 앱 웹뷰 안에 머문다)
+//   남의 연결 주소를 눌러도 남의 셀러에 내 카카오가 붙지 않게: state 의 셀러 == 이 브라우저 토큰의 셀러일 때만 저장(_seller_kakao_take).
+const SELLER_PAGE = 'https://momcalendar.com/register.html';
+const KAKAO_JS_KEY = '04a73b2b11a54e8c11be73309e1b217c';   // 공개 키(사이트 화면에도 있다) — 동의 주소의 client_id
+//   동의는 JS 키(kktest.html 리다이렉트가 JS 키에 등록돼 있다), 토큰 교환은 서버에서 REST 키 — 손님 카카오 로그인(test.html 7407줄 → kakao-auth)과 같은 방식으로 운영 중.
+//   (코덱스 2026-11-23 「키가 다르면 교환 실패」 지적 — 운영 손님 로그인이 이 조합으로 돈다. 실제 셀러 연결 첫 회에서 다시 확인할 것)
+const SELLER_REDIRECT = 'https://momcalendar.com/kktest.html';
+const CORS = { 'access-control-allow-origin': 'https://momcalendar.com', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'POST, OPTIONS', vary: 'origin' };
+const JC = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json; charset=utf-8', ...CORS } });
+// 셀러 리프레시 토큰 → 액세스 토큰(새 리프레시 토큰이 오면 저장). 죽은 토큰이면 연결을 지운다.
+async function sellerAccess(c: ReturnType<typeof sb>, sid: number): Promise<string> {
+  const { data: k } = await c.from('seller_kakao').select('refresh').eq('seller_id', sid).maybeSingle();
+  if (!k?.refresh) throw new Error('not_connected');
+  const r = await fetch('https://kauth.kakao.com/oauth/token', { signal: AbortSignal.timeout(10000),
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+    body: tokenBody({ grant_type: 'refresh_token', refresh_token: k.refresh }),
+  });
+  const t = await r.json().catch(() => ({}));
+  if (!t.access_token) {
+    if (t.error === 'invalid_grant') { await c.from('seller_kakao').delete().eq('seller_id', sid).eq('refresh', k.refresh); throw new Error('disconnected'); }
+    throw new Error('refresh_failed ' + (t.error_code || t.error || r.status));
+  }
+  if (t.refresh_token) await c.from('seller_kakao').update({ refresh: t.refresh_token, updated_at: new Date().toISOString() }).eq('seller_id', sid);
+  return t.access_token as string;
+}
+async function sellerAlert(c: ReturnType<typeof sb>, detail: string) {
+  const since = new Date(Date.now() - 12 * 3600e3).toISOString();
+  const head = detail.slice(0, 20).replace(/[%_\\]/g, '');
+  const { data } = await c.from('health_alerts').select('id').eq('kind', 'seller-notify').like('detail', head + '%').gte('created_at', since).limit(1);
+  if (!data?.length) await c.from('health_alerts').insert({ kind: 'seller-notify', detail: detail.slice(0, 500) });
+}
+async function sellerCallback(c: ReturnType<typeof sb>, b: Record<string, unknown>) {
+  const state = String(b.state || ''), code = String(b.code || ''), err = String(b.error || ''), token = String(b.token || '');
+  if (!/^sk[0-9a-f]{48}$/.test(state)) return { back: SELLER_PAGE, kakao: 'fail', why: 'kakao' };
+  const { data: tk, error: te } = await c.rpc('_seller_kakao_take', { p_state: state, p_token: token });
+  if (te || !tk) return { back: SELLER_PAGE, kakao: 'fail', why: 'kakao' };
+  const back = String(tk.back || SELLER_PAGE);
+  if (!tk.ok) return { back, kakao: 'fail', why: tk.why === 'expired' ? 'expired' : tk.why === 'mismatch' ? 'login' : 'kakao' };
+  if (err) return { back, kakao: 'fail', why: err === 'access_denied' ? 'cancel' : 'kakao' };
+  if (!code) return { back, kakao: 'fail', why: 'kakao' };
+  const r = await fetch('https://kauth.kakao.com/oauth/token', { signal: AbortSignal.timeout(10000),
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+    body: tokenBody({ grant_type: 'authorization_code', redirect_uri: SELLER_REDIRECT, code }),
+  });
+  const t = await r.json().catch(() => ({}));
+  if (!t.access_token || !t.refresh_token) { await sellerAlert(c, '셀러 카카오 연결: 토큰 못 받음 ' + (t.error_code || t.error || r.status)); return { back, kakao: 'fail', why: 'kakao' }; }
+  if (!String(t.scope || '').split(/[ ,]/).includes('talk_message')) return { back, kakao: 'fail', why: 'noconsent' };
+  const me = await fetch('https://kapi.kakao.com/v2/user/me', { signal: AbortSignal.timeout(10000), headers: { Authorization: `Bearer ${t.access_token}` } }).then((x) => x.json()).catch(() => ({}));
+  const kid = String(me?.id || '');
+  if (!kid) return { back, kakao: 'fail', why: 'kakao' };
+  // 이용 중이면 시험 카톡에 기간을 같이 적는다(「결제 완료」를 다시 보내지 않는다)
+  const { data: act } = await c.from('seller_plan_requests').select('id, end_date, paid_at').eq('seller_id', tk.seller_id).eq('status', 'paid').order('end_date', { ascending: false }).limit(1);
+  const a = act?.[0];
+  const NL = String.fromCharCode(10);
+  const hello = '[맘캘린더] 카톡 알림 연결됨' + NL + (a?.end_date ? '이웃셀러 기간 ' + String(a.end_date).replace(/-/g, '.') + '까지' + NL : '') + '결제 안내와 기간 만료 7·3·1일 전 알림이 이 「나와의 채팅」으로 와요.';
+  // 시험 카톡이 실제로 가야 「연결됨」 — 카카오가 일반 셀러 메시지를 막으면(사용 권한 신청 전) 저장하지 않는다
+  try { await memo(t.access_token, hello, SELLER_PAGE, '셀러 페이지 열기'); }
+  catch (e) { await sellerAlert(c, '셀러 카카오 연결: 시험 카톡 실패 — 카카오 콘솔 「카카오톡 메시지」 사용 권한 확인 · ' + (e as Error).message.slice(0, 160)); return { back, kakao: 'fail', why: 'memo' }; }
+  const now = new Date().toISOString();
+  const { error: ue } = await c.from('seller_kakao').upsert({ seller_id: tk.seller_id, kakao_id: kid, refresh: t.refresh_token, connected_at: now, updated_at: now });
+  if (ue) return { back, kakao: 'fail', why: 'kakao' };
+  // 다시 연결이면 그 사이 못 보낸 알림을 되살리고, 이용 중이면 주소가 든 안내(24시간 안 결제면 「결제 완료」, 그 뒤면 「이용 안내」)를 한 번 — seller_kakao_fix_179.sql
+  await c.rpc('_seller_notify_revive', { p_seller: tk.seller_id }).then(() => {}, () => {});
+  if (a) await c.rpc('_seller_notify_enqueue_info', { p_req: a.id }).then(() => {}, () => {});
+  return { back, kakao: 'ok' };
+}
+
 Deno.serve(async (req) => {
   const u = new URL(req.url);
   const op = u.searchParams.get('op') || '';
   const c = sb();
+
+  // 셀러 화면이 부르는 길(브라우저) — 크론 비밀 검사보다 앞. 사전 요청(OPTIONS)도 여기서.
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (req.method === 'POST' && op === 'seller_start') {
+    const b = await req.json().catch(() => ({}));
+    const { data: d, error } = await c.rpc('_seller_kakao_begin', { p_token: String(b.token || ''), p_back: String(b.back || '') });
+    if (error) return JC({ ok: false, msg: 'begin_failed' }, 500);
+    if (!d?.ok) return JC({ ok: false, msg: d?.msg || 'failed' }, d?.msg === 'unauthorized' ? 401 : 400);
+    const q = new URLSearchParams({ client_id: KAKAO_JS_KEY, redirect_uri: SELLER_REDIRECT, response_type: 'code', scope: 'talk_message', state: d.state });
+    return JC({ ok: true, url: 'https://kauth.kakao.com/oauth/authorize?' + q.toString() });
+  }
+  if (req.method === 'POST' && op === 'seller_callback') {
+    const b = await req.json().catch(() => ({}));
+    try { return JC(await sellerCallback(c, b)); }
+    catch (e) { await sellerAlert(c, '셀러 카카오 연결 오류: ' + (e as Error).message.slice(0, 200)); return JC({ back: SELLER_PAGE, kakao: 'fail', why: 'kakao' }); }
+  }
 
   // 카카오 콜백(사장님 브라우저)
   if (req.method === 'GET' && !op) {
@@ -144,6 +231,23 @@ Deno.serve(async (req) => {
     }
   }
 
+  // op=say (x-cron-secret) — 출고 PC 실행기가 포장 목록·발주 결과를 바로 보낸다. 본문에 고객 이름이 들어가므로 DB 에 저장하지 않는다(2026-11-23 스룩 발주 버튼화).
+  //   body: { texts: string[] }  (한 통 200자 이하, 최대 20통) → { ok, sent, total }
+  if (op === 'say') {
+    const b = await req.json().catch(() => ({}));
+    const texts = (Array.isArray(b.texts) ? b.texts : []).filter((t: unknown) => typeof t === 'string' && t.trim()).slice(0, 20) as string[];
+    if (!texts.length) return J({ ok: false, msg: 'no_texts' }, 400);
+    if (texts.some((t) => t.length > 200)) return J({ ok: false, msg: 'too_long' }, 400);
+    let at = '';
+    try { at = await accessToken(c); } catch (e) { return J({ ok: false, msg: (e as Error).message, sent: 0, total: texts.length }); }
+    let sent = 0;
+    for (const t of texts) {
+      try { await memo(at, t); sent++; } catch (e) { return J({ ok: false, msg: (e as Error).message.slice(0, 200), sent, total: texts.length }); }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    return J({ ok: true, sent, total: texts.length });
+  }
+
   if (op === 'send') {
     // 선점(겹친 호출이 같은 줄을 두 번 보내지 않게) — plan_owner_notify_fix_176.sql
     const { data: rows, error: ce } = await c.rpc('owner_notify_claim', { p_n: 10 });
@@ -174,6 +278,47 @@ Deno.serve(async (req) => {
       }
     }
     return J({ ok: true, sent });
+  }
+
+  // 셀러 카톡 보내기(크론 seller-notify 1분 · 보낼 줄 있을 때만)
+  if (op === 'seller_send') {
+    const { data: rows, error: ce } = await c.rpc('seller_notify_claim', { p_n: 10 });
+    if (ce) return J({ ok: false, msg: 'claim ' + ce.message }, 500);
+    if (!rows?.length) return J({ ok: true, sent: 0 });
+    const tok = new Map<number, string>();
+    let sent = 0;
+    for (const r of rows) {
+      try {
+        let at = tok.get(r.seller_id);
+        if (!at) { at = await sellerAccess(c, r.seller_id); tok.set(r.seller_id, at); }
+        await memo(at, r.body, SELLER_PAGE, '셀러 페이지 열기');
+        await c.from('seller_notify_queue').update({ status: 'sent', sent_at: new Date().toISOString(), err: null, claimed_at: null }).eq('id', r.id);
+        sent++;
+      } catch (e) {
+        const m = (e as Error).message;
+        // 동의 철회(-402)·권한 없음(403)은 다시 해도 안 된다 — 연결을 지우고 닫는다(셀러 화면엔 「연결」 버튼이 다시 보인다)
+        if (/^memo (401|403) |-402/.test(m)) { await c.from('seller_kakao').delete().eq('seller_id', r.seller_id); tok.delete(r.seller_id); }
+        if (m === 'disconnected' || m === 'not_connected' || /^memo (401|403) |-402/.test(m)) {
+          await c.from('seller_notify_queue').update({ status: 'failed', err: m, claimed_at: null }).eq('id', r.id);
+          continue;
+        }
+        const tries = r.tries + 1;
+        await c.from('seller_notify_queue').update({ tries, err: m.slice(0, 300), status: tries >= 3 ? 'failed' : 'pending', claimed_at: null }).eq('id', r.id);
+        if (tries >= 3) await sellerAlert(c, '셀러 카톡 3번 실패(셀러 ' + r.seller_id + ' ' + r.kind + '): ' + m);
+      }
+    }
+    return J({ ok: true, sent });
+  }
+
+  // 셀러 토큰 매주 갱신(리프레시 토큰 2달 — 알림이 뜸해도 안 끊기게)
+  if (op === 'seller_keep') {
+    const { data: ks } = await c.from('seller_kakao').select('seller_id').limit(500);
+    let ok = 0, gone = 0;
+    for (const k of ks || []) {
+      try { await sellerAccess(c, k.seller_id); ok++; } catch (e) { if ((e as Error).message === 'disconnected') gone++; }
+    }
+    await c.from('ops_status').upsert({ id: 'seller-notify', payload: { ok, gone }, updated_at: new Date().toISOString() }).then(() => {}, () => {});
+    return J({ ok: true, kept: ok, gone });
   }
 
   return J({ ok: false, msg: 'bad_op' }, 400);

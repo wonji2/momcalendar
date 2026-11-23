@@ -38,7 +38,8 @@ const WEEKLY_MIN_MB = 1;            // 이보다 큰 표는 일요일만 (평일
 let CORE = ['gonggu'], WEEKLY = [];
 // 살아있는 열쇠는 백업에 두지 않는다 — 비공개 저장소라도 (work-backup/.gitignore 의 브라우저 프로필과 같은 뿌리).
 //   toss_token 은 toss-sync 함수가 다시 발급한다. seller_auth.login_pw 는 bcrypt 해시라 담아도 된다(2026-09-29 확인).
-const SKIP = ['toss_token'];
+//   seller_kakao·seller_kakao_state 는 셀러 카카오 리프레시 토큰·연결 난수(2026-11-23) — 다시 연결하면 생긴다.
+const SKIP = ['toss_token', 'seller_kakao', 'seller_kakao_state'];
 const FAILED = [];
 function planTables() {
   const rows = q(`select relname t, round(pg_total_relation_size(oid)/1048576.0,2) mb from pg_class where relkind='r' and relnamespace='public'::regnamespace order by 2 desc`);

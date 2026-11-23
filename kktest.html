@@ -55,6 +55,25 @@
 </div>
 
 <script>
+/* 셀러 카카오 연결 다리 (2026-11-23) — state 가 sk 로 시작하면 셀러 길. 화면은 잠깐 「연결 중」만.
+   🔴 이 파일(kktest.html)을 지우거나 옮기지 말 것 — 카카오 JS 키에 등록된 리다이렉트 주소라 셀러 카톡 연결이 여기로 돌아온다(owner-notify seller_start). */
+(function(){
+  var p=new URLSearchParams(location.search), st=p.get('state')||'';
+  if(!/^sk[0-9a-f]{48}$/.test(st)) return;
+  window.__sellerBridge=true;
+  document.addEventListener('DOMContentLoaded',function(){ document.body.innerHTML='<div style="padding:40vh 20px 0;text-align:center;font:600 15px/1.5 sans-serif;color:#4E5968">카카오 연결 중…</div>'; });
+  var tok=''; try{ tok=localStorage.getItem('mc_seller_tok')||''; }catch(e){}
+  var done=function(d){
+    var back=(d&&d.back&&/^https:\/\/momcalendar\.com\/register(-plan-test)?\.html(\?demo=1)?$/.test(d.back))?d.back:'https://momcalendar.com/register.html';
+    var q='kakao='+encodeURIComponent((d&&d.kakao==='ok')?'ok':'fail')+((d&&d.why)?'&why='+encodeURIComponent(String(d.why).replace(/[^a-z]/g,'')):'');
+    location.replace(back+(back.indexOf('?')>=0?'&':'?')+q);
+  };
+  fetch('https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_callback',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({code:p.get('code')||'',state:st,error:p.get('error')||'',token:tok})})
+    .then(function(r){ return r.json(); }).catch(function(){ return null; }).then(done);
+})();
+</script>
+<script>
   var JS_KEY='04a73b2b11a54e8c11be73309e1b217c';
   var REDIRECT='https://momcalendar.com/kktest.html';
   var FN='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/kakao-auth';
@@ -95,6 +114,7 @@
 
   // 로그인 후 돌아왔을 때: ?code 처리
   (function(){
+    if(window.__sellerBridge) return;   // 셀러 카카오 연결은 위 다리가 처리
     var p=new URLSearchParams(location.search);
     var code=p.get('code'), err=p.get('error');
     if(err){ showResult('❌ 카카오 오류: '+err+'<br>'+(p.get('error_description')||'')); return; }
