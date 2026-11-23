@@ -1128,11 +1128,9 @@ def collect_from_jirum_alarm():
             print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id} · 상품키 {pkey or "없음"})')
             return
         main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
-        # 사장님 2026-11-24 「다 막아야지」 — 지름알림 커뮤니티 사진은 쓰지 않는다(남의 서버 사진). 몰 대표 사진이 없으면 올리지 않는다.
-        if not main_img:
-            print(f'[지름알림] 몰 대표 사진 없음 — 건너뜀: {mall} {clean_title[:40]}')
-            return
-        card_img = main_img
+        # 사장님 2026-11-24 「딜은 꼭 올리되 사진을 꼭 받아오게」 — 지름알림 커뮤니티 사진은 쓰지 않는다.
+        #   몰 대표 사진을 여기서 못 읽으면(쿠팡·오늘의집 등) 비워 두고, PC 크롬(sns-automation/src/hotdeal-mainimg.js, 10분)이 상품 페이지 대표 사진으로 채운다.
+        card_img = main_img or ''
         ins_sql = f'''
         INSERT INTO public.hotdeals (
           title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at, product_key, mall_code, option_no, key_src, price_status
@@ -1554,11 +1552,11 @@ def collect_from_bbhd():
             clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
             main_img = product_main_image(mall, aff_link, target_link, cpid if mall == '쿠팡' else None, clean_title)
-            # 사장님 2026-11-24 「다 막아야지」 — bbhd 글 사진은 쓰지 않는다(남의 서버 사진). 몰 대표 사진이 없으면 올리지 않는다.
+            # 사장님 2026-11-24 「딜은 꼭 올리되 사진을 꼭 받아오게」 — bbhd 글 사진은 쓰지 않는다.
+            #   몰 대표 사진을 못 읽으면 비워 두고 PC 크롬(hotdeal-mainimg.js, 10분)이 채운다.
             if not main_img:
-                print(f'[bbhd] {wr_id} 몰 대표 사진 없음 — 건너뜀: {clean_title[:40]}')
-                continue
-            card_img = main_img
+                print(f'[bbhd] {wr_id} 대표 사진은 PC 크롬이 채움: {clean_title[:40]}')
+            card_img = main_img or ''
 
             ins_sql = f'''
             INSERT INTO public.hotdeals (
