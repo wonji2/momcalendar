@@ -67,12 +67,12 @@ claude "orders/ORDER_HOTDEAL_POLCENT_2026-11-23.md 끝까지 읽고 §1 표부�
 
 | 규칙 | 값 | 비고 |
 | --- | --- | --- |
-| 딥링크 하루 상한 | **15건 유지** | **올리지 않는다.** 이전 계획의 "50건 상향"은 폐기됐다 |
+| 딥링크 하루 상한 | **19건 (사장님 지시 조정)** | 기존 15건에서 **19건으로 고정(50건 상향은 폐기)** |
 | 회차 상한 | 5건 (`JIRUM_CP_RUN`) 유지 |  |
 | 호출 간격 | **2.1초 이상 유지** | 줄이면 1분 한도(50회)를 넘겨 차단된다. 2026-08-03 사고 원인이 속도였다 |
-| 수집기 몫 하루 총합 | **15건** (딥링크+사진검색+재확인 **모두 합쳐서**) | 사진검색은 그중 최대 3건 |
+| 수집기 몫 하루 총합 | **19건** (딥링크+사진검색+재확인 **모두 합쳐서**) | 사진검색은 그중 최대 3건 |
 | 판정엔진(함수) 몫 | 40건/일 유지 (키워드 20 + 재추적 20) |  |
-| **두 몫 합계 하드 캡** | **55건/일** | 넘으면 그날 쿠팡 호출 전면 중단 |
+| **두 몫 합계 하드 캡** | **59건/일** | 넘으면 그날 쿠팡 호출 전면 중단 |
 | 재확인(FIFO)에서 쿠팡 신규 호출 | **0건** | 재확인은 판정엔진 몫만. 수집기는 쿠팡 가격을 다시 묻지 않는다 |
 
 ### 2-3. 구현 ①서버 원자 카운터 — `supabase/sql/hotdeal_polcent_185.sql`
@@ -81,7 +81,7 @@ claude "orders/ORDER_HOTDEAL_POLCENT_2026-11-23.md 끝까지 읽고 §1 표부�
 
 ```sql
 -- 2026-11-23 쿠팡 호출 예산 (길아 님 "한 번만 더 걸리면 영정") — 서버 원자 카운터
-create or replace function public.coupang_budget_take(p_kind text default 'deeplink', p_cap int default 15)
+create or replace function public.coupang_budget_take(p_kind text default 'deeplink', p_cap int default 19)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare st jsonb; d text := (now() at time zone 'Asia/Seoul')::date::text;
 begin
@@ -95,9 +95,9 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'blocked',
       'blocked_until', st->>'blocked_until', 'used', coalesce((st->>'total')::int, 0), 'cap', p_cap);
   end if;
-  if coalesce((st->>'total')::int, 0) >= least(p_cap, 55) then
+  if coalesce((st->>'total')::int, 0) >= least(p_cap, 59) then
     return jsonb_build_object('ok', false, 'reason', 'cap',
-      'used', coalesce((st->>'total')::int, 0), 'cap', least(p_cap, 55));
+      'used', coalesce((st->>'total')::int, 0), 'cap', least(p_cap, 59));
   end if;
   if p_kind = 'image' and coalesce((st->>'image')::int, 0) >= 3 then
     return jsonb_build_object('ok', false, 'reason', 'image_cap',
@@ -107,7 +107,7 @@ begin
   st := jsonb_set(st, array[p_kind], to_json(coalesce((st->>p_kind)::int, 0) + 1));
   insert into ops_status(id, payload, updated_at) values ('coupang-budget', st, now())
     on conflict (id) do update set payload = excluded.payload, updated_at = now();
-  return jsonb_build_object('ok', true, 'used', (st->>'total')::int, 'cap', least(p_cap, 55),
+  return jsonb_build_object('ok', true, 'used', (st->>'total')::int, 'cap', least(p_cap, 59),
                             'kind', p_kind, 'kind_used', (st->>p_kind)::int, 'day', d);
 end $$;
 
@@ -137,7 +137,7 @@ grant execute on function public.coupang_budget_block(text, int) to service_role
 ### 2-4. 구현 ②수집기 단일 관문 — `tools/daily/baby_hotdeal_auto.py`
 
 1. 모듈 전역 `_CP_STOP = False`(그 회차 쿠팡 호출 전면 중단 스위치)와 `_CP_FAILS = 0`(연속 실패)를 둔다.
-2. `cp_take(kind, cap=15)` 를 만든다 — `run_sql("select public.coupang_budget_take('deeplink', 15) as r;")` 결과 `ok=false` 면 `False`. **이 함수를 통과하지 않은 쿠팡 호출은 코드에 존재하지 않게 한다.**
+2. `cp_take(kind, cap=19)` 를 만든다 — `run_sql("select public.coupang_budget_take('deeplink', 19) as r;")` 결과 `ok=false` 면 `False`. **이 함수를 통과하지 않은 쿠팡 호출은 코드에 존재하지 않게 한다.**
 3. `get_coupang_deeplink()`(`:468`) 첫 줄에서 `_CP_STOP` 확인 → `cp_take('deeplink')` 통과 시에만 진행. 기존 `_CP_DL_CALLS >= 10` 조건은 **보조로만** 남긴다(주 방어선은 서버).
 4. `coupang_main_image()`(`:992`)도 `cp_take('image')` 를 통과해야 한다. **지름알림 쿠팡 딜은 이미 사진검색을 안 쓴다**(`:926`) — 이 동작 유지(쿼터를 사진에 쓰지 않는다).
 5. **429/오류 처리**:
@@ -147,11 +147,11 @@ grant execute on function public.coupang_budget_block(text, int) to service_role
 6. 간격: 호출 사이 `time.sleep(2.1)` 유지(`:474`). 사진검색도 같은 간격을 지난다(`:997`). **2초 미만 금지.**
 7. 베이비핫딜 경로(`:1139`)도 같은 `get_coupang_deeplink` 를 쓰므로 위 관문이 자동 적용된다. **일 상한이 없던 구멍이 이걸로 닫힌다.**
 
-### 2-5. 구현 ③쿼터 배분 — 15건을 하루에 나눠, 가치 높은 것에만
+### 2-5. 구현 ③쿼터 배분 — 19건을 하루에 나눠, 가치 높은 것에만
 
 지금은 오전에 15건을 다 써서 오후 쿠팡 딜이 전부 버려진다(오늘 회차 로그 실측). 상한을 못 올리니 **아껴 쓰는 수밖에 없다.**
 
-- **시간대 누적 상한**(KST): 06시 전 0 · 06~12시 4 · 12~18시 9 · 18~24시 15. (회차 상한 5는 유지)
+- **시간대 누적 상한**(KST): 06시 전 0 · 06~12시 5 · 12~18시 12 · 18~24시 19. (회차 상한 5는 유지)
 - **후보 우선순위 점수** — 회차에 모인 쿠팡 후보를 점수 내림차순으로 정렬한 뒤 상위부터 호출한다.
 
 | 조건 | 점수 |
@@ -163,14 +163,14 @@ grant execute on function public.coupang_budget_block(text, int) to service_role
 | 같은 날 같은 몰에서 이미 3건 등록 | −2 |
 
 - 점수 **≤ 0** 이면 **호출하지 않고 seen 처리**(keep 금지), `stats['쿠팡 쿼터 아껴 건너뜀'] += 1`.
-- 쿼터가 소진되면 `stats['쿠팡 쿼터 소진']` 에 시각을 남기고, 그날 처음 소진될 때 `health_alerts kind='hotdeal:쿠팡쿼터'` 상세 `"15/15 소진 HH:MM — 남은 쿠팡 후보 N건 폐기"`.
+- 쿼터가 소진되면 `stats['쿠팡 쿼터 소진']` 에 시각을 남기고, 그날 처음 소진될 때 `health_alerts kind='hotdeal:쿠팡쿼터'` 상세 `"19/19 소진 HH:MM — 남은 쿠팡 후보 N건 폐기"`.
 - 🔴 **쿼터가 없다고 지름알림의 구매 주소를 그대로 저장하는 우회는 절대 금지**(수집기 헌법). 못 올리면 버린다.
 
 ### 2-6. 구현 ④문서·주석 정리
 
 - `tools/daily/baby_hotdeal_auto.py:522` 주석 "쿠팡 API 는 하루 40회 불변…" → 실제 예산 표로 교체:
-  `# 쿠팡 예산(2026-11-23): 판정엔진 함수 40(키워드20+재추적20) + 수집기 15(딥링크·사진·재확인 합계) = 하루 55 하드 캡. 서버 카운터 coupang_budget_take 가 최종 방어선. 영정 위험으로 어떤 이유로도 늘리지 않는다.`
-- `.github/workflows/hotdeal-cloud.yml:13` "쿠팡 딥링크는 …회차당 10회" → `회차 5 · 하루 15 · 서버 원자 카운터(함수 40과 합계 55 상한)`.
+  `# 쿠팡 예산(2026-11-23): 판정엔진 함수 40(키워드20+재추적20) + 수집기 19(딥링크·사진·재확인 합계) = 하루 59 하드 캡. 서버 카운터 coupang_budget_take 가 최종 방어선. 영정 위험으로 19건을 절대 초과하지 않는다.`
+- `.github/workflows/hotdeal-cloud.yml:13` "쿠팡 딥링크는 …회차당 10회" → `회차 5 · 하루 19 · 서버 원자 카운터(함수 40과 합계 59 상한)`.
 - 같은 줄의 **미존재 파일 언급**(`tools/daily/hotdeal_cloud_fallback.mjs`) 삭제 — 저장소에 그 파일이 없다(실측).
 
 ---
@@ -278,7 +278,7 @@ grant execute on function public.coupang_budget_block(text, int) to service_role
 
 기존 `supabase/sql/jirum_collect_watch_135.sql` 이 **6시간 성공 기록 없음·24시간 등록 0건**을 이미 잡는다. 같은 경보를 또 만들지 않는다. 새로 필요한 것만:
 
-- **쿠팡 쿼터 소진**(오늘처럼 오전에 15건을 다 쓰는 경우): 그날 처음 소진될 때 `health_alerts kind='hotdeal:쿠팡쿼터'` — `"15/15 소진 HH:MM — 남은 쿠팡 후보 N건 폐기"`.
+- **쿠팡 쿼터 소진**(오늘처럼 오전에 다 쓰는 경우): 그날 처음 소진될 때 `health_alerts kind='hotdeal:쿠팡쿼터'` — `"19/19 소진 HH:MM — 남은 쿠팡 후보 N건 폐기"`.
 - **쿠팡 차단**: `coupang_budget_block` 이 넣는 `hotdeal:쿠팡한도`(§2-3). 이게 뜨면 사람이 파트너스 콘솔을 본다.
 - **정체**: `ops_status 'jirum-collect'` 의 `ok=false` 가 6시간 이어지는 경우 — 기존 감시가 `ok` 를 보므로 **중복이면 만들지 않고**, 실제로 비어 있는 경우에만 한 줄 추가한다.
 - `ops.html` 알림 목록에서 위 3종이 보이는지 확인(V20).
@@ -513,7 +513,7 @@ grant execute on function public.hotdeal_chart3(text, int) to anon, authenticate
 | --- | --- | --- |
 | V1 | `python -m py_compile tools/daily/baby_hotdeal_auto.py` | 오류 0 |
 | V2 | `JIRUM_DRY=1 JIRUM_LIMIT=5 python3 tools/daily/baby_hotdeal_auto.py` | DB 쓰기 0, 키·링크·분류가 찍힌다 |
-| V3 | `select public.coupang_budget_take('deeplink',15)` 16회 | 1~15 `ok=true`, 16번째 `reason='cap'` |
+| V3 | `select public.coupang_budget_take('deeplink',19)` 20회 | 1~19 `ok=true`, 20번째 `reason='cap'` |
 | V4 | 같은 호출을 `image` 로 4회 | 4번째 `reason='image_cap'` |
 | V5 | `coupang_budget_block('시험',6)` → `coupang_budget_take` | `ok=false, reason='blocked'` + `health_alerts 'hotdeal:쿠팡한도'` 1행 |
 | V6 | 429 모의(응답을 429로 바꾼 단위 시험 또는 `_CP_STOP` 강제) | 그 회차 쿠팡 호출 0, 다른 몰 수집은 계속, 상태 `blocked_until` 기록 |
@@ -573,7 +573,7 @@ select cron.unschedule('hotdeal-judge-daily');
 
 ## 11. 사람이 해야 하는 것 (클코 범위 밖)
 
-1. **쿠팡 파트너스 콘솔에서 최근 경고·제재 이력 확인** — 오늘 429 가 실제로 있었는지. 있으면 이 오더의 쿠팡 몫을 15에서 더 내린다(자비스/사장님 판단).
+1. **쿠팡 파트너스 콘솔에서 최근 경고·제재 이력 확인** — 오늘 429 가 실제로 있었는지. 있으면 이 오더의 쿠팡 몫을 19에서 더 내린다(자비스/사장님 판단).
 2. 백필 `--dry` 결과를 보고 `--apply` 승인.
 3. 세시간전·야놀자·클룩 12건(정가만) 노출 유지 여부 결정.
 4. 카톡 발송·도쿄 VM 상태 확인(별건 — 이 오더 범위 아님).
@@ -582,7 +582,7 @@ select cron.unschedule('hotdeal-judge-daily');
 
 ## 12. 하지 말 것 (한 번 더)
 
-1. **쿠팡 호출을 늘리지 않는다.** 딥링크 15·회차 5·간격 2.1초·합계 55 — 어떤 이유로도 예외 없음.
+1. **쿠팡 호출을 19건 이상 늘리지 않는다.** 딥링크 19·회차 5·간격 2.1초·합계 59 — 어떤 이유로도 예외 없음.
 2. 지름알림·애드픽·링크프라이스의 구매 주소를 **그대로 저장하지 않는다**(우리 링크로 재조립 규칙 유지).
 3. `is_lowest=true` 를 **제보가만으로 승격하지 않는다.**
 4. `index.html` 은 `test.html` 검증 뒤에만, 이 오더가 승인한 줄만 고친다.
