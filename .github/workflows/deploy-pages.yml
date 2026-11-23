@@ -83,10 +83,24 @@ jobs:
 
       - uses: actions/configure-pages@v5
         if: ${{ steps.mode.outputs.go == '1' }}
+      - name: 손님 사이트에 올릴 파일만 추리기 (운영 문서·수집 코드·내부 폴더 제외 — 사장님 2026-11-24 「다 막아야지」)
+        if: ${{ steps.mode.outputs.go == '1' }}
+        run: |
+          # 저장소에는 자동화가 쓰는 코드가 그대로 있다(깃허브 Actions·PC 가 돌린다). 사이트로만 안 나가게 거른다.
+          SITE="${RUNNER_TEMP}/site"
+          rm -rf "$SITE"; mkdir -p "$SITE"
+          rsync -a --delete             --exclude=".git" --exclude="/.github/" --exclude="/.githooks/" --exclude="/.maestro/" --exclude="/.gitignore"             --exclude="/tools/" --exclude="/supabase/" --exclude="/scripts/" --exclude="/orders/" --exclude="/handoffs/"             --exclude="/scratchpad/" --exclude="/sns-automation/" --exclude="/android-app/" --exclude="/ios-app/"             --exclude="*.md" --exclude="*.py" --exclude="*.mjs" --exclude="*.cjs" --exclude="*.sh" --exclude="*.sql"             --exclude="*.ps1" --exclude="*.bat" --exclude="*.tsv" --exclude="*.yml" --exclude="*.yaml" --exclude="*.ts"             --exclude="*.env" --exclude="*mock*.html" --exclude="/daily/*.txt"             ./ "$SITE/"
+          for f in CLAUDE.md 작업규칙.md baby_hotdeal_auto.py tools supabase orders; do
+            if [ -e "$SITE/$f" ]; then echo "::error::$f 가 사이트 묶음에 남았다"; exit 1; fi
+          done
+          for f in index.html test.html admin.html sw.js CNAME manifest.json data/offline_sales.json; do
+            if [ ! -e "$SITE/$f" ]; then echo "::error::$f 가 사이트 묶음에서 빠졌다"; exit 1; fi
+          done
+          echo "사이트 묶음 파일 $(find "$SITE" -type f | wc -l) 개 (저장소 $(git ls-files | wc -l) 개)"
       - uses: actions/upload-pages-artifact@v3
         if: ${{ steps.mode.outputs.go == '1' }}
         with:
-          path: .
+          path: ${{ runner.temp }}/site
 
       - id: deployment
         name: 배포
