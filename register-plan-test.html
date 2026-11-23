@@ -260,6 +260,10 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 
 .bn-auto{margin-top:10px;text-align:center;font-size:13px;font-weight:700;color:#0E9F6E}
 .bn-reset{display:block;width:100%;height:44px;margin-top:6px;border:none;background:none;font-size:13px;font-weight:700;color:#8B95A1;text-decoration:underline;font-family:inherit;cursor:pointer}
+.pn-go{display:flex;align-items:center;justify-content:center;gap:4px;height:40px;margin:8px 0 0;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:700;letter-spacing:-.02em;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pn-go:active{transform:scale(.97)}
+.pn-go.gap{margin-bottom:24px}
+.pn-go-ar{width:6px;height:6px;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:rotate(45deg);margin-left:2px}
 .pn-cafe{display:flex;flex-direction:column;gap:2px;margin:18px 2px 8px}
 .pn-cafe b{font-size:15px;font-weight:800;color:#191F28;letter-spacing:-.02em}
 .pn-cafe span{font-size:12px;font-weight:600;color:#8B95A1}
@@ -759,6 +763,8 @@ function planRender(){
     return;
   }
   const left=Number(_plan.slots_left||0);
+  const _back=(!_planOpen&&!window._planBackDone)?planGoBack():null; window._planBackDone=true;
+  if(_back){ _planOpen=true; setTimeout(function(){ try{ window.scrollTo(0,_back.y); }catch(e){} },60); }
   if(!_planOpen){
     box.classList.add('pn-promo'); box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
     return;
@@ -768,14 +774,14 @@ function planRender(){
   box.innerHTML=
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
     '<div class="pn-in">'+
-      '<img class="pn-ex" src="banners/plan_example_v1.jpg" alt="메인 화면 예시" width="1125" height="1068">'+
-      '<img class="pn-ex" src="banners/plan_example_list_v1.jpg" alt="공구 목록 예시" width="1125" height="978" style="margin-top:10px;aspect-ratio:1125/978">'+
+      '<img class="pn-ex" src="banners/plan_example_v1.jpg" alt="메인 화면 예시" width="1125" height="1068">'+planGo('https://momcalendar.com/','맘캘린더 웹사이트 보기')+''+
+      '<img class="pn-ex" src="banners/plan_example_list_v1.jpg" alt="공구 목록 예시" width="1125" height="978" style="margin-top:10px;aspect-ratio:1125/978">'+planGo('https://momcalendar.com/','맘캘린더 웹사이트 보기')+''+
       '<div class="pn-cafe"><b>회원 2만2천명 맘카페에 일정 자동 공유</b><span>오픈 3일 전 자동 게시 · 결제 링크(없으면 인스타) 연결</span></div>'+
-      '<img class="pn-ex" src="banners/plan_example_cafe_top_v1.jpg" alt="맘캘린더 카페 메인" width="1125" height="792" loading="lazy" style="aspect-ratio:1125/792">'+
+      '<img class="pn-ex" src="banners/plan_example_cafe_top_v1.jpg" alt="맘캘린더 카페 메인" width="1125" height="792" loading="lazy" style="aspect-ratio:1125/792">'+planGo('https://cafe.naver.com/momcal','맘캘린더 카페 보기')+''+
       '<div class="pn-cafe"><b>맘카페 단독게시판 생성</b><span>한 달 글 20개까지 자유롭게</span></div>'+
-      '<img class="pn-ex" src="banners/plan_example_cafe_board_v1.jpg" alt="카페 인플루언서 단독 게시판" width="957" height="294" loading="lazy" style="aspect-ratio:957/294;background:#fff;margin-bottom:24px">'+
+      '<img class="pn-ex" src="banners/plan_example_cafe_board_v1.jpg" alt="카페 인플루언서 단독 게시판" width="957" height="294" loading="lazy" style="aspect-ratio:957/294;background:#fff">'+planGo('https://cafe.naver.com/momcal','맘캘린더 카페 보기',1)+''+
       '<div class="pn-cafe"><b>맘캘린더 공식 인스타에 매일 오픈 공구 카드</b><span>카드 맨 위 이웃셀러 칸 · 캡션에 @아이디·해시태그</span></div>'+
-      '<img class="pn-ex" src="banners/plan_example_insta_v1.jpg" alt="맘캘린더 공식 인스타 오픈 공구 카드" width="1125" height="2319" loading="lazy" style="aspect-ratio:1125/2319;background:#fff;margin-bottom:24px">'+
+      '<img class="pn-ex" src="banners/plan_example_insta_v1.jpg" alt="맘캘린더 공식 인스타 오픈 공구 카드" width="1125" height="2319" loading="lazy" style="aspect-ratio:1125/2319;background:#fff">'+planGo('https://www.instagram.com/momcal_/','맘캘린더 공식 인스타 보기',1)+''+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
       '<div class="pn-fine">부가세 포함</div>'+
@@ -789,6 +795,10 @@ function planWays(top){
     (_plan&&_plan.state==='active'?'<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>':'');
 }
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
+/* 혜택 「직접 보기」 — 같은 창으로 가고, 돌아오면 펼친 채 그 자리 (2026-11-23) */
+function planGo(url,label,gap){ return '<a class="pn-go'+(gap?' gap':'')+'" href="'+url+'" onclick="planGoMark()">'+label+'<i class="pn-go-ar"></i></a>'; }
+function planGoMark(){ try{ localStorage.setItem('mc_plan_back',JSON.stringify({t:Date.now(),y:Math.round(window.scrollY)})); }catch(e){} }
+function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_plan_back')||'null'); localStorage.removeItem('mc_plan_back'); }catch(e){} return (m&&Date.now()-m.t<30*60*1000)?m:null; }
 function planPick(m){ _planMonths=m; planRender(); }
 async function planStart(){
   if(_planBusy) return; _planBusy=true;
