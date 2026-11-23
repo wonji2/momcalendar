@@ -27,25 +27,30 @@ async function probe() {
 }
 
 async function notify(env, text) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
-  });
+  // 보냈으면 true. 토큰이 없으면(알림을 안 쓰는 설정) 보낸 것으로 친다 — 상태는 그대로 기록한다.
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return true;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
+    });
+    return r.ok;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function check(env) {
   const bad = await probe();
   const prev = await env.STATE.get('state');
+  // 알림이 실제로 나갔을 때만 상태를 바꾼다 — 텔레그램이 잠깐 실패하면 다음 회차(5분 뒤)에 다시 보낸다(코덱스 검사 2026-11-23)
   if (bad.length === 0) {
-    if (prev === 'down') await notify(env, '🟢 라이브 회복 — momcalendar.com 다시 정상');
-    await env.STATE.put('state', 'up');
+    const sent = prev === 'down' ? await notify(env, '🟢 라이브 회복 — momcalendar.com 다시 정상') : true;
+    if (sent) await env.STATE.put('state', 'up');
   } else {
-    if (prev !== 'down') {
-      await notify(env, `🔴 라이브 이상 — ${bad.join(' · ')}\n복구: bash tools/emergency_restore.sh --yes`);
-    }
-    await env.STATE.put('state', 'down');
+    const sent = prev !== 'down' ? await notify(env, `🔴 라이브 이상 — ${bad.join(' · ')}\n복구: bash tools/emergency_restore.sh --yes`) : true;
+    if (sent) await env.STATE.put('state', 'down');
   }
   return { bad, prev: prev || 'up' };
 }
