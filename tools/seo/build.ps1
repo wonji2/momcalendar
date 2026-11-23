@@ -423,6 +423,9 @@ $soonRows = ParseRows $D.soon @('name','who','od','ed','major')
 
 # ── 📲 앱 전환 CTA (2026-11-22 ORDER §4) — 모든 생성 페이지 헤더 아래 한 줄 ──
 #   문구의 숫자는 이 빌드가 잰 값만 쓴다(사장님 정확도 원칙: 못 잰 숫자는 말하지 않는다).
+# 두 스토어 버튼이 늘 같이 보이면 아이폰 손님에게 Play 버튼이, 안드로이드 손님에게 App Store 버튼이 같이 보인다. (2026-11-23 ORDER_STORE_SEO_CONVERSION §6-3)
+#   UA 로 「표시만」 가른다 — PC·판별 불가(아이패드 데스크톱 모드 등)는 그대로 둘 다 보인다. 크롤러 본문은 안 바뀐다.
+$CtaOs = "<script>(function(){try{var ua=navigator.userAgent||'';var ios=/iPhone|iPad|iPod/i.test(ua),and=/Android/i.test(ua);if(!ios&&!and)return;var d=document.querySelectorAll('.appcta');for(var i=0;i<d.length;i++)d[i].className+=(ios?' os-ios':' os-and');}catch(e){}})();</script>"
 $AppCta = ''
 try{
   $tom = ([datetime]::ParseExact($D.today, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)).AddDays(1)
@@ -440,8 +443,8 @@ try{
   $dowKo = @('일','월','화','수','목','금','토')[[int]$tom.DayOfWeek]
   if($tomN -ge 100){ $hook = "내일($dowKo) 오픈 공구 ${tomN}건" } else { $hook = '공구 일정 매일 갱신' }
   $AppCta = "<div class=${Q}appcta${Q}><b>$(HtmlEsc $hook)</b><span>앱에서 알림·찜하기</span>" +
-    "<a class=${Q}ap${Q} href=${Q}https://apps.apple.com/kr/app/id6826126083${Q} rel=${Q}nofollow noopener${Q} onclick=${Q}try{gtag('event','seo_app_cta',{place:'seo_ios'})}catch(_){}${Q}>App Store</a>" +
-    "<a class=${Q}ap g${Q} href=${Q}https://play.google.com/store/apps/details?id=com.wantsb.momcalendar${Q} rel=${Q}nofollow noopener${Q} onclick=${Q}try{gtag('event','seo_app_cta',{place:'seo_and'})}catch(_){}${Q}>Google Play</a></div>"
+    "<a class=${Q}ap ios${Q} href=${Q}https://apps.apple.com/kr/app/id6826126083${Q} rel=${Q}nofollow noopener${Q} onclick=${Q}try{gtag('event','seo_app_cta',{place:'seo_ios',page:location.pathname})}catch(_){}${Q}>App Store</a>" +
+    "<a class=${Q}ap g and${Q} href=${Q}https://play.google.com/store/apps/details?id=com.wantsb.momcalendar${Q} rel=${Q}nofollow noopener${Q} onclick=${Q}try{gtag('event','seo_app_cta',{place:'seo_and',page:location.pathname})}catch(_){}${Q}>Google Play</a></div>" + $CtaOs
   Write-Output "앱 CTA: $hook (내일 $tomS · 조회 $tomN)"
 }catch{ Write-Output "앱 CTA 못 만듦($($_.Exception.Message)) — 배너 없이 빌드 계속" }
 

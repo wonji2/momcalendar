@@ -255,6 +255,9 @@ a.card::after{content:" ›";color:#B3A8C4;font-size:13px}
 .appcta b{font-size:13.5px;color:#5B3A8C}
 .appcta .ap{margin-left:auto;padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:800;text-decoration:none;background:#602090;color:#fff;white-space:nowrap}
 .appcta .ap.g{margin-left:0;background:#fff;color:#4A35A0;border:1px solid #DCCBF2}
+.appcta.os-ios .ap.and{display:none}
+.appcta.os-and .ap.ios{display:none}
+.appcta.os-and .ap.and{margin-left:auto;background:#602090;color:#fff;border:0}
 '@
 
 # 하단 키워드 내부 링크 (모든 생성 페이지 + 보존 페이지 공통). 앵커 문구 = 노리는 검색어 그대로 (사장님 2026-09-07 · 2026-11-18 정확한 키워드로)
