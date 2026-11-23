@@ -440,8 +440,11 @@ Deno.serve(async (req) => {
     //   그래서 tacaIds 로 먼저 묻고, 못 찾은 것만 tacaItemIds 로 다시 묻는다.
     if (mode === "track") {
       const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-      const rows = await sb("hotdeals?source=eq.toss&select=id,product_id,price,title,manual&order=id.desc&limit=500");
-      const ids = [...new Set((Array.isArray(rows) ? rows : [])
+      // 2026-11-23 FIFO: 전량(최신 500)을 한 번에 묻던 것을 「가장 오래 안 본 것부터 100건」으로 — 회차 부하를 나누고 last_checked_at 을 남긴다.
+      //   물어본 행과 응답을 받는 행이 회차마다 달라지므로, 아래 ①수거 뒤에는 「응답이 온 번호」로 행을 다시 읽는다(rows).
+      const TRACK_BATCH = 100;
+      const fireRows = await sb(`hotdeals?source=eq.toss&or=(expires_at.is.null,expires_at.gt.${new Date().toISOString()})&select=id,product_id&order=last_checked_at.asc.nullsfirst,id.desc&limit=${TRACK_BATCH}`);
+      const ids = [...new Set((Array.isArray(fireRows) ? fireRows : [])
         .map((r: any) => String(r.product_id ?? "").replace(/^toss_/, ""))
         .filter((s: string) => /^\d+$/.test(s)))];
       const log: any = { day, 대상: ids.length, 조회됨: 0, 기록: 0, 품절: 0, 못찾음: [] as string[] };
@@ -509,9 +512,27 @@ Deno.serve(async (req) => {
           });
         }
         log.보낸요청 = newRows.length;
+        const firedIds = (Array.isArray(fireRows) ? fireRows : []).map((r: any) => Number(r.id)).filter((n: number) => n > 0);
+        if (firedIds.length) {
+          await sb(`hotdeals?id=in.(${firedIds.join(",")})`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ last_checked_at: new Date().toISOString() }),
+          });
+        }
       }
-      log.조회됨 = ids.filter((x) => got[x]).length;
-      log.못찾음 = ids.filter((x) => !got[x]).slice(0, 20);
+      // 응답이 온 번호로 행을 다시 읽는다(지난 회차에 물어본 것 — 이번에 물어본 것과 다르다)
+      const gotKeys = Object.keys(got).filter((k) => /^\d+$/.test(k));
+      const rows: any[] = [];
+      for (let i = 0; i < gotKeys.length; i += 80) {       // 주소가 길어지지 않게 80개씩
+        const part = gotKeys.slice(i, i + 80);
+        const r = await sb(`hotdeals?source=eq.toss&product_id=in.(${part.map((k) => `toss_${k},${k}`).join(",")})&select=id,product_id,price,title,manual&order=id.desc&limit=1000`);
+        if (Array.isArray(r)) rows.push(...r);
+      }
+      const cids = [...new Set((Array.isArray(rows) ? rows : [])
+        .map((r: any) => String(r.product_id ?? "").replace(/^toss_/, ""))
+        .filter((s: string) => /^\d+$/.test(s)))];
+      log.조회됨 = cids.filter((x) => got[x]).length;
+      log.못찾음 = [];        // 물어본 번호 목록은 다음 회차에 남지 않는다(FIFO) — 응답이 안 온 행은 last_checked_at 만 갱신돼 줄 뒤로 간다
 
       // 🔴 2026-08-28 — 다른 상품의 값이 붙는 교차오염 방어 (상품명 대조).
       //   실측: 카드의 tacaId 가 판매종료로 죽었는데 같은 번호를 tacaItemId 로 가진
@@ -537,7 +558,7 @@ Deno.serve(async (req) => {
         if (k && !(k in titleByKey)) titleByKey[k] = String(r.title ?? "");
       }
       log.상품명불일치 = [];
-      for (const x of ids) {
+      for (const x of cids) {
         if (got[x] && titleByKey[x] != null && !sameProduct(titleByKey[x], got[x].displayName)) {
           log.상품명불일치.push(`${x}:${String(got[x].displayName ?? "").slice(0, 20)}`);
           delete got[x];                               // 이 응답은 이 상품의 값이 아니다
@@ -546,9 +567,9 @@ Deno.serve(async (req) => {
 
       // 값이 확실한 것만 남긴다. 품절이면 가격이 의미가 없으니 이력에 넣지 않는다
       //   (품절가를 넣으면 나중에 '역대 최저' 판정이 오염된다)
-      const hist = ids.filter((x) => got[x] && !got[x].isSoldOut && Number(got[x].displayPrice) > 0)
-        .map((x) => ({ product_id: `toss_${x}`, day: askedDay, price: Number(got[x].displayPrice) }));
-      log.품절 = ids.filter((x) => got[x]?.isSoldOut).length;
+      const hist = cids.filter((x) => got[x] && !got[x].isSoldOut && Number(got[x].displayPrice) > 0)
+        .map((x) => ({ product_id: `toss_${x}`, product_key: `toss:${x}`, day: askedDay, price: Number(got[x].displayPrice), src: "measured" }));
+      log.품절 = cids.filter((x) => got[x]?.isSoldOut).length;
       if (!isDry && hist.length) {
         await sb("price_history?on_conflict=product_id,day", {
           method: "POST",
@@ -565,6 +586,7 @@ Deno.serve(async (req) => {
       //   → 매번 현재가로 맞추고, 조건에서 벗어난 건 내린다.
       const TRACK_MIN_DROP = 25;          // 이보다 덜 깎이면 더는 핫딜이 아니다
       log.가격갱신 = 0; log.내림 = [];
+      const okIds: number[] = [];
       if (!isDry) {
         for (const r of (Array.isArray(rows) ? rows : [])) {
           const key = String(r.product_id ?? "").replace(/^toss_/, "");
@@ -581,7 +603,7 @@ Deno.serve(async (req) => {
           if (품절 || !now || (!수동 && drop < TRACK_MIN_DROP)) {
             await sb(`hotdeals?id=eq.${r.id}`, {
               method: "PATCH", headers: { Prefer: "return=minimal" },
-              body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString() }),
+              body: JSON.stringify({ expires_at: new Date(Date.now() - 60e3).toISOString(), ...(품절 ? { price_status: "soldout" } : {}), last_checked_at: new Date().toISOString() }),
             });
             log.내림.push(`${r.id}:${품절 ? "품절" : drop + "%"}`);
             continue;
@@ -593,7 +615,15 @@ Deno.serve(async (req) => {
             });
             log.가격갱신++;
           }
+          okIds.push(Number(r.id));
         }
+        if (okIds.length) {            // 몰(토스 API)에서 방금 값을 확인한 행
+          await sb(`hotdeals?id=in.(${okIds.join(",")})`, {
+            method: "PATCH", headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ price_status: "measured", last_checked_at: new Date().toISOString() }),
+          });
+        }
+        log.확인됨 = okIds.length;
       }
       if (isDry) log.미리보기 = hist.slice(0, 10);
       return json({ mode, ...log });
