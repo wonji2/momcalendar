@@ -162,6 +162,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pn-m em{font-style:normal;font-size:10px;font-weight:800;color:#fff;background:#E8457F;padding:2px 7px;border-radius:100px}
 .pn-r{flex:0 1 auto;min-width:0;margin-left:auto;text-align:right} /* pn-vat-wrap */
 .pn-p{font-size:17px;font-weight:800}
+.pn-kkneed{margin:14px 2px -4px;font-size:12px;color:var(--t3);text-align:center;word-break:keep-all}
 .pn-vat{display:inline-block;margin-left:2px;font-size:11px;font-weight:600;color:var(--t3);white-space:nowrap}
 .pn-opt.on .pn-p{color:var(--p)}
 .pn-t{font-size:12px;color:var(--t3);margin-top:1px}
@@ -820,12 +821,13 @@ function planRender(){
       planBf(3,[['banners/plan_example_insta_v1.jpg',1125,2319,'cap']],'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_official/','인스타에서 보기')+
       '<div class="pn-lb pn-lb2">가격</div>'+
       opt(3)+opt(6)+
+      ((_kakao&&_kakao.connected)?'':'<div class="pn-kkneed">카톡 연결 필수 · 결제·만료 알림이 카톡으로 와요</div>')+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
     '</div>';
 }
 function planKakaoRow(top){ return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">카톡</div><div class="v">'+(_kakao&&_kakao.connected?'결제·만료 알림':'결제·만료 알림 받기')+'</div>'+(_kakao&&_kakao.connected?'<div class="on">연결됨</div>':'<button class="pn-pill p" onclick="planKakaoStart()">연결</button>')+'</div>'; }
 function planWays(top){
-  const kk=!!(_plan&&_plan.state==='active');
+  const kk=!!(_plan&&(_plan.state==='active'||_plan.state==='pending'));
   return (kk?planKakaoRow(top):'')+
     '<div class="pn-ln"'+(!kk&&!top?' style="border-top:none"':'')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
@@ -870,9 +872,12 @@ function planKakaoResult(){
   setTimeout(function(){ showToast(msg); },400);
   if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); }catch(e){} }   // 다시 읽는다
   else if(why!=='cancel'){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
+  try{ const w=Number(localStorage.getItem('mc_plan_want')||0); localStorage.removeItem('mc_plan_want'); if(w===3||w===6){ _planMonths=w; _planOpen=true; window._planBackDone=true; } }catch(e){}
 }
 async function planStart(){
-  if(_planBusy) return; _planBusy=true;
+  if(_planBusy) return;
+  if(_kakao&&_kakao.known&&!_kakao.connected&&!planKakaoFailed()){ planKakaoNeed(); return; }
+  _planBusy=true;
   const btn=document.getElementById('planStartBtn'); if(btn) btn.disabled=true;
   const d=await sellerRpc('seller_plan_start',{p_months:_planMonths,p_method:'bank'});
   _planBusy=false;
@@ -1111,6 +1116,15 @@ async function lkSave(){
    「이용 중」이 처음 보일 때 한 번 띄운다. 스룩 결제 창에서 돌아오면 상태를 다시 읽는다. */
 function planPaidKey(){ return 'mc_plan_paid_'+((_seller&&(_seller.seller_insta||_seller.login_insta))||'')+'_'+((_plan&&_plan.end_date)||''); }
 function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail')||0); return t && Date.now()-t<86400e3; }catch(e){ return false; } }
+function planKakaoNeed(){
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-t">카톡 연결이 필요해요</div>'+
+    '<div class="pd-s">이웃셀러 '+_planMonths+'개월 신청 전에 한 번만</div>'+
+    '<div class="pd-box"><div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 결제 안내·이용 기간·만료 알림<br>카톡 「나와의 채팅」으로 와요</div></div></div>'+
+    '<div class="pd-btns"><button class="pn-cta" onclick="try{localStorage.setItem(\'mc_plan_want\',String(_planMonths));}catch(e){}planKakaoStart()">카톡 연결하기</button></div>';
+  document.getElementById('planDim').classList.add('on');
+}
 function planKakaoGate(){
   window._kkGate=true;
   const later=planKakaoFailed();
