@@ -317,7 +317,8 @@ const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
 /* ── 데이터 로딩 ── */
 async function fetchDay(day){
   const [gg,pt,cc,wc,mySoon]=await Promise.all([
-    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date,major&limit=500`,{headers:H}).then(r=>r.json()),
+    // 🔴 2026-11-23 그날 오픈·마감 780행인데 순서 없이 limit=500 만 받아 맘캘린더 공구(롤키친 #35794)가 카드에서 잘렸다 → id 순으로 1000행씩 끝까지
+      (async()=>{const all=[];for(let off=0;off<10000;off+=1000){const p=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date,major&order=id.asc&limit=1000&offset=${off}`,{headers:H}).then(r=>r.json());if(!Array.isArray(p))throw new Error('공구 목록 오류');all.push(...p);if(p.length<1000)break;}return [...new Map(all.map(g=>[g.id,g])).values()];})(),
     fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
     fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
     fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
