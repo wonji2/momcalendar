@@ -349,7 +349,7 @@ details summary::-webkit-details-marker{display:none}
   <!-- 크롤링 탭 (반자동) -->
   <div id="crawlView" style="display:none;padding:14px;padding-bottom:80px">
     <div style="background:#EEE9FF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#4A35A0;line-height:1.8">
-      🕷️ <b>공구팡팡 · 공구모아 가져오기 (반자동)</b><br>
+      🕷️ <b>집계 사이트 가져오기 (반자동)</b><br>
       브라우저 보안 정책상 다른 사이트 내용을 자동으로 읽어올 수 없어요.<br>
       <b>① 사이트 열기 → ② 날짜 지정 → ③ 화면 전체 선택·복사(Ctrl/⌘+A, Ctrl/⌘+C) → ④ 붙여넣기·파싱 → ⑤ 선택 등록</b> 순서로 진행하면 돼요.
     </div>
@@ -358,10 +358,10 @@ details summary::-webkit-details-marker{display:none}
       <div style="font-size:13px;font-weight:800;color:#2A1D6E;margin-bottom:10px">① 가져올 사이트</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#555">
-          <input type="radio" name="crawlSite" value="pangpang" checked style="accent-color:#4A35A0"> 공구팡팡
+          <input type="radio" name="crawlSite" value="pangpang" checked style="accent-color:#4A35A0"> 집계 A
         </label>
         <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#555">
-          <input type="radio" name="crawlSite" value="gonggumoa" style="accent-color:#4A35A0"> 공구모아
+          <input type="radio" name="crawlSite" value="gonggumoa" style="accent-color:#4A35A0"> 집계 B
         </label>
         <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:1.5px solid #EBEBEB;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#555">
           <input type="radio" name="crawlSite" value="navercafe" style="accent-color:#4A35A0"> 📋 네이버카페
@@ -2392,7 +2392,7 @@ function crawlPairDup(a, b){
   const aInfl=(a.influencer||'').trim(), bInfl=(b.influencer||'').trim();
   let sameSeller, sellerKnown=false;
   if(aIns&&bIns){ sameSeller=(aIns===bIns); sellerKnown=true; }
-  // 🔴 2026-10-05: 여기서 한글명을 **완전일치**로 보고 있었다. 공구팡팡·공구모아는 셀러를 한글명으로만 주는데
+  // 🔴 2026-10-05: 여기서 한글명을 **완전일치**로 보고 있었다. 타 사이트·타 사이트는 셀러를 한글명으로만 주는데
   //   표기가 흔들린다(다니맘 / 다니 맘 / 다니·맘) → 같은 셀러인데 다른 사람으로 보고 중복을 놓쳤다.
   //   바로 아래 crawlAutoFillHandles 가 쓰는 crawlNameKey(공백·점·가운뎃점 제거)를 **그대로 재사용**한다.
   //   ⚠ 정규화하면 빈 문자열이 되는 이름('-'·'.')은 셀러를 모르는 것으로 친다(둘 다 '' 라 같은 셀러로 묶이지 않게).
@@ -2403,7 +2403,7 @@ function crawlPairDup(a, b){
     // 🔴 2026-10-05 사장님: "날짜까지 같을때만 중복이지 날짜 다르면 재공구지"
     //   전엔 같은 셀러·비슷한 이름이면 날짜가 달라도 중복의심으로 체크를 풀어, 재공구가 등록에서 빠질 수 있었다.
     //   🔴 단 **오픈일이 3일 안쪽으로 어긋난 것은 같은 공구**로 본다(검증자 지적 2026-10-05):
-    //   집계처는 같은 공구를 하루 이틀 다르게 적는다(DB 10-05 ↔ 공구팡팡 10-06). 문자 그대로 같은 날만 보면
+    //   집계처는 같은 공구를 하루 이틀 다르게 적는다(DB 10-05 ↔ 타 사이트 10-06). 문자 그대로 같은 날만 보면
     //   그게 「신규」로 새어 등록된다 — CLAUDE.md 기술 함정 12 가 세 번 재발한 그 구멍이다.
     //   공구는 3일 이상 가므로 **진짜 재공구가 3일 안에 다시 열리는 일은 없다** → 재공구는 그대로 살아난다.
     //   등록 SQL 의 중복검사(insta + 오픈일±3)와 같은 창이다.
@@ -2425,7 +2425,7 @@ function crawlDbDup(existingData, name, insta, influencer, openDate){
   return false;
 }
 // 🔴 2026-10-05 신설 — **핸들·상품명을 정리한 뒤에 중복을 다시 본다**
-//   파싱 시점엔 공구팡팡이 핸들을 안 줘서 insta 가 비어 있고(한글명으로만 대조), 상품명도 아직 안 다듬어진 상태다.
+//   파싱 시점엔 타 사이트이 핸들을 안 줘서 insta 가 비어 있고(한글명으로만 대조), 상품명도 아직 안 다듬어진 상태다.
 //   그 뒤 applyNameClean 이 이름을 고치고 crawlAutoFillHandles 가 핸들을 채우는데, **그 결과로 다시 보지 않았다**
 //   → 셀러가 확정되고 이름이 정리된 뒤에야 드러나는 중복이 그대로 「신규」로 남아 등록됐다.
 //   같은 묶음 안 중복도 함께 본다(앞 행 기준, 이미 중복인 행은 짝으로 세지 않는다).
@@ -2780,8 +2780,8 @@ let crawlParsedData=[];
 const BLOCKED_INSTA=['babyhaus'];
 function isBlockedInsta(ins){ ins=String(ins||'').toLowerCase().replace('@',''); return BLOCKED_INSTA.some(b=>ins.includes(b)); }
 
-// 카카오톡 단톡방 내보내기(.txt) 파서 — 공구모아 운영 단톡방 형식
-//  [작성자] [오전 12:01] 상품명 \n M/D 오픈 \n 링크   구조의 "공구모아 운영진" 글만 추출(정밀도 우선)
+// 카카오톡 단톡방 내보내기(.txt) 파서 — 타 사이트 운영 단톡방 형식
+//  [작성자] [오전 12:01] 상품명 \n M/D 오픈 \n 링크   구조의 "타 사이트 운영진" 글만 추출(정밀도 우선)
 function parseKakao(text, existingData, minD){
   const Y=new Date(Date.now()+9*3600000).getUTCFullYear();
   const pad=n=>String(n).padStart(2,'0');
@@ -3518,7 +3518,7 @@ async function crawlParse(){
 }
 
 // ── 셀러 핸들 자동 채우기 ────────────────────────────────────────────────
-// 공구모아·공구팡팡은 셀러를 **한글 이름**으로만 준다 → 핸들이 비어 "연결할 곳이 없어요"로 전부 막힌다.
+// 타 사이트·타 사이트은 셀러를 **한글 이름**으로만 준다 → 핸들이 비어 "연결할 곳이 없어요"로 전부 막힌다.
 // 우리 DB(allData)에 그 이름으로 등록된 공구가 이미 있으면 핸들을 알고 있으므로 자동으로 채운다.
 // 이름 표기가 조금씩 달라 공백·점·가운뎃점을 지우고 맞춘다(모찌맘 = 모찌 맘 = 모찌·맘).
 function crawlNameKey(s){ return String(s||'').trim().toLowerCase().replace(/[\s·.,_\-]/g,''); }
@@ -3730,7 +3730,7 @@ function editCrawlSeller(i,field,val){
     crawlParsedData[i]._conn=v?'id':'none';
   }
   // 🔴 한 명만 넣으면 같은 셀러 이름을 가진 **빈 항목이 전부** 채워진다 (사장님 지시 2026-09-01)
-  //    공구모아는 한 셀러가 여러 건을 올리는데, 매번 같은 핸들을 손으로 넣게 하면 안 된다.
+  //    타 사이트는 한 셀러가 여러 건을 올리는데, 매번 같은 핸들을 손으로 넣게 하면 안 된다.
   const cur=crawlParsedData[i];
   const myHandle=(cur.insta||'').trim().replace(/^@/,'');
   const myKey=crawlNameKey(cur.influencer);

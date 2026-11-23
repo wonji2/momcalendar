@@ -101,6 +101,9 @@ jobs:
         if: ${{ steps.mode.outputs.go == '1' }}
         with:
           path: ${{ runner.temp }}/site
+      - name: 올린 묶음이 보일 때까지 잠깐 기다림 (바로 찾으면 「0개」로 실패하던 깃허브 시간차, 11-23 두 번)
+        if: ${{ steps.mode.outputs.go == '1' }}
+        run: sleep 20
 
       - id: deployment
         name: 배포
