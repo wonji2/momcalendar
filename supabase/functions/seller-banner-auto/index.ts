@@ -269,7 +269,8 @@ Deno.serve(async (req) => {
   if (only) sq = sq.eq('insta', only); else sq = sq.eq('is_partner', true).eq('active', true);
   const { data: sel, error: se } = await sq;
   if (se) return J({ ok: false, msg: 'sellers ' + se.message }, 500);
-  const sellers = (sel || []).filter((s: any) => only || ((!s.start_date || s.start_date <= today) && (!s.end_date || s.end_date >= today)));
+  // 맘캘린더 본인 계정(momcal_)은 이웃셀러 배너에 걸지 않는다 — 방장 공구는 방장보증 메인배너 자리다(사장님 2026-11-23 「맘캘린더는 난데 이웃셀러배너에 들어가면 어케」)
+  const sellers = (sel || []).filter((s: any) => only || (String(s.insta || '').toLowerCase() !== 'momcal_' && (!s.start_date || s.start_date <= today) && (!s.end_date || s.end_date >= today)));
   // 🔴 이 두 조회가 실패하면 회차 전체를 멈춘다(아무것도 쓰지 않는다) — 실패를 빈 목록으로 삼키면 같은 셀러 배너가 2장이 되거나 켜진 배너 사진을 지운다(검증 2026-11-19)
   //    직접 꾸민 배너는 **켜진 것만** 센다 — 이웃셀러가 끝나 꺼진 행이 남아 있어도 재결제하면 다시 자동 연동(seller_banner_tidy 는 끄기만 한다)
   const { data: own, error: oe } = await sb.from('banners').select('seller_id').not('seller_id', 'is', null).eq('active', true);
