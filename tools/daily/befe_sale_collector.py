@@ -504,6 +504,47 @@ def collect_news():
     return out, '기사 %d건에서 날짜를 읽음' % len(out)
 
 
+# ── 수익 링크 덮어쓰기 (사장님 2026-11-23 「베페 같은 건 세일 일정에도 떠 있으니 그 링크 타고 가면 수익 링크 되게」) ──
+#   data/offline_sales_aff.json 의 규칙에 맞는 행사는 link 를 우리 제휴(텐핑) 주소로 바꾼다. 원래 주소는 orgLink 에 남긴다.
+#   규칙: {"titleIncludes": ["수원", "코베"], "startDate": "2026-11-26", "link": "https://iryan.kr/…", "until": "2026-11-25T23:59:59+09:00"}
+#   until 이 지나면(캠페인 종료) 원래 주소로 되돌린다. 규칙 파일이 없거나 깨졌으면 아무것도 바꾸지 않는다.
+AFF = os.path.join(ROOT, 'data', 'offline_sales_aff.json')
+def apply_aff(items, now=None):
+    try:
+        with open(AFF, encoding='utf-8') as f:
+            rules = json.load(f).get('rules', [])
+    except Exception:
+        rules = []
+    now = now or datetime.now(timezone.utc)
+    n = 0
+    for x in items:
+        hit = None
+        for r in rules:
+            if not isinstance(r, dict) or not str(r.get('link', '')).startswith('https://'):
+                continue
+            if r.get('startDate') and r['startDate'] != x.get('startDate'):
+                continue
+            words = r.get('titleIncludes') or []
+            if not words or not all(w in (x.get('title') or '') for w in words):
+                continue
+            try:
+                if r.get('until') and now >= datetime.fromisoformat(r['until']):
+                    continue
+            except Exception:
+                continue
+            hit = r
+            break
+        if hit:
+            if x.get('link') != hit['link']:
+                x['orgLink'] = x.get('link') or x.get('orgLink') or ''
+            x['link'] = hit['link']
+            x['aff'] = True
+            n += 1
+        elif x.get('aff'):
+            x['link'] = x.get('orgLink') or ''
+            x.pop('aff', None); x.pop('orgLink', None)
+    return n
+
 def main():
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     old = {'items': [], 'sources': {}}
@@ -563,6 +604,9 @@ def main():
         kept.append(x)
     items = kept
     items.sort(key=lambda x: (x['startDate'], x['title']))
+    aff_n = apply_aff(items)
+    if aff_n:
+        print('수익 링크 적용 %d건' % aff_n)
     doc ={'updatedAt': now, 'sources': sources, 'items': items}
     same = json.dumps(old.get('items'), ensure_ascii=False, sort_keys=True) == json.dumps(items, ensure_ascii=False, sort_keys=True)
     print('합계 %d건 (베이비페어 %d · 패밀리세일 %d) · %s' % (len(items), sum(x['category'] == '베이비페어' for x in items), sum(x['category'] == '패밀리세일' for x in items), '변화 없음' if same else '바뀜'))
