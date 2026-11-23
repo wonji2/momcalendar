@@ -1738,7 +1738,8 @@ foreach($dp in $dealPages){
   WritePage @{ path=(Join-Path $Root "$($dp.slug).html"); title=$dp.title; desc=$dp.desc; canon=$canon;
     h1=$dp.h1; sub=$dp.sub; body=$body; jsonld=$ld; bcName=$dp.h1; answer=$dp.answer; facts=$dp.facts
     cta=$(if($dp.cta){ $dp.cta } else { '/' }); ctaText=$(if($dp.cta){ '세일 탭 보러 가기 →' } else { '맘캘린더 핫딜 보러 가기 →' })
-    asofText=$(if($dp.cta){ '기준 · 맘캘린더 세일 탭에 올라 있는 세일' } else { '기준 · 맘캘린더에 지금 노출 중인 핫딜' }) }
+    asofText=$(if($dp.cta){ '기준 · 맘캘린더 세일 탭에 올라 있는 세일' } else { '기준 · 맘캘린더에 지금 노출 중인 핫딜' })
+    cta2=$(if(@('핫딜정보','세일정보','최저가정보','라방일정') -contains "$($dp.slug)"){ $AppCta.Replace($CtaOs, '') } else { '' }) }   # 2026-11-23 ORDER §6-4: 목록이 긴 4장만 하단 앱 CTA(매일 다시 만들어지는 페이지라 숫자 판 $AppCta)
   [void]$kwMade.Add($dp.slug)
 }
 

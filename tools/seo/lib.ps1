@@ -354,6 +354,7 @@ function WritePage([hashtable]$o){
   $asT = $(if($o.asofText){ $o.asofText } else { '기준 · 공구 일정은 매일 자동 갱신됩니다' })
   [void]$sb.AppendLine("<p class=${Q}asof${Q}>$ASOF $(HtmlEsc $asT)</p>")
   [void]$sb.AppendLine($o.body)
+  if($o.cta2){ [void]$sb.AppendLine($o.cta2) }   # 긴 목록 페이지의 하단 앱 CTA (2026-11-23 ORDER_STORE_SEO_CONVERSION §6-4)
   $ctaH = $(if($o.cta){ $o.cta } else { '/' }); $ctaT = $(if($o.ctaText){ $o.ctaText } else { '오늘 진행 중인 공구 보러 가기 →' })
   [void]$sb.AppendLine("<a class=${Q}cta${Q} href=${Q}$ctaH${Q}>$(HtmlEsc $ctaT)</a>")
   [void]$sb.AppendLine("<div class=${Q}foot${Q}>맘캘린더는 인스타그램 공동구매 일정을 모아 보여주는 무료 서비스입니다.<br>")
