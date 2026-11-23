@@ -559,7 +559,7 @@ gh run watch
    · 각주: 「App Store Connect Analytics · 데이터 완성 D-2」
 
 ④ 웹→앱 전환 (참고)
-   [앱 CTA 클릭 28일][다운로드 합 28일][클릭→설치 비율]
+   [앱 CTA 클릭 28일][다운로드 합 28일][클릭→설치 비율][전일 대비]
    · 각주: 「정확한 퍼널이 아니에요 — CTA 는 웹에서만, 다운로드는 스토어 집계라 시점·중복이 다름」
 
 ⑤ 데이터 신선도 표
@@ -592,6 +592,7 @@ function renderAnalytics(d){ /* ①~⑤ 렌더. 값이 없으면 '—' + 사유 
 
 - **`adminRpc` 말고 다른 통신을 만들지 않는다** (§1-1).
 - 갱신된 값이 없으면(오늘 아직 수집 전) **어제 값 + 「기준 11-22」** 로 보여준다. 빈 화면 금지.
+- **stale 판정은 화면이 한다**: `meta.last_ok_at` 이 36시간을 넘으면 `status` 가 `ok` 여도 칩을 **주황(stale)** 으로 바꾸고 「36시간 넘게 새 값이 없어요」를 붙인다(소스가 조용히 죽은 것을 숨기지 않는다).
 - 탭을 다시 누르면 `loadAnalytics()` 가 재조회한다(캐시 없음 — RPC 가 가볍다).
 - 「⚙️ 지금 수집」 은 `https://github.com/wonji2/momcalendar/actions/workflows/analytics-daily.yml` 을 새 창으로 연다(GitHub 토큰을 admin.html 에 넣지 않는다 — 공개 저장소다).
 
@@ -633,7 +634,7 @@ on conflict (id) do update set as_of=excluded.as_of, payload=excluded.payload, u
 | V2 | 권한(손님 차단) | `curl -s -o /dev/null -w "%{http_code}" "$SB/rest/v1/analytics_daily?select=day&limit=1" -H "apikey: <공개키>"` | **401/403/404** (200 이면 실패) |
 | V3 | 권한(관리자) | 어드민 로그인 후 콘솔 `await adminRpc('analytics_overview',{p_days:28})` | `ok:true` + `meta` 3줄 |
 | V4 | 키 0개 폴백 | `node tools/analytics/collect.mjs` (키 환경변수 비운 채) | **exit 0** · `미설정` 3줄 · 예외 없음 |
-| V5 | GA4 단위 | `node tools/analytics/collect.mjs --only ga4 --dry` | 속성ID 형식·키 유무만 출력, 값 노출 0 |
+| V5 | GA4 점검 | `node tools/analytics/collect.mjs --only ga4 --dry` | 속성ID 형식·키 유무만 출력, 값 노출 0 |
 | V6 | Play CSV 파서 | `node --test tools/analytics/test_play_parse.mjs` (UTF-16 fixture) | 표본 3행의 날짜·설치 수가 기대와 일치 |
 | V7 | Apple JWT | `node tools/analytics/apple.mjs --check` (기존 키로 `GET /v1/apps/6826126083`) | 200 · 앱 이름 출력 |
 | V8 | Apple 리포트 요청 | 위 `--check` 뒤 `analytics_meta.apple` | `ok(요청 생성, 첫 리포트 24~48h)` 또는 `ok(기존 요청 사용)` |
