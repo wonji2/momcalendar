@@ -37,7 +37,7 @@ _momcal_internal_install()
 
 
 # 🛡️ 사장님 지침(11-09): 안티봇 크롤링 방지망 회피를 위한 무작위 시간차 지터 (5~35초)
-_jitter = random.uniform(5.0, 35.0)
+_jitter = 0.0 if os.environ.get('HD_IMPORT_ONLY') == '1' else random.uniform(5.0, 35.0)   # HD_IMPORT_ONLY=1: 다른 도구가 함수만 빌려 쓸 때(백필) 기다리지 않는다
 print(f"[anti-bot] 봇 탐지 회피 무작위 시간차 지터: {_jitter:.1f}초 대기...")
 time.sleep(_jitter)
 
@@ -819,6 +819,90 @@ _JIRUM_ID_RULES = [
     (re.compile(r'gsshop\.com/prd/prd\.gs\?(?:[^\s"]*?&)?prdid=(\d{6,})', re.I), 'https://www.gsshop.com/prd/prd.gs?prdid={0}'),
 ]
 
+# ── 상품키(2026-11-23 2단계) — product_key = '<mall_code>:<상품번호>'. 경로마다 달랐던 키(jirum_·bbhd_·cp_·toss_·oh_·lp_)를 한 꼴로 맞춘다.
+#    번호 규칙은 위 _JIRUM_ID_RULES · resolve_coupang_pid 와 같은 것을 쓴다(새 규칙을 따로 두지 않는다). 계산 못 하면 빈 값 — 지어내지 않는다.
+#    tools/daily/hotdeal_key_backfill.py 가 이 함수를 그대로 불러 옛 행을 채운다.
+_KEY_HOST_CODE = (('gmarket.co.kr', 'gmarket'), ('11st.co.kr', '11st'), ('ssg.com', 'ssg'), ('lotteon.com', 'lotteon'), ('auction.co.kr', 'auction'),
+                  ('cjonstyle.com', 'cjonstyle'), ('oliveyoung.co.kr', 'oliveyoung'), ('gsshop.com', 'gsshop'))
+_KEY_LP_CODE = {'gmarket': 'gmarket', '11st': '11st', 'auction': 'auction', 'lotteon': 'lotteon', 'emart': 'ssg', 'ssg': 'ssg', 'gsshop': 'gsshop', 'cjonstyle': 'cjonstyle', 'oliveyoung': 'oliveyoung'}
+
+def product_key_of(product_id='', link='', origin=''):
+    """→ (product_key, mall_code, option_no). 못 구하면 ('', '', '')."""
+    pid = str(product_id or '')
+    m = re.match(r'^cp_(\d{5,})$', pid)
+    if m:
+        return f'coupang:{m.group(1)}', 'coupang', ''
+    m = re.match(r'^(\d{5,})_(\d+)$', pid)
+    if m:
+        return f'coupang:{m.group(1)}', 'coupang', m.group(2)
+    m = re.match(r'^toss_(\d+)$', pid)
+    if m:
+        return f'toss:{m.group(1)}', 'toss', ''
+    m = re.match(r'^oh_(\d+)$', pid)
+    if m:
+        return f'ohouse:{m.group(1)}', 'ohouse', ''
+    m = re.match(r'^lp_([a-z0-9]+)_([A-Za-z]{0,2}\d{5,})$', pid)
+    if m and m.group(1) in _KEY_LP_CODE:
+        return f'{_KEY_LP_CODE[m.group(1)]}:{m.group(2)}', _KEY_LP_CODE[m.group(1)], ''
+    m = re.match(r'^nol_(\d+)$', pid)
+    if m:
+        return f'yanolja:{m.group(1)}', 'yanolja', ''
+    m = re.match(r'^klook_(\d+)$', pid)
+    if m:
+        return f'klook:{m.group(1)}', 'klook', ''
+    m = re.match(r'^([a-z0-9]+):([A-Za-z]{0,2}\d{4,})$', pid)          # 이미 새 꼴
+    if m:
+        return pid, m.group(1), ''
+    cands = []
+    for u in (origin or '', link or ''):
+        if not u:
+            continue
+        cands.append(u)
+        t = re.search(r'[?&]tu=([^&]+)', u)
+        if t:
+            cands.extend(_unq_all(t.group(1)))
+    for u in cands:
+        for rx, tpl in _JIRUM_ID_RULES:
+            mm = rx.search(u)
+            if mm:
+                code = next((c for h, c in _KEY_HOST_CODE if h in tpl), '')
+                if code:
+                    return f'{code}:{mm.group(1)}', code, ''
+        mm = re.search(r'coupang\.com/vp/products/(\d{5,})', u)
+        if mm:
+            return f'coupang:{mm.group(1)}', 'coupang', ''
+        mm = re.search(r'toss\.shopping/[ti]/(\d+)', u)
+        if mm:
+            return f'toss:{mm.group(1)}', 'toss', ''
+        mm = re.search(r'ohou\.se/(?:productions|goods)/(\d+)', u) or re.search(r'content=[Pp]roduction_(\d+)', u)
+        if mm:
+            return f'ohouse:{mm.group(1)}', 'ohouse', ''
+    return '', '', ''
+
+def hd_after_insert(row_id, prod_id, pkey, price, src='reported'):
+    """등록 직후: 가격 이력 1일 1행(같은 날은 마지막 값, 몰에서 확인한 값은 제보가로 덮지 않는다) + 90일 판정(supabase/sql/hotdeal_polcent_187.sql).
+       is_lowest 는 몰 확인값(measured) 이력이 7일 이상이고 평균보다 5% 이상 쌀 때만 — 제보가만으로는 올리지 않는다(badge='reported' 만)."""
+    if not prod_id or not price:
+        return
+    try:
+        run_sql(f"""
+        INSERT INTO public.price_history (product_id, product_key, day, price, src)
+        VALUES ({sql_quote(prod_id)}, {sql_quote(pkey or None)}, (now() at time zone 'Asia/Seoul')::date, {int(price)}, {sql_quote(src)})
+        ON CONFLICT (product_id, day) DO UPDATE SET price = EXCLUDED.price, product_key = COALESCE(EXCLUDED.product_key, public.price_history.product_key), src = EXCLUDED.src
+          WHERE public.price_history.src IS DISTINCT FROM 'measured' OR EXCLUDED.src = 'measured';
+        WITH j AS (SELECT * FROM public.hotdeal_judge({sql_quote(prod_id)}, {int(price)}))
+        UPDATE public.hotdeals h SET
+          judge_stage = j.stage, judge_basis = j.basis, avg_price = j.avg_price, min_price = j.min_price, drop_pct = j.drop_pct, judge_at = now(),
+          is_lowest = (j.is_lowest AND j.basis = 'measured' AND j.drop_pct >= 5),
+          badge = CASE WHEN j.is_lowest AND j.basis = 'measured' AND j.drop_pct >= 5 THEN 'lowest'
+                       WHEN j.basis = 'reported' AND j.is_lowest THEN 'reported'
+                       WHEN COALESCE(j.drop_pct, 0) >= 25 THEN 'super'
+                       WHEN COALESCE(j.drop_pct, 0) >= 10 THEN 'sale' END
+        FROM j WHERE h.id = {int(row_id)};
+        """)
+    except Exception as e:
+        print(f'[판정] id={row_id} 이력·판정 실패(등록은 됨): {e}')
+
 def jirum_origin_url(detail_url):
     """지름알림 구매 주소 → (번호로 새로 만든 쇼핑몰 원본 상품 주소, 몰 종류). 못 만들면 (None, 사유).
        몰 종류: 'coupang' | 'toss' | 'ohouse' | 'linkprice'. 돌려주는 주소에는 지름알림·애드픽·링크프라이스의 값이 한 글자도 남지 않는다."""
@@ -1030,6 +1114,9 @@ def collect_from_jirum_alarm():
         if not aff_link or not jirum_is_ours(aff_link, source, origin):
             skip(pid, '우리 링크 변환 실패', f'{origin[:60]} · {raw_title}'); return
 
+        pkey, mcode, popt = product_key_of(prod_id, aff_link, origin)
+        if pkey and prod_id.startswith('jirum_'):
+            prod_id = pkey          # 재게시돼도 같은 상품이면 같은 키
         clean_title = tidy_title(raw_title)
         major, minor = jirum_category(clean_title, mall, cat_override, rec['provider'], rec['category'])
         if JIRUM_DRY:
@@ -1038,18 +1125,19 @@ def collect_from_jirum_alarm():
             print(f'  원본 제목  : {raw_title}')
             print(f'  원본 주소  : {origin}')
             print(f'  우리 링크  : {aff_link}')
-            print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id})')
+            print(f'  (지름알림 구매 주소: {rec["detailUrl"][:70]} — 저장 안 함 · 분류 {major}/{minor} · 키 {prod_id} · 상품키 {pkey or "없음"})')
             return
         main_img = '' if mall == '쿠팡' else product_main_image(mall, aff_link, origin, None, clean_title)   # 쿠팡은 사진 검색 API 를 아낀다
         card_img = main_img or (rec['thumbnail'] if rec['thumbnail'].startswith('https://') else '')
         ins_sql = f'''
         INSERT INTO public.hotdeals (
-          title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
+          title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at, product_key, mall_code, option_no, key_src, price_status
         )
         SELECT
           {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
           {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
-          {sql_quote(today_str)}, true, false, {hd_expires_sql(rec, raw_title)}
+          {sql_quote(today_str)}, true, false, {hd_expires_sql(rec, raw_title)},
+              {sql_quote(pkey or None)}, {sql_quote(mcode or None)}, {sql_quote(popt or None)}, {sql_quote('collector' if pkey else 'unknown')}, 'reported'
         WHERE NOT EXISTS (
           SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
         )
@@ -1059,12 +1147,16 @@ def collect_from_jirum_alarm():
         AND NOT EXISTS (
           SELECT 1 FROM public.hotdeals WHERE link = {sql_quote(aff_link)} AND created_at > now() - interval '72 hours' AND price <= {price}
         )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.hotdeals WHERE product_key = {sql_quote(pkey or None)} AND created_at > now() - interval '72 hours' AND price <= {price}
+        )
         RETURNING id;
         '''
         seen.add(pid)          # 여기부터는 다시 열지 않는다(INSERT 가 실패해도 딥링크를 또 부르지 않게)
         res = run_sql(ins_sql)
         if res and isinstance(res, list) and len(res) > 0:
-            run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND id <> {int(res[0].get('id'))} AND expires_at > now() AND price > {price};")
+            run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE (product_id = {sql_quote(prod_id)} OR product_key = {sql_quote(pkey or None)}) AND id <> {int(res[0].get('id'))} AND expires_at > now() AND price > {price};")
+            hd_after_insert(res[0].get('id'), prod_id, pkey, price)
             stats['registered'] += 1
             st['last_reg'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             print(f'[source:jirum] 등록 [{rec["provider"]}/{mall}] {clean_title} ({price:,}원) id={res[0].get("id")}')
@@ -1452,6 +1544,9 @@ def collect_from_bbhd():
                 print(f'[bbhd] {wr_id} 등록 안 함({block}): {raw_title[:50]}')
                 new_max_id = max(new_max_id, wr_id)
                 continue
+            pkey, mcode, popt = product_key_of(prod_id, aff_link, target_link)
+            if pkey and str(prod_id).startswith('bbhd_'):
+                prod_id = pkey
             clean_title = tidy_title(raw_title)
             major, minor = classify_category(clean_title, mall=mall, cat_override=cat_override)
             main_img = product_main_image(mall, aff_link, target_link, cpid if mall == '쿠팡' else None, clean_title)
@@ -1461,12 +1556,13 @@ def collect_from_bbhd():
 
             ins_sql = f'''
             INSERT INTO public.hotdeals (
-              title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at
+              title, link, major, minor, price, img_url, source, product_id, mall, deal_day, manual, is_lowest, expires_at, product_key, mall_code, option_no, key_src, price_status
             )
             SELECT
               {sql_quote(clean_title)}, {sql_quote(aff_link)}, {sql_quote(major)}, {sql_quote(minor)},
               {price}, {sql_quote(card_img)}, {sql_quote(source)}, {sql_quote(prod_id)}, {sql_quote(mall)},
-              {sql_quote(today_str)}, true, false, {hd_expires_sql(None, raw_title)}
+              {sql_quote(today_str)}, true, false, {hd_expires_sql(None, raw_title)},
+              {sql_quote(pkey or None)}, {sql_quote(mcode or None)}, {sql_quote(popt or None)}, {sql_quote('collector' if pkey else 'unknown')}, 'reported'
             WHERE NOT EXISTS (
               SELECT 1 FROM public.hotdeals WHERE product_id = {sql_quote(prod_id)} AND deal_day = {sql_quote(today_str)}
             )
@@ -1477,7 +1573,8 @@ def collect_from_bbhd():
             '''
             b_res = run_sql(ins_sql)
             if b_res and isinstance(b_res, list) and len(b_res) > 0:
-                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND expires_at > now() AND price > {price};")
+                run_sql(f"UPDATE public.hotdeals SET expires_at = now() WHERE product_id = {sql_quote(prod_id)} AND id <> {int(b_res[0].get('id'))} AND expires_at > now() AND price > {price};")
+                hd_after_insert(b_res[0].get('id'), prod_id, pkey, price)
             new_max_id = max(new_max_id, wr_id)
         except Exception as e:
             print(f'[bbhd] wr_id={wr_id} 처리 실패: {e}')
