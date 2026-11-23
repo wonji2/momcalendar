@@ -578,6 +578,21 @@ $GgKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringCom
 $ggKeepFile = Join-Path $PSScriptRoot 'gg_keep_index.txt'
 if(Test-Path $ggKeepFile){ foreach($ln in [IO.File]::ReadAllLines($ggKeepFile)){ $ln = $ln.Trim(); if($ln -and -not $ln.StartsWith('#')){ [void]$GgKeepIdx.Add($ln) } } }
 Write-Output "gg 색인 지킴 명단(구글 노출 90일): $($GgKeepIdx.Count)장"
+# ── p(제품) 색인 계층 (2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §4) — gg 와 같은 원칙, 대상만 p/ ──
+$PKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+$pKeepFile = Join-Path $PSScriptRoot 'p_keep_index.txt'
+if(Test-Path $pKeepFile){ foreach($ln in [IO.File]::ReadAllLines($pKeepFile)){ $ln = $ln.Trim(); if($ln -and -not $ln.StartsWith('#')){ [void]$PKeepIdx.Add($ln) } } }
+$pCut = ([DateTime]::ParseExact($today,'yyyy-MM-dd',$null)).AddDays(-90).ToString('yyyy-MM-dd')
+Write-Output "p 색인 지킴 명단(구글 노출 90일): $($PKeepIdx.Count)장 · 휴면 기준 $pCut"
+# K = 색인 유지 / N = 휴면(noindex,follow + 사이트맵 제외, 페이지는 200 유지)
+#   K 조건: 지금·곧 열리는 공구가 있다 OR 마지막 공구가 90일 안이다 OR 최근 90일 구글 노출이 있다
+function PIndexTier($p, $live, $soon, [string]$cut){
+  if($live.Count -gt 0 -or $soon.Count -gt 0){ return 'K' }
+  if(-not "$($p.last)"){ return 'K' }          # 마지막 공구 날짜를 모르면 내리지 않는다(추정 금지)
+  if("$($p.last)" -ge $cut){ return 'K' }
+  if($PKeepIdx -and $PKeepIdx.Contains("$($p.slug).html")){ return 'K' }
+  return 'N'
+}
 $ggWinFile = Join-Path $PSScriptRoot 'gg_window.txt'
 $prevDays = 0; try{ if(Test-Path $ggWinFile){ $prevDays = [int]([IO.File]::ReadAllText($ggWinFile).Trim()) } }catch{}
 function GgKeepCount([int]$days){ $c0 = GgCutOf $days; return @($ggRows | Where-Object { (GgTier $_ $today $c0) -ne 'C' }).Count + @($KeptGgEd.Keys | Where-Object { $KeptGgEd[$_] -ge $c0 -or $GgKeepIdx.Contains($_) }).Count + $keptGgUnknown }
@@ -763,6 +778,7 @@ foreach($b in $brandList){
 }
 
 # ══ 브랜드 × 제품 페이지 ══
+$pNoIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)   # 2026-11-23 ORDER §4: 휴면 p(noindex) — 사이트맵·공구제품 허브가 이 표를 본다
 foreach($p in $prodList){
   $rows = ParseRows $p.raw @('name','who','od','ed','insta')
   $sp = SplitNow $rows $today
@@ -829,7 +845,10 @@ foreach($p in $prodList){
   $lf = LdFaq $ex.faq
   if($lf){ [void]$ld.Add($lf) }
   [void]$ld.Add((LdCrumb "$($p.key) 공구" $canon))
+  $pTier = PIndexTier $p $live $soon $pCut
+  if($pTier -eq 'N'){ [void]$pNoIdx.Add("$($p.slug).html") }   # 사이트맵(d)·공구제품 허브(4-4)가 이 표를 본다
   WritePage @{ path=(Join-Path $Root "p/$($p.slug).html"); title=$title; desc=$desc; canon=$canon;
+    robots=$(if($pTier -eq 'N'){ $ROBOTS_NOINDEX } else { '' });
     h1="$($p.key) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($p.key) 공구" }
 }
 
@@ -1740,11 +1759,12 @@ Hub '공구셀러.html' "인스타 공구 셀러 목록 ${fmtSellers}명 | 맘�
   "인스타 공구 셀러" "${fmtSellers}명의 공구 이력" `
   "인스타에서 공동구매를 진행하는 셀러 ${fmtSellers}명입니다. 이름을 누르면 그 셀러의 공구 건수, 주력 분야, 진행 중인 공구를 볼 수 있습니다." $lk '공구 셀러'
 $lk = ''
-foreach($p in ($prodList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false})){ $lk += "<a href=${Q}/p/$(Enc $p.slug).html${Q}>$(HtmlEsc $p.key)</a>" }
-Hub '공구제품.html' "공구 제품 목록 $($prodList.Count)개 | 브랜드별 공동구매 - 맘캘린더" `
-  "인스타 공구로 여러 번 진행된 제품 $($prodList.Count)개. 제품을 누르면 진행한 셀러와 공구 이력, 다음 공구 시기를 가늠할 수 있습니다." `
-  "공구 제품" "여러 번 진행된 제품 $($prodList.Count)개" `
-  "두 번 이상 공구로 나온 제품 $($prodList.Count)개입니다. 같은 제품이 얼마 만에 다시 나오는지 이력으로 확인할 수 있습니다." $lk '공구 제품'
+$pIdxCnt = $prodList.Count - $pNoIdx.Count   # 2026-11-23 ORDER §4-4: 휴면(noindex) p 는 허브에서 빼고 개수도 색인 대상 수로
+foreach($p in ($prodList | Where-Object { -not $pNoIdx.Contains("$($_.slug).html") } | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='key';Descending=$false})){ $lk += "<a href=${Q}/p/$(Enc $p.slug).html${Q}>$(HtmlEsc $p.key)</a>" }
+Hub '공구제품.html' "공구 제품 목록 $($pIdxCnt)개 | 브랜드별 공동구매 - 맘캘린더" `
+  "인스타 공구로 여러 번 진행된 제품 $($pIdxCnt)개. 제품을 누르면 진행한 셀러와 공구 이력, 다음 공구 시기를 가늠할 수 있습니다." `
+  "공구 제품" "여러 번 진행된 제품 $($pIdxCnt)개" `
+  "두 번 이상 공구로 나온 제품 $($pIdxCnt)개입니다. 같은 제품이 얼마 만에 다시 나오는지 이력으로 확인할 수 있습니다." $lk '공구 제품'
 
 # ── 케이스 쌍 blob 동기화 (2026-08-28) ──
 # 과거에 이미 생긴 케이스 쌍(g/VOOKS.html·g/Vooks.html 등)은 지우면 그 URL 이 404 가 된다
@@ -1877,8 +1897,8 @@ WriteSitemap 'sitemap-main.xml' $uMain '0.9' 'daily'
 $uB = @(); foreach($b in $brandList){ $uB += "g/$(Enc $b.slug).html" }
 $uB = @($uB) + @(KeptUrls 'g' $uB)
 WriteSitemap 'sitemap-brand.xml' $uB '0.7' 'weekly'
-$uP = @(); foreach($p in $prodList){ $uP += "p/$(Enc $p.slug).html" }
-$uP = @($uP) + @(KeptUrls 'p' $uP)
+$uP = @(); foreach($p in $prodList){ if(-not $pNoIdx.Contains("$($p.slug).html")){ $uP += "p/$(Enc $p.slug).html" } }   # 2026-11-23 ORDER §4-2(d): 휴면 p 는 사이트맵 제외
+$uP = @($uP) + @((KeptUrls 'p' $uP) | Where-Object { -not (HasNoindex ([uri]::UnescapeDataString("$_")) $Root) })
 WriteSitemap 'sitemap-product.xml' $uP '0.7' 'weekly'
 $uS = @(); foreach($s in $sellerMade){ $uS += "s/$(Enc $s.slug).html" }
 $uS = @($uS) + @(KeptUrls 's' $uS)
@@ -2109,6 +2129,7 @@ HomeInject 'index.html'; HomeInject 'test.html'
 $genRoot = New-Object System.Collections.ArrayList
 [void]$genRoot.Add('tools/seo/gg_window.txt')   # 2026-11-16: gg 색인 창(일수) — 다음 날 빌드가 읽는다
 [void]$genRoot.Add('tools/seo/gg_keep_index.txt')   # 2026-11-19: 구글 노출 있던 gg 색인 지킴 명단(빌드 전 단계가 쓴다)
+[void]$genRoot.Add('tools/seo/p_keep_index.txt')   # 2026-11-23 ORDER §4-5: 구글 노출 있던 p 색인 지킴 명단
 [void]$genRoot.Add('llms.txt')   # 2026-10-24: 매일 새로 쓰는 llms.txt 도 자동 커밋 대상(pathspec)
 foreach($k in $kwMade){ [void]$genRoot.Add("$k.html") }
 foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html')){ [void]$genRoot.Add($h) }
@@ -2120,5 +2141,6 @@ if($BlockedRemoved -gt 0){ Write-Output "🚫 차단 브랜드 보존 페이지 
 if($JunkRemoved -gt 0){ Write-Output "🧹 브랜드 아닌 보존 페이지 → 툼스톤: $JunkRemoved 개" }   # 검증자 지적: 세기만 하고 안 찍고 있었다
 if($HeldRemoved -gt 0){ Write-Output "🚫 내려놓은 공구 건별 페이지 → 툼스톤: $HeldRemoved 개" }
 Write-Output "툼스톤: 이번에 새로 $TombNew 개 · 사이트맵 제외 $($TombSet.Count)개"
+Write-Output "p 계층: 색인 $($prodList.Count - $pNoIdx.Count) · 휴면(noindex) $($pNoIdx.Count) · 사이트맵 product $($uP.Count)"
 Write-Output "sitemap: main $($uMain.Count) · brand $($uB.Count) · product $($uP.Count) · seller $($uS.Count) · gonggu $($uGG.Count)"
 Write-Output "sitemap URL 합계 = $total"

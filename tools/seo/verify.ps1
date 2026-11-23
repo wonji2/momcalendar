@@ -140,10 +140,30 @@ if($noindexInSitemap -gt 0){ Bad "noindex 페이지가 사이트맵에 실렸다
 #      (지시서 초안은 「noindex 합계 24,000 초과」였는데, gg 가 달마다 7천 장씩 늘어 한두 달 뒤 정상 상태에서도 걸려 매일 커밋이 막힌다 → 비율로 바꿨다)
 #   ② 슬림화 회귀: sitemap-gonggu 가 13,000 을 넘으면 실패(빌드가 12,000 에 맞춰 창을 스스로 줄이므로 정상이면 안 넘는다)
 #   ③ 과도 축소: 3,000 미만이면 gg 데이터 생성 실패로 본다
+#   ① 템플릿 사고(전 페이지 noindex): p·gg 는 계층을 쓰므로 폴더별 5% 가드에서 뺀다 → 각자 상한으로 본다. (2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §4-3)
 foreach($dk in @($filesByDir.Keys)){
-  if($dk -eq 'gg'){ continue }
+  if($dk -eq 'gg' -or $dk -eq 'p'){ continue }
   $nn = [int]$noidxByDir[$dk]; $tt = [int]$filesByDir[$dk]
   if($nn -gt [Math]::Max(30, [int]($tt * 0.05))){ Bad "noindex 페이지가 $dk 폴더에 $nn / $tt 장 — 템플릿 사고 의심(전 페이지 noindex)" }
+}
+#   p 3계층 상한 — 휴면이 70% 를 넘으면 데이터·판정 사고로 본다
+$pAll2 = [int]$filesByDir['p']; $pNo2 = [int]$noidxByDir['p']
+if($pAll2 -gt 0 -and $pNo2 -gt [int]($pAll2 * 0.70)){ Bad "p 폴더 noindex $pNo2 / $pAll2 — 계층 판정 사고 의심" }
+Write-Output "p noindex $pNo2 / $pAll2 장"
+#   🔴 색인 지킴 명단 위반 = 11-19 사고의 재발. 명단에 있는 페이지가 noindex 면 실패
+foreach($kf in @(@{f='p_keep_index.txt'; d='p'}, @{f='gg_keep_index.txt'; d='gg'})){
+  $kp = Join-Path $PSScriptRoot $kf.f
+  if(-not (Test-Path $kp)){ continue }
+  $bad = 0
+  foreach($ln in [IO.File]::ReadAllLines($kp)){
+    $ln = $ln.Trim(); if(-not $ln -or $ln.StartsWith('#')){ continue }
+    $fp2 = Join-Path $root "$($kf.d)/$ln"
+    if(-not (Test-Path -LiteralPath $fp2)){ continue }
+    $kt = [IO.File]::ReadAllText($fp2)
+    if($kt.IndexOf('http-equiv="refresh"', [StringComparison]::Ordinal) -ge 0){ continue }   # 툼스톤(차단 브랜드·삭제 안내 쪽지)은 noindex 가 정상 — 위반에서 뺀다
+    if($kt -match '<meta name="robots" content="[^"]*noindex'){ $bad++; if($bad -le 3){ Bad "색인 지킴 명단인데 noindex: $($kf.d)/$ln" } }
+  }
+  Write-Output "$($kf.f) 위반: $bad"
 }
 $ggSm = @($allUrl | Where-Object { $_ -match '/gg/' }).Count
 Write-Output "sitemap-gonggu: $ggSm URL · gg noindex $([int]$noidxByDir['gg']) / $([int]$filesByDir['gg']) 장"

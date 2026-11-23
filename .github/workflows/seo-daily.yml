@@ -48,6 +48,15 @@ jobs:
           GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
           GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
 
+      # 2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §4-5: p(제품) 휴면 계층 — 최근 90일 노출 있는 p 는 noindex 로 내리지 않는다
+      - name: p 색인 지킴 명단
+        continue-on-error: true
+        run: node tools/seo/p_keep_index.mjs
+        env:
+          GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
+          GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
+          GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
+
       - name: 페이지 생성
         shell: pwsh
         run: ./tools/seo/build.ps1
