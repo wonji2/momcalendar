@@ -2862,13 +2862,14 @@ window.slimAdClick=function(id){
         <button id="hdResetBtn" type="button" onclick="resetHdFilter()" style="display:none;background:#F2F4F6;border:1px solid #E5E8EB;color:#4E5968;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer">전체보기 ✕</button>
         <div class="hd-sort-wrap" style="position:relative">
           <button id="hdSortBtn" type="button" onclick="toggleHdSortDropdown(event)" style="display:flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:20px;border:1px solid #E5E8EB;background:#fff;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer;-webkit-tap-highlight-color:transparent">
-            <span id="hdSortLabel">최신순</span>
+            <span id="hdSortLabel">판정딜</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div id="hdSortDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #E5E8EB;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:200;min-width:105px;overflow:hidden;padding:4px 0">
+            <button type="button" class="hd-opt on" onclick="pickHdSort('judge')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:700;color:#7C54C4;cursor:pointer">판정딜 ✓</button>
             <button type="button" class="hd-opt" onclick="pickHdSort('drop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">급하락순</button>
             <button type="button" class="hd-opt" onclick="pickHdSort('pop')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">인기순</button>
-            <button type="button" class="hd-opt on" onclick="pickHdSort('new')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:700;color:#7C54C4;cursor:pointer">최신순 ✓</button>
+            <button type="button" class="hd-opt" onclick="pickHdSort('new')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;font-size:12.5px;font-weight:600;color:#4E5968;cursor:pointer">최신순</button>
           </div>
         </div>
       </div>
@@ -5043,7 +5044,6 @@ async function loadHotdeals(){
     if(!r.ok) throw 0;
     
     _hotdealData = (await r.json()).map(function(item){
-      if(item.id === 42 && item.price === 8800) item.price = 9900;
 
       return item;
     });
@@ -5061,7 +5061,7 @@ function _hdDemo(){
     product_id:'__demo__',source:'coupang',created_at:new Date().toISOString(),img_url:''};
 }
 let _hdCurrentCat = 'all';
-let _hdCurrentSort = 'new';
+let _hdCurrentSort = 'judge';
 let _hdOnlyLowest = false;
 window._selectedMalls = new Set(['all']);
 
@@ -5091,7 +5091,7 @@ window.toggleHdMall = function(mall){
 window.resetHdFilter = function(){
   _hdOnlyLowest = false;
   _hdCurrentCat = 'all';
-  _hdCurrentSort = 'new';
+  _hdCurrentSort = 'judge';
 
   if(window._selectedMalls){
     _selectedMalls.clear();
@@ -5115,13 +5115,13 @@ window.resetHdFilter = function(){
   });
 
   var sLbl = document.getElementById('hdSortLabel');
-  if(sLbl) sLbl.textContent = '최신순';
+  if(sLbl) sLbl.textContent = '판정딜';
   var dd = document.getElementById('hdSortDropdown');
   if(dd){
     var btns = dd.querySelectorAll('.hd-opt');
-    var labels = ['급하락순', '인기순', '최신순'];
+    var labels = ['판정딜', '급하락순', '인기순', '최신순'];
     btns.forEach(function(b, idx){
-      var match = (idx === 2);
+      var match = (idx === 0);
       b.classList.toggle('on', match);
       b.style.fontWeight = match ? '700' : '600';
       b.style.color = match ? '#7C54C4' : '#4E5968';
@@ -5144,15 +5144,15 @@ window.toggleHdSortDropdown = function(e){
 };
 
 window.pickHdSort = function(sort){
-  var labels = {drop: '급하락순', pop: '인기순', new: '최신순'};
+  var labels = {judge: '판정딜', drop: '급하락순', pop: '인기순', new: '최신순'};
   var lbl = document.getElementById('hdSortLabel');
-  if(lbl) lbl.textContent = labels[sort] || '최신순';
+  if(lbl) lbl.textContent = labels[sort] || '판정딜';
 
   var dd = document.getElementById('hdSortDropdown');
   if(dd){
     dd.style.display = 'none';
     var btns = dd.querySelectorAll('.hd-opt');
-    var keys = ['drop', 'pop', 'new'];
+    var keys = ['judge', 'drop', 'pop', 'new'];
     btns.forEach(function(b, idx){
       var match = (keys[idx] === sort);
       b.classList.toggle('on', match);
@@ -5195,7 +5195,7 @@ window.setHdCategory = function(cat){
 };
 
 window.setHdSort = function(sort){
-  _hdCurrentSort = sort || 'new';
+  _hdCurrentSort = sort || 'judge';
   renderHotdeals();
 };
 
@@ -5292,10 +5292,26 @@ function renderHotdeals(){
   }
 
   var sorted = filtered.slice();
-  if(_hdCurrentSort === 'drop'){
+  var _hdNewest = function(a, b){
+    var ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    var tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return (tb - ta) || ((b.id || 0) - (a.id || 0));
+  };
+  if(_hdCurrentSort === 'judge'){
+    // 판정딜(2026-11-23): 90일 가격 이력으로 최저가 판정이 붙은 딜을 먼저, 그 뒤는 최신순
     sorted.sort(function(a, b){
-      return (b.discount_rate || 0) - (a.discount_rate || 0);
+      return ((b.is_lowest ? 1 : 0) - (a.is_lowest ? 1 : 0)) || _hdNewest(a, b);
     });
+  } else if(_hdCurrentSort === 'drop'){
+    // 급하락순(2026-11-23): 할인율을 모르는 카드는 뺀다 — 전에는 0% 로 쳐서 이름만 급하락순이었다. 8장이 안 되면 그때만 나머지를 뒤에 붙인다
+    var _hdRated = sorted.filter(function(x){ return x.discount_rate != null && Number(x.discount_rate) > 0; });
+    _hdRated.sort(function(a, b){ return (b.discount_rate || 0) - (a.discount_rate || 0) || _hdNewest(a, b); });
+    if(_hdRated.length < 8){
+      var _hdRest = sorted.filter(function(x){ return !(x.discount_rate != null && Number(x.discount_rate) > 0); });
+      _hdRest.sort(_hdNewest);
+      _hdRated = _hdRated.concat(_hdRest);
+    }
+    sorted = _hdRated;
   } else if(_hdCurrentSort === 'pop'){
     sorted.sort(function(a, b){
       return (b.is_lowest ? 1 : 0) - (a.is_lowest ? 1 : 0) || (b.discount_rate || 0) - (a.discount_rate || 0);
@@ -5348,7 +5364,7 @@ function renderHotdeals(){
             + '<div class="hd-thumb-wrap" style="position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden;">'
               + rankBadge
               + thumb
-              + (h.is_lowest ? '<span class="c-micro-badge badge-red" style="z-index:2;">역대최저</span>' : '')
+              + (h.is_lowest ? '<span class="c-micro-badge badge-red" style="z-index:2;">역대최저</span>' : (h.badge === 'reported' ? '<span class="c-micro-badge" style="z-index:2;background:#F2F4F6;color:#4E5968">제보가 최저</span>' : ''))
             + '</div>'
             + '<div class="hd-info" style="padding:6px 2px 2px;">'
               + '<div class="hd-meta" style="font-size:10.5px; color:#8B95A1;">' + (mall ? '<span class="hd-mall-tag">' + hcEsc(mall) + '</span> ' : '') + '<span>' + hcEsc(h.major || '') + '</span></div>'
@@ -5383,7 +5399,14 @@ let _hdIdx=0;
 // 상시 노출 핫딜(pin_random)은 매일 다른 자리에 끼워 넣는다.
 // 같은 날 안에서는 자리가 바뀌지 않게 '날짜'를 씨앗으로 쓴다(새로고침할 때마다 튀면 어지러움).
 // 같은 이름(기호·공백 무시)+같은 가격은 먼저 온 것 하나만 (2026-11-01 사장님 「동일상품 2개 왜 안 걸러」 — 제보 cp_ 키와 회차 키가 달라 DB 중복검사를 비켜갔다)
-function hdDedupe(list){ const seen=new Set(); return (list||[]).filter(h=>{ const k=String(h.title||'').toLowerCase().replace(/[^가-힣a-z0-9]/g,'')+'|'+(h.price||''); if(seen.has(k)) return false; seen.add(k); return true; }); }
+function hdDedupe(list){
+  /* 2026-11-23: 같은 상품키(몰:상품번호)는 싼 쪽 한 장만(순서는 그대로). 상품키가 없는 행은 예전처럼 제목+가격으로 본다 */
+  const L=list||[], best=new Map();
+  const pk=h=>{ const k=String((h&&(h.product_key||h.product_id))||''); return /^[a-z0-9]+:[A-Za-z]{0,2}\d{4,}$/.test(k)?k:''; };
+  L.forEach((h,i)=>{ const k=pk(h); if(!k) return; const p=Number(h.price)||Infinity, b=best.get(k); if(!b||p<b.p) best.set(k,{i,p}); });
+  const seen=new Set();
+  return L.filter((h,i)=>{ const k=pk(h); if(k && best.get(k).i!==i) return false; const t=String(h.title||'').toLowerCase().replace(/[^가-힣a-z0-9]/g,'')+'|'+(h.price||''); if(seen.has(t)) return false; seen.add(t); return true; });
+}
 function hdOrder(list){
   const rest=(list||[]).filter(x=>!x.pin_random);
   const pins=(list||[]).filter(x=>x.pin_random);
@@ -5600,7 +5623,7 @@ async function openHdSheet(id){
   let pts=[];
   try{
     const _hq=(fn,b)=>fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(b)});
-    let r=await _hq('hotdeal_chart2',{pid:h.product_id,days:180}); if(!r.ok) r=await _hq('hotdeal_chart',{pid:h.product_id});
+    let r=await _hq('hotdeal_chart4',{pid:(h.product_key||h.product_id),days:180}); if(!r.ok) r=await _hq('hotdeal_chart2',{pid:h.product_id,days:180}); if(!r.ok) r=await _hq('hotdeal_chart',{pid:h.product_id});
     if(r.ok) pts=await r.json();
   }catch(e){}
 
@@ -5657,7 +5680,7 @@ async function openHdSheet(id){
       :(h.source==='goldbox'?`<div style="background:#FFF8E8;border:1px solid #F5E0AE;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:#8A6100;margin-bottom:12px">⭐ 쿠팡이 오늘의 특가(골드박스)로 고른 상품이에요</div>`
       :'')}
 
-    ${(pts && pts.length >= 2) ? `<div id="hdChartBox">${hdChartBox(h,pts,2)}</div>` : `<div style="background:#F8F4FD; border:1px solid #ECE7F5; border-radius:12px; padding:16px 14px; text-align:center; margin:10px 0 14px;"><div style="font-size:13.5px; font-weight:700; color:#191F28;">가격 변동 이력 수집 중</div><div style="font-size:12px; color:#7858A6; margin-top:4px;">첫 등록가: ${wonFmt(h.price)} · 실시간 가격 변동을 추적하고 있어요</div></div>`}
+    ${(pts && pts.length >= 2) ? `<div id="hdChartBox">${hdChartBox(h,pts,2)}</div>${(pts.length < 7 || pts.some(p=>p&&p.basis==='reported')) ? `<div style="font-size:11.5px;color:#8B95A1;margin:-6px 0 12px;text-align:center">${pts.length < 7 ? `가격 이력 ${pts.length}일째 · 판정은 7일부터` : ''}${(pts.length < 7 && pts.some(p=>p&&p.basis==='reported')) ? ' · ' : ''}${pts.some(p=>p&&p.basis==='reported') ? '제보가 기준(몰 자동 확인 불가)' : ''}</div>` : ''}` : `<div style="background:#F8F4FD; border:1px solid #ECE7F5; border-radius:12px; padding:16px 14px; text-align:center; margin:10px 0 14px;"><div style="font-size:13.5px; font-weight:700; color:#191F28;">가격 이력 ${(pts&&pts.length)||0}일째 · 판정은 7일부터</div><div style="font-size:12px; color:#7858A6; margin-top:4px;">첫 등록가: ${wonFmt(h.price)}${(h.badge==='reported'||(pts||[]).some(p=>p&&p.basis==='reported')) ? ' · 제보가 기준(몰 자동 확인 불가)' : ''}</div></div>`}
 
 
 
@@ -12701,6 +12724,9 @@ function hdGridCardHtml(h){
   else if(h.change && String(h.change).indexOf('▼')!==-1) unitTxt='('+hcEsc(h.change)+')';
 
   var badgeHtml = '';
+  if (!h.is_lowest && h.badge === 'reported') {
+    badgeHtml = '<span style="position:absolute;top:6px;left:6px;background:#F2F4F6;color:#4E5968;font-size:9.5px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap!important;word-break:keep-all;z-index:2">제보가 최저</span>';
+  }
   if (h.is_lowest) {
     badgeHtml = '<span style="position:absolute;top:6px;left:6px;background:#FF3B30;color:#fff;font-size:9.5px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap!important;word-break:keep-all;box-shadow:0 1px 3px rgba(0,0,0,0.15);z-index:2">역대최저</span>';
   }
