@@ -30,8 +30,9 @@ claude "orders/ORDER_INFEED_CPA_REPLACE_2026-11-23.md 끝까지 읽고 §1 표�
 | 위치 | 실측 |
 | --- | --- |
 | `index.html` `var IN_FEED_PROMOS = [` | **1724행** (배열 끝 1775행) |
-| `test.html` `var IN_FEED_PROMOS = [` | **1750행** (배열 끝 1801행) |
-| 배열 항목 | **5개** — `wink_free_trial` · `elyhigh_elem_10day` · `bebecook_trial` · `dousiki_clean` · `modooisa_quote` |
+| `test.html` `var IN_FEED_PROMOS = [` | **1750행** (배열 끝 1813행) |
+| `index.html` 배열 항목 | **5개** — `wink_free_trial` · `elyhigh_elem_10day` · `bebecook_trial` · `dousiki_clean` · `modooisa_quote` |
+| `test.html` 배열 항목 | **6개** — 위 5개 + **`miso_cleaning_helper`** (2026-11-12 삭제 확정된 임시 링크 `https://miso.kr` 가 아직 남아 있다. `index.html`에는 없다 → test가 index보다 한 세대 뒤처진 상태) |
 | 기본 노출 시안 | `_infeedMode` 기본값 **'2'** (키즈노트 원형). 썸네일은 `.mc-kn-thumb` **72×54px**(480px 이하 68×50, 360px 이하 64×48) `object-fit: cover`, `contain:true`면 `object-fit: contain` + `#FFF5E8` 패딩 |
 | DB 우회 여부 | 공개 REST `banners_public?active=eq.true&type=eq.infeed` → **`[]` (0건)**. 즉 지금 화면의 인피드는 **전부 코드 배열**이 그린다. (DB에 `type=infeed` 행이 1건이라도 켜지면 코드 배열은 통째로 대체된다 — §6 참조) |
 | 베베쿡 카드 | `bebecook_trial` → `url: 'https://www.bebecook.com/'` **추적 파라미터 0** → 클릭이 몇 번 나도 수익 0원. 유지 이유가 없다 |
@@ -46,6 +47,7 @@ claude "orders/ORDER_INFEED_CPA_REPLACE_2026-11-23.md 끝까지 읽고 §1 표�
 | 유지 | `wink_free_trial` | 그대로 (윙크 고유 추천링크, 정회원 전환 시 수익) |
 | 유지 | `elyhigh_elem_10day` | 그대로 (`iryan.kr/t8hcvn4oui`, 38,500원) |
 | **삭제** | `bebecook_trial` | **완전 삭제** (수익 0원 일반 링크) |
+| **삭제** | `miso_cleaning_helper` | **test.html에만 있는 잔재.** `https://miso.kr` 임시 주소(제휴 링크 없음, 2026-11-12 삭제 확정). §3 블록으로 통째 교체하면 자동 제거된다 |
 | 유지 | `dousiki_clean` | 그대로 (`iryan.kr/t8hcvo5rp4`, 16,500원) |
 | 유지 | `modooisa_quote` | 그대로 (`iryan.kr/t8hcvn4ouh`, 16,800원) |
 | **신규** | `daegu_babyfair` | CPA 2,475원 (12월 대구 베이비&키즈페어) |
@@ -70,13 +72,13 @@ claude "orders/ORDER_INFEED_CPA_REPLACE_2026-11-23.md 끝까지 읽고 §1 표�
 
 ---
 
-## 3. 배열 교체 (index.html 1724~1775행 / test.html 1750~1801행)
+## 3. 배열 교체 (index.html 1724~1775행 / test.html 1750~1813행)
 
-아래 블록으로 **배열 전체를 바꾼다**. 기존 4개 유지 항목의 `id`·`url`·`thumb`은 **한 글자도 바꾸지 않는다**(추적 링크가 바뀌면 지금까지 쌓인 실적 집계가 끊긴다).
+두 파일 모두 아래 블록으로 **배열 전체를 바꾼다**(test.html은 이 교체로 `miso_cleaning_helper`도 함께 사라진다). 기존 4개 유지 항목의 `id`·`url`·`thumb`은 **한 글자도 바꾸지 않는다**(추적 링크가 바뀌면 지금까지 쌓인 실적 집계가 끊긴다).
 
 ```js
 // 인피드 혜택 카드 — 수익이 검증된 링크만 둔다 (길아 님 2026-11-23 "다 지금 수익나는 걸로 바꿔놔")
-// 손대지 말 것: 유지 4종의 id·url·thumb. 수익 0원이던 베베쿡(bebecook_trial)은 2026-11-23 삭제.
+// 손대지 말 것: 유지 4종의 id·url·thumb. 수익 0원이던 베베쿡(bebecook_trial)과 임시주소 미소(miso_cleaning_helper, test 전용)는 2026-11-23 삭제.
 var _IN_FEED_ALL = [
   {
     id: 'wink_free_trial',
@@ -196,7 +198,7 @@ if (!IN_FEED_PROMOS.length) IN_FEED_PROMOS = _IN_FEED_ALL.slice();   // 전부 �
 
 | 번호 | 무엇을 | 통과 기준 | 방법 |
 | --- | --- | --- | --- |
-| V1 | 베베쿡 제거 | `grep -c "bebecook" index.html test.html` → **0** (썸네일 외부 URL 포함) | grep |
+| V1 | 베베쿡·미소 제거 | `grep -c "bebecook" index.html test.html` → **0 0**, `grep -c "miso\.kr" test.html` → **0** | grep |
 | V2 | 배열 정합 | `IN_FEED_PROMOS.length === 8`, id 8개가 §3과 일치, `_IN_FEED_ALL.length === 8` | 콘솔 |
 | V3 | 타이틀 말줄임 0 | `.mc-kn-title` 전 카드에서 `scrollWidth <= clientWidth` (390·360·320px) | 콘솔 `[...document.querySelectorAll('.mc-kn-title')].filter(e=>e.scrollWidth>e.clientWidth)` → `[]` |
 | V4 | 썸네일 표시 | 4개 신규 카드 모두 `naturalWidth > 0`, 404 없음(네트워크 탭) | 콘솔 `img.complete && img.naturalWidth` |
@@ -218,6 +220,7 @@ if (!IN_FEED_PROMOS.length) IN_FEED_PROMOS = _IN_FEED_ALL.slice();   // 전부 �
 5. **추적 URL은 iryan.kr 정본만.** `www.bebecook.com` 같은 일반 홈페이지 주소로 때우면 수익 0원이다(이번 교체의 원인).
 6. **`until`을 지우지 말 것.** 수원 코베는 11/25 23:59에 캠페인 자체가 끝난다. 필터를 빼면 끝난 행사 카드가 계속 돈다.
 7. **유지 4종 id·url 변경 금지.** 실적 집계 키가 id다.
+8. **test.html은 index.html과 배열이 다르다(6 vs 5).** test에만 `miso_cleaning_helper`(`https://miso.kr`)가 남아 있다. test만 8개로 바꾸고 index를 5개 그대로 두면 두 파일이 더 벌어진다 — **반드시 두 파일 모두 §3의 8개 블록으로 통일**한다. `miso-cleaning-thumb.jpg`·`thumbFb` 참조도 배열에서 사라져야 한다.
 
 ---
 
