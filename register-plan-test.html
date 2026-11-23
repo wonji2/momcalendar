@@ -758,7 +758,7 @@ async function planLoad(){
   const box=document.getElementById('planBox');
   if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
   _plan=d; planRender(); planPaidCheck();
-  if(_kakao===null){ _kakao={connected:false,loading:true}; sellerRpc('seller_kakao_status').then(function(x){ _kakao={connected:!!(x&&x.ok&&x.connected)}; planRender(); }); }
+  if(_kakao===null){ _kakao={connected:false,loading:true}; sellerRpc('seller_kakao_status').then(function(x){ _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean')}; planRender(); planPaidCheck(); }); }
   if(_cafeNick===null&&(d.state==='pending'||d.state==='active')){ _cafeNick=''; sellerRpc('seller_cafe_get').then(x=>{ if(x&&x.ok){ _cafeNick=x.nick||''; planRender(); } else _cafeNick=null; }); }
 }
 function planRender(){
@@ -778,7 +778,7 @@ function planRender(){
   if(_plan.state==='pending'){
     box.innerHTML=
       '<div class="pn-use"><div><b>'+(planCard()?'결제':'입금')+(_plan.claimed?' 확인 중':' 대기')+'</b><span>'+planEsc(planDue(_plan.pay_due))+'</span></div><button class="pn-pill p" onclick="planSheetOpen()">'+(planCard()?'결제':'입금')+' 안내</button></div>'+
-      '<div style="height:12px"></div>'+(_plan.showing?planWays(false):planKakaoRow(false));
+      '<div style="height:12px"></div>'+(_plan.showing?planWays(false):'');
     return;
   }
   const left=Number(_plan.slots_left||0);
@@ -796,7 +796,6 @@ function planRender(){
       planBf(1,[['banners/plan_example_v1.jpg',1125,1068],['banners/plan_example_list_v1.jpg',1125,978]],'메인 배너·목록 맨 위 노출','열 때마다 자리 랜덤 · 보라색 강조 카드',PLAN_SITE,'맘캘린더에서 보기')+
       planBf(2,[['banners/plan_example_cafe_top_v1.jpg',1125,792],['banners/plan_example_cafe_board_v2.jpg',957,236,'fit']],'맘카페 2만2천명에 자동 공유','3일 전 자동 게시 · 단독게시판 월 20글','https://cafe.naver.com/momcal','카페에서 보기')+
       planBf(3,[['banners/plan_example_insta_v1.jpg',1125,2319,'cap']],'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_/','인스타에서 보기')+
-      '<div class="pn-lb pn-lb2">카톡 알림</div>'+planKakaoRow(false)+
       '<div class="pn-lb pn-lb2">가격</div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
@@ -805,8 +804,9 @@ function planRender(){
 }
 function planKakaoRow(top){ return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">카톡</div><div class="v">'+(_kakao&&_kakao.connected?'결제·만료 알림':'결제·만료 알림 받기')+'</div>'+(_kakao&&_kakao.connected?'<div class="on">연결됨</div>':'<button class="pn-pill p" onclick="planKakaoStart()">연결</button>')+'</div>'; }
 function planWays(top){
-  return planKakaoRow(top)+
-    '<div class="pn-ln"><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
+  const kk=!!(_plan&&_plan.state==='active');
+  return (kk?planKakaoRow(top):'')+
+    '<div class="pn-ln"'+(!kk&&!top?' style="border-top:none"':'')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
     '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
     '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
     '<div class="pn-ln"><div class="k">카페</div><div class="v cf-v">'+(_cafeNick?'맘카페 · '+planEsc(_cafeNick):'맘카페 가입 · 닉네임')+'</div><button class="pn-pill'+(_cafeNick?'':' p')+'" onclick="cfOpen()">'+(_cafeNick?'수정':'입력')+'</button></div>'+
@@ -846,7 +846,8 @@ function planKakaoResult(){
   q.delete('kakao'); q.delete('why');
   try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
   setTimeout(function(){ showToast(msg); },400);
-  if(k==='ok') _kakao=null;   // 다시 읽는다
+  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); }catch(e){} }   // 다시 읽는다
+  else if(why!=='cancel'){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
 }
 async function planStart(){
   if(_planBusy) return; _planBusy=true;
@@ -898,7 +899,10 @@ async function planMethod(i){
   if(!d||!d.ok){ const e=document.getElementById('planErr'); if(e) e.textContent=d&&d.msg==='claimed'?'이미 보냈어요.':d&&d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'바꾸지 못했어요. 다시 눌러 주세요.'; if(d&&d.msg==='no_pending'){ planSheetClose(); await planLoad(); } return; }
   await planLoad(); planSheetOpen();
 }
-function planSheetClose(){ document.getElementById('planDim').classList.remove('on'); }
+function planSheetClose(){
+  if(window._kkGate){ try{ showToast('카톡 연결을 먼저 해 주세요'); }catch(e){} return; }
+  document.getElementById('planDim').classList.remove('on');
+}
 function planKind(k){
   _planKind=k;
   const names={income:'소득공제',expense:'지출증빙',none:'안 함'};
@@ -1084,8 +1088,29 @@ async function lkSave(){
 /* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ─────────────────────────
    「이용 중」이 처음 보일 때 한 번 띄운다. 스룩 결제 창에서 돌아오면 상태를 다시 읽는다. */
 function planPaidKey(){ return 'mc_plan_paid_'+((_seller&&(_seller.seller_insta||_seller.login_insta))||'')+'_'+((_plan&&_plan.end_date)||''); }
+function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail')||0); return t && Date.now()-t<86400e3; }catch(e){ return false; } }
+function planKakaoGate(){
+  window._kkGate=true;
+  const later=planKakaoFailed();
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-ic"><i></i></div>'+
+    '<div class="pd-t">결제가 완료되었습니다</div>'+
+    '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
+    '<div class="pd-box">'+
+      '<div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 결제 안내·만료 7·3·1일 전 알림<br>카톡 「나와의 채팅」으로 와요</div></div>'+
+    '</div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" id="kkGateBtn" onclick="planKakaoStart()">카톡 연결하기</button>'+
+      (later?'<button class="pn-cta s" onclick="window._kkGate=false;planSheetClose()">나중에</button>':'')+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
 function planPaidCheck(){
   if(!_plan||_plan.state!=='active'||!_plan.end_date) return;
+  if(!_kakao||_kakao.loading) return;                              // 카톡 상태를 읽은 뒤에(planLoad 가 다시 부른다)
+  if(_kakao.known&&!_kakao.connected){ if(!document.getElementById('planDim').classList.contains('on')) planKakaoGate(); return; }
+  if(window._kkGate){ window._kkGate=false; planSheetClose(); }
   let seen=false; try{ seen=!!localStorage.getItem(planPaidKey()); }catch(e){}
   if(seen||document.getElementById('planDim').classList.contains('on')) return;
   planPaidOpen();
@@ -1152,7 +1177,7 @@ async function planClaim(){
   if(!/[?&]demo=/.test(location.search)) return;
   const due=()=>{ const k=new Date(Date.now()+9*3600e3+86400e3).toISOString().slice(0,10); return new Date(k+'T23:59:59+09:00').toISOString(); };
   const end=()=>{ const d=new Date(Date.now()+9*3600e3); d.setUTCMonth(d.getUTCMonth()+(st.months||6)); d.setUTCDate(d.getUTCDate()-1); return d.toISOString().slice(0,10); };
-  const st={state:'none',prices:{3:290000,6:490000},slots_left:12,clicks:386,wishes:57};
+  const st={state:'none',prices:{3:290000,6:490000},slots_left:12,clicks:386,wishes:57,kakao:(function(){ try{ return localStorage.getItem('mc_demo_kk')==='1' || /[?&]kk=1/.test(location.search); }catch(e){ return false; } })()};
   const real=sellerRpc;
   sellerRpc=async function(fn,p){
     if(fn==='seller_list_gonggu') return [];
@@ -1175,7 +1200,7 @@ async function planClaim(){
     if(fn==='seller_banner_save'){ st.banner={name:p.p_name,desc:p.p_desc,link:p.p_link,img:p.p_img,active:true}; return {ok:true}; }
     return real(fn,p);
   };
-  window.planKakaoStart=async function(){ st.kakao=true; _kakao={connected:true}; planRender(); showToast('카톡 알림이 연결됐어요(화면만 보기)'); };
+  window.planKakaoStart=async function(){ st.kakao=true; _kakao={connected:true,known:true}; window._kkGate=false; planSheetClose(); planRender(); showToast('카톡 알림이 연결됐어요(화면만 보기)'); try{ localStorage.removeItem(planPaidKey()); }catch(e){} setTimeout(planPaidCheck,300); };
   window.planDemo=function(s){
     if(s==='none') Object.assign(st,{state:'none',claimed:false});
     if(s==='pending') Object.assign(st,{state:'pending',months:6,amount:490000,method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}});
