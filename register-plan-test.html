@@ -276,6 +276,7 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .pn-bf-txt{display:block;flex:1;min-width:0}
 .pn-bf-txt>span{display:flex}
 .pn-bf-txt>.pn-bf-s{display:block}
+.pn-nb{white-space:nowrap}
 .pn-bf-more{flex:none;display:inline-flex;align-items:center;height:28px;padding:0 8px 0 10px;border-radius:100px;background:#F6F3FA;color:#7C54C4;font-size:12px;font-weight:700}
 .pn-bf-more .pn-chev{width:5px;height:5px;margin:0 2px 3px 5px;border-color:#7C54C4;transform:rotate(45deg);transition:transform .2s}
 .pn-bf-row[aria-expanded="true"] .pn-bf-more .pn-chev{transform:rotate(-135deg);margin-bottom:-2px}
@@ -834,7 +835,7 @@ function planToggle(){ _planOpen=!_planOpen; planRender(); }
 /* 혜택 「직접 보기」 — 같은 창으로 가고, 돌아오면 펼친 채 그 자리 (2026-11-23) */
 function planGo(url,label,gap){ return '<a class="pn-go'+(gap?' gap':'')+'" href="'+url+'" onclick="planGoMark()">'+label+'<i class="pn-go-ar"></i></a>'; }
 const PLAN_SITE='https://momcalendar.com/test.html?preview=1';   // 테스트 동안만 — 라이브로 옮길 때 'https://momcalendar.com/'
-function planBf(n,imgs,title,sub,url,label){ const op=(window._bfOpen||[]).indexOf(n)>=0; return '<div class="pn-bf"><button type="button" class="pn-bf-row" aria-expanded="'+op+'" onclick="planBfOpen(this,'+n+')"><span class="pn-bf-txt"><span class="pn-bf-t"><i>'+n+'</i>'+planEsc(title)+'</span><span class="pn-bf-s">'+planEsc(sub)+'</span></span><span class="pn-bf-more">예시<i class="pn-chev"></i></span></button><div class="pn-bf-ex"'+(op?'':' hidden')+'>'+imgs.map(function(m){ return '<div class="pn-bf-im'+(m[3]?' '+m[3]:'')+'"><img src="'+m[0]+'" alt="'+planEsc(title)+'" width="'+m[1]+'" height="'+m[2]+'" loading="lazy"></div>'; }).join('')+'<div class="pn-bf-tx"><a class="pn-bf-go" href="'+url+'" onclick="planGoMark()">'+planEsc(label)+'<i class="pn-go-ar"></i></a></div></div></div>'; }
+function planBf(n,imgs,title,sub,url,label){ const op=(window._bfOpen||[]).indexOf(n)>=0; return '<div class="pn-bf"><button type="button" class="pn-bf-row" aria-expanded="'+op+'" onclick="planBfOpen(this,'+n+')"><span class="pn-bf-txt"><span class="pn-bf-t"><i>'+n+'</i>'+planEsc(title)+'</span><span class="pn-bf-s">'+String(sub).split(' · ').map(function(x,i,a){ return '<span class="pn-nb">'+planEsc(x)+(i<a.length-1?' ·':'')+'</span>'; }).join(' ')+'</span></span><span class="pn-bf-more">예시<i class="pn-chev"></i></span></button><div class="pn-bf-ex"'+(op?'':' hidden')+'>'+imgs.map(function(m){ return '<div class="pn-bf-im'+(m[3]?' '+m[3]:'')+'"><img src="'+m[0]+'" alt="'+planEsc(title)+'" width="'+m[1]+'" height="'+m[2]+'" loading="lazy"></div>'; }).join('')+'<div class="pn-bf-tx"><a class="pn-bf-go" href="'+url+'" onclick="planGoMark()">'+planEsc(label)+'<i class="pn-go-ar"></i></a></div></div></div>'; }
 function planBfOpen(b,n){ const ex=b.nextElementSibling; if(!ex) return; const op=ex.hidden; ex.hidden=!op; b.setAttribute('aria-expanded',String(op)); const a=(window._bfOpen||[]).filter(function(x){return x!==n;}); if(op) a.push(n); window._bfOpen=a; }
 function planGoMark(){ try{ localStorage.setItem('mc_plan_back',JSON.stringify({t:Date.now(),y:Math.round(window.scrollY),open:window._bfOpen||[]})); }catch(e){} }
 function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_plan_back')||'null'); localStorage.removeItem('mc_plan_back'); }catch(e){} return (m&&Date.now()-m.t<30*60*1000)?m:null; }
