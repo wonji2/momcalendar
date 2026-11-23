@@ -264,14 +264,9 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .pn-lb{font-size:13px;font-weight:700;color:#7C54C4;letter-spacing:-.02em}
 .pn-lb2{margin:28px 2px 10px}
 .pn-tt{margin-top:6px;font-size:20px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.03em}
-.pn-stat{display:flex;margin-top:16px;padding:14px 0;border-radius:12px;background:#F9FAFB}
-.pn-stat>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
-.pn-stat>div+div{border-left:1px solid #E5E8EB}
-.pn-stat span{font-size:12.5px;color:#8B95A1}
-.pn-stat b{font-size:22px;font-weight:800;color:#191F28;letter-spacing:-.03em}
-.pn-fn{margin-top:6px;font-size:11px;color:#8B95A1;text-align:right}
 .pn-bf{margin-top:12px;border:1px solid #EEE8F5;border-radius:16px;overflow:hidden;background:#fff}
 .pn-hero+.pn-bf{margin-top:20px}
+.pn-bf-im+.pn-bf-im{border-top:1px solid #EEE8F5}
 .pn-bf-im{background:#F6F3FA;overflow:hidden}
 .pn-bf-im img{display:block;width:100%;height:auto}
 .pn-bf-im.cap{height:236px}
@@ -798,13 +793,10 @@ function planRender(){
     '<div class="pn-h" onclick="planToggle()"><b>이웃셀러</b><span class="left">'+(left>0?left+'자리 남음':'자리 없음')+'</span></div>'+
     '<div class="pn-in">'+
       '<div class="pn-hero"><div class="pn-lb">이웃셀러 혜택</div><div class="pn-tt">내 공구를 손님 눈앞에 먼저</div>'+
-      '<div class="pn-stat"><div><span>하루 방문</span><b>2,500명</b></div><div><span>맘카페 회원</span><b>2만2천명</b></div></div>'+
-      '<div class="pn-fn">최근 7일 평균 · 2026년 11월 기준</div></div>'+
-      planBf(1,'banners/plan_example_v1.jpg',1125,1068,'메인 화면에 내 배너','앱·웹 첫 화면, 열 때마다 자리 랜덤','https://momcalendar.com/','맘캘린더에서 보기')+
-      planBf(2,'banners/plan_example_list_v1.jpg',1125,978,'공구 목록 맨 위 강조','보라색 카드로 맨 위에','https://momcalendar.com/','맘캘린더에서 보기')+
-      planBf(3,'banners/plan_example_cafe_top_v1.jpg',1125,792,'맘카페에 일정 자동 공유','회원 2만2천명 · 오픈 3일 전 자동 게시','https://cafe.naver.com/momcal','카페에서 보기')+
-      planBf(4,'banners/plan_example_cafe_board_v2.jpg',957,236,'맘카페 단독게시판 생성','한 달 글 20개까지 자유롭게','https://cafe.naver.com/momcal','카페에서 보기','fit')+
-      planBf(5,'banners/plan_example_insta_v1.jpg',1125,2319,'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_/','인스타에서 보기','cap')+
+      '</div>'+
+      planBf(1,[['banners/plan_example_v1.jpg',1125,1068],['banners/plan_example_list_v1.jpg',1125,978]],'메인 배너·목록 맨 위 노출','열 때마다 자리 랜덤 · 보라색 강조 카드',PLAN_SITE,'맘캘린더에서 보기')+
+      planBf(2,[['banners/plan_example_cafe_top_v1.jpg',1125,792],['banners/plan_example_cafe_board_v2.jpg',957,236,'fit']],'맘카페 2만2천명에 자동 공유','3일 전 자동 게시 · 단독게시판 월 20글','https://cafe.naver.com/momcal','카페에서 보기')+
+      planBf(3,[['banners/plan_example_insta_v1.jpg',1125,2319,'cap']],'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_/','인스타에서 보기')+
       '<div class="pn-lb pn-lb2">가격</div>'+
       opt(3)+opt(6)+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
@@ -821,7 +813,8 @@ function planWays(top){
 function planToggle(){ _planOpen=!_planOpen; planRender(); }
 /* 혜택 「직접 보기」 — 같은 창으로 가고, 돌아오면 펼친 채 그 자리 (2026-11-23) */
 function planGo(url,label,gap){ return '<a class="pn-go'+(gap?' gap':'')+'" href="'+url+'" onclick="planGoMark()">'+label+'<i class="pn-go-ar"></i></a>'; }
-function planBf(n,img,w,h,title,sub,url,label,fit){ return '<div class="pn-bf"><div class="pn-bf-im'+(fit?' '+fit:'')+'"><img src="'+img+'" alt="'+planEsc(title)+'" width="'+w+'" height="'+h+'" loading="lazy"></div><div class="pn-bf-tx"><div class="pn-bf-t"><i>'+n+'</i>'+planEsc(title)+'</div><div class="pn-bf-s">'+planEsc(sub)+'</div><a class="pn-bf-go" href="'+url+'" onclick="planGoMark()">'+planEsc(label)+'<i class="pn-go-ar"></i></a></div></div>'; }
+const PLAN_SITE='https://momcalendar.com/test.html';   // 테스트 동안만 — 라이브로 옮길 때 'https://momcalendar.com/'
+function planBf(n,imgs,title,sub,url,label){ return '<div class="pn-bf">'+imgs.map(function(m){ return '<div class="pn-bf-im'+(m[3]?' '+m[3]:'')+'"><img src="'+m[0]+'" alt="'+planEsc(title)+'" width="'+m[1]+'" height="'+m[2]+'" loading="lazy"></div>'; }).join('')+'<div class="pn-bf-tx"><div class="pn-bf-t"><i>'+n+'</i>'+planEsc(title)+'</div><div class="pn-bf-s">'+planEsc(sub)+'</div><a class="pn-bf-go" href="'+url+'" onclick="planGoMark()">'+planEsc(label)+'<i class="pn-go-ar"></i></a></div></div>'; }
 function planGoMark(){ try{ localStorage.setItem('mc_plan_back',JSON.stringify({t:Date.now(),y:Math.round(window.scrollY)})); }catch(e){} }
 function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_plan_back')||'null'); localStorage.removeItem('mc_plan_back'); }catch(e){} return (m&&Date.now()-m.t<30*60*1000)?m:null; }
 function planPick(m){ _planMonths=m; planRender(); }

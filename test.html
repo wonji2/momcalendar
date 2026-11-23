@@ -8271,8 +8271,11 @@ window.addEventListener('popstate',()=>{
     if(window._myBack && document.body.getAttribute('data-ct')!=='mypage' && typeof appNavGo==='function'){ window._myBack=0; try{ trackEvent('my_back',''); }catch(_){} appNavGo('mypage'); return true; }
     return false;
   }
+  // 우리 다른 페이지(셀러 페이지 등)에서 넘어왔으면 그 페이지로 돌아간다 (2026-11-23 제보: 셀러 페이지 → 메인 → 뒤로가기에 앱이 꺼짐)
+  function _cameFromOurPage(){ try{ if(history.length<2||!document.referrer) return false; var r=new URL(document.referrer); if(!/(^|\.)momcalendar\.com$/.test(r.hostname)) return false; return (r.pathname+r.search)!==(location.pathname+location.search); }catch(_){ return false; } }
   function onBack(){
     if(closeTopLayer()) return;
+    if(_cameFromOurPage()){ try{ history.back(); return; }catch(_){} }
     var now=Date.now();
     if(now-_lastBack<2000){ try{ _capApp().exitApp(); }catch(_){} return; }
     _lastBack=now; mcToast('한 번 더 누르면 앱이 종료돼요', 2000);
