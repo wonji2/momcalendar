@@ -119,6 +119,12 @@ try {
   console.log(`구글 순위 주간 측정(최근 28일) ${ymd(start)} ~ ${ymd(end)} (비교 ${ymd(pStart)} ~ ${ymd(pEnd)})\n` + lines.join('\n'));
   const weeks = [...(prevState.weeks || []).filter((w) => w.end !== week.end), week].slice(-30);
   await saveState({ weeks, fail: 0, last: lines, measured_at: new Date().toISOString() });
+  // 2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §5-8: 노린 대표가 아닌 URL 이 잡히면 그날 알린다(노출 3회 미만은 표본이 작아 소란 피우지 않는다)
+  const wrong = rows.filter((r) => r.now && r.now.page !== r.want && r.now.page !== '/' && r.now.imp >= 3)
+    .map((r) => `${r.key}: 노린 쪽 ${r.want} 인데 잡힌 쪽 ${r.now.page} (${r.now.imp}회 노출)`);
+  if (wrong.length) {
+    await alertSet('seo:대표URL', `대표 URL 불일치(${ymd(end)} 주): ${wrong.join(' / ')}. 허브 제목·첫 문단·내부링크 앵커가 노린 쪽을 가리키는지 보고, 아니면 대표를 잡힌 쪽으로 바꾼다(오더 §5-2)`);
+  } else { await alertSet('seo:대표URL', ''); }
   if (drops.length) {
     await alertSet('seo:순위', `구글 순위 하락(${ymd(end)} 주): ${drops.join(' / ')}. 먼저 볼 것: ① 그 검색어에 잡힌 쪽이 노린 허브가 아니면 허브 제목·첫 문단·내부링크 ② seo-daily 가 매일 돌았는지 ③ 홈 「오늘 공구 목록」이 채워졌는지 ④ 그 주에 바꾼 것. 다음 채팅에서 「순위 떨어진 것 봐줘」로 이어서 고친다`);
     console.log('🔴 하락: ' + drops.join(' / '));
