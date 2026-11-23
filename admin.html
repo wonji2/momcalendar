@@ -272,6 +272,7 @@ details summary::-webkit-details-marker{display:none}
     <div class="tab" onclick="openReelCard()" style="background:#F3ECFB;color:#5B3A8C;font-weight:800">📸 인스타 카드</div>
     <div class="tab" onclick="switchTab('bot',this)">🤖 챗봇 <span id="badge-bot" class="tab-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('stats',this)">통계</div>
+    <div class="tab" onclick="switchTab('an',this)">📊 통합 지표</div>
     <div class="tab" onclick="location.href='ops.html'">⚙️ 운영 현황</div>
   </div>
 
@@ -875,7 +876,63 @@ details summary::-webkit-details-marker{display:none}
     </div>
   </div>
 
-  <div id="statsView" style="display:none;padding-bottom:80px">
+  <!-- 📊 통합 지표 — 웹(GA4)·안드로이드(Play)·애플(App Store) (2026-11-23 · orders/ORDER_UNIFIED_ANALYTICS_2026-11-23.md §8)
+     수집: 매일 08:40 KST .github/workflows/analytics-daily.yml → tools/analytics/collect.mjs → Supabase analytics_daily·analytics_meta
+     읽기: adminRpc('analytics_overview') 하나. 스타일은 전부 #anView 아래로만 건다(전역 클래스 재정의 금지). -->
+<div id="anView" style="display:none;padding-bottom:80px">
+<style>
+#anView{padding:14px 14px 80px;color:#191F28;letter-spacing:-0.02em;line-height:1.45}
+#anView .anhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+#anView .anhd h2{font-size:17px;font-weight:800;margin:0}
+#anView .anhd .ansub{font-size:11px;color:#8B95A1;flex:1;min-width:180px}
+#anView .anbtn{border:1px solid #E5E0EE;background:#fff;color:#4E5968;border-radius:100px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
+#anView .anbtn:active{transform:scale(.97)}
+#anView .anchips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+#anView .anchip{display:inline-flex;align-items:center;gap:5px;border-radius:100px;padding:5px 10px;font-size:11px;font-weight:700;background:#F2F4F6;color:#4E5968}
+#anView .anchip i{width:7px;height:7px;border-radius:50%;background:#B0B8C1;display:inline-block}
+#anView .anchip.ok{background:#E9F8EF;color:#1B7A43}#anView .anchip.ok i{background:#22B35E}
+#anView .anchip.stale{background:#FFF4E0;color:#A35C00}#anView .anchip.stale i{background:#F59F00}
+#anView .anchip.err{background:#FDECEC;color:#B42318}#anView .anchip.err i{background:#E5484D}
+#anView .anc{background:#fff;border:1px solid #EDE8F3;border-radius:12px;padding:14px;margin-bottom:12px}
+#anView .anc h3{font-size:14px;font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#anView .antag{font-size:10.5px;font-weight:700;border-radius:100px;padding:3px 8px;background:#F6F3FA;color:#6B45B3}
+#anView .antag.man{background:#FFF4E0;color:#A35C00}
+#anView .antag.off{background:#F2F4F6;color:#8B95A1}
+#anView .angrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#anView .ancell{background:#F9FAFB;border-radius:10px;padding:10px 8px;min-width:0}
+#anView .ancell b{display:block;font-size:17px;font-weight:800;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#anView .ancell span{display:block;font-size:10.5px;color:#8B95A1;margin-top:2px}
+#anView .ancell em{font-style:normal;font-size:10.5px;font-weight:700}
+#anView .anup{color:#D93025}#anView .andn{color:#1A73E8}
+#anView .ansec{font-size:11.5px;font-weight:700;color:#4E5968;margin:14px 0 6px}
+#anView .anbars{display:flex;align-items:flex-end;gap:2px;height:56px}
+#anView .anbars div{flex:1;min-width:2px;background:#C9B8EA;border-radius:2px 2px 0 0}
+#anView .anbars div.last{background:#7C54C4}
+#anView .anaxis{display:flex;justify-content:space-between;font-size:10px;color:#8B95A1;margin-top:3px}
+#anView .anrow{display:flex;align-items:center;gap:8px;font-size:12px;margin:5px 0}
+#anView .anrow .anlab{width:112px;flex:none;color:#4E5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#anView .anrow .antrack{flex:1;height:8px;background:#F2F4F6;border-radius:100px;overflow:hidden}
+#anView .anrow .antrack div{height:100%;background:#7C54C4;border-radius:100px}
+#anView .anrow .anval{width:58px;flex:none;text-align:right;font-weight:700}
+#anView .annote{font-size:10.5px;color:#8B95A1;margin-top:10px}
+#anView .anmuted{font-size:12px;color:#8B95A1;padding:24px 0;text-align:center}
+#anView .anerr{font-size:12px;color:#B42318;background:#FDECEC;border-radius:12px;padding:14px;margin-bottom:12px}
+#anView table.antb{width:100%;border-collapse:collapse;font-size:11.5px}
+#anView table.antb th,#anView table.antb td{text-align:left;padding:7px 6px;border-bottom:1px solid #F2F4F6;vertical-align:top}
+#anView table.antb th{color:#8B95A1;font-weight:700;white-space:nowrap}
+#anView table.antb td:nth-child(-n+4){white-space:nowrap}
+#anView table.antb td:last-child{min-width:140px}
+@media(max-width:520px){#anView .angrid{grid-template-columns:repeat(2,1fr)}}
+</style>
+  <div class="anhd">
+    <h2>📊 통합 지표</h2>
+    <span class="ansub" id="anSub">자동 갱신 매일 08:40</span>
+    <button class="anbtn" onclick="loadAnalytics(true)">🔄 새로고침</button>
+    <a class="anbtn" href="https://github.com/wonji2/momcalendar/actions/workflows/analytics-daily.yml" target="_blank" rel="noopener">⚙️ 지금 수집</a>
+  </div>
+  <div id="anBody"><div class="anmuted">불러오는 중…</div></div>
+</div>
+<div id="statsView" style="display:none;padding-bottom:80px">
 
 <!-- ══ 통계 대시보드 (2026-07-23 신설) — 무거운 집계는 admin_* RPC 가 서버에서 처리 ══ -->
 <div id="dashWrap" style="margin:12px 12px 0">
@@ -1005,7 +1062,7 @@ details summary::-webkit-details-marker{display:none}
     </div>
     <!-- GA4 분석 바로가기 -->
     <div style="margin:12px 12px 0;display:flex;gap:8px">
-      <a href="https://analytics.google.com/analytics/web/#/p$(GA_PROP)/reports/reportinghub" target="_blank" onclick="this.href='https://analytics.google.com'" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#fff;border:1.5px solid #E0E0E0;border-radius:12px;text-decoration:none;color:#333;font-size:12px;font-weight:700">
+      <a href="https://analytics.google.com/analytics/web/" target="_blank" onclick="this.href='https://analytics.google.com/analytics/web/'" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#fff;border:1.5px solid #E0E0E0;border-radius:12px;text-decoration:none;color:#333;font-size:12px;font-weight:700">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="12" width="4" height="10" rx="1" fill="#F4B400"/><rect x="10" y="7" width="4" height="15" rx="1" fill="#4285F4"/><rect x="18" y="2" width="4" height="20" rx="1" fill="#0F9D58"/></svg>
         Google Analytics 열기
       </a>
@@ -8503,6 +8560,129 @@ function hmAdd(){
   });
 })();
 
+// ══ 📊 통합 지표 탭 (2026-11-23 · orders/ORDER_UNIFIED_ANALYTICS_2026-11-23.md §8) ══
+//   웹(GA4)·안드로이드(Play)·애플(App Store)을 RPC analytics_overview 하나로 읽는다. 통신은 adminRpc 만 쓴다.
+//   값이 없으면 0 으로 채우지 않고 「—」와 사유를 쓴다. 자동값이 없을 땐 사람이 본 값을 「수동 · 기준일」 칩과 같이 보여준다.
+//   「통계」 탭(자체 방문 통계)과 출처가 다르다 — 여기 웹 숫자는 GA4 다. 두 숫자를 더하거나 섞지 않는다.
+let _anBusy = false;
+async function loadAnalytics(force){
+  if(_anBusy && !force) return;
+  const box = document.getElementById('anView'); if(!box) return;
+  _anBusy = true;
+  box.querySelector('#anBody').innerHTML = '<div class="anmuted">불러오는 중…</div>';
+  try{
+    const d = await adminRpc('analytics_overview', { p_days: 28 });
+    renderAnalytics(d || {});
+  }catch(e){
+    box.querySelector('#anBody').innerHTML =
+      '<div class="anerr">지표를 불러오지 못했어요 (' + _anEsc(String(e.message||e).slice(0,80)) + ')<br>관리자 로그인이 풀렸을 수 있어요. 새로고침 해 주세요.</div>';
+  }
+  _anBusy = false;
+}
+function _anEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _anNum(v){ if(v===null||v===undefined||v==='') return '—'; const n = Number(v); return isFinite(n) ? (n>=10000 ? (n/10000).toFixed(1)+'만' : n.toLocaleString('ko-KR')) : '—'; }
+function _anPct(cur, prev){ if(!prev) return '—'; const d = Math.round((cur-prev)/prev*100); return (d>=0?'▲':'▼')+Math.abs(d)+'%'; }
+function _anPctHtml(cur, prev){ const t=_anPct(Number(cur),Number(prev)); return t==='—' ? '—' : '<em class="'+(t[0]==='▲'?'anup':'andn')+'">'+t+'</em>'; }
+function _anMD(day){ const m=String(day||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[2]+'-'+m[3] : '—'; }
+// 'MM-DD HH:MI'(KST) → 지금으로부터 몇 시간 전인지. 못 읽으면 null
+function _anAgeHours(s){
+  const m=String(s||'').match(/^(\d{2})-(\d{2}) (\d{2}):(\d{2})$/); if(!m) return null;
+  const now=new Date(); let t=Date.UTC(now.getUTCFullYear(), +m[1]-1, +m[2], +m[3]-9, +m[4]);
+  if(t>now.getTime()+86400e3) t=Date.UTC(now.getUTCFullYear()-1, +m[1]-1, +m[2], +m[3]-9, +m[4]);
+  return (now.getTime()-t)/3600e3;
+}
+function _anChip(m){
+  const name={ga4:'웹 GA4',play:'안드로이드',apple:'애플'}[m.source]||m.source;
+  let cls='', txt=m.status||'미설정', why=m.note||'';
+  if(m.status==='ok'){ cls='ok'; const h=_anAgeHours(m.last_ok_at); if(h!==null && h>36){ cls='stale'; txt='지연'; why='36시간 넘게 새 값이 없어요'+(why?' · '+why:''); } }
+  else if(m.status==='stale'){ cls='stale'; txt='지연'; }
+  else if(m.status==='오류'){ cls='err'; }
+  return { cls, txt, why, name, html:'<span class="anchip '+cls+'" title="'+_anEsc(why)+'"><i></i>'+_anEsc(name)+' '+_anEsc(txt)+(m.last_ok_at?' ('+_anEsc(m.last_ok_at)+')':'')+'</span>' };
+}
+function _anBars(series){
+  const a=(series||[]).map(x=>({day:x.day,v:Number(x.v)||0})); if(!a.length) return '';
+  const mx=Math.max(1,...a.map(x=>x.v));
+  return '<div class="anbars">'+a.map((x,i)=>'<div class="'+(i===a.length-1?'last':'')+'" style="height:'+Math.max(2,Math.round(x.v/mx*100))+'%" title="'+_anEsc(_anMD(x.day))+' · '+_anEsc(_anNum(x.v))+'"></div>').join('')+'</div>'
+    +'<div class="anaxis"><span>'+_anEsc(_anMD(a[0].day))+'</span><span>최고 '+_anEsc(_anNum(mx))+'</span><span>'+_anEsc(_anMD(a[a.length-1].day))+'</span></div>';
+}
+function _anRows(list, labelFn){
+  const a=(list||[]).map(x=>({dim:x.dim,v:Number(x.v)||0})); if(!a.length) return '<div class="annote" style="margin-top:0">아직 값이 없어요</div>';
+  const mx=Math.max(1,...a.map(x=>x.v));
+  return a.map(x=>'<div class="anrow"><span class="anlab">'+_anEsc(labelFn?labelFn(x.dim):x.dim)+'</span><span class="antrack"><div style="width:'+Math.round(x.v/mx*100)+'%"></div></span><span class="anval">'+_anEsc(_anNum(x.v))+'</span></div>').join('');
+}
+function _anCell(val, label, extra){ return '<div class="ancell"><b>'+val+'</b><span>'+_anEsc(label)+(extra?' '+extra:'')+'</span></div>'; }
+function _anChannel(c){ return ({'Organic Search':'검색','Direct':'직접','Referral':'추천 링크','Organic Social':'소셜','Paid Search':'검색 광고','Unassigned':'미분류','Organic Shopping':'쇼핑','Paid Social':'소셜 광고','Email':'메일','Display':'배너 광고','Organic Video':'영상','Cross-network':'통합 광고'})[c]||c; }
+function renderAnalytics(d){
+  const body=document.querySelector('#anView #anBody'); if(!body) return;
+  const meta={}; (d.meta||[]).forEach(m=>{ meta[m.source]=m; });
+  const chips=['ga4','play','apple'].map(s=>_anChip(meta[s]||{source:s,status:'미설정',note:'아직 한 번도 수집되지 않았어요'}));
+  const man=d.manual||{}, mp=(id)=> (man[id]&&man[id].payload)||null, asof=(id)=> (man[id]&&man[id].as_of)||null;
+  const tagAuto=(t)=>'<span class="antag">자동 · '+_anEsc(t)+'</span>';
+  const tagMan=(id)=>'<span class="antag man">수동 · 기준 '+_anEsc(_anMD(asof(id)))+'</span>';
+  const tagOff=(c)=>'<span class="antag off">'+_anEsc(c.txt)+(c.why?' · '+_anEsc(c.why.slice(0,40)):'')+'</span>';
+  const sub=document.getElementById('anSub');
+  if(sub){ const last=(d.meta||[]).map(m=>m.last_ok_at).filter(Boolean).sort().pop(); sub.textContent='자동 갱신 매일 08:40 · '+(last?'마지막 수집 '+last:'아직 자동 수집 전')+' · 조회 '+(d.served_at||'').slice(5); }
+  let h='<div class="anchips">'+chips.map(c=>c.html).join('')+'</div>';
+
+  // ① 웹 (GA4)
+  const w=d.web||{}, wAuto=(w.series||[]).length>0, sw=mp('seed_web');
+  h+='<div class="anc"><h3>① 웹 (GA4) '+(wAuto?tagAuto('D-1까지'):(sw?tagMan('seed_web'):tagOff(chips[0])))+'</h3>';
+  if(wAuto){
+    const last=w.series[w.series.length-1];
+    h+='<div class="angrid">'+_anCell(_anNum(w.d1),'어제 활성 사용자')+_anCell(_anPctHtml(w.d1,w.d2),'전일 대비')+_anCell(_anNum(w.users7),'7일 활성 합')+_anCell(_anNum(w.views7),'7일 조회수')+'</div>'
+      +'<div class="ansec">28일 활성 사용자 · 기준 '+_anEsc(_anMD(last.day))+'</div>'+_anBars(w.series)
+      +'<div class="ansec">유입 채널 상위 6 (세션)</div>'+_anRows(w.channels,_anChannel)
+      +'<div class="ansec">AI·검색 유입 상위 6 (세션)</div>'+_anRows(w.ai);
+  }else if(sw){
+    h+='<div class="angrid">'+_anCell(_anNum(sw.active_users),'활성 사용자 '+(sw.window||''))+_anCell(_anNum(sw.total_users),'전체 사용자')+_anCell(_anNum(sw.views),'조회수')+_anCell(_anNum(sw.naver_mobile),'네이버 모바일')+'</div>'
+      +'<div class="annote">ChatGPT 유입 '+_anEsc(_anNum(sw.chatgpt))+' · 출처 '+_anEsc(sw.source||'')+'</div>';
+  }else h+='<div class="anmuted">—</div>';
+  h+='<div class="annote">웹 방문자 기준 · D-1까지 · 「통계」 탭의 자체 방문 통계와 출처가 달라요</div></div>';
+
+  // ② 안드로이드 (Google Play)
+  const a=d.android||{}, aAuto=!!a.last_day, pc=mp('play_console');
+  h+='<div class="anc"><h3>② 안드로이드 (Google Play) '+(aAuto?tagAuto('마지막 '+_anMD(a.last_day)):(pc?tagMan('play_console'):tagOff(chips[1])))+'</h3>';
+  const fo=pc&&pc.first_open_rate!=null ? pc.first_open_rate+'%' : '—';
+  if(aAuto){
+    h+='<div class="angrid">'+_anCell(_anNum(a.installs28),'28일 기기 획득')+_anCell(_anNum(a.uninst28),'28일 삭제')+_anCell(_anNum(a.last_active),'최근 활성 설치')+_anCell(_anEsc(fo),'처음 실행률', pc?'<em style="color:#A35C00">수동 '+_anEsc(_anMD(asof('play_console')))+'</em>':'')+'</div>'
+      +'<div class="ansec">일별 설치 (최근 62일 안)</div>'+_anBars(a.series);
+  }else if(pc){
+    h+='<div class="angrid">'+_anCell(_anNum(pc.device_installs),'28일 기기 획득')+_anCell(_anNum(pc.retained_installs),'설치 유지')+_anCell(_anNum(pc.first_open)+' <em style="color:#4E5968">'+_anEsc(fo)+'</em>','처음 실행')+_anCell(_anEsc(pc.store_cvr!=null?pc.store_cvr+'%':'—'),'스토어 전환율')+'</div>'
+      +'<div class="annote">월 활성 '+_anEsc(_anNum(pc.mau))+' · 리뷰 '+_anEsc(_anNum(pc.review_count))+' · 출처 '+_anEsc(pc.source||'')+'</div>';
+  }else h+='<div class="anmuted">—</div>';
+  h+='<div class="annote">플레이 콘솔 벌크 리포트 · 월 마감 뒤 3~7일 지연'+(aAuto?' · 마지막 데이터 '+_anEsc(a.last_day):'')+' · 처음 실행률·스토어 전환율은 콘솔에만 있어 수동 입력값이에요</div></div>';
+
+  // ③ 애플 (App Store)
+  const p=d.apple||{}, pAuto=!!p.last_day, as=mp('app_store')||{};
+  h+='<div class="anc"><h3>③ 애플 (App Store) '+(pAuto?tagAuto('완성 기준 D-2'):tagOff(chips[2]))+'</h3>';
+  if(pAuto){
+    const dl=Number(p.first28||0)+Number(p.redl28||0), iu=Number(p.impu28||0);
+    h+='<div class="angrid">'+_anCell(_anNum(p.first28),'28일 최초 다운로드')+_anCell(_anNum(p.redl28),'재다운로드')+_anCell(_anNum(p.imp28),'노출')+_anCell(_anNum(p.ppv28),'제품 페이지 조회')+'</div>'
+      +'<div class="annote" style="margin-top:8px;color:#4E5968">전환율 <b>'+(iu>0?(dl/iu*100).toFixed(2)+'%':'—')+'</b> = (최초+재다운로드) ÷ 고유 노출'+(iu>0?' '+_anEsc(_anNum(iu)):' · 고유 노출 값이 아직 없어요')+'</div>'
+      +'<div class="ansec">28일 최초 다운로드 · 마지막 '+_anEsc(_anMD(p.last_day))+'</div>'+_anBars(p.series);
+  }else{
+    h+='<div class="angrid">'+_anCell('—','28일 최초 다운로드')+_anCell('—','재다운로드')+_anCell('—','노출')+_anCell('—','제품 페이지 조회')+'</div>';
+  }
+  const rk=as.chart_rank, manRank=(typeof rk==='number')?rk:as.manual_rank, rss=(rk&&typeof rk==='object')?rk:null;
+  h+='<div class="annote" style="color:#4E5968">쇼핑 차트 '+(manRank!=null?'<b>'+_anEsc(manRank)+'위</b> <span class="antag man">수동 · 기준 '+_anEsc(_anMD(as.manual_rank_as_of||asof('app_store')))+'</span>':'—')
+    +(rss?' · RSS 확인('+_anEsc(_anMD(rss.checked_at))+'): '+(rss.rss_rank?_anEsc(rss.rss_rank)+'위':'100위 밖'):'')+'</div>';
+  h+='<div class="annote">App Store Connect Analytics · 데이터 완성 D-2 · 차트 RSS 는 100위까지만 줘요</div></div>';
+
+  // ④ 웹→앱 전환 (참고)
+  const c=d.cvr||{}, cOk=wAuto && (aAuto||pAuto);
+  h+='<div class="anc"><h3>④ 웹→앱 전환 <span class="antag off">참고</span></h3><div class="angrid">'
+    +_anCell(wAuto?_anNum(c.cta28):'—','앱 CTA 클릭 28일')+_anCell((aAuto||pAuto)?_anNum(c.dl28):'—','다운로드 합 28일')
+    +_anCell(cOk&&Number(c.cta28)>0?(Number(c.dl28)/Number(c.cta28)*100).toFixed(1)+'%':'—','클릭→설치 비율')
+    +_anCell(wAuto&&c.cta_d2!=null?_anPctHtml(c.cta_d1,c.cta_d2):'—','CTA 전일 대비')+'</div>'
+    +'<div class="annote">정확한 퍼널이 아니에요. CTA 는 웹에서만 세고, 다운로드는 스토어 집계라 시점·중복이 달라요'+(cOk?'':' · 웹과 스토어 자동 수집이 둘 다 살아야 비율이 나와요')+'</div></div>';
+
+  // ⑤ 데이터 신선도
+  h+='<div class="anc"><h3>⑤ 데이터 신선도</h3><div style="overflow-x:auto"><table class="antb"><tr><th>소스</th><th>상태</th><th>마지막 성공</th><th>마지막 시도</th><th>사유</th></tr>'
+    +['ga4','play','apple'].map((s,i)=>{ const m=meta[s]||{}; return '<tr><td>'+_anEsc(chips[i].name)+'</td><td><span class="anchip '+chips[i].cls+'"><i></i>'+_anEsc(chips[i].txt)+'</span></td><td>'+_anEsc(m.last_ok_at||'—')+'</td><td>'+_anEsc(m.last_try_at||'—')+'</td><td>'+_anEsc(chips[i].why||'—')+'</td></tr>'; }).join('')
+    +'</table></div><div class="annote">웹 D-1까지 · 안드로이드 최근 완료월(월 마감+3~7일) · 애플 D-2 완성. 세 소스의 기준일이 서로 달라요</div></div>';
+  body.innerHTML=h;
+}
+
 function switchTab(tab,el){
   curTab=tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -8511,7 +8691,7 @@ function switchTab(tab,el){
   updateBulkBar();
   // 모든 뷰 숨기기
   ['statsView','aiView','bannerView','crawlView','sellerView','sellerAuthView','listView','hotdealView','expView','hmView','saleLiveView',
-   'inqView','memberView','adperfView','attendView','homeView'].forEach(id=>{
+   'inqView','memberView','adperfView','attendView','homeView','anView'].forEach(id=>{
     const v=document.getElementById(id); if(v) v.style.display='none';
   });
   // 🤖 챗봇 검토판 — 관리자 3단계 깊이에 있던 것을 최상단 탭으로 뺐다 (사장님 지시 2026-09-02)
@@ -8524,6 +8704,7 @@ function switchTab(tab,el){
       if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
     return;
   }
+  if(tab==='an'){ document.getElementById('anView').style.display='block'; loadAnalytics(); return; }
   if(tab==='stats'){
     document.getElementById('statsView').style.display='block';
     loadAdminDash();
