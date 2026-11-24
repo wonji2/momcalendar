@@ -430,7 +430,7 @@ async function load(){
 const CARD_EXCLUDE_SELLERS=['jelly_ddori','malanghoney_'];
 const CARD_EXCLUDE_NAMES=[/돌잔치.*템플릿/,/성장영상.*템플릿/];
 const CARD_EXCLUDE_NAMES_NOTMINE=[/라무르|lamour|l['’`]amour/i];   // 사장님 2026-11-24 「인스타카드에 라무르는 좀 안올라오게」 — 맘캘린더(momcal_) 행은 빼고 타 셀러만 카드에서 뺀다(DB·사이트엔 남는다)
-const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace('@','').trim().toLowerCase())||CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')))||(String(x.insta||'').replace('@','').trim().toLowerCase()!=='momcal_'&&CARD_EXCLUDE_NAMES_NOTMINE.some(re=>re.test(String(x.name||''))));
+const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace('@','').trim().toLowerCase())||CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')))||(String(x.insta||'').replace('@','').trim().toLowerCase()!=='momcal_'&&CARD_EXCLUDE_NAMES_NOTMINE.some(re=>re.test(String(x.name||''))))||(Number(x.id)===32045&&((document.getElementById('day')||{}).value||todayKST())==='2026-11-24');   // 사장님 2026-11-24 인스타카드에서 비비무 마스크(연장분 #32045)는 오늘만 뺀다
     const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x);
     const dropNS=rows.filter(noSeller).map(x=>x.name);
     if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
