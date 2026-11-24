@@ -80,9 +80,11 @@ function SetRobotsText([string]$t, [string]$val){
   return $RX_ROBOTS.Replace($t, "<meta name=${Q}robots${Q} content=${Q}$val${Q}>", 1)
 }
 
+# 2026-11-24: 앱 안내 줄의 「내일(요일) 오픈 공구 N건」(build.ps1 $AppCta, 11-22~)도 뺀다 — 이 숫자 하나 때문에 11-21 부터 사이트맵 2만 8천 URL 의 93% 가 날마다 lastmod=오늘 로 나갔다
+#   (표본 146장 11-23→11-24: 지금 규칙 「안 바뀜」 10% → 고친 규칙 79%. IndexNow 도 「오늘 바뀐 주소」로 그만큼 보내고 있었다)
 # 사이트맵 lastmod 용 「본문 해시」 — 날마다 저절로 바뀌는 것(기준일 도장·dateModified·GA4 스니펫·noai 메타·핫딜 구간·줄바꿈 꼴)을 빼고 잰다.
 #   이 값이 어제와 같으면 lastmod 는 옛 날짜 그대로다. 내용이 안 바뀐 페이지를 날마다 「오늘 수정」이라고 하면 크롤러가 lastmod 를 안 믿는다(구글·빙 공통)
-$RX_CORE = [regex]'(?s)"dateModified":"\d{4}-\d{2}-\d{2}"|<p class="asof">\d{4}-\d{2}-\d{2}|<dt>기준일</dt><dd>[^<]*</dd>|<script async src="https://www\.googletagmanager\.com/gtag/js[^<]*</script>\s*<script>window\.dataLayer[^<]*</script>\s*|,\s*noai,\s*noimageai|<!--hd-->.*?<!--/hd-->|<div class="foot">.*?</div>|\r'
+$RX_CORE = [regex]'(?s)"dateModified":"\d{4}-\d{2}-\d{2}"|<p class="asof">\d{4}-\d{2}-\d{2}|<dt>기준일</dt><dd>[^<]*</dd>|<script async src="https://www\.googletagmanager\.com/gtag/js[^<]*</script>\s*<script>window\.dataLayer[^<]*</script>\s*|,\s*noai,\s*noimageai|<!--hd-->.*?<!--/hd-->|<div class="foot">.*?</div>|<div class="appcta"><b>[^<]*</b>|\r'
 function CoreHash([string]$path){
   $t = $RX_CORE.Replace([IO.File]::ReadAllText($path), '')
   $md5 = [Security.Cryptography.MD5]::Create()
