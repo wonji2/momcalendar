@@ -5,7 +5,7 @@
 //           sitemap-gonggu.xml 에 실린 주소만 쓴다 → noindex(C 계층) 페이지는 RSS 에도 안 들어간다.
 //   어디서: 깃허브 Actions seo-daily.yml 「페이지 생성」 다음 단계. 커밋은 같은 워크플로의 git add 목록(rss.xml).
 //   실행:   node tools/seo/rss_build.mjs            ← 저장소 루트에서. 결과 rss.xml
-//   주의:   pubDate 는 「오픈일(미래면 오늘) 09:00 KST」로 고정한다 — 같은 공구는 날마다 같은 값(쓸데없이 「새 글」이 되지 않게).
+//   주의:   pubDate 는 오픈일 09:00 KST(아직 안 열린 공구는 그날 빌드일 — 미래 날짜를 쓰지 않는다). 하루 40건까지만 실어 오늘·내일·모레가 고루 실린다.
 //           제출(서치어드바이저 > 요청 > RSS 제출)은 사람 몫이다(로그인 필요). 실패해도 페이지 커밋은 계속되게 0 으로 끝낸다.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,13 +45,15 @@ try {
     items.push({ loc, title, desc, t: Math.min(t, today), rank: dd >= 0 ? dd : 10 - dd });   // 오늘 오픈 → 내일 → … → +7일 → 어제 → 그제
   }
   items.sort((a, b) => a.rank - b.rank || a.loc.localeCompare(b.loc));
-  const top = items.slice(0, MAX);
-  const pub = (t) => new Date(t).toUTCString().replace('00:00:00 GMT', '00:00:00 GMT');   // 09:00 KST = 00:00 UTC
+  // 하루 상한 40건 — 오늘 오픈만으로 100건이 차서 곧 오픈이 안 실리던 것(검증자 지적)
+const perDay = {}; const top = [];
+for (const x of items) { if (top.length >= MAX) break; perDay[x.rank] = (perDay[x.rank] || 0) + 1; if (perDay[x.rank] <= 40) top.push(x); }
+  const pub = (t) => new Date(t).toUTCString();   // 그날 00:00 UTC = 09:00 KST
   const last = top.length ? top[0].t : today;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-<title>맘캘린더 — 인스타 공구 일정</title>
+<title>맘캘린더 인스타 공구 일정</title>
 <link>${SITE}/</link>
 <atom:link href="${SITE}/rss.xml" rel="self" type="application/rss+xml"/>
 <description>오늘 오픈·곧 오픈하는 인스타 공동구매 일정을 모은 맘캘린더 새 공구 소식입니다.</description>
