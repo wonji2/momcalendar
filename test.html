@@ -2807,11 +2807,7 @@ window.slimAdClick=function(id){
 
 <!-- 캘린더 뷰 -->
 <div class="calwrap" id="calView">
-  <!-- 전체 / 내 찜만 (캘린더 모양은 그대로, 무엇을 담을지만 고르는 토글) -->
-  <div id="calMineTg" style="display:flex;background:#EFEAF5;border-radius:10px;padding:3px;margin:0 12px 8px">
-    <button id="calTgAll" onclick="setCalMine(false)" style="flex:1;border:none;background:#7C54C4;color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">전체</button>
-    <button id="calTgMine" onclick="setCalMine(true)" style="flex:1;border:none;background:none;color:#8A8395;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">💜 내 찜만</button>
-  </div>
+  <!-- 2026-11-24 「전체 / 내 찜만」 큰 토글 줄은 없앴다 → 아래 분류 줄의 [내 찜] 단추가 같은 일(setCalMine) -->
   <!-- 2026-11-24 사장님 「리스트에서 선택형으로 하는 거 동일하게」 — 리스트와 같은 [대분류 ⌄] 단추·목록(gsOpen 'cmaj'). 그리는 곳 _calCatPaint -->
   <div class="cal-catrow" id="calCatRow"><div class="gs-chips gs-bar" id="calCatBar" role="group" aria-label="분류"></div></div>
   <div class="cal-box">
@@ -5020,6 +5016,13 @@ window.addEventListener('hashchange', function(){
   }catch(_){}
 });
 
+// 공구 캘린더 바로 열기: momcalendar.com/#cal (캘린더 「공유」 글의 링크, 2026-11-24)
+function _openCalHash(){ try{ if(location.hash!=='#cal') return; try{ if(document.body.classList.contains('srch-mode')) exitSearchMode(); }catch(_){} switchContent('gonggu'); switchTab('cal');
+  var n=0, tm=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined'&&DATA.length>0; }catch(_){} if(!ok&&n<80) return; clearInterval(tm); try{ buildCalendar(); }catch(_){} [0,500].forEach(function(ms){ setTimeout(function(){ try{ document.getElementById('calView').scrollIntoView({block:'start'}); }catch(_){} }, ms); }); },250);   // 공구가 들어온 뒤 다시 그린다(먼저 그리면 빈 달력)
+}catch(_){} }
+document.addEventListener('DOMContentLoaded', _openCalHash);
+window.addEventListener('hashchange', _openCalHash);
+
 // 핫딜 탭 바로 열기: momcalendar.com/#hotdeal (블로그 핫딜 글 상·하단 링크용, 사장님 2026-10-06 "맘캘린더 핫딜페이지로 바로 열리는 링크")
 //   ⚠ 탭만 바꾸면 폰(375px)에서는 탭 세그가 첫 화면(배너·보증공구) 아래 y≈818 에 있어 손님이 바뀐 걸 못 본다 → 세그까지 스크롤한다
 document.addEventListener('DOMContentLoaded', function(){
@@ -5938,7 +5941,7 @@ function buildMineBars(y,m,grid){
       let lane=lanes.findIndex(end=>end<bs); if(lane<0){ lane=lanes.length; lanes.push(be); } else lanes[lane]=be;
       const c0=Math.round((new Date(bs)-new Date(ws))/864e5), c1=Math.round((new Date(be)-new Date(ws))/864e5);
       const p=_minePal(ev.id); const cont=ev.s<ws, more=ev.e>we;
-      bars.push(`<div class="cbar${cont?' cont':''}${more?' more':''}" style="left:calc(${c0}/7*100%);width:calc(${c1-c0+1}/7*100% - 2px);top:${lane*20}px;background:${p[0]};color:${p[1]};border-left-color:${p[1]}" title="${escHtml(ev.name)}">${escHtml(ev.name)}</div>`);
+      bars.push(`<div class="cbar${cont?' cont':''}${more?' more':''}" style="left:calc(${c0}/7*100%);width:calc(${c1-c0+1}/7*100% - 2px);top:${lane*22}px;background:${p[0]};color:${p[1]}" title="${escHtml(ev.name)}"><span class="cb-t" data-n="${escHtml(ev.name)}">${escHtml(ev.name)}</span></div>`);
     }
     let cells='';
     for(let i=0;i<7;i++){
@@ -5946,18 +5949,33 @@ function buildMineBars(y,m,grid){
       const cls=['ccell',inMo?'':'oth',dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
       cells+=`<div class="${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d.getDate()}</div></div>`;
     }
-    h+=`<div class="cweek" style="min-height:${30+lanes.length*20}px">${cells}<div class="cbars">${bars.join('')}</div></div>`;
+    h+=`<div class="cweek" style="min-height:${32+lanes.length*22}px">${cells}<div class="cbars">${bars.join('')}</div></div>`;
   }
   grid.classList.add('mine'); grid.innerHTML=h;
   // 주 높이는 전부 같게(찜이 없는 주도 좁히지 않는다 — 사장님 2026-11-01 「한 장 크기 그대로 여백 벌려둬」)
   { const ws=[...grid.querySelectorAll('.cweek:not(.lbl)')]; const mh=Math.max(74, ...ws.map(w=>parseInt(w.style.minHeight)||0)); ws.forEach(w=>{ w.style.minHeight=mh+'px'; }); }
+  _calFitBars(grid);
 }
+// 막대 글자 맞추기(2026-11-24 사장님 「비비무 키」처럼 낱말 중간에서 뚝 잘림): 넘치면 뒤 낱말부터 빼고 「…」 → 첫 낱말도 안 들어가면 글자 단위 「…」(CSS) → 「…」 한 칸도 안 되면 글자를 숨긴다
+function _calFitBars(grid){
+  grid=grid||document.getElementById('calGrid'); if(!grid) return;
+  grid.querySelectorAll('.cbar .cb-t, .cev[data-n]').forEach(function(t){
+    var full=t.getAttribute('data-n')||''; t.textContent=full; t.style.visibility='';
+    var ev=t.classList.contains('cev'), room=ev?t.clientWidth:(t.parentNode.clientWidth-12); if(room<=0) return;   // 안 보이는 때(폭 0)는 건드리지 않는다 · 전체 달력 칸(.cev)은 제 안쪽 폭
+    if(t.scrollWidth<=room) return;
+    var w=full.split(/\s+/), k=w.length-1;
+    for(; k>=1; k--){ t.textContent=w.slice(0,k).join(' ')+'…'; if(t.scrollWidth<=room) return; }
+    var c=Array.from(w[0]); for(var j=c.length-1;j>=1;j--){ t.textContent=c.slice(0,j).join('')+'…'; if(t.scrollWidth<=room) return; }   // 첫 낱말도 안 들어감 → 글자 단위 「…」(글자로 넣는다 — 사진 저장 html2canvas 는 CSS 말줄임을 못 그린다)
+    t.style.visibility='hidden';   // 한 글자+「…」도 안 들어가는 조각은 글자를 숨긴다
+  });
+}
+(function(){ var tm=0; window.addEventListener('resize', function(){ clearTimeout(tm); tm=setTimeout(function(){ try{ _calFitBars(); }catch(_){} },150); }); })();
 function buildCalendar(){
   try{ _calCatPaint(); }catch(_){}   // 되살린 fCalCat 도 단추 이름에 맞춘다
   const y=calMonth.getFullYear(),m=calMonth.getMonth();
   document.getElementById('calTitle').textContent=(y===new Date().getFullYear()?'':y+'년 ')+(m+1)+'월';   // 2026-11-01 큰 「11월」
   const grid=document.getElementById('calGrid');
-  if(calMine){ buildMineBars(y,m,grid); return; }
+  if(calMine||_calShared){ buildMineBars(y,m,grid); return; }
   grid.classList.remove('mine');
   grid.innerHTML=DAYS.map(d=>`<div class="cdlbl">${d}</div>`).join('');
   const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevLast=new Date(y,m,0).getDate();
@@ -5969,15 +5987,16 @@ function buildCalendar(){
     // 마감 표시는 '내 찜만' 모드에서만. 전체 모드에선 매일 마감이 있어서 표시가 무의미해짐
     const ends=calMine?calPool().filter(item=>realEnd(item)===ds):[];
     const cls=[dow===0?'sun':dow===6?'sat':'',ds===todayStr?'ctod':'',ds===selCalDate?'sel':''].filter(Boolean).join(' ');
-    let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${escHtml(ev.major)}">${escHtml(ev.name.slice(0,5))}</div>`).join('');
+    let evHtml=evs.slice(0,20).map(ev=>`<div class="cev ev-${escHtml(ev.major)}" data-n="${escHtml(ev.name)}">${escHtml(ev.name)}</div>`).join('');
     if(evs.length>20)evHtml+=`<div class="cmore">+${evs.length-20}</div>`;
     // 마감일에도 '무엇이' 끝나는지 보이게 상품명을 붙인다 ("마감 1"만 뜨면 뭐가 끝나는지 알 수 없음)
-    evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F">~${ev.name.slice(0,5)}</div>`).join('');
+    evHtml+=ends.slice(0,3).map(ev=>`<div class="cev" style="background:#FDECE8;color:#C0361F" data-n="~${escHtml(ev.name)}">~${escHtml(ev.name)}</div>`).join('');
     if(ends.length>3) evHtml+=`<div class="cmore" style="color:#C0361F">+${ends.length-3}</div>`;
     grid.innerHTML+=`<div class="ccell ${cls}" onclick="pickCalDay('${ds}')"><div class="cnum">${d}</div><div class="cevs">${evHtml}</div></div>`;
   }
   const rem=(7-(first+last)%7)%7;
   for(let d=1;d<=rem;d++) grid.innerHTML+=`<div class="ccell oth"><div class="cnum">${d}</div></div>`;
+  _calFitBars(grid);   // 칸 글자 낱말 단위 「…」(2026-11-24)
 }
 
 function pickCalDay(ds){
@@ -5996,8 +6015,13 @@ function pickCalDay(ds){
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 }
 function setCalCat(v){ fCalCat=v; buildCalendar(); }   // 단추는 buildCalendar 가 다시 그린다(_calCatPaint)
-function _calCatPaint(){ var bar=document.getElementById('calCatBar'); if(!bar) return; var has=(fCalCat!=='전체'&&typeof CATS!=='undefined'&&Object.prototype.hasOwnProperty.call(CATS,fCalCat)); var open=(_gsKind==='cmaj'); bar.innerHTML=_gsBtn('cmaj', has?_gsEsc(fCalCat):'대분류', has?' sel':'', open?' aria-expanded="true"':''); }
-function gsCalCat(c){ closeSortSheet(); if(c===fCalCat) return; setCalCat(c); try{ trackEvent('cal_cat',c); }catch(_){} }
+function _calCatPaint(){ var bar=document.getElementById('calCatBar'); if(!bar) return; var has=(fCalCat!=='전체'&&typeof CATS!=='undefined'&&Object.prototype.hasOwnProperty.call(CATS,fCalCat)); var open=(_gsKind==='cmaj'); var n=0; try{ n=WISH.size; }catch(_){}
+  var plain=(calMine||_calShared);   // 내 찜·공유 보기에서도 대분류 단추는 같은 자리에 둔다(고르면 그 보기에서 나와 전체 달력에 분류를 건다)
+  var h=_gsBtn('cmaj', has?_gsEsc(fCalCat):'대분류', (has&&!plain)?' sel':'', open?' aria-expanded="true"':'');
+  if(_calShared) h+='<span class="gs-chip on" role="status" style="display:inline-flex;align-items:center;cursor:default">공유받은 공구 <span style="margin-left:3px">'+_calShared.length+'</span></span>';
+  h+='<button type="button" class="gs-chip'+(calMine?' on':'')+'" aria-pressed="'+calMine+'" onclick="setCalMine('+(!calMine)+')">내 찜 <span class="gs-n">'+n+'</span></button>';
+  bar.innerHTML='<div class="gs-l">'+h+'</div>'; }
+function gsCalCat(c){ closeSortSheet(); if(calMine||_calShared){ calMine=false; _calShared=null; document.getElementById('icsBar').style.display='none'; selCalDate=null; document.getElementById('selBox').style.display='none'; fCalCat=c; buildCalendar(); return; } if(c===fCalCat) return; setCalCat(c); try{ trackEvent('cal_cat',c); }catch(_){} }
 
 // ── 회원 RPC 공통 (토큰은 서버에서 검증) ────────────────
 function mcToken(){ var m=(typeof memberGet==='function')?memberGet():null; return (m&&m.token)||''; }
@@ -6451,7 +6475,9 @@ function goCalMine(){
 
 // ── 캘린더: 전체 / 내 찜만 ──────────────────────────────
 let calMine=false;
+let _calShared=null;   // 공유 링크(?mycal=)로 받은 공구 — 있으면 달력이 그것만 막대로 그린다(2026-11-24)
 function calPool(){
+  if(_calShared) return _calShared.filter(it=>!it.always && !isExpired(it));
   const pool = calMine ? DATA.concat(_wishExtra.filter(x=>!DATA.some(d=>d.id===x.id))) : DATA;
   return pool.filter(item=>{
     if(isExpired(item))return false;
@@ -6463,9 +6489,7 @@ function calPool(){
 }
 function setCalMine(v){
   calMine=v;
-  document.getElementById('calTgAll').style.cssText  = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:none;color:#8A8395':'background:#7C54C4;color:#fff');
-  document.getElementById('calTgMine').style.cssText = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:#7C54C4;color:#fff':'background:none;color:#8A8395');
-  document.getElementById('calCatRow').style.display = v?'none':'';      // 내 찜만 볼 땐 카테고리 줄은 군더더기
+  _calShared=null;   // 공유받은 달력 보기에서 나온다
   document.getElementById('icsBar').style.display    = v?'flex':'none';
   if(v) fetchWishExtra();                                                 // 찜했는데 지금 목록에 없는 것까지 끌어옴
   selCalDate=null; document.getElementById('selBox').style.display='none';
@@ -6673,19 +6697,29 @@ function _calShareItems(){
     .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id).slice(0,60);
 }
 async function shareMyCal(){
-  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다(없으면 바로)
-  const items=_calShareItems();
-  if(!items.length){ mcToast(WISH.size?'찜한 공구가 모두 끝났어요':'찜한 공구가 없어요 💜'); return; }
+  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다
+  const y=calMonth.getFullYear(), m=calMonth.getMonth(), ms=`${y}-${pad(m+1)}-01`, me=`${y}-${pad(m+1)}-${pad(new Date(y,m+1,0).getDate())}`;
+  const items=_calShareItems().filter(it=>!it.always && String(it.openDate)<=me && (realEnd(it)||it.openDate)>=ms);   // 보고 있는 달에 걸친 내 찜, 끝난 것 빼고(캘린더 넣기와 같은 기준), 오픈일 순
+  const md=d=>{ const q=String(d||'').split('-'); return (+q[1])+'/'+(+q[2]); };
+  const _t=/\/test\.html$/.test(location.pathname);   // 테스트 페이지에서 만든 주소엔 ?preview=1 (받아서 열어 볼 수 있게)
   let _by=''; try{ const _m=memberGet(); _by=(_m&&_m.nickname?String(_m.nickname):'').replace(/[<>&"'\s]+/g,' ').trim(); _by=Array.from(_by).slice(0,12).join(''); _by=_by?'&by='+encodeURIComponent(_by):''; }catch(_){ _by=''; }
-  const url=_calSharePage()+'?mycal='+items.map(it=>Number(it.id).toString(36)).join('.')+_by;
-  const title='내가 찜한 공구 '+items.length+'개', text=items.slice(0,3).map(it=>it.name).join(', ')+(items.length>3?' 외 '+(items.length-3)+'개':'');
+  const url=items.length ? _calSharePage()+'?'+(_t?'preview=1&':'')+'mycal='+items.slice(0,60).map(it=>Number(it.id).toString(36)).join('.')+_by   // 받는 사람: 공구 탭 캘린더에 이 공구들이 막대로(_calShareOpen)
+                        : _calSharePage()+(_t?'?preview=1':'')+'#cal';   // 0건: 공구 탭 캘린더
+  const lines=items.slice(0,15).map(it=>{ const e=realEnd(it)||it.openDate; return (e!==it.openDate?md(it.openDate)+'~'+md(e):md(it.openDate))+' '+it.name; });
+  if(items.length>15) lines.push('외 '+(items.length-15)+'건');
+  const head=items.length?('내가 찜한 '+(m+1)+'월 공구 일정\n'+lines.join('\n')+'\n\n맘캘린더에서 보기'):'맘캘린더에서 공구 일정 보기';
+  const text=head+'\n'+url;
+  window.__calShareText=text;   // 확인용
   const log=how=>{ try{ trackEvent('cal_share', items.length+'|'+how); }catch(_){} };
-  if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){
-    try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:title+' 📅', description:text, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); log('kakao'); return; }catch(_){}
+  if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){   // 카톡 안: 카드 한 장 그대로, 설명 칸에 앞 2~3건(길면 「찜한 공구 N개」)
+    const sh=it=>md(it.openDate)+'~ '+String(it.name).split(/\s+/).slice(0,2).join(' ');
+    let desc=items.length?'찜한 공구 '+items.length+'개':'맘캘린더 공구 일정';
+    for(const k of [3,2,1]){ if(k>items.length) continue; const d=items.slice(0,k).map(sh).join(' · ')+(items.length>k?' 외 '+(items.length-k)+'건':''); if(items.length&&d.length<=60){ desc=d; break; } }
+    try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:(items.length?'내가 찜한 '+(m+1)+'월 공구 일정':'맘캘린더 공구 캘린더')+' 📅', description:desc, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); log('kakao'); return; }catch(_){}
   }
-  if(navigator.share){ try{ await navigator.share({title:title, text:text, url:url}); log('sheet'); }catch(e){ if(!(e && e.name==='AbortError')){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); }catch(_){ shareFallback(url); log('prompt'); } } } return; }
-  if(navigator.clipboard && navigator.clipboard.writeText){ try{ await navigator.clipboard.writeText(url); mcToast('링크를 복사했어요'); log('copy'); return; }catch(_){} }
-  shareFallback(url); log('prompt');
+  if(navigator.share){ try{ await navigator.share({text:text}); log('sheet'); }catch(e){ if(!(e && e.name==='AbortError')){ try{ await navigator.clipboard.writeText(text); mcToast('일정을 복사했어요'); log('copy'); }catch(_){ shareFallback(text); log('prompt'); } } } return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){ try{ await navigator.clipboard.writeText(text); mcToast('일정을 복사했어요'); log('copy'); return; }catch(_){} }
+  shareFallback(text); log('prompt');
 }
 // 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
 async function _calShareOpen(){
@@ -6724,6 +6758,8 @@ async function _calShareOpen(){
     sheetEl=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
     sheetEl.querySelector('.cs-go').onclick=add;
   };
+  try{ _calShared=items; calMine=false; const _f=items[0]&&items[0].openDate; if(_f&&_f.slice(0,7)>todayStr.slice(0,7)&&!items.some(it=>String(it.openDate).slice(0,7)<=todayStr.slice(0,7))){ const q=_f.split('-'); calMonth=new Date(+q[0],+q[1]-1,1); }   // 이번 달에 걸린 게 없으면 첫 공구의 달로
+    if(document.body.classList.contains('srch-mode')) exitSearchMode(); switchContent('gonggu'); switchTab('cal'); document.getElementById('icsBar').style.display='none'; buildCalendar(); [150,700].forEach(ms=>setTimeout(()=>{ try{ document.getElementById('calView').scrollIntoView({block:'start'}); }catch(_){} },ms)); }catch(_){}
   _calBarOn((by?by+'님이':'친구가')+' 공유한 공구 '+items.length+'개', fresh.length?'⭐️ 내 맘캘에도 한 번에 담기 ('+fresh.length+'개)':'내 맘캘 보기', add, list);
   try{ trackEvent('cal_share_bar','show|'+fresh.length+(by?'|by':'')); }catch(_){}
 }
@@ -7030,7 +7066,7 @@ function paintHearts(){
   });
 }
 function updateWishBadge(){
-  const el=document.getElementById('wishBadge'); if(el) el.textContent=WISH.size; const gn=document.querySelector('.gs-chips .gs-n'); if(gn) gn.textContent=WISH.size;
+  const el=document.getElementById('wishBadge'); if(el) el.textContent=WISH.size; document.querySelectorAll('.gs-chips .gs-n').forEach(function(gn){ gn.textContent=WISH.size; });
 }
 
 // ── 하트 토글 ──
@@ -11017,6 +11053,16 @@ body{letter-spacing:-0.02em}
 .cbar{border-left:none!important;border-radius:4px!important;height:18px!important;line-height:18px!important;font-size:10px!important;padding:0 6px!important}
 .cbar.cont,.cbar.more{border-radius:4px!important}
 .ccell.ctod .cnum{width:24px;height:24px;border-radius:50%;background:#7C54C4;color:#fff;display:inline-flex;align-items:center;justify-content:center;margin:0 auto}
+/* 2026-11-24 캘린더 2차: 날짜 칸을 모두 24px 로(오늘 원이 같은 줄에 온전히) · 막대 20px 글자 가운데 · 분류 줄 ↔ 달력 16(S6) */
+.cnum{width:24px;height:24px}
+.ccell.ctod .cnum{display:flex}
+.cgrid.mine .ccell{padding-top:2px}
+.cbars{top:30px}
+.cbar{height:20px!important;line-height:20px!important;display:flex!important;align-items:center;justify-content:center;padding:0 6px!important;text-overflow:clip}
+.cbar .cb-t{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:20px;text-align:center}
+.cgrid{grid-template-columns:repeat(7,minmax(0,1fr))}
+.cgrid .ccell{min-width:0}
+#calCatRow{margin-bottom:16px!important}
 body.native-app .comm-fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;}
 </style>
 <!-- 🔔 키워드 알림 센터 + 앱 로그인 온보딩 (2026-11-02 사장님 ORDER_KEYWORD_NOTI + 당근 실제 화면 8장) · 설계서 scratchpad/designs/2026-11-02_키워드알림센터_앱온보딩.md · 패치 scratchpad/patch_kwnoti.cjs -->
