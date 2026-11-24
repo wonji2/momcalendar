@@ -3250,6 +3250,12 @@ function bootView(){
   // .slice(40) 이 이모지(서러게이트 쌍) 한가운데를 자르면 encodeURIComponent 가 URIError 를 던진다
   var _c=q.charCodeAt(q.length-1); if(_c>=0xD800&&_c<=0xDBFF) q=q.slice(0,-1);   // 이모지 반토막이면 encodeURIComponent 가 터진다
   if(q){
+    // ⏳ 5분 캐시 빠른 경로는 첫 <script> 블록 안에서 동기로 여기까지 온다 — runSearch 가 쓰는 뒤 블록 함수(getSearchSkeletonHtml)가 아직 없다.
+    //    그대로 부르면 ReferenceError 로 검색이 죽고 첫 화면만 뜬다(2026-11-24 실측, 맘캘봇 검색 단추) → 문서를 다 읽은 뒤 다시 부른다
+    if(typeof getSearchSkeletonHtml!=="function" && document.readyState==="loading"){
+      document.addEventListener("DOMContentLoaded", function(){ bootView(); }, {once:true});
+      return;
+    }
     try{
       // 저장된 화면 위치를 여기서 **소비**한다. 안 지우면 다음 평범한 방문이 목록 중간에서 열린다
       try{ localStorage.removeItem("mc_view"); }catch(e){}
