@@ -479,7 +479,13 @@ body.srch-suggest #searchDrop{display:block}
 .calwrap{padding:8px 10px 24px;display:none}
 .calwrap.on{display:block}
 .cal-catrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+#calCatRow{margin:0 12px 2px;overflow:visible}
+#calCatRow .gs-chips{margin:0;flex:1}
 .cal-catrow::-webkit-scrollbar{display:none}
+#icsBar{gap:8px;margin:12px 12px 0}
+.cab-b{flex:1 1 0;min-width:0;height:44px;border:0;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s ease,background .12s ease}
+.cab-b:active{transform:scale(.97);background:#F0E6FA}
+.cab-b:disabled{color:#8B95A1}
 .chip{flex-shrink:0;padding:7px 13px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid transparent;background:#EFECFB;color:#5B4BA8;cursor:pointer;white-space:nowrap;font-family:inherit;transition:.15s}
 .chip.on{font-weight:700}
 .cal-box{background:#fff;border-radius:12px;padding:12px;border:1px solid var(--border)}
@@ -2806,19 +2812,8 @@ window.slimAdClick=function(id){
     <button id="calTgAll" onclick="setCalMine(false)" style="flex:1;border:none;background:#7C54C4;color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">전체</button>
     <button id="calTgMine" onclick="setCalMine(true)" style="flex:1;border:none;background:none;color:#8A8395;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer">💜 내 찜만</button>
   </div>
-  <div class="cal-catrow" id="calCatRow">
-    <button class="chip on" data-cat="전체" onclick="setCalCat('전체',this)">전체</button>
-    <button class="chip" data-cat="육아" onclick="setCalCat('육아',this)">육아</button>
-    <button class="chip" data-cat="리빙" onclick="setCalCat('리빙',this)">리빙</button>
-    <button class="chip" data-cat="식품" onclick="setCalCat('식품',this)">식품</button>
-    <button class="chip" data-cat="건강" onclick="setCalCat('건강',this)">건강</button>
-    <button class="chip" data-cat="인테리어" onclick="setCalCat('인테리어',this)">인테리어</button>
-    <button class="chip" data-cat="가전" onclick="setCalCat('가전',this)">가전</button>
-    <button class="chip" data-cat="뷰티" onclick="setCalCat('뷰티',this)">뷰티</button>
-    <button class="chip" data-cat="패션" onclick="setCalCat('패션',this)">패션</button>
-    <button class="chip" data-cat="여행" onclick="setCalCat('여행',this)">여행</button>
-    <button class="chip" data-cat="반려동물" onclick="setCalCat('반려동물',this)">반려동물</button>
-  </div>
+  <!-- 2026-11-24 사장님 「리스트에서 선택형으로 하는 거 동일하게」 — 리스트와 같은 [대분류 ⌄] 단추·목록(gsOpen 'cmaj'). 그리는 곳 _calCatPaint -->
+  <div class="cal-catrow" id="calCatRow"><div class="gs-chips gs-bar" id="calCatBar" role="group" aria-label="분류"></div></div>
   <div class="cal-box">
     <div class="cal-head">
       <!-- 2026-11-01 사장님: 네모 상자형 < 2026.11 오늘 > 대신 좌측 큰 「11월」 + 오른쪽 ◀ 오늘 ▶ -->
@@ -2828,14 +2823,11 @@ window.slimAdClick=function(id){
     <div class="cgrid" id="calGrid"></div>
   </div>
   <!-- 캘린더와 카드 사이: 찜한 공구를 폰 캘린더로 내보내기 -->
-  <div id="icsBar" style="display:none;margin:10px 12px 0">
-    <button onclick="exportWishIcs()" style="width:100%;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">📅 찜한 공구, 내 폰 캘린더에 넣기</button>
-    <!-- 2026-11-01 사장님 「이대로 사진으로 저장하기」 — 보이는 달력(막대)을 그대로 PNG 로. 공유 시트(갤러리 저장)가 되면 그걸로, 아니면 내려받기 -->
-    <button id="calImgBtn" onclick="saveCalImage()" style="width:100%;margin-top:8px;background:#7C54C4;border:0;color:#fff;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🖼 이대로 사진으로 저장</button>
-    <button id="calShareBtn" onclick="shareMyCal()" style="width:100%;margin-top:8px;background:#fff;border:1.5px solid #DCD2EC;color:#7C54C4;border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">🔗 친구에게 내 캘린더 공유</button>
-    <!-- 마감된 건 자동으로 빠진다는 걸 누르기 전에 알려준다 (사장님 지적 2026-08-20) -->
-    <div style="margin-top:7px;font-size:11.5px;color:#8A8194;line-height:1.5;text-align:center">이미 <b>마감된 공구는 빠지고</b>, 아직 안 끝난 일정만 담겨요</div>
-    <div style="font-size:10.5px;color:#A9A3B2;text-align:center;line-height:1.6;margin-top:6px">구글 · 네이버 · 애플 · 삼성 · 아웃룩 캘린더 모두 가능해요</div>
+  <!-- 2026-11-24 사장님 「텍스트 다 줄이고 심플 버튼으로 캘린더 추가 / 사진 저장 / 공유 이렇게만」 — 한 줄 세 칸, 연보라 보조 단추. 누르면 하던 그대로(exportWishIcs·saveCalImage·shareMyCal) -->
+  <div id="icsBar" style="display:none">
+    <button type="button" class="cab-b" onclick="exportWishIcs()">캘린더 추가</button>
+    <button type="button" class="cab-b" id="calImgBtn" onclick="saveCalImage()">사진 저장</button>
+    <button type="button" class="cab-b" id="calShareBtn" onclick="shareMyCal()">공유</button>
   </div>
   <div class="sel-box" id="selBox" style="display:none">
     <div class="sel-title" id="selTitle"></div>
@@ -3981,6 +3973,8 @@ function _gsFill(){
   if(_gsKind==='sort'){
     var _cur=(fSt==='wish')?'wish':(_listSort==='open'?'all':_listSort), _wn=0; try{ _wn=WISH.size; }catch(_){}
     h='<div class="gs-ml">'+[['all','전체'],['wish','내 찜 '+_wn]].concat(SORT_OPTS.filter(function(o){ return o[0]!=='open'; })).map(function(o){ var on=_cur===o[0]; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-gs="'+o[0]+'" onclick="closeSortSheet();gsPick(this.dataset.gs)"><span>'+o[1]+'</span>'+(on?_GS_CK:'')+'</button>'; }).join('')+'</div>';
+  }else if(_gsKind==='cmaj'){   // 캘린더 대분류(fCalCat) — 리스트 분류와 따로
+    h='<div class="gs-ml">'+['전체'].concat(Object.keys(CATS)).map(function(c){ var on=fCalCat===c; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-v="'+_gsEsc(c)+'" onclick="gsCalCat(this.dataset.v)"><span>'+_gsEsc(c)+'</span>'+(on?_GS_CK:'')+'</button>'; }).join('')+'</div>';
   }else if(_gsKind==='maj'){
     h='<div class="gs-ml">'+['전체'].concat(Object.keys(CATS)).map(function(c){ var on=fMajor===c; return '<button type="button" role="menuitem" class="gs-mi'+(on?' on':'')+'" data-v="'+_gsEsc(c)+'" onclick="gsCat(this.dataset.v)"><span>'+_gsEsc(c)+'</span>'+(on?_GS_CK:'')+'</button>'; }).join('')+'</div>'+_gsFoot();
   }else{
@@ -5959,6 +5953,7 @@ function buildMineBars(y,m,grid){
   { const ws=[...grid.querySelectorAll('.cweek:not(.lbl)')]; const mh=Math.max(74, ...ws.map(w=>parseInt(w.style.minHeight)||0)); ws.forEach(w=>{ w.style.minHeight=mh+'px'; }); }
 }
 function buildCalendar(){
+  try{ _calCatPaint(); }catch(_){}   // 되살린 fCalCat 도 단추 이름에 맞춘다
   const y=calMonth.getFullYear(),m=calMonth.getMonth();
   document.getElementById('calTitle').textContent=(y===new Date().getFullYear()?'':y+'년 ')+(m+1)+'월';   // 2026-11-01 큰 「11월」
   const grid=document.getElementById('calGrid');
@@ -6000,7 +5995,9 @@ function pickCalDay(ds){
   document.getElementById('selBox').style.display='block';
   setTimeout(()=>document.getElementById('selBox').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 }
-function setCalCat(v,el){fCalCat=v;document.querySelectorAll('#calCatRow .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');paintCatChips();buildCalendar();}
+function setCalCat(v){ fCalCat=v; buildCalendar(); }   // 단추는 buildCalendar 가 다시 그린다(_calCatPaint)
+function _calCatPaint(){ var bar=document.getElementById('calCatBar'); if(!bar) return; var has=(fCalCat!=='전체'&&typeof CATS!=='undefined'&&Object.prototype.hasOwnProperty.call(CATS,fCalCat)); var open=(_gsKind==='cmaj'); bar.innerHTML=_gsBtn('cmaj', has?_gsEsc(fCalCat):'대분류', has?' sel':'', open?' aria-expanded="true"':''); }
+function gsCalCat(c){ closeSortSheet(); if(c===fCalCat) return; setCalCat(c); try{ trackEvent('cal_cat',c); }catch(_){} }
 
 // ── 회원 RPC 공통 (토큰은 서버에서 검증) ────────────────
 function mcToken(){ var m=(typeof memberGet==='function')?memberGet():null; return (m&&m.token)||''; }
@@ -6469,7 +6466,7 @@ function setCalMine(v){
   document.getElementById('calTgAll').style.cssText  = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:none;color:#8A8395':'background:#7C54C4;color:#fff');
   document.getElementById('calTgMine').style.cssText = 'flex:1;border:none;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 0;border-radius:8px;cursor:pointer;'+(v?'background:#7C54C4;color:#fff':'background:none;color:#8A8395');
   document.getElementById('calCatRow').style.display = v?'none':'';      // 내 찜만 볼 땐 카테고리 줄은 군더더기
-  document.getElementById('icsBar').style.display    = v?'block':'none';
+  document.getElementById('icsBar').style.display    = v?'flex':'none';
   if(v) fetchWishExtra();                                                 // 찜했는데 지금 목록에 없는 것까지 끌어옴
   selCalDate=null; document.getElementById('selBox').style.display='none';
   buildCalendar();
@@ -12441,8 +12438,8 @@ function appNavGo(ct){
 .gs-chip.gs-rst.act{color:#4E5968}
 .gs-menu{display:flex;flex-direction:column;max-height:min(62vh,430px)}
 .gs-menu-min{min-width:188px}
-.gs-menu-maj{min-width:236px}
-.gs-menu-maj .gs-ml{display:grid;grid-template-columns:1fr 1fr}
+.gs-menu-maj,.gs-menu-cmaj{min-width:236px}
+.gs-menu-maj .gs-ml,.gs-menu-cmaj .gs-ml{display:grid;grid-template-columns:1fr 1fr}
 .gs-ml{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .gs-mi.gs-ck{justify-content:flex-start;gap:10px}
 .gs-mi .gs-box{width:18px;height:18px;border-radius:5px;border:1.5px solid #D1D6DB;flex:none;display:flex;align-items:center;justify-content:center;color:transparent;box-sizing:border-box}
