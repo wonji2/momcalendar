@@ -863,20 +863,41 @@ function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_pl
 function planPick(m){ _planMonths=m; planRender(); }
 /* 카카오 연결(본인 확인 + 카톡 「나와의 채팅」으로 결제 안내·만료 7·3·1일 전 알림) — 같은 창으로 카카오에 갔다가 돌아온다 */
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
-/* 카카오톡 앱으로 한 번에 인증 — 폰 일반 브라우저만. 인앱·우리 앱·SDK 없음은 예전 주소 그대로 */
+/* kkTalkGo v2 */
+/* 본인인증을 카카오로 넘긴다 — 환경마다 아이디·비밀번호를 안 묻는 길로. 어느 길이든 막히면 카카오 웹 화면(url)으로 */
 function kkTalkGo(url){
+  const web=function(){ location.href=url; };
   try{
     const ua=navigator.userAgent||'';
-    const mobile=/Android|iPhone|iPad|iPod/i.test(ua);
-    const inApp=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\/|DaumApps|everytimeApp|; wv\)/i.test(ua);
+    const ios=/iPhone|iPad|iPod/i.test(ua), mobile=ios||/Android/i.test(ua);
+    let st='',ru='',sc='talk_message';
+    try{ const q=new URL(url).searchParams; st=q.get('state')||''; ru=q.get('redirect_uri')||''; sc=q.get('scope')||sc; }catch(e){}
     let native=false; try{ native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(e){}
-    if(mobile&&!inApp&&!native&&window.Kakao&&Kakao.Auth){
-      if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
-      const q=new URL(url).searchParams, st=q.get('state'), ru=q.get('redirect_uri');
-      if(st&&ru){ Kakao.Auth.authorize({ redirectUri:ru, scope:q.get('scope')||'talk_message', state:st, throughTalk:true }); return; }
-    }
-  }catch(e){}
-  location.href=url;
+    const knownIn=/Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\//i.test(ua);
+    const otherWv=!native&&!knownIn&&/DaumApps|everytimeApp|; wv\)/i.test(ua);
+    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.Auth)) return web();
+    if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
+    const opt={ redirectUri:ru, scope:sc, state:st, throughTalk:true };
+    if(!ios||(!native&&!knownIn)){ Kakao.Auth.authorize(opt); return; }
+    // 아이폰의 우리 앱·인앱: SDK 가 여는 창 주소에서 카카오톡 스킴을 꺼내 직접 연다. 이 화면은 남아 결과를 기다린다(index.html _appTalkLogin 과 같은 길)
+    const orig=window.open; let hid=false, done=false;
+    const onVis=function(e){ if(e.type!=='visibilitychange'||document.visibilityState==='hidden') hid=true; };
+    const off=function(){ document.removeEventListener('visibilitychange',onVis); window.removeEventListener('blur',onVis); window.removeEventListener('pagehide',onVis); };
+    const back=function(){ if(done) return; done=true; off(); if(window.open!==orig) window.open=orig; web(); };
+    document.addEventListener('visibilitychange',onVis); window.addEventListener('blur',onVis); window.addEventListener('pagehide',onVis);
+    window.open=function(u){
+      window.open=orig;
+      const m=/^https:\/\/talk-apps\.kakao\.com\/scheme\/([^&]+)/.exec(String(u||'')); let talk='';
+      try{ talk=m?decodeURIComponent(m[1]):''; }catch(e){ talk=''; }
+      if(talk.indexOf('kakaotalk://')!==0){ back(); return {closed:true,close:function(){}}; }
+      location.href=talk;
+      setTimeout(function(){ if(!hid&&document.visibilityState==='visible') back(); else off(); },3000);
+      return {closed:false,close:function(){}};
+    };
+    setTimeout(function(){ if(window.open!==orig){ back(); } },5000);   // SDK 가 창을 열지 않았다
+    opt.isPopup=true;
+    try{ Kakao.Auth.authorize(opt); }catch(e){ back(); }
+  }catch(e){ web(); }
 }
 async function planKakaoStart(){
   if(_kkBusy) return; _kkBusy=true;
@@ -886,7 +907,7 @@ async function planKakaoStart(){
   try{ const r=await fetch(KAKAO_START,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_tok,back:back})}); d=await r.json().catch(function(){return null;}); }catch(e){}
   _kkBusy=false;
   // replace: 뒤로가기에 카카오 화면이 남지 않게(돌아올 때도 다리 페이지가 replace 한다)
-  if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} kkTalkGo(d.url); return; }   // 폰 브라우저는 카카오톡 앱으로, 그 밖은 카카오 화면으로(뒤로가기로 이 페이지에 돌아온다)
+  if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} kkTalkGo(d.url); return; }   // 환경마다 아이디·비밀번호를 안 묻는 길로(막히면 카카오 웹 화면)
   if(d&&d.msg==='unauthorized'){ showToast('로그인이 만료됐어요. 다시 로그인해주세요.'); doLogout(); return; }
   showToast(d&&d.msg==='too_many'?'잠시 뒤 다시 눌러 주세요.':'카카오 연결을 시작하지 못했어요. 다시 눌러 주세요.');
   if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }   // 시작부터 실패 = 카카오 쪽 실패로 친다(갇히지 않게)
