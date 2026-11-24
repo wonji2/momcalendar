@@ -75,7 +75,7 @@ select o.id, o.influencer, o.name, o.open_date, o.end_date,
        case when o.k = m.k then 'exact' when m.item_re is not null then 'item' else 'brand' end kind
   from mine m
   join o
-    on (o.k = m.k or (length(m.brand) >= 3 and o.ln like m.brand || '%'))
+    on (o.k = m.k or (length(m.brand) >= 3 and o.ln like m.brand || '%') or (m.item_re is not null and o.name ~* m.item_re))   -- 2026-11-24 품목 줄이 있으면 이름에 그 품목 낱말이 든 행도 후보(상시 공구 라꽁·어그: 첫 낱말 비교로는 「정품호주UGG어그」↔「호주어그부츠」를 못 잡았다)
    and o.open_date >= to_char(m.open_date::date - 14, 'YYYY-MM-DD')
    and o.open_date <= m.end_date
    -- 품목 예외(own_window_item_rule, 2026-11-17 사장님 「로지오가닉은 배도라지 품목만 내 공구 기간 동안 숨김」):
