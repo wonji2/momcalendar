@@ -317,13 +317,15 @@ const isMomcal=g=>(g.influencer||'').includes('맘캘린더')
 
 /* ── 데이터 로딩 ── */
 async function fetchDay(day){
-  const [gg,pt,cc,wc,mySoon]=await Promise.all([
+  const [gg,pt,cc,wc,mySoon,myOn]=await Promise.all([
     // 🔴 2026-11-23 그날 오픈·마감 780행인데 순서 없이 limit=500 만 받아 맘캘린더 공구(롤키친 #35794)가 카드에서 잘렸다 → id 순으로 1000행씩 끝까지
       (async()=>{const all=[];for(let off=0;off<10000;off+=1000){const p=await fetch(`${SB}/rest/v1/gonggu?approved=eq.true&or=(open_date.eq.${day},end_date.eq.${day})&select=id,name,influencer,insta,open_date,end_date,major&order=id.asc&limit=1000&offset=${off}`,{headers:H}).then(r=>r.json());if(!Array.isArray(p))throw new Error('공구 목록 오류');all.push(...p);if(p.length<1000)break;}return [...new Map(all.map(g=>[g.id,g])).values()];})(),
     fetch(`${SB}/rest/v1/sellers?is_partner=eq.true&select=insta,start_date,end_date`,{headers:H}).then(r=>r.json()),
     fetch(`${SB}/rest/v1/rpc/gonggu_click_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
     fetch(`${SB}/rest/v1/rpc/wish_counts`,{method:'POST',headers:{...H,'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()),
-    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json())
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&end_date=gte.${day}&open_date=lte.${addDays(day,3)}&select=name,open_date,end_date`,{headers:H}).then(r=>r.json()),
+    // 🔴 2026-11-24 사장님 「롤키친 지퍼백이 인스타 카드에 안 실려」 — 맘캘린더 본인 공구 중 **이미 열려 진행 중인 것**(오늘 오픈·마감이 아닌 것)도 오픈 칸 맨 위에 싣는다(todaycard.html 과 같은 조건, 상시 공구는 뺀다)
+    fetch(`${SB}/rest/v1/gonggu?approved=eq.true&insta=eq.momcal_&open_date=lt.${day}&end_date=gte.${day}&always=is.false&select=id,name,influencer,insta,open_date,end_date,major&limit=100`,{headers:H}).then(r=>r.json()).catch(()=>[])
   ]);
   const P=new Set((pt||[]).filter(s=>{
     if(s.start_date && day < s.start_date) return false;
@@ -337,11 +339,18 @@ async function fetchDay(day){
     score:(C[g.id]||0)+(W[g.id]||0)*3,
     seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
   })).filter(hasSeller);
+  // 진행 중인 맘캘 공구 — 오늘 오픈·마감 행에 이미 있는 건 빼고 오픈 칸에 더한다(제외 목록은 hasSeller 가 그대로 먹인다)
+  const haveIds=new Set(rows.map(r=>r.id));
+  const ongoing=(Array.isArray(myOn)?myOn:[]).filter(g=>!haveIds.has(g.id)).map(g=>({...g,
+    partner:true, own:true, ongoing:true,
+    score:(C[g.id]||0)+(W[g.id]||0)*3,
+    seller:(g.influencer&&!g.influencer.startsWith('@'))?g.influencer:(g.insta||'')
+  })).filter(hasSeller);
   const soon=(mySoon||[]);
   const clash=x=>!x.own && soon.some(s=>sameProduct(s.name,x.name));
   const sortFn=(a,b)=>(b.own-a.own)||(b.partner-a.partner)||(b.score-a.score)||a.name.localeCompare(b.name,'ko');
   return {
-    opens: rows.filter(r=>r.open_date===day && !clash(r)).sort(sortFn),
+    opens: [...rows.filter(r=>r.open_date===day && !clash(r)),...ongoing].sort(sortFn),
     ends:  rows.filter(r=>r.end_date===day  && !clash(r)).sort(sortFn),
     scoreMap:{C,W}
   };
