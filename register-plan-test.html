@@ -837,7 +837,7 @@ function planRender(){
       planBf(3,[['banners/plan_example_insta_v1.jpg',1125,2319,'cap']],'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_official/','인스타에서 보기')+
       '<div class="pn-lb pn-lb2">가격</div>'+
       opt(3)+opt(6)+
-      ((_kakao&&_kakao.connected)?'':'<div class="pn-kkneed">카톡 연결 필수 · 결제·만료 알림이 카톡으로 와요</div>')+
+      ((_kakao&&_kakao.connected)?'':'<div class="pn-kkneed">본인인증 최초 1회 필요</div>')+
       '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
     '</div>';
 }
@@ -908,12 +908,10 @@ function kkEntryGate(){
   const needPh=!!(_kakao&&_kakao.phone===false), oldPh=(document.getElementById('kkPhone')||{}).value||'';
   document.getElementById('planSheet').innerHTML=
     '<div class="pn-grab"></div>'+
-    '<div class="pd-t">'+(needPh?'본인인증을 한 번 해 주세요':'카톡 연결하고 시작해요')+'</div>'+
-    '<div class="pd-s">'+(needPh?'연락처 확인 + 카톡 연결 · 처음 한 번만':'셀러 페이지는 카톡 연결 뒤에 쓸 수 있어요')+'</div>'+
-    (needPh?'<div class="fl" style="margin:20px 0 0"><label for="kkPhone">연락처 (휴대폰)</label><input id="kkPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="010-0000-0000"><div id="kkPhoneErr" role="alert" style="min-height:18px;margin-top:6px;font-size:12px;color:#E5484D"></div></div>':'')+
-    '<div class="pd-box"><div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 본인 확인·알림<br>카톡 「나와의 채팅」으로 와요</div></div></div>'+
+    '<div class="pd-t">본인인증 최초 1회만 필요해요</div>'+
+    (needPh?'<div class="fl" style="margin:24px 0 0"><input id="kkPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" aria-label="휴대폰 번호" placeholder="휴대폰 번호" style="height:52px;font-size:16px;border-radius:12px;padding:0 16px"><div id="kkPhoneErr" role="alert" style="margin-top:6px;font-size:12px;color:#E5484D"></div></div>':'')+
     '<div class="pd-btns">'+
-      '<button class="pn-cta" id="kkEntryBtn" onclick="kkEntryGo()">'+(needPh?'본인인증하고 시작하기':'카톡 연결하기')+'</button>'+
+      '<button class="pn-cta" id="kkEntryBtn" onclick="kkEntryGo()">카카오로 인증하기</button>'+
       (later?'<button class="pn-cta s" onclick="window._kkGate=false;window._kkEntry=false;planSheetClose()">나중에</button>':'')+
     '</div>'+
     '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
@@ -1004,7 +1002,7 @@ async function planMethod(i){
   await planLoad(); planSheetOpen();
 }
 function planSheetClose(){
-  if(window._kkGate){ try{ showToast('카톡 연결을 먼저 해 주세요'); }catch(e){} return; }
+  if(window._kkGate){ try{ showToast('본인인증을 먼저 해 주세요'); }catch(e){} return; }
   document.getElementById('planDim').classList.remove('on');
 }
 function planKind(k){
@@ -1196,10 +1194,8 @@ function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail
 function planKakaoNeed(){
   document.getElementById('planSheet').innerHTML=
     '<div class="pn-grab"></div>'+
-    '<div class="pd-t">카톡 연결이 필요해요</div>'+
-    '<div class="pd-s">이웃셀러 '+_planMonths+'개월 신청 전에 한 번만</div>'+
-    '<div class="pd-box"><div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 결제·기간·만료 알림<br>카톡 「나와의 채팅」으로 와요</div></div></div>'+
-    '<div class="pd-btns"><button class="pn-cta" onclick="try{localStorage.setItem(\'mc_plan_want\',String(_planMonths));}catch(e){}planKakaoStart()">카톡 연결하기</button></div>';
+    '<div class="pd-t">본인인증 최초 1회만 필요해요</div>'+
+    '<div class="pd-btns"><button class="pn-cta" onclick="try{localStorage.setItem(\'mc_plan_want\',String(_planMonths));}catch(e){}planKakaoStart()">카카오로 인증하기</button></div>';
   document.getElementById('planDim').classList.add('on');
 }
 function planKakaoGate(){
@@ -1210,11 +1206,8 @@ function planKakaoGate(){
     '<div class="pd-ic"><i></i></div>'+
     '<div class="pd-t">결제가 완료되었습니다</div>'+
     '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
-    '<div class="pd-box">'+
-      '<div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 결제·만료 알림<br>카톡 「나와의 채팅」으로 와요</div></div>'+
-    '</div>'+
     '<div class="pd-btns">'+
-      '<button class="pn-cta" id="kkGateBtn" onclick="planKakaoStart()">카톡 연결하기</button>'+
+      '<button class="pn-cta" id="kkGateBtn" onclick="planKakaoStart()">카카오로 인증하기</button>'+
       (later?'<button class="pn-cta s" onclick="window._kkGate=false;planSheetClose()">나중에</button>':'')+
     '</div>'+
     '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
