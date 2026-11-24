@@ -833,6 +833,12 @@ body.srch-mode .next-zone{display:none!important}
 .mc-pnl{width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;box-sizing:border-box;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(16px);transition:transform .25s cubic-bezier(.22,1,.36,1)}
 .mc-sheet.open .mc-pnl{transform:none}
 .mc-t{font-size:20px;font-weight:700;line-height:28px;color:#191F28}
+#calCatRow .gs-chips{min-width:0}
+.csh-row{display:flex;justify-content:space-around;gap:8px;margin:20px 0 24px}
+.csh-b{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;padding:0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.csh-b:active{transform:scale(.97)}
+.csh-i{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.csh-t{font-size:13px;font-weight:600;color:#4E5968;letter-spacing:-.02em}
 .mc-btn{display:block;flex:none;width:100%;height:52px;margin-top:16px;border:0;border-radius:14px;background:#7C54C4;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
 .mc-btn:disabled{background:#E5E8EB;color:#8B95A1}
 .ap-x{align-self:flex-end;width:32px;height:32px;margin:-6px -6px 6px 0;border:0;border-radius:50%;background:#F2F4F6;color:#4E5968;font-size:15px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -6017,10 +6023,13 @@ function pickCalDay(ds){
 function setCalCat(v){ fCalCat=v; buildCalendar(); }   // 단추는 buildCalendar 가 다시 그린다(_calCatPaint)
 function _calCatPaint(){ var bar=document.getElementById('calCatBar'); if(!bar) return; var has=(fCalCat!=='전체'&&typeof CATS!=='undefined'&&Object.prototype.hasOwnProperty.call(CATS,fCalCat)); var open=(_gsKind==='cmaj'); var n=0; try{ n=WISH.size; }catch(_){}
   var plain=(calMine||_calShared);   // 내 찜·공유 보기에서도 대분류 단추는 같은 자리에 둔다(고르면 그 보기에서 나와 전체 달력에 분류를 건다)
-  var h=_gsBtn('cmaj', has?_gsEsc(fCalCat):'대분류', (has&&!plain)?' sel':'', open?' aria-expanded="true"':'');
+  var act=(has||calMine||!!_calShared);
+  var h='<button type="button" class="gs-chip gs-rst'+(act?' act':'')+'" aria-label="캘린더 필터 초기화" onclick="calReset()">'+_GS_RST+'</button>';   // 리스트 줄과 같은 ↻ (2026-11-24)
+  h+=_gsBtn('cmaj', has?_gsEsc(fCalCat):'대분류', (has&&!plain)?' sel':'', open?' aria-expanded="true"':'');
   if(_calShared) h+='<span class="gs-chip on" role="status" style="display:inline-flex;align-items:center;cursor:default">공유받은 공구 <span style="margin-left:3px">'+_calShared.length+'</span></span>';
-  h+='<button type="button" class="gs-chip'+(calMine?' on':'')+'" aria-pressed="'+calMine+'" onclick="setCalMine('+(!calMine)+')">내 찜 <span class="gs-n">'+n+'</span></button>';
-  bar.innerHTML='<div class="gs-l">'+h+'</div>'; }
+  var mine='<button type="button" class="gs-chip'+(calMine?' on':'')+'" aria-pressed="'+calMine+'" onclick="setCalMine('+(!calMine)+')">내 찜 <span class="gs-n">'+n+'</span></button>';   // 오른쪽 끝 토글(리스트의 정렬 단추 자리)
+  bar.innerHTML='<div class="gs-l">'+h+'</div>'+mine; }
+function calReset(){ try{ closeSortSheet(); }catch(_){} if(_calShared){ try{ _calBarOff(); }catch(_){} } calMine=false; _calShared=null; fCalCat='전체'; document.getElementById('icsBar').style.display='none'; selCalDate=null; document.getElementById('selBox').style.display='none'; buildCalendar(); try{ trackEvent('cal_cat','reset'); }catch(_){} }
 function gsCalCat(c){ closeSortSheet(); if(calMine||_calShared){ calMine=false; _calShared=null; document.getElementById('icsBar').style.display='none'; selCalDate=null; document.getElementById('selBox').style.display='none'; fCalCat=c; buildCalendar(); return; } if(c===fCalCat) return; setCalCat(c); try{ trackEvent('cal_cat',c); }catch(_){} }
 
 // ── 회원 RPC 공통 (토큰은 서버에서 검증) ────────────────
@@ -6697,7 +6706,7 @@ function _calShareItems(){
     .sort((a,b)=>String(a.openDate).localeCompare(String(b.openDate))||a.id-b.id).slice(0,60);
 }
 async function shareMyCal(){
-  try{ await Promise.race([fetchWishExtra(), new Promise(r=>setTimeout(r,1500))]); }catch(_){}   // 화면에 없는 옛 찜이 있을 때만 잠깐 기다린다
+  try{ fetchWishExtra(); }catch(_){}   // 기다리지 않는다 — 기다리면 아이폰이 「누른 직후가 아님」으로 공유창을 막는다(2026-11-24). 내 찜을 켤 때 이미 받아 둔다(setCalMine)
   const y=calMonth.getFullYear(), m=calMonth.getMonth(), ms=`${y}-${pad(m+1)}-01`, me=`${y}-${pad(m+1)}-${pad(new Date(y,m+1,0).getDate())}`;
   const items=_calShareItems().filter(it=>!it.always && String(it.openDate)<=me && (realEnd(it)||it.openDate)>=ms);   // 보고 있는 달에 걸친 내 찜, 끝난 것 빼고(캘린더 넣기와 같은 기준), 오픈일 순
   const md=d=>{ const q=String(d||'').split('-'); return (+q[1])+'/'+(+q[2]); };
@@ -6711,15 +6720,29 @@ async function shareMyCal(){
   const text=head+'\n'+url;
   window.__calShareText=text;   // 확인용
   const log=how=>{ try{ trackEvent('cal_share', items.length+'|'+how); }catch(_){} };
-  if(_isInApp() && typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share){   // 카톡 안: 카드 한 장 그대로, 설명 칸에 앞 2~3건(길면 「찜한 공구 N개」)
-    const sh=it=>md(it.openDate)+'~ '+String(it.name).split(/\s+/).slice(0,2).join(' ');
-    let desc=items.length?'찜한 공구 '+items.length+'개':'맘캘린더 공구 일정';
-    for(const k of [3,2,1]){ if(k>items.length) continue; const d=items.slice(0,k).map(sh).join(' · ')+(items.length>k?' 외 '+(items.length-k)+'건':''); if(items.length&&d.length<=60){ desc=d; break; } }
-    try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:(items.length?'내가 찜한 '+(m+1)+'월 공구 일정':'맘캘린더 공구 캘린더')+' 📅', description:desc, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); log('kakao'); return; }catch(_){}
-  }
-  if(navigator.share){ try{ await navigator.share({text:text}); log('sheet'); }catch(e){ if(!(e && e.name==='AbortError')){ try{ await navigator.clipboard.writeText(text); mcToast('일정을 복사했어요'); log('copy'); }catch(_){ shareFallback(text); log('prompt'); } } } return; }
-  if(navigator.clipboard && navigator.clipboard.writeText){ try{ await navigator.clipboard.writeText(text); mcToast('일정을 복사했어요'); log('copy'); return; }catch(_){} }
-  shareFallback(text); log('prompt');
+  const sh=it=>md(it.openDate)+'~ '+String(it.name).split(/\s+/).slice(0,2).join(' ');
+  let desc=items.length?'찜한 공구 '+items.length+'개':'맘캘린더 공구 일정';
+  for(const k of [3,2,1]){ if(k>items.length) continue; const d=items.slice(0,k).map(sh).join(' · ')+(items.length>k?' 외 '+(items.length-k)+'건':''); if(items.length&&d.length<=60){ desc=d; break; } }
+  const kakao=()=>{ if(!(typeof kkoInit==='function' && kkoInit() && window.Kakao && Kakao.Share)) return false; try{ Kakao.Share.sendDefault({objectType:'feed', content:{title:(items.length?'내가 찜한 '+(m+1)+'월 공구 일정':'맘캘린더 공구 캘린더')+' 📅', description:desc, imageUrl:'https://momcalendar.com/momcal-appicon.png', link:{mobileWebUrl:url, webUrl:url}}, buttons:[{title:'캘린더 보기', link:{mobileWebUrl:url, webUrl:url}}]}); return true; }catch(_){ return false; } };
+  if(_isInApp() && kakao()){ log('kakao'); return; }   // 카톡 안: 카드 한 장 그대로, 설명 칸에 앞 2~3건(길면 「찜한 공구 N개」)
+  _calShareSheet(text, kakao, log);   // 카톡 밖: 우리 공유 시트(카카오톡·문자·다른 앱·복사) — 폰 공유창은 「다른 앱」. 안드 앱 공유창이 「복사」만 보였다(사장님 2026-11-24)
+}
+// 공유 시트 — 카카오톡 · 문자 · 다른 앱(폰 공유창, 있을 때만) · 복사 (2026-11-24 「카톡이나 문자나 뭐 어디 공유창이 떠야」)
+function _calShareSheet(text, kakao, log){
+  const P=(typeof window._mcNative==='function')?window._mcNative():null, more=!!((P&&P.share)||navigator.share);
+  const copy=async msg=>{ try{ await navigator.clipboard.writeText(text); mcToast(msg||'일정을 복사했어요'); log('sheet_copy'); }catch(_){ shareFallback(text); log('prompt'); } };
+  const ico={k:'<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="#191919" d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 6l-.9 3.3c-.1.3.3.6.6.4l3.9-2.6c.4 0 .8.1 1.2.1 5 0 9-3.1 9-7s-4-7.2-9-7.2z"/></svg>',
+    s:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6B45B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    m:'<svg viewBox="0 0 24 24" width="24" height="24" fill="#6B45B3" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    c:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6B45B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>'};
+  const b=(a,bg,i,t)=>'<button type="button" class="csh-b" data-a="'+a+'"><span class="csh-i" style="background:'+bg+'">'+i+'</span><span class="csh-t">'+t+'</span></button>';
+  const el=mcSheet('calShareSheet', '<b class="mc-t">공유하기</b><div class="csh-row">'+b('k','#FEE500',ico.k,'카카오톡')+b('s','#F6F3FA',ico.s,'문자')+(more?b('m','#F6F3FA',ico.m,'다른 앱'):'')+b('c','#F6F3FA',ico.c,'복사')+'</div><button class="mc-btn sub" type="button" data-a="x">닫기</button>');
+  el.querySelectorAll('[data-a]').forEach(x=>x.onclick=async()=>{ const a=x.dataset.a; el.classList.remove('open'); if(a==='x') return;
+    if(a==='k'){ if(kakao()){ log('sheet_kakao'); return; } return copy('카카오톡을 열 수 없어 일정을 복사했어요\n카톡에 붙여 넣어 주세요'); }
+    if(a==='m'){ if(P&&P.share){ P.share({title:'맘캘린더', text:text, url:''}).then(()=>log('native'), ()=>copy()); return; } navigator.share({text:text}).then(()=>log('sheet'), e=>{ if(e&&e.name==='AbortError'){ log('cancel'); return; } copy(); }); return; }
+    if(a==='s'){ log('sheet_sms'); location.href='sms:?&body='+encodeURIComponent(text); return; }
+    copy(); });
+  log('sheet_open');
 }
 // 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
 async function _calShareOpen(){
