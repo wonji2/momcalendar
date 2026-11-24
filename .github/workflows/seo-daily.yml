@@ -69,6 +69,10 @@ jobs:
       - name: 깨진 내부링크 청소
         run: node tools/seo/link_sweep.mjs
 
+      # 2026-11-24: 네이버 서치어드바이저 「RSS 제출」용 rss.xml — 오픈 −3~+7일 공구 페이지 오늘·곧 오픈 순 100건(실패해도 0 으로 끝나 커밋은 계속)
+      - name: RSS 만들기
+        run: node tools/seo/rss_build.mjs
+
       - name: 역검증 (실패하면 커밋하지 않는다)
         shell: pwsh
         run: |
@@ -89,6 +93,7 @@ jobs:
           # 2026-09-14: gg(공구 개별 페이지)·sitemap-gonggu.xml 이 add 목록에 빠져 있어 08-20 이후 손 커밋(09-09)에서 멈춰 있었다.
           #   브랜드 페이지(g/)는 매일 새 /gg/ 링크를 달고 나가는데 대상 파일은 안 올라가 라이브에 404 링크가 쌓였다(브랜드 페이지 링크의 39% 실측).
           git add g p s m d c gg sitemap.xml sitemap-main.xml sitemap-brand.xml sitemap-product.xml sitemap-seller.xml sitemap-gonggu.xml robots.txt
+          if [ -f rss.xml ]; then git add rss.xml; fi   # 2026-11-24 RSS — 없으면 건너뛴다(없는 경로를 add 하면 커밋 단계가 통째로 실패한다)
           git add --pathspec-from-file=tools/seo/generated.txt
           git reset -q -- index.html admin.html test.html test-app.html staff.html register.html kktest.html reelcard.html
           # 2026-11-18 (사장님 승인): 홈 원본 HTML 의 「오늘 공구 목록」만 예외로 올린다.

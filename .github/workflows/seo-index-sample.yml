@@ -1,0 +1,40 @@
+# 구글 색인 표본 측정 (사장님 지시 2026-11-24 「구글색인보완해」 → 「색인 다 살려」)
+#   tools/seo/index_sample.txt 의 주소 약 200개(종류별 30~40개)를 서치콘솔 URL 검사 API(읽기 전용)로 조회해 종류별 색인 수를 센다. 원본·설명은 tools/seo/index_sample.mjs 첫머리.
+#   결과는 Supabase ops_status 'seo-index'(회차별), 색인이 줄면 health_alerts 'seo:색인표본'. PC 가 꺼져도 돈다.
+#   기준선 = 2026-11-24(사이트맵 lastmod 해시 고치기 전). lastmod 고친 효과(IndexNow 제출 수·lastmod=오늘 비율)는 11-25 회차에서 바로, 색인 수 변화는 12-01 회차부터 본다.
+#   열쇠: GSC_CLIENT_ID · GSC_CLIENT_SECRET · GSC_REFRESH_TOKEN · SUPABASE_SERVICE_KEY (전부 Secrets — 없으면 스크립트가 바로 멈춘다)
+name: 구글 색인 표본 측정
+on:
+  schedule:
+    - cron: '30 22 * * *'   # UTC 22:30 = KST 07:30 매일(seo-daily 빌드 05:10 뒤)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '읽기만 하고 기록·경보는 하지 않는다'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: seo-index-sample
+  cancel-in-progress: false
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/seo
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 색인 표본 측정
+        run: node tools/seo/index_sample.mjs ${{ github.event.inputs.dry_run == 'true' && '--dry' || '' }}
+        env:
+          GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
+          GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
+          GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
