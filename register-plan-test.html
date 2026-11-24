@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<!-- 🚧 2026-11-24 접근 게이트(test.html 과 같은 틀) — 미리보기 키·카카오 복귀·화면만 보기만 통과, 나머지는 홈으로 -->
+<script>
+(function(){
+  var HOME='https://momcalendar.com/';
+  try{
+    var P=new URLSearchParams(location.search);
+    if(P.get('preview')==='1'){ try{ sessionStorage.setItem('mc_test_ok','1'); }catch(_){} return; }   // ?preview=1 로 한 번 들어오면 그 탭 안에서는 계속 열린다
+    try{ if(sessionStorage.getItem('mc_test_ok')==='1') return; }catch(_){}
+    try{ if(localStorage.getItem('mc_test_ok')==='1') return; }catch(_){}
+    // kakao: 카카오 연결 뒤 kktest 다리가 붙여 돌아오는 표(돌아올 주소에는 preview 가 없다) · demo: 화면만 보기
+    var OK=['kakao','demo'];
+    for(var i=0;i<OK.length;i++){ if(P.has(OK[i])){ try{ sessionStorage.setItem('mc_test_ok','1'); }catch(_){} return; } }   // 주소 정리 뒤 새로고침해도 열리게
+    location.replace(HOME);
+  }catch(_){ try{ location.replace(HOME); }catch(__){} }
+})();
+</script>
 <meta name="robots" content="noindex">
 <title>[테스트] 맘캘린더 셀러 마이페이지</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -780,8 +796,8 @@ async function planLoad(){
   const d=await sellerRpc('seller_plan_status');
   const box=document.getElementById('planBox');
   if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
-  _plan=d; planRender(); planPaidCheck();
-  if(_kakao===null){ _kakao={connected:false,loading:true}; sellerRpc('seller_kakao_status').then(function(x){ _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean')}; planRender(); planPaidCheck(); }); }
+  _plan=d; planRender(); planPaidCheck(); kkEntryCheck();
+  kkLoad();
   if(_cafeNick===null&&(d.state==='pending'||d.state==='active')){ _cafeNick=''; sellerRpc('seller_cafe_get').then(x=>{ if(x&&x.ok){ _cafeNick=x.nick||''; planRender(); } else _cafeNick=null; }); }
 }
 function planRender(){
@@ -848,6 +864,7 @@ function planPick(m){ _planMonths=m; planRender(); }
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
 async function planKakaoStart(){
   if(_kkBusy) return; _kkBusy=true;
+  try{ let o=null; try{ o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); }catch(_){} if(!o||!o.t||Date.now()-o.t>86400e3) o={n:0,t:Date.now()}; o.n=(o.n||0)+1; localStorage.setItem('mc_kk_try',JSON.stringify(o)); }catch(e){}   // 시도 횟수 — 카카오 오류 화면에서 못 돌아와 두 번째부터는 「나중에」
   const back=location.origin+location.pathname+(/[?&]demo=1/.test(location.search)?'?demo=1':'');
   let d=null;
   try{ const r=await fetch(KAKAO_START,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_tok,back:back})}); d=await r.json().catch(function(){return null;}); }catch(e){}
@@ -856,6 +873,49 @@ async function planKakaoStart(){
   if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} location.href=d.url; return; }   // href: 카카오 화면에서 뒤로가기로 이 페이지에 돌아오게
   if(d&&d.msg==='unauthorized'){ showToast('로그인이 만료됐어요. 다시 로그인해주세요.'); doLogout(); return; }
   showToast(d&&d.msg==='too_many'?'잠시 뒤 다시 눌러 주세요.':'카카오 연결을 시작하지 못했어요. 다시 눌러 주세요.');
+  if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }   // 시작부터 실패 = 카카오 쪽 실패로 친다(갇히지 않게)
+}
+/* ── 카톡 필수 연결 (사장님 2026-11-24 「카톡 필수연결」) ─────────────────
+   셀러 화면에 들어오면 서버가 「연결됨」이라고 할 때까지 시트로 막는다(바깥 누름·뒤로가기로 안 닫힘).
+   빠져나갈 길: 카카오 쪽 실패(취소 제외) 24시간 안이면 「나중에」 · 상태를 못 읽으면 안 막음(서버 장애로 전원 잠금 방지).
+   결제 완료(이용 중) 셀러는 planKakaoGate(결제 완료 + 카톡 필수)가 맡는다. 가입 직후(승인 대기)는 셀러 토큰이 없어 연결을 못 묶으니 첫 로그인에서. */
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&window._kkEntry&&_seller&&_kakao&&!_kakao.loading){ _kakao=null; kkLoad(); } });   // 다른 탭·앱에서 연결 끝냈으면 닫힌다
+function kkLoad(){
+  if(_kakao!==null) return;
+  _kakao={connected:false,loading:true};
+  sellerRpc('seller_kakao_status').then(function(x){
+    if(!_seller) return;                                                  // 그사이 로그아웃
+    _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean')};
+    planRender(); planPaidCheck(); kkEntryCheck();
+  }).catch(function(){ _kakao={connected:false,known:false}; });
+}
+function kkEntryCheck(){
+  const dim=document.getElementById('planDim');
+  if(!_seller||!_kakao||_kakao.loading) return;
+  if(!_kakao.known||_kakao.connected){                                    // 연결됨(또는 상태 모름) → 문을 연다
+    if(window._kkEntry){ window._kkEntry=false; window._kkGate=false; if(dim) dim.classList.remove('on'); }
+    return;
+  }
+  if(_plan&&_plan.state==='active'){ if(window._kkEntry){ window._kkEntry=false; planKakaoGate(); } return; }   // 결제 완료 셀러는 planKakaoGate(결제 완료 + 카톡 필수)로 바꿔 띄운다
+  if(window._kkEntry){ kkEntryGate(); return; }                           // 이미 떠 있으면(다른 시트가 덮었어도) 다시 그린다
+  if(dim&&dim.classList.contains('on')){ clearTimeout(window._kkRetry); window._kkRetry=setTimeout(kkEntryCheck,1500); return; }   // 다른 시트가 닫히면 띄운다
+  kkEntryGate();
+}
+function kkTried(){ try{ const o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); return !!(o&&o.n>=2&&o.t&&Date.now()-o.t<86400e3); }catch(e){ return false; } }   // 24시간 안 2번 이상 눌렀는데 아직 미연결
+function kkEntryGate(){
+  const later=planKakaoFailed()||kkTried();   // 카카오 쪽 실패 · 또는 눌러 봤는데 아직 미연결(카카오 오류 화면에서 못 돌아온 경우)
+  window._kkEntry=true; window._kkGate=!later;
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-t">카톡 연결하고 시작해요</div>'+
+    '<div class="pd-s">셀러 페이지는 카톡 연결 뒤에 쓸 수 있어요</div>'+
+    '<div class="pd-box"><div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 본인 확인·알림<br>카톡 「나와의 채팅」으로 와요</div></div></div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" id="kkEntryBtn" onclick="planKakaoStart()">카톡 연결하기</button>'+
+      (later?'<button class="pn-cta s" onclick="window._kkGate=false;window._kkEntry=false;planSheetClose()">나중에</button>':'')+
+    '</div>'+
+    '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
+  document.getElementById('planDim').classList.add('on');
 }
 function planKakaoResult(){
   const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
@@ -870,8 +930,9 @@ function planKakaoResult(){
   q.delete('kakao'); q.delete('why');
   try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
   setTimeout(function(){ showToast(msg); },400);
-  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); }catch(e){} }   // 다시 읽는다
-  else if(why!=='cancel'){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
+  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 다시 읽는다
+  else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 스스로 취소 = 계속 막는다
+  else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }   // 정해진 실패 사유만(주소에 아무 값이나 붙여 열리지 않게)
   try{ const w=Number(localStorage.getItem('mc_plan_want')||0); localStorage.removeItem('mc_plan_want'); if(w===3||w===6){ _planMonths=w; _planOpen=true; window._planBackDone=true; } }catch(e){}
 }
 async function planStart(){
@@ -1127,7 +1188,7 @@ function planKakaoNeed(){
 }
 function planKakaoGate(){
   window._kkGate=true;
-  const later=planKakaoFailed();
+  const later=planKakaoFailed()||kkTried();   // 들어올 때 문과 같은 빠져나갈 길
   document.getElementById('planSheet').innerHTML=
     '<div class="pn-grab"></div>'+
     '<div class="pd-ic"><i></i></div>'+
@@ -1139,7 +1200,8 @@ function planKakaoGate(){
     '<div class="pd-btns">'+
       '<button class="pn-cta" id="kkGateBtn" onclick="planKakaoStart()">카톡 연결하기</button>'+
       (later?'<button class="pn-cta s" onclick="window._kkGate=false;planSheetClose()">나중에</button>':'')+
-    '</div>';
+    '</div>'+
+    '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
   document.getElementById('planDim').classList.add('on');
 }
 function planPaidCheck(){
@@ -1260,6 +1322,7 @@ async function onLogin(){
   showMy();
   await loadData();
   planKakaoResult();
+  kkLoad();     // 카톡 필수 연결 — 연결 안 됐으면 시트로 막는다
   planLoad();   // 이웃셀러 패키지 상태(실패해도 나머지 화면은 그대로)
 }
 
@@ -1267,7 +1330,7 @@ function doLogout(){
   if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
   _seller=null;_tok=null;_data=[];
   try{ localStorage.removeItem('mc_seller_tok'); }catch(e){}
-  _plan=null;_planOpen=false;_cafeNick=null;_kakao=null; { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
+  _plan=null;_planOpen=false;_cafeNick=null;_kakao=null; window._kkGate=false; window._kkEntry=false; try{ localStorage.removeItem('mc_kk_try'); localStorage.removeItem('mc_kk_fail'); }catch(e){} { const dm=document.getElementById('planDim'); if(dm) dm.classList.remove('on'); } { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
   // 아이디는 저장된 값으로 유지, 비밀번호만 비움
