@@ -885,7 +885,7 @@ function kkLoad(){
   _kakao={connected:false,loading:true};
   sellerRpc('seller_kakao_status').then(function(x){
     if(!_seller) return;                                                  // 그사이 로그아웃
-    _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean')};
+    _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean'),phone:!(x&&x.ok&&x.phone===false)};
     planRender(); planPaidCheck(); kkEntryCheck();
   }).catch(function(){ _kakao={connected:false,known:false}; });
 }
@@ -905,17 +905,33 @@ function kkTried(){ try{ const o=JSON.parse(localStorage.getItem('mc_kk_try')||'
 function kkEntryGate(){
   const later=planKakaoFailed()||kkTried();   // 카카오 쪽 실패 · 또는 눌러 봤는데 아직 미연결(카카오 오류 화면에서 못 돌아온 경우)
   window._kkEntry=true; window._kkGate=!later;
+  const needPh=!!(_kakao&&_kakao.phone===false), oldPh=(document.getElementById('kkPhone')||{}).value||'';
   document.getElementById('planSheet').innerHTML=
     '<div class="pn-grab"></div>'+
-    '<div class="pd-t">카톡 연결하고 시작해요</div>'+
-    '<div class="pd-s">셀러 페이지는 카톡 연결 뒤에 쓸 수 있어요</div>'+
+    '<div class="pd-t">'+(needPh?'본인인증을 한 번 해 주세요':'카톡 연결하고 시작해요')+'</div>'+
+    '<div class="pd-s">'+(needPh?'연락처 확인 + 카톡 연결 · 처음 한 번만':'셀러 페이지는 카톡 연결 뒤에 쓸 수 있어요')+'</div>'+
+    (needPh?'<div class="fl" style="margin:20px 0 0"><label for="kkPhone">연락처 (휴대폰)</label><input id="kkPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="010-0000-0000"><div id="kkPhoneErr" role="alert" style="min-height:18px;margin-top:6px;font-size:12px;color:#E5484D"></div></div>':'')+
     '<div class="pd-box"><div class="pd-r warn"><div class="k">카톡 연결</div><div class="v"><b>필수</b> · 본인 확인·알림<br>카톡 「나와의 채팅」으로 와요</div></div></div>'+
     '<div class="pd-btns">'+
-      '<button class="pn-cta" id="kkEntryBtn" onclick="planKakaoStart()">카톡 연결하기</button>'+
+      '<button class="pn-cta" id="kkEntryBtn" onclick="kkEntryGo()">'+(needPh?'본인인증하고 시작하기':'카톡 연결하기')+'</button>'+
       (later?'<button class="pn-cta s" onclick="window._kkGate=false;window._kkEntry=false;planSheetClose()">나중에</button>':'')+
     '</div>'+
     '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
   document.getElementById('planDim').classList.add('on');
+  if(needPh&&oldPh){ const i=document.getElementById('kkPhone'); if(i) i.value=oldPh; }
+}
+async function kkEntryGo(){
+  const i=document.getElementById('kkPhone');
+  if(i&&_kakao&&_kakao.phone===false){
+    const e=document.getElementById('kkPhoneErr'), d=String(i.value||'').replace(/\D/g,'');
+    if(!/^01[016789]\d{7,8}$/.test(d)){ if(e) e.textContent='휴대폰 번호를 확인해 주세요'; i.focus(); return; }
+    if(window._kkPhBusy) return; window._kkPhBusy=true;
+    let r=null; try{ r=await sellerRpc('seller_phone_save',{p_phone:d}); }catch(x){}
+    window._kkPhBusy=false;
+    if(!r||!r.ok){ if(e) e.textContent=(r&&r.msg==='bad_phone')?'휴대폰 번호를 확인해 주세요':'저장하지 못했어요. 다시 눌러 주세요'; return; }
+    _kakao.phone=true;
+  }
+  planKakaoStart();
 }
 function planKakaoResult(){
   const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
@@ -1293,7 +1309,8 @@ async function planClaim(){
     if(fn==='seller_cafe_save'){ st.cafe=String(p.p_nick||'').trim(); return {ok:true,nick:st.cafe}; }
     if(fn==='seller_links_get') return {ok:true,insta:'ttotto_mom',insta_pending:null,bio:'',checked:false};
     if(fn==='seller_banner_get') return {ok:true,can:st.state==='active'||st.state==='pending',seller:'또또맘',banner:st.banner||null};
-    if(fn==='seller_kakao_status') return {ok:true,connected:!!st.kakao};
+    if(fn==='seller_kakao_status') return {ok:true,connected:!!st.kakao,phone:!/[?&]ph=0/.test(location.search)||!!st.phone};
+    if(fn==='seller_phone_save'){ st.phone=true; return {ok:true}; }
     if(fn==='seller_banner_reset'){ st.banner=null; return {ok:true,removed:1}; }
     if(fn==='seller_banner_save'){ st.banner={name:p.p_name,desc:p.p_desc,link:p.p_link,img:p.p_img,active:true}; return {ok:true}; }
     return real(fn,p);
