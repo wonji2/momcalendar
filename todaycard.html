@@ -352,7 +352,8 @@ const cardExcluded=x=>{
   return CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
 };
     // 🔴 그날 카드에서만 뺄 행(DB·사이트엔 그대로) — 날짜별로 건다. 사장님 2026-11-04 「오늘자 공구 카드에서 마인크래프트 자석 블럭 빼고」(29082)
-    const CARD_HIDE_BY_DAY={'2026-11-04':[29082]};
+    // 사장님 2026-11-24 「오늘 인스타카드에서 비비무마스크는 연장된거니까 오픈에 넣지마」(32045 — 오픈 11/18, 마감 11/29로 연장. 진행중 추가 줄이 오픈 칸에 싣는다)
+    const CARD_HIDE_BY_DAY={'2026-11-04':[29082],'2026-11-24':[32045]};
     const hiddenToday=x=>(CARD_HIDE_BY_DAY[day]||[]).includes(Number(x.id));
     const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x)||hiddenToday(x);
     const dropNS=rows.filter(noSeller).map(x=>x.name);
