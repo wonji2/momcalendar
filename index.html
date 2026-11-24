@@ -825,6 +825,7 @@ body.srch-mode .next-zone{display:none!important}
 .mc-sheet.open .mc-pnl{transform:none}
 .mc-t{font-size:20px;font-weight:700;line-height:28px;color:#191F28}
 #calCatRow .gs-chips{min-width:0}
+.cta-s{margin:8px 0 20px;font-size:14px;line-height:1.45;color:#4E5968;letter-spacing:-.02em;word-break:keep-all}
 .csh-row{display:flex;justify-content:space-around;gap:8px;margin:20px 0 24px}
 .csh-b{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;padding:0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .csh-b:active{transform:scale(.97)}
@@ -6713,11 +6714,35 @@ function _calShareSheet(text, kakao, log, noMore){
     copy(); });
   log('sheet_open');
 }
+function _calPendKey(){ return /\/test\.html$/.test(location.pathname)?'mc_calshare_pending_t':'mc_calshare_pending'; }   // 테스트·라이브 따로
+// 웹 → 앱으로 이어서 담기 (2026-11-24) — 안드: 앱 링크(intent, 앱 없으면 플레이 스토어) · 아이폰: momcalendar://cal (안 열리면 앱스토어)
+function _calShareToApp(ids, by){
+  const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua), test=/\/test\.html$/.test(location.pathname);
+  const q='mycal='+ids.slice(0,60).map(i=>Number(i).toString(36)).join('.')+(by?'&by='+encodeURIComponent(by):'')+'&cadd=1';
+  const store=ios?APP_STORE_URL.ios:APP_STORE_URL.android+'&referrer='+encodeURIComponent(q);   // 플레이 설치 리퍼러(다음 앱 판에서 첫 실행 때 읽어 이어 줄 자리)
+  const go=()=>{ try{ trackEvent('cal_share_app', ios?'ios':and?'and':'pc'); }catch(_){}
+    try{ localStorage.setItem(_calPendKey(), JSON.stringify({m:ids.slice(0,60).map(i=>Number(i).toString(36)).join('.'), by:by||'', t:Date.now()})); }catch(_){}   // 「앱 열기」를 누른 때만 기억 — 스토어 다녀와 이 페이지를 다시 열면 한 번 이어서(30분)
+    if(and){ location.href='intent://momcalendar.com/'+(test?'test.html?preview=1&':'?')+q+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent(store)+';end'; return; }
+    if(ios){ let left=false; const off=()=>{ left=true; }; window.addEventListener('pagehide',off,{once:true}); window.addEventListener('blur',off,{once:true}); document.addEventListener('visibilitychange',()=>{ if(document.hidden) left=true; },{once:true}); location.href='momcalendar://cal?'+q+(test?'&t=1':''); setTimeout(()=>{ if(!left && !document.hidden) location.href=store; },2500); return; }   // 「열까요?」 창이 떠 있는 동안 스토어로 넘어가지 않게
+    try{ window.open(store,'_blank'); }catch(_){ location.href=store; } };
+  const el=mcSheet('calToApp', '<b class="mc-t">앱에서 이어서 담기</b><div class="cta-s">공유받은 공구 '+ids.length+'개<br>앱이 없으면 설치하고 다시 눌러 주세요</div><button class="mc-btn" type="button" data-a="go">맘캘린더 앱 열기</button><button class="mc-btn sub" type="button" data-a="x">닫기</button>');
+  el.querySelector('[data-a="go"]').onclick=go; el.querySelector('[data-a="x"]').onclick=()=>el.classList.remove('open');
+  try{ trackEvent('cal_share_bar','to_app_sheet'); }catch(_){}
+}
+// 아이폰 앱: momcalendar://cal?mycal=… 로 열리면 그 공구 캘린더로(안드는 https 앱 링크라 앱이 주소를 그대로 연다)
+(function(){ try{ if(!(window._mcCapIos && window._mcCapIos())) return; }catch(_){ return; }
+  const take=url=>{ try{ const u=new URL(url); if(u.protocol!=='momcalendar:' || u.host!=='cal') return; const p=new URLSearchParams(u.search); const m=p.get('mycal')||''; if(!/^[0-9a-z]+(\.[0-9a-z]+){0,79}$/.test(m)) return;
+    location.replace((p.get('t')==='1'?'/test.html?preview=1&':'/?')+'mycal='+m+(p.get('by')?'&by='+encodeURIComponent(p.get('by')):'')+'&cadd=1'); }catch(_){} };
+  try{ Capacitor.Plugins.App.addListener('appUrlOpen', ev=>take(ev && ev.url)); }catch(_){}
+  try{ Capacitor.Plugins.App.getLaunchUrl().then(r=>{ if(r && r.url && /^momcalendar:\/\/cal/.test(r.url) && !sessionStorage.getItem('mc_cal_launch')){ sessionStorage.setItem('mc_cal_launch','1'); take(r.url); } }).catch(()=>{}); }catch(_){}
+})();
 // 받는 쪽: ?mycal= 로 들어오면 시트를 띄운다
 async function _calShareOpen(){
-  let raw='', by=''; try{ const sp=new URLSearchParams(location.search); raw=sp.get('mycal')||''; by=(sp.get('by')||'').replace(/[<>&"']/g,'').replace(/\s+/g,' ').trim(); by=Array.from(by).slice(0,12).join(''); }catch(_){}
+  let raw='', by='', cadd=false; try{ const sp=new URLSearchParams(location.search); raw=sp.get('mycal')||''; cadd=(sp.get('cadd')==='1'); by=(sp.get('by')||'').replace(/[<>&"']/g,'').replace(/\s+/g,' ').trim(); by=Array.from(by).slice(0,12).join(''); }catch(_){}
+  let _resume=false;   // 앱 설치하러 스토어에 다녀온 웹 손님 — 「앱 열기」를 누를 때 기억해 둔 공유 목록(30분, 한 번만)
+  if(!raw && !location.search.replace(/^[?]/,'').replace(/(^|&)preview=1/,'') && !location.hash){ try{ if(!(typeof _isNativeApp==='function' && _isNativeApp())){ const _pk=_calPendKey(), _pv=localStorage.getItem(_pk); localStorage.removeItem(_pk); const pp=JSON.parse(_pv||'null'); if(pp && pp.t && Date.now()-pp.t<30*60e3 && /^[0-9a-z]+([.][0-9a-z]+){0,79}$/.test(String(pp.m||''))){ raw=pp.m; by=String(pp.by||'').replace(/[<>&"']/g,'').slice(0,12); _resume=true; } } }catch(_){} }
   if(!raw) return;
-  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); u.searchParams.delete('by'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
+  try{ const u=new URL(location.href); u.searchParams.delete('mycal'); u.searchParams.delete('by'); u.searchParams.delete('cadd'); history.replaceState(null,'',u.pathname+(u.search||'')+(u.hash||'')); }catch(_){}   // 한 번 쓰면 지운다
   if(!/^[0-9a-z]+(\.[0-9a-z]+){0,79}$/.test(raw)) return;
   const ids=[...new Set(raw.split('.').map(x=>parseInt(x,36)).filter(n=>Number.isSafeInteger(n)&&n>0))].slice(0,60);
   if(!ids.length) return;
@@ -6737,14 +6762,15 @@ async function _calShareOpen(){
   let sheetEl=null;
   const add=()=>{
     const did=deviceId(), now=items.filter(it=>!isWished(it.id));
-    if(now.length && _webWishGate('calshare')){ if(sheetEl) sheetEl.classList.remove('open'); return; }
+    if(now.length && !(typeof _isNativeApp==='function' && _isNativeApp())){ if(sheetEl) sheetEl.classList.remove('open'); try{ localStorage.removeItem('mc_wish_pending'); }catch(_){} _calShareToApp(items.map(it=>it.id), by); return; }   // 찜은 앱에서만(2026-11-20) — 앱 설치 안내 대신 앱을 열어 그대로 담는다(2026-11-24)
     now.forEach(it=>{ WISH.add(Number(it.id)); fetch(`${SUPABASE_URL}/rest/v1/rpc/wish_toggle`,{method:'POST',headers:wishHeaders(),body:JSON.stringify({p_device:did, p_gonggu:Number(it.id), p_on:true, p_token:_wishTok()})}).catch(()=>{}); });
     if(now.length){ saveWishLocal(); updateWishBadge(); try{ paintHearts(); }catch(_){} try{ trackEvent('cal_share_add', String(now.length)); }catch(_){} }
     _calBarOff(); if(sheetEl) sheetEl.classList.remove('open');
-    mcToast(now.length?now.length+'개 공구가 내 맘캘에 추가되었어요!':'이미 내 맘캘에 담겨 있어요');
+    const _li=isLoggedIn();
+    if(_li) mcToast(now.length?now.length+'개 공구가 내 맘캘에 추가되었어요!':'이미 내 맘캘에 담겨 있어요');   // 로그인 창이 뜰 땐 알림 대신 창 제목에(알림이 카카오 버튼을 가렸다 2026-11-24)
     try{ goCalMine(); }catch(_){}
     try{ if(typeof renderMypage==='function') renderMypage(); }catch(_){}
-    if(!isLoggedIn()) setTimeout(()=>{ try{ openLoginSheet('카카오로 1초 저장하고 오픈 알림 받기','오픈일 아침 9시에 알려드려요'); trackEvent('cal_share_bar','login_sheet'); }catch(_){} },1200);
+    if(!_li) setTimeout(()=>{ try{ openLoginSheet(now.length?now.length+'개 공구를 담았어요':'이미 내 맘캘에 담겨 있어요','오픈일 아침 9시에 알려드려요'); const _s=document.getElementById('kkoSub'); if(_s){ _s.textContent='로그인하면 오픈일 아침 9시에 알려 드려요'; _s.style.display=''; } trackEvent('cal_share_bar','login_sheet'); }catch(_){} },400);
   };
   const list=()=>{
     sheetEl=mcSheet('calShared', `<div class="ip-h"><b class="mc-t">공유받은 공구 캘린더 ${items.length}개</b></div><div class="ip-list" style="max-height:52vh">${rows}</div><button class="mc-btn cs-go" type="button">${fresh.length?fresh.length+'개 내 찜에 담기':'내 공구 캘린더 보기'}</button>`);
@@ -6753,6 +6779,8 @@ async function _calShareOpen(){
   try{ _calShared=items; calMine=false; const _f=items[0]&&items[0].openDate; if(_f&&_f.slice(0,7)>todayStr.slice(0,7)&&!items.some(it=>String(it.openDate).slice(0,7)<=todayStr.slice(0,7))){ const q=_f.split('-'); calMonth=new Date(+q[0],+q[1]-1,1); }   // 이번 달에 걸린 게 없으면 첫 공구의 달로
     if(document.body.classList.contains('srch-mode')) exitSearchMode(); switchContent('gonggu'); switchTab('cal'); document.getElementById('icsBar').style.display='none'; buildCalendar(); [150,700].forEach(ms=>setTimeout(()=>{ try{ document.getElementById('calView').scrollIntoView({block:'start'}); }catch(_){} },ms)); }catch(_){}
   _calBarOn((by?by+'님이':'친구가')+' 공유한 공구 '+items.length+'개', fresh.length?'⭐️ 내 맘캘에도 한 번에 담기 ('+fresh.length+'개)':'내 맘캘 보기', add, list);
+  if(_resume && fresh.length) setTimeout(()=>{ try{ _calShareToApp(items.map(it=>it.id), by); }catch(_){} },700);   // 스토어에 다녀온 손님 — 「앱 열기」 시트를 다시
+  if(cadd && fresh.length && typeof _isNativeApp==='function' && _isNativeApp()){ const _w=()=>{ if(document.getElementById('appOnboardingWrap')) return setTimeout(_w,500); try{ trackEvent('cal_share_app','opened'); }catch(_){} list(); }; setTimeout(_w,600); }   // 웹에서 「앱에서 이어서 담기」로 넘어온 것 — 목록과 [N개 내 찜에 담기]를 바로 띄운다. 확인 없이 담지 않는다(남이 만든 링크로 대량 찜 방지, 검증자 2026-11-24) · 앱 첫 화면이 닫힌 뒤
   try{ trackEvent('cal_share_bar','show|'+fresh.length+(by?'|by':'')); }catch(_){}
 }
 // 하단 고정 바 (2026-11-13) — 설계는 scratchpad/patch_mycal_bar.cjs 머리말
@@ -6791,7 +6819,7 @@ function _calBarOn(label, btnText, onAdd, onList){
   document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') clr(); });
   try{ if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App) Capacitor.Plugins.App.addListener('appStateChange',function(st){ if(st && st.isActive) clr(); }); }catch(_){}
 })();
-(function(){ if(!/[?&]mycal=/.test(location.search)) return; var n=0, t=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined' && DATA.length>0; }catch(_){} if(ok||n>60){ clearInterval(t); _calShareOpen(); } },250); })();
+(function(){ var _pend=false; try{ _pend=!!localStorage.getItem(_calPendKey()); }catch(_){} if(!/[?&]mycal=/.test(location.search) && !_pend) return; var n=0, t=setInterval(function(){ n++; var ok=false; try{ ok=typeof DATA!=='undefined' && DATA.length>0; }catch(_){} if(ok||n>60){ clearInterval(t); _calShareOpen(); } },250); })();
 function moveMonth(d){calMonth.setMonth(calMonth.getMonth()+d);selCalDate=null;document.getElementById('selBox').style.display='none';buildCalendar();}
 function jumpToday(){calMonth=new Date(_t.getFullYear(),_t.getMonth(),1);pickCalDay(todayStr);}
 
