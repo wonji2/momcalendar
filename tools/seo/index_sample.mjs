@@ -72,6 +72,8 @@ async function run() {
 }
 
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+// --once (2026-11-25): 예약 회차는 하루 세 번 걸어 둔다(깃허브 schedule 이 몇 시간씩 늦는다 — 11-24 seo-daily 05:10 예약이 13:43 에 돎). 오늘 회차가 이미 있으면 그냥 끝낸다
+if (process.argv.includes('--once') && state.runs.some((x) => x.day === today && !x.apiErr)) { console.log(`오늘(${today}) 회차가 이미 있다 — 건너뜀`); process.exit(0); }
 let rows;
 try { rows = await run(); state.fail = 0; }
 catch (e) {

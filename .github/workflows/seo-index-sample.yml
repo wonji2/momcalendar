@@ -7,10 +7,17 @@ name: 구글 색인 표본 측정
 on:
   schedule:
     - cron: '30 22 * * *'   # UTC 22:30 = KST 07:30 매일(seo-daily 빌드 05:10 뒤)
+    # 2026-11-25: 깃허브 schedule 이 몇 시간씩 늦어(11-24 예약 회차가 한 번도 안 돎) 두 번 더 건다 — 오늘 회차가 이미 있으면 스크립트가 건너뛴다(--once)
+    - cron: '7 0 * * *'     # KST 09:07
+    - cron: '43 2 * * *'    # KST 11:43
   workflow_dispatch:
     inputs:
       dry_run:
         description: '읽기만 하고 기록·경보는 하지 않는다'
+        type: boolean
+        default: false
+      once:
+        description: '오늘 회차가 이미 있으면 건너뛴다(서버 pg_cron seo-index-kick 이 이렇게 부른다)'
         type: boolean
         default: false
 permissions:
@@ -32,7 +39,16 @@ jobs:
         with:
           node-version: 20
       - name: 색인 표본 측정
-        run: node tools/seo/index_sample.mjs ${{ github.event.inputs.dry_run == 'true' && '--dry' || '' }}
+        run: node tools/seo/index_sample.mjs ${{ github.event.inputs.dry_run == 'true' && '--dry' || '' }} ${{ (github.event_name == 'schedule' || github.event.inputs.once == 'true') && '--once' || '' }}
+        env:
+          GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
+          GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
+          GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      # 2026-11-25 매일 점검 → 다음 조치 판정 장부(ops_status 'seo-develop' · 하락이면 health_alerts 'seo:개선') — 사장님 「색인 매일 점검해서 맞는 방향으로 디벨롭해」
+      - name: 검색 노출 매일 점검 장부
+        if: ${{ always() }}
+        run: node tools/seo/seo_develop.mjs ${{ github.event.inputs.dry_run == 'true' && '--dry' || '' }} ${{ (github.event_name == 'schedule' || github.event.inputs.once == 'true') && '--once' || '' }}
         env:
           GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
           GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}

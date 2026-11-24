@@ -8,10 +8,17 @@ name: 검색 노출 페이지 매일 갱신
 on:
   schedule:
     - cron: '10 20 * * *'   # UTC 20:10 = KST 05:10
+    # 2026-11-25: 깃허브 schedule 이 몇 시간씩 늦는다(11-24 05:10 예약이 13:43 에 돎) → 두 번 더 걸고, 오늘 자동 갱신 커밋이 이미 있으면 그 회차는 건너뛴다(check 작업)
+    - cron: '47 21 * * *'   # KST 06:47
+    - cron: '23 0 * * *'    # KST 09:23
   workflow_dispatch:
     inputs:
       dry_run:
         description: '커밋하지 않고 생성·검증만 한다'
+        type: boolean
+        default: false
+      once:
+        description: '오늘 자동 갱신 커밋이 이미 있으면 건너뛴다(서버 pg_cron seo-daily-kick 이 이렇게 부른다)'
         type: boolean
         default: false
 
@@ -23,7 +30,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 예약 회차만: 오늘(KST) 자동 갱신 커밋이 이미 있으면 빌드를 건너뛴다(수동 실행은 늘 돈다)
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.c.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 120
+          sparse-checkout: tools/seo
+      - id: c
+        run: |
+          D=$(TZ=Asia/Seoul date +%Y-%m-%d)
+          if { [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event.inputs.once }}" = "true" ]; } && git log -120 --format=%s | grep -qF "검색 노출 페이지 자동 갱신 ($D"; then
+            echo "skip=1" >> "$GITHUB_OUTPUT"; echo "오늘($D) 이미 갱신됨 — 이 예약 회차는 건너뜀"
+          else
+            echo "skip=0" >> "$GITHUB_OUTPUT"
+          fi
   build:
+    needs: check
+    if: ${{ needs.check.outputs.skip != '1' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +79,15 @@ jobs:
       - name: p 색인 지킴 명단
         continue-on-error: true
         run: node tools/seo/p_keep_index.mjs
+        env:
+          GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
+          GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
+          GSC_REFRESH_TOKEN: ${{ secrets.GSC_REFRESH_TOKEN }}
+
+      # 2026-11-25: g(브랜드) 얇은 페이지 색인 제외 — 16개월 구글 노출이 있던 g 는 내리지 않는다(명단이 500줄 미만이거나 받기 실패면 build.ps1 이 g 계층을 끈다)
+      - name: g 색인 지킴 명단
+        continue-on-error: true
+        run: node tools/seo/g_keep_index.mjs
         env:
           GSC_CLIENT_ID: ${{ secrets.GSC_CLIENT_ID }}
           GSC_CLIENT_SECRET: ${{ secrets.GSC_CLIENT_SECRET }}
