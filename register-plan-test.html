@@ -324,6 +324,7 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async></script>
 </head>
 <body>
 <div class="hd">
@@ -862,6 +863,21 @@ function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_pl
 function planPick(m){ _planMonths=m; planRender(); }
 /* 카카오 연결(본인 확인 + 카톡 「나와의 채팅」으로 결제 안내·만료 7·3·1일 전 알림) — 같은 창으로 카카오에 갔다가 돌아온다 */
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
+/* 카카오톡 앱으로 한 번에 인증 — 폰 일반 브라우저만. 인앱·우리 앱·SDK 없음은 예전 주소 그대로 */
+function kkTalkGo(url){
+  try{
+    const ua=navigator.userAgent||'';
+    const mobile=/Android|iPhone|iPad|iPod/i.test(ua);
+    const inApp=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\/|DaumApps|everytimeApp|; wv\)/i.test(ua);
+    let native=false; try{ native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(e){}
+    if(mobile&&!inApp&&!native&&window.Kakao&&Kakao.Auth){
+      if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
+      const q=new URL(url).searchParams, st=q.get('state'), ru=q.get('redirect_uri');
+      if(st&&ru){ Kakao.Auth.authorize({ redirectUri:ru, scope:q.get('scope')||'talk_message', state:st, throughTalk:true }); return; }
+    }
+  }catch(e){}
+  location.href=url;
+}
 async function planKakaoStart(){
   if(_kkBusy) return; _kkBusy=true;
   try{ let o=null; try{ o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); }catch(_){} if(!o||!o.t||Date.now()-o.t>86400e3) o={n:0,t:Date.now()}; o.n=(o.n||0)+1; localStorage.setItem('mc_kk_try',JSON.stringify(o)); }catch(e){}   // 시도 횟수 — 카카오 오류 화면에서 못 돌아와 두 번째부터는 「나중에」
@@ -870,7 +886,7 @@ async function planKakaoStart(){
   try{ const r=await fetch(KAKAO_START,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_tok,back:back})}); d=await r.json().catch(function(){return null;}); }catch(e){}
   _kkBusy=false;
   // replace: 뒤로가기에 카카오 화면이 남지 않게(돌아올 때도 다리 페이지가 replace 한다)
-  if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} location.href=d.url; return; }   // href: 카카오 화면에서 뒤로가기로 이 페이지에 돌아오게
+  if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} kkTalkGo(d.url); return; }   // 폰 브라우저는 카카오톡 앱으로, 그 밖은 카카오 화면으로(뒤로가기로 이 페이지에 돌아온다)
   if(d&&d.msg==='unauthorized'){ showToast('로그인이 만료됐어요. 다시 로그인해주세요.'); doLogout(); return; }
   showToast(d&&d.msg==='too_many'?'잠시 뒤 다시 눌러 주세요.':'카카오 연결을 시작하지 못했어요. 다시 눌러 주세요.');
   if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }   // 시작부터 실패 = 카카오 쪽 실패로 친다(갇히지 않게)
