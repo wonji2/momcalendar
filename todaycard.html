@@ -343,10 +343,12 @@ async function load(){
 // 🔴 카드 제외 (사장님 2026-09-29 "카드에서 말랑하니랑 젤리또리 빼 · 돌잔치템플릿도 빼") — DB·사이트엔 남고 카드에서만 뺀다. 핸들은 소문자·@없이, 상품명은 정규식
 const CARD_EXCLUDE_SELLERS=['jelly_ddori','malanghoney_','pyjaehasip','crayonmom'];
 const CARD_EXCLUDE_NAMES=[/돌잔치.*템플릿/,/성장영상.*템플릿/];
+const CARD_EXCLUDE_NAMES_NOTMINE=[/라무르|lamour|l['’`]amour/i];   // 사장님 2026-11-24 「인스타카드에 라무르는 좀 안올라오게」 — 맘캘린더(momcal_) 행은 빼고 타 셀러만 카드에서 뺀다(DB·사이트엔 남는다)
 const cardExcluded=x=>{
   const h=String(x.insta||'').replace('@','').trim().toLowerCase();
   const sl=String(x.seller||x.influencer||'').trim();
   if(CARD_EXCLUDE_SELLERS.includes(h) || sl.includes('크레용맘') || h==='pyjaehasip') return true;
+  if(h!=='momcal_' && CARD_EXCLUDE_NAMES_NOTMINE.some(re=>re.test(String(x.name||'')))) return true;
   return CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
 };
     // 🔴 그날 카드에서만 뺄 행(DB·사이트엔 그대로) — 날짜별로 건다. 사장님 2026-11-04 「오늘자 공구 카드에서 마인크래프트 자석 블럭 빼고」(29082)
@@ -374,6 +376,7 @@ const cardExcluded=x=>{
         const m=String(b.title||'').match(/^(.*?)\s*-\s*([^-]+)$/); if(!m) continue;
         const name=m[1].trim(), seller=m[2].trim(); if(!name||!seller||names.has(norm(name))) continue;
         if(seller.includes('크레용맘') || CARD_EXCLUDE_SELLERS.includes(seller.toLowerCase())) continue;
+        if(CARD_EXCLUDE_NAMES_NOTMINE.some(re=>re.test(name))) continue;   // 이웃 배너 상품도 라무르는 뺀다(2026-11-24)
         const end=(b.show_until||'').slice(0,10)||pend[seller]||'';
         extra.push({id:'b'+b.id,name,seller,insta:'',influencer:seller,open_date:day,end_date:end,partner:true,own:false,score:0,ongoing:true}); names.add(norm(name));
       }

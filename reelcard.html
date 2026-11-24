@@ -429,7 +429,8 @@ async function load(){
 // 🔴 카드 제외 (사장님 2026-09-29 "카드에서 말랑하니랑 젤리또리 빼 · 돌잔치템플릿도 빼") — DB·사이트엔 남고 카드에서만 뺀다. 핸들은 소문자·@없이, 상품명은 정규식
 const CARD_EXCLUDE_SELLERS=['jelly_ddori','malanghoney_'];
 const CARD_EXCLUDE_NAMES=[/돌잔치.*템플릿/,/성장영상.*템플릿/];
-const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace('@','').trim().toLowerCase())||CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')));
+const CARD_EXCLUDE_NAMES_NOTMINE=[/라무르|lamour|l['’`]amour/i];   // 사장님 2026-11-24 「인스타카드에 라무르는 좀 안올라오게」 — 맘캘린더(momcal_) 행은 빼고 타 셀러만 카드에서 뺀다(DB·사이트엔 남는다)
+const cardExcluded=x=>CARD_EXCLUDE_SELLERS.includes(String(x.insta||'').replace('@','').trim().toLowerCase())||CARD_EXCLUDE_NAMES.some(re=>re.test(String(x.name||'')))||(String(x.insta||'').replace('@','').trim().toLowerCase()!=='momcal_'&&CARD_EXCLUDE_NAMES_NOTMINE.some(re=>re.test(String(x.name||''))));
     const noSeller=x=>!String(x.seller||'').trim()||cardExcluded(x);
     const dropNS=rows.filter(noSeller).map(x=>x.name);
     if(dropNS.length) console.log('셀러 미상이라 카드에서 제외:', dropNS);
