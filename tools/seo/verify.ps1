@@ -142,7 +142,7 @@ if($noindexInSitemap -gt 0){ Bad "noindex 페이지가 사이트맵에 실렸다
 #   ③ 과도 축소: 3,000 미만이면 gg 데이터 생성 실패로 본다
 #   ① 템플릿 사고(전 페이지 noindex): p·gg 는 계층을 쓰므로 폴더별 5% 가드에서 뺀다 → 각자 상한으로 본다. (2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §4-3)
 foreach($dk in @($filesByDir.Keys)){
-  if($dk -eq 'gg' -or $dk -eq 'p'){ continue }
+  if($dk -eq 'gg' -or $dk -eq 'p' -or $dk -eq 'g'){ continue }   # 2026-11-25: g 도 계층(얇은 페이지 noindex)을 쓴다 — 아래 상한으로 본다
   $nn = [int]$noidxByDir[$dk]; $tt = [int]$filesByDir[$dk]
   if($nn -gt [Math]::Max(30, [int]($tt * 0.05))){ Bad "noindex 페이지가 $dk 폴더에 $nn / $tt 장 — 템플릿 사고 의심(전 페이지 noindex)" }
 }
@@ -150,8 +150,12 @@ foreach($dk in @($filesByDir.Keys)){
 $pAll2 = [int]$filesByDir['p']; $pNo2 = [int]$noidxByDir['p']
 if($pAll2 -gt 0 -and $pNo2 -gt [int]($pAll2 * 0.70)){ Bad "p 폴더 noindex $pNo2 / $pAll2 — 계층 판정 사고 의심" }
 Write-Output "p noindex $pNo2 / $pAll2 장"
+#   g 계층 상한(2026-11-25) — 얇은 g 는 약 45% 다. 60% 를 넘으면 판정 사고(지킴 명단·진행 판정 실패)로 본다
+$gAll2 = [int]$filesByDir['g']; $gNo2 = [int]$noidxByDir['g']
+if($gAll2 -gt 0 -and $gNo2 -gt [int]($gAll2 * 0.60)){ Bad "g 폴더 noindex $gNo2 / $gAll2 — 계층 판정 사고 의심" }
+Write-Output "g noindex $gNo2 / $gAll2 장"
 #   🔴 색인 지킴 명단 위반 = 11-19 사고의 재발. 명단에 있는 페이지가 noindex 면 실패
-foreach($kf in @(@{f='p_keep_index.txt'; d='p'}, @{f='gg_keep_index.txt'; d='gg'})){
+foreach($kf in @(@{f='p_keep_index.txt'; d='p'}, @{f='gg_keep_index.txt'; d='gg'}, @{f='g_keep_index.txt'; d='g'})){
   $kp = Join-Path $PSScriptRoot $kf.f
   if(-not (Test-Path $kp)){ continue }
   $bad = 0

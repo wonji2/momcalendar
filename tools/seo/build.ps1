@@ -8,7 +8,8 @@
 param(
   [string]$Root = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
   [string]$DataFile = '',
-  [int]$GgKeepDays = 30      # gg 색인 계층 B(최근 마감) 창. 사이트맵이 12,000 을 넘으면 빌드가 스스로 줄인다. 되돌리기: 365
+  [int]$GgKeepDays = 7,      # gg 색인 계층 B(최근 마감) 창. 2026-11-25 30→7(사장님 승인 — 끝난 공구 B 6,339 → 약 2,500 · 16개월 노출 있던 619장은 gg_keep_index 로 지킨다). 사이트맵이 상한을 넘으면 빌드가 스스로 줄인다. 되돌리기: 21(어제 창) 또는 365
+  [string]$GTier = 'on'      # 2026-11-25 g(브랜드) 얇은 페이지 색인 제외. 'off' 면 전부 index 로 되돌린다
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -580,7 +581,7 @@ foreach($fp in [IO.Directory]::EnumerateFiles((Join-Path $Root 'gg'), '*.html'))
 $GgKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 $ggKeepFile = Join-Path $PSScriptRoot 'gg_keep_index.txt'
 if(Test-Path $ggKeepFile){ foreach($ln in [IO.File]::ReadAllLines($ggKeepFile)){ $ln = $ln.Trim(); if($ln -and -not $ln.StartsWith('#')){ [void]$GgKeepIdx.Add($ln) } } }
-Write-Output "gg 색인 지킴 명단(구글 노출 90일): $($GgKeepIdx.Count)장"
+Write-Output "gg 색인 지킴 명단(구글 노출 16개월): $($GgKeepIdx.Count)장"
 # ── p(제품) 색인 계층 (2026-11-23 ORDER_TEST_BLOCK_AND_SEO_TOP3 §4) — gg 와 같은 원칙, 대상만 p/ ──
 $PKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 $pKeepFile = Join-Path $PSScriptRoot 'p_keep_index.txt'
@@ -596,6 +597,26 @@ function PIndexTier($p, $live, $soon, [string]$cut){
   if($PKeepIdx -and $PKeepIdx.Contains("$($p.slug).html")){ return 'K' }
   return 'N'
 }
+# ── g(브랜드) 색인 계층 (2026-11-25 사장님 승인 「니가다하고 8월 구글 검색으로 돌려놔」 — scratchpad/handoff-log/seo_recover_2026-11-25.md) ──
+#   왜: 사이트맵 2만 8천 장 중 약 80% 가 16개월 동안 구글 노출이 한 번도 없었고, g 의 63% 가 공구 기록 1건짜리 같은 틀 페이지였다.
+#       구글이 사이트 전체를 낮게 본 가장 유력한 원인이라 얇은 g 를 색인에서 뺀다(페이지는 200 유지, 지우지 않는다).
+#   N(noindex,follow + 사이트맵 제외) = 공구 기록 1건 이하 AND 진행·예정 공구 없음 AND 16개월 구글 노출 0 AND 네이버 검색량 0
+#   K(그대로) = 그 밖 전부. 지킴 명단(g_keep_index.txt, 16개월 노출)이 없거나 500줄 미만이면 아무것도 내리지 않는다(API 이상 때 노출 있던 페이지를 내리는 11-19 사고 방지)
+#   내린 목록은 날마다 tools/seo/g_noindex.txt 에 쓴다(되돌리기·비교용). 되돌리기: 빌드에 -GTier off 를 주거나 g_keep_index.txt 를 비우면 다음 빌드에서 전부 index 로 돌아온다
+$GKeepIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+$gKeepFile = Join-Path $PSScriptRoot 'g_keep_index.txt'
+if(Test-Path $gKeepFile){ foreach($ln in [IO.File]::ReadAllLines($gKeepFile)){ $ln = $ln.Trim(); if($ln -and -not $ln.StartsWith('#')){ [void]$GKeepIdx.Add($ln) } } }
+$GTierOn = ($GTier -ne 'off') -and ($GKeepIdx.Count -ge 500)
+Write-Output "g 색인 지킴 명단(구글 노출 16개월): $($GKeepIdx.Count)장 · g 계층 $(if($GTierOn){'켬'}else{'꺼짐(명단 부족 또는 -GTier off)'})"
+function GIndexTier($b, $rows, $live, $soon){
+  if(-not $GTierOn){ return 'K' }
+  if($live.Count -gt 0 -or $soon.Count -gt 0){ return 'K' }
+  if(@($rows).Count -ge 2 -or [int]$b.cnt -ge 2){ return 'K' }   # DB 건수와 파싱된 행 중 하나라도 2건 이상이면 지킨다
+  if($GKeepIdx.Contains("$($b.slug).html")){ return 'K' }
+  if((VolOf "$($b.brand)") -gt 0){ return 'K' }
+  return 'N'
+}
+$gNoIdx = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 $ggWinFile = Join-Path $PSScriptRoot 'gg_window.txt'
 $prevDays = 0; try{ if(Test-Path $ggWinFile){ $prevDays = [int]([IO.File]::ReadAllText($ggWinFile).Trim()) } }catch{}
 function GgKeepCount([int]$days){ $c0 = GgCutOf $days; return @($ggRows | Where-Object { (GgTier $_ $today $c0) -ne 'C' }).Count + @($KeptGgEd.Keys | Where-Object { $KeptGgEd[$_] -ge $c0 -or $GgKeepIdx.Contains($_) }).Count + $keptGgUnknown }
@@ -743,6 +764,16 @@ foreach($b in $brandList){
   $moreFaq = @($hubFaq) + @($moreFaq)
   $ex = ExtraBody $b.brand '브랜드' $live $soon $past $tp $moreFaq
   $body += $ex.html
+  # 2026-11-25 본문 보강(scratchpad/designs/2026-11-25_SEO_s_g_본문보강.md): 이 브랜드 카드에 나온 셀러의 셀러 페이지 링크 — 전 페이지 공통 「다른 브랜드」 링크(반복 18%) 말고 이 브랜드만의 내부링크.
+  #   숫자는 쓰지 않는다(집계 공개 금지 원칙). 순서는 이름순 고정 — 날마다 바뀌는 기준(진행 중 우선 등)을 쓰면 본문이 매일 바뀌어 lastmod=오늘 사고가 재발한다(금붕어 검토 1번)
+  #   insta → $SellerSlug(gg 상세의 「셀러의 다른 공구」 링크와 같은 표)로만 잇는다. 한글명으로 잇지 않는다(동명이인)
+  $bSel = @{}
+  foreach($r in $rows){ if($r.insta -and $SellerSlug.ContainsKey("$($r.insta)") -and -not $bSel.ContainsKey("$($r.insta)")){ $bSel["$($r.insta)"] = $(if($r.who){ "$($r.who)" } else { "$($r.insta)" }) } }
+  if($bSel.Count -gt 0){
+    $body += "<div class=${Q}sec${Q}><h2>$(HtmlEsc $b.brand) 공구를 연 셀러</h2><div class=${Q}rel${Q}>"
+    foreach($ik in @($bSel.Keys | Sort-Object @{e={ $bSel[$_] }}, @{e={ $_ }} | Select-Object -First 12)){ $body += "<a href=${Q}/s/$(Enc $SellerSlug[$ik]).html${Q}>$(HtmlEsc $bSel[$ik]) 공구 일정</a>" }
+    $body += '</div></div>'
+  }
   $body += "<div class=${Q}sec${Q}><h2>다른 브랜드 공구</h2><div class=${Q}rel${Q}>"
   foreach($t in $topBrands){ if($t.slug -ne $b.slug){ $body += "<a href=${Q}/g/$(Enc $t.slug).html${Q}>$(HtmlEsc $t.brand) 공구</a>" } }
   $body += '</div></div>'
@@ -774,7 +805,10 @@ foreach($b in $brandList){
     @{ k='정보 출처'; v=$fSrc },
     @{ k='기준일'; v=$ASOF }
   )
+  $gIdxTier = GIndexTier $b $rows $live $soon   # $gTier 는 param $GTier 와 같은 변수(대소문자 무시)라 이름을 달리한다
+  if($gIdxTier -eq 'N'){ [void]$gNoIdx.Add("$($b.slug).html") }   # 사이트맵(brand)이 이 표를 본다
   WritePage @{ path=(Join-Path $Root "g/$($b.slug).html"); title=$title; desc=$desc; canon=$canon;
+    robots=$(if($gIdxTier -eq 'N'){ $ROBOTS_NOINDEX } else { '' });
     h1="$($b.brand) 공구"; sub="인스타 공동구매 일정"; body=$body; jsonld=$ld; bcName="$($b.brand) 공구"; facts=$facts
     # ② /?q= 는 사이트 검색 딥링크다(알림이 켜지는 길이 아니다 — 2026-11-16 확인). 그래서 「알림」이 아니라 「찾아보기」라고 쓴다
     cta="/?q=$(Enc "$($b.brand)")"; ctaText="지금 「$($b.brand)」 공구 찾아보기 →" }
@@ -1751,11 +1785,14 @@ function Hub([string]$file,[string]$title,[string]$desc,[string]$h1,[string]$sub
     jsonld=@((LdCrumb $bc $canon)); bcName=$bc }
 }
 $lk = ''
-foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false})){ $lk += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand)</a>" }
-Hub '공구브랜드.html' "공구 브랜드 목록 ${fmtBrands}개 | 인스타 공동구매 - 맘캘린더" `
-  "인스타 공구로 진행된 브랜드 ${fmtBrands}개 목록. 브랜드를 누르면 그 브랜드의 공구 일정과 진행 셀러를 볼 수 있습니다." `
-  "공구 브랜드" "${fmtBrands}개 브랜드의 공구 이력" `
-  "맘캘린더에 기록된 공구 브랜드 ${fmtBrands}개입니다. 브랜드를 누르면 그 브랜드를 공구한 셀러와 지난 일정, 진행 중인 공구를 볼 수 있습니다." $lk '공구 브랜드'
+# 2026-11-25: 얇은 g(noindex) 는 브랜드 목록 허브에서 뺀다(p 휴면과 같은 원칙) — 허브 개수도 색인 대상 수로
+$nBIdx = 0
+foreach($b in ($brandList | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='brand';Descending=$false})){ if($gNoIdx.Contains("$($b.slug).html")){ continue }; $nBIdx++; $lk += "<a href=${Q}/g/$(Enc $b.slug).html${Q}>$(HtmlEsc $b.brand)</a>" }
+$fmtBrandsIdx = '{0:N0}' -f $nBIdx
+Hub '공구브랜드.html' "공구 브랜드 목록 ${fmtBrandsIdx}개 | 인스타 공동구매 - 맘캘린더" `
+  "인스타 공구로 진행된 브랜드 ${fmtBrandsIdx}개 목록. 브랜드를 누르면 그 브랜드의 공구 일정과 진행 셀러를 볼 수 있습니다." `
+  "공구 브랜드" "${fmtBrandsIdx}개 브랜드의 공구 이력" `
+  "맘캘린더에 기록된 공구 브랜드 ${fmtBrandsIdx}개입니다. 브랜드를 누르면 그 브랜드를 공구한 셀러와 지난 일정, 진행 중인 공구를 볼 수 있습니다." $lk '공구 브랜드'
 $lk = ''
 foreach($s in ($sellerMade | Sort-Object @{e={[int]$_.cnt};Descending=$true}, @{e='slug';Descending=$false})){ $lk += "<a href=${Q}/s/$(Enc $s.slug).html${Q}>$(HtmlEsc $s.kor)</a>" }
 Hub '공구셀러.html' "인스타 공구 셀러 목록 ${fmtSellers}명 | 맘캘린더" `
@@ -1898,9 +1935,32 @@ foreach($m in $monthMade){ [void]$uMain.Add("d/$($m.slug).html") }
 foreach($m in $minorMade){ [void]$uMain.Add("m/$(Enc $m.slug).html") }
 foreach($k in @('c','d','m')){ foreach($x in (KeptUrls $k $uMain)){ [void]$uMain.Add($x) } }
 WriteSitemap 'sitemap-main.xml' $uMain '0.9' 'daily'
-$uB = @(); foreach($b in $brandList){ $uB += "g/$(Enc $b.slug).html" }
-$uB = @($uB) + @(KeptUrls 'g' $uB)
+$uB = @(); $uBAll = @(); foreach($b in $brandList){ $uBAll += "g/$(Enc $b.slug).html"; if(-not $gNoIdx.Contains("$($b.slug).html")){ $uB += "g/$(Enc $b.slug).html" } }   # 2026-11-25: 얇은 g(N) 는 사이트맵 제외
+# 보존 g 페이지(오늘 집계에 없는 옛 브랜드)도 같은 규칙 — 파일의 공구 카드 수·상태를 읽는다. 진행·예정이 있거나 카드 2장 이상이거나 명단·검색량이 있으면 index 로(되돌리기 포함)
+$keptGNo = 0; $keptGFlip = 0
+foreach($u in (KeptUrls 'g' $uBAll)){
+  $fn = [IO.Path]::GetFileName([uri]::UnescapeDataString("$u")); $fp = Join-Path $Root "g/$fn"
+  if(-not (Test-Path -LiteralPath $fp)){ continue }
+  $t = [IO.File]::ReadAllText($fp)
+  $wantNo = $false
+  if($GTierOn){
+    $hd2 = $t.Split(@('<!--hd-->'), 2, [StringSplitOptions]::None)[0]
+    $cards = ([regex]::Matches($hd2, 'class="card"')).Count
+    $idle = ($t.IndexOf('<dd>진행 중인 공구 없음</dd>', [StringComparison]::Ordinal) -ge 0)
+    $bn = [IO.Path]::GetFileNameWithoutExtension($fn)
+    $wantNo = $idle -and ($cards -le 1) -and -not $GKeepIdx.Contains($fn) -and ((VolOf $bn) -le 0)
+  }
+  $isNo = TextHasNoindex $t
+  if($wantNo -ne $isNo){
+    $t = SetRobotsText $t $(if($wantNo){ $ROBOTS_NOINDEX } else { 'index,follow,max-image-preview:large' })
+    [IO.File]::WriteAllText($fp, $t, [Text.UTF8Encoding]::new($false)); $keptGFlip++
+  }
+  if($wantNo){ $keptGNo++; [void]$gNoIdx.Add($fn) } else { $uB += $u }
+}
+Write-Output "g 계층: 색인 $($uB.Count) · 얇은 페이지 noindex $($gNoIdx.Count)(보존 페이지 $keptGNo · 이번에 메타 바꾼 보존 $keptGFlip)"
 WriteSitemap 'sitemap-brand.xml' $uB '0.7' 'weekly'
+# 내린 g 목록 — 되돌리기·날마다 비교용(생성물, 커밋된다)
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'g_noindex.txt'), "# g(브랜드) 얇은 페이지 noindex 목록 — build.ps1 이 매일 쓴다. 기준일 $today · $($gNoIdx.Count)장`n" + ((@($gNoIdx) | Sort-Object) -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
 $uP = @(); foreach($p in $prodList){ if(-not $pNoIdx.Contains("$($p.slug).html")){ $uP += "p/$(Enc $p.slug).html" } }   # 2026-11-23 ORDER §4-2(d): 휴면 p 는 사이트맵 제외
 $uP = @($uP) + @((KeptUrls 'p' $uP) | Where-Object { -not (HasNoindex ([uri]::UnescapeDataString("$_")) $Root) })
 WriteSitemap 'sitemap-product.xml' $uP '0.7' 'weekly'
@@ -2134,6 +2194,8 @@ $genRoot = New-Object System.Collections.ArrayList
 [void]$genRoot.Add('tools/seo/gg_window.txt')   # 2026-11-16: gg 색인 창(일수) — 다음 날 빌드가 읽는다
 [void]$genRoot.Add('tools/seo/gg_keep_index.txt')   # 2026-11-19: 구글 노출 있던 gg 색인 지킴 명단(빌드 전 단계가 쓴다)
 [void]$genRoot.Add('tools/seo/p_keep_index.txt')   # 2026-11-23 ORDER §4-5: 구글 노출 있던 p 색인 지킴 명단
+[void]$genRoot.Add('tools/seo/g_keep_index.txt')   # 2026-11-25: 구글 노출(16개월) 있던 g 색인 지킴 명단
+[void]$genRoot.Add('tools/seo/g_noindex.txt')   # 2026-11-25: 얇은 g noindex 목록(되돌리기·비교용)
 [void]$genRoot.Add('llms.txt')   # 2026-10-24: 매일 새로 쓰는 llms.txt 도 자동 커밋 대상(pathspec)
 foreach($k in $kwMade){ [void]$genRoot.Add("$k.html") }
 foreach($h in @('공구브랜드.html','공구셀러.html','공구제품.html')){ [void]$genRoot.Add($h) }
