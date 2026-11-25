@@ -105,7 +105,7 @@ const lastJson = (out) => { for (const b of [...String(out).matchAll(/```json\s*
 
 // ── ③ 자동 검사 → 올리기 ──────────────────────────────────────────────
 function gateAndShip(it) {
-  const names = git('status', '--porcelain').split('\n').filter(Boolean).map((l) => l.slice(3).trim()).filter((n) => !n.startsWith('scratchpad/') && n !== 'node_modules' && !n.startsWith('supabase/.temp'));
+  const names = git('status', '--porcelain').split('\n').filter(Boolean).map((l) => l.replace(/^s*S{1,2}s+/, '').trim())   /* git() 이 trim 해 첫 줄의 앞 공백이 사라진다 — slice(3) 은 첫 파일 이름의 첫 글자를 잘랐다(「ools/daily/…」 허용 밖 판정, 2026-11-25) */.filter((n) => !n.startsWith('scratchpad/') && n !== 'node_modules' && !n.startsWith('supabase/.temp'));
   if (!names.length) return { shipped: false, why: '바뀐 파일 없음' };
   const why = [];
   for (const n of names) if (!/^(tools|supabase)\//.test(n)) why.push(`허용 밖 파일 ${n}`);
