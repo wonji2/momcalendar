@@ -94,18 +94,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .cal-grid{display:flex;flex-direction:column}
 .cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh-row{margin-bottom:6px}
-.cal-dh{text-align:center;font-size:14px;color:#B2B2BC;padding:9px 0 5px;font-weight:500;letter-spacing:.5px}
-.cal-week{padding:8px 0 15px}
+.cal-dh{text-align:center;font-size:11px;color:#8B95A1;padding:6px 0 4px;font-weight:600}
+.cal-week{padding:4px 0 8px;min-height:74px;box-sizing:border-box}
 .cal-week-first{padding-top:5px}
 .cal-num-row{}
-.cal-cell-num{text-align:center;padding-top:3px;min-height:26px}
-.cal-cell-num .cn{font-size:15px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px}
-.cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
+.cal-cell-num{text-align:center;padding-top:2px;min-height:24px}
+.cal-cell-num .cn{font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px}
+.cal-cell-num .cn.today{background:#7C54C4;color:#fff!important;border-radius:50%;opacity:1!important}
 .cal-holi{font-size:8.5px;color:#E2718B;font-weight:500;line-height:1.15;margin-top:1px;white-space:nowrap;letter-spacing:-.2px}
-.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px;min-height:20px}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:2px;min-height:20px}
 .cal-bar-gap{}
-.cal-bar{border-radius:7px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;font-weight:400;line-height:1.55;margin:0 1px;text-align:center}
-.cal-bar-start{border-radius:7px;margin-left:0}
+.cal-bar{border-radius:4px;padding:0 6px;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px;font-weight:500;margin:0 1px;text-align:center;min-width:0;box-sizing:border-box}   /* 2026-11-25 사장님 「글자 너무 크고」 → 메인 내 찜 달력(.cbar 10px·20px·모서리 4)과 같게, 왼쪽 띠 없음(규칙 0-DS) */
+.cal-bar .cb-t{display:block;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:20px;text-align:center}
+.cal-bar-start{border-radius:4px;margin-left:0}
 .cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-more{font-size:9px;color:var(--t3);text-align:center;font-weight:500}
 /* 빈 */
@@ -513,8 +514,7 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
       <div id="calCapture">
         <div class="cal-grid" id="calGrid"></div>
       </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:10px;text-align:center">🎨 색상은 자동으로 알록달록하게 배정돼요 · 개별 색 변경은 각 공구 수정에서</div>
-      <button onclick="saveCalImage()" style="width:100%;margin-top:10px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📷 캘린더 이미지로 저장</button>
+      <button onclick="saveCalImage()" type="button" style="width:100%;margin-top:12px;height:44px;border:0;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-.02em">사진 저장</button>
     </div>
   </div>
 
@@ -1639,8 +1639,8 @@ function buildCal(){
       inLane.forEach(s=>{
         if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
         const showName=(s.isStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
-        const lead=s.isStart?`border-left:5px solid ${barLead(s.g)};`:'';
-        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?s.g.name:'&nbsp;'}</div>`;
+        const lead='';   // 2026-11-25: 왼쪽 굵은 띠 빼기(규칙 0-DS 「border-left 금지」)
+        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?`<span class="cb-t" data-n="${String(s.g.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}"></span>`:'&nbsp;'}</div>`;
         cursor=s.ei+1;
       });
       row+=`</div>`;
@@ -1660,7 +1660,23 @@ function buildCal(){
     html+=`<div class="cal-week${w===0?' cal-week-first':''}">${numRow}${barRows}${overflow}</div>`;
   }
   grid.innerHTML=html;
+  _calFitBars(grid);
 }
+// 막대 글자 맞추기 — 메인 내 찜 달력(index.html _calFitBars)과 같은 처리: 넘치면 뒤 낱말부터 빼고 「…」 → 첫 낱말도 안 들어가면 글자 단위 「…」 → 그것도 안 되면 글자를 숨긴다(2026-11-25 「우…」「로…」 한 글자 막대)
+//   글자를 직접 넣는다 — 사진 저장(html2canvas)은 CSS 말줄임을 못 그린다
+function _calFitBars(grid){
+  grid=grid||document.getElementById('calGrid'); if(!grid) return;
+  grid.querySelectorAll('.cal-bar .cb-t').forEach(function(t){
+    var full=t.getAttribute('data-n')||''; t.textContent=full; t.style.visibility='';
+    var room=t.parentNode.clientWidth-12; if(room<=0) return;
+    if(t.scrollWidth<=room) return;
+    var w=full.split(/\s+/), k=w.length-1;
+    for(; k>=1; k--){ t.textContent=w.slice(0,k).join(' ')+'…'; if(t.scrollWidth<=room) return; }
+    var c=Array.from(w[0]); for(var j=c.length-1;j>=2;j--){ t.textContent=c.slice(0,j).join('')+'…'; if(t.scrollWidth<=room) return; }
+    t.style.visibility='hidden';   // 두 글자+「…」도 안 들어가면 숨긴다(한 글자만 남는 「우…」 막대를 안 만든다)
+  });
+}
+(function(){ var tm=0; window.addEventListener('resize', function(){ clearTimeout(tm); tm=setTimeout(function(){ try{ _calFitBars(); }catch(_){} },150); }); })();
 
 // ── 캘린더 이미지 저장 ──
 async function saveCalImage(){
