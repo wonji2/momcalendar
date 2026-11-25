@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
   };
   const cand = [...byId.values()].filter((x) =>
     x.c1 && x.productStatus === "SALE" && x.representativeProductImageUrl && x.discountedRate >= 10 && x.discountedRate < 70 && x.discountedSalePrice >= 3000
-      && !/제작|맞춤|수리|호환|리필s*전용|샘플|체험딜|증정용/.test(String(x.productName))
+      && !/제작|맞춤|수리|호환|리필\s*전용|샘플|체험딜|증정용/.test(String(x.productName))
       && (x.reviewInfo?.averageReviewScore ?? 0) >= 4.5 && (x.reviewInfo?.totalReviewCount ?? 0) >= 100 && !recent.has(x.productName) && !recent.has(x.representativeProductImageUrl)
   ).map((x) => ({ ...x, score: score(x) })).sort((a, b) => b.score - a.score);
   // 출산/육아를 먼저 6건까지 채우고(맘캘 손님), 그 밖은 분류마다 3건. 같은 스토어는 2건까지
