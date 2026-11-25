@@ -12,8 +12,10 @@
     try{ if(sessionStorage.getItem('mc_test_ok')==='1') return; }catch(_){}
     try{ if(localStorage.getItem('mc_test_ok')==='1') return; }catch(_){}   // 사장님·클코가 개발자도구로 직접 켜 둘 수 있는 칸
     // 아래는 이 페이지가 스스로 쓰는 파라미터다 — 없애면 카톡 로그인 복귀·위시 딥링크·E2E 가 깨진다
-    var OK=['code','state','error','e2e','kktest','flowtest'];
-    for(var i=0;i<OK.length;i++){ if(P.has(OK[i])) return; }
+    // 2026-11-25 코덱스 P2(C-5): 예전엔 e2e·app·q 같은 쿼리만 붙여도 키 없이 열렸다 → 통과는 ?preview=1·세션 키·로그인 복귀(code·state·error)만.
+    //   로그인 복귀는 각 페이지·서버가 state 를 검사한다(kktest.html 은 셀러 카카오 동의가 실제로 돌아오는 주소라 남긴다). 시험 쿼리는 ?preview=1 과 같이 붙인다
+    var OK=['code','state','error'];
+    for(var i=0;i<OK.length;i++){ if(P.has(OK[i]) && P.has('state')) return; }
     location.replace(HOME);
   }catch(_){ try{ location.replace(HOME); }catch(__){} }
 })();
