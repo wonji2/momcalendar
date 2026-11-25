@@ -65,7 +65,9 @@ async function run() {
     return { p, st, crawl };
   };
   let next = 0;
-  await Promise.all(Array.from({ length: 5 }, async () => { while (next < list.length) { const i = next++; rows[i] = await one(list[i]); } }));
+  // 시험용: SEO_INJECT_FAIL=0.3 이면 앞 30% 를 조회 실패로 만든다(API 를 부르지 않음) — 미완 처리 시험(V11). 평소엔 0
+  const INJ = Math.min(0.9, Math.max(0, Number(process.env.SEO_INJECT_FAIL || 0)));
+  await Promise.all(Array.from({ length: 5 }, async () => { while (next < list.length) { const i = next++; if (i < list.length * INJ) { rows[i] = { p: list[i], st: '조회 실패', crawl: '' }; apiErr++; continue; } rows[i] = await one(list[i]); } }));
   if (apiErr > list.length / 2) throw new Error(`URL 검사 ${apiErr}/${list.length} 실패`);
   rows.apiErr = apiErr;
   return rows;
@@ -98,25 +100,48 @@ else if (lm && lm.today > 0) await alertSet('seo:lastmod', null);   // 오늘 �
 
 const sum = (rs) => { const o = {}; for (const r of rs) o[r.st] = (o[r.st] || 0) + 1; return o; };
 const byFolder = {}; for (const r of rows) { const f = folderOf(r.p); (byFolder[f] ||= { n: 0, idx: 0 }); byFolder[f].n++; if (r.st === '색인됨') byFolder[f].idx++; }
-const first27 = rows.slice(0, 27);
-const res = { day: today, n: rows.length, all: sum(rows), first27: sum(first27), byFolder, idx: rows.filter((r) => r.st === '색인됨').length, lastmod: lm, notIdx: rows.filter((r) => r.st !== '색인됨').map((r) => r.p + ' ' + r.st).slice(0, 60) };
+// C-2(코덱스 2026-11-25 P2 index_sample.mjs:88-89): 첫 표본 27장은 「목록 앞 27줄」이 아니라 tools/seo/baseline27.json 의 고정 URL 집합으로 센다(목록 순서가 바뀌어도 같은 코호트)
+let base27 = []; try { base27 = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/seo/baseline27.json'), 'utf8')).urls || []; } catch {}
+const b27 = new Set(base27);
+const first27 = b27.size ? rows.filter((r) => b27.has(r.p)) : rows.slice(0, 27);
+// 의도된 제외 = 구글이 「noindex 로 제외」라고 답한 주소 + 우리가 내린 얇은 g(tools/seo/g_noindex.txt, 2026-11-25) — 빠져도 「하락」이 아니다
+const intended = new Set(rows.filter((r) => /noindex/i.test(r.st)).map((r) => r.p));
+try { for (const ln of fs.readFileSync(path.join(ROOT, 'tools/seo/g_noindex.txt'), 'utf8').split(/\r?\n/)) { const s = ln.trim(); if (s && !s.startsWith('#')) intended.add('/g/' + s); } } catch {}
+const failed = new Set(rows.filter((r) => r.st === '조회 실패').map((r) => r.p));
+const res = { day: today, n: rows.length, all: sum(rows), first27: sum(first27), first27n: first27.length, byFolder, idx: rows.filter((r) => r.st === '색인됨').length, idxList: rows.filter((r) => r.st === '색인됨').map((r) => r.p), intendedN: intended.size, lastmod: lm, notIdx: rows.filter((r) => r.st !== '색인됨').map((r) => r.p + ' ' + r.st).slice(0, 60) };
+res.apiErr = rows.apiErr || 0;
+// C-3(코덱스 2026-11-25 P2 index_sample.mjs:55-59): 실패가 10% 를 넘으면 「미완」 — 기록만 하고 오늘의 온전한 회차를 덮지 않는다. 경보는 미완이 3회 연속일 때만
+const incomplete = res.apiErr > rows.length * 0.1;
+res.incomplete = incomplete;
 const prev = state.runs.filter((x) => x.day !== today).slice(-1)[0];   // 같은 날 다시 돌린 회차는 덮어쓴다 — 비교는 전날 이전 회차와
-state.runs = [...state.runs.filter((x) => x.day !== today), res].slice(-40);
+const todayFull = state.runs.find((x) => x.day === today && !x.incomplete);
+if (incomplete) {
+  state.incompleteN = (state.incompleteN || 0) + 1;
+  state.lastIncomplete = { day: today, apiErr: res.apiErr, n: res.n };
+  if (!todayFull) state.runs = [...state.runs.filter((x) => x.day !== today), res].slice(-40);
+  if (state.incompleteN >= 3) await alertSet('seo:색인측정', `구글 색인 표본 측정이 ${state.incompleteN}회 연속 미완(조회 실패 ${res.apiErr}/${res.n}) — URL 검사 API 상태를 본다. tools/seo/index_sample.mjs`);
+} else {
+  state.incompleteN = 0;
+  state.runs = [...state.runs.filter((x) => x.day !== today), res].slice(-40);
+}
 
 const base = state.runs.length > 1 ? state.runs[0] : null;
 const line = (o) => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(' · ');
-let md = `### 구글 색인 표본 ${today} (주소 ${rows.length}개, 서치콘솔 URL 검사 API)\n\n- 전체: ${line(res.all)}\n- 첫 표본 27장: ${line(res.first27)}${base ? ` (기준선 ${base.day}: ${line(base.first27)})` : ''}\n- 사이트맵 lastmod=오늘: ${lm ? `${lm.today}/${lm.n} (${lm.pct}%)` : '못 읽음'}
-- 종류별 색인: ${Object.entries(byFolder).map(([f, v]) => `${f} ${v.idx}/${v.n}`).join(' · ')}\n`;
+let md = `### 구글 색인 표본 ${today} (주소 ${rows.length}개, 서치콘솔 URL 검사 API${incomplete ? ` · 🟡 미완: 조회 실패 ${res.apiErr}개` : ''})\n\n- 전체: ${line(res.all)}\n- 첫 표본 ${first27.length}장(baseline27.json): ${line(res.first27)}${base ? ` (기준선 ${base.day}: ${line(base.first27)})` : ''}\n- 사이트맵 lastmod=오늘: ${lm ? `${lm.today}/${lm.n} (${lm.pct}%)` : '못 읽음'}
+- 종류별 색인: ${Object.entries(byFolder).map(([f, v]) => `${f} ${v.idx}/${v.n}`).join(' · ')}\n- 의도된 제외(noindex·얇은 g): 표본 중 ${rows.filter((r) => intended.has(r.p)).length}개\n`;
 if (prev) md += `- 직전 회차(${prev.day}) 색인 ${prev.idx}/${prev.n} → 이번 ${res.idx}/${res.n}\n`;
+// 하락 판정 — 최근 7회(오늘 빼고, 미완 빼고) 중 색인이 가장 많던 회차에서 색인됐던 **같은 URL** 이 오늘 빠졌는지 센다.
+//   의도된 제외·오늘 조회 실패는 빼고 센다(일시 오류·우리가 내린 페이지로 경보가 나지 않게). 회복될 때까지 경보는 남는다
+const peers = state.runs.filter((x) => x.day !== today && !x.incomplete && !x.apiErr && Array.isArray(x.idxList)).slice(-7);
+const best = peers.length ? peers.reduce((a, b) => (b.idxList.length > a.idxList.length ? b : a)) : null;
+const nowIdx = new Set(res.idxList);
+const lost = best ? best.idxList.filter((p) => !nowIdx.has(p) && !intended.has(p) && !failed.has(p) && list.includes(p)) : [];
+const lostBy = {}; for (const p of lost) lostBy[folderOf(p)] = (lostBy[folderOf(p)] || 0) + 1;
+const drops = Object.entries(lostBy).filter(([, n]) => n >= 3).map(([k, n]) => `${k} -${n}`);
+if (best) md += `- 최근 최고(${best.day})에 색인됐던 주소 중 오늘 빠진 것(의도된 제외·조회 실패 뺌): ${lost.length}개${lost.length ? ' (' + Object.entries(lostBy).map(([k, n]) => `${k} ${n}`).join(' · ') + ')' : ''}\n`;
 console.log(md);
 if (process.env.GITHUB_STEP_SUMMARY) { try { fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md); } catch {} }
-// 하락 판정 — 같은 표본 수의 최근 7회(오늘 빼고) 최고치와 비교한다. 다음 날 그대로여도 회복될 때까지 경보가 남는다.
-//   조회 실패가 하나라도 있으면 판정하지 않는다(429 등 실패를 미색인으로 세지 않게) — 경보는 그대로 둔다
-res.apiErr = rows.apiErr || 0;
-const peers = state.runs.filter((x) => x.day !== today && x.n === res.n && !x.apiErr).slice(-7);
-const best = peers.length ? peers.reduce((a, b) => (b.idx > a.idx ? b : a)) : null;
-const drops = best ? Object.entries(byFolder).filter(([k, v]) => { const m = Math.max(...peers.map((x) => (x.byFolder?.[k]?.n === v.n ? x.byFolder[k].idx : -1))); return m >= 0 && m - v.idx >= 3; }).map(([k, v]) => `${k} 최근 최고 ${Math.max(...peers.map((x) => (x.byFolder?.[k]?.n === v.n ? x.byFolder[k].idx : -1)))}→${v.idx}/${v.n}`) : [];
-if (res.apiErr) console.log(`조회 실패 ${res.apiErr}건 — 하락 판정 건너뜀(경보 상태 유지)`);
-else if (best && (best.idx - res.idx > 5 || drops.length)) await alertSet('seo:색인표본', `구글 색인 표본이 최근 최고(${best.day}) ${best.idx}/${best.n} → ${today} ${res.idx}/${res.n}${drops.length ? ' (' + drops.join(' · ') + ')' : ''} 로 줄었다. 사이트맵 lastmod·noindex·빌드 변경을 먼저 본다(tools/seo/build.ps1·lib.ps1 CoreHash). 상세 ops_status 'seo-index'`);
+if (incomplete) console.log(`미완 회차 — 하락 판정 건너뜀(경보 상태 유지)`);
+else if (best && (lost.length > 5 || drops.length)) await alertSet('seo:색인표본', `구글 색인 표본: 최근 최고(${best.day})에 색인됐던 주소 ${lost.length}개가 ${today} 에 빠졌다${drops.length ? ' (' + drops.join(' · ') + ')' : ''}. 의도된 제외(noindex·얇은 g)·조회 실패는 뺀 수. 사이트맵 lastmod·noindex·빌드 변경을 먼저 본다(tools/seo/build.ps1·lib.ps1 CoreHash). 상세 ops_status 'seo-index'`);
 else if (best) await alertSet('seo:색인표본', null);
 await saveState();
