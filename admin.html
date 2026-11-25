@@ -8630,7 +8630,10 @@ function renderAnalytics(d){
   if(wAuto){
     const last=w.series[w.series.length-1];
     h+='<div class="angrid">'+_anCell(_anNum(w.d1),'어제 활성 사용자')+_anCell(_anPctHtml(w.d1,w.d2),'전일 대비')+_anCell(_anNum(w.users7),'7일 활성 합')+_anCell(_anNum(w.views7),'7일 조회수')+'</div>'
-      +'<div class="ansec">28일 활성 사용자 · 기준 '+_anEsc(_anMD(last.day))+'</div>'+_anBars(w.series)
+      // 2026-11-25: GA4 「사용자」 보고서의 28일·7일 활성 사용자·신규·평균 참여 시간(수집기 tools/analytics/ga4.mjs G1). 아직 안 모인 값은 「—」
+      +'<div class="angrid" style="margin-top:8px">'+_anCell(_anNum(w.a28),'28일 활성 사용자',(w.a28!=null&&w.a28_prev!=null)?_anPctHtml(w.a28,w.a28_prev):'')+_anCell(_anNum(w.a7),'7일 활성 사용자')+_anCell(_anNum(w.new7),'7일 신규 사용자')+_anCell(w.eng7!=null?(Math.floor(w.eng7/60)+'분 '+(w.eng7%60)+'초'):'—','평균 참여 시간(7일)')+'</div>'
+      +((w.series28||[]).length?'<div class="ansec">28일 활성 사용자 추이 · GA4</div>'+_anBars(w.series28):'')
+      +'<div class="ansec">일별 활성 사용자 · 기준 '+_anEsc(_anMD(last.day))+'</div>'+_anBars(w.series)
       +'<div class="ansec">유입 채널 상위 6 (세션)</div>'+_anRows(w.channels,_anChannel)
       +'<div class="ansec">AI·검색 유입 상위 6 (세션)</div>'+_anRows(w.ai);
   }else if(sw){

@@ -36,9 +36,11 @@ export async function collectGa4({ days = 28 } = {}) {
     };
     const out = [];
     // G1 날짜별 기본 지표
-    for (const r of await run({ dimensions: [{ name: 'date' }], metrics: [{ name: 'activeUsers' }, { name: 'totalUsers' }, { name: 'sessions' }, { name: 'screenPageViews' }] })) {
+    //   2026-11-25: 신규 사용자·참여 시간(초 합)·7일·28일 활성 사용자(GA4 「사용자」 보고서의 그 값 — 날짜마다 그날까지 7·28일 굴린 수)를 같이 받는다(사장님 「28일 활성 사용자 같은 화면이 어디서 나오냐」)
+    for (const r of await run({ dimensions: [{ name: 'date' }], metrics: [{ name: 'activeUsers' }, { name: 'totalUsers' }, { name: 'sessions' }, { name: 'screenPageViews' }, { name: 'newUsers' }, { name: 'userEngagementDuration' }, { name: 'active7DayUsers' }, { name: 'active28DayUsers' }] })) {
       const day = ymd(r.d[0]); if (!day) continue;
-      out.push({ day, metric: 'active_users', value: r.m[0] }, { day, metric: 'total_users', value: r.m[1] }, { day, metric: 'sessions', value: r.m[2] }, { day, metric: 'page_views', value: r.m[3] });
+      out.push({ day, metric: 'active_users', value: r.m[0] }, { day, metric: 'total_users', value: r.m[1] }, { day, metric: 'sessions', value: r.m[2] }, { day, metric: 'page_views', value: r.m[3] },
+        { day, metric: 'new_users', value: r.m[4] }, { day, metric: 'engagement_sec', value: r.m[5] }, { day, metric: 'active_7d', value: r.m[6] }, { day, metric: 'active_28d', value: r.m[7] });
     }
     // G2 유입 채널 — 날짜별로 쌓아야 화면의 기간 합이 맞는다(기간 합을 하루에 넣으면 매일 겹쳐 더해진다)
     for (const r of await run({ dimensions: [{ name: 'date' }, { name: 'sessionDefaultChannelGroup' }], metrics: [{ name: 'sessions' }] })) {
