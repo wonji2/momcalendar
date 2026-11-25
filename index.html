@@ -5251,18 +5251,8 @@ function renderHotdeals(){
 
   if(_hdCurrentCat && _hdCurrentCat !== 'all'){
     filtered = filtered.filter(function(h){
-      if(h.major === _hdCurrentCat) return true;
-      var m = (h.major || '') + ' ' + (h.category || '') + ' ' + (h.title || '');
-      if(_hdCurrentCat === '육아') return /육아|기저귀|물티슈|분유|아기|유아|키즈|장난감|젖병|이유식|턱받이|유모차/.test(m);
-      if(_hdCurrentCat === '리빙') return /리빙|생활|주방|세제|욕실|가구|인테리어|청소|휴지|수세미|치약|칫솔/.test(m);
-      if(_hdCurrentCat === '식품') return /식품|신선|간식|음료|커피|쌀|과일|밀키트|고기|라면|생수|만두|소시지|김치/.test(m);
-      if(_hdCurrentCat === '건강') return /건강|영양제|비타민|유산균|오메가|루테인|철분|다이어트|단백질/.test(m);
-      if(_hdCurrentCat === '가전') return /가전|디지털|IT|청소기|이어폰|컴퓨터|모니터|스마트폰|TV|건조기|에어프라이어|드라이기|전기요|온풍기/.test(m);
-      if(_hdCurrentCat === '뷰티') return /뷰티|화장품|스킨케어|앰플|토너|크림|립밤|샴푸|헤어|미스트|팩트/.test(m);
-      if(_hdCurrentCat === '패션') return /패션|의류|잡화|신발|원피스|양말|가방|자켓|속옷|팬티|슬리퍼|점퍼|후리스/.test(m);
-      if(_hdCurrentCat === '여행') return /여행|숙소|호텔|리조트|이용권|티켓|워터파크|스플라스/.test(m);
-      if(_hdCurrentCat === '반려동물') return /반려동물|강아지|고양이|사료|간식|배변패드/.test(m);
-      return false;
+      // DB 분류(major)로만 — 이름 낱말 추측 금지(2026-11-25 「여행」 칩에 조선호텔 갈비탕·김치 섞임). 라이브 핫딜 500건 모두 major 가 있다
+      return h.major === _hdCurrentCat;
     });
   }
 
