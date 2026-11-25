@@ -1280,7 +1280,7 @@ body[data-ct="community"] #subZone {
 }
 .sa-zero-title {
   font-size: 16.5px; font-weight: 800; color: #191F28; margin-bottom: 20px; line-height: 1.4; word-break: keep-all;
-  white-space: nowrap;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sa-zero-kw { color: #7C54C4; margin-right: 4px; }
 .sa-zero-kw b { font-weight: inherit; }
@@ -4288,8 +4288,8 @@ async function renderSearchAll(){
 
   // 🔍 0건: 토스식 한 화면 할 일 하나 — 한 줄 제목 + 알림 받기 단추. 추천 칩 10개·설명·「메인으로 돌아가기」는 뺐다
   //   (위 인기 태그 줄이 추천을 이미 하고, 머리의 ‹ 가 돌아가기다 · 사장님 2026-11-25 「토스 ui ux 참고해서 좀 심플하게」)
-  const _kwOn = (()=>{ try{ return JSON.parse(localStorage.getItem('mc_kw_alarms')||'[]').some(x=>x&&x.on&&x.kw===(fSearch||'').trim()); }catch(_){ return false; } })();
-  const _kwS = (fSearch||'').trim(), _kwShort = [..._kwS].length > 9 ? [..._kwS].slice(0, 9).join('') + '…' : _kwS;   // 긴 검색어는 앞 9자 + … (제목 한 줄)
+  const _kwOn = (typeof _isNativeApp==='function' && _isNativeApp()) && (()=>{ try{ const k=(fSearch||'').trim().toLowerCase(); return JSON.parse(localStorage.getItem('mc_kw_alarms')||'[]').some(x=>x&&x.on&&String(x.kw||'').toLowerCase()===k); }catch(_){ return false; } })();
+  const _kwS = (fSearch||'').trim(), _kwG = (()=>{ try{ return [...new Intl.Segmenter('ko',{granularity:'grapheme'}).segment(_kwS)].map(x=>x.segment); }catch(_){ return [..._kwS]; } })(), _kwMax = /\p{Extended_Pictographic}/u.test(_kwS) ? 6 : 9, _kwShort = _kwG.length > _kwMax ? _kwG.slice(0, _kwMax).join('') + '…' : _kwS;   // 긴 검색어는 앞 9자 + … (제목 한 줄)
   const zeroHtml = `
     <div class="sa-zero-box">
       <div class="sa-zero-title"><span class="sa-zero-kw">‘<b>${escHtml(_kwShort)}</b>’</span><span class="sa-zero-rest">검색 결과가 없어요</span></div>
@@ -4746,9 +4746,9 @@ async function liveWish(id,ev,btn){
   const x=(_liveData||[]).find(y=>y.id===id); const future=!!(x && new Date(x.start_at).getTime()-Date.now()>10*60e3);
   if(!future){ mcToast('찜했어요'); return; }
   // 「알려드려요」 는 이 기기가 실제로 받을 수 있을 때만 말한다(세일 찜과 같은 기준)
-  let msg='찜했어요\n방송 시작 10분 전에 알려드릴게요';
+  let msg='찜했어요. 방송 10분 전에 알려 드려요';
   // 라방 알림은 웹 알림으로만 간다 — 아이폰 앱(앱 알림)엔 아직 안 가고, 「세일 알림」을 꺼 두면 안 간다(서버 live_push_targets 와 같은 기준)
-  try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요. 알림은 내정보에서 켜요'); return; } }catch(_){}
+  try{ if(typeof notiPrefs==='function' && notiPrefs().sale===false){ mcToast('찜했어요. 내정보에서 알림을 켜 주세요'); return; } }catch(_){}
   // 2026-10-27 사장님 「앱에서 라방 찜하면 찜했어요 4글자만 … 알림은 없는겨?」 — 안드로이드 앱은 서버 fcm-live-push 로 실제로 받으니 그대로 말하고,
   //   알림이 꺼져 있으면 켜기를 권한다. 아이폰 앱은 라방 알림이 아직 없어 「찜했어요」만
   try{ if(typeof _isNativeApp==='function' && _isNativeApp()){
@@ -4761,10 +4761,10 @@ async function liveWish(id,ev,btn){
     if(!notiGranted()){
       if(_appOnlyBell('wish')) return;
       if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); try{ _appPushAsk(false); }catch(_){} return; }   // 앱: 시스템 허용창 대신 알림 시트(3일에 한 번, 2026-11-05)
-      if(iosNeedsInstall()){ msg='찜했어요\n오픈 알림은 맘캘린더 앱에서 받을 수 있어요'; try{ _appOnlyBell('wish', true); }catch(_){} }
-      else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
-      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
-      else { const ok=await enablePush(); if(!ok) msg='찜했어요\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      if(iosNeedsInstall()){ msg='찜했어요. 오픈 알림은 앱에서 받아요'; try{ _appOnlyBell('wish', true); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요. 알림은 크롬·사파리에서 받아요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요. 브라우저 알림이 꺼져 있어요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요. 알림은 켜지 못했어요'; }
     }
   }catch(_){ msg='찜했어요'; }
   mcToast(msg);
@@ -4992,15 +4992,15 @@ async function saleWish(id,ev,btn){
   setTimeout(renderSale, on?360:0);   // 하트가 뛰는 걸 보여 준 뒤 칩 숫자·「내 찜」 목록을 맞춘다
   if(!on) return;
   if(!before){ mcToast('찜했어요'); return; }
-  let msg='찜했어요\n세일 시작하는 날 아침 9시에 알려드릴게요';
+  let msg='찜했어요. 세일 날 아침 9시에 알려 드려요';
   try{
     if(!notiGranted()){
       if(_appOnlyBell('wish')) return;
       if(typeof _isNativeApp==='function' && _isNativeApp()){ mcToast('찜했어요'); try{ _appPushAsk(false); }catch(_){} return; }   // 앱: 시스템 허용창 대신 알림 시트(3일에 한 번, 2026-11-05)
-      if(iosNeedsInstall()){ msg='찜했어요\n오픈 알림은 맘캘린더 앱에서 받을 수 있어요'; try{ _appOnlyBell('wish', true); }catch(_){} }
-      else if(!pushSupported()){ msg='찜했어요\n이 화면에선 알림을 못 받아요\n크롬이나 사파리로 열면 받을 수 있어요'; }
-      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요\n알림이 꺼져 있어요\n브라우저 설정에서 알림을 허용해 주세요'; }
-      else { const ok=await enablePush(); if(!ok) msg='찜했어요\n알림을 켜지 못했어요\n브라우저 설정에서 알림을 허용해 주세요'; }
+      if(iosNeedsInstall()){ msg='찜했어요. 오픈 알림은 앱에서 받아요'; try{ _appOnlyBell('wish', true); }catch(_){} }
+      else if(!pushSupported()){ msg='찜했어요. 알림은 크롬·사파리에서 받아요'; }
+      else if(typeof Notification!=='undefined' && Notification.permission==='denied'){ msg='찜했어요. 브라우저 알림이 꺼져 있어요'; }
+      else { const ok=await enablePush(); if(!ok) msg='찜했어요. 알림은 켜지 못했어요'; }
     }
   }catch(_){ msg='찜했어요'; }
   mcToast(msg);
@@ -6355,7 +6355,7 @@ async function sendInquiry(){
         </div>`);
       try{ trackEvent('inquiry', window.__inqKind||''); }catch(_){}
     }else{
-      const msg={too_short:'조금만 더 자세히 적어주세요',too_long:'내용이 너무 길어요',too_many:'오늘은 여기까지만 받을 수 있어요 🙏'}[d&&d.error]||'잠시 후 다시 시도해 주세요';
+      const msg={too_short:'조금만 더 자세히 적어 주세요',too_long:'내용이 너무 길어요',too_many:'오늘은 여기까지만 받을 수 있어요'}[d&&d.error]||'잠시 후 다시 시도해 주세요';
       mcToast(msg); b.disabled=false; b.textContent='보내기';
     }
   }catch(e){ mcToast('잠시 후 다시 시도해 주세요'); b.disabled=false; b.textContent='보내기'; }
@@ -6681,7 +6681,7 @@ async function exportWishIcs(){
   if(typeof _isNativeApp==='function' && _isNativeApp() && !(window._mcCapAndroid && window._mcCapAndroid())){
     let done=false;
     try{ const f=new File([blob],'momcal_'+items.length+'.ics',{type:'text/calendar'}); if(navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'맘캘린더 내 공구'}); done=true; } }catch(e){ if(e && e.name==='AbortError'){ try{ trackEvent('ics_cancel','ios'); }catch(_){} return; } }
-    if(!done){ try{ trackEvent('ics_fail','ios_noshare'); }catch(_){} mcToast('이 기기는 사진으로 저장해 주세요'); return; }
+    if(!done){ try{ trackEvent('ics_fail','ios_noshare'); }catch(_){} mcToast('파일을 못 넘겨요. 사진으로 저장해 주세요'); return; }
     memberRpc('member_ics_mark', {p_ids: items.map(it=>it.id)});
     try{ localStorage.setItem('mc_ics_sent', JSON.stringify(Array.from(new Set(sent.concat(items.map(it=>it.id)))))); }catch(_){}
     try{ trackEvent('ics_export', items.length+'|ios_share'); }catch(_){}
@@ -6704,7 +6704,7 @@ async function exportWishIcs(){
   try{ trackEvent('ics_export', String(items.length)); }catch(_){}
   // 마감된 공구는 위에서 isExpired 로 이미 걸러진다 — 손님이 알 수 있게 문구로 밝힌다.
   //   (사장님 지적 2026-08-20: "이미 마감된 건은 자동으로 빼고 미래 일정만 나온다고 알려줘야")
-  if(!(window._mcCapAndroid && window._mcCapAndroid())) mcToast(`진행 중인 공구 ${items.length}개를 담았어요`);   // 안드 앱은 파일을 연 결과를 본 뒤에만 말한다(위 저장 연결부)
+  if(!(window._mcCapAndroid && window._mcCapAndroid())) mcToast(`마감 전 공구 ${items.length}개를 담았어요`);   // 안드 앱은 파일을 연 결과를 본 뒤에만 말한다(위 저장 연결부)
 }
 // ── 내 공구 캘린더 친구에게 공유 (2026-11-12) — 설계는 scratchpad/patch_cal_share.cjs 머리말 ──
 function _calSharePage(){ return location.origin+(/\/test\.html$/.test(location.pathname)?'/test.html':'/'); }
@@ -6752,7 +6752,7 @@ function _calShareSheet(text, kakao, log, noMore){
   const b=(a,bg,i,t)=>'<button type="button" class="csh-b" data-a="'+a+'"><span class="csh-i" style="background:'+bg+'">'+i+'</span><span class="csh-t">'+t+'</span></button>';
   const el=mcSheet('calShareSheet', '<b class="mc-t">공유하기</b><div class="csh-row">'+b('k','#FEE500',ico.k,'카카오톡')+b('s','#F6F3FA',ico.s,'문자')+(more?b('m','#F6F3FA',ico.m,'다른 앱'):'')+b('c','#F6F3FA',ico.c,'복사')+'</div><button class="mc-btn sub" type="button" data-a="x">닫기</button>');
   el.querySelectorAll('[data-a]').forEach(x=>x.onclick=async()=>{ const a=x.dataset.a; el.classList.remove('open'); if(a==='x') return;
-    if(a==='k'){ if(kakao()){ log('sheet_kakao'); return; } return copy('카카오톡을 열 수 없어 일정을 복사했어요\n카톡에 붙여 넣어 주세요'); }
+    if(a==='k'){ if(kakao()){ log('sheet_kakao'); return; } return copy('일정을 복사했어요. 카톡에 붙여 넣어 주세요'); }
     if(a==='m'){ if(P&&P.share){ P.share({title:'맘캘린더', text:text, url:''}).then(()=>log('native'), ()=>copy()); return; } navigator.share({text:text}).then(()=>log('sheet'), e=>{ if(e&&e.name==='AbortError'){ log('cancel'); return; } copy(); }); return; }
     if(a==='s'){ log('sheet_sms'); location.href='sms:?&body='+encodeURIComponent(text); return; }
     copy(); });
@@ -8080,7 +8080,7 @@ async function wnAllow(){
   closeWnSheet();
   const done=await enablePush();
   if(done) mcToast('알림을 켰어요');
-  else mcToast((typeof _isNativeApp==='function'&&_isNativeApp())?'설정에서 알림을 켜 주세요':'브라우저 설정에서 알림을 켜 주세요');
+  else mcToast((typeof _isNativeApp==='function'&&_isNativeApp())?'휴대폰 설정에서 알림을 켜 주세요':'브라우저 설정에서 알림을 켜 주세요');
   if(fSt==='wish') renderList();
 }
 
@@ -9060,7 +9060,7 @@ async function _appOpenSettings(quiet){
     if(window._mcCapAndroid && window._mcCapAndroid()){ var N=window._mcNative&&window._mcNative(); if(N && N.openNotificationSettings){ await N.openNotificationSettings(); return true; } }
     else if(window._mcCapIos && window._mcCapIos()){ location.href='app-settings:'; return true; }
   }catch(_){}
-  if(!quiet){ try{ mcToast('설정에서 알림을 켜 주세요'); }catch(_){} }
+  if(!quiet){ try{ mcToast('휴대폰 설정에서 알림을 켜 주세요'); }catch(_){} }
   return false;
 }
 // 설정에서 돌아오면 — 허용돼 있을 때만 알림을 등록한다(허용창을 또 띄우지 않는다)
@@ -9113,7 +9113,7 @@ function _appAlarmSheet(src){
 }
 // 「알림 켜기」 — 안드로이드: 폰 알림 설정 화면으로 바로 · 아이폰: 허용창 한 번 → 거부했으면 설정(애플은 허용창을 한 번 띄워야 설정에 알림 줄이 생긴다)
 async function _appAlarmGo(){
-  var okMsg='🔔 알림을 켰어요! 오픈일 아침 9시에 알려요', failMsg='알림을 켜지 못했어요. 휴대폰 설정에서 맘캘린더 알림을 확인해 주세요';
+  var okMsg='오픈일 아침 9시에 알려 드려요', failMsg='휴대폰 설정에서 알림을 켜 주세요';
   try{
     if(window._mcCapAndroid && window._mcCapAndroid()){
       window._mcSetWait=true; window._mcSetAt=Date.now(); _appSettingsResume();
@@ -11646,8 +11646,8 @@ window.startNaverLogin=function(){
       if(intent==='attend') setTimeout(function(){ if(typeof openAttendSheet==='function') openAttendSheet(); }, 700);
       else if(intent==='ics') setTimeout(function(){ if(typeof exportWishIcs==='function') exportWishIcs(); }, 700);
       else if(intent==='mypage') setTimeout(function(){ try{ if(typeof appNavGo==='function') appNavGo('mypage'); }catch(_){} }, 700);   // 마이를 눌러 로그인한 손님은 내정보로
-    }else{ try{ trackEvent('naver_login_fail', 'server_'+String((d&&d.error)||'none').slice(0,30)); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); }
-  }).catch(function(){ try{ trackEvent('naver_login_fail','net'); }catch(_){} toast('로그인하지 못했어요\n잠시 후 다시 시도해 주세요'); });
+    }else{ try{ trackEvent('naver_login_fail', 'server_'+String((d&&d.error)||'none').slice(0,30)); }catch(_){} toast('로그인하지 못했어요. 다시 눌러 주세요'); }
+  }).catch(function(){ try{ trackEvent('naver_login_fail','net'); }catch(_){} toast('로그인하지 못했어요. 다시 눌러 주세요'); });
 }catch(e){} })();
 function busySheet(){
   try{
@@ -13029,7 +13029,7 @@ async function registerKeywordAlertFromSearch(kw) {
       if (perm.receive === 'granted') {
         await window.Capacitor.Plugins.PushNotifications.register();
       } else {
-        if (typeof mcToast === 'function') mcToast('설정에서 알림을 켜 주세요');   // 권한이 꺼져 있으면 「등록됐다」고 하지 않는다
+        if (typeof mcToast === 'function') mcToast('휴대폰 설정에서 켠 뒤 다시 눌러 주세요');   // 권한이 꺼져 있으면 「등록됐다」고 하지 않는다
         return;
       }
     } catch (e) {
@@ -13048,7 +13048,7 @@ async function registerKeywordAlertFromSearch(kw) {
     list = JSON.parse(localStorage.getItem('mc_kw_alarms') || '[]');
   } catch(e) { list = []; }
 
-  const existIdx = list.findIndex(item => item.kw === keyword);
+  const existIdx = list.findIndex(item => String(item.kw||'').toLowerCase() === keyword.toLowerCase());
   if (existIdx >= 0) {
     list[existIdx].on = true;
     list[existIdx].types = ['all'];

@@ -43,7 +43,7 @@
   <script>
     (async function(){
       const q = new URLSearchParams(location.search);
-      const id = q.get('id');
+      const id = String(q.get('id') || '').replace(/\D/g, '');   // 숫자만(PostgREST 조건 덧붙이기 막기 · 보안 점검 L2 2026-11-25)
       if (!id) {
         location.replace('https://momcalendar.com/?ct=hotdeal');
         return;

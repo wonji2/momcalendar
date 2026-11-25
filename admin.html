@@ -7494,7 +7494,7 @@ async function cvRun(){
               oninput="cvImgChk(this)"
               style="width:100%;box-sizing:border-box;margin-top:5px;padding:6px 7px;border:1.5px solid ${it.img_url?'#E3DCEF':'#E8A0A0'};border-radius:6px;font-size:11.5px;font-family:inherit;background:${it.img_url?'#fff':'#FFF7F7'}">
             <div style="font-size:11px;color:#8A7BA0;margin-top:5px">
-              ${u?`개당 <b style="color:#E8402A">${cvWon(u)}</b> · `:''}<span style="word-break:break-all">${it.link||'(링크 실패)'}</span>
+              ${u?`개당 <b style="color:#E8402A">${cvWon(u)}</b> · `:''}<span style="word-break:break-all">${esc2(it.link||'(링크 실패)')}</span>
             </div>
           </div>
         </div>
@@ -7632,7 +7632,7 @@ async function loadHotdealAdmin(){
       const dt=new Date(h.created_at);
       const t=`${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
       return `<div id="hdrow-${h.id}" style="background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.title}</div>
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc2(h.title)}</div>
         <div style="font-size:10px;color:#999">${h.major||''} ${h.minor||''} · 🕐 ${t}${h.price?' · '+Number(h.price).toLocaleString()+'원':''} · ${_hdLive(h)?'<b style="color:#0F6E56">노출 중</b>':'<b style="color:#C62828">내려감</b>'}</div></div>
         <div style="flex-shrink:0;display:flex;gap:5px">
           <button onclick="toggleHotdealLive(${h.id})" style="background:${_hdLive(h)?'#FFF3D6':'#E7F5EF'};color:${_hdLive(h)?'#8A6100':'#0F6E56'};border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${_hdLive(h)?'내리기':'올리기'}</button>
@@ -7978,7 +7978,7 @@ async function loadAttendDay(){
         ${list.length? list.map(x=>`
           <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #F2EFFA">
             <div style="font-size:11px;color:#9A93A8;width:38px">${x.at_time}</div>
-            <div style="flex:1;font-size:12.5px;font-weight:700;color:#2A1D6E">${x.nickname}</div>
+            <div style="flex:1;font-size:12.5px;font-weight:700;color:#2A1D6E">${esc2(x.nickname)}</div>
             <div style="font-size:11px;color:#C2417A;font-weight:700">🔥${x.streak}일</div>
             <div style="font-size:11px;color:#6B6480">이달 ${x.month_days} · 누적 ${x.total_days}</div>
           </div>`).join('') : '<div style="color:#9A93A8;font-size:12px;padding:8px 0">이 날짜에 출석한 사람이 없어요</div>'}
@@ -7987,7 +7987,7 @@ async function loadAttendDay(){
         <div style="font-size:11.5px;font-weight:800;color:#4A35A0;margin-bottom:8px">이달 출석 많은 순 TOP 20</div>
         ${top.map((t,i)=>`<div style="display:flex;gap:8px;padding:5px 0;border-top:${i?'1px solid #F2EFFA':'none'}">
           <div style="width:20px;font-size:11px;color:#9A93A8">${i+1}</div>
-          <div style="flex:1;font-size:12px;color:#2A1D6E">${t.nickname}</div>
+          <div style="flex:1;font-size:12px;color:#2A1D6E">${esc2(t.nickname)}</div>
           <div style="font-size:12px;font-weight:800;color:#4A35A0">${t.days}일</div></div>`).join('')}
       </div>`:''}`;
     window._atDayData=d;
@@ -8028,7 +8028,7 @@ async function loadAttend(){
       <div style="background:#fff;border:1px solid #E8E3F5;border-radius:12px;padding:13px">
         <div style="font-size:12.5px;font-weight:800;color:#2A1D6E;margin-bottom:9px">추첨하기</div>
         ${[...AT_TIERS].reverse().map(x=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <div style="flex:1;font-size:12px;color:#4C4459">${x.name} · <b>${x.prize}</b></div>
+            <div style="flex:1;font-size:12px;color:#4C4459">${esc2(x.name)} · <b>${esc2(x.prize)}</b></div>
             <input id="atN${x.t}" type="number" value="${x.t===3?'':x.count}" placeholder="전원" min="1"
               style="width:62px;padding:6px 8px;border:1.5px solid #DCD2FB;border-radius:8px;font-size:12px;font-family:inherit;text-align:center">
             <button onclick="drawAttend(${x.t})" style="padding:7px 12px;background:#4A35A0;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">뽑기</button>
