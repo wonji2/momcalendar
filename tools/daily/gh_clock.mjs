@@ -73,6 +73,8 @@ export function lastSlot(expr, now, win) {
 }
 
 const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
+// 읽기 호출: 러너에선 gh(토큰 있음), 이 PC 처럼 gh 가 없으면 공개 API 를 curl 로(시험·수동 점검용)
+const ghApi = (q) => { try { return gh(['api', q]); } catch (e) { if (process.env.GH_TOKEN) throw e; return execFileSync('curl', ['-s', '--max-time', '30', 'https://api.github.com/' + q], { encoding: 'utf8' }); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19) + 'Z', ...a);
 async function sbPost(p, body, prefer = 'return=minimal') {
@@ -95,12 +97,60 @@ function seen(job, slot) {
     // 쪽을 넘겨 끝까지 본다(pc-jobs-cloud 는 하루 100번 넘게 돌아 한 쪽에 안 담긴다 — 넘겨받는 순간 하루 한 번짜리를 다시 부르는 사고 방지)
     for (let page = 1; page <= 5; page++) {
       const q = `repos/${REPO}/actions/workflows/${job.wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(slot - 90e3).toISOString().slice(0, 19)}Z`;
-      const runs = JSON.parse(gh(['api', q])).workflow_runs || [];
+      const runs = JSON.parse(ghApi(q)).workflow_runs || [];
       if (runs.some((r) => !job.c || String(r.display_title || '').includes(job.c))) return true;
       if (runs.length < 100) return false;
     }
     return false;
   } catch (e) { log('실행 목록 읽기 실패', job.name, String(e.message).slice(0, 80)); return null; }
+}
+
+// ── 스스로 재기: 같은 작업 같은 회차 2번 이상(중복) · 정시 +20분 넘어 시작(지각)/안 시작(없음) → health_alerts, 하루 한 번 요약 → ops_status 'gh-clock-daily'
+//    (시계가 부른 workflow_dispatch 실행만 센다 — seo-daily·seo-index-sample 의 자체 예약 재시도는 건너뛰기 안전망이라 세지 않는다)
+function runsSince(wf, sinceMs) {
+  const out = [];
+  try {
+    for (let page = 1; page <= 5; page++) {
+      const q = `repos/${REPO}/actions/workflows/${wf}.yml/runs?per_page=100&page=${page}&event=workflow_dispatch&created=%3E%3D${new Date(sinceMs).toISOString().slice(0, 19)}Z`;
+      const runs = JSON.parse(ghApi(q)).workflow_runs || [];
+      out.push(...runs.map((r) => ({ t: Date.parse(r.created_at), title: String(r.display_title || '') })));
+      if (runs.length < 100) break;
+    }
+    return out;
+  } catch { return null; }
+}
+export function auditJobs(jobs, hours, now = Date.now()) {
+  const res = { ok: 0, late: [], missing: [], dup: [], skipped: 0 };
+  const from = now - hours * 3600e3;
+  for (const wf of new Set(jobs.map((j) => j.wf))) {
+    const runs = runsSince(wf, from - 5 * 60e3);
+    if (!runs) { res.skipped++; continue; }
+    for (const j of jobs.filter((x) => x.wf === wf)) {
+      const slots = [];
+      for (let t = Math.ceil(from / 60e3) * 60e3; t <= now; t += 60e3) if (cronMatch(j.cron, new Date(t))) slots.push(t);
+      const mine = runs.filter((r) => !j.c || r.title.includes(j.c));
+      for (const s of slots) {
+        if (s > now - 20 * 60e3) continue;   // 20분 안 지난 회차는 아직 판정 안 함(다음 회차 경계 계산에는 쓴다)
+        const next = slots.find((x) => x > s) || Infinity;
+        const hit = mine.filter((m) => m.t >= s - 90e3 && m.t < Math.min(next - 90e3, s + 3 * 3600e3));
+        const lag = hit.length ? (Math.min(...hit.map((h) => h.t)) - s) / 60e3 : null;
+        const tag = j.name + ' ' + new Date(s).toISOString().slice(5, 16) + 'Z';
+        if (hit.length > 1) res.dup.push(tag + ' ×' + hit.length);
+        else if (!hit.length) res.missing.push(tag);
+        else if (lag > 20) res.late.push(tag + ' +' + Math.round(lag) + '분');
+        else res.ok++;
+      }
+    }
+  }
+  return res;
+}
+async function auditAndAlert(jobs, hours) {
+  const r = auditJobs(jobs, hours);
+  log('점검', hours + 'h', 'ok', r.ok, '지각', r.late.length, '없음', r.missing.length, '중복', r.dup.length);
+  if (r.dup.length) await alert('GitHub예약:중복', '같은 작업 같은 회차가 두 번 이상 불렸다: ' + r.dup.slice(0, 5).join(' · '));
+  if (r.late.length) await alert('GitHub예약:지각', '정시 +20분 넘어 시작: ' + r.late.slice(0, 5).join(' · '));
+  if (r.missing.length) await alert('GitHub예약:없음', '정시 +20분이 지나도 시작 안 함: ' + r.missing.slice(0, 5).join(' · '));
+  return r;
 }
 function fire(job) {
   if (DRY) { log('[dry] 부름', job.name); return 204; }
@@ -114,6 +164,7 @@ function fire(job) {
 async function main() {
   const jobs = JOBS.filter((j) => !ONLY.length || ONLY.includes(j.name) || ONLY.includes(j.wf));
   const end = Date.now() + TOTAL_MIN * 60e3;
+  let lastAudit = 0;
   const fired = new Map();   // key → { job, slot, at, ... }
   if (process.env.CLOCK_SUCCESSOR !== '0' && !DRY) {
     try { gh(['workflow', 'run', 'clock.yml', '-R', REPO, '--ref', process.env.GITHUB_REF_NAME || 'main']); log('다음 시계를 대기열에 걸었다(이 시계가 끝나면 바로 이어 시작)'); }
@@ -147,6 +198,16 @@ async function main() {
       await alert('GitHub예약:' + f.job.name, `${f.job.name} ${f.slot.toISOString().slice(0, 16)}Z 회차를 불렀는데 20분 안에 실행이 안 생겼다 — 한 번 다시 불렀다`);
     }
     for (const [k, f] of fired) if (now - f.at > 3 * 3600e3) fired.delete(k);   // 기억 정리
+    // 30분마다(분 10·40 부근) 최근 3시간 점검 · 한국 09시(UTC 00시) 한 번 지난 24시간 요약을 ops_status 에
+    const d = new Date(now);
+    if (!DRY && [10, 40].includes(d.getUTCMinutes()) && lastAudit !== now - (now % 60e3)) {
+      lastAudit = now - (now % 60e3);
+      await auditAndAlert(jobs, 3);
+      if (d.getUTCHours() === 0 && d.getUTCMinutes() === 10 && !ONLY.length) {
+        const r = await auditAndAlert(jobs, 24);
+        await sbPost('ops_status?on_conflict=id', { id: 'gh-clock-daily', payload: { at: d.toISOString(), ok: r.ok, late: r.late, missing: r.missing, dup: r.dup }, updated_at: d.toISOString() }, 'resolution=merge-duplicates,return=minimal');
+      }
+    }
     await sbPost('ops_status?on_conflict=id', { id: 'gh-clock', payload: { jobs: jobs.length, fired: fired.size, upto: new Date(end).toISOString() }, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
     await sleep(60e3 - (Date.now() % 60e3) + 3000);   // 다음 분 :03 초
   }
