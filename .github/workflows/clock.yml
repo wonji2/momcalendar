@@ -5,6 +5,8 @@
 #   끄기: Actions 화면에서 이 워크플로 Disable. 감시: Supabase ops_status 'gh-clock' 심박 20분 멈추면 health_alerts(서버 pg_cron gh_clock_watch).
 name: 깃허브 예약 시계
 on:
+  schedule:
+    - cron: '*/30 * * * *'   # 예비: 시계가 죽었을 때 되살린다(평소엔 시계가 다음 시계를 직접 건다). 대기열은 하나만 남는다
   workflow_dispatch:
     inputs:
       only:
