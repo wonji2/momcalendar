@@ -1081,7 +1081,7 @@ async function planMethod(i){
   await planLoad(); planSheetOpen();
 }
 function planSheetClose(){
-  if(window._kkGate) return;   // 막힌 창 — 안내 띠 없이 그대로 둔다
+  if(window._kkGate){ try{ showToast('본인인증을 먼저 해 주세요'); }catch(e){} return; }
   document.getElementById('planDim').classList.remove('on');
 }
 function planKind(k){
@@ -1660,6 +1660,8 @@ function buildCal(){
     html+=`<div class="cal-week${w===0?' cal-week-first':''}">${numRow}${barRows}${overflow}</div>`;
   }
   grid.innerHTML=html;
+  // 주 높이 전부 같게(규칙 0-DS · 메인 내 찜 달력과 같은 방식: 그 달에서 가장 높은 주에 맞춘다, 최소 74)
+  { const ws=[...grid.querySelectorAll('.cal-week')]; ws.forEach(w=>{ w.style.minHeight=''; }); const mh=Math.max(74, ...ws.map(w=>Math.ceil(w.getBoundingClientRect().height))); ws.forEach(w=>{ w.style.minHeight=mh+'px'; }); }
   _calFitBars(grid);
 }
 // 막대 글자 맞추기 — 메인 내 찜 달력(index.html _calFitBars)과 같은 처리: 넘치면 뒤 낱말부터 빼고 「…」 → 첫 낱말도 안 들어가면 글자 단위 「…」 → 그것도 안 되면 글자를 숨긴다(2026-11-25 「우…」「로…」 한 글자 막대)
