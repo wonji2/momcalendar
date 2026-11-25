@@ -44,6 +44,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      STRIP_INTERNAL: '1'   # 손님 파일 주석 떼기·내부 낱말 게이트(2026-11-25). '0' 이면 둘 다 건너뜀 — 되돌리기는 이 한 줄
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -88,14 +90,50 @@ jobs:
           # 저장소에는 자동화가 쓰는 코드가 그대로 있다(깃허브 Actions·PC 가 돌린다). 사이트로만 안 나가게 거른다.
           SITE="${RUNNER_TEMP}/site"
           rm -rf "$SITE"; mkdir -p "$SITE"
-          rsync -a --delete             --exclude=".git" --exclude="/.github/" --exclude="/.githooks/" --exclude="/.maestro/" --exclude="/.gitignore"             --exclude="/tools/" --exclude="/supabase/" --exclude="/scripts/" --exclude="/orders/" --exclude="/handoffs/"             --exclude="/scratchpad/" --exclude="/sns-automation/" --exclude="/android-app/" --exclude="/ios-app/"             --exclude="*.md" --exclude="*.py" --exclude="*.mjs" --exclude="*.cjs" --exclude="*.sh" --exclude="*.sql"             --exclude="*.ps1" --exclude="*.bat" --exclude="*.tsv" --exclude="*.yml" --exclude="*.yaml" --exclude="*.ts"             --exclude="*.env" --exclude="*mock*.html" --exclude="/daily/*.txt"             ./ "$SITE/"
-          for f in CLAUDE.md 작업규칙.md baby_hotdeal_auto.py tools supabase orders; do
+          rsync -a --delete             --exclude=".git" --exclude="/.github/" --exclude="/.githooks/" --exclude="/.maestro/" --exclude="/.gitignore"             --exclude="/tools/" --exclude="/supabase/" --exclude="/scripts/" --exclude="/orders/" --exclude="/handoffs/"             --exclude="/scratchpad/" --exclude="/sns-automation/" --exclude="/android-app/" --exclude="/ios-app/"             --exclude="*.md" --exclude="*.py" --exclude="*.mjs" --exclude="*.cjs" --exclude="*.sh" --exclude="*.sql"             --exclude="*.ps1" --exclude="*.bat" --exclude="*.tsv" --exclude="*.yml" --exclude="*.yaml" --exclude="*.ts"             --exclude="*.env" --exclude="*mock*.html" --exclude="/daily/*.txt" --exclude="/daily/**/*.txt" --exclude="/daily/cardnews/queue.json" --exclude="/data/offline_sales_aff.json" --exclude="/staff_test.html" --exclude="/fontcheck.html" --exclude="/tz.html"             ./ "$SITE/"
+          # 2026-11-25 보안 점검: 내부용 txt·json·옛 시험 화면도 뺀다(staff_test·fontcheck·tz · daily 아래 캡션 txt · 제휴 단가 json)
+          for f in CLAUDE.md 작업규칙.md baby_hotdeal_auto.py tools supabase orders staff_test.html data/offline_sales_aff.json daily/cardnews/queue.json; do
             if [ -e "$SITE/$f" ]; then echo "::error::$f 가 사이트 묶음에 남았다"; exit 1; fi
           done
           for f in index.html test.html admin.html sw.js CNAME manifest.json data/offline_sales.json; do
             if [ ! -e "$SITE/$f" ]; then echo "::error::$f 가 사이트 묶음에서 빠졌다"; exit 1; fi
           done
           echo "사이트 묶음 파일 $(find "$SITE" -type f | wc -l) 개 (저장소 $(git ls-files | wc -l) 개)"
+      # 주석 떼기 — 손님이 받는 HTML·JS·CSS 에서 주석(내부 메모·사장님 지시 인용·내부 경로)만 뺀다. 저장소 원본은 그대로(사장님 2026-11-25 승인).
+      #   검증된 파서(acorn 8.16.0 고정 설치)로 주석 범위만 지우고, 지운 뒤 구문 트리가 원본과 같을 때만 쓴다. 의심되면 그 파일은 원본 그대로 두고 경고.
+      #   🔁 되돌리기 한 줄: 위 jobs.deploy.env 의 STRIP_INTERNAL 을 '0' 으로 → 두 단계를 건너뛰고 예전처럼 올라간다.
+      - uses: actions/setup-node@v4
+        if: ${{ steps.mode.outputs.go == '1' && env.STRIP_INTERNAL == '1' }}
+        with:
+          node-version: '24.18.0'   # PC 에서 시험한 판에 고정
+      - name: JS 파서 고정 설치 (acorn 8.16.0 — 공개 배포판, 버전 고정)
+        if: ${{ steps.mode.outputs.go == '1' && env.STRIP_INTERNAL == '1' }}
+        run: npm install --no-save --no-audit --no-fund --ignore-scripts --prefix "${RUNNER_TEMP}/acorn" acorn@8.16.0
+      - id: strip
+        name: 주석 떼기 (손님 파일의 내부 메모 빼기 · 파서를 못 불러오면 멈춤)
+        if: ${{ steps.mode.outputs.go == '1' && env.STRIP_INTERNAL == '1' }}
+        env:
+          ACORN_DIR: ${{ runner.temp }}/acorn/node_modules
+        run: node tools/site_strip_comments.mjs "${RUNNER_TEMP}/site"
+      - id: gate
+        name: 내부 메모 게이트 (사장님 지시 인용·내부 경로·경쟁사 이름이 손님 화면 파일에 남으면 배포 멈춤)
+        if: ${{ steps.mode.outputs.go == '1' && env.STRIP_INTERNAL == '1' }}
+        run: node tools/site_internal_gate.mjs "${RUNNER_TEMP}/site"
+      - name: 게이트가 막으면 관리자 화면 경보 (라이브는 직전 판 유지)
+        if: ${{ failure() && (steps.gate.outcome == 'failure' || steps.strip.outcome == 'failure') }}
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY: ${{ github.event.inputs.dry_run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$SB_KEY" ] || { echo "::warning::SUPABASE_SERVICE_KEY 없음 — 경보 못 남김"; exit 0; }
+          SB=https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1
+          SINCE=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
+          # 같은 경보는 3시간에 한 번(막혀 있는 동안 배포 시도마다 쌓이지 않게)
+          N=$(curl -s --fail "$SB/health_alerts?kind=eq.deploy:%EB%82%B4%EB%B6%80%EB%82%B1%EB%A7%90&created_at=gt.$SINCE&select=id&limit=1" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -c "import json,sys;print(len(json.load(sys.stdin)))" || echo 0)
+          [ "$N" = "0" ] || { echo "3시간 안에 같은 경보가 있어 건너뜀"; exit 0; }
+          python3 -c "import json,os;d=os.environ.get('DRY')=='true';print(json.dumps({'kind':'deploy:내부낱말','detail':('🟡 [시험 실행] ' if d else '🔴 ')+'손님 화면 파일에 내부 메모(사장님 지시 인용·내부 경로·경쟁사 이름)가 남아 '+('시험에서 걸렸습니다.' if d else '라이브 배포를 멈췄습니다. 라이브는 직전 판 그대로.')+' 고칠 곳: '+os.environ['RUN_URL']}))" > /tmp/alert.json
+          curl -s --fail -o /dev/null -w "경보 %{http_code}" -X POST "$SB/health_alerts" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" --data @/tmp/alert.json
       - uses: actions/upload-pages-artifact@v3
         if: ${{ steps.mode.outputs.go == '1' }}
         with:
