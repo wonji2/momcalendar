@@ -325,6 +325,18 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async></script>
+<style>
+/* 인증 결과 팝업 (kkPop) */
+.kk-pop{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .18s ease}
+.kk-pop.on{opacity:1}
+.kk-card{width:100%;max-width:320px;background:#fff;border-radius:24px;padding:28px 20px 20px;text-align:center;transform:scale(.96);transition:transform .18s ease}
+.kk-pop.on .kk-card{transform:scale(1)}
+.kk-ic{width:56px;height:56px;border-radius:50%;background:#F6F3FA;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.kk-ic.bad{background:#FDECEC}
+.kk-card .pd-t{white-space:normal;word-break:keep-all}
+.kk-sub{margin-top:8px;font-size:14px;line-height:1.45;color:#4E5968;letter-spacing:-.02em;word-break:keep-all}
+.kk-card .pn-cta{margin-top:24px}
+</style>
 </head>
 <body>
 <div class="hd">
@@ -969,6 +981,22 @@ async function kkEntryGo(){
   }
   planKakaoStart();
 }
+/* kkPop v1 */
+/* 인증 결과 — 가운데 팝업(단추 하나). 바깥을 눌러도 닫힌다 */
+function kkPop(ok,title,sub){
+  const old=document.getElementById('kkPop'); if(old) old.remove();
+  const d=document.createElement('div'); d.className='kk-pop'; d.id='kkPop'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true');
+  const ic=ok?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7C54C4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+            :'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E5484D" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
+  d.innerHTML='<div class="kk-card"><div class="kk-ic'+(ok?'':' bad')+'">'+ic+'</div><div class="pd-t" id="kkPopT"></div><div class="kk-sub" id="kkPopS"></div><button type="button" class="pn-cta" id="kkPopOk">확인</button></div>';
+  document.body.appendChild(d);
+  document.getElementById('kkPopT').textContent=title;
+  const s=document.getElementById('kkPopS'); if(sub) s.textContent=sub; else s.remove();
+  const close=function(){ d.classList.remove('on'); setTimeout(function(){ d.remove(); },180); };
+  d.addEventListener('click',function(e){ if(e.target===d) close(); });
+  document.getElementById('kkPopOk').addEventListener('click',close);
+  requestAnimationFrame(function(){ d.classList.add('on'); });
+}
 function planKakaoResult(){
   const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
   const why=q.get('why')||'';
@@ -981,7 +1009,7 @@ function planKakaoResult(){
     '카카오 연결에 실패했어요. 다시 눌러 주세요';
   q.delete('kakao'); q.delete('why');
   try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
-  setTimeout(function(){ showToast(msg); },400);
+  setTimeout(function(){ if(k==='ok') kkPop(true,'인증 완료','카톡 「나와의 채팅」으로 안내를 보냈어요'); else if(why==='cancel') kkPop(false,'인증을 취소했어요',''); else kkPop(false,'인증하지 못했어요',msg.replace(/\.$/,'')); },400);
   if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 다시 읽는다
   else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 스스로 취소 = 계속 막는다
   else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }   // 정해진 실패 사유만(주소에 아무 값이나 붙여 열리지 않게)
