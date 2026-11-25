@@ -78,18 +78,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .cal-grid{display:flex;flex-direction:column}
 .cal-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh-row{margin-bottom:6px}
-.cal-dh{text-align:center;font-size:14px;color:#B2B2BC;padding:9px 0 5px;font-weight:500;letter-spacing:.5px}
-.cal-week{padding:8px 0 15px}
+.cal-dh{text-align:center;font-size:11px;color:#8B95A1;padding:6px 0 4px;font-weight:600}
+.cal-week{padding:4px 0 8px;min-height:74px;box-sizing:border-box}
 .cal-week-first{padding-top:5px}
 .cal-num-row{}
-.cal-cell-num{text-align:center;padding-top:3px;min-height:26px}
-.cal-cell-num .cn{font-size:15px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px}
-.cal-cell-num .cn.today{background:var(--p);color:#fff!important;border-radius:50%;opacity:1!important}
+.cal-cell-num{text-align:center;padding-top:2px;min-height:24px}
+.cal-cell-num .cn{font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px}
+.cal-cell-num .cn.today{background:#7C54C4;color:#fff!important;border-radius:50%;opacity:1!important}
 .cal-holi{font-size:8.5px;color:#E2718B;font-weight:500;line-height:1.15;margin-top:1px;white-space:nowrap;letter-spacing:-.2px}
-.cal-bar-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px;min-height:20px}
+.cal-bar-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:2px;min-height:20px}
 .cal-bar-gap{}
-.cal-bar{border-radius:7px;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;font-weight:400;line-height:1.55;margin:0 1px;text-align:center}
-.cal-bar-start{border-radius:7px;margin-left:0}
+.cal-bar{border-radius:4px;padding:0 6px;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px;font-weight:500;margin:0 1px;text-align:center;min-width:0;box-sizing:border-box}   /* 2026-11-25 사장님 「글자 너무 크고」 → 메인 내 찜 달력(.cbar 10px·20px·모서리 4)과 같게, 왼쪽 띠 없음(규칙 0-DS) */
+.cal-bar .cb-t{display:block;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;line-height:20px;text-align:center}
+.cal-bar-start{border-radius:4px;margin-left:0}
 .cal-more-row{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-more{font-size:9px;color:var(--t3);text-align:center;font-weight:500}
 /* 빈 */
@@ -120,24 +121,194 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 #toast.on{opacity:1}
 .btn-ok{display:block;width:100%;height:44px;margin:10px 0 8px;border:none;border-radius:10px;background:var(--p);color:#fff;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;cursor:pointer}
 .btn-ok:disabled{opacity:.5}
-</style>
-<script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
-<style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
-<style>
-/* 본인인증 창 (register-plan-test.html 과 같은 값) */
+
+/* ── 이웃셀러 패키지 (2026-11-17) ── */
+.wz-box{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 14px 0;padding:16px;border:1px solid #E4D6F3;border-radius:12px;background:#fff;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.wz-box:active{transform:scale(.98)}
+.wz-box div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wz-box b{font-size:15px;font-weight:700;color:#191F28;letter-spacing:-.02em}
+.wz-box span{font-size:13px;color:#6B7684}
+.wz-box em{flex:none;height:36px;padding:0 16px;border-radius:100px;background:#7C54C4;color:#fff;font-size:13.5px;font-weight:700;font-style:normal;display:flex;align-items:center}
+.pn-box{margin:12px 14px 0;border:1px solid #E4D6F3;border-radius:12px;background:#fff}
+.pn-box *{white-space:nowrap}
+.pn-h{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;cursor:pointer}
+.pn-h b{font-size:14px;font-weight:800}
+.pn-h span{font-size:12px;font-weight:700;color:var(--p)}
+.pn-h span.left{color:#E8457F;font-weight:800}
+.pn-chev{display:inline-block;width:7px;height:7px;border-right:2px solid var(--p);border-bottom:2px solid var(--p);transform:rotate(-45deg);margin:0 2px 1px 6px}
+.pn-in{padding:0 16px 16px}
+/* 메인 화면 예시 — 라이브 「⭐ 맘캘린더 이웃셀러」 줄·이웃셀러 카드와 같은 값(index.html .seller-ring · .partner-chip). 고르는 칸처럼 보이지 않게 실제 화면 꼴로 (사장님 2026-11-17) */
+.pn-shot{position:relative;border:1px solid #EDE8F3;border-radius:12px;background:#fff;overflow:hidden;pointer-events:none}
+.pn-shot-tag{position:absolute;top:10px;right:10px;height:20px;line-height:20px;padding:0 8px;border-radius:100px;background:#F2F4F6;color:#8B95A1;font-size:10px;font-weight:700}
+.pn-shot-t{font-size:13px;font-weight:700;padding:12px 14px 0}
+.pn-shot-r{display:flex;gap:7px;padding:10px 14px 14px;overflow:hidden}
+.pn-ring{flex:none;width:54px;height:54px;border-radius:50%;background:#E3D5F5;display:flex;align-items:center;justify-content:center;position:relative;font-size:9.5px;font-weight:800;letter-spacing:-.5px;color:var(--p)}
+.pn-ring.host{background:linear-gradient(135deg,#9B6FD4,#6B45B3);color:#fff}
+.pn-ring.host i{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-style:normal;font-size:8px;background:#2a2a2a;color:#fff;padding:2px 8px;border-radius:10px;letter-spacing:0}
+.pn-ring.me{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--p)}
+.pn-ring.etc{opacity:.5}
+.pn-shot-c{display:flex;align-items:center;gap:8px;height:48px;margin:0 14px 12px;padding:0 12px;border:1px solid #C9A8E8;border-radius:12px;background:#F0E6FA}
+.pn-shot-c b{font-size:13px;font-weight:700}
+.pn-shot-c span{flex:1;min-width:0;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis}
+.pn-shot-c em{flex:none;font-style:normal;font-size:10px;font-weight:800;color:var(--p);background:#fff;padding:3px 8px;border-radius:100px}
+.pn-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.pn-tile{height:44px;line-height:44px;text-align:center;border-radius:10px;background:#F9FAFB;font-size:13px;font-weight:700}
+.pn-opt{display:flex;align-items:center;gap:12px;height:68px;padding:0 16px;border:1.5px solid var(--bd);border-radius:12px;margin-top:8px;cursor:pointer}
+.pn-tiles + .pn-opt{margin-top:16px}
+.pn-opt.on{border-color:var(--p);background:#FAF6FE}
+.pn-rd{width:20px;height:20px;border-radius:50%;border:2px solid #D1D6DB;flex:none;position:relative}
+.pn-opt.on .pn-rd{border-color:var(--p)}
+.pn-opt.on .pn-rd:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--p)}
+.pn-m{flex:1;min-width:0;font-size:14px;font-weight:800;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.pn-m em{font-style:normal;font-size:10px;font-weight:800;color:#fff;background:#E8457F;padding:2px 7px;border-radius:100px}
+.pn-r{flex:0 1 auto;min-width:0;margin-left:auto;text-align:right} /* pn-vat-wrap */
+.pn-p{font-size:17px;font-weight:800}
+.pn-kkneed{margin:14px 2px -4px;font-size:12px;color:var(--t3);text-align:center;word-break:keep-all}
+.pn-vat{display:inline-block;margin-left:2px;font-size:11px;font-weight:600;color:var(--t3);white-space:nowrap}
+.pn-opt.on .pn-p{color:var(--p)}
+.pn-t{font-size:12px;color:var(--t3);margin-top:1px}
 .pn-cta{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:none;border-radius:100px;background:var(--p);color:#fff;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;font-family:inherit;transition:transform .1s}
 .pn-cta:active{transform:scale(.97)}
 .pn-cta:disabled{background:#D1D6DB;cursor:default}
 .pn-cta.s{background:#F6F3FA;color:var(--p);margin-top:8px}
 .pn-cta.s:disabled{background:#F2F4F6;color:#8B95A1}
+a.pn-cta{text-decoration:none;box-sizing:border-box}
+.cf-join{background:#F6F3FA;color:#6B45B3;margin-top:4px}
+.cf-lb{font-size:13px;font-weight:700;color:#4E5968;margin:18px 0 8px}
+.pn-ln .cf-v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn-seg{display:flex;gap:8px;margin-top:16px}
+.pn-seg button{flex:1;height:40px;border-radius:100px;border:1px solid var(--bd);background:#fff;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit}
+.pn-seg button.on{border-color:var(--p);background:#FAF6FE;color:var(--p);font-weight:700}
+.pn-fine{font-size:11px;color:var(--t3);text-align:center;margin-top:8px}
+.pn-use{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 0}
+.pn-use b{font-size:14px;font-weight:800}
+.pn-use span{display:block;font-size:12px;color:var(--t3);margin-top:2px}
+.pn-use em{font-style:normal;font-size:20px;font-weight:800;color:var(--p)}
+.pn-kp{display:flex;gap:8px;padding:12px 16px 4px}
+.pn-kp div{flex:1;display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 14px;background:#F9FAFB;border-radius:10px}
+.pn-kp span{font-size:12px;color:var(--t3)}
+.pn-kp b{font-size:15px;font-weight:800}
+.pn-ln{display:flex;align-items:center;gap:10px;height:52px;margin:0 16px;border-top:1px solid #F2F4F6}
+.pn-ln .k{width:32px;flex:none;font-size:12px;font-weight:800;color:var(--p)}
+.pn-ln .v{flex:1;min-width:0;font-size:13px;font-weight:600}
+.pn-ln .on{font-size:12px;font-weight:700;color:#0F6E56}
+.pn-pill{flex:none;height:32px;line-height:32px;padding:0 12px;border:none;border-radius:100px;background:var(--pp);color:var(--p);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}
+.pn-pill.p{background:var(--p);color:#fff}
+.pn-pill.y{background:#FEE500;color:#191600}
+.pn-star{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:6px;border-radius:100px;background:#FFE08A;color:#5B3A00;font-size:10px;font-weight:800;vertical-align:2px}
 .pn-dim{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
 .pn-dim.on{display:flex}
 .pn-sheet{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+.pn-sheet *{white-space:nowrap}
 .pn-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-12px auto 16px}
+.pn-st{display:flex;justify-content:space-between;align-items:baseline}
+.pn-st b{font-size:16px;font-weight:800}
+.pn-st span{font-size:17px;font-weight:800;color:var(--p)}
+.pn-acct{display:flex;align-items:center;gap:8px;margin-top:16px;padding:0 8px 0 16px;height:56px;border-radius:12px;background:#F6F3FA}
+.pn-acct b{flex:1;font-size:16px;font-weight:800;letter-spacing:0;overflow:hidden;text-overflow:ellipsis}
+.pn-row{display:flex;justify-content:space-between;align-items:center;height:48px;border-bottom:1px solid #F2F4F6;font-size:13px}
+.pn-row span{color:var(--t3)}
+.pn-row b{font-weight:700}
+.pn-row.last{border-bottom:none}
+.pn-chips{display:flex;gap:6px}
+.pn-chips button{height:32px;padding:0 10px;border-radius:100px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit}
+.pn-chips button.on{border-color:var(--p);background:#FAF6FE;color:var(--p);font-weight:700}
+.pn-inp{width:100%;height:48px;padding:0 14px;border:1.5px solid var(--bd);border-radius:10px;font-size:14px;margin-top:8px;font-family:inherit;outline:none}
+.pn-inp:focus{border-color:var(--p)}
+.pn-err{font-size:12px;color:var(--red);text-align:center;min-height:15px;margin-top:6px}
+
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ── */
+.bn-wrap{max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bn-wrap *{white-space:nowrap}
+.bn-go{display:flex;gap:8px;margin-top:4px}
+.bn-go input{flex:1;min-width:0}
+.bn-go button{flex:none;height:48px;padding:0 16px;border:none;border-radius:12px;background:#F1EAFB;color:var(--p);font-size:13px;font-weight:800;font-family:inherit}
+.bn-ph{position:relative;width:200px;height:200px;margin:16px auto 0;border-radius:14px;overflow:hidden;background:#ECE8FA;touch-action:none}
+.bn-ph canvas{display:block;width:200px;height:200px}
+.bn-ph .bn-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#8B7BB8}
+.bn-tools{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+.bn-tools input[type=range]{flex:1;min-width:0;accent-color:var(--p)}
+.bn-tools label{flex:none;height:36px;padding:0 14px;border-radius:100px;background:#F2F4F6;color:#4E5968;font-size:12px;font-weight:700;display:flex;align-items:center;cursor:pointer}
+.bn-f{position:relative;margin-top:8px}
+.bn-f input{width:100%;padding-right:52px}
+.bn-f i{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-style:normal;font-size:11px;color:#8B95A1}
+.bn-inp{display:block;width:100%;height:48px;padding:0 14px;border:1px solid #E5E8EB;border-radius:12px;font-size:14px;font-family:inherit;background:#fff;color:#191F28;box-sizing:border-box}
+
+/* ── 이웃셀러 띠 다듬기 · 내 링크 (2026-11-19) ── */
+/* 눌러 보고 싶은 홍보 배너처럼: 보라색 화면에서 튀는 분홍·주황 (사장님 2026-11-19 「보라색 말고 더 튀는 색으로」) */
+.pn-box.pn-promo{border:none;box-shadow:0 6px 18px rgba(255,77,141,.32)}
+.pn-h.pn-big{height:72px;padding:0 18px;border-radius:12px;background:linear-gradient(120deg,#FF4D8D 0%,#FF7A45 100%)}
+.pn-h.pn-big:active{transform:scale(.97)}
+.pn-h.pn-big b{font-size:17px;font-weight:800;color:#fff}
+.pn-h.pn-big span{display:flex;align-items:center;height:34px;padding:0 6px 0 14px;border-radius:100px;background:#fff;font-size:14px;font-weight:800;color:#E8336F}
+.pn-h.pn-big .pn-chev{border-color:#E8336F}
+.pn-ex{display:block;width:100%;height:auto;border-radius:12px;border:1px solid #EDE8F3;background:#F6F3FA;aspect-ratio:1125/1068}
+.pn-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+.pn-chips span{height:30px;line-height:30px;padding:0 12px;border-radius:100px;background:#F6F3FA;color:#5B2E8C;font-size:12px;font-weight:800}
+.pn-chips span.r{background:#FDEBF2;color:#D6336C}
+.lk-f{position:relative;margin-top:8px}
+.lk-f .lk-pre{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:#8B95A1;pointer-events:none}
+.lk-f input.lk-ig{padding-left:118px}
+.lk-ok{font-size:12px;font-weight:700;color:#0E9F6E;margin:6px 2px 0;min-height:16px}
+.lk-ok.w{color:#B7791F}
+
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ── */
+.pd-ic{width:56px;height:56px;margin:8px auto 14px;border-radius:50%;background:#E8F7EF;display:flex;align-items:center;justify-content:center}
+.pd-ic i{width:22px;height:12px;border-left:3.5px solid #0E9F6E;border-bottom:3.5px solid #0E9F6E;transform:translateY(-3px) rotate(-45deg)}
 .pd-t{font-size:20px;font-weight:800;color:#191F28;text-align:center;letter-spacing:-.02em}
+.pd-s{font-size:14px;font-weight:600;color:#4E5968;text-align:center;margin-top:6px}
+.pd-box{margin-top:20px;border-radius:12px;background:#F9FAFB;padding:4px 16px}
+.pd-r{display:flex;gap:12px;padding:14px 0;border-top:1px solid #EEF0F3;font-size:14px;line-height:1.45;color:#191F28}
+.pd-r:first-child{border-top:none}
+.pd-r .k{flex:none;width:64px;font-weight:800;color:#7C54C4;white-space:nowrap}
+.pd-r .v{flex:1;min-width:0;font-weight:600;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.pd-t,.pd-s{white-space:normal;word-break:keep-all}
+.pd-r.warn .k{color:#E8336F}
+.pd-r.warn .v b{color:#E8336F}
 .pd-btns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
-.pd-t{white-space:normal;word-break:keep-all}
+
+.bn-auto{margin-top:10px;text-align:center;font-size:13px;font-weight:700;color:#0E9F6E}
+.bn-reset{display:block;width:100%;height:44px;margin-top:6px;border:none;background:none;font-size:13px;font-weight:700;color:#8B95A1;text-decoration:underline;font-family:inherit;cursor:pointer}
+.pn-hero{padding:4px 2px 4px}
+.pn-lb{font-size:13px;font-weight:700;color:#7C54C4;letter-spacing:-.02em}
+.pn-lb2{margin:24px 2px 2px}
+.pn-tt{margin-top:6px;font-size:20px;font-weight:800;line-height:1.35;color:#191F28;letter-spacing:-.03em}
+.pn-bf{margin-top:8px;border:1px solid #EEE8F5;border-radius:16px;overflow:hidden;background:#fff}
+.pn-bf-row{display:flex;align-items:flex-start;gap:10px;width:100%;padding:16px;border:none;background:#fff;text-align:left;font-family:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pn-bf-row:active{background:#F9FAFB}
+.pn-bf-txt{display:block;flex:1;min-width:0}
+.pn-bf-txt>span{display:flex}
+.pn-bf-txt>.pn-bf-s{display:block}
+.pn-nb{white-space:nowrap}
+.pn-bf-more{flex:none;display:inline-flex;align-items:center;height:28px;padding:0 8px 0 10px;border-radius:100px;background:#F6F3FA;color:#7C54C4;font-size:12px;font-weight:700}
+.pn-bf-more .pn-chev{width:5px;height:5px;margin:0 2px 3px 5px;border-color:#7C54C4;transform:rotate(45deg);transition:transform .2s}
+.pn-bf-row[aria-expanded="true"] .pn-bf-more .pn-chev{transform:rotate(-135deg);margin-bottom:-2px}
+.pn-bf-ex{border-top:1px solid #EEE8F5}
+.pn-bf-ex[hidden]{display:none}
+.pn-bf-ex .pn-bf-tx{padding:0 16px 16px}
+.pn-in>.pn-bf:first-child{margin-top:4px}
+.pn-bf-im+.pn-bf-im{border-top:1px solid #EEE8F5}
+.pn-bf-im{background:#F6F3FA;overflow:hidden}
+.pn-bf-im img{display:block;width:100%;height:auto}
+.pn-bf-im.cap{height:236px}
+.pn-bf-im.cap img{height:100%;object-fit:cover;object-position:top}
+.pn-bf-im.fit{padding:4px 8px;background:#fff;border-bottom:1px solid #F2F4F6}
+.pn-bf-tx{padding:14px 16px 16px}
+.pn-bf-t{display:flex;align-items:flex-start;gap:8px;font-size:16px;font-weight:700;color:#191F28;letter-spacing:-.02em;line-height:1.4;white-space:normal;word-break:keep-all;text-wrap:balance}
+.pn-bf-t i{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#7C54C4;color:#fff;font-size:13px;font-weight:800;font-style:normal}
+.pn-bf-s{margin:6px 0 0 30px;font-size:13.5px;color:#6B7684;line-height:1.45;white-space:normal;word-break:keep-all;text-wrap:balance}
+.pn-bf-go{display:flex;align-items:center;justify-content:center;gap:4px;height:44px;margin-top:14px;border:2px solid #7C54C4;border-radius:100px;color:#7C54C4;font-size:14px;font-weight:700;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pn-bf-go:active{transform:scale(.97);background:#F6F3FA}
+.pn-go{display:flex;align-items:center;justify-content:center;gap:4px;height:40px;margin:8px 0 0;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:700;letter-spacing:-.02em;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pn-go:active{transform:scale(.97)}
+.pn-go.gap{margin-bottom:24px}
+.pn-go-ar{width:6px;height:6px;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:rotate(45deg);margin-left:2px}
+.pn-cafe{display:flex;flex-direction:column;gap:2px;margin:18px 2px 8px}
+.pn-cafe b{font-size:15px;font-weight:800;color:#191F28;letter-spacing:-.02em}
+.pn-cafe span{font-size:12px;font-weight:600;color:#8B95A1}
 </style>
+<script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
+<style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async></script>
 <style>
 /* 인증 결과 팝업 (kkPop) */
@@ -197,17 +368,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
     <div style="background:#FFF8E1;border-radius:10px;padding:11px 13px;font-size:11px;color:#7A5C00;line-height:1.7;margin-top:10px">
       ⚠️ <b>가입 후 반드시 인증이 필요해요!</b><br>
       가입 신청 후, <b>본인이 운영하는 인스타그램 계정</b>으로<br>
-      맘캘린더 공식 계정(@momcal_)에 <b>DM</b>을 보내주셔야<br>
+      맘캘린더 공식 계정(@momcal_official)에 <b>DM</b>을 보내주셔야<br>
       방장이 인증 후 승인해드려요. 승인되면 일정 등록이 가능해요.
+      <div class="pn-applogin" style="word-break:keep-all;margin-top:6px;padding-top:6px;border-top:1px dashed #EAD9A6">🔑 다음부터 로그인은 <b>맘캘린더&nbsp;앱</b> → 마이페이지 → 제휴&nbsp;·&nbsp;입점 → <b>셀러&nbsp;로그인</b>에서 바로 할 수 있어요</div>
     </div>
     <div style="font-size:10.5px;color:var(--t3);text-align:center;margin-top:9px;line-height:1.5">
       연락처와 이메일은 공구 일정 승인 안내와 이웃셀러 지원 혜택 소식을 전해드리기 위해 소중히 보관돼요.
     </div>
     <div class="divider">이미 계정이 있으신가요?</div>
     <button class="btn btn-o" onclick="showLogin()">로그인하기</button>
-    <a class="dm-btn" href="https://ig.me/m/momcal_" target="_blank" style="margin-top:12px">
+    <a class="dm-btn" href="https://ig.me/m/momcal_official" target="_blank" style="margin-top:12px">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>
-      @momcal_ 인스타로 DM 보내기
+      @momcal_official 인스타로 DM 보내기
     </a>
   </div>
 </div>
@@ -238,7 +410,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
         <span style="font-size:20px">☕</span>
         <span style="font-size:11px;font-weight:700;color:#03C75A">네이버카페</span>
       </a>
-      <a href="https://www.instagram.com/momcal_" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
+      <a href="https://www.instagram.com/momcal_official" target="_blank" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:13px 6px;text-decoration:none">
         <span style="font-size:20px">📷</span>
         <span style="font-size:11px;font-weight:700;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);-webkit-background-clip:text;-webkit-text-fill-color:transparent">인스타그램</span>
       </a>
@@ -246,7 +418,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
   </div>
   <div style="text-align:center;padding:8px 16px 24px">
     <div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px">일정 등록은 무료예요 😊</div>
-    <a href="https://ig.me/m/momcal_" target="_blank" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">유료 협업·광고·제휴 문의</a>
+    <a href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">카톡 채널로 셀러 문의</a><div style="margin-top:6px;font-size:11.5px;color:var(--t3,#8B95A1)">채팅방에 「셀러문의」라고 보내 주세요</div>
   </div>
 </div>
 
@@ -262,9 +434,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
       방장이 본인 확인 후 승인해드려요.<br>
       <span style="font-size:12px;color:var(--t3)">승인되면 바로 로그인해서 일정을 등록할 수 있어요</span>
     </div>
-    <a class="dm-btn" href="https://ig.me/m/momcal_" target="_blank" style="margin-top:16px">
+    <a class="dm-btn" href="https://ig.me/m/momcal_official" target="_blank" style="margin-top:16px">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>
-      @momcal_ 인스타로 DM 보내기
+      @momcal_official 인스타로 DM 보내기
     </a>
     <div id="loginLinkBox" style="margin-top:18px;padding:14px 12px;background:#F6F3FA;border:1px solid #E4DAF3;border-radius:12px;text-align:left">
       <div style="font-size:13px;font-weight:800;color:#6B45B3;margin-bottom:6px">승인 후 이 링크로 바로 로그인</div>
@@ -274,6 +446,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
         <button type="button" onclick="shareLoginLink()" style="flex:1;height:44px;border:0;background:#7C54C4;color:#fff;border-radius:100px;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap">카톡에 저장</button>
       </div>
     </div>
+    <div class="pn-applogin" style="word-break:keep-all;margin-top:10px;padding:12px;background:#F9FAFB;border-radius:12px;font-size:12px;color:#4E5968;line-height:1.6;text-align:left">📱 앱에서는 <b>맘캘린더&nbsp;앱</b> → 마이페이지 → 제휴&nbsp;·&nbsp;입점 → <b>셀러&nbsp;로그인</b>을 누르면 돼요. 한 번 로그인하면 다음부터 바로 셀러 페이지가 열려요.</div>
     <button class="btn btn-o" onclick="showLogin()" style="margin-top:10px">로그인 화면으로</button>
   </div>
 </div>
@@ -296,6 +469,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
     </div>
   </div>
 
+  <!-- 이웃셀러 패키지 (2026-11-17) -->
+  <div class="pn-box" id="planBox" style="display:none"></div>
+  <a class="wz-box" id="wzBox" href="https://shop.srookpay.com/momcal"><div><b>공구할 상품 찾기</b><span>스룩 판매자샵</span></div><em>보기</em></a>
   <div class="seg" id="viewSeg">
     <button class="on" onclick="switchView('list',this)">📋 목록</button>
     <button onclick="switchView('cal',this)">📅 캘린더</button>
@@ -322,15 +498,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
       <div id="calCapture">
         <div class="cal-grid" id="calGrid"></div>
       </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:10px;text-align:center">🎨 색상은 자동으로 알록달록하게 배정돼요 · 개별 색 변경은 각 공구 수정에서</div>
-      <button onclick="saveCalImage()" style="width:100%;margin-top:10px;padding:12px;background:var(--p);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">📷 캘린더 이미지로 저장</button>
+      <button onclick="saveCalImage()" type="button" style="width:100%;margin-top:12px;height:44px;border:0;border-radius:100px;background:#F6F3FA;color:#6B45B3;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-.02em">사진 저장</button>
     </div>
   </div>
 
   <!-- 하단 안내 -->
   <div style="text-align:center;padding:24px 16px 12px;margin-top:8px">
     <div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:6px">일정 등록은 무료예요 😊</div>
-    <a href="https://ig.me/m/momcal_" target="_blank" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">유료 협업·광고·제휴 문의</a>
+    <a href="https://pf.kakao.com/_zGfxnX/chat" target="_blank" rel="noopener" style="font-size:12px;color:var(--p);font-weight:700;text-decoration:none;border-bottom:1px solid var(--pl);padding-bottom:1px">카톡 채널로 셀러 문의</a><div style="margin-top:6px;font-size:11.5px;color:var(--t3,#8B95A1)">채팅방에 「셀러문의」라고 보내 주세요</div>
   </div>
 </div>
 
@@ -609,10 +784,93 @@ async function doLogin(){
   }catch(e){err.textContent='오류: '+e.message;}
 }
 
-/* 셀러 본인인증(카카오) live v1 */
-/* 셀러 화면에 들어오면 서버가 「연결됨」이라고 할 때까지 창으로 막는다(바깥 누름·뒤로가기로 안 닫힘). 연결되면 셀러 카톡 「나와의 채팅」으로 안내 한 통.
-   빠져나갈 길: 카카오 쪽 실패 24시간 안 · 두 번 눌렀는데 미연결 → 「나중에」 / 상태를 못 읽으면 안 막음(서버 장애로 전원 잠금 방지) */
-let _kakao=null,_kkBusy=false;
+/* ── 이웃셀러 패키지 (2026-11-17) ─────────────────────────────────
+   서버 함수만 부른다: seller_plan_status · seller_plan_start · seller_plan_claim (supabase/sql/neighbor_plan_159.sql)
+   상태 none(신청 전) · pending(입금 대기) · active(이용 중). 값·자리 수·계좌는 전부 서버가 내려 준다. */
+let _cafeNick=null,_cfBusy=false,_kakao=null,_kkBusy=false;
+let _plan=null,_planOpen=false,_planMonths=6,_planKind='income',_planBusy=false;
+const PLAN_CHANNEL='https://pf.kakao.com/_zGfxnX/chat';
+function planEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function planWon(n){return Number(n||0).toLocaleString('ko-KR');}
+function planMan(n){return String(Math.round(n/1000)/10).replace(/\.0$/,'');}          // 290000 → 29 · 81667 → 8.2
+function planMonthly(m){return planMan(Math.round(_plan.prices[m]/m));}
+function planDue(iso){
+  const d=new Date(iso), k=x=>new Date(x.getTime()+9*3600e3).toISOString().slice(0,10);
+  const day=k(d), today=k(new Date()), tom=k(new Date(Date.now()+86400e3));
+  const hm=new Date(d.getTime()+9*3600e3).toISOString().slice(11,16);
+  if(day===today) return '오늘 '+hm+'까지';
+  if(day===tom) return '내일 '+hm+'까지';
+  return Number(day.slice(5,7))+'/'+Number(day.slice(8,10))+' '+hm+'까지';
+}
+async function planLoad(){
+  const d=await sellerRpc('seller_plan_status');
+  const box=document.getElementById('planBox');
+  if(!d||!d.state){ if(box) box.style.display='none'; return; }     // 서버가 아직 없거나 실패 → 띠를 숨긴다(나머지 화면은 그대로)
+  _plan=d; planRender(); planPaidCheck(); kkEntryCheck();
+  kkLoad();
+  if(_cafeNick===null&&(d.state==='pending'||d.state==='active')){ _cafeNick=''; sellerRpc('seller_cafe_get').then(x=>{ if(x&&x.ok){ _cafeNick=x.nick||''; planRender(); } else _cafeNick=null; }); }
+}
+function planRender(){
+  const box=document.getElementById('planBox'); if(!box||!_plan) return;
+  box.classList.remove('pn-promo');
+  box.style.display='block';
+  const nm=(_seller&&(_seller.seller_influencer||_seller.login_insta))||'';
+  const star=document.getElementById('pbName');
+  if(star){ star.textContent=nm; if(_plan.state==='active'||(_plan.state==='pending'&&_plan.showing)){ const b=document.createElement('span'); b.className='pn-star'; b.textContent='이웃셀러'; star.appendChild(b); } }
+  if(_plan.state==='active'){
+    box.innerHTML=
+      '<div class="pn-use"><div><b>이웃셀러</b><span>'+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</span></div><em>D-'+planEsc(_plan.dday)+'</em></div>'+
+      '<div class="pn-kp"><div><span>공구 클릭</span><b>'+planWon(_plan.clicks)+'</b></div><div><span>찜</span><b>'+planWon(_plan.wishes)+'</b></div></div>'+
+      planWays(true);
+    return;
+  }
+  if(_plan.state==='pending'){
+    box.innerHTML=
+      '<div class="pn-use"><div><b>'+(planCard()?'결제':'입금')+(_plan.claimed?' 확인 중':' 대기')+'</b><span>'+planEsc(planDue(_plan.pay_due))+'</span></div><button class="pn-pill p" onclick="planSheetOpen()">'+(planCard()?'결제':'입금')+' 안내</button></div>'+
+      '<div style="height:12px"></div>'+(_plan.showing?planWays(false):'');
+    return;
+  }
+  const left=Number(_plan.slots_left||0);
+  const _back=(!_planOpen&&!window._planBackDone)?planGoBack():null; window._planBackDone=true;
+  if(_back){ _planOpen=true; if(Array.isArray(_back.open)) window._bfOpen=_back.open; setTimeout(function(){ try{ window.scrollTo(0,_back.y); }catch(e){} },60); }
+  if(!_planOpen){
+    box.classList.add('pn-promo'); box.innerHTML='<div class="pn-h pn-big" onclick="planToggle()"><b>이웃셀러 유료입점 신청</b><span>월 '+planMonthly(6)+'만원~<i class="pn-chev"></i></span></div>';
+    return;
+  }
+  const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
+  const opt=(m)=>'<div class="pn-opt'+(_planMonths===m?' on':'')+'" onclick="planPick('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월&nbsp;'+planMonthly(m)+'만원<small class="pn-vat">(VAT 포함)</small></div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
+  box.innerHTML=
+    '<div class="pn-h" onclick="planToggle()"><b>이웃셀러 혜택</b>'+(left>0?'':'<span class="left">자리 없음</span>')+'</div>'+
+    '<div class="pn-in">'+
+      planBf(1,[['banners/plan_example_v1.jpg',1125,1068],['banners/plan_example_list_v1.jpg',1125,978]],'메인 배너·목록 맨 위 노출','열 때마다 자리 랜덤 · 보라색 강조 카드',PLAN_SITE,'맘캘린더에서 보기')+
+      planBf(2,[['banners/plan_example_cafe_top_v1.jpg',1125,792],['banners/plan_example_cafe_board_v2.jpg',957,236,'fit']],'회원수 약 2만5천명 맘카페 홍보 가능','단독게시판 생성 · 게시글 20개까지 작성 가능','https://cafe.naver.com/momcal','카페에서 보기')+
+      planBf(3,[['banners/plan_example_insta_v1.jpg',1125,2319,'cap']],'공식 인스타 매일 소개','오픈 공구 카드 · @아이디·해시태그','https://www.instagram.com/momcal_official/','인스타에서 보기')+
+      '<div class="pn-lb pn-lb2">가격</div>'+
+      opt(3)+opt(6)+
+      ((_kakao&&_kakao.connected)?'':'<div class="pn-kkneed">본인인증 최초 1회 필요</div>')+
+      '<button class="pn-cta" id="planStartBtn" onclick="planStart()"'+(left>0?'':' disabled')+'>'+(left>0?_planMonths+'개월 시작하기':'자리 없음')+'</button>'+
+    '</div>';
+}
+function planKakaoRow(top){ return '<div class="pn-ln"'+(top?'':' style="border-top:none"')+'><div class="k">카톡</div><div class="v">'+(_kakao&&_kakao.connected?'결제·만료 알림':'결제·만료 알림 받기')+'</div>'+(_kakao&&_kakao.connected?'<div class="on">연결됨</div>':'<button class="pn-pill p" onclick="planKakaoStart()">연결</button>')+'</div>'; }
+function planWays(top){
+  const kk=!!(_plan&&(_plan.state==='active'||_plan.state==='pending'));
+  return (kk?planKakaoRow(top):'')+
+    '<div class="pn-ln"'+(!kk&&!top?' style="border-top:none"':'')+'><div class="k">자동</div><div class="v">인스타·인포크 일정</div><div class="on">켜짐</div></div>'+
+    '<div class="pn-ln"><div class="k">직접</div><div class="v">한 달 치 미리 등록</div><button class="pn-pill" onclick="openAddModal()">공구 추가</button></div>'+
+    '<div class="pn-ln"><div class="k">배너</div><div class="v">내 배너 1구좌</div><button class="pn-pill p" onclick="bnOpen()">편집</button></div>'+
+    '<div class="pn-ln"><div class="k">카페</div><div class="v cf-v">'+(_cafeNick?'맘카페 · '+planEsc(_cafeNick):'맘카페 가입 · 닉네임')+'</div><button class="pn-pill'+(_cafeNick?'':' p')+'" onclick="cfOpen()">'+(_cafeNick?'수정':'입력')+'</button></div>'+
+    (_plan&&_plan.state==='active'?'<div class="pn-ln"><div class="k">링크</div><div class="v">인스타·인포크 주소</div><button class="pn-pill p" onclick="lkOpen()">입력</button></div>':'');
+}
+function planToggle(){ _planOpen=!_planOpen; planRender(); }
+/* 혜택 「직접 보기」 — 같은 창으로 가고, 돌아오면 펼친 채 그 자리 (2026-11-23) */
+function planGo(url,label,gap){ return '<a class="pn-go'+(gap?' gap':'')+'" href="'+url+'" onclick="planGoMark()">'+label+'<i class="pn-go-ar"></i></a>'; }
+const PLAN_SITE='https://momcalendar.com/';
+function planBf(n,imgs,title,sub,url,label){ const op=(window._bfOpen||[]).indexOf(n)>=0; return '<div class="pn-bf"><button type="button" class="pn-bf-row" aria-expanded="'+op+'" onclick="planBfOpen(this,'+n+')"><span class="pn-bf-txt"><span class="pn-bf-t"><i>'+n+'</i>'+planEsc(title)+'</span><span class="pn-bf-s">'+String(sub).split(' · ').map(function(x,i,a){ return '<span class="pn-nb">'+planEsc(x)+(i<a.length-1?' ·':'')+'</span>'; }).join(' ')+'</span></span><span class="pn-bf-more">예시<i class="pn-chev"></i></span></button><div class="pn-bf-ex"'+(op?'':' hidden')+'>'+imgs.map(function(m){ return '<div class="pn-bf-im'+(m[3]?' '+m[3]:'')+'"><img src="'+m[0]+'" alt="'+planEsc(title)+'" width="'+m[1]+'" height="'+m[2]+'" loading="lazy"></div>'; }).join('')+'<div class="pn-bf-tx"><a class="pn-bf-go" href="'+url+'" onclick="planGoMark()">'+planEsc(label)+'<i class="pn-go-ar"></i></a></div></div></div>'; }
+function planBfOpen(b,n){ const ex=b.nextElementSibling; if(!ex) return; const op=ex.hidden; ex.hidden=!op; b.setAttribute('aria-expanded',String(op)); const a=(window._bfOpen||[]).filter(function(x){return x!==n;}); if(op) a.push(n); window._bfOpen=a; }
+function planGoMark(){ try{ localStorage.setItem('mc_plan_back',JSON.stringify({t:Date.now(),y:Math.round(window.scrollY),open:window._bfOpen||[]})); }catch(e){} }
+function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_plan_back')||'null'); localStorage.removeItem('mc_plan_back'); }catch(e){} return (m&&Date.now()-m.t<30*60*1000)?m:null; }
+function planPick(m){ _planMonths=m; planRender(); }
+/* 카카오 연결(본인 확인 + 카톡 「나와의 채팅」으로 결제 안내·만료 7·3·1일 전 알림) — 같은 창으로 카카오에 갔다가 돌아온다 */
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
 /* kkTalkGo v2 */ /* kkTalkGo v3 */
 /* 본인인증을 카카오로 넘긴다 — 환경마다 아이디·비밀번호를 안 묻는 길로. 어느 길이든 막히면 카카오 웹 화면(url)으로 */
@@ -653,39 +911,46 @@ function kkTalkGo(url){
 }
 async function planKakaoStart(){
   if(_kkBusy) return; _kkBusy=true;
-  try{ let o=null; try{ o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); }catch(_){} if(!o||!o.t||Date.now()-o.t>86400e3) o={n:0,t:Date.now()}; o.n=(o.n||0)+1; localStorage.setItem('mc_kk_try',JSON.stringify(o)); }catch(e){}
+  try{ let o=null; try{ o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); }catch(_){} if(!o||!o.t||Date.now()-o.t>86400e3) o={n:0,t:Date.now()}; o.n=(o.n||0)+1; localStorage.setItem('mc_kk_try',JSON.stringify(o)); }catch(e){}   // 시도 횟수 — 카카오 오류 화면에서 못 돌아와 두 번째부터는 「나중에」
   const back='https://momcalendar.com/register.html';   // 고정 — /register(.html 없음)로 들어와도 서버 검사를 통과하게
   let d=null;
   try{ const r=await fetch(KAKAO_START,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_tok,back:back})}); d=await r.json().catch(function(){return null;}); }catch(e){}
   _kkBusy=false;
-  if(d&&d.ok&&d.url){ kkTalkGo(d.url); return; }
+  // replace: 뒤로가기에 카카오 화면이 남지 않게(돌아올 때도 다리 페이지가 replace 한다)
+  if(d&&d.ok&&d.url){ planGoMark(); try{ const h=window._sellerBackH; if(h){ await Promise.race([Promise.resolve(h).then(function(x){ if(x&&x.remove) return x.remove(); }),new Promise(function(r){ setTimeout(r,400); })]); } }catch(e){} kkTalkGo(d.url); return; }   // 환경마다 아이디·비밀번호를 안 묻는 길로(막히면 카카오 웹 화면)
   if(d&&d.msg==='unauthorized'){ showToast('로그인이 만료됐어요. 다시 로그인해주세요.'); doLogout(); return; }
   showToast(d&&d.msg==='too_many'?'잠시 뒤 다시 눌러 주세요.':'카카오 연결을 시작하지 못했어요. 다시 눌러 주세요.');
-  if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }
+  if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }   // 시작부터 실패 = 카카오 쪽 실패로 친다(갇히지 않게)
 }
-document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&window._kkEntry&&_seller&&_kakao&&!_kakao.loading){ _kakao=null; kkLoad(); } });
+/* ── 카톡 필수 연결 (사장님 2026-11-24 「카톡 필수연결」) ─────────────────
+   셀러 화면에 들어오면 서버가 「연결됨」이라고 할 때까지 시트로 막는다(바깥 누름·뒤로가기로 안 닫힘).
+   빠져나갈 길: 카카오 쪽 실패(취소 제외) 24시간 안이면 「나중에」 · 상태를 못 읽으면 안 막음(서버 장애로 전원 잠금 방지).
+   결제 완료(이용 중) 셀러는 planKakaoGate(결제 완료 + 카톡 필수)가 맡는다. 가입 직후(승인 대기)는 셀러 토큰이 없어 연결을 못 묶으니 첫 로그인에서. */
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&window._kkEntry&&_seller&&_kakao&&!_kakao.loading){ _kakao=null; kkLoad(); } });   // 다른 탭·앱에서 연결 끝냈으면 닫힌다
 function kkLoad(){
   if(_kakao!==null) return;
   _kakao={connected:false,loading:true};
   sellerRpc('seller_kakao_status').then(function(x){
-    if(!_seller) return;
+    if(!_seller) return;                                                  // 그사이 로그아웃
     _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean'),phone:!(x&&x.ok&&x.phone===false)};
-    kkEntryCheck();
+    planRender(); planPaidCheck(); kkEntryCheck();
   }).catch(function(){ _kakao={connected:false,known:false}; });
 }
 function kkEntryCheck(){
   const dim=document.getElementById('planDim');
   if(!_seller||!_kakao||_kakao.loading) return;
-  if(!_kakao.known||_kakao.connected){
+  if(!_kakao.known||_kakao.connected){                                    // 연결됨(또는 상태 모름) → 문을 연다
     if(window._kkEntry){ window._kkEntry=false; window._kkGate=false; if(dim) dim.classList.remove('on'); }
     return;
   }
+  if(_plan&&_plan.state==='active'){ if(window._kkEntry){ window._kkEntry=false; planKakaoGate(); } return; }   // 결제 완료 셀러는 planKakaoGate(결제 완료 + 카톡 필수)로 바꿔 띄운다
+  if(window._kkEntry){ kkEntryGate(); return; }                           // 이미 떠 있으면(다른 시트가 덮었어도) 다시 그린다
+  if(dim&&dim.classList.contains('on')){ clearTimeout(window._kkRetry); window._kkRetry=setTimeout(kkEntryCheck,1500); return; }   // 다른 시트가 닫히면 띄운다
   kkEntryGate();
 }
-function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail')||0); return t && Date.now()-t<86400e3; }catch(e){ return false; } }
-function kkTried(){ try{ const o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); return !!(o&&o.n>=2&&o.t&&Date.now()-o.t<86400e3); }catch(e){ return false; } }
+function kkTried(){ try{ const o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); return !!(o&&o.n>=2&&o.t&&Date.now()-o.t<86400e3); }catch(e){ return false; } }   // 24시간 안 2번 이상 눌렀는데 아직 미연결
 function kkEntryGate(){
-  const later=planKakaoFailed()||kkTried();
+  const later=planKakaoFailed()||kkTried();   // 카카오 쪽 실패 · 또는 눌러 봤는데 아직 미연결(카카오 오류 화면에서 못 돌아온 경우)
   window._kkEntry=true; window._kkGate=!later;
   const needPh=!!(_kakao&&_kakao.phone===false), oldPh=(document.getElementById('kkPhone')||{}).value||'';
   document.getElementById('planSheet').innerHTML=
@@ -732,24 +997,350 @@ function kkPop(ok,title,sub){
 function planKakaoResult(){
   const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
   const why=q.get('why')||'';
-  const msg=k==='ok'?'인증됐어요. 카톡 「나와의 채팅」을 확인해 보세요':
-    why==='cancel'?'카카오 인증을 취소했어요':
-    why==='noconsent'?'「카카오톡 메시지 전송」에 동의해야 인증돼요':
-    why==='expired'?'시간이 지나 인증이 끝났어요. 다시 눌러 주세요':
-    why==='memo'?'지금은 카톡을 보낼 수 없어요. 방장이 확인할게요':
-    why==='login'?'셀러 로그인이 풀려 인증하지 못했어요. 로그인한 뒤 다시 눌러 주세요':
-    '카카오 인증에 실패했어요. 다시 눌러 주세요';
+  const msg=k==='ok'?'카톡 알림이 연결됐어요. 카톡 「나와의 채팅」을 확인해 보세요':
+    why==='cancel'?'카카오 연결을 취소했어요':
+    why==='noconsent'?'「카카오톡 메시지 전송」에 동의해야 알림을 받을 수 있어요':
+    why==='expired'?'시간이 지나 연결이 끝났어요. 다시 눌러 주세요':
+    why==='memo'?'지금은 카톡 알림을 보낼 수 없어요. 방장이 확인할게요':
+    why==='login'?'셀러 로그인이 풀려 연결하지 못했어요. 로그인한 뒤 다시 눌러 주세요':
+    '카카오 연결에 실패했어요. 다시 눌러 주세요';
   q.delete('kakao'); q.delete('why');
   try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
   setTimeout(function(){ if(k==='ok') kkPop(true,'인증 완료','카톡 「나와의 채팅」으로 안내를 보냈어요'); else if(why==='cancel') kkPop(false,'인증을 취소했어요',''); else kkPop(false,'인증하지 못했어요',msg.replace(/\.$/,'')); },400);
-  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }
-  else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }
-  else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
+  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 다시 읽는다
+  else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }   // 스스로 취소 = 계속 막는다
+  else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }   // 정해진 실패 사유만(주소에 아무 값이나 붙여 열리지 않게)
+  try{ const w=Number(localStorage.getItem('mc_plan_want')||0); localStorage.removeItem('mc_plan_want'); if(w===3||w===6){ _planMonths=w; _planOpen=true; window._planBackDone=true; } }catch(e){}
+}
+async function planStart(){
+  if(_planBusy) return;
+  if(_kakao&&_kakao.known&&!_kakao.connected&&!planKakaoFailed()){ planKakaoNeed(); return; }
+  _planBusy=true;
+  const btn=document.getElementById('planStartBtn'); if(btn) btn.disabled=true;
+  const d=await sellerRpc('seller_plan_start',{p_months:_planMonths,p_method:'bank'});
+  _planBusy=false;
+  if(!d){ if(btn) btn.disabled=false; showToast('신청하지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  if(!d.ok){
+    if(btn) btn.disabled=false;
+    showToast(d.msg==='full'?'자리가 방금 다 찼어요.':d.msg==='already_active'?'이미 이웃셀러예요.':'신청하지 못했어요.');
+    await planLoad(); return;
+  }
+  await planLoad();
+  planSheetOpen();
+}
+function planCard(){ return !!(_plan&&_plan.method==='card'&&_plan.card_url); }
+function planSheetOpen(){
+  if(!_plan||_plan.state!=='pending') return;
+  const b=_plan.bank||{}, has=b.no&&b.name, card=planCard();
+  _planKind=_plan.receipt_kind||'income';
+  // 카드 링크가 있고 아직 「입금했어요/결제했어요」를 누르기 전일 때만 방법을 고를 수 있다
+  const seg=(_plan.card_url&&!_plan.claimed)?'<div class="pn-seg"><button class="'+(card?'':'on')+'" onclick="planMethod(0)">계좌이체</button><button class="'+(card?'on':'')+'" onclick="planMethod(1)">카드결제</button></div>':'';
+  const head='<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>이웃셀러 '+planEsc(_plan.months)+'개월</b><span>'+planWon(_plan.amount)+'원</span></div>'+seg;
+  document.getElementById('planSheet').innerHTML=card?
+    head+
+    '<a class="pn-cta" id="planCardGo" href="'+planEsc(_plan.card_url)+'" target="_blank" rel="noopener">카드로 결제하기</a>'+
+    '<div class="pn-row last"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
+    '<div class="pn-err" id="planErr"></div>'+
+    '<button class="pn-cta s" id="planClaimBtn" onclick="planClaim()"'+(_plan.claimed?' disabled':'')+'>'+(_plan.claimed?'결제 확인 중':'결제했어요')+'</button>'
+    :
+    head+
+    (has?'<div class="pn-acct"><b>'+planEsc(b.name)+' '+planEsc(b.no)+'</b><button class="pn-pill p" onclick="planCopy()">복사</button></div>':
+         '<div class="pn-acct"><b>계좌 준비 중 · 잠시 뒤 다시 열어 주세요</b></div>')+
+    (has&&b.holder?'<div class="pn-row"><span>예금주</span><b>'+planEsc(b.holder)+'</b></div>':'')+
+    '<div class="pn-row"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
+    '<div class="pn-row last"><span>현금영수증</span><div class="pn-chips" id="planKinds"></div></div>'+
+    '<input class="pn-inp" id="planNo" inputmode="numeric" maxlength="13" autocomplete="off">'+
+    '<div class="pn-err" id="planErr"></div>'+
+    '<button class="pn-cta" id="planClaimBtn" style="margin-top:8px" onclick="planClaim()">'+(_plan.claimed?'다시 보내기':'입금했어요')+'</button>';
+  if(!card) planKind(_planKind);
+  document.getElementById('planDim').classList.add('on');
+}
+async function planMethod(i){
+  const m=i?'card':'bank'; if(_planBusy||!_plan||_plan.method===m) return;
+  _planBusy=true;
+  const d=await sellerRpc('seller_plan_method',{p_method:m});
+  _planBusy=false;
+  if(!d||!d.ok){ const e=document.getElementById('planErr'); if(e) e.textContent=d&&d.msg==='claimed'?'이미 보냈어요.':d&&d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'바꾸지 못했어요. 다시 눌러 주세요.'; if(d&&d.msg==='no_pending'){ planSheetClose(); await planLoad(); } return; }
+  await planLoad(); planSheetOpen();
 }
 function planSheetClose(){
   if(window._kkGate) return;   // 막힌 창 — 안내 띠 없이 그대로 둔다
   document.getElementById('planDim').classList.remove('on');
 }
+function planKind(k){
+  _planKind=k;
+  const names={income:'소득공제',expense:'지출증빙',none:'안 함'};
+  document.getElementById('planKinds').innerHTML=Object.keys(names).map(x=>'<button class="'+(x===k?'on':'')+'" onclick="planKind(\''+x+'\')">'+names[x]+'</button>').join('');
+  const i=document.getElementById('planNo');
+  i.style.display=k==='none'?'none':'block';
+  i.placeholder=k==='expense'?'사업자번호':'휴대폰 번호';
+  document.getElementById('planErr').textContent='';
+}
+function planCopy(){
+  const no=(_plan&&_plan.bank&&_plan.bank.no)||''; if(!no) return;
+  const done=()=>showToast('계좌번호를 복사했어요');
+  const old=()=>{ try{ const t=document.createElement('textarea'); t.value=no; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }catch(e){ showToast(no); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(no).then(done,old); else old();
+}
+/* ── 이웃셀러 내 배너 편집 (2026-11-19) ─────────────────────────────
+   서버: seller_banner_get · seller_banner_save (supabase/sql/seller_banner_170.sql) · Edge seller-banner(probe·upload)
+   사진은 800×800 캔버스에 그려 끌어서 위치, 막대로 크기를 맞춘 뒤 그대로 JPEG 로 올린다. */
+let _bn=null;   // {img, z, x, y, dirty, cur, busy}
+async function bnApi(body){
+  if(_tok==='demo'&&body.op!=='probe') return bnDemoApi(body);   // 화면만 보기: 링크 읽기는 실제로(서버가 저장 없이 보여만 준다), 올리기만 흉내
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-banner',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+function bnDemoApi(body){
+  const c=document.createElement('canvas'); c.width=900; c.height=600; const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,900,600); gr.addColorStop(0,'#F7C8D8'); gr.addColorStop(1,'#B9A7F0'); g.fillStyle=gr; g.fillRect(0,0,900,600);
+  g.fillStyle='#fff'; g.beginPath(); g.arc(450,300,150,0,7); g.fill(); g.fillStyle='#7C54C4'; g.font='800 54px sans-serif'; g.textAlign='center'; g.fillText('상품 사진',450,318);
+  return Promise.resolve({ok:true,image:body.data?('data:image/jpeg;base64,'+body.data):''});
+}
+function bnErr(t){ const e=document.getElementById('bnErr'); if(e) e.textContent=t||''; }
+function bnCount(){ [['bnName',20],['bnDesc',24]].forEach(function(x){ const i=document.getElementById(x[0]), c=document.getElementById(x[0]+'N'); if(i&&c) c.textContent=[...i.value].length+'/'+x[1]; }); }
+async function bnOpen(){
+  const d=await sellerRpc('seller_banner_get');
+  if(!d||!d.ok){ showToast('배너를 불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  if(!d.can){ showToast('이웃셀러로 노출 중일 때 쓸 수 있어요'); return; }
+  const b=d.banner||{};
+  _bn={img:null,z:1,x:0,y:0,dirty:false,cur:b.img||'',busy:false};
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 배너</b><span>'+planEsc(d.seller||'')+'</span></div>'+
+    '<div class="bn-go"><input class="bn-inp" id="bnLink" type="url" inputmode="url" autocomplete="off" placeholder="공구 링크" maxlength="480" value="'+planEsc(b.link||'')+'"><button id="bnGet" onclick="bnProbe()">가져오기</button></div>'+
+    '<div class="bn-ph" id="bnPh"><canvas id="bnCv" width="800" height="800"></canvas><div class="bn-empty" id="bnEmpty">사진</div></div>'+
+    '<div class="bn-tools"><input type="range" id="bnZoom" min="100" max="300" value="100" oninput="bnZoom(this.value)"><label>사진첩<input type="file" id="bnFile" accept="image/*" style="display:none" onchange="bnPick(this)"></label></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnName" maxlength="20" autocomplete="off" placeholder="상품명" value="'+planEsc(b.name||'')+'" oninput="bnCount()"><i id="bnNameN"></i></div>'+
+    '<div class="bn-f"><input class="bn-inp" id="bnDesc" maxlength="24" autocomplete="off" placeholder="한 줄 멘트" value="'+planEsc(b.desc||'')+'" oninput="bnCount()"><i id="bnDescN"></i></div>'+
+    '<div class="pn-err" id="bnErr"></div>'+
+    '<button class="pn-cta" id="bnSave" style="margin-top:8px" onclick="bnSave()">저장하고 올리기</button>'+
+    (d.banner?'<button class="bn-reset" id="bnReset" onclick="bnReset()">자동 연동으로 되돌리기</button>':'<div class="bn-auto">저장 안 하면 오늘 공구로 자동 연동</div>')+
+    '</div>';
+  bnCount(); bnDrag();
+  document.getElementById('planDim').classList.add('on');
+  if(b.img) bnLoad(b.img,false);
+}
+function bnLoad(src,dirty){
+  const im=new Image(); if(!/^data:/.test(src)) im.crossOrigin='anonymous';
+  im.onload=function(){ if(!_bn) return; _bn.img=im; _bn.z=1; _bn.x=0; _bn.y=0; _bn.dirty=!!dirty; const z=document.getElementById('bnZoom'); if(z) z.value=100; const e=document.getElementById('bnEmpty'); if(e) e.style.display='none'; bnDraw(); };
+  im.onerror=function(){ bnErr('사진을 불러오지 못했어요. 사진첩에서 골라 주세요.'); };
+  im.src=src;
+}
+// 캔버스(800×800)에 지금 위치·크기로 그린다. 빈 곳이 생기지 않게 위치를 가둔다.
+function bnDraw(){
+  const cv=document.getElementById('bnCv'); if(!cv||!_bn||!_bn.img) return;
+  const g=cv.getContext('2d'), im=_bn.img, sc=Math.max(800/im.naturalWidth,800/im.naturalHeight)*_bn.z, w=im.naturalWidth*sc, h=im.naturalHeight*sc;
+  const mx=(w-800)/2, my=(h-800)/2; _bn.x=Math.max(-mx,Math.min(mx,_bn.x)); _bn.y=Math.max(-my,Math.min(my,_bn.y));
+  g.fillStyle='#fff'; g.fillRect(0,0,800,800); g.drawImage(im,(800-w)/2+_bn.x,(800-h)/2+_bn.y,w,h);
+}
+function bnZoom(v){ if(!_bn||!_bn.img) return; _bn.z=Math.max(1,Math.min(3,Number(v)/100)); _bn.dirty=true; bnDraw(); }
+function bnDrag(){
+  const ph=document.getElementById('bnPh'); if(!ph) return; let on=false,px=0,py=0;
+  ph.addEventListener('pointerdown',function(e){ if(!_bn||!_bn.img) return; on=true; px=e.clientX; py=e.clientY; try{ ph.setPointerCapture(e.pointerId); }catch(_){} });
+  ph.addEventListener('pointermove',function(e){ if(!on||!_bn) return; const k=800/ph.clientWidth; _bn.x+=(e.clientX-px)*k; _bn.y+=(e.clientY-py)*k; px=e.clientX; py=e.clientY; _bn.dirty=true; bnDraw(); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){ ph.addEventListener(t,function(){ on=false; }); });
+}
+function bnPick(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return; bnErr('');
+  if(!/^image\//.test(f.type)){ bnErr('사진 파일을 골라 주세요.'); return; }
+  const rd=new FileReader(); rd.onload=function(){ bnLoad(rd.result,true); }; rd.onerror=function(){ bnErr('사진을 읽지 못했어요.'); }; rd.readAsDataURL(f); inp.value='';
+}
+// 링크의 대표 사진·제목·설명을 가져와 채운다(채운 뒤 고칠 수 있다)
+async function bnProbe(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnGet'); btn.disabled=true; btn.textContent='가져오는 중';
+  const d=await bnApi({op:'probe',link:link});
+  _bn.busy=false; btn.disabled=false; btn.textContent='가져오기';
+  if(!document.getElementById('bnName')) return;      // 그사이 시트를 닫았다
+  if(!d||!d.ok){ bnErr(d&&d.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':d&&d.msg==='bad_link'?'이 링크는 쓸 수 없어요.':'이 링크에서는 못 가져왔어요. 사진첩에서 골라 주세요.'); return; }
+  const cutN=function(t,n){ return [...String(t||'').replace(/\s+/g,' ').trim()].slice(0,n).join(''); };
+  if(d.title) document.getElementById('bnName').value=cutN(d.title,20);
+  if(d.desc) document.getElementById('bnDesc').value=cutN(d.desc,24);
+  bnCount();
+  if(d.image) bnLoad(d.image,true); else bnErr('사진은 못 가져왔어요. 사진첩에서 골라 주세요.');
+}
+async function bnSave(){
+  if(!_bn||_bn.busy) return; bnErr('');
+  const name=(document.getElementById('bnName').value||'').trim(), desc=(document.getElementById('bnDesc').value||'').trim(), link=(document.getElementById('bnLink').value||'').trim();
+  if(!/^https?:\/\/.{6,}/i.test(link)){ bnErr('링크는 http 로 시작해야 해요.'); return; }
+  if(!_bn.img){ bnErr('사진을 넣어 주세요.'); return; }
+  if(!name){ bnErr('상품명을 적어 주세요.'); return; }
+  _bn.busy=true; const btn=document.getElementById('bnSave'); btn.disabled=true;
+  const stop=function(t){ _bn.busy=false; btn.disabled=false; bnErr(t); };
+  let img=_bn.cur;
+  if(_bn.dirty||!img){
+    let data=''; try{ const cv=document.getElementById('bnCv'); data=cv.toDataURL('image/jpeg',.86); if(data.length>900000) data=cv.toDataURL('image/jpeg',.7); }catch(e){ return stop('이 사진은 쓸 수 없어요. 사진첩에서 골라 주세요.'); }
+    const u=await bnApi({op:'upload',data:data.replace(/^data:image\/jpeg;base64,/,'')});
+    if(!u||!u.ok||!u.image) return stop(u&&u.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':u&&u.msg==='too_big'?'사진이 너무 커요. 다른 사진을 골라 주세요.':'사진을 올리지 못했어요. 다시 눌러 주세요.');
+    img=u.image;
+  }
+  const d=await sellerRpc('seller_banner_save',{p_name:name,p_desc:desc,p_link:link,p_img:img});
+  if(!d||!d.ok){ const m=d&&d.msg; return stop(m==='bad_name'?'상품명은 20자까지예요.':m==='bad_desc'?'멘트는 24자까지예요.':m==='bad_link'?'이 링크는 쓸 수 없어요.':m==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'저장하지 못했어요. 다시 눌러 주세요.'); }
+  _bn=null; planSheetClose(); showToast('배너를 올렸어요');
+}
+/* ── 내 링크: 인스타 아이디 · 인포크/리틀리 주소 (2026-11-19) ─────────
+   서버 seller_links_get(DB) · Edge seller-links 가 실제로 열리는지 확인하고 저장한다.
+   인스타 아이디는 메인 화면 이웃셀러 동그라미가 여는 주소(instagram.com/아이디)다. */
+function cfOpen(){
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>맘카페 가입</b><span></span></div>'+
+    '<a class="pn-cta cf-join" href="https://cafe.naver.com/momcal" target="_blank" rel="noopener">맘카페 가입하기</a>'+
+    '<div class="cf-lb">가입한 카페 닉네임</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="cfNick" maxlength="30" autocomplete="off" spellcheck="false" placeholder="카페 닉네임" value="'+planEsc(_cafeNick||'')+'"></div>'+
+    '<div class="pn-err" id="cfErr"></div>'+
+    '<button class="pn-cta" id="cfSave" style="margin-top:8px" onclick="cfSave()">저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function cfSave(){
+  if(_cfBusy) return;
+  const err=document.getElementById('cfErr'), btn=document.getElementById('cfSave');
+  const v=(document.getElementById('cfNick').value||'').trim(); err.textContent='';
+  if(!v){ err.textContent='카페 닉네임을 적어 주세요.'; return; }
+  _cfBusy=true; btn.disabled=true;
+  const d=await sellerRpc('seller_cafe_save',{p_nick:v});
+  _cfBusy=false; if(!document.getElementById('cfSave')) return; btn.disabled=false;
+  if(!d||!d.ok){ err.textContent=d&&d.msg==='bad_nick'?'닉네임을 확인해 주세요.':d&&d.msg==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.'; return; }
+  _cafeNick=d.nick||v; planSheetClose(); planRender(); showToast('카페 닉네임을 저장했어요');
+}
+let _lkBusy=false;
+async function lkApi(body){
+  if(_tok==='demo') return new Promise(function(res){ setTimeout(function(){ const h=String(body.insta||'').replace(/^.*instagram\.com\//i,'').replace(/^@+/,'').replace(/[\/?#].*$/,'').toLowerCase(); res(/^[a-z0-9._]{1,30}$/.test(h)?{ok:true,insta:'ttotto_mom',insta_state:h==='ttotto_mom'?'same':'unknown',insta_pending:h==='ttotto_mom'?null:h,bio:body.bio||'',bio_state:body.bio?'ok':'skip',bio_has_insta:!!body.bio}:{ok:false,msg:'bad_insta'}); },400); });
+  try{ const ac=(typeof AbortController!=='undefined')?new AbortController():null, tm=ac?setTimeout(function(){ ac.abort(); },40000):null;
+    const r=await fetch(SB+'/functions/v1/seller-links',{method:'POST',headers:{'Content-Type':'application/json'},signal:ac?ac.signal:undefined,body:JSON.stringify(Object.assign({token:_tok},body))});
+    if(tm) clearTimeout(tm); return await r.json(); }catch(e){ return null; }
+}
+async function lkOpen(){
+  const d=await sellerRpc('seller_links_get');
+  if(!d||!d.ok){ showToast('불러오지 못했어요. 다시 눌러 주세요.'); return; }
+  document.getElementById('planSheet').innerHTML='<div class="bn-wrap">'+
+    '<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>내 링크</b><span></span></div>'+
+    '<div class="lk-f"><span class="lk-pre">instagram.com/</span><input class="bn-inp lk-ig" id="lkIg" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="아이디" value="'+planEsc(d.insta_pending||d.insta||'')+'"></div>'+
+    '<div class="lk-ok'+(d.insta_pending?' w':'')+'" id="lkIgOk">'+(d.insta_pending?'확인 중':'')+'</div>'+
+    '<div class="lk-f"><input class="bn-inp" id="lkBio" type="url" inputmode="url" maxlength="300" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="인포크·리틀리 주소" value="'+planEsc(d.bio||'')+'"></div>'+
+    '<div class="lk-ok" id="lkBioOk"></div>'+
+    '<div class="pn-err" id="lkErr"></div>'+
+    '<button class="pn-cta" id="lkSave" style="margin-top:8px" onclick="lkSave()">확인하고 저장</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+async function lkSave(){
+  if(_lkBusy) return;
+  const err=document.getElementById('lkErr'), a=document.getElementById('lkIgOk'), b=document.getElementById('lkBioOk'), btn=document.getElementById('lkSave');
+  err.textContent=''; a.textContent=''; b.textContent=''; a.className='lk-ok'; b.className='lk-ok';
+  const ig=(document.getElementById('lkIg').value||'').trim(), bio=(document.getElementById('lkBio').value||'').trim();
+  if(!ig){ err.textContent='인스타 아이디를 적어 주세요.'; return; }
+  _lkBusy=true; btn.disabled=true; btn.textContent='확인하는 중';
+  const d=await lkApi({insta:ig,bio:bio});
+  _lkBusy=false; if(!document.getElementById('lkSave')) return; btn.disabled=false; btn.textContent='확인하고 저장';
+  if(!d||!d.ok){
+    const m=d&&d.msg;
+    err.textContent=m==='bad_insta'?'인스타 아이디를 확인해 주세요.':m==='insta_taken'?'다른 셀러가 쓰는 아이디예요.':m==='bio_none'?'열리지 않는 주소예요.':m==='bad_bio'?'주소를 확인해 주세요.':m==='unauthorized'?'다시 로그인해 주세요.':'저장하지 못했어요. 다시 눌러 주세요.';
+    return;
+  }
+  if(d.insta_pending){ a.className='lk-ok w'; a.textContent='확인 중 · instagram.com/'+d.insta_pending; }
+  else { a.textContent='연결됨 · instagram.com/'+d.insta; document.getElementById('lkIg').value=d.insta; }
+  if(d.bio){ b.textContent='연결됨'; document.getElementById('lkBio').value=d.bio; }
+  showToast(d.insta_pending?'저장했어요. 인스타 계정은 확인 뒤 반영돼요':'저장했어요');
+}
+/* ── 이웃셀러 결제 완료 팝업 (2026-11-19) ─────────────────────────
+   「이용 중」이 처음 보일 때 한 번 띄운다. 스룩 결제 창에서 돌아오면 상태를 다시 읽는다. */
+function planPaidKey(){ return 'mc_plan_paid_'+((_seller&&(_seller.seller_insta||_seller.login_insta))||'')+'_'+((_plan&&_plan.end_date)||''); }
+function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail')||0); return t && Date.now()-t<86400e3; }catch(e){ return false; } }
+function planKakaoNeed(){
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-t">본인인증 최초 1회만 필요해요</div>'+
+    '<div class="pd-btns"><button class="pn-cta" onclick="try{localStorage.setItem(\'mc_plan_want\',String(_planMonths));}catch(e){}planKakaoStart()">카카오로 인증하기</button></div>';
+  document.getElementById('planDim').classList.add('on');
+}
+function planKakaoGate(){
+  window._kkGate=true;
+  const later=planKakaoFailed()||kkTried();   // 들어올 때 문과 같은 빠져나갈 길
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-ic"><i></i></div>'+
+    '<div class="pd-t">결제가 완료되었습니다</div>'+
+    '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" id="kkGateBtn" onclick="planKakaoStart()">카카오로 인증하기</button>'+
+      (later?'<button class="pn-cta s" onclick="window._kkGate=false;planSheetClose()">나중에</button>':'')+
+    '</div>'+
+    '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
+  document.getElementById('planDim').classList.add('on');
+}
+function planPaidCheck(){
+  if(!_plan||_plan.state!=='active'||!_plan.end_date) return;
+  if(!_kakao||_kakao.loading) return;                              // 카톡 상태를 읽은 뒤에(planLoad 가 다시 부른다)
+  if(_kakao.known&&!_kakao.connected){ if(!document.getElementById('planDim').classList.contains('on')) planKakaoGate(); return; }
+  if(window._kkGate){ window._kkGate=false; planSheetClose(); }
+  let seen=false; try{ seen=!!localStorage.getItem(planPaidKey()); }catch(e){}
+  if(seen||document.getElementById('planDim').classList.contains('on')) return;
+  planPaidOpen();
+}
+function planPaidOpen(){
+  try{ localStorage.setItem(planPaidKey(),'1'); }catch(e){}
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-ic"><i></i></div>'+
+    '<div class="pd-t">결제가 완료되었습니다</div>'+
+    '<div class="pd-s">이웃셀러 '+planEsc(_plan.months||'')+'개월 · '+planEsc(String(_plan.end_date||'').replace(/-/g,'.'))+'까지</div>'+
+    '<div class="pd-box">'+
+      '<div class="pd-r"><div class="k">배너</div><div class="v">따로 꾸미지 않으면 등록한 공구 일정의 판매 링크로 자동 연결돼요</div></div>'+
+      '<div class="pd-r warn"><div class="k">판매 링크</div><div class="v">일정마다 <b>꼭 넣어 주세요</b><br>없으면 배너가 자동으로 안 걸려요</div></div>'+
+    '</div>'+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" onclick="planSheetClose();setTimeout(openAddModal,250)">공구 일정 등록</button>'+
+      '<button class="pn-cta s" onclick="planSheetClose();setTimeout(bnOpen,250)">배너 직접 꾸미기</button>'+
+    '</div>';
+  document.getElementById('planDim').classList.add('on');
+}
+// 스룩 결제 창에서 돌아오면 다시 읽는다(대기 중일 때만)
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&_plan&&_plan.state==='pending'&&_tok) planLoad(); });
+async function bnReset(){
+  if(!_bn||_bn.busy) return; if(!confirm('직접 꾸민 배너를 지우고 자동 연동으로 바꿀까요?')) return; _bn.busy=true; const btn=document.getElementById('bnReset'); if(btn) btn.disabled=true;
+  const d=await sellerRpc('seller_banner_reset');
+  if(_bn) _bn.busy=false; if(btn) btn.disabled=false;
+  if(!d||!d.ok){ bnErr(d&&d.msg==='not_partner'?'이웃셀러로 노출 중일 때 쓸 수 있어요.':'바꾸지 못했어요. 다시 눌러 주세요.'); return; }
+  _bn=null; planSheetClose(); showToast('30분 안에 오늘 공구로 바뀌어요');
+}
+async function planClaim(){
+  if(_planBusy) return;
+  const err=document.getElementById('planErr'); err.textContent='';
+  const card=planCard(); if(card) _planKind='none';
+  const no=card?'':(document.getElementById('planNo').value||'').replace(/[^0-9]/g,'');
+  if(_planKind==='income'&&(no.length<10||no.length>11)){ err.textContent='휴대폰 번호를 확인해 주세요.'; return; }
+  if(_planKind==='expense'&&no.length!==10){ err.textContent='사업자번호 10자리를 확인해 주세요.'; return; }
+  _planBusy=true; const btn=document.getElementById('planClaimBtn'); btn.disabled=true;
+  const d=await sellerRpc('seller_plan_claim',{p_receipt_kind:_planKind,p_receipt_no:_planKind==='none'?null:no});
+  _planBusy=false; btn.disabled=false;
+  if(!d||!d.ok){ err.textContent=d&&d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'보내지 못했어요. 다시 눌러 주세요.'; if(d&&d.msg==='no_pending'){ await planLoad(); } return; }
+  planSheetClose(); showToast(card?'결제 확인을 기다리고 있어요':'입금 확인을 기다리고 있어요');
+  await planLoad();
+}
+
+/* 안드로이드 앱 뒤로가기(2026-11-23): 열린 창 → 닫기, 아니면 앞 페이지, 앞이 없으면 맘캘린더 메인 */
+(function(){
+  function capApp(){ try{ return window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App; }catch(e){ return null; } }
+  function onBack(){
+    // 열린 창(공구 추가·수정·비밀번호 = .mb.on, 결제·배너 시트 = #planDim.on)은 mcBackClose 가 기록 한 칸씩 넣어 둔다 → 한 칸 뒤로 = 그 창만 닫힘
+    if(document.querySelector('.mb.on, #planDim.on')){ history.back(); return; }
+    // 우리 사이트에서 들어왔으면 그 페이지로, 아니면(주소로 바로 열었거나 카카오에서 돌아옴) 맘캘린더 메인
+    var ours=false; try{ ours=!!document.referrer && /(^|\.)momcalendar\.com$/.test(new URL(document.referrer).hostname) && !/kktest\.html/.test(document.referrer); }catch(e){}
+    if(ours && history.length>1){ history.back(); return; }
+    location.href='https://momcalendar.com/';
+  }
+  window._sellerBack=onBack;
+  function bind(){ const A=capApp(); if(!A||!A.addListener) return false; try{ window._sellerBackH=A.addListener('backButton',onBack); }catch(e){ return false; } return true; }
+  if(!bind()) window.addEventListener('load',bind);
+})();
 
 async function onLogin(){
   document.getElementById('pbName').textContent=_seller.seller_influencer||_seller.login_insta;
@@ -758,14 +1349,15 @@ async function onLogin(){
   await loadData();
   if(!_seller) return;   // 목록을 읽다 로그인이 풀렸다
   planKakaoResult();
-  kkLoad();     // 본인인증(카카오) 최초 1회 — 안 됐으면 창으로 막는다
+  kkLoad();     // 카톡 필수 연결 — 연결 안 됐으면 시트로 막는다
+  planLoad();   // 이웃셀러 패키지 상태(실패해도 나머지 화면은 그대로)
 }
 
 function doLogout(){
   if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
   _seller=null;_tok=null;_data=[];
   try{ localStorage.removeItem('mc_seller_tok'); }catch(e){}
-  _kakao=null; window._kkGate=false; window._kkEntry=false; try{ localStorage.removeItem('mc_kk_try'); localStorage.removeItem('mc_kk_fail'); }catch(e){} { const dm=document.getElementById('planDim'); if(dm) dm.classList.remove('on'); }
+  _plan=null;_planOpen=false;_cafeNick=null;_kakao=null; window._kkGate=false; window._kkEntry=false; try{ localStorage.removeItem('mc_kk_try'); localStorage.removeItem('mc_kk_fail'); }catch(e){} { const dm=document.getElementById('planDim'); if(dm) dm.classList.remove('on'); } { const pb=document.getElementById('planBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
   // 아이디는 저장된 값으로 유지, 비밀번호만 비움
@@ -798,6 +1390,7 @@ function switchView(v,btn){
   btn.classList.add('on');
   document.getElementById('listSec').style.display=v==='list'?'block':'none';
   document.getElementById('calSec').style.display=v==='cal'?'block':'none';
+  if(v==='cal'){ try{ buildCal(); }catch(_){} }   // 숨어 있을 때(폭 0) 그린 달력은 막대 글자 맞추기·주 높이 맞추기가 안 된다 — 보일 때 다시 그린다(검증자 2026-11-25, 메인 내 찜 달력과 같게)
 }
 
 // ── 목록 렌더 ──
@@ -924,7 +1517,7 @@ function buildCal(){
   let html=`<div class="cal-row cal-dh-row">`+days.map((d,i)=>`<div class="cal-dh"${i===0?' style="color:#E25555"':i===6?' style="color:#4A77C9"':''}>${d}</div>`).join('')+`</div>`;
 
   // 주 단위로 끊기
-  const MAX_BARS=4; // 한 셀에 표시할 최대 바 수
+  const MAX_BARS=3; // 한 셀에 표시할 최대 바 수 — 2026-11-25 4→3: 주 높이를 같게 맞추면(규칙 0-DS) 빈 주까지 4줄 높이가 돼 아래가 휑했다. 넘치는 건 +N
   for(let w=0; w<cells.length/7; w++){
     const week=cells.slice(w*7,w*7+7);
     const weekStart=ds(week[0].date), weekEnd=ds(week[6].date);
@@ -985,8 +1578,8 @@ function buildCal(){
       inLane.forEach(s=>{
         if(s.si>cursor) row+=`<div class="cal-bar-gap" style="grid-column:${cursor+1}/${s.si+1}"></div>`;
         const showName=(s.isStart)|| (s.si===0); // 시작 주이거나 줄 맨앞이면 이름
-        const lead=s.isStart?`border-left:5px solid ${barLead(s.g)};`:'';
-        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?s.g.name:'&nbsp;'}</div>`;
+        const lead='';   // 2026-11-25: 왼쪽 굵은 띠 빼기(규칙 0-DS 「border-left 금지」)
+        row+=`<div class="cal-bar${s.isStart?' cal-bar-start':''}" style="grid-column:${s.si+1}/${s.ei+2};${barStyle(s.g)}${lead}">${showName?`<span class="cb-t" data-n="${String(s.g.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}"></span>`:'&nbsp;'}</div>`;
         cursor=s.ei+1;
       });
       row+=`</div>`;
@@ -1006,7 +1599,25 @@ function buildCal(){
     html+=`<div class="cal-week${w===0?' cal-week-first':''}">${numRow}${barRows}${overflow}</div>`;
   }
   grid.innerHTML=html;
+  // 주 높이 전부 같게(규칙 0-DS · 메인 내 찜 달력과 같은 방식: 그 달에서 가장 높은 주에 맞춘다, 최소 74)
+  { const ws=[...grid.querySelectorAll('.cal-week')]; ws.forEach(w=>{ w.style.minHeight=''; }); const mh=Math.max(74, ...ws.map(w=>Math.ceil(w.getBoundingClientRect().height))); ws.forEach(w=>{ w.style.minHeight=mh+'px'; }); }
+  _calFitBars(grid);
 }
+// 막대 글자 맞추기 — 메인 내 찜 달력(index.html _calFitBars)과 같은 처리: 넘치면 뒤 낱말부터 빼고 「…」 → 첫 낱말도 안 들어가면 글자 단위 「…」 → 그것도 안 되면 글자를 숨긴다(2026-11-25 「우…」「로…」 한 글자 막대)
+//   글자를 직접 넣는다 — 사진 저장(html2canvas)은 CSS 말줄임을 못 그린다
+function _calFitBars(grid){
+  grid=grid||document.getElementById('calGrid'); if(!grid) return;
+  grid.querySelectorAll('.cal-bar .cb-t').forEach(function(t){
+    var full=t.getAttribute('data-n')||''; t.textContent=full; t.style.visibility='';
+    var room=t.parentNode.clientWidth-12; if(room<=0) return;
+    if(t.scrollWidth<=room) return;
+    var w=full.split(/\s+/), k=w.length-1;
+    for(; k>=1; k--){ t.textContent=w.slice(0,k).join(' ')+'…'; if(t.scrollWidth<=room) return; }
+    var c=Array.from(w[0]); for(var j=c.length-1;j>=2;j--){ t.textContent=c.slice(0,j).join('')+'…'; if(t.scrollWidth<=room) return; }
+    t.style.visibility='hidden';   // 두 글자+「…」도 안 들어가면 숨긴다(한 글자만 남는 「우…」 막대를 안 만든다)
+  });
+}
+(function(){ var tm=0; window.addEventListener('resize', function(){ clearTimeout(tm); tm=setTimeout(function(){ try{ _calFitBars(); }catch(_){} },150); }); })();
 
 // ── 캘린더 이미지 저장 ──
 async function saveCalImage(){
@@ -1344,19 +1955,20 @@ async function doChangePw(){
 document.getElementById('pwModal').addEventListener('click',function(e){if(e.target===this)closePwModal();});
 
 // ── 페이지 로드 시: 저장된 아이디 복원 ──
-(function initSavedId(){
+function initSavedId(){
   let saved='';
   try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
-  // 한 번 로그인한 셀러는 저장된 토큰으로 바로 셀러 화면(카카오 인증에서 돌아왔을 때도). 토큰이 죽었으면 지우고 아래 원래 화면.
+  // 한 번 로그인한 셀러는 저장된 토큰으로 바로 셀러 화면(2026-11-23). 토큰이 죽었으면 지우고 아래 원래 화면.
   let tok0=''; try{ tok0=localStorage.getItem('mc_seller_tok')||''; }catch(e){}
-  if(tok0 && !window._sellerAutoTried){
+  if(tok0 && !/[?&]demo=/.test(location.search) && !window._sellerAutoTried){
     window._sellerAutoTried=true;
     fetch(SB+'/rest/v1/rpc/seller_me',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_token:tok0})})
       .then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; })
       .then(function(d){
         if(_seller) return;   // 그사이 직접 로그인했다
         if(d&&d.ok){ _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta}; _tok=tok0; onLogin(); return; }
-        if(d&&d.msg==='unauthorized'){ try{ localStorage.removeItem('mc_seller_tok'); }catch(e){} }   // 진짜 만료일 때만 지운다
+        // 진짜 만료(unauthorized)일 때만 지운다 — 망이 잠깐 끊긴 것이면 토큰은 남기고 로그인 칸만 보인다
+        if(d&&d.msg==='unauthorized'){ try{ localStorage.removeItem('mc_seller_tok'); }catch(e){} }
         initSavedId();
       });
     return;
@@ -1381,7 +1993,8 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
     const lp=document.getElementById('liPw');
     if(lp) setTimeout(()=>lp.focus(),100);
   }
-})();
+}
+initSavedId();
 </script>
 <script>
 /* 휴대폰 뒤로가기 → 열린 창 닫기 (2026-11-19, scratchpad/patch_seller_back.cjs) */
@@ -1416,7 +2029,8 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
   try{ new MutationObserver(sync).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']}); }catch(e){}
 })();
 </script>
-<!-- 본인인증 창 (2026-11-25) -->
+
+<!-- 이웃셀러 결제 시트 (2026-11-17) -->
 <div class="pn-dim" id="planDim" onclick="if(event.target===this)planSheetClose()">
   <div class="pn-sheet" id="planSheet"></div>
 </div>
