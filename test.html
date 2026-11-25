@@ -2559,7 +2559,8 @@ try{ window._mcNxEarly(); }catch(_){}
       return (f===null||f<=now) && (u===null||u>=now);
     };
     // 테스트 페이지: 테스트(stage=test) 배너를 우선 보여주고, 없으면 정식(live)
-    var b=(list||[]).find(function(x){ return x.stage==='test' && inWin(x); })
+    var _untilOk=function(x){ var u=x.show_until?new Date(x.show_until).getTime():null; return u===null||u>=now; };   // 테스트 배너는 시작일 전에도 미리 본다(광고 승인 전 확인용 · 2026-11-25)
+    var b=(list||[]).find(function(x){ return x.stage==='test' && _untilOk(x); })
        || (list||[]).find(function(x){ return x.stage!=='test' && inWin(x); });
     var el=document.getElementById('slimAdSlot'); if(!el) return;
     // 🧪 시안 시험: test.html?adtest=1&sian=A|B|C — 예시 광고를 그려 3종을 눌러 바꿔 본다. 파일 이름이 test.html 이 아니면 절대 안 켜진다(라이브에 시험 단추가 나가지 않게)
