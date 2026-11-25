@@ -29,6 +29,12 @@ MAX_MB="${MAX_MB:-1200}"     # 2026-11-22 실측 1,049MB — 1GB 선을 넘은 �
 [ "$MB" -le "$MAX_MB" ] || bad "사이트 ${MB}MB — MAX_MB($MAX_MB) 초과(아티팩트·Pages 한도 위험)"
 [ "$MB" -ge 1000 ] && echo "::warning::사이트 ${MB}MB — Pages 1GB 선을 넘었다. 배포가 크기로 실패하면 §4-3 대로 legacy 로 되돌리고 §4-5 로 간다"
 
+# 2026-11-25 주문서 A: 배너 이미지 상한 — 막지 않고 경고만(라이브를 세우면 안 된다). 화면은 banners/v/<이름>-420.webp 파생본을 쓴다
+for f in $(find banners -maxdepth 1 -type f \( -iname 'banner_*.jpg' -o -iname 'banner_*.jpeg' -o -iname 'banner_*.png' \) -size +150k 2>/dev/null); do
+  b=$(basename "$f"); b="${b%.*}"
+  if [ -f "banners/v/${b}-420.webp" ]; then echo "배너 원본 150KB 초과(파생본 있음, 화면은 파생본): $f"; else echo "::warning::150KB 넘는 배너에 파생본이 없다: $f — node tools/img/make_banner_variants.mjs (깃허브 banner-variants.yml 이 자동으로 만든다)"; fi
+done
+
 echo "추적 파일 $N · index.html ${SZ}B · 워크플로 $W개 · 사이트 ${MB}MB"
 if [ "$FAIL" = 0 ]; then
   echo "=== 통과: 올려도 되는 판"

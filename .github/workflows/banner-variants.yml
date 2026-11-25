@@ -1,0 +1,49 @@
+# 배너 파생본 자동 만들기 (2026-11-25 주문서 ORDER_ALERT_FIX §2 A)
+#   새 배너(banners/banner_*.jpg|png)가 올라오면 banners/v/<이름>-420.webp·-640.webp 와 banners/v/index.json 을 만들어 올린다.
+#   화면(test.html/index.html _mcBanners)은 index.json 에 있는 배너만 파생본으로 바꾼다 — 이 작업이 늦거나 실패해도 원본으로 보인다(안전한 쪽).
+#   PC 가 꺼져도 돈다. 원본은 지우지 않는다. 150KB 넘는 파생본이 생기면 실패로 끝난다(커밋은 한다 — 화면은 원본보다 가벼운 쪽).
+name: 배너 파생본 만들기
+on:
+  push:
+    branches: [main]
+    paths: ['banners/banner_*']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: banner-variants
+  cancel-in-progress: false
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Pillow 준비
+        run: python3 -m pip install --quiet pillow
+      - name: 파생본 만들기
+        id: mk
+        continue-on-error: true
+        env:
+          BANNER_TOOL: python3
+        run: node tools/img/make_banner_variants.mjs
+      - name: 올리기
+        run: |
+          git config user.name "momcal-bot"
+          git config user.email "noreply@momcalendar.com"
+          git add banners/v
+          if git diff --cached --quiet; then echo "바뀐 파생본 없음"; exit 0; fi
+          git commit -m "배너 파생본 자동 갱신 ($(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M'))"
+          for i in 1 2 3; do
+            if git push; then break; fi
+            git pull --rebase origin main || exit 1
+            sleep 5
+          done
+      - name: 결과
+        if: ${{ steps.mk.outcome == 'failure' }}
+        run: |
+          echo "::warning::파생본 단계 실패(150KB 초과 또는 변환 실패) — 로그 확인. 화면은 index.json 에 없는 배너를 원본으로 보인다"
+          exit 1

@@ -100,8 +100,8 @@
 <meta name="twitter:title" content="맘캘린더 — 오늘 공구일정">
 <meta name="twitter:description" content="인스타 공구일정 총정리! 오늘 오픈·진행중·마감 임박 공구를 카테고리별로 모아보세요 🔥">
 <meta name="twitter:image" content="https://momcalendar.com/og-image.png">
-<link rel="icon" type="image/png" href="momcal-appicon.png">
-<link rel="apple-touch-icon" href="momcal-appicon.png">
+<link rel="icon" type="image/png" href="momcal-appicon-128.png">
+<link rel="apple-touch-icon" href="momcal-appicon-256.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7C54C4">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1769,7 +1769,7 @@ var _IN_FEED_ALL = [
     title: '윙크 0원 체험! 플리츠마마백 증정',
     desc: '한글 수학 학습기 7일+교재 4권 무료배송',
     tag: '유아학습',
-    thumb: 'momcal-wink-device.png',
+    thumb: 'momcal-wink-device-140.webp', thumbFb: 'momcal-wink-device.png',   // 2026-11-25 A: 70×52 자리에 56KB 원본 대신 140px WebP(못 읽으면 원본)
     contain: true,
     url: 'https://m.wink.co.kr/client/mobile/acquaintance/?teacher=12533406&recommender=12358368&recType=parent'
   },
@@ -2517,6 +2517,14 @@ window._mcBanners=(function(){
               {headers:{apikey:K,Authorization:'Bearer '+K}})
         .then(function(r){ return r.ok?r.json():null; })
         .catch(function(){ return null; });
+      // 🖼 배너 파생본(2026-11-25 주문서 A): banners/v/index.json 에 있는 원본은 긴 변 420px WebP 로 받는다(슬롯이 가로 208px 이하라 2배 화질).
+      //   목록을 못 받거나 목록에 없는 배너는 원본 그대로(안전한 쪽). 만드는 곳 tools/img/make_banner_variants.mjs · 깃허브 banner-variants.yml
+      var pv=fetch('https://momcalendar.com/banners/v/index.json').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
+      p=Promise.all([p,pv]).then(function(a){ var rows=a[0], man=a[1];
+        try{ if(rows && man && man.files){ var set={}; man.files.forEach(function(f){ set[f]=1; });
+          rows.forEach(function(b){ var m=String((b&&b.img_url)||'').match(/^(?:https:\/\/momcalendar\.com)?\/?banners\/(banner_[^\/?#]+)\.(jpe?g|png)$/i);
+            if(m && set[m[1]+'.'+m[2]]){ b.img_orig=b.img_url; b.img_url='https://momcalendar.com/banners/v/'+m[1]+'-420.webp'; } }); } }catch(_){}
+        return rows; });
     }
     return p;
   };
@@ -8152,7 +8160,7 @@ function _appOnlyBell(where, force, mode){
   const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
   const btn=k=>`<a class="ao-btn${k==='ios'?' i':''}" href="${APP_STORE_URL[k]}" target="_blank" rel="noopener" onclick="try{trackEvent('push_app_only_go','${k}|${where||''}')}catch(_){}">${k==='ios'?'App Store':'Google Play'}</a>`;
   const wish=(mode==='wish');
-  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
+  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon-128.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
   requestAnimationFrame(()=>el.classList.add('open'));
   return true;
 }
