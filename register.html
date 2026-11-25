@@ -123,6 +123,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 </style>
 <script>/* 아이폰 앱 안에서 열리면 상태바·홈 막대에 안 가리게 (2026-10-26) */(function(){try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){var v=document.querySelector('meta[name="viewport"]');if(v&&!/viewport-fit/.test(v.content))v.content+=', viewport-fit=cover';document.documentElement.classList.add('native-app');}}catch(e){}})();</script>
 <style>html.native-app body{padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:env(safe-area-inset-bottom,0px)!important}html.native-app body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#fff;z-index:2147483000;pointer-events:none}</style>
+<style>
+/* 본인인증 창 (register-plan-test.html 과 같은 값) */
+.pn-cta{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:none;border-radius:100px;background:var(--p);color:#fff;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;font-family:inherit;transition:transform .1s}
+.pn-cta:active{transform:scale(.97)}
+.pn-cta:disabled{background:#D1D6DB;cursor:default}
+.pn-cta.s{background:#F6F3FA;color:var(--p);margin-top:8px}
+.pn-cta.s:disabled{background:#F2F4F6;color:#8B95A1}
+.pn-dim{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+.pn-dim.on{display:flex}
+.pn-sheet{width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+.pn-grab{width:36px;height:4px;border-radius:2px;background:#E5E8EB;margin:-12px auto 16px}
+.pd-t{font-size:20px;font-weight:800;color:#191F28;text-align:center;letter-spacing:-.02em}
+.pd-btns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.pd-t{white-space:normal;word-break:keep-all}
+</style>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async></script>
 </head>
 <body>
 <div class="hd">
@@ -563,9 +579,134 @@ async function doLogin(){
     }
     _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta};
     _tok=d.token||null;
-    try{localStorage.setItem('mc_seller_id',insta);}catch(e){}
+    try{localStorage.setItem('mc_seller_id',insta); if(_tok) localStorage.setItem('mc_seller_tok',_tok);}catch(e){}
     onLogin();
   }catch(e){err.textContent='오류: '+e.message;}
+}
+
+/* 셀러 본인인증(카카오) live v1 */
+/* 셀러 화면에 들어오면 서버가 「연결됨」이라고 할 때까지 창으로 막는다(바깥 누름·뒤로가기로 안 닫힘). 연결되면 셀러 카톡 「나와의 채팅」으로 안내 한 통.
+   빠져나갈 길: 카카오 쪽 실패 24시간 안 · 두 번 눌렀는데 미연결 → 「나중에」 / 상태를 못 읽으면 안 막음(서버 장애로 전원 잠금 방지) */
+let _kakao=null,_kkBusy=false;
+const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
+/* kkTalkGo v2 */
+/* 본인인증을 카카오로 넘긴다 — 환경마다 아이디·비밀번호를 안 묻는 길로. 어느 길이든 막히면 카카오 웹 화면(url)으로 */
+function kkTalkGo(url){
+  const web=function(){ location.href=url; };
+  try{
+    const ua=navigator.userAgent||'';
+    const ios=/iPhone|iPad|iPod/i.test(ua), mobile=ios||/Android/i.test(ua);
+    let st='',ru='',sc='talk_message';
+    try{ const q=new URL(url).searchParams; st=q.get('state')||''; ru=q.get('redirect_uri')||''; sc=q.get('scope')||sc; }catch(e){}
+    let native=false; try{ native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(e){}
+    const knownIn=/Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\//i.test(ua);
+    const otherWv=!native&&!knownIn&&/DaumApps|everytimeApp|; wv\)/i.test(ua);
+    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.Auth)) return web();
+    if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
+    const opt={ redirectUri:ru, scope:sc, state:st, throughTalk:true };
+    if(!ios||(!native&&!knownIn)){ Kakao.Auth.authorize(opt); return; }
+    // 아이폰의 우리 앱·인앱: SDK 가 여는 창 주소에서 카카오톡 스킴을 꺼내 직접 연다. 이 화면은 남아 결과를 기다린다(index.html _appTalkLogin 과 같은 길)
+    const orig=window.open; let hid=false, done=false;
+    const onVis=function(e){ if(e.type!=='visibilitychange'||document.visibilityState==='hidden') hid=true; };
+    const off=function(){ document.removeEventListener('visibilitychange',onVis); window.removeEventListener('blur',onVis); window.removeEventListener('pagehide',onVis); };
+    const back=function(){ if(done) return; done=true; off(); if(window.open!==orig) window.open=orig; web(); };
+    document.addEventListener('visibilitychange',onVis); window.addEventListener('blur',onVis); window.addEventListener('pagehide',onVis);
+    window.open=function(u){
+      window.open=orig;
+      const m=/^https:\/\/talk-apps\.kakao\.com\/scheme\/([^&]+)/.exec(String(u||'')); let talk='';
+      try{ talk=m?decodeURIComponent(m[1]):''; }catch(e){ talk=''; }
+      if(talk.indexOf('kakaotalk://')!==0){ back(); return {closed:true,close:function(){}}; }
+      location.href=talk;
+      setTimeout(function(){ if(!hid&&document.visibilityState==='visible') back(); else off(); },3000);
+      return {closed:false,close:function(){}};
+    };
+    setTimeout(function(){ if(window.open!==orig){ back(); } },5000);   // SDK 가 창을 열지 않았다
+    opt.isPopup=true;
+    try{ Kakao.Auth.authorize(opt); }catch(e){ back(); }
+  }catch(e){ web(); }
+}
+async function planKakaoStart(){
+  if(_kkBusy) return; _kkBusy=true;
+  try{ let o=null; try{ o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); }catch(_){} if(!o||!o.t||Date.now()-o.t>86400e3) o={n:0,t:Date.now()}; o.n=(o.n||0)+1; localStorage.setItem('mc_kk_try',JSON.stringify(o)); }catch(e){}
+  const back='https://momcalendar.com/register.html';   // 고정 — /register(.html 없음)로 들어와도 서버 검사를 통과하게
+  let d=null;
+  try{ const r=await fetch(KAKAO_START,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_tok,back:back})}); d=await r.json().catch(function(){return null;}); }catch(e){}
+  _kkBusy=false;
+  if(d&&d.ok&&d.url){ kkTalkGo(d.url); return; }
+  if(d&&d.msg==='unauthorized'){ showToast('로그인이 만료됐어요. 다시 로그인해주세요.'); doLogout(); return; }
+  showToast(d&&d.msg==='too_many'?'잠시 뒤 다시 눌러 주세요.':'카카오 연결을 시작하지 못했어요. 다시 눌러 주세요.');
+  if(!(d&&d.msg==='too_many')){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} if(window._kkEntry) kkEntryGate(); }
+}
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&window._kkEntry&&_seller&&_kakao&&!_kakao.loading){ _kakao=null; kkLoad(); } });
+function kkLoad(){
+  if(_kakao!==null) return;
+  _kakao={connected:false,loading:true};
+  sellerRpc('seller_kakao_status').then(function(x){
+    if(!_seller) return;
+    _kakao={connected:!!(x&&x.ok&&x.connected),known:!!(x&&x.ok&&typeof x.connected==='boolean'),phone:!(x&&x.ok&&x.phone===false)};
+    kkEntryCheck();
+  }).catch(function(){ _kakao={connected:false,known:false}; });
+}
+function kkEntryCheck(){
+  const dim=document.getElementById('planDim');
+  if(!_seller||!_kakao||_kakao.loading) return;
+  if(!_kakao.known||_kakao.connected){
+    if(window._kkEntry){ window._kkEntry=false; window._kkGate=false; if(dim) dim.classList.remove('on'); }
+    return;
+  }
+  kkEntryGate();
+}
+function planKakaoFailed(){ try{ const t=Number(localStorage.getItem('mc_kk_fail')||0); return t && Date.now()-t<86400e3; }catch(e){ return false; } }
+function kkTried(){ try{ const o=JSON.parse(localStorage.getItem('mc_kk_try')||'null'); return !!(o&&o.n>=2&&o.t&&Date.now()-o.t<86400e3); }catch(e){ return false; } }
+function kkEntryGate(){
+  const later=planKakaoFailed()||kkTried();
+  window._kkEntry=true; window._kkGate=!later;
+  const needPh=!!(_kakao&&_kakao.phone===false), oldPh=(document.getElementById('kkPhone')||{}).value||'';
+  document.getElementById('planSheet').innerHTML=
+    '<div class="pn-grab"></div>'+
+    '<div class="pd-t">본인인증 최초 1회만 필요해요</div>'+
+    (needPh?'<div class="fl" style="margin:24px 0 0"><input id="kkPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" aria-label="휴대폰 번호" placeholder="휴대폰 번호" style="height:52px;font-size:16px;border-radius:12px;padding:0 16px"><div id="kkPhoneErr" role="alert" style="margin-top:6px;font-size:12px;color:#E5484D"></div></div>':'')+
+    '<div class="pd-btns">'+
+      '<button class="pn-cta" id="kkEntryBtn" onclick="kkEntryGo()">카카오로 인증하기</button>'+
+      (later?'<button class="pn-cta s" onclick="window._kkGate=false;window._kkEntry=false;planSheetClose()">나중에</button>':'')+
+    '</div>'+
+    '<div style="text-align:center;margin-top:14px"><button type="button" onclick="doLogout()" style="background:none;border:0;color:#8B95A1;font-size:13px;font-family:inherit;text-decoration:underline;padding:8px">로그아웃</button></div>';
+  document.getElementById('planDim').classList.add('on');
+  if(needPh&&oldPh){ const i=document.getElementById('kkPhone'); if(i) i.value=oldPh; }
+}
+async function kkEntryGo(){
+  const i=document.getElementById('kkPhone');
+  if(i&&_kakao&&_kakao.phone===false){
+    const e=document.getElementById('kkPhoneErr'), d=String(i.value||'').replace(/\D/g,'');
+    if(!/^01[016789]\d{7,8}$/.test(d)){ if(e) e.textContent='휴대폰 번호를 확인해 주세요'; i.focus(); return; }
+    if(window._kkPhBusy) return; window._kkPhBusy=true;
+    let r=null; try{ r=await sellerRpc('seller_phone_save',{p_phone:d}); }catch(x){}
+    window._kkPhBusy=false;
+    if(!r||!r.ok){ if(e) e.textContent=(r&&r.msg==='bad_phone')?'휴대폰 번호를 확인해 주세요':'저장하지 못했어요. 다시 눌러 주세요'; return; }
+    _kakao.phone=true;
+  }
+  planKakaoStart();
+}
+function planKakaoResult(){
+  const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
+  const why=q.get('why')||'';
+  const msg=k==='ok'?'인증됐어요. 카톡 「나와의 채팅」을 확인해 보세요':
+    why==='cancel'?'카카오 인증을 취소했어요':
+    why==='noconsent'?'「카카오톡 메시지 전송」에 동의해야 인증돼요':
+    why==='expired'?'시간이 지나 인증이 끝났어요. 다시 눌러 주세요':
+    why==='memo'?'지금은 카톡을 보낼 수 없어요. 방장이 확인할게요':
+    why==='login'?'셀러 로그인이 풀려 인증하지 못했어요. 로그인한 뒤 다시 눌러 주세요':
+    '카카오 인증에 실패했어요. 다시 눌러 주세요';
+  q.delete('kakao'); q.delete('why');
+  try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
+  setTimeout(function(){ showToast(msg); },400);
+  if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }
+  else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }
+  else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
+}
+function planSheetClose(){
+  if(window._kkGate){ try{ showToast('본인인증을 먼저 해 주세요'); }catch(e){} return; }
+  document.getElementById('planDim').classList.remove('on');
 }
 
 async function onLogin(){
@@ -573,11 +714,16 @@ async function onLogin(){
   document.getElementById('pbInsta').textContent='@'+(_seller.seller_insta||_seller.login_insta);
   showMy();
   await loadData();
+  if(!_seller) return;   // 목록을 읽다 로그인이 풀렸다
+  planKakaoResult();
+  kkLoad();     // 본인인증(카카오) 최초 1회 — 안 됐으면 창으로 막는다
 }
 
 function doLogout(){
   if(_tok){ sellerRpc('seller_logout').catch(()=>{}); }   // 서버 세션도 폐기
   _seller=null;_tok=null;_data=[];
+  try{ localStorage.removeItem('mc_seller_tok'); }catch(e){}
+  _kakao=null; window._kkGate=false; window._kkEntry=false; try{ localStorage.removeItem('mc_kk_try'); localStorage.removeItem('mc_kk_fail'); }catch(e){} { const dm=document.getElementById('planDim'); if(dm) dm.classList.remove('on'); }
   document.getElementById('myView').style.display='none';
   document.getElementById('logoutBtn').style.display='none';
   // 아이디는 저장된 값으로 유지, 비밀번호만 비움
@@ -1159,6 +1305,20 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
 (function initSavedId(){
   let saved='';
   try{saved=localStorage.getItem('mc_seller_id')||'';}catch(e){}
+  // 한 번 로그인한 셀러는 저장된 토큰으로 바로 셀러 화면(카카오 인증에서 돌아왔을 때도). 토큰이 죽었으면 지우고 아래 원래 화면.
+  let tok0=''; try{ tok0=localStorage.getItem('mc_seller_tok')||''; }catch(e){}
+  if(tok0 && !window._sellerAutoTried){
+    window._sellerAutoTried=true;
+    fetch(SB+'/rest/v1/rpc/seller_me',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({p_token:tok0})})
+      .then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; })
+      .then(function(d){
+        if(_seller) return;   // 그사이 직접 로그인했다
+        if(d&&d.ok){ _seller={seller_influencer:d.seller_influencer,seller_insta:d.seller_insta,login_insta:d.login_insta}; _tok=tok0; onLogin(); return; }
+        if(d&&d.msg==='unauthorized'){ try{ localStorage.removeItem('mc_seller_tok'); }catch(e){} }   // 진짜 만료일 때만 지운다
+        initSavedId();
+      });
+    return;
+  }
   // 로그인 바로가기 — 이미 가입한 셀러에게 주는 주소: https://momcalendar.com/register.html#login (카톡 나에게 보내기·즐겨찾기·홈 화면에 저장해 두고 쓴다. 2026-11-04 샤샤툰 건의)
   if((location.hash||'').toLowerCase()==='#login' || /(^|[?&])login(=1|=true)?(&|$)/i.test(location.search||'')){
     showLogin();
@@ -1209,10 +1369,14 @@ document.getElementById('pwModal').addEventListener('click',function(e){if(e.tar
     if(skip>0){ skip--; return; }
     var o=opened(); if(!o.length) return;
     byBack=true; closeEl(o[o.length-1]);
-    if(opened().length===o.length){ byBack=false; }   // 못 닫았으면(드문 경우) 표시만 되돌린다
+    if(opened().length===o.length){ byBack=false; try{ history.pushState({mcSheet:pushed},''); }catch(e){} }   // 못 닫았으면(드문 경우) 표시만 되돌린다
   });
   try{ new MutationObserver(sync).observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']}); }catch(e){}
 })();
 </script>
+<!-- 본인인증 창 (2026-11-25) -->
+<div class="pn-dim" id="planDim" onclick="if(event.target===this)planSheetClose()">
+  <div class="pn-sheet" id="planSheet"></div>
+</div>
 </body>
 </html>
