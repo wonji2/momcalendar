@@ -92,9 +92,14 @@ async function alert(kind, detail) {
 // 그 회차 시각 이후 이 작업의 실행이 있나(이벤트 불문). pc-jobs 는 실행 제목에 cron 글자가 들어 있다(run-name). 못 읽으면 null
 function seen(job, slot) {
   try {
-    const q = `repos/${REPO}/actions/workflows/${job.wf}.yml/runs?per_page=50&created=%3E%3D${new Date(slot - 90e3).toISOString().slice(0, 19)}Z`;
-    const runs = JSON.parse(gh(['api', q])).workflow_runs || [];
-    return runs.some((r) => !job.c || String(r.display_title || '').includes(job.c));
+    // 쪽을 넘겨 끝까지 본다(pc-jobs-cloud 는 하루 100번 넘게 돌아 한 쪽에 안 담긴다 — 넘겨받는 순간 하루 한 번짜리를 다시 부르는 사고 방지)
+    for (let page = 1; page <= 5; page++) {
+      const q = `repos/${REPO}/actions/workflows/${job.wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(slot - 90e3).toISOString().slice(0, 19)}Z`;
+      const runs = JSON.parse(gh(['api', q])).workflow_runs || [];
+      if (runs.some((r) => !job.c || String(r.display_title || '').includes(job.c))) return true;
+      if (runs.length < 100) return false;
+    }
+    return false;
   } catch (e) { log('실행 목록 읽기 실패', job.name, String(e.message).slice(0, 80)); return null; }
 }
 function fire(job) {
