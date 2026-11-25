@@ -3342,7 +3342,7 @@ async function loadData() {
     // ⚡ 4쪽을 동시에 받는다 (2026-10-25) — 전엔 한 쪽씩 차례로 받아 왕복이 네 번 쌓였다. 주소(limit·offset)는 그대로라 Worker 캐시·전송량은 같다.
     //   넷째 쪽이 꽉 차 있으면(4,000건↑) 그다음부터 한 쪽씩 더 받는다. 쪽 순서대로 합치고 아래 seen 으로 중복을 거른다.
     const _getPage = async (from) => { const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }); if (!res.ok) throw new Error('Supabase 오류 ' + res.status); return res.json(); };
-    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(4, Math.ceil((n + 300) / PAGE))) : 4; } catch (_) { return 4; } })();   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
+    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(6, Math.ceil((n + 300) / PAGE))) : 5; } catch (_) { return 5; } })();   // 2026-11-25 주문서 B: 4쪽 상한 → 6쪽. 실측 4,056행이라 다섯째 쪽을 넷째 뒤에 따로 기다리던 왕복 한 번을 없앤다(주소 limit·offset 은 그대로 — 워커 캐시 그대로)   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
     const _pages = await Promise.all(Array.from({ length: _np }, (_, i) => _getPage(i * PAGE)));
     for (let from = _np * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
     for (const page of _pages) {
