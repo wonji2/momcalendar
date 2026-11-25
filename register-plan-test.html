@@ -863,7 +863,7 @@ function planGoBack(){ let m=null; try{ m=JSON.parse(localStorage.getItem('mc_pl
 function planPick(m){ _planMonths=m; planRender(); }
 /* 카카오 연결(본인 확인 + 카톡 「나와의 채팅」으로 결제 안내·만료 7·3·1일 전 알림) — 같은 창으로 카카오에 갔다가 돌아온다 */
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
-/* kkTalkGo v2 */
+/* kkTalkGo v2 */ /* kkTalkGo v3 */
 /* 본인인증을 카카오로 넘긴다 — 환경마다 아이디·비밀번호를 안 묻는 길로. 어느 길이든 막히면 카카오 웹 화면(url)으로 */
 function kkTalkGo(url){
   const web=function(){ location.href=url; };
@@ -875,8 +875,9 @@ function kkTalkGo(url){
     let native=false; try{ native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(e){}
     const knownIn=/Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\//i.test(ua);
     const otherWv=!native&&!knownIn&&/DaumApps|everytimeApp|; wv\)/i.test(ua);
-    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.Auth)) return web();
+    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.init)) return web();
     if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
+    if(!(Kakao.Auth&&Kakao.Auth.authorize)) return web();   // init 뒤에야 Auth 가 생긴다
     const opt={ redirectUri:ru, scope:sc, state:st, throughTalk:true };
     if(!ios||(!native&&!knownIn)){ Kakao.Auth.authorize(opt); return; }
     // 아이폰의 우리 앱·인앱: SDK 가 여는 창 주소에서 카카오톡 스킴을 꺼내 직접 연다. 이 화면은 남아 결과를 기다린다(index.html _appTalkLogin 과 같은 길)
