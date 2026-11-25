@@ -84,8 +84,8 @@
 <meta name="twitter:title" content="맘캘린더 — 오늘 공구일정">
 <meta name="twitter:description" content="인스타 공구일정 총정리! 오늘 오픈·진행중·마감 임박 공구를 카테고리별로 모아보세요 🔥">
 <meta name="twitter:image" content="https://momcalendar.com/og-image.png">
-<link rel="icon" type="image/png" href="momcal-appicon.png">
-<link rel="apple-touch-icon" href="momcal-appicon.png">
+<link rel="icon" type="image/png" href="momcal-appicon-128.png">
+<link rel="apple-touch-icon" href="momcal-appicon-256.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7C54C4">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1755,7 +1755,7 @@ var _IN_FEED_ALL = [
     title: '윙크 0원 체험! 플리츠마마백 증정',
     desc: '한글 수학 학습기 7일+교재 4권 무료배송',
     tag: '유아학습',
-    thumb: 'momcal-wink-device.png',
+    thumb: 'momcal-wink-device-140.webp', thumbFb: 'momcal-wink-device.png',   // 2026-11-25 A: 70×52 자리에 56KB 원본 대신 140px WebP(못 읽으면 원본)
     contain: true,
     url: 'https://m.wink.co.kr/client/mobile/acquaintance/?teacher=12533406&recommender=12358368&recType=parent'
   },
@@ -2503,6 +2503,14 @@ window._mcBanners=(function(){
               {headers:{apikey:K,Authorization:'Bearer '+K}})
         .then(function(r){ return r.ok?r.json():null; })
         .catch(function(){ return null; });
+      // 🖼 배너 파생본(2026-11-25 주문서 A): banners/v/index.json 에 있는 원본은 긴 변 420px WebP 로 받는다(슬롯이 가로 208px 이하라 2배 화질).
+      //   목록을 못 받거나 목록에 없는 배너는 원본 그대로(안전한 쪽). 만드는 곳 tools/img/make_banner_variants.mjs · 깃허브 banner-variants.yml
+      var pv=fetch('https://momcalendar.com/banners/v/index.json').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
+      p=Promise.all([p,pv]).then(function(a){ var rows=a[0], man=a[1];
+        try{ if(rows && man && man.files){ var set={}; man.files.forEach(function(f){ set[f]=1; });
+          rows.forEach(function(b){ var m=String((b&&b.img_url)||'').match(/^(?:https:\/\/momcalendar\.com)?\/?banners\/(banner_[^\/?#]+)\.(jpe?g|png)$/i);
+            if(m && set[m[1]+'.'+m[2]]){ b.img_orig=b.img_url; b.img_url='https://momcalendar.com/banners/v/'+m[1]+'-420.webp'; } }); } }catch(_){}
+        return rows; });
     }
     return p;
   };
@@ -3297,7 +3305,7 @@ async function loadData() {
     // ⚡ 4쪽을 동시에 받는다 (2026-10-25) — 전엔 한 쪽씩 차례로 받아 왕복이 네 번 쌓였다. 주소(limit·offset)는 그대로라 Worker 캐시·전송량은 같다.
     //   넷째 쪽이 꽉 차 있으면(4,000건↑) 그다음부터 한 쪽씩 더 받는다. 쪽 순서대로 합치고 아래 seen 으로 중복을 거른다.
     const _getPage = async (from) => { const res = await fetch(`${baseUrl}&limit=${PAGE}&offset=${from}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }); if (!res.ok) throw new Error('Supabase 오류 ' + res.status); return res.json(); };
-    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(4, Math.ceil((n + 300) / PAGE))) : 4; } catch (_) { return 4; } })();   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
+    const _np = (() => { try { const c = JSON.parse(localStorage.getItem(_GGKEY) || 'null'); const n = c && Array.isArray(c.data) ? c.data.length : 0; return n ? Math.max(1, Math.min(6, Math.ceil((n + 300) / PAGE))) : 5; } catch (_) { return 5; } })();   // 2026-11-25 주문서 B: 4쪽 상한 → 6쪽. 실측 4,056행이라 다섯째 쪽을 넷째 뒤에 따로 기다리던 왕복 한 번을 없앤다(주소 limit·offset 은 그대로 — 워커 캐시 그대로)   // 지난번 건수만큼만(+300 여유). 모자라면 아래가 이어받는다
     const _pages = await Promise.all(Array.from({ length: _np }, (_, i) => _getPage(i * PAGE)));
     for (let from = _np * PAGE; _pages[_pages.length - 1].length >= PAGE && from <= 50000; from += PAGE) _pages.push(await _getPage(from));
     for (const page of _pages) {
@@ -6723,11 +6731,20 @@ function _calShareToApp(ids, by){
   const go=()=>{ try{ trackEvent('cal_share_app', ios?'ios':and?'and':'pc'); }catch(_){}
     try{ localStorage.setItem(_calPendKey(), JSON.stringify({m:ids.slice(0,60).map(i=>Number(i).toString(36)).join('.'), by:by||'', t:Date.now()})); }catch(_){}   // 「앱 열기」를 누른 때만 기억 — 스토어 다녀와 이 페이지를 다시 열면 한 번 이어서(30분)
     if(and){ location.href='intent://momcalendar.com/'+(test?'test.html?preview=1&':'?')+q+'#Intent;scheme=https;package=com.wantsb.momcalendar;S.browser_fallback_url='+encodeURIComponent(store)+';end'; return; }
-    if(ios){ let left=false; const off=()=>{ left=true; }; window.addEventListener('pagehide',off,{once:true}); window.addEventListener('blur',off,{once:true}); document.addEventListener('visibilitychange',()=>{ if(document.hidden) left=true; },{once:true}); location.href='momcalendar://cal?'+q+(test?'&t=1':''); setTimeout(()=>{ if(!left && !document.hidden) location.href=store; },2500); return; }   // 「열까요?」 창이 떠 있는 동안 스토어로 넘어가지 않게
+    if(ios){ let left=false; const off=()=>{ left=true; }; window.addEventListener('pagehide',off,{once:true}); window.addEventListener('blur',off,{once:true}); document.addEventListener('visibilitychange',()=>{ if(document.hidden) left=true; },{once:true}); location.href='momcalendar://cal?'+q+(test?'&t=1':''); setTimeout(()=>{ if(!left && !document.hidden) _calIosInstall(q, store, test); },2500); return; }   // 「열까요?」 창이 떠 있는 동안 스토어로 넘어가지 않게
     try{ window.open(store,'_blank'); }catch(_){ location.href=store; } };
   const el=mcSheet('calToApp', '<b class="mc-t">앱에서 이어서 담기</b><div class="cta-s">공유받은 공구 '+ids.length+'개<br>앱이 없으면 설치하고 다시 눌러 주세요</div><button class="mc-btn" type="button" data-a="go">맘캘린더 앱 열기</button><button class="mc-btn sub" type="button" data-a="x">닫기</button>');
   el.querySelector('[data-a="go"]').onclick=go; el.querySelector('[data-a="x"]').onclick=()=>el.classList.remove('open');
   try{ trackEvent('cal_share_bar','to_app_sheet'); }catch(_){}
+}
+// 아이폰에 앱이 없을 때(코덱스 2026-11-25 P1 test.html:6760): 예전엔 이 탭을 App Store 로 넘겨 원래 페이지가 사라졌고, 설치한 앱은 이 페이지의 localStorage 를 못 읽어 공유 목록이 끊겼다.
+//   → 이 탭은 그대로 두고 App Store 는 손님이 누른 새 탭으로 연다. 설치 뒤 이 화면으로 돌아와 「앱에서 열기」를 누르면 momcalendar://cal?mycal=… 로 같은 목록이 앱에 담긴다.
+function _calIosInstall(q, store, test){
+  try{ const o=document.getElementById('calToApp'); if(o) o.classList.remove('open'); }catch(_){}
+  const el=mcSheet('calToAppIos', '<b class="mc-t">앱 설치 뒤 이어서 담기</b><div class="cta-s">1. App Store 에서 맘캘린더를 설치해 주세요<br>2. 설치가 끝나면 이 화면으로 돌아와 「앱에서 열기」를 눌러 주세요</div><button class="mc-btn" type="button" data-a="store">App Store 에서 설치</button><button class="mc-btn sub" type="button" data-a="open">앱에서 열기</button><button class="mc-btn sub" type="button" data-a="x">닫기</button>');
+  el.querySelector('[data-a="store"]').onclick=()=>{ try{ trackEvent('cal_share_app','ios_store'); }catch(_){} let w=null; try{ w=window.open(store,'_blank'); if(w) w.opener=null; }catch(_){} if(!w) location.href=store; };   // 'noopener' 를 주면 열려도 null 이 와 이 탭까지 넘어간다 — 열고 나서 opener 를 끊는다   // 손님이 누른 순간이라 새 탭이 막히지 않는다 · 막히면 이 탭으로(예전과 같음)
+  el.querySelector('[data-a="open"]').onclick=()=>{ try{ trackEvent('cal_share_app','ios_reopen'); }catch(_){} location.href='momcalendar://cal?'+q+(test?'&t=1':''); };
+  el.querySelector('[data-a="x"]').onclick=()=>el.classList.remove('open');
 }
 // 아이폰 앱: momcalendar://cal?mycal=… 로 열리면 그 공구 캘린더로(안드는 https 앱 링크라 앱이 주소를 그대로 연다)
 (function(){ try{ if(!(window._mcCapIos && window._mcCapIos())) return; }catch(_){ return; }
@@ -8106,7 +8123,7 @@ function _appOnlyBell(where, force, mode){
   const ua=navigator.userAgent||'', ios=/iPhone|iPad|iPod/i.test(ua), and=/Android/i.test(ua);
   const btn=k=>`<a class="ao-btn${k==='ios'?' i':''}" href="${APP_STORE_URL[k]}" target="_blank" rel="noopener" onclick="try{trackEvent('push_app_only_go','${k}|${where||''}')}catch(_){}">${k==='ios'?'App Store':'Google Play'}</a>`;
   const wish=(mode==='wish');
-  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
+  el.innerHTML=`<div class="ao-box"><img class="ao-ic" src="momcal-appicon-128.png" alt=""><b class="ao-t">${wish?'찜·알림은 앱에서 해요':'알림은 앱에서 받아요'}</b>${and?btn('android')+btn('ios'):btn('ios')+btn('android')}<button class="ao-x" type="button" onclick="document.getElementById('aoSheet').classList.remove('open')">닫기</button></div>`;
   requestAnimationFrame(()=>el.classList.add('open'));
   return true;
 }
