@@ -123,6 +123,7 @@ if (idx?.prevByFN) {
     else if (a - b >= 3) verdict.push(`색인 표본 ${f} 증가 ${b}→${a}`);
   }
 }
+if (idx?.lastmodPct > 30 && idx.lastmodPct <= 50 && idx.day > '2026-11-25') next.push(`사이트맵 lastmod=오늘 ${idx.lastmodPct}% — 평소(약 22%)보다 높다. 그날 빌드에서 본문이 바뀐 줄을 찾아 하루치 변경인지, CoreHash($RX_CORE)가 날마다 바뀌는 줄을 무는지 가린다(11-25 는 g 셀러 링크·gg 창 축소의 하루치로 58%)`);
 if (idx?.lastmodPct > 50) { next.push(`사이트맵 lastmod=오늘 ${idx.lastmodPct}% — CoreHash(tools/seo/lib.ps1 $RX_CORE)에서 날마다 바뀌는 줄을 뺀다`); alarm.push(`lastmod=오늘 ${idx.lastmodPct}%`); }
 if (typeof sm.gonggu === 'number' && sm.gonggu > 9000) next.push(`sitemap-gonggu ${sm.gonggu} — 11-25 계획(약 6,700)보다 많다. build.ps1 GgKeepDays(7)와 gg_window.txt 를 본다`);
 if (gNo != null && (gNo < 3000 || gNo > 6500)) next.push(`얇은 g noindex ${gNo}장 — 11-25 시험치 약 4,800 에서 크게 벗어났다. g_keep_index.txt 줄 수·진행 판정을 본다`);
