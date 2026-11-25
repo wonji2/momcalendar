@@ -222,6 +222,17 @@ a.pn-cta{text-decoration:none;box-sizing:border-box}
 .pn-st span{font-size:17px;font-weight:800;color:var(--p)}
 .pn-acct{display:flex;align-items:center;gap:8px;margin-top:16px;padding:0 8px 0 16px;height:56px;border-radius:12px;background:#F6F3FA}
 .pn-acct b{flex:1;font-size:16px;font-weight:800;letter-spacing:0;overflow:hidden;text-overflow:ellipsis}
+.pn-cp{margin-top:16px;border-radius:12px;background:#F6F3FA;padding:0 8px 0 16px}
+.pn-cpr{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 0}
+.pn-cpr + .pn-cpr{border-top:1px solid #EAE3F2}
+.pn-cpr>span{flex:none;width:40px;font-size:13px;color:var(--t3)}
+.pn-cpv{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;-webkit-user-select:text;user-select:text}
+.pn-cpv small{font-size:12px;color:var(--t3)}
+.pn-cpv b{font-size:16px;font-weight:800;letter-spacing:0}
+.pn-cpv.sel b{-webkit-user-select:all;user-select:all;background:#E6DAF5;border-radius:4px}
+.pn-cpr .pn-pill{min-width:64px;text-align:center}
+.pn-cpr .pn-pill.ok{background:#0F6E56}
+.pn-lb3{font-size:13px;color:var(--t3);margin-top:16px}
 .pn-row{display:flex;justify-content:space-between;align-items:center;height:48px;border-bottom:1px solid #F2F4F6;font-size:13px}
 .pn-row span{color:var(--t3)}
 .pn-row b{font-weight:700}
@@ -804,7 +815,7 @@ async function doLogin(){
    서버 함수만 부른다: seller_plan_status · seller_plan_start · seller_plan_claim (supabase/sql/neighbor_plan_159.sql)
    상태 none(신청 전) · pending(입금 대기) · active(이용 중). 값·자리 수·계좌는 전부 서버가 내려 준다. */
 let _cafeNick=null,_cfBusy=false,_kakao=null,_kkBusy=false;
-let _plan=null,_planOpen=false,_planMonths=6,_planKind='income',_planBusy=false;
+let _plan=null,_planOpen=false,_planMonths=6,_planKind='income',_planBusy=false,_planRepick=false;
 const PLAN_CHANNEL='https://pf.kakao.com/_zGfxnX/chat';
 function planEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function planWon(n){return Number(n||0).toLocaleString('ko-KR');}
@@ -1047,30 +1058,67 @@ async function planStart(){
 function planCard(){ return !!(_plan&&_plan.method==='card'&&_plan.card_url); }
 function planSheetOpen(){
   if(!_plan||_plan.state!=='pending') return;
-  const b=_plan.bank||{}, has=b.no&&b.name, card=planCard();
+  const b=_plan.bank||{}, has=b.no&&b.name, card=planCard(), canPick=!_plan.claimed&&!!(_plan.prices&&_plan.prices[3]&&_plan.prices[6]);
   _planKind=_plan.receipt_kind||'income';
+  if(!canPick) _planRepick=false;
+  const head='<div class="pn-grab"></div>'+
+    '<div class="pn-st"><b>이웃셀러 '+planEsc(_plan.months)+'개월</b><span>'+planWon(_plan.amount)+'원</span></div>';
+  // 옵션 다시 고르기(2026-11-25 사장님): 입금했어요를 누르기 전에만. 고르면 서버 seller_plan_months 가 같은 신청의 개월·금액을 바꾼다(기한은 그대로)
+  if(_planRepick){
+    const off=Math.round((1-(_plan.prices[6]/6)/(_plan.prices[3]/3))*100);
+    const opt=(m)=>'<div class="pn-opt'+(Number(_plan.months)===m?' on':'')+'" id="planPick'+m+'" onclick="planMonths('+m+')"><i class="pn-rd"></i><div class="pn-m">'+m+'개월'+(m===6&&off>0?' <em>'+off+'% 할인</em>':'')+'</div><div class="pn-r"><div class="pn-p">월&nbsp;'+planMonthly(m)+'만원<small class="pn-vat">(VAT 포함)</small></div><div class="pn-t">총 '+planMan(_plan.prices[m])+'만원</div></div></div>';
+    document.getElementById('planSheet').innerHTML=head+
+      '<div class="pn-lb3">기간</div>'+opt(3)+opt(6)+
+      '<div class="pn-err" id="planErr"></div>'+
+      '<button class="pn-cta s" onclick="planRepickToggle(false)">돌아가기</button>';
+    document.getElementById('planDim').classList.add('on');
+    return;
+  }
   // 카드 링크가 있고 아직 「입금했어요/결제했어요」를 누르기 전일 때만 방법을 고를 수 있다
   const seg=(_plan.card_url&&!_plan.claimed)?'<div class="pn-seg"><button class="'+(card?'':'on')+'" onclick="planMethod(0)">계좌이체</button><button class="'+(card?'on':'')+'" onclick="planMethod(1)">카드결제</button></div>':'';
-  const head='<div class="pn-grab"></div>'+
-    '<div class="pn-st"><b>이웃셀러 '+planEsc(_plan.months)+'개월</b><span>'+planWon(_plan.amount)+'원</span></div>'+seg;
+  const repick=canPick?'<button class="pn-cta s" id="planRepick" onclick="planRepickToggle(true)">옵션 다시 고르기</button>':'';
+  const kinds={income:'소득공제',expense:'지출증빙',none:'안 함'};
   document.getElementById('planSheet').innerHTML=card?
-    head+
-    '<a class="pn-cta" id="planCardGo" href="'+planEsc(_plan.card_url)+'" target="_blank" rel="noopener">카드로 결제하기</a>'+
+    head+seg+
+    '<a class="pn-cta" id="planCardGo" href="'+planEsc(/^https:\/\//i.test(String(_plan.card_url||''))?_plan.card_url:'#')+'" target="_blank" rel="noopener">카드로 결제하기</a>'+
     '<div class="pn-row last"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
     '<div class="pn-err" id="planErr"></div>'+
-    '<button class="pn-cta s" id="planClaimBtn" onclick="planClaim()"'+(_plan.claimed?' disabled':'')+'>'+(_plan.claimed?'결제 확인 중':'결제했어요')+'</button>'
+    '<button class="pn-cta s" id="planClaimBtn" onclick="planClaim()"'+(_plan.claimed?' disabled':'')+'>'+(_plan.claimed?'결제 확인 중':'결제했어요')+'</button>'+repick
     :
-    head+
-    (has?'<div class="pn-acct"><b>'+planEsc(b.name)+' '+planEsc(b.no)+'</b><button class="pn-pill p" onclick="planCopy()">복사</button></div>':
+    head+seg+
+    (has?'<div class="pn-cp">'+
+          '<div class="pn-cpr"><span>금액</span><div class="pn-cpv" id="planCvAmt"><b>'+planWon(_plan.amount)+'원</b></div><button class="pn-pill p" id="planCpAmt" onclick="planCopy(\'amt\',this)">복사</button></div>'+
+          '<div class="pn-cpr"><span>계좌</span><div class="pn-cpv" id="planCvAcc"><small>'+planEsc(b.name)+'</small><b>'+planEsc(b.no)+'</b></div><button class="pn-pill p" id="planCpAcc" onclick="planCopy(\'acc\',this)">복사</button></div>'+
+         '</div>':
          '<div class="pn-acct"><b>계좌 준비 중 · 잠시 뒤 다시 열어 주세요</b></div>')+
     (has&&b.holder?'<div class="pn-row"><span>예금주</span><b>'+planEsc(b.holder)+'</b></div>':'')+
     '<div class="pn-row"><span>기한</span><b>'+planEsc(planDue(_plan.pay_due))+'</b></div>'+
-    '<div class="pn-row last"><span>현금영수증</span><div class="pn-chips" id="planKinds"></div></div>'+
-    '<input class="pn-inp" id="planNo" inputmode="numeric" maxlength="13" autocomplete="off">'+
-    '<div class="pn-err" id="planErr"></div>'+
-    '<button class="pn-cta" id="planClaimBtn" style="margin-top:8px" onclick="planClaim()">'+(_plan.claimed?'다시 보내기':'입금했어요')+'</button>';
-  if(!card) planKind(_planKind);
+    (_plan.claimed?
+      '<div class="pn-row last"><span>현금영수증</span><b>'+planEsc(kinds[_planKind]||'')+'</b></div>'+
+      '<div class="pn-err" id="planErr"></div>'+
+      '<button class="pn-cta" id="planClaimBtn" style="margin-top:8px" disabled>입금 확인 중</button>'
+      :
+      '<div class="pn-row last"><span>현금영수증</span><div class="pn-chips" id="planKinds"></div></div>'+
+      '<input class="pn-inp" id="planNo" inputmode="numeric" maxlength="13" autocomplete="off">'+
+      '<div class="pn-err" id="planErr"></div>'+
+      '<button class="pn-cta" id="planClaimBtn" style="margin-top:8px" onclick="planClaim()">입금했어요</button>'+repick);
+  if(!card&&!_plan.claimed) planKind(_planKind);
   document.getElementById('planDim').classList.add('on');
+}
+function planRepickToggle(on){ _planRepick=!!on; planSheetOpen(); }
+async function planMonths(m){
+  if(_planBusy||!_plan) return;
+  if(Number(_plan.months)===m){ planRepickToggle(false); return; }
+  _planBusy=true;
+  const d=await sellerRpc('seller_plan_months',{p_months:m});   // 서버 함수가 아직 없으면 null(404) → 바뀐 것처럼 보이지 않게 오류만
+  _planBusy=false;
+  const e=document.getElementById('planErr');
+  if(!d||!d.ok){
+    if(e) e.textContent=!d?'지금은 바꿀 수 없어요. 카톡 채널로 알려 주세요.':d.msg==='claimed'?'입금 확인 중이라 바꿀 수 없어요.':d.msg==='in_progress'?'카드 결제 확인 중이라 바꿀 수 없어요.':d.msg==='no_pending'?'신청이 끝났어요. 다시 신청해 주세요.':'바꾸지 못했어요. 다시 눌러 주세요.';
+    if(d&&(d.msg==='no_pending'||d.msg==='claimed')){ _planRepick=false; await planLoad(); if(d.msg==='claimed') planSheetOpen(); else planSheetClose(); }
+    return;
+  }
+  _planRepick=false; await planLoad(); planSheetOpen();
 }
 async function planMethod(i){
   const m=i?'card':'bank'; if(_planBusy||!_plan||_plan.method===m) return;
@@ -1081,6 +1129,7 @@ async function planMethod(i){
   await planLoad(); planSheetOpen();
 }
 function planSheetClose(){
+  _planRepick=false;   // 다시 고르기 상태는 시트를 닫으면 접는다(다시 열면 입금 안내부터)
   if(window._kkGate) return;   // 막힌 창 — 안내 띠 없이 그대로 둔다
   document.getElementById('planDim').classList.remove('on');
 }
@@ -1093,11 +1142,27 @@ function planKind(k){
   i.placeholder=k==='expense'?'사업자번호':'휴대폰 번호';
   document.getElementById('planErr').textContent='';
 }
-function planCopy(){
-  const no=(_plan&&_plan.bank&&_plan.bank.no)||''; if(!no) return;
-  const done=()=>showToast('계좌번호를 복사했어요');
-  const old=()=>{ try{ const t=document.createElement('textarea'); t.value=no; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }catch(e){ showToast(no); } };
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(no).then(done,old); else old();
+// 금액은 숫자만(490000), 계좌는 「은행명 번호」(토스·카카오뱅크가 붙여 넣은 글에서 은행을 함께 알아본다). 토스트는 시트 단추를 덮어 쓰지 않는다
+function planCopy(kind,btn){
+  const b=(_plan&&_plan.bank)||{};
+  const val=kind==='amt'?String(Number(_plan&&_plan.amount)||''):(b.name&&b.no?b.name+' '+b.no:'');
+  if(!val||!btn) return;
+  const box=document.getElementById(kind==='amt'?'planCvAmt':'planCvAcc');
+  const done=()=>{ if(box) box.classList.remove('sel'); btn.textContent='복사됨'; btn.classList.add('ok'); clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.textContent='복사'; btn.classList.remove('ok'); },1500); };
+  const pick=()=>{   // 복사가 다 막힌 웹뷰: 값을 골라 두고 길게 눌러 복사하게
+    if(!box) return; box.classList.add('sel');
+    if(kind==='amt'){ const bb=box.querySelector('b'); if(bb) bb.textContent=String(Number(_plan&&_plan.amount)||'');   /* 고른 글자도 숫자만(490000) — 다시 그리면 원래 꼴로 돌아온다 */ }
+    try{ const r=document.createRange(); r.selectNodeContents(box); const g=getSelection(); g.removeAllRanges(); g.addRange(r); }catch(e){}
+    btn.textContent='길게 눌러 복사'; clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.textContent='복사'; },3000);
+  };
+  const old=()=>{
+    let ok=false;
+    try{ const t=document.createElement('textarea'); t.value=val; t.setAttribute('readonly',''); t.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px';
+      document.body.appendChild(t); t.focus(); t.select(); t.setSelectionRange(0,val.length); ok=document.execCommand('copy'); t.remove(); }catch(e){ ok=false; }
+    ok?done():pick();
+  };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(val).then(done,old); return; } }catch(e){}
+  old();
 }
 /* ── 이웃셀러 내 배너 편집 (2026-11-19) ─────────────────────────────
    서버: seller_banner_get · seller_banner_save (supabase/sql/seller_banner_170.sql) · Edge seller-banner(probe·upload)
@@ -1376,6 +1441,7 @@ async function planClaim(){
     }
     if(fn==='seller_plan_start'){ Object.assign(st,{state:'pending',months:p.p_months,amount:st.prices[p.p_months],method:'bank',showing:true,claimed:false,pay_due:due(),bank:{name:'카카오뱅크',no:'0000-00-0000000',holder:'예금주'}}); return {ok:true,msg:'started',showing:true}; }
     if(fn==='seller_plan_method'){ if(st.claimed) return {ok:false,msg:'claimed'}; st.method=p.p_method; return {ok:true}; }
+    if(fn==='seller_plan_months'){ if(window._noMonthsRpc) return null; if(st.state!=='pending') return {ok:false,msg:'no_pending'}; if(st.claimed) return {ok:false,msg:'claimed'}; if(!st.prices[p.p_months]) return {ok:false,msg:'bad_months'}; Object.assign(st,{months:p.p_months,amount:st.prices[p.p_months]}); return {ok:true,months:st.months,amount:st.amount}; }   // 서버 초안 server_change_draft.sql 과 같은 조건(기한 pay_due 는 그대로). 실제 서버엔 아직 이 함수가 없다
     if(fn==='seller_plan_claim'){ st.claimed=true; st.receipt_kind=p.p_receipt_kind; return {ok:true}; }
     if(fn==='seller_cafe_get') return {ok:true,nick:st.cafe||'',cafe_url:'https://cafe.naver.com/momcal'};
     if(fn==='seller_cafe_save'){ st.cafe=String(p.p_nick||'').trim(); return {ok:true,nick:st.cafe}; }
