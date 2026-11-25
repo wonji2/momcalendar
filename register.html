@@ -139,6 +139,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretend
 .pd-t{white-space:normal;word-break:keep-all}
 </style>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async></script>
+<style>
+/* 인증 결과 팝업 (kkPop) */
+.kk-pop{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .18s ease}
+.kk-pop.on{opacity:1}
+.kk-card{width:100%;max-width:320px;background:#fff;border-radius:24px;padding:28px 20px 20px;text-align:center;transform:scale(.96);transition:transform .18s ease}
+.kk-pop.on .kk-card{transform:scale(1)}
+.kk-ic{width:56px;height:56px;border-radius:50%;background:#F6F3FA;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.kk-ic.bad{background:#FDECEC}
+.kk-card .pd-t{white-space:normal;word-break:keep-all}
+.kk-sub{margin-top:8px;font-size:14px;line-height:1.45;color:#4E5968;letter-spacing:-.02em;word-break:keep-all}
+.kk-card .pn-cta{margin-top:24px}
+</style>
 </head>
 <body>
 <div class="hd">
@@ -589,7 +601,7 @@ async function doLogin(){
    빠져나갈 길: 카카오 쪽 실패 24시간 안 · 두 번 눌렀는데 미연결 → 「나중에」 / 상태를 못 읽으면 안 막음(서버 장애로 전원 잠금 방지) */
 let _kakao=null,_kkBusy=false;
 const KAKAO_START='https://hycaqsqeogjtbscmzrtm.supabase.co/functions/v1/owner-notify?op=seller_start';
-/* kkTalkGo v2 */
+/* kkTalkGo v2 */ /* kkTalkGo v3 */
 /* 본인인증을 카카오로 넘긴다 — 환경마다 아이디·비밀번호를 안 묻는 길로. 어느 길이든 막히면 카카오 웹 화면(url)으로 */
 function kkTalkGo(url){
   const web=function(){ location.href=url; };
@@ -601,8 +613,9 @@ function kkTalkGo(url){
     let native=false; try{ native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); }catch(e){}
     const knownIn=/Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|Line\//i.test(ua);
     const otherWv=!native&&!knownIn&&/DaumApps|everytimeApp|; wv\)/i.test(ua);
-    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.Auth)) return web();
+    if(!mobile||/KAKAOTALK/i.test(ua)||otherWv||!st||!ru||!(window.Kakao&&Kakao.init)) return web();
     if(!Kakao.isInitialized()) Kakao.init('04a73b2b11a54e8c11be73309e1b217c');
+    if(!(Kakao.Auth&&Kakao.Auth.authorize)) return web();   // init 뒤에야 Auth 가 생긴다
     const opt={ redirectUri:ru, scope:sc, state:st, throughTalk:true };
     if(!ios||(!native&&!knownIn)){ Kakao.Auth.authorize(opt); return; }
     // 아이폰의 우리 앱·인앱: SDK 가 여는 창 주소에서 카카오톡 스킴을 꺼내 직접 연다. 이 화면은 남아 결과를 기다린다(index.html _appTalkLogin 과 같은 길)
@@ -687,6 +700,22 @@ async function kkEntryGo(){
   }
   planKakaoStart();
 }
+/* kkPop v1 */
+/* 인증 결과 — 가운데 팝업(단추 하나). 바깥을 눌러도 닫힌다 */
+function kkPop(ok,title,sub){
+  const old=document.getElementById('kkPop'); if(old) old.remove();
+  const d=document.createElement('div'); d.className='kk-pop'; d.id='kkPop'; d.setAttribute('role','dialog'); d.setAttribute('aria-modal','true');
+  const ic=ok?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7C54C4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+            :'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E5484D" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
+  d.innerHTML='<div class="kk-card"><div class="kk-ic'+(ok?'':' bad')+'">'+ic+'</div><div class="pd-t" id="kkPopT"></div><div class="kk-sub" id="kkPopS"></div><button type="button" class="pn-cta" id="kkPopOk">확인</button></div>';
+  document.body.appendChild(d);
+  document.getElementById('kkPopT').textContent=title;
+  const s=document.getElementById('kkPopS'); if(sub) s.textContent=sub; else s.remove();
+  const close=function(){ d.classList.remove('on'); setTimeout(function(){ d.remove(); },180); };
+  d.addEventListener('click',function(e){ if(e.target===d) close(); });
+  document.getElementById('kkPopOk').addEventListener('click',close);
+  requestAnimationFrame(function(){ d.classList.add('on'); });
+}
 function planKakaoResult(){
   const q=new URLSearchParams(location.search), k=q.get('kakao'); if(!k) return;
   const why=q.get('why')||'';
@@ -699,7 +728,7 @@ function planKakaoResult(){
     '카카오 인증에 실패했어요. 다시 눌러 주세요';
   q.delete('kakao'); q.delete('why');
   try{ history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }catch(e){}
-  setTimeout(function(){ showToast(msg); },400);
+  setTimeout(function(){ if(k==='ok') kkPop(true,'인증 완료','카톡 「나와의 채팅」으로 안내를 보냈어요'); else if(why==='cancel') kkPop(false,'인증을 취소했어요',''); else kkPop(false,'인증하지 못했어요',msg.replace(/\.$/,'')); },400);
   if(k==='ok'){ _kakao=null; try{ localStorage.removeItem('mc_kk_fail'); localStorage.removeItem('mc_kk_try'); }catch(e){} }
   else if(why==='cancel'){ try{ localStorage.removeItem('mc_kk_try'); }catch(e){} }
   else if(k==='fail'&&/^(kakao|memo|noconsent|expired|login)$/.test(why)){ try{ localStorage.setItem('mc_kk_fail',String(Date.now())); }catch(e){} }
