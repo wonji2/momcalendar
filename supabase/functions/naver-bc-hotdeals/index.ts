@@ -78,13 +78,32 @@ function ourCat(c1: string, n: string): [string, string] {
 }
 
 async function alert(msg: string) {
+  // 규칙 0-LG(2026-11-25): 풀림을 health_alerts 에만 남기고 끝내면 사장님이 모른다(11-25 10:20 풀림 → 핫딜 0건 → 사장님이 먼저 발견).
+  //   하루 한 번만 도는 작업이라 「두 번 연달아」를 기다리면 이틀이 가므로, 5초 뒤 한 번 더 확인해 그래도 풀려 있으면 바로 카톡으로 요구한다(3시간에 한 번).
   await sb("health_alerts", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ kind: "브랜드커넥트로그인만료", detail: msg }) }).catch(() => {});
+  try {
+    await new Promise((r) => setTimeout(r, 5000));
+    const again = await gw("query/affiliate-products/recommend-by-shopping-promotions?category1Id=50000005&limit=1");
+    if (again.status !== 401 && again.status !== 403) return;   // 일시적이었다
+    const since = new Date(Date.now() - 3 * 3600e3).toISOString();
+    const prev = await sb("health_alerts?kind=eq." + encodeURIComponent("브랜드커넥트카톡요구") + "&created_at=gte." + since + "&select=id&limit=1");
+    if (Array.isArray(prev) && prev.length) return;          // 3시간에 한 줄기
+    await sb("health_alerts", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ kind: "브랜드커넥트카톡요구", detail: "카톡으로 로그인 요구를 보냄" }) }).catch(() => {});
+    await fetch(SB_URL + "/functions/v1/owner-notify?op=say", { method: "POST", headers: { "x-cron-secret": CRON_SECRET, "content-type": "application/json" },
+      body: JSON.stringify({ texts: ["[네이버 브랜드커넥트 로그인이 풀렸습니다] 서버 핫딜 수집이 멈췄습니다. 집 PC 크롬에서 네이버에 로그인만 해 주시면 쿠키는 PC 가 서버에 자동으로 다시 넣습니다."], link: "https://momcalendar.com/login-help.html", btn: "로그인 방법" }) }).catch(() => {});
+  } catch { /* 알림 실패가 수집을 막지 않는다 */ }
 }
 
 Deno.serve(async (req) => {
   if (req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
   const u = new URL(req.url);
   const dry = u.searchParams.get("dry") === "1";
+  // ?ping=1 — 쿠키가 아직 살아 있는지만 한 번 찔러 본다(PC 의 naver_bc_cookie_sync 가 매시간 부름, 등록·알림 없음). 풀림은 10:20 전에 미리 안다
+  if (u.searchParams.get("ping") === "1") {
+    if (!COOKIE) return Response.json({ ok: false, status: 0, why: "no cookie" });
+    const pr = await gw("query/affiliate-products/recommend-by-shopping-promotions?category1Id=50000005&limit=1");
+    return Response.json({ ok: pr.status === 200, status: pr.status });
+  }
   const today = kstToday();
   if (!COOKIE) { await alert("NAVER_BC_COOKIE 시크릿 없음"); return Response.json({ ok: false, why: "no cookie" }); }
 
