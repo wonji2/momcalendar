@@ -1,0 +1,61 @@
+# ⏰ 깃허브 예약 시계 (2026-11-25 인프라부) — 깃허브가 schedule 을 하루 3~5번으로 묶어 내보내서(repo-guard 10분 → 약 8시간 간격 실측)
+#   이 워크플로 하나가 5시간 30분 동안 1분마다 깨어 시간표(tools/daily/gh_clock.mjs JOBS)대로 다른 워크플로를 `gh workflow run`(workflow_dispatch)으로 부른다.
+#   GITHUB_TOKEN 이 부른 workflow_dispatch 는 새 실행을 만든다는 깃허브 예외(hotdeal-cloud 가 같은 방식으로 이미 돈다). 끝나기 전에 다음 시계를 대기열에 걸어 틈이 없다.
+#   시험: .github/trigger/clock-test.txt 에 `only=repo-guard minutes=35 successor=0` 한 줄을 올리면 그 작업만 그 시간 동안 돈다(push 로 시작 — 토큰 불필요).
+#   끄기: Actions 화면에서 이 워크플로 Disable. 감시: Supabase ops_status 'gh-clock' 심박 20분 멈추면 health_alerts(서버 pg_cron gh_clock_watch).
+name: 깃허브 예약 시계
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '시험: 이 작업 이름만(쉼표). 비우면 전부'
+        required: false
+        default: ''
+      minutes:
+        description: '시험: 총 몇 분 돌지(기본 330)'
+        required: false
+        default: ''
+      successor:
+        description: '0 이면 다음 시계를 안 건다'
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths: ['.github/trigger/clock-test.txt']
+concurrency:
+  group: gh-clock
+  cancel-in-progress: false
+permissions:
+  contents: read
+  actions: write
+run-name: 시계 ${{ github.event_name }} ${{ github.event.inputs.only }}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/daily/gh_clock.mjs
+            .github/trigger/clock-test.txt
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 시계
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SB_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          IN_ONLY: ${{ github.event.inputs.only }}
+          IN_MIN: ${{ github.event.inputs.minutes }}
+          IN_SUCC: ${{ github.event.inputs.successor }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            line=$(grep -v '^#' .github/trigger/clock-test.txt | head -1)
+            for kv in $line; do case "$kv" in only=*) IN_ONLY="${kv#only=}";; minutes=*) IN_MIN="${kv#minutes=}";; successor=*) IN_SUCC="${kv#successor=}";; esac; done
+          fi
+          export CLOCK_ONLY="$IN_ONLY" CLOCK_MINUTES="$IN_MIN" CLOCK_SUCCESSOR="$IN_SUCC"
+          [ -z "$CLOCK_MINUTES" ] && unset CLOCK_MINUTES
+          [ -z "$CLOCK_SUCCESSOR" ] && unset CLOCK_SUCCESSOR
+          node tools/daily/gh_clock.mjs
