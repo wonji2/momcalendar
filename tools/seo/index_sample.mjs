@@ -75,7 +75,7 @@ async function run() {
 
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 // --once (2026-11-25): 예약 회차는 하루 세 번 걸어 둔다(깃허브 schedule 이 몇 시간씩 늦는다 — 11-24 seo-daily 05:10 예약이 13:43 에 돎). 오늘 회차가 이미 있으면 그냥 끝낸다
-if (process.argv.includes('--once') && state.runs.some((x) => x.day === today && !x.apiErr)) { console.log(`오늘(${today}) 회차가 이미 있다 — 건너뜀`); process.exit(0); }
+if (process.argv.includes('--once') && state.runs.some((x) => x.day === today && !x.incomplete)) { console.log(`오늘(${today}) 회차가 이미 있다 — 건너뜀`); process.exit(0); }
 let rows;
 try { rows = await run(); state.fail = 0; }
 catch (e) {
@@ -132,7 +132,7 @@ let md = `### 구글 색인 표본 ${today} (주소 ${rows.length}개, 서치콘
 if (prev) md += `- 직전 회차(${prev.day}) 색인 ${prev.idx}/${prev.n} → 이번 ${res.idx}/${res.n}\n`;
 // 하락 판정 — 최근 7회(오늘 빼고, 미완 빼고) 중 색인이 가장 많던 회차에서 색인됐던 **같은 URL** 이 오늘 빠졌는지 센다.
 //   의도된 제외·오늘 조회 실패는 빼고 센다(일시 오류·우리가 내린 페이지로 경보가 나지 않게). 회복될 때까지 경보는 남는다
-const peers = state.runs.filter((x) => x.day !== today && !x.incomplete && !x.apiErr && Array.isArray(x.idxList)).slice(-7);
+const peers = state.runs.filter((x) => x.day !== today && !x.incomplete && Array.isArray(x.idxList)).slice(-7);   // 실패 10% 이하 회차도 비교에 쓴다(실패 주소는 failed 로 빠진다 — 검증자 2026-11-25)
 const best = peers.length ? peers.reduce((a, b) => (b.idxList.length > a.idxList.length ? b : a)) : null;
 const nowIdx = new Set(res.idxList);
 const lost = best ? best.idxList.filter((p) => !nowIdx.has(p) && !intended.has(p) && !failed.has(p) && list.includes(p)) : [];
