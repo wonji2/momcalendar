@@ -30,3 +30,9 @@
 ## 6. 공개 저장소에 비밀 금지
 - 계정 비밀·서버 접속 정보·키·`.env` 를 커밋하지 않는다. 필요한 값은 GitHub Secret 을 쓴다.
 - `scratchpad/`·`작업규칙.md`·`references/`·`HANDOVER*`·`tools/vendor/` 는 훅이 막는다. 그게 정상이다.
+
+## 7. 수집·자동화·서버 설정 코드는 이 공개 저장소에 올리지 않는다 (2026-11-26)
+- 수집·파싱·핫딜·SNS·카페·주문 도구(`tools/` 대부분), 서버 함수·SQL(`supabase/`), 스크립트(`scripts/`)는 **비공개 저장소 `wonji2/momcal-code`** 에 둔다. 이 저장소에는 손님에게 나가는 화면 파일과 배포에 꼭 필요한 최소만 남긴다.
+- 새 파일을 올리면 막힌다: `.githooks/pre-commit`(tools·scripts 새 파일, supabase 전부) + 배포 게이트 `tools/deploy_gate_check.sh`(허용 목록 `tools/public_allowlist.txt` 밖의 파일이 있으면 배포 중단).
+- 깃허브 자동 작업이 그 코드를 읽을 때는 비공개 저장소를 꺼내 와 쓴다(토큰은 Actions 비밀값으로만). 코드는 이 저장소에 복사하지 않는다.
+
