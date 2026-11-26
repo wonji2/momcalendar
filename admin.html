@@ -150,6 +150,9 @@ details summary::-webkit-details-marker{display:none}
 .hm-band{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:4px}
 .hm-band.ok{background:#E8F7EE;color:#03753A}.hm-band.bad{background:#FFEBEE;color:#C62828}.hm-band.warn{background:#FFF4E0;color:#8A5300}
 .hm-band small{font-weight:400;opacity:.85;margin-left:auto;font-size:12px}
+.hm-dct{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}.hm-dct td{padding:6px 4px;border-top:1px solid #F2F4F6;vertical-align:top}.hm-dct td:first-child{white-space:nowrap;color:#8B95A1;width:44px}
+.hm-dc{display:inline-block;margin:0 10px 2px 0;font-size:12px;color:#4E5968}.hm-dc b{color:#191F28}
+.hm-sec details summary{cursor:pointer;list-style:none}.hm-sec details summary::-webkit-details-marker{display:none}
 .hm-sec{margin-top:24px}.hm-sec h3{font-size:16px;font-weight:700;margin:0 0 10px;display:flex;align-items:baseline;gap:8px;color:#191F28}
 .hm-sec h3 span{font-size:12px;font-weight:400;color:#8B95A1}
 .hm-grid{display:grid;gap:10px}
@@ -6870,12 +6873,22 @@ async function renderHome(){
     pill(apiOk?'g':'r',apiOk?'🟢 Cloudflare Worker API 안정':'🔴 Cloudflare Worker API 응답 없음')
   ].join('');
   const chkShow=8;
-  el.innerHTML=`<div class="hm-sig">${sig}</div>`+((red.length||stale.length)?band:'')
+  // 2026-11-26 사장님 「고장나면 24시간 안에 무조건 고쳐야지」(0-F): 24시간 넘긴 경보 · 자동 수리기가 만든 수정본(사람 필요) — 0이면 안 보인다
+  const o24=d.over24||{}, apd=d.autofix_pending||{};
+  const _arr=v=>Array.isArray(v)?v.filter(x=>x&&typeof x==='object'):[];   // 자동 수리기가 써 넣는 값이라 모양이 어긋나도 홈이 멈추지 않게(검증자 지적)
+  const o24n=Math.max(0,Number(o24.n)||0), apdn=Math.max(0,Number(apd.n)||0);
+  const o24Band=o24n?`<div class="hm-band bad">24시간 넘김 ${o24n}건<small>${_hmEsc(_arr(o24.items).map(x=>String(x.kind||'')+(x.first?' (' + String(x.first) + '부터)':'')).filter(Boolean).slice(0,6).join(' · '))}</small></div>`:'';
+  const apdBand=apdn?`<div class="hm-band warn">반영 대기 ${apdn}건<small>${_hmEsc(_arr(apd.items).map(x=>String(x.key||x.t||'').replace(/^alert:/,'')).filter(Boolean).slice(0,6).join(' · '))}</small></div>`:'';
+  const DC_NAME={over24:'24시간 넘김',pending:'반영 대기',autofix_pc:'PC 수리',autofix_cloud:'서버 수리',kinds:'경보 종류',lines:'경보 줄',open_kinds_now:'열린 종류'};
+  const dcRows=_arr(d.daily_check).map(r=>{ const p=(r.p&&typeof r.p==='object'&&!Array.isArray(r.p))?r.p:{}; return `<tr><td>${_hmEsc(String(r.day||'').slice(5))}</td><td>${Object.keys(p).map(k=>`<span class="hm-dc">${_hmEsc(DC_NAME[k]||k)} <b>${_hmEsc(typeof p[k]==='object'?JSON.stringify(p[k]):p[k])}</b></span>`).join('')}</td></tr>`; }).join('');
+  const dcHtml=dcRows?`<div class="hm-sec"><details><summary><h3 style="display:inline">▸ 아침 점검 <span>최근 ${_arr(d.daily_check).length}일</span></h3></summary><table class="hm-dct">${dcRows}</table></details></div>`:'';
+  el.innerHTML=`<div class="hm-sig">${sig}</div>`+o24Band+apdBand+((red.length||stale.length)?band:'')
     +'<div class="hm-dash"><div class="hm-col">'
     +`<div class="hm-sec"><h3>오늘 할 일 <span>누르면 그 탭으로</span></h3><div class="hm-grid hm-todo" id="hmTodo"></div></div>`
     +`<div class="hm-sec" id="hmInq">${window._inqPanelHtml||''}</div>`
     +`<div class="hm-sec" id="hmPlan" hidden></div>`
     +`<div class="hm-sec"><h3>고장 난 것 <span>${red.length}건</span></h3>${_hmFix(d.autofix_cloud,'서버',20)}${_hmFix(d.autofix,'PC',30)}<div class="hm-list">${_hmRows(red)}</div></div>`
+    +dcHtml
     +`<div class="hm-sec" id="hmComm" hidden></div>`
     +(radarAcked.length?`<div class="hm-sec"><h3>처리한 것 <span>새로 생기면 다시 빨갛게</span></h3><div class="hm-list">${_hmRows(radarAcked)}</div></div>`:'')
     +`<div class="hm-sec"><h3>확인 필요 <span>${chk.length}건 · 노랑 = 지켜볼 것 · 회색 = 못 잰 것</span></h3><div class="hm-list">${chk.length?chk.map((r,i)=>`<div class="hm-row"${i>=chkShow?' hidden':''}><i class="${_hmLv(r.lv)}"></i><span class="rl">${_hmEsc(r.role)}</span><div>${_hmEsc(r.t)}</div></div>`).join(''):'<div class="hm-empty">없음</div>'}</div>${chk.length>chkShow?`<button class="hm-more" onclick="hmMore(this)">${chk.length-chkShow}건 더 보기</button>`:''}</div>`
