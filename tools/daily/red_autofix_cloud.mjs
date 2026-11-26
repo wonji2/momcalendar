@@ -88,7 +88,7 @@ function prompt(it) {
 
 ## 고치는 법
 - 코드·설정 원인이면 **tools/ 또는 supabase/ 안의 파일만** 고친다. 커밋·push·서버 함수 배포는 하지 않는다(수리기가 검사한 뒤 한다).
-- SQL(함수·크론) 수정이 필요하면 supabase/sql/ 에 새 번호 파일로 남기고 \`supabase db query --linked -f <파일>\` 로 적용한 뒤 되읽어 확인한다. begin/commit 은 쓰지 않는다(CLI 가 못 연다).
+- SQL(함수·크론) 수정이 필요하면 scratchpad/red_autofix_sql/ 에 새 번호 파일로 남기고(공개 저장소의 supabase/ 에는 두지 않는다 — 2026-11-26 비공개 이전) \`supabase db query --linked -f <파일>\` 로 적용한 뒤 되읽어 확인한다. begin/commit 은 쓰지 않는다(CLI 가 못 연다).
 - 일시 장애(네트워크·DB 순간 지연)면 재시도를 넣어 다시 안 생기게 고친다. 원인이 이미 지나간 일이고 그 뒤 0건이면 레이더는 \`insert into radar_ack(kind, acked_at, h24_at_ack, note) values (...) on conflict (kind) do update set acked_at=excluded.acked_at, h24_at_ack=excluded.h24_at_ack, note=excluded.note\` 로 처리함 표시. **원인을 못 찾았으면 처리함 표시를 하지 않는다.**
 
 ## 하면 안 되는 것
