@@ -1,8 +1,9 @@
-// 📊 통합 지표 수집기 — 웹(GA4) · 안드로이드(Google Play) · 애플(App Store) (2026-11-23)
+// 📊 통합 지표 수집기 — 웹(GA4) · 안드로이드(Google Play) · 애플(App Store) (2026-11-23) · 구글 서치콘솔(GSC, 2026-11-26)
 //   오더: orders/ORDER_UNIFIED_ANALYTICS_2026-11-23.md · 화면: admin.html 「📊 통합 지표」 탭(RPC analytics_overview)
 //
 //   흐름   매일 08:40 KST .github/workflows/analytics-daily.yml → 이 파일 → Supabase analytics_daily / analytics_meta
-//   실행   node tools/analytics/collect.mjs [--only ga4|play|apple] [--days 28] [--dry] [--report] [--strict]
+//   실행   node tools/analytics/collect.mjs [--only ga4|play|apple|gsc] [--days 28] [--dry] [--report] [--strict]
+//            gsc       GA4_SA_KEY 서비스 계정을 같이 쓴다(새 시크릿 없음) · GSC_SITE 선택 · 상세 gsc.mjs 머리말
 //            --dry     API 를 부르지 않고 키 점검표만(값은 찍지 않는다 — 있음/없음·형식만)
 //            --report  analytics_meta 를 표로 출력(GitHub 실행 요약에도 쓴다)
 //            --strict  하나라도 오류면 종료코드 1(검증용). 평소엔 늘 0 — 한 소스가 죽어도 나머지는 저장된다
@@ -14,6 +15,7 @@ import { SB_KEY, SB_URL, has, errText, sbGet, setMeta } from './lib.mjs';
 import { collectGa4, ga4Check } from './ga4.mjs';
 import { collectPlay, playCheck } from './play.mjs';
 import { collectApple, appleCheck } from './apple.mjs';
+import { collectGsc, gscCheck } from './gsc.mjs';
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes('--' + n);
@@ -23,7 +25,7 @@ const days = Math.max(1, Math.min(120, parseInt(opt('days', '28'), 10) || 28));
 const yn = (b) => (b ? '있음' : '없음');
 
 function dry() {
-  const g = ga4Check(), p = playCheck(), a = appleCheck();
+  const g = ga4Check(), p = playCheck(), a = appleCheck(), gs = gscCheck();
   console.log('키 점검 (값은 출력하지 않습니다)');
   console.log(`  SUPABASE_SERVICE_KEY  ${yn(!!SB_KEY)}${SB_KEY ? '' : ' — 없으면 수집해도 저장하지 못함'}`);
   console.log(`  GA4_SA_KEY            ${yn(g.key)}${g.key && !g.keyReadable ? ' (서비스 계정 JSON 으로 못 읽음)' : ''}`);
@@ -32,7 +34,9 @@ function dry() {
   console.log(`  APPLE_API_KEY_ID      ${yn(a.kid)}`);
   console.log(`  APPLE_API_ISSUER_ID   ${yn(a.iss)}`);
   console.log(`  APPLE_API_KEY_P8      ${yn(a.p8)}${a.p8 && !a.p8Readable ? ' (키로 못 읽음)' : ''}`);
-  console.log(`  → GA4 ${g.key && g.pid ? '수집 대상' : '미설정'} · PLAY ${p.key && p.bucket ? '수집 대상' : '미설정'} · APPLE ${a.kid && a.iss && a.p8 ? '수집 대상' : '미설정'}`);
+  console.log(`  GSC (GA4_SA_KEY 재사용) ${yn(gs.key)}${gs.key ? (gs.keyReadable ? ` · 서비스 계정 ${gs.saEmail}` : ' (서비스 계정 JSON 으로 못 읽음)') : ''}`);
+  console.log(`  GSC_SITE              ${yn(gs.siteEnv)}${gs.siteEnv ? '' : ' (기본값 https://momcalendar.com/)'}`);
+  console.log(`  → GA4 ${g.key && g.pid ? '수집 대상' : '미설정'} · PLAY ${p.key && p.bucket ? '수집 대상' : '미설정'} · APPLE ${a.kid && a.iss && a.p8 ? '수집 대상' : '미설정'} · GSC ${gs.key ? '수집 대상' : '미설정'}`);
 }
 
 async function report() {
@@ -41,7 +45,7 @@ async function report() {
   catch (e) { console.log('상태 표를 읽지 못함: ' + errText(e)); }
   const kst = (t) => (t ? new Date(new Date(t).getTime() + 9 * 3600e3).toISOString().slice(5, 16).replace('T', ' ') : '—');
   const lines = ['| 소스 | 상태 | 마지막 성공(KST) | 마지막 시도(KST) | 사유 |', '| --- | --- | --- | --- | --- |'];
-  for (const s of ['ga4', 'play', 'apple']) {
+  for (const s of ['ga4', 'play', 'apple', 'gsc']) {
     const r = rows.find((x) => x.source === s);
     lines.push(r ? `| ${s} | ${r.status} | ${kst(r.last_ok_at)} | ${kst(r.last_try_at)} | ${String(r.note || '').replace(/\|/g, '/')} |` : `| ${s} | 기록 없음 | — | — | ${SB_KEY ? '아직 한 번도 안 돎' : 'SUPABASE_SERVICE_KEY 없음'} |`);
   }
@@ -53,9 +57,9 @@ async function report() {
 async function main() {
   if (flag('dry')) return dry();
   if (flag('report')) return report();
-  if (only && !['ga4', 'play', 'apple'].includes(only)) { console.log(`--only 는 ga4·play·apple 중 하나여야 합니다(받은 값: ${only})`); return; }
+  if (only && !['ga4', 'play', 'apple', 'gsc'].includes(only)) { console.log(`--only 는 ga4·play·apple·gsc 중 하나여야 합니다(받은 값: ${only})`); return; }
   if (!SB_KEY) console.log('⚠ SUPABASE_SERVICE_KEY 없음 — 수집은 하되 저장하지 못합니다(상태도 기록 안 됨)');
-  const jobs = [['ga4', collectGa4], ['play', collectPlay], ['apple', collectApple]].filter(([k]) => !only || k === only);
+  const jobs = [['ga4', collectGa4], ['play', collectPlay], ['apple', collectApple], ['gsc', collectGsc]].filter(([k]) => !only || k === only);
   let bad = 0;
   for (const [name, fn] of jobs) {
     let r;

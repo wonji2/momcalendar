@@ -1,4 +1,4 @@
-# 웹(GA4)·안드로이드(Play)·애플(App Store) 통합 지표 수집 — 매일 아침 (2026-11-23)
+# 웹(GA4)·안드로이드(Play)·애플(App Store) 통합 지표 수집 — 매일 아침 (2026-11-23) · 구글 서치콘솔(GSC) 추가 2026-11-26(GA4_SA_KEY 재사용, 새 시크릿 없음)
 #   · 저장소에 아무것도 커밋하지 않는다(Supabase 에만 쓴다) → 배포·용량·backup/last-good 에 영향 0
 #   · 키가 없어도 잡은 성공한다(각 소스 '미설정' 으로 남김) → 화면은 수동값으로 계속 뜬다
 #   · 비용 0원: 공개 저장소 Actions + 각 API 무료 범위
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'ga4 | play | apple (비우면 셋 다)'
+        description: 'ga4 | play | apple | gsc (비우면 전부)'
         required: false
         default: ''
       days:
@@ -38,6 +38,7 @@ jobs:
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
       APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+      GSC_SITE: https://momcalendar.com/
     steps:
       - uses: actions/checkout@v4
 
