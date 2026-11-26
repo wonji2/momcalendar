@@ -9,7 +9,8 @@ param(
   [string]$Root = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
   [string]$DataFile = '',
   [int]$GgKeepDays = 7,      # gg 색인 계층 B(최근 마감) 창. 2026-11-25 30→7(사장님 승인 — 끝난 공구 B 6,339 → 약 2,500 · 16개월 노출 있던 619장은 gg_keep_index 로 지킨다). 사이트맵이 상한을 넘으면 빌드가 스스로 줄인다. 되돌리기: 21(어제 창) 또는 365
-  [string]$GTier = 'on'      # 2026-11-25 g(브랜드) 얇은 페이지 색인 제외. 'off' 면 전부 index 로 되돌린다
+  [string]$GTier = 'on',     # 2026-11-25 g(브랜드) 얇은 페이지 색인 제외. 'off' 면 전부 index 로 되돌린다
+  [int]$CapMax = 300         # 2026-11-26 gg 「셀러 공지」 칸에 싣는 원문 글자 상한(전에는 2000 = 인스타 캡션 통째 복사, 대량 복사 콘텐츠 신호). 되돌리기 -CapMax 2000
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -952,9 +953,13 @@ foreach($x in $ggRows){
         $sum = "$(if($x.who){ "$($x.who) 셀러가 " })$($x.od)에 $(if($isSoon){ '여는' } else { '연' }) $($x.brand)$(if($rest){ " $rest" }) 공동구매입니다. 셀러 공지의 첫 대목: " + (($sents | ForEach-Object { "「$_」" }) -join ' ')
         $body += "<div class=${Q}sec${Q}><h2>이 공구 요약</h2><p>$(HtmlEsc $sum)</p></div>"
       }
-      $capHtml = (HtmlEsc $cap) -replace "`n",'<br>'
+      # 2026-11-26: 원문 통째(최대 2000자) 대신 앞부분 발췌만 — 인스타에 이미 있는 글을 그대로 옮긴 대량 복사 본문이 8월 급감 원인 1순위(seo_recover_2026-11-25). 전체는 셀러 인스타로
+      $capShow = $cap; $capCut = $false
+      if($capShow.Length -gt $CapMax){ $cut0 = $capShow.LastIndexOf("`n", [Math]::Min($CapMax, $capShow.Length - 1)); if($cut0 -lt [int]($CapMax * 0.5)){ $cut0 = $CapMax }; $capShow = $capShow.Substring(0, $cut0).TrimEnd() + '…'; $capCut = $true }
+      $capHtml = (HtmlEsc $capShow) -replace "`n",'<br>'
       $body += "<div class=${Q}sec${Q}><h2>셀러 공지</h2><div class=${Q}faq${Q}><span>$capHtml</span></div>"
-      $body += "<p style=${Q}font-size:11px;color:#B5AFBD;margin-top:6px${Q}>진행 셀러$(if($x.who){ ' ' + (HtmlEsc $x.who) })가 인스타그램에 게시한 공지 원문입니다.</p></div>"
+      $igA = if($x.insta){ " <a href=${Q}https://www.instagram.com/$(HtmlEsc $x.insta)${Q} rel=${Q}nofollow noopener${Q} target=${Q}_blank${Q}>전체 공지는 셀러 인스타그램에서</a>" } else { '' }
+      $body += "<p style=${Q}font-size:11px;color:#B5AFBD;margin-top:6px${Q}>진행 셀러$(if($x.who){ ' ' + (HtmlEsc $x.who) })가 인스타그램에 게시한 공지$(if($capCut){ '의 앞부분' })입니다.$(if($capCut){ $igA })</p></div>"
     }
   }
 
