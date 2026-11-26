@@ -46,6 +46,25 @@ jobs:
           PUSH_CRON_SECRET: ${{ secrets.PUSH_CRON_SECRET }}
           MOMCAL_INTERNAL_SECRET: ${{ secrets.MOMCAL_INTERNAL_SECRET }}   # 우리 주소를 부를 때 붙는 아군 인증 머리말(없으면 빈 값)
         run: |
+          # 🔴 2026-11-27 서버 전환 스위치: DB ops_status 'hotdeal-host' 의 host 가 'server' 이면 이 사슬은 수집을 하지 않고 스스로 끝난다(서울 서버가 맡는 중).
+          #    읽기에 실패하거나 값이 없으면 지금까지처럼 계속 돈다(실패해도 수집이 멈추지 않는 쪽). 되돌리기: host 를 'github' 로 → 시계(clock)가 매시간 부르는 회차가 사슬을 다시 시작.
+          # 읽기 실패는 3번(10초 간격) 다시 해 보고, 그래도 답이 없을 때만 「서버 아님」으로 본다(동시 수집 틈을 줄이되 읽기 장애로 수집이 멎지는 않게).
+          server_mode() {
+            [ -n "${SUPABASE_TRIAGE_TOKEN:-}" ] || return 1
+            local i out
+            for i in 1 2 3; do
+              out=$(curl -s -m 20 -X POST https://api.supabase.com/v1/projects/hycaqsqeogjtbscmzrtm/database/query \
+                -H "Authorization: Bearer $SUPABASE_TRIAGE_TOKEN" -H 'Content-Type: application/json' \
+                -d '{"query":"select payload->>'\''host'\'' as h from ops_status where id = '\''hotdeal-host'\''"}' 2>/dev/null) || out=""
+              case "$out" in
+                *'"h":"server"'*) return 0;;
+                *'"h":'*|'[]') return 1;;
+              esac
+              sleep 10
+            done
+            return 1
+          }
+          if server_mode; then echo "서버가 핫딜을 맡는 중(ops_status hotdeal-host) — 이 회차는 수집하지 않고 끝낸다"; : > /tmp/hd_server_mode; exit 0; fi
           end=$(( $(date +%s) + 320*60 ))
           n=0
           while :; do
@@ -53,11 +72,17 @@ jobs:
             echo "=== 회차 $n · $(TZ=Asia/Seoul date '+%m-%d %H:%M') KST ==="
             timeout 600 python3 tools/daily/baby_hotdeal_auto.py || echo "회차 $n 실패 — 다음 회차는 계속"
             [ $(( $(date +%s) + 900 )) -ge $end ] && break
-            sleep 900
+            # 15분 쉬되 1분마다 서버가 맡았는지 본다(맡았으면 바로 끝냄)
+            for i in $(seq 15); do
+              sleep 60
+              if server_mode; then echo "서버가 핫딜을 맡았다 — 사슬을 끝낸다"; : > /tmp/hd_server_mode; break 2; fi
+            done
           done
           echo "총 $n 회차"
       - name: 다음 회차 깨우기(사슬 잇기)
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run hotdeal-cloud.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
+        run: |
+          if [ -f /tmp/hd_server_mode ]; then echo "서버가 맡는 중 — 사슬을 잇지 않는다(시계가 매시간 부르는 회차가 서버 담당이 끝나면 다시 시작)"; exit 0; fi
+          gh workflow run hotdeal-cloud.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
