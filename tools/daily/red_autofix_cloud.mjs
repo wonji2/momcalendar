@@ -186,6 +186,8 @@ function main() {
   const r = run(CLAUDE, ['-p', prompt(pick), '--model', 'sonnet', '--strict-mcp-config', '--permission-mode', 'dontAsk', '--allowedTools', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'Bash'], { timeout: TRY_MIN * 60e3, env: { ...process.env, RED_AUTOFIX_CHILD: '1' } });
   const out = String(r.stdout || '') + (r.error ? `\n[실행 오류] ${r.error.message}` : '');
   const j = lastJson(out) || { fixed: false, cause: '결과 JSON 없음', change: '', verify: '', need_human: '' };
+  // 원인을 못 확정한 말투면 「고침」이 아니라 확인 필요로 낮춘다(규칙 0-Q — 재현 안 됨·일시 실패·로그 없음은 닫는 사유가 아니다, 2026-11-26 비서실장 승인)
+  if (j.fixed && /(일시\s*(적|실패|장애)|확정(하지|할 수|은)|못 찾|찾지 못|알 수 없|추정|가능성|로그[^.]{0,14}(없|남아 있지 않)|재현(이|은)?\s*(안|되지)|지금은 (정상|괜찮))/.test(String(j.cause || ''))) { j.fixed = false; j.unsure = true; j.need_human = [j.need_human, '원인 미확정 — 「고침」이 아니라 확인 필요(증거 수집 필요)'].filter(Boolean).join(' · '); }
   const ship = pick.src === 'alert' ? holdForReview(pick) : gateAndShip(pick);   // 경보 출처 수리는 커밋·push·함수 배포 없이 「수정본 준비됨 · 배포 대기」 로만 남긴다(경보 글이 수리기의 입력이 되는 면이 넓어져서 — 검증자 2026-11-26)
   if (!ship.shipped && !ship.held && ship.why !== '바뀐 파일 없음') j.need_human = [j.need_human, `자동 검사에서 버림: ${ship.why}`].filter(Boolean).join(' · ');
   v.result = { at: now16(), mins: Math.round((Date.now() - t0) / 60000), ...j, shipped: ship.shipped, sha: ship.sha || '' };
