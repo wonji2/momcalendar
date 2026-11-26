@@ -135,7 +135,9 @@ export function auditJobs(jobs, hours, now = Date.now()) {
         const hit = mine.filter((m) => m.t >= s - 90e3 && m.t < Math.min(next - 90e3, s + 3 * 3600e3));
         const lag = hit.length ? (Math.min(...hit.map((h) => h.t)) - s) / 60e3 : null;
         const tag = j.name + ' ' + new Date(s).toISOString().slice(5, 16) + 'Z';
-        if (hit.length > 1) res.dup.push(tag + ' ×' + hit.length);
+        // 2026-11-27: 중복은 「같은 회차 부름이 25분 안에 둘」일 때만 센다. 길게(3시간) 보면 자기 사슬을 잇는 workflow_dispatch(hotdeal-cloud 345분 사슬·live-watch 재시작)가 섞여 거짓 경보가 났다(11-25 23:08Z·11-26 14:25Z).
+        const near = hit.filter((m) => m.t < s + 25 * 60e3);
+        if (near.length > 1) res.dup.push(tag + ' ×' + near.length);
         else if (!hit.length) res.missing.push(tag);
         else if (lag > 20) res.late.push(tag + ' +' + Math.round(lag) + '분');
         else res.ok++;
