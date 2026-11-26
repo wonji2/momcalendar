@@ -35,6 +35,20 @@ for f in $(find banners -maxdepth 1 -type f \( -iname 'banner_*.jpg' -o -iname '
   if [ -f "banners/v/${b}-420.webp" ]; then echo "배너 원본 150KB 초과(파생본 있음, 화면은 파생본): $f"; else echo "::warning::150KB 넘는 배너에 파생본이 없다: $f — node tools/img/make_banner_variants.mjs (깃허브 banner-variants.yml 이 자동으로 만든다)"; fi
 done
 
+# 2026-11-26 사장님 「수집프로그램 서버설정 비공개로」: 수집·자동화·서버 설정 코드는 비공개 저장소(wonji2/momcal-code)로 옮기는 중이다.
+#   공개 저장소에 새로 올라오면 막는다 — supabase/ 는 한 파일도 안 되고, tools/·scripts/ 는 tools/public_allowlist.txt(옮기는 동안 남은 목록)에 없는 파일이 있으면 실패.
+#   이미 올라간 파일을 줄이는 것(목록 안의 파일 삭제)은 늘 통과한다. 옮기는 방법 = 메모리 code-private-repo / 결과 문서 public_repo_slim_2026-11-26.md
+if [ -f tools/public_allowlist.txt ]; then
+  LEAK=$(git ls-files supabase scripts tools 2>/dev/null | grep -v -x -F -f tools/public_allowlist.txt || true)
+  if [ -n "$LEAK" ]; then
+    echo "::error::수집·자동화·서버 설정 파일이 공개 저장소에 새로 올라왔다(비공개 momcal-code 로 가야 한다):"
+    echo "$LEAK" | head -20 | sed 's/^/   · /'
+    FAIL=1
+  fi
+else
+  bad "tools/public_allowlist.txt 가 없다 — 공개 저장소 누출 검사를 못 한다"
+fi
+
 echo "추적 파일 $N · index.html ${SZ}B · 워크플로 $W개 · 사이트 ${MB}MB"
 if [ "$FAIL" = 0 ]; then
   echo "=== 통과: 올려도 되는 판"
