@@ -3469,9 +3469,17 @@ function buildHotTags(){
   }catch(_){ el.style.display='none'; }
 }
 // 검색결과 화면 상단(카드 위)에도 같은 칩 줄 — 결과 보다가 딴 브랜드도 생각 없이 눌러보게 (사장님 제안 2026-08-31)
-function hotTagChipsHtml(cur){
+//    🔴 결과가 있을 땐 검색어와 이어진 태그만 (오더 2026-11-27 작업3 — 「어그」 결과 위에 무관한 #데코아르… 40개가 떴다). 이어진 태그가 0개면 줄째 숨긴다.
+//       결과 0건 화면은 이 줄이 유일한 추천이라(2026-11-25 토스형 0건 화면) 그대로 40개를 둔다.
+function hotTagChipsHtml(cur, hasResult){
   if(_hotTags.length<3) return '';
-  return `<div class="hot-tag-row" style="padding:2px 0 12px">${_hotTags.map(m=>
+  let tags=_hotTags;
+  if(cur && hasResult){
+    const nq=String(cur).toLowerCase().replace(/[^가-힣a-z0-9]/g,'');
+    tags=nq?_hotTags.filter(t=>{ const nt=String(t).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); return nt&&(nt.includes(nq)||nq.includes(nt)); }):[];
+    if(!tags.length) return '';
+  }
+  return `<div class="hot-tag-row" style="padding:2px 0 12px">${tags.map(m=>
     `<button class="hot-tag${m===cur?' on':''}" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('')}</div>`;
 }
 
@@ -3645,6 +3653,26 @@ async function loadDenyDb(){
   }catch(_){ _denyDb = []; }   // 못 읽으면 제외를 안 한다 — 검색 자체는 그대로 된다
   return _denyDb;
 }
+// 🔴 낱말 안쪽 일치 막기 (오더 2026-11-27 작업3): 「어그」에 「헤어그로스」가 걸렸다.
+//    두 글자 이하 검색어는 낱말의 앞·뒤·전체가 맞을 때만 인정한다(에버어그·어그부츠는 살고 헤어그로스는 빠진다).
+//    세 글자 이상은 예전처럼 부분일치 — 기저귀·삼다수 같은 말은 「하기스기저귀팬티」 안쪽에서도 찾아야 한다.
+//    낱말 = 띄어쓰기·기호로 나눈 조각 + 그 조각을 영문↔한글 경계에서 한 번 더 나눈 조각(호주UGG어그 → 호주·ugg·어그).
+function _qTokens(s){
+  const base = String(s||'').toLowerCase().split(/[^가-힣a-z0-9]+/).filter(Boolean);
+  const out = new Set(base);
+  base.forEach(t=>t.replace(/([a-z])([가-힣])/g,'$1 $2').replace(/([가-힣])([a-z])/g,'$1 $2').split(' ').forEach(x=>x&&out.add(x)));   // ⚠ lookbehind 는 옛 아이폰 사파리에서 스크립트 전체가 깨져 안 쓴다
+  return [...out];
+}
+function qShort(qn){ return [...String(qn||'')].length<=2; }
+//    낱말 안쪽이라도 앞에 두 글자 이상 덩어리가 있으면 합성어로 본다(젖병+소독기·회전+책장·이유식+큐브보관함은 산다).
+//    앞이 한 글자뿐이면 낱말을 쪼갠 것이다(헤+어그로스·매+트리스·스+칼프는 빠진다). 실측 30일 검색어 500개로 맞춤.
+function qEdgeHit(s, qn){
+  return _qTokens(s).some(t=>{
+    if(t.startsWith(qn)||t.endsWith(qn)) return true;
+    for(let i=t.indexOf(qn,1); i>0; i=t.indexOf(qn,i+1)){ if([...t.slice(0,i)].length>=2) return true; }
+    return false;
+  });
+}
 // 손님이 친 말로 이 상품을 빼야 하나
 function denyHit(q, ...vals){
   const t = String(q||'').trim().toLowerCase(); if(!t || !(_denyDb||[]).length) return false;
@@ -3683,7 +3711,8 @@ function getFiltered(dateStr){
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
             const qn=q.replace(/\s+/g,'');
-            if(s.includes(q)||sn.includes(qn)) return true;   // ① 통째로 들어있으면 바로
+            if(qShort(qn)){ if(qEdgeHit(s,qn)) return true; }   // ⓪ 두 글자 이하는 낱말 앞·뒤·전체만 (2026-11-27)
+            else if(s.includes(q)||sn.includes(qn)) return true;   // ① 통째로 들어있으면 바로
             // ② 낱말을 띄엄띄엄 기억한 경우 — 모든 낱말이 들어있으면 잡는다 (2026-09-01)
             //    "알텐바흐 냄비" 로 "알텐바흐 저압냄비 3종" 을 찾을 수 있어야 한다.
             //    ⚠ 낱말이 2개 이상일 때만 쓴다. 한 낱말이면 ①과 같아 무의미하고,
@@ -4165,7 +4194,7 @@ async function renderSearchAll(){
   // 🔴 핫딜·체험단 섹션도 별칭 확장(expandQuery) + 띄어쓰기 무시를 태운다 (2026-08-24 — 공구만 되고 있었다)
   const _qs=expandQuery(q).map(x=>x.replace(/\s+/g,''));
   // 🚫 「다른 브랜드」 는 핫딜·체험단 섹션에서도 뺀다 — 공구만 막으면 오이코스 핫딜이 들어올 때 다시 샌다 (2026-09-21)
-  const hit=(...vals)=>!denyHit(q, ...vals) && vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
+  const hit=(...vals)=>!denyHit(q, ...vals) && vals.some(v=>{const raw=(v||'').toString().toLowerCase(), s=raw.replace(/\s+/g,''); return _qs.some(x=>qShort(x)?qEdgeHit(raw,x):s.includes(x));});   // 두 글자 이하는 낱말 앞·뒤·전체만(2026-11-27)
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && Number(h.price)>0 && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
   const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
@@ -4299,7 +4328,7 @@ async function renderSearchAll(){
     </div>
   `;
 
-  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (total ? catTabsHtml + meta + html + backHome : zeroHtml);
+  el.innerHTML = hotTagChipsHtml((fSearch||'').trim(), !!total) + (total ? catTabsHtml + meta + html + backHome : zeroHtml);
   paintHearts();
   if(!total) showPastResults((fSearch||'').trim());
 }
