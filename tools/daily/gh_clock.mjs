@@ -98,7 +98,8 @@ function seen(job, slot) {
     for (let page = 1; page <= 5; page++) {
       const q = `repos/${REPO}/actions/workflows/${job.wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(slot - 90e3).toISOString().slice(0, 19)}Z`;
       const runs = JSON.parse(ghApi(q)).workflow_runs || [];
-      if (runs.some((r) => !job.c || String(r.display_title || '').includes(job.c))) return true;
+      // push·pull_request 로 시작한 실행은 「그 회차의 예약 실행」이 아니다(repo-guard 는 push 때도 돈다 — 11-26 02:10Z·23:30Z 가 회차 직전 push 실행을 보고 「이미 있음」으로 건너뛰어 정말로 빠졌다)
+      if (runs.some((r) => !['push', 'pull_request'].includes(r.event) && (!job.c || String(r.display_title || '').includes(job.c)))) return true;
       if (runs.length < 100) return false;
     }
     return false;
