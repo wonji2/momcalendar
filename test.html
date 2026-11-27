@@ -3660,47 +3660,113 @@ function denyHit(q, ...vals){
   const bad = _denyDb.filter(p=>p[0]===t).map(p=>p[1]); if(!bad.length) return false;
   return vals.some(v=>{ const x=String(v||'').toLowerCase(); return bad.some(b=>x.includes(b)); });
 }
-// ── 🔎 낱말 단위 검색 (2026-11-27 · 오더 ORDER_MOMCAL_CHECK 작업3 · 설계서 scratchpad/designs/2026-11-27_검색_낱말단위.md) ──
-//   「어그」에 「헤어그로스」가 걸렸다(글자 부분일치). 낱말 경계를 가로지른 일치만 뺀다 — 지우는 데는 증거 두 가지가 필요하다.
-//   ① 구조: 남는 앞·뒤 조각이 둘 다 상품명 낱말로 안 쪼개지고, 검색어 경계를 가로지르는 사전 낱말이 있다(헤어그로스 안의 「헤어」)
-//   ② 분류: 같은 검색의 깨끗한 결과들의 대분류에 그 상품의 대분류가 하나도 없다(어그=패션 ↔ 헤어그로스=뷰티)
-//   글자 수 기준은 어디에도 없다(사장님 2026-10-14). 옛 판이 찾은 것 중에서만 빼고, 순서는 안 바꾼다. 사전이 없으면 옛 판 그대로.
-//   사전 = 승인된 공구 이름 + 핫딜 제목의 낱말 중 서로 다른 이름 3개 이상(DB search_words_get, 매일 04:50 갱신 · alias_collide_learn ⑧ 과 같은 기준)
+// ── 🔎 낱말 단위 검색 2판 (2026-11-27 사장님 「당근 배민 네이버처럼 · 지금 바꿔」 · 설계서 scratchpad/designs/2026-11-27_검색_낱말색인.md) ──
+//   상품명 낱말을 사전으로 쪼갠다(사전 밖 조각은 한 덩어리 · 사전 합성어는 끝까지 푼다: 크리스마스트리 → 크리스마스|트리).
+//   검색어는 「쪼갠 낱말의 시작」(앞머리 일치·붙여 쓴 말 포함) 또는 「낱말 끝」(에버어그·딸기우유)에서만 맞는다.
+//   낱말 한가운데를 가로지른 일치(트리↛매트리스 · 어그↛헤어그로스 · 우유↛한우 유아)는 뺀다.
+//   사전 밖 조각 사이에 낀 섬(하스카프베리의 「스카프」)·통째 한 낱말 한가운데(공기청정기의 「청정」)는 애매 → 같은 검색의 깨끗한 결과와 대분류가 같을 때만 남긴다.
+//   글자 수 기준은 어디에도 없다(사장님 2026-10-14). 옛 판이 찾은 것 중에서만 빼고 순서는 안 바꾼다. 사전이 없으면 옛 판 그대로.
+//   같은 판정이 카톡 챗봇(kakao-skill)에도 들어 있다 — 고치면 둘 다(시험 momcal-code tools/daily/search_match_test.mjs 가 대조).
+//   사전 = 승인된 공구 이름 + 핫딜 제목의 낱말 중 서로 다른 이름 3개 이상(DB search_words_get, 매일 04:50 갱신)
 let _wdict = null, _wdictMemo = new Map(), _wdictBusy = false, _wdictTries = 0;
 const WS_JOSA = new Set(['의','은','는','이','가','을','를','에','로','와','과','도','만','랑','판','s','엔','에서','으로']);
 const WS_OK = /^[가-힣a-z0-9]+$/;   // 이 글자만으로 된 검색어만 새 판정(기호·자모·이모지는 옛 판)
 function _wsToks(s){ return String(s||'').toLowerCase().split(/[^가-힣a-z0-9]+/).filter(Boolean); }
-function _wsBreak(str, tail){   // str 이 사전 낱말로 빈틈없이 쪼개지나(끝은 조사 허용, 숫자 조각은 낱말로 침)
-  if(!str) return true; const k=str+'|'+(tail?1:0); const m=_wdictMemo.get(k); if(m!==undefined) return m;
-  let ok=/^[0-9]+$/.test(str);
-  for(let i=1;i<=str.length&&!ok;i++){ const h=str.slice(0,i), r=str.slice(i);
-    ok=((_wdict.has(h)||/^[0-9]+$/.test(h))&&_wsBreak(r,tail)) || (tail&&!r&&WS_JOSA.has(h)); }
-  if(_wdictMemo.size>20000) _wdictMemo.clear();
-  _wdictMemo.set(k,ok); return ok;
+function _wsKn(w){ return _wdict.has(w) || /^[0-9]+$/.test(w); }
+// 사전에서 가장 긴 낱말 길이(숫자 조각 제외) — 쪼개기 계산을 이 범위 안에서만 한다(결과는 같고, 아주 긴 이름에도 느려지지 않게 — Codex 지적)
+function _wsMaxLen(){ return _wsMemo('M|', ()=>{ let m=1; _wdict.forEach(w=>{ if(w.length>m) m=w.length; }); return m; }); }
+function _wsKnAt(t,i,j){ return (j-i<=_wsMaxLen() && _wdict.has(t.slice(i,j))) || /^[0-9]+$/.test(t.slice(i,j)); }
+function _wsMemo(k, f){ let v=_wdictMemo.get(k); if(v===undefined){ if(_wdictMemo.size>40000) _wdictMemo.clear(); v=f(); _wdictMemo.set(k, v); } return v; }
+// str 을 사전 낱말(+검색어 q)로 빈틈없이 쪼갤 수 있나. tail: 끝에 조사 하나 허용
+function _wsBreak(str, q, tail){
+  if(!str) return true;
+  return _wsMemo('b|'+str+'|'+(q||'')+'|'+(tail?1:0), ()=>{   // 뒤에서부터 채우는 반복(재귀 없음 — 아주 긴 이름에도 스택이 안 넘친다, Codex 지적)
+    const n=str.length, ok=new Array(n+1).fill(false), L=Math.max(_wsMaxLen(), q?q.length:0, 2); ok[n]=true;
+    for(let i=n-1;i>=0;i--){
+      if(/[0-9]/.test(str[i])){ let j=i; while(j<n && /[0-9]/.test(str[j])) j++; if(ok[j]) { ok[i]=true; continue; } }   // 숫자 조각은 통째 한 낱말
+      for(let j=i+1;j<=n && j-i<=L && !ok[i];j++){ const h=str.slice(i,j);
+        if(((_wsKnAt(str,i,j)||h===q) && ok[j]) || (tail && j===n && WS_JOSA.has(h))) ok[i]=true; } }
+    return ok[0]; });
 }
-// 낱말 t 의 x 자리(검색어의 앞 경계 또는 뒤 경계)를 사전 낱말이 「가로지르나」. 검색어를 통째로 품은 낱말(마사지기 ⊃ 마사지)은 증거가 아니다(2차 검토)
-//   앞 경계: 검색어 앞에서 시작해 검색어 안에서 끝나는 낱말(헤어그로스의 「헤어」) — b < qe
-//   뒤 경계: 검색어 안에서 시작해 검색어 뒤에서 끝나는 낱말(유어그린의 「그린」) — a > qs
-function _wsStraddle(t, x, qs, qe){ for(let a=0;a<x;a++) for(let b=x+1;b<=t.length;b++) if((qs<0||a>qs) && b<qe && _wdict.has(t.slice(a,b))) return true; return false; }
-// 이름 v 안의 검색어 qn 일치가 깨끗한가(true) 낱말을 가로지른 의심인가(false). 못 재면 true(옛 판)
-function wsCleanHit(v, qn){
-  if(!_wdict || !WS_OK.test(qn)) return true;
-  const toks=_wsToks(v); if(!toks.length) return true;
+// 사전 낱말 w 를 2조각 이상 사전 낱말로 나누는 가장 적은 조각 수의 나눔(없으면 null)
+function _wsSplitWord(w){
+  return _wsMemo('s|'+w, ()=>{
+    const n=w.length, L=_wsMaxLen(), best=new Array(n+1).fill(1e9), from=new Array(n+1); best[0]=0;
+    for(let i=1;i<=n;i++) for(let j=Math.max(0,i-L);j<i;j++){ if(best[j]<1e9 && !(j===0 && i===n) && _wsKnAt(w,j,i) && best[j]+1<best[i]){ best[i]=best[j]+1; from[i]=j; } }
+    if(best[n]>=1e9) return null; const r=[]; for(let e=n;e>0;e=from[e]) r.unshift(w.slice(from[e],e)); return r; });
+}
+// 낱말 t 의 쪼갬 [{s,e,known}] — 사전 밖 글자가 가장 적게, 그다음 조각이 가장 적게(사전 밖 연속 글자는 한 조각)
+function _wsSeg(t){
+  return _wsMemo('g|'+t, ()=>{
+    // 끝이 아는 낱말(K)·모르는 글자(U)인 두 상태로 따로 기억한다. 모르는 글자가 가장 적은 쪽, 같으면 조각이 적은 쪽(글자 수 문턱 없음 — 검증 지적). 모르는 글자는 이어 붙이면 조각이 안 는다
+    const n=t.length, L=_wsMaxLen(), INF=1e9, K=[], U=[];
+    K[0]={v:0,c:0,p:null}; U[0]={v:INF,c:0,p:null};
+    const better=(a,b)=>a.v<b.v || (a.v===b.v && a.c<b.c);
+    for(let i=1;i<=n;i++){
+      let bk={v:INF,c:0,p:null};
+      let j0=Math.max(0,i-L); if(/[0-9]/.test(t[i-1])){ let k=i; while(k>0 && /[0-9]/.test(t[k-1])) k--; if(k<j0) j0=k; }   // 숫자 조각은 길어도 한 낱말
+      for(let j=j0;j<i;j++){ if(!_wsKnAt(t,j,i)) continue;
+        for(const [st,tag] of [[K[j],'K'],[U[j],'U']]){ if(st.v>=INF) continue; const c={v:st.v,c:st.c+1,p:[j,tag]}; if(better(c,bk)) bk=c; } }
+      let bu={v:INF,c:0,p:null};
+      if(U[i-1].v<INF){ const c={v:U[i-1].v+1,c:U[i-1].c,p:[i-1,'U']}; if(better(c,bu)) bu=c; }
+      if(K[i-1].v<INF){ const c={v:K[i-1].v+1,c:K[i-1].c+1,p:[i-1,'K']}; if(better(c,bu)) bu=c; }
+      K[i]=bk; U[i]=bu;
+    }
+    const segs=[]; let i=n, tag=better(U[n],K[n])?'U':'K';
+    while(i>0){ const st=(tag==='K'?K:U)[i]; const [j,pt]=st.p; segs.unshift({s:j, e:i, known:tag==='K'}); i=j; tag=pt; }
+    const out=[]; for(const g of segs){ const L2=out[out.length-1]; if(L2 && !L2.known && !g.known) L2.e=g.e; else out.push({s:g.s, e:g.e, known:g.known}); }
+    return out; });
+}
+// 낱말 t 안 경계: strong = 사전 낱말 옆(합성어 풀기 포함), weak = 사전 밖 조각 사이에 낀 사전 낱말(섬)의 경계
+function _wsBounds(t){
+  return _wsMemo('B|'+t, ()=>{
+    const segs=_wsSeg(t), strong={0:1}, weak={};
+    segs.forEach((g,i)=>{
+      const island=g.known && i>0 && !segs[i-1].known && i<segs.length-1 && !segs[i+1].known;
+      (island?weak:strong)[g.s]=1;
+      if(g.known){ const st=[[t.slice(g.s,g.e), g.s]];
+        while(st.length){ const [w,o0]=st.pop(), parts=_wsSplitWord(w); if(!parts) continue; let o=o0;
+          parts.forEach((pt,k)=>{ if(k) (island?weak:strong)[o]=1; st.push([pt,o]); o+=pt.length; }); } }
+    });
+    return {strong, weak}; });
+}
+// t 안 p 자리를 가로지르는 사전 낱말이 있나(낱말 t 통째는 빼고)
+function _wsStraddle(t, p){ const L=_wsMaxLen(); for(let a=Math.max(0,p-L+1);a<p;a++) for(let b=p+1;b<=t.length && b-a<=L;b++){ if(a===0 && b===t.length) continue; if(_wdict.has(t.slice(a,b))) return true; } return false; }
+// 이름 v 안에서 검색어 낱말 qn 의 판정: 2 깨끗 · 1 애매(분류로 가른다) · 0 낱말을 가로지름 · -1 일치 없음(기호를 건넌 일치 등)
+function _wsJudge(v, qn){
+  const toks=_wsToks(v); if(!toks.length) return -1;
   const st=[]; let off=0, sn=''; for(const t of toks){ st.push(off); off+=t.length; sn+=t; } st.push(off);
-  let seen=false;
-  for(let p=sn.indexOf(qn); p>=0; p=sn.indexOf(qn,p+1)){
-    seen=true; const e=p+qn.length;
-    let i=0; while(st[i+1]<=p) i++; let j=i; while(st[j+1]<e) j++;
-    const ti=toks[i], tj=toks[j], pi=p-st[i], ej=e-st[j], L=ti.slice(0,pi), R=tj.slice(ej);
-    if(!L||!R) return true;                                   // 낱말 앞·뒤(또는 통째)에서 시작·끝(에버어그·어그부츠)
-    if(_wsBreak(L,false)||_wsBreak(R,true)) return true;      // 한쪽이라도 낱말로 쪼개짐(젖병+소독+기)
-    if(i===j && _wdict.has(ti)) return true;                  // 낱말 자체가 사전에 있는 합성어(공기청정기 ⊃ 청정) — 가로지른다고 볼 증거가 아니다(2차 검토)
-    const L_ok=!_wsStraddle(ti, pi, -1, i===j ? ej : Infinity);          // 앞 경계를 가로지르는 낱말이 없나
-    const R_ok=!_wsStraddle(tj, ej, i===j ? pi : -1, Infinity);          // 뒤 경계를 가로지르는 낱말이 없나
-    if(L_ok && R_ok) return true;                             // 가로지르는 사전 낱말이 없음 — 지울 증거 없음
+  let best=-1;
+  for(let p=sn.indexOf(qn); p>=0 && best<2; p=sn.indexOf(qn,p+1)){
+    const e=p+qn.length; let ti=0; while(st[ti+1]<=p) ti++;
+    const t=toks[ti], pi=p-st[ti], ei=e-st[ti], cross=e>st[ti+1], B=_wsBounds(t), segs=_wsSeg(t);
+    // p 를 품은 가장 작은 낱말 조각(합성어를 푼 뒤 — 재생크림 → 재생|크림)
+    const cuts=[...new Set([0,t.length].concat(Object.keys(B.strong).map(Number),Object.keys(B.weak).map(Number),segs.map(g=>g.e)))].sort((a,b)=>a-b);
+    let ua=0, ub=t.length; for(const c of cuts){ if(c<=pi) ua=c; else { ub=c; break; } }
+    const u={s:ua, e:ub, known:_wsKn(t.slice(ua,ub))}; let r;
+    if(B.strong[pi]) r=2;                                                     // 쪼갠 낱말의 시작(앞머리 일치·붙여 쓴 말)
+    else if(B.weak[pi]) r=1;                                                  // 사전 밖 조각 사이 섬(하스카프베리의 스카프)
+    else if(cross || (u.known && u.s<pi && ei>u.e && segs.some(g=>g.known && g.s<=u.s && ei<=g.e))) r=0;   // 낱말 사이, 또는 사전 합성어를 푼 안쪽 낱말 사이를 건너는 일치는 낱말 시작에서만(우유 ↛ 한우 유아 · 생크림 ↛ 재생크림 — 양조식초의 식초는 그대로)
+    else if(ei===t.length || (u && u.known && ei===u.e)) r=2;                 // 낱말 끝(에버어그·자색고구마·딸기우유)
+    else if(_wsBreak(t.slice(0,pi),null,false) || _wsBreak(t.slice(pi),qn,true)
+         || (u && u.known && (_wsBreak(t.slice(u.s,pi),null,false) || _wsBreak(t.slice(pi,u.e),qn,true)))) r=2;   // 앞이나 뒤가 사전 낱말로 빈틈없이(공기|청정 · 크림|바)
+    else if(u && u.known) r=(_wsStraddle(t.slice(u.s,u.e), pi-u.s) || B.strong[u.s]!==1 || (segs.length>1 && _wsStraddle(t,pi))) ? 0 : 1;   // 쪼개지는 낱말 한가운데(매트|리스) 0 · 통째 한 낱말 한가운데 1
+    else r=_wsStraddle(t,pi) ? 0 : 1;                                         // 사전 밖 조각 한가운데: 사전 낱말이 가로지르면 0(헤어그로스)
+    if(r>best) best=r;
   }
-  return !seen;   // 기호를 건넌 일치 등 여기서 못 찾으면 옛 판 그대로
+  return best;
 }
+// 이름 v 안 검색어 qn 일치의 판정(2 깨끗 · 1 애매 · 0 가로지름). 사전이 없거나 기호가 든 검색어·못 잰 일치는 2(옛 판)
+function wsVerdict(v, qn){
+  if(!_wdict || !WS_OK.test(qn)) return 2;
+  try{
+  let j=_wsJudge(v, qn);
+  if(j<2 && /[가-힣]/.test(qn)){ const parts=_wsSplitWord(qn);   // 붙여 쓴 검색어(식기모음전)는 사전 낱말로 나눠 낱말마다 맞춰 본다 — 나눠서 맞은 것은 애매(분류로 가른다: 생크림 ↛ 흉터 재생 크림 · 다운자켓 → 덕다운 자켓)
+    if(parts){ let m=1; for(const w of parts){ const k=_wsJudge(v,w); if(k<m) m=k; } if(m>j) j=m; } }
+  return j<0 ? 2 : j;
+  }catch(_){ return 2; }   // 판정이 어떤 이유로든 실패하면 옛 판(지우지 않는다)
+}
+function wsCleanHit(v, qn){ return wsVerdict(v, qn)===2; }
 // 의심 결과 중 깨끗한 결과들의 대분류에 있는 것만 살린다. 깨끗한 결과가 없으면 다 살린다(지울 증거 없음)
 function wsKeepSuspects(clean, sus, mjOf, extraMj){
   if(!sus.length) return [];
@@ -3759,7 +3825,7 @@ function getFiltered(dateStr){
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
             const qn=q.replace(/\s+/g,'');
-            if(s.includes(q)||sn.includes(qn)){ if(wsCleanHit(s,qn)) return true; susp=true; }   // ① 통째로 들어있으면 바로(낱말을 가로지른 것은 의심으로 두고 ②로)
+            if(s.includes(q)||sn.includes(qn)){ const v=wsVerdict(s,qn); if(v===2) return true; if(v===1) susp=true; }   // ① 통째로 들어있으면 바로(애매한 것은 의심으로 두고 ②로 · 낱말을 가로지른 것은 버림)
             // ② 낱말을 띄엄띄엄 기억한 경우 — 모든 낱말이 들어있으면 잡는다 (2026-09-01)
             //    "알텐바흐 냄비" 로 "알텐바흐 저압냄비 3종" 을 찾을 수 있어야 한다.
             //    ⚠ 낱말이 2개 이상일 때만 쓴다. 한 낱말이면 ①과 같아 무의미하고,
@@ -3767,8 +3833,8 @@ function getFiltered(dateStr){
             const SW1=['거','것','걸','게','요','좀','수','때','분','개','중','등','및','이','그','저'];
             const ws=q.split(/\s+/).filter(w=>w.length>=2||(w.length===1&&!SW1.includes(w)));
             if(!(ws.length>=2 && ws.every(w=>sn.includes(w)))) return false;
-            if(ws.every(w=>wsCleanHit(s,w))) return true;   // 🔎 낱말마다 같은 경계 검사(「헤어 어그」로 헤어그로스가 되살아나지 않게 — Codex 지적 2026-11-27)
-            susp=true; return false;
+            const v=Math.min(...ws.map(w=>wsVerdict(s,w))); if(v===2) return true;   // 🔎 낱말마다 같은 경계 검사(「헤어 어그」로 헤어그로스가 되살아나지 않게 — Codex 지적 2026-11-27)
+            if(v===1) susp=true; return false;
           });});
       if(!ok && susp) _sus.push(item);
       return ok;
@@ -4250,7 +4316,7 @@ async function renderSearchAll(){
   const hit=(...vals)=>!denyHit(q, ...vals) && vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
   // 🔎 핫딜·체험단도 낱말 경계를 가로지른 일치는 의심으로 두고, 깨끗한 결과(공구 포함)의 대분류에 없을 때만 뺀다 (2026-11-27). 순서는 그대로
-  const hitJ=(...vals)=>{ if(denyHit(q, ...vals)) return 0; let r=0; for(const v of vals){ const raw=(v||'').toString().toLowerCase(), s=raw.replace(/\s+/g,''); for(const x of _qs){ if(s.includes(x)){ if(wsCleanHit(raw,x)) return 1; r=2; } } } return r; };
+  const hitJ=(...vals)=>{ if(denyHit(q, ...vals)) return 0; let r=0; for(const v of vals){ const raw=(v||'').toString().toLowerCase(), s=raw.replace(/\s+/g,''); for(const x of _qs){ if(s.includes(x)){ const v=wsVerdict(raw,x); if(v===2) return 1; if(v===1) r=2; } } } return r; };
   const _hdA=(_hotdealData||[]).filter(h=>!hdExpired(h) && Number(h.price)>0 && hdFreshForSearch(h)).map(h=>[h,hitJ(h.title,h.major,h.minor)]).filter(x=>x[1]);
   const _exA=(_expData||[]).filter(e=>expStat(e)!==2).map(e=>[e,hitJ(e.title,e.major,e.minor,e.brand)]).filter(x=>x[1]);
   const _cl=a=>a.filter(x=>x[1]===1).map(x=>x[0]), _su=a=>a.filter(x=>x[1]===2).map(x=>x[0]);
