@@ -3640,17 +3640,25 @@ let _denyDb = null;
 async function loadDenyDb(){
   if(_denyDb) return _denyDb;
   try{
-    const c = JSON.parse(localStorage.getItem('mc_deny')||'null');
+    const c = JSON.parse(localStorage.getItem('mc_deny2')||'null');
     if(c && (Date.now()-c.ts) < 30*60e3 && Array.isArray(c.d)){ _denyDb = c.d; return _denyDb; }   // 별칭과 같은 30분
   }catch(_){}
   try{
-    const r = await fetch(SUPABASE_URL + '/rest/v1/bot_alias_deny?select=term,expand',
-      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
+    // 1,000행씩 쪽을 나눠 끝까지 받는다(표가 1,000행을 넘으면 한 번에 다 안 온다 — 검증 지적 2026-11-27, 기술 함정 9). 순서를 고정해 쪽 경계가 흔들리지 않게
+    let j = [], partial = false;
+    for(let off=0;;off+=1000){
+      let pg;
+      try{
+        const r = await fetch(SUPABASE_URL + '/rest/v1/bot_alias_deny?select=term,expand&order=term.asc,expand.asc&limit=1000&offset=' + off,
+          { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        pg = await r.json(); if(!Array.isArray(pg)) throw new Error('not array');   // 배열이 아닌 응답도 실패로 본다(Codex 지적)
+      }catch(e){ if(j.length){ partial = true; break; } throw e; }   // 둘째 쪽부터 실패(응답 오류·연결 실패·읽기 실패)하면 받은 데까지는 이번에만 쓰고 보관하지 않는다(검증·Codex 지적 — 다음에 다시 받음)
+      j = j.concat(pg); if(pg.length < 1000) break;
+    }
     _denyDb = (Array.isArray(j)?j:[]).map(x=>[String(x.term||'').toLowerCase(), String(x.expand||'').toLowerCase()])
       .filter(p=>p[0]&&p[1]);
-    try{ localStorage.setItem('mc_deny', JSON.stringify({ts:Date.now(), d:_denyDb})); }catch(_){}
+    if(!partial){ try{ localStorage.setItem('mc_deny2', JSON.stringify({ts:Date.now(), d:_denyDb})); }catch(_){} }
   }catch(_){ _denyDb = []; }   // 못 읽으면 제외를 안 한다 — 검색 자체는 그대로 된다
   return _denyDb;
 }
@@ -3668,7 +3676,7 @@ function denyHit(q, ...vals){
 //   글자 수 기준은 어디에도 없다(사장님 2026-10-14). 옛 판이 찾은 것 중에서만 빼고 순서는 안 바꾼다. 사전이 없으면 옛 판 그대로.
 //   같은 판정이 카톡 챗봇(kakao-skill)에도 들어 있다 — 고치면 둘 다(시험 momcal-code tools/daily/search_match_test.mjs 가 대조).
 //   사전 = 승인된 공구 이름 + 핫딜 제목의 낱말 중 서로 다른 이름 3개 이상(DB search_words_get, 매일 04:50 갱신)
-let _wdict = null, _wdictMemo = new Map(), _wdictBusy = false, _wdictTries = 0;
+let _wdict = null, _wdictMemo = new Map(), _wdictBusy = false, _wdictTries = 0, _wlex = null;   // _wlex = 넓힌 낱말(이름·제목·분류에 띄어 쓴 낱말) — 「다른 낱말의 일부」 확인에만
 const WS_JOSA = new Set(['의','은','는','이','가','을','를','에','로','와','과','도','만','랑','판','s','엔','에서','으로']);
 const WS_OK = /^[가-힣a-z0-9]+$/;   // 이 글자만으로 된 검색어만 새 판정(기호·자모·이모지는 옛 판)
 function _wsToks(s){ return String(s||'').toLowerCase().split(/[^가-힣a-z0-9]+/).filter(Boolean); }
@@ -3731,7 +3739,9 @@ function _wsBounds(t){
     return {strong, weak}; });
 }
 // t 안 p 자리를 가로지르는 사전 낱말이 있나(낱말 t 통째는 빼고)
-function _wsStraddle(t, p){ const L=_wsMaxLen(); for(let a=Math.max(0,p-L+1);a<p;a++) for(let b=p+1;b<=t.length && b-a<=L;b++){ if(a===0 && b===t.length) continue; if(_wdict.has(t.slice(a,b))) return true; } return false; }
+// t 안 p 자리를 가로지르는 낱말(사전 낱말 또는 넓힌 낱말)이 있나 — 낱말 t 통째는 빼고. 이것이 「다른 낱말의 일부」라는 확인이다
+function _wsLexMax(){ return _wsMemo('LM|', ()=>{ let m=1; if(_wlex) _wlex.forEach(w=>{ if(w.length>m) m=w.length; }); return Math.max(m, _wsMaxLen()); }); }
+function _wsStraddle(t, p){ const L=_wsLexMax(); for(let a=Math.max(0,p-L+1);a<p;a++) for(let b=p+1;b<=t.length && b-a<=L;b++){ if(a===0 && b===t.length) continue; const x=t.slice(a,b); if(_wdict.has(x) || (_wlex && _wlex.has(x))) return true; } return false; }
 // 이름 v 안에서 검색어 낱말 qn 의 판정: 2 깨끗 · 1 애매(분류로 가른다) · 0 낱말을 가로지름 · -1 일치 없음(기호를 건넌 일치 등)
 function _wsJudge(v, qn){
   const toks=_wsToks(v); if(!toks.length) return -1;
@@ -3760,10 +3770,10 @@ function _wsJudge(v, qn){
 function wsVerdict(v, qn){
   if(!_wdict || !WS_OK.test(qn)) return 2;
   try{
-  let j=_wsJudge(v, qn);
+  let j=_wsJudge(v, qn);   // 1(애매 — 사전으로 다른 낱말의 일부라고 확인 안 됨)은 남긴다(비서실장 2026-11-27 「모르면 남긴다」)
   if(j<2 && /[가-힣]/.test(qn)){ const parts=_wsSplitWord(qn);   // 붙여 쓴 검색어(식기모음전)는 사전 낱말로 나눠 낱말마다 맞춰 본다 — 나눠서 맞은 것은 애매(분류로 가른다: 생크림 ↛ 흉터 재생 크림 · 다운자켓 → 덕다운 자켓)
-    if(parts){ let m=1; for(const w of parts){ const k=_wsJudge(v,w); if(k<m) m=k; } if(m>j) j=m; } }
-  return j<0 ? 2 : j;
+    if(parts){ let m=2; for(const w of parts){ const k=_wsJudge(v,w); if(k<m) m=k; } if(m===2) j=2; } }   // 나눈 낱말이 전부 깨끗하게 맞을 때만
+  return (j<0 || j===1) ? 2 : j;
   }catch(_){ return 2; }   // 판정이 어떤 이유로든 실패하면 옛 판(지우지 않는다)
 }
 function wsCleanHit(v, qn){ return wsVerdict(v, qn)===2; }
@@ -3831,13 +3841,13 @@ async function loadWordDict(){
   _wdictBusy=true; _wdictTries++;
   const use=(d)=>{ const ws=String(d&&d.words||'').split('\n').filter(Boolean);
     if(!d || !d.enabled || !(d.n>=1000) || ws.length!==d.n) return false;
-    _wdict=new Set(ws); _wdictMemo=new Map(); _wsHeadMemo={}; return true; };
+    _wdict=new Set(ws); _wlex=new Set(String(d.lex||'').split('\n').filter(Boolean)); _wdictMemo=new Map(); _wsHeadMemo={}; return true; };
   try{
-    try{ const c=JSON.parse(localStorage.getItem('mc_wdict_v1')||'null'); if(c && (Date.now()-c.ts)<6*3600e3 && use(c.d)){ _wdictBusy=false; return; } }catch(_){}
+    try{ const c=JSON.parse(localStorage.getItem('mc_wdict_v2')||localStorage.getItem('mc_wdict_v1')||'null'); if(c && (Date.now()-c.ts)<6*3600e3 && use(c.d)){ _wdictBusy=false; return; } }catch(_){}   // 예전 보관본 mc_wdict_v1(넓힌 낱말 없음)도 6시간 안이면 쓴다 — Codex 지적
     const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/search_words_get', { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
     if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json();
-    if(use(d)){ try{ localStorage.setItem('mc_wdict_v1', JSON.stringify({ts:Date.now(), d})); }catch(_){}   // 용량이 차도 메모리로는 쓴다
+    if(use(d)){ try{ localStorage.setItem('mc_wdict_v2', JSON.stringify({ts:Date.now(), d})); localStorage.removeItem('mc_wdict_v1'); }catch(_){}   // 용량이 차도 메모리로는 쓴다
       if(typeof searchAllOn==='function' && searchAllOn()){ try{ renderSearchAll(); }catch(_){} } }   // 검색 중에 도착하면 한 번 다시 그린다(스크롤 이동 없음)
     else if(d && d.enabled===false){ _wdictTries=3; }   // 꺼짐 스위치 — 이 페이지에선 다시 묻지 않는다
   }catch(_){}   // 실패해도 옛 검색 그대로
