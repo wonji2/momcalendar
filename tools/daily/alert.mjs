@@ -20,6 +20,10 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // ☁ 클라우드(깃허브 Actions · env MOMCAL_CLOUD=1): PC 알림 파일 대신 임시 파일에 적고, 부른 cloud_jobs.mjs 가 health_alerts(kind pc:<키>) 로 옮긴다. git 푸시는 하지 않는다 (2026-11-01)
 const CLOUD = !!process.env.MOMCAL_CLOUD;
 const FILE = CLOUD ? path.join(REPO, 'scratchpad', '_cloud_alerts.txt') : path.join(REPO, 'daily', '_alert.txt');
+// 🌐 2026-11-27: 사이트에서 실제로 열리는 거울 — 하위 폴더 .txt 는 라이브에 안 올라가(`/daily/_alert.txt` 404, .json 은 200) 웹으로 읽는 쪽이 생기면 늘 404 를 받는다. 같은 내용을 daily/alert.json({alerts:[{key,text}]}, 시각 없음 = 내용이 같으면 커밋 안 함)로도 올린다.
+//    기존 _alert.txt 는 그대로(읽는 쪽 make-today-card·ops_status_push·inquiry_triage 는 레포 파일을 직접 읽는다). 서빙 확인은 server http_5xx_probe 가 매번 한다.
+const JSONF = path.join(REPO, 'daily', 'alert.json');
+const toJson = (list) => JSON.stringify({ alerts: list.map((a) => ({ key: a.key, text: a.text })) }) + String.fromCharCode(10);
 const OPS = path.join(REPO, 'scratchpad', '_cloud_alert_ops.jsonl');
 const cloudOp = (op, key, text) => { if (!CLOUD) return; try { fs.mkdirSync(path.dirname(OPS), { recursive: true }); fs.appendFileSync(OPS, JSON.stringify({ op, key, text }) + '\n'); } catch {} };
 
@@ -33,6 +37,7 @@ export function readAlerts() {
 
 function write(list) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
+  if (!CLOUD) { try { fs.writeFileSync(JSONF, toJson(list), 'utf8'); } catch {} }
   if (!list.length) { try { fs.unlinkSync(FILE); } catch {} return; }
   fs.writeFileSync(FILE, list.map((a) => `${a.key}|${a.text}`).join('\n') + '\n', 'utf8');
 }
@@ -85,7 +90,9 @@ export function pushAlerts(note = '알림 갱신') {
     try { remote = run(['show', `${base}:daily/_alert.txt`]); } catch { remote = null; }
     let local = null;
     try { local = fs.readFileSync(FILE, 'utf8').trim(); } catch { local = null; }
-    if ((remote === null ? '' : remote.trim()) === (local === null ? '' : local)) return { ok: true, skipped: '바뀐 것 없음' };
+    let remoteJ = null; try { remoteJ = run(['show', `${base}:daily/alert.json`]); } catch { remoteJ = null; }
+    let localJ = null; try { localJ = fs.readFileSync(JSONF, 'utf8').trim(); } catch { localJ = null; }
+    if ((remote === null ? '' : remote.trim()) === (local === null ? '' : local) && (remoteJ === null ? '' : remoteJ.trim()) === (localJ === null ? '' : localJ)) return { ok: true, skipped: '바뀐 것 없음' };
 
     try { fs.unlinkSync(IDX); } catch {}
     const env = { GIT_INDEX_FILE: IDX };
@@ -96,6 +103,7 @@ export function pushAlerts(note = '알림 갱신') {
       const blob = run(['hash-object', '-w', '--', FILE]);
       run(['update-index', '--add', '--cacheinfo', `100644,${blob},daily/_alert.txt`], env);
     }
+    if (localJ !== null) { const blobJ = run(['hash-object', '-w', '--', JSONF]); run(['update-index', '--add', '--cacheinfo', `100644,${blobJ},daily/alert.json`], env); }
     const tree = run(['write-tree'], env);
     // 🔴 안전장치: 빚은 트리가 origin/main 보다 파일이 줄었으면 절대 올리지 않는다(파일 한두 칸만 바꾸는 커밋이다)
     //    2026-11-01 09:32 PC 재부팅 → 예약작업 70여 개가 한꺼번에 돌며 alert.mjs 의 공용 임시 인덱스를 서로 지워 파일 1개짜리 트리가 라이브로 나감(38,847개 삭제, cd3af9b5ef)
