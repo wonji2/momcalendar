@@ -114,7 +114,7 @@ function runsSince(wf, sinceMs) {
     for (let page = 1; page <= 5; page++) {
       const q = `repos/${REPO}/actions/workflows/${wf}.yml/runs?per_page=100&page=${page}&event=workflow_dispatch&created=%3E%3D${new Date(sinceMs).toISOString().slice(0, 19)}Z`;
       const runs = JSON.parse(ghApi(q)).workflow_runs || [];
-      out.push(...runs.map((r) => ({ t: Date.parse(r.created_at), title: String(r.display_title || '') })));
+      out.push(...runs.map((r) => ({ t: Date.parse(r.created_at), title: String(r.display_title || ''), cancelled: r.conclusion === 'cancelled' })));
       if (runs.length < 100) break;
     }
     return out;
@@ -137,7 +137,8 @@ export function auditJobs(jobs, hours, now = Date.now()) {
         const lag = hit.length ? (Math.min(...hit.map((h) => h.t)) - s) / 60e3 : null;
         const tag = j.name + ' ' + new Date(s).toISOString().slice(5, 16) + 'Z';
         // 2026-11-27: 중복은 「같은 회차 부름이 25분 안에 둘」일 때만 센다. 길게(3시간) 보면 자기 사슬을 잇는 workflow_dispatch(hotdeal-cloud 345분 사슬·live-watch 재시작)가 섞여 거짓 경보가 났다(11-25 23:08Z·11-26 14:25Z).
-        const near = hit.filter((m) => m.t < s + 25 * 60e3);
+        // 동시 실행 묶음(concurrency)이 대기 중인 부름을 취소한 것은 「두 번 돈 것」이 아니다(시계 부름 + 사슬이 스스로 건 다음 부름이 겹치면 하나는 취소로 끝난다 — 11-26 15:08Z·20:08Z·11-27 01:25Z)
+        const near = hit.filter((m) => m.t < s + 25 * 60e3 && !m.cancelled);
         if (near.length > 1) res.dup.push(tag + ' ×' + near.length);
         else if (!hit.length) res.missing.push(tag);
         else if (lag > 20) res.late.push(tag + ' +' + Math.round(lag) + '분');
