@@ -3469,9 +3469,18 @@ function buildHotTags(){
   }catch(_){ el.style.display='none'; }
 }
 // 검색결과 화면 상단(카드 위)에도 같은 칩 줄 — 결과 보다가 딴 브랜드도 생각 없이 눌러보게 (사장님 제안 2026-08-31)
-function hotTagChipsHtml(cur){
+//    🔴 결과가 있을 땐 검색어와 이어진 태그만 — 지시서 4-4 식 그대로: norm(태그)⊇norm(검색어) 또는 norm(검색어)⊇norm(태그) (오더 2026-11-27 작업3: 「어그」 위에 무관한 #데코아르… 40개).
+//       이어진 태그가 0개면 줄째 숨긴다. 결과 0건 화면은 이 줄이 유일한 추천이라(2026-11-25) 40개 그대로.
+function hotTagChipsHtml(cur, hasResult){
   if(_hotTags.length<3) return '';
-  return `<div class="hot-tag-row" style="padding:2px 0 12px">${_hotTags.map(m=>
+  let tags=_hotTags;
+  if(cur && hasResult){
+    const nz=x=>String(x||'').toLowerCase().replace(/[^가-힣a-z0-9]/g,'');
+    const nq=nz(cur);
+    tags=nq?_hotTags.filter(t=>{ const nt=nz(t); return nt && (nt.includes(nq)||nq.includes(nt)); }):[];
+    if(!tags.length) return '';
+  }
+  return `<div class="hot-tag-row" style="padding:2px 0 12px">${tags.map(m=>
     `<button class="hot-tag${m===cur?' on':''}" data-m="${m}" onclick="runSearch(this.dataset.m)">#${m}</button>`).join('')}</div>`;
 }
 
@@ -3651,6 +3660,71 @@ function denyHit(q, ...vals){
   const bad = _denyDb.filter(p=>p[0]===t).map(p=>p[1]); if(!bad.length) return false;
   return vals.some(v=>{ const x=String(v||'').toLowerCase(); return bad.some(b=>x.includes(b)); });
 }
+// ── 🔎 낱말 단위 검색 (2026-11-27 · 오더 ORDER_MOMCAL_CHECK 작업3 · 설계서 scratchpad/designs/2026-11-27_검색_낱말단위.md) ──
+//   「어그」에 「헤어그로스」가 걸렸다(글자 부분일치). 낱말 경계를 가로지른 일치만 뺀다 — 지우는 데는 증거 두 가지가 필요하다.
+//   ① 구조: 남는 앞·뒤 조각이 둘 다 상품명 낱말로 안 쪼개지고, 검색어 경계를 가로지르는 사전 낱말이 있다(헤어그로스 안의 「헤어」)
+//   ② 분류: 같은 검색의 깨끗한 결과들의 대분류에 그 상품의 대분류가 하나도 없다(어그=패션 ↔ 헤어그로스=뷰티)
+//   글자 수 기준은 어디에도 없다(사장님 2026-10-14). 옛 판이 찾은 것 중에서만 빼고, 순서는 안 바꾼다. 사전이 없으면 옛 판 그대로.
+//   사전 = 승인된 공구 이름 + 핫딜 제목의 낱말 중 서로 다른 이름 3개 이상(DB search_words_get, 매일 04:50 갱신 · alias_collide_learn ⑧ 과 같은 기준)
+let _wdict = null, _wdictMemo = new Map(), _wdictBusy = false, _wdictTries = 0;
+const WS_JOSA = new Set(['의','은','는','이','가','을','를','에','로','와','과','도','만','랑','판','s','엔','에서','으로']);
+const WS_OK = /^[가-힣a-z0-9]+$/;   // 이 글자만으로 된 검색어만 새 판정(기호·자모·이모지는 옛 판)
+function _wsToks(s){ return String(s||'').toLowerCase().split(/[^가-힣a-z0-9]+/).filter(Boolean); }
+function _wsBreak(str, tail){   // str 이 사전 낱말로 빈틈없이 쪼개지나(끝은 조사 허용, 숫자 조각은 낱말로 침)
+  if(!str) return true; const k=str+'|'+(tail?1:0); const m=_wdictMemo.get(k); if(m!==undefined) return m;
+  let ok=/^[0-9]+$/.test(str);
+  for(let i=1;i<=str.length&&!ok;i++){ const h=str.slice(0,i), r=str.slice(i);
+    ok=((_wdict.has(h)||/^[0-9]+$/.test(h))&&_wsBreak(r,tail)) || (tail&&!r&&WS_JOSA.has(h)); }
+  if(_wdictMemo.size>20000) _wdictMemo.clear();
+  _wdictMemo.set(k,ok); return ok;
+}
+// 낱말 t 의 x 자리(검색어의 앞 경계 또는 뒤 경계)를 사전 낱말이 「가로지르나」. 검색어를 통째로 품은 낱말(마사지기 ⊃ 마사지)은 증거가 아니다(2차 검토)
+//   앞 경계: 검색어 앞에서 시작해 검색어 안에서 끝나는 낱말(헤어그로스의 「헤어」) — b < qe
+//   뒤 경계: 검색어 안에서 시작해 검색어 뒤에서 끝나는 낱말(유어그린의 「그린」) — a > qs
+function _wsStraddle(t, x, qs, qe){ for(let a=0;a<x;a++) for(let b=x+1;b<=t.length;b++) if((qs<0||a>qs) && b<qe && _wdict.has(t.slice(a,b))) return true; return false; }
+// 이름 v 안의 검색어 qn 일치가 깨끗한가(true) 낱말을 가로지른 의심인가(false). 못 재면 true(옛 판)
+function wsCleanHit(v, qn){
+  if(!_wdict || !WS_OK.test(qn)) return true;
+  const toks=_wsToks(v); if(!toks.length) return true;
+  const st=[]; let off=0, sn=''; for(const t of toks){ st.push(off); off+=t.length; sn+=t; } st.push(off);
+  let seen=false;
+  for(let p=sn.indexOf(qn); p>=0; p=sn.indexOf(qn,p+1)){
+    seen=true; const e=p+qn.length;
+    let i=0; while(st[i+1]<=p) i++; let j=i; while(st[j+1]<e) j++;
+    const ti=toks[i], tj=toks[j], pi=p-st[i], ej=e-st[j], L=ti.slice(0,pi), R=tj.slice(ej);
+    if(!L||!R) return true;                                   // 낱말 앞·뒤(또는 통째)에서 시작·끝(에버어그·어그부츠)
+    if(_wsBreak(L,false)||_wsBreak(R,true)) return true;      // 한쪽이라도 낱말로 쪼개짐(젖병+소독+기)
+    if(i===j && _wdict.has(ti)) return true;                  // 낱말 자체가 사전에 있는 합성어(공기청정기 ⊃ 청정) — 가로지른다고 볼 증거가 아니다(2차 검토)
+    const L_ok=!_wsStraddle(ti, pi, -1, i===j ? ej : Infinity);          // 앞 경계를 가로지르는 낱말이 없나
+    const R_ok=!_wsStraddle(tj, ej, i===j ? pi : -1, Infinity);          // 뒤 경계를 가로지르는 낱말이 없나
+    if(L_ok && R_ok) return true;                             // 가로지르는 사전 낱말이 없음 — 지울 증거 없음
+  }
+  return !seen;   // 기호를 건넌 일치 등 여기서 못 찾으면 옛 판 그대로
+}
+// 의심 결과 중 깨끗한 결과들의 대분류에 있는 것만 살린다. 깨끗한 결과가 없으면 다 살린다(지울 증거 없음)
+function wsKeepSuspects(clean, sus, mjOf, extraMj){
+  if(!sus.length) return [];
+  const m=new Set(clean.map(mjOf).concat(extraMj||[]).filter(Boolean));
+  if(!m.size) return sus;
+  return sus.filter(x=>m.has(mjOf(x)||''));
+}
+async function loadWordDict(){
+  if(_wdict || _wdictBusy || _wdictTries>=3) return;
+  _wdictBusy=true; _wdictTries++;
+  const use=(d)=>{ const ws=String(d&&d.words||'').split('\n').filter(Boolean);
+    if(!d || !d.enabled || !(d.n>=1000) || ws.length!==d.n) return false;
+    _wdict=new Set(ws); _wdictMemo=new Map(); return true; };
+  try{
+    try{ const c=JSON.parse(localStorage.getItem('mc_wdict_v1')||'null'); if(c && (Date.now()-c.ts)<6*3600e3 && use(c.d)){ _wdictBusy=false; return; } }catch(_){}
+    const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/search_words_get', { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY } });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(use(d)){ try{ localStorage.setItem('mc_wdict_v1', JSON.stringify({ts:Date.now(), d})); }catch(_){}   // 용량이 차도 메모리로는 쓴다
+      if(typeof searchAllOn==='function' && searchAllOn()){ try{ renderSearchAll(); }catch(_){} } }   // 검색 중에 도착하면 한 번 다시 그린다(스크롤 이동 없음)
+    else if(d && d.enabled===false){ _wdictTries=3; }   // 꺼짐 스위치 — 이 페이지에선 다시 묻지 않는다
+  }catch(_){}   // 실패해도 옛 검색 그대로
+  _wdictBusy=false;
+}
 function expandQuery(q){
   const out=[q];
   const pairs = BRAND_ALIAS.concat(SEARCH_LINK).concat(_aliasDb||[]);
@@ -3672,27 +3746,35 @@ function getFiltered(dateStr){
   rebuildOwnItems();
   // 검색어 있으면 전체에서 검색
   if(fSearch){
-    return DATA.filter(item=>{
+    const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
+    const _sus=[];   // 🔎 낱말 경계를 가로지른 의심 일치(2026-11-27) — 아래에서 분류 증거까지 있을 때만 뺀다
+    const _clean = DATA.filter(item=>{
       if(isExpired(item))return false;
       if(denyHit(fSearch, item.name))return false;   // 🚫 「다른 브랜드」 는 빼고 보여준다 (2026-09-21)
       // 검색은 고른 분류와 상관없이 전체에서(2026-11-18)
-      const qs=expandQuery(fSearch.toLowerCase());   // 크렛 ↔ kret 같은 표기 차이를 흡수
       // 🔴 띄어쓰기 무시 (사장님 지적 2026-08-24): '뽀사카'→'뽀로로 사운드' 확장이
       //    붙여 쓴 "뽀로로사운드카드" 를 못 잡았다 → 양쪽에서 공백을 빼고도 비교한다.
-      return[item.name,item.major,item.minor]
+      let susp=false;
+      const ok=[item.name,item.major,item.minor]
         .some(v=>{const s=(v||'').toLowerCase(); const sn=s.replace(/\s+/g,'');
           return qs.some(q=>{
             const qn=q.replace(/\s+/g,'');
-            if(s.includes(q)||sn.includes(qn)) return true;   // ① 통째로 들어있으면 바로
+            if(s.includes(q)||sn.includes(qn)){ if(wsCleanHit(s,qn)) return true; susp=true; }   // ① 통째로 들어있으면 바로(낱말을 가로지른 것은 의심으로 두고 ②로)
             // ② 낱말을 띄엄띄엄 기억한 경우 — 모든 낱말이 들어있으면 잡는다 (2026-09-01)
             //    "알텐바흐 냄비" 로 "알텐바흐 저압냄비 3종" 을 찾을 수 있어야 한다.
             //    ⚠ 낱말이 2개 이상일 때만 쓴다. 한 낱말이면 ①과 같아 무의미하고,
             //    🔑 한 글자도 넣는다 — 이 조건은 AND 라 낱말이 늘수록 **좁아진다**.
             const SW1=['거','것','걸','게','요','좀','수','때','분','개','중','등','및','이','그','저'];
             const ws=q.split(/\s+/).filter(w=>w.length>=2||(w.length===1&&!SW1.includes(w)));
-            return ws.length>=2 && ws.every(w=>sn.includes(w));
+            if(!(ws.length>=2 && ws.every(w=>sn.includes(w)))) return false;
+            if(ws.every(w=>wsCleanHit(s,w))) return true;   // 🔎 낱말마다 같은 경계 검사(「헤어 어그」로 헤어그로스가 되살아나지 않게 — Codex 지적 2026-11-27)
+            susp=true; return false;
           });});
-    }).sort(cmpDatePartner);
+      if(!ok && susp) _sus.push(item);
+      return ok;
+    });
+    const _keep=new Set(_clean.concat(wsKeepSuspects(_clean, _sus, it=>it.major)));
+    return DATA.filter(it=>_keep.has(it)).sort(cmpDatePartner);   // 옛 판과 같은 순서(남긴 의심 행을 뒤로 밀지 않는다 — 검증 지적)
   }
 
   // 상태 필터 버튼
@@ -4167,8 +4249,15 @@ async function renderSearchAll(){
   // 🚫 「다른 브랜드」 는 핫딜·체험단 섹션에서도 뺀다 — 공구만 막으면 오이코스 핫딜이 들어올 때 다시 샌다 (2026-09-21)
   const hit=(...vals)=>!denyHit(q, ...vals) && vals.some(v=>{const s=(v||'').toString().toLowerCase().replace(/\s+/g,''); return _qs.some(x=>s.includes(x));});
   const gg = getFiltered(selWeekDate);                                   // 공구는 기존 검색 로직 그대로
-  const hd = (_hotdealData||[]).filter(h=>!hdExpired(h) && Number(h.price)>0 && hdFreshForSearch(h) && hit(h.title,h.major,h.minor));
-  const ex = (_expData||[]).filter(e=>expStat(e)!==2 && hit(e.title,e.major,e.minor,e.brand));
+  // 🔎 핫딜·체험단도 낱말 경계를 가로지른 일치는 의심으로 두고, 깨끗한 결과(공구 포함)의 대분류에 없을 때만 뺀다 (2026-11-27). 순서는 그대로
+  const hitJ=(...vals)=>{ if(denyHit(q, ...vals)) return 0; let r=0; for(const v of vals){ const raw=(v||'').toString().toLowerCase(), s=raw.replace(/\s+/g,''); for(const x of _qs){ if(s.includes(x)){ if(wsCleanHit(raw,x)) return 1; r=2; } } } return r; };
+  const _hdA=(_hotdealData||[]).filter(h=>!hdExpired(h) && Number(h.price)>0 && hdFreshForSearch(h)).map(h=>[h,hitJ(h.title,h.major,h.minor)]).filter(x=>x[1]);
+  const _exA=(_expData||[]).filter(e=>expStat(e)!==2).map(e=>[e,hitJ(e.title,e.major,e.minor,e.brand)]).filter(x=>x[1]);
+  const _cl=a=>a.filter(x=>x[1]===1).map(x=>x[0]), _su=a=>a.filter(x=>x[1]===2).map(x=>x[0]);
+  const _mjAll=gg.map(x=>x.major).concat(_cl(_hdA).map(x=>x.major), _cl(_exA).map(x=>x.major));
+  const _keepOf=a=>{ const k=new Set(_cl(a).concat(wsKeepSuspects(_cl(a), _su(a), x=>x.major, _mjAll))); return a.map(x=>x[0]).filter(x=>k.has(x)); };
+  const hd = _keepOf(_hdA);
+  const ex = _keepOf(_exA);
   const hdU = hdDedupe(hd);                                                                  // 중복 뺀 핫딜 — 건수도 이것으로 센다(2026-11-02 코덱스 지적)
   const cm = (_commData||[]).filter(c=>hit(c.title,c.summary,c.board,c.nick));                   // 💬 커뮤니티
 
@@ -4299,7 +4388,7 @@ async function renderSearchAll(){
     </div>
   `;
 
-  el.innerHTML = hotTagChipsHtml((fSearch||'').trim()) + (total ? catTabsHtml + meta + html + backHome : zeroHtml);
+  el.innerHTML = hotTagChipsHtml((fSearch||'').trim(), !!total) + (total ? catTabsHtml + meta + html + backHome : zeroHtml);
   paintHearts();
   if(!total) showPastResults((fSearch||'').trim());
 }
@@ -8537,6 +8626,7 @@ function runSearch(q, opts){
   si.value=q;
   document.getElementById('sClear').style.display='block';
   fSearch=q;
+  try{ loadWordDict(); }catch(_){}   // 🔎 아직 없으면 받기 시작(도착하면 결과를 한 번 다시 그린다)
   if(!_silent) saveRecentQ(q);
   _suggestOpen=false;
   if(dayFilter){ dayFilter=null; document.querySelectorAll('.wtab:not(.month-sep)').forEach(t=>t.classList.remove('on')); }
@@ -8574,6 +8664,7 @@ function scrollToResults(){
 }
 let _searchScrollTimer=null, _recentSaveT=null;
 sInput.addEventListener('focus',()=>{
+  try{ loadWordDict(); }catch(_){}   // 🔎 낱말 사전은 검색창을 누를 때 받는다(검색하는 손님만, 2026-11-27)
   // 검색창 클릭 → 검색어 없으면 드롭다운(최근검색·뜨는검색어), 있으면 결과 화면 그대로 (스펙 1·2번)
   if(!sInput.value.trim()){ _suggestOpen=true; renderSearchDrop(); }
   updateSearchChrome();
