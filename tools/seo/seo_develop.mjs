@@ -34,8 +34,11 @@ const TARGET7 = { clk: 579, imp: 5388 };   // 8월 하순 16일(08-16~31) 클릭
 const FOLDERS = ['홈', '허브', 's 셀러', 'p 제품', 'g 브랜드', 'gg 공구'];
 const folderOf = (p) => { if (p === '/' || p === '') return '홈'; const m = p.match(/^\/(gg|g|p|s)\//); if (m) return { gg: 'gg 공구', g: 'g 브랜드', p: 'p 제품', s: 's 셀러' }[m[1]]; return '허브'; };
 
-let state = { days: [] };
-try { const r = await sb('ops_status?id=eq.seo-develop&select=payload').then((x) => x.json()); if (r?.[0]?.payload) state = { days: [], ...r[0].payload }; } catch {}
+const GA_NAMES = { 'source:m.search.naver.com': '네이버 검색(모바일)', 'source:naver.com': '네이버(PC)', 'source:google': '구글', 'source:chatgpt.com': 'ChatGPT', 'source:gemini.google.com': '제미나이', 'source:claude.ai': 'Claude', 'source:perplexity.ai': '퍼플렉시티', 'channel:AI Assistant': 'AI 답변 전체', 'channel:Organic Social': 'SNS', 'channel:Organic Search': '검색 전체' };
+let state = { days: [] }, stateRead = false;
+try { const r = await sb('ops_status?id=eq.seo-develop&select=payload').then((x) => x.json()); if (Array.isArray(r)) { stateRead = true; if (r[0]?.payload) state = { days: [], ...r[0].payload }; } } catch {}
+// 어제까지의 장부를 못 읽은 채 쓰면 180일 이력을 오늘 한 줄로 덮는다(코덱스 2026-11-28) → 못 읽었으면 쓰지 않고 끝낸다
+if (!stateRead && !DRY && !SHOW) die('장부(ops_status seo-develop)를 못 읽었다 — 이력을 덮어쓰지 않으려고 멈춘다');
 
 const fmt = (d) => {
   const L = [];
@@ -48,6 +51,17 @@ const fmt = (d) => {
   }
   if (d.idx) L.push(`- 색인 표본(${d.idx.day}): ${d.idx.total} · ${FOLDERS.map((f) => `${f} ${d.idx.byF[f] || '-'}`).join(' · ')}${d.idx.prevDay ? `  (직전 ${d.idx.prevDay}: ${d.idx.prevTotal})` : ''}`);
   if (d.sm) L.push(`- 사이트맵(라이브): ${Object.entries(d.sm).map(([k, v]) => `${k} ${v}`).join(' · ')} · 얇은 g noindex ${d.gNo ?? '?'}장`);
+  if (d.ext) {
+    const x = d.ext, st = (o) => (o?.stale ? ' ⚠자료 묵음' : '');
+    if (x.ga) L.push(`- 유입 GA4 7일(${x.ga.range}, 괄호는 그 전 7일)${st(x.ga)}: ${Object.entries(x.ga.by).map(([k, o]) => `${GA_NAMES[k] || k} ${o.cur}(${o.prev})`).join(' · ')}`); else L.push(`- 유입 GA4: 못 읽음(${x.ga_err || ''})`);
+    if (x.kw) { L.push(`- 밀 검색어(${String(x.kw.src).slice(0, 16)})${st(x.kw)}: 순위표 ${x.kw.ranked}개 · 상위 ${x.kw.top.map((t) => `${t.kw} ${t.vol}/공구 ${t.n}/${t.rank}`).join(' · ')}`); L.push(`  - 민 검색어: ${x.kw.pushed.length ? x.kw.pushed.map((p) => `${p.kw}(${p.since}~ · ${p.base}→${p.now || '?'})`).join(' · ') : '없음'}${x.kw.up.length ? ` · 오른 것 ${x.kw.up.map((m) => `${m.q} ${m.from || '없음'}→${m.to}`).join(', ')}` : ''}${x.kw.down.length ? ` · 내린 것 ${x.kw.down.map((m) => `${m.q} ${m.from}→${m.to || '없음'}`).join(', ')}` : ''}`); } else L.push(`- 밀 검색어: 못 읽음(${x.kw_err || ''})`);
+    if (x.nsa) L.push(`- 네이버 서치어드바이저(${String(x.nsa.src).slice(0, 16)})${st(x.nsa)}: ${x.nsa.state}${x.nsa.expire ? ` · 만료일 ${x.nsa.expire}` : ''}${x.nsa.ok && !x.nsa.parsed ? ' · 항목 해석 전' : ''}`); else L.push(`- 네이버 서치어드바이저: 못 읽음(${x.nsa_err || ''})`);
+    if (x.ai) L.push(`- AI 검색 실측(${String(x.ai.src).slice(0, 16)})${st(x.ai)}: 빙 색인(ChatGPT·덕덕고) ${x.ai.summary?.ddg?.cited ?? '?'}/${x.ai.summary?.ddg?.measured ?? '?'} 질문에 나옴(3위 안 ${x.ai.summary?.ddg?.top3 ?? '?'}) · 안 나오는 질문: ${x.ai.miss.map((m) => m.q).join(', ') || '없음'} · 브레이브(Claude)·구글(제미나이)은 자동으로 못 잼`); else L.push(`- AI 검색 실측: 못 읽음(${x.ai_err || ''})`);
+    if (x.blog) L.push(`- 블로그 주간(${x.blog.week}, ${String(x.blog.src).slice(0, 10)})${st(x.blog)}: 조회 7일 ${x.blog.cv7 ?? '?'}(그 전 ${x.blog.cv7_prev ?? '?'}) · 유입 검색어 ${x.blog.search.map((s) => `${s.q} ${s.cv}`).join(', ')}`); else L.push(`- 블로그 주간: 못 읽음(${x.blog_err || ''})`);
+    L.push(`- 잘되는 것: ${(d.good || []).join(' / ') || '없음(판정할 만큼 오른 것이 없다)'}`);
+    L.push(`- 안 되는 것: ${(d.bad || []).join(' / ') || '없음'}`);
+    L.push(`- 다음 할 일: ${(d.todo || []).join(' / ') || '없음'}`);
+  }
   L.push(`- 판정: ${d.verdict.join(' / ')}`);
   L.push(`- 다음 조치: ${d.next.join(' / ')}`);
   return L.join('\n');
@@ -59,7 +73,7 @@ if (SHOW) {
   try { fs.writeFileSync(path.join(ROOT, 'scratchpad/seo_develop_ledger.md'), md); } catch {}
   process.exit(0);
 }
-if (ONCE && state.days.some((x) => x.day === today && x.gsc)) { console.log(`오늘(${today}) 장부가 이미 있다 — 건너뜀`); process.exit(0); }
+if (ONCE && state.days.some((x) => x.day === today && x.gsc && x.ext?.kw?.src && Date.now() - Date.parse(x.ext.kw.src) < 20 * 3600e3)) { console.log(`오늘(${today}) 장부가 이미 있다 — 건너뜀`); process.exit(0); }
 
 // ① 서치콘솔
 let gsc = null, gscErr = '';
@@ -82,6 +96,9 @@ try {
   c.nb = await nb(cur); p.nb = await nb(prev);
   gsc = { range: `${cur[0]}~${cur[1]}`, cur: c, prev: p, byF: await byFolder(cur), byFP: await byFolder(prev) };
 } catch (e) { gscErr = e.message; console.error('⚠ 서치콘솔: ' + e.message); }
+// 같은 날 다시 도는 회차(넓힌 칸을 채우러)에서 서치콘솔이 실패하면, 오늘 앞 회차가 읽은 값을 그대로 쓴다 — 좋은 줄을 빈 줄로 덮고 열린 경보를 지우지 않게(검증 2026-11-28)
+const gscToday = state.days.find((x) => x.day === today)?.gsc;
+if (!gsc && gscToday) { gsc = gscToday; console.error('서치콘솔 실패 — 오늘 앞 회차 값을 유지한다'); }
 
 // ② 색인 표본(index_sample.mjs 결과)
 let idx = null;
@@ -129,7 +146,82 @@ if (typeof sm.gonggu === 'number' && sm.gonggu > 9000) next.push(`sitemap-gonggu
 if (gNo != null && (gNo < 3000 || gNo > 6500)) next.push(`얇은 g noindex ${gNo}장 — 11-25 시험치 약 4,800 에서 크게 벗어났다. g_keep_index.txt 줄 수·진행 판정을 본다`);
 if (!next.length) next.push('유지');
 
-const row = { day: today, gsc, idx, sm, gNo, verdict, next, alarm };
+// ④ 넓힌 칸 (사장님 2026-11-28 「잘되는 걸 매일 확인해서 디벨롭시켜 · 클로드·제미나이 · 경쟁사 키워드」) — 네이버 유입·AI 유입·밀 검색어·서치어드바이저·AI 검색 실측·블로그.
+//   원칙: 원자료에서 직접 읽은 것만 쓴다 · 칸마다 원자료 시각(src) · 묵은 칸(PC 수집 48시간, 주간 자료 9일)은 「자료 묵음」으로 적고 판정에 안 쓴다 · 못 읽은 것은 0 이 아니라 null
+//   PC 수집기(08시대: tools/daily/kw_focus.mjs · ai_search_probe.mjs · sns-automation/src/naver-sa.js · blog-stats.js)가 ops_status 에 올린 줄을 읽는다. 이 블록이 통째로 죽어도 위 구글 칸은 그대로 남는다.
+const ext = {}, good = [], bad = [], todo = [];
+const ageH = (iso) => (iso ? (Date.now() - Date.parse(iso)) / 3600e3 : 1e9);
+const ops = async (id) => { const r = await sb(`ops_status?id=eq.${id}&select=payload,updated_at`).then((x) => x.json()); if (!Array.isArray(r)) throw new Error(`${id} ${JSON.stringify(r).slice(0, 80)}`); return r[0] || null; };
+try {
+  const ymd = (d) => new Date(d).toISOString().slice(0, 10);
+  const from = ymd(Date.now() + 9 * 3600e3 - 16 * 864e5);
+  const rows = [];
+  for (let off = 0; off < 20000; off += 1000) { const r = await sb(`analytics_daily?source=eq.ga4&metric=eq.sessions&day=gte.${from}&select=day,dim,value&order=day.asc,dim.asc&limit=1000&offset=${off}`).then((x) => x.json()); if (!Array.isArray(r)) throw new Error('analytics_daily ' + JSON.stringify(r).slice(0, 80)); rows.push(...r); if (r.length < 1000) break; }
+  const last = rows.map((r) => r.day).sort().pop();
+  if (!last) throw new Error('GA4 세션 행이 없다');
+  const add = (s, n) => ymd(Date.parse(s) + n * 864e5);
+  const curFrom = add(last, -6), prevFrom = add(last, -13), prevTo = add(last, -7);
+  const by = {};
+  for (const r of rows) { if (!GA_NAMES[r.dim]) continue; const o = (by[r.dim] ||= { cur: 0, prev: 0 }); if (r.day >= curFrom) o.cur += +r.value; else if (r.day >= prevFrom && r.day <= prevTo) o.prev += +r.value; }
+  const stale = last < ymd(Date.now() + 9 * 3600e3 - 3 * 864e5);
+  ext.ga = { src: last, range: `${curFrom}~${last}`, prev_range: `${prevFrom}~${prevTo}`, stale, by };
+  if (!stale) for (const [k, o] of Object.entries(by)) {
+    if (o.cur < 30 && o.prev < 30) continue;   // 표본이 적은 칸은 판정하지 않는다(제미나이 주 5세션 같은 것)
+    const pct = o.prev ? Math.round(((o.cur - o.prev) / o.prev) * 100) : 100;
+    if (pct >= 20) good.push(`${GA_NAMES[k]} 유입 ${o.prev}→${o.cur} 세션(+${pct}%)`); else if (pct <= -20) bad.push(`${GA_NAMES[k]} 유입 ${o.prev}→${o.cur} 세션(${pct}%)`);
+  }
+} catch (e) { ext.ga = null; ext.ga_err = String(e.message).slice(0, 120); }
+try {
+  const r = await ops('kw-focus');
+  if (!r) ext.kw = null, ext.kw_err = '아직 한 번도 안 올라옴';
+  else {
+    const p = r.payload, stale = ageH(p.at) > 48;
+    ext.kw = { src: p.at, stale, ranked: p.ranked, top: (p.top || []).slice(0, 5).map((t) => ({ kw: t.kw, vol: t.vol, n: t.n, rank: t.rank_state })), pushed: (p.pushed || []).map((x) => ({ kw: x.kw, since: x.since, until: x.until, base: x.base_rank, now: x.now_rank, gonggu: x.gonggu })), up: (p.rank_up || []).slice(0, 5), down: (p.rank_down || []).slice(0, 5), notes: (p.notes || []).slice(0, 4) };
+    if (!stale) {
+      for (const m of ext.kw.up.slice(0, 3)) good.push(`네이버 「${m.q}」 ${m.from || '없음'}→${m.to}위`);
+      for (const m of ext.kw.down.slice(0, 3)) bad.push(`네이버 「${m.q}」 ${m.from}위→${m.to || '20위 안에 없음'}`);
+      const newest = [...ext.kw.pushed].sort((a, b) => (a.since < b.since ? 1 : -1))[0];
+      if (newest) todo.push(`밀 검색어 「${newest.kw}」(공구 ${newest.gonggu ?? '?'}건 · 네이버 ${newest.now || newest.base}) — 블로그 일정 글 제목 머리와 그 브랜드 페이지 첫 문장에 넣는다(${newest.since}~${newest.until} 고정, 그동안 다른 변경 금지)`);
+    }
+  }
+} catch (e) { ext.kw = null; ext.kw_err = String(e.message).slice(0, 120); }
+try {
+  const r = await ops('naver-sa');
+  if (!r) ext.nsa = null, ext.nsa_err = '아직 한 번도 안 올라옴';
+  else {
+    const p = r.payload, stale = ageH(p.at) > 48;
+    ext.nsa = { src: p.at, stale, ok: !!p.ok, state: p.state, expire: p.expire, parsed: !!p.parsed, note: String(p.note || '').slice(0, 200) };
+    if (!stale && !p.ok && /소유확인/.test(p.state || '')) { bad.push(`네이버 서치어드바이저 ${p.state}${p.expire ? `(만료일 ${p.expire})` : ''} — 수치를 읽을 수 없다`); todo.unshift(`[사장님 승인 필요] 서치어드바이저 › 사이트 관리 › 「소유확인 진행」 다시 누르기 — 그 전에는 네이버 노출·클릭·수집·색인 수치가 없다`); }
+    else if (!stale && !p.ok) bad.push(`네이버 서치어드바이저 ${p.state} — ${String(p.note || '').slice(0, 60)}`);
+    if (!stale && p.ok && p.expire_soon) todo.unshift(`[사장님 승인 필요] 서치어드바이저 소유확인이 ${p.expire} 에 만료된다(30일 안) — 사이트 관리에서 다시 누르기(보안문자 입력 있음)`);
+  }
+} catch (e) { ext.nsa = null; ext.nsa_err = String(e.message).slice(0, 120); }
+try {
+  const r = await ops('ai-search');
+  if (!r) ext.ai = null, ext.ai_err = '아직 한 번도 안 올라옴';
+  else {
+    const p = r.payload, stale = ageH(p.at) > 48;
+    const miss = [], gain = [], lose = [];
+    const d7 = new Date(Date.now() + 9 * 3600e3 - 7 * 864e5).toISOString().slice(0, 10);
+    for (const [q, v] of Object.entries(p.q || {})) {
+      // 엔진 둘 중 더 최근에 잰 쪽을 쓰고, 7일 넘은 값은 판정에 안 쓴다(전체 at 만 새로 찍히고 질문 값은 묵을 수 있다 — 코덱스 2026-11-28)
+      const eng = (v.ddg?.day || '') >= (v.bing?.day || '') ? 'ddg' : 'bing'; const c = v[eng], o = v[eng + '_prev']; if (!c || c.day < d7) continue; if (!c.pos) miss.push({ q, ahead: (c.ahead || []).slice(0, 2) }); if (o && c.day !== o.day) { const a = o.pos || 99, b = c.pos || 99; if (b < a) gain.push(`「${q}」 ${o.pos || '없음'}→${c.pos}번째`); else if (b > a) lose.push(`「${q}」 ${o.pos}번째→${c.pos || '없음'}`); } }
+    ext.ai = { src: p.at, stale, summary: p.summary, miss: miss.slice(0, 8), not_measured: p.not_measured || null };
+    if (!stale) {
+      gain.slice(0, 2).forEach((x) => good.push(`빙 색인(ChatGPT·덕덕고) ${x}`)); lose.slice(0, 2).forEach((x) => bad.push(`빙 색인(ChatGPT·덕덕고) ${x}`));
+      if (miss.length) { bad.push(`빙 색인에서 안 나오는 질문 ${miss.length}개: ${miss.slice(0, 3).map((m) => `「${m.q}」`).join(' ')}`); if (todo.length < 2) todo.push(`「${miss[0].q}」 질문에 빙 색인이 우리를 안 준다(앞선 곳 ${miss[0].ahead.join(', ')}) — 그 질문을 제목·첫 문장에 그대로 쓴 질문 페이지가 있는지 보고, 없으면 keywords.json 에 한 장 더한다`); }
+    }
+  }
+} catch (e) { ext.ai = null; ext.ai_err = String(e.message).slice(0, 120); }
+try {
+  const r = await ops('blog-stats');
+  if (!r) ext.blog = null, ext.blog_err = '아직 한 번도 안 올라옴';
+  else { const p = r.payload; ext.blog = { src: p.at, stale: ageH(p.at) > 9 * 24, week: p.week, cv7: p.cv7 ?? null, cv7_prev: p.cv7_prev ?? null, search: (p.search || []).slice(0, 8) }; if (!ext.blog.stale && p.cv7 != null && p.cv7_prev) { const pct = Math.round(((p.cv7 - p.cv7_prev) / p.cv7_prev) * 100); if (pct >= 20) good.push(`블로그 조회 7일 ${p.cv7_prev}→${p.cv7}(+${pct}%)`); else if (pct <= -20) bad.push(`블로그 조회 7일 ${p.cv7_prev}→${p.cv7}(${pct}%)`); } }
+} catch (e) { ext.blog = null; ext.blog_err = String(e.message).slice(0, 120); }
+const extNull = ['ga', 'kw', 'nsa', 'ai', 'blog'].filter((k) => !ext[k]), extStale = ['ga', 'kw', 'nsa', 'ai', 'blog'].filter((k) => ext[k]?.stale);
+if (extStale.length) bad.push(`자료 묵음: ${extStale.join('·')} — PC 수집기가 안 돌았다(이 칸으로는 판정하지 않음)`);
+
+const row = { day: today, gsc, idx, sm, gNo, verdict, next, alarm, ext, good: good.slice(0, 6), bad: bad.slice(0, 6), todo: todo.slice(0, 2) };
 state.days = [...state.days.filter((x) => x.day !== today), row].slice(-180);
 const md = fmt(row);
 console.log(md);
