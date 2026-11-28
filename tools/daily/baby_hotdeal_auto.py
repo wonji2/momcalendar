@@ -1025,13 +1025,22 @@ def jirum_state_load():
     st = {'seen': [], 'day': '', 'cp': 0, 'last_reg': ''}
     if JIRUM_DRY:
         return st
-    try:
-        r = run_sql("SELECT payload FROM ops_status WHERE id = 'jirum-state';")
-    except Exception as e:
-        print(f'[source:jirum] 상태 읽기 실패: {e}')
-        return None
+    # 읽기 한 번이 삐끗했다고 회차를 통째로 쉬지 않는다 — 세 번까지 다시 읽는다(읽기라 되풀이해도 안전하다).
+    #   2026-11-24 02:16(깃허브)·11-28 03:56(서버) 두 번, 관리 API 조회 1회 실패로 회차를 쉬고 경보가 떴다. 같은 열쇠로 바로 뒤 경보 쓰기는 성공했으니 열쇠·권한 문제가 아니었다.
+    r, err = None, ''
+    for attempt in range(3):
+        try:
+            r = run_sql("SELECT payload FROM ops_status WHERE id = 'jirum-state';")
+            if isinstance(r, list):
+                break
+            err = f'응답이 이상하다: {str(r)[:120]}'
+        except Exception as e:
+            err = f'{type(e).__name__}: {e}'
+        print(f'[source:jirum] 상태 읽기 실패({attempt + 1}/3): {err}')
+        r = None
+        if attempt < 2:
+            time.sleep(5 * (attempt + 1))
     if not isinstance(r, list):
-        print(f'[source:jirum] 상태 응답이 이상하다: {str(r)[:120]}')
         return None
     if r and isinstance(r[0].get('payload'), dict):
         st.update(r[0]['payload'])
