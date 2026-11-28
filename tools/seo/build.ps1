@@ -56,16 +56,25 @@ $HotDeals = @(); $HD2 = @(); $HdByMajor = @{}; $RelOwn = $false
 try{
   # ⚠ PostgREST 는 값 자리의 now() 를 문자열로 취급한다(실측: 핫딜 15개가 1개로 줄었다) → 실제 시각을 넣는다
   $nowUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-  $q2 = "?select=id,title,link,mall,price,price_before,discount_rate,is_lowest,deal_day,source,major,minor&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=id.desc&limit=400"
-  $r2 = Invoke-WebRequest -Uri ('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals' + $q2) -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
-  # ⚠ PS 5.1 ConvertFrom-Json 은 JSON 배열을 한 덩어리로 준다 → 파이프로 한 번 풀어야 개수가 맞는다(실측 31→1)
-  $HD2 = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 } | ForEach-Object {
+  $q2 = "?select=id,title,link,mall,price,price_before,discount_rate,is_lowest,deal_day,source,major,minor&or=(expires_at.is.null,expires_at.gte.$nowUtc)&price=gt.0&order=id.desc"
+  # 🔴 2026-11-28: limit=400 이라 노출 중 689건인 날에도 「지금 노출 중 400건」으로 나갔다(11-19~). 쪽을 넘겨 전부 읽는다(한 쪽 1000건, 최대 5쪽)
+  $hdRaw = New-Object System.Collections.ArrayList
+  for($hdOff = 0; $hdOff -lt 5000; $hdOff += 1000){
+    $r2 = Invoke-WebRequest -Uri ('https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/hotdeals' + $q2 + "&limit=1000&offset=$hdOff") -TimeoutSec 30 -Headers @{ apikey=$key; Authorization="Bearer $key" }
+    # ⚠ PS 5.1 ConvertFrom-Json 은 JSON 배열을 한 덩어리로 준다 → 파이프로 한 번 풀어야 개수가 맞는다(실측 31→1)
+    $hdPage = @(([Text.Encoding]::UTF8.GetString($r2.RawContentStream.ToArray()) | ConvertFrom-Json) | ForEach-Object { $_ })
+    foreach($hdRow in $hdPage){ [void]$hdRaw.Add($hdRow) }
+    if($hdPage.Count -lt 1000){ break }
+  }
+  $hdSeq = 0      # 최신순 자리(0 = 가장 최근 등록). 「오늘의 핫딜」·「할인율 큰 핫딜」 예시는 전처럼 최근 400건 안에서만 고른다(엿새 된 딜이 오늘 1등으로 나가지 않게)
+  $hdSeen = @{}   # 쪽 사이에 새 딜이 들어오면 같은 행이 두 번 올 수 있다 → id 로 한 번 거른다
+  $HD2 = @($hdRaw | Where-Object { $k0 = "$($_.id)"; if($hdSeen.ContainsKey($k0)){ $false } else { $hdSeen[$k0] = 1; $true } } | Where-Object { $_.title -and $_.mall -and [int]$_.price -gt 0 } | ForEach-Object {
     $m = "$($_.mall)".Trim(); if($m -eq '토스'){ $m = '토스쇼핑' }
     $pb = [int]$_.price_before; $pp = [int]$_.price
     $isAvg = ("$($_.source)" -match '^(coupang|linkprice)$')
     $rt = 0; if($pb -gt $pp -and $pb -gt 0){ $rt = [int][Math]::Round(($pb - $pp) * 100.0 / $pb) }
     if($rt -gt 65){ $rt = 0 }   # 사이트와 같은 기준 — 부풀려진 정가로 보고 할인율을 쓰지 않는다
-    [pscustomobject]@{ id="$($_.id)"; title="$($_.title)"; link="$($_.link)"; mall=$m; price=$pp; ref=$(if($rt -gt 0){ $pb } else { 0 }); refLabel=$(if($isAvg){ '최근 평균' } else { '정가' }); rate=$rt; is_lowest=[bool]$_.is_lowest; major="$($_.major)"; minor="$($_.minor)" }
+    [pscustomobject]@{ seq=($hdSeq++); id="$($_.id)"; title="$($_.title)"; link="$($_.link)"; mall=$m; price=$pp; ref=$(if($rt -gt 0){ $pb } else { 0 }); refLabel=$(if($isAvg){ '최근 평균' } else { '정가' }); rate=$rt; is_lowest=[bool]$_.is_lowest; major="$($_.major)"; minor="$($_.minor)" }
   } | Sort-Object @{e={$_.rate};Descending=$true}, @{e='title';Descending=$false})
   $HotDeals = $HD2
   foreach($h in $HD2){ if($h.major){ if(-not $HdByMajor.ContainsKey($h.major)){ $HdByMajor[$h.major] = New-Object System.Collections.ArrayList }; [void]$HdByMajor[$h.major].Add($h) } }
@@ -106,6 +115,25 @@ function RelDealsHtml($deals, [string]$h2){
   }
   $s += "<p style=${Q}margin-top:8px;font-size:11px;color:#B5AFBD${Q}>핫딜 가격은 등록할 때 확인한 값이라 판매처에서 바뀌거나 끝날 수 있습니다. 공구 가격과는 다른 쇼핑몰 특가입니다. 제휴 활동으로 일정액의 수수료를 받을 수 있습니다</p></div><!--/hd-->"
   return $s
+}
+
+# 캡션이 그 상품 글인가 — 상품명 낱말(2자 이상, 흔한 말·숫자 제외)의 절반 넘게가 캡션에 있어야 한다. 당첨 발표 글은 아니다.
+#   2026-11-28 실측: 캡션 있는 15,112행 중 3,312행이 안 맞는다(월간 일정 글·마감 안내·같은 날 다른 상품 글이 붙음). 검색 설명(meta description·rss)에만 쓴다
+$CAPFIT_GEN = @{}; foreach($w0 in @('공구','공동구매','세트','모음전','기획전','오픈','예정','특가','할인','단독','신상','프리미엄','대용량','추천','리뉴얼','시즌','new','set')){ $CAPFIT_GEN[$w0] = 1 }
+$RX_CAPFIT_SPLIT = [regex]'[^가-힣a-z0-9]+'
+$RX_CAPFIT_NUM = [regex]'^[0-9]+(차|종|개|p|ml|g|kg)?$'
+$RX_CAPFIT_NOTG = [regex]'당첨\s*(자\s*)?발표|당첨을\s*축하|이벤트\s*당첨'
+function CapFits([string]$name, [string]$cap){
+  if($RX_CAPFIT_NOTG.IsMatch($cap.Substring(0, [Math]::Min(200, $cap.Length)))){ return $false }
+  $c = $RX_CAPFIT_SPLIT.Replace($cap.ToLowerInvariant(), '')
+  $seen = @{}; $n = 0; $hit = 0
+  foreach($t0 in $RX_CAPFIT_SPLIT.Split($name.ToLowerInvariant())){
+    if($t0.Length -lt 2 -or $CAPFIT_GEN.ContainsKey($t0) -or $RX_CAPFIT_NUM.IsMatch($t0) -or $seen.ContainsKey($t0)){ continue }
+    $seen[$t0] = 1; $n++
+    if($c.IndexOf($t0, [StringComparison]::Ordinal) -ge 0){ $hit++ }
+  }
+  if($n -eq 0){ return $true }
+  return (($hit * 2) -gt $n)
 }
 
 # ── 공구 캡션 (셀러 공지 원문 — 건별 상세 페이지의 고유 본문, 사장님 지시 2026-08-31 "다 수집해") ──
@@ -943,7 +971,8 @@ foreach($x in $ggRows){
       if($cap.Length -gt 2000){ $cap = $cap.Substring(0,2000) + '…' }
       $d1 = ([regex]::Replace($cap, '\s+', ' ')).Trim()
       if($d1.Length -gt 140){ $d1 = $d1.Substring(0,140) + '…' }
-      $desc = "$($x.name) 공구 ($($x.od) 오픈) — $d1"
+      # 🔴 2026-11-28: 캡션이 다른 상품 글일 때가 있다(rss 첫 줄 「곰돌이 도마」 설명에 잠옷 공지). 이름 낱말의 절반 넘게가 캡션에 있을 때만 설명에 쓴다. 아니면 위의 기본 설명(이름·날짜) 그대로
+      if(CapFits "$($x.name)" $cap){ $desc = "$($x.name) 공구 ($($x.od) 오픈) — $d1" }
       # ① 이 공구 요약 — 상품명에서 브랜드를 뗀 제품어 + 셀러 공지의 첫 대목 2~3문장(공지가 없으면 이 블록은 없다)
       $rest = "$($x.name)"; if($rest.ToLower().StartsWith("$($x.brand)".ToLower())){ $rest = $rest.Substring("$($x.brand)".Length) }
       $rest = ([regex]::Replace($rest, '^[\s·,&/\-\+\(\)\[\]]+', '')).Trim()
@@ -1740,7 +1769,7 @@ if($HD2.Count -gt 0){
   }
 }
 # 🔎 2026-10-27 AEO: 「핫딜 알아봐 줘」「세일 언제야?」에 오늘 데이터로 답하게
-if($HD2.Count -gt 0){ $top3 = (@($HD2 | Select-Object -First 3 | ForEach-Object { "$($_.title)($($_.mall) $(Won $_.price)$(if($_.rate -gt 0){ ", $($_.rate)% 할인" }))" }) -join ', ') }
+if($HD2.Count -gt 0){ $top3 = (@($HD2 | Where-Object { $_.seq -lt 400 } | Select-Object -First 3 | ForEach-Object { "$($_.title)($($_.mall) $(Won $_.price)$(if($_.rate -gt 0){ ", $($_.rate)% 할인" }))" }) -join ', ') }
 if($SALE.Count -gt 0){
   $sN = @($SALE | Where-Object { "$($_.start_date)" -le "$today" } | Select-Object -First 3 | ForEach-Object { "$("$($_.brand) $($_.title)".Trim())$(if("$($_.end_date)"){ "(" + (MonDay "$($_.end_date)") + "까지)" })" })
   $sS = @($SALE | Where-Object { "$($_.start_date)" -gt "$today" } | Select-Object -First 3 | ForEach-Object { "$("$($_.brand) $($_.title)".Trim())(" + (MonDay "$($_.start_date)") + " 시작)" })
@@ -1949,8 +1978,10 @@ foreach($u in (KeptUrls 'g' $uBAll)){
   $t = [IO.File]::ReadAllText($fp)
   $wantNo = $false
   if($GTierOn){
-    $hd2 = $t.Split(@('<!--hd-->'), 2, [StringSplitOptions]::None)[0]
-    $cards = ([regex]::Matches($hd2, 'class="card"')).Count
+    # 🔴 2026-11-28: 여기 변수 이름이 $hd2 였다 — 파워셸은 대소문자를 안 가려 핫딜 목록 $HD2 를 글자 한 덩어리로 덮어썼고,
+    #   그 뒤에 쓰는 llms.txt 가 「핫딜 1건 (0개 쇼핑몰)」으로, 홈의 「오늘의 핫딜 TOP 5」 단락이 통째로 빠져 나갔다(11-25~11-28)
+    $gHeadTxt = $t.Split(@('<!--hd-->'), 2, [StringSplitOptions]::None)[0]
+    $cards = ([regex]::Matches($gHeadTxt, 'class="card"')).Count
     $idle = ($t.IndexOf('<dd>진행 중인 공구 없음</dd>', [StringComparison]::Ordinal) -ge 0)
     $bn = [IO.Path]::GetFileNameWithoutExtension($fn)
     $wantNo = $idle -and ($cards -le 1) -and -not $GKeepIdx.Contains($fn) -and ((VolOf $bn) -le 0)
@@ -2065,6 +2096,7 @@ $ll = New-Object System.Text.StringBuilder
 [void]$ll.AppendLine('')
 [void]$ll.AppendLine("주요 사실 ($ASOF 기준, 매일 자동 갱신):")
 [void]$ll.AppendLine("- 공동구매 일정: 공구 진행 셀러 ${fmtSellers}명 · 누적 공구 ${fmtTotal}건$(if($fmtLive){ " · 지금 진행 중 ${fmtLive}건" }) · 공구 브랜드 ${fmtBrands}개")
+if($HD2 -is [string] -or ($HD2.Count -gt 0 -and $null -eq $HD2[0].PSObject.Properties['mall'])){ throw '핫딜 목록 변수($HD2)가 중간에 다른 값으로 덮였다 — 틀린 건수를 llms.txt·홈에 쓰지 않으려고 멈춘다' }
 if($HD2.Count -gt 0){ [void]$ll.AppendLine("- 핫딜: 지금 노출 중 $($HD2.Count)건 ($(@($HD2 | ForEach-Object { $_.mall } | Sort-Object -Unique).Count)개 쇼핑몰). 「최저」 표시 = 맘캘린더가 가격을 추적한 기간 중 가장 싼 가격") }
 if($SALE.Count -gt 0){ [void]$ll.AppendLine("- 브랜드 세일 일정: 진행 중·30일 내 시작 $($SALE.Count)건 (문화센터 학기 접수는 따로)") }
 [void]$ll.AppendLine('- 다루는 분야: 육아·유아용품, 리빙·주방, 식품, 가전, 뷰티, 건강, 패션, 여행, 반려동물')
@@ -2151,7 +2183,7 @@ function HomeInject([string]$file){
   # 2026-11-20 사장님 지시: 공구만 있던 홈 원본에 「오늘의 핫딜 TOP 5」「진행 중 브랜드 세일 5건」과 핫딜정보·세일정보 링크.
   #   바깥 주소·go.html 은 걸지 않는다(home_guard 는 /gg/·/g/ 와 이 두 페이지 링크만 받는다). 데이터를 못 받은 날은 그 단락만 빠진다.
   $hdN = 0; $slN = 0
-  $hdTop = @($HD2 | Where-Object { $_.title -and [int]$_.price -gt 0 } | Select-Object -First 5)
+  $hdTop = @($HD2 | Where-Object { $_.title -and [int]$_.price -gt 0 -and $_.seq -lt 400 } | Select-Object -First 5)
   if($hdTop.Count -gt 0){
     [void]$hb.Append("$nl  <div class=${Q}seolinks-t${Q}><a href=${Q}/$(Enc '핫딜정보').html${Q}>오늘의 핫딜 TOP $($hdTop.Count)</a> (할인율 높은 순 · $todayKo 기준 · 등록할 때 확인한 가격)</div>")
     foreach($h in $hdTop){

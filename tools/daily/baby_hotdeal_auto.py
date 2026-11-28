@@ -1020,6 +1020,8 @@ def jirum_category(title, mall, cat_override, provider, category=''):
         return '리빙', '생활용품'
     return major, minor
 
+_JIRUM_STATE_ERR = ''   # 상태 읽기가 끝내 실패했을 때 시도별 오류 — 경보 문구에 싣는다
+
 def jirum_state_load():
     """진행 상태. 못 읽으면 None — 그 회차는 쉰다(빈 상태로 돌면 이력 600개와 하루 쿠팡 상한을 덮어쓴다)."""
     st = {'seen': [], 'day': '', 'cp': 0, 'last_reg': ''}
@@ -1027,20 +1029,34 @@ def jirum_state_load():
         return st
     # 읽기 한 번이 삐끗했다고 회차를 통째로 쉬지 않는다 — 세 번까지 다시 읽는다(읽기라 되풀이해도 안전하다).
     #   2026-11-24 02:16(깃허브)·11-28 03:56(서버) 두 번, 관리 API 조회 1회 실패로 회차를 쉬고 경보가 떴다. 같은 열쇠로 바로 뒤 경보 쓰기는 성공했으니 열쇠·권한 문제가 아니었다.
-    r, err = None, ''
-    for attempt in range(3):
+    #   2026-11-28 10:56 세 번 다 실패해 또 쉬었다(서버, 새 판). 원인을 못 봤다 — 오류 문구가 서버 로그에만 남아서다.
+    #   → 시도마다 실제 오류(HTTP 상태·응답 본문 앞머리·걸린 시간)를 모아 경보에 그대로 싣고, 세 번까지 5·20초 쉬며 읽는다.
+    global _JIRUM_STATE_ERR
+    r, err, errs = None, '', []
+    waits = (5, 20)   # 더 길게 쉬지 않는다 — 긴 회차(8분대)에 서비스 제한 600초를 넘기면 회차가 통째로 죽는다
+    for attempt in range(len(waits) + 1):
+        t0 = time.time()
         try:
             r = run_sql("SELECT payload FROM ops_status WHERE id = 'jirum-state';")
             if isinstance(r, list):
                 break
-            err = f'응답이 이상하다: {str(r)[:120]}'
+            err = f'응답이 목록이 아님: {str(r)[:120]}'
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read().decode('utf-8', errors='ignore')[:120]
+            except Exception:
+                body = ''
+            err = f'HTTP {e.code} {body}'
         except Exception as e:
             err = f'{type(e).__name__}: {e}'
-        print(f'[source:jirum] 상태 읽기 실패({attempt + 1}/3): {err}')
+        err = f'{attempt + 1}회 {err} ({time.time() - t0:.1f}초)'
+        errs.append(err)
+        print(f'[source:jirum] 상태 읽기 실패: {err}')
         r = None
-        if attempt < 2:
-            time.sleep(5 * (attempt + 1))
+        if attempt < len(waits):
+            time.sleep(waits[attempt])
     if not isinstance(r, list):
+        _JIRUM_STATE_ERR = ' / '.join(errs)
         return None
     if r and isinstance(r[0].get('payload'), dict):
         st.update(r[0]['payload'])
@@ -1084,7 +1100,7 @@ def collect_from_jirum_alarm():
         return
     st = jirum_state_load()
     if st is None:
-        jirum_fail('진행 상태(ops_status jirum-state)를 못 읽어 이번 회차는 쉰다')
+        jirum_fail('진행 상태(ops_status jirum-state)를 못 읽어 이번 회차는 쉰다 [' + _JIRUM_STATE_ERR[:150] + ']')
         return
     if st.get('day') != today_str:
         st['day'], st['cp'] = today_str, 0
