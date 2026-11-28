@@ -24,7 +24,9 @@ export const JOBS = [
   { name: 'red-autofix-cloud', wf: 'red-autofix-cloud', cron: '2,17,32,47 * * * *' },
   { name: 'bugfix-cloud', wf: 'bugfix-cloud', cron: '7,27,47 * * * *' },
   { name: 'hotdeal-cloud', wf: 'hotdeal-cloud', cron: '8 * * * *', win: 60 },
-  { name: 'live-watch', wf: 'live-watch', cron: '25 * * * *', win: 60 },
+  { name: 'live-watch', wf: 'live-watch', cron: '25 * * * *', win: 60, chain: true },   // chain: 한 실행이 5시간 20분 돌며 스스로 다음을 잇는 사슬 — 이미 돌거나 대기 중이면 매시 :25 부름을 건너뛴다(대기→취소가 하루 24건 쌓이던 것, 11-28 오더 작업 2)
+  // 2026-11-28: 화면 검사를 서버가 맡는 동안(ops_status live-host=server) 깃허브는 이 가벼운 되돌림 감시만 돈다(서버 모드가 아니면 몇 초 만에 끝나는 실행)
+  { name: 'live-autofix', wf: 'live-autofix', cron: '2,12,22,32,42,52 * * * *', win: 20 },
   { name: 'ios-review-watch', wf: 'ios-review-watch', cron: '17 */3 * * *', win: 120 },
   { name: 'analytics-daily', wf: 'analytics-daily', cron: '40 23 * * *', win: 360 },
   { name: 'android-cap-build', wf: 'android-cap-build', cron: '40 18 * * *', win: 120 },
@@ -94,6 +96,12 @@ async function alert(kind, detail) {
 // 그 회차 시각 이후 이 작업의 실행이 있나(이벤트 불문). pc-jobs 는 실행 제목에 cron 글자가 들어 있다(run-name). 못 읽으면 null
 function seen(job, slot) {
   try {
+    if (job.chain) {   // 사슬 작업: 진행 중·대기 중 실행이 있으면 이 회차는 부를 필요가 없다(push·pull_request 는 제외)
+      for (const st of ['in_progress', 'queued', 'pending']) {
+        const jj = JSON.parse(ghApi(`repos/${REPO}/actions/workflows/${job.wf}.yml/runs?status=${st}&per_page=20`)).workflow_runs || [];
+        if (jj.some((r) => !['push', 'pull_request'].includes(r.event))) return true;
+      }
+    }
     // 쪽을 넘겨 끝까지 본다(pc-jobs-cloud 는 하루 100번 넘게 돌아 한 쪽에 안 담긴다 — 넘겨받는 순간 하루 한 번짜리를 다시 부르는 사고 방지)
     for (let page = 1; page <= 5; page++) {
       const q = `repos/${REPO}/actions/workflows/${job.wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(slot - 90e3).toISOString().slice(0, 19)}Z`;
@@ -112,24 +120,26 @@ function runsSince(wf, sinceMs) {
   const out = [];
   try {
     for (let page = 1; page <= 5; page++) {
-      const q = `repos/${REPO}/actions/workflows/${wf}.yml/runs?per_page=100&page=${page}&event=workflow_dispatch&created=%3E%3D${new Date(sinceMs).toISOString().slice(0, 19)}Z`;
+      const q = `repos/${REPO}/actions/workflows/${wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(sinceMs).toISOString().slice(0, 19)}Z`;
       const runs = JSON.parse(ghApi(q)).workflow_runs || [];
-      out.push(...runs.map((r) => ({ t: Date.parse(r.created_at), title: String(r.display_title || ''), cancelled: r.conclusion === 'cancelled' })));
+      out.push(...runs.filter((r) => !['push', 'pull_request'].includes(r.event)).map((r) => ({ t: Date.parse(r.created_at), ev: r.event, title: String(r.display_title || ''), cancelled: r.conclusion === 'cancelled' })));
       if (runs.length < 100) break;
     }
     return out;
   } catch { return null; }
 }
-export function auditJobs(jobs, hours, now = Date.now()) {
+export function auditJobs(jobs, hours, now = Date.now(), runsFn = runsSince) {
   const res = { ok: 0, late: [], missing: [], dup: [], skipped: 0 };
   const from = now - hours * 3600e3;
   for (const wf of new Set(jobs.map((j) => j.wf))) {
-    const runs = runsSince(wf, from - 5 * 60e3);
+    const runs = runsFn(wf, from - 5 * 60e3);
     if (!runs) { res.skipped++; continue; }
     for (const j of jobs.filter((x) => x.wf === wf)) {
+      if (j.chain) continue;   // 사슬 작업은 시계가 일부러 안 부를 수 있다 — 건강은 site_watch 무소식 경보(서버 pg_cron)가 본다
       const slots = [];
       for (let t = Math.ceil(from / 60e3) * 60e3; t <= now; t += 60e3) if (cronMatch(j.cron, new Date(t))) slots.push(t);
-      const mine = runs.filter((r) => !j.c || r.title.includes(j.c));
+      const mineAll = runs.filter((r) => !j.c || r.title.includes(j.c));
+      const mine = mineAll.filter((r) => r.ev === 'workflow_dispatch');   // 중복·지각은 시계가 부른 것만 센다(seo-daily 자체 예약 재시도 등은 안전망이라 제외)
       for (const s of slots) {
         if (s > now - 20 * 60e3) continue;   // 20분 안 지난 회차는 아직 판정 안 함(다음 회차 경계 계산에는 쓴다)
         const next = slots.find((x) => x > s) || Infinity;
@@ -140,7 +150,11 @@ export function auditJobs(jobs, hours, now = Date.now()) {
         // 동시 실행 묶음(concurrency)이 대기 중인 부름을 취소한 것은 「두 번 돈 것」이 아니다(시계 부름 + 사슬이 스스로 건 다음 부름이 겹치면 하나는 취소로 끝난다 — 11-26 15:08Z·20:08Z·11-27 01:25Z)
         const near = hit.filter((m) => m.t < s + 25 * 60e3 && !m.cancelled);
         if (near.length > 1) res.dup.push(tag + ' ×' + near.length);
-        else if (!hit.length) res.missing.push(tag);
+        else if (!hit.length) {
+          // 2026-11-28: 깃허브 자체 예약(schedule)이 그 회차에 제때 돌았으면 시계는 일부러 안 부른다(seen() 이 이벤트 불문) — 「없음」이 아니다(11-27T23:00Z repo-guard 22:59:50Z schedule 실행 → 거짓 경보 #5080)
+          const nat = mineAll.filter((m) => m.ev !== 'workflow_dispatch' && m.t >= s - 90e3 && m.t < s + 20 * 60e3);
+          if (nat.length) res.ok++; else res.missing.push(tag);
+        }
         else if (lag > 20) res.late.push(tag + ' +' + Math.round(lag) + '분');
         else res.ok++;
       }
@@ -165,6 +179,46 @@ function fire(job) {
   } catch (e) { log('부르기 실패', job.name, String(e.message).slice(0, 120)); return 500; }
 }
 
+// ── 깃허브 실행 분 하루 실측(2026-11-28): 워크플로별 지난 24시간 실제 작업 시간(분)을 ops_status 'gh-minutes-daily' 에 남긴다(최근 14일 누적).
+//    20분 이하 실행은 시작~끝 시간으로, 더 긴 실행은 작업(job) 시간으로 잰다(동시 실행 대기·취소 시간은 분을 안 먹는다). 공개 저장소라 과금은 안 되지만 사용량 추이를 본다.
+function minutesDaily(now = Date.now()) {
+  const since = now - 24 * 3600e3, by = {};
+  const wfs = [...new Set(JOBS.map((j) => j.wf))]; if (!wfs.includes('clock')) wfs.push('clock');
+  for (const wf of wfs) {
+    let total = 0;
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const q = `repos/${REPO}/actions/workflows/${wf}.yml/runs?per_page=100&page=${page}&created=%3E%3D${new Date(since - 12 * 3600e3).toISOString().slice(0, 19)}Z`;
+        const runs = JSON.parse(ghApi(q)).workflow_runs || [];
+        for (const r of runs) {
+          const end = r.status === 'completed' ? Date.parse(r.updated_at) : now;
+          if (end < since) continue;
+          const st = Date.parse(r.run_started_at || r.created_at);
+          if (end - st <= 20 * 60e3) { total += (Math.min(end, now) - Math.max(st, since)) / 60e3; continue; }
+          const js = JSON.parse(ghApi(`repos/${REPO}/actions/runs/${r.id}/jobs?per_page=100`)).jobs || [];
+          for (const j of js) if (j.started_at) total += Math.max(0, (j.completed_at ? Date.parse(j.completed_at) : now) - Math.max(Date.parse(j.started_at), since)) / 60e3;
+        }
+        if (runs.length < 100) break;
+      }
+      by[wf] = Math.round(total);
+    } catch { by[wf] = null; }
+  }
+  return by;
+}
+async function recordMinutes(d) {
+  if (!KEY) return;
+  const by = minutesDaily(d.getTime());
+  const sum = Object.values(by).reduce((x, y) => x + (y || 0), 0);
+  let days = [];
+  try {
+    const r = await fetch(`${SB}/rest/v1/ops_status?id=eq.gh-minutes-daily&select=payload`, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }, signal: AbortSignal.timeout(15000) });
+    days = ((await r.json())[0]?.payload?.days) || [];
+  } catch {}
+  const day = d.toISOString().slice(0, 10);
+  days = [{ day, total: sum, by }, ...days.filter((x) => x.day !== day)].slice(0, 14);
+  await sbPost('ops_status?on_conflict=id', { id: 'gh-minutes-daily', payload: { at: d.toISOString(), total: sum, by, days }, updated_at: d.toISOString() }, 'resolution=merge-duplicates,return=minimal');
+  log('깃허브 분 하루 실측', day, '합', sum);
+}
 async function main() {
   const jobs = JOBS.filter((j) => !ONLY.length || ONLY.includes(j.name) || ONLY.includes(j.wf));
   const end = Date.now() + TOTAL_MIN * 60e3;
@@ -210,6 +264,7 @@ async function main() {
       if (d.getUTCHours() === 0 && d.getUTCMinutes() === 10 && !ONLY.length) {
         const r = await auditAndAlert(jobs, 24);
         await sbPost('ops_status?on_conflict=id', { id: 'gh-clock-daily', payload: { at: d.toISOString(), ok: r.ok, late: r.late, missing: r.missing, dup: r.dup }, updated_at: d.toISOString() }, 'resolution=merge-duplicates,return=minimal');
+        try { await recordMinutes(d); } catch (e) { log('분 실측 실패', String(e.message).slice(0, 80)); }
       }
     }
     await sbPost('ops_status?on_conflict=id', { id: 'gh-clock', payload: { jobs: jobs.length, fired: fired.size, upto: new Date(end).toISOString() }, updated_at: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
@@ -226,6 +281,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     t('40 5,19 * * *', '2026-11-25T19:40:00Z', true); t('10 22 * * 0', '2026-11-29T22:10:00Z', true); t('10 22 * * 0', '2026-11-25T22:10:00Z', false);
     t('50 */3 * * *', '2026-11-25T09:50:00Z', true);
     const s = lastSlot('10 20 * * *', Date.parse('2026-11-25T23:00:00Z'), 360); console.log(s && s.toISOString() === '2026-11-25T20:10:00.000Z' ? 'ok   lastSlot' : 'FAIL lastSlot ' + s); if (!s) process.exitCode = 1;
+    // 11-27T23:00Z 사고 재현: 22:59:50Z schedule 실행만 있고 시계 부름은 없음 → 「없음」이 아니어야 한다 / 아무 실행도 없으면 「없음」
+    const job = [{ name: 'repo-guard', wf: 'repo-guard', cron: '0 23 * * *' }];
+    const now = Date.parse('2026-11-28T00:00:00Z');
+    const mk = (runs) => auditJobs(job, 2, now, () => runs);
+    const a1 = mk([{ t: Date.parse('2026-11-27T22:59:50Z'), ev: 'schedule', title: '', cancelled: false }]);
+    const a2 = mk([]);
+    const a3 = mk([{ t: Date.parse('2026-11-27T23:00:04Z'), ev: 'workflow_dispatch', title: '', cancelled: false }, { t: Date.parse('2026-11-27T22:59:50Z'), ev: 'schedule', title: '', cancelled: false }]);
+    for (const [n, ok] of [['schedule 만 → 없음 아님', a1.missing.length === 0 && a1.ok === 1], ['아무것도 없음 → 없음', a2.missing.length === 1], ['부름+schedule → 중복 아님(부름만 셈)', a3.dup.length === 0 && a3.ok === 1]]) { console.log(ok ? 'ok  ' : 'FAIL', n); if (!ok) process.exitCode = 1; }
+    { const cj = [{ name: 'chain', wf: 'chain', cron: '0 23 * * *', chain: true }]; const a4 = auditJobs(cj, 2, Date.parse('2026-11-28T00:00:00Z'), () => []); const ok4 = a4.missing.length === 0; console.log(ok4 ? 'ok  ' : 'FAIL', '사슬 작업은 없음 판정 제외'); if (!ok4) process.exitCode = 1; }
     console.log('작업', JOBS.length, '개, wf', new Set(JOBS.map((j) => j.wf)).size, '종');
   } else await main();
 }

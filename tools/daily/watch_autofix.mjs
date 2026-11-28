@@ -12,7 +12,7 @@
 // 하는 것: 기록을 먼저 남기고(실패하면 멈춤) → index.html 만 통과 판으로 커밋 → **rebase 없이** 푸시
 //          (그 사이 누가 올렸으면 푸시가 거절된다 → 섞인 판을 만들지 않고 멈추고 기록만)
 // 결과: site_watch.auto_action + health_alerts 'watch:autofix'(관리자 홈 「고장 난 것」)
-// 실행: live-watch.yml 이 부른다(env SITE_WATCH_KEY · GITHUB_REPOSITORY). --dry 는 판정만. AUTOFIX_TEST_NOW=<폴더> 는 「지금」 판을 그 폴더 것으로(시험용)
+// 실행: live-watch.yml 이 부른다(env SITE_WATCH_KEY · GITHUB_REPOSITORY). 서버가 화면 검사를 맡는 동안은 live-autofix.yml 이 10분마다 부른다(AUTOFIX_PRECHECK=1 로 먼저 가볍게 — 후보가 없으면 브라우저 설치 없이 끝). --dry 는 판정만. AUTOFIX_TEST_NOW=<폴더> 는 「지금」 판을 그 폴더 것으로(시험용)
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -82,6 +82,9 @@ async function main() {
   const prevT = await body(list[ci + 1].sha);
   if (prevT && hashOf(prevT) === good.live_hash) { oldHtml = prevT; oldSha = list[ci + 1].sha; }
   if (!oldHtml || !oldHtml.startsWith('<!DOCTYPE html>')) { log('통과했던 판이 바로 전 판이 아님 — 되돌리지 않음(여러 판을 한꺼번에 날리지 않는다)'); return; }
+
+  // 가벼운 사전 점검(live-autofix.yml): 여기까지 오면 브라우저로 다시 재야 한다 → 종료코드 10 (워크플로가 Playwright 를 깔고 다시 부른다)
+  if (process.env.AUTOFIX_PRECHECK) { log('되돌릴 후보 있음 — 브라우저로 재측정이 필요(종료코드 10)'); process.exit(10); }
 
   // ④ 같은 조건으로 번갈아 두 번씩
   const testCur = process.env.AUTOFIX_TEST_NOW;

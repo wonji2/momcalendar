@@ -26,19 +26,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 345
     steps:
+      # 2026-11-28: 서울 서버가 화면 검사를 맡으면(ops_status 'live-host' = server) 이 실행은 검사 없이 바로 끝나고 사슬도 잇지 않는다.
+      #   읽기가 실패하거나 값이 없으면 「서버 아님」 — 깃허브가 계속 검사한다(두 곳이 동시에 검사해도 site_watch 에 줄만 더 생길 뿐 해롭지 않다). 되돌리기: live-host 를 github 로 → 시계가 매시 :25 에 부르는 회차로 다시 시작
+      - name: 담당 확인(서버가 맡는 중이면 바로 끝)
+        id: mode
+        env:
+          SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          out=""
+          for i in 1 2 3; do
+            out=$(curl -s -m 20 "https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/ops_status?id=eq.live-host&select=payload" -H "apikey: $SITE_WATCH_KEY" -H "Authorization: Bearer $SITE_WATCH_KEY" 2>/dev/null) || out=""
+            case "$out" in *'"host":'*|'[]') break;; esac
+            sleep 5
+          done
+          # PostgREST 는 jsonb 를 `"host": "server"`(콜론 뒤 공백)로 준다 — 공백 있든 없든 맞게 정규식으로 본다(2026-11-28 검증자 지적, 서버에서 실제 응답으로 확인)
+          if printf '%s' "$out" | grep -Eq '"host": *"server"'; then echo "서버가 화면 검사를 맡는 중(ops_status live-host) — 이 실행은 검사하지 않고 끝낸다"; echo "server=1" >> "$GITHUB_OUTPUT"; else echo "server=0" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
+        if: steps.mode.outputs.server != '1'
         with:
           sparse-checkout: |
             tools/daily
           sparse-checkout-cone-mode: true
       - uses: actions/setup-node@v4
+        if: steps.mode.outputs.server != '1'
         with:
           node-version: '20'
       - name: 브라우저 준비
+        if: steps.mode.outputs.server != '1'
         run: |
           mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.62.1 >/dev/null
           npx --prefix /tmp/pw playwright install --with-deps chromium >/dev/null
       - name: 화면 검사
+        if: steps.mode.outputs.server != '1'
         env:
           SITE_WATCH_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           NODE_PATH: /tmp/pw/node_modules
@@ -55,14 +74,21 @@ jobs:
             node tools/daily/live_smoke.mjs --ci || echo "실패 항목 있음 — site_watch 에 기록됨(경보는 서버가 2회 연속일 때)"
             node tools/daily/watch_autofix.mjs || echo "자동 되돌림 단계 오류(다음 회차 계속)"   # 2회 연속 실패이고 직전 통과 판이면 되돌린다
             [ $((SECONDS + 600)) -ge $END ] && break
-            sleep 600
+            # 10분 쉬되 1분마다 서버가 맡았는지 본다(맡았으면 바로 끝내고 사슬을 잇지 않는다)
+            for i in $(seq 10); do
+              sleep 60
+              o=$(curl -s -m 20 "https://hycaqsqeogjtbscmzrtm.supabase.co/rest/v1/ops_status?id=eq.live-host&select=payload" -H "apikey: $SITE_WATCH_KEY" -H "Authorization: Bearer $SITE_WATCH_KEY" 2>/dev/null) || o=""
+              if printf '%s' "$o" | grep -Eq '"host": *"server"'; then echo "서버가 화면 검사를 맡았다 — 사슬을 끝낸다"; : > /tmp/lw_server_mode; break 2; fi
+            done
           done
           echo "총 $n 회차"
       - name: 다음 회차 깨우기(사슬 잇기)
-        if: always() && (github.event.inputs.selftest == '' || github.event.inputs.selftest == null)
+        if: always() && steps.mode.outputs.server != '1' && (github.event.inputs.selftest == '' || github.event.inputs.selftest == null)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run live-watch.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
+        run: |
+          if [ -f /tmp/lw_server_mode ]; then echo "서버가 맡는 중 — 사슬을 잇지 않는다"; exit 0; fi
+          gh workflow run live-watch.yml -R "${{ github.repository }}" --ref "${{ github.ref_name }}" && echo "다음 실행 예약됨"
       - name: 자동 되돌림 자체 시험(손으로 selftest 를 줄 때만)
         if: github.event.inputs.selftest != '' && github.event.inputs.selftest != null
         env:
