@@ -2601,7 +2601,7 @@ try{ window._mcNxEarly(); }catch(_){}
       body=open+'style="position:relative;display:flex;align-items:center;gap:8px;height:clamp(72px,22.4vw,92px);background:'+bg+';border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:0 0 0 16px;cursor:pointer;box-sizing:border-box;overflow:hidden">'
         +'<div style="flex:1;min-width:0"><div style="font-size:clamp(13px,3.64vw,15px);font-weight:700;color:'+_c1+';letter-spacing:-0.02em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_ttl+'</div>'
         +(b.subtitle?'<div style="font-size:clamp(11px,2.95vw,12px);font-weight:400;color:'+_c2+';letter-spacing:-0.02em;line-height:1.3;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.subtitle)+'</div>':'')+'</div>'
-        +'<span style="position:relative;width:0;flex-shrink:0;margin-left:-8px;height:clamp(52px,16.6vw,68px);pointer-events:none"><span style="position:absolute;right:-3px;bottom:0;font-size:8px;font-weight:700;color:#8B95A1;border:1px solid #D1D6DB;border-radius:3px;padding:0 3px;line-height:1.3;background:rgba(255,255,255,.85)">AD</span></span>'+'<img src="'+esc(pic)+'" alt="" onload="slimPicFit(this)" onerror="this.style.display=\'none\'" style="width:auto;height:auto;max-height:clamp(52px,16.6vw,68px);max-width:36%;object-fit:contain;border-radius:6px;flex-shrink:0;margin-right:16px"></div>';
+        +'<span style="position:relative;width:0;flex-shrink:0;margin-left:-8px;height:clamp(52px,16.6vw,68px);pointer-events:none"><span style="position:absolute;right:-3px;bottom:0;font-size:8px;font-weight:700;color:#8B95A1;border:1px solid #D1D6DB;border-radius:3px;padding:0 3px;line-height:1.3;background:rgba(255,255,255,.85)">AD</span></span>'+'<img src="'+esc(pic)+'" alt="" onload="slimPicFit(this);slimAdFit(this)" onerror="this.style.display=\'none\'" style="width:auto;height:auto;max-height:clamp(52px,16.6vw,68px);max-width:36%;object-fit:contain;border-radius:6px;flex-shrink:0;margin-right:16px"></div>';
     }else{
       body=open+'style="display:flex;align-items:center;gap:9px;height:40px;background:'+bg+';border-radius:11px;padding:0 11px;cursor:pointer">'
         +'<span style="background:#fff;color:'+bg+';font-size:11px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;flex-shrink:0">'+esc(tag)+'</span>'
@@ -2762,6 +2762,11 @@ document.addEventListener('visibilitychange', function(){
   }catch(_){}
 });
 window.slimPicFit=function(im){ try{ var c=document.createElement('canvas'); c.width=c.height=16; var x=c.getContext('2d'); x.drawImage(im,0,0,16,16); var d=x.getImageData(0,0,16,16).data, a=function(px,py){ return d[(py*16+px)*4+3]; }; if(Math.min(a(0,0),a(15,0),a(0,15),a(0,8))<200){ im.style.maxHeight='100%'; im.style.height='100%'; im.style.maxWidth='44%'; im.style.borderRadius='0'; im.style.marginRight='8px'; im.style.objectPosition='right center'; } }catch(_){} }
+// AD 표시를 그려진 사진의 아래 끝에 맞춘다 — 사진이 칸(최대 높이)보다 작게 그려지면(가로로 긴 로고) 표시가 사진보다 아래로 떨어졌다(코덱스 2026-11-28 · 가로 위치는 원래 맞음)
+//   불러온 뒤 한 번 + 화면 크기가 바뀔 때 + ResizeObserver(숨었다 보일 때). RO 만 믿지 않는다 — 그리기가 멈춘 미리보기 창에선 안 불렸다(실측)
+window.slimAdFit=function(im){ try{ var s=im&&im.previousElementSibling; if(!s||s.style.width!=='0px') return; var h=im.offsetHeight; if(h) s.style.height=h+'px';
+  if(!im._adRo && window.ResizeObserver){ im._adRo=new ResizeObserver(function(){ var k=im.offsetHeight; if(k) s.style.height=k+'px'; }); im._adRo.observe(im); } }catch(_){} };   // 숨은 칸(검색·다른 탭·핫딜 자리)에서 불러와 높이 0 이었다가 보일 때 다시 맞춘다(코덱스 지적)
+(function(){ var tm=0; window.addEventListener('resize', function(){ clearTimeout(tm); tm=setTimeout(function(){ try{ document.querySelectorAll('img[onload*="slimAdFit"]').forEach(function(im){ slimAdFit(im); }); }catch(_){} },150); }); })();
 window.slimAdClick=function(id){
   var el=document.querySelector('#slimAdSlot [data-lnk]'); var lnk=el?el.getAttribute('data-lnk'):'';
   var A=window.SPONSORED_AD||{id:'slim_'+id,type:'T'};
